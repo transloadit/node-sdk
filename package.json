@@ -1,0 +1,18 @@
+{
+  "author": "Ian Hansen <ian@supershabam.com>",
+  "name": "transloadit",
+  "description": "A transloadit client library that runs callbacks when they're actually done",
+  "version": "0.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/SuperShabam/transloadit.git"
+  },
+  "dependencies": {
+    "multiparter": "~0.1.4"
+  },
+  "devDependencies": {},
+  "optionalDependencies": {},
+  "engines": {
+    "node": "*"
+  }
+}
