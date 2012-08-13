@@ -1,7 +1,7 @@
 transloadit
 ===========
 
-A transloadit client library that runs callbacks when they're actually done
+A transloadit client library that runs callbacks when they're done
 
 quick example
 -------------
