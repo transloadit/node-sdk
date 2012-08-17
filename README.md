@@ -40,3 +40,7 @@ transloadit.createAssembly()
   .update(onUpdate) // triggers each time we update the current status of the assembly (via polling)
   .complete(onComplete); // triggers always at the end of an assemby (whether it failed or succeeded)
 ```
+
+## License
+(c) Copyright 2012, Ian Hansen (MIT Licensed).
+See LICENSE for more info.
