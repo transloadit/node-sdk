@@ -3,6 +3,8 @@ transloadit
 
 A transloadit client library that runs callbacks when they're done
 
+[![endorse](http://api.coderwall.com/supershabam/endorsecount.png)](http://coderwall.com/supershabam)
+
 quick example
 -------------
 ```javascript
