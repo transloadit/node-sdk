@@ -1,13 +1,13 @@
 var TransloaditClient = require("../lib/TransloaditClient");
 
 var client = new TransloaditClient({
-  authKey: 'YOUR_AUTH_KEY',
-  authSecret: 'YOUR_AUTH_SECRET'
+  authKey    : 'YOUR_AUTH_KEY',
+  authSecret : 'YOUR_AUTH_SECRET'
 });
 
-var fileName = 'SOME_FILE_NAME';
-var filePath = 'ABSOLUTE_PATH_TO_SOME_FILE';
-client.addFile(fileName, filePath);
+var fieldName = 'my_file';
+var filePath  = 'ABSOLUTE_PATH_TO_SOME_FILE';
+client.addFile(fieldName, filePath);
 var opts = {
   params: {
     template_id: 'YOUR_TEMPLATE_ID'

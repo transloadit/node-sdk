@@ -15,7 +15,7 @@ var client = new TransloaditClient({
   authSecret: 'YOUR_AUTH_SECRET'
 });
 
-client.addFile(name, path);
+client.addFile(fieldName, filePath);
 var opts = {
   params: {
     template_id: 'YOUR_TEMPLATE_ID'
