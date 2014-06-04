@@ -73,10 +73,10 @@ Retrieves the JSON status of the assembly identified by the given <code>assembly
 
 Removes the assembly identified by the given assemblyId from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on <code>https://transloadit.com/assemblies/[[assembly_id]]</code> in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers.
 
-### TransloaditClient.replayAssembly(assemblyId, cb)
+### TransloaditClient.replayAssembly(options, cb)
 
-Replays the assembly identified by the given assemblyId.
+Replays the assembly identified by the given assembly_id. The <code>options</code> parameter must contain an <code>assembly_id</code> key containing the assembly id. Optionally you can also provide a <code>notify_url</code> key if you want to change the notification target.
 
-### TransloaditClient.replayAssemblyNotification(assemblyId, cb)
+### TransloaditClient.replayAssemblyNotification(options, cb)
 
-Replays the notification for the assembly identified by the given assemblyId.
+Replays the notification for the assembly identified by the given assembly_id.  The <code>options</code> parameter must contain an <code>assembly_id</code> key containing the assembly id. Optionally you can also provide a <code>notify_url</code> key if you want to change the notification target.

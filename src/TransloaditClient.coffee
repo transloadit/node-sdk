@@ -31,6 +31,7 @@ class TransloaditClient
       requestOpts =
         url     : "http://api2.#{url}/assemblies"
         method  : "post"
+        timeout : 24 * 60 * 60 * 1000
         params  : opts.params || {}
         fields  : opts.fields || {}
 
@@ -61,21 +62,33 @@ class TransloaditClient
         timeout : 5000
       request.del opts, cb
 
-  replayAssembly: (assemblyId, cb) ->
-    opts =
+  replayAssembly: (opts, cb) ->
+    assemblyId = opts.assembly_id
+
+    requestOpts =
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}/replay"
       timeout : 5000
       method  : "post"
 
-    @_remoteJson opts, cb
+    if opts.notify_url?
+      requestOpts.params =
+        notify_url: opts.notify_url
 
-  replayAssemblyNotification: (assemblyId, cb) ->
-    opts =
+    @_remoteJson requestOpts, cb
+
+  replayAssemblyNotification: (opts, cb) ->
+    assemblyId = opts.assembly_id
+
+    requestOpts =
       url     : @_serviceUrl() + "/assembly_notifications/#{assemblyId}/replay"
       timeout : 5000
       method  : "post"
 
-    @_remoteJson opts, cb
+    if opts.notify_url?
+      requestOpts.params =
+        notify_url: opts.notify_url
+
+    @_remoteJson requestOpts, cb
 
   assemblyStatus: (assemblyId, cb) ->
     opts =

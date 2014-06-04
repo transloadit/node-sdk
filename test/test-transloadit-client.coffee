@@ -70,6 +70,7 @@ describe "TransloaditClient", ->
       REQUEST_OPTS =
         url     : "http://api2.tim.transloadit.com/assemblies"
         method  : "post"
+        timeout : 24 * 60 * 60 * 1000
         params  : "foo_params"
         fields  : "foo_fields"
 
@@ -147,39 +148,50 @@ describe "TransloaditClient", ->
   describe "replayAssembly", ->
     it "should send the proper request", ->
       client = new TransloaditClient
-      OPTS =
-        url     : "http://api2.transloadit.com/assemblies/foo_assembly_id/replay"
-        timeout : 5000
-        method  : "post"
-
       ASSEMBLY_ID = "foo_assembly_id"
+      OPTS =
+        assembly_id: ASSEMBLY_ID
+        notify_url: "foo_notify_url"
+
+      REQUEST_OPTS =
+        url        : "http://api2.transloadit.com/assemblies/foo_assembly_id/replay"
+        timeout    : 5000
+        method     : "post"
+        params     :
+          notify_url: "foo_notify_url"
 
       CB = {}
       gently.expect client, "_remoteJson", (opts, cb) ->
-        expect(opts).to.eql OPTS
+        expect(opts).to.eql REQUEST_OPTS
         expect(cb).to.eql CB
 
-      client.replayAssembly ASSEMBLY_ID, CB
+      client.replayAssembly OPTS, CB
 
   describe "replayAssemblyNotification", ->
     it "should send the proper request", ->
       client = new TransloaditClient
+
+      ASSEMBLY_ID = "foo_assembly_id"
       url = "http://api2.transloadit.com/assembly_notifications/"
-      url += "foo_assembly_id/replay"
+      url += ASSEMBLY_ID + "/replay"
 
       OPTS =
+        assembly_id: ASSEMBLY_ID
+        notify_url: "foo_notify_url"
+
+      REQUEST_OPTS =
         url     : url
         timeout : 5000
         method  : "post"
-
-      ASSEMBLY_ID = "foo_assembly_id"
+        params:
+          notify_url: "foo_notify_url"
 
       CB = {}
       gently.expect client, "_remoteJson", (opts, cb) ->
-        expect(opts).to.eql OPTS
+        expect(opts).to.eql REQUEST_OPTS
         expect(cb).to.eql CB
 
-      client.replayAssemblyNotification ASSEMBLY_ID, CB
+      client.replayAssemblyNotification OPTS, CB
 
   describe "assemblyStatus", ->
     it "should find the assembly's URL and then send the request", ->
