@@ -1,0 +1,29 @@
+var TransloaditClient = require("../lib/TransloaditClient");
+
+var client = new TransloaditClient({
+  authKey: 'YOUR_AUTH_KEY',
+  authSecret: 'YOUR_AUTH_SECRET'
+});
+
+var fileName = 'SOME_FILE_NAME';
+var filePath = 'ABSOLUTE_PATH_TO_SOME_FILE';
+client.addFile(fileName, filePath);
+var opts = {
+  params: {
+    template_id: 'YOUR_TEMPLATE_ID'
+  }
+};
+client.createAssembly(opts, function(err, result) {
+  if (err) {
+    console.log('fail');
+  } else {
+    console.log('success');
+  }
+  console.log(result);
+
+  var assemblyId = result.assembly_id;
+  console.log(assemblyId);
+  client.deleteAssembly(assemblyId, function(err) {
+    console.log('deleted');
+  });
+});
