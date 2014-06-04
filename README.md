@@ -30,6 +30,7 @@ client.createAssembly(opts, function(err, result) {
 
   var assemblyId = result.assembly_id;
   console.log(assemblyId);
+
   client.deleteAssembly(assemblyId, function(err) {
     console.log('deleted');
   });
