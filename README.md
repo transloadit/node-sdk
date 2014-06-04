@@ -3,7 +3,7 @@ transloadit-node-js-sdk
 
 Transloadit NodeJS SDK
 
-[![Build Status](https://travis-ci.org/tim-kos/transloadit-node-js-sdk.svg?branch=master)](https://travis-ci.org/tim-kos/transloadit-node-js-sdk)
+[![Build Status](https://travis-ci.org/transloadit/node-sdk.svg?branch=master)](https://travis-ci.org/transloadit/node-sdk)
 
 ## Quick code sample:
 

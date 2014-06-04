@@ -21,7 +21,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git://github.com/tim-kos/transloadit-node-js-sdk.git"
+        "url": "git://github.com/transloadit/node-sdk.git"
     },
     "directories": {
         "lib": "./lib"
