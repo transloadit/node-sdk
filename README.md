@@ -80,3 +80,13 @@ Replays the assembly identified by the given assembly_id. The <code>options</cod
 ### TransloaditClient.replayAssemblyNotification(options, cb)
 
 Replays the notification for the assembly identified by the given assembly_id.  The <code>options</code> parameter must contain an <code>assembly_id</code> key containing the assembly id. Optionally you can also provide a <code>notify_url</code> key if you want to change the notification target.
+
+
+# Authors
+
+* Tim Koschützki (tim@transloadit.com)
+
+Contributions from:
+
+* Kevin van Zonneveld (kevin@transloadit.com)
+* Geoff Wilson (gmwils@gmail.com)
