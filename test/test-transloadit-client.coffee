@@ -255,7 +255,7 @@ describe "TransloaditClient", ->
         expect(params).to.equal PARAMS
         return JSON_PARAMS
 
-      gently.expect client, "_calcSignature", (params) ->
+      gently.expect client, "calcSignature", (params) ->
         expect(params).to.equal JSON_PARAMS
         return SIGNATURE
 
@@ -458,25 +458,25 @@ describe "TransloaditClient", ->
       expect(r.auth.expires).not.to.equal null
 
 
-  describe "_calcSignature", ->
+  describe "calcSignature", ->
     it "should return an expires date one minute in the future", ->
       client = new TransloaditClient
       client._authSecret = "13123123123"
 
       expected = "57ddad5dbba538590e60f0938f364c7179316eba"
-      expect(client._calcSignature("foo")).to.equal expected
+      expect(client.calcSignature("foo")).to.equal expected
 
       expected = "b8110452b4ba46a9ecf438271bbd79f25d2a5400"
-      expect(client._calcSignature("akjdkadskjads")).to.equal expected
+      expect(client.calcSignature("akjdkadskjads")).to.equal expected
 
 
       client._authSecret = "90191902390123"
 
       expected = "d393c38de2cbc993bea52f8ecdf56c7ede8b920d"
-      expect(client._calcSignature("foo")).to.equal expected
+      expect(client.calcSignature("foo")).to.equal expected
 
       expected = "8fd625190e1955eb47a9984d3e8308e3afc9049e"
-      expect(client._calcSignature("akjdkadskjads")).to.equal expected
+      expect(client.calcSignature("akjdkadskjads")).to.equal expected
 
   describe "_serviceUrl", ->
     it "should return the service url", ->

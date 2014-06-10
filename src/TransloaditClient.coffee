@@ -111,9 +111,15 @@ class TransloaditClient
 
         cb null, result
 
+  calcSignature: (toSign) ->
+    return crypto
+    .createHmac("sha1", @_authSecret)
+    .update(new Buffer(toSign, "utf-8"))
+    .digest "hex"
+
   _appendForm: (req, params, fields) ->
     jsonParams = @_prepareParams params
-    signature  = @_calcSignature jsonParams
+    signature  = @calcSignature jsonParams
     form       = req.form()
 
     form.append "params", jsonParams
@@ -219,12 +225,6 @@ class TransloaditClient
     expiresDate = new Date()
     expiresDate.setDate expiresDate.getDate() + 1
     return expiresDate.toISOString()
-
-  _calcSignature: (toSign) ->
-    return crypto
-    .createHmac("sha1", @_authSecret)
-    .update(new Buffer(toSign, "utf-8"))
-    .digest "hex"
 
   _serviceUrl: ->
     return @_protocol + @_service
