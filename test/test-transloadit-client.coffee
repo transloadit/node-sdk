@@ -193,6 +193,27 @@ describe "TransloaditClient", ->
 
       client.replayAssemblyNotification OPTS, CB
 
+  describe "listAssemblies", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+      url = "http://api2.transloadit.com/assemblies"
+
+      PARAMS =
+        foo: "bar"
+
+      REQUEST_OPTS =
+        url     : url
+        timeout : 5000
+        method  : "get"
+        params  : PARAMS
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+        expect(cb).to.eql CB
+
+      client.listAssemblies PARAMS, CB
+
   describe "assemblyStatus", ->
     it "should find the assembly's URL and then send the request", ->
       client = new TransloaditClient
@@ -287,6 +308,30 @@ describe "TransloaditClient", ->
         expect(val).to.equal "foo_stream2"
 
       client._appendForm REQ, PARAMS, FIELDS
+
+  describe "_appendParamsToUrl", ->
+    it "should append params and signature to the given url", ->
+      client = new TransloaditClient
+
+      URL         = "foo_url"
+      PARAMS      =
+        foo: "bar"
+      JSON_PARAMS = "{foo:\"bar\"}"
+      SIGNATURE   = "foo_sig"
+
+      gently.expect client, "_prepareParams", (params) ->
+        expect(params).to.equal PARAMS
+        return JSON_PARAMS
+
+      gently.expect client, "calcSignature", (params) ->
+        expect(params).to.equal JSON_PARAMS
+        return SIGNATURE
+
+      ENCODED_PARAMS = encodeURIComponent JSON_PARAMS
+      url = client._appendParamsToUrl URL, PARAMS
+
+      expected = "#{URL}?signature=#{SIGNATURE}&params=#{ENCODED_PARAMS}"
+      expect(url).to.equal expected
 
   describe "_getBoredInstance", ->
     it "should figure out a bored instance", ->

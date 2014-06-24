@@ -90,6 +90,15 @@ class TransloaditClient
 
     @_remoteJson requestOpts, cb
 
+  listAssemblies: (params, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/assemblies"
+      timeout : 5000
+      method  : "get"
+      params  : params || {}
+
+    @_remoteJson requestOpts, cb
+
   assemblyStatus: (assemblyId, cb) ->
     opts =
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
@@ -138,6 +147,20 @@ class TransloaditClient
 
     _.each @_streams, (value, key) ->
       form.append key, value
+
+  _appendParamsToUrl: (url, params) ->
+    jsonParams = @_prepareParams params
+    signature  = @calcSignature jsonParams
+
+    if url.indexOf("?") == -1
+      url += "?signature=#{signature}"
+    else
+      url += "&signature=#{signature}"
+
+    jsonParams = encodeURIComponent jsonParams
+    url += "&params=#{jsonParams}"
+
+    return url
 
   _getBoredInstance: (url, customBoredLogic, cb) ->
     if url == null
@@ -237,6 +260,9 @@ class TransloaditClient
     if !url
       err = new Error "No url provided!"
       return cb err
+
+    if method == "get" && opts.params?
+      url = @_appendParamsToUrl url, opts.params
 
     requestOpts =
       uri     : url
