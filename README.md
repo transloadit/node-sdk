@@ -69,6 +69,12 @@ You can provide some options:
 * <code>params</code> - an object containing your template_id, notify_url, some steps that overwrite your Transloadit template and other params to control Transloadit behavior.
 * <code>fields</code> - an object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables).
 
+### TransloaditClient.listAssemblies(params, cb)
+
+Retrieves an array of assemblies according to the given <code>params</code>.
+
+Valid params can be page, pagesize, type, fromdate and todate. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs#retrieve-assembly-list) for details.
+
 ### TransloaditClient.assemblyStatus(assemblyId, cb)
 
 Retrieves the JSON status of the assembly identified by the given <code>assemblyId</code>.
