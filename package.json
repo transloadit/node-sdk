@@ -1,6 +1,6 @@
 {
-    "name": "node-transloadit-sdk",
-    "version": "0.0.1",
+    "name": "transloadit",
+    "version": "1.0.0",
     "description": "Node.js SDK for Transloadit",
     "keywords": ["transloadit", "encoding", "transcoding", "video", "audio", "mp3"],
     "author": "Tim Koschuetzki <tim@transloadit.com>",

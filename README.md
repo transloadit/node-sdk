@@ -90,3 +90,7 @@ Contributions from:
 
 * Kevin van Zonneveld (kevin@transloadit.com)
 * Geoff Wilson (gmwils@gmail.com)
+
+Thanks to:
+
+* Ian Hansen for donating the `transloadit` npm name. You can still access his code under `v0.0.0`.
