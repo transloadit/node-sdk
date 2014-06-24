@@ -1,13 +1,13 @@
 Transloadit NodeJS SDK
 ======================
 
+[![Build Status](https://travis-ci.org/transloadit/node-sdk.svg?branch=master)](https://travis-ci.org/transloadit/node-sdk)
+
 ## Installation
 
 ```
 npm install transloadit
 ```
-
-[![Build Status](https://travis-ci.org/transloadit/node-sdk.svg?branch=master)](https://travis-ci.org/transloadit/node-sdk)
 
 ## Quick code sample:
 
