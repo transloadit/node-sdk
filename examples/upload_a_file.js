@@ -8,6 +8,7 @@ var client = new TransloaditClient({
 var fieldName = 'my_file';
 var filePath  = 'ABSOLUTE_PATH_TO_SOME_FILE';
 client.addFile(fieldName, filePath);
+
 var opts = {
   params: {
     template_id: 'YOUR_TEMPLATE_ID'
@@ -20,10 +21,4 @@ client.createAssembly(opts, function(err, result) {
     console.log('success');
   }
   console.log(result);
-
-  var assemblyId = result.assembly_id;
-  console.log(assemblyId);
-  client.deleteAssembly(assemblyId, function(err) {
-    console.log('deleted');
-  });
 });
