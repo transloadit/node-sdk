@@ -122,9 +122,9 @@ class TransloaditClient
 
   calcSignature: (toSign) ->
     return crypto
-    .createHmac("sha1", @_authSecret)
-    .update(new Buffer(toSign, "utf-8"))
-    .digest "hex"
+      .createHmac("sha1", @_authSecret)
+      .update(new Buffer(toSign, "utf-8"))
+      .digest "hex"
 
   _appendForm: (req, params, fields) ->
     jsonParams = @_prepareParams params
@@ -164,7 +164,7 @@ class TransloaditClient
 
   _getBoredInstance: (url, customBoredLogic, cb) ->
     if url == null
-      url  = @_serviceUrl() + "/instances/bored"
+      url = @_serviceUrl() + "/instances/bored"
 
     opts =
       url     : url
@@ -183,7 +183,6 @@ class TransloaditClient
             err =
               error   : "BORED_INSTANCE_ERROR"
               message : "Could not find a bored instance. #{err.message}"
-
             return cb err
 
           url = "#{@_protocol}api2.#{theUrl}/instances/bored"
@@ -200,7 +199,7 @@ class TransloaditClient
       cb err
 
   _findBoredInstanceUrl: (cb) ->
-    url = "http://infra-#{@_region}.transloadit.com.s3.amazonaws.com/"
+    url  = "http://infra-#{@_region}.transloadit.com.s3.amazonaws.com/"
     url += "cached_instances.json"
 
     opts =
@@ -220,7 +219,7 @@ class TransloaditClient
       err = new Error "No responsive uploaders"
       return cb err
 
-    url = @_protocol + instances[index]
+    url  = @_protocol + instances[index]
     opts =
       url     : url
       timeout : 3000
