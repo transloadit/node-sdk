@@ -146,6 +146,23 @@ class TransloaditClient
       err = new Error(result.error || "NOT OK")
       cb err
 
+  editTemplate: (templateId, params, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/templates/" + templateId
+      method  : "put"
+      timeout : 5000
+      params  : params || {}
+
+    @_remoteJson requestOpts, (err, result) ->
+      if err
+        return cb err
+
+      if result && result.ok
+        return cb null, result
+
+      err = new Error(result.error || "NOT OK")
+      cb err
+
   getTemplate: (templateId, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/templates/" + templateId
@@ -314,7 +331,7 @@ class TransloaditClient
         return cb e
       cb null, result
 
-    if method == "post"
+    if method == "post" || method == "put"
       @_appendForm req, opts.params, opts.fields
 
 

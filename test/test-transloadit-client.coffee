@@ -255,6 +255,28 @@ describe "TransloaditClient", ->
 
       client.createTemplate PARAMS, CB
 
+  describe "editTemplate", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+
+      TEMPLATE_ID = "foo_template_id"
+      url         = "http://api2.transloadit.com/templates/#{TEMPLATE_ID}"
+
+      PARAMS =
+        foo: "bar"
+
+      REQUEST_OPTS =
+        url     : url
+        timeout : 5000
+        method  : "put"
+        params  : PARAMS
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+
+      client.editTemplate TEMPLATE_ID, PARAMS, CB
+
   describe "getTemplate", ->
     it "should send the proper request", ->
       client = new TransloaditClient

@@ -21,8 +21,8 @@ var template = {
 
 var templateString = JSON.stringify(template);
 var params = {
-  name: 'node_sdk_test1',
-  template: templateString
+  name     : 'node_sdk_test1',
+  template : templateString
 };
 client.createTemplate(params, function(err, result) {
   if (err) {
@@ -31,13 +31,25 @@ client.createTemplate(params, function(err, result) {
   }
 
   console.log('Template created successfully:', result);
-
-  client.getTemplate(result.template_id, function(err, templateResult) {
+  var newParams = {
+    name     : 'node_sdk_test2',
+    template : templateString
+  };
+  client.editTemplate(result.template_id, newParams, function(err, templateResult) {
     if (err) {
-      console.log('failed fetching template:', err);
+      console.log('failed editing template:', err);
       return;
     }
 
-    console.log('Successfully fetched template', templateResult);
+    console.log('Successfully edited template', templateResult);
+
+    client.getTemplate(result.template_id, function(err, templateResult) {
+      if (err) {
+        console.log('failed fetching template:', err);
+        return;
+      }
+
+      console.log('Successfully fetched template', templateResult);
+    });
   });
 });
