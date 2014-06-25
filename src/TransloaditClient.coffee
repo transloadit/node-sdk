@@ -63,8 +63,7 @@ class TransloaditClient
       request.del opts, cb
 
   replayAssembly: (opts, cb) ->
-    assemblyId = opts.assembly_id
-
+    assemblyId  = opts.assembly_id
     requestOpts =
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}/replay"
       timeout : 5000
@@ -77,8 +76,7 @@ class TransloaditClient
     @_remoteJson requestOpts, cb
 
   replayAssemblyNotification: (opts, cb) ->
-    assemblyId = opts.assembly_id
-
+    assemblyId  = opts.assembly_id
     requestOpts =
       url     : @_serviceUrl() + "/assembly_notifications/#{assemblyId}/replay"
       timeout : 5000
@@ -109,8 +107,7 @@ class TransloaditClient
         return cb err
 
       status = result
-
-      opts =
+      opts   =
         url     : result.assembly_url
         timeout : 5000
 
