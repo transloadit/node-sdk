@@ -102,7 +102,7 @@ class TransloaditClient
 
     @_remoteJson requestOpts, cb
 
-  assemblyStatus: (assemblyId, cb) ->
+  getAssembly: (assemblyId, cb) ->
     opts =
       url: @_serviceUrl() + "/assemblies/#{assemblyId}"
 

@@ -53,7 +53,7 @@ TransloaditCostFetcher.prototype.run = function(cb) {
 TransloaditCostFetcher.prototype._fetchAssemblyCost = function(assemblyId, cb) {
   var self = this;
 
-  this._client.assemblyStatus(assemblyId, function(err, result) {
+  this._client.getAssembly(assemblyId, function(err, result) {
     if (err) {
       return cb(err);
     }

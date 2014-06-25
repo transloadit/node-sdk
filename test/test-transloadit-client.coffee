@@ -328,7 +328,7 @@ describe "TransloaditClient", ->
 
       client.listTemplates PARAMS, CB
 
-  describe "assemblyStatus", ->
+  describe "getAssembly", ->
     it "should find the assembly's URL and then send the request", ->
       client = new TransloaditClient
       OPTS =
@@ -360,7 +360,7 @@ describe "TransloaditClient", ->
 
         cb null, RESULT
 
-      client.assemblyStatus ASSEMBLY_ID, CB
+      client.getAssembly ASSEMBLY_ID, CB
       expect(errCalls).to.equal 1
       expect(calls).to.equal 1
 

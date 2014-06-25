@@ -82,7 +82,7 @@ Retrieves an array of assemblies according to the given `params`.
 
 Valid params can be page, pagesize, type, fromdate and todate. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs#retrieve-assembly-list) for details.
 
-#### TransloaditClient.assemblyStatus(assemblyId, cb)
+#### TransloaditClient.getAssembly(assemblyId, cb)
 
 Retrieves the JSON status of the assembly identified by the given `assemblyId`.
 
