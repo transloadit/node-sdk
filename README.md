@@ -90,10 +90,6 @@ Replays the assembly identified by the given `assembly_id`. The `options` parame
 
 Replays the notification for the assembly identified by the given `assembly_id`.  The `options` parameter must contain an `assembly_id` key containing the assembly id. Optionally you can also provide a `notify_url` key if you want to change the notification target.
 
-## License
-
-[MIT Licensed](LICENSE).
-
 ## Contributing
 
 We'd be happy to accept pull requests. If you plan on working on something big, please first drop us a line!
@@ -116,3 +112,7 @@ Contributions from:
 Thanks to:
 
 * Ian Hansen for donating the `transloadit` npm name. You can still access his code under `v0.0.0`.
+
+## License
+
+[MIT Licensed](LICENSE).
