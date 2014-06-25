@@ -110,7 +110,7 @@ Check your sources for linting errors via `make lint`.
 
 Contributions from:
 
-* Kevin van Zonneveld (kevin@transloadit.com)
+* [Kevin van Zonneveld](https://twitter.com/kvz)
 * Geoff Wilson (gmwils@gmail.com)
 
 Thanks to:
