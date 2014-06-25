@@ -18,7 +18,6 @@ If there are no errors, you can start using the module.
 
 ```javascript
 var TransloaditClient = require("transloadit");
-
 var transloadit       = new TransloaditClient({
   authKey:    'YOUR_AUTH_KEY',
   authSecret: 'YOUR_AUTH_SECRET'
