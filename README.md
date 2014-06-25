@@ -122,11 +122,22 @@ Retrieves a list of all your templates from Transloadit. The `params` parameter 
 
 We'd be happy to accept pull requests. If you plan on working on something big, please first drop us a line!
 
+### Building
+
 The SDK is written in [CoffeeScript](http://coffeescript.org/), but the JavaScript it generates is commited back into the repository so people can use this module without a CoffeeScript dependency. If you want to work on the source, please do so in `./src` and type: `make build` or `make test` (also builds first). Please don't edit generated JavaScript in `./lib`!
 
-Releasing a new version to npmjs.org can be done via `make release-major` (or minor / patch, depending on the [semantic versioning](http://semver.org/) impact of your changes).
+### Testing
 
-Check your sources for linting errors via `make lint`.
+Check your sources for linting errors via `make lint`, and unit tests via `make test`.
+
+### Releasing
+
+Releasing a new version to npmjs.org can be done via `make release-major` (or minor / patch, depending on the [semantic versioning](http://semver.org/) impact of your changes). This will
+
+ - update the `package.json`
+ - save a release commit with the updated version in Git
+ - push to Github
+ - publish to npmjs.org
 
 ## Authors
 
