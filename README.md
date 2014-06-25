@@ -102,6 +102,12 @@ Replays the assembly identified by the given `assembly_id`. The `options` parame
 
 Replays the notification for the assembly identified by the given `assembly_id`.  The `options` parameter must contain an `assembly_id` key containing the assembly id. Optionally you can also provide a `notify_url` key if you want to change the notification target.
 
+#### TransloaditClient.listAssemblyNotifications(params, cb)
+
+Retrieves an array of assembly notifications according to the given `params`.
+
+Valid params can be `page`, `pagesize`, `type` and `assembly_id`. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs#retrieve-notification-list) for details.
+
 ### Templates
 
 #### TransloaditClient.editTemplate(templateId, params, cb)
@@ -118,7 +124,7 @@ Deletes the template represented by the given templateId on Transloadit.
 
 #### TransloaditClient.listTemplates(params, cb)
 
-Retrieves a list of all your templates from Transloadit. The `params` parameter can contain properties such as `"order"`, `"sort"`, and `"page"`. For a list of all available params please check [this entry](https://transloadit.com/docs/api-docs#retrieve-template-list) in the Transloadit API docs.
+Retrieves a list of all your templates from Transloadit. The `params` parameter can contain properties such as `order`, `sort`, and `page`. For a list of all available params please check [this entry](https://transloadit.com/docs/api-docs#retrieve-template-list) in the Transloadit API docs.
 
 ## Contributing
 
