@@ -17,10 +17,10 @@ If there are no errors, you can start using the module.
 ## Use
 
 ```javascript
-var TransloaditClient = require("transloadit");
+var TransloaditClient = require('transloadit');
 var transloadit       = new TransloaditClient({
-  authKey:    'YOUR_AUTH_KEY',
-  authSecret: 'YOUR_AUTH_SECRET'
+  authKey    : 'YOUR_AUTH_KEY',
+  authSecret : 'YOUR_AUTH_SECRET'
 });
 
 transloadit.addFile('file1', filePath);
@@ -113,7 +113,7 @@ Check your sources for linting errors via `make lint`.
 
 ## Authors
 
-* Tim Koschützki (tim@transloadit.com)
+* Tim Koschützki (https://twitter.com/tim_kos)
 
 Contributions from:
 
