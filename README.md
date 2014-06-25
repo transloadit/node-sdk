@@ -37,7 +37,9 @@ transloadit.createAssembly(assemblyOptions, function(err, result) {
   console.log('success');
 
   var assemblyId = result.assembly_id;
-  console.log(assemblyId);
+  console.log({
+    assemblyId: assemblyId
+  });
 
   transloadit.deleteAssembly(assemblyId, function(err) {
     console.log('deleted');
