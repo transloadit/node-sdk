@@ -51,21 +51,23 @@ transloadit.createAssembly(assemblyOptions, function(err, result) {
 
 These are the public methods on the `TransloaditClient` object and their descriptions.
 
-### constructor([options])
+### Main
+
+#### constructor([options])
 
 Returns a new instance of the client. The `options` object must at least include `authKey` and `authSecret` keys (and their values).
 
 You can also provide `service`, which defaults to `"api2.transloadit.com"`, and `region`, which defaults to `"us-east-1"`.
 
-### TransloaditClient.addFile(name, path)
+### Assemblies
+
+#### TransloaditClient.addFile(name, path)
 
 Registers the local file with the client. The next call to `createAssembly` will upload that file.
 
-### TransloaditClient.addStream(stream)
+#### TransloaditClient.addStream(stream)
 
 Registers the provided stream with the client. The next call to `createAssembly` will upload that stream.
-
-### Assemblies
 
 #### TransloaditClient.createAssembly(options, cb)
 
