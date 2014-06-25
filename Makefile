@@ -23,17 +23,17 @@ watch:
 	watch -n 2 make -s compile
 
 release-major: build test
-	npm version major -m "Upgrade to %s"
+	npm version major -m "Release %s"
 	git push
 	npm publish
 
 release-minor: build test
-	npm version minor -m "Upgrade to %s"
+	npm version minor -m "Release %s"
 	git push
 	npm publish
 
 release-patch: build test
-	npm version patch -m "Upgrade to %s"
+	npm version patch -m "Release %s"
 	git push
 	npm publish
 
