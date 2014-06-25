@@ -78,7 +78,7 @@ You can provide some options:
 
 #### TransloaditClient.listAssemblies(params, cb)
 
-Retrieves an array of assemblies according to the given <code>params</code>.
+Retrieves an array of assemblies according to the given `params`.
 
 Valid params can be page, pagesize, type, fromdate and todate. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs#retrieve-assembly-list) for details.
 
@@ -88,7 +88,7 @@ Retrieves the JSON status of the assembly identified by the given `assemblyId`.
 
 #### TransloaditClient.deleteAssembly(assemblyId, cb)
 
-Removes the assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on `https://transloadit.com/assemblies/[[assembly_id]]` in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers.
+Removes the assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers.
 
 #### TransloaditClient.replayAssembly(options, cb)
 
@@ -104,7 +104,7 @@ Replays the notification for the assembly identified by the given `assembly_id`.
 
 #### TransloaditClient.editTemplate(templateId, params, cb)
 
-Updates the template represented by the given <code>templateId</code> with the new value. The <code>params</code> works just like the one from the **createTemplate** call.
+Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call.
 
 #### TransloaditClient.getTemplate(templateId, cb)
 
@@ -116,7 +116,7 @@ Deletes the template represented by the given templateId on Transloadit.
 
 #### TransloaditClient.listTemplates(params, cb)
 
-Retrieves a list of all your templates from Transloadit. The <code>params</code> parameter can contain properties such as "order", "sort", and "page". For a list of all available params please check [this entry](https://transloadit.com/docs/api-docs#retrieve-template-list) in the Transloadit API docs.
+Retrieves a list of all your templates from Transloadit. The `params` parameter can contain properties such as `"order"`, `"sort"`, and `"page"`. For a list of all available params please check [this entry](https://transloadit.com/docs/api-docs#retrieve-template-list) in the Transloadit API docs.
 
 ## Contributing
 
