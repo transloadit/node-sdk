@@ -155,7 +155,6 @@ describe "TransloaditClient", ->
 
       REQUEST_OPTS =
         url        : "http://api2.transloadit.com/assemblies/foo_assembly_id/replay"
-        timeout    : 5000
         method     : "post"
         params     :
           notify_url: "foo_notify_url"
@@ -180,10 +179,9 @@ describe "TransloaditClient", ->
         notify_url: "foo_notify_url"
 
       REQUEST_OPTS =
-        url     : url
-        timeout : 5000
-        method  : "post"
-        params:
+        url    : url
+        method : "post"
+        params :
           notify_url: "foo_notify_url"
 
       CB = {}
@@ -202,10 +200,9 @@ describe "TransloaditClient", ->
         foo: "bar"
 
       REQUEST_OPTS =
-        url     : url
-        timeout : 5000
-        method  : "get"
-        params  : PARAMS
+        url    : url
+        method : "get"
+        params : PARAMS
 
       CB = {}
       gently.expect client, "_remoteJson", (opts, cb) ->
@@ -214,12 +211,128 @@ describe "TransloaditClient", ->
 
       client.listAssemblies PARAMS, CB
 
+  describe "listAssemblyNotifications", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+      url = "http://api2.transloadit.com/assembly_notifications"
+
+      PARAMS =
+        foo: "bar"
+
+      REQUEST_OPTS =
+        url    : url
+        method : "get"
+        params : PARAMS
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+        expect(cb).to.eql CB
+
+      client.listAssemblyNotifications PARAMS, CB
+
+  describe "createTemplate", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+      url = "http://api2.transloadit.com/templates"
+
+      PARAMS =
+        foo: "bar"
+
+      REQUEST_OPTS =
+        url    : url
+        method : "post"
+        params : PARAMS
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+
+      client.createTemplate PARAMS, CB
+
+  describe "editTemplate", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+
+      TEMPLATE_ID = "foo_template_id"
+      url         = "http://api2.transloadit.com/templates/#{TEMPLATE_ID}"
+
+      PARAMS =
+        foo: "bar"
+
+      REQUEST_OPTS =
+        url    : url
+        method : "put"
+        params : PARAMS
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+
+      client.editTemplate TEMPLATE_ID, PARAMS, CB
+
+  describe "deleteTemplate", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+
+      TEMPLATE_ID = "foo_template_id"
+      url         = "http://api2.transloadit.com/templates/#{TEMPLATE_ID}"
+
+      REQUEST_OPTS =
+        url    : url
+        method : "del"
+        params : {}
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+        expect(cb).to.eql CB
+
+      client.deleteTemplate TEMPLATE_ID, CB
+
+  describe "getTemplate", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+
+      TEMPLATE_ID  = "foo_template_id"
+      url          = "http://api2.transloadit.com/templates/#{TEMPLATE_ID}"
+      REQUEST_OPTS =
+        url    : url
+        method : "get"
+        params : {}
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+        expect(cb).to.eql CB
+
+      client.getTemplate TEMPLATE_ID, CB
+
+  describe "listTemplates", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+      url = "http://api2.transloadit.com/templates"
+
+      PARAMS =
+        foo: "bar"
+
+      REQUEST_OPTS =
+        url    : url
+        method : "get"
+        params : PARAMS
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+        expect(cb).to.eql CB
+
+      client.listTemplates PARAMS, CB
+
   describe "assemblyStatus", ->
     it "should find the assembly's URL and then send the request", ->
       client = new TransloaditClient
       OPTS =
-        url     : "http://api2.transloadit.com/assemblies/foo_assembly_id"
-        timeout : 5000
+        url: "http://api2.transloadit.com/assemblies/foo_assembly_id"
 
       ASSEMBLY_ID = "foo_assembly_id"
       ERR    = {}
@@ -244,7 +357,6 @@ describe "TransloaditClient", ->
 
         gently.expect client, "_remoteJson", (opts2, cb2) ->
           expect(opts2.url).to.eql RESULT.assembly_url
-          expect(opts2.timeout).to.eql 5000
 
         cb null, RESULT
 
@@ -349,7 +461,6 @@ describe "TransloaditClient", ->
 
       gently.expect client, "_remoteJson", (opts, cb) ->
         expect(opts.url).to.equal URL
-        expect(opts.timeout).to.equal 5000
 
         cb null, INSTANCE
 
@@ -378,7 +489,6 @@ describe "TransloaditClient", ->
 
       gently.expect client, "_remoteJson", (opts, cb) ->
         expect(opts.url).to.equal URL
-        expect(opts.timeout).to.equal 5000
 
         gently.expect client, "_findBoredInstanceUrl", (cb2) ->
           cb2 ERR2

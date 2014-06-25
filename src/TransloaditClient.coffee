@@ -66,7 +66,6 @@ class TransloaditClient
     assemblyId  = opts.assembly_id
     requestOpts =
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}/replay"
-      timeout : 5000
       method  : "post"
 
     if opts.notify_url?
@@ -79,7 +78,6 @@ class TransloaditClient
     assemblyId  = opts.assembly_id
     requestOpts =
       url     : @_serviceUrl() + "/assembly_notifications/#{assemblyId}/replay"
-      timeout : 5000
       method  : "post"
 
     if opts.notify_url?
@@ -88,10 +86,17 @@ class TransloaditClient
 
     @_remoteJson requestOpts, cb
 
+  listAssemblyNotifications: (params, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/assembly_notifications"
+      method  : "get"
+      params  : params || {}
+
+    @_remoteJson requestOpts, cb
+
   listAssemblies: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assemblies"
-      timeout : 5000
       method  : "get"
       params  : params || {}
 
@@ -99,8 +104,7 @@ class TransloaditClient
 
   assemblyStatus: (assemblyId, cb) ->
     opts =
-      url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
-      timeout : 5000
+      url: @_serviceUrl() + "/assemblies/#{assemblyId}"
 
     @_remoteJson opts, (err, result) =>
       if err
@@ -109,13 +113,68 @@ class TransloaditClient
       status = result
       opts   =
         url     : result.assembly_url
-        timeout : 5000
 
       @_remoteJson opts, (err, result) ->
         if err
           return cb null, status
 
         cb null, result
+
+  createTemplate: (params, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/templates"
+      method  : "post"
+      params  : params || {}
+
+    @_remoteJson requestOpts, (err, result) ->
+      if err
+        return cb err
+
+      if result && result.ok
+        return cb null, result
+
+      err = new Error(result.error || "NOT OK")
+      cb err
+
+  editTemplate: (templateId, params, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/templates/" + templateId
+      method  : "put"
+      params  : params || {}
+
+    @_remoteJson requestOpts, (err, result) ->
+      if err
+        return cb err
+
+      if result && result.ok
+        return cb null, result
+
+      err = new Error(result.error || "NOT OK")
+      cb err
+
+  deleteTemplate: (templateId, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/templates/" + templateId
+      method  : "del"
+      params  : {}
+
+    @_remoteJson requestOpts, cb
+
+  getTemplate: (templateId, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/templates/" + templateId
+      method  : "get"
+      params  : {}
+
+    @_remoteJson requestOpts, cb
+
+  listTemplates: (params, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/templates"
+      method  : "get"
+      params  : params || {}
+
+    @_remoteJson requestOpts, cb
 
   calcSignature: (toSign) ->
     return crypto
@@ -161,8 +220,7 @@ class TransloaditClient
   _getBoredInstance: (url, customBoredLogic, cb) ->
     url ?= @_serviceUrl() + "/instances/bored"
     opts =
-      url     : url
-      timeout : 5000
+      url: url
 
     @_remoteJson opts, (err, instance) =>
       if !err
@@ -267,7 +325,7 @@ class TransloaditClient
         return cb e
       cb null, result
 
-    if method == "post"
+    if method == "post" || method == "put" || method == "del"
       @_appendForm req, opts.params, opts.fields
 
 
