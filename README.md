@@ -32,9 +32,9 @@ var assemblyOptions = {
 transloadit.createAssembly(assemblyOptions, function(err, result) {
   if (err) {
     throw new Error(err);
-  } else {
-    console.log('success');
   }
+
+  console.log('success');
 
   var assemblyId = result.assembly_id;
   console.log(assemblyId);
