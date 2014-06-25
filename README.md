@@ -2,10 +2,22 @@
 
 [![Build Status](https://travis-ci.org/transloadit/node-sdk.svg?branch=master)](https://travis-ci.org/transloadit/node-sdk)
 
-## Quick code sample:
+This is the official node.js SDK for Transloadit. It's been provided by the founders but everybody is encouraged to suggest ideas or code for improvement.
+
+## Install
+
+Inside your project, type
+
+```bash
+npm install --save transloadit
+```
+
+If there are no errors, you can start using the library.
+
+## Use
 
 ```javascript
-var TransloaditClient = require("./lib/TransloaditClient");
+var TransloaditClient = require("transloadit");
 
 var client = new TransloaditClient({
   authKey:    'YOUR_AUTH_KEY',
