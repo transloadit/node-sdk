@@ -32,7 +32,7 @@ var opts = {
 };
 client.createAssembly(opts, function(err, result) {
   if (err) {
-    console.log('fail');
+    throw new Error(err);
   } else {
     console.log('success');
   }
