@@ -67,7 +67,6 @@ class TransloaditClient
 
     requestOpts =
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}/replay"
-      timeout : 5000
       method  : "post"
 
     if opts.notify_url?
@@ -81,7 +80,6 @@ class TransloaditClient
 
     requestOpts =
       url     : @_serviceUrl() + "/assembly_notifications/#{assemblyId}/replay"
-      timeout : 5000
       method  : "post"
 
     if opts.notify_url?
@@ -93,7 +91,6 @@ class TransloaditClient
   listAssemblyNotifications: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assembly_notifications"
-      timeout : 5000
       method  : "get"
       params  : params || {}
 
@@ -102,7 +99,6 @@ class TransloaditClient
   listAssemblies: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assemblies"
-      timeout : 5000
       method  : "get"
       params  : params || {}
 
@@ -110,8 +106,7 @@ class TransloaditClient
 
   assemblyStatus: (assemblyId, cb) ->
     opts =
-      url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
-      timeout : 5000
+      url: @_serviceUrl() + "/assemblies/#{assemblyId}"
 
     @_remoteJson opts, (err, result) =>
       if err
@@ -120,8 +115,7 @@ class TransloaditClient
       status = result
 
       opts =
-        url     : result.assembly_url
-        timeout : 5000
+        url: result.assembly_url
 
       @_remoteJson opts, (err, result) ->
         if err
@@ -133,7 +127,6 @@ class TransloaditClient
     requestOpts =
       url     : @_serviceUrl() + "/templates"
       method  : "post"
-      timeout : 5000
       params  : params || {}
 
     @_remoteJson requestOpts, (err, result) ->
@@ -150,7 +143,6 @@ class TransloaditClient
     requestOpts =
       url     : @_serviceUrl() + "/templates/" + templateId
       method  : "put"
-      timeout : 5000
       params  : params || {}
 
     @_remoteJson requestOpts, (err, result) ->
@@ -167,7 +159,6 @@ class TransloaditClient
     requestOpts =
       url     : @_serviceUrl() + "/templates/" + templateId
       method  : "del"
-      timeout : 5000
       params  : {}
 
     @_remoteJson requestOpts, cb
@@ -175,7 +166,6 @@ class TransloaditClient
   getTemplate: (templateId, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/templates/" + templateId
-      timeout : 5000
       method  : "get"
       params  : {}
 
@@ -228,8 +218,7 @@ class TransloaditClient
       url  = @_serviceUrl() + "/instances/bored"
 
     opts =
-      url     : url
-      timeout : 5000
+      url: url
 
     @_remoteJson opts, (err, instance) =>
       if !err
