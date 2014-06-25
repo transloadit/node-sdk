@@ -103,6 +103,28 @@ Retrieves an array of assembly notifications according to the given <code>params
 Valid params can be page, pagesize, type and assembly_id. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs#retrieve-notification-list) for details.
 
 
+### Templates
+
+#### TransloaditClient.createTemplate(params, cb)
+
+Creates a new template on Transloadit, with the given params. The params object must contain a <code>name</code> key (the template name) and a <code>template</code> key, which is the stringified value of the template JSON.
+
+#### TransloaditClient.editTemplate(templateId, params, cb)
+
+Updates the template represented by the given <code>templateId</code> with the new value. The <code>params</code> works just like the one from the **createTemplate** call.
+
+#### TransloaditClient.getTemplate(templateId, cb)
+
+Retrieves the name and the template JSON for the template represented by the given templateId.
+
+#### TransloaditClient.deleteTemplate(templateId, cb)
+
+Deletes the template represented by the given templateId on Transloadit.
+
+#### TransloaditClient.listTemplates(params, cb)
+
+Retrieves a list of all your templates from Transloadit. The <code>params</code> parameter can contain properties such as "order", "sort", and "page". For a list of all available params please check [this entry](https://transloadit.com/docs/api-docs#retrieve-template-list) in the Transloadit API docs.
+
 # Authors
 
 * Tim Koschützki (tim@transloadit.com)
