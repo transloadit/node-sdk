@@ -133,8 +133,7 @@ class TransloaditClient
 
     form.append "params", jsonParams
 
-    if !fields?
-      fields = []
+    fields ?= []
 
     for key of fields
       val = fields[key]
@@ -163,9 +162,7 @@ class TransloaditClient
     return url
 
   _getBoredInstance: (url, customBoredLogic, cb) ->
-    if url == null
-      url = @_serviceUrl() + "/instances/bored"
-
+    url ?= @_serviceUrl() + "/instances/bored"
     opts =
       url     : url
       timeout : 5000
@@ -231,14 +228,9 @@ class TransloaditClient
       cb null, url
 
   _prepareParams: (params) ->
-    if !params?
-      params = {}
-
-    if !params.auth?
-      params.auth = {}
-
-    if !params.auth.key?
-      params.auth.key = @_authKey
+    params          ?= {}
+    params.auth     ?= {}
+    params.auth.key ?= @_authKey
 
     params.auth.expires = @_getExpiresDate()
     return JSON.stringify params
