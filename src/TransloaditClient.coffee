@@ -171,6 +171,14 @@ class TransloaditClient
 
     @_remoteJson requestOpts, cb
 
+  listTemplates: (params, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/templates"
+      method  : "get"
+      params  : params || {}
+
+    @_remoteJson requestOpts, cb
+
   calcSignature: (toSign) ->
     return crypto
     .createHmac("sha1", @_authSecret)

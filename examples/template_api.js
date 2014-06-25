@@ -28,30 +28,44 @@ var newParams = {
   name     : 'node_sdk_test2',
   template : templateString
 };
+var listParams = {
+  sort  : 'created',
+  order : 'asc'
+};
 
-client.createTemplate(params, function(err, result) {
+// this just serves as an example, normally you would refactor this
+// christmas tree with control flow modules such as "async"
+
+client.listTemplates(listParams, function(err, templates) {
   if (err) {
-    return console.log('Failed creating template', err);
+    return console.log('failed fetching templates:', err);
   }
-  console.log('Template created successfully:', result);
+  console.log('Successfully fetched', templates.count, 'template(s)');
 
-  client.editTemplate(result.template_id, newParams, function(err, editResult) {
+  client.createTemplate(params, function(err, result) {
     if (err) {
-      return console.log('failed editing template:', err);
+      return console.log('Failed creating template', err);
     }
-    console.log('Successfully edited template', editResult);
+    console.log('Template created successfully:', result);
 
-    client.getTemplate(result.template_id, function(err, templateResult) {
+    client.editTemplate(result.template_id, newParams, function(err, editResult) {
       if (err) {
-        return console.log('failed fetching template:', err);
+        return console.log('failed editing template:', err);
       }
-      console.log('Successfully fetched template', templateResult);
+      console.log('Successfully edited template', editResult);
 
-      client.deleteTemplate(result.template_id, function(err, delResult) {
+      client.getTemplate(result.template_id, function(err, templateResult) {
         if (err) {
-          return console.log('failed deleting template:', err);
+          return console.log('failed fetching template:', err);
         }
-        console.log('Successfully deleted template', delResult);
+        console.log('Successfully fetched template', templateResult);
+
+        client.deleteTemplate(result.template_id, function(err, delResult) {
+          if (err) {
+            return console.log('failed deleting template:', err);
+          }
+          console.log('Successfully deleted template', delResult);
+        });
       });
     });
   });
