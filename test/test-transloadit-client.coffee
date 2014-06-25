@@ -235,6 +235,45 @@ describe "TransloaditClient", ->
 
       client.listAssemblyNotifications PARAMS, CB
 
+  describe "createTemplate", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+      url = "http://api2.transloadit.com/templates"
+
+      PARAMS =
+        foo: "bar"
+
+      REQUEST_OPTS =
+        url     : url
+        timeout : 5000
+        method  : "post"
+        params  : PARAMS
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+
+      client.createTemplate PARAMS, CB
+
+  describe "getTemplate", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+
+      TEMPLATE_ID  = "foo_template_id"
+      url          = "http://api2.transloadit.com/templates/#{TEMPLATE_ID}"
+      REQUEST_OPTS =
+        url     : url
+        timeout : 5000
+        method  : "get"
+        params  : {}
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+        expect(cb).to.eql CB
+
+      client.getTemplate TEMPLATE_ID, CB
+
   describe "assemblyStatus", ->
     it "should find the assembly's URL and then send the request", ->
       client = new TransloaditClient

@@ -129,6 +129,32 @@ class TransloaditClient
 
         cb null, result
 
+  createTemplate: (params, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/templates"
+      method  : "post"
+      timeout : 5000
+      params  : params || {}
+
+    @_remoteJson requestOpts, (err, result) ->
+      if err
+        return cb err
+
+      if result && result.ok
+        return cb null, result
+
+      err = new Error(result.error || "NOT OK")
+      cb err
+
+  getTemplate: (templateId, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/templates/" + templateId
+      timeout : 5000
+      method  : "get"
+      params  : {}
+
+    @_remoteJson requestOpts, cb
+
   calcSignature: (toSign) ->
     return crypto
     .createHmac("sha1", @_authSecret)
