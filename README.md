@@ -12,7 +12,7 @@ Inside your project, type
 npm install --save transloadit
 ```
 
-If there are no errors, you can start using the library.
+If there are no errors, you can start using the module.
 
 ## Use
 
@@ -96,6 +96,12 @@ Replays the notification for the assembly identified by the given `assembly_id`.
 ## Contributing
 
 We'd be happy to accept pull requests. If you plan on working on something big, please first drop us a line!
+
+The SDK is written in [CoffeeScript](http://coffeescript.org/), but the JavaScript it generates is commited back into the repository so people can use this module without a CoffeeScript dependency. If you want to work on the source, please do so in `./src` and type: `make build` or `make test` (also builds first). Please don't edit generated JavaScript in `./lib`!
+
+Releasing a new version to npmjs.org can be done via `make release-major` (or minor / patch, depending on the [semantic versioning](http://semver.org/) impact of your changes).
+
+Check your sources for linting errors via `make lint`.
 
 ## Authors
 
