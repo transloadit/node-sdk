@@ -214,6 +214,27 @@ describe "TransloaditClient", ->
 
       client.listAssemblies PARAMS, CB
 
+  describe "listAssemblyNotifications", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+      url = "http://api2.transloadit.com/assembly_notifications"
+
+      PARAMS =
+        foo: "bar"
+
+      REQUEST_OPTS =
+        url     : url
+        timeout : 5000
+        method  : "get"
+        params  : PARAMS
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+        expect(cb).to.eql CB
+
+      client.listAssemblyNotifications PARAMS, CB
+
   describe "assemblyStatus", ->
     it "should find the assembly's URL and then send the request", ->
       client = new TransloaditClient

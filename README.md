@@ -60,7 +60,9 @@ Registers the local file with the client. The next call to <code>createAssembly<
 
 Registers the provided stream with the client. The next call to <code>createAssembly</code> will upload that stream.
 
-### TransloaditClient.createAssembly(options, cb)
+### Assemblies
+
+#### TransloaditClient.createAssembly(options, cb)
 
 Creates a new assembly on Transloadit, uploading all streams and files that were registered via <code>.addStream()</code> and <code>.addFile()</code> prior to the call to <code>.createAssembly()</code>.
 
@@ -69,27 +71,36 @@ You can provide some options:
 * <code>params</code> - an object containing your template_id, notify_url, some steps that overwrite your Transloadit template and other params to control Transloadit behavior.
 * <code>fields</code> - an object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables).
 
-### TransloaditClient.listAssemblies(params, cb)
+#### TransloaditClient.listAssemblies(params, cb)
 
 Retrieves an array of assemblies according to the given <code>params</code>.
 
 Valid params can be page, pagesize, type, fromdate and todate. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs#retrieve-assembly-list) for details.
 
-### TransloaditClient.assemblyStatus(assemblyId, cb)
+#### TransloaditClient.assemblyStatus(assemblyId, cb)
 
 Retrieves the JSON status of the assembly identified by the given <code>assemblyId</code>.
 
-### TransloaditClient.deleteAssembly(assemblyId, cb)
+#### TransloaditClient.deleteAssembly(assemblyId, cb)
 
 Removes the assembly identified by the given assemblyId from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on <code>https://transloadit.com/assemblies/[[assembly_id]]</code> in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers.
 
-### TransloaditClient.replayAssembly(options, cb)
+#### TransloaditClient.replayAssembly(options, cb)
 
 Replays the assembly identified by the given assembly_id. The <code>options</code> parameter must contain an <code>assembly_id</code> key containing the assembly id. Optionally you can also provide a <code>notify_url</code> key if you want to change the notification target.
 
-### TransloaditClient.replayAssemblyNotification(options, cb)
+
+### Assembly notifications
+
+#### TransloaditClient.replayAssemblyNotification(options, cb)
 
 Replays the notification for the assembly identified by the given assembly_id.  The <code>options</code> parameter must contain an <code>assembly_id</code> key containing the assembly id. Optionally you can also provide a <code>notify_url</code> key if you want to change the notification target.
+
+#### TransloaditClient.listAssemblyNotifications(params, cb)
+
+Retrieves an array of assembly notifications according to the given <code>params</code>.
+
+Valid params can be page, pagesize, type and assembly_id. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs#retrieve-notification-list) for details.
 
 
 # Authors

@@ -90,6 +90,15 @@ class TransloaditClient
 
     @_remoteJson requestOpts, cb
 
+  listAssemblyNotifications: (params, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/assembly_notifications"
+      timeout : 5000
+      method  : "get"
+      params  : params || {}
+
+    @_remoteJson requestOpts, cb
+
   listAssemblies: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assemblies"
