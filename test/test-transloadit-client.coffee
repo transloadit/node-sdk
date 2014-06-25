@@ -277,6 +277,26 @@ describe "TransloaditClient", ->
 
       client.editTemplate TEMPLATE_ID, PARAMS, CB
 
+  describe "deleteTemplate", ->
+    it "should send the proper request", ->
+      client = new TransloaditClient
+
+      TEMPLATE_ID = "foo_template_id"
+      url         = "http://api2.transloadit.com/templates/#{TEMPLATE_ID}"
+
+      REQUEST_OPTS =
+        url     : url
+        timeout : 5000
+        method  : "del"
+        params  : {}
+
+      CB = {}
+      gently.expect client, "_remoteJson", (opts, cb) ->
+        expect(opts).to.eql REQUEST_OPTS
+        expect(cb).to.eql CB
+
+      client.deleteTemplate TEMPLATE_ID, CB
+
   describe "getTemplate", ->
     it "should send the proper request", ->
       client = new TransloaditClient

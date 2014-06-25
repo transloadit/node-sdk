@@ -24,32 +24,35 @@ var params = {
   name     : 'node_sdk_test1',
   template : templateString
 };
+var newParams = {
+  name     : 'node_sdk_test2',
+  template : templateString
+};
+
 client.createTemplate(params, function(err, result) {
   if (err) {
-    console.log('Failed creating template', err);
-    return;
+    return console.log('Failed creating template', err);
   }
-
   console.log('Template created successfully:', result);
-  var newParams = {
-    name     : 'node_sdk_test2',
-    template : templateString
-  };
-  client.editTemplate(result.template_id, newParams, function(err, templateResult) {
-    if (err) {
-      console.log('failed editing template:', err);
-      return;
-    }
 
-    console.log('Successfully edited template', templateResult);
+  client.editTemplate(result.template_id, newParams, function(err, editResult) {
+    if (err) {
+      return console.log('failed editing template:', err);
+    }
+    console.log('Successfully edited template', editResult);
 
     client.getTemplate(result.template_id, function(err, templateResult) {
       if (err) {
-        console.log('failed fetching template:', err);
-        return;
+        return console.log('failed fetching template:', err);
       }
-
       console.log('Successfully fetched template', templateResult);
+
+      client.deleteTemplate(result.template_id, function(err, delResult) {
+        if (err) {
+          return console.log('failed deleting template:', err);
+        }
+        console.log('Successfully deleted template', delResult);
+      });
     });
   });
 });

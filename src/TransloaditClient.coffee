@@ -163,6 +163,15 @@ class TransloaditClient
       err = new Error(result.error || "NOT OK")
       cb err
 
+  deleteTemplate: (templateId, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/templates/" + templateId
+      method  : "del"
+      timeout : 5000
+      params  : {}
+
+    @_remoteJson requestOpts, cb
+
   getTemplate: (templateId, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/templates/" + templateId
@@ -331,7 +340,7 @@ class TransloaditClient
         return cb e
       cb null, result
 
-    if method == "post" || method == "put"
+    if method == "post" || method == "put" || method == "del"
       @_appendForm req, opts.params, opts.fields
 
 
