@@ -141,7 +141,7 @@ Releasing a new version to npmjs.org can be done via `make release-major` (or mi
 
 ## Authors
 
-* Tim Koschützki (https://twitter.com/tim_kos)
+* [Tim Koschützki](https://twitter.com/tim_kos)
 
 Contributions from:
 
