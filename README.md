@@ -19,18 +19,18 @@ If there are no errors, you can start using the module.
 ```javascript
 var TransloaditClient = require("transloadit");
 
-var client = new TransloaditClient({
+var transloadit       = new TransloaditClient({
   authKey:    'YOUR_AUTH_KEY',
   authSecret: 'YOUR_AUTH_SECRET'
 });
 
-client.addFile(fieldName, filePath);
-var opts = {
+transloadit.addFile('file1', filePath);
+var assemblyOptions = {
   params: {
     template_id: 'YOUR_TEMPLATE_ID'
   }
 };
-client.createAssembly(opts, function(err, result) {
+transloadit.createAssembly(assemblyOptions, function(err, result) {
   if (err) {
     throw new Error(err);
   } else {
@@ -40,7 +40,7 @@ client.createAssembly(opts, function(err, result) {
   var assemblyId = result.assembly_id;
   console.log(assemblyId);
 
-  client.deleteAssembly(assemblyId, function(err) {
+  transloadit.deleteAssembly(assemblyId, function(err) {
     console.log('deleted');
   });
 });
