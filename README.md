@@ -65,7 +65,7 @@ You can also provide `service`, which defaults to `"api2.transloadit.com"`, and 
 
 Registers the local file with the client. The next call to `createAssembly` will upload that file.
 
-#### TransloaditClient.addStream(stream)
+#### TransloaditClient.addStream(name, stream)
 
 Registers the provided stream with the client. The next call to `createAssembly` will upload that stream.
 
