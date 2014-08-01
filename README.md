@@ -155,6 +155,8 @@ Contributions from:
 
 * [Kevin van Zonneveld](https://twitter.com/kvz)
 * [Geoff Wilson](mailto:gmwils@gmail.com)
+* [Jim Gibbs](https://www.linkedin.com/pub/james-gibbs/0/8/4ab)
+
 
 Thanks to:
 
