@@ -29,7 +29,7 @@ class TransloaditClient
         return cb err
 
       requestOpts =
-        url     : "http://api2.#{url}/assemblies"
+        url     : "#{@_protocol}api2.#{url}/assemblies"
         method  : "post"
         timeout : 24 * 60 * 60 * 1000
         params  : opts.params || {}
