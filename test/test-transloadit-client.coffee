@@ -68,7 +68,7 @@ describe "TransloaditClient", ->
         fields  : "foo_fields"
 
       REQUEST_OPTS =
-        url     : "http://api2.tim.transloadit.com/assemblies"
+        url     : "http://api2-tim.transloadit.com/assemblies"
         method  : "post"
         timeout : 24 * 60 * 60 * 1000
         params  : "foo_params"
