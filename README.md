@@ -110,6 +110,10 @@ Valid params can be `page`, `pagesize`, `type` and `assembly_id`. Please consult
 
 ### Templates
 
+#### TransloaditClient.createTemplate(params, cb)
+
+Creates a template the provided params. The required `params` keys are: name (the template name) and template (the template JSON string).
+
 #### TransloaditClient.editTemplate(templateId, params, cb)
 
 Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call.
