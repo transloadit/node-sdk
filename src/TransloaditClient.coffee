@@ -322,7 +322,10 @@ class TransloaditClient
       try
         result = JSON.parse res.body
       catch e
-        return cb e
+        abbr  = "#{res.body}".substr(0, 255)
+        msg   = "Unable to parse JSON from '#{requestOpts.uri}'. "
+        msg  += "Code: #{res.statusCode}. Body: #{abbr}. "
+        return cb new Error msg
       cb null, result
 
     if method == "post" || method == "put" || method == "del"
