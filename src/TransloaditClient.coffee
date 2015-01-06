@@ -237,7 +237,7 @@ class TransloaditClient
               message : "Could not find a bored instance. #{err.message}"
             return cb err
 
-          url = "#{@_protocol}api2.#{theUrl}/instances/bored"
+          url = "#{@_protocol}api2-#{theUrl}/instances/bored"
           @_getBoredInstance url, false, cb
 
         return
@@ -271,9 +271,9 @@ class TransloaditClient
       err = new Error "No responsive uploaders"
       return cb err
 
-    url  = @_protocol + instances[index]
+    url  = instances[index]
     opts =
-      url     : url
+      url     : @_protocol + url
       timeout : 3000
 
     @_remoteJson opts, (err, result) =>

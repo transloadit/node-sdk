@@ -494,7 +494,7 @@ describe "TransloaditClient", ->
           cb2 ERR2
 
           gently.expect client, "_getBoredInstance", (url, customLogic, cb3) ->
-            expect(url).to.equal "http://api2.foo2_url/instances/bored"
+            expect(url).to.equal "http://api2-foo2_url/instances/bored"
             expect(customLogic).to.equal false
             expect(cb3).to.equal CB
 
@@ -576,7 +576,7 @@ describe "TransloaditClient", ->
 
       CB = (err, url) ->
         if !err
-          expect(url).to.equal "http://foo1.transloadit.com"
+          expect(url).to.equal "foo1.transloadit.com"
 
         calls++
 
