@@ -112,6 +112,9 @@ describe "TransloaditClient", ->
       expect(errCalls).to.equal 2
       expect(calls).to.equal 3
 
+      usedUrl = client.getLastUsedAssemblyUrl()
+      expect(usedUrl).to.equal "http://api2-tim.transloadit.com/assemblies"
+
   describe "deleteAssembly", ->
     it "should find the assembly url, and then call DELETE on it", ->
       client = new TransloaditClient

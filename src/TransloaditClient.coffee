@@ -15,6 +15,8 @@ class TransloaditClient
     @_protocol   = "http://"
     @_streams    = {}
 
+    @_lastUsedAssemblyUrl = ""
+
   addStream: (name, stream) ->
     stream.pause()
     @_streams[name] = stream
@@ -23,13 +25,18 @@ class TransloaditClient
     stream = fs.createReadStream path
     @addStream name, stream
 
+  getLastUsedAssemblyUrl: ->
+    return @_lastUsedAssemblyUrl
+
   createAssembly: (opts, cb) ->
     @_getBoredInstance null, true, (err, url) =>
       if err || !url?
         return cb err
 
+      @_lastUsedAssemblyUrl = "#{@_protocol}api2-#{url}/assemblies"
+
       requestOpts =
-        url     : "#{@_protocol}api2-#{url}/assemblies"
+        url     : @_lastUsedAssemblyUrl
         method  : "post"
         timeout : 24 * 60 * 60 * 1000
         params  : opts.params || {}

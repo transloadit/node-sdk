@@ -76,6 +76,10 @@ You can provide some options:
 * `params` - an object containing your `template_id`, `notify_url`, some steps that overwrite your Transloadit template and other params to control Transloadit behavior.
 * `fields` - an object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables).
 
+#### TransloaditClient.lastUsedAssemblyUrl()
+
+Returns the internal url that was used for the last call to `Transloadit.createAssembly()`. This is meant to be used for debugging purposes.
+
 #### TransloaditClient.listAssemblies(params, cb)
 
 Retrieves an array of assemblies according to the given `params`.
