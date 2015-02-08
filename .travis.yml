@@ -6,8 +6,5 @@ script: make test REPORTER=spec
 # travis encrypt [subdomain]:[api token]@[room id]
 notifications:
   email: false
-  campfire:
-    rooms:
-      secure: "ZFrIv0Gf8DkEOoq2IvmMAzr91Yc6une/FR2UlJ+rp2RBPbSglzpuM8Q6ktW6XsGaBe4QNsm1x5cxA1oSLtSzviIBSfsGnGwgOjAVEq9EPodv5XVn01BfKIzm1ZKw8ZnnvTtPsvSVQgD1e4O0V+p4lwjQ+2lPswIyxbzjak2bRdY="
-    on_failure: always
-    on_success: always
+  slack:
+    secure: U+RtmtVJEzEoZf+/VVuon9qNC4GXKzXoTqdYThP57ZTzqoDAJDnuZ/qUrMGrMYpYg38ikxtK3qJhBMfffzHXc3KS9hcA7Ay/yPz4QiCBMy3M9EBPWt8iGP6n2T3KUw4WG/hSBUtnJqmwPdzRfVUIqOMgchiN9eWwEbEmSYTvOqA=
