@@ -385,14 +385,12 @@ describe "TransloaditClient", ->
           bar: "baz"
 
       }
-      SIGNATURE   = {}
-
-      gently.expect client, "_prepareParams", (params) ->
-        expect(params).to.equal PARAMS
-        return JSON_PARAMS
+      SIGNATURE =
+        signature : "foo_signature"
+        params    : JSON_PARAMS
 
       gently.expect client, "calcSignature", (params) ->
-        expect(params).to.equal JSON_PARAMS
+        expect(params).to.eql PARAMS
         return SIGNATURE
 
       gently.expect REQ, "form", ->
@@ -412,7 +410,7 @@ describe "TransloaditClient", ->
 
       gently.expect FORM, "append", (key, val) ->
         expect(key).to.equal "signature"
-        expect(val).to.equal SIGNATURE
+        expect(val).to.equal SIGNATURE.signature
 
       gently.expect FORM, "append", (key, val) ->
         expect(key).to.equal "stream1"
@@ -432,20 +430,18 @@ describe "TransloaditClient", ->
       PARAMS      =
         foo: "bar"
       JSON_PARAMS = "{foo:\"bar\"}"
-      SIGNATURE   = "foo_sig"
-
-      gently.expect client, "_prepareParams", (params) ->
-        expect(params).to.equal PARAMS
-        return JSON_PARAMS
+      SIGNATURE   =
+        signature : "foo_sig"
+        params    : JSON_PARAMS
 
       gently.expect client, "calcSignature", (params) ->
-        expect(params).to.equal JSON_PARAMS
+        expect(params).to.eql PARAMS
         return SIGNATURE
 
       ENCODED_PARAMS = encodeURIComponent JSON_PARAMS
       url = client._appendParamsToUrl URL, PARAMS
 
-      expected = "#{URL}?signature=#{SIGNATURE}&params=#{ENCODED_PARAMS}"
+      expected = "#{URL}?signature=#{SIGNATURE.signature}&params=#{ENCODED_PARAMS}"
       expect(url).to.equal expected
 
   describe "_getBoredInstance", ->
@@ -615,26 +611,58 @@ describe "TransloaditClient", ->
       expect(r.auth.key).to.equal "foo"
       expect(r.auth.expires).not.to.equal null
 
+    it "should not add anything if the params are already present", ->
+      client = new TransloaditClient
+
+      PARAMS =
+        auth:
+          key     : "foo_key"
+          expires : "foo_expires"
+
+      r = JSON.parse client._prepareParams PARAMS
+      expect(r.auth.key).to.equal "foo_key"
+      expect(r.auth.expires).to.equal "foo_expires"
+
 
   describe "calcSignature", ->
-    it "should return an expires date one minute in the future", ->
+    it "should calc _prepareParams and _calcSignature", ->
+      client = new TransloaditClient
+      client._authSecret = "13123123123"
+
+      PARAMS      = {foo: "bar"}
+      JSON_PARAMS = "my_json_params"
+      SIGNATURE   = "my_signature"
+
+      gently.expect client, "_prepareParams", (params) ->
+        expect(params).to.eql PARAMS
+        return JSON_PARAMS
+
+      gently.expect client, "_calcSignature", (toSign) ->
+        expect(toSign).to.equal JSON_PARAMS
+        return SIGNATURE
+
+      r = client.calcSignature PARAMS
+      expect(r.params).to.equal JSON_PARAMS
+      expect(r.signature).to.equal SIGNATURE
+
+  describe "_calcSignature", ->
+    it "should calculate the signature properly", ->
       client = new TransloaditClient
       client._authSecret = "13123123123"
 
       expected = "57ddad5dbba538590e60f0938f364c7179316eba"
-      expect(client.calcSignature("foo")).to.equal expected
+      expect(client._calcSignature("foo")).to.equal expected
 
       expected = "b8110452b4ba46a9ecf438271bbd79f25d2a5400"
-      expect(client.calcSignature("akjdkadskjads")).to.equal expected
-
+      expect(client._calcSignature("akjdkadskjads")).to.equal expected
 
       client._authSecret = "90191902390123"
 
       expected = "d393c38de2cbc993bea52f8ecdf56c7ede8b920d"
-      expect(client.calcSignature("foo")).to.equal expected
+      expect(client._calcSignature("foo")).to.equal expected
 
       expected = "8fd625190e1955eb47a9984d3e8308e3afc9049e"
-      expect(client.calcSignature("akjdkadskjads")).to.equal expected
+      expect(client._calcSignature("akjdkadskjads")).to.equal expected
 
   describe "_serviceUrl", ->
     it "should return the service url", ->

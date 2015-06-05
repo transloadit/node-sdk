@@ -183,15 +183,22 @@ class TransloaditClient
 
     @_remoteJson requestOpts, cb
 
-  calcSignature: (toSign) ->
+  calcSignature: (params) ->
+    jsonParams = @_prepareParams params
+    signature  = @_calcSignature jsonParams
+
+    return {signature: signature, params: jsonParams}
+
+  _calcSignature: (toSign) ->
     return crypto
       .createHmac("sha1", @_authSecret)
       .update(new Buffer(toSign, "utf-8"))
       .digest "hex"
 
   _appendForm: (req, params, fields) ->
-    jsonParams = @_prepareParams params
-    signature  = @calcSignature jsonParams
+    sigData    = @calcSignature params
+    jsonParams = sigData.params
+    signature  = sigData.signature
     form       = req.form()
 
     form.append "params", jsonParams
@@ -211,8 +218,9 @@ class TransloaditClient
       form.append key, value
 
   _appendParamsToUrl: (url, params) ->
-    jsonParams = @_prepareParams params
-    signature  = @calcSignature jsonParams
+    sigData    = @calcSignature params
+    signature  = sigData.signature
+    jsonParams = sigData.params
 
     if url.indexOf("?") == -1
       url += "?signature=#{signature}"
@@ -290,11 +298,11 @@ class TransloaditClient
       cb null, url
 
   _prepareParams: (params) ->
-    params          ?= {}
-    params.auth     ?= {}
-    params.auth.key ?= @_authKey
+    params              ?= {}
+    params.auth         ?= {}
+    params.auth.key     ?= @_authKey
+    params.auth.expires ?= @_getExpiresDate()
 
-    params.auth.expires = @_getExpiresDate()
     return JSON.stringify params
 
   _getExpiresDate: ->

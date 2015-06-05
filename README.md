@@ -57,6 +57,12 @@ Returns a new instance of the client. The `options` object must at least include
 
 You can also provide `service`, which defaults to `"api2.transloadit.com"`, and `region`, which defaults to `"us-east-1"`.
 
+#### calcSignature(params)
+
+Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
+
+This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
+
 ### Assemblies
 
 #### TransloaditClient.addFile(name, path)
