@@ -20,13 +20,15 @@ describe "TransloaditClient", ->
         authKey    : "foo_key"
         authSecret : "foo_secret"
         service    : "foo_service"
-        region     : "foo_region"
+        region     : "foo_region",
+        useSsl     : true
 
       client = new TransloaditClient opts
       expect(client._authKey).to.equal "foo_key"
       expect(client._authSecret).to.equal "foo_secret"
       expect(client._service).to.equal "foo_service"
       expect(client._region).to.equal "foo_region"
+      expect(client._protocol).to.equal "https://"
 
   describe "addStream", ->
     it "should properly add a stream", ->
