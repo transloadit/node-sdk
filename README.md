@@ -57,6 +57,8 @@ Returns a new instance of the client. The `options` object must at least include
 
 You can also provide `service`, which defaults to `"api2.transloadit.com"`, and `region`, which defaults to `"us-east-1"`.
 
+By default `TransloaditClient` will use SSL so it will access `service` with a https:// prefix. You can switch this off by providing options.useSsl with a value of `false`.
+
 #### calcSignature(params)
 
 Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.

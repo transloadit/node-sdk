@@ -8,11 +8,13 @@ class TransloaditClient
   constructor: (opts) ->
     opts = opts || {}
 
+    opts.useSsl ?= true
+
     @_authKey    = opts.authKey || null
     @_authSecret = opts.authSecret || null
     @_service    = opts.service || "api2.transloadit.com"
     @_region     = opts.region || "us-east-1"
-    @_protocol   = "https://"
+    @_protocol   = if opts.useSsl then "https://" else "http://"
     @_streams    = {}
 
     @_lastUsedAssemblyUrl = ""
