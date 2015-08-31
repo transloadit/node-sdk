@@ -12,7 +12,7 @@ class TransloaditClient
     @_authSecret = opts.authSecret || null
     @_service    = opts.service || "api2.transloadit.com"
     @_region     = opts.region || "us-east-1"
-    @_protocol   = "http://"
+    @_protocol   = "https://"
     @_streams    = {}
 
     @_lastUsedAssemblyUrl = ""

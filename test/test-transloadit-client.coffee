@@ -13,7 +13,7 @@ describe "TransloaditClient", ->
       expect(client._authSecret).to.equal null
       expect(client._service).to.equal "api2.transloadit.com"
       expect(client._region).to.equal "us-east-1"
-      expect(client._protocol).to.equal "http://"
+      expect(client._protocol).to.equal "https://"
 
     it "should allow overwriting some properties", ->
       opts =
@@ -68,7 +68,7 @@ describe "TransloaditClient", ->
         fields  : "foo_fields"
 
       REQUEST_OPTS =
-        url     : "http://api2-tim.transloadit.com/assemblies"
+        url     : "https://api2-tim.transloadit.com/assemblies"
         method  : "post"
         timeout : 24 * 60 * 60 * 1000
         params  : "foo_params"
@@ -113,14 +113,14 @@ describe "TransloaditClient", ->
       expect(calls).to.equal 3
 
       usedUrl = client.getLastUsedAssemblyUrl()
-      expect(usedUrl).to.equal "http://api2-tim.transloadit.com/assemblies"
+      expect(usedUrl).to.equal "https://api2-tim.transloadit.com/assemblies"
 
   describe "deleteAssembly", ->
     it "should find the assembly url, and then call DELETE on it", ->
       client = new TransloaditClient
 
       OPTS =
-        url     : "http://api2.transloadit.com/assemblies/foo_assembly_id"
+        url     : "https://api2.transloadit.com/assemblies/foo_assembly_id"
         timeout : 16000
 
       ASSEMBLY_ID = "foo_assembly_id"
@@ -157,7 +157,7 @@ describe "TransloaditClient", ->
         notify_url: "foo_notify_url"
 
       REQUEST_OPTS =
-        url        : "http://api2.transloadit.com/assemblies/foo_assembly_id/replay"
+        url        : "https://api2.transloadit.com/assemblies/foo_assembly_id/replay"
         method     : "post"
         params     :
           notify_url: "foo_notify_url"
@@ -174,7 +174,7 @@ describe "TransloaditClient", ->
       client = new TransloaditClient
 
       ASSEMBLY_ID = "foo_assembly_id"
-      url = "http://api2.transloadit.com/assembly_notifications/"
+      url = "https://api2.transloadit.com/assembly_notifications/"
       url += ASSEMBLY_ID + "/replay"
 
       OPTS =
@@ -197,7 +197,7 @@ describe "TransloaditClient", ->
   describe "listAssemblies", ->
     it "should send the proper request", ->
       client = new TransloaditClient
-      url = "http://api2.transloadit.com/assemblies"
+      url = "https://api2.transloadit.com/assemblies"
 
       PARAMS =
         foo: "bar"
@@ -217,7 +217,7 @@ describe "TransloaditClient", ->
   describe "listAssemblyNotifications", ->
     it "should send the proper request", ->
       client = new TransloaditClient
-      url = "http://api2.transloadit.com/assembly_notifications"
+      url = "https://api2.transloadit.com/assembly_notifications"
 
       PARAMS =
         foo: "bar"
@@ -237,7 +237,7 @@ describe "TransloaditClient", ->
   describe "createTemplate", ->
     it "should send the proper request", ->
       client = new TransloaditClient
-      url = "http://api2.transloadit.com/templates"
+      url = "https://api2.transloadit.com/templates"
 
       PARAMS =
         foo: "bar"
@@ -258,7 +258,7 @@ describe "TransloaditClient", ->
       client = new TransloaditClient
 
       TEMPLATE_ID = "foo_template_id"
-      url         = "http://api2.transloadit.com/templates/#{TEMPLATE_ID}"
+      url         = "https://api2.transloadit.com/templates/#{TEMPLATE_ID}"
 
       PARAMS =
         foo: "bar"
@@ -279,7 +279,7 @@ describe "TransloaditClient", ->
       client = new TransloaditClient
 
       TEMPLATE_ID = "foo_template_id"
-      url         = "http://api2.transloadit.com/templates/#{TEMPLATE_ID}"
+      url         = "https://api2.transloadit.com/templates/#{TEMPLATE_ID}"
 
       REQUEST_OPTS =
         url    : url
@@ -298,7 +298,7 @@ describe "TransloaditClient", ->
       client = new TransloaditClient
 
       TEMPLATE_ID  = "foo_template_id"
-      url          = "http://api2.transloadit.com/templates/#{TEMPLATE_ID}"
+      url          = "https://api2.transloadit.com/templates/#{TEMPLATE_ID}"
       REQUEST_OPTS =
         url    : url
         method : "get"
@@ -314,7 +314,7 @@ describe "TransloaditClient", ->
   describe "listTemplates", ->
     it "should send the proper request", ->
       client = new TransloaditClient
-      url = "http://api2.transloadit.com/templates"
+      url = "https://api2.transloadit.com/templates"
 
       PARAMS =
         foo: "bar"
@@ -335,7 +335,7 @@ describe "TransloaditClient", ->
     it "should find the assembly's URL and then send the request", ->
       client = new TransloaditClient
       OPTS =
-        url: "http://api2.transloadit.com/assemblies/foo_assembly_id"
+        url: "https://api2.transloadit.com/assemblies/foo_assembly_id"
 
       ASSEMBLY_ID = "foo_assembly_id"
       ERR    = {}
@@ -493,7 +493,7 @@ describe "TransloaditClient", ->
           cb2 ERR2
 
           gently.expect client, "_getBoredInstance", (url, customLogic, cb3) ->
-            expect(url).to.equal "http://api2-foo2_url/instances/bored"
+            expect(url).to.equal "https://api2-foo2_url/instances/bored"
             expect(customLogic).to.equal false
             expect(cb3).to.equal CB
 
@@ -580,7 +580,7 @@ describe "TransloaditClient", ->
         calls++
 
       gently.expect client, "_remoteJson", (opts, cb) ->
-        expect(opts.url).to.equal "http://foo1.transloadit.com"
+        expect(opts.url).to.equal "https://foo1.transloadit.com"
         expect(opts.timeout).to.equal 3000
 
         gently.expect client, "_findResponsiveInstance", (instances, index, cb) ->
