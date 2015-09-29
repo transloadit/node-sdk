@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "request": "~2.16.6",
-    "underscore": "1.2.1"
+    "underscore": "1.8.3"
   },
   "devDependencies": {
     "should": "0.3.2",
