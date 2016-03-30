@@ -163,8 +163,8 @@ class TransloaditClient
 
   deleteTemplate: (templateId, cb) ->
     requestOpts =
-      url     : @_serviceUrl() + "/templates/" + templateId
-      method  : "del"
+      url     : @_serviceUrl() + "/templates/#{templateId}?method=delete"
+      method  : "get"
       params  : {}
 
     @_remoteJson requestOpts, cb
