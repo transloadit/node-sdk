@@ -279,11 +279,13 @@ describe "TransloaditClient", ->
       client = new TransloaditClient
 
       TEMPLATE_ID = "foo_template_id"
-      url         = "https://api2.transloadit.com/templates/#{TEMPLATE_ID}?method=delete"
+      url         = "https://api2.transloadit.com/templates/#{TEMPLATE_ID}"
 
       REQUEST_OPTS =
         url    : url
-        method : "get"
+        method : "put"
+        headers :
+          "X-Method-Override": "DELETE"
         params : {}
 
       CB = {}

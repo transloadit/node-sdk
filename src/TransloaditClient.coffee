@@ -163,8 +163,10 @@ class TransloaditClient
 
   deleteTemplate: (templateId, cb) ->
     requestOpts =
-      url     : @_serviceUrl() + "/templates/#{templateId}?method=delete"
-      method  : "get"
+      url     : @_serviceUrl() + "/templates/#{templateId}"
+      method  : "put"
+      headers:
+        "X-Method-Override": "DELETE"
       params  : {}
 
     @_remoteJson requestOpts, cb
@@ -330,6 +332,9 @@ class TransloaditClient
     requestOpts =
       uri     : url
       timeout : timeout
+
+    if opts.headers?
+      requestOpts.headers = opts.headers
 
     req = request[method] requestOpts, (err, res) ->
       if err
