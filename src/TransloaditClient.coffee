@@ -3,6 +3,7 @@ request = reqr "request"
 crypto  = reqr "crypto"
 _       = reqr "underscore"
 fs      = reqr "fs"
+retry   = reqr "retry"
 
 class TransloaditClient
   constructor: (opts) ->
@@ -121,7 +122,7 @@ class TransloaditClient
 
       status = result
       opts   =
-        url     : result.assembly_url
+        url : result.assembly_url
 
       @_remoteJson opts, (err, result) ->
         if err
@@ -318,6 +319,25 @@ class TransloaditClient
     return @_protocol + @_service
 
   _remoteJson: (opts, cb) ->
+    operation = retry.operation(
+      retries    : 5
+      factor     : 3.28
+      minTimeout : 1 * 1000
+      maxTimeout : 8 * 1000
+    )
+
+    operation.attempt =>
+      @__remoteJson opts, (err, result) =>
+        if operation.retry(err)
+          return
+
+        mainError = null
+        if err
+          mainError = operation.mainError()
+
+        cb mainError, result
+
+  __remoteJson: (opts, cb) ->
     timeout = opts.timeout || 5000
     url     = opts.url || null
     method  = opts.method || "get"

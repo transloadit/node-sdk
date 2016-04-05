@@ -675,7 +675,7 @@ describe "TransloaditClient", ->
 
       expect(client._serviceUrl()).to.equal client._protocol + client._service
 
-  describe "_remoteJson", ->
+  describe "__remoteJson", ->
     it "should make proper remote GET calls", ->
       client = new TransloaditClient
       #@todo figure out how to test direct calls to request
