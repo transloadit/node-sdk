@@ -7,7 +7,7 @@ This is the official Node.js SDK for Transloadit. It's been provided by the foun
 Inside your project, type
 
 ```bash
-npm install --save transloadit
+npm install --save --save-exact transloadit
 ```
 
 If there are no errors, you can start using the module.
