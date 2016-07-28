@@ -46,7 +46,7 @@
     "release:patch": "env SEMANTIC=patch npm run release",
     "release": "npm version ${SEMANTIC:-patch} -m \"Release %s\" && git push && git push --tags && npm publish",
     "test": "npm-run-all lint transpile mocha",
-    "transpile": "coffee -c -o lib src/TransloaditClient.coffee"
+    "transpile": "coffee --compile --output lib src/TransloaditClient.coffee"
   },
   "license": "MIT",
   "main": "./index"
