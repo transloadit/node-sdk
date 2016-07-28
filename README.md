@@ -174,7 +174,7 @@ Contributions from:
 
 Thanks to:
 
-* Ian Hansen for donating the `transloadit` npm name. You can still access his code under `v0.0.0`.
+* [Ian Hansen](https://github.com/supershabam) for donating the `transloadit` npm name. You can still access his code under `v0.0.0`.
 
 ## License
 
