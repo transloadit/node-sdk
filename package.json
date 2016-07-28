@@ -25,7 +25,7 @@
     "chai": "3.5.0",
     "coffee-script": "1.10.0",
     "coffeelint": "1.15.7",
-    "gently": "git://github.com/felixge/node-gently.git#ac62fdfc27b13fcd3fb59c0cf67609aecac3c928",
+    "gently": "0.10.0",
     "mocha": "3.0.0-2",
     "should": "10.0.0"
   },
