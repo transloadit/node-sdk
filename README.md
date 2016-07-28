@@ -146,20 +146,24 @@ We'd be happy to accept pull requests. If you plan on working on something big, 
 
 ### Building
 
-The SDK is written in [CoffeeScript](http://coffeescript.org/), but the JavaScript it generates is commited back into the repository so people can use this module without a CoffeeScript dependency. If you want to work on the source, please do so in `./src` and type: `make build` or `make test` (also builds first). Please don't edit generated JavaScript in `./lib`!
+The SDK is written in [CoffeeScript](http://coffeescript.org/), but the JavaScript it generates is commited back into the repository so people can use this module without a CoffeeScript dependency. If you want to work on the source, please do so in `./src` and type: `npm run build` or `npm run test` (also builds first). Please don't edit generated JavaScript in `./lib`!
 
 ### Testing
 
-Check your sources for linting errors via `make lint`, and unit tests via `make test`.
+Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm run test`, or `npm run mocha` for faster iterations.
 
 ### Releasing
 
-Releasing a new version to npmjs.org can be done via `make release-major` (or minor / patch, depending on the [semantic versioning](http://semver.org/) impact of your changes). This will
+Releasing a new version to npmjs.org can be done via `npm run release:major` (or minor / patch, depending on the [semantic versioning](http://semver.org/) impact of your changes). This will automatically:
 
- - update the `package.json`
- - save a release commit with the updated version in Git
- - push to Github
- - publish to npmjs.org
+ - Bump the version inside the `package.json`
+ - Save a release commit with the updated version in Git
+ - Push a tag to Github
+ - Publish to npmjs.org
+
+### Convenience
+
+If you come from a unix background and fancy faster auto-complete, you'll be delighted to know that all npm scripts are also accessible under `make`, via fakefile.
 
 ## Authors
 

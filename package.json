@@ -15,6 +15,8 @@
     "node": ">= 0.10.0"
   },
   "dependencies": {
+    "fakefile": "0.0.8",
+    "npm-run-all": "2.3.0",
     "request": "~2.64.0",
     "retry": "^0.9.0",
     "underscore": "1.8.3"
@@ -35,7 +37,16 @@
     "lib": "./lib"
   },
   "scripts": {
-    "test": "make test"
+    "build": "npm-run-all lint transpile",
+    "lint": "coffeelint --file ./coffeelint.json src",
+    "mocha": "node_modules/.bin/mocha --compilers coffee:coffee-script --require 'coffee-script/register' --reporter spec test/",
+    "next:update": "next-update --keep true --tldr",
+    "release:major": "env SEMANTIC=major npm run release",
+    "release:minor": "env SEMANTIC=minor npm run release",
+    "release:patch": "env SEMANTIC=patch npm run release",
+    "release": "npm version ${SEMANTIC:-patch} -m \"Release %s\" && git push && git push --tags && npm publish",
+    "test": "npm-run-all lint transpile mocha",
+    "transpile": "coffee -c -o lib src/TransloaditClient.coffee"
   },
   "license": "MIT",
   "main": "./index"

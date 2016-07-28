@@ -1,40 +1,40 @@
-SHELL := /bin/bash
-COFFEE     = node_modules/.bin/coffee
-COFFEELINT = node_modules/.bin/coffeelint
-MOCHA      = node_modules/.bin/mocha --compilers coffee:coffee-script --require "coffee-script/register"
-REPORTER   = nyan
+# Licensed under MIT.
+# Copyright (2016) by Kevin van Zonneveld https://twitter.com/kvz
+#
+# https://www.npmjs.com/package/fakefile
+#
+# This Makefile offers convience shortcuts into any Node.js project that utilizes npm scripts.
+# It functions as a wrapper around the actual listed in `package.json`
+# So instead of typing:
+#
+#  $ npm script build:assets
+#
+# you could also type:
+#
+#  $ make build-assets
+#
+# Notice that colons (:) are replaced by dashes for Makefile compatibility.
+#
+# The benefits of this wrapper are:
+#
+# - You get to keep the the scripts package.json, which is more portable
+#   (Makefiles & Windows are harder to mix)
+# - Offer a polite way into the project for developers coming from different
+#   languages (npm scripts is obviously very Node centric)
+# - Profit from better autocomplete (make <TAB><TAB>) than npm currently offers.
+#   OSX users will have to install bash-completion
+#   (http://davidalger.com/development/bash-completion-on-os-x-with-brew/)
 
-lint:
-	@[ ! -f coffeelint.json ] && $(COFFEELINT) --makeconfig > coffeelint.json || true
-	$(COFFEELINT) --file ./coffeelint.json src
+define npm_script_targets
+TARGETS := $(shell node -e 'for (var k in require("./package.json").scripts) {console.log(k.replace(/:/g, "-"));}')
+$$(TARGETS):
+	npm run $(subst -,:,$(MAKECMDGOALS))
 
-build:
-	make lint || true
-	$(COFFEE) $(CSOPTS) -c -o lib src/TransloaditClient.coffee
+.PHONY: $$(TARGETS)
+endef
 
-test: build
-	$(MOCHA) --reporter $(REPORTER) test/
+$(eval $(call npm_script_targets))
 
-compile:
-	@echo "Compiling files"
-	time make build
-
-watch:
-	watch -n 2 make -s compile
-
-release-major: build test
-	npm version major -m "Release %s"
-	git push
-	npm publish
-
-release-minor: build test
-	npm version minor -m "Release %s"
-	git push
-	npm publish
-
-release-patch: build test
-	npm version patch -m "Release %s"
-	git push
-	npm publish
-
-.PHONY: test lint build release compile watch
+# These npm run scripts are available, without needing to be mentioned in `package.json`
+install:
+	npm run install
