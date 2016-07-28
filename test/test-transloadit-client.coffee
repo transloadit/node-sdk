@@ -8,9 +8,12 @@ TransloaditClient = require "../src/TransloaditClient"
 describe "TransloaditClient", ->
   describe "constructor", ->
     it "should set some default properties", ->
-      client = new TransloaditClient
-      expect(client._authKey).to.equal null
-      expect(client._authSecret).to.equal null
+      opts =
+        authKey    : "foo_key"
+        authSecret : "foo_secret"
+      client = new TransloaditClient opts
+      expect(client._authKey).to.equal "foo_key"
+      expect(client._authSecret).to.equal "foo_secret"
       expect(client._service).to.equal "api2.transloadit.com"
       expect(client._region).to.equal "us-east-1"
       expect(client._protocol).to.equal "https://"
@@ -30,7 +33,7 @@ describe "TransloaditClient", ->
 
   describe "addStream", ->
     it "should properly add a stream", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       NAME   = "foo_name"
       STREAM = {}
@@ -42,7 +45,7 @@ describe "TransloaditClient", ->
 
   describe "addFile", ->
     it "should properly add a stream", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       NAME   = "foo_name"
       PATH   = "foo_path"
@@ -60,7 +63,7 @@ describe "TransloaditClient", ->
 
   describe "createAssembly", ->
     it "should request a bored instance and then send the request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       client._streams = "foo"
 
       OPTS =
@@ -117,7 +120,7 @@ describe "TransloaditClient", ->
 
   describe "deleteAssembly", ->
     it "should find the assembly url, and then call DELETE on it", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       OPTS =
         url     : "https://api2.transloadit.com/assemblies/foo_assembly_id"
@@ -150,7 +153,7 @@ describe "TransloaditClient", ->
 
   describe "replayAssembly", ->
     it "should send the proper request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       ASSEMBLY_ID = "foo_assembly_id"
       OPTS =
         assembly_id: ASSEMBLY_ID
@@ -171,7 +174,7 @@ describe "TransloaditClient", ->
 
   describe "replayAssemblyNotification", ->
     it "should send the proper request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       ASSEMBLY_ID = "foo_assembly_id"
       url = "https://api2.transloadit.com/assembly_notifications/"
@@ -196,7 +199,7 @@ describe "TransloaditClient", ->
 
   describe "listAssemblies", ->
     it "should send the proper request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       url = "https://api2.transloadit.com/assemblies"
 
       PARAMS =
@@ -216,7 +219,7 @@ describe "TransloaditClient", ->
 
   describe "listAssemblyNotifications", ->
     it "should send the proper request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       url = "https://api2.transloadit.com/assembly_notifications"
 
       PARAMS =
@@ -236,7 +239,7 @@ describe "TransloaditClient", ->
 
   describe "createTemplate", ->
     it "should send the proper request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       url = "https://api2.transloadit.com/templates"
 
       PARAMS =
@@ -255,7 +258,7 @@ describe "TransloaditClient", ->
 
   describe "editTemplate", ->
     it "should send the proper request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       TEMPLATE_ID = "foo_template_id"
       url         = "https://api2.transloadit.com/templates/#{TEMPLATE_ID}"
@@ -276,7 +279,7 @@ describe "TransloaditClient", ->
 
   describe "deleteTemplate", ->
     it "should send the proper request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       TEMPLATE_ID = "foo_template_id"
       url         = "https://api2.transloadit.com/templates/#{TEMPLATE_ID}"
@@ -297,7 +300,7 @@ describe "TransloaditClient", ->
 
   describe "getTemplate", ->
     it "should send the proper request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       TEMPLATE_ID  = "foo_template_id"
       url          = "https://api2.transloadit.com/templates/#{TEMPLATE_ID}"
@@ -315,7 +318,7 @@ describe "TransloaditClient", ->
 
   describe "listTemplates", ->
     it "should send the proper request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       url = "https://api2.transloadit.com/templates"
 
       PARAMS =
@@ -335,7 +338,7 @@ describe "TransloaditClient", ->
 
   describe "getAssembly", ->
     it "should find the assembly's URL and then send the request", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       OPTS =
         url: "https://api2.transloadit.com/assemblies/foo_assembly_id"
 
@@ -371,7 +374,7 @@ describe "TransloaditClient", ->
 
   describe "_appendForm", ->
     it "should append all required fields to the request form", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       client._streams =
         stream1: "foo_stream"
@@ -426,7 +429,7 @@ describe "TransloaditClient", ->
 
   describe "_appendParamsToUrl", ->
     it "should append params and signature to the given url", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       URL         = "foo_url"
       PARAMS      =
@@ -448,7 +451,7 @@ describe "TransloaditClient", ->
 
   describe "_getBoredInstance", ->
     it "should figure out a bored instance", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       URL          = "foo_url"
       CUSTOM_LOGIC = true
@@ -469,7 +472,7 @@ describe "TransloaditClient", ->
       expect(calls).to.equal 1
 
     it "should resolve to the custom bored logic if that fails", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       URL          = "foo_url"
       CUSTOM_LOGIC = true
       INSTANCE     =
@@ -509,7 +512,7 @@ describe "TransloaditClient", ->
 
   describe "_findBoredInstanceUrl", ->
     it "should find all uploaders from the cached S3 instances", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       errCalls  = 0
       calls     = 0
@@ -554,7 +557,7 @@ describe "TransloaditClient", ->
 
   describe "_findResponsiveInstance", ->
     it "should error out if it cannot find any more instances", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       calls = 0
       CB = (err) ->
@@ -565,7 +568,7 @@ describe "TransloaditClient", ->
       expect(calls).to.equal 1
 
     it "should figure out a responsive instance from the ones given to it", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       calls     = 0
       ERR       = {}
@@ -599,10 +602,10 @@ describe "TransloaditClient", ->
 
   describe "_prepareParams", ->
     it "should add the auth key, secret and expires parameters", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       r = JSON.parse client._prepareParams()
-      expect(r.auth.key).to.equal null
+      expect(r.auth.key).to.equal "foo_key"
       expect(r.auth.expires).not.to.equal null
 
       opts =
@@ -614,7 +617,7 @@ describe "TransloaditClient", ->
       expect(r.auth.expires).not.to.equal null
 
     it "should not add anything if the params are already present", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       PARAMS =
         auth:
@@ -628,7 +631,8 @@ describe "TransloaditClient", ->
 
   describe "calcSignature", ->
     it "should calc _prepareParams and _calcSignature", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
+
       client._authSecret = "13123123123"
 
       PARAMS      = {foo: "bar"}
@@ -649,7 +653,8 @@ describe "TransloaditClient", ->
 
   describe "_calcSignature", ->
     it "should calculate the signature properly", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
+
       client._authSecret = "13123123123"
 
       expected = "57ddad5dbba538590e60f0938f364c7179316eba"
@@ -668,7 +673,7 @@ describe "TransloaditClient", ->
 
   describe "_serviceUrl", ->
     it "should return the service url", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
 
       client._protocol = "foo_protocol"
       client._service = "foo_service"
@@ -677,10 +682,9 @@ describe "TransloaditClient", ->
 
   describe "__remoteJson", ->
     it "should make proper remote GET calls", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       #@todo figure out how to test direct calls to request
 
     it "should append params to the request form for POST requests", ->
-      client = new TransloaditClient
+      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       #@todo
-
