@@ -327,7 +327,7 @@ class TransloaditClient
     )
 
     operation.attempt =>
-      @__remoteJson opts, (err, result) =>
+      @__remoteJson opts, (err, result) ->
         if operation.retry(err)
           return
 
