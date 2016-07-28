@@ -1,3 +1,5 @@
 node_modules
 credentials.js
 sample.js
+
+npm-debug.log
