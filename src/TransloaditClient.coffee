@@ -11,8 +11,14 @@ class TransloaditClient
 
     opts.useSsl ?= true
 
-    @_authKey    = opts.authKey || null
-    @_authSecret = opts.authSecret || null
+    if !opts.authKey?
+      throw new Error "Please provide an authKey"
+
+    if !opts.authKey?
+      throw new Error "Please provide an authSecret"
+
+    @_authKey    = opts.authKey
+    @_authSecret = opts.authSecret
     @_service    = opts.service || "api2.transloadit.com"
     @_region     = opts.region || "us-east-1"
     @_protocol   = if opts.useSsl then "https://" else "http://"
