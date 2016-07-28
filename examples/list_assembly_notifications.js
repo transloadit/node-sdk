@@ -1,3 +1,5 @@
+// You'll likely just want to `require('transloadit')`, but we're requiring the local
+// variant here for easier testing:
 var TransloaditClient = require("../lib/TransloaditClient");
 
 var client = new TransloaditClient({

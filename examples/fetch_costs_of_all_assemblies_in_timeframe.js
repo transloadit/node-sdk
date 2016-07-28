@@ -1,5 +1,7 @@
 // make sure to "npm install async" for this demo
 var async             = require("async");
+// You'll likely just want to `require('transloadit')`, but we're requiring the local
+// variant here for easier testing:
 var TransloaditClient = require("./lib/TransloaditClient");
 
 function TransloaditCostFetcher(authKey, secret) {
