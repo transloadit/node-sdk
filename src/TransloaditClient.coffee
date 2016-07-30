@@ -37,6 +37,7 @@ class TransloaditClient
   getLastUsedAssemblyUrl: ->
     return @_lastUsedAssemblyUrl
 
+  # On success, calls cb with an Assembly Status Response
   createAssembly: (opts, cb) ->
     @_getBoredInstance null, true, (err, url) =>
       if err || !url?
@@ -47,7 +48,7 @@ class TransloaditClient
       requestOpts =
         url     : @_lastUsedAssemblyUrl
         method  : "post"
-        timeout : 24 * 60 * 60 * 1000
+        timeout : 24 * 60 * 60 * 1000 # 1 day
         params  : opts.params || {}
         fields  : opts.fields || {}
 
@@ -64,6 +65,17 @@ class TransloaditClient
         err = new Error(result.error || "NOT OK")
         cb err
 
+  # Looks up the assembly_url for the given assembly_id, then deletes sends a
+  # DELETE to the assembly_url.
+  # TODO this adds an unnecessary extra request, Assembly Status responses
+  # already report the assembly_url. However other endpoints use the
+  # assembly_id. Ideas for addressing he inefficientcy without compromising
+  # consistency:
+  # - Accept either assembly_ids or assembly_urls in all methods
+  #   - Disadvantage: it's not clear which is more efficient from the API layer,
+  #     may result in using assembly_urls for everything, which would be worse
+  #     than right now.
+  # - Offer a seperate optimized version of deleteAssembly
   deleteAssembly: (assemblyId, cb) ->
     opts =
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
@@ -77,7 +89,7 @@ class TransloaditClient
         url     : result.assembly_url
         timeout : 5000
       request.del opts, cb
-
+  
   replayAssembly: (opts, cb) ->
     assemblyId  = opts.assembly_id
     requestOpts =
@@ -101,7 +113,9 @@ class TransloaditClient
         notify_url: opts.notify_url
 
     @_remoteJson requestOpts, cb
-
+  
+  # This method is fairly low level, as it doesn't manage pagination. Maybe it
+  # could be deprecated in favor of a generator method.
   listAssemblyNotifications: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assembly_notifications"
@@ -109,7 +123,8 @@ class TransloaditClient
       params  : params || {}
 
     @_remoteJson requestOpts, cb
-
+  
+  # Doesn't handle pagination, see listAssemblyNotifications
   listAssemblies: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assemblies"
@@ -167,7 +182,8 @@ class TransloaditClient
 
       err = new Error(result.error || "NOT OK")
       cb err
-
+  
+  # Why does this use X-Method-Override?
   deleteTemplate: (templateId, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/templates/#{templateId}"
@@ -200,12 +216,17 @@ class TransloaditClient
 
     return {signature: signature, params: jsonParams}
 
+  # Does this really need to be its own method? Looks like it doesn't need to be
+  # anymore. See:
+  # https://github.com/transloadit/node-sdk/commit/d23ecaff92a6bb33cb18810e433fcbcd7d31c562
   _calcSignature: (toSign) ->
     return crypto
       .createHmac("sha1", @_authSecret)
       .update(new Buffer(toSign, "utf-8"))
       .digest "hex"
 
+  # Sets the multipart/form-data for POST, PUT and DELETE requests, including
+  # the streams, the signed params, and any additional fields.
   _appendForm: (req, params, fields) ->
     sigData    = @calcSignature params
     jsonParams = sigData.params
@@ -228,6 +249,8 @@ class TransloaditClient
     _.each @_streams, (value, key) ->
       form.append key, value
 
+  # Implements HTTP GET query params, handling the case where the url already
+  # has params.
   _appendParamsToUrl: (url, params) ->
     sigData    = @calcSignature params
     signature  = sigData.signature
@@ -243,6 +266,9 @@ class TransloaditClient
 
     return url
 
+  # The /instances/bored endpoint is not documented on the website.
+  # This method is only ever used once, the url and customBoredLogic might be
+  # unnecessary.
   _getBoredInstance: (url, customBoredLogic, cb) ->
     url ?= @_serviceUrl() + "/instances/bored"
     opts =
@@ -275,7 +301,7 @@ class TransloaditClient
         url     : url
 
       cb err
-
+  
   _findBoredInstanceUrl: (cb) ->
     url  = "http://infra-#{@_region}.transloadit.com.s3.amazonaws.com/"
     url += "cached_instances.json"
@@ -284,6 +310,7 @@ class TransloaditClient
       url     : url
       timeout : 3000
 
+    # TODO Is _remoteJson appropriate here?
     @_remoteJson opts, (err, result) =>
       if err
         err.message = "Could not query S3 for cached uploaders: #{err.message}"
@@ -302,12 +329,14 @@ class TransloaditClient
       url     : @_protocol + url
       timeout : 3000
 
+    # TODO Could this be done concurrently instead?
     @_remoteJson opts, (err, result) =>
       if err
         return @_findResponsiveInstance instances, index + 1, cb
 
       cb null, url
 
+  # Responsible for including auth parameters in all requests
   _prepareParams: (params) ->
     params              ?= {}
     params.auth         ?= {}
@@ -324,6 +353,7 @@ class TransloaditClient
   _serviceUrl: ->
     return @_protocol + @_service
 
+  # Wrapper around __remoteJson which will retry in case of error
   _remoteJson: (opts, cb) ->
     operation = retry.operation(
       retries    : 5
@@ -343,6 +373,15 @@ class TransloaditClient
 
         cb mainError, result
 
+  # Responsible for making API calls. Automatically sends streams with any POST,
+  # PUT or DELETE requests. Automatically adds signature parameters to all
+  # requests. Also automatically parses the JSON response.
+  # opts fields:
+  # timeout default 5000
+  # url required
+  # method default "get"
+  # params optional
+  # fields optional
   __remoteJson: (opts, cb) ->
     timeout = opts.timeout || 5000
     url     = opts.url || null
@@ -366,6 +405,7 @@ class TransloaditClient
       if err
         return cb err
 
+      # parse body
       result = null
       try
         result = JSON.parse res.body
