@@ -65,17 +65,11 @@ class TransloaditClient
         err = new Error(result.error || "NOT OK")
         cb err
 
-  # Looks up the assembly_url for the given assembly_id, then deletes sends a
-  # DELETE to the assembly_url.
-  # TODO this adds an unnecessary extra request, Assembly Status responses
-  # already report the assembly_url. However other endpoints use the
-  # assembly_id. Ideas for addressing he inefficientcy without compromising
-  # consistency:
-  # - Accept either assembly_ids or assembly_urls in all methods
-  #   - Disadvantage: it's not clear which is more efficient from the API layer,
-  #     may result in using assembly_urls for everything, which would be worse
-  #     than right now.
-  # - Offer a seperate optimized version of deleteAssembly
+  # Check if the specified assembly exists, canceling it if it does.
+  # TODO this adds an unnecessary extra request, the endpoint should properly
+  # handle when the specified assembly doesn't exist.
+  # TODO the DELETE request is issued directly through request.del, bypassing
+  # _calcSignature
   deleteAssembly: (assemblyId, cb) ->
     opts =
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
@@ -382,6 +376,9 @@ class TransloaditClient
   # method default "get"
   # params optional
   # fields optional
+  # TODO maybe "del" requests should be handled by something other than
+  # @_appendForm, since neither callsite issuing a DELETE request follows that
+  # path of execution.
   __remoteJson: (opts, cb) ->
     timeout = opts.timeout || 5000
     url     = opts.url || null
