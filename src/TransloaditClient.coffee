@@ -68,21 +68,24 @@ class TransloaditClient
   # Check if the specified assembly exists, canceling it if it does.
   # TODO this adds an unnecessary extra request, the endpoint should properly
   # handle when the specified assembly doesn't exist.
-  # TODO the DELETE request is issued directly through request.del, bypassing
-  # _calcSignature
   deleteAssembly: (assemblyId, cb) ->
     opts =
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
       timeout : 16000
 
-    @_remoteJson opts, (err, result) ->
-      if err
+    @_remoteJson opts, (err, result) =>
+      if err?
         return cb err
 
       opts =
         url     : result.assembly_url
         timeout : 5000
-      request.del opts, cb
+        method  : "del"
+        params  : {}
+
+      # TODO this breaks compatability, the cb used to take the request
+      # library's three parameters: error, response, body.
+      @_remoteJson opts, cb
   
   replayAssembly: (opts, cb) ->
     assemblyId  = opts.assembly_id
@@ -177,13 +180,10 @@ class TransloaditClient
       err = new Error(result.error || "NOT OK")
       cb err
   
-  # Why does this use X-Method-Override?
   deleteTemplate: (templateId, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/templates/#{templateId}"
-      method  : "put"
-      headers:
-        "X-Method-Override": "DELETE"
+      method  : "del"
       params  : {}
 
     @_remoteJson requestOpts, cb
@@ -376,9 +376,6 @@ class TransloaditClient
   # method default "get"
   # params optional
   # fields optional
-  # TODO maybe "del" requests should be handled by something other than
-  # @_appendForm, since neither callsite issuing a DELETE request follows that
-  # path of execution.
   __remoteJson: (opts, cb) ->
     timeout = opts.timeout || 5000
     url     = opts.url || null
@@ -411,6 +408,8 @@ class TransloaditClient
         msg   = "Unable to parse JSON from '#{requestOpts.uri}'. "
         msg  += "Code: #{res.statusCode}. Body: #{abbr}. "
         return cb new Error msg
+      if result.error?
+        return cb new Error "API returned error. Code: #{result.error}. Message: #{result.message}"
       cb null, result
 
     if method == "post" || method == "put" || method == "del"
