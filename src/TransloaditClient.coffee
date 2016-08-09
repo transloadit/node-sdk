@@ -39,31 +39,27 @@ class TransloaditClient
 
   # On success, calls cb with an Assembly Status Response
   createAssembly: (opts, cb) ->
-    @_getBoredInstance null, true, (err, url) =>
-      if err || !url?
+    @_lastUsedAssemblyUrl = "#{@_serviceUrl()}/assemblies"
+
+    requestOpts =
+      url     : @_lastUsedAssemblyUrl
+      method  : "post"
+      timeout : 24 * 60 * 60 * 1000 # 1 day
+      params  : opts.params || {}
+      fields  : opts.fields || {}
+
+    @_remoteJson requestOpts, (err, result) =>
+      # reset streams so they do not get used again in subsequent requests
+      @_streams = {}
+
+      if err
         return cb err
 
-      @_lastUsedAssemblyUrl = "#{@_protocol}api2-#{url}/assemblies"
+      if result && result.ok
+        return cb null, result
 
-      requestOpts =
-        url     : @_lastUsedAssemblyUrl
-        method  : "post"
-        timeout : 24 * 60 * 60 * 1000 # 1 day
-        params  : opts.params || {}
-        fields  : opts.fields || {}
-
-      @_remoteJson requestOpts, (err, result) =>
-        # reset streams so they do not get used again in subsequent requests
-        @_streams = {}
-
-        if err
-          return cb err
-
-        if result && result.ok
-          return cb null, result
-
-        err = new Error(result.error || "NOT OK")
-        cb err
+      err = new Error(result.error || "NOT OK")
+      cb err
 
   # Check if the specified assembly exists, canceling it if it does.
   # TODO this adds an unnecessary extra request, the endpoint should properly
@@ -259,76 +255,6 @@ class TransloaditClient
     url += "&params=#{jsonParams}"
 
     return url
-
-  # The /instances/bored endpoint is not documented on the website.
-  # This method is only ever used once, the url and customBoredLogic might be
-  # unnecessary.
-  _getBoredInstance: (url, customBoredLogic, cb) ->
-    url ?= @_serviceUrl() + "/instances/bored"
-    opts =
-      url: url
-
-    @_remoteJson opts, (err, instance) =>
-      if !err
-        if instance.error
-          return cb instance.error
-
-        return cb null, instance.api2_host
-
-      if customBoredLogic
-        @_findBoredInstanceUrl (err, theUrl) =>
-          if err
-            err =
-              error   : "BORED_INSTANCE_ERROR"
-              message : "Could not find a bored instance. #{err.message}"
-            return cb err
-
-          url = "#{@_protocol}api2-#{theUrl}/instances/bored"
-          @_getBoredInstance url, false, cb
-
-        return
-
-      err =
-        error   : "CONNECTION_ERROR"
-        message : "There was a problem connecting to the upload server"
-        reason  : err.message
-        url     : url
-
-      cb err
-  
-  _findBoredInstanceUrl: (cb) ->
-    url  = "http://infra-#{@_region}.transloadit.com.s3.amazonaws.com/"
-    url += "cached_instances.json"
-
-    opts =
-      url     : url
-      timeout : 3000
-
-    # TODO Is _remoteJson appropriate here?
-    @_remoteJson opts, (err, result) =>
-      if err
-        err.message = "Could not query S3 for cached uploaders: #{err.message}"
-        return cb err
-
-      instances = _.shuffle result.uploaders
-      @_findResponsiveInstance instances, 0, cb
-
-  _findResponsiveInstance: (instances, index, cb) ->
-    if !instances[index]
-      err = new Error "No responsive uploaders"
-      return cb err
-
-    url  = instances[index]
-    opts =
-      url     : @_protocol + url
-      timeout : 3000
-
-    # TODO Could this be done concurrently instead?
-    @_remoteJson opts, (err, result) =>
-      if err
-        return @_findResponsiveInstance instances, index + 1, cb
-
-      cb null, url
 
   # Responsible for including auth parameters in all requests
   _prepareParams: (params) ->
