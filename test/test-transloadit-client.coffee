@@ -273,9 +273,7 @@ describe "TransloaditClient", ->
 
       REQUEST_OPTS =
         url    : url
-        method : "put"
-        headers :
-          "X-Method-Override": "DELETE"
+        method : "del"
         params : {}
 
       CB = {}
