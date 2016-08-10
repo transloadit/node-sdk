@@ -185,3 +185,13 @@ describe "API integration", ->
             expect(err).to.not.exist
             expect(result.ok).to.equal "ASSEMBLY_REPLAYING"
             done()
+
+  describe "assembly list retrieval", ->
+    it "should retrieve a list of assemblies", (done) ->
+      client = new TransloaditClient { authKey, authSecret }
+
+      client.listAssemblies {}, (err, result) =>
+        expect(err).to.not.exist
+        expect(result).to.have.property "count"
+        expect(result).to.have.property("items").that.is.instanceof Array
+        done()
