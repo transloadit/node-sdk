@@ -1,6 +1,4 @@
-global.Gently = require "gently"
-gently = global.GENTLY = new Gently()
-
+gently            = require "./gently-preamble"
 should            = require("chai").should()
 expect            = require("chai").expect
 TransloaditClient = require "../src/TransloaditClient"

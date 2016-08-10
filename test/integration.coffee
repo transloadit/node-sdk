@@ -1,3 +1,4 @@
+require "./gently-preamble"
 expect            = require("chai").expect
 TransloaditClient = require "../src/TransloaditClient"
 request           = require "request"
