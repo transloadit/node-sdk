@@ -14,6 +14,35 @@ unless authKey? && authSecret?
   console.warn msg
   return # Terminates module execution without existing the test process
 
+startServer = (handler, cb) ->
+  server = http.createServer handler
+
+  # Find a port to use
+  port = 8000
+  server.on "error", (err) =>
+    if err.code == "EADDRINUSE"
+      if ++port >= 65535
+        server.close()
+        cb new Error "Failed to bind to port"
+      server.listen port, "127.0.0.1"
+    else
+      cb err
+
+  server.listen port, "127.0.0.1"
+
+  # Once a port has been found and the server is ready, setup the
+  # localtunnel
+  server.on "listening", =>
+    localtunnel port, (err, tunnel) =>
+      if err?
+        server.close()
+        return cb err
+      cb null,
+        url: tunnel.url
+        close: =>
+          tunnel.close()
+          server.close()
+
 # https://transloadit.com/demos/importing-files/import-a-file-over-http
 genericImg    = "https://transloadit.com/img/robots/170x170/audio-encode.jpg"
 genericParams =
@@ -30,7 +59,7 @@ genericParams =
         height: 130
 
 describe "API integration", ->
-  @timeout 10000
+  @timeout 20000
   describe "assembly creation", ->
     it "should create a retrievable assembly on the server", (done) ->
       client = new TransloaditClient { authKey, authSecret }
@@ -73,8 +102,7 @@ describe "API integration", ->
       readyToServe = false
       callback = -> undefined # No-op function
 
-      # Serve genericImg on GET /
-      server = http.createServer (req, res) =>
+      handler = (req, res) =>
         handleRequest = =>
           if url.parse(req.url).pathname != "/"
             res.writeHead 404
@@ -91,61 +119,43 @@ describe "API integration", ->
         else
           callback = handleRequest
 
-      # Find a port to use
-      port = 8000
-      server.on "error", (err) =>
-        if err.code == "EADDRINUSE"
-          port++
-          server.listen port, "127.0.0.1"
-        else
-          console.log "WARN failed to start local HTTP server"
-          console.log err
-          done()
+      startServer handler, (err, server) =>
+        expect(err).to.not.exist
+        # TODO the server won't close if the test fails
 
-      server.listen port, "127.0.0.1"
+        params =
+          params:
+            steps:
+              import:
+                robot: "/http/import"
+                url:   server.url
+              resize:
+                robot:  "/image/resize"
+                use:    "import"
+                result: true
+                width:  130
+                height: 130
 
-      # Once a port has been found and the server is ready, setup the
-      # localtunnel
-      server.on "listening", =>
-        localtunnel port, (err, tunnel) =>
-          if err?
-            console.log "WARN failed to start localtunnel"
-            console.log err
-            done()
-            return
+        # Finally send the createAssembly request
+        client.createAssembly params, (err, result) =>
+          expect(err).to.not.exist
 
-          params =
-            params:
-              steps:
-                import:
-                  robot: "/http/import"
-                  url:   tunnel.url
-                resize:
-                  robot:  "/image/resize"
-                  use:    "import"
-                  result: true
-                  width:  130
-                  height: 130
+          id = result.assembly_id
+          
+          # Now delete it
+          client.deleteAssembly id, (err, result) =>
+            # Allow the upload to finish
+            readyToServe = true
+            callback()
 
-          # Finally send the createAssembly request
-          client.createAssembly params, (err, result) =>
             expect(err).to.not.exist
+            expect(result.ok).to.equal "ASSEMBLY_CANCELED"
 
-            id = result.assembly_id
-            
-            # Now delete it
-            client.deleteAssembly id, (err, result) =>
-              # Allow the upload to finish
-              readyToServe = true
-              callback()
-
+            # Successful cancel requests get ASSEMBLY_CANCELED even when it
+            # completed, so we now request the assembly status to check the
+            # *actual* status.
+            client.getAssembly id, (err, result) =>
               expect(err).to.not.exist
               expect(result.ok).to.equal "ASSEMBLY_CANCELED"
-
-              # Successful cancel requests get ASSEMBLY_CANCELED even when it
-              # completed, so we now request the assembly status to check the
-              # *actual* status.
-              client.getAssembly id, (err, result) =>
-                expect(err).to.not.exist
-                expect(result.ok).to.equal "ASSEMBLY_CANCELED"
-                done()
+              server.close()
+              done()
