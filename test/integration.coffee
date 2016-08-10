@@ -160,3 +160,28 @@ describe "API integration", ->
               expect(result.ok).to.equal "ASSEMBLY_CANCELED"
               server.close()
               done()
+
+  describe "replaying assemblies", ->
+    it "should replay an assembly after it has completed", (done) ->
+      client = new TransloaditClient { authKey, authSecret }
+      
+      client.createAssembly genericParams, (err, result) =>
+        expect(err).to.not.exist
+
+        originalId = result.assembly_id
+        
+        # ensure that the assembly has completed
+        ensureCompletion = (cb) =>
+          client.getAssembly originalId, (err, result) =>
+            expect(err).to.not.exist
+
+            if result.ok == "ASSEMBLY_UPLOADING" || result.ok == "ASSEMBLY_EXECUTING"
+              ensureCompletion cb
+            else
+              cb()
+
+        ensureCompletion =>
+          client.replayAssembly { assembly_id: originalId }, (err, result) =>
+            expect(err).to.not.exist
+            expect(result.ok).to.equal "ASSEMBLY_REPLAYING"
+            done()
