@@ -14,7 +14,7 @@ class TransloaditClient
     if !opts.authKey?
       throw new Error "Please provide an authKey"
 
-    if !opts.authKey?
+    if !opts.authSecret?
       throw new Error "Please provide an authSecret"
 
     @_authKey    = opts.authKey

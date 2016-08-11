@@ -12,10 +12,10 @@ _                 = require "underscore"
 authKey    = process.env.TRANSLOADIT_KEY
 authSecret = process.env.TRANSLOADIT_SECRET
 unless authKey? && authSecret?
-  msg  = "specify envrionment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET"
+  msg  = "specify environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET"
   msg += " to enable integration tests."
   console.warn msg
-  return # Terminates module execution without existing the test process
+  return # Terminates module execution without exiting the test process
 
 startServer = (handler, cb) ->
   server = http.createServer handler
