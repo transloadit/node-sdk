@@ -195,35 +195,46 @@ describe "API integration", ->
         done()
 
   describe "assembly notification", ->
-    it "should send a notification upon assembly completion", (done) ->
-      client = new TransloaditClient { authKey, authSecret }
+    # helper function
+    streamToString = (stream, cb) =>
+      chunks = []
+      stream.on "data", (chunk) => chunks.push chunk
+      stream.on "error", (err) => cb err
+      stream.on "end", => cb null, chunks.join ""
 
-      # helper function
-      streamToString = (stream, cb) =>
-        chunks = []
-        stream.on "data", (chunk) => chunks.push chunk
-        stream.on "error", (err) => cb err
-        stream.on "end", => cb null, chunks.join ""
+    testCase = (desc, endBehavior) =>
+      it desc, (done) ->
+        client = new TransloaditClient { authKey, authSecret }
 
-      # listens for notifications
-      handler = (req, res) =>
-        expect(url.parse(req.url).pathname).to.equal "/"
+        # listens for notifications
+        handler = (req, res) =>
+          expect(url.parse(req.url).pathname).to.equal "/"
 
-        expect(req.method).to.equal "POST"
-        streamToString req, (err, body) =>
-          result = JSON.parse url.parse("?#{body}", true).query.transloadit
-          expect(result).to.have.property("ok").that.equals "ASSEMBLY_COMPLETED"
-          res.writeHead 200
-          res.end()
-          done()
+          expect(req.method).to.equal "POST"
+          streamToString req, (err, body) =>
+            result = JSON.parse url.parse("?#{body}", true).query.transloadit
+            expect(result).to.have.property("ok").that.equals "ASSEMBLY_COMPLETED"
+            res.writeHead 200
+            res.end()
+            endBehavior client, result.assembly_id, done
 
-      startServer handler, (err, server) =>
-        expect(err).to.not.exist
-        
-        params =
-          params: _.extend genericParams.params,
-            notify_url: server.url
-
-        client.createAssembly params, (err, result) =>
+        startServer handler, (err, server) =>
           expect(err).to.not.exist
           
+          params =
+            params: _.extend genericParams.params,
+              notify_url: server.url
+
+          client.createAssembly params, (err, result) =>
+            expect(err).to.not.exist
+            
+    testCase "should send a notification upon assembly completion", (client, id, done) =>
+      done()
+
+    notificationsRecvd = 0
+    testCase "should replay the notification when requested", (client, id, done) =>
+      if notificationsRecvd++ == 0
+        client.replayAssemblyNotification { assembly_id: id }, (err) =>
+          expect(err).to.not.exist
+      else
+        done()
