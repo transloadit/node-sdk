@@ -6,6 +6,7 @@ stream            = require "stream"
 localtunnel       = require "localtunnel"
 http              = require "http"
 url               = require "url"
+querystring       = require "querystring"
 _                 = require "underscore"
 
 authKey    = process.env.TRANSLOADIT_KEY
@@ -212,7 +213,7 @@ describe "API integration", ->
 
           expect(req.method).to.equal "POST"
           streamToString req, (err, body) =>
-            result = JSON.parse url.parse("?#{body}", true).query.transloadit
+            result = JSON.parse querystring.parse(body).transloadit
             expect(result).to.have.property("ok").that.equals "ASSEMBLY_COMPLETED"
             res.writeHead 200
             res.end()
@@ -238,3 +239,37 @@ describe "API integration", ->
           expect(err).to.not.exist
       else
         done()
+
+  describe "template methods", ->
+    templName = "node-sdk-test-#{(new Date()).toISOString()}"
+    templId = null
+    client = new TransloaditClient { authKey, authSecret }
+
+    it "should allow creating a template", (done) ->
+      client.createTemplate { name: templName, template: genericParams.params }, (err, result) =>
+        expect(err).to.not.exist
+        templId = result.template_id
+        done()
+
+
+    it "should be able to fetch a template's definition", (done) ->
+      expect(templId).to.exist
+
+      client.getTemplate templId, (err, result) =>
+        expect(err).to.not.exist
+        expect(result.template_name).to.equal templName
+        expect(result.template_content).to.deep.equal genericParams.params
+        done()
+
+    it "should delete the template successfully", (done) ->
+      expect(templId).to.exist
+
+      client.deleteTemplate templId, (err, result) =>
+        expect(err).to.not.exist
+        expect(result.ok).to.equal "TEMPLATE_DELETED"
+        client.getTemplate templId, (err, result) =>
+          expect(result).to.not.exist
+          expect(err).to.exist
+          expect(err.message).to.match /TEMPLATE_NOT_FOUND/
+          done()
+      
