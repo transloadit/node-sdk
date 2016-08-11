@@ -6,6 +6,7 @@ stream            = require "stream"
 localtunnel       = require "localtunnel"
 http              = require "http"
 url               = require "url"
+_                 = require "underscore"
 
 authKey    = process.env.TRANSLOADIT_KEY
 authSecret = process.env.TRANSLOADIT_SECRET
@@ -60,7 +61,7 @@ genericParams =
         height: 130
 
 describe "API integration", ->
-  @timeout 20000
+  @timeout 100000
   describe "assembly creation", ->
     it "should create a retrievable assembly on the server", (done) ->
       client = new TransloaditClient { authKey, authSecret }
@@ -105,11 +106,8 @@ describe "API integration", ->
 
       handler = (req, res) =>
         handleRequest = =>
-          if url.parse(req.url).pathname != "/"
-            res.writeHead 404
-            res.end()
-            return
-          
+          expect(url.parse(req.url).pathname).to.equal "/"
+
           res.setHeader "Content-type", "image/jpeg"
           res.writeHead 200
           request.get(genericImg).pipe(res)
@@ -195,3 +193,37 @@ describe "API integration", ->
         expect(result).to.have.property "count"
         expect(result).to.have.property("items").that.is.instanceof Array
         done()
+
+  describe "assembly notification", ->
+    it "should send a notification upon assembly completion", (done) ->
+      client = new TransloaditClient { authKey, authSecret }
+
+      # helper function
+      streamToString = (stream, cb) =>
+        chunks = []
+        stream.on "data", (chunk) => chunks.push chunk
+        stream.on "error", (err) => cb err
+        stream.on "end", => cb null, chunks.join ""
+
+      # listens for notifications
+      handler = (req, res) =>
+        expect(url.parse(req.url).pathname).to.equal "/"
+
+        expect(req.method).to.equal "POST"
+        streamToString req, (err, body) =>
+          result = JSON.parse url.parse("?#{body}", true).query.transloadit
+          expect(result).to.have.property("ok").that.equals "ASSEMBLY_COMPLETED"
+          res.writeHead 200
+          res.end()
+          done()
+
+      startServer handler, (err, server) =>
+        expect(err).to.not.exist
+        
+        params =
+          params: _.extend genericParams.params,
+            notify_url: server.url
+
+        client.createAssembly params, (err, result) =>
+          expect(err).to.not.exist
+          
