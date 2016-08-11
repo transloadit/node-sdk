@@ -39,7 +39,7 @@
   },
   "scripts": {
     "build": "npm-run-all lint transpile",
-    "lint": "coffeelint --file ./coffeelint.json src",
+    "lint": "coffeelint --file ./coffeelint.json src test",
     "mocha": "node_modules/.bin/mocha --compilers coffee:coffee-script --require 'coffee-script/register' --reporter spec test/",
     "next:update": "next-update --keep true --tldr",
     "release:major": "env SEMANTIC=major npm run release",

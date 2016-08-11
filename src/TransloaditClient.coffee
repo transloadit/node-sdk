@@ -82,7 +82,7 @@ class TransloaditClient
 
     operation = retry.operation()
     operation.attempt (attempt) =>
-      @_remoteJson opts, (err, result) =>
+      @_remoteJson opts, (err, result) ->
         if err?
           return cb err
         
