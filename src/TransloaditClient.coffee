@@ -69,12 +69,9 @@ class TransloaditClient
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
       timeout : 16000
 
-    @_remoteJson opts, (err, result) =>
-      if err?
-        return cb err
-
+    finallyDelete = (assemblyUrl) =>
       opts =
-        url     : result.assembly_url
+        url     : assemblyUrl
         timeout : 5000
         method  : "del"
         params  : {}
@@ -82,6 +79,21 @@ class TransloaditClient
       # TODO this breaks compatability, the cb used to take the request
       # library's three parameters: error, response, body.
       @_remoteJson opts, cb
+
+    operation = retry.operation()
+    operation.attempt (attempt) =>
+      @_remoteJson opts, (err, result) =>
+        if err?
+          return cb err
+        
+        if !result.assembly_url?
+          if operation.retry new Error "failed to retrieve assembly_url"
+            return
+          
+          return cb operation.mainError()
+
+        finallyDelete result.assembly_url
+
   
   replayAssembly: (opts, cb) ->
     assemblyId  = opts.assembly_id
