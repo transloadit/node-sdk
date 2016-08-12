@@ -37,7 +37,6 @@ class TransloaditClient
   getLastUsedAssemblyUrl: ->
     return @_lastUsedAssemblyUrl
 
-  # On success, calls cb with an Assembly Status Response
   createAssembly: (opts, cb) ->
     @_lastUsedAssemblyUrl = "#{@_serviceUrl()}/assemblies"
 
@@ -61,9 +60,6 @@ class TransloaditClient
       err = new Error(result.error || "NOT OK")
       cb err
 
-  # Check if the specified assembly exists, canceling it if it does.
-  # TODO this adds an unnecessary extra request, the endpoint should properly
-  # handle when the specified assembly doesn't exist.
   deleteAssembly: (assemblyId, cb) ->
     opts =
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
@@ -76,8 +72,6 @@ class TransloaditClient
         method  : "del"
         params  : {}
 
-      # TODO this breaks compatability, the cb used to take the request
-      # library's three parameters: error, response, body.
       @_remoteJson opts, cb
 
     operation = retry.operation()
@@ -119,8 +113,6 @@ class TransloaditClient
 
     @_remoteJson requestOpts, cb
   
-  # This method is fairly low level, as it doesn't manage pagination. Maybe it
-  # could be deprecated in favor of a generator method.
   listAssemblyNotifications: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assembly_notifications"
@@ -129,7 +121,6 @@ class TransloaditClient
 
     @_remoteJson requestOpts, cb
   
-  # Doesn't handle pagination, see listAssemblyNotifications
   listAssemblies: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assemblies"
@@ -218,9 +209,6 @@ class TransloaditClient
 
     return {signature: signature, params: jsonParams}
 
-  # Does this really need to be its own method? Looks like it doesn't need to be
-  # anymore. See:
-  # https://github.com/transloadit/node-sdk/commit/d23ecaff92a6bb33cb18810e433fcbcd7d31c562
   _calcSignature: (toSign) ->
     return crypto
       .createHmac("sha1", @_authSecret)
@@ -308,12 +296,6 @@ class TransloaditClient
   # Responsible for making API calls. Automatically sends streams with any POST,
   # PUT or DELETE requests. Automatically adds signature parameters to all
   # requests. Also automatically parses the JSON response.
-  # opts fields:
-  # timeout default 5000
-  # url required
-  # method default "get"
-  # params optional
-  # fields optional
   __remoteJson: (opts, cb) ->
     timeout = opts.timeout || 5000
     url     = opts.url || null
