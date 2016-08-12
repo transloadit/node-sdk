@@ -444,6 +444,7 @@ describe "TransloaditClient", ->
 
       opts =
         authKey: "foo"
+        authSecret: "foo_secret"
       client = new TransloaditClient opts
 
       r = JSON.parse client._prepareParams()
