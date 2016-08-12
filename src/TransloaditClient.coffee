@@ -14,7 +14,7 @@ class TransloaditClient
     if !opts.authKey?
       throw new Error "Please provide an authKey"
 
-    if !opts.authKey?
+    if !opts.authSecret?
       throw new Error "Please provide an authSecret"
 
     @_authKey    = opts.authKey
@@ -38,46 +38,57 @@ class TransloaditClient
     return @_lastUsedAssemblyUrl
 
   createAssembly: (opts, cb) ->
-    @_getBoredInstance null, true, (err, url) =>
-      if err || !url?
+    @_lastUsedAssemblyUrl = "#{@_serviceUrl()}/assemblies"
+
+    requestOpts =
+      url     : @_lastUsedAssemblyUrl
+      method  : "post"
+      timeout : 24 * 60 * 60 * 1000 # 1 day
+      params  : opts.params || {}
+      fields  : opts.fields || {}
+
+    @_remoteJson requestOpts, (err, result) =>
+      # reset streams so they do not get used again in subsequent requests
+      @_streams = {}
+
+      if err
         return cb err
 
-      @_lastUsedAssemblyUrl = "#{@_protocol}api2-#{url}/assemblies"
+      if result && result.ok
+        return cb null, result
 
-      requestOpts =
-        url     : @_lastUsedAssemblyUrl
-        method  : "post"
-        timeout : 24 * 60 * 60 * 1000
-        params  : opts.params || {}
-        fields  : opts.fields || {}
-
-      @_remoteJson requestOpts, (err, result) =>
-        # reset streams so they do not get used again in subsequent requests
-        @_streams = {}
-
-        if err
-          return cb err
-
-        if result && result.ok
-          return cb null, result
-
-        err = new Error(result.error || "NOT OK")
-        cb err
+      err = new Error(result.error || "NOT OK")
+      cb err
 
   deleteAssembly: (assemblyId, cb) ->
     opts =
       url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
       timeout : 16000
 
-    @_remoteJson opts, (err, result) ->
-      if err
-        return cb err
-
+    finallyDelete = (assemblyUrl) =>
       opts =
-        url     : result.assembly_url
+        url     : assemblyUrl
         timeout : 5000
-      request.del opts, cb
+        method  : "del"
+        params  : {}
 
+      @_remoteJson opts, cb
+
+    operation = retry.operation()
+    operation.attempt (attempt) =>
+      @_remoteJson opts, (err, result) ->
+        if err?
+          return cb err
+        
+        if !result.assembly_url?
+          if operation.retry new Error "failed to retrieve assembly_url"
+            return
+          
+          return cb operation.mainError()
+
+        finallyDelete result.assembly_url
+
+  
   replayAssembly: (opts, cb) ->
     assemblyId  = opts.assembly_id
     requestOpts =
@@ -101,7 +112,7 @@ class TransloaditClient
         notify_url: opts.notify_url
 
     @_remoteJson requestOpts, cb
-
+  
   listAssemblyNotifications: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assembly_notifications"
@@ -109,7 +120,7 @@ class TransloaditClient
       params  : params || {}
 
     @_remoteJson requestOpts, cb
-
+  
   listAssemblies: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assemblies"
@@ -167,13 +178,11 @@ class TransloaditClient
 
       err = new Error(result.error || "NOT OK")
       cb err
-
+  
   deleteTemplate: (templateId, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/templates/#{templateId}"
-      method  : "put"
-      headers:
-        "X-Method-Override": "DELETE"
+      method  : "del"
       params  : {}
 
     @_remoteJson requestOpts, cb
@@ -206,6 +215,8 @@ class TransloaditClient
       .update(new Buffer(toSign, "utf-8"))
       .digest "hex"
 
+  # Sets the multipart/form-data for POST, PUT and DELETE requests, including
+  # the streams, the signed params, and any additional fields.
   _appendForm: (req, params, fields) ->
     sigData    = @calcSignature params
     jsonParams = sigData.params
@@ -228,6 +239,8 @@ class TransloaditClient
     _.each @_streams, (value, key) ->
       form.append key, value
 
+  # Implements HTTP GET query params, handling the case where the url already
+  # has params.
   _appendParamsToUrl: (url, params) ->
     sigData    = @calcSignature params
     signature  = sigData.signature
@@ -243,71 +256,7 @@ class TransloaditClient
 
     return url
 
-  _getBoredInstance: (url, customBoredLogic, cb) ->
-    url ?= @_serviceUrl() + "/instances/bored"
-    opts =
-      url: url
-
-    @_remoteJson opts, (err, instance) =>
-      if !err
-        if instance.error
-          return cb instance.error
-
-        return cb null, instance.api2_host
-
-      if customBoredLogic
-        @_findBoredInstanceUrl (err, theUrl) =>
-          if err
-            err =
-              error   : "BORED_INSTANCE_ERROR"
-              message : "Could not find a bored instance. #{err.message}"
-            return cb err
-
-          url = "#{@_protocol}api2-#{theUrl}/instances/bored"
-          @_getBoredInstance url, false, cb
-
-        return
-
-      err =
-        error   : "CONNECTION_ERROR"
-        message : "There was a problem connecting to the upload server"
-        reason  : err.message
-        url     : url
-
-      cb err
-
-  _findBoredInstanceUrl: (cb) ->
-    url  = "http://infra-#{@_region}.transloadit.com.s3.amazonaws.com/"
-    url += "cached_instances.json"
-
-    opts =
-      url     : url
-      timeout : 3000
-
-    @_remoteJson opts, (err, result) =>
-      if err
-        err.message = "Could not query S3 for cached uploaders: #{err.message}"
-        return cb err
-
-      instances = _.shuffle result.uploaders
-      @_findResponsiveInstance instances, 0, cb
-
-  _findResponsiveInstance: (instances, index, cb) ->
-    if !instances[index]
-      err = new Error "No responsive uploaders"
-      return cb err
-
-    url  = instances[index]
-    opts =
-      url     : @_protocol + url
-      timeout : 3000
-
-    @_remoteJson opts, (err, result) =>
-      if err
-        return @_findResponsiveInstance instances, index + 1, cb
-
-      cb null, url
-
+  # Responsible for including auth parameters in all requests
   _prepareParams: (params) ->
     params              ?= {}
     params.auth         ?= {}
@@ -324,6 +273,7 @@ class TransloaditClient
   _serviceUrl: ->
     return @_protocol + @_service
 
+  # Wrapper around __remoteJson which will retry in case of error
   _remoteJson: (opts, cb) ->
     operation = retry.operation(
       retries    : 5
@@ -343,6 +293,9 @@ class TransloaditClient
 
         cb mainError, result
 
+  # Responsible for making API calls. Automatically sends streams with any POST,
+  # PUT or DELETE requests. Automatically adds signature parameters to all
+  # requests. Also automatically parses the JSON response.
   __remoteJson: (opts, cb) ->
     timeout = opts.timeout || 5000
     url     = opts.url || null
@@ -366,6 +319,7 @@ class TransloaditClient
       if err
         return cb err
 
+      # parse body
       result = null
       try
         result = JSON.parse res.body
@@ -374,6 +328,8 @@ class TransloaditClient
         msg   = "Unable to parse JSON from '#{requestOpts.uri}'. "
         msg  += "Code: #{res.statusCode}. Body: #{abbr}. "
         return cb new Error msg
+      if result.error?
+        return cb new Error "API returned error. Code: #{result.error}. Message: #{result.message}"
       cb null, result
 
     if method == "post" || method == "put" || method == "del"

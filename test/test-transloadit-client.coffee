@@ -1,6 +1,4 @@
-global.Gently = require "gently"
-gently = global.GENTLY = new Gently()
-
+gently            = require "./gently-preamble"
 should            = require("chai").should()
 expect            = require("chai").expect
 TransloaditClient = require "../src/TransloaditClient"
@@ -62,7 +60,7 @@ describe "TransloaditClient", ->
       client.addFile NAME, PATH
 
   describe "createAssembly", ->
-    it "should request a bored instance and then send the request", ->
+    it "should send a valid request", ->
       client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
       client._streams = "foo"
 
@@ -71,7 +69,7 @@ describe "TransloaditClient", ->
         fields  : "foo_fields"
 
       REQUEST_OPTS =
-        url     : "https://api2-tim.transloadit.com/assemblies"
+        url     : "https://api2.transloadit.com/assemblies"
         method  : "post"
         timeout : 24 * 60 * 60 * 1000
         params  : "foo_params"
@@ -80,7 +78,6 @@ describe "TransloaditClient", ->
       ERR    = {}
       RESULT =
         ok: "foo_ok"
-      URL    = "tim.transloadit.com"
 
       errCalls = 0
       calls    = 0
@@ -93,30 +90,20 @@ describe "TransloaditClient", ->
 
         calls++
 
-      gently.expect client, "_getBoredInstance", (url, customBoredLogic, cb) ->
-        expect(url).to.equal null
-        expect(customBoredLogic).to.equal true
+      gently.expect client, "_remoteJson", (opts, cb2) ->
+        expect(opts).to.eql REQUEST_OPTS
 
-        cb ERR
+        cb2 ERR
+        expect(client._streams).to.eql {}
 
-        gently.expect client, "_remoteJson", (opts, cb2) ->
-          expect(opts).to.eql REQUEST_OPTS
-
-          cb2 ERR
-          expect(client._streams).to.eql {}
-
-          cb2 null, RESULT
-
-
-        cb null, URL
-
+        cb2 null, RESULT
 
       client.createAssembly OPTS, CB
-      expect(errCalls).to.equal 2
-      expect(calls).to.equal 3
+      expect(errCalls).to.equal 1
+      expect(calls).to.equal 2
 
       usedUrl = client.getLastUsedAssemblyUrl()
-      expect(usedUrl).to.equal "https://api2-tim.transloadit.com/assemblies"
+      expect(usedUrl).to.equal "https://api2.transloadit.com/assemblies"
 
   describe "deleteAssembly", ->
     it "should find the assembly url, and then call DELETE on it", ->
@@ -286,9 +273,7 @@ describe "TransloaditClient", ->
 
       REQUEST_OPTS =
         url    : url
-        method : "put"
-        headers :
-          "X-Method-Override": "DELETE"
+        method : "del"
         params : {}
 
       CB = {}
@@ -449,157 +434,6 @@ describe "TransloaditClient", ->
       expected = "#{URL}?signature=#{SIGNATURE.signature}&params=#{ENCODED_PARAMS}"
       expect(url).to.equal expected
 
-  describe "_getBoredInstance", ->
-    it "should figure out a bored instance", ->
-      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
-
-      URL          = "foo_url"
-      CUSTOM_LOGIC = true
-      INSTANCE     =
-        api2_host: "some_host"
-
-      calls = 0
-      CB = (err, host) ->
-        expect(host).to.equal INSTANCE.api2_host
-        calls++
-
-      gently.expect client, "_remoteJson", (opts, cb) ->
-        expect(opts.url).to.equal URL
-
-        cb null, INSTANCE
-
-      client._getBoredInstance URL, CUSTOM_LOGIC, CB
-      expect(calls).to.equal 1
-
-    it "should resolve to the custom bored logic if that fails", ->
-      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
-      URL          = "foo_url"
-      CUSTOM_LOGIC = true
-      INSTANCE     =
-        api2_host: "some_host"
-
-      ERR = {}
-      ERR2 = {}
-      NEW_URL = "foo2_url"
-
-      calls    = 0
-      errCalls = 0
-      CB = (err, host) ->
-        if err
-          expect(err.error).to.equal "BORED_INSTANCE_ERROR"
-          errCalls++
-
-        calls++
-
-      gently.expect client, "_remoteJson", (opts, cb) ->
-        expect(opts.url).to.equal URL
-
-        gently.expect client, "_findBoredInstanceUrl", (cb2) ->
-          cb2 ERR2
-
-          gently.expect client, "_getBoredInstance", (url, customLogic, cb3) ->
-            expect(url).to.equal "https://api2-foo2_url/instances/bored"
-            expect(customLogic).to.equal false
-            expect(cb3).to.equal CB
-
-          cb2 null, NEW_URL
-
-        cb ERR
-
-      client._getBoredInstance URL, CUSTOM_LOGIC, CB
-      expect(calls).to.equal 1
-      expect(errCalls).to.equal 1
-
-  describe "_findBoredInstanceUrl", ->
-    it "should find all uploaders from the cached S3 instances", ->
-      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
-
-      errCalls  = 0
-      calls     = 0
-      ERR       = new Error "foo"
-      INSTANCES = [
-        "foo0.transloadit.com"
-        "foo1.transloadit.com"
-      ]
-      RESULT =
-        uploaders: ["foo", "foo2"]
-
-      INSTANCES = []
-
-      CB = (err) ->
-        if err
-          errCalls++
-          msg = "Could not query S3 for cached uploaders: foo"
-          expect(err.message).to.equal msg
-
-        calls++
-
-      gently.expect client, "_remoteJson", (opts, cb) ->
-        expect(opts.url).to.equal "http://infra-us-east-1.transloadit.com.s3.amazonaws.com/cached_instances.json"
-        expect(opts.timeout).to.equal 3000
-
-        cb ERR
-
-        gently.expect GENTLY.hijacked.underscore, "shuffle", (instances) ->
-          expect(instances).to.eql RESULT.uploaders
-          return INSTANCES
-
-        gently.expect client, "_findResponsiveInstance", (instances, index, cb) ->
-          expect(instances).to.eql INSTANCES
-          expect(index).to.equal 0
-          expect(cb).to.equal CB
-
-        cb null, RESULT
-
-      client._findBoredInstanceUrl CB
-      expect(errCalls).to.equal 1
-      expect(calls).to.equal 1
-
-  describe "_findResponsiveInstance", ->
-    it "should error out if it cannot find any more instances", ->
-      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
-
-      calls = 0
-      CB = (err) ->
-        expect(err.message).to.equal "No responsive uploaders"
-        calls++
-
-      client._findResponsiveInstance [], 1, CB
-      expect(calls).to.equal 1
-
-    it "should figure out a responsive instance from the ones given to it", ->
-      client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
-
-      calls     = 0
-      ERR       = {}
-      INDEX     = 1
-      INSTANCES = [
-        "foo0.transloadit.com"
-        "foo1.transloadit.com"
-      ]
-
-      CB = (err, url) ->
-        if !err
-          expect(url).to.equal "foo1.transloadit.com"
-
-        calls++
-
-      gently.expect client, "_remoteJson", (opts, cb) ->
-        expect(opts.url).to.equal "https://foo1.transloadit.com"
-        expect(opts.timeout).to.equal 3000
-
-        gently.expect client, "_findResponsiveInstance", (instances, index, cb) ->
-          expect(instances).to.eql INSTANCES
-          expect(index).to.equal INDEX + 1
-          expect(cb).to.equal CB
-
-        cb ERR
-
-        cb()
-
-      client._findResponsiveInstance INSTANCES, INDEX, CB
-      expect(calls).to.equal 1
-
   describe "_prepareParams", ->
     it "should add the auth key, secret and expires parameters", ->
       client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
@@ -610,6 +444,7 @@ describe "TransloaditClient", ->
 
       opts =
         authKey: "foo"
+        authSecret: "foo_secret"
       client = new TransloaditClient opts
 
       r = JSON.parse client._prepareParams()
