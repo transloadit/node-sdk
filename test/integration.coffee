@@ -82,6 +82,29 @@ describe "API integration", ->
           expect(result.assembly_id).to.equal id
           done()
 
+    it "should get a full assembly status reliably", (done) ->
+      @timeout 0
+
+      client = new TransloaditClient { authKey, authSecret }
+
+      reproduce = (nattempts) ->
+        if nattempts == 0
+          return done()
+
+        client.createAssembly genericParams, (err, result) ->
+          if err? || result.error?
+            return reproduce nattempts - 1
+
+          client.getAssembly result.assembly_id, (err, result) ->
+            if err? || result.error?
+              return reproduce nattempts - 1
+
+            expect(result).to.have.property("assmembly_url").that.exist
+            reproduce nattempts - 1
+
+      # attempt to reproduce the incomplete status response 100 times
+      reproduce 100
+
   describe "assembly cancelation", ->
     it "should stop the assembly from reaching completion", (done) ->
       client = new TransloaditClient { authKey, authSecret }
