@@ -1,6 +1,6 @@
 {
   "name": "transloadit",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "description": "Node.js SDK for Transloadit",
   "keywords": [
     "transloadit",
@@ -26,6 +26,7 @@
     "coffee-script": "1.10.0",
     "coffeelint": "1.15.7",
     "gently": "0.10.0",
+    "localtunnel": "1.8.1",
     "mocha": "3.0.0-2",
     "should": "10.0.0"
   },
@@ -38,7 +39,7 @@
   },
   "scripts": {
     "build": "npm-run-all lint transpile",
-    "lint": "coffeelint --file ./coffeelint.json src",
+    "lint": "coffeelint --file ./coffeelint.json src test",
     "mocha": "node_modules/.bin/mocha --compilers coffee:coffee-script --require 'coffee-script/register' --reporter spec test/",
     "next:update": "next-update --keep true --tldr",
     "release:major": "env SEMANTIC=major npm run release",
