@@ -112,7 +112,7 @@ class TransloaditClient
         notify_url: opts.notify_url
 
     @_remoteJson requestOpts, cb
-  
+
   listAssemblyNotifications: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assembly_notifications"
@@ -328,8 +328,10 @@ class TransloaditClient
         msg   = "Unable to parse JSON from '#{requestOpts.uri}'. "
         msg  += "Code: #{res.statusCode}. Body: #{abbr}. "
         return cb new Error msg
+
       if result.error?
         return cb new Error "API returned error. Code: #{result.error}. Message: #{result.message}"
+
       cb null, result
 
     if method == "post" || method == "put" || method == "del"

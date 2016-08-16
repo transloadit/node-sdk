@@ -175,10 +175,11 @@ describe "API integration", ->
             expect(err).to.not.exist
 
             if result.ok == "ASSEMBLY_UPLOADING" || result.ok == "ASSEMBLY_EXECUTING"
-              ensureCompletion cb
+              setTimeout (-> ensureCompletion cb), 1000
             else
               cb()
-
+        
+        # Start an asynchonous loop
         ensureCompletion ->
           client.replayAssembly { assembly_id: originalId }, (err, result) ->
             expect(err).to.not.exist
@@ -272,4 +273,3 @@ describe "API integration", ->
           expect(err).to.exist
           expect(err.message).to.match /TEMPLATE_NOT_FOUND/
           done()
-      
