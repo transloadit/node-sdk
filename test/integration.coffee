@@ -99,7 +99,7 @@ describe "API integration", ->
             if err? || result.error?
               return reproduce nattempts - 1
 
-            expect(result).to.have.property("assmembly_url").that.exist
+            expect(result).to.have.property("assembly_url").that.exist
             reproduce nattempts - 1
 
       # attempt to reproduce the incomplete status response 100 times

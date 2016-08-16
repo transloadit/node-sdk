@@ -21,6 +21,7 @@ class TransloaditClient
     @_authSecret = opts.authSecret
     @_service    = opts.service || "api2.transloadit.com"
     @_region     = opts.region || "us-east-1"
+    @_useSsl     = opts.useSsl
     @_protocol   = if opts.useSsl then "https://" else "http://"
     @_streams    = {}
 
@@ -61,33 +62,17 @@ class TransloaditClient
       cb err
 
   deleteAssembly: (assemblyId, cb) ->
-    opts =
-      url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
-      timeout : 16000
+    @getAssembly assemblyId, (err, result) =>
+      if err?
+        return cb err
 
-    finallyDelete = (assemblyUrl) =>
       opts =
-        url     : assemblyUrl
+        url     : result.assembly_url
         timeout : 5000
         method  : "del"
         params  : {}
 
       @_remoteJson opts, cb
-
-    operation = retry.operation()
-    operation.attempt (attempt) =>
-      @_remoteJson opts, (err, result) ->
-        if err?
-          return cb err
-        
-        if !result.assembly_url?
-          if operation.retry new Error "failed to retrieve assembly_url"
-            return
-          
-          return cb operation.mainError()
-
-        finallyDelete result.assembly_url
-
   
   replayAssembly: (opts, cb) ->
     assemblyId  = opts.assembly_id
@@ -133,17 +118,21 @@ class TransloaditClient
     opts =
       url: @_serviceUrl() + "/assemblies/#{assemblyId}"
 
-    @_remoteJson opts, (err, result) =>
-      if err
-        return cb err
+    operation = retry.operation retries: 5, factor: 3.28,
+      minTimeout: 1 * 1000, maxTimeout: 8 * 1000
+    operation.attempt (attempt) =>
+      @_remoteJson opts, (err, result) =>
+        if err?
+          if operation.retry err
+            return
+          
+          return cb operation.mainError()
 
-      status = result
-      opts   =
-        url : result.assembly_url
+        if !result.assembly_url? || !result.assembly_ssl_url?
+          if operation.retry new Error "got incomplete assembly status response"
+            return
 
-      @_remoteJson opts, (err, result) ->
-        if err
-          return cb null, status
+          return cb operation.mainError()
 
         cb null, result
 
