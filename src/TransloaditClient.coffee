@@ -267,15 +267,20 @@ class TransloaditClient
 
   # Wrapper around __remoteJson which will retry in case of error
   _remoteJson: (opts, cb) ->
-    operation = retry.operation(
+    operation = retry.operation
       retries    : 5
       factor     : 3.28
       minTimeout : 1 * 1000
       maxTimeout : 8 * 1000
-    )
 
     operation.attempt =>
       @__remoteJson opts, (err, result) ->
+        if err? && err.error == "RATE_LIMIT_REACHED"
+          console.warn "Rate limit reached, retrying request in #{err.info.retryIn} seconds."
+          # FIXME uses private internals of node-retry
+          operation._timeouts.unshift 1000 * err.info.retryIn
+          return operation.retry err
+
         if operation.retry(err)
           return
 
@@ -322,7 +327,9 @@ class TransloaditClient
         return cb new Error msg
 
       if result.error?
-        return cb new Error "API returned error. Code: #{result.error}. Message: #{result.message}"
+        err = new Error "API returned error. Code: #{result.error}. Message: #{result.message}"
+        _.extend err, result
+        return cb err
 
       cb null, result
 
