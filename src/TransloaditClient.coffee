@@ -327,9 +327,7 @@ class TransloaditClient
         return cb new Error msg
 
       if result.error?
-        err = new Error "API returned error. Code: #{result.error}. Message: #{result.message}"
-        _.extend err, result
-        return cb err
+        return cb _.extend (new Error), result
 
       cb null, result
 

@@ -109,7 +109,7 @@ describe "API integration", ->
             reproduce nattempts - 1
 
       # attempt to reproduce the incomplete status response 100 times
-      for _ in [1..nbranches]
+      for x in [1..nbranches]
         reproduce 100 / nbranches
 
   describe "assembly cancelation", ->
@@ -254,8 +254,7 @@ describe "API integration", ->
           expect(err).to.not.exist
           
           params =
-            params: _.extend genericParams.params,
-              notify_url: server.url
+            params: _.extend {}, genericParams.params, notify_url: server.url
 
           client.createAssembly params, (err, result) ->
             expect(err).to.not.exist
@@ -301,5 +300,5 @@ describe "API integration", ->
         client.getTemplate templId, (err, result) ->
           expect(result).to.not.exist
           expect(err).to.exist
-          expect(err.message).to.match /TEMPLATE_NOT_FOUND/
+          expect(err.error).to.equal "TEMPLATE_NOT_FOUND"
           done()
