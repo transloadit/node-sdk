@@ -4,6 +4,7 @@ crypto  = reqr "crypto"
 _       = reqr "underscore"
 fs      = reqr "fs"
 retry   = reqr "retry"
+PaginationStream = reqr "./PaginationStream"
 
 unknownErrMsg  = "Unknown error. Please report this at "
 unknownErrMsg += "https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error"
@@ -116,6 +117,10 @@ class TransloaditClient
       params  : params || {}
 
     @_remoteJson requestOpts, cb
+
+  streamAssemblies: (params) ->
+    return new PaginationStream (pageno, cb) =>
+      @listAssemblies _.extend({}, params, page: pageno), cb
 
   getAssembly: (assemblyId, cb) ->
     opts =

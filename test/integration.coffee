@@ -226,6 +226,23 @@ describe "API integration", ->
         expect(result).to.have.property("items").that.is.instanceof Array
         done()
 
+    it "should be able to handle pagination with a stream", (done) ->
+      client = new TransloaditClient { authKey, authSecret }
+      assemblies = client.streamAssemblies pagesize: 2
+      n = 0
+
+      assemblies.on "readable", ->
+        assembly = assemblies.read()
+
+        if !assembly?
+          done()
+
+        if n == 5
+          done()
+
+        expect(assembly).to.have.property "id"
+        n++
+
   describe "assembly notification", ->
     # helper function
     streamToString = (stream, cb) ->
