@@ -87,9 +87,15 @@ describe "API integration", ->
 
       client = new TransloaditClient { authKey, authSecret }
 
+      nbranches = 5
+      ndone = 0
+      branchDone = =>
+        if ++ndone == nbranches
+          done()
+
       reproduce = (nattempts) ->
         if nattempts == 0
-          return done()
+          return branchDone()
 
         client.createAssembly genericParams, (err, result) ->
           if err? || result.error?
@@ -103,7 +109,8 @@ describe "API integration", ->
             reproduce nattempts - 1
 
       # attempt to reproduce the incomplete status response 100 times
-      reproduce 100
+      for _ in [1..nbranches]
+        reproduce 100 / nbranches
 
   describe "assembly cancelation", ->
     it "should stop the assembly from reaching completion", (done) ->
