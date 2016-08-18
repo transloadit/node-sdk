@@ -5,6 +5,9 @@ _       = reqr "underscore"
 fs      = reqr "fs"
 retry   = reqr "retry"
 
+unknownErrMsg  = "Unknown error. Please report this at "
+unknownErrMsg += "https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error"
+
 class TransloaditClient
   constructor: (opts) ->
     opts = opts || {}
@@ -58,7 +61,7 @@ class TransloaditClient
       if result && result.ok
         return cb null, result
 
-      err = new Error(result.error || "NOT OK")
+      err = new Error result.error ? result.message ? unknownErrMsg
       cb err
 
   deleteAssembly: (assemblyId, cb) ->
@@ -149,7 +152,7 @@ class TransloaditClient
       if result && result.ok
         return cb null, result
 
-      err = new Error(result.error || "NOT OK")
+      err = new Error result.error ? result.message ? unknownErrMsg
       cb err
 
   editTemplate: (templateId, params, cb) ->
@@ -165,7 +168,7 @@ class TransloaditClient
       if result && result.ok
         return cb null, result
 
-      err = new Error(result.error || "NOT OK")
+      err = new Error result.error ? result.message ? unknownErrMsg
       cb err
   
   deleteTemplate: (templateId, cb) ->
