@@ -89,7 +89,7 @@ describe "API integration", ->
 
       nbranches = 5
       ndone = 0
-      branchDone = =>
+      branchDone = ->
         if ++ndone == nbranches
           done()
 

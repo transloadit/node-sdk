@@ -129,7 +129,7 @@ class TransloaditClient
     operation = retry.operation retries: 5, factor: 3.28,
       minTimeout: 1 * 1000, maxTimeout: 8 * 1000
     operation.attempt (attempt) =>
-      @_remoteJson opts, (err, result) =>
+      @_remoteJson opts, (err, result) ->
         if err?
           if operation.retry err
             return
