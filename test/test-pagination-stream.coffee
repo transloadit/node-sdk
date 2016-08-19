@@ -16,7 +16,26 @@ toArray = (callback) ->
   return stream
 
 describe "PaginationStream", ->
-  it "should", (done) ->
+  it "should preserve order with synchronous data sources", (done) ->
+    count = 9
+    pages = [
+      { count, items: [1, 2, 3] }
+      { count, items: [4, 5, 6] }
+      { count, items: [7, 8, 9] }
+    ]
+
+    stream = new PaginationStream (pageno, cb) ->
+      cb null, pages[pageno - 1]
+
+    stream.pipe toArray (array) ->
+      expected = _.flatten (page.items for page in pages), true
+
+      expect(array).to.deep.equal expected
+      done()
+
+    stream.resume()
+
+  it "should preserve order with asynchronous data sources", (done) ->
     count = 9
     pages = [
       { count, items: [1, 2, 3] }
