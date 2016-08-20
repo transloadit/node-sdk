@@ -25,7 +25,6 @@ class TransloaditClient
     @_authSecret = opts.authSecret
     @_service    = opts.service || "api2.transloadit.com"
     @_region     = opts.region || "us-east-1"
-    @_useSsl     = opts.useSsl
     @_protocol   = if opts.useSsl then "https://" else "http://"
     @_streams    = {}
 
@@ -126,8 +125,13 @@ class TransloaditClient
     opts =
       url: @_serviceUrl() + "/assemblies/#{assemblyId}"
 
-    operation = retry.operation retries: 5, factor: 3.28,
-      minTimeout: 1 * 1000, maxTimeout: 8 * 1000
+    retryOpts =
+      retries: 5
+      factor: 3.28
+      minTimeout: 1 * 1000
+      maxTimeout: 8 * 1000
+
+    operation = retry.operation retryOpts
     operation.attempt (attempt) =>
       @_remoteJson opts, (err, result) ->
         if err?

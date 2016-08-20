@@ -97,7 +97,34 @@ Valid params can be page, pagesize, type, fromdate and todate. Please consult th
 #### TransloaditClient.streamAssemblies(params)
 
 Creates an objectMode readable stream that automates handling of listAssembly
-pagination.
+pagination. It accepts the same params as listAssembly.
+
+This can be used to iterate through assemblies:
+
+```javascript
+var assemblyStream = client.streamAssemblies({ fromdate: "2016-08-19 01:15:00 UTC" });
+
+assemblyStream.on("readable", function() {
+  var assembly = assemblyStream.read();
+  if (assembly == null) console.log("end of stream");
+
+  console.log(assembly.id);
+});
+```
+
+Results can also be piped. Here's an example using
+[through2](https://github.com/rvagg/through2):
+
+```javascript
+var assemblyStream = client.streamAssemblies({ fromdate: "2016-08-19 01:15:00 UTC" });
+
+assemblyStream
+  .pipe(through.obj(function(chunk, enc, callback) {
+    this.push(chunk.id + "\n");
+    callback();
+  }))
+  .pipe(fs.createWriteStream("assemblies.txt");
+```
 
 #### TransloaditClient.getAssembly(assemblyId, cb)
 
@@ -125,8 +152,8 @@ Valid params can be `page`, `pagesize`, `type` and `assembly_id`. Please consult
 
 #### TransloaditClient.streamAssemblyNotifications(params)
 
-Creates an objectMode readable stream that automates handling of
-listAssemblynotifications pagination.
+Creates an objectMode readable stream like streamAssemblies that automates
+handling of listAssemblynotifications pagination.
 
 ### Templates
 
@@ -152,8 +179,8 @@ Retrieves a list of all your templates from Transloadit. The `params` parameter 
 
 #### TransloaditClient.streamTemplates(params)
 
-Creates an objectMode readable stream that automates handling of listTemplates
-pagination.
+Creates an objectMode readable stream like streamAssemblies that automates
+handling of listTemplates pagination.
 
 ## Contributing
 
