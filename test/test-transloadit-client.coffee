@@ -4,6 +4,31 @@ expect            = require("chai").expect
 TransloaditClient = require "../src/TransloaditClient"
 
 describe "TransloaditClient", ->
+  describe "constructor", ->
+    it "should set some default properties", ->
+      opts =
+        authKey    : "foo_key"
+        authSecret : "foo_secret"
+      client = new TransloaditClient opts
+      expect(client._authKey).to.equal "foo_key"
+      expect(client._authSecret).to.equal "foo_secret"
+      expect(client._service).to.equal "api2.transloadit.com"
+      expect(client._region).to.equal "us-east-1"
+      expect(client._protocol).to.equal "https://"
+
+    it "should allow overwriting some properties", ->
+      opts =
+        authKey    : "foo_key"
+        authSecret : "foo_secret"
+        service    : "foo_service"
+        region     : "foo_region"
+
+      client = new TransloaditClient opts
+      expect(client._authKey).to.equal "foo_key"
+      expect(client._authSecret).to.equal "foo_secret"
+      expect(client._service).to.equal "foo_service"
+      expect(client._region).to.equal "foo_region"
+
   describe "addStream", ->
     it "should properly add a stream", ->
       client = new TransloaditClient authKey: "foo_key", authSecret: "foo_secret"
