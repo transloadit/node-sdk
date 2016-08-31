@@ -84,6 +84,9 @@ You can provide some options:
 * `params` - an object containing your `template_id`, `notify_url`, some steps that overwrite your Transloadit template and other params to control Transloadit behavior.
 * `fields` - an object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables).
 
+This function (like all functions of this client) automatically obeys all rate limiting imposed by Transloadit. There is no need to write your own
+wrapper scripts to handle rate limits.
+
 #### TransloaditClient.lastUsedAssemblyUrl()
 
 Returns the internal url that was used for the last call to `Transloadit.createAssembly()`. This is meant to be used for debugging purposes.
