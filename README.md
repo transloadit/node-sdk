@@ -94,6 +94,38 @@ Retrieves an array of assemblies according to the given `params`.
 
 Valid params can be page, pagesize, type, fromdate and todate. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs/#retrieve-assembly-list) for details.
 
+#### TransloaditClient.streamAssemblies(params)
+
+Creates an objectMode readable stream that automates handling of listAssembly
+pagination. It accepts the same params as listAssembly.
+
+This can be used to iterate through assemblies:
+
+```javascript
+var assemblyStream = client.streamAssemblies({ fromdate: "2016-08-19 01:15:00 UTC" });
+
+assemblyStream.on("readable", function() {
+  var assembly = assemblyStream.read();
+  if (assembly == null) console.log("end of stream");
+
+  console.log(assembly.id);
+});
+```
+
+Results can also be piped. Here's an example using
+[through2](https://github.com/rvagg/through2):
+
+```javascript
+var assemblyStream = client.streamAssemblies({ fromdate: "2016-08-19 01:15:00 UTC" });
+
+assemblyStream
+  .pipe(through.obj(function(chunk, enc, callback) {
+    this.push(chunk.id + "\n");
+    callback();
+  }))
+  .pipe(fs.createWriteStream("assemblies.txt");
+```
+
 #### TransloaditClient.getAssembly(assemblyId, cb)
 
 Retrieves the JSON status of the assembly identified by the given `assemblyId`.
@@ -118,6 +150,11 @@ Retrieves an array of assembly notifications according to the given `params`.
 
 Valid params can be `page`, `pagesize`, `type` and `assembly_id`. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs/#retrieve-assembly-notification-list) for details.
 
+#### TransloaditClient.streamAssemblyNotifications(params)
+
+Creates an objectMode readable stream like streamAssemblies that automates
+handling of listAssemblynotifications pagination.
+
 ### Templates
 
 #### TransloaditClient.createTemplate(params, cb)
@@ -139,6 +176,11 @@ Deletes the template represented by the given templateId on Transloadit.
 #### TransloaditClient.listTemplates(params, cb)
 
 Retrieves a list of all your templates from Transloadit. The `params` parameter can contain properties such as `order`, `sort`, and `page`. For a list of all available params please check [this entry](https://transloadit.com/docs/api-docs/#retrieve-template-list) in the Transloadit API docs.
+
+#### TransloaditClient.streamTemplates(params)
+
+Creates an objectMode readable stream like streamAssemblies that automates
+handling of listTemplates pagination.
 
 ## Contributing
 

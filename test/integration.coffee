@@ -82,6 +82,36 @@ describe "API integration", ->
           expect(result.assembly_id).to.equal id
           done()
 
+    it "should get a full assembly status reliably", (done) ->
+      @timeout 0
+
+      client = new TransloaditClient { authKey, authSecret }
+
+      nbranches = 5
+      ndone = 0
+      branchDone = ->
+        if ++ndone == nbranches
+          done()
+
+      reproduce = (nattempts) ->
+        if nattempts == 0
+          return branchDone()
+
+        client.createAssembly genericParams, (err, result) ->
+          if err? || result.error?
+            return reproduce nattempts - 1
+
+          client.getAssembly result.assembly_id, (err, result) ->
+            if err? || result.error?
+              return reproduce nattempts - 1
+
+            expect(result).to.have.property("assembly_url").that.exist
+            reproduce nattempts - 1
+
+      # attempt to reproduce the incomplete status response 100 times
+      for x in [1..nbranches]
+        reproduce 100 / nbranches
+
   describe "assembly cancelation", ->
     it "should stop the assembly from reaching completion", (done) ->
       client = new TransloaditClient { authKey, authSecret }
@@ -196,6 +226,23 @@ describe "API integration", ->
         expect(result).to.have.property("items").that.is.instanceof Array
         done()
 
+    it "should be able to handle pagination with a stream", (done) ->
+      client = new TransloaditClient { authKey, authSecret }
+      assemblies = client.streamAssemblies pagesize: 2
+      n = 0
+
+      assemblies.on "readable", ->
+        assembly = assemblies.read()
+
+        if !assembly?
+          done()
+
+        if n == 5
+          done()
+
+        expect(assembly).to.have.property "id"
+        n++
+
   describe "assembly notification", ->
     # helper function
     streamToString = (stream, cb) ->
@@ -224,8 +271,7 @@ describe "API integration", ->
           expect(err).to.not.exist
           
           params =
-            params: _.extend genericParams.params,
-              notify_url: server.url
+            params: _.extend {}, genericParams.params, notify_url: server.url
 
           client.createAssembly params, (err, result) ->
             expect(err).to.not.exist
@@ -271,5 +317,5 @@ describe "API integration", ->
         client.getTemplate templId, (err, result) ->
           expect(result).to.not.exist
           expect(err).to.exist
-          expect(err.message).to.match /TEMPLATE_NOT_FOUND/
+          expect(err.error).to.equal "TEMPLATE_NOT_FOUND"
           done()

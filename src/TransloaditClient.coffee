@@ -4,6 +4,10 @@ crypto  = reqr "crypto"
 _       = reqr "underscore"
 fs      = reqr "fs"
 retry   = reqr "retry"
+PaginationStream = reqr "./PaginationStream"
+
+unknownErrMsg  = "Unknown error. Please report this at "
+unknownErrMsg += "https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error"
 
 class TransloaditClient
   constructor: (opts) ->
@@ -57,37 +61,21 @@ class TransloaditClient
       if result && result.ok
         return cb null, result
 
-      err = new Error(result.error || "NOT OK")
+      err = new Error result.error ? result.message ? unknownErrMsg
       cb err
 
   deleteAssembly: (assemblyId, cb) ->
-    opts =
-      url     : @_serviceUrl() + "/assemblies/#{assemblyId}"
-      timeout : 16000
+    @getAssembly assemblyId, (err, result) =>
+      if err?
+        return cb err
 
-    finallyDelete = (assemblyUrl) =>
       opts =
-        url     : assemblyUrl
+        url     : result.assembly_url
         timeout : 5000
         method  : "del"
         params  : {}
 
       @_remoteJson opts, cb
-
-    operation = retry.operation()
-    operation.attempt (attempt) =>
-      @_remoteJson opts, (err, result) ->
-        if err?
-          return cb err
-        
-        if !result.assembly_url?
-          if operation.retry new Error "failed to retrieve assembly_url"
-            return
-          
-          return cb operation.mainError()
-
-        finallyDelete result.assembly_url
-
   
   replayAssembly: (opts, cb) ->
     assemblyId  = opts.assembly_id
@@ -129,21 +117,34 @@ class TransloaditClient
 
     @_remoteJson requestOpts, cb
 
+  streamAssemblies: (params) ->
+    return new PaginationStream (pageno, cb) =>
+      @listAssemblies _.extend({}, params, page: pageno), cb
+
   getAssembly: (assemblyId, cb) ->
     opts =
       url: @_serviceUrl() + "/assemblies/#{assemblyId}"
 
-    @_remoteJson opts, (err, result) =>
-      if err
-        return cb err
+    retryOpts =
+      retries: 5
+      factor: 3.28
+      minTimeout: 1 * 1000
+      maxTimeout: 8 * 1000
 
-      status = result
-      opts   =
-        url : result.assembly_url
-
+    operation = retry.operation retryOpts
+    operation.attempt (attempt) =>
       @_remoteJson opts, (err, result) ->
-        if err
-          return cb null, status
+        if err?
+          if operation.retry err
+            return
+          
+          return cb operation.mainError()
+
+        if !result.assembly_url? || !result.assembly_ssl_url?
+          if operation.retry new Error "got incomplete assembly status response"
+            return
+
+          return cb operation.mainError()
 
         cb null, result
 
@@ -160,7 +161,7 @@ class TransloaditClient
       if result && result.ok
         return cb null, result
 
-      err = new Error(result.error || "NOT OK")
+      err = new Error result.error ? result.message ? unknownErrMsg
       cb err
 
   editTemplate: (templateId, params, cb) ->
@@ -176,7 +177,7 @@ class TransloaditClient
       if result && result.ok
         return cb null, result
 
-      err = new Error(result.error || "NOT OK")
+      err = new Error result.error ? result.message ? unknownErrMsg
       cb err
   
   deleteTemplate: (templateId, cb) ->
@@ -275,15 +276,20 @@ class TransloaditClient
 
   # Wrapper around __remoteJson which will retry in case of error
   _remoteJson: (opts, cb) ->
-    operation = retry.operation(
+    operation = retry.operation
       retries    : 5
       factor     : 3.28
       minTimeout : 1 * 1000
       maxTimeout : 8 * 1000
-    )
 
     operation.attempt =>
       @__remoteJson opts, (err, result) ->
+        if err? && err.error == "RATE_LIMIT_REACHED"
+          console.warn "Rate limit reached, retrying request in #{err.info.retryIn} seconds."
+          # FIXME uses private internals of node-retry
+          operation._timeouts.unshift 1000 * err.info.retryIn
+          return operation.retry err
+
         if operation.retry(err)
           return
 
@@ -330,7 +336,7 @@ class TransloaditClient
         return cb new Error msg
 
       if result.error?
-        return cb new Error "API returned error. Code: #{result.error}. Message: #{result.message}"
+        return cb _.extend (new Error), result
 
       cb null, result
 
