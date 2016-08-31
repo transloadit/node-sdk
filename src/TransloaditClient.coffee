@@ -1,9 +1,9 @@
-reqr    = if global.GENTLY then GENTLY.hijack(require) else require
-request = reqr "request"
-crypto  = reqr "crypto"
-_       = reqr "underscore"
-fs      = reqr "fs"
-retry   = reqr "retry"
+reqr             = if global.GENTLY then GENTLY.hijack(require) else require
+request          = reqr "request"
+crypto           = reqr "crypto"
+_                = reqr "underscore"
+fs               = reqr "fs"
+retry            = reqr "retry"
 PaginationStream = reqr "./PaginationStream"
 
 unknownErrMsg  = "Unknown error. Please report this at "
@@ -76,7 +76,7 @@ class TransloaditClient
         params  : {}
 
       @_remoteJson opts, cb
-  
+
   replayAssembly: (opts, cb) ->
     assemblyId  = opts.assembly_id
     requestOpts =
@@ -108,7 +108,7 @@ class TransloaditClient
       params  : params || {}
 
     @_remoteJson requestOpts, cb
-  
+
   listAssemblies: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assemblies"
@@ -137,7 +137,7 @@ class TransloaditClient
         if err?
           if operation.retry err
             return
-          
+
           return cb operation.mainError()
 
         if !result.assembly_url? || !result.assembly_ssl_url?
@@ -179,7 +179,7 @@ class TransloaditClient
 
       err = new Error result.error ? result.message ? unknownErrMsg
       cb err
-  
+
   deleteTemplate: (templateId, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/templates/#{templateId}"
