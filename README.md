@@ -207,6 +207,16 @@ Releasing a new version to npmjs.org can be done via `npm run release:major` (or
 
 If you come from a unix background and fancy faster auto-complete, you'll be delighted to know that all npm scripts are also accessible under `make`, via fakefile.
 
+
+## Changelog
+
+### 1.9.0
+- Adding support for rate limiting to all functionality.
+- Adding `TransloaditClient.streamAssemblies`.
+- Improved API error reporting.
+- Adding more tests.
+
+
 ## Authors
 
 * [Tim Koschützki](https://twitter.com/tim_kos)
@@ -214,6 +224,7 @@ If you come from a unix background and fancy faster auto-complete, you'll be del
 Contributions from:
 
 * [Kevin van Zonneveld](https://twitter.com/kvz)
+* [Adrian Sinclair](https://github.com/adrusi)
 * [Geoff Wilson](mailto:gmwils@gmail.com)
 * [Jim Gibbs](https://www.linkedin.com/pub/james-gibbs/0/8/4ab)
 
