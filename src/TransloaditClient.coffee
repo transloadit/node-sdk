@@ -35,6 +35,7 @@ class TransloaditClient
     @_streams[name] = stream
 
   addFile: (name, path) ->
+    fs.statSync path
     stream = fs.createReadStream path
     @addStream name, stream
 
