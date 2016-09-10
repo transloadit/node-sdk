@@ -42,6 +42,13 @@ class TransloaditClient
     return @_lastUsedAssemblyUrl
 
   createAssembly: (opts, cb) ->
+    callback = cb
+    called = false
+    cb = (err, result) ->
+      if !called
+        called = true
+        callback err, result
+
     @_lastUsedAssemblyUrl = "#{@_serviceUrl()}/assemblies"
 
     requestOpts =
@@ -51,18 +58,51 @@ class TransloaditClient
       params  : opts.params || {}
       fields  : opts.fields || {}
 
-    @_remoteJson requestOpts, (err, result) =>
-      # reset streams so they do not get used again in subsequent requests
-      @_streams = {}
+    streams = (stream for label, stream of @_streams)
 
-      if err
+    ncompleted = 0
+    sentError = false
+    streamErrCb = (err) ->
+      if sentError
+        return
+
+      if err?
+        sentError = true
         return cb err
 
-      if result && result.ok
-        return cb null, result
+      if ++ncompleted == streams.length
+        sendRequest()
 
-      err = new Error result.error ? result.message ? unknownErrMsg
-      cb err
+    for stream in streams
+      # fs.stat throws an uncatchable exception?
+      # FIXME there ought to be a better way to supress this exception from
+      # being logged to stderr
+      handler = (err) -> throw err if err.code != "ENOENT"
+      process.on "uncaughtException", handler
+      fs.stat stream.path, (err, stats) ->
+        process.removeListener "uncaughtException", handler
+        if err?
+          return streamErrCb err
+
+        streamErrCb null
+
+    sendRequest = =>
+      @_remoteJson requestOpts, (err, result) =>
+        # reset streams so they do not get used again in subsequent requests
+        @_streams = {}
+
+        if err
+          return cb err
+
+        if result && result.ok
+          return cb null, result
+
+        err = new Error result.error ? result.message ? unknownErrMsg
+        cb err
+
+    # make sure sendRequest gets called when there are now @_streams
+    if streams.length == 0
+      sendRequest()
 
   deleteAssembly: (assemblyId, cb) ->
     @getAssembly assemblyId, (err, result) =>

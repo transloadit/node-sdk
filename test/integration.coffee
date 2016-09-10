@@ -7,6 +7,8 @@ localtunnel       = require "localtunnel"
 http              = require "http"
 url               = require "url"
 querystring       = require "querystring"
+temp              = require "temp"
+fs                = require "fs"
 _                 = require "underscore"
 
 authKey    = process.env.TRANSLOADIT_KEY
@@ -111,6 +113,54 @@ describe "API integration", ->
       # attempt to reproduce the incomplete status response 100 times
       for x in [1..nbranches]
         reproduce 100 / nbranches
+
+    it "should signal an error if a file selected for upload doesn't exist", (done) ->
+      # FIXME this test fails because mocha catches the uncaught exception even
+      # though TransloaditClient suppresses its output.
+      client = new TransloaditClient { authKey, authSecret }
+
+      params =
+        params:
+          steps:
+            resize:
+              robot:  "/image/resize"
+              use:    ":original"
+              result: true
+              width:  130
+              height: 130
+
+      client.addFile "original", temp.path suffix: ".transloadit.jpg"
+      try
+        client.createAssembly params, (err, result) ->
+          expect(err).to.not
+          expect(err).to.have.property("code").that.equals "ENOENT"
+          done()
+      catch e
+        null
+
+    it "should allow uploading files that do exist", (done) ->
+      client = new TransloaditClient { authKey, authSecret }
+
+      params =
+        params:
+          steps:
+            resize:
+              robot:  "/image/resize"
+              use:    ":original"
+              result: true
+              width:  130
+              height: 130
+
+      temp.open "transloadit", (err, tmp) ->
+        expect(err).to.not.exist
+        dl = request genericImg
+        dl.pipe fs.createWriteStream tmp.path
+        dl.on "error", (err) -> expect(err).to.not.exist
+        dl.on "end", ->
+          client.addFile "original", tmp.path
+          client.createAssembly params, (err, result) ->
+            expect(err).to.not.exist
+            done()
 
   describe "assembly cancelation", ->
     it "should stop the assembly from reaching completion", (done) ->
