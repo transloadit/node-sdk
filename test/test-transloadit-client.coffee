@@ -47,7 +47,7 @@ describe "TransloaditClient", ->
 
       NAME   = "foo_name"
       PATH   = "foo_path"
-      STREAM = {}
+      STREAM = { on: -> }
 
       gently.expect GENTLY.hijacked.fs, "createReadStream", (thePath) ->
         expect(thePath).to.equal PATH

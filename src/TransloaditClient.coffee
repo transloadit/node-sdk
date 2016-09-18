@@ -36,6 +36,8 @@ class TransloaditClient
 
   addFile: (name, path) ->
     stream = fs.createReadStream path
+    stream.on "error", (err) ->
+      null # handle the error event to avoid the error being thrown
     @addStream name, stream
 
   getLastUsedAssemblyUrl: ->
@@ -60,32 +62,6 @@ class TransloaditClient
 
     streams = (stream for label, stream of @_streams)
 
-    ncompleted = 0
-    sentError = false
-    streamErrCb = (err) ->
-      if sentError
-        return
-
-      if err?
-        sentError = true
-        return cb err
-
-      if ++ncompleted == streams.length
-        sendRequest()
-
-    for stream in streams
-      # fs.stat throws an uncatchable exception?
-      # FIXME there ought to be a better way to supress this exception from
-      # being logged to stderr
-      handler = (err) -> throw err if err.code != "ENOENT"
-      process.on "uncaughtException", handler
-      fs.stat stream.path, (err, stats) ->
-        process.removeListener "uncaughtException", handler
-        if err?
-          return streamErrCb err
-
-        streamErrCb null
-
     sendRequest = =>
       @_remoteJson requestOpts, (err, result) =>
         # reset streams so they do not get used again in subsequent requests
@@ -99,6 +75,27 @@ class TransloaditClient
 
         err = new Error result.error ? result.message ? unknownErrMsg
         cb err
+
+    ncompleted = 0
+    streamErrCb = (err) ->
+      if err?
+        return cb err
+
+      if ++ncompleted == streams.length
+        sendRequest()
+
+    for stream in streams
+      stream.on "error", cb
+
+      if !stream.path?
+        streamErrCb null
+        continue
+
+      fs.access stream.path, fs.F_OK | fs.R_OK, (err) ->
+        if err?
+          return streamErrCb err
+
+        streamErrCb null
 
     # make sure sendRequest gets called when there are now @_streams
     if streams.length == 0
