@@ -36,12 +36,21 @@ class TransloaditClient
 
   addFile: (name, path) ->
     stream = fs.createReadStream path
+    stream.on "error", (err) ->
+      null # handle the error event to avoid the error being thrown
     @addStream name, stream
 
   getLastUsedAssemblyUrl: ->
     return @_lastUsedAssemblyUrl
 
   createAssembly: (opts, cb) ->
+    callback = cb
+    called = false
+    cb = (err, result) ->
+      if !called
+        called = true
+        callback err, result
+
     @_lastUsedAssemblyUrl = "#{@_serviceUrl()}/assemblies"
 
     requestOpts =
@@ -51,18 +60,46 @@ class TransloaditClient
       params  : opts.params || {}
       fields  : opts.fields || {}
 
-    @_remoteJson requestOpts, (err, result) =>
-      # reset streams so they do not get used again in subsequent requests
-      @_streams = {}
+    streams = (stream for label, stream of @_streams)
 
-      if err
+    sendRequest = =>
+      @_remoteJson requestOpts, (err, result) =>
+        # reset streams so they do not get used again in subsequent requests
+        @_streams = {}
+
+        if err
+          return cb err
+
+        if result && result.ok
+          return cb null, result
+
+        err = new Error result.error ? result.message ? unknownErrMsg
+        cb err
+
+    ncompleted = 0
+    streamErrCb = (err) ->
+      if err?
         return cb err
 
-      if result && result.ok
-        return cb null, result
+      if ++ncompleted == streams.length
+        sendRequest()
 
-      err = new Error result.error ? result.message ? unknownErrMsg
-      cb err
+    for stream in streams
+      stream.on "error", cb
+
+      if !stream.path?
+        streamErrCb null
+        continue
+
+      fs.access stream.path, fs.F_OK | fs.R_OK, (err) ->
+        if err?
+          return streamErrCb err
+
+        streamErrCb null
+
+    # make sure sendRequest gets called when there are now @_streams
+    if streams.length == 0
+      sendRequest()
 
   deleteAssembly: (assemblyId, cb) ->
     @getAssembly assemblyId, (err, result) =>
