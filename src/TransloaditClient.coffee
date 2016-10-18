@@ -146,6 +146,10 @@ class TransloaditClient
 
     @_remoteJson requestOpts, cb
 
+  streamAssemblyNotifications: (params) ->
+    return new PaginationStream (pageno, cb) =>
+      @listAssemblyNotifications _.extend({}, params, page: pageno), cb
+
   listAssemblies: (params, cb) ->
     requestOpts =
       url     : @_serviceUrl() + "/assemblies"
@@ -240,6 +244,10 @@ class TransloaditClient
       params  : params || {}
 
     @_remoteJson requestOpts, cb
+
+  streamTemplates: (params) ->
+    return new PaginationStream (pageno, cb) =>
+      @listTemplates _.extend({}, params, page: pageno), cb
 
   calcSignature: (params) ->
     jsonParams = @_prepareParams params
