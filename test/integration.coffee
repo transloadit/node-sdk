@@ -74,7 +74,7 @@ describe "API integration", ->
         expect(result).to.not.have.property "error"
         expect(result).to.have.property "ok"
         expect(result).to.have.property "assembly_id" # Since we're using it
-        
+
         id = result.assembly_id
 
         client.getAssembly id, (err, result) ->
@@ -221,7 +221,7 @@ describe "API integration", ->
           expect(err).to.not.exist
 
           id = result.assembly_id
-          
+
           # Now delete it
           client.deleteAssembly id, (err, result) ->
             # Allow the upload to finish
@@ -243,12 +243,12 @@ describe "API integration", ->
   describe "replaying assemblies", ->
     it "should replay an assembly after it has completed", (done) ->
       client = new TransloaditClient { authKey, authSecret }
-      
+
       client.createAssembly genericParams, (err, result) ->
         expect(err).to.not.exist
 
         originalId = result.assembly_id
-        
+
         # ensure that the assembly has completed
         ensureCompletion = (cb) ->
           client.getAssembly originalId, (err, result) ->
@@ -258,7 +258,7 @@ describe "API integration", ->
               setTimeout (-> ensureCompletion cb), 1000
             else
               cb()
-        
+
         # Start an asynchonous loop
         ensureCompletion ->
           client.replayAssembly { assembly_id: originalId }, (err, result) ->
@@ -312,9 +312,11 @@ describe "API integration", ->
           expect(req.method).to.equal "POST"
           streamToString req, (err, body) ->
             result = JSON.parse querystring.parse(body).transloadit
-            expect(result).to.have.property("ok").that.equals "ASSEMBLY_COMPLETED"
+            expect(result).to.have.property "ok"
             res.writeHead 200
             res.end()
+            if result.ok != "ASSEMBLY_COMPLETED"
+              return
             endBehavior client, result.assembly_id, done
 
         startServer handler, (err, server) ->
@@ -332,8 +334,10 @@ describe "API integration", ->
     notificationsRecvd = 0
     testCase "should replay the notification when requested", (client, id, done) ->
       if notificationsRecvd++ == 0
-        client.replayAssemblyNotification { assembly_id: id }, (err) ->
-          expect(err).to.not.exist
+        setTimeout ->
+          client.replayAssemblyNotification { assembly_id: id }, (err) ->
+            expect(err).to.not.exist
+        , 2000
       else
         done()
 
