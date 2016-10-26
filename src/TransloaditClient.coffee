@@ -249,6 +249,14 @@ class TransloaditClient
     return new PaginationStream (pageno, cb) =>
       @listTemplates _.extend({}, params, page: pageno), cb
 
+  getBill: (month, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/bill/#{month}"
+      method  : "get"
+      params  : {}
+
+    @_remoteJson requestOpts, cb
+
   calcSignature: (params) ->
     jsonParams = @_prepareParams params
     signature  = @_calcSignature jsonParams
