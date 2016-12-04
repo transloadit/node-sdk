@@ -249,6 +249,14 @@ class TransloaditClient
     return new PaginationStream (pageno, cb) =>
       @listTemplates _.extend({}, params, page: pageno), cb
 
+  getBill: (month, cb) ->
+    requestOpts =
+      url     : @_serviceUrl() + "/bill/#{month}"
+      method  : "get"
+      params  : {}
+
+    @_remoteJson requestOpts, cb
+
   calcSignature: (params) ->
     jsonParams = @_prepareParams params
     signature  = @_calcSignature jsonParams
@@ -380,7 +388,7 @@ class TransloaditClient
         msg  += "Code: #{res.statusCode}. Body: #{abbr}. "
         return cb new Error msg
 
-      if result.error?
+      if res.statusCode != 200
         return cb _.extend (new Error), result
 
       cb null, result
