@@ -33,8 +33,6 @@ describe "PaginationStream", ->
       expect(array).to.deep.equal expected
       done()
 
-    stream.resume()
-
   it "should preserve order with asynchronous data sources", (done) ->
     count = 9
     pages = [
@@ -52,5 +50,3 @@ describe "PaginationStream", ->
 
       expect(array).to.deep.equal expected
       done()
-
-    stream.resume()
