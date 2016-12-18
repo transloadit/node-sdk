@@ -321,13 +321,13 @@ describe "API integration", ->
 
         startServer handler, (err, server) ->
           expect(err).to.not.exist
-          
+
           params =
             params: _.extend {}, genericParams.params, notify_url: server.url
 
           client.createAssembly params, (err, result) ->
             expect(err).to.not.exist
-            
+
     testCase "should send a notification upon assembly completion", (client, id, done) ->
       done()
 
@@ -349,7 +349,7 @@ describe "API integration", ->
     it "should allow creating a template", (done) ->
       client.createTemplate { name: templName, template: genericParams.params }, (err, result) ->
         expect(err).to.not.exist
-        templId = result.template_id
+        templId = result.id
         done()
 
 
@@ -358,8 +358,8 @@ describe "API integration", ->
 
       client.getTemplate templId, (err, result) ->
         expect(err).to.not.exist
-        expect(result.template_name).to.equal templName
-        expect(result.template_content).to.deep.equal genericParams.params
+        expect(result.name).to.equal templName
+        expect(result.content).to.deep.equal genericParams.params
         done()
 
     it "should delete the template successfully", (done) ->
