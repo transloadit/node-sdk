@@ -1,74 +1,74 @@
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
-var TransloaditClient = require("../lib/TransloaditClient");
+const TransloaditClient = require('../lib/TransloaditClient')
 
-var client = new TransloaditClient({
-  authKey    : 'YOUR_AUTH_KEY',
-  authSecret : 'YOUR_AUTH_SECRET'
-});
+const client = new TransloaditClient({
+  authKey   : 'YOUR_AUTH_KEY',
+  authSecret: 'YOUR_AUTH_SECRET',
+})
 
-var template = {
+const template = {
   steps: {
     encode: {
-      use: ":original",
-      robot: "/video/encode",
-      preset: "ipad-high"
+      use   : ':original',
+      robot : '/video/encode',
+      preset: 'ipad-high',
     },
     thumbnail: {
-      use: "encode",
-      robot: "/video/thumbnails"
-    }
-  }
-};
+      use  : 'encode',
+      robot: '/video/thumbnails',
+    },
+  },
+}
 
-var templateString = JSON.stringify(template);
-var params = {
-  name     : 'node_sdk_test1',
-  template : templateString
-};
-var newParams = {
-  name     : 'node_sdk_test2',
-  template : templateString
-};
-var listParams = {
-  sort  : 'created',
-  order : 'asc'
-};
+const templateString = JSON.stringify(template)
+const params = {
+  name    : 'node_sdk_test1',
+  template: templateString,
+}
+const newParams = {
+  name    : 'node_sdk_test2',
+  template: templateString,
+}
+const listParams = {
+  sort : 'created',
+  order: 'asc',
+}
 
 // this just serves as an example, normally you would refactor this
 // christmas tree with control flow modules such as "async"
 
-client.listTemplates(listParams, function(err, templates) {
+client.listTemplates(listParams, (err, {count}) => {
   if (err) {
-    return console.log('failed fetching templates:', err);
+    return console.log('failed fetching templates:', err)
   }
-  console.log('Successfully fetched', templates.count, 'template(s)');
+  console.log('Successfully fetched', count, 'template(s)')
 
-  client.createTemplate(params, function(err, result) {
+  client.createTemplate(params, (err, result) => {
     if (err) {
-      return console.log('Failed creating template', err);
+      return console.log('Failed creating template', err)
     }
-    console.log('Template created successfully:', result);
+    console.log('Template created successfully:', result)
 
-    client.editTemplate(result.template_id, newParams, function(err, editResult) {
+    client.editTemplate(result.template_id, newParams, (err, editResult) => {
       if (err) {
-        return console.log('failed editing template:', err);
+        return console.log('failed editing template:', err)
       }
-      console.log('Successfully edited template', editResult);
+      console.log('Successfully edited template', editResult)
 
-      client.getTemplate(result.template_id, function(err, templateResult) {
+      client.getTemplate(result.template_id, (err, templateResult) => {
         if (err) {
-          return console.log('failed fetching template:', err);
+          return console.log('failed fetching template:', err)
         }
-        console.log('Successfully fetched template', templateResult);
+        console.log('Successfully fetched template', templateResult)
 
-        client.deleteTemplate(result.template_id, function(err, delResult) {
+        client.deleteTemplate(result.template_id, (err, delResult) => {
           if (err) {
-            return console.log('failed deleting template:', err);
+            return console.log('failed deleting template:', err)
           }
-          console.log('Successfully deleted template', delResult);
-        });
-      });
-    });
-  });
-});
+          console.log('Successfully deleted template', delResult)
+        })
+      })
+    })
+  })
+})

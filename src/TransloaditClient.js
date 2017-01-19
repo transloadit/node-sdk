@@ -1,0 +1,510 @@
+const reqr             = global.GENTLY ? GENTLY.hijack(require) : require
+const request          = reqr('request')
+const crypto           = reqr('crypto')
+const _                = reqr('underscore')
+const fs               = reqr('fs')
+const retry            = reqr('retry')
+const PaginationStream = reqr('./PaginationStream')
+
+let unknownErrMsg  = 'Unknown error. Please report this at '
+unknownErrMsg += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
+
+class TransloaditClient {
+  constructor (opts = {}) {
+    if (opts.useSsl == null) { opts.useSsl = true }
+
+    if (opts.authKey == null) {
+      throw new Error('Please provide an authKey')
+    }
+
+    if (opts.authSecret == null) {
+      throw new Error('Please provide an authSecret')
+    }
+
+    this._authKey    = opts.authKey
+    this._authSecret = opts.authSecret
+    this._service    = opts.service || 'api2.transloadit.com'
+    this._region     = opts.region || 'us-east-1'
+    this._protocol   = opts.useSsl ? 'https://' : 'http://'
+    this._streams    = {}
+
+    this._lastUsedAssemblyUrl = ''
+  }
+
+  addStream (name, stream) {
+    stream.pause()
+    return (this._streams[name] = stream)
+  }
+
+  addFile (name, path) {
+    const stream = fs.createReadStream(path)
+    stream.on('error', (err) => {
+      // handle the error event to avoid the error being thrown
+      console.error(err)
+    })
+    return this.addStream(name, stream)
+  }
+
+  getLastUsedAssemblyUrl () {
+    return this._lastUsedAssemblyUrl
+  }
+
+  createAssembly ({params, fields}, cb) {
+    let stream
+    const callback = cb
+    let called = false
+    cb = (err, result) => {
+      if (!called) {
+        called = true
+        return callback(err, result)
+      }
+    }
+
+    this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
+
+    const requestOpts = {
+      url    : this._lastUsedAssemblyUrl,
+      method : 'post',
+      timeout: 24 * 60 * 60 * 1000, // 1 day
+      params : params || {},
+      fields : fields || {},
+    }
+
+    const streams = ((() => {
+      const result = []
+      for (let label in this._streams) {
+        stream = this._streams[label]
+        result.push(stream)
+      }
+      return result
+    })())
+
+    const sendRequest = () => {
+      return this._remoteJson(requestOpts, (err, result) => {
+        // reset streams so they do not get used again in subsequent requests
+        let left
+        this._streams = {}
+
+        if (err) {
+          return cb(err)
+        }
+
+        if (result && result.ok) {
+          return cb(null, result)
+        }
+
+        err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
+        return cb(err)
+      }
+      )
+    }
+
+    let ncompleted = 0
+    const streamErrCb = err => {
+      if (err != null) {
+        return cb(err)
+      }
+
+      if (++ncompleted === streams.length) {
+        return sendRequest()
+      }
+    }
+
+    for (stream of Array.from(streams)) {
+      stream.on('error', cb)
+
+      if (stream.path == null) {
+        streamErrCb(null)
+        continue
+      }
+
+      fs.access(stream.path, fs.F_OK | fs.R_OK, err => {
+        if (err != null) {
+          return streamErrCb(err)
+        }
+
+        return streamErrCb(null)
+      })
+    }
+
+    // make sure sendRequest gets called when there are now @_streams
+    if (streams.length === 0) {
+      return sendRequest()
+    }
+  }
+
+  deleteAssembly (assemblyId, cb) {
+    return this.getAssembly(assemblyId, (err, {assembly_url}) => {
+      if (err != null) {
+        return cb(err)
+      }
+
+      const opts = {
+        url    : assembly_url,
+        timeout: 5000,
+        method : 'del',
+        params : {},
+      }
+
+      return this._remoteJson(opts, cb)
+    }
+    )
+  }
+
+  replayAssembly ({assemblyId, notifyUrl}, cb) {
+    const requestOpts = {
+      url   : this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
+      method: 'post',
+    }
+
+    if (notifyUrl != null) {
+      requestOpts.params =
+        {notifyUrl}
+    }
+
+    return this._remoteJson(requestOpts, cb)
+  }
+
+  replayAssemblyNotification ({assemblyId, notifyUrl}, cb) {
+    const requestOpts = {
+      url   : this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
+      method: 'post',
+    }
+
+    if (notifyUrl != null) {
+      requestOpts.params =
+        {notifyUrl}
+    }
+
+    return this._remoteJson(requestOpts, cb)
+  }
+
+  listAssemblyNotifications (params, cb) {
+    const requestOpts = {
+      url   : `${this._serviceUrl()}/assembly_notifications`,
+      method: 'get',
+      params: params || {},
+    }
+
+    return this._remoteJson(requestOpts, cb)
+  }
+
+  streamAssemblyNotifications (params) {
+    return new PaginationStream((pageno, cb) => {
+      return this.listAssemblyNotifications(_.extend({}, params, {page: pageno}), cb)
+    }
+    )
+  }
+
+  listAssemblies (params, cb) {
+    const requestOpts = {
+      url   : `${this._serviceUrl()}/assemblies`,
+      method: 'get',
+      params: params || {},
+    }
+
+    return this._remoteJson(requestOpts, cb)
+  }
+
+  streamAssemblies (params) {
+    return new PaginationStream((pageno, cb) => {
+      return this.listAssemblies(_.extend({}, params, {page: pageno}), cb)
+    }
+    )
+  }
+
+  getAssembly (assemblyId, cb) {
+    const opts =
+      {url: this._serviceUrl() + `/assemblies/${assemblyId}`}
+
+    const retryOpts = {
+      retries   : 5,
+      factor    : 3.28,
+      minTimeout: 1 * 1000,
+      maxTimeout: 8 * 1000,
+    }
+
+    const operation = retry.operation(retryOpts)
+    return operation.attempt(attempt => {
+      return this._remoteJson(opts, (err, result) => {
+        if (err != null) {
+          if (operation.retry(err)) {
+            return
+          }
+
+          return cb(operation.mainError())
+        }
+
+        if ((result.assembly_url == null) || (result.assembly_ssl_url == null)) {
+          if (operation.retry(new Error('got incomplete assembly status response'))) {
+            return
+          }
+
+          return cb(operation.mainError())
+        }
+
+        return cb(null, result)
+      })
+    }
+    )
+  }
+
+  createTemplate (params, cb) {
+    const requestOpts = {
+      url   : `${this._serviceUrl()}/templates`,
+      method: 'post',
+      params: params || {},
+    }
+
+    return this._remoteJson(requestOpts, (err, result) => {
+      let left
+      if (err) {
+        return cb(err)
+      }
+
+      if (result && result.ok) {
+        return cb(null, result)
+      }
+
+      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
+      return cb(err)
+    })
+  }
+
+  editTemplate (templateId, params, cb) {
+    const requestOpts = {
+      url   : `${this._serviceUrl()}/templates/${templateId}`,
+      method: 'put',
+      params: params || {},
+    }
+
+    return this._remoteJson(requestOpts, (err, result) => {
+      let left
+      if (err) {
+        return cb(err)
+      }
+
+      if (result && result.ok) {
+        return cb(null, result)
+      }
+
+      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
+      return cb(err)
+    })
+  }
+
+  deleteTemplate (templateId, cb) {
+    const requestOpts = {
+      url   : this._serviceUrl() + `/templates/${templateId}`,
+      method: 'del',
+      params: {},
+    }
+
+    return this._remoteJson(requestOpts, cb)
+  }
+
+  getTemplate (templateId, cb) {
+    const requestOpts = {
+      url   : `${this._serviceUrl()}/templates/${templateId}`,
+      method: 'get',
+      params: {},
+    }
+
+    return this._remoteJson(requestOpts, cb)
+  }
+
+  listTemplates (params, cb) {
+    const requestOpts = {
+      url   : `${this._serviceUrl()}/templates`,
+      method: 'get',
+      params: params || {},
+    }
+
+    return this._remoteJson(requestOpts, cb)
+  }
+
+  streamTemplates (params) {
+    return new PaginationStream((pageno, cb) => {
+      return this.listTemplates(_.extend({}, params, {page: pageno}), cb)
+    }
+    )
+  }
+
+  getBill (month, cb) {
+    const requestOpts = {
+      url   : this._serviceUrl() + `/bill/${month}`,
+      method: 'get',
+      params: {},
+    }
+
+    return this._remoteJson(requestOpts, cb)
+  }
+
+  calcSignature (params) {
+    const jsonParams = this._prepareParams(params)
+    const signature  = this._calcSignature(jsonParams)
+
+    return {signature, params: jsonParams}
+  }
+
+  _calcSignature (toSign) {
+    return crypto
+      .createHmac('sha1', this._authSecret)
+      .update(new Buffer(toSign, 'utf-8'))
+      .digest('hex')
+  }
+
+  // Sets the multipart/form-data for POST, PUT and DELETE requests, including
+  // the streams, the signed params, and any additional fields.
+  _appendForm (req, params, fields) {
+    const sigData    = this.calcSignature(params)
+    const jsonParams = sigData.params
+    const { signature }  = sigData
+    const form       = req.form()
+
+    form.append('params', jsonParams)
+
+    if (fields == null) { fields = [] }
+
+    for (let key in fields) {
+      let val = fields[key]
+      if (_.isObject(fields[key]) || _.isArray(fields[key])) {
+        val = JSON.stringify(fields[key])
+      }
+
+      form.append(key, val)
+    }
+
+    form.append('signature', signature)
+
+    return _.each(this._streams, (value, key) => form.append(key, value))
+  }
+
+  // Implements HTTP GET query params, handling the case where the url already
+  // has params.
+  _appendParamsToUrl (url, params) {
+    const sigData    = this.calcSignature(params)
+    const { signature }  = sigData
+    let jsonParams = sigData.params
+
+    if (url.indexOf('?') === -1) {
+      url += `?signature=${signature}`
+    } else {
+      url += `&signature=${signature}`
+    }
+
+    jsonParams = encodeURIComponent(jsonParams)
+    url += `&params=${jsonParams}`
+
+    return url
+  }
+
+  // Responsible for including auth parameters in all requests
+  _prepareParams (params) {
+    if (params == null) {              params = {} }
+    if (params.auth == null) {         params.auth = {} }
+    if (params.auth.key == null) {     params.auth.key = this._authKey }
+    if (params.auth.expires == null) { params.auth.expires = this._getExpiresDate() }
+
+    return JSON.stringify(params)
+  }
+
+  _getExpiresDate () {
+    const expiresDate = new Date()
+    expiresDate.setDate(expiresDate.getDate() + 1)
+    return expiresDate.toISOString()
+  }
+
+  _serviceUrl () {
+    return this._protocol + this._service
+  }
+
+  // Wrapper around __remoteJson which will retry in case of error
+  _remoteJson (opts, cb) {
+    const operation = retry.operation({
+      retries   : 5,
+      factor    : 3.28,
+      minTimeout: 1 * 1000,
+      maxTimeout: 8 * 1000,
+    })
+
+    return operation.attempt(() => {
+      return this.__remoteJson(opts, (err, result) => {
+        if ((err != null) && (err.error === 'RATE_LIMIT_REACHED')) {
+          console.warn(`Rate limit reached, retrying request in ${err.info.retryIn} seconds.`)
+          // FIXME uses private internals of node-retry
+          operation._timeouts.unshift(1000 * err.info.retryIn)
+          return operation.retry(err)
+        }
+
+        if (operation.retry(err)) {
+          return
+        }
+
+        let mainError = null
+        if (err) {
+          mainError = operation.mainError()
+        }
+
+        return cb(mainError, result)
+      })
+    }
+    )
+  }
+
+  // Responsible for making API calls. Automatically sends streams with any POST,
+  // PUT or DELETE requests. Automatically adds signature parameters to all
+  // requests. Also automatically parses the JSON response.
+  __remoteJson (opts, cb) {
+    const timeout = opts.timeout || 5000
+    let url     = opts.url || null
+    const method  = opts.method || 'get'
+
+    if (!url) {
+      const err = new Error('No url provided!')
+      return cb(err)
+    }
+
+    if ((method === 'get') && (opts.params != null)) {
+      url = this._appendParamsToUrl(url, opts.params)
+    }
+
+    const requestOpts = {
+      uri: url,
+      timeout,
+    }
+
+    if (opts.headers != null) {
+      requestOpts.headers = opts.headers
+    }
+
+    const req = request[method](requestOpts, (err, {body, statusCode}) => {
+      if (err) {
+        return cb(err)
+      }
+
+      // parse body
+      let result = null
+      try {
+        result = JSON.parse(body)
+      } catch (e) {
+        const abbr  = `${body}`.substr(0, 255)
+        let msg   = `Unable to parse JSON from '${requestOpts.uri}'. `
+        msg  += `Code: ${statusCode}. Body: ${abbr}. `
+        return cb(new Error(msg))
+      }
+
+      if (statusCode !== 200) {
+        return cb(_.extend((new Error()), result))
+      }
+
+      return cb(null, result)
+    })
+
+    if ((method === 'post') || (method === 'put') || (method === 'del')) {
+      return this._appendForm(req, opts.params, opts.fields)
+    }
+  }
+}
+
+module.exports = TransloaditClient
