@@ -1,10 +1,10 @@
 reqr              = if global.GENTLY then GENTLY.hijack(require) else require
+TransloaditClient = reqr "./TransloaditClient"
 stream            = reqr "stream"
 
 class PaginationStream extends stream.Readable
-  constructor: (fetchPage) ->
+  constructor: (@_fetchPage) ->
     super objectMode: true
-    @_fetchPage = fetchPage
     @_pageno = 0
     @_items = []
     @_itemsRead = 0
@@ -26,5 +26,5 @@ class PaginationStream extends stream.Readable
       @_items = (result.items[i] for i in [result.items.length-1 .. 0])
 
       return @_read()
-
+    
 module.exports = PaginationStream
