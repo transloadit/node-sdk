@@ -1,6 +1,6 @@
-const gently            = require('./gently-preamble')
+const gently = require('./gently-preamble')
 // const should            = require('chai').should()
-const { expect }            = require('chai')
+const { expect } = require('chai')
 const TransloaditClient = require('../src/TransloaditClient')
 
 describe('TransloaditClient', () => {
@@ -34,117 +34,113 @@ describe('TransloaditClient', () => {
     })
   })
 
-  describe('addStream', () =>
-    it('should properly add a stream', () => {
-      const client = new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
+  describe('addStream', () => it('should properly add a stream', () => {
+    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
-      const NAME   = 'foo_name'
-      const STREAM = {}
+    const NAME = 'foo_name'
+    const STREAM = {}
 
-      expect(client._streams[NAME]).to.equal(undefined)
-      gently.expect(STREAM, 'pause')
-      client.addStream(NAME, STREAM)
-      return expect(client._streams[NAME]).to.equal(STREAM)
+    expect(client._streams[NAME]).to.equal(undefined)
+    gently.expect(STREAM, 'pause')
+    client.addStream(NAME, STREAM)
+    return expect(client._streams[NAME]).to.equal(STREAM)
+  }))
+
+  describe('addFile', () => it('should properly add a stream', () => {
+    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+    const NAME = 'foo_name'
+    const PATH = 'foo_path'
+    const STREAM = {
+      on () {
+      },
+    }
+
+    gently.expect(GENTLY.hijacked.fs, 'createReadStream', thePath => {
+      expect(thePath).to.equal(PATH)
+      return STREAM
     })
-  )
 
-  describe('addFile', () =>
-    it('should properly add a stream', () => {
-      const client = new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
-
-      const NAME   = 'foo_name'
-      const PATH   = 'foo_path'
-      const STREAM = { on () {} }
-
-      gently.expect(GENTLY.hijacked.fs, 'createReadStream', thePath => {
-        expect(thePath).to.equal(PATH)
-        return STREAM
-      })
-
-      gently.expect(client, 'addStream', (name, stream) => {
-        expect(name).to.equal(NAME)
-        return expect(stream).to.equal(STREAM)
-      })
-
-      return client.addFile(NAME, PATH)
+    gently.expect(client, 'addStream', (name, stream) => {
+      expect(name).to.equal(NAME)
+      return expect(stream).to.equal(STREAM)
     })
-  )
 
-  describe('_appendForm', () =>
-    it('should append all required fields to the request form', () => {
-      const client = new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
+    return client.addFile(NAME, PATH)
+  }))
 
-      client._streams = {
-        stream1: 'foo_stream',
-        stream2: 'foo_stream2',
-      }
+  describe('_appendForm', () => it('should append all required fields to the request form', () => {
+    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
-      const FORM        = {}
-      const REQ         = {}
-      const PARAMS      = {}
-      const JSON_PARAMS = {}
-      const FIELDS      = {
-        foo : 'shizzle',
-        foo2: {
-          bar: 'baz',
-        },
+    client._streams = {
+      stream1: 'foo_stream',
+      stream2: 'foo_stream2',
+    }
 
-      }
-      const SIGNATURE = {
-        signature: 'foo_signature',
-        params   : JSON_PARAMS,
-      }
+    const FORM = {}
+    const REQ = {}
+    const PARAMS = {}
+    const JSON_PARAMS = {}
+    const FIELDS = {
+      foo : 'shizzle',
+      foo2: {
+        bar: 'baz',
+      },
+    }
+    const SIGNATURE = {
+      signature: 'foo_signature',
+      params   : JSON_PARAMS,
+    }
 
-      gently.expect(client, 'calcSignature', params => {
-        expect(params).to.eql(PARAMS)
-        return SIGNATURE
-      })
-
-      gently.expect(REQ, 'form', () => FORM)
-
-      gently.expect(FORM, 'append', (key, val) => {
-        expect(key).to.equal('params')
-        return expect(val).to.equal(JSON_PARAMS)
-      })
-
-      gently.expect(FORM, 'append', (key, val) => {
-        expect(key).to.equal('foo')
-        return expect(val).to.equal('shizzle')
-      })
-
-      gently.expect(FORM, 'append', (key, val) => {
-        expect(key).to.equal('foo2')
-        return expect(val).to.equal(JSON.stringify({bar: 'baz'}))
-      })
-
-      gently.expect(FORM, 'append', (key, val) => {
-        expect(key).to.equal('signature')
-        return expect(val).to.equal(SIGNATURE.signature)
-      })
-
-      gently.expect(FORM, 'append', (key, val) => {
-        expect(key).to.equal('stream1')
-        return expect(val).to.equal('foo_stream')
-      })
-
-      gently.expect(FORM, 'append', (key, val) => {
-        expect(key).to.equal('stream2')
-        return expect(val).to.equal('foo_stream2')
-      })
-
-      return client._appendForm(REQ, PARAMS, FIELDS)
+    gently.expect(client, 'calcSignature', params => {
+      expect(params).to.eql(PARAMS)
+      return SIGNATURE
     })
-  )
 
-  describe('_appendParamsToUrl', () =>
-    it('should append params and signature to the given url', () => {
-      const client = new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
+    gently.expect(REQ, 'form', () => FORM)
 
-      const URL         = 'foo_url'
-      const PARAMS      =
-        {foo: 'bar'}
+    gently.expect(FORM, 'append', (key, val) => {
+      expect(key).to.equal('params')
+      return expect(val).to.equal(JSON_PARAMS)
+    })
+
+    gently.expect(FORM, 'append', (key, val) => {
+      expect(key).to.equal('foo')
+      return expect(val).to.equal('shizzle')
+    })
+
+    gently.expect(FORM, 'append', (key, val) => {
+      expect(key).to.equal('foo2')
+      return expect(val).to.equal(JSON.stringify({ bar: 'baz' }))
+    })
+
+    gently.expect(FORM, 'append', (key, val) => {
+      expect(key).to.equal('signature')
+      return expect(val).to.equal(SIGNATURE.signature)
+    })
+
+    gently.expect(FORM, 'append', (key, val) => {
+      expect(key).to.equal('stream1')
+      return expect(val).to.equal('foo_stream')
+    })
+
+    gently.expect(FORM, 'append', (key, val) => {
+      expect(key).to.equal('stream2')
+      return expect(val).to.equal('foo_stream2')
+    })
+
+    return client._appendForm(REQ, PARAMS, FIELDS)
+  }))
+
+  describe(
+    '_appendParamsToUrl',
+    () => it('should append params and signature to the given url', () => {
+      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+      const URL = 'foo_url'
+      const PARAMS = { foo: 'bar' }
       const JSON_PARAMS = '{foo:"bar"}'
-      const SIGNATURE   = {
+      const SIGNATURE = {
         signature: 'foo_sig',
         params   : JSON_PARAMS,
       }
@@ -164,7 +160,7 @@ describe('TransloaditClient', () => {
 
   describe('_prepareParams', () => {
     it('should add the auth key, secret and expires parameters', () => {
-      let client = new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
+      let client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       let r = JSON.parse(client._prepareParams())
       expect(r.auth.key).to.equal('foo_key')
@@ -182,7 +178,7 @@ describe('TransloaditClient', () => {
     })
 
     return it('should not add anything if the params are already present', () => {
-      const client = new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
+      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const PARAMS = {
         auth: {
@@ -197,74 +193,68 @@ describe('TransloaditClient', () => {
     })
   })
 
-  describe('calcSignature', () =>
-    it('should calc _prepareParams and _calcSignature', () => {
-      const client = new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
+  describe('calcSignature', () => it('should calc _prepareParams and _calcSignature', () => {
+    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
-      client._authSecret = '13123123123'
+    client._authSecret = '13123123123'
 
-      const PARAMS      = {foo: 'bar'}
-      const JSON_PARAMS = 'my_json_params'
-      const SIGNATURE   = 'my_signature'
+    const PARAMS = { foo: 'bar' }
+    const JSON_PARAMS = 'my_json_params'
+    const SIGNATURE = 'my_signature'
 
-      gently.expect(client, '_prepareParams', params => {
-        expect(params).to.eql(PARAMS)
-        return JSON_PARAMS
-      })
-
-      gently.expect(client, '_calcSignature', toSign => {
-        expect(toSign).to.equal(JSON_PARAMS)
-        return SIGNATURE
-      })
-
-      const r = client.calcSignature(PARAMS)
-      expect(r.params).to.equal(JSON_PARAMS)
-      return expect(r.signature).to.equal(SIGNATURE)
+    gently.expect(client, '_prepareParams', params => {
+      expect(params).to.eql(PARAMS)
+      return JSON_PARAMS
     })
-  )
 
-  describe('_calcSignature', () =>
-    it('should calculate the signature properly', () => {
-      const client = new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
-
-      client._authSecret = '13123123123'
-
-      let expected = '57ddad5dbba538590e60f0938f364c7179316eba'
-      expect(client._calcSignature('foo')).to.equal(expected)
-
-      expected = 'b8110452b4ba46a9ecf438271bbd79f25d2a5400'
-      expect(client._calcSignature('akjdkadskjads')).to.equal(expected)
-
-      client._authSecret = '90191902390123'
-
-      expected = 'd393c38de2cbc993bea52f8ecdf56c7ede8b920d'
-      expect(client._calcSignature('foo')).to.equal(expected)
-
-      expected = '8fd625190e1955eb47a9984d3e8308e3afc9049e'
-      return expect(client._calcSignature('akjdkadskjads')).to.equal(expected)
+    gently.expect(client, '_calcSignature', toSign => {
+      expect(toSign).to.equal(JSON_PARAMS)
+      return SIGNATURE
     })
-  )
 
-  describe('_serviceUrl', () =>
-    it('should return the service url', () => {
-      const client = new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
+    const r = client.calcSignature(PARAMS)
+    expect(r.params).to.equal(JSON_PARAMS)
+    return expect(r.signature).to.equal(SIGNATURE)
+  }))
 
-      client._protocol = 'foo_protocol'
-      client._service = 'foo_service'
+  describe('_calcSignature', () => it('should calculate the signature properly', () => {
+    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
-      return expect(client._serviceUrl()).to.equal(client._protocol + client._service)
-    })
-  )
+    client._authSecret = '13123123123'
+
+    let expected = '57ddad5dbba538590e60f0938f364c7179316eba'
+    expect(client._calcSignature('foo')).to.equal(expected)
+
+    expected = 'b8110452b4ba46a9ecf438271bbd79f25d2a5400'
+    expect(client._calcSignature('akjdkadskjads')).to.equal(expected)
+
+    client._authSecret = '90191902390123'
+
+    expected = 'd393c38de2cbc993bea52f8ecdf56c7ede8b920d'
+    expect(client._calcSignature('foo')).to.equal(expected)
+
+    expected = '8fd625190e1955eb47a9984d3e8308e3afc9049e'
+    return expect(client._calcSignature('akjdkadskjads')).to.equal(expected)
+  }))
+
+  describe('_serviceUrl', () => it('should return the service url', () => {
+    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+    client._protocol = 'foo_protocol'
+    client._service = 'foo_service'
+
+    return expect(client._serviceUrl()).to.equal(client._protocol + client._service)
+  }))
 
   return describe('__remoteJson', () => {
     it('should make proper remote GET calls', () => {
-      return new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
+      return new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
     })
-      // @todo figure out how to test direct calls to request
+    // @todo figure out how to test direct calls to request
 
     return it('should append params to the request form for POST requests', () => {
-      return new TransloaditClient({authKey: 'foo_key', authSecret: 'foo_secret'})
+      return new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
     })
   })
 })
-      // @todo
+// @todo

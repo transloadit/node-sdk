@@ -1,17 +1,19 @@
-const reqr             = global.GENTLY ? GENTLY.hijack(require) : require
-const request          = reqr('request')
-const crypto           = reqr('crypto')
-const _                = reqr('underscore')
-const fs               = reqr('fs')
-const retry            = reqr('retry')
+const reqr = global.GENTLY ? GENTLY.hijack(require) : require
+const request = reqr('request')
+const crypto = reqr('crypto')
+const _ = reqr('underscore')
+const fs = reqr('fs')
+const retry = reqr('retry')
 const PaginationStream = reqr('./PaginationStream')
 
-let unknownErrMsg  = 'Unknown error. Please report this at '
+let unknownErrMsg = 'Unknown error. Please report this at '
 unknownErrMsg += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
 
 class TransloaditClient {
   constructor (opts = {}) {
-    if (opts.useSsl == null) { opts.useSsl = true }
+    if (opts.useSsl == null) {
+      opts.useSsl = true
+    }
 
     if (opts.authKey == null) {
       throw new Error('Please provide an authKey')
@@ -21,12 +23,12 @@ class TransloaditClient {
       throw new Error('Please provide an authSecret')
     }
 
-    this._authKey    = opts.authKey
+    this._authKey = opts.authKey
     this._authSecret = opts.authSecret
-    this._service    = opts.service || 'api2.transloadit.com'
-    this._region     = opts.region || 'us-east-1'
-    this._protocol   = opts.useSsl ? 'https://' : 'http://'
-    this._streams    = {}
+    this._service = opts.service || 'api2.transloadit.com'
+    this._region = opts.region || 'us-east-1'
+    this._protocol = opts.useSsl ? 'https://' : 'http://'
+    this._streams = {}
 
     this._lastUsedAssemblyUrl = ''
   }
@@ -38,7 +40,7 @@ class TransloaditClient {
 
   addFile (name, path) {
     const stream = fs.createReadStream(path)
-    stream.on('error', (err) => {
+    stream.on('error', err => {
       // handle the error event to avoid the error being thrown
       console.error(err)
     })
@@ -49,7 +51,7 @@ class TransloaditClient {
     return this._lastUsedAssemblyUrl
   }
 
-  createAssembly ({params, fields}, cb) {
+  createAssembly ({ params, fields }, cb) {
     let stream
     const callback = cb
     let called = false
@@ -70,14 +72,14 @@ class TransloaditClient {
       fields : fields || {},
     }
 
-    const streams = ((() => {
+    const streams = (() => {
       const result = []
       for (let label in this._streams) {
         stream = this._streams[label]
         result.push(stream)
       }
       return result
-    })())
+    })()
 
     const sendRequest = () => {
       return this._remoteJson(requestOpts, (err, result) => {
@@ -93,10 +95,13 @@ class TransloaditClient {
           return cb(null, result)
         }
 
-        err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
+        err = new Error(
+          ((left = result.error != null ? result.error : result.message) != null
+            ? left
+            : unknownErrMsg)
+        )
         return cb(err)
-      }
-      )
+      })
     }
 
     let ncompleted = 0
@@ -134,7 +139,7 @@ class TransloaditClient {
   }
 
   deleteAssembly (assemblyId, cb) {
-    return this.getAssembly(assemblyId, (err, {assembly_url}) => {
+    return this.getAssembly(assemblyId, (err, { assembly_url }) => {
       if (err != null) {
         return cb(err)
       }
@@ -147,33 +152,30 @@ class TransloaditClient {
       }
 
       return this._remoteJson(opts, cb)
-    }
-    )
+    })
   }
 
-  replayAssembly ({assemblyId, notifyUrl}, cb) {
+  replayAssembly ({ assemblyId, notifyUrl }, cb) {
     const requestOpts = {
       url   : this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
       method: 'post',
     }
 
     if (notifyUrl != null) {
-      requestOpts.params =
-        {notifyUrl}
+      requestOpts.params = { notifyUrl }
     }
 
     return this._remoteJson(requestOpts, cb)
   }
 
-  replayAssemblyNotification ({assemblyId, notifyUrl}, cb) {
+  replayAssemblyNotification ({ assemblyId, notifyUrl }, cb) {
     const requestOpts = {
       url   : this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
       method: 'post',
     }
 
     if (notifyUrl != null) {
-      requestOpts.params =
-        {notifyUrl}
+      requestOpts.params = { notifyUrl }
     }
 
     return this._remoteJson(requestOpts, cb)
@@ -191,9 +193,8 @@ class TransloaditClient {
 
   streamAssemblyNotifications (params) {
     return new PaginationStream((pageno, cb) => {
-      return this.listAssemblyNotifications(_.extend({}, params, {page: pageno}), cb)
-    }
-    )
+      return this.listAssemblyNotifications(_.extend({}, params, { page: pageno }), cb)
+    })
   }
 
   listAssemblies (params, cb) {
@@ -208,14 +209,12 @@ class TransloaditClient {
 
   streamAssemblies (params) {
     return new PaginationStream((pageno, cb) => {
-      return this.listAssemblies(_.extend({}, params, {page: pageno}), cb)
-    }
-    )
+      return this.listAssemblies(_.extend({}, params, { page: pageno }), cb)
+    })
   }
 
   getAssembly (assemblyId, cb) {
-    const opts =
-      {url: this._serviceUrl() + `/assemblies/${assemblyId}`}
+    const opts = { url: this._serviceUrl() + `/assemblies/${assemblyId}` }
 
     const retryOpts = {
       retries   : 5,
@@ -235,7 +234,7 @@ class TransloaditClient {
           return cb(operation.mainError())
         }
 
-        if ((result.assembly_url == null) || (result.assembly_ssl_url == null)) {
+        if (result.assembly_url == null || result.assembly_ssl_url == null) {
           if (operation.retry(new Error('got incomplete assembly status response'))) {
             return
           }
@@ -245,8 +244,7 @@ class TransloaditClient {
 
         return cb(null, result)
       })
-    }
-    )
+    })
   }
 
   createTemplate (params, cb) {
@@ -266,7 +264,11 @@ class TransloaditClient {
         return cb(null, result)
       }
 
-      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
+      err = new Error(
+        ((left = result.error != null ? result.error : result.message) != null
+          ? left
+          : unknownErrMsg)
+      )
       return cb(err)
     })
   }
@@ -288,7 +290,11 @@ class TransloaditClient {
         return cb(null, result)
       }
 
-      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
+      err = new Error(
+        ((left = result.error != null ? result.error : result.message) != null
+          ? left
+          : unknownErrMsg)
+      )
       return cb(err)
     })
   }
@@ -325,9 +331,8 @@ class TransloaditClient {
 
   streamTemplates (params) {
     return new PaginationStream((pageno, cb) => {
-      return this.listTemplates(_.extend({}, params, {page: pageno}), cb)
-    }
-    )
+      return this.listTemplates(_.extend({}, params, { page: pageno }), cb)
+    })
   }
 
   getBill (month, cb) {
@@ -342,9 +347,9 @@ class TransloaditClient {
 
   calcSignature (params) {
     const jsonParams = this._prepareParams(params)
-    const signature  = this._calcSignature(jsonParams)
+    const signature = this._calcSignature(jsonParams)
 
-    return {signature, params: jsonParams}
+    return { signature, params: jsonParams }
   }
 
   _calcSignature (toSign) {
@@ -357,14 +362,16 @@ class TransloaditClient {
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including
   // the streams, the signed params, and any additional fields.
   _appendForm (req, params, fields) {
-    const sigData    = this.calcSignature(params)
+    const sigData = this.calcSignature(params)
     const jsonParams = sigData.params
-    const { signature }  = sigData
-    const form       = req.form()
+    const { signature } = sigData
+    const form = req.form()
 
     form.append('params', jsonParams)
 
-    if (fields == null) { fields = [] }
+    if (fields == null) {
+      fields = []
+    }
 
     for (let key in fields) {
       let val = fields[key]
@@ -383,8 +390,8 @@ class TransloaditClient {
   // Implements HTTP GET query params, handling the case where the url already
   // has params.
   _appendParamsToUrl (url, params) {
-    const sigData    = this.calcSignature(params)
-    const { signature }  = sigData
+    const sigData = this.calcSignature(params)
+    const { signature } = sigData
     let jsonParams = sigData.params
 
     if (url.indexOf('?') === -1) {
@@ -401,10 +408,18 @@ class TransloaditClient {
 
   // Responsible for including auth parameters in all requests
   _prepareParams (params) {
-    if (params == null) {              params = {} }
-    if (params.auth == null) {         params.auth = {} }
-    if (params.auth.key == null) {     params.auth.key = this._authKey }
-    if (params.auth.expires == null) { params.auth.expires = this._getExpiresDate() }
+    if (params == null) {
+      params = {}
+    }
+    if (params.auth == null) {
+      params.auth = {}
+    }
+    if (params.auth.key == null) {
+      params.auth.key = this._authKey
+    }
+    if (params.auth.expires == null) {
+      params.auth.expires = this._getExpiresDate()
+    }
 
     return JSON.stringify(params)
   }
@@ -430,7 +445,7 @@ class TransloaditClient {
 
     return operation.attempt(() => {
       return this.__remoteJson(opts, (err, result) => {
-        if ((err != null) && (err.error === 'RATE_LIMIT_REACHED')) {
+        if (err != null && err.error === 'RATE_LIMIT_REACHED') {
           console.warn(`Rate limit reached, retrying request in ${err.info.retryIn} seconds.`)
           // FIXME uses private internals of node-retry
           operation._timeouts.unshift(1000 * err.info.retryIn)
@@ -448,8 +463,7 @@ class TransloaditClient {
 
         return cb(mainError, result)
       })
-    }
-    )
+    })
   }
 
   // Responsible for making API calls. Automatically sends streams with any POST,
@@ -457,15 +471,15 @@ class TransloaditClient {
   // requests. Also automatically parses the JSON response.
   __remoteJson (opts, cb) {
     const timeout = opts.timeout || 5000
-    let url     = opts.url || null
-    const method  = opts.method || 'get'
+    let url = opts.url || null
+    const method = opts.method || 'get'
 
     if (!url) {
       const err = new Error('No url provided!')
       return cb(err)
     }
 
-    if ((method === 'get') && (opts.params != null)) {
+    if (method === 'get' && opts.params != null) {
       url = this._appendParamsToUrl(url, opts.params)
     }
 
@@ -478,7 +492,7 @@ class TransloaditClient {
       requestOpts.headers = opts.headers
     }
 
-    const req = request[method](requestOpts, (err, {body, statusCode}) => {
+    const req = request[method](requestOpts, (err, { body, statusCode }) => {
       if (err) {
         return cb(err)
       }
@@ -488,20 +502,20 @@ class TransloaditClient {
       try {
         result = JSON.parse(body)
       } catch (e) {
-        const abbr  = `${body}`.substr(0, 255)
-        let msg   = `Unable to parse JSON from '${requestOpts.uri}'. `
-        msg  += `Code: ${statusCode}. Body: ${abbr}. `
+        const abbr = `${body}`.substr(0, 255)
+        let msg = `Unable to parse JSON from '${requestOpts.uri}'. `
+        msg += `Code: ${statusCode}. Body: ${abbr}. `
         return cb(new Error(msg))
       }
 
       if (statusCode !== 200) {
-        return cb(_.extend((new Error()), result))
+        return cb(_.extend(new Error(), result))
       }
 
       return cb(null, result)
     })
 
-    if ((method === 'post') || (method === 'put') || (method === 'del')) {
+    if (method === 'post' || method === 'put' || method === 'del') {
       return this._appendForm(req, opts.params, opts.fields)
     }
   }

@@ -1,10 +1,10 @@
-const reqr              = global.GENTLY ? GENTLY.hijack(require) : require
+const reqr = global.GENTLY ? GENTLY.hijack(require) : require
 // const TransloaditClient = reqr('./TransloaditClient')
-const stream            = reqr('stream')
+const stream = reqr('stream')
 
 class PaginationStream extends stream.Readable {
   constructor (_fetchPage) {
-    super({objectMode: true})
+    super({ objectMode: true })
     this._fetchPage = _fetchPage
     this._pageno = 0
     this._items = []
@@ -17,22 +17,21 @@ class PaginationStream extends stream.Readable {
       return process.nextTick(() => this.push(this._items.pop()))
     }
 
-    if ((this._nitems != null) && (this._itemsRead >= this._nitems)) {
+    if (this._nitems != null && this._itemsRead >= this._nitems) {
       return process.nextTick(() => this.push(null))
     }
 
-    return this._fetchPage(++this._pageno, (err, {count, items}) => {
+    return this._fetchPage((++this._pageno), (err, { count, items }) => {
       if (err != null) {
         return this.emit('error', err)
       }
 
       this._nitems = count
 
-      this._items = (__range__(items.length - 1, 0, true).map((i) => items[i]))
+      this._items = __range__(items.length - 1, 0, true).map(i => items[i])
 
       return this._read()
-    }
-    )
+    })
   }
 }
 

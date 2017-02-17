@@ -1,11 +1,11 @@
 // const gently           = require('./gently-preamble')
-const { expect }           = require('chai')
+const { expect } = require('chai')
 const PaginationStream = require('../src/PaginationStream')
 const { Writable } = require('stream')
 const _ = require('underscore')
 
 const toArray = callback => {
-  const stream = new Writable({objectMode: true})
+  const stream = new Writable({ objectMode: true })
   const list = []
   stream.write = chunk => list.push(chunk)
 
@@ -25,12 +25,13 @@ describe('PaginationStream', () => {
 
     const stream = new PaginationStream((pageno, cb) => cb(null, pages[pageno - 1]))
 
-    return stream.pipe(toArray(array => {
-      const expected = _.flatten((Array.from(pages).map(({items}) => items)), true)
+    return stream.pipe(
+      toArray(array => {
+        const expected = _.flatten(Array.from(pages).map(({ items }) => items), true)
 
-      expect(array).to.deep.equal(expected)
-      return done()
-    })
+        expect(array).to.deep.equal(expected)
+        return done()
+      })
     )
   })
 
@@ -45,12 +46,13 @@ describe('PaginationStream', () => {
     const stream = new PaginationStream((pageno, cb) =>
       process.nextTick(() => cb(null, pages[pageno - 1])))
 
-    return stream.pipe(toArray(array => {
-      const expected = _.flatten((Array.from(pages).map(({items}) => items)), true)
+    return stream.pipe(
+      toArray(array => {
+        const expected = _.flatten(Array.from(pages).map(({ items }) => items), true)
 
-      expect(array).to.deep.equal(expected)
-      return done()
-    })
+        expect(array).to.deep.equal(expected)
+        return done()
+      })
     )
   })
 })
