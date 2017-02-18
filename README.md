@@ -71,6 +71,8 @@ This function returns an object with the key `signature` (containing the calcula
 
 Registers the local file with the client. The next call to `createAssembly` will upload that file.
 
+If the file does not exist when addFile() is invoked, an ENOENT error will be thrown.
+
 #### TransloaditClient.addStream(name, stream)
 
 Registers the provided stream with the client. The next call to `createAssembly` will upload that stream.

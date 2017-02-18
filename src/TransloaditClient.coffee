@@ -35,6 +35,7 @@ class TransloaditClient
     @_streams[name] = stream
 
   addFile: (name, path) ->
+    fs.statSync path
     stream = fs.createReadStream path
     stream.on "error", (err) ->
       null # handle the error event to avoid the error being thrown
