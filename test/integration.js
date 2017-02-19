@@ -2,7 +2,6 @@ require('./gently-preamble')
 const { expect } = require('chai')
 const TransloaditClient = require('../src/TransloaditClient')
 const request = require('request')
-// const stream            = require('stream')
 const localtunnel = require('localtunnel')
 const http = require('http')
 const url = require('url')
@@ -39,19 +38,21 @@ if (authKey == null || authSecret == null) {
 
     // Once a port has been found and the server is ready, setup the
     // localtunnel
-    return server.on('listening', () => localtunnel(port, (err, tunnel) => {
-      if (err != null) {
-        server.close()
-        return cb(err)
-      }
-      return cb(null, {
-        url: tunnel.url,
-        close () {
-          tunnel.close()
-          return server.close()
-        },
+    return server.on('listening', () => {
+      localtunnel(port, (err, tunnel) => {
+        if (err != null) {
+          server.close()
+          return cb(err)
+        }
+        return cb(null, {
+          url: tunnel.url,
+          close () {
+            tunnel.close()
+            return server.close()
+          }
+        })
       })
-    }))
+    })
   }
 
   // https://transloadit.com/demos/importing-files/import-a-file-over-http
@@ -61,17 +62,17 @@ if (authKey == null || authSecret == null) {
       steps: {
         import: {
           robot: '/http/import',
-          url  : genericImg,
+          url: genericImg
         },
         resize: {
-          robot : '/image/resize',
-          use   : 'import',
+          robot: '/image/resize',
+          use: 'import',
           result: true,
-          width : 130,
-          height: 130,
-        },
-      },
-    },
+          width: 130,
+          height: 130
+        }
+      }
+    }
   }
 
   describe('API integration', function () {
@@ -116,24 +117,24 @@ if (authKey == null || authSecret == null) {
             return branchDone()
           }
 
-          return client.createAssembly(genericParams, (err, { error, assembly_id }) => {
+          client.createAssembly(genericParams, (err, { error, assembly_id }) => {
             if (err != null || error != null) {
               return reproduce(nattempts - 1)
             }
 
-            return client.getAssembly(assembly_id, (err, result) => {
+            client.getAssembly(assembly_id, (err, result) => {
               if (err != null || result.error != null) {
-                return reproduce(nattempts - 1)
+                reproduce(nattempts - 1)
               }
 
               expect(result).to.have.property('assembly_url').that.exist
-              return reproduce(nattempts - 1)
+              reproduce(nattempts - 1)
             })
           })
         }
 
         // attempt to reproduce the incomplete status response 100 times
-        return __range__(1, nbranches, true).map(x => reproduce(100 / nbranches))
+        for (let i = 0; i < nbranches; i++) reproduce(100 / nbranches)
       })
 
       it("should signal an error if a file selected for upload doesn't exist", done => {
@@ -145,14 +146,14 @@ if (authKey == null || authSecret == null) {
           params: {
             steps: {
               resize: {
-                robot : '/image/resize',
-                use   : ':original',
+                robot: '/image/resize',
+                use: ':original',
                 result: true,
-                width : 130,
-                height: 130,
-              },
-            },
-          },
+                width: 130,
+                height: 130
+              }
+            }
+          }
         }
 
         client.addFile('original', temp.path({ suffix: '.transloadit.jpg' }))
@@ -174,14 +175,14 @@ if (authKey == null || authSecret == null) {
           params: {
             steps: {
               resize: {
-                robot : '/image/resize',
-                use   : ':original',
+                robot: '/image/resize',
+                use: ':original',
                 result: true,
-                width : 130,
-                height: 130,
-              },
-            },
-          },
+                width: 130,
+                height: 130
+              }
+            }
+          }
         }
 
         return temp.open('transloadit', (err, { path }) => {
@@ -189,20 +190,19 @@ if (authKey == null || authSecret == null) {
           const dl = request(genericImg)
           dl.pipe(fs.createWriteStream(path))
           dl.on('error', err => expect(err).to.not.exist)
-          return dl.on('end', () => {
+          dl.on('end', () => {
             client.addFile('original', path)
-            return client.createAssembly(params, (err, result) => {
+            client.createAssembly(params, (err, result) => {
               expect(err).to.not.exist
-              return done()
+              done()
             })
           })
         })
       })
     })
 
-    describe(
-      'assembly cancelation',
-      () => it('should stop the assembly from reaching completion', done => {
+    describe('assembly cancelation', () => {
+      it('should stop the assembly from reaching completion', done => {
         const client = new TransloaditClient({ authKey, authSecret })
         // const opts = {
         //   params: {
@@ -234,18 +234,18 @@ if (authKey == null || authSecret == null) {
 
             res.setHeader('Content-type', 'image/jpeg')
             res.writeHead(200)
-            return request.get(genericImg).pipe(res)
+            request.get(genericImg).pipe(res)
           }
 
           // delay serving the response until triggered
           if (readyToServe) {
-            return handleRequest()
+            handleRequest()
           } else {
-            return (callback = handleRequest)
+            callback = handleRequest
           }
         }
 
-        return startServer(handler, (err, server) => {
+        startServer(handler, (err, server) => {
           expect(err).to.not.exist
           // TODO the server won't close if the test fails
 
@@ -254,27 +254,27 @@ if (authKey == null || authSecret == null) {
               steps: {
                 import: {
                   robot: '/http/import',
-                  url  : server.url,
+                  url: server.url
                 },
                 resize: {
-                  robot : '/image/resize',
-                  use   : 'import',
+                  robot: '/image/resize',
+                  use: 'import',
                   result: true,
-                  width : 130,
-                  height: 130,
-                },
-              },
-            },
+                  width: 130,
+                  height: 130
+                }
+              }
+            }
           }
 
           // Finally send the createAssembly request
-          return client.createAssembly(params, (err, { assemblyId }) => {
+          client.createAssembly(params, (err, { assemblyId }) => {
             expect(err).to.not.exist
 
             const id = assemblyId
 
             // Now delete it
-            return client.deleteAssembly(id, (err, { ok }) => {
+            client.deleteAssembly(id, (err, { ok }) => {
               // Allow the upload to finish
               readyToServe = true
               callback()
@@ -285,24 +285,23 @@ if (authKey == null || authSecret == null) {
               // Successful cancel requests get ASSEMBLY_CANCELED even when it
               // completed, so we now request the assembly status to check the
               // *actual* status.
-              return client.getAssembly(id, (err, { ok }) => {
+              client.getAssembly(id, (err, { ok }) => {
                 expect(err).to.not.exist
                 expect(ok).to.equal('ASSEMBLY_CANCELED')
                 server.close()
-                return done()
+                done()
               })
             })
           })
         })
       })
-    )
+    })
 
-    describe(
-      'replaying assemblies',
-      () => it('should replay an assembly after it has completed', done => {
+    describe('replaying assemblies', () => {
+      it('should replay an assembly after it has completed', done => {
         const client = new TransloaditClient({ authKey, authSecret })
 
-        return client.createAssembly(genericParams, (err, { assemblyId }) => {
+        client.createAssembly(genericParams, (err, { assemblyId }) => {
           expect(err).to.not.exist
 
           const originalId = assemblyId
@@ -312,43 +311,43 @@ if (authKey == null || authSecret == null) {
             expect(err).to.not.exist
 
             if (ok === 'ASSEMBLY_UPLOADING' || ok === 'ASSEMBLY_EXECUTING') {
-              return setTimeout(() => ensureCompletion(cb), 1000)
+              setTimeout(() => ensureCompletion(cb), 1000)
             } else {
-              return cb()
+              cb()
             }
           })
 
           // Start an asynchonous loop
-          return ensureCompletion(() => client.replayAssembly({ assembly_id: originalId }, (
+          ensureCompletion(() => client.replayAssembly({ assembly_id: originalId }, (
             err,
             { ok }
           ) => {
             expect(err).to.not.exist
             expect(ok).to.equal('ASSEMBLY_REPLAYING')
-            return done()
+            done()
           }))
         })
       })
-    )
+    })
 
     describe('assembly list retrieval', () => {
       it('should retrieve a list of assemblies', done => {
         const client = new TransloaditClient({ authKey, authSecret })
 
-        return client.listAssemblies({}, (err, result) => {
+        client.listAssemblies({}, (err, result) => {
           expect(err).to.not.exist
           expect(result).to.have.property('count')
           expect(result).to.have.property('items').that.is.instanceof(Array)
-          return done()
+          done()
         })
       })
 
-      return it('should be able to handle pagination with a stream', done => {
+      it('should be able to handle pagination with a stream', done => {
         const client = new TransloaditClient({ authKey, authSecret })
         const assemblies = client.streamAssemblies({ pagesize: 2 })
         let n = 0
 
-        return assemblies.on('readable', () => {
+        assemblies.on('readable', () => {
           const assembly = assemblies.read()
 
           if (assembly == null) {
@@ -360,7 +359,7 @@ if (authKey == null || authSecret == null) {
           }
 
           expect(assembly).to.have.property('id')
-          return n++
+          n++
         })
       })
     })
@@ -371,7 +370,7 @@ if (authKey == null || authSecret == null) {
         const chunks = []
         stream.on('data', chunk => chunks.push(chunk))
         stream.on('error', err => cb(err))
-        return stream.on('end', () => cb(null, chunks.join('')))
+        stream.on('end', () => cb(null, chunks.join('')))
       }
 
       const testCase = (desc, endBehavior) => it(desc, done => {
@@ -382,7 +381,7 @@ if (authKey == null || authSecret == null) {
           expect(url.parse(req.url).pathname).to.equal('/')
 
           expect(req.method).to.equal('POST')
-          return streamToString(req, (err, body) => {
+          streamToString(req, (err, body) => {
             if (err) {
               console.error(err)
             }
@@ -390,90 +389,77 @@ if (authKey == null || authSecret == null) {
             expect(result).to.have.property('ok')
             res.writeHead(200)
             res.end()
-            if (result.ok !== 'ASSEMBLY_COMPLETED') {
-              return
-            }
-            return endBehavior(client, result.assembly_id, done)
+            if (result.ok !== 'ASSEMBLY_COMPLETED') return
+            endBehavior(client, result.assembly_id, done)
           })
         }
 
-        return startServer(handler, (err, server) => {
+        startServer(handler, (err, server) => {
           expect(err).to.not.exist
 
           const params = { params: _.extend({}, genericParams.params, { notify_url: server.url }) }
 
-          return client.createAssembly(params, (err, result) => expect(err).to.not.exist)
+          client.createAssembly(params, (err, result) => expect(err).to.not.exist)
         })
       })
 
       testCase('should send a notification upon assembly completion', (client, id, done) => done())
 
       let notificationsRecvd = 0
-      return testCase('should replay the notification when requested', (client, id, done) => {
+      testCase('should replay the notification when requested', (client, id, done) => {
         if (notificationsRecvd++ === 0) {
-          return setTimeout(
-            () =>
-              client.replayAssemblyNotification(
-                { assembly_id: id },
-                err => expect(err).to.not.exist
-              ),
-            2000
-          )
+          setTimeout(() => {
+            client.replayAssemblyNotification(
+              { assembly_id: id },
+              err => expect(err).to.not.exist
+            )
+          }, 2000)
         } else {
-          return done()
+          done()
         }
       })
     })
 
-    return describe('template methods', () => {
+    describe('template methods', () => {
       const templName = `node-sdk-test-${new Date().toISOString()}`
       let templId = null
       const client = new TransloaditClient({ authKey, authSecret })
 
-      it('should allow creating a template', done => client.createTemplate(
-        { name: templName, template: genericParams.params },
-        (err, { id }) => {
-          expect(err).to.not.exist
-          templId = id
-          return done()
-        }
-      ))
+      it('should allow creating a template', done => {
+        client.createTemplate(
+          { name: templName, template: genericParams.params },
+          (err, { id }) => {
+            expect(err).to.not.exist
+            templId = id
+            done()
+          })
+      })
 
       it("should be able to fetch a template's definition", done => {
         expect(templId).to.exist
 
-        return client.getTemplate(templId, (err, { name, content }) => {
+        client.getTemplate(templId, (err, { name, content }) => {
           expect(err).to.not.exist
           expect(name).to.equal(templName)
           expect(content).to.deep.equal(genericParams.params)
-          return done()
+          done()
         })
       })
 
-      return it('should delete the template successfully', done => {
+      it('should delete the template successfully', done => {
         expect(templId).to.exist
 
-        return client.deleteTemplate(templId, (err, { ok }) => {
+        client.deleteTemplate(templId, (err, { ok }) => {
           expect(err).to.not.exist
           expect(ok).to.equal('TEMPLATE_DELETED')
-          return client.getTemplate(templId, (err, result) => {
+          client.getTemplate(templId, (err, result) => {
             expect(result).to.not.exist
             expect(err).to.exist
             expect(err.error).to.equal('TEMPLATE_NOT_FOUND')
-            return done()
+            done()
           })
         })
       })
     })
   })
-}
-
-function __range__ (left, right, inclusive) {
-  let range = []
-  let ascending = left < right
-  let end = !inclusive ? right : ascending ? right + 1 : right - 1
-  for (let i = left; ascending ? i < end : i > end; ascending ? i++ : i--) {
-    range.push(i)
-  }
-  return range
 }

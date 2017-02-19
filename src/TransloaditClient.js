@@ -35,7 +35,7 @@ class TransloaditClient {
 
   addStream (name, stream) {
     stream.pause()
-    return (this._streams[name] = stream)
+    this._streams[name] = stream
   }
 
   addFile (name, path) {
@@ -44,11 +44,11 @@ class TransloaditClient {
       // handle the error event to avoid the error being thrown
       console.error(err)
     })
-    return this.addStream(name, stream)
+    this.addStream(name, stream)
   }
 
   getLastUsedAssemblyUrl () {
-    return this._lastUsedAssemblyUrl
+    this._lastUsedAssemblyUrl
   }
 
   createAssembly ({ params, fields }, cb) {
@@ -58,18 +58,18 @@ class TransloaditClient {
     cb = (err, result) => {
       if (!called) {
         called = true
-        return callback(err, result)
+        callback(err, result)
       }
     }
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
     const requestOpts = {
-      url    : this._lastUsedAssemblyUrl,
-      method : 'post',
+      url: this._lastUsedAssemblyUrl,
+      method: 'post',
       timeout: 24 * 60 * 60 * 1000, // 1 day
-      params : params || {},
-      fields : fields || {},
+      params: params || {},
+      fields: fields || {}
     }
 
     const streams = (() => {
@@ -78,11 +78,11 @@ class TransloaditClient {
         stream = this._streams[label]
         result.push(stream)
       }
-      return result
+      result
     })()
 
     const sendRequest = () => {
-      return this._remoteJson(requestOpts, (err, result) => {
+      this._remoteJson(requestOpts, (err, result) => {
         // reset streams so they do not get used again in subsequent requests
         let left
         this._streams = {}
@@ -100,18 +100,18 @@ class TransloaditClient {
             ? left
             : unknownErrMsg)
         )
-        return cb(err)
+        cb(err)
       })
     }
 
     let ncompleted = 0
     const streamErrCb = err => {
       if (err != null) {
-        return cb(err)
+        cb(err)
       }
 
       if (++ncompleted === streams.length) {
-        return sendRequest()
+        sendRequest()
       }
     }
 
@@ -128,88 +128,88 @@ class TransloaditClient {
           return streamErrCb(err)
         }
 
-        return streamErrCb(null)
+        streamErrCb(null)
       })
     }
 
     // make sure sendRequest gets called when there are now @_streams
     if (streams.length === 0) {
-      return sendRequest()
+      sendRequest()
     }
   }
 
   deleteAssembly (assemblyId, cb) {
-    return this.getAssembly(assemblyId, (err, { assembly_url }) => {
+    this.getAssembly(assemblyId, (err, { assembly_url }) => {
       if (err != null) {
         return cb(err)
       }
 
       const opts = {
-        url    : assembly_url,
+        url: assembly_url,
         timeout: 5000,
-        method : 'del',
-        params : {},
+        method: 'del',
+        params: {}
       }
 
-      return this._remoteJson(opts, cb)
+      this._remoteJson(opts, cb)
     })
   }
 
   replayAssembly ({ assemblyId, notifyUrl }, cb) {
     const requestOpts = {
-      url   : this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
-      method: 'post',
+      url: this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
+      method: 'post'
     }
 
     if (notifyUrl != null) {
       requestOpts.params = { notifyUrl }
     }
 
-    return this._remoteJson(requestOpts, cb)
+    this._remoteJson(requestOpts, cb)
   }
 
   replayAssemblyNotification ({ assemblyId, notifyUrl }, cb) {
     const requestOpts = {
-      url   : this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
-      method: 'post',
+      url: this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
+      method: 'post'
     }
 
     if (notifyUrl != null) {
       requestOpts.params = { notifyUrl }
     }
 
-    return this._remoteJson(requestOpts, cb)
+    this._remoteJson(requestOpts, cb)
   }
 
   listAssemblyNotifications (params, cb) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/assembly_notifications`,
+      url: `${this._serviceUrl()}/assembly_notifications`,
       method: 'get',
-      params: params || {},
+      params: params || {}
     }
 
-    return this._remoteJson(requestOpts, cb)
+    this._remoteJson(requestOpts, cb)
   }
 
   streamAssemblyNotifications (params) {
     return new PaginationStream((pageno, cb) => {
-      return this.listAssemblyNotifications(_.extend({}, params, { page: pageno }), cb)
+      this.listAssemblyNotifications(_.extend({}, params, { page: pageno }), cb)
     })
   }
 
   listAssemblies (params, cb) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/assemblies`,
+      url: `${this._serviceUrl()}/assemblies`,
       method: 'get',
-      params: params || {},
+      params: params || {}
     }
 
-    return this._remoteJson(requestOpts, cb)
+    this._remoteJson(requestOpts, cb)
   }
 
   streamAssemblies (params) {
     return new PaginationStream((pageno, cb) => {
-      return this.listAssemblies(_.extend({}, params, { page: pageno }), cb)
+      this.listAssemblies(_.extend({}, params, { page: pageno }), cb)
     })
   }
 
@@ -217,15 +217,15 @@ class TransloaditClient {
     const opts = { url: this._serviceUrl() + `/assemblies/${assemblyId}` }
 
     const retryOpts = {
-      retries   : 5,
-      factor    : 3.28,
+      retries: 5,
+      factor: 3.28,
       minTimeout: 1 * 1000,
-      maxTimeout: 8 * 1000,
+      maxTimeout: 8 * 1000
     }
 
     const operation = retry.operation(retryOpts)
-    return operation.attempt(attempt => {
-      return this._remoteJson(opts, (err, result) => {
+    operation.attempt(attempt => {
+      this._remoteJson(opts, (err, result) => {
         if (err != null) {
           if (operation.retry(err)) {
             return
@@ -242,19 +242,19 @@ class TransloaditClient {
           return cb(operation.mainError())
         }
 
-        return cb(null, result)
+        cb(null, result)
       })
     })
   }
 
   createTemplate (params, cb) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates`,
+      url: `${this._serviceUrl()}/templates`,
       method: 'post',
-      params: params || {},
+      params: params || {}
     }
 
-    return this._remoteJson(requestOpts, (err, result) => {
+    this._remoteJson(requestOpts, (err, result) => {
       let left
       if (err) {
         return cb(err)
@@ -269,18 +269,18 @@ class TransloaditClient {
           ? left
           : unknownErrMsg)
       )
-      return cb(err)
+      cb(err)
     })
   }
 
   editTemplate (templateId, params, cb) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates/${templateId}`,
+      url: `${this._serviceUrl()}/templates/${templateId}`,
       method: 'put',
-      params: params || {},
+      params: params || {}
     }
 
-    return this._remoteJson(requestOpts, (err, result) => {
+    this._remoteJson(requestOpts, (err, result) => {
       let left
       if (err) {
         return cb(err)
@@ -295,54 +295,54 @@ class TransloaditClient {
           ? left
           : unknownErrMsg)
       )
-      return cb(err)
+      cb(err)
     })
   }
 
   deleteTemplate (templateId, cb) {
     const requestOpts = {
-      url   : this._serviceUrl() + `/templates/${templateId}`,
+      url: this._serviceUrl() + `/templates/${templateId}`,
       method: 'del',
-      params: {},
+      params: {}
     }
 
-    return this._remoteJson(requestOpts, cb)
+    this._remoteJson(requestOpts, cb)
   }
 
   getTemplate (templateId, cb) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates/${templateId}`,
+      url: `${this._serviceUrl()}/templates/${templateId}`,
       method: 'get',
-      params: {},
+      params: {}
     }
 
-    return this._remoteJson(requestOpts, cb)
+    this._remoteJson(requestOpts, cb)
   }
 
   listTemplates (params, cb) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates`,
+      url: `${this._serviceUrl()}/templates`,
       method: 'get',
-      params: params || {},
+      params: params || {}
     }
 
-    return this._remoteJson(requestOpts, cb)
+    this._remoteJson(requestOpts, cb)
   }
 
   streamTemplates (params) {
     return new PaginationStream((pageno, cb) => {
-      return this.listTemplates(_.extend({}, params, { page: pageno }), cb)
+      this.listTemplates(_.extend({}, params, { page: pageno }), cb)
     })
   }
 
   getBill (month, cb) {
     const requestOpts = {
-      url   : this._serviceUrl() + `/bill/${month}`,
+      url: this._serviceUrl() + `/bill/${month}`,
       method: 'get',
-      params: {},
+      params: {}
     }
 
-    return this._remoteJson(requestOpts, cb)
+    this._remoteJson(requestOpts, cb)
   }
 
   calcSignature (params) {
@@ -384,7 +384,7 @@ class TransloaditClient {
 
     form.append('signature', signature)
 
-    return _.each(this._streams, (value, key) => form.append(key, value))
+    _.each(this._streams, (value, key) => form.append(key, value))
   }
 
   // Implements HTTP GET query params, handling the case where the url already
@@ -437,14 +437,14 @@ class TransloaditClient {
   // Wrapper around __remoteJson which will retry in case of error
   _remoteJson (opts, cb) {
     const operation = retry.operation({
-      retries   : 5,
-      factor    : 3.28,
+      retries: 5,
+      factor: 3.28,
       minTimeout: 1 * 1000,
-      maxTimeout: 8 * 1000,
+      maxTimeout: 8 * 1000
     })
 
-    return operation.attempt(() => {
-      return this.__remoteJson(opts, (err, result) => {
+    operation.attempt(() => {
+      this.__remoteJson(opts, (err, result) => {
         if (err != null && err.error === 'RATE_LIMIT_REACHED') {
           console.warn(`Rate limit reached, retrying request in ${err.info.retryIn} seconds.`)
           // FIXME uses private internals of node-retry
@@ -461,7 +461,7 @@ class TransloaditClient {
           mainError = operation.mainError()
         }
 
-        return cb(mainError, result)
+        cb(mainError, result)
       })
     })
   }
@@ -485,7 +485,7 @@ class TransloaditClient {
 
     const requestOpts = {
       uri: url,
-      timeout,
+      timeout
     }
 
     if (opts.headers != null) {
@@ -516,7 +516,7 @@ class TransloaditClient {
     })
 
     if (method === 'post' || method === 'put' || method === 'del') {
-      return this._appendForm(req, opts.params, opts.fields)
+      this._appendForm(req, opts.params, opts.fields)
     }
   }
 }

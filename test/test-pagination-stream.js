@@ -20,7 +20,7 @@ describe('PaginationStream', () => {
     const pages = [
       { count, items: [1, 2, 3] },
       { count, items: [4, 5, 6] },
-      { count, items: [7, 8, 9] },
+      { count, items: [7, 8, 9] }
     ]
 
     const stream = new PaginationStream((pageno, cb) => cb(null, pages[pageno - 1]))
@@ -35,12 +35,12 @@ describe('PaginationStream', () => {
     )
   })
 
-  return it('should preserve order with asynchronous data sources', done => {
+  it('should preserve order with asynchronous data sources', done => {
     const count = 9
     const pages = [
       { count, items: [1, 2, 3] },
       { count, items: [4, 5, 6] },
-      { count, items: [7, 8, 9] },
+      { count, items: [7, 8, 9] }
     ]
 
     const stream = new PaginationStream((pageno, cb) =>
