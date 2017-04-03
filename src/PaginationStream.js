@@ -28,7 +28,8 @@ class PaginationStream extends stream.Readable {
 
       this._nitems = count
 
-      this._items = __range__(items.length - 1, 0, true).map(i => items[i])
+      this._items = Array.from(this.result.items)
+      this._items.reverse()
 
       return this._read()
     })
@@ -36,13 +37,3 @@ class PaginationStream extends stream.Readable {
 }
 
 module.exports = PaginationStream
-
-function __range__ (left, right, inclusive) {
-  let range = []
-  let ascending = left < right
-  let end = !inclusive ? right : ascending ? right + 1 : right - 1
-  for (let i = left; ascending ? i < end : i > end; ascending ? i++ : i--) {
-    range.push(i)
-  }
-  return range
-}
