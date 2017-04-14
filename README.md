@@ -191,7 +191,7 @@ We'd be happy to accept pull requests. If you plan on working on something big, 
 
 ### Building
 
-The SDK is written in [CoffeeScript](http://coffeescript.org/), but the JavaScript it generates is commited back into the repository so people can use this module without a CoffeeScript dependency. If you want to work on the source, please do so in `./src` and type: `npm run build` or `npm run test` (also builds first). Please don't edit generated JavaScript in `./lib`!
+The SDK is written in ES6, but the ES5 JavaScript it generates is committed back into the repository so people can use this module without a ES6 dependency. If you want to work on the source, please do so in `./src` and type: `npm run build` or `npm run test` (also builds first). Please don't edit generated JavaScript in `./lib`!
 
 ### Testing
 

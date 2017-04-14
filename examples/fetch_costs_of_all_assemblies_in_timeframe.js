@@ -1,82 +1,81 @@
 // make sure to "npm install async" for this demo
-var async             = require("async");
+const async             = require('async')
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
-var TransloaditClient = require("./lib/TransloaditClient");
+const TransloaditClient = require('./lib/TransloaditClient')
 
-function TransloaditCostFetcher(authKey, secret) {
-  this._client = new TransloaditClient({
-    authKey    : authKey,
-    authSecret : secret
-  });
+class TransloaditCostFetcher {
+  constructor (authKey, secret) {
+    this._client = new TransloaditClient({
+      authKey,
+      authSecret: secret,
+    })
 
-  this._params = params || {};
-  if (typeof this._params.page === "undefined") {
-    this._params.page = 1;
+    this._params = params || {}
+    if (typeof this._params.page === 'undefined') {
+      this._params.page = 1
+    }
+
+    this._totalBytes = 0
+    this._lastCount = 1
   }
 
-  this._totalBytes = 0;
-  this._lastCount = 1;
+  run (cb) {
+    const self = this
+
+    async.whilst(
+      () => self._lastCount > 0,
+      callback => {
+        console.log('Processing page', self._params.page)
+        self._client.listAssemblies(self._params, (err, {count, items}) => {
+          self._lastCount = count
+          self._params.page++
+
+          if (!items || items.length === 0) {
+            return callback(err)
+          }
+
+          const q = async.queue(self._fetchAssemblyCost.bind(self), 20)
+          q.drain = callback
+
+          for (let i = 0; i < items.length; i++) {
+            q.push(items[i].id)
+          }
+        })
+      },
+      err => {
+        const gb = (self._totalBytes / (1024 * 1024 * 1024)).toFixed(2)
+        cb(err, gb)
+      }
+    )
+  }
+
+  _fetchAssemblyCost (assemblyId, cb) {
+    const self = this
+
+    this._client.getAssembly(assemblyId, (err, {bytesUsage}) => {
+      if (err) {
+        return cb(err)
+      }
+
+      self._totalBytes += bytesUsage || 0
+      cb()
+    })
+  }
 }
 
-TransloaditCostFetcher.prototype.run = function(cb) {
-  var self = this;
-
-  async.whilst(
-    function() {
-      return self._lastCount > 0;
-    },
-    function (callback) {
-      console.log("Processing page", self._params.page);
-      self._client.listAssemblies(self._params, function(err, result) {
-        self._lastCount = result.count;
-        self._params.page++;
-
-        if (!result.items || result.items.length === 0) {
-          return callback(err);
-        }
-
-        var q = async.queue(self._fetchAssemblyCost.bind(self), 20);
-        q.drain = callback;
-
-        for (var i = 0; i < result.items.length; i++) {
-          q.push(result.items[i].id);
-        }
-
-      });
-    },
-    function (err) {
-      var gb = (self._totalBytes / (1024 * 1024 * 1024)).toFixed(2);
-      cb(err, gb);
-    }
-  );
-};
-
-TransloaditCostFetcher.prototype._fetchAssemblyCost = function(assemblyId, cb) {
-  var self = this;
-
-  this._client.getAssembly(assemblyId, function(err, result) {
-    if (err) {
-      return cb(err);
-    }
-
-    self._totalBytes += result.bytes_usage ? result.bytes_usage : 0;
-    cb();
-  });
-};
-
-var authKey    = "YOUR_AUTH_KEY";
-var authSecret = "YOUR_AUTH_SECRET";
+const authKey    = 'YOUR_AUTH_KEY'
+const authSecret = 'YOUR_AUTH_SECRET'
 
 var params = {
-  fromdate   : "2014-05-22 00:00:00",
-  todate     : "2014-05-22 23:59:59"
-};
-var fetcher = new TransloaditCostFetcher(authKey, authSecret, params);
-fetcher.run(function(err, usageInGb) {
+  fromdate: '2014-05-22 00:00:00',
+  todate  : '2014-05-22 23:59:59',
+}
+const fetcher = new TransloaditCostFetcher(authKey, authSecret, params)
+fetcher.run((err, usageInGb) => {
   if (err) {
-    console.error(err);
+    console.error(err)
   } else {
-    console.log("Total GB:", usageInGb);
+    console.log('Total GB:', usageInGb)
   }
-});
+})
