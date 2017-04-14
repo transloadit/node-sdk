@@ -48,7 +48,7 @@ class TransloaditClient {
   }
 
   getLastUsedAssemblyUrl () {
-    this._lastUsedAssemblyUrl
+    return this._lastUsedAssemblyUrl
   }
 
   createAssembly ({ params, fields }, cb) {
@@ -78,7 +78,7 @@ class TransloaditClient {
         stream = this._streams[label]
         result.push(stream)
       }
-      result
+      return result
     })()
 
     const sendRequest = () => {
