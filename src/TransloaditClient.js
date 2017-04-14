@@ -155,7 +155,7 @@ class TransloaditClient {
     })
   }
 
-  replayAssembly ({ assemblyId, notifyUrl }, cb) {
+  replayAssembly ({ assembly_id: assemblyId, notify_url: notifyUrl }, cb) {
     const requestOpts = {
       url: this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
       method: 'post'
@@ -168,7 +168,7 @@ class TransloaditClient {
     this._remoteJson(requestOpts, cb)
   }
 
-  replayAssemblyNotification ({ assemblyId, notifyUrl }, cb) {
+  replayAssemblyNotification ({ assembly_id: assemblyId, notify_url: notifyUrl }, cb) {
     const requestOpts = {
       url: this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
       method: 'post'
@@ -507,8 +507,7 @@ class TransloaditClient {
         msg += `Code: ${statusCode}. Body: ${abbr}. `
         return cb(new Error(msg))
       }
-
-      if (statusCode !== 200) {
+      if (statusCode !== 200 && statusCode != 404 && 400 <= statusCode && statusCode <= 599) {
         return cb(_.extend(new Error(), result))
       }
 

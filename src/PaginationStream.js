@@ -28,7 +28,7 @@ class PaginationStream extends stream.Readable {
 
       this._nitems = count
 
-      this._items = Array.from(this.result.items)
+      this._items = Array.from(items)
       this._items.reverse()
 
       return this._read()
