@@ -1,6 +1,19 @@
 # Transloadit Node.js SDK [![Build Status](https://travis-ci.org/transloadit/node-sdk.svg?branch=master)](https://travis-ci.org/transloadit/node-sdk)
 
-This is the official Node.js SDK for Transloadit. It's been provided by the founders but everybody is encouraged to suggest ideas or code for improvement.
+A **Node** integration for [Transloadit](https://transloadit.com)'s file
+uploading and encoding service.
+
+## Intro
+
+
+[Transloadit](https://transloadit.com) is a service that helps you handle file
+uploads, resize, crop and watermark your images, make GIFs, transcode your
+videos, extract thumbnails, generate audio waveforms, and so much more. In
+short, [Transloadit](https://transloadit.com) is the Swiss Army Knife for your
+files.
+
+This is a **Node** SDK to make it easy to talk to the
+[Transloadit](https://transloadit.com) REST API.
 
 ## Install
 
@@ -12,38 +25,47 @@ npm install --save --save-exact transloadit
 
 If there are no errors, you can start using the module.
 
-## Use
+## Usage
 
 ```javascript
-var TransloaditClient = require('transloadit');
-var transloadit       = new TransloaditClient({
-  authKey    : 'YOUR_AUTH_KEY',
-  authSecret : 'YOUR_AUTH_SECRET'
-});
+import TransloaditClient from 'transloadit'
+
+const transloadit = new TransloaditClient({
+  authKey: 'YOUR_AUTH_KEY',
+  authSecret: 'YOUR_AUTH_SECRET'
+})
 
 transloadit.addFile('file1', filePath);
-var assemblyOptions = {
+
+const assemblyOptions = {
   params: {
     template_id: 'YOUR_TEMPLATE_ID'
   }
-};
-transloadit.createAssembly(assemblyOptions, function(err, result) {
+}
+
+transloadit.createAssembly(assemblyOptions, (err, result) => {
   if (err) {
-    throw new Error(err);
+    throw new Error(err)
   }
 
-  console.log('success');
+  console.log('success')
 
-  var assemblyId = result.assembly_id;
+  let assemblyId = result.assembly_id
+
   console.log({
     assemblyId: assemblyId
-  });
+  })
 
-  transloadit.deleteAssembly(assemblyId, function(err) {
-    console.log('deleted');
-  });
-});
+  transloadit.deleteAssembly(assemblyId, (err) => {
+    console.log('deleted')
+  })
+})
 ```
+
+## Example
+
+For fully working examples take a look at
+[`examples/`](https://github.com/transloadit/node-sdk/tree/master/examples).
 
 ## API
 
@@ -209,16 +231,6 @@ Releasing a new version to npmjs.org can be done via `npm run release:major` (or
 ### Convenience
 
 If you come from a unix background and fancy faster auto-complete, you'll be delighted to know that all npm scripts are also accessible under `make`, via fakefile.
-
-
-## Changelog
-
-### 1.9.0
-- Adding support for rate limiting to all functionality.
-- Adding `TransloaditClient.streamAssemblies`.
-- Improved API error reporting.
-- Adding more tests.
-
 
 ## Authors
 
