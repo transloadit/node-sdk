@@ -25,14 +25,16 @@ describe('PaginationStream', () => {
 
     const stream = new PaginationStream((pageno, cb) => cb(null, pages[pageno - 1]))
 
-    return stream.pipe(
+    stream.pipe(
       toArray(array => {
         const expected = _.flatten(Array.from(pages).map(({ items }) => items), true)
 
         expect(array).to.deep.equal(expected)
-        return done()
+        done()
       })
     )
+
+    stream.resume()
   })
 
   it('should preserve order with asynchronous data sources', done => {
@@ -46,13 +48,15 @@ describe('PaginationStream', () => {
     const stream = new PaginationStream((pageno, cb) =>
       process.nextTick(() => cb(null, pages[pageno - 1])))
 
-    return stream.pipe(
+    stream.pipe(
       toArray(array => {
         const expected = _.flatten(Array.from(pages).map(({ items }) => items), true)
 
         expect(array).to.deep.equal(expected)
-        return done()
+        done()
       })
     )
+
+    stream.resume()
   })
 })

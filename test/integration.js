@@ -250,7 +250,7 @@ if (authKey == null || authSecret == null) {
           // TODO the server won't close if the test fails
 
           const params = {
-            params: {
+             params: {
               steps: {
                 import: {
                   robot: '/http/import',
@@ -268,10 +268,10 @@ if (authKey == null || authSecret == null) {
           }
 
           // Finally send the createAssembly request
-          client.createAssembly(params, (err, { assemblyId }) => {
+          client.createAssembly(params, (err, result) => {
             expect(err).to.not.exist
 
-            const id = assemblyId
+            const id = result.assembly_id
 
             // Now delete it
             client.deleteAssembly(id, (err, { ok }) => {
@@ -301,14 +301,15 @@ if (authKey == null || authSecret == null) {
       it('should replay an assembly after it has completed', done => {
         const client = new TransloaditClient({ authKey, authSecret })
 
-        client.createAssembly(genericParams, (err, { assemblyId }) => {
+        client.createAssembly(genericParams, (err, result) => {
           expect(err).to.not.exist
 
-          const originalId = assemblyId
+          const originalId = result.assembly_id
 
           // ensure that the assembly has completed
-          const ensureCompletion = cb => client.getAssembly(originalId, (err, { ok }) => {
+          const ensureCompletion = cb => client.getAssembly(originalId, (err, result) => {
             expect(err).to.not.exist
+            const ok = result.ok
 
             if (ok === 'ASSEMBLY_UPLOADING' || ok === 'ASSEMBLY_EXECUTING') {
               setTimeout(() => ensureCompletion(cb), 1000)
@@ -318,12 +319,9 @@ if (authKey == null || authSecret == null) {
           })
 
           // Start an asynchonous loop
-          ensureCompletion(() => client.replayAssembly({ assembly_id: originalId }, (
-            err,
-            { ok }
-          ) => {
+          ensureCompletion(() => client.replayAssembly({ assembly_id: originalId }, (err, result) => {
             expect(err).to.not.exist
-            expect(ok).to.equal('ASSEMBLY_REPLAYING')
+            expect(result.ok).to.equal('ASSEMBLY_REPLAYING')
             done()
           }))
         })
@@ -346,16 +344,20 @@ if (authKey == null || authSecret == null) {
         const client = new TransloaditClient({ authKey, authSecret })
         const assemblies = client.streamAssemblies({ pagesize: 2 })
         let n = 0
+        let isDone = false
 
         assemblies.on('readable', () => {
           const assembly = assemblies.read()
 
+          if (isDone) return
+
           if (assembly == null) {
-            done()
+            return done()
           }
 
           if (n === 5) {
-            done()
+            isDone = true
+            return done()
           }
 
           expect(assembly).to.have.property('id')
