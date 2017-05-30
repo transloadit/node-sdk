@@ -132,7 +132,7 @@ class TransloaditClient {
       })
     }
 
-    // make sure sendRequest gets called when there are now @_streams
+    // make sure sendRequest gets called when there are no @_streams
     if (streams.length === 0) {
       sendRequest()
     }
