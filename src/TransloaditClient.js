@@ -445,11 +445,18 @@ class TransloaditClient {
 
     operation.attempt(() => {
       this.__remoteJson(opts, (err, result) => {
-        if (err != null && err.error === 'RATE_LIMIT_REACHED') {
-          console.warn(`Rate limit reached, retrying request in ${err.info.retryIn} seconds.`)
-          // FIXME uses private internals of node-retry
-          operation._timeouts.unshift(1000 * err.info.retryIn)
-          return operation.retry(err)
+        if (err != null) {
+          if (err.error === 'RATE_LIMIT_REACHED') {
+            console.warn(`Rate limit reached, retrying request in ${err.info.retryIn} seconds.`)
+            // FIXME uses private internals of node-retry
+            operation._timeouts.unshift(1000 * err.info.retryIn)
+            return operation.retry(err)
+          }
+
+          if (err.error === 'GET_ACCOUNT_UNKNOWN_AUTH_KEY') {
+            console.warn(`Invalid auth key provided.`)
+            return cb(err)
+          }
         }
 
         if (operation.retry(err)) {
