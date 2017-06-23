@@ -12,9 +12,10 @@ const params = {
 }
 client.listAssemblyNotifications(params, (err, result) => {
   if (err) {
+    console.log({err})
     console.log('fail')
   } else {
     console.log('success')
   }
-  console.log(result)
+  console.log({result})
 })

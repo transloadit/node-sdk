@@ -18,9 +18,10 @@ const opts = {
 }
 client.createAssembly(opts, (err, result) => {
   if (err) {
+    console.log({err})
     console.log('fail')
   } else {
     console.log('success')
   }
-  console.log(result)
+  console.log({result})
 })
