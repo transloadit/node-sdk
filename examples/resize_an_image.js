@@ -1,12 +1,12 @@
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
-import TransloaditClient from '../lib/TransloaditClient'
-import path from 'path'
+const TransloaditClient = require('../lib/TransloaditClient')
+const path = require('path')
 
 // Create client object and authenticate.
 const client = new TransloaditClient({
-  authKey: 'TRANSLOADIT_KEY',
-  authSecret: 'TRANSLOADIT_SECRET'
+  authKey   : 'TRANSLOADIT_KEY',
+  authSecret: 'TRANSLOADIT_SECRET',
 })
 
 // Specify the file to resize.
@@ -16,13 +16,13 @@ client.addFile('image', path.join(__dirname, '/fixtures/berkley.jpg'))
 const params = {
   steps: {
     resize: {
-      robot: '/image/resize',
-      use: ':original',
+      robot : '/image/resize',
+      use   : ':original',
       result: true,
-      width: 75,
-      height: 75
-    }
-  }
+      width : 75,
+      height: 75,
+    },
+  },
 }
 
 // Upload image and create assembly.

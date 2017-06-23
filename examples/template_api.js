@@ -1,6 +1,6 @@
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
-import TransloaditClient from '../lib/TransloaditClient'
+const TransloaditClient = require('../lib/TransloaditClient')
 
 const client = new TransloaditClient({
   authKey   : 'YOUR_AUTH_KEY',
