@@ -5,7 +5,6 @@ uploading and encoding service.
 
 ## Intro
 
-
 [Transloadit](https://transloadit.com) is a service that helps you handle file
 uploads, resize, crop and watermark your images, make GIFs, transcode your
 videos, extract thumbnails, generate audio waveforms, and so much more. In
@@ -251,3 +250,9 @@ Thanks to:
 ## License
 
 [MIT Licensed](LICENSE).
+
+
+
+## Documentation
+
+See <a href="https://github.com/transloadit/node-sdk/blob/master/README.md">GitHub</a> for the full documentation.
