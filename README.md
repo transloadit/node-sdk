@@ -19,7 +19,7 @@ This is a **Node** SDK to make it easy to talk to the
 Inside your project, type
 
 ```bash
-npm install --save --save-exact transloadit
+npm install transloadit --save
 ```
 
 If there are no errors, you can start using the module.
@@ -27,14 +27,13 @@ If there are no errors, you can start using the module.
 ## Usage
 
 ```javascript
-import TransloaditClient from 'transloadit'
-
-const transloadit = new TransloaditClient({
-  authKey: 'YOUR_AUTH_KEY',
-  authSecret: 'YOUR_AUTH_SECRET'
+const TransloaditClient = require('transloadit')
+const transloadit       = new TransloaditClient({
+  authKey   : 'YOUR_TRANSLOADIT_AUTH_KEY',
+  authSecret: 'YOUR_TRANSLOADIT_AUTH_SECRET'
 })
 
-transloadit.addFile('file1', filePath);
+transloadit.addFile('file1', '/PATH/TO/FILE.jpg');
 
 const assemblyOptions = {
   params: {
@@ -47,7 +46,7 @@ transloadit.createAssembly(assemblyOptions, (err, result) => {
     throw new Error(err)
   }
 
-  console.log('success')
+  console.log('✅ success')
 
   let assemblyId = result.assembly_id
 
@@ -56,7 +55,7 @@ transloadit.createAssembly(assemblyOptions, (err, result) => {
   })
 
   transloadit.deleteAssembly(assemblyId, (err) => {
-    console.log('deleted')
+    console.log('✅ deleted')
   })
 })
 ```
