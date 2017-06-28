@@ -5,7 +5,6 @@ uploading and encoding service.
 
 ## Intro
 
-
 [Transloadit](https://transloadit.com) is a service that helps you handle file
 uploads, resize, crop and watermark your images, make GIFs, transcode your
 videos, extract thumbnails, generate audio waveforms, and so much more. In
@@ -251,3 +250,57 @@ Thanks to:
 ## License
 
 [MIT Licensed](LICENSE).
+
+
+
+## Install
+
+Inside your project, type
+
+```bash
+npm install --save --save-exact transloadit
+```
+
+If there are no errors, you can start using the module.
+
+## Usage
+
+```javascript
+import TransloaditClient from 'transloadit'
+
+const transloadit = new TransloaditClient({
+  authKey: 'YOUR_AUTH_KEY',
+  authSecret: 'YOUR_AUTH_SECRET'
+})
+
+transloadit.addFile('file1', filePath);
+
+const assemblyOptions = {
+  params: {
+    template_id: 'YOUR_TEMPLATE_ID'
+  }
+}
+
+transloadit.createAssembly(assemblyOptions, (err, result) => {
+  if (err) {
+    throw new Error(err)
+  }
+
+  console.log('success')
+
+  let assemblyId = result.assembly_id
+
+  console.log({
+    assemblyId: assemblyId
+  })
+
+  transloadit.deleteAssembly(assemblyId, (err) => {
+    console.log('deleted')
+  })
+})
+```
+
+## Example
+
+For fully working examples take a look at
+[`examples/`](https://github.com/transloadit/node-sdk/tree/master/examples).
