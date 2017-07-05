@@ -29,8 +29,8 @@ If there are no errors, you can start using the module.
 ```javascript
 const TransloaditClient = require('transloadit')
 const transloadit       = new TransloaditClient({
-  authKey   : 'YOUR_TRANSLOADIT_AUTH_KEY',
-  authSecret: 'YOUR_TRANSLOADIT_AUTH_SECRET'
+  authKey   : 'YOUR_TRANSLOADIT_KEY',
+  authSecret: 'YOUR_TRANSLOADIT_SECRET'
 })
 
 transloadit.addFile('file1', '/PATH/TO/FILE.jpg');
