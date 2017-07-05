@@ -43,7 +43,7 @@ const assemblyOptions = {
 
 transloadit.createAssembly(assemblyOptions, (err, result) => {
   if (err) {
-    throw new Error(err)
+    throw err
   }
 
   console.log('✅ success')
