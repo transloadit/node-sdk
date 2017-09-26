@@ -7,8 +7,8 @@ describe('TransloaditClient', () => {
   describe('constructor', () => {
     it('should set some default properties', () => {
       const opts = {
-        authKey: 'foo_key',
-        authSecret: 'foo_secret'
+        authKey   : 'foo_key',
+        authSecret: 'foo_secret',
       }
       const client = new TransloaditClient(opts)
       expect(client._authKey).to.equal('foo_key')
@@ -20,10 +20,10 @@ describe('TransloaditClient', () => {
 
     it('should allow overwriting some properties', () => {
       const opts = {
-        authKey: 'foo_key',
+        authKey   : 'foo_key',
         authSecret: 'foo_secret',
-        service: 'foo_service',
-        region: 'foo_region'
+        service   : 'foo_service',
+        region    : 'foo_region',
       }
 
       const client = new TransloaditClient(opts)
@@ -55,8 +55,7 @@ describe('TransloaditClient', () => {
       const NAME = 'foo_name'
       const PATH = 'foo_path'
       const STREAM = {
-        on () {
-        }
+        on () {},
       }
 
       gently.expect(GENTLY.hijacked.fs, 'createReadStream', thePath => {
@@ -79,7 +78,7 @@ describe('TransloaditClient', () => {
 
       client._streams = {
         stream1: 'foo_stream',
-        stream2: 'foo_stream2'
+        stream2: 'foo_stream2',
       }
 
       const FORM = {}
@@ -87,14 +86,14 @@ describe('TransloaditClient', () => {
       const PARAMS = {}
       const JSON_PARAMS = {}
       const FIELDS = {
-        foo: 'shizzle',
+        foo : 'shizzle',
         foo2: {
-          bar: 'baz'
-        }
+          bar: 'baz',
+        },
       }
       const SIGNATURE = {
         signature: 'foo_signature',
-        params: JSON_PARAMS
+        params   : JSON_PARAMS,
       }
 
       gently.expect(client, 'calcSignature', params => {
@@ -147,7 +146,7 @@ describe('TransloaditClient', () => {
       const JSON_PARAMS = '{foo:"bar"}'
       const SIGNATURE = {
         signature: 'foo_sig',
-        params: JSON_PARAMS
+        params   : JSON_PARAMS,
       }
 
       gently.expect(client, 'calcSignature', params => {
@@ -172,8 +171,8 @@ describe('TransloaditClient', () => {
       expect(r.auth.expires).not.to.equal(null)
 
       const opts = {
-        authKey: 'foo',
-        authSecret: 'foo_secret'
+        authKey   : 'foo',
+        authSecret: 'foo_secret',
       }
       client = new TransloaditClient(opts)
 
@@ -187,9 +186,9 @@ describe('TransloaditClient', () => {
 
       const PARAMS = {
         auth: {
-          key: 'foo_key',
-          expires: 'foo_expires'
-        }
+          key    : 'foo_key',
+          expires: 'foo_expires',
+        },
       }
 
       const r = JSON.parse(client._prepareParams(PARAMS))

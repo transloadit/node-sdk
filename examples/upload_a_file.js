@@ -8,7 +8,7 @@ const client = new TransloaditClient({
 })
 
 const fieldName = 'my_file'
-const filePath  = 'ABSOLUTE_PATH_TO_SOME_FILE'
+const filePath = 'ABSOLUTE_PATH_TO_SOME_FILE'
 client.addFile(fieldName, filePath)
 
 const opts = {
@@ -18,10 +18,10 @@ const opts = {
 }
 client.createAssembly(opts, (err, result) => {
   if (err) {
-    console.log({err})
+    console.log({ err })
     console.log('fail')
   } else {
     console.log('success')
   }
-  console.log({result})
+  console.log({ result })
 })

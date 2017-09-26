@@ -21,7 +21,7 @@ class PaginationStream extends stream.Readable {
       return process.nextTick(() => this.push(null))
     }
 
-    return this._fetchPage((++this._pageno), (err, { count, items }) => {
+    return this._fetchPage(++this._pageno, (err, { count, items }) => {
       if (err != null) {
         return this.emit('error', err)
       }

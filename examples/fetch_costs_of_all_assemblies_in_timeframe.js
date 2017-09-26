@@ -1,5 +1,5 @@
 // make sure to "npm install async" for this demo
-const async             = require('async')
+const async = require('async')
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
 const TransloaditClient = require('../lib/TransloaditClient')
@@ -27,7 +27,7 @@ class TransloaditCostFetcher {
       () => self._lastCount > 0,
       callback => {
         console.log('Processing page', self._params.page)
-        self._client.listAssemblies(self._params, (err, {count, items}) => {
+        self._client.listAssemblies(self._params, (err, { count, items }) => {
           self._lastCount = count
           self._params.page++
 
@@ -53,7 +53,7 @@ class TransloaditCostFetcher {
   _fetchAssemblyCost (assemblyId, cb) {
     const self = this
 
-    this._client.getAssembly(assemblyId, (err, {bytesUsage}) => {
+    this._client.getAssembly(assemblyId, (err, { bytesUsage }) => {
       if (err) {
         return cb(err)
       }
@@ -64,7 +64,7 @@ class TransloaditCostFetcher {
   }
 }
 
-const authKey    = 'YOUR_AUTH_KEY'
+const authKey = 'YOUR_AUTH_KEY'
 const authSecret = 'YOUR_AUTH_SECRET'
 
 var params = {

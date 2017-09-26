@@ -26,21 +26,21 @@ const params = {
 }
 
 // Upload image and create assembly.
-client.createAssembly({ params }, (err, result) => {
+client.createAssembly({ params }, (err, { assembly_id } = {}) => {
   if (err) throw err
 
-  let id = result.assembly_id
+  let id = assembly_id // eslint-disable-line camelcase
 
   // Wait for the assembly to complete and be ready for download.
   function awaitCompletion (cb) {
-    client.getAssembly(id, (err, result) => {
+    client.getAssembly(id, (err, { ok, results } = {}) => {
       if (err) return cb(err)
 
-      if (result.ok === 'ASSEMBLY_COMPLETED') {
-        return cb(null, result.results.resize[0].url)
+      if (ok === 'ASSEMBLY_COMPLETED') {
+        return cb(null, results.resize[0].url)
       }
 
-      if (result.ok === 'ASSEMBLY_UPLOADING' || result.ok === 'ASSEMBLY_EXECUTING') {
+      if (ok === 'ASSEMBLY_UPLOADING' || ok === 'ASSEMBLY_EXECUTING') {
         return setTimeout(() => {
           awaitCompletion(cb)
         }, 250)

@@ -65,11 +65,11 @@ class TransloaditClient {
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
     const requestOpts = {
-      url: this._lastUsedAssemblyUrl,
-      method: 'post',
+      url    : this._lastUsedAssemblyUrl,
+      method : 'post',
       timeout: 24 * 60 * 60 * 1000, // 1 day
-      params: params || {},
-      fields: fields || {}
+      params : params || {},
+      fields : fields || {},
     }
 
     const streams = (() => {
@@ -95,11 +95,7 @@ class TransloaditClient {
           return cb(null, result)
         }
 
-        err = new Error(
-          ((left = result.error != null ? result.error : result.message) != null
-            ? left
-            : unknownErrMsg)
-        )
+        err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
         cb(err)
       })
     }
@@ -139,16 +135,16 @@ class TransloaditClient {
   }
 
   deleteAssembly (assemblyId, cb) {
-    this.getAssembly(assemblyId, (err, { assembly_url }) => {
+    this.getAssembly(assemblyId, (err, { assembly_url } = {}) => {
       if (err != null) {
         return cb(err)
       }
 
       const opts = {
-        url: assembly_url,
+        url    : assembly_url,
         timeout: 5000,
-        method: 'del',
-        params: {}
+        method : 'del',
+        params : {},
       }
 
       this._remoteJson(opts, cb)
@@ -157,8 +153,8 @@ class TransloaditClient {
 
   replayAssembly ({ assembly_id: assemblyId, notify_url: notifyUrl }, cb) {
     const requestOpts = {
-      url: this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
-      method: 'post'
+      url   : this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
+      method: 'post',
     }
 
     if (notifyUrl != null) {
@@ -170,8 +166,8 @@ class TransloaditClient {
 
   replayAssemblyNotification ({ assembly_id: assemblyId, notify_url: notifyUrl }, cb) {
     const requestOpts = {
-      url: this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
-      method: 'post'
+      url   : this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
+      method: 'post',
     }
 
     if (notifyUrl != null) {
@@ -183,9 +179,9 @@ class TransloaditClient {
 
   listAssemblyNotifications (params, cb) {
     const requestOpts = {
-      url: `${this._serviceUrl()}/assembly_notifications`,
+      url   : `${this._serviceUrl()}/assembly_notifications`,
       method: 'get',
-      params: params || {}
+      params: params || {},
     }
 
     this._remoteJson(requestOpts, cb)
@@ -199,9 +195,9 @@ class TransloaditClient {
 
   listAssemblies (params, cb) {
     const requestOpts = {
-      url: `${this._serviceUrl()}/assemblies`,
+      url   : `${this._serviceUrl()}/assemblies`,
       method: 'get',
-      params: params || {}
+      params: params || {},
     }
 
     this._remoteJson(requestOpts, cb)
@@ -217,10 +213,10 @@ class TransloaditClient {
     const opts = { url: this._serviceUrl() + `/assemblies/${assemblyId}` }
 
     const retryOpts = {
-      retries: 5,
-      factor: 3.28,
+      retries   : 5,
+      factor    : 3.28,
       minTimeout: 1 * 1000,
-      maxTimeout: 8 * 1000
+      maxTimeout: 8 * 1000,
     }
 
     const operation = retry.operation(retryOpts)
@@ -249,9 +245,9 @@ class TransloaditClient {
 
   createTemplate (params, cb) {
     const requestOpts = {
-      url: `${this._serviceUrl()}/templates`,
+      url   : `${this._serviceUrl()}/templates`,
       method: 'post',
-      params: params || {}
+      params: params || {},
     }
 
     this._remoteJson(requestOpts, (err, result) => {
@@ -264,20 +260,16 @@ class TransloaditClient {
         return cb(null, result)
       }
 
-      err = new Error(
-        ((left = result.error != null ? result.error : result.message) != null
-          ? left
-          : unknownErrMsg)
-      )
+      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
       cb(err)
     })
   }
 
   editTemplate (templateId, params, cb) {
     const requestOpts = {
-      url: `${this._serviceUrl()}/templates/${templateId}`,
+      url   : `${this._serviceUrl()}/templates/${templateId}`,
       method: 'put',
-      params: params || {}
+      params: params || {},
     }
 
     this._remoteJson(requestOpts, (err, result) => {
@@ -290,20 +282,16 @@ class TransloaditClient {
         return cb(null, result)
       }
 
-      err = new Error(
-        ((left = result.error != null ? result.error : result.message) != null
-          ? left
-          : unknownErrMsg)
-      )
+      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
       cb(err)
     })
   }
 
   deleteTemplate (templateId, cb) {
     const requestOpts = {
-      url: this._serviceUrl() + `/templates/${templateId}`,
+      url   : this._serviceUrl() + `/templates/${templateId}`,
       method: 'del',
-      params: {}
+      params: {},
     }
 
     this._remoteJson(requestOpts, cb)
@@ -311,9 +299,9 @@ class TransloaditClient {
 
   getTemplate (templateId, cb) {
     const requestOpts = {
-      url: `${this._serviceUrl()}/templates/${templateId}`,
+      url   : `${this._serviceUrl()}/templates/${templateId}`,
       method: 'get',
-      params: {}
+      params: {},
     }
 
     this._remoteJson(requestOpts, cb)
@@ -321,9 +309,9 @@ class TransloaditClient {
 
   listTemplates (params, cb) {
     const requestOpts = {
-      url: `${this._serviceUrl()}/templates`,
+      url   : `${this._serviceUrl()}/templates`,
       method: 'get',
-      params: params || {}
+      params: params || {},
     }
 
     this._remoteJson(requestOpts, cb)
@@ -337,9 +325,9 @@ class TransloaditClient {
 
   getBill (month, cb) {
     const requestOpts = {
-      url: this._serviceUrl() + `/bill/${month}`,
+      url   : this._serviceUrl() + `/bill/${month}`,
       method: 'get',
-      params: {}
+      params: {},
     }
 
     this._remoteJson(requestOpts, cb)
@@ -437,10 +425,10 @@ class TransloaditClient {
   // Wrapper around __remoteJson which will retry in case of error
   _remoteJson (opts, cb) {
     const operation = retry.operation({
-      retries: 5,
-      factor: 3.28,
+      retries   : 5,
+      factor    : 3.28,
       minTimeout: 1 * 1000,
-      maxTimeout: 8 * 1000
+      maxTimeout: 8 * 1000,
     })
 
     operation.attempt(() => {
@@ -492,14 +480,14 @@ class TransloaditClient {
 
     const requestOpts = {
       uri: url,
-      timeout
+      timeout,
     }
 
     if (opts.headers != null) {
       requestOpts.headers = opts.headers
     }
 
-    const req = request[method](requestOpts, (err, { body, statusCode }) => {
+    const req = request[method](requestOpts, (err, { body, statusCode } = {}) => {
       if (err) {
         return cb(err)
       }
@@ -514,7 +502,7 @@ class TransloaditClient {
         msg += `Code: ${statusCode}. Body: ${abbr}. `
         return cb(new Error(msg))
       }
-      if (statusCode !== 200 && statusCode != 404 && 400 <= statusCode && statusCode <= 599) {
+      if (statusCode !== 200 && statusCode !== 404 && statusCode >= 400 && statusCode <= 599) {
         return cb(_.extend(new Error(), result))
       }
 

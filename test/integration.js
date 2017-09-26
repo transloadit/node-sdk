@@ -49,7 +49,7 @@ if (authKey == null || authSecret == null) {
           close () {
             tunnel.close()
             return server.close()
-          }
+          },
         })
       })
     })
@@ -62,17 +62,17 @@ if (authKey == null || authSecret == null) {
       steps: {
         import: {
           robot: '/http/import',
-          url: genericImg
+          url  : genericImg,
         },
         resize: {
-          robot: '/image/resize',
-          use: 'import',
+          robot : '/image/resize',
+          use   : 'import',
           result: true,
-          width: 130,
-          height: 130
-        }
-      }
-    }
+          width : 130,
+          height: 130,
+        },
+      },
+    },
   }
 
   describe('API integration', function () {
@@ -117,7 +117,7 @@ if (authKey == null || authSecret == null) {
             return branchDone()
           }
 
-          client.createAssembly(genericParams, (err, { error, assembly_id }) => {
+          client.createAssembly(genericParams, (err, { error, assembly_id } = {}) => {
             if (err != null || error != null) {
               return reproduce(nattempts - 1)
             }
@@ -146,21 +146,23 @@ if (authKey == null || authSecret == null) {
           params: {
             steps: {
               resize: {
-                robot: '/image/resize',
-                use: ':original',
+                robot : '/image/resize',
+                use   : ':original',
                 result: true,
-                width: 130,
-                height: 130
-              }
-            }
-          }
+                width : 130,
+                height: 130,
+              },
+            },
+          },
         }
 
         client.addFile('original', temp.path({ suffix: '.transloadit.jpg' }))
         try {
           return client.createAssembly(params, (err, result) => {
             expect(err).to.not
-            expect(err).to.have.property('code').that.equals('ENOENT')
+            expect(err)
+              .to.have.property('code')
+              .that.equals('ENOENT')
             return done()
           })
         } catch (e) {
@@ -175,17 +177,17 @@ if (authKey == null || authSecret == null) {
           params: {
             steps: {
               resize: {
-                robot: '/image/resize',
-                use: ':original',
+                robot : '/image/resize',
+                use   : ':original',
                 result: true,
-                width: 130,
-                height: 130
-              }
-            }
-          }
+                width : 130,
+                height: 130,
+              },
+            },
+          },
         }
 
-        return temp.open('transloadit', (err, { path }) => {
+        return temp.open('transloadit', (err, { path } = {}) => {
           expect(err).to.not.exist
           const dl = request(genericImg)
           dl.pipe(fs.createWriteStream(path))
@@ -250,31 +252,31 @@ if (authKey == null || authSecret == null) {
           // TODO the server won't close if the test fails
 
           const params = {
-             params: {
+            params: {
               steps: {
                 import: {
                   robot: '/http/import',
-                  url: server.url
+                  url  : server.url,
                 },
                 resize: {
-                  robot: '/image/resize',
-                  use: 'import',
+                  robot : '/image/resize',
+                  use   : 'import',
                   result: true,
-                  width: 130,
-                  height: 130
-                }
-              }
-            }
+                  width : 130,
+                  height: 130,
+                },
+              },
+            },
           }
 
           // Finally send the createAssembly request
-          client.createAssembly(params, (err, result) => {
+          client.createAssembly(params, (err, { assembly_id } = {}) => {
             expect(err).to.not.exist
 
-            const id = result.assembly_id
+            const id = assembly_id // eslint-disable-line camelcase
 
             // Now delete it
-            client.deleteAssembly(id, (err, { ok }) => {
+            client.deleteAssembly(id, (err, { ok } = {}) => {
               // Allow the upload to finish
               readyToServe = true
               callback()
@@ -285,7 +287,7 @@ if (authKey == null || authSecret == null) {
               // Successful cancel requests get ASSEMBLY_CANCELED even when it
               // completed, so we now request the assembly status to check the
               // *actual* status.
-              client.getAssembly(id, (err, { ok }) => {
+              client.getAssembly(id, (err, { ok } = {}) => {
                 expect(err).to.not.exist
                 expect(ok).to.equal('ASSEMBLY_CANCELED')
                 server.close()
@@ -301,29 +303,32 @@ if (authKey == null || authSecret == null) {
       it('should replay an assembly after it has completed', done => {
         const client = new TransloaditClient({ authKey, authSecret })
 
-        client.createAssembly(genericParams, (err, result) => {
+        client.createAssembly(genericParams, (err, { assembly_id } = {}) => {
           expect(err).to.not.exist
 
-          const originalId = result.assembly_id
+          const originalId = assembly_id // eslint-disable-line camelcase
 
           // ensure that the assembly has completed
-          const ensureCompletion = cb => client.getAssembly(originalId, (err, result) => {
-            expect(err).to.not.exist
-            const ok = result.ok
+          const ensureCompletion = cb =>
+            client.getAssembly(originalId, (err, result) => {
+              expect(err).to.not.exist
+              const ok = result.ok
 
-            if (ok === 'ASSEMBLY_UPLOADING' || ok === 'ASSEMBLY_EXECUTING') {
-              setTimeout(() => ensureCompletion(cb), 1000)
-            } else {
-              cb()
-            }
-          })
+              if (ok === 'ASSEMBLY_UPLOADING' || ok === 'ASSEMBLY_EXECUTING') {
+                setTimeout(() => ensureCompletion(cb), 1000)
+              } else {
+                cb()
+              }
+            })
 
           // Start an asynchonous loop
-          ensureCompletion(() => client.replayAssembly({ assembly_id: originalId }, (err, result) => {
-            expect(err).to.not.exist
-            expect(result.ok).to.equal('ASSEMBLY_REPLAYING')
-            done()
-          }))
+          ensureCompletion(() =>
+            client.replayAssembly({ assembly_id: originalId }, (err, { ok } = {}) => {
+              expect(err).to.not.exist
+              expect(ok).to.equal('ASSEMBLY_REPLAYING')
+              done()
+            })
+          )
         })
       })
     })
@@ -335,7 +340,9 @@ if (authKey == null || authSecret == null) {
         client.listAssemblies({}, (err, result) => {
           expect(err).to.not.exist
           expect(result).to.have.property('count')
-          expect(result).to.have.property('items').that.is.instanceof(Array)
+          expect(result)
+            .to.have.property('items')
+            .that.is.instanceof(Array)
           done()
         })
       })
@@ -375,35 +382,36 @@ if (authKey == null || authSecret == null) {
         stream.on('end', () => cb(null, chunks.join('')))
       }
 
-      const testCase = (desc, endBehavior) => it(desc, done => {
-        const client = new TransloaditClient({ authKey, authSecret })
+      const testCase = (desc, endBehavior) =>
+        it(desc, done => {
+          const client = new TransloaditClient({ authKey, authSecret })
 
-        // listens for notifications
-        const handler = (req, res) => {
-          expect(url.parse(req.url).pathname).to.equal('/')
+          // listens for notifications
+          const handler = (req, res) => {
+            expect(url.parse(req.url).pathname).to.equal('/')
 
-          expect(req.method).to.equal('POST')
-          streamToString(req, (err, body) => {
-            if (err) {
-              console.error(err)
-            }
-            const result = JSON.parse(querystring.parse(body).transloadit)
-            expect(result).to.have.property('ok')
-            res.writeHead(200)
-            res.end()
-            if (result.ok !== 'ASSEMBLY_COMPLETED') return
-            endBehavior(client, result.assembly_id, done)
+            expect(req.method).to.equal('POST')
+            streamToString(req, (err, body) => {
+              if (err) {
+                console.error(err)
+              }
+              const result = JSON.parse(querystring.parse(body).transloadit)
+              expect(result).to.have.property('ok')
+              res.writeHead(200)
+              res.end()
+              if (result.ok !== 'ASSEMBLY_COMPLETED') return
+              endBehavior(client, result.assembly_id, done)
+            })
+          }
+
+          startServer(handler, (err, server) => {
+            expect(err).to.not.exist
+
+            const params = { params: _.extend({}, genericParams.params, { notify_url: server.url }) }
+
+            client.createAssembly(params, (err, result) => expect(err).to.not.exist)
           })
-        }
-
-        startServer(handler, (err, server) => {
-          expect(err).to.not.exist
-
-          const params = { params: _.extend({}, genericParams.params, { notify_url: server.url }) }
-
-          client.createAssembly(params, (err, result) => expect(err).to.not.exist)
         })
-      })
 
       testCase('should send a notification upon assembly completion', (client, id, done) => done())
 
@@ -411,10 +419,7 @@ if (authKey == null || authSecret == null) {
       testCase('should replay the notification when requested', (client, id, done) => {
         if (notificationsRecvd++ === 0) {
           setTimeout(() => {
-            client.replayAssemblyNotification(
-              { assembly_id: id },
-              err => expect(err).to.not.exist
-            )
+            client.replayAssemblyNotification({ assembly_id: id }, err => expect(err).to.not.exist)
           }, 2000)
         } else {
           done()
@@ -428,19 +433,17 @@ if (authKey == null || authSecret == null) {
       const client = new TransloaditClient({ authKey, authSecret })
 
       it('should allow creating a template', done => {
-        client.createTemplate(
-          { name: templName, template: genericParams.params },
-          (err, { id }) => {
-            expect(err).to.not.exist
-            templId = id
-            done()
-          })
+        client.createTemplate({ name: templName, template: genericParams.params }, (err, { id } = {}) => {
+          expect(err).to.not.exist
+          templId = id
+          done()
+        })
       })
 
       it("should be able to fetch a template's definition", done => {
         expect(templId).to.exist
 
-        client.getTemplate(templId, (err, { name, content }) => {
+        client.getTemplate(templId, (err, { name, content } = {}) => {
           expect(err).to.not.exist
           expect(name).to.equal(templName)
           expect(content).to.deep.equal(genericParams.params)
@@ -451,7 +454,7 @@ if (authKey == null || authSecret == null) {
       it('should delete the template successfully', done => {
         expect(templId).to.exist
 
-        client.deleteTemplate(templId, (err, { ok }) => {
+        client.deleteTemplate(templId, (err, { ok } = {}) => {
           expect(err).to.not.exist
           expect(ok).to.equal('TEMPLATE_DELETED')
           client.getTemplate(templId, (err, result) => {

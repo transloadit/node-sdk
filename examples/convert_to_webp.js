@@ -12,28 +12,28 @@ const client = new TransloaditClient({
 })
 
 const fieldName = 'my_file'
-const filePath  = process.argv[2]
+const filePath = process.argv[2]
 client.addFile(fieldName, filePath)
 
 const opts = {
   params: {
     steps: {
-      'webp': {
-        'use'              : ':original',
-        'robot'            : '/image/resize',
-        'result'           : true,
-        'imagemagick_stack': 'v2.0.3',
-        'format'           : 'webp',
+      webp: {
+        use              : ':original',
+        robot            : '/image/resize',
+        result           : true,
+        imagemagick_stack: 'v2.0.3',
+        format           : 'webp',
       },
     },
   },
 }
 client.createAssembly(opts, (err, result) => {
   if (err) {
-    console.log({err})
+    console.log({ err })
     console.log('fail')
   } else {
     console.log('success')
   }
-  console.log({result})
+  console.log({ result })
 })

@@ -38,7 +38,7 @@ const listParams = {
 // this just serves as an example, normally you would refactor this
 // christmas tree with control flow modules such as "async"
 
-client.listTemplates(listParams, (err, {count}) => {
+client.listTemplates(listParams, (err, { count } = {}) => {
   if (err) {
     return console.log('failed fetching templates:', err)
   }
