@@ -343,7 +343,7 @@ class TransloaditClient {
   _calcSignature (toSign) {
     return crypto
       .createHmac('sha1', this._authSecret)
-      .update(new Buffer(toSign, 'utf-8'))
+      .update(Buffer.from(toSign, 'utf-8'))
       .digest('hex')
   }
 
