@@ -75,7 +75,7 @@ These are the public methods on the `TransloaditClient` object and their descrip
 
 Returns a new instance of the client. The `options` object must at least include `authKey` and `authSecret` keys (and their values).
 
-You can also provide `service`, which defaults to `"api2.transloadit.com"`, and `region`, which defaults to `"us-east-1"`.
+You can also provide `service`, which defaults to `'api2.transloadit.com'`, and `region`, which defaults to `'us-east-1'`.
 
 By default `TransloaditClient` will use SSL so it will access `service` with a https:// prefix. You can switch this off by providing options.useSsl with a value of `false`.
 
@@ -125,11 +125,11 @@ pagination. It accepts the same params as listAssembly.
 This can be used to iterate through assemblies:
 
 ```javascript
-var assemblyStream = client.streamAssemblies({ fromdate: "2016-08-19 01:15:00 UTC" });
+var assemblyStream = client.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
 
-assemblyStream.on("readable", function() {
+assemblyStream.on('readable', function() {
   var assembly = assemblyStream.read();
-  if (assembly == null) console.log("end of stream");
+  if (assembly == null) console.log('end of stream');
 
   console.log(assembly.id);
 });
@@ -139,14 +139,14 @@ Results can also be piped. Here's an example using
 [through2](https://github.com/rvagg/through2):
 
 ```javascript
-var assemblyStream = client.streamAssemblies({ fromdate: "2016-08-19 01:15:00 UTC" });
+var assemblyStream = client.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
 
 assemblyStream
   .pipe(through.obj(function(chunk, enc, callback) {
-    this.push(chunk.id + "\n");
+    this.push(chunk.id + '\n');
     callback();
   }))
-  .pipe(fs.createWriteStream("assemblies.txt");
+  .pipe(fs.createWriteStream('assemblies.txt'));
 ```
 
 #### TransloaditClient.getAssembly(assemblyId, cb)
