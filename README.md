@@ -103,6 +103,7 @@ You can provide some options:
 
 * `params` - an object containing your `template_id`, `notify_url`, some steps that overwrite your Transloadit template and other params to control Transloadit behavior.
 * `fields` - an object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables).
+* `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the assembly to finish with all encoding results present before the callback is called.
 
 This function (like all functions of this client) automatically obeys all rate limiting imposed by Transloadit. There is no need to write your own
 wrapper scripts to handle rate limits.

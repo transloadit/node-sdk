@@ -73,6 +73,7 @@ if (authKey == null || authSecret == null) {
         },
       },
     },
+    waitForCompletion: true,
   }
 
   describe('API integration', function () {

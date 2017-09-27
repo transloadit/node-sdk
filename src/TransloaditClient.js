@@ -51,7 +51,14 @@ class TransloaditClient {
     return this._lastUsedAssemblyUrl
   }
 
-  createAssembly ({ params, fields }, cb) {
+  createAssembly (opts, cb) {
+    const defaultOpts = {
+      params: {},
+      fields: {},
+      waitForCompletion: false
+    }
+    opts = _.extend(defaultOpts, opts)
+
     let stream
     const callback = cb
     let called = false
@@ -68,8 +75,8 @@ class TransloaditClient {
       url    : this._lastUsedAssemblyUrl,
       method : 'post',
       timeout: 24 * 60 * 60 * 1000, // 1 day
-      params : params || {},
-      fields : fields || {},
+      params : opts.params,
+      fields : opts.fields,
     }
 
     const streams = (() => {
@@ -82,21 +89,23 @@ class TransloaditClient {
     })()
 
     const sendRequest = () => {
-      this._remoteJson(requestOpts, (err, result) => {
+      this._remoteJson(requestOpts, (err, result = {}) => {
         // reset streams so they do not get used again in subsequent requests
-        let left
         this._streams = {}
+
+        if (!err && result.error != null) {
+          err = new Error(result.error)
+        }
 
         if (err) {
           return cb(err)
         }
 
-        if (result && result.ok) {
+        if (!opts.waitForCompletion) {
           return cb(null, result)
         }
 
-        err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
-        cb(err)
+        this.awaitAssemblyCompletion(result.assembly_id, cb)
       })
     }
 
@@ -132,6 +141,30 @@ class TransloaditClient {
     if (streams.length === 0) {
       sendRequest()
     }
+  }
+
+  awaitAssemblyCompletion (assemblyId, cb) {
+    this.getAssembly(assemblyId, (err, result) => {
+      if (!err && result.error != null) {
+        err = new Error(result.error)
+      }
+
+      if (err) {
+        return cb(err)
+      }
+
+      if (result.ok === 'ASSEMBLY_COMPLETED') {
+        return cb(null, result)
+      }
+
+      if (result.ok === 'ASSEMBLY_UPLOADING' || result.ok === 'ASSEMBLY_EXECUTING') {
+        return setTimeout(() => {
+          this.awaitAssemblyCompletion(assemblyId, cb)
+        }, 1 * 1000)
+      }
+
+      return cb(new Error(unknownErrMsg))
+    })
   }
 
   deleteAssembly (assemblyId, cb) {
