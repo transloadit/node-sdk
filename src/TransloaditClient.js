@@ -124,6 +124,9 @@ class TransloaditClient {
     for (stream of Array.from(streams)) {
       stream.on('error', cb)
 
+      // because an http response stream could also have a "path"
+      // attribute but not referring to the local file system
+      // see https://github.com/transloadit/node-sdk/pull/50#issue-261982855
       if (stream.path == null || !(stream instanceof Readable)) {
         streamErrCb(null)
         continue
