@@ -5,6 +5,7 @@ const _ = reqr('underscore')
 const fs = reqr('fs')
 const retry = reqr('retry')
 const PaginationStream = reqr('./PaginationStream')
+const Readable = reqr('stream').Readable
 
 let unknownErrMsg = 'Unknown error. Please report this at '
 unknownErrMsg += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
@@ -123,7 +124,7 @@ class TransloaditClient {
     for (stream of Array.from(streams)) {
       stream.on('error', cb)
 
-      if (stream.path == null) {
+      if (stream.path == null || !(stream instanceof Readable)) {
         streamErrCb(null)
         continue
       }
