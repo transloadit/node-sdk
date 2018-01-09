@@ -27,7 +27,6 @@ class TransloaditClient {
     this._authKey = opts.authKey
     this._authSecret = opts.authSecret
     this._service = opts.service || 'api2.transloadit.com'
-    this._region = opts.region || 'us-east-1'
     this._protocol = opts.useSsl ? 'https://' : 'http://'
     this._streams = {}
 
