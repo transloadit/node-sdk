@@ -14,8 +14,7 @@ describe('TransloaditClient', () => {
       expect(client._authKey).to.equal('foo_key')
       expect(client._authSecret).to.equal('foo_secret')
       expect(client._service).to.equal('api2.transloadit.com')
-      expect(client._region).to.equal('us-east-1')
-      return expect(client._protocol).to.equal('https://')
+      expect(client._protocol).to.equal('https://')
     })
 
     it('should allow overwriting some properties', () => {
@@ -23,14 +22,12 @@ describe('TransloaditClient', () => {
         authKey   : 'foo_key',
         authSecret: 'foo_secret',
         service   : 'foo_service',
-        region    : 'foo_region',
       }
 
       const client = new TransloaditClient(opts)
       expect(client._authKey).to.equal('foo_key')
       expect(client._authSecret).to.equal('foo_secret')
       expect(client._service).to.equal('foo_service')
-      return expect(client._region).to.equal('foo_region')
     })
   })
 
@@ -44,7 +41,7 @@ describe('TransloaditClient', () => {
       expect(client._streams[NAME]).to.equal(undefined)
       gently.expect(STREAM, 'pause')
       client.addStream(NAME, STREAM)
-      return expect(client._streams[NAME]).to.equal(STREAM)
+      expect(client._streams[NAME]).to.equal(STREAM)
     })
   })
 
