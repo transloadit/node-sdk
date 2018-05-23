@@ -490,7 +490,12 @@ class TransloaditClient {
           }
 
           if (err.error !== undefined) {
-            console.warn(err.error + ' - ' + err.message)
+            let msg = []
+            if (err.error) { msg.push(err.error) }
+            if (opts.url) { msg.push(opts.url) }
+            if (err.message) { msg.push(err.message) }
+            
+            console.warn(msg.join(' - '))
             return cb(err)
           }
         }
