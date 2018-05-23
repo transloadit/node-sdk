@@ -1,6 +1,6 @@
 {
   "name": "transloadit",
-  "version": "1.10.4",
+  "version": "1.11.0",
   "description": "Node.js SDK for Transloadit",
   "keywords": [
     "transloadit",
