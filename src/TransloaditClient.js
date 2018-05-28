@@ -3,9 +3,11 @@ const request = reqr('request')
 const crypto = reqr('crypto')
 const _ = reqr('underscore')
 const fs = reqr('fs')
+const path = reqr('path')
 const retry = reqr('retry')
 const PaginationStream = reqr('./PaginationStream')
 const Readable = reqr('stream').Readable
+const tus = reqr('tus-js-client')
 
 let unknownErrMsg = 'Unknown error. Please report this at '
 unknownErrMsg += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
@@ -29,15 +31,28 @@ class TransloaditClient {
     this._service = opts.service || 'api2.transloadit.com'
     this._protocol = opts.useSsl ? 'https://' : 'http://'
     this._streams = {}
+    this._tus_streams = {}
 
     this._lastUsedAssemblyUrl = ''
   }
 
+  /**
+   * Adds an Assembly file stream
+   *
+   * @param {string} name fieldname of the file
+   * @param {ReadableStream} stream stream to be uploaded
+   */
   addStream (name, stream) {
     stream.pause()
     this._streams[name] = stream
   }
 
+  /**
+   * Adds an Assembly file
+   *
+   * @param {string} name field name of the file
+   * @param {string} path path to the file
+   */
   addFile (name, path) {
     const stream = fs.createReadStream(path)
     stream.on('error', err => {
@@ -51,11 +66,26 @@ class TransloaditClient {
     return this._lastUsedAssemblyUrl
   }
 
-  createAssembly (opts, cb) {
+  /**
+   * Create an Assembly
+   *
+   * @typedef {object} progressObject
+   * @property {object} assemblyProgress
+   * @property {{bytesTotal: number, bytesUploaded: number, file: string}} uploadProgress
+   *
+   * @callback onProgress
+   * @param {progressObject} progress
+   *
+   * @param {object} opts assembly options
+   * @param {function} cb callback function for when assembly is submitted/done
+   * @param {onProgress} progressCb callback function to be triggered as on each progress update of the assembly
+   */
+  createAssembly (opts, cb, progressCb) {
     const defaultOpts = {
       params: {},
       fields: {},
-      waitForCompletion: false
+      waitForCompletion: false,
+      isResumable: true
     }
     opts = _.extend(defaultOpts, opts)
 
@@ -71,14 +101,6 @@ class TransloaditClient {
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
-    const requestOpts = {
-      url    : this._lastUsedAssemblyUrl,
-      method : 'post',
-      timeout: 24 * 60 * 60 * 1000, // 1 day
-      params : opts.params,
-      fields : opts.fields,
-    }
-
     const streams = (() => {
       const result = []
       for (let label in this._streams) {
@@ -87,6 +109,23 @@ class TransloaditClient {
       }
       return result
     })()
+
+    let requestOpts = {
+      url: this._lastUsedAssemblyUrl,
+      method: 'post',
+      timeout: 24 * 60 * 60 * 1000, // 1 day
+      params: opts.params,
+      fields: opts.fields,
+    }
+
+    if (opts.isResumable) {
+      requestOpts.tus_num_expected_upload_files = streams.length
+      // transfer streams to tus streams so they don't get uploaded as multipart
+      for (const label of Object.keys(this._streams)) {
+        this._tus_streams[label] = this._streams[label]
+        delete this._streams[label]
+      }
+    }
 
     const sendRequest = () => {
       this._remoteJson(requestOpts, (err, result = {}) => {
@@ -101,11 +140,16 @@ class TransloaditClient {
           return cb(err)
         }
 
-        if (!opts.waitForCompletion) {
-          return cb(null, result)
+        if (!opts.isResumable) {
+          if (!opts.waitForCompletion) {
+            return cb(null, result)
+          }
+
+          return this.awaitAssemblyCompletion(result.assembly_id, cb, progressCb)
         }
 
-        this.awaitAssemblyCompletion(result.assembly_id, cb)
+        const tusOpts = Object.assign({ waitForCompletion: opts.waitForCompletion }, result)
+        this._sendTusRequest(tusOpts, cb, progressCb)
       })
     }
 
@@ -146,7 +190,7 @@ class TransloaditClient {
     }
   }
 
-  awaitAssemblyCompletion (assemblyId, cb) {
+  awaitAssemblyCompletion (assemblyId, cb, progressCb) {
     this.getAssembly(assemblyId, (err, result) => {
       if (!err && result.error != null) {
         err = new Error(result.error)
@@ -161,15 +205,27 @@ class TransloaditClient {
       }
 
       if (result.ok === 'ASSEMBLY_UPLOADING' || result.ok === 'ASSEMBLY_EXECUTING') {
-        return setTimeout(() => {
+        setTimeout(() => {
           this.awaitAssemblyCompletion(assemblyId, cb)
         }, 1 * 1000)
+
+        if (progressCb) {
+          progressCb({assemblyProgress: result})
+        }
+
+        return
       }
 
       return cb(new Error(unknownErrMsg))
     })
   }
 
+  /**
+   * Delete the assembly
+   *
+   * @param {string} assemblyId assembly ID
+   * @param {function} cb callback function after the assembly is deleted
+   */
   deleteAssembly (assemblyId, cb) {
     this.getAssembly(assemblyId, (err, { assembly_url } = {}) => {
       if (err != null) {
@@ -187,7 +243,18 @@ class TransloaditClient {
     })
   }
 
-  replayAssembly ({ assembly_id: assemblyId, notify_url: notifyUrl }, cb) {
+  /**
+   * Replay an Assembly
+   *
+   * @typedef {object} replayOptions
+   * @property {string} assembly_id
+   * @property {string} notify_url
+   *
+   * @param {replayOptions} opts options defining the Assembly to replay
+   * @param {function} cb callback function after the replay is started
+   */
+  replayAssembly (opts, cb) {
+    const { assembly_id: assemblyId, notify_url: notifyUrl } = opts
     const requestOpts = {
       url   : this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
       method: 'post',
@@ -200,6 +267,12 @@ class TransloaditClient {
     this._remoteJson(requestOpts, cb)
   }
 
+  /**
+   * Replay an Assembly notification
+   *
+   * @param {replayOptions} opts options defining the Assembly to replay
+   * @param {function} cb callback function after the replay is started
+   */
   replayAssemblyNotification ({ assembly_id: assemblyId, notify_url: notifyUrl }, cb) {
     const requestOpts = {
       url   : this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
@@ -213,6 +286,12 @@ class TransloaditClient {
     this._remoteJson(requestOpts, cb)
   }
 
+  /**
+   * List all assembly notifications
+   *
+   * @param {object} params optional request options
+   * @param {function} cb callback function triggered with the list of Assembly notifications
+   */
   listAssemblyNotifications (params, cb) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/assembly_notifications`,
@@ -229,6 +308,12 @@ class TransloaditClient {
     })
   }
 
+  /**
+   * List all assemblies
+   *
+   * @param {object} params optional request options
+   * @param {function} cb callback function triggered with the list of Assemblies
+   */
   listAssemblies (params, cb) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/assemblies`,
@@ -245,6 +330,12 @@ class TransloaditClient {
     })
   }
 
+  /**
+   * Get an Assembly
+   *
+   * @param {string} assemblyId the Assembly Id
+   * @param {function} cb callback function triggered with the retrieved Assembly
+   */
   getAssembly (assemblyId, cb) {
     const opts = { url: this._serviceUrl() + `/assemblies/${assemblyId}` }
 
@@ -279,6 +370,12 @@ class TransloaditClient {
     })
   }
 
+  /**
+   * Create an Assembly Template
+   *
+   * @param {object} params optional request options
+   * @param {function} cb callback function triggered when the template is created
+   */
   createTemplate (params, cb) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/templates`,
@@ -301,6 +398,13 @@ class TransloaditClient {
     })
   }
 
+  /**
+   * Edit an Assembly Template
+   *
+   * @param {string} templateId the template ID
+   * @param {object} params optional request options
+   * @param {function} cb callback function triggered when the template is edited
+   */
   editTemplate (templateId, params, cb) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/templates/${templateId}`,
@@ -323,6 +427,12 @@ class TransloaditClient {
     })
   }
 
+  /**
+   * Delete an Assembly Template
+   *
+   * @param {string} templateId the template ID
+   * @param {function} cb callback function triggered when the template is deleted
+   */
   deleteTemplate (templateId, cb) {
     const requestOpts = {
       url   : this._serviceUrl() + `/templates/${templateId}`,
@@ -333,6 +443,12 @@ class TransloaditClient {
     this._remoteJson(requestOpts, cb)
   }
 
+  /**
+   * Get an Assembly Template
+   *
+   * @param {string} templateId the template ID
+   * @param {function} cb callback function triggered when the template is retrieved
+   */
   getTemplate (templateId, cb) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/templates/${templateId}`,
@@ -343,6 +459,12 @@ class TransloaditClient {
     this._remoteJson(requestOpts, cb)
   }
 
+  /**
+   * List all Assembly Templates
+   *
+   * @param {object} params optional request options
+   * @param {function} cb callback function triggered when the templates are retrieved
+   */
   listTemplates (params, cb) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/templates`,
@@ -359,6 +481,12 @@ class TransloaditClient {
     })
   }
 
+  /**
+   * Get account Billing details for a specific month
+   *
+   * @param {string} month the date for the required billing in the format yyyy-mm
+   * @param {function} cb callback function triggered when the billing is retrieved
+   */
   getBill (month, cb) {
     const requestOpts = {
       url   : this._serviceUrl() + `/bill/${month}`,
@@ -394,7 +522,7 @@ class TransloaditClient {
     form.append('params', jsonParams)
 
     if (fields == null) {
-      fields = []
+      fields = {}
     }
 
     for (let key in fields) {
@@ -563,7 +691,49 @@ class TransloaditClient {
     })
 
     if (method === 'post' || method === 'put' || method === 'del') {
-      this._appendForm(req, opts.params, opts.fields)
+      const extraData = Object.assign(
+        {tus_num_expected_upload_files: opts.tus_num_expected_upload_files},
+        opts.fields
+      )
+      this._appendForm(req, opts.params, extraData)
+    }
+  }
+
+  _sendTusRequest (opts, cb, onProgress) {
+    let uploadsDone = 0
+    const streamLabels = Object.keys(this._tus_streams)
+    const tlClient = this
+    onProgress = onProgress || (() => {})
+    for (const label of streamLabels) {
+      const file = this._tus_streams[label]
+      const filename = file.path ? path.basename(file.path) : label
+      const tusUpload = new tus.Upload(file, {
+        endpoint: opts.tus_url,
+        resume: true,
+        metadata: {
+          assembly_url: opts.assembly_ssl_url,
+          fieldname: label,
+          filename
+        },
+        uploadSize: fs.statSync(file.path).size, // todo this will fail for streams without path
+        onError: cb,
+        onProgress(bytesUploaded, bytesTotal) {
+          onProgress({
+            uploadProgress: {bytesUploaded, bytesTotal, file: label}
+          })
+        },
+        onSuccess() {
+          uploadsDone++
+          if (uploadsDone === streamLabels.length) {
+            tlClient._tus_streams = {}
+            if (opts.waitForCompletion) {
+              tlClient.awaitAssemblyCompletion(opts.assembly_id, cb, onProgress)
+            }
+          }
+        }
+      })
+
+      tusUpload.start()
     }
   }
 }
