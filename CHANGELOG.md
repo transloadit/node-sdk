@@ -12,8 +12,8 @@ Released: TBA.
 
 [Diff](https://github.com/transloadit/node-sdk/compare/1.11.0...master).
 
-
-- [ ]
+- [x] Support the use of Tus client for resumable uploads.
+- [x] Support Assembly Progress Callback (this supports progress during file uploads and assemby execution).
 
 ## 1.11.0
 

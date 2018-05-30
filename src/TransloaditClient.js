@@ -71,7 +71,7 @@ class TransloaditClient {
    *
    * @typedef {object} progressObject
    * @property {object} assemblyProgress
-   * @property {{bytesTotal: number, bytesUploaded: number, file: string}} uploadProgress
+   * @property {{totalBytes: number, uploadedBytes: number}} uploadProgress
    *
    * @callback onProgress
    * @param {progressObject} progress
@@ -703,9 +703,13 @@ class TransloaditClient {
     let uploadsDone = 0
     const streamLabels = Object.keys(this._tus_streams)
     const tlClient = this
+    let totalBytes = 0
+    let uploadedBytes = 0
     onProgress = onProgress || (() => {})
     for (const label of streamLabels) {
       const file = this._tus_streams[label]
+      const uploadSize = fs.statSync(file.path).size // todo this will fail for streams without path
+      totalBytes += uploadSize
       const filename = file.path ? path.basename(file.path) : label
       const tusUpload = new tus.Upload(file, {
         endpoint: opts.tus_url,
@@ -715,11 +719,12 @@ class TransloaditClient {
           fieldname: label,
           filename
         },
-        uploadSize: fs.statSync(file.path).size, // todo this will fail for streams without path
+        uploadSize,
         onError: cb,
-        onProgress(bytesUploaded, bytesTotal) {
+        onProgress(bytesUploaded) {
+          uploadedBytes += bytesUploaded
           onProgress({
-            uploadProgress: {bytesUploaded, bytesTotal, file: label}
+            uploadProgress: { uploadedBytes, totalBytes }
           })
         },
         onSuccess() {
