@@ -118,13 +118,16 @@ class TransloaditClient {
       fields: opts.fields,
     }
 
-    if (opts.isResumable) {
+    if (opts.isResumable && this._canGetStreamSizes()) {
       requestOpts.tus_num_expected_upload_files = streams.length
       // transfer streams to tus streams so they don't get uploaded as multipart
       for (const label of Object.keys(this._streams)) {
         this._tus_streams[label] = this._streams[label]
         delete this._streams[label]
       }
+    } else if (opts.isResumable) {
+      opts.isResumable = false
+      console.warn('disabling resumability because the size of one or more streams cannot be determined')
     }
 
     const sendRequest = () => {
@@ -691,12 +694,26 @@ class TransloaditClient {
     })
 
     if (method === 'post' || method === 'put' || method === 'del') {
-      const extraData = Object.assign(
-        {tus_num_expected_upload_files: opts.tus_num_expected_upload_files},
-        opts.fields
-      )
+      const extraData = Object.assign({}, opts.fields)
+      if (opts.tus_num_expected_upload_files) {
+        extraData.tus_num_expected_upload_files = opts.tus_num_expected_upload_files
+      }
       this._appendForm(req, opts.params, extraData)
     }
+  }
+
+  // @todo support size retrieval for other streams
+  _canGetStreamSizes () {
+    for (const label in this._streams) {
+      const stream = this._streams[label]
+      // the request module has path attribute that is different from file path
+      // but it also has the attribute httpModule
+      if (!(stream.path && !stream.httpModule)) {
+        return false
+      }
+    }
+
+    return true
   }
 
   _sendTusRequest (opts, cb, onProgress) {
@@ -704,12 +721,27 @@ class TransloaditClient {
     const streamLabels = Object.keys(this._tus_streams)
     const tlClient = this
     let totalBytes = 0
-    let uploadedBytes = 0
+    let lastEmittedProgress = 0
+    let uploadProgresses = {}
     onProgress = onProgress || (() => {})
     for (const label of streamLabels) {
       const file = this._tus_streams[label]
-      const uploadSize = fs.statSync(file.path).size // todo this will fail for streams without path
+      const uploadSize = fs.statSync(file.path).size
       totalBytes += uploadSize
+      uploadProgresses[label] = 0
+      const onTusProgress = (bytesUploaded) => {
+        uploadProgresses[label] = bytesUploaded
+        // get all uploaded bytes for all files
+        const uploadedBytes = streamLabels.reduce((label1, label2) => {
+          return uploadProgresses[label1] + uploadProgresses[label2]
+        })
+        // don't send redundant progress
+        if (lastEmittedProgress < uploadedBytes) {
+          lastEmittedProgress = uploadedBytes
+          onProgress({ uploadProgress: { uploadedBytes, totalBytes } })
+        }
+      }
+
       const filename = file.path ? path.basename(file.path) : label
       const tusUpload = new tus.Upload(file, {
         endpoint: opts.tus_url,
@@ -721,12 +753,7 @@ class TransloaditClient {
         },
         uploadSize,
         onError: cb,
-        onProgress(bytesUploaded) {
-          uploadedBytes += bytesUploaded
-          onProgress({
-            uploadProgress: { uploadedBytes, totalBytes }
-          })
-        },
+        onProgress: onTusProgress,
         onSuccess() {
           uploadsDone++
           if (uploadsDone === streamLabels.length) {
