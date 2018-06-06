@@ -726,46 +726,52 @@ class TransloaditClient {
     onProgress = onProgress || (() => {})
     for (const label of streamLabels) {
       const file = this._tus_streams[label]
-      const uploadSize = fs.statSync(file.path).size
-      totalBytes += uploadSize
-      uploadProgresses[label] = 0
-      const onTusProgress = (bytesUploaded) => {
-        uploadProgresses[label] = bytesUploaded
-        // get all uploaded bytes for all files
-        const uploadedBytes = streamLabels.reduce((label1, label2) => {
-          return uploadProgresses[label1] + uploadProgresses[label2]
-        })
-        // don't send redundant progress
-        if (lastEmittedProgress < uploadedBytes) {
-          lastEmittedProgress = uploadedBytes
-          onProgress({ uploadProgress: { uploadedBytes, totalBytes } })
+      fs.stat(file.path, (err, {size}) => {
+        if (err) {
+          return cb(err)
         }
-      }
 
-      const filename = file.path ? path.basename(file.path) : label
-      const tusUpload = new tus.Upload(file, {
-        endpoint: opts.tus_url,
-        resume: true,
-        metadata: {
-          assembly_url: opts.assembly_ssl_url,
-          fieldname: label,
-          filename
-        },
-        uploadSize,
-        onError: cb,
-        onProgress: onTusProgress,
-        onSuccess() {
-          uploadsDone++
-          if (uploadsDone === streamLabels.length) {
-            tlClient._tus_streams = {}
-            if (opts.waitForCompletion) {
-              tlClient.awaitAssemblyCompletion(opts.assembly_id, cb, onProgress)
-            }
+        const uploadSize = size
+        totalBytes += uploadSize
+        uploadProgresses[label] = 0
+        const onTusProgress = (bytesUploaded) => {
+          uploadProgresses[label] = bytesUploaded
+          // get all uploaded bytes for all files
+          const uploadedBytes = streamLabels.reduce((label1, label2) => {
+            return uploadProgresses[label1] + uploadProgresses[label2]
+          })
+          // don't send redundant progress
+          if (lastEmittedProgress < uploadedBytes) {
+            lastEmittedProgress = uploadedBytes
+            onProgress({ uploadProgress: { uploadedBytes, totalBytes } })
           }
         }
-      })
 
-      tusUpload.start()
+        const filename = file.path ? path.basename(file.path) : label
+        const tusUpload = new tus.Upload(file, {
+          endpoint: opts.tus_url,
+          resume: true,
+          metadata: {
+            assembly_url: opts.assembly_ssl_url,
+            fieldname: label,
+            filename
+          },
+          uploadSize,
+          onError: cb,
+          onProgress: onTusProgress,
+          onSuccess() {
+            uploadsDone++
+            if (uploadsDone === streamLabels.length) {
+              tlClient._tus_streams = {}
+              if (opts.waitForCompletion) {
+                tlClient.awaitAssemblyCompletion(opts.assembly_id, cb, onProgress)
+              }
+            }
+          }
+        })
+
+        tusUpload.start()
+      })
     }
   }
 }
