@@ -1,18 +1,22 @@
 # Changelog
 
-Here's is a combined todo/done list. You can see what todos are planned for the upcoming release, as well as ideas that may/may not make into a release in `Ideas`.
-
-## Ideas
-
-- [ ] 
+Here's is a combined todo/done list. You can see what todos are planned for the upcoming release.
 
 ## master
 
 Released: TBA.
 
-[Diff](https://github.com/transloadit/node-sdk/compare/1.11.0...master).
+[Diff](https://github.com/transloadit/node-sdk/compare/2.0.0...master).
 
-- [x] Support the use of Tus client for resumable uploads.
+- [ ]
+
+## 2.0.0
+
+Released: 2018-06-08.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v1.11.0...v2.0.0).
+
+- [x] (MAJOR) Use of **tus** client to enable resumable uploads. (not strictly speaking breaking the api, but big enough of an implementation change to warant a major so you can take extra care things work well)
 - [x] Support Assembly Progress Callback (this supports progress during file uploads and assemby execution).
 
 ## 1.11.0
