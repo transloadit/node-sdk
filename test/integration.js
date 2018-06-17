@@ -171,7 +171,7 @@ if (authKey == null || authSecret == null) {
         }
       })
 
-      return it('should allow uploading files that do exist', done => {
+      it('should allow uploading files that do exist', done => {
         const client = new TransloaditClient({ authKey, authSecret })
 
         const params = {
@@ -200,6 +200,57 @@ if (authKey == null || authSecret == null) {
               done()
             })
           })
+        })
+      })
+
+      it('should trigger progress callbacks when uploading files', done => {
+        const client = new TransloaditClient({ authKey, authSecret })
+
+        const params = {
+          params: {
+            steps: {
+              resize: {
+                robot: '/image/resize',
+                use: ':original',
+                result: true,
+                width: 130,
+                height: 130,
+              },
+            },
+          },
+        }
+
+        return temp.open('transloadit', (err, { path } = {}) => {
+          expect(err).to.not.exist()
+          const dl = request(genericImg)
+          dl.pipe(fs.createWriteStream(path))
+          dl.on('error', err => expect(err).to.not.exist)
+          dl.on('end', () => {
+            client.addFile('original', path)
+            let progressCalled = false
+            const onProgress = (progress) => {
+              expect(progress).to.have.property('uploadProgress')
+              progressCalled = true
+            }
+            client.createAssembly(params, (err, result) => {
+              expect(err).to.not.exist()
+              if (progressCalled) {  // let it timeout if it's not called
+                done()
+              }
+            }, onProgress)
+          })
+        })
+      })
+
+      return it('should trigger the callback when waitForComplete is false', done => {
+        const client = new TransloaditClient({ authKey, authSecret })
+        const params = Object.assign({}, genericParams, { waitForCompletion: false })
+
+        return client.createAssembly(params, (err, result) => {
+          expect(err).to.not.exist()
+          expect(result).to.not.have.property('error')
+          expect(result).to.have.property('ok')
+          return done()
         })
       })
     })
