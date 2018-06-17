@@ -151,7 +151,7 @@ class TransloaditClient {
           return this.awaitAssemblyCompletion(result.assembly_id, cb, progressCb)
         }
 
-        const tusOpts = Object.assign({ waitForCompletion: opts.waitForCompletion }, result)
+        const tusOpts = { waitForCompletion: opts.waitForCompletion, assembly: result }
         this._sendTusRequest(tusOpts, cb, progressCb)
       })
     }
@@ -749,10 +749,10 @@ class TransloaditClient {
 
         const filename = file.path ? path.basename(file.path) : label
         const tusUpload = new tus.Upload(file, {
-          endpoint: opts.tus_url,
+          endpoint: opts.assembly.tus_url,
           resume: true,
           metadata: {
-            assembly_url: opts.assembly_ssl_url,
+            assembly_url: opts.assembly.assembly_ssl_url,
             fieldname: label,
             filename
           },
@@ -764,7 +764,9 @@ class TransloaditClient {
             if (uploadsDone === streamLabels.length) {
               tlClient._tus_streams = {}
               if (opts.waitForCompletion) {
-                tlClient.awaitAssemblyCompletion(opts.assembly_id, cb, onProgress)
+                tlClient.awaitAssemblyCompletion(opts.assembly.assembly_id, cb, onProgress)
+              } else {
+                cb(null, opts.assembly)
               }
             }
           }
