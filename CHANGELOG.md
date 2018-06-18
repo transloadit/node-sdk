@@ -6,9 +6,17 @@ Here's is a combined todo/done list. You can see what todos are planned for the 
 
 Released: TBA.
 
-[Diff](https://github.com/transloadit/node-sdk/compare/2.0.0...master).
+[Diff](https://github.com/transloadit/node-sdk/compare/2.0.1...master).
 
 - [ ]
+
+## 2.0.1
+
+Released: 2018-06-18.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.0...v2.0.1).
+
+- [x] Fix bug: invoke callback when waitforcompmletion is false 
 
 ## 2.0.0
 
