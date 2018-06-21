@@ -143,7 +143,7 @@ class TransloaditClient {
           return cb(err)
         }
 
-        if (!opts.isResumable) {
+        if (!opts.isResumable || !Object.keys(this._tus_streams).length) {
           if (!opts.waitForCompletion) {
             return cb(null, result)
           }

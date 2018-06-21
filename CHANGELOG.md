@@ -10,6 +10,14 @@ Released: TBA.
 
 - [ ]
 
+## 2.0.2
+
+Released: 2018-??-??.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.1...v2.0.2).
+
+- [x] Fix bug: invoke callback when there are no tus files to upload
+
 ## 2.0.1
 
 Released: 2018-06-18.
