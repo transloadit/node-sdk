@@ -59,9 +59,8 @@ transloadit.createAssembly(assemblyOptions, (err, result) => {
     throw new Error(`Unable to process Assembly ${assemblyId}. ${err}`)
   }
 
-  console.log('✅ success')
-
   console.log(result)
+  console.log('✅ success')
 })
 ```
 
