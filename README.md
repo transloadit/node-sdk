@@ -64,7 +64,7 @@ const doneCb = (err, status) => {
 }
 
 const progressCb = (status) => {
-  console.log(`♻️ Progress polled: ${ status.error ? status.error : status.ok } status.assembly_id ... `)
+  console.log(`♻️ Progress polled: ${ status.assemblyProgress.error ? status.assemblyProgress.error : status.assemblyProgress.ok } status.assemblyProgress.assembly_id ... `)
 }
 
 transloadit.addFile('file1', '/PATH/TO/FILE.jpg')
