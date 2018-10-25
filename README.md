@@ -35,39 +35,40 @@ const transloadit       = new TransloaditClient({
 
 const options = {
   waitForCompletion: true,
-  params: {
+  params           : {
     template_id: 'YOUR_TEMPLATE_ID',
   },
 }
 
-const doneCb = (err, result) => {
+const doneCb = (err, status) => {
   let assemblyId = ''
-  
-  if (result) {
-    if (result.assembly_id) {
-      assemblyId = result.assembly_id
+
+  if (status) {
+    if (status.assembly_id) {
+      assemblyId = status.assembly_id
     }
-    // Lowlevel errors (e.g. connection errors) are in err, Assembly errors are in result.error.
+    // Lowlevel errors (e.g. connection errors) are in err, Assembly errors are in status.error.
     // For this example, we don't discriminate and only care about erroring out:
-    if (!err && result.error) {
-      err = `${result.error}. ${result.message}. `
+    if (!err && status.error) {
+      err = `${status.error}. ${status.message}. `
     }
   }
-  
+
   if (err) {
+    console.error({ status })
     throw new Error(`❌ Unable to process Assembly ${assemblyId}. ${err}`)
   }
 
-  console.log(result)
-  console.log(`✅ Success')
+  console.log({ status })
+  console.log(`✅ Success`)
 }
 
-const progressCb = (assemblyStatus) => {
-  console.log(`♻️ Progress polled: ${assemblyStatus.error ? assemblyStatus.error : assemblyStatus.ok} assemblyStatus.assembly_id ... `)
+const progressCb = (status) => {
+  console.log(`♻️ Progress polled: ${ status.error ? status.error : status.ok } status.assembly_id ... `)
 }
 
-transloadit.addFile('file1', '/PATH/TO/FILE.jpg');
-transloadit.createAssembly(assemblyOptions, doneCb, progressCb)
+transloadit.addFile('file1', '/PATH/TO/FILE.jpg')
+transloadit.createAssembly(options, doneCb, progressCb)
 ```
 
 ## Example
