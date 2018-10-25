@@ -42,21 +42,26 @@ const assemblyOptions = {
 }
 
 transloadit.createAssembly(assemblyOptions, (err, result) => {
+  let assemblyId = ''
+  
+  if (result) {
+    if (result.assemblyId) {
+      assemblyId = result.assemblyId
+    }
+    // Lowlevel errors (e.g. connection errors) are in err, Assembly errors are in result.error.
+    // For this example, we don't discriminate and only care about erroring out:
+    if (!err && result.error) {
+      err = `${result.error}. ${result.message}. `
+    }
+  }
+  
   if (err) {
-    throw err
+    throw new Error(`Unable to process Assembly ${assemblyId}. ${err}`)
   }
 
   console.log('✅ success')
 
-  let assemblyId = result.assembly_id
-
-  console.log({
-    assemblyId: assemblyId
-  })
-
-  transloadit.deleteAssembly(assemblyId, (err) => {
-    console.log('✅ deleted')
-  })
+  console.log(result)
 })
 ```
 
