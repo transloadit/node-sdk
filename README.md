@@ -99,18 +99,17 @@ Registers the local file with the client. The next call to `createAssembly` will
 
 Registers the provided stream with the client. The next call to `createAssembly` will upload that stream.
 
-#### TransloaditClient.createAssembly(options, cb)
+#### TransloaditClient.createAssembly(options, doneCb[, progressCb])
 
-Creates a new assembly on Transloadit, uploading all streams and files that were registered via `.addStream()` and `.addFile()` prior to the call to `.createAssembly()`.
+Creates a new Assembly on Transloadit, uploading all streams and files that were registered via `.addStream()` and `.addFile()` prior to the call to `.createAssembly()`.
 
-You can provide some options:
+You can provide these keys inside `options`:
 
 * `params` - an object containing your `template_id`, `notify_url`, some steps that overwrite your Transloadit template and other params to control Transloadit behavior.
 * `fields` - an object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables).
-* `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the assembly to finish with all encoding results present before the callback is called.
+* `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the callback is called. If `waitForCompletion` is `true`, this SDK will poll for status updates and call `doneCb` when all encoding work is done. During each polling action, `progressCb(assemblyStatus)` is called with the current Assembly Status object as its only argument.
 
-This function (like all functions of this client) automatically obeys all rate limiting imposed by Transloadit. There is no need to write your own
-wrapper scripts to handle rate limits.
+This function (like all functions of this client) automatically obeys all rate limiting imposed by Transloadit. There is no need to write your own wrapper scripts to handle rate limits.
 
 #### TransloaditClient.lastUsedAssemblyUrl()
 
