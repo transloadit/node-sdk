@@ -36,12 +36,17 @@ const transloadit       = new TransloaditClient({
 transloadit.addFile('file1', '/PATH/TO/FILE.jpg');
 
 const assemblyOptions = {
+  waitForCompletion: true,
   params: {
-    template_id: 'YOUR_TEMPLATE_ID'
-  }
+    template_id: 'YOUR_TEMPLATE_ID',
+  },
 }
 
-transloadit.createAssembly(assemblyOptions, (err, result) => {
+const polledCb = (assemblyStatus) => {
+  console.log(`♻️ Polled: ${assemblyStatus.error ? assemblyStatus.error : assemblyStatus.ok} assemblyStatus.assembly_id ... `)
+}
+
+const completedCb = (err, result) => {
   let assemblyId = ''
   
   if (result) {
@@ -56,12 +61,14 @@ transloadit.createAssembly(assemblyOptions, (err, result) => {
   }
   
   if (err) {
-    throw new Error(`Unable to process Assembly ${assemblyId}. ${err}`)
+    throw new Error(`❌ Unable to process Assembly ${assemblyId}. ${err}`)
   }
 
   console.log(result)
-  console.log('✅ success')
-})
+  console.log(`✅ Success')
+}
+
+transloadit.createAssembly(assemblyOptions, completedCb, polledCb)
 ```
 
 ## Example
