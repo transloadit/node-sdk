@@ -58,6 +58,10 @@ class TransloaditClient {
     stream.on('error', err => {
       // handle the error event to avoid the error being thrown
       console.error(err)
+
+      if (this._streams[name]) {
+        delete this._streams[name]
+      }
     })
     this.addStream(name, stream)
   }
@@ -625,7 +629,7 @@ class TransloaditClient {
             if (err.error) { msg.push(err.error) }
             if (opts.url) { msg.push(opts.url) }
             if (err.message) { msg.push(err.message) }
-            
+
             console.warn(msg.join(' - '))
             return cb(err)
           }
