@@ -262,5 +262,16 @@ describe('TransloaditClient', () => {
     it('should append params to the request form for POST requests', () => {
       return new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
     })
+
+    it('should add "Transloadit-Client" header to requests', () => {
+      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+      gently.expect(gently.hijacked.request, 'get', (opts) => {
+        expect(opts.headers).to.eql({'Transloadit-Client': 'node-sdk:2.0.2'})
+        return {}
+      })
+
+      client.__remoteJson({url: '/some-url', method: 'get'}, () => {})
+    })
   })
 })

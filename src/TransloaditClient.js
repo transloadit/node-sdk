@@ -8,6 +8,7 @@ const retry = reqr('retry')
 const PaginationStream = reqr('./PaginationStream')
 const Readable = reqr('stream').Readable
 const tus = reqr('tus-js-client')
+const version = reqr('../package.json').version
 
 let unknownErrMsg = 'Unknown error. Please report this at '
 unknownErrMsg += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
@@ -669,10 +670,13 @@ class TransloaditClient {
     const requestOpts = {
       uri: url,
       timeout,
+      headers: {
+        'Transloadit-Client': `node-sdk:${version}`
+      }
     }
 
     if (opts.headers != null) {
-      requestOpts.headers = opts.headers
+      _.extend(requestOpts.headers, opts.headers)
     }
 
     const req = request[method](requestOpts, (err, { body, statusCode } = {}) => {
