@@ -3,10 +3,12 @@
 const TransloaditClient = require('../lib/TransloaditClient')
 const path = require('path')
 
+
 // Create client object and authenticate.
 const client = new TransloaditClient({
-  authKey   : 'TRANSLOADIT_KEY',
-  authSecret: 'TRANSLOADIT_SECRET',
+  authKey   : process.env.TRANSLOADIT_KEY,
+  authSecret: process.env.TRANSLOADIT_SECRET,
+  service   : 'api2vpc2-eu-west-1.transloadit.com',
 })
 
 // Specify the file to resize.
@@ -27,12 +29,14 @@ const params = {
 
 // Upload image and create assembly.
 const opts = {
-  params: params,
+  params           : params,
   waitForCompletion: true
 }
 
 client.createAssembly(opts, (err, result = {}) => {
   if (err) throw err
 
-  console.log(`You can view the result at: ${result.results.resize[0].url}`)
+  console.log(`Done. You can view the result at: ${result.results.resize[0].url}`)
+}, ({assemblyProgress}) => {
+  console.log(assemblyProgress)
 })
