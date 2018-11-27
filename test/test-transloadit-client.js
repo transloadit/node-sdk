@@ -267,7 +267,7 @@ describe('TransloaditClient', () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       gently.expect(gently.hijacked.request, 'get', (opts) => {
-        expect(opts.headers).to.eql({'Transloadit-Client': 'node-sdk:2.0.2'})
+        expect(opts.headers).to.eql({'Transloadit-Client': 'node-sdk:2.0.4'})
         return {}
       })
 
