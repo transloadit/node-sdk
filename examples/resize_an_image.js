@@ -8,7 +8,7 @@ const path = require('path')
 const client = new TransloaditClient({
   authKey   : process.env.TRANSLOADIT_KEY,
   authSecret: process.env.TRANSLOADIT_SECRET,
-  service   : 'api2vpc2-eu-west-1.transloadit.com',
+  service   : 'api2-ap-southeast-1.transloadit.com',
 })
 
 // Specify the file to resize.
