@@ -64,15 +64,7 @@ const doneCb = (err, status) => {
 }
 
 const progressCb = (ret) => {
-  let msg = ''
-  if (ret.uploadProgress) {
-    msg += `♻️ Upload progress polled: ` + ret.uploadProgress.uploadedBytes + ` of ` + ret.uploadProgress.totalBytes + ` bytes uploaded.`
-  }
-  if (ret.assemblyProgress) {
-    msg += `♻️ Assembly progress polled: ${ ret.assemblyProgress.error ? ret.assemblyProgress.error : ret.assemblyProgress.ok } ret.assemblyProgress.assembly_id ... `
-  }
-
-  console.log(msg)
+  console.log(`♻️ Progress polled: ${ ret.assemblyProgress.error ? ret.assemblyProgress.error : ret.assemblyProgress.ok } ret.assemblyProgress.assembly_id ... `)
 }
 
 transloadit.addFile('file1', '/PATH/TO/FILE.jpg')
