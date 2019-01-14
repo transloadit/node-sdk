@@ -2,6 +2,7 @@ const gently = require('./gently-preamble')
 // const should            = require('chai').should()
 const { expect } = require('chai')
 const TransloaditClient = require('../src/TransloaditClient')
+const packageVersion = require('../package.json').version
 
 describe('TransloaditClient', () => {
   describe('constructor', () => {
@@ -267,7 +268,7 @@ describe('TransloaditClient', () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       gently.expect(gently.hijacked.request, 'get', (opts) => {
-        expect(opts.headers).to.eql({'Transloadit-Client': 'node-sdk:2.0.4'})
+        expect(opts.headers).to.eql({'Transloadit-Client': 'node-sdk:' + packageVersion})
         return {}
       })
 
