@@ -214,7 +214,7 @@ class TransloaditClient {
 
       if (result.ok === 'ASSEMBLY_UPLOADING' || result.ok === 'ASSEMBLY_EXECUTING') {
         setTimeout(() => {
-          this.awaitAssemblyCompletion(assemblyId, cb)
+          this.awaitAssemblyCompletion(assemblyId, cb, progressCb)
         }, 1 * 1000)
 
         if (progressCb) {
