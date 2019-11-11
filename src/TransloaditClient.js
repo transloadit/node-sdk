@@ -695,7 +695,11 @@ class TransloaditClient {
         return cb(new Error(msg))
       }
       if (statusCode !== 200 && statusCode !== 404 && statusCode >= 400 && statusCode <= 599) {
-        return cb(_.extend(new Error(), result))
+        const extendedMessage = {}
+        if (result.message && result.error) {
+          extendedMessage.message = `${result.error}: ${result.message}`
+        }
+        return cb(_.extend(new Error(), result, extendedMessage))
       }
 
       return cb(null, result)
