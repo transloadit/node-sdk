@@ -3,7 +3,6 @@
 const TransloaditClient = require('../lib/TransloaditClient')
 const path = require('path')
 
-
 // Create client object and authenticate.
 const client = new TransloaditClient({
   authKey   : process.env.TRANSLOADIT_KEY,
@@ -30,7 +29,7 @@ const params = {
 // Upload image and create assembly.
 const opts = {
   params           : params,
-  waitForCompletion: true
+  waitForCompletion: true,
 }
 
 client.createAssembly(opts, (err, result = {}) => {

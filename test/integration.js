@@ -210,10 +210,10 @@ if (authKey == null || authSecret == null) {
           params: {
             steps: {
               resize: {
-                robot: '/image/resize',
-                use: ':original',
+                robot : '/image/resize',
+                use   : ':original',
                 result: true,
-                width: 130,
+                width : 130,
                 height: 130,
               },
             },
