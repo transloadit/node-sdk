@@ -6,19 +6,63 @@ Here's is a combined todo/done list. You can see what todos are planned for the 
 
 Released: TBA.
 
-[Diff](https://github.com/transloadit/node-sdk/compare/2.0.1...master).
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.9...master).
 
 - [ ]
 
-## 2.0.2
+## v2.0.9
 
-Released: 2018-??-??.
+Released: 2018-12-06.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.5...v2.0.9).
+
+- [x] add more helpful message to assembly error (#73) 
+
+## v2.0.7
+
+Released: 2018-12-06.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.5...v2.0.7).
+
+- [x] Fix Transloadit-Client header test for once and all (#62) 
+- [x] Fix bug causing progressCb to only be fired once
+
+## v2.0.5
+
+Released: 2018-12-06.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.4...v2.0.5).
+
+- [x] Make resize image example more usable irl 
+- [x] Update Readme to include example for progressCb.
+- [x] Fix failing test due to version increase (#61) 
+- [x] Update npm-run-all to lose event-stream dependency
+
+## v2.0.4
+
+Released: 2018-11-05.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.3...v2.0.4).
+
+- [x] Send transloadit-client header (#59) 
+
+## v2.0.3
+
+Released: 2018-10-29.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.2...v2.0.3).
+
+- [x] When adding a stream that throws an error, do not send it to Transloadit
+
+## v2.0.2
+
+Released: 2018-10-24.
 
 [Diff](https://github.com/transloadit/node-sdk/compare/v2.0.1...v2.0.2).
 
 - [x] Fix bug: invoke callback when there are no tus files to upload
 
-## 2.0.1
+## v2.0.1
 
 Released: 2018-06-18.
 
@@ -26,7 +70,7 @@ Released: 2018-06-18.
 
 - [x] Fix bug: invoke callback when waitforcompmletion is false 
 
-## 2.0.0
+## v2.0.0
 
 Released: 2018-06-08.
 
@@ -35,7 +79,7 @@ Released: 2018-06-08.
 - [x] (MAJOR) Use of **tus** client to enable resumable uploads. (not strictly speaking breaking the api, but big enough of an implementation change to warant a major so you can take extra care things work well)
 - [x] Support Assembly Progress Callback (this supports progress during file uploads and assemby execution).
 
-## 1.11.0
+## v1.11.0
 
 Released: 2018-05-23.
 
@@ -44,7 +88,7 @@ Released: 2018-05-23.
 - [x] Add Assembly URL to error console logs for easier debugging. (Q: should the node sdk log to console at all? should it not just work with callbacks and the caller decides what to write to what medium?)
 
 
-## 1.10.3
+## v1.10.3
 
 Released: 2018-01-09.
 
@@ -52,7 +96,7 @@ Released: 2018-01-09.
 
 - [x] Remove unused region parameter (@tim-kos)
 
-## 1.10.2
+## v1.10.2
 
 Released: 2017-10-15.
 
@@ -60,7 +104,7 @@ Released: 2017-10-15.
 
 - [x] Update lib files (@ifedapoolarewaju)
 
-## 1.10.1
+## v1.10.1
 
 Released: 2017-10-02.
 
@@ -68,7 +112,7 @@ Released: 2017-10-02.
 
 - [x] fix: check path for only direct Readable instances (@ifedapoolarewaju)
 
-## 1.10.0
+## v1.10.0
 
 Released: 2017-09-28.
 
@@ -77,7 +121,7 @@ Released: 2017-09-28.
 - [x] Do not retry infinitely if there is an unrecoverable error. Fixes #47. (@tim-kos)
 - [x] Add the ability to wait for the encoding results of an assembly before the callback to createAssembly() is called (@tim-kos)
 
-## 1.9.6
+## v1.9.6
 
 Released: 2017-09-26. 
 
@@ -88,7 +132,7 @@ Released: 2017-09-26.
 - [x] Refactor via invig.io (@kvz)
 - [x] Upgrade dependencies (@kvz)
 
-## 1.9.5
+## v1.9.5
 
 Released: 2017-09-26. 
 
