@@ -10,8 +10,15 @@ const Readable = reqr('stream').Readable
 const tus = reqr('tus-js-client')
 const version = reqr('../package.json').version
 
-let unknownErrMsg = 'Unknown error. Please report this at '
-unknownErrMsg += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
+function unknownErrMsg (str) {
+  let buff = 'Unknown error'
+  if (str) {
+    buff += ` ${str}`
+  }
+  buff += '. Please report this at '
+  buff += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
+  return buff
+}
 
 class TransloaditClient {
   constructor (opts = {}) {
@@ -87,10 +94,10 @@ class TransloaditClient {
    */
   createAssembly (opts, cb, progressCb) {
     const defaultOpts = {
-      params: {},
-      fields: {},
+      params           : {},
+      fields           : {},
       waitForCompletion: false,
-      isResumable: true
+      isResumable      : true,
     }
     opts = _.extend(defaultOpts, opts)
 
@@ -116,11 +123,11 @@ class TransloaditClient {
     })()
 
     let requestOpts = {
-      url: this._lastUsedAssemblyUrl,
-      method: 'post',
+      url    : this._lastUsedAssemblyUrl,
+      method : 'post',
       timeout: 24 * 60 * 60 * 1000, // 1 day
-      params: opts.params,
-      fields: opts.fields,
+      params : opts.params,
+      fields : opts.fields,
     }
 
     if (opts.isResumable && this._canGetStreamSizes()) {
@@ -224,7 +231,7 @@ class TransloaditClient {
         return
       }
 
-      return cb(new Error(unknownErrMsg))
+      return cb(new Error(unknownErrMsg(`while processing Assembly ID ${assemblyId}`)))
     })
   }
 
@@ -401,7 +408,7 @@ class TransloaditClient {
         return cb(null, result)
       }
 
-      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
+      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg('while creating Template'))
       cb(err)
     })
   }
@@ -668,11 +675,11 @@ class TransloaditClient {
     }
 
     const requestOpts = {
-      uri: url,
+      uri    : url,
       timeout,
       headers: {
-        'Transloadit-Client': `node-sdk:${version}`
-      }
+        'Transloadit-Client': `node-sdk:${version}`,
+      },
     }
 
     if (opts.headers != null) {
@@ -762,16 +769,16 @@ class TransloaditClient {
         const filename = file.path ? path.basename(file.path) : label
         const tusUpload = new tus.Upload(file, {
           endpoint: opts.assembly.tus_url,
-          resume: true,
+          resume  : true,
           metadata: {
             assembly_url: opts.assembly.assembly_ssl_url,
-            fieldname: label,
-            filename
+            fieldname   : label,
+            filename,
           },
           uploadSize,
-          onError: cb,
+          onError   : cb,
           onProgress: onTusProgress,
-          onSuccess() {
+          onSuccess () {
             uploadsDone++
             if (uploadsDone === streamLabels.length) {
               tlClient._tus_streams = {}
@@ -781,7 +788,7 @@ class TransloaditClient {
                 cb(null, opts.assembly)
               }
             }
-          }
+          },
         })
 
         tusUpload.start()

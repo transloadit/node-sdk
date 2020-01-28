@@ -16,7 +16,8 @@ Released: 2018-12-06.
 
 [Diff](https://github.com/transloadit/node-sdk/compare/v2.0.5...v2.0.9).
 
-- [x] add more helpful message to assembly error (#73) 
+- [x] Add more helpful message to assembly error (#73) 
+- [x] Add Assembly ID to unknown errors
 
 ## v2.0.7
 
