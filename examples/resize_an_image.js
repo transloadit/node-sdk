@@ -36,6 +36,6 @@ client.createAssembly(opts, (err, result = {}) => {
   if (err) throw err
 
   console.log(`Done. You can view the result at: ${result.results.resize[0].url}`)
-}, ({assemblyProgress}) => {
+}, ({ assemblyProgress }) => {
   console.log(assemblyProgress)
 })

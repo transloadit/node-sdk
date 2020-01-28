@@ -268,11 +268,11 @@ describe('TransloaditClient', () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       gently.expect(gently.hijacked.request, 'get', (opts) => {
-        expect(opts.headers).to.eql({'Transloadit-Client': 'node-sdk:' + packageVersion})
+        expect(opts.headers).to.eql({ 'Transloadit-Client': 'node-sdk:' + packageVersion })
         return {}
       })
 
-      client.__remoteJson({url: '/some-url', method: 'get'}, () => {})
+      client.__remoteJson({ url: '/some-url', method: 'get' }, () => {})
     })
   })
 })

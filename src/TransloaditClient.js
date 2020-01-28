@@ -115,14 +115,14 @@ class TransloaditClient {
 
     const streams = (() => {
       const result = []
-      for (let label in this._streams) {
+      for (const label in this._streams) {
         stream = this._streams[label]
         result.push(stream)
       }
       return result
     })()
 
-    let requestOpts = {
+    const requestOpts = {
       url    : this._lastUsedAssemblyUrl,
       method : 'post',
       timeout: 24 * 60 * 60 * 1000, // 1 day
@@ -225,7 +225,7 @@ class TransloaditClient {
         }, 1 * 1000)
 
         if (progressCb) {
-          progressCb({assemblyProgress: result})
+          progressCb({ assemblyProgress: result })
         }
 
         return
@@ -242,6 +242,7 @@ class TransloaditClient {
    * @param {function} cb callback function after the assembly is deleted
    */
   deleteAssembly (assemblyId, cb) {
+    // eslint-disable-next-line camelcase
     this.getAssembly(assemblyId, (err, { assembly_url } = {}) => {
       if (err != null) {
         return cb(err)
@@ -540,7 +541,7 @@ class TransloaditClient {
       fields = {}
     }
 
-    for (let key in fields) {
+    for (const key in fields) {
       let val = fields[key]
       if (_.isObject(fields[key]) || _.isArray(fields[key])) {
         val = JSON.stringify(fields[key])
@@ -621,19 +622,19 @@ class TransloaditClient {
           }
 
           if (err.code === 'ENOTFOUND') {
-            console.warn(`The network connection is down, retrying request in 3 seconds.`)
+            console.warn('The network connection is down, retrying request in 3 seconds.')
             // FIXME uses private internals of node-retry
             operation._timeouts.unshift(3 * 1000)
             return operation.retry(err)
           }
 
           if (err.error === 'GET_ACCOUNT_UNKNOWN_AUTH_KEY') {
-            console.warn(`Invalid auth key provided.`)
+            console.warn('Invalid auth key provided.')
             return cb(err)
           }
 
           if (err.error !== undefined) {
-            let msg = []
+            const msg = []
             if (err.error) { msg.push(err.error) }
             if (opts.url) { msg.push(opts.url) }
             if (err.message) { msg.push(err.message) }
@@ -741,11 +742,11 @@ class TransloaditClient {
     const tlClient = this
     let totalBytes = 0
     let lastEmittedProgress = 0
-    let uploadProgresses = {}
+    const uploadProgresses = {}
     onProgress = onProgress || (() => {})
     for (const label of streamLabels) {
       const file = this._tus_streams[label]
-      fs.stat(file.path, (err, {size}) => {
+      fs.stat(file.path, (err, { size }) => {
         if (err) {
           return cb(err)
         }

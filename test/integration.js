@@ -1,10 +1,10 @@
+/* eslint-disable camelcase */
 require('./gently-preamble')
 const { expect } = require('chai')
 const TransloaditClient = require('../src/TransloaditClient')
 const request = require('request')
 const localtunnel = require('localtunnel')
 const http = require('http')
-const url = require('url')
 const querystring = require('querystring')
 const temp = require('temp')
 const fs = require('fs')
@@ -284,7 +284,7 @@ if (authKey == null || authSecret == null) {
 
         const handler = (req, res) => {
           const handleRequest = () => {
-            expect(url.parse(req.url).pathname).to.equal('/')
+            expect(new URL(req.url).pathname).to.equal('/')
 
             res.setHeader('Content-type', 'image/jpeg')
             res.writeHead(200)
@@ -379,7 +379,7 @@ if (authKey == null || authSecret == null) {
               expect(err).to.not.exist()
               expect(ok).to.equal('ASSEMBLY_REPLAYING')
               done()
-            })
+            }),
           )
         })
       })
@@ -440,7 +440,7 @@ if (authKey == null || authSecret == null) {
 
           // listens for notifications
           const handler = (req, res) => {
-            expect(url.parse(req.url).pathname).to.equal('/')
+            expect(new URL(req.url).pathname).to.equal('/')
 
             expect(req.method).to.equal('POST')
             streamToString(req, (err, body) => {

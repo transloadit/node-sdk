@@ -18,6 +18,7 @@ Released: 2018-12-06.
 
 - [x] Add more helpful message to assembly error (#73) 
 - [x] Add Assembly ID to unknown errors
+- [x] Upgrade linting and fix newly found errors
 
 ## v2.0.7
 

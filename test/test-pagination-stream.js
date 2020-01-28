@@ -27,7 +27,7 @@ describe('PaginationStream', () => {
 
         expect(array).to.deep.equal(expected)
         done()
-      })
+      }),
     )
 
     stream.resume()
@@ -45,7 +45,7 @@ describe('PaginationStream', () => {
 
         expect(array).to.deep.equal(expected)
         done()
-      })
+      }),
     )
 
     stream.resume()

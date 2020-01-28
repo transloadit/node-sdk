@@ -46,7 +46,7 @@ class TransloaditCostFetcher {
       err => {
         const gb = (self._totalBytes / (1024 * 1024 * 1024)).toFixed(2)
         cb(err, gb)
-      }
+      },
     )
   }
 
