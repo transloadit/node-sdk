@@ -6,9 +6,17 @@ Here's is a combined todo/done list. You can see what todos are planned for the 
 
 Released: TBA.
 
-[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.9...master).
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.10...master).
 
 - [ ]
+
+## v2.0.10
+
+Released: 2020-02-25.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.9...v2.0.10).
+
+- [x] Update dependencies, thank you @dagreatbrendino
 
 ## v2.0.9
 
