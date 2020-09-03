@@ -233,7 +233,7 @@ Deletes the template represented by the given templateId on Transloadit.
 
 #### TransloaditClient.listTemplates(params, cb)
 
-Retrieves a list of all your templates from Transloadit. The `params` parameter can contain properties such as `order`, `sort`, and `page`. For a list of all available params please check [this entry](https://transloadit.com/docs/api-docs/#retrieve-template-list) in the Transloadit API docs.
+Retrieves a list of all your templates from Transloadit. The `params` parameter can contain properties such as `order`, `sort`, and `page`. For a list of all available params please check [this entry](https://transloadit.com/docs/api/#templates-get) in the Transloadit API docs.
 
 #### TransloaditClient.streamTemplates(params)
 
