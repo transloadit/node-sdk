@@ -74,7 +74,7 @@ describe('TransloaditClient', () => {
     it('should append all required fields to the request form', () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
-      client._streams = {
+      const streamsMap = {
         stream1: 'foo_stream',
         stream2: 'foo_stream2',
       }
@@ -131,7 +131,7 @@ describe('TransloaditClient', () => {
         return expect(val).to.equal('foo_stream2')
       })
 
-      return client._appendForm(REQ, PARAMS, FIELDS)
+      return client._appendForm(REQ, PARAMS, streamsMap, FIELDS)
     })
   })
 

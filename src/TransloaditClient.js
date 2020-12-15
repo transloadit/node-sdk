@@ -8,6 +8,8 @@ const retry = reqr('retry')
 const PaginationStream = reqr('./PaginationStream')
 const Readable = reqr('stream').Readable
 const tus = reqr('tus-js-client')
+const { access } = reqr('fs').promises
+
 const version = reqr('../package.json').version
 
 function unknownErrMsg (str) {
@@ -18,6 +20,19 @@ function unknownErrMsg (str) {
   buff += '. Please report this at '
   buff += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
   return buff
+}
+
+// @todo support size retrieval for other streams
+function canGetStreamSizes (streams) {
+  for (const stream of streams) {
+    // the request module has path attribute that is different from file path
+    // but it also has the attribute httpModule
+    if (!(stream.path && !stream.httpModule)) {
+      return false
+    }
+  }
+
+  return true
 }
 
 class TransloaditClient {
@@ -39,7 +54,6 @@ class TransloaditClient {
     this._service = opts.service || 'api2.transloadit.com'
     this._protocol = opts.useSsl ? 'https://' : 'http://'
     this._streams = {}
-    this._tus_streams = {}
 
     this._lastUsedAssemblyUrl = ''
   }
@@ -78,6 +92,10 @@ class TransloaditClient {
     return this._lastUsedAssemblyUrl
   }
 
+  createAssembly (opts, cb, progressCb) {
+    return this.createAssemblyAsync(opts, progressCb).then(val => cb(null, val)).catch(cb)
+  }
+
   /**
    * Create an Assembly
    *
@@ -89,38 +107,19 @@ class TransloaditClient {
    * @param {progressObject} progress
    *
    * @param {object} opts assembly options
-   * @param {function} cb callback function for when assembly is submitted/done
    * @param {onProgress} progressCb callback function to be triggered as on each progress update of the assembly
+   * @returns {Promise}
    */
-  createAssembly (opts, cb, progressCb) {
+  async createAssemblyAsync (opts, progressCb) {
     const defaultOpts = {
       params           : {},
       fields           : {},
       waitForCompletion: false,
       isResumable      : true,
     }
-    opts = _.extend(defaultOpts, opts)
-
-    let stream
-    const callback = cb
-    let called = false
-    cb = (err, result) => {
-      if (!called) {
-        called = true
-        callback(err, result)
-      }
-    }
+    opts = { ...defaultOpts, ...opts }
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
-
-    const streams = (() => {
-      const result = []
-      for (const label in this._streams) {
-        stream = this._streams[label]
-        result.push(stream)
-      }
-      return result
-    })()
 
     const requestOpts = {
       url    : this._lastUsedAssemblyUrl,
@@ -130,133 +129,97 @@ class TransloaditClient {
       fields : opts.fields,
     }
 
-    if (opts.isResumable && this._canGetStreamSizes()) {
+    let streamsMap = this._streams
+    let streams = Object.values(streamsMap)
+
+    // reset streams so they do not get used again in subsequent requests
+    this._streams = {}
+
+    // TODO imrpvoe all this
+    const useTus = opts.isResumable && canGetStreamSizes(streams)
+    const tusStreamsMap = useTus ? streamsMap : {}
+    if (useTus) {
       requestOpts.tus_num_expected_upload_files = streams.length
-      // transfer streams to tus streams so they don't get uploaded as multipart
-      for (const label of Object.keys(this._streams)) {
-        this._tus_streams[label] = this._streams[label]
-        delete this._streams[label]
-      }
+      // make sure they don't get uploaded as multipart (will use tus instead)
+      streamsMap = {}
+      streams = []
     } else if (opts.isResumable) {
       opts.isResumable = false
       console.warn('disabling resumability because the size of one or more streams cannot be determined')
     }
 
-    const sendRequest = () => {
-      this._remoteJson(requestOpts, (err, result = {}) => {
-        // reset streams so they do not get used again in subsequent requests
-        this._streams = {}
+    // If any stream emits error, we exit with error
+    const streamErrorPromise = new Promise((resolve, reject) => {
+      streams.forEach((stream) => stream.on('error', reject))
+    })
 
-        if (!err && result.error != null) {
-          err = new Error(result.error)
+    const mainPromise = (async () => {
+      for (const stream of streams) {
+        // because an http response stream could also have a "path"
+        // attribute but not referring to the local file system
+        // see https://github.com/transloadit/node-sdk/pull/50#issue-261982855
+        if (!stream.path == null && stream instanceof Readable) {
+          await access(stream.path, fs.F_OK | fs.R_OK)
         }
-
-        if (err) {
-          return cb(err)
-        }
-
-        if (!opts.isResumable || !Object.keys(this._tus_streams).length) {
-          if (!opts.waitForCompletion) {
-            return cb(null, result)
-          }
-
-          return this.awaitAssemblyCompletion(result.assembly_id, cb, progressCb)
-        }
-
-        const tusOpts = { waitForCompletion: opts.waitForCompletion, assembly: result }
-        this._sendTusRequest(tusOpts, cb, progressCb)
-      })
-    }
-
-    let ncompleted = 0
-    const streamErrCb = err => {
-      if (err != null) {
-        cb(err)
       }
 
-      if (++ncompleted === streams.length) {
-        sendRequest()
-      }
-    }
+      const result = await this._remoteJson(requestOpts, streamsMap)
 
-    for (stream of Array.from(streams)) {
-      stream.on('error', cb)
+      if (result.error != null) throw new Error(result.error)
 
-      // because an http response stream could also have a "path"
-      // attribute but not referring to the local file system
-      // see https://github.com/transloadit/node-sdk/pull/50#issue-261982855
-      if (stream.path == null || !(stream instanceof Readable)) {
-        streamErrCb(null)
-        continue
+      if (useTus && Object.keys(tusStreamsMap).length > 0) {
+        await this._sendTusRequest(tusStreamsMap, { waitForCompletion: opts.waitForCompletion, assembly: result }, progressCb)
       }
 
-      fs.access(stream.path, fs.F_OK | fs.R_OK, err => {
-        if (err != null) {
-          return streamErrCb(err)
-        }
+      if (!opts.waitForCompletion) return result
+      return this.awaitAssemblyCompletion(result.assembly_id, progressCb)
+    })()
 
-        streamErrCb(null)
-      })
-    }
-
-    // make sure sendRequest gets called when there are no @_streams
-    if (streams.length === 0) {
-      sendRequest()
-    }
+    return Promise.race([mainPromise, streamErrorPromise])
   }
 
-  awaitAssemblyCompletion (assemblyId, cb, progressCb) {
-    this.getAssembly(assemblyId, (err, result) => {
-      if (!err && result.error != null) {
-        err = new Error(result.error)
-      }
+  async awaitAssemblyCompletion (assemblyId, progressCb) {
+    const result = await this.getAssemblyAsync(assemblyId)
+    if (result.error != null) throw new Error(result.error)
 
-      if (err) {
-        return cb(err)
-      }
+    if (result.ok === 'ASSEMBLY_COMPLETED') return result
 
-      if (result.ok === 'ASSEMBLY_COMPLETED') {
-        return cb(null, result)
-      }
+    if (result.ok === 'ASSEMBLY_UPLOADING' || result.ok === 'ASSEMBLY_EXECUTING') {
+      if (progressCb) progressCb({ assemblyProgress: result })
 
-      if (result.ok === 'ASSEMBLY_UPLOADING' || result.ok === 'ASSEMBLY_EXECUTING') {
-        setTimeout(() => {
-          this.awaitAssemblyCompletion(assemblyId, cb, progressCb)
-        }, 1 * 1000)
+      await new Promise((resolve) => setTimeout(resolve, 1 * 1000))
+      // Recurse
+      return this.awaitAssemblyCompletion(assemblyId, progressCb)
+    }
 
-        if (progressCb) {
-          progressCb({ assemblyProgress: result })
-        }
+    throw new Error(unknownErrMsg(`while processing Assembly ID ${assemblyId}`))
+  }
 
-        return
-      }
-
-      return cb(new Error(unknownErrMsg(`while processing Assembly ID ${assemblyId}`)))
-    })
+  deleteAssembly (assembyId, cb) {
+    return this.deleteAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
   }
 
   /**
    * Delete the assembly
    *
    * @param {string} assemblyId assembly ID
-   * @param {function} cb callback function after the assembly is deleted
+   * @returns {Promise} after the assembly is deleted
    */
-  deleteAssembly (assemblyId, cb) {
+  async deleteAssemblyAsync (assemblyId) {
     // eslint-disable-next-line camelcase
-    this.getAssembly(assemblyId, (err, { assembly_url } = {}) => {
-      if (err != null) {
-        return cb(err)
-      }
+    const { assembly_url } = this.getAssembly(assemblyId) || {}
 
-      const opts = {
-        url    : assembly_url,
-        timeout: 5000,
-        method : 'del',
-        params : {},
-      }
+    const opts = {
+      url    : assembly_url,
+      timeout: 5000,
+      method : 'del',
+    }
 
-      this._remoteJson(opts, cb)
-    })
+    return this._remoteJson(opts)
+  }
+
+  replayAssembly (opts, cb) {
+    return this.replayAssembly(opts).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -267,9 +230,9 @@ class TransloaditClient {
    * @property {string} notify_url
    *
    * @param {replayOptions} opts options defining the Assembly to replay
-   * @param {function} cb callback function after the replay is started
+   * @returns {Promise} after the replay is started
    */
-  replayAssembly (opts, cb) {
+  async replayAssemblyAsync (opts) {
     const { assembly_id: assemblyId, notify_url: notifyUrl } = opts
     const requestOpts = {
       url   : this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
@@ -280,16 +243,20 @@ class TransloaditClient {
       requestOpts.params = { notifyUrl }
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
+  }
+
+  replayAssemblyNotification (opts, cb) {
+    return this.replayAssemblyNotificationAsync(opts).then(val => cb(null, val)).catch(cb)
   }
 
   /**
    * Replay an Assembly notification
    *
    * @param {replayOptions} opts options defining the Assembly to replay
-   * @param {function} cb callback function after the replay is started
+   * @returns {Promise} after the replay is started
    */
-  replayAssemblyNotification ({ assembly_id: assemblyId, notify_url: notifyUrl }, cb) {
+  async replayAssemblyNotificationAsync ({ assembly_id: assemblyId, notify_url: notifyUrl }) {
     const requestOpts = {
       url   : this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
       method: 'post',
@@ -299,60 +266,72 @@ class TransloaditClient {
       requestOpts.params = { notifyUrl }
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
+  }
+
+  listAssemblyNotifications (params, cb) {
+    return this.listAssemblyNotificationsAsync(params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
    * List all assembly notifications
    *
    * @param {object} params optional request options
-   * @param {function} cb callback function triggered with the list of Assembly notifications
+   * @returns {Promise} the list of Assembly notifications
    */
-  listAssemblyNotifications (params, cb) {
+  async listAssemblyNotificationsAsync (params) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/assembly_notifications`,
       method: 'get',
       params: params || {},
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
   }
 
   streamAssemblyNotifications (params) {
-    return new PaginationStream((pageno, cb) => {
-      this.listAssemblyNotifications(_.extend({}, params, { page: pageno }), cb)
+    return new PaginationStream((page, cb) => {
+      this.listAssemblyNotifications({ ...params, page }, cb)
     })
+  }
+
+  listAssemblies (params, cb) {
+    return this.listAssembliesAsync(params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
    * List all assemblies
    *
    * @param {object} params optional request options
-   * @param {function} cb callback function triggered with the list of Assemblies
+   * @returns {Promise} list of Assemblies
    */
-  listAssemblies (params, cb) {
+  async listAssembliesAsync (params) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/assemblies`,
       method: 'get',
       params: params || {},
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
   }
 
   streamAssemblies (params) {
-    return new PaginationStream((pageno, cb) => {
-      this.listAssemblies(_.extend({}, params, { page: pageno }), cb)
+    return new PaginationStream((page, cb) => {
+      this.listAssemblies({ ...params, page }, cb)
     })
+  }
+
+  getAssembly (assembyId, cb) {
+    return this.getAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
   }
 
   /**
    * Get an Assembly
    *
    * @param {string} assemblyId the Assembly Id
-   * @param {function} cb callback function triggered with the retrieved Assembly
+   * @returns {Promise} the retrieved Assembly
    */
-  getAssembly (assemblyId, cb) {
+  async getAssemblyAsync (assemblyId) {
     const opts = { url: this._serviceUrl() + `/assemblies/${assemblyId}` }
 
     const retryOpts = {
@@ -362,56 +341,60 @@ class TransloaditClient {
       maxTimeout: 8 * 1000,
     }
 
-    const operation = retry.operation(retryOpts)
-    operation.attempt(attempt => {
-      this._remoteJson(opts, (err, result) => {
-        if (err != null) {
+    return new Promise((resolve, reject) => {
+      const operation = retry.operation(retryOpts)
+      operation.attempt(async (attempt) => {
+        try {
+          const result = await this._remoteJson(opts)
+
+          if (result.assembly_url == null || result.assembly_ssl_url == null) {
+            if (operation.retry(new Error('got incomplete assembly status response'))) {
+              return
+            }
+
+            return reject(operation.mainError())
+          }
+
+          return resolve(result)
+        } catch (err) {
           if (operation.retry(err)) {
             return
           }
 
-          return cb(operation.mainError())
+          return reject(operation.mainError())
         }
-
-        if (result.assembly_url == null || result.assembly_ssl_url == null) {
-          if (operation.retry(new Error('got incomplete assembly status response'))) {
-            return
-          }
-
-          return cb(operation.mainError())
-        }
-
-        cb(null, result)
       })
     })
+  }
+
+  createTemplate (params, cb) {
+    return this.createTemplateAsync(params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
    * Create an Assembly Template
    *
    * @param {object} params optional request options
-   * @param {function} cb callback function triggered when the template is created
+   * @returns {Promise} when the template is created
    */
-  createTemplate (params, cb) {
+  async createTemplateAsync (params) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/templates`,
       method: 'post',
       params: params || {},
     }
 
-    this._remoteJson(requestOpts, (err, result) => {
-      let left
-      if (err) {
-        return cb(err)
-      }
+    const result = await this._remoteJson(requestOpts)
+    if (result && result.ok) {
+      return result
+    }
 
-      if (result && result.ok) {
-        return cb(null, result)
-      }
+    let left
+    throw new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg('while creating Template'))
+  }
 
-      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg('while creating Template'))
-      cb(err)
-    })
+  editTemplate (templateId, params, cb) {
+    return this.editTemplateAsync(templateId, params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -419,98 +402,105 @@ class TransloaditClient {
    *
    * @param {string} templateId the template ID
    * @param {object} params optional request options
-   * @param {function} cb callback function triggered when the template is edited
+   * @returns {Promise} when the template is edited
    */
-  editTemplate (templateId, params, cb) {
+  async editTemplateAsync (templateId, params) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/templates/${templateId}`,
       method: 'put',
       params: params || {},
     }
 
-    this._remoteJson(requestOpts, (err, result) => {
-      let left
-      if (err) {
-        return cb(err)
-      }
+    const result = await this._remoteJson(requestOpts)
+    if (result && result.ok) {
+      return result
+    }
 
-      if (result && result.ok) {
-        return cb(null, result)
-      }
+    let left
+    throw new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
+  }
 
-      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
-      cb(err)
-    })
+  deleteTemplate (templateId, cb) {
+    return this.deleteTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
   }
 
   /**
    * Delete an Assembly Template
    *
    * @param {string} templateId the template ID
-   * @param {function} cb callback function triggered when the template is deleted
+   * @returns {Promise} when the template is deleted
    */
-  deleteTemplate (templateId, cb) {
+  async deleteTemplateAsync (templateId) {
     const requestOpts = {
       url   : this._serviceUrl() + `/templates/${templateId}`,
       method: 'del',
-      params: {},
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
+  }
+
+  getTemplate (templateId, cb) {
+    return this.getTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
   }
 
   /**
    * Get an Assembly Template
    *
    * @param {string} templateId the template ID
-   * @param {function} cb callback function triggered when the template is retrieved
+   * @returns {Promise} when the template is retrieved
    */
-  getTemplate (templateId, cb) {
+  async getTemplateAsync (templateId) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/templates/${templateId}`,
       method: 'get',
-      params: {},
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
+  }
+
+  listTemplates (params, cb) {
+    return this.listTemplatesAsync(params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
    * List all Assembly Templates
    *
    * @param {object} params optional request options
-   * @param {function} cb callback function triggered when the templates are retrieved
+   * @returns {Promise} the list of templates
    */
-  listTemplates (params, cb) {
+  async listTemplatesAsync (params) {
     const requestOpts = {
       url   : `${this._serviceUrl()}/templates`,
       method: 'get',
       params: params || {},
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
   }
 
   streamTemplates (params) {
-    return new PaginationStream((pageno, cb) => {
-      this.listTemplates(_.extend({}, params, { page: pageno }), cb)
+    return new PaginationStream((page, cb) => {
+      this.listTemplates({ ...params, page }, cb)
     })
+  }
+
+  getBill (month, cb) {
+    return this.getBillAsync(month).then(val => cb(null, val)).catch(cb)
   }
 
   /**
    * Get account Billing details for a specific month
    *
    * @param {string} month the date for the required billing in the format yyyy-mm
-   * @param {function} cb callback function triggered when the billing is retrieved
+   * @returns {Promise} with billing data
    */
-  getBill (month, cb) {
+  async getBillAsync (month) {
     const requestOpts = {
       url   : this._serviceUrl() + `/bill/${month}`,
       method: 'get',
-      params: {},
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
   }
 
   calcSignature (params) {
@@ -529,7 +519,7 @@ class TransloaditClient {
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including
   // the streams, the signed params, and any additional fields.
-  _appendForm (req, params, fields) {
+  _appendForm (req, params, streamsMap, fields) {
     const sigData = this.calcSignature(params)
     const jsonParams = sigData.params
     const { signature } = sigData
@@ -537,22 +527,18 @@ class TransloaditClient {
 
     form.append('params', jsonParams)
 
-    if (fields == null) {
-      fields = {}
-    }
-
-    for (const key in fields) {
-      let val = fields[key]
-      if (_.isObject(fields[key]) || _.isArray(fields[key])) {
-        val = JSON.stringify(fields[key])
+    if (fields != null) {
+      for (let [key, val] of Object.entries(fields)) {
+        if (_.isObject(val) || _.isArray(val)) {
+          val = JSON.stringify(val)
+        }
+        form.append(key, val)
       }
-
-      form.append(key, val)
     }
 
     form.append('signature', signature)
 
-    _.each(this._streams, (value, key) => form.append(key, value))
+    if (streamsMap) Object.entries(streamsMap).forEach(([key, value]) => form.append(key, value))
   }
 
   // Implements HTTP GET query params, handling the case where the url already
@@ -562,6 +548,7 @@ class TransloaditClient {
     const { signature } = sigData
     let jsonParams = sigData.params
 
+    // TODO could be improved (potentially buggy)
     if (url.indexOf('?') === -1) {
       url += `?signature=${signature}`
     } else {
@@ -603,7 +590,7 @@ class TransloaditClient {
   }
 
   // Wrapper around __remoteJson which will retry in case of error
-  _remoteJson (opts, cb) {
+  async _remoteJson (opts, streamsMap) {
     const operation = retry.operation({
       retries   : 5,
       factor    : 3.28,
@@ -611,9 +598,11 @@ class TransloaditClient {
       maxTimeout: 8 * 1000,
     })
 
-    operation.attempt(() => {
-      this.__remoteJson(opts, (err, result) => {
-        if (err != null) {
+    return new Promise((resolve, reject) => {
+      operation.attempt(async () => {
+        try {
+          resolve(await this.__remoteJson(opts, streamsMap))
+        } catch (err) {
           if (err.error === 'RATE_LIMIT_REACHED') {
             console.warn(`Rate limit reached, retrying request in ${err.info.retryIn} seconds.`)
             // FIXME uses private internals of node-retry
@@ -630,7 +619,7 @@ class TransloaditClient {
 
           if (err.error === 'GET_ACCOUNT_UNKNOWN_AUTH_KEY') {
             console.warn('Invalid auth key provided.')
-            return cb(err)
+            return reject(err)
           }
 
           if (err.error !== undefined) {
@@ -640,20 +629,15 @@ class TransloaditClient {
             if (err.message) { msg.push(err.message) }
 
             console.warn(msg.join(' - '))
-            return cb(err)
+            return reject(err)
           }
-        }
 
-        if (operation.retry(err)) {
-          return
-        }
+          if (operation.retry(err)) {
+            return
+          }
 
-        let mainError = null
-        if (err) {
-          mainError = operation.mainError()
+          reject(operation.mainError())
         }
-
-        cb(mainError, result)
       })
     })
   }
@@ -661,14 +645,13 @@ class TransloaditClient {
   // Responsible for making API calls. Automatically sends streams with any POST,
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
-  __remoteJson (opts, cb) {
+  async __remoteJson (opts, streamsMap) {
     const timeout = opts.timeout || 5000
     let url = opts.url || null
     const method = opts.method || 'get'
 
     if (!url) {
-      const err = new Error('No url provided!')
-      return cb(err)
+      throw new Error('No url provided!')
     }
 
     if (method === 'get' && opts.params != null) {
@@ -680,121 +663,105 @@ class TransloaditClient {
       timeout,
       headers: {
         'Transloadit-Client': `node-sdk:${version}`,
+        ...opts.headers,
       },
     }
 
-    if (opts.headers != null) {
-      _.extend(requestOpts.headers, opts.headers)
-    }
+    const response = await new Promise((resolve, reject) => {
+      // TODO request is deprecated
+      const req = request[method](requestOpts, (err, response) => {
+        if (err) return reject(err)
+        resolve(response)
+      })
 
-    const req = request[method](requestOpts, (err, { body, statusCode } = {}) => {
-      if (err) {
-        return cb(err)
-      }
-
-      // parse body
-      let result = null
-      try {
-        result = JSON.parse(body)
-      } catch (e) {
-        const abbr = `${body}`.substr(0, 255)
-        let msg = `Unable to parse JSON from '${requestOpts.uri}'. `
-        msg += `Code: ${statusCode}. Body: ${abbr}. `
-        return cb(new Error(msg))
-      }
-      if (statusCode !== 200 && statusCode !== 404 && statusCode >= 400 && statusCode <= 599) {
-        const extendedMessage = {}
-        if (result.message && result.error) {
-          extendedMessage.message = `${result.error}: ${result.message}`
+      if (method === 'post' || method === 'put' || method === 'del') {
+        const extraData = { ...opts.fields }
+        if (opts.tus_num_expected_upload_files) {
+          extraData.tus_num_expected_upload_files = opts.tus_num_expected_upload_files
         }
-        return cb(_.extend(new Error(), result, extendedMessage))
+        this._appendForm(req, opts.params, streamsMap, extraData)
       }
-
-      return cb(null, result)
     })
 
-    if (method === 'post' || method === 'put' || method === 'del') {
-      const extraData = Object.assign({}, opts.fields)
-      if (opts.tus_num_expected_upload_files) {
-        extraData.tus_num_expected_upload_files = opts.tus_num_expected_upload_files
-      }
-      this._appendForm(req, opts.params, extraData)
-    }
-  }
+    const { body, statusCode } = response || {}
 
-  // @todo support size retrieval for other streams
-  _canGetStreamSizes () {
-    for (const label in this._streams) {
-      const stream = this._streams[label]
-      // the request module has path attribute that is different from file path
-      // but it also has the attribute httpModule
-      if (!(stream.path && !stream.httpModule)) {
-        return false
-      }
+    // parse body
+    let result = null
+    try {
+      result = JSON.parse(body)
+    } catch (e) {
+      const abbr = `${body}`.substr(0, 255)
+      let msg = `Unable to parse JSON from '${requestOpts.uri}'. `
+      msg += `Code: ${statusCode}. Body: ${abbr}. `
+      throw new Error(msg)
     }
 
-    return true
+    if (statusCode !== 200 && statusCode !== 404 && statusCode >= 400 && statusCode <= 599) {
+      const extendedMessage = {}
+      if (result.message && result.error) {
+        extendedMessage.message = `${result.error}: ${result.message}`
+      }
+      throw _.extend(new Error(), result, extendedMessage)
+    }
+
+    return result
   }
 
-  _sendTusRequest (opts, cb, onProgress) {
-    let uploadsDone = 0
-    const streamLabels = Object.keys(this._tus_streams)
-    const tlClient = this
-    let totalBytes = 0
-    let lastEmittedProgress = 0
-    const uploadProgresses = {}
-    onProgress = onProgress || (() => {})
-    for (const label of streamLabels) {
-      const file = this._tus_streams[label]
-      fs.stat(file.path, (err, { size }) => {
-        if (err) {
-          return cb(err)
-        }
+  async _sendTusRequest (streamsMap, opts, onProgress) {
+    const streamLabels = Object.keys(streamsMap)
 
-        const uploadSize = size
-        totalBytes += uploadSize
-        uploadProgresses[label] = 0
-        const onTusProgress = (bytesUploaded) => {
-          uploadProgresses[label] = bytesUploaded
-          // get all uploaded bytes for all files
-          const uploadedBytes = streamLabels.reduce((label1, label2) => {
-            return uploadProgresses[label1] + uploadProgresses[label2]
-          })
-          // don't send redundant progress
-          if (lastEmittedProgress < uploadedBytes) {
-            lastEmittedProgress = uploadedBytes
-            onProgress({ uploadProgress: { uploadedBytes, totalBytes } })
-          }
-        }
+    // TODO less cb nesting
+    return new Promise((resolve, reject) => {
+      let uploadsDone = 0
+      let totalBytes = 0
+      let lastEmittedProgress = 0
+      const uploadProgresses = {}
+      onProgress = onProgress || (() => {})
+      for (const label of streamLabels) {
+        const file = streamsMap[label]
+        fs.stat(file.path, (err, { size }) => {
+          if (err) return reject(err)
 
-        const filename = file.path ? path.basename(file.path) : label
-        const tusUpload = new tus.Upload(file, {
-          endpoint: opts.assembly.tus_url,
-          resume  : true,
-          metadata: {
-            assembly_url: opts.assembly.assembly_ssl_url,
-            fieldname   : label,
-            filename,
-          },
-          uploadSize,
-          onError   : cb,
-          onProgress: onTusProgress,
-          onSuccess () {
-            uploadsDone++
-            if (uploadsDone === streamLabels.length) {
-              tlClient._tus_streams = {}
-              if (opts.waitForCompletion) {
-                tlClient.awaitAssemblyCompletion(opts.assembly.assembly_id, cb, onProgress)
-              } else {
-                cb(null, opts.assembly)
-              }
+          const uploadSize = size
+          totalBytes += uploadSize
+          uploadProgresses[label] = 0
+          const onTusProgress = (bytesUploaded) => {
+            uploadProgresses[label] = bytesUploaded
+            // get all uploaded bytes for all files
+            const uploadedBytes = streamLabels.reduce((label1, label2) => {
+              return uploadProgresses[label1] + uploadProgresses[label2]
+            })
+            // don't send redundant progress
+            if (lastEmittedProgress < uploadedBytes) {
+              lastEmittedProgress = uploadedBytes
+              onProgress({ uploadProgress: { uploadedBytes, totalBytes } })
             }
-          },
-        })
+          }
 
-        tusUpload.start()
-      })
-    }
+          const filename = file.path ? path.basename(file.path) : label
+          const tusUpload = new tus.Upload(file, {
+            endpoint: opts.assembly.tus_url,
+            resume  : true,
+            metadata: {
+              assembly_url: opts.assembly.assembly_ssl_url,
+              fieldname   : label,
+              filename,
+            },
+            uploadSize,
+            onError   : reject,
+            onProgress: onTusProgress,
+            onSuccess () {
+              uploadsDone++
+              if (uploadsDone === streamLabels.length) {
+                resolve()
+              }
+            },
+          })
+
+          tusUpload.start()
+        })
+      }
+    })
   }
 }
 
