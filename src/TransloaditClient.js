@@ -1,5 +1,6 @@
 const reqr = global.GENTLY ? GENTLY.hijack(require) : require
-const request = reqr('request')
+const got = reqr('got')
+const FormData = require('form-data')
 const crypto = reqr('crypto')
 const _ = reqr('underscore')
 const fs = reqr('fs')
@@ -9,6 +10,7 @@ const PaginationStream = reqr('./PaginationStream')
 const Readable = reqr('stream').Readable
 const tus = reqr('tus-js-client')
 const { access } = reqr('fs').promises
+
 
 const version = reqr('../package.json').version
 
@@ -212,7 +214,7 @@ class TransloaditClient {
     const opts = {
       url    : assembly_url,
       timeout: 5000,
-      method : 'del',
+      method : 'delete',
     }
 
     return this._remoteJson(opts)
@@ -433,7 +435,7 @@ class TransloaditClient {
   async deleteTemplateAsync (templateId) {
     const requestOpts = {
       url   : this._serviceUrl() + `/templates/${templateId}`,
-      method: 'del',
+      method: 'delete',
     }
 
     return this._remoteJson(requestOpts)
@@ -519,11 +521,10 @@ class TransloaditClient {
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including
   // the streams, the signed params, and any additional fields.
-  _appendForm (req, params, streamsMap, fields) {
+  _appendForm (form, params, streamsMap, fields) {
     const sigData = this.calcSignature(params)
     const jsonParams = sigData.params
     const { signature } = sigData
-    const form = req.form()
 
     form.append('params', jsonParams)
 
@@ -658,43 +659,29 @@ class TransloaditClient {
       url = this._appendParamsToUrl(url, opts.params)
     }
 
+    let form
+
+    if (method === 'post' || method === 'put' || method === 'delete') {
+      const extraData = { ...opts.fields }
+      if (opts.tus_num_expected_upload_files) {
+        extraData.tus_num_expected_upload_files = opts.tus_num_expected_upload_files
+      }
+      form = new FormData()
+      this._appendForm(form, opts.params, streamsMap, extraData)
+    }
+
     const requestOpts = {
-      uri    : url,
+      body   : form,
       timeout,
       headers: {
         'Transloadit-Client': `node-sdk:${version}`,
         ...opts.headers,
       },
+      responseType: 'json',
     }
 
-    const response = await new Promise((resolve, reject) => {
-      // TODO request is deprecated
-      const req = request[method](requestOpts, (err, response) => {
-        if (err) return reject(err)
-        resolve(response)
-      })
 
-      if (method === 'post' || method === 'put' || method === 'del') {
-        const extraData = { ...opts.fields }
-        if (opts.tus_num_expected_upload_files) {
-          extraData.tus_num_expected_upload_files = opts.tus_num_expected_upload_files
-        }
-        this._appendForm(req, opts.params, streamsMap, extraData)
-      }
-    })
-
-    const { body, statusCode } = response || {}
-
-    // parse body
-    let result = null
-    try {
-      result = JSON.parse(body)
-    } catch (e) {
-      const abbr = `${body}`.substr(0, 255)
-      let msg = `Unable to parse JSON from '${requestOpts.uri}'. `
-      msg += `Code: ${statusCode}. Body: ${abbr}. `
-      throw new Error(msg)
-    }
+    const { body: result, statusCode } = await got[method](url, requestOpts)
 
     if (statusCode !== 200 && statusCode !== 404 && statusCode >= 400 && statusCode <= 599) {
       const extendedMessage = {}
