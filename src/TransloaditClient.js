@@ -11,7 +11,6 @@ const Readable = reqr('stream').Readable
 const tus = reqr('tus-js-client')
 const { access } = reqr('fs').promises
 
-
 const version = reqr('../package.json').version
 
 function unknownErrMsg (str) {
@@ -679,7 +678,6 @@ class TransloaditClient {
       },
       responseType: 'json',
     }
-
 
     const { body: result, statusCode } = await got[method](url, requestOpts)
 

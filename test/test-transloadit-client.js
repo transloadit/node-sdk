@@ -80,7 +80,6 @@ describe('TransloaditClient', () => {
       }
 
       const FORM = {}
-      const REQ = {}
       const PARAMS = {}
       const JSON_PARAMS = {}
       const FIELDS = {
@@ -98,8 +97,6 @@ describe('TransloaditClient', () => {
         expect(params).to.eql(PARAMS)
         return SIGNATURE
       })
-
-      gently.expect(REQ, 'form', () => FORM)
 
       gently.expect(FORM, 'append', (key, val) => {
         expect(key).to.equal('params')
@@ -131,7 +128,7 @@ describe('TransloaditClient', () => {
         return expect(val).to.equal('foo_stream2')
       })
 
-      return client._appendForm(REQ, PARAMS, streamsMap, FIELDS)
+      return client._appendForm(FORM, PARAMS, streamsMap, FIELDS)
     })
   })
 
@@ -267,7 +264,7 @@ describe('TransloaditClient', () => {
     it('should add "Transloadit-Client" header to requests', () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
-      gently.expect(gently.hijacked.request, 'get', (opts) => {
+      gently.expect(gently.hijacked.got, 'get', (url, opts) => {
         expect(opts.headers).to.eql({ 'Transloadit-Client': 'node-sdk:' + packageVersion })
         return {}
       })
