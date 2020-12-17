@@ -246,7 +246,7 @@ if (authKey == null || authSecret == null) {
             }, onProgress)
           })
         })
-      })
+      }).timeout(10000)
 
       return it('should trigger the callback when waitForComplete is false', done => {
         const client = new TransloaditClient({ authKey, authSecret })
