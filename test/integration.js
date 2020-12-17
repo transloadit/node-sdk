@@ -474,27 +474,22 @@ if (authKey == null || authSecret == null) {
     })
 
     describe('template methods', () => {
-      const templName = `node-sdk-test-${new Date().toISOString()}`
+      // can contain only lowercase latin letters, numbers, and dashes.
+      const templName = `node-sdk-test-${new Date().toISOString().toLocaleLowerCase('en-US').replace(/[^0-9a-z-]/g, '-')}`
       let templId = null
       const client = new TransloaditClient({ authKey, authSecret })
 
-      it('should allow creating a template', done => {
-        client.createTemplate({ name: templName, template: genericParams.params }, (err, { id } = {}) => {
-          expect(err).to.not.exist
-          templId = id
-          done()
-        })
+      it('should allow creating a template', async () => {
+        const { id } = await client.createTemplateAsync({ name: templName, template: genericParams.params })
+        templId = id
       })
 
-      it("should be able to fetch a template's definition", done => {
+      it("should be able to fetch a template's definition", async () => {
         expect(templId).to.exist
 
-        client.getTemplate(templId, (err, { name, content } = {}) => {
-          expect(err).to.not.exist
-          expect(name).to.equal(templName)
-          expect(content).to.deep.equal(genericParams.params)
-          done()
-        })
+        const { name, content } = await client.getTemplateAsync(templId)
+        expect(name).to.equal(templName)
+        expect(content).to.deep.equal(genericParams.params)
       })
 
       it('should delete the template successfully', done => {
