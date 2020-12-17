@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-expressions */
 /* eslint-disable camelcase */
 require('./gently-preamble')
 const { expect } = require('chai')
@@ -83,7 +84,7 @@ if (authKey == null || authSecret == null) {
         const client = new TransloaditClient({ authKey, authSecret })
 
         return client.createAssembly(genericParams, (err, result) => {
-          expect(err).to.not.exist()
+          expect(err).to.not.exist
           expect(result).to.not.have.property('error')
           expect(result).to.have.property('ok')
           expect(result).to.have.property('assembly_id') // Since we're using it
@@ -91,7 +92,7 @@ if (authKey == null || authSecret == null) {
           const id = result.assembly_id
 
           return client.getAssembly(id, (err, result) => {
-            expect(err).to.not.exist()
+            expect(err).to.not.exist
             expect(result).to.not.have.property('error')
             expect(result).to.have.property('ok')
             expect(result.assembly_id).to.equal(id)
@@ -128,7 +129,7 @@ if (authKey == null || authSecret == null) {
                 reproduce(nattempts - 1)
               }
 
-              expect(result).to.have.property('assembly_url').that.exist()
+              expect(result).to.have.property('assembly_url').that.exist
               reproduce(nattempts - 1)
             })
           })
@@ -160,7 +161,7 @@ if (authKey == null || authSecret == null) {
         client.addFile('original', temp.path({ suffix: '.transloadit.jpg' }))
         try {
           return client.createAssembly(params, (err, result) => {
-            expect(err).to.not.exist()
+            expect(err).to.not.exist
             expect(err)
               .to.have.property('code')
               .that.equals('ENOENT')
@@ -189,14 +190,14 @@ if (authKey == null || authSecret == null) {
         }
 
         return temp.open('transloadit', (err, { path } = {}) => {
-          expect(err).to.not.exist()
+          expect(err).to.not.exist
           const dl = request(genericImg)
           dl.pipe(fs.createWriteStream(path))
           dl.on('error', err => expect(err).to.not.exist)
           dl.on('end', () => {
             client.addFile('original', path)
             client.createAssembly(params, (err, result) => {
-              expect(err).to.not.exist()
+              expect(err).to.not.exist
               done()
             })
           })
@@ -221,7 +222,7 @@ if (authKey == null || authSecret == null) {
         }
 
         return temp.open('transloadit', (err, { path } = {}) => {
-          expect(err).to.not.exist()
+          expect(err).to.not.exist
           const dl = request(genericImg)
           dl.pipe(fs.createWriteStream(path))
           dl.on('error', err => expect(err).to.not.exist)
@@ -233,7 +234,7 @@ if (authKey == null || authSecret == null) {
               progressCalled = true
             }
             client.createAssembly(params, (err, result) => {
-              expect(err).to.not.exist()
+              expect(err).to.not.exist
               if (progressCalled) {  // let it timeout if it's not called
                 done()
               }
@@ -247,7 +248,7 @@ if (authKey == null || authSecret == null) {
         const params = Object.assign({}, genericParams, { waitForCompletion: false })
 
         return client.createAssembly(params, (err, result) => {
-          expect(err).to.not.exist()
+          expect(err).to.not.exist
           expect(result).to.not.have.property('error')
           expect(result).to.have.property('ok')
           return done()
@@ -300,7 +301,7 @@ if (authKey == null || authSecret == null) {
         }
 
         startServer(handler, (err, server) => {
-          expect(err).to.not.exist()
+          expect(err).to.not.exist
           // TODO the server won't close if the test fails
 
           const params = {
@@ -323,7 +324,7 @@ if (authKey == null || authSecret == null) {
 
           // Finally send the createAssembly request
           client.createAssembly(params, (err, { assembly_id } = {}) => {
-            expect(err).to.not.exist()
+            expect(err).to.not.exist
 
             const id = assembly_id // eslint-disable-line camelcase
 
@@ -333,14 +334,14 @@ if (authKey == null || authSecret == null) {
               readyToServe = true
               callback()
 
-              expect(err).to.not.exist()
+              expect(err).to.not.exist
               expect(ok).to.equal('ASSEMBLY_CANCELED')()
 
               // Successful cancel requests get ASSEMBLY_CANCELED even when it
               // completed, so we now request the assembly status to check the
               // *actual* status.
               client.getAssembly(id, (err, { ok } = {}) => {
-                expect(err).to.not.exist()
+                expect(err).to.not.exist
                 expect(ok).to.equal('ASSEMBLY_CANCELED')
                 server.close()
                 done()
@@ -356,14 +357,14 @@ if (authKey == null || authSecret == null) {
         const client = new TransloaditClient({ authKey, authSecret })
 
         client.createAssembly(genericParams, (err, { assembly_id } = {}) => {
-          expect(err).to.not.exist()
+          expect(err).to.not.exist
 
           const originalId = assembly_id // eslint-disable-line camelcase
 
           // ensure that the assembly has completed
           const ensureCompletion = cb =>
             client.getAssembly(originalId, (err, result) => {
-              expect(err).to.not.exist()
+              expect(err).to.not.exist
               const ok = result.ok
 
               if (ok === 'ASSEMBLY_UPLOADING' || ok === 'ASSEMBLY_EXECUTING') {
@@ -376,7 +377,7 @@ if (authKey == null || authSecret == null) {
           // Start an asynchonous loop
           ensureCompletion(() =>
             client.replayAssembly({ assembly_id: originalId }, (err, { ok } = {}) => {
-              expect(err).to.not.exist()
+              expect(err).to.not.exist
               expect(ok).to.equal('ASSEMBLY_REPLAYING')
               done()
             }),
@@ -390,7 +391,7 @@ if (authKey == null || authSecret == null) {
         const client = new TransloaditClient({ authKey, authSecret })
 
         client.listAssemblies({}, (err, result) => {
-          expect(err).to.not.exist()
+          expect(err).to.not.exist
           expect(result).to.have.property('count')
           expect(result)
             .to.have.property('items')
@@ -457,7 +458,7 @@ if (authKey == null || authSecret == null) {
           }
 
           startServer(handler, (err, server) => {
-            expect(err).to.not.exist()
+            expect(err).to.not.exist
 
             const params = { params: _.extend({}, genericParams.params, { notify_url: server.url }) }
 
@@ -486,17 +487,17 @@ if (authKey == null || authSecret == null) {
 
       it('should allow creating a template', done => {
         client.createTemplate({ name: templName, template: genericParams.params }, (err, { id } = {}) => {
-          expect(err).to.not.exist()
+          expect(err).to.not.exist
           templId = id
           done()
         })
       })
 
       it("should be able to fetch a template's definition", done => {
-        expect(templId).to.exist()
+        expect(templId).to.exist
 
         client.getTemplate(templId, (err, { name, content } = {}) => {
-          expect(err).to.not.exist()
+          expect(err).to.not.exist
           expect(name).to.equal(templName)
           expect(content).to.deep.equal(genericParams.params)
           done()
@@ -504,14 +505,14 @@ if (authKey == null || authSecret == null) {
       })
 
       it('should delete the template successfully', done => {
-        expect(templId).to.exist()
+        expect(templId).to.exist
 
         client.deleteTemplate(templId, (err, { ok } = {}) => {
-          expect(err).to.not.exist()
+          expect(err).to.not.exist
           expect(ok).to.equal('TEMPLATE_DELETED')
           client.getTemplate(templId, (err, result) => {
-            expect(result).to.not.exist()
-            expect(err).to.exist()
+            expect(result).to.not.exist
+            expect(err).to.exist
             expect(err.error).to.equal('TEMPLATE_NOT_FOUND')
             done()
           })
