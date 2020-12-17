@@ -648,8 +648,10 @@ class TransloaditClient {
       onProgress = onProgress || (() => {})
       for (const label of streamLabels) {
         const file = streamsMap[label]
-        fs.stat(file.path, (err, { size }) => {
+        fs.stat(file.path, (err, stat) => {
           if (err) return reject(err)
+
+          const { size } = stat
 
           const uploadSize = size
           totalBytes += uploadSize
