@@ -57,7 +57,7 @@ if (authKey == null || authSecret == null) {
   }
 
   // https://transloadit.com/demos/importing-files/import-a-file-over-http
-  const genericImg = 'https://transloadit.com/img/robots/170x170/audio-encode.jpg'
+  const genericImg = 'https://demos.transloadit.com/inputs/chameleon.jpg'
   const genericParams = {
     params: {
       steps: {
