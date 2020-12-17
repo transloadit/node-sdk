@@ -593,13 +593,14 @@ class TransloaditClient {
     const timeout = opts.timeout || 5000
     let url = opts.url || null
     const method = opts.method || 'get'
+    const params = opts.params || {}
 
     if (!url) {
       throw new Error('No url provided!')
     }
 
-    if (method === 'get' && opts.params != null) {
-      url = this._appendParamsToUrl(url, opts.params)
+    if (method === 'get') {
+      url = this._appendParamsToUrl(url, params)
     }
 
     let form
@@ -610,7 +611,7 @@ class TransloaditClient {
         extraData.tus_num_expected_upload_files = opts.tus_num_expected_upload_files
       }
       form = new FormData()
-      this._appendForm(form, opts.params, streamsMap, extraData)
+      this._appendForm(form, params, streamsMap, extraData)
     }
 
     const requestOpts = {
