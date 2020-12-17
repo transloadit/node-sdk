@@ -2,7 +2,7 @@
 /* eslint-disable camelcase */
 require('./gently-preamble')
 const chai = require('chai')
-var chaiAsPromised = require('chai-as-promised');
+var chaiAsPromised = require('chai-as-promised')
 const TransloaditClient = require('../src/TransloaditClient')
 const request = require('request')
 const localtunnel = require('localtunnel')
@@ -22,7 +22,7 @@ if (authKey == null || authSecret == null) {
   msg += ' to enable integration tests.'
   console.warn(msg)
 } else {
-  const startServer = (handler, cb) => {
+  const startServerAsync = async (handler) => new Promise((resolve, reject) => {
     const server = http.createServer(handler)
 
     // Find a port to use
@@ -31,11 +31,11 @@ if (authKey == null || authSecret == null) {
       if (err.code === 'EADDRINUSE') {
         if (++port >= 65535) {
           server.close()
-          cb(new Error('Failed to bind to port'))
+          reject(new Error('Failed to bind to port'))
         }
         return server.listen(port, '127.0.0.1')
       } else {
-        return cb(err)
+        return reject(err)
       }
     })
 
@@ -43,22 +43,33 @@ if (authKey == null || authSecret == null) {
 
     // Once a port has been found and the server is ready, setup the
     // localtunnel
-    return server.on('listening', () => {
-      localtunnel(port, (err, tunnel) => {
-        if (err != null) {
+    return server.on('listening', async () => {
+      try {
+        const tunnel = await localtunnel(port)
+        // console.log('localtunnel', tunnel.url)
+
+        tunnel.on('error', console.error)
+        tunnel.on('close', () => {
+          // console.log('tunnel closed')
           server.close()
-          return cb(err)
-        }
-        return cb(null, {
+        })
+
+        return resolve({
           url: tunnel.url,
           close () {
             tunnel.close()
-            return server.close()
           },
         })
-      })
+      } catch (err) {
+        if (err != null) {
+          server.close()
+          return reject(err)
+        }
+      }
     })
-  }
+  })
+
+  const startServer = (handler, cb) => startServerAsync(handler).then(() => cb(null)).catch(cb)
 
   // https://transloadit.com/demos/importing-files/import-a-file-over-http
   const genericImg = 'https://demos.transloadit.com/inputs/chameleon.jpg'
@@ -251,7 +262,7 @@ if (authKey == null || authSecret == null) {
     })
 
     describe('assembly cancelation', () => {
-      it('should stop the assembly from reaching completion', done => {
+      it('should stop the assembly from reaching completion', async () => {
         const client = new TransloaditClient({ authKey, authSecret })
         // const opts = {
         //   params: {
@@ -273,31 +284,27 @@ if (authKey == null || authSecret == null) {
         // request
 
         // Async book-keeping for delaying the response
-        // This would be much nicer with promises.
-        let readyToServe = false
-        let callback = () => undefined // No-op function
+        let sendServerResponse
 
-        const handler = (req, res) => {
-          const handleRequest = () => {
-            expect(new URL(req.url).pathname).to.equal('/')
+        const promise = new Promise((resolve) => {
+          sendServerResponse = resolve
+        })
 
-            res.setHeader('Content-type', 'image/jpeg')
-            res.writeHead(200)
-            request.get(genericImg).pipe(res)
-          }
+        const handler = async (req, res) => {
+          // console.log('handler', req.url)
 
-          // delay serving the response until triggered
-          if (readyToServe) {
-            handleRequest()
-          } else {
-            callback = handleRequest
-          }
+          expect(req.url).to.equal('/')
+
+          await promise
+
+          res.setHeader('Content-type', 'image/jpeg')
+          res.writeHead(200)
+          request.get(genericImg).pipe(res)
         }
 
-        startServer(handler, (err, server) => {
-          expect(err).to.not.exist
-          // TODO the server won't close if the test fails
+        const server = await startServerAsync(handler)
 
+        try {
           const params = {
             params: {
               steps: {
@@ -317,32 +324,24 @@ if (authKey == null || authSecret == null) {
           }
 
           // Finally send the createAssembly request
-          client.createAssembly(params, (err, { assembly_id } = {}) => {
-            expect(err).to.not.exist
+          const { assembly_id: id } = await client.createAssemblyAsync(params)
 
-            const id = assembly_id // eslint-disable-line camelcase
+          // Now delete it
+          const resp = await client.deleteAssemblyAsync(id)
 
-            // Now delete it
-            client.deleteAssembly(id, (err, { ok } = {}) => {
-              // Allow the upload to finish
-              readyToServe = true
-              callback()
+          // Allow the upload to finish
+          sendServerResponse()
 
-              expect(err).to.not.exist
-              expect(ok).to.equal('ASSEMBLY_CANCELED')()
+          expect(resp.ok).to.equal('ASSEMBLY_CANCELED')
 
-              // Successful cancel requests get ASSEMBLY_CANCELED even when it
-              // completed, so we now request the assembly status to check the
-              // *actual* status.
-              client.getAssembly(id, (err, { ok } = {}) => {
-                expect(err).to.not.exist
-                expect(ok).to.equal('ASSEMBLY_CANCELED')
-                server.close()
-                done()
-              })
-            })
-          })
-        })
+          // Successful cancel requests get ASSEMBLY_CANCELED even when it
+          // completed, so we now request the assembly status to check the
+          // *actual* status.
+          const resp2 = await client.getAssemblyAsync(id)
+          expect(resp2.ok).to.equal('ASSEMBLY_CANCELED')
+        } finally {
+          server.close()
+        }
       })
     })
 
