@@ -196,7 +196,7 @@ class TransloaditClient {
    */
   async deleteAssemblyAsync (assemblyId) {
     // eslint-disable-next-line camelcase
-    const { assembly_url } = this.getAssembly(assemblyId) || {}
+    const { assembly_url } = await this.getAssemblyAsync(assemblyId) || {}
 
     const opts = {
       url    : assembly_url,
