@@ -104,11 +104,11 @@ class TransloaditClient {
    * @property {object} assemblyProgress
    * @property {{totalBytes: number, uploadedBytes: number}} uploadProgress
    *
-   * @callback onProgress
+   * @callback progressCb
    * @param {progressObject} progress
    *
    * @param {object} opts assembly options
-   * @param {onProgress} progressCb callback function to be triggered as on each progress update of the assembly
+   * @param {progressCb} progressCb callback function to be triggered as on each progress update of the assembly
    * @returns {Promise}
    */
   async createAssemblyAsync (opts, progressCb) {
