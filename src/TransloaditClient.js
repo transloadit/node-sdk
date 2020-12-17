@@ -220,7 +220,7 @@ class TransloaditClient {
   }
 
   replayAssembly (opts, cb) {
-    return this.replayAssembly(opts).then(val => cb(null, val)).catch(cb)
+    this.replayAssemblyAsync(opts).then(val => cb(null, val)).catch(cb)
   }
 
   /**
