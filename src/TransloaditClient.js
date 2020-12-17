@@ -93,10 +93,6 @@ class TransloaditClient {
     return this._lastUsedAssemblyUrl
   }
 
-  createAssembly (opts, cb, progressCb) {
-    this.createAssemblyAsync(opts, progressCb).then(val => cb(null, val)).catch(cb)
-  }
-
   /**
    * Create an Assembly
    *
@@ -196,10 +192,6 @@ class TransloaditClient {
     throw new Error(unknownErrMsg(`while processing Assembly ID ${assemblyId}`))
   }
 
-  deleteAssembly (assembyId, cb) {
-    this.deleteAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
-  }
-
   /**
    * Delete the assembly
    *
@@ -217,10 +209,6 @@ class TransloaditClient {
     }
 
     return this._remoteJson(opts)
-  }
-
-  replayAssembly (opts, cb) {
-    this.replayAssemblyAsync(opts).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -247,10 +235,6 @@ class TransloaditClient {
     return this._remoteJson(requestOpts)
   }
 
-  replayAssemblyNotification (opts, cb) {
-    this.replayAssemblyNotificationAsync(opts).then(val => cb(null, val)).catch(cb)
-  }
-
   /**
    * Replay an Assembly notification
    *
@@ -268,10 +252,6 @@ class TransloaditClient {
     }
 
     return this._remoteJson(requestOpts)
-  }
-
-  listAssemblyNotifications (params, cb) {
-    this.listAssemblyNotificationsAsync(params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -296,10 +276,6 @@ class TransloaditClient {
     })
   }
 
-  listAssemblies (params, cb) {
-    this.listAssembliesAsync(params).then(val => cb(null, val)).catch(cb)
-  }
-
   /**
    * List all assemblies
    *
@@ -320,10 +296,6 @@ class TransloaditClient {
     return new PaginationStream((page, cb) => {
       this.listAssemblies({ ...params, page }, cb)
     })
-  }
-
-  getAssembly (assembyId, cb) {
-    this.getAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -368,10 +340,6 @@ class TransloaditClient {
     })
   }
 
-  createTemplate (params, cb) {
-    this.createTemplateAsync(params).then(val => cb(null, val)).catch(cb)
-  }
-
   /**
    * Create an Assembly Template
    *
@@ -392,10 +360,6 @@ class TransloaditClient {
 
     let left
     throw new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg('while creating Template'))
-  }
-
-  editTemplate (templateId, params, cb) {
-    this.editTemplateAsync(templateId, params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -421,10 +385,6 @@ class TransloaditClient {
     throw new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
   }
 
-  deleteTemplate (templateId, cb) {
-    this.deleteTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
-  }
-
   /**
    * Delete an Assembly Template
    *
@@ -440,10 +400,6 @@ class TransloaditClient {
     return this._remoteJson(requestOpts)
   }
 
-  getTemplate (templateId, cb) {
-    this.getTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
-  }
-
   /**
    * Get an Assembly Template
    *
@@ -457,10 +413,6 @@ class TransloaditClient {
     }
 
     return this._remoteJson(requestOpts)
-  }
-
-  listTemplates (params, cb) {
-    this.listTemplatesAsync(params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -483,10 +435,6 @@ class TransloaditClient {
     return new PaginationStream((page, cb) => {
       this.listTemplates({ ...params, page }, cb)
     })
-  }
-
-  getBill (month, cb) {
-    this.getBillAsync(month).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -747,6 +695,60 @@ class TransloaditClient {
         })
       }
     })
+  }
+
+  // Legacy callback endpoints: TODO remove?
+
+  createAssembly (opts, cb, progressCb) {
+    this.createAssemblyAsync(opts, progressCb).then(val => cb(null, val)).catch(cb)
+  }
+
+  deleteAssembly (assembyId, cb) {
+    this.deleteAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
+  }
+
+  replayAssembly (opts, cb) {
+    this.replayAssemblyAsync(opts).then(val => cb(null, val)).catch(cb)
+  }
+
+  replayAssemblyNotification (opts, cb) {
+    this.replayAssemblyNotificationAsync(opts).then(val => cb(null, val)).catch(cb)
+  }
+
+  listAssemblyNotifications (params, cb) {
+    this.listAssemblyNotificationsAsync(params).then(val => cb(null, val)).catch(cb)
+  }
+
+  listAssemblies (params, cb) {
+    this.listAssembliesAsync(params).then(val => cb(null, val)).catch(cb)
+  }
+
+  getAssembly (assembyId, cb) {
+    this.getAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
+  }
+
+  createTemplate (params, cb) {
+    this.createTemplateAsync(params).then(val => cb(null, val)).catch(cb)
+  }
+
+  editTemplate (templateId, params, cb) {
+    this.editTemplateAsync(templateId, params).then(val => cb(null, val)).catch(cb)
+  }
+
+  deleteTemplate (templateId, cb) {
+    this.deleteTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
+  }
+
+  getTemplate (templateId, cb) {
+    this.getTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
+  }
+
+  listTemplates (params, cb) {
+    this.listTemplatesAsync(params).then(val => cb(null, val)).catch(cb)
+  }
+
+  getBill (month, cb) {
+    this.getBillAsync(month).then(val => cb(null, val)).catch(cb)
   }
 }
 
