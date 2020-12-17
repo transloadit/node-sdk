@@ -94,7 +94,7 @@ class TransloaditClient {
   }
 
   createAssembly (opts, cb, progressCb) {
-    return this.createAssemblyAsync(opts, progressCb).then(val => cb(null, val)).catch(cb)
+    this.createAssemblyAsync(opts, progressCb).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -197,7 +197,7 @@ class TransloaditClient {
   }
 
   deleteAssembly (assembyId, cb) {
-    return this.deleteAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
+    this.deleteAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -248,7 +248,7 @@ class TransloaditClient {
   }
 
   replayAssemblyNotification (opts, cb) {
-    return this.replayAssemblyNotificationAsync(opts).then(val => cb(null, val)).catch(cb)
+    this.replayAssemblyNotificationAsync(opts).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -271,7 +271,7 @@ class TransloaditClient {
   }
 
   listAssemblyNotifications (params, cb) {
-    return this.listAssemblyNotificationsAsync(params).then(val => cb(null, val)).catch(cb)
+    this.listAssemblyNotificationsAsync(params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -297,7 +297,7 @@ class TransloaditClient {
   }
 
   listAssemblies (params, cb) {
-    return this.listAssembliesAsync(params).then(val => cb(null, val)).catch(cb)
+    this.listAssembliesAsync(params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -323,7 +323,7 @@ class TransloaditClient {
   }
 
   getAssembly (assembyId, cb) {
-    return this.getAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
+    this.getAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -369,7 +369,7 @@ class TransloaditClient {
   }
 
   createTemplate (params, cb) {
-    return this.createTemplateAsync(params).then(val => cb(null, val)).catch(cb)
+    this.createTemplateAsync(params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -395,7 +395,7 @@ class TransloaditClient {
   }
 
   editTemplate (templateId, params, cb) {
-    return this.editTemplateAsync(templateId, params).then(val => cb(null, val)).catch(cb)
+    this.editTemplateAsync(templateId, params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -422,7 +422,7 @@ class TransloaditClient {
   }
 
   deleteTemplate (templateId, cb) {
-    return this.deleteTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
+    this.deleteTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -441,7 +441,7 @@ class TransloaditClient {
   }
 
   getTemplate (templateId, cb) {
-    return this.getTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
+    this.getTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -460,7 +460,7 @@ class TransloaditClient {
   }
 
   listTemplates (params, cb) {
-    return this.listTemplatesAsync(params).then(val => cb(null, val)).catch(cb)
+    this.listTemplatesAsync(params).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -486,7 +486,7 @@ class TransloaditClient {
   }
 
   getBill (month, cb) {
-    return this.getBillAsync(month).then(val => cb(null, val)).catch(cb)
+    this.getBillAsync(month).then(val => cb(null, val)).catch(cb)
   }
 
   /**
@@ -682,12 +682,12 @@ class TransloaditClient {
     const { body: result, statusCode } = await got[method](url, requestOpts)
 
     if (statusCode !== 200 && statusCode !== 404 && statusCode >= 400 && statusCode <= 599) {
-      const extendedMessage = {}
+        const extendedMessage = {}
       if (result.message && result.error) {
         extendedMessage.message = `${result.error}: ${result.message}`
-      }
+        }
       throw _.extend(new Error(), result, extendedMessage)
-    }
+      }
 
     return result
   }
