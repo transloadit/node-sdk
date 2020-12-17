@@ -69,7 +69,7 @@ if (authKey == null || authSecret == null) {
     })
   })
 
-  const startServer = (handler, cb) => startServerAsync(handler).then(() => cb(null)).catch(cb)
+  const startServer = (handler, cb) => startServerAsync(handler).then((server) => cb(null, server)).catch(cb)
 
   // https://transloadit.com/demos/importing-files/import-a-file-over-http
   const genericImg = 'https://demos.transloadit.com/inputs/chameleon.jpg'
