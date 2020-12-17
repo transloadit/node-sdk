@@ -434,7 +434,7 @@ if (authKey == null || authSecret == null) {
 
           // listens for notifications
           const handler = (req, res) => {
-            expect(new URL(req.url).pathname).to.equal('/')
+            expect(req.url).to.equal('/')
 
             expect(req.method).to.equal('POST')
             streamToString(req, (err, body) => {
