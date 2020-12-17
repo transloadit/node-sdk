@@ -624,17 +624,27 @@ class TransloaditClient {
       responseType: 'json',
     }
 
-    const { body: result, statusCode } = await got[method](url, requestOpts)
+    try {
+      const { body } = await got[method](url, requestOpts)
+      return body
+    } catch (err) {
+      if (err instanceof got.HTTPError) {
+        const { statusCode, body } = err.response
+        // console.log(statusCode, body)
 
-    if (statusCode !== 200 && statusCode !== 404 && statusCode >= 400 && statusCode <= 599) {
-        const extendedMessage = {}
-      if (result.message && result.error) {
-        extendedMessage.message = `${result.error}: ${result.message}`
+        if (statusCode === 404 || statusCode > 599) { // TODO why is this needed?
+          return body
         }
-      throw _.extend(new Error(), result, extendedMessage)
+
+        const extendedMessage = {}
+        if (body.message && body.error) {
+          extendedMessage.message = `${body.error}: ${body.message}`
+        }
+        throw _.extend(new Error(), body, extendedMessage)
       }
 
-    return result
+      throw err
+    }
   }
 
   async _sendTusRequest (streamsMap, opts, onProgress) {
