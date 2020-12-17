@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-expressions */
 /* eslint-disable camelcase */
 require('./gently-preamble')
-const { expect } = require('chai')
+const chai = require('chai')
+var chaiAsPromised = require('chai-as-promised');
 const TransloaditClient = require('../src/TransloaditClient')
 const request = require('request')
 const localtunnel = require('localtunnel')
@@ -10,6 +11,9 @@ const querystring = require('querystring')
 const temp = require('temp')
 const fs = require('fs')
 const _ = require('underscore')
+
+const { expect } = chai
+chai.use(chaiAsPromised)
 
 const authKey = process.env.TRANSLOADIT_KEY
 const authSecret = process.env.TRANSLOADIT_SECRET
@@ -139,9 +143,7 @@ if (authKey == null || authSecret == null) {
         for (let i = 0; i < nbranches; i++) reproduce(100 / nbranches)
       })
 
-      it("should signal an error if a file selected for upload doesn't exist", done => {
-        // FIXME this test fails because mocha catches the uncaught exception even
-        // though TransloaditClient suppresses its output.
+      it("should signal an error if a file selected for upload doesn't exist", async () => {
         const client = new TransloaditClient({ authKey, authSecret })
 
         const params = {
@@ -158,18 +160,10 @@ if (authKey == null || authSecret == null) {
           },
         }
 
-        client.addFile('original', temp.path({ suffix: '.transloadit.jpg' }))
-        try {
-          return client.createAssembly(params, (err, result) => {
-            expect(err).to.not.exist
-            expect(err)
-              .to.have.property('code')
-              .that.equals('ENOENT')
-            return done()
-          })
-        } catch (e) {
-          return null
-        }
+        client.addFile('original', temp.path({ suffix: '.transloadit.jpg' })) // Non-existing path
+
+        const promise = client.createAssemblyAsync(params)
+        await expect(promise).to.eventually.be.rejectedWith(Error).and.have.property('code').that.equals('ENOENT')
       })
 
       it('should allow uploading files that do exist', done => {

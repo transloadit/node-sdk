@@ -81,10 +81,6 @@ class TransloaditClient {
     stream.on('error', err => {
       // handle the error event to avoid the error being thrown
       console.error(err)
-
-      if (this._streams[name]) {
-        delete this._streams[name]
-      }
     })
     this.addStream(name, stream)
   }
