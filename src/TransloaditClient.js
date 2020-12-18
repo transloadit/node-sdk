@@ -114,6 +114,27 @@ class TransloaditClient {
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
+    const streamsMap = this._streams
+    // reset streams so they do not get used again in subsequent requests
+    this._streams = {}
+
+    const streams = Object.values(streamsMap)
+
+    for (const stream of streams) {
+      // because an http response stream could also have a "path"
+      // attribute but not referring to the local file system
+      // see https://github.com/transloadit/node-sdk/pull/50#issue-261982855
+      if (!stream.path == null && stream instanceof Readable) {
+        await access(stream.path, fs.F_OK | fs.R_OK)
+      }
+    }
+
+    // If any stream emits error, we want to exit with error
+    const streamErrorPromise = new Promise((resolve, reject) => {
+      streams.forEach((stream) => stream.on('error', reject))
+    })
+
+    const createAssemblyAndUpload = async () => {
     const requestOpts = {
       url    : this._lastUsedAssemblyUrl,
       method : 'post',
@@ -122,41 +143,19 @@ class TransloaditClient {
       fields : opts.fields,
     }
 
-    let streamsMap = this._streams
-    let streams = Object.values(streamsMap)
-
-    // reset streams so they do not get used again in subsequent requests
-    this._streams = {}
-
-    // TODO imrpvoe all this
     const useTus = opts.isResumable && canGetStreamSizes(streams)
-    const tusStreamsMap = useTus ? streamsMap : {}
+
     if (useTus) {
       requestOpts.tus_num_expected_upload_files = streams.length
-      // make sure they don't get uploaded as multipart (will use tus instead)
-      streamsMap = {}
-      streams = []
     } else if (opts.isResumable) {
-      opts.isResumable = false
       console.warn('disabling resumability because the size of one or more streams cannot be determined')
     }
 
-    // If any stream emits error, we exit with error
-    const streamErrorPromise = new Promise((resolve, reject) => {
-      streams.forEach((stream) => stream.on('error', reject))
-    })
+      // upload as multipart or tus?
+      const formUploadStreamsMap = useTus ? {} : streamsMap
+      const tusStreamsMap = useTus ? streamsMap : {}
 
-    const mainPromise = (async () => {
-      for (const stream of streams) {
-        // because an http response stream could also have a "path"
-        // attribute but not referring to the local file system
-        // see https://github.com/transloadit/node-sdk/pull/50#issue-261982855
-        if (!stream.path == null && stream instanceof Readable) {
-          await access(stream.path, fs.F_OK | fs.R_OK)
-        }
-      }
-
-      const result = await this._remoteJson(requestOpts, streamsMap)
+      const result = await this._remoteJson(requestOpts, formUploadStreamsMap)
 
       if (result.error != null) throw new Error(result.error)
 
@@ -166,9 +165,9 @@ class TransloaditClient {
 
       if (!opts.waitForCompletion) return result
       return this.awaitAssemblyCompletion(result.assembly_id, progressCb)
-    })()
+    }
 
-    return Promise.race([mainPromise, streamErrorPromise])
+    return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
   }
 
   async awaitAssemblyCompletion (assemblyId, progressCb) {
