@@ -9,7 +9,7 @@ const retry = reqr('retry')
 const PaginationStream = reqr('./PaginationStream')
 const Readable = reqr('stream').Readable
 const tus = reqr('tus-js-client')
-const { access } = reqr('fs').promises
+const { access, stat: fsStat } = reqr('fs').promises
 
 const version = reqr('../package.json').version
 
@@ -649,19 +649,15 @@ class TransloaditClient {
   async _sendTusRequest (streamsMap, opts, onProgress) {
     const streamLabels = Object.keys(streamsMap)
 
-    // TODO less cb nesting
-    return new Promise((resolve, reject) => {
-      let uploadsDone = 0
       let totalBytes = 0
       let lastEmittedProgress = 0
       const uploadProgresses = {}
       onProgress = onProgress || (() => {})
+
       for (const label of streamLabels) {
         const file = streamsMap[label]
-        fs.stat(file.path, (err, stat) => {
-          if (err) return reject(err)
 
-          const { size } = stat
+      const { size } = await fsStat(file.path)
 
           const uploadSize = size
           totalBytes += uploadSize
@@ -680,6 +676,8 @@ class TransloaditClient {
           }
 
           const filename = file.path ? path.basename(file.path) : label
+
+      await new Promise((resolve, reject) => {
           const tusUpload = new tus.Upload(file, {
             endpoint: opts.assembly.tus_url,
             resume  : true,
@@ -691,18 +689,12 @@ class TransloaditClient {
             uploadSize,
             onError   : reject,
             onProgress: onTusProgress,
-            onSuccess () {
-              uploadsDone++
-              if (uploadsDone === streamLabels.length) {
-                resolve()
-              }
-            },
+          onSuccess : resolve,
           })
 
           tusUpload.start()
         })
       }
-    })
   }
 
   // Legacy callback endpoints: TODO remove?
