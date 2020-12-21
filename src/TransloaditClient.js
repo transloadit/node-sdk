@@ -2,7 +2,7 @@ const reqr = global.GENTLY ? GENTLY.hijack(require) : require
 const got = reqr('got')
 const FormData = require('form-data')
 const crypto = reqr('crypto')
-const _ = reqr('underscore')
+const { isObject, isArray, extend } = reqr('lodash')
 const fs = reqr('fs')
 const path = reqr('path')
 const retry = reqr('retry')
@@ -472,7 +472,8 @@ class TransloaditClient {
 
     if (fields != null) {
       for (let [key, val] of Object.entries(fields)) {
-        if (_.isObject(val) || _.isArray(val)) {
+        // TODO isn't an array already an object?
+        if (isObject(val) || isArray(val)) {
           val = JSON.stringify(val)
         }
         form.append(key, val)
@@ -639,7 +640,7 @@ class TransloaditClient {
         if (body.message && body.error) {
           extendedMessage.message = `${body.error}: ${body.message}`
         }
-        throw _.extend(new Error(), body, extendedMessage)
+        throw extend(new Error(), body, extendedMessage)
       }
 
       throw err

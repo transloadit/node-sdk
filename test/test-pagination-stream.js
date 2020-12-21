@@ -2,7 +2,7 @@
 const { expect } = require('chai')
 const PaginationStream = require('../src/PaginationStream')
 const { Writable } = require('stream')
-const _ = require('underscore')
+const _ = require('lodash')
 
 const toArray = callback => {
   const stream = new Writable({ objectMode: true })

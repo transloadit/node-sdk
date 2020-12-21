@@ -10,7 +10,7 @@ const http = require('http')
 const querystring = require('querystring')
 const temp = require('temp')
 const fs = require('fs')
-const _ = require('underscore')
+const _ = require('lodash')
 
 const { expect } = chai
 chai.use(chaiAsPromised)
