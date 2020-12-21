@@ -2,7 +2,7 @@ const reqr = global.GENTLY ? GENTLY.hijack(require) : require
 const got = reqr('got')
 const FormData = require('form-data')
 const crypto = reqr('crypto')
-const { isObject, isArray, extend } = reqr('lodash')
+const { isObject, isArray, extend, sumBy } = reqr('lodash')
 const fs = reqr('fs')
 const path = reqr('path')
 const retry = reqr('retry')
@@ -652,23 +652,35 @@ class TransloaditClient {
 
       let totalBytes = 0
       let lastEmittedProgress = 0
-      const uploadProgresses = {}
       onProgress = onProgress || (() => {})
 
+    const sizes = {}
+
+    // Initialize data
       for (const label of streamLabels) {
         const file = streamsMap[label]
 
+      if (file.path) {
       const { size } = await fsStat(file.path)
+        sizes[label] = size
+        totalBytes += size
+      }
+    }
 
-          const uploadSize = size
-          totalBytes += uploadSize
+    const uploadProgresses = {}
+
+    async function uploadSingleStream (label) {
           uploadProgresses[label] = 0
+
+      const file = streamsMap[label]
+      const size = sizes[label]
+
           const onTusProgress = (bytesUploaded) => {
             uploadProgresses[label] = bytesUploaded
+
             // get all uploaded bytes for all files
-            const uploadedBytes = streamLabels.reduce((label1, label2) => {
-              return uploadProgresses[label1] + uploadProgresses[label2]
-            })
+        const uploadedBytes = sumBy(streamLabels, (label) => uploadProgresses[label])
+
             // don't send redundant progress
             if (lastEmittedProgress < uploadedBytes) {
               lastEmittedProgress = uploadedBytes
@@ -687,7 +699,7 @@ class TransloaditClient {
               fieldname   : label,
               filename,
             },
-            uploadSize,
+          uploadSize: size,
             onError   : reject,
             onProgress: onTusProgress,
           onSuccess : resolve,
@@ -695,7 +707,13 @@ class TransloaditClient {
 
           tusUpload.start()
         })
+
+      // console.log(label, 'upload done')
       }
+
+    // TODO throttle concurrency? Can use p-map
+    const promises = streamLabels.map((label) => uploadSingleStream(label))
+    await Promise.all(promises)
   }
 
   // Legacy callback endpoints: TODO remove?
