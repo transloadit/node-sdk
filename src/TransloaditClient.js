@@ -135,21 +135,21 @@ class TransloaditClient {
     })
 
     const createAssemblyAndUpload = async () => {
-    const requestOpts = {
-      url    : this._lastUsedAssemblyUrl,
-      method : 'post',
-      timeout: 24 * 60 * 60 * 1000, // 1 day
-      params : opts.params,
-      fields : opts.fields,
-    }
+      const requestOpts = {
+        url    : this._lastUsedAssemblyUrl,
+        method : 'post',
+        timeout: 24 * 60 * 60 * 1000, // 1 day
+        params : opts.params,
+        fields : opts.fields,
+      }
 
-    const useTus = opts.isResumable && canGetStreamSizes(streams)
+      const useTus = opts.isResumable && canGetStreamSizes(streams)
 
-    if (useTus) {
-      requestOpts.tus_num_expected_upload_files = streams.length
-    } else if (opts.isResumable) {
-      console.warn('disabling resumability because the size of one or more streams cannot be determined')
-    }
+      if (useTus) {
+        requestOpts.tus_num_expected_upload_files = streams.length
+      } else if (opts.isResumable) {
+        console.warn('disabling resumability because the size of one or more streams cannot be determined')
+      }
 
       // upload as multipart or tus?
       const formUploadStreamsMap = useTus ? {} : streamsMap
@@ -650,18 +650,18 @@ class TransloaditClient {
   async _sendTusRequest (streamsMap, opts, onProgress) {
     const streamLabels = Object.keys(streamsMap)
 
-      let totalBytes = 0
-      let lastEmittedProgress = 0
-      onProgress = onProgress || (() => {})
+    let totalBytes = 0
+    let lastEmittedProgress = 0
+    onProgress = onProgress || (() => {})
 
     const sizes = {}
 
     // Initialize data
-      for (const label of streamLabels) {
-        const file = streamsMap[label]
+    for (const label of streamLabels) {
+      const file = streamsMap[label]
 
       if (file.path) {
-      const { size } = await fsStat(file.path)
+        const { size } = await fsStat(file.path)
         sizes[label] = size
         totalBytes += size
       }
@@ -670,46 +670,46 @@ class TransloaditClient {
     const uploadProgresses = {}
 
     async function uploadSingleStream (label) {
-          uploadProgresses[label] = 0
+      uploadProgresses[label] = 0
 
       const file = streamsMap[label]
       const size = sizes[label]
 
-          const onTusProgress = (bytesUploaded) => {
-            uploadProgresses[label] = bytesUploaded
+      const onTusProgress = (bytesUploaded) => {
+        uploadProgresses[label] = bytesUploaded
 
-            // get all uploaded bytes for all files
+        // get all uploaded bytes for all files
         const uploadedBytes = sumBy(streamLabels, (label) => uploadProgresses[label])
 
-            // don't send redundant progress
-            if (lastEmittedProgress < uploadedBytes) {
-              lastEmittedProgress = uploadedBytes
-              onProgress({ uploadProgress: { uploadedBytes, totalBytes } })
-            }
-          }
+        // don't send redundant progress
+        if (lastEmittedProgress < uploadedBytes) {
+          lastEmittedProgress = uploadedBytes
+          onProgress({ uploadProgress: { uploadedBytes, totalBytes } })
+        }
+      }
 
-          const filename = file.path ? path.basename(file.path) : label
+      const filename = file.path ? path.basename(file.path) : label
 
       await new Promise((resolve, reject) => {
-          const tusUpload = new tus.Upload(file, {
-            endpoint: opts.assembly.tus_url,
-            resume  : true,
-            metadata: {
-              assembly_url: opts.assembly.assembly_ssl_url,
-              fieldname   : label,
-              filename,
-            },
+        const tusUpload = new tus.Upload(file, {
+          endpoint: opts.assembly.tus_url,
+          resume  : true,
+          metadata: {
+            assembly_url: opts.assembly.assembly_ssl_url,
+            fieldname   : label,
+            filename,
+          },
           uploadSize: size,
-            onError   : reject,
-            onProgress: onTusProgress,
+          onError   : reject,
+          onProgress: onTusProgress,
           onSuccess : resolve,
-          })
-
-          tusUpload.start()
         })
 
+        tusUpload.start()
+      })
+
       // console.log(label, 'upload done')
-      }
+    }
 
     // TODO throttle concurrency? Can use p-map
     const promises = streamLabels.map((label) => uploadSingleStream(label))
