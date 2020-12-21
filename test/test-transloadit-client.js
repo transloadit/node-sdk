@@ -47,15 +47,21 @@ describe('TransloaditClient', () => {
   })
 
   describe('addFile', () => {
-    it('should properly add a stream', () => {
+    it('should properly add a file', () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const NAME = 'foo_name'
       const PATH = 'foo_path'
-      const STREAM = {
-        on () {},
-      }
 
+      expect(client._streams[NAME]).to.equal(undefined)
+      expect(client._files[NAME]).to.equal(undefined)
+      client.addFile(NAME, PATH)
+      expect(client._streams[NAME]).to.equal(undefined)
+      expect(client._files[NAME]).to.equal(PATH)
+
+      // TODO check that appendForm gets called with all file streams and createReadStream
+
+    /*
       gently.expect(GENTLY.hijacked.fs, 'createReadStream', thePath => {
         expect(thePath).to.equal(PATH)
         return STREAM
@@ -67,6 +73,7 @@ describe('TransloaditClient', () => {
       })
 
       return client.addFile(NAME, PATH)
+    */
     })
   })
 
@@ -75,8 +82,8 @@ describe('TransloaditClient', () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const streamsMap = {
-        stream1: 'foo_stream',
-        stream2: 'foo_stream2',
+        stream1: { stream: 'foo_stream' },
+        stream2: { stream: 'foo_stream2' },
       }
 
       const FORM = {}

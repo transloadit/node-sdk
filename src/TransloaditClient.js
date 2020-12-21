@@ -2,12 +2,11 @@ const reqr = global.GENTLY ? GENTLY.hijack(require) : require
 const got = reqr('got')
 const FormData = require('form-data')
 const crypto = reqr('crypto')
-const { isObject, isArray, extend, sumBy } = reqr('lodash')
+const { isObject, isArray, extend, sumBy, fromPairs } = reqr('lodash')
 const fs = reqr('fs')
-const path = reqr('path')
+const { basename } = reqr('path')
 const retry = reqr('retry')
 const PaginationStream = reqr('./PaginationStream')
-const Readable = reqr('stream').Readable
 const tus = reqr('tus-js-client')
 const { access, stat: fsStat } = reqr('fs').promises
 
@@ -21,19 +20,6 @@ function unknownErrMsg (str) {
   buff += '. Please report this at '
   buff += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
   return buff
-}
-
-// @todo support size retrieval for other streams
-function canGetStreamSizes (streams) {
-  for (const stream of streams) {
-    // the request module has path attribute that is different from file path
-    // but it also has the attribute httpModule
-    if (!(stream.path && !stream.httpModule)) {
-      return false
-    }
-  }
-
-  return true
 }
 
 class TransloaditClient {
@@ -55,6 +41,7 @@ class TransloaditClient {
     this._service = opts.service || 'api2.transloadit.com'
     this._protocol = opts.useSsl ? 'https://' : 'http://'
     this._streams = {}
+    this._files = {}
 
     this._lastUsedAssemblyUrl = ''
   }
@@ -77,12 +64,7 @@ class TransloaditClient {
    * @param {string} path path to the file
    */
   addFile (name, path) {
-    const stream = fs.createReadStream(path)
-    stream.on('error', err => {
-      // handle the error event to avoid the error being thrown
-      console.error(err)
-    })
-    this.addStream(name, stream)
+    this._files[name] = path
   }
 
   getLastUsedAssemblyUrl () {
@@ -114,24 +96,29 @@ class TransloaditClient {
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
-    const streamsMap = this._streams
-    // reset streams so they do not get used again in subsequent requests
+    for (const [, path] of Object.entries(this._files)) {
+      await access(path, fs.F_OK | fs.R_OK)
+    }
+
+    // Fileless streams
+    const streamsMap = fromPairs(Object.entries(this._streams).map(([label, stream]) => [label, { stream }]))
+
+    // Create streams from files
+    for (const [label, path] of Object.entries(this._files)) {
+      const stream = fs.createReadStream(path)
+      stream.pause()
+      streamsMap[label] = { stream, path }
+    }
+
+    // reset streams/files so they do not get used again in subsequent requests
     this._streams = {}
+    this._files = {}
 
     const streams = Object.values(streamsMap)
 
-    for (const stream of streams) {
-      // because an http response stream could also have a "path"
-      // attribute but not referring to the local file system
-      // see https://github.com/transloadit/node-sdk/pull/50#issue-261982855
-      if (!stream.path == null && stream instanceof Readable) {
-        await access(stream.path, fs.F_OK | fs.R_OK)
-      }
-    }
-
-    // If any stream emits error, we want to exit with error
+    // If any stream emits error, we want to handle this and exit with error
     const streamErrorPromise = new Promise((resolve, reject) => {
-      streams.forEach((stream) => stream.on('error', reject))
+      streams.forEach(({ stream }) => stream.on('error', reject))
     })
 
     const createAssemblyAndUpload = async () => {
@@ -143,7 +130,7 @@ class TransloaditClient {
         fields : opts.fields,
       }
 
-      const useTus = opts.isResumable && canGetStreamSizes(streams)
+      const useTus = opts.isResumable && streams.every(({ path }) => path)
 
       if (useTus) {
         requestOpts.tus_num_expected_upload_files = streams.length
@@ -151,12 +138,13 @@ class TransloaditClient {
         console.warn('disabling resumability because the size of one or more streams cannot be determined')
       }
 
-      // upload as multipart or tus?
+      // upload as form multipart or tus?
       const formUploadStreamsMap = useTus ? {} : streamsMap
       const tusStreamsMap = useTus ? streamsMap : {}
 
       const result = await this._remoteJson(requestOpts, formUploadStreamsMap)
 
+      // TODO should do this for all requests?
       if (result.error != null) throw new Error(result.error)
 
       if (useTus && Object.keys(tusStreamsMap).length > 0) {
@@ -482,7 +470,12 @@ class TransloaditClient {
 
     form.append('signature', signature)
 
-    if (streamsMap) Object.entries(streamsMap).forEach(([key, value]) => form.append(key, value))
+    if (streamsMap) {
+      Object.entries(streamsMap).forEach(([label, { stream, path }]) => {
+        const options = path ? undefined : { filename: label } // https://github.com/transloadit/node-sdk/issues/86
+        form.append(label, stream, options)
+      })
+    }
   }
 
   // Implements HTTP GET query params, handling the case where the url already
@@ -614,6 +607,8 @@ class TransloaditClient {
       this._appendForm(form, params, streamsMap, extraData)
     }
 
+    const uploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
+
     const requestOpts = {
       body   : form,
       timeout,
@@ -623,6 +618,11 @@ class TransloaditClient {
       },
       responseType: 'json',
     }
+
+    // For non-file streams transfer encoding does not get set, and the uploaded files will not get accepted
+    // https://github.com/transloadit/node-sdk/issues/86
+    // https://github.com/form-data/form-data/issues/394#issuecomment-573595015
+    if (uploadingStreams) requestOpts.headers['transfer-encoding'] = 'chunked'
 
     try {
       const { body } = await got[method](url, requestOpts)
@@ -658,10 +658,10 @@ class TransloaditClient {
 
     // Initialize data
     for (const label of streamLabels) {
-      const file = streamsMap[label]
+      const { path } = streamsMap[label]
 
-      if (file.path) {
-        const { size } = await fsStat(file.path)
+      if (path) {
+        const { size } = await fsStat(path)
         sizes[label] = size
         totalBytes += size
       }
@@ -672,7 +672,7 @@ class TransloaditClient {
     async function uploadSingleStream (label) {
       uploadProgresses[label] = 0
 
-      const file = streamsMap[label]
+      const { stream, path } = streamsMap[label]
       const size = sizes[label]
 
       const onTusProgress = (bytesUploaded) => {
@@ -688,10 +688,10 @@ class TransloaditClient {
         }
       }
 
-      const filename = file.path ? path.basename(file.path) : label
+      const filename = path ? basename(path) : label
 
       await new Promise((resolve, reject) => {
-        const tusUpload = new tus.Upload(file, {
+        const tusUpload = new tus.Upload(stream, {
           endpoint: opts.assembly.tus_url,
           resume  : true,
           metadata: {
