@@ -96,7 +96,7 @@ class TransloaditClient {
       waitForCompletion: false,
       isResumable      : true,
     }
-    opts = { ...defaultOpts, ...opts }
+    const { params, fields, waitForCompletion, isResumable } = { ...defaultOpts, ...opts }
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
@@ -130,15 +130,15 @@ class TransloaditClient {
         url    : this._lastUsedAssemblyUrl,
         method : 'post',
         timeout: 24 * 60 * 60 * 1000, // 1 day
-        params : opts.params,
-        fields : opts.fields,
+        params,
+        fields,
       }
 
-      const useTus = opts.isResumable && streams.every(({ path }) => path)
+      const useTus = isResumable && streams.every(({ path }) => path)
 
       if (useTus) {
         requestOpts.tus_num_expected_upload_files = streams.length
-      } else if (opts.isResumable) {
+      } else if (isResumable) {
         console.warn('disabling resumability because the size of one or more streams cannot be determined')
       }
 
@@ -152,10 +152,10 @@ class TransloaditClient {
       if (result.error != null) throw new Error(result.error)
 
       if (useTus && Object.keys(tusStreamsMap).length > 0) {
-        await this._sendTusRequest(tusStreamsMap, { waitForCompletion: opts.waitForCompletion, assembly: result }, progressCb)
+        await this._sendTusRequest(tusStreamsMap, { waitForCompletion: waitForCompletion, assembly: result }, progressCb)
       }
 
-      if (!opts.waitForCompletion) return result
+      if (!waitForCompletion) return result
       return this.awaitAssemblyCompletion(result.assembly_id, progressCb)
     }
 
