@@ -40,11 +40,10 @@ const transloadit       = new TransloaditClient({
   authSecret: 'YOUR_TRANSLOADIT_SECRET'
 })
 
-function onProgress({ uploadProgress }) {
+function onProgress({ uploadProgress, assemblyProgress }) {
   if (uploadProgress) {
     console.log(`♻️ Upload progress polled: ${uploadProgress.uploadedBytes} of ${uploadProgress.totalBytes} bytes uploaded.`)
-  }
-  if (assemblyProgress) {
+  } else if (assemblyProgress) {
     console.log(`♻️ Assembly progress polled: ${assemblyProgress.error ? assemblyProgress.error : assemblyProgress.ok } assemblyProgress.assembly_id ... `)
   }
 }
