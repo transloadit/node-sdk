@@ -152,7 +152,11 @@ class TransloaditClient {
       if (result.error != null) throw new Error(result.error)
 
       if (useTus && Object.keys(tusStreamsMap).length > 0) {
-        await this._sendTusRequest(tusStreamsMap, { waitForCompletion: waitForCompletion, assembly: result }, onProgress)
+        await this._sendTusRequest({
+          streamsMap: tusStreamsMap,
+          assembly  : result,
+          onProgress,
+        })
       }
 
       if (!waitForCompletion) return result
@@ -651,7 +655,7 @@ class TransloaditClient {
     }
   }
 
-  async _sendTusRequest (streamsMap, opts, onProgress) {
+  async _sendTusRequest ({ streamsMap, assembly, onProgress }) {
     const streamLabels = Object.keys(streamsMap)
 
     let totalBytes = 0
@@ -696,10 +700,10 @@ class TransloaditClient {
 
       await new Promise((resolve, reject) => {
         const tusUpload = new tus.Upload(stream, {
-          endpoint: opts.assembly.tus_url,
+          endpoint: assembly.tus_url,
           resume  : true,
           metadata: {
-            assembly_url: opts.assembly.assembly_ssl_url,
+            assembly_url: assembly.assembly_ssl_url,
             fieldname   : label,
             filename,
           },
