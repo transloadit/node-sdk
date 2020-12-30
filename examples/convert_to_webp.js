@@ -4,7 +4,7 @@
 //
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
-const TransloaditClient = require('../lib/TransloaditClient')
+const TransloaditClient = require('../src/TransloaditClient')
 
 const client = new TransloaditClient({
   authKey   : process.env.TRANSLOADIT_KEY,

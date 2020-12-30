@@ -1,7 +1,8 @@
+<img src="https://assets.transloadit.com/assets/images/artwork/logos-transloadit-default.svg" width="400" />
+
 # Transloadit Node.js SDK [![Build Status](https://travis-ci.org/transloadit/node-sdk.svg?branch=master)](https://travis-ci.org/transloadit/node-sdk)
 
-A **Node** integration for [Transloadit](https://transloadit.com)'s file
-uploading and encoding service.
+A **Node.js** integration for [Transloadit](https://transloadit.com)'s file uploading and encoding service.
 
 ## Intro
 
@@ -11,18 +12,24 @@ videos, extract thumbnails, generate audio waveforms, and so much more. In
 short, [Transloadit](https://transloadit.com) is the Swiss Army Knife for your
 files.
 
-This is a **Node** SDK to make it easy to talk to the
+This is a **Node.js** SDK to make it easy to talk to the
 [Transloadit](https://transloadit.com) REST API.
+
+## Requirements
+
+- Node.js version 10 or newer
 
 ## Install
 
 Inside your project, type
 
 ```bash
+yarn add transloadit
+```
+or
+```bash
 npm install transloadit --save
 ```
-
-If there are no errors, you can start using the module.
 
 ## Usage
 
@@ -33,50 +40,41 @@ const transloadit       = new TransloaditClient({
   authSecret: 'YOUR_TRANSLOADIT_SECRET'
 })
 
-const options = {
-  waitForCompletion: true,
-  params           : {
-    template_id: 'YOUR_TEMPLATE_ID',
-  },
-}
-
-const doneCb = (err, status) => {
-  let assemblyId = ''
-
-  if (status) {
-    if (status.assembly_id) {
-      assemblyId = status.assembly_id
-    }
-    // Lowlevel errors (e.g. connection errors) are in err, Assembly errors are in status.error.
-    // For this example, we don't discriminate and only care about erroring out:
-    if (!err && status.error) {
-      err = `${status.error}. ${status.message}. `
-    }
+function onProgress({ uploadProgress }) {
+  if (uploadProgress) {
+    console.log(`♻️ Upload progress polled: ${uploadProgress.uploadedBytes} of ${uploadProgress.totalBytes} bytes uploaded.`)
   }
-
-  if (err) {
-    console.error({ status })
-    throw new Error(`❌ Unable to process Assembly ${assemblyId}. ${err}`)
+  if (assemblyProgress) {
+    console.log(`♻️ Assembly progress polled: ${assemblyProgress.error ? assemblyProgress.error : assemblyProgress.ok } assemblyProgress.assembly_id ... `)
   }
-
-  console.log({ status })
-  console.log(`✅ Success`)
-}
-
-const progressCb = (ret) => {
-  let msg = ''
-  if (ret.uploadProgress) {
-    msg += `♻️ Upload progress polled: ` + ret.uploadProgress.uploadedBytes + ` of ` + ret.uploadProgress.totalBytes + ` bytes uploaded.`
-  }
-  if (ret.assemblyProgress) {
-    msg += `♻️ Assembly progress polled: ${ ret.assemblyProgress.error ? ret.assemblyProgress.error : ret.assemblyProgress.ok } ret.assemblyProgress.assembly_id ... `
-  }
-
-  console.log(msg)
 }
 
 transloadit.addFile('file1', '/PATH/TO/FILE.jpg')
-transloadit.createAssembly(options, doneCb, progressCb)
+
+try {
+  const options = {
+    waitForCompletion: true,
+    params           : {
+      template_id: 'YOUR_TEMPLATE_ID',
+      // or:
+      // steps: {
+      //   ...
+      // }
+    },
+  }
+
+  const status = await transloadit.createAssemblyAsync(options, onProgress)
+  // Because waitForCompletion === true, the assembly has now finished running.
+
+  // Lowlevel errors (e.g. connection errors) are thrown, Assembly errors are in status.error.
+  // For this example, we don't discriminate and only care about erroring out:
+  if (status.error) throw new Error(`Assembly error: ${status.error}. ${status.message}. ${status.assembly_id}`)
+
+  console.log(`✅ Success`)
+  console.log({ status })
+} catch (err) {
+  console.error(`❌ Unable to process Assembly ${err.assembly_id}.`, err)
+}
 ```
 
 ## Example
@@ -129,23 +127,6 @@ You can provide these keys inside `params`:
 * `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
 
 **Note:** For more information about what keys are supported for params, please see our docs about [Supported keys inside the params field](https://transloadit.com/docs/api/#supported-keys-inside-the-params-field)
-
-
-Here is an example for a progressCb function:
-
-```javascript
-const progressCb = (ret) => {
-  let msg = ''
-  if (ret.uploadProgress) {
-    msg += `♻️ Upload progress polled: ` + ret.uploadProgress.uploadedBytes + ` of ` + ret.uploadProgress.totalBytes + ` bytes uploaded.`
-  }
-  if (ret.assemblyProgress) {
-    msg += `♻️ Assembly progress polled: ${ ret.assemblyProgress.error ? ret.assemblyProgress.error : ret.assemblyProgress.ok } ret.assemblyProgress.assembly_id ... `
-  }
-
-  console.log(msg)
-}
-```
 
 This function (like all functions of this client) automatically obeys all rate limiting imposed by Transloadit. There is no need to write your own wrapper scripts to handle rate limits.
 
@@ -250,10 +231,6 @@ handling of listTemplates pagination.
 ## Contributing
 
 We'd be happy to accept pull requests. If you plan on working on something big, please first drop us a line!
-
-### Building
-
-The SDK is written in ES6, but the ES5 JavaScript it generates is committed back into the repository so people can use this module without a ES6 dependency. If you want to work on the source, please do so in `./src` and type: `npm run build` or `npm run test` (also builds first). Please don't edit generated JavaScript in `./lib`!
 
 ### Testing
 

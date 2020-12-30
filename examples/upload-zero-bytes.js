@@ -1,5 +1,5 @@
 // This is just here to debug an issue
-const TransloaditClient = require('../lib/TransloaditClient')
+const TransloaditClient = require('../src/TransloaditClient')
 const path = require('path')
 
 // Create client object and authenticate.

@@ -82,14 +82,14 @@ class TransloaditClient {
    * @property {object} assemblyProgress
    * @property {{totalBytes: number, uploadedBytes: number}} uploadProgress
    *
-   * @callback progressCb
+   * @callback onProgress
    * @param {progressObject} progress
    *
    * @param {object} opts assembly options
-   * @param {progressCb} progressCb callback function to be triggered as on each progress update of the assembly
+   * @param {onProgress} callback function to be triggered as on each progress update of the assembly
    * @returns {Promise}
    */
-  async createAssemblyAsync (opts, progressCb) {
+  async createAssemblyAsync (opts, onProgress) {
     const defaultOpts = {
       params           : {},
       fields           : {},
@@ -152,28 +152,28 @@ class TransloaditClient {
       if (result.error != null) throw new Error(result.error)
 
       if (useTus && Object.keys(tusStreamsMap).length > 0) {
-        await this._sendTusRequest(tusStreamsMap, { waitForCompletion: waitForCompletion, assembly: result }, progressCb)
+        await this._sendTusRequest(tusStreamsMap, { waitForCompletion: waitForCompletion, assembly: result }, onProgress)
       }
 
       if (!waitForCompletion) return result
-      return this.awaitAssemblyCompletion(result.assembly_id, progressCb)
+      return this.awaitAssemblyCompletion(result.assembly_id, onProgress)
     }
 
     return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
   }
 
-  async awaitAssemblyCompletion (assemblyId, progressCb) {
+  async awaitAssemblyCompletion (assemblyId, onProgress) {
     const result = await this.getAssemblyAsync(assemblyId)
     if (result.error != null) throw new Error(result.error)
 
     if (result.ok === 'ASSEMBLY_COMPLETED') return result
 
     if (result.ok === 'ASSEMBLY_UPLOADING' || result.ok === 'ASSEMBLY_EXECUTING') {
-      if (progressCb) progressCb({ assemblyProgress: result })
+      if (onProgress) onProgress({ assemblyProgress: result })
 
       await new Promise((resolve) => setTimeout(resolve, 1 * 1000))
       // Recurse
-      return this.awaitAssemblyCompletion(assemblyId, progressCb)
+      return this.awaitAssemblyCompletion(assemblyId, onProgress)
     }
 
     throw new Error(unknownErrMsg(`while processing Assembly ID ${assemblyId}`))
@@ -722,8 +722,8 @@ class TransloaditClient {
 
   // Legacy callback endpoints: TODO remove?
 
-  createAssembly (opts, cb, progressCb) {
-    this.createAssemblyAsync(opts, progressCb).then(val => cb(null, val)).catch(cb)
+  createAssembly (opts, cb, onProgress) {
+    this.createAssemblyAsync(opts, onProgress).then(val => cb(null, val)).catch(cb)
   }
 
   deleteAssembly (assembyId, cb) {
