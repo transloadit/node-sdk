@@ -16,24 +16,25 @@ const filePath = process.argv[2]
 client.addFile(fieldName, filePath)
 
 const opts = {
-  params: {
+  waitForCompletion: true,
+  params           : {
     steps: {
       webp: {
         use              : ':original',
         robot            : '/image/resize',
         result           : true,
-        imagemagick_stack: 'v2.0.3',
+        imagemagick_stack: 'v2.0.7',
         format           : 'webp',
       },
     },
   },
-}
-client.createAssembly(opts, (err, result) => {
-  if (err) {
-    console.log({ err })
-    console.log('fail')
-  } else {
-    console.log('success')
+};
+
+(async () => {
+  try {
+    const status = await client.createAssemblyAsync(opts)
+    console.log('Your WebP file:', status.results.webp[0].url)
+  } catch (err) {
+    console.error(`createAssembly ${err.assembly_id} failed`, err)
   }
-  console.log({ result })
-})
+})()
