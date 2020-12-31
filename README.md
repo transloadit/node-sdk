@@ -40,14 +40,6 @@ const transloadit       = new TransloaditClient({
   authSecret: 'YOUR_TRANSLOADIT_SECRET'
 })
 
-function onProgress({ uploadProgress, assemblyProgress }) {
-  if (uploadProgress) {
-    console.log(`♻️ Upload progress polled: ${uploadProgress.uploadedBytes} of ${uploadProgress.totalBytes} bytes uploaded.`)
-  } else if (assemblyProgress) {
-    console.log(`♻️ Assembly progress polled: ${assemblyProgress.error ? assemblyProgress.error : assemblyProgress.ok } assemblyProgress.assembly_id ... `)
-  }
-}
-
 transloadit.addFile('file1', '/PATH/TO/FILE.jpg')
 
 try {
@@ -62,7 +54,7 @@ try {
     },
   }
 
-  const status = await transloadit.createAssemblyAsync(options, onProgress)
+  const status = await transloadit.createAssemblyAsync(options)
   // Because waitForCompletion === true, the assembly has now finished running.
 
   // Lowlevel errors (e.g. connection errors) are thrown, Assembly errors are in status.error.
@@ -128,6 +120,21 @@ You can provide these keys inside `params`:
 **Note:** For more information about what keys are supported for params, please see our docs about [Supported keys inside the params field](https://transloadit.com/docs/api/#supported-keys-inside-the-params-field)
 
 This function (like all functions of this client) automatically obeys all rate limiting imposed by Transloadit. There is no need to write your own wrapper scripts to handle rate limits.
+
+Example `onProgress` handler:
+```javascript
+function onProgress({ uploadProgress, assemblyProgress }) {
+  if (uploadProgress) {
+    console.log(`♻️ Upload progress polled: ${uploadProgress.uploadedBytes} of ${uploadProgress.totalBytes} bytes uploaded.`)
+  } else if (assemblyProgress) {
+    console.log(`♻️ Assembly progress polled: ${assemblyProgress.error ? assemblyProgress.error : assemblyProgress.ok } assemblyProgress.assembly_id ... `)
+  }
+}
+
+// ...
+await transloadit.createAssemblyAsync(options, onProgress)
+// ...
+```
 
 #### TransloaditClient.lastUsedAssemblyUrl()
 
