@@ -57,12 +57,8 @@ try {
   const status = await transloadit.createAssemblyAsync(options)
   // Because waitForCompletion === true, the assembly has now finished running.
 
-  // Lowlevel errors (e.g. connection errors) are thrown, Assembly errors are in status.error.
-  // For this example, we don't discriminate and only care about erroring out:
-  if (status.error) throw new Error(`Assembly error: ${status.error}. ${status.message}. ${status.assembly_id}`)
-
-  console.log(`✅ Success`)
-  console.log({ status })
+  console.log('✅ Success')
+  console.log(status)
 } catch (err) {
   console.error(`❌ Unable to process Assembly ${err.assembly_id}.`, err)
 }
