@@ -307,7 +307,7 @@ class TransloaditClient {
 
     return new Promise((resolve, reject) => {
       const operation = retry.operation(retryOpts)
-      operation.attempt(async (attempt) => {
+      operation.attempt(async () => {
         try {
           const result = await this._remoteJson(opts)
 
@@ -321,11 +321,7 @@ class TransloaditClient {
 
           return resolve(result)
         } catch (err) {
-          if (operation.retry(err)) {
-            return
-          }
-
-          return reject(operation.mainError())
+          reject(err)
         }
       })
     })
@@ -572,8 +568,8 @@ class TransloaditClient {
             if (err.error) { msg.push(err.error) }
             if (opts.url) { msg.push(opts.url) }
             if (err.message) { msg.push(err.message) }
-
             console.warn(msg.join(' - '))
+
             return reject(err)
           }
 

@@ -11,6 +11,7 @@ const querystring = require('querystring')
 const temp = require('temp')
 const fs = require('fs')
 const _ = require('lodash')
+const { join } = require('path')
 
 const { expect } = chai
 chai.use(chaiAsPromised)
@@ -248,7 +249,7 @@ if (authKey == null || authSecret == null) {
         })
       }).timeout(10000)
 
-      return it('should trigger the callback when waitForComplete is false', done => {
+      it('should trigger the callback when waitForComplete is false', done => {
         const client = new TransloaditClient({ authKey, authSecret })
         const params = Object.assign({}, genericParams, { waitForCompletion: false })
 
@@ -259,6 +260,29 @@ if (authKey == null || authSecret == null) {
           return done()
         })
       })
+
+      it('should exit fast when assembly has failed', async () => {
+        // An old bug caused it to continuously retry until timeout when errors such as INVALID_FILE_META_DATA
+        const client = new TransloaditClient({ authKey, authSecret })
+        const opts = {
+          params: {
+            steps: {
+              resize: {
+                use   : ':original',
+                robot : '/image/resize',
+                result: true,
+                width : 130,
+                height: 130,
+              },
+            },
+          },
+          waitForCompletion: true,
+        }
+        client.addFile('file', join(__dirname, '../examples/fixtures/zerobytes.jpg'))
+
+        const promise = client.createAssemblyAsync(opts)
+        await expect(promise).to.eventually.be.rejectedWith(Error).and.property('error').to.eq('INVALID_FILE_META_DATA')
+      }).timeout(7000)
     })
 
     describe('assembly cancelation', () => {
