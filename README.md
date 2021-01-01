@@ -17,7 +17,9 @@ This is a **Node.js** SDK to make it easy to talk to the
 
 ## Requirements
 
-- Node.js version 10 or newer
+- [Node.js](https://nodejs.org/en/) version 10 or newer
+- [A Transloadit account](https://transloadit.com/signup/) (free to register)
+- [Your API credentials](https://transloadit.com/c/template-credentials) (`authKey`, `authSecret`)
 
 ## Install
 
@@ -33,6 +35,8 @@ npm install transloadit --save
 
 ## Usage
 
+The following code will show how to upload an image and resize it to a thumbnail:
+
 ```javascript
 const TransloaditClient = require('transloadit')
 const transloadit       = new TransloaditClient({
@@ -44,34 +48,44 @@ transloadit.addFile('file1', '/PATH/TO/FILE.jpg')
 
 try {
   const options = {
-    waitForCompletion: true,
+    waitForCompletion: true,  // Wait for the assembly (job) to finish executing before returning
     params           : {
-      template_id: 'YOUR_TEMPLATE_ID',
-      // or:
-      // steps: {
-      //   ...
-      // }
+      steps: {
+        resize: {
+          use   : ':original',
+          robot : '/image/resize',
+          result: true,
+          width : 75,
+          height: 75,
+        }
+      }
+      // OR if you already created a template, you can use it instead of "steps":
+      // template_id: 'YOUR_TEMPLATE_ID',
     },
   }
 
   const status = await transloadit.createAssemblyAsync(options)
-  // Because waitForCompletion === true, the assembly has now finished running.
 
-  console.log('✅ Success')
-  console.log(status)
+  if (status.results.resize) {
+    console.log('✅ Success - Your resized image:', status.results.resize[0].url)
+  } else {
+    console.log("❌ Your image file didn't produce any output. Make sure you used a valid image")
+  }
 } catch (err) {
   console.error(`❌ Unable to process Assembly ${err.assembly_id}.`, err)
 }
 ```
 
+You can find [details about your executed assemblies here](https://transloadit.com/assemblies).
+
 ## Examples
 
+- [Upload and resize image](examples/resize_an_image.js)
 - [Upload image and convert to WebP](examples/convert_to_webp.js)
-- [Upload and resize / thumbnail image](examples/resize_an_image.js)
 - [Calculate total costs (GB)](examples/fetch_costs_of_all_assemblies_in_timeframe.js)
 - [CRUD templates](examples/template_api.js)
 
-For more fully working examples take a look at [`examples/`](https://github.com/transloadit/node-sdk/tree/master/examples).
+For more fully working examples take a look at [`examples/`](examples/).
 
 ## API
 
