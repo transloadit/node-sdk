@@ -143,7 +143,8 @@ describe('TransloaditClient', () => {
     it('should append params and signature to the given url', () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
-      const URL = 'foo_url'
+      // URL can have question mark also inside parameter
+      const URL = 'https://example.com/foo_url?param=12?3'
       const PARAMS = { foo: 'bar' }
       const JSON_PARAMS = '{foo:"bar"}'
       const SIGNATURE = {
@@ -159,7 +160,7 @@ describe('TransloaditClient', () => {
       const ENCODED_PARAMS = encodeURIComponent(JSON_PARAMS)
       const url = client._appendParamsToUrl(URL, PARAMS)
 
-      const expected = `${URL}?signature=${SIGNATURE.signature}&params=${ENCODED_PARAMS}`
+      const expected = `${URL}&signature=${SIGNATURE.signature}&params=${ENCODED_PARAMS}`
       return expect(url).to.equal(expected)
     })
   })
