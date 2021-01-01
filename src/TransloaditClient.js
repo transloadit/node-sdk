@@ -466,12 +466,8 @@ class TransloaditClient {
     form.append('params', jsonParams)
 
     if (fields != null) {
-      for (let [key, val] of Object.entries(fields)) {
-        // TODO isn't an array already an object?
-        if (isObject(val) || isArray(val)) {
-          val = JSON.stringify(val)
-        }
-        form.append(key, val)
+      for (const [key, val] of Object.entries(fields)) {
+        form.append(key, isObject(val) ? JSON.stringify(val) : val)
       }
     }
 
