@@ -64,10 +64,14 @@ try {
 }
 ```
 
-## Example
+## Examples
 
-For fully working examples take a look at
-[`examples/`](https://github.com/transloadit/node-sdk/tree/master/examples).
+- [Upload image and convert to WebP](examples/convert_to_webp.js)
+- [Upload and resize / thumbnail image](examples/resize_an_image.js)
+- [Calculate total costs (GB)](examples/fetch_costs_of_all_assemblies_in_timeframe.js)
+- [CRUD templates](examples/template_api.js)
+
+For more fully working examples take a look at [`examples/`](https://github.com/transloadit/node-sdk/tree/master/examples).
 
 ## API
 
