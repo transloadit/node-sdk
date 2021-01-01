@@ -118,14 +118,14 @@ Registers the local file with the client. The next call to `createAssembly` will
 
 Same as `addFile` but with a stream instead of a file.
 
-#### TransloaditClient.createAssembly(options, doneCb[, progressCb])
+#### TransloaditClient.createAssemblyAsync(options[, onProgress]) -> Promise
 
 Creates a new Assembly on Transloadit, uploading all streams and files that were registered via `.addStream()` and `.addFile()` prior to the call to `.createAssembly()`.
 
-You can provide these keys inside `options`:
+You can provide the following keys inside the `options` object:
 
-* `params` - an object containing your `template_id`, `notify_url`, some steps that overwrite your Transloadit template and other params to control Transloadit behavior.
-* `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the callback is called. If `waitForCompletion` is `true`, this SDK will poll for status updates and call `doneCb` when all encoding work is done. During each polling action, `progressCb(ret)` is called with the current Upload progress in `uploadProgress` and then, *once the Assembly finished uploading*, Assembly Execution Status in `assemblyProgress` inside a result object as its only argument.
+* `params` - An object containing your `template_id`, `notify_url`, some steps that overwrite your Transloadit template and other params to control Transloadit behavior.
+* `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done. During each polling action, `onProgress(ret)` is called with the current Upload progress in `uploadProgress` and then, *once the Assembly finished uploading*, Assembly Execution Status in `assemblyProgress` inside a result object as its only argument. See example below
 
 You can provide these keys inside `params`:
 * `fields` - An object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables). 
@@ -151,7 +151,7 @@ await transloadit.createAssemblyAsync(options, onProgress)
 // ...
 ```
 
-#### TransloaditClient.listAssemblies(params, cb)
+#### TransloaditClient.listAssembliesAsync(params) -> Promise
 
 Retrieves an array of assemblies according to the given `params`.
 
@@ -189,15 +189,15 @@ assemblyStream
   .pipe(fs.createWriteStream('assemblies.txt'));
 ```
 
-#### TransloaditClient.getAssembly(assemblyId, cb)
+#### TransloaditClient.getAssemblyAsync(assemblyId) -> Promise
 
 Retrieves the JSON status of the assembly identified by the given `assemblyId`.
 
-#### TransloaditClient.deleteAssembly(assemblyId, cb)
+#### TransloaditClient.deleteAssemblyAsync(assemblyId) -> Promise
 
 Removes the assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers.
 
-#### TransloaditClient.replayAssembly(options, cb)
+#### TransloaditClient.replayAssemblyAsync(options) -> Promise
 
 Replays the assembly identified by the given `assembly_id`. The `options` parameter must contain an `assembly_id` key containing the assembly id. Optionally you can also provide a `notify_url` key if you want to change the notification target.
 
@@ -207,11 +207,11 @@ Returns the internal url that was used for the last call to `Transloadit.createA
 
 ### Assembly notifications
 
-#### TransloaditClient.replayAssemblyNotification(options, cb)
+#### TransloaditClient.replayAssemblyNotificationAsync(options) -> Promise
 
 Replays the notification for the assembly identified by the given `assembly_id`.  The `options` parameter must contain an `assembly_id` key containing the assembly id. Optionally you can also provide a `notify_url` key if you want to change the notification target.
 
-#### TransloaditClient.listAssemblyNotifications(params, cb)
+#### TransloaditClient.listAssemblyNotificationsAsync(params) -> Promise
 
 Retrieves an array of assembly notifications according to the given `params`.
 
@@ -224,23 +224,23 @@ handling of listAssemblynotifications pagination.
 
 ### Templates
 
-#### TransloaditClient.createTemplate(params, cb)
+#### TransloaditClient.createTemplateAsync(params) -> Promise
 
 Creates a template the provided params. The required `params` keys are: name (the template name) and template (the template JSON string).
 
-#### TransloaditClient.editTemplate(templateId, params, cb)
+#### TransloaditClient.editTemplateAsync(templateId, params) -> Promise
 
 Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call.
 
-#### TransloaditClient.getTemplate(templateId, cb)
+#### TransloaditClient.getTemplateAsync(templateId) -> Promise
 
 Retrieves the name and the template JSON for the template represented by the given templateId.
 
-#### TransloaditClient.deleteTemplate(templateId, cb)
+#### TransloaditClient.deleteTemplateAsync(templateId) -> Promise
 
 Deletes the template represented by the given templateId on Transloadit.
 
-#### TransloaditClient.listTemplates(params, cb)
+#### TransloaditClient.listTemplatesAsync(params) -> Promise
 
 Retrieves a list of all your templates from Transloadit. The `params` parameter can contain properties such as `order`, `sort`, and `page`. For a list of all available params please check [this entry](https://transloadit.com/docs/api/#templates-get) in the Transloadit API docs.
 
