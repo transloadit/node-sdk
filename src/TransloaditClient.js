@@ -26,6 +26,11 @@ function unknownErrMsg (str) {
   return buff
 }
 
+function createUnknownError (result, str) {
+  const left = result.error != null ? result.error : result.message
+  return new Error(left != null ? left : unknownErrMsg(str))
+}
+
 class TransloaditClient {
   constructor (opts = {}) {
     if (opts.useSsl == null) {
@@ -345,8 +350,7 @@ class TransloaditClient {
       return result
     }
 
-    let left
-    throw new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg('while creating Template'))
+    throw createUnknownError(result, 'while creating Template')
   }
 
   /**
@@ -368,8 +372,7 @@ class TransloaditClient {
       return result
     }
 
-    let left
-    throw new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
+    throw createUnknownError(result, 'while editing Template')
   }
 
   /**
