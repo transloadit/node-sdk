@@ -281,7 +281,11 @@ if (authKey == null || authSecret == null) {
         client.addFile('file', join(__dirname, './fixtures/zerobytes.jpg'))
 
         const promise = client.createAssemblyAsync(opts)
-        await expect(promise).to.eventually.be.rejectedWith(Error).and.property('error').to.eq('INVALID_FILE_META_DATA')
+        await promise.catch((err) => {
+          expect(err.error).to.eq('INVALID_FILE_META_DATA')
+          expect(err.assembly_id).to.exist
+        })
+        await expect(promise).to.eventually.be.rejectedWith(Error)
       }).timeout(7000)
     })
 
