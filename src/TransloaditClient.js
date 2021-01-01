@@ -484,21 +484,11 @@ class TransloaditClient {
   // Implements HTTP GET query params, handling the case where the url already
   // has params.
   _appendParamsToUrl (url, params) {
-    const sigData = this.calcSignature(params)
-    const { signature } = sigData
-    let jsonParams = sigData.params
+    const { signature, params: jsonParams } = this.calcSignature(params)
 
-    // TODO could be improved (potentially buggy)
-    if (url.indexOf('?') === -1) {
-      url += `?signature=${signature}`
-    } else {
-      url += `&signature=${signature}`
-    }
+    const prefix = url.indexOf('?') === -1 ? '?' : '&'
 
-    jsonParams = encodeURIComponent(jsonParams)
-    url += `&params=${jsonParams}`
-
-    return url
+    return `${url}${prefix}signature=${signature}&params=${encodeURIComponent(jsonParams)}`
   }
 
   // Responsible for including auth parameters in all requests
