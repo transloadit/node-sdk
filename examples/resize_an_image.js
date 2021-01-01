@@ -1,41 +1,41 @@
+// Run this file as:
+//
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/resize_an_image.js ./fixtures/berkley.jpg
+//
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
 const TransloaditClient = require('../src/TransloaditClient')
-const path = require('path')
 
-// Create client object and authenticate.
 const client = new TransloaditClient({
   authKey   : process.env.TRANSLOADIT_KEY,
   authSecret: process.env.TRANSLOADIT_SECRET,
-  service   : 'api2-ap-southeast-1.transloadit.com',
 })
 
-// Specify the file to resize.
-client.addFile('image', path.join(__dirname, '/fixtures/berkley.jpg'))
+const fieldName = 'my_file'
+const filePath = process.argv[2]
+client.addFile(fieldName, filePath)
 
-// Assembly instructions for resizing
-const params = {
-  steps: {
-    resize: {
-      robot : '/image/resize',
-      use   : ':original',
-      result: true,
-      width : 75,
-      height: 75,
+const opts = {
+  waitForCompletion: true,
+  params           : {
+    steps: {
+      webp: {
+        use              : ':original',
+        robot            : '/image/resize',
+        result           : true,
+        imagemagick_stack: 'v2.0.7',
+        width            : 75,
+        height           : 75,
+      },
     },
   },
-}
+};
 
-// Upload image and create assembly.
-const opts = {
-  params           : params,
-  waitForCompletion: true,
-}
-
-client.createAssembly(opts, (err, result = {}) => {
-  if (err) throw err
-
-  console.log(`Done. You can view the result at: ${result.results.resize[0].url}`)
-}, ({ assemblyProgress }) => {
-  console.log(assemblyProgress)
-})
+(async () => {
+  try {
+    const status = await client.createAssemblyAsync(opts)
+    console.log('Your resized image:', status.results.webp[0].url)
+  } catch (err) {
+    console.error(`createAssembly ${err.assembly_id} failed`, err)
+  }
+})()

@@ -1,6 +1,6 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/convert_to_webp.js './input.png'
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/convert_to_webp.js ./fixtures/berkley.jpg
 //
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
