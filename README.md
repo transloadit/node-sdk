@@ -50,7 +50,7 @@ try {
   const options = {
     waitForCompletion: true,  // Wait for the assembly (job) to finish executing before returning
     params           : {
-      steps: {
+      steps: { // You can have many steps. In this case we will just resize any inputs
         resize: {
           use   : ':original',
           robot : '/image/resize',
@@ -87,9 +87,11 @@ You can find [details about your executed assemblies here](https://transloadit.c
 
 For more fully working examples take a look at [`examples/`](examples/).
 
+For more example use cases and information about the available robots and their parameters, check out the [Transloadit website](https://transloadit.com/).
+
 ## API
 
-These are the public methods on the `TransloaditClient` object and their descriptions.
+These are the public methods on the `TransloaditClient` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
 
 ### Main
 
@@ -97,12 +99,12 @@ These are the public methods on the `TransloaditClient` object and their descrip
 
 Returns a new instance of the client.
 
-Available `options`:
+The `options` object can contain the following keys:
 - `authKey` **(required)** - see [requirements](#requirements)
 - `authSecret` **(required)** - see [requirements](#requirements)
 - `service` (default `'api2.transloadit.com'`)
 - `region` (default `'us-east-1'`)
-- `useSsl` (default `false`)
+- `useSsl` (default `true`)
 
 By default `TransloaditClient` will use SSL so it will access `service` with a https:// prefix. You can switch this off by providing `options`.`useSsl` with a value of `false`.
 
@@ -110,11 +112,11 @@ By default `TransloaditClient` will use SSL so it will access `service` with a h
 
 #### TransloaditClient.addFile(name, path)
 
-Registers the local file with the client. The next call to `createAssembly` will upload that file.
+Registers the local file with the client. The next call to `createAssembly` will upload that file. The `name` may be used in the `createAssembly` `params`.`steps` to refer to the particular file.
 
 #### TransloaditClient.addStream(name, stream)
 
-Registers the provided stream with the client. The next call to `createAssembly` will upload that stream.
+Same as `addFile` but with a stream instead of a file.
 
 #### TransloaditClient.createAssembly(options, doneCb[, progressCb])
 
@@ -149,15 +151,11 @@ await transloadit.createAssemblyAsync(options, onProgress)
 // ...
 ```
 
-#### TransloaditClient.lastUsedAssemblyUrl()
-
-Returns the internal url that was used for the last call to `Transloadit.createAssembly()`. This is meant to be used for debugging purposes.
-
 #### TransloaditClient.listAssemblies(params, cb)
 
 Retrieves an array of assemblies according to the given `params`.
 
-Valid params can be page, pagesize, type, fromdate and todate. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs/#retrieve-assembly-list) for details.
+Valid params can be page, pagesize, type, fromdate and todate. Please consult the [Transloadit API docs](https://transloadit.com/docs/api/#retrieve-assembly-list) for details.
 
 #### TransloaditClient.streamAssemblies(params)
 
@@ -203,6 +201,10 @@ Removes the assembly identified by the given `assemblyId` from the memory of the
 
 Replays the assembly identified by the given `assembly_id`. The `options` parameter must contain an `assembly_id` key containing the assembly id. Optionally you can also provide a `notify_url` key if you want to change the notification target.
 
+#### TransloaditClient.lastUsedAssemblyUrl()
+
+Returns the internal url that was used for the last call to `Transloadit.createAssembly()`. This is meant to be used for debugging purposes.
+
 ### Assembly notifications
 
 #### TransloaditClient.replayAssemblyNotification(options, cb)
@@ -213,7 +215,7 @@ Replays the notification for the assembly identified by the given `assembly_id`.
 
 Retrieves an array of assembly notifications according to the given `params`.
 
-Valid params can be `page`, `pagesize`, `type` and `assembly_id`. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs/#retrieve-assembly-notification-list) for details.
+Valid params can be `page`, `pagesize`, `type` and `assembly_id`. Please consult the [Transloadit API docs](https://transloadit.com/docs/api/#retrieve-assembly-notification-list) for details.
 
 #### TransloaditClient.streamAssemblyNotifications(params)
 
