@@ -81,17 +81,16 @@ These are the public methods on the `TransloaditClient` object and their descrip
 
 #### constructor([options])
 
-Returns a new instance of the client. The `options` object must at least include `authKey` and `authSecret` keys (and their values).
+Returns a new instance of the client.
 
-You can also provide `service`, which defaults to `'api2.transloadit.com'`, and `region`, which defaults to `'us-east-1'`.
+Available `options`:
+- `authKey` **(required)** - see [requirements](#requirements)
+- `authSecret` **(required)** - see [requirements](#requirements)
+- `service` (default `'api2.transloadit.com'`)
+- `region` (default `'us-east-1'`)
+- `useSsl` (default `false`)
 
-By default `TransloaditClient` will use SSL so it will access `service` with a https:// prefix. You can switch this off by providing options.useSsl with a value of `false`.
-
-#### calcSignature(params)
-
-Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
-
-This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
+By default `TransloaditClient` will use SSL so it will access `service` with a https:// prefix. You can switch this off by providing `options`.`useSsl` with a value of `false`.
 
 ### Assemblies
 
@@ -234,13 +233,21 @@ Retrieves a list of all your templates from Transloadit. The `params` parameter 
 Creates an objectMode readable stream like streamAssemblies that automates
 handling of listTemplates pagination.
 
+### Other
+
+#### TransloaditClient.calcSignature(params)
+
+Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
+
+This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
+
 ## Contributing
 
 We'd be happy to accept pull requests. If you plan on working on something big, please first drop us a line!
 
 ### Testing
 
-Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm run test`, or `npm run mocha` for faster iterations.
+Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm test`
 
 ### Releasing
 
