@@ -235,24 +235,24 @@ if (authKey == null || authSecret == null) {
         const { path } = await temp.open('transloadit')
 
         await pipeline(got.stream(genericImg), fs.createWriteStream(path))
-            client.addFile('original', path)
-            let progressCalled = false
+        client.addFile('original', path)
+        let progressCalled = false
         function onProgress (progress) {
           // console.log(progress)
           expect(progress.uploadProgress.uploadedBytes).to.exist
-              progressCalled = true
-            }
+          progressCalled = true
+        }
         await client.createAssemblyAsync(params, onProgress)
         expect(progressCalled).to.be.true
-              }
+      }
 
       it('should trigger progress callbacks when uploading files, resumable', async () => {
         await testUploadProgress(true)
-          })
+      })
 
       it('should trigger progress callbacks when uploading files, nonresumable', async () => {
         await testUploadProgress(false)
-        })
+      })
 
       it('should trigger the callback when waitForComplete is false', done => {
         const client = new TransloaditClient({ authKey, authSecret })
