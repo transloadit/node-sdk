@@ -69,10 +69,10 @@ try {
   if (status.results.resize) {
     console.log('✅ Success - Your resized image:', status.results.resize[0].url)
   } else {
-    console.log("❌ Your image file didn't produce any output. Make sure you used a valid image")
+    console.log("❌ The assembly didn't produce any output. Make sure you used a valid image file")
   }
 } catch (err) {
-  console.error(`❌ Unable to process Assembly ${err.assembly_id}.`, err)
+  console.error(`❌ Unable to process assembly ${err.assembly_id}.`, err)
 }
 ```
 
@@ -82,8 +82,8 @@ You can find [details about your executed assemblies here](https://transloadit.c
 
 - [Upload and resize image](examples/resize_an_image.js)
 - [Upload image and convert to WebP](examples/convert_to_webp.js)
-- [Calculate total costs (GB)](examples/fetch_costs_of_all_assemblies_in_timeframe.js)
-- [CRUD templates](examples/template_api.js)
+- [Calculate total costs (GB usage)](examples/fetch_costs_of_all_assemblies_in_timeframe.js)
+- [Templates CRUD](examples/template_api.js)
 
 For more fully working examples take a look at [`examples/`](examples/).
 
@@ -112,11 +112,11 @@ By default `TransloaditClient` will use SSL so it will access `service` with a h
 
 #### TransloaditClient.addFile(name, path)
 
-Registers the local file with the client. The next call to `createAssembly` will upload that file. The `name` may be used in the `createAssembly` `params`.`steps` to refer to the particular file.
+Registers the local file with the client. The next call to `createAssembly` will upload all added files. The `name` may be used in the `createAssembly` `params`.`steps` to refer to the particular file.
 
 #### TransloaditClient.addStream(name, stream)
 
-Same as `addFile` but with a stream instead of a file.
+Same as `addFile` but with a Node.js `Readable` stream instead of a file.
 
 #### TransloaditClient.createAssemblyAsync(options[, onProgress]) -> Promise
 
@@ -124,16 +124,14 @@ Creates a new Assembly on Transloadit, uploading all streams and files that were
 
 You can provide the following keys inside the `options` object:
 
-* `params` - An object containing your `template_id`, `notify_url`, some `steps` that overwrite your Transloadit template and other params to control Transloadit behavior. See [examples](#examples)
-* `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done. During each polling action, `onProgress(ret)` is called with the current Upload progress in `uploadProgress` and then, *once the Assembly finished uploading*, Assembly Execution Status in `assemblyProgress` inside a result object as its only argument.
+* `params` - An object containing keys defining the assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
+  * `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions)
+  * `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
+  * `fields` - An object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables). 
+  * `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
+* `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
 
-You can provide these keys inside `params`:
-* `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions)
-* `template_id` - The ID of the Template that contains your Assembly Instructions. `steps` and `template_id` are mutually exclusive, and supplying one of these is required.
-* `fields` - An object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables). 
-* `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
-
-**Note:** For more information about what keys are supported for params, please see our docs about [Supported keys inside the params field](https://transloadit.com/docs/api/#supported-keys-inside-the-params-field)
+If specified, `onProgress({ uploadProgress, assemblyProgress })` will be periodically called with the current file upload progress in `uploadProgress` and then, *once the Assembly finished uploading*, Assembly Execution Status in `assemblyProgress` inside a result object as its only argument.
 
 This function (like all functions of this client) automatically obeys all rate limiting imposed by Transloadit. There is no need to write your own wrapper scripts to handle rate limits.
 
