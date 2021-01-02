@@ -1,6 +1,6 @@
 <img src="https://assets.transloadit.com/assets/images/artwork/logos-transloadit-default.svg" width="400" />
 
-# Transloadit Node.js SDK [![Build Status](https://travis-ci.org/transloadit/node-sdk.svg?branch=master)](https://travis-ci.org/transloadit/node-sdk)
+# Transloadit Node.js SDK [![](https://github.com/transloadit/node-sdk/workflows/Test/badge.svg)](https://github.com/transloadit/node-sdk/actions?query=workflow%3ATest)
 
 A **Node.js** integration for [Transloadit](https://transloadit.com)'s file uploading and encoding service.
 
