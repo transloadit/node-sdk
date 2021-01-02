@@ -12,6 +12,10 @@ const temp = require('temp')
 const fs = require('fs')
 const _ = require('lodash')
 const { join } = require('path')
+const { promisify } = require('util')
+const { pipeline: streamPipeline } = require('stream')
+const got = require('got')
+const pipeline = promisify(streamPipeline)
 
 const { expect } = chai
 chai.use(chaiAsPromised)
@@ -210,10 +214,11 @@ if (authKey == null || authSecret == null) {
         })
       })
 
-      it('should trigger progress callbacks when uploading files', done => {
+      async function testUploadProgress (isResumable) {
         const client = new TransloaditClient({ authKey, authSecret })
 
         const params = {
+          isResumable,
           params: {
             steps: {
               resize: {
@@ -227,27 +232,27 @@ if (authKey == null || authSecret == null) {
           },
         }
 
-        return temp.open('transloadit', (err, { path } = {}) => {
-          expect(err).to.not.exist
-          const dl = request(genericImg)
-          dl.pipe(fs.createWriteStream(path))
-          dl.on('error', err => expect(err).to.not.exist)
-          dl.on('end', () => {
+        const { path } = await temp.open('transloadit')
+
+        await pipeline(got.stream(genericImg), fs.createWriteStream(path))
             client.addFile('original', path)
             let progressCalled = false
-            const onProgress = (progress) => {
-              expect(progress).to.have.property('uploadProgress')
+        function onProgress (progress) {
+          // console.log(progress)
+          expect(progress.uploadProgress.uploadedBytes).to.exist
               progressCalled = true
             }
-            client.createAssembly(params, (err, result) => {
-              expect(err).to.not.exist
-              if (progressCalled) {  // let it timeout if it's not called
-                done()
+        await client.createAssemblyAsync(params, onProgress)
+        expect(progressCalled).to.be.true
               }
-            }, onProgress)
+
+      it('should trigger progress callbacks when uploading files, resumable', async () => {
+        await testUploadProgress(true)
           })
+
+      it('should trigger progress callbacks when uploading files, nonresumable', async () => {
+        await testUploadProgress(false)
         })
-      }).timeout(10000)
 
       it('should trigger the callback when waitForComplete is false', done => {
         const client = new TransloaditClient({ authKey, authSecret })

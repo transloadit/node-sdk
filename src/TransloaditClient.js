@@ -93,7 +93,7 @@ class TransloaditClient {
    * @param {onProgress} callback function to be triggered as on each progress update of the assembly
    * @returns {Promise}
    */
-  async createAssemblyAsync (opts, onProgress) {
+  async createAssemblyAsync (opts, onProgress = () => {}) {
     const defaultOpts = {
       params           : {},
       fields           : {},
@@ -150,7 +150,7 @@ class TransloaditClient {
       const formUploadStreamsMap = useTus ? {} : streamsMap
       const tusStreamsMap = useTus ? streamsMap : {}
 
-      const result = await this._remoteJson(requestOpts, formUploadStreamsMap)
+      const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onProgress)
 
       // TODO should do this for all requests?
       if (result.error != null) throw new Error(result.error)
@@ -177,7 +177,7 @@ class TransloaditClient {
     if (result.ok === 'ASSEMBLY_COMPLETED') return result
 
     if (result.ok === 'ASSEMBLY_UPLOADING' || result.ok === 'ASSEMBLY_EXECUTING') {
-      if (onProgress) onProgress({ assemblyProgress: result })
+      onProgress({ assemblyProgress: result })
 
       await new Promise((resolve) => setTimeout(resolve, 1 * 1000))
       // Recurse
@@ -519,7 +519,7 @@ class TransloaditClient {
   }
 
   // Wrapper around __remoteJson which will retry in case of error
-  async _remoteJson (opts, streamsMap) {
+  async _remoteJson (opts, streamsMap, onProgress) {
     const operation = retry.operation({
       retries   : 5,
       factor    : 3.28,
@@ -530,7 +530,7 @@ class TransloaditClient {
     return new Promise((resolve, reject) => {
       operation.attempt(async () => {
         try {
-          resolve(await this.__remoteJson(opts, streamsMap))
+          resolve(await this.__remoteJson(opts, streamsMap, onProgress))
         } catch (err) {
           if (err.error === 'RATE_LIMIT_REACHED') {
             console.warn(`Rate limit reached, retrying request in ${err.info.retryIn} seconds.`)
@@ -574,7 +574,7 @@ class TransloaditClient {
   // Responsible for making API calls. Automatically sends streams with any POST,
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
-  async __remoteJson (opts, streamsMap) {
+  async __remoteJson (opts, streamsMap, onProgress) {
     const timeout = opts.timeout || 5000
     let url = opts.url || null
     const method = opts.method || 'get'
@@ -599,7 +599,7 @@ class TransloaditClient {
       this._appendForm(form, params, streamsMap, extraData)
     }
 
-    const uploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
+    const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
 
     const requestOpts = {
       body   : form,
@@ -614,10 +614,14 @@ class TransloaditClient {
     // For non-file streams transfer encoding does not get set, and the uploaded files will not get accepted
     // https://github.com/transloadit/node-sdk/issues/86
     // https://github.com/form-data/form-data/issues/394#issuecomment-573595015
-    if (uploadingStreams) requestOpts.headers['transfer-encoding'] = 'chunked'
+    if (isUploadingStreams) requestOpts.headers['transfer-encoding'] = 'chunked'
 
     try {
-      const { body } = await got[method](url, requestOpts)
+      const request = got[method](url, requestOpts)
+      if (isUploadingStreams) {
+        request.on('uploadProgress', ({ percent, transferred, total }) => onProgress({ uploadProgress: { uploadedBytes: transferred, totalBytes: total } }))
+      }
+      const { body } = await request
       return body
     } catch (err) {
       if (err instanceof got.HTTPError) {
@@ -644,7 +648,6 @@ class TransloaditClient {
 
     let totalBytes = 0
     let lastEmittedProgress = 0
-    onProgress = onProgress || (() => {})
 
     const sizes = {}
 
