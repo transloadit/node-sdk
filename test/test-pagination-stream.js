@@ -37,7 +37,7 @@ describe('PaginationStream', () => {
     const count = 9
     const pages = [{ count, items: [1, 2, 3] }, { count, items: [4, 5, 6] }, { count, items: [7, 8, 9] }]
 
-    const stream = new PaginationStream((pageno, cb) => process.nextTick(() => cb(null, pages[pageno - 1])))
+    const stream = new PaginationStream(async (pageno) => new Promise((resolve) => process.nextTick(() => resolve(pages[pageno - 1]))))
 
     stream.pipe(
       toArray(array => {
