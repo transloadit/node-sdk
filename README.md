@@ -153,7 +153,7 @@ await transloadit.createAssemblyAsync(options, onProgress)
 
 Retrieves an array of assemblies according to the given `params`.
 
-Valid params can be page, pagesize, type, fromdate and todate. Please consult the [Transloadit API docs](https://transloadit.com/docs/api/#retrieve-assembly-list) for details.
+Valid params can be `page`, `pagesize`, `type`, `fromdate`, `todate` and `keywords`. Please consult the [Transloadit API docs](https://transloadit.com/docs/api/#retrieve-assembly-list) for details.
 
 #### TransloaditClient.streamAssemblies(params)
 
