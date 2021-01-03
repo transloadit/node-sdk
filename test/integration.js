@@ -12,9 +12,10 @@ const fs = require('fs')
 const _ = require('lodash')
 const { join } = require('path')
 const { promisify } = require('util')
-const { pipeline: streamPipeline } = require('stream')
+const { pipeline: streamPipeline, PassThrough } = require('stream')
 const got = require('got')
 const pipeline = promisify(streamPipeline)
+const intoStream = require('into-stream')
 
 const { expect } = chai
 chai.use(chaiAsPromised)
@@ -83,6 +84,7 @@ if (authKey == null || authSecret == null) {
 
   // https://transloadit.com/demos/importing-files/import-a-file-over-http
   const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
+  const sampleSvg = '<?xml version="1.0" standalone="no"?><svg height="100" width="100"><circle cx="50" cy="50" r="40" fill="red" /></svg>'
   const resizeOriginalStep = {
     robot : '/image/resize',
     use   : ':original',
@@ -218,6 +220,37 @@ if (authKey == null || authSecret == null) {
 
         const result = await client.createAssemblyAsync(params)
         expect(result.fields.myField).to.eq('test')
+      })
+
+      function createStreamFromString (str) {
+        const rawStream = intoStream(str)
+        // Workaround for https://github.com/tus/tus-js-client/issues/229
+        const stream = new PassThrough()
+        rawStream.pipe(stream)
+        return stream
+      }
+
+      it('should allow adding a stream', async () => {
+        const client = new TransloaditClient({ authKey, authSecret })
+
+        const params = {
+          waitForCompletion: true,
+          params           : {
+            steps: {
+              rasterize: {
+                robot : '/image/resize',
+                use   : ':original',
+                format: 'jpg',
+              },
+            },
+          },
+        }
+
+        client.addStream('test', createStreamFromString(sampleSvg))
+
+        const result = await client.createAssemblyAsync(params)
+        expect(result.results.rasterize).to.have.lengthOf(1)
+        expect(result.results.rasterize[0].name).to.eq('test.jpg')
       })
 
       async function testUploadProgress (isResumable) {
