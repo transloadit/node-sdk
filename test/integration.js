@@ -82,7 +82,7 @@ if (authKey == null || authSecret == null) {
   const startServer = (handler, cb) => startServerAsync(handler).then((server) => cb(null, server)).catch(cb)
 
   // https://transloadit.com/demos/importing-files/import-a-file-over-http
-  const genericImg = 'https://demos.transloadit.com/inputs/chameleon.jpg'
+  const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
   const resizeOriginalStep = {
     robot : '/image/resize',
     use   : ':original',
