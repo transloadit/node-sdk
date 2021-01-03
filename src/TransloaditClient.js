@@ -130,6 +130,8 @@ class TransloaditClient {
     })
 
     const createAssemblyAndUpload = async () => {
+      const useTus = isResumable && streams.every(({ path }) => path)
+
       const requestOpts = {
         url    : this._lastUsedAssemblyUrl,
         method : 'post',
@@ -138,10 +140,8 @@ class TransloaditClient {
         fields,
       }
 
-      const useTus = isResumable && streams.every(({ path }) => path)
-
       if (useTus) {
-        requestOpts.tus_num_expected_upload_files = streams.length
+        requestOpts.fields.tus_num_expected_upload_files = streams.length
       } else if (isResumable) {
         console.warn('disabling resumability because the size of one or more streams cannot be determined')
       }
@@ -585,12 +585,8 @@ class TransloaditClient {
     let form
 
     if (method === 'post' || method === 'put' || method === 'delete') {
-      const extraData = { ...opts.fields }
-      if (opts.tus_num_expected_upload_files) {
-        extraData.tus_num_expected_upload_files = opts.tus_num_expected_upload_files
-      }
       form = new FormData()
-      this._appendForm(form, params, streamsMap, extraData)
+      this._appendForm(form, params, streamsMap, opts.fields)
     }
 
     const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
