@@ -19,6 +19,12 @@ const pipeline = promisify(streamPipeline)
 const { expect } = chai
 chai.use(chaiAsPromised)
 
+async function downloadTmpFile (url) {
+  const { path } = await temp.open('transloadit')
+  await pipeline(got.stream(url), fs.createWriteStream(path))
+  return path
+}
+
 const authKey = process.env.TRANSLOADIT_KEY
 const authSecret = process.env.TRANSLOADIT_SECRET
 if (authKey == null || authSecret == null) {
@@ -77,6 +83,13 @@ if (authKey == null || authSecret == null) {
 
   // https://transloadit.com/demos/importing-files/import-a-file-over-http
   const genericImg = 'https://demos.transloadit.com/inputs/chameleon.jpg'
+  const resizeOriginalStep = {
+    robot : '/image/resize',
+    use   : ':original',
+    result: true,
+    width : 130,
+    height: 130,
+  }
   const genericParams = {
     params: {
       steps: {
@@ -164,13 +177,7 @@ if (authKey == null || authSecret == null) {
         const params = {
           params: {
             steps: {
-              resize: {
-                robot : '/image/resize',
-                use   : ':original',
-                result: true,
-                width : 130,
-                height: 130,
-              },
+              resize: resizeOriginalStep,
             },
           },
         }
@@ -187,20 +194,12 @@ if (authKey == null || authSecret == null) {
         const params = {
           params: {
             steps: {
-              resize: {
-                robot : '/image/resize',
-                use   : ':original',
-                result: true,
-                width : 130,
-                height: 130,
-              },
+              resize: resizeOriginalStep,
             },
           },
         }
 
-        const { path } = await temp.open('transloadit')
-
-        await pipeline(got.stream(genericImg), fs.createWriteStream(path))
+        const path = await downloadTmpFile(genericImg)
             client.addFile('original', path)
 
         await client.createAssemblyAsync(params)
@@ -213,21 +212,14 @@ if (authKey == null || authSecret == null) {
           isResumable,
           params: {
             steps: {
-              resize: {
-                robot : '/image/resize',
-                use   : ':original',
-                result: true,
-                width : 130,
-                height: 130,
-              },
+              resize: resizeOriginalStep,
             },
           },
         }
 
-        const { path } = await temp.open('transloadit')
-
-        await pipeline(got.stream(genericImg), fs.createWriteStream(path))
+        const path = await downloadTmpFile(genericImg)
         client.addFile('original', path)
+
         let progressCalled = false
         function onProgress (progress) {
           // console.log(progress)
@@ -264,13 +256,7 @@ if (authKey == null || authSecret == null) {
         const opts = {
           params: {
             steps: {
-              resize: {
-                use   : ':original',
-                robot : '/image/resize',
-                result: true,
-                width : 130,
-                height: 130,
-              },
+              resize: resizeOriginalStep,
             },
           },
           waitForCompletion: true,
@@ -289,19 +275,6 @@ if (authKey == null || authSecret == null) {
     describe('assembly cancelation', () => {
       it('should stop the assembly from reaching completion', async () => {
         const client = new TransloaditClient({ authKey, authSecret })
-        // const opts = {
-        //   params: {
-        //     steps: {
-        //       resize: {
-        //         robot : '/image/resize',
-        //         use   : ':original',
-        //         result: true,
-        //         width : 130,
-        //         height: 130,
-        //       },
-        //     },
-        //   },
-        // }
 
         // We need to ensure that the assembly doesn't complete before it can be
         // canceled, so we start an http server for the assembly to import from,
