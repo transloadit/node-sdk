@@ -4,7 +4,6 @@ require('./gently-preamble')
 const chai = require('chai')
 var chaiAsPromised = require('chai-as-promised')
 const TransloaditClient = require('../src/TransloaditClient')
-const request = require('request')
 const localtunnel = require('localtunnel')
 const http = require('http')
 const querystring = require('querystring')
@@ -182,7 +181,7 @@ if (authKey == null || authSecret == null) {
         await expect(promise).to.eventually.be.rejectedWith(Error).and.have.property('code').that.equals('ENOENT')
       })
 
-      it('should allow uploading files that do exist', done => {
+      it('should allow uploading files that do exist', async () => {
         const client = new TransloaditClient({ authKey, authSecret })
 
         const params = {
@@ -199,19 +198,12 @@ if (authKey == null || authSecret == null) {
           },
         }
 
-        return temp.open('transloadit', (err, { path } = {}) => {
-          expect(err).to.not.exist
-          const dl = request(genericImg)
-          dl.pipe(fs.createWriteStream(path))
-          dl.on('error', err => expect(err).to.not.exist)
-          dl.on('end', () => {
+        const { path } = await temp.open('transloadit')
+
+        await pipeline(got.stream(genericImg), fs.createWriteStream(path))
             client.addFile('original', path)
-            client.createAssembly(params, (err, result) => {
-              expect(err).to.not.exist
-              done()
-            })
-          })
-        })
+
+        await client.createAssemblyAsync(params)
       })
 
       async function testUploadProgress (isResumable) {
@@ -332,7 +324,7 @@ if (authKey == null || authSecret == null) {
 
           res.setHeader('Content-type', 'image/jpeg')
           res.writeHead(200)
-          request.get(genericImg).pipe(res)
+          got.stream(genericImg).pipe(res)
         }
 
         const server = await startServerAsync(handler)

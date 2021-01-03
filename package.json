@@ -36,7 +36,6 @@
     "localtunnel": "2.0.0",
     "mocha": "3.5.3",
     "npm-check-updates": "4.0.1",
-    "request": "^2.88.2",
     "temp": "0.9.1"
   },
   "repository": {
