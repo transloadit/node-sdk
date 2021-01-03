@@ -1,6 +1,6 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/fetch_costs_of_all_assemblies_in_timeframe.js
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node fetch_costs_of_all_assemblies_in_timeframe.js
 //
 // make sure to "npm install p-map" for this demo
 const pMap = require('p-map')

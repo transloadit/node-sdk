@@ -1,6 +1,6 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/list_assembly_notifications.js
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node list_assembly_notifications.js
 //
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:

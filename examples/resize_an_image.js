@@ -1,6 +1,6 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/resize_an_image.js ./fixtures/berkley.jpg
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node resize_an_image.js ./fixtures/berkley.jpg
 //
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
