@@ -11,7 +11,7 @@ class PaginationStream extends stream.Readable {
     this._itemsRead = 0
   }
 
-  _read () {
+  async _read () {
     if (this._items.length > 0) {
       this._itemsRead++
       return process.nextTick(() => this.push(this._items.pop()))
@@ -21,18 +21,17 @@ class PaginationStream extends stream.Readable {
       return process.nextTick(() => this.push(null))
     }
 
-    return this._fetchPage(++this._pageno, (err, { count, items }) => {
-      if (err != null) {
-        return this.emit('error', err)
-      }
-
+    try {
+      const { count, items } = await this._fetchPage(++this._pageno)
       this._nitems = count
 
       this._items = Array.from(items)
       this._items.reverse()
 
       return this._read()
-    })
+    } catch (err) {
+      this.emit('error', err)
+    }
   }
 }
 

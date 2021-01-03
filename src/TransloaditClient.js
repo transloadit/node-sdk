@@ -266,9 +266,7 @@ class TransloaditClient {
   }
 
   streamAssemblyNotifications (params) {
-    return new PaginationStream((page, cb) => {
-      this.listAssemblyNotifications({ ...params, page }, cb)
-    })
+    return new PaginationStream(async (page) => this.listAssemblyNotificationsAsync({ ...params, page }))
   }
 
   /**
@@ -288,9 +286,7 @@ class TransloaditClient {
   }
 
   streamAssemblies (params) {
-    return new PaginationStream((page, cb) => {
-      this.listAssemblies({ ...params, page }, cb)
-    })
+    return new PaginationStream(async (page) => this.listAssembliesAsync({ ...params, page }))
   }
 
   /**
@@ -421,9 +417,7 @@ class TransloaditClient {
   }
 
   streamTemplates (params) {
-    return new PaginationStream((page, cb) => {
-      this.listTemplates({ ...params, page }, cb)
-    })
+    return new PaginationStream(async (page) => this.listTemplatesAsync({ ...params, page }))
   }
 
   /**
