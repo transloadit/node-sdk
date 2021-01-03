@@ -238,7 +238,7 @@ if (authKey == null || authSecret == null) {
         await testUploadProgress(false)
       })
 
-      it('should trigger the callback when waitForComplete is false', done => {
+      it('should trigger the callback when waitForCompletion is false', done => {
         const client = new TransloaditClient({ authKey, authSecret })
         const params = Object.assign({}, genericParams, { waitForCompletion: false })
 
