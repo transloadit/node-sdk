@@ -205,6 +205,21 @@ if (authKey == null || authSecret == null) {
         await client.createAssemblyAsync(params)
       })
 
+      it('should allow setting fields', async () => {
+        const client = new TransloaditClient({ authKey, authSecret })
+
+        const params = {
+          waitForCompletion: true,
+          params           : {
+            fields: { myField: 'test' },
+            steps : { resize: resizeOriginalStep },
+          },
+        }
+
+        const result = await client.createAssemblyAsync(params)
+        expect(result.fields.myField).to.eq('test')
+      })
+
       async function testUploadProgress (isResumable) {
         const client = new TransloaditClient({ authKey, authSecret })
 
