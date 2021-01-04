@@ -202,7 +202,7 @@ if (authKey == null || authSecret == null) {
         }
 
         const path = await downloadTmpFile(genericImg)
-            client.addFile('original', path)
+        client.addFile('original', path)
 
         await client.createAssemblyAsync(params)
       })
