@@ -3,7 +3,6 @@ const http = require('http')
 const querystring = require('querystring')
 const temp = require('temp')
 const fs = require('fs')
-const _ = require('lodash')
 const { join } = require('path')
 const { promisify } = require('util')
 const { pipeline: streamPipeline, PassThrough } = require('stream')
@@ -46,7 +45,7 @@ const startServerAsync = async (handler) => new Promise((resolve, reject) => {
 
   // Once a port has been found and the server is ready, setup the
   // localtunnel
-  return server.on('listening', async () => {
+  server.on('listening', async () => {
     try {
       const tunnel = await localtunnel(port)
       // console.log('localtunnel', tunnel.url)
@@ -71,8 +70,6 @@ const startServerAsync = async (handler) => new Promise((resolve, reject) => {
     }
   })
 })
-
-const startServer = (handler, cb) => startServerAsync(handler).then((server) => cb(null, server)).catch(cb)
 
 // https://transloadit.com/demos/importing-files/import-a-file-over-http
 const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
@@ -418,56 +415,75 @@ describe('API integration', function () {
   })
 
   describe('assembly notification', () => {
+    let server
+    afterEach(() => {
+      console.log('closing server')
+      if (server) server.close()
+    })
+
     // helper function
-    const streamToString = (stream, cb) => {
+    const streamToString = (stream) => new Promise((resolve, reject) => {
       const chunks = []
       stream.on('data', chunk => chunks.push(chunk))
-      stream.on('error', err => cb(err))
-      stream.on('end', () => cb(null, chunks.join('')))
+      stream.on('error', err => reject(err))
+      stream.on('end', () => resolve(chunks.join('')))
+    })
+
+    const runNotificationTest = async (onNotification, onError) => {
+      const client = new TransloaditClient({ authKey, authSecret })
+
+      // listens for notifications
+      const onNotificationRequest = async (req, res) => {
+        try {
+          expect(req.url).toBe('/')
+          expect(req.method).toBe('POST')
+          const body = await streamToString(req)
+          const result = JSON.parse(querystring.parse(body).transloadit)
+          expect(result).toHaveProperty('ok')
+          if (result.ok !== 'ASSEMBLY_COMPLETED') return onError(new Error(`result.ok was ${result.ok}`))
+
+          res.writeHead(200)
+          res.end()
+
+          onNotification({ client, assemblyId: result.assembly_id })
+        } catch (err) {
+          onError(err)
+        }
+      }
+
+      try {
+        server = await startServerAsync(onNotificationRequest)
+        await client.createAssemblyAsync({ params: { ...genericParams.params, notify_url: server.url } })
+      } catch (err) {
+        onError(err)
+      }
     }
 
-    const testCase = (desc, endBehavior) =>
-      it(desc, done => {
-        const client = new TransloaditClient({ authKey, authSecret })
+    it('should send a notification upon assembly completion', async () => {
+      await new Promise((resolve, reject) => runNotificationTest(resolve, reject))
+    })
 
-        // listens for notifications
-        const handler = (req, res) => {
-          expect(req.url).toBe('/')
+    it('should replay the notification when requested', (done) => {
+      let notificationsRecvd = false
 
-          expect(req.method).toBe('POST')
-          streamToString(req, (err, body) => {
-            if (err) {
-              console.error(err)
-            }
-            const result = JSON.parse(querystring.parse(body).transloadit)
-            expect(result).toHaveProperty('ok')
-            res.writeHead(200)
-            res.end()
-            if (result.ok !== 'ASSEMBLY_COMPLETED') return
-            endBehavior(client, result.assembly_id, done)
-          })
+      const onNotification = async ({ client, assemblyId }) => {
+        if (notificationsRecvd) {
+          // If we quit immediately, things will not get cleaned up and jest will hang
+          await new Promise((resolve) => setTimeout(resolve, 100))
+          done()
+          return
         }
+        notificationsRecvd = true
 
-        startServer(handler, (err, server) => {
-          expect(err).toBeFalsy()
-
-          const params = { params: _.extend({}, genericParams.params, { notify_url: server.url }) }
-
-          client.createAssembly(params, (err, result) => expect(err).toBeFalsy())
-        })
-      })
-
-    testCase('should send a notification upon assembly completion', (client, id, done) => done())
-
-    let notificationsRecvd = 0
-    testCase('should replay the notification when requested', (client, id, done) => {
-      if (notificationsRecvd++ === 0) {
-        setTimeout(() => {
-          client.replayAssemblyNotification({ assembly_id: id }, err => expect(err).toBeFalsy())
-        }, 2000)
-      } else {
-        done()
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          await client.replayAssemblyNotificationAsync({ assembly_id: assemblyId })
+        } catch (err) {
+          done(err)
+        }
       }
+
+      runNotificationTest(onNotification, (err) => done(err))
     })
   })
 
