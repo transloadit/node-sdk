@@ -469,14 +469,14 @@ describe('API integration', function () {
       const onNotification = async ({ client, assemblyId }) => {
         if (notificationsRecvd) {
           // If we quit immediately, things will not get cleaned up and jest will hang
-          await new Promise((resolve) => setTimeout(resolve, 100))
+          await new Promise((resolve) => setTimeout(resolve, 2000))
           done()
           return
         }
         notificationsRecvd = true
 
         try {
-          await new Promise((resolve) => setTimeout(resolve, 1000))
+          await new Promise((resolve) => setTimeout(resolve, 2000))
           await client.replayAssemblyNotificationAsync({ assembly_id: assemblyId })
         } catch (err) {
           done(err)
