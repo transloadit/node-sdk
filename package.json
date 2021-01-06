@@ -55,7 +55,7 @@
     "release": "npm version ${SEMANTIC:-patch} -m \"Release %s\" && git push && git push --tags && npm publish",
     "test-unit": "jest --coverage ./test/unit",
     "test-integration": "jest ./test/integration",
-    "test": "jest --coverage"
+    "test": "jest --coverage --forceExit"
   },
   "license": "MIT",
   "main": "./index"

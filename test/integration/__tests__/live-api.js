@@ -1,6 +1,6 @@
-// const localtunnel = require('localtunnel')
-// const http = require('http')
-// const querystring = require('querystring')
+const localtunnel = require('localtunnel')
+const http = require('http')
+const querystring = require('querystring')
 const temp = require('temp')
 const fs = require('fs')
 const { join } = require('path')
@@ -24,7 +24,7 @@ if (authKey == null || authSecret == null) {
   throw new Error('Please specify environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET')
 }
 
-/* const startServerAsync = async (handler) => new Promise((resolve, reject) => {
+const startServerAsync = async (handler) => new Promise((resolve, reject) => {
   const server = http.createServer(handler)
 
   // Find a port to use
@@ -69,7 +69,7 @@ if (authKey == null || authSecret == null) {
       }
     }
   })
-}) */
+})
 
 // https://transloadit.com/demos/importing-files/import-a-file-over-http
 const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
@@ -276,7 +276,7 @@ describe('API integration', function () {
   })
 
   describe('assembly cancelation', () => {
-    /* it('should stop the assembly from reaching completion', async () => {
+    it('should stop the assembly from reaching completion', async () => {
       const client = new TransloaditClient({ authKey, authSecret })
 
       // We need to ensure that the assembly doesn't complete before it can be
@@ -343,7 +343,7 @@ describe('API integration', function () {
       } finally {
         server.close()
       }
-    }) */
+    })
   })
 
   describe('replaying assemblies', () => {
@@ -414,7 +414,6 @@ describe('API integration', function () {
     })
   })
 
-  /*
   describe('assembly notification', () => {
     let server
     afterEach(() => {
@@ -486,7 +485,6 @@ describe('API integration', function () {
       runNotificationTest(onNotification, (err) => done(err))
     })
   })
-  */
 
   describe('template methods', () => {
     // can contain only lowercase latin letters, numbers, and dashes.
