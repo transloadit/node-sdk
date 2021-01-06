@@ -1,6 +1,4 @@
-// const gently           = require('./gently-preamble')
-const { expect } = require('chai')
-const PaginationStream = require('../src/PaginationStream')
+const PaginationStream = require('../../../src/PaginationStream')
 const { Writable } = require('stream')
 const _ = require('lodash')
 
@@ -25,7 +23,7 @@ describe('PaginationStream', () => {
       toArray(array => {
         const expected = _.flatten(Array.from(pages).map(({ items }) => items), true)
 
-        expect(array).to.deep.equal(expected)
+        expect(array).toEqual(expected)
         done()
       }),
     )
@@ -43,7 +41,7 @@ describe('PaginationStream', () => {
       toArray(array => {
         const expected = _.flatten(Array.from(pages).map(({ items }) => items), true)
 
-        expect(array).to.deep.equal(expected)
+        expect(array).toEqual(expected)
         done()
       }),
     )

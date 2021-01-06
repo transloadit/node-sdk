@@ -1,6 +1,4 @@
-const reqr = global.GENTLY ? GENTLY.hijack(require) : require
-// const TransloaditClient = reqr('./TransloaditClient')
-const stream = reqr('stream')
+const stream = require('stream')
 
 class PaginationStream extends stream.Readable {
   constructor (_fetchPage) {

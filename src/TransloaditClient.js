@@ -1,19 +1,18 @@
-const reqr = global.GENTLY ? GENTLY.hijack(require) : require
-const got = reqr('got')
+const got = require('got')
 const FormData = require('form-data')
-const crypto = reqr('crypto')
-const fromPairs = reqr('lodash/fromPairs')
-const sumBy = reqr('lodash/sumBy')
-const extend = reqr('lodash/extend')
-const isObject = reqr('lodash/isObject')
-const fs = reqr('fs')
-const { basename } = reqr('path')
-const retry = reqr('retry')
-const PaginationStream = reqr('./PaginationStream')
-const tus = reqr('tus-js-client')
-const { access, stat: fsStat } = reqr('fs').promises
+const crypto = require('crypto')
+const fromPairs = require('lodash/fromPairs')
+const sumBy = require('lodash/sumBy')
+const extend = require('lodash/extend')
+const isObject = require('lodash/isObject')
+const fs = require('fs')
+const { basename } = require('path')
+const retry = require('retry')
+const PaginationStream = require('./PaginationStream')
+const tus = require('tus-js-client')
+const { access, stat: fsStat } = require('fs').promises
 
-const version = reqr('../package.json').version
+const version = require('../package.json').version
 
 function unknownErrMsg (str) {
   let buff = 'Unknown error'
