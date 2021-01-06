@@ -595,6 +595,7 @@ class TransloaditClient {
       timeout,
       headers: {
         'Transloadit-Client': `node-sdk:${version}`,
+        'User-Agent'        : undefined, // Remove got's user-agent
         ...opts.headers,
       },
       responseType: 'json',
