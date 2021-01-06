@@ -53,9 +53,9 @@
     "release:patch": "env SEMANTIC=patch npm run release",
     "upgrade:modules": "npm-check-updates -u --semverLevel major && yarn && npm run test",
     "release": "npm version ${SEMANTIC:-patch} -m \"Release %s\" && git push && git push --tags && npm publish",
-    "test-unit": "jest --coverage ./unit-tests",
-    "test-integration": "jest --runInBand ./integration-tests",
-    "test": "npm run test-unit"
+    "test-unit": "jest --coverage ./test/unit",
+    "test-integration": "jest ./test/integration",
+    "test": "jest --coverage"
   },
   "license": "MIT",
   "main": "./index"
