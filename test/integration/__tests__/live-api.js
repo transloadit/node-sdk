@@ -414,10 +414,10 @@ describe('API integration', function () {
     })
   })
 
+  /*
   describe('assembly notification', () => {
     let server
     afterEach(() => {
-      console.log('closing server')
       if (server) server.close()
     })
 
@@ -486,6 +486,7 @@ describe('API integration', function () {
       runNotificationTest(onNotification, (err) => done(err))
     })
   })
+  */
 
   describe('template methods', () => {
     // can contain only lowercase latin letters, numbers, and dashes.
