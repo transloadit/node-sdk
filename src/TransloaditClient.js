@@ -678,7 +678,6 @@ class TransloaditClient {
       await new Promise((resolve, reject) => {
         const tusUpload = new tus.Upload(stream, {
           endpoint: assembly.tus_url,
-          resume  : true,
           metadata: {
             assembly_url: assembly.assembly_ssl_url,
             fieldname   : label,
