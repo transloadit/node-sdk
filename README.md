@@ -163,10 +163,10 @@ pagination. It accepts the same params as listAssembly.
 This can be used to iterate through assemblies:
 
 ```javascript
-var assemblyStream = client.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
+const assemblyStream = client.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
 
 assemblyStream.on('readable', function() {
-  var assembly = assemblyStream.read();
+  const assembly = assemblyStream.read();
   if (assembly == null) console.log('end of stream');
 
   console.log(assembly.id);
@@ -177,7 +177,7 @@ Results can also be piped. Here's an example using
 [through2](https://github.com/rvagg/through2):
 
 ```javascript
-var assemblyStream = client.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
+const assemblyStream = client.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
 
 assemblyStream
   .pipe(through.obj(function(chunk, enc, callback) {
