@@ -56,17 +56,15 @@ const startServerAsync = async (handler) => new Promise((resolve, reject) => {
         server.close()
       })
 
-      return resolve({
+      resolve({
         url: tunnel.url,
         close () {
           tunnel.close()
         },
       })
     } catch (err) {
-      if (err != null) {
-        server.close()
-        return reject(err)
-      }
+      server.close()
+      reject(err)
     }
   })
 })
@@ -119,9 +117,10 @@ describe('API integration', function () {
           expect(err).toBeFalsy()
           expect(result).not.toHaveProperty('error')
           expect(result).toEqual(expect.objectContaining({
-            assembly_url: expect.any(String),
-            ok          : expect.any(String),
-            assembly_id : id,
+            assembly_ssl_url: expect.any(String),
+            assembly_url    : expect.any(String),
+            ok              : expect.any(String),
+            assembly_id     : id,
           }))
           return done()
         })
@@ -298,6 +297,7 @@ describe('API integration', function () {
 
         await promise
 
+        // console.log('sending response')
         res.setHeader('Content-type', 'image/jpeg')
         res.writeHead(200)
         got.stream(genericImg).pipe(res)
@@ -328,12 +328,13 @@ describe('API integration', function () {
         const { assembly_id: id } = await client.createAssemblyAsync(params)
 
         // Now delete it
+        // console.log('deleting', id)
         const resp = await client.deleteAssemblyAsync(id)
+        expect(resp.ok).toBe('ASSEMBLY_CANCELED')
+        // console.log('deleted', id)
 
         // Allow the upload to finish
         sendServerResponse()
-
-        expect(resp.ok).toBe('ASSEMBLY_CANCELED')
 
         // Successful cancel requests get ASSEMBLY_CANCELED even when it
         // completed, so we now request the assembly status to check the
