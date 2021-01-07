@@ -28,3 +28,14 @@ jobs:
         env:
           TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
           TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
+
+      - run: echo "COVERAGE_PERCENT=$(npm run --silent get-coverage-percent)" >> $GITHUB_ENV
+
+      - uses: schneegans/dynamic-badges-action@v1.0.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: f8a10961b85300969759bc0b367fa77a
+          filename: badge.json
+          label: coverage
+          message: ${{ env.COVERAGE_PERCENT }}
+          color: brightgreen

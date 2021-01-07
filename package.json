@@ -55,7 +55,8 @@
     "release": "npm version ${SEMANTIC:-patch} -m \"Release %s\" && git push && git push --tags && npm publish",
     "test-unit": "jest --coverage ./test/unit",
     "test-integration": "jest ./test/integration",
-    "test": "jest --coverage --forceExit"
+    "test": "jest --coverage --coverageReporters json lcov text clover json-summary --forceExit",
+    "get-coverage-percent": "node test/get-coverage-percent.js"
   },
   "license": "MIT",
   "main": "./index"
