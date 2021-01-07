@@ -132,9 +132,9 @@ class TransloaditClient {
       const useTus = isResumable && streams.every(({ path }) => path)
 
       const requestOpts = {
-        url    : this._lastUsedAssemblyUrl,
-        method : 'post',
-        timeout: 24 * 60 * 60 * 1000, // 1 day
+        urlSuffix: '/assemblies',
+        method   : 'post',
+        timeout  : 24 * 60 * 60 * 1000, // 1 day
         params,
         fields,
       }
@@ -193,11 +193,13 @@ class TransloaditClient {
    * @returns {Promise} after the assembly is deleted
    */
   async deleteAssemblyAsync (assemblyId) {
-    // eslint-disable-next-line camelcase
-    const { assembly_url } = await this.getAssemblyAsync(assemblyId) || {}
-
+    // You may wonder why do we need to call getAssembly first:
+    // If we use the default base URL (instead of the one returned in assembly_url_ssl), the delete call will hang in certain cases
+    // See test "should stop the assembly from reaching completion"
+    const { assembly_ssl_url: url } = await this.getAssemblyAsync(assemblyId)
     const opts = {
-      url    : assembly_url,
+      url,
+      // urlSuffix: `/assemblies/${assemblyId}`, // Cannot simply do this, see above
       timeout: 5000,
       method : 'delete',
     }
@@ -218,8 +220,8 @@ class TransloaditClient {
   async replayAssemblyAsync (opts) {
     const { assembly_id: assemblyId, notify_url: notifyUrl } = opts
     const requestOpts = {
-      url   : this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
-      method: 'post',
+      urlSuffix: `/assemblies/${assemblyId}/replay`,
+      method   : 'post',
     }
 
     if (notifyUrl != null) {
@@ -237,8 +239,8 @@ class TransloaditClient {
    */
   async replayAssemblyNotificationAsync ({ assembly_id: assemblyId, notify_url: notifyUrl }) {
     const requestOpts = {
-      url   : this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
-      method: 'post',
+      urlSuffix: `/assembly_notifications/${assemblyId}/replay`,
+      method   : 'post',
     }
 
     if (notifyUrl != null) {
@@ -256,9 +258,9 @@ class TransloaditClient {
    */
   async listAssemblyNotificationsAsync (params) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/assembly_notifications`,
-      method: 'get',
-      params: params || {},
+      urlSuffix: '/assembly_notifications',
+      method   : 'get',
+      params   : params || {},
     }
 
     return this._remoteJson(requestOpts)
@@ -276,9 +278,9 @@ class TransloaditClient {
    */
   async listAssembliesAsync (params) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/assemblies`,
-      method: 'get',
-      params: params || {},
+      urlSuffix: '/assemblies',
+      method   : 'get',
+      params   : params || {},
     }
 
     return this._remoteJson(requestOpts)
@@ -295,8 +297,6 @@ class TransloaditClient {
    * @returns {Promise} the retrieved Assembly
    */
   async getAssemblyAsync (assemblyId) {
-    const opts = { url: this._serviceUrl() + `/assemblies/${assemblyId}` }
-
     const retryOpts = {
       retries   : 5,
       factor    : 3.28,
@@ -308,7 +308,7 @@ class TransloaditClient {
       const operation = retry.operation(retryOpts)
       operation.attempt(async () => {
         try {
-          const result = await this._remoteJson(opts)
+          const result = await this._remoteJson({ urlSuffix: `/assemblies/${assemblyId}` })
 
           if (result.assembly_url == null || result.assembly_ssl_url == null) {
             if (operation.retry(new Error('got incomplete assembly status response'))) {
@@ -334,9 +334,9 @@ class TransloaditClient {
    */
   async createTemplateAsync (params) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates`,
-      method: 'post',
-      params: params || {},
+      urlSuffix: '/templates',
+      method   : 'post',
+      params   : params || {},
     }
 
     const result = await this._remoteJson(requestOpts)
@@ -356,9 +356,9 @@ class TransloaditClient {
    */
   async editTemplateAsync (templateId, params) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates/${templateId}`,
-      method: 'put',
-      params: params || {},
+      urlSuffix: `/templates/${templateId}`,
+      method   : 'put',
+      params   : params || {},
     }
 
     const result = await this._remoteJson(requestOpts)
@@ -377,8 +377,8 @@ class TransloaditClient {
    */
   async deleteTemplateAsync (templateId) {
     const requestOpts = {
-      url   : this._serviceUrl() + `/templates/${templateId}`,
-      method: 'delete',
+      urlSuffix: `/templates/${templateId}`,
+      method   : 'delete',
     }
 
     return this._remoteJson(requestOpts)
@@ -392,8 +392,8 @@ class TransloaditClient {
    */
   async getTemplateAsync (templateId) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates/${templateId}`,
-      method: 'get',
+      urlSuffix: `/templates/${templateId}`,
+      method   : 'get',
     }
 
     return this._remoteJson(requestOpts)
@@ -407,9 +407,9 @@ class TransloaditClient {
    */
   async listTemplatesAsync (params) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates`,
-      method: 'get',
-      params: params || {},
+      urlSuffix: '/templates',
+      method   : 'get',
+      params   : params || {},
     }
 
     return this._remoteJson(requestOpts)
@@ -427,8 +427,8 @@ class TransloaditClient {
    */
   async getBillAsync (month) {
     const requestOpts = {
-      url   : this._serviceUrl() + `/bill/${month}`,
-      method: 'get',
+      urlSuffix: `/bill/${month}`,
+      method   : 'get',
     }
 
     return this._remoteJson(requestOpts)
@@ -520,10 +520,18 @@ class TransloaditClient {
       maxTimeout: 8 * 1000,
     })
 
+    // Allow providing either a `urlSuffix` or a full `url`
+    const { urlSuffix, url: urlInput, ...rest } = opts
+    if (!urlSuffix && !urlInput) throw new Error('No URL provided')
+    const url = urlInput || `${this._serviceUrl()}${urlSuffix}`
+
+    const newOpts = { ...rest, url }
+
     return new Promise((resolve, reject) => {
       operation.attempt(async () => {
         try {
-          resolve(await this.__remoteJson(opts, streamsMap, onProgress))
+          // console.log('__remoteJson', url)
+          resolve(await this.__remoteJson(newOpts, streamsMap, onProgress))
         } catch (err) {
           if (err.error === 'RATE_LIMIT_REACHED') {
             console.warn(`Rate limit reached, retrying request in ${err.info.retryIn} seconds.`)
@@ -547,7 +555,8 @@ class TransloaditClient {
           if (err.error !== undefined) {
             const msg = []
             if (err.error) { msg.push(err.error) }
-            if (opts.url) { msg.push(opts.url) }
+            msg.push(opts.method)
+            msg.push(url)
             if (err.message) { msg.push(err.message) }
             console.warn(msg.join(' - '))
 
@@ -572,10 +581,6 @@ class TransloaditClient {
     let url = opts.url || null
     const method = opts.method || 'get'
     const params = opts.params || {}
-
-    if (!url) {
-      throw new Error('No url provided!')
-    }
 
     if (method === 'get') {
       url = this._appendParamsToUrl(url, params)
