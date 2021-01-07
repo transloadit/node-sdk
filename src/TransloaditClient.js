@@ -24,6 +24,15 @@ function unknownErrMsg (str) {
   return buff
 }
 
+// eslint-disable-next-line handle-callback-err
+function decorateError (err, body) {
+  const extendedMessage = {}
+  if (body.message && body.error) {
+    extendedMessage.message = `${body.error}: ${body.message}`
+  }
+  return extend(err, body, extendedMessage)
+}
+
 function createUnknownError (result, str) {
   const left = result.error != null ? result.error : result.message
   return new Error(left != null ? left : unknownErrMsg(str))
@@ -152,7 +161,10 @@ class TransloaditClient {
       const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onProgress)
 
       // TODO should do this for all requests?
-      if (result.error != null) throw new Error(result.error)
+      if (result.error) {
+        const err = new Error()
+        throw decorateError(err, result)
+      }
 
       if (useTus && Object.keys(tusStreamsMap).length > 0) {
         await this._sendTusRequest({
@@ -171,7 +183,10 @@ class TransloaditClient {
 
   async awaitAssemblyCompletion (assemblyId, onProgress) {
     const result = await this.getAssemblyAsync(assemblyId)
-    if (result.error != null) throw new Error(result.error)
+    if (result.error) {
+      const err = new Error()
+      throw decorateError(err, result)
+    }
 
     if (result.ok === 'ASSEMBLY_COMPLETED') return result
 
@@ -627,11 +642,9 @@ class TransloaditClient {
           return body
         }
 
-        const extendedMessage = {}
-        if (body.message && body.error) {
-          extendedMessage.message = `${body.error}: ${body.message}`
-        }
-        throw extend(new Error(), body, extendedMessage)
+        // TODO use HTTPError instead? or provide statuscode etc
+        const err2 = new Error()
+        throw decorateError(err2, body)
       }
 
       throw err
