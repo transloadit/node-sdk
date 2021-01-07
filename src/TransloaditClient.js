@@ -610,7 +610,10 @@ class TransloaditClient {
 
     const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
 
+    const retry = 0
+
     const requestOpts = {
+      retry,
       body   : form,
       timeout,
       headers: {
