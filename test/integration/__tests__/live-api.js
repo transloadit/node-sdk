@@ -496,7 +496,7 @@ describe('API integration', function () {
         try {
           expect(url).toBe('/')
           await new Promise((resolve) => setTimeout(resolve, 2000))
-          await client.replayAssemblyNotificationAsync(assemblyId, { notifyUrl: `${server.url}${newPath}` })
+          await client.replayAssemblyNotificationAsync(assemblyId, { notify_url: `${server.url}${newPath}` })
         } catch (err) {
           done(err)
         }
