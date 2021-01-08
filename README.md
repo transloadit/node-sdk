@@ -158,12 +158,11 @@ See also:
 
 Retrieves an array of assemblies according to the given `params`.
 
-Valid params can be `page`, `pagesize`, `type`, `fromdate`, `todate` and `keywords`. Please consult the [Transloadit API docs](https://transloadit.com/docs/api/#retrieve-assembly-list) for details.
+Valid params can be `page`, `pagesize`, `type`, `fromdate`, `todate` and `keywords`. Please consult the [API documentation](https://transloadit.com/docs/api/#retrieve-assembly-list) for details.
 
 #### TransloaditClient.streamAssemblies(params)
 
-Creates an objectMode readable stream that automates handling of listAssembly
-pagination. It accepts the same params as listAssembly.
+Creates an `objectMode` `Readable` stream that automates handling of `listAssembliesAsync` pagination. It accepts the same `params` as `listAssembliesAsync`.
 
 This can be used to iterate through assemblies:
 
