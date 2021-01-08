@@ -3,7 +3,6 @@ const FormData = require('form-data')
 const crypto = require('crypto')
 const fromPairs = require('lodash/fromPairs')
 const sumBy = require('lodash/sumBy')
-const extend = require('lodash/extend')
 const isObject = require('lodash/isObject')
 const fs = require('fs')
 const { basename } = require('path')
@@ -30,11 +29,19 @@ function createUnknownError (result, str) {
 
 // eslint-disable-next-line handle-callback-err
 function decorateError (err, body) {
-  const extendedMessage = {}
-  if (body.message && body.error) {
-    extendedMessage.message = `${body.error}: ${body.message}`
-  }
-  return extend(err, body, extendedMessage, { message: extendedMessage.message })
+  if (!body) return err
+  let message = err.message
+
+  // Provide a more useful message if there is one
+  if (body.message && body.error) message = `${body.error}: ${body.message}`
+  else if (body.error) message = body.error
+
+  if (body.assembly_id) message += ` (assembly_id ${body.assembly_id})`
+
+  err.message = message
+  if (body.assembly_id) err.assemblyId = body.assembly_id
+  if (body.error) err.transloaditErrorCode = body.error
+  return err
 }
 
 class TransloaditClient {
@@ -183,6 +190,7 @@ class TransloaditClient {
 
   async awaitAssemblyCompletion (assemblyId, onProgress) {
     const result = await this.getAssemblyAsync(assemblyId)
+
     if (result.error) {
       const err = new Error()
       throw decorateError(err, result)
@@ -202,12 +210,12 @@ class TransloaditClient {
   }
 
   /**
-   * Delete the assembly
+   * Cancel the assembly
    *
    * @param {string} assemblyId assembly ID
    * @returns {Promise} after the assembly is deleted
    */
-  async deleteAssemblyAsync (assemblyId) {
+  async cancelAssemblyAsync (assemblyId) {
     // You may wonder why do we need to call getAssembly first:
     // If we use the default base URL (instead of the one returned in assembly_url_ssl), the delete call will hang in certain cases
     // See test "should stop the assembly from reaching completion"
@@ -225,43 +233,32 @@ class TransloaditClient {
   /**
    * Replay an Assembly
    *
-   * @typedef {object} replayOptions
-   * @property {string} assembly_id
-   * @property {string} notify_url
-   *
-   * @param {replayOptions} opts options defining the Assembly to replay
+   * @param {string} assemblyId of the assembly to replay
+   * @param {object} optional params
    * @returns {Promise} after the replay is started
    */
-  async replayAssemblyAsync (opts) {
-    const { assembly_id: assemblyId, notify_url: notifyUrl } = opts
+  async replayAssemblyAsync (assemblyId, params = {}) {
     const requestOpts = {
       urlSuffix: `/assemblies/${assemblyId}/replay`,
       method   : 'post',
     }
-
-    if (notifyUrl != null) {
-      requestOpts.params = { notifyUrl }
-    }
-
+    if (Object.keys(params).length > 0) requestOpts.params = params
     return this._remoteJson(requestOpts)
   }
 
   /**
    * Replay an Assembly notification
    *
-   * @param {replayOptions} opts options defining the Assembly to replay
+   * @param {string} assemblyId of the assembly whose notification to replay
+   * @param {object} optional params
    * @returns {Promise} after the replay is started
    */
-  async replayAssemblyNotificationAsync ({ assembly_id: assemblyId, notify_url: notifyUrl }) {
+  async replayAssemblyNotificationAsync (assemblyId, params = {}) {
     const requestOpts = {
       urlSuffix: `/assembly_notifications/${assemblyId}/replay`,
       method   : 'post',
     }
-
-    if (notifyUrl != null) {
-      requestOpts.params = { notifyUrl }
-    }
-
+    if (Object.keys(params).length > 0) requestOpts.params = params
     return this._remoteJson(requestOpts)
   }
 
@@ -569,9 +566,7 @@ class TransloaditClient {
             continue // Retry
           }
 
-          // TODO use HTTPError instead? or provide statuscode etc
-          const err2 = new Error()
-          throw decorateError(err2, body)
+          throw decorateError(err, body)
         }
 
         throw err
@@ -653,15 +648,15 @@ class TransloaditClient {
   }
 
   deleteAssembly (assembyId, cb) {
-    this.deleteAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
+    this.cancelAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
   }
 
-  replayAssembly (opts, cb) {
-    this.replayAssemblyAsync(opts).then(val => cb(null, val)).catch(cb)
+  replayAssembly ({ assembly_id: assemblyId, ...params }, cb) {
+    this.replayAssemblyAsync(assemblyId, params).then(val => cb(null, val)).catch(cb)
   }
 
-  replayAssemblyNotification (opts, cb) {
-    this.replayAssemblyNotificationAsync(opts).then(val => cb(null, val)).catch(cb)
+  replayAssemblyNotification ({ assembly_id: assemblyId, ...params }, cb) {
+    this.replayAssemblyNotificationAsync(assemblyId, params).then(val => cb(null, val)).catch(cb)
   }
 
   listAssemblyNotifications (params, cb) {
@@ -700,5 +695,15 @@ class TransloaditClient {
     this.getBillAsync(month).then(val => cb(null, val)).catch(cb)
   }
 }
+
+// See https://github.com/sindresorhus/got#errors
+// Expose relevant errors
+TransloaditClient.RequestError = got.RequestError
+TransloaditClient.ReadError = got.ReadError
+TransloaditClient.ParseError = got.ParseError
+TransloaditClient.UploadError = got.UploadError
+TransloaditClient.HTTPError = got.HTTPError
+TransloaditClient.MaxRedirectsError = got.MaxRedirectsError
+TransloaditClient.TimeoutError = got.TimeoutError
 
 module.exports = TransloaditClient

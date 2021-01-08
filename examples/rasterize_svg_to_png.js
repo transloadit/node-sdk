@@ -31,6 +31,6 @@ transloadit.addFile('my_file', process.argv[2]);
     const status = await transloadit.createAssemblyAsync(opts)
     console.log('Your PNG file:', status.results.png[0].url)
   } catch (err) {
-    console.error(`createAssembly ${err.assembly_id} failed`, err)
+    console.error('createAssembly failed', err)
   }
 })()

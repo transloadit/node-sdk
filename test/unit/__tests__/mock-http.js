@@ -26,7 +26,21 @@ describe('Mocked API tests', () => {
       .post('/assemblies')
       .reply(400, { error: 'INVALID_FILE_META_DATA' })
 
-    await expect(client.createAssemblyAsync()).rejects.toThrow(expect.objectContaining({ error: 'INVALID_FILE_META_DATA' }))
+    await expect(client.createAssemblyAsync()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'INVALID_FILE_META_DATA', message: 'INVALID_FILE_META_DATA' }))
+  })
+
+  it('should return assemblyId and response.body in Error', async () => {
+    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+
+    nock('http://localhost')
+      .post('/assemblies')
+      .reply(400, { error: 'INVALID_FILE_META_DATA', assembly_id: '123', assembly_url: 'foo' })
+
+    await expect(client.createAssemblyAsync()).rejects.toThrow(expect.objectContaining({
+      assemblyId: '123',
+      message   : 'INVALID_FILE_META_DATA (assembly_id 123)',
+      response  : expect.objectContaining({ body: expect.objectContaining({ assembly_id: '123', assembly_url: 'foo' }) }),
+    }))
   })
 
   it('should retry correctly on RATE_LIMIT_REACHED', async () => {
@@ -55,9 +69,9 @@ describe('Mocked API tests', () => {
       .post('/assemblies')
       .reply(413, { error: 'RATE_LIMIT_REACHED', info: { retryIn: 0.01 } })
       .post('/assemblies')
-      .reply(413, { error: 'RATE_LIMIT_REACHED', info: { retryIn: 0.01 } })
+      .reply(413, { error: 'RATE_LIMIT_REACHED', info: { retryIn: 0.01 }, message: 'Request limit reached' })
 
-    await expect(client.createAssemblyAsync()).rejects.toThrow(expect.objectContaining({ error: 'RATE_LIMIT_REACHED' }))
+    await expect(client.createAssemblyAsync()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'RATE_LIMIT_REACHED', message: 'RATE_LIMIT_REACHED: Request limit reached' }))
     scope.done()
   })
 
@@ -69,7 +83,9 @@ describe('Mocked API tests', () => {
       .query(() => true)
       .reply(500)
 
-    await expect(client.getAssemblyAsync(1)).rejects.toThrow(expect.not.objectContaining({ code: 'ERR_NOCK_NO_MATCH' })) // Make sure that it was called only once
+    const promise = client.getAssemblyAsync(1)
+    await expect(promise).rejects.toThrow(expect.not.objectContaining({ code: 'ERR_NOCK_NO_MATCH' })) // Make sure that it was called only once
+    await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Response code 500 (Internal Server Error)' }))
     scope.done() // Make sure that it was called
   }, 5000)
 })

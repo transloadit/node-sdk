@@ -36,6 +36,6 @@ transloadit.addFile(fieldName, filePath);
     const status = await transloadit.createAssemblyAsync(opts)
     console.log('Your resized image:', status.results.resize[0].url)
   } catch (err) {
-    console.error(`createAssembly ${err.assembly_id} failed`, err)
+    console.error('createAssembly failed', err)
   }
 })()

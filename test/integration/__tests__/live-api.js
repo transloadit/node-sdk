@@ -268,7 +268,7 @@ describe('API integration', function () {
 
       const promise = client.createAssemblyAsync(opts)
       await promise.catch((err) => {
-        expect(err).toMatchObject({ error: 'INVALID_FILE_META_DATA', assembly_id: expect.any(String) })
+        expect(err).toMatchObject({ transloaditErrorCode: 'INVALID_FILE_META_DATA', assemblyId: expect.any(String) })
       })
       await expect(promise).rejects.toThrow(Error)
     }, 7000)
@@ -329,7 +329,7 @@ describe('API integration', function () {
 
         // Now delete it
         // console.log('deleting', id)
-        const resp = await client.deleteAssemblyAsync(id)
+        const resp = await client.cancelAssemblyAsync(id)
         expect(resp.ok).toBe('ASSEMBLY_CANCELED')
         // console.log('deleted', id)
 
@@ -477,7 +477,7 @@ describe('API integration', function () {
 
         try {
           await new Promise((resolve) => setTimeout(resolve, 2000))
-          await client.replayAssemblyNotificationAsync({ assembly_id: assemblyId })
+          await client.replayAssemblyNotificationAsync(assemblyId)
         } catch (err) {
           done(err)
         }
@@ -515,7 +515,7 @@ describe('API integration', function () {
         client.getTemplate(templId, (err, result) => {
           expect(result).toBeFalsy()
           expect(err).toBeDefined()
-          expect(err.error).toBe('TEMPLATE_NOT_FOUND')
+          expect(err.transloaditErrorCode).toBe('TEMPLATE_NOT_FOUND')
           done()
         })
       })

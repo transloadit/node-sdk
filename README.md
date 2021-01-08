@@ -72,7 +72,10 @@ try {
     console.log("❌ The assembly didn't produce any output. Make sure you used a valid image file")
   }
 } catch (err) {
-  console.error(`❌ Unable to process assembly ${err.assembly_id}.`, err)
+  console.error('❌ Unable to process assembly.', err)
+  if (err.assemblyId) {
+    console.error(`💡 More info: https://transloadit.com/assemblies/${err.assemblyId}`)
+  }
 }
 ```
 
@@ -126,14 +129,12 @@ You can provide the following keys inside the `options` object:
 
 * `params` - An object containing keys defining the assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
   * `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions)
-  * `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
+  * `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
   * `fields` - An object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables). 
   * `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
 * `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
 
-If specified, `onProgress({ uploadProgress, assemblyProgress })` will be periodically called with the current file upload progress in `uploadProgress` and then, *once the Assembly finished uploading*, Assembly Execution Status in `assemblyProgress` inside a result object as its only argument.
-
-This function (like all functions of this client) automatically obeys all rate limiting imposed by Transloadit. There is no need to write your own wrapper scripts to handle rate limits.
+If specified, `onProgress({ uploadProgress, assemblyProgress })` will be periodically called with the current file upload progress in `uploadProgress` and then, *once the Assembly finished uploading*, Assembly Execution Status in `assemblyProgress`.
 
 Example `onProgress` handler:
 ```javascript
@@ -141,13 +142,17 @@ function onProgress({ uploadProgress, assemblyProgress }) {
   if (uploadProgress) {
     console.log(`♻️ Upload progress polled: ${uploadProgress.uploadedBytes} of ${uploadProgress.totalBytes} bytes uploaded.`)
   } else if (assemblyProgress) {
-    console.log(`♻️ Assembly progress polled: ${assemblyProgress.error ? assemblyProgress.error : assemblyProgress.ok } assemblyProgress.assembly_id ... `)
+    console.log(`♻️ Assembly progress polled: ${assemblyProgress.error ? assemblyProgress.error : assemblyProgress.ok} ${assemblyProgress.assembly_id} ... `)
   }
 }
 // ...
 await transloadit.createAssemblyAsync(options, onProgress)
 // ...
 ```
+
+See also:
+- [API documentation](https://transloadit.com/docs/api/#assemblies-post)
+- Error codes and retry logic below
 
 #### TransloaditClient.listAssembliesAsync(params) -> Promise
 
@@ -189,63 +194,64 @@ assemblyStream
 
 #### TransloaditClient.getAssemblyAsync(assemblyId) -> Promise
 
-Retrieves the JSON status of the assembly identified by the given `assemblyId`.
+Retrieves the JSON status of the assembly identified by the given `assemblyId`. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-get).
 
-#### TransloaditClient.deleteAssemblyAsync(assemblyId) -> Promise
+#### TransloaditClient.cancelAssemblyAsync(assemblyId) -> Promise
 
-Removes the assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers.
+Removes the assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-delete).
 
-#### TransloaditClient.replayAssemblyAsync(options) -> Promise
+#### TransloaditClient.replayAssemblyAsync(assemblyId, params) -> Promise
 
-Replays the assembly identified by the given `assembly_id`. The `options` parameter must contain an `assembly_id` key containing the assembly id. Optionally you can also provide a `notify_url` key if you want to change the notification target.
+Replays the assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-replay-post) for more info about `params`.
 
 #### TransloaditClient.lastUsedAssemblyUrl()
 
-Returns the internal url that was used for the last call to `Transloadit.createAssembly()`. This is meant to be used for debugging purposes.
+Returns the internal url that was used for the last call to `createAssemblyAsync`. This is meant to be used for debugging purposes.
 
 ### Assembly notifications
 
-#### TransloaditClient.replayAssemblyNotificationAsync(options) -> Promise
+#### TransloaditClient.replayAssemblyNotificationAsync(assemblyId, params) -> Promise
 
-Replays the notification for the assembly identified by the given `assembly_id`.  The `options` parameter must contain an `assembly_id` key containing the assembly id. Optionally you can also provide a `notify_url` key if you want to change the notification target.
+Replays the notification for the assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assembly-notifications-assembly-id-replay-post) for more info about `params`.
 
 #### TransloaditClient.listAssemblyNotificationsAsync(params) -> Promise
 
-Retrieves an array of assembly notifications according to the given `params`.
-
-Valid params can be `page`, `pagesize`, `type` and `assembly_id`. Please consult the [Transloadit API docs](https://transloadit.com/docs/api/#retrieve-assembly-notification-list) for details.
+Retrieves an array of assembly notifications. [See example](examples/list_assembly_notifications.js) and [API documentation](https://transloadit.com/docs/api/#retrieve-assembly-notification-list) for more info about `params`.
 
 #### TransloaditClient.streamAssemblyNotifications(params)
 
-Creates an objectMode readable stream like streamAssemblies that automates
-handling of listAssemblynotifications pagination.
+Creates an `objectMode` `Readable` stream that automates handling of `listAssemblynotificationsAsync` pagination. Similar to `streamAssemblies`.
+
 
 ### Templates
 
 #### TransloaditClient.createTemplateAsync(params) -> Promise
 
-Creates a template the provided params. The required `params` keys are: name (the template name) and template (the template JSON string).
+Creates a template the provided params. The required `params` keys are:
+- `name` - The template name
+- `template` - The template JSON string (use `JSON.stringify`).
+
+[See example](examples/template_api.js) and [API documentation](https://transloadit.com/docs/api/#templates-post).
 
 #### TransloaditClient.editTemplateAsync(templateId, params) -> Promise
 
-Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call.
+Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call. [See example](examples/template_api.js) and [API documentation](https://transloadit.com/docs/api/#templates-template-id-put).
 
 #### TransloaditClient.getTemplateAsync(templateId) -> Promise
 
-Retrieves the name and the template JSON for the template represented by the given templateId.
+Retrieves the name and the template JSON for the template represented by the given `templateId`. [See example](examples/template_api.js) and [API documentation](https://transloadit.com/docs/api/#templates-template-id-get).
 
 #### TransloaditClient.deleteTemplateAsync(templateId) -> Promise
 
-Deletes the template represented by the given templateId on Transloadit.
+Deletes the template represented by the given `templateId`. [See example](examples/template_api.js) and [API documentation](https://transloadit.com/docs/api/#templates-template-id-delete).
 
 #### TransloaditClient.listTemplatesAsync(params) -> Promise
 
-Retrieves a list of all your templates from Transloadit. The `params` parameter can contain properties such as `order`, `sort`, and `page`. For a list of all available params please check [this entry](https://transloadit.com/docs/api/#templates-get) in the Transloadit API docs.
+Retrieves a list of all your templates. [See example](examples/template_api.js) and [API documentation](https://transloadit.com/docs/api/#templates-get) for more info about `params`.
 
 #### TransloaditClient.streamTemplates(params)
 
-Creates an objectMode readable stream like streamAssemblies that automates
-handling of listTemplates pagination.
+Creates an `objectMode` `Readable` stream that automates handling of `listTemplatesAsync` pagination. Similar to `streamAssemblies`.
 
 ### Other
 
@@ -254,6 +260,39 @@ handling of listTemplates pagination.
 Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
 
 This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
+
+### Errors
+
+Errors will be passed on from Node.js and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be a `TransloaditClient.HTTPError` (extends from [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:
+
+- `HTTPError.response?.body` the JSON object returned by the server along with the error response (**note**: `HTTPError.response` will be `undefined` for non-server errors)
+- [HTTPError.transloaditErrorCode](https://transloadit.com/docs/api/#error-codes) (alias for `HTTPError.response.body.error`)
+- `HTTPError.assemblyId` (alias for `HTTPError.response.body.assembly_id`, if the request regards an [Assembly](https://transloadit.com/docs/api/#assemblies-assembly-id-get))
+
+To identify errors you can either check its props or use `instanceof`, e.g.:
+```js
+catch (err) {
+  if (err instanceof TransloaditClient.TimeoutError) {
+    return console.error('The request timed out', err)
+  }
+  if (err.code === 'ENOENT') {
+    return console.error('Cannot open file', err)
+  }
+  if (err.transloaditErrorCode === 'ASSEMBLY_INVALID_STEPS') {
+    return console.error('Invalid assembly steps', err)
+  }
+}
+```
+
+- [Get more information about Transloadit errors (`transloaditErrorCode`)](https://transloadit.com/docs/api/#error-codes)
+- [Get more information about request errors](https://github.com/sindresorhus/got#errors)
+
+### Rate limiting & auto retry
+
+All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`). It will automatically retry requests **5 times** with auto back-off. There is no need to write your own wrapper scripts to handle rate limits.
+
+- https://transloadit.com/docs/api/#rate-limiting
+- https://transloadit.com/blog/2012/04/introducing-rate-limiting/
 
 ## Contributing
 
