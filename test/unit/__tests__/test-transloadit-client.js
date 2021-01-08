@@ -29,6 +29,14 @@ describe('TransloaditClient', () => {
       expect(client._protocol).toBe('https://')
     })
 
+    it('should give error when no authSecret', () => {
+      expect(() => new TransloaditClient({ authSecret: '' })).toThrow()
+    })
+
+    it('should give error when no authKey', () => {
+      expect(() => new TransloaditClient({ authKey: '' })).toThrow()
+    })
+
     it('should allow overwriting some properties', () => {
       const opts = {
         authKey   : 'foo_key',
@@ -222,7 +230,7 @@ describe('TransloaditClient', () => {
     })
   })
 
-  describe('__remoteJson', () => {
+  describe('_remoteJson', () => {
     it('should make proper remote GET calls', () => {
       // @todo figure out how to test direct calls to request
     })
@@ -237,7 +245,7 @@ describe('TransloaditClient', () => {
       const get = mockGot('get')
 
       const url = '/some-url'
-      await client.__remoteJson({ url, method: 'get' }, () => {})
+      await client._remoteJson({ url, method: 'get' })
 
       expect(get).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: { 'Transloadit-Client': 'node-sdk:' + packageVersion } }))
     })

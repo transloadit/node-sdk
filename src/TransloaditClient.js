@@ -7,7 +7,6 @@ const extend = require('lodash/extend')
 const isObject = require('lodash/isObject')
 const fs = require('fs')
 const { basename } = require('path')
-const retry = require('retry')
 const PaginationStream = require('./PaginationStream')
 const tus = require('tus-js-client')
 const { access, stat: fsStat } = require('fs').promises
@@ -24,18 +23,18 @@ function unknownErrMsg (str) {
   return buff
 }
 
+function createUnknownError (result, str) {
+  const left = result.error != null ? result.error : result.message
+  return new Error(left != null ? left : unknownErrMsg(str))
+}
+
 // eslint-disable-next-line handle-callback-err
 function decorateError (err, body) {
   const extendedMessage = {}
   if (body.message && body.error) {
     extendedMessage.message = `${body.error}: ${body.message}`
   }
-  return extend(err, body, extendedMessage)
-}
-
-function createUnknownError (result, str) {
-  const left = result.error != null ? result.error : result.message
-  return new Error(left != null ? left : unknownErrMsg(str))
+  return extend(err, body, extendedMessage, { message: extendedMessage.message })
 }
 
 class TransloaditClient {
@@ -58,6 +57,7 @@ class TransloaditClient {
     this._protocol = opts.useSsl ? 'https://' : 'http://'
     this._streams = {}
     this._files = {}
+    this._maxRetries = 5
 
     this._lastUsedAssemblyUrl = ''
   }
@@ -312,33 +312,7 @@ class TransloaditClient {
    * @returns {Promise} the retrieved Assembly
    */
   async getAssemblyAsync (assemblyId) {
-    const retryOpts = {
-      retries   : 5,
-      factor    : 3.28,
-      minTimeout: 1 * 1000,
-      maxTimeout: 8 * 1000,
-    }
-
-    return new Promise((resolve, reject) => {
-      const operation = retry.operation(retryOpts)
-      operation.attempt(async () => {
-        try {
-          const result = await this._remoteJson({ urlSuffix: `/assemblies/${assemblyId}` })
-
-          if (result.assembly_url == null || result.assembly_ssl_url == null) {
-            if (operation.retry(new Error('got incomplete assembly status response'))) {
-              return
-            }
-
-            return reject(operation.mainError())
-          }
-
-          return resolve(result)
-        } catch (err) {
-          reject(err)
-        }
-      })
-    })
+    return this._remoteJson({ urlSuffix: `/assemblies/${assemblyId}` })
   }
 
   /**
@@ -526,74 +500,16 @@ class TransloaditClient {
     return this._protocol + this._service
   }
 
-  // Wrapper around __remoteJson which will retry in case of error
-  async _remoteJson (opts, streamsMap, onProgress) {
-    const operation = retry.operation({
-      retries   : 5,
-      factor    : 3.28,
-      minTimeout: 1 * 1000,
-      maxTimeout: 8 * 1000,
-    })
-
-    // Allow providing either a `urlSuffix` or a full `url`
-    const { urlSuffix, url: urlInput, ...rest } = opts
-    if (!urlSuffix && !urlInput) throw new Error('No URL provided')
-    const url = urlInput || `${this._serviceUrl()}${urlSuffix}`
-
-    const newOpts = { ...rest, url }
-
-    return new Promise((resolve, reject) => {
-      operation.attempt(async () => {
-        try {
-          // console.log('__remoteJson', url)
-          resolve(await this.__remoteJson(newOpts, streamsMap, onProgress))
-        } catch (err) {
-          if (err.error === 'RATE_LIMIT_REACHED') {
-            console.warn(`Rate limit reached, retrying request in ${err.info.retryIn} seconds.`)
-            // FIXME uses private internals of node-retry
-            operation._timeouts.unshift(1000 * err.info.retryIn)
-            return operation.retry(err)
-          }
-
-          if (err.code === 'ENOTFOUND') {
-            console.warn('The network connection is down, retrying request in 3 seconds.')
-            // FIXME uses private internals of node-retry
-            operation._timeouts.unshift(3 * 1000)
-            return operation.retry(err)
-          }
-
-          if (err.error === 'GET_ACCOUNT_UNKNOWN_AUTH_KEY') {
-            console.warn('Invalid auth key provided.')
-            return reject(err)
-          }
-
-          if (err.error !== undefined) {
-            const msg = []
-            if (err.error) { msg.push(err.error) }
-            msg.push(opts.method)
-            msg.push(url)
-            if (err.message) { msg.push(err.message) }
-            console.warn(msg.join(' - '))
-
-            return reject(err)
-          }
-
-          if (operation.retry(err)) {
-            return
-          }
-
-          reject(operation.mainError())
-        }
-      })
-    })
-  }
-
   // Responsible for making API calls. Automatically sends streams with any POST,
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
-  async __remoteJson (opts, streamsMap, onProgress) {
+  async _remoteJson (opts, streamsMap, onProgress = () => {}) {
+    // Allow providing either a `urlSuffix` or a full `url`
+    const { urlSuffix, url: urlInput } = opts
+    if (!urlSuffix && !urlInput) throw new Error('No URL provided')
+    let url = urlInput || `${this._serviceUrl()}${urlSuffix}`
+
     const timeout = opts.timeout || 5000
-    let url = opts.url || null
     const method = opts.method || 'get'
     const params = opts.params || {}
 
@@ -601,56 +517,69 @@ class TransloaditClient {
       url = this._appendParamsToUrl(url, params)
     }
 
-    let form
+    // console.log('_remoteJson', method, url)
 
-    if (method === 'post' || method === 'put' || method === 'delete') {
-      form = new FormData()
-      this._appendForm(form, params, streamsMap, opts.fields)
-    }
+    // Cannot use got.retry because we are using FormData which is a stream and can only be used once
+    // https://github.com/sindresorhus/got/issues/1282
+    for (let retryCount = 0; ; retryCount++) {
+      let form
 
-    const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
-
-    const retry = 0
-
-    const requestOpts = {
-      retry,
-      body   : form,
-      timeout,
-      headers: {
-        'Transloadit-Client': `node-sdk:${version}`,
-        'User-Agent'        : undefined, // Remove got's user-agent
-        ...opts.headers,
-      },
-      responseType: 'json',
-    }
-
-    // For non-file streams transfer encoding does not get set, and the uploaded files will not get accepted
-    // https://github.com/transloadit/node-sdk/issues/86
-    // https://github.com/form-data/form-data/issues/394#issuecomment-573595015
-    if (isUploadingStreams) requestOpts.headers['transfer-encoding'] = 'chunked'
-
-    try {
-      const request = got[method](url, requestOpts)
-      if (isUploadingStreams) {
-        request.on('uploadProgress', ({ percent, transferred, total }) => onProgress({ uploadProgress: { uploadedBytes: transferred, totalBytes: total } }))
+      if (method === 'post' || method === 'put' || method === 'delete') {
+        form = new FormData()
+        this._appendForm(form, params, streamsMap, opts.fields)
       }
-      const { body } = await request
-      return body
-    } catch (err) {
-      if (err instanceof got.HTTPError) {
-        const { statusCode, body } = err.response
-        // console.log(statusCode, body)
 
-        if (statusCode === 404 || statusCode > 599) { // TODO why is this needed?
-          return body
+      const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
+
+      const requestOpts = {
+        retry  : 0,
+        body   : form,
+        timeout,
+        headers: {
+          'Transloadit-Client': `node-sdk:${version}`,
+          'User-Agent'        : undefined, // Remove got's user-agent
+          ...opts.headers,
+        },
+        responseType: 'json',
+      }
+
+      // For non-file streams transfer encoding does not get set, and the uploaded files will not get accepted
+      // https://github.com/transloadit/node-sdk/issues/86
+      // https://github.com/form-data/form-data/issues/394#issuecomment-573595015
+      if (isUploadingStreams) requestOpts.headers['transfer-encoding'] = 'chunked'
+
+      try {
+        const request = got[method](url, requestOpts)
+        if (isUploadingStreams) {
+          request.on('uploadProgress', ({ percent, transferred, total }) => onProgress({ uploadProgress: { uploadedBytes: transferred, totalBytes: total } }))
+        }
+        const { body } = await request
+        return body
+      } catch (err) {
+        if (err instanceof got.HTTPError) {
+          const { statusCode, body } = err.response
+          // console.log(statusCode, body)
+
+          if (statusCode === 404 || statusCode > 599) { // TODO why is this needed?
+            return body
+          }
+
+          // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+          if (body.error === 'RATE_LIMIT_REACHED' && body.info && body.info.retryIn && retryCount < this._maxRetries) {
+            const { retryIn: retryInSec } = body.info
+            // console.warn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
+            const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
+            await new Promise((resolve) => setTimeout(resolve, retryInMs))
+            continue // Retry
+          }
+
+          // TODO use HTTPError instead? or provide statuscode etc
+          const err2 = new Error()
+          throw decorateError(err2, body)
         }
 
-        // TODO use HTTPError instead? or provide statuscode etc
-        const err2 = new Error()
-        throw decorateError(err2, body)
+        throw err
       }
-
-      throw err
     }
   }
 
