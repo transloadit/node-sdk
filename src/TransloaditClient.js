@@ -565,7 +565,7 @@ class TransloaditClient {
           }
 
           // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
-          if (body.error === 'RATE_LIMIT_REACHED' && body.info && body.info.retryIn && retryCount < this._maxRetries) {
+          if (statusCode === 413 && body.error === 'RATE_LIMIT_REACHED' && body.info && body.info.retryIn && retryCount < this._maxRetries) {
             const { retryIn: retryInSec } = body.info
             // console.warn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
             const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
