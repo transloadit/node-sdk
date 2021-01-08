@@ -435,7 +435,6 @@ describe('API integration', function () {
       // listens for notifications
       const onNotificationRequest = async (req, res) => {
         try {
-          expect(req.url).toBe('/')
           expect(req.method).toBe('POST')
           const body = await streamToString(req)
           const result = JSON.parse(querystring.parse(body).transloadit)
@@ -445,7 +444,7 @@ describe('API integration', function () {
           res.writeHead(200)
           res.end()
 
-          onNotification({ client, assemblyId: result.assembly_id })
+          onNotification({ url: req.url, client, assemblyId: result.assembly_id })
         } catch (err) {
           onError(err)
         }
@@ -460,24 +459,44 @@ describe('API integration', function () {
     }
 
     it('should send a notification upon assembly completion', async () => {
-      await new Promise((resolve, reject) => runNotificationTest(resolve, reject))
+      await new Promise((resolve, reject) => {
+        const onNotification = async ({ url, client, assemblyId }) => {
+          try {
+            expect(url).toBe('/')
+            resolve()
+          } catch (err) {
+            reject(err)
+          }
+        }
+        runNotificationTest(onNotification, reject)
+      })
     })
 
     it('should replay the notification when requested', (done) => {
       let notificationsRecvd = false
 
-      const onNotification = async ({ client, assemblyId }) => {
+      const onNotification = async ({ url, client, assemblyId }) => {
+        const newPath = '/newPath'
+
         if (notificationsRecvd) {
           // If we quit immediately, things will not get cleaned up and jest will hang
           await new Promise((resolve) => setTimeout(resolve, 2000))
-          done()
+
+          try {
+            expect(url).toBe(newPath)
+            done()
+          } catch (err) {
+            done(err)
+          }
+
           return
         }
         notificationsRecvd = true
 
         try {
+          expect(url).toBe('/')
           await new Promise((resolve) => setTimeout(resolve, 2000))
-          await client.replayAssemblyNotificationAsync(assemblyId)
+          await client.replayAssemblyNotificationAsync(assemblyId, { notifyUrl: `${server.url}${newPath}` })
         } catch (err) {
           done(err)
         }
