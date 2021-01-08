@@ -560,10 +560,6 @@ class TransloaditClient {
           const { statusCode, body } = err.response
           // console.log(statusCode, body)
 
-          if (statusCode === 404 || statusCode > 599) { // TODO why is this needed?
-            return body
-          }
-
           // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
           if (statusCode === 413 && body.error === 'RATE_LIMIT_REACHED' && body.info && body.info.retryIn && retryCount < this._maxRetries) {
             const { retryIn: retryInSec } = body.info
