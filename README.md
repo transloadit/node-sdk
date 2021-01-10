@@ -293,13 +293,21 @@ All functions of the client automatically obey all rate limiting imposed by Tran
 - https://transloadit.com/docs/api/#rate-limiting
 - https://transloadit.com/blog/2012/04/introducing-rate-limiting/
 
+## Debugging
+
+This project uses [debug](https://github.com/visionmedia/debug) so you can run node with the `DEBUG=transloadit` evironment variable to enable more verbose logging. Example:
+
+```bash
+DEBUG=transloadit* node examples/template_api.js
+```
+
 ## Contributing
 
 We'd be happy to accept pull requests. If you plan on working on something big, please first drop us a line!
 
 ### Testing
 
-Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm test`
+Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm run test-unit`
 
 ### Releasing
 

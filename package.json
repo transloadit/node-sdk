@@ -15,6 +15,7 @@
     "node": ">= 10.0.0"
   },
   "dependencies": {
+    "debug": "^4.3.1",
     "form-data": "^3.0.0",
     "got": "^11.8.1",
     "lodash": "^4.17.20",

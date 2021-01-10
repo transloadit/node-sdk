@@ -9,6 +9,8 @@ const { basename } = require('path')
 const PaginationStream = require('./PaginationStream')
 const tus = require('tus-js-client')
 const { access, stat: fsStat } = require('fs').promises
+const log = require('debug')('transloadit')
+const logWarn = require('debug')('transloadit:warn')
 
 const version = require('../package.json').version
 
@@ -158,7 +160,7 @@ class TransloaditClient {
       if (useTus) {
         requestOpts.fields.tus_num_expected_upload_files = streams.length
       } else if (isResumable) {
-        console.warn('disabling resumability because the size of one or more streams cannot be determined')
+        logWarn('Disabling resumability because the size of one or more streams cannot be determined')
       }
 
       // upload as form multipart or tus?
@@ -514,7 +516,7 @@ class TransloaditClient {
       url = this._appendParamsToUrl(url, params)
     }
 
-    // console.log('_remoteJson', method, url)
+    log('Sending request', method, url)
 
     // Cannot use got.retry because we are using FormData which is a stream and can only be used once
     // https://github.com/sindresorhus/got/issues/1282
@@ -555,12 +557,12 @@ class TransloaditClient {
       } catch (err) {
         if (err instanceof got.HTTPError) {
           const { statusCode, body } = err.response
-          // console.log(statusCode, body)
+          logWarn('HTTP error', statusCode, body)
 
           // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
           if (statusCode === 413 && body.error === 'RATE_LIMIT_REACHED' && body.info && body.info.retryIn && retryCount < this._maxRetries) {
             const { retryIn: retryInSec } = body.info
-            // console.warn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
+            logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
             const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
             await new Promise((resolve) => setTimeout(resolve, retryInMs))
             continue // Retry
@@ -633,7 +635,7 @@ class TransloaditClient {
         tusUpload.start()
       })
 
-      // console.log(label, 'upload done')
+      log(label, 'upload done')
     }
 
     // TODO throttle concurrency? Can use p-map
