@@ -254,7 +254,7 @@ Creates an `objectMode` `Readable` stream that automates handling of `listTempla
 
 ### Other
 
-#### TransloaditClient.getBillAsync(date)
+#### TransloaditClient.getBillAsync(date) -> Promise
 
 Retrieves the billing data for a given `date` string with format `YYYY-MM`. See [API documentation](https://transloadit.com/docs/api/#bill-date-get).
 
