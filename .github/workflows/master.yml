@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           ssh-key: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
-          repository: repository: transloadit/node-sdk-coverage
+          repository: transloadit/node-sdk-coverage
           path: static-files-destination
 
       # Push coverage data
