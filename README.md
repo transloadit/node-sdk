@@ -167,7 +167,7 @@ Creates an `objectMode` `Readable` stream that automates handling of `listAssemb
 This can be used to iterate through assemblies:
 
 ```javascript
-const assemblyStream = client.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
+const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
 
 assemblyStream.on('readable', function() {
   const assembly = assemblyStream.read();
@@ -181,7 +181,7 @@ Results can also be piped. Here's an example using
 [through2](https://github.com/rvagg/through2):
 
 ```javascript
-const assemblyStream = client.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
+const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
 
 assemblyStream
   .pipe(through.obj(function(chunk, enc, callback) {
@@ -224,29 +224,50 @@ Creates an `objectMode` `Readable` stream that automates handling of `listAssemb
 
 ### Templates
 
+Templates are steps that can be reused. [See example template code](examples/template_api.js).
+
 #### TransloaditClient.createTemplateAsync(params) -> Promise
 
 Creates a template the provided params. The required `params` keys are:
 - `name` - The template name
-- `template` - The template JSON string (use `JSON.stringify`).
+- `template` - The template JSON object containing its `steps`
 
-[See example](examples/template_api.js) and [API documentation](https://transloadit.com/docs/api/#templates-post).
+See also [API documentation](https://transloadit.com/docs/api/#templates-post).
+
+```js
+const template = {
+  steps: {
+    encode: {
+      use   : ':original',
+      robot : '/video/encode',
+      preset: 'ipad-high',
+    },
+    thumbnail: {
+      use  : 'encode',
+      robot: '/video/thumbnails',
+    },
+  },
+}
+
+const result = await transloadit.createTemplateAsync({ name: 'my-template-name', template })
+console.log('✅ Template created with template_id', result.id)
+```
 
 #### TransloaditClient.editTemplateAsync(templateId, params) -> Promise
 
-Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call. [See example](examples/template_api.js) and [API documentation](https://transloadit.com/docs/api/#templates-template-id-put).
+Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-put).
 
 #### TransloaditClient.getTemplateAsync(templateId) -> Promise
 
-Retrieves the name and the template JSON for the template represented by the given `templateId`. [See example](examples/template_api.js) and [API documentation](https://transloadit.com/docs/api/#templates-template-id-get).
+Retrieves the name and the template JSON for the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-get).
 
 #### TransloaditClient.deleteTemplateAsync(templateId) -> Promise
 
-Deletes the template represented by the given `templateId`. [See example](examples/template_api.js) and [API documentation](https://transloadit.com/docs/api/#templates-template-id-delete).
+Deletes the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-delete).
 
 #### TransloaditClient.listTemplatesAsync(params) -> Promise
 
-Retrieves a list of all your templates. [See example](examples/template_api.js) and [API documentation](https://transloadit.com/docs/api/#templates-get) for more info about `params`.
+Retrieves a list of all your templates. See [API documentation](https://transloadit.com/docs/api/#templates-get) for more info about `params`.
 
 #### TransloaditClient.streamTemplates(params)
 

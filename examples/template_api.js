@@ -11,7 +11,7 @@ const client = new TransloaditClient({
   authSecret: process.env.TRANSLOADIT_SECRET,
 })
 
-const templateString = JSON.stringify({
+const template = {
   steps: {
     encode: {
       use   : ':original',
@@ -23,36 +23,23 @@ const templateString = JSON.stringify({
       robot: '/video/thumbnails',
     },
   },
-})
-
-const params = {
-  name    : 'node-sdk-test1',
-  template: templateString,
-}
-const newParams = {
-  name    : 'node-sdk-test2',
-  template: templateString,
-}
-const listParams = {
-  sort : 'created',
-  order: 'asc',
 };
 
 (async () => {
   try {
-    const { count } = await client.listTemplatesAsync(listParams)
+    const { count } = await client.listTemplatesAsync({ sort: 'created', order: 'asc' })
     console.log('Successfully fetched', count, 'template(s)')
 
-    const template = await client.createTemplateAsync(params)
-    console.log('Template created successfully:', template)
+    const createTemplateResult = await client.createTemplateAsync({ name: 'node-sdk-test1', template })
+    console.log('Template created successfully:', createTemplateResult)
 
-    const editResult = await client.editTemplateAsync(template.id, newParams)
+    const editResult = await client.editTemplateAsync(createTemplateResult.id, { name: 'node-sdk-test2', template })
     console.log('Successfully edited template', editResult)
 
-    const templateResult = await client.getTemplateAsync(template.id)
-    console.log('Successfully fetched template', templateResult)
+    const getTemplateResult = await client.getTemplateAsync(createTemplateResult.id)
+    console.log('Successfully fetched template', getTemplateResult)
 
-    const delResult = await client.deleteTemplateAsync(template.id)
+    const delResult = await client.deleteTemplateAsync(createTemplateResult.id)
     console.log('Successfully deleted template', delResult)
   } catch (err) {
     console.error(err)
