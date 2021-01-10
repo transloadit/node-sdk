@@ -1,6 +1,6 @@
 <img src="https://assets.transloadit.com/assets/images/artwork/logos-transloadit-default.svg" width="400" />
 
-# Transloadit Node.js SDK [![](https://github.com/transloadit/node-sdk/workflows/Test/badge.svg)](https://github.com/transloadit/node-sdk/actions?query=workflow%3ATest) ![](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/lekevbot/7bb85d5558d4bde9b153805a1a47bd8f/raw/badge.json)
+# Transloadit Node.js SDK [![](https://github.com/transloadit/node-sdk/workflows/Test/badge.svg)](https://github.com/transloadit/node-sdk/actions?query=workflow%3ATest) [![](https://transloadit.github.io/node-sdk-coverage/coverage-badge.svg)](https://transloadit.github.io/node-sdk-coverage)
 
 A **Node.js** integration for [Transloadit](https://transloadit.com)'s file uploading and encoding service.
 
