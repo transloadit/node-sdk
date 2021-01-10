@@ -254,6 +254,10 @@ Creates an `objectMode` `Readable` stream that automates handling of `listTempla
 
 ### Other
 
+#### TransloaditClient.getBillAsync(date)
+
+Retrieves the billing data for a given `date` string with format `YYYY-MM`. See [API documentation](https://transloadit.com/docs/api/#bill-date-get).
+
 #### TransloaditClient.calcSignature(params)
 
 Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
@@ -265,7 +269,7 @@ This function returns an object with the key `signature` (containing the calcula
 Errors will be passed on from Node.js and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be a `TransloaditClient.HTTPError` (extends from [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:
 
 - `HTTPError.response?.body` the JSON object returned by the server along with the error response (**note**: `HTTPError.response` will be `undefined` for non-server errors)
-- [HTTPError.transloaditErrorCode](https://transloadit.com/docs/api/#error-codes) (alias for `HTTPError.response.body.error`)
+- `HTTPError.transloaditErrorCode` alias for `HTTPError.response.body.error` ([View all error codes](https://transloadit.com/docs/api/#error-codes))
 - `HTTPError.assemblyId` (alias for `HTTPError.response.body.assembly_id`, if the request regards an [Assembly](https://transloadit.com/docs/api/#assemblies-assembly-id-get))
 
 To identify errors you can either check its props or use `instanceof`, e.g.:
@@ -283,8 +287,8 @@ catch (err) {
 }
 ```
 
-- [Get more information about Transloadit errors (`transloaditErrorCode`)](https://transloadit.com/docs/api/#error-codes)
-- [Get more information about request errors](https://github.com/sindresorhus/got#errors)
+- [More information on Transloadit errors (`transloaditErrorCode`)](https://transloadit.com/docs/api/#error-codes)
+- [More information on request errors](https://github.com/sindresorhus/got#errors)
 
 ### Rate limiting & auto retry
 
@@ -295,7 +299,7 @@ All functions of the client automatically obey all rate limiting imposed by Tran
 
 ## Debugging
 
-This project uses [debug](https://github.com/visionmedia/debug) so you can run node with the `DEBUG=transloadit` evironment variable to enable more verbose logging. Example:
+This project uses [debug](https://github.com/visionmedia/debug) so you can run node with the `DEBUG=transloadit` evironment variable to enable verbose logging. Example:
 
 ```bash
 DEBUG=transloadit* node examples/template_api.js
