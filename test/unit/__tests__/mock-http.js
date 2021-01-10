@@ -88,4 +88,26 @@ describe('Mocked API tests', () => {
     await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Response code 500 (Internal Server Error)' }))
     scope.done() // Make sure that it was called
   }, 5000)
+
+  it('should throw error on missing assembly_url/assembly_ssl_url', async () => {
+    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { assembly_url: 'https://transloadit.com/', assembly_ssl_url: 'https://transloadit.com/' })
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, {})
+
+    // Success
+    await client.getAssemblyAsync(1)
+
+    // Failure
+    const promise = client.getAssemblyAsync(1)
+    await expect(promise).rejects.toThrow(TransloaditClient.InconsistentResponseError)
+    await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Server returned an incomplete Assembly response' }))
+    scope.done()
+  }, 5000)
+
 })

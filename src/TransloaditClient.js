@@ -46,6 +46,19 @@ function decorateError (err, body) {
   return err
 }
 
+class InconsistentResponseError extends Error {
+  constructor (message) {
+    super(message)
+    this.name = 'InconsistentResponseError'
+  }
+}
+
+function checkAssemblyUrls (result) {
+  if (result.assembly_url == null || result.assembly_ssl_url == null) {
+    throw new InconsistentResponseError('Server returned an incomplete Assembly response')
+  }
+}
+
 class TransloaditClient {
   constructor (opts = {}) {
     if (opts.useSsl == null) {
@@ -311,7 +324,11 @@ class TransloaditClient {
    * @returns {Promise} the retrieved Assembly
    */
   async getAssemblyAsync (assemblyId) {
-    return this._remoteJson({ urlSuffix: `/assemblies/${assemblyId}` })
+    const result = await this._remoteJson({ urlSuffix: `/assemblies/${assemblyId}` })
+
+    // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
+    checkAssemblyUrls(result)
+    return result
   }
 
   /**
@@ -707,5 +724,7 @@ TransloaditClient.UploadError = got.UploadError
 TransloaditClient.HTTPError = got.HTTPError
 TransloaditClient.MaxRedirectsError = got.MaxRedirectsError
 TransloaditClient.TimeoutError = got.TimeoutError
+
+TransloaditClient.InconsistentResponseError = InconsistentResponseError
 
 module.exports = TransloaditClient
