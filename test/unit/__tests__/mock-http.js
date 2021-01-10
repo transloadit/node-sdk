@@ -109,5 +109,4 @@ describe('Mocked API tests', () => {
     await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Server returned an incomplete Assembly response' }))
     scope.done()
   }, 5000)
-
 })
