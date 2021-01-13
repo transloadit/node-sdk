@@ -144,13 +144,7 @@ class TransloaditClient {
    * @returns {Promise}
    */
   async createAssemblyAsync (opts, onProgress = () => {}) {
-    const defaultOpts = {
-      params           : {},
-      fields           : {},
-      waitForCompletion: false,
-      isResumable      : true,
-    }
-    const { params, fields, waitForCompletion, isResumable } = { ...defaultOpts, ...opts }
+    const { params = {}, fields = {}, waitForCompletion = false, isResumable = true } = opts
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
