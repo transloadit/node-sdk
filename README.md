@@ -107,11 +107,9 @@ The `options` object can contain the following keys:
 - `authSecret` **(required)** - see [requirements](#requirements)
 - `service` (default `'api2.transloadit.com'`)
 - `region` (default `'us-east-1'`)
-- `useSsl` (default `true`)
+- `useSsl` (default `true`) - use SSL to access `service` with a `https://` prefix. Set to `false` to use `http://`
 - `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `timeout` (default `60000`: 1 minute) - the timeout (in milliseconds) for all requests (except `createAssemblyAsync`)
-
-By default `TransloaditClient` will use SSL so it will access `service` with a https:// prefix. You can switch this off by providing `options`.`useSsl` with a value of `false`.
 
 ### Assemblies
 
@@ -212,6 +210,16 @@ Removes the assembly identified by the given `assemblyId` from the memory of the
 #### TransloaditClient.replayAssemblyAsync(assemblyId, params) -> Promise
 
 Replays the assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-replay-post) for more info about `params`.
+
+#### TransloaditClient.awaitAssemblyCompletion(opts) -> Promise
+
+This function will continously poll the specified assembly and wait until it is completed (until `result.ok` equals `ASSEMBLY_COMPLETED`). When completed, it returns the same as `getAssemblyAsync`.
+
+`opts` is an object with the keys:
+- `assemblyId` **(required)** - The ID of the assembly to poll
+- `onProgress` - A progress function called on each poll. See `createAssemblyAsync`
+- `timeout` - How many milliseconds until polling times out (default: no timeout)
+- `interval` - Poll interval in milliseconds (default `1000`)
 
 #### TransloaditClient.lastUsedAssemblyUrl()
 

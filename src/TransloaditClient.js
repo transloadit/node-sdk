@@ -13,6 +13,7 @@ const log = require('debug')('transloadit')
 const logWarn = require('debug')('transloadit:warn')
 const intoStream = require('into-stream')
 const isStream = require('is-stream')
+const assert = require('assert')
 
 const version = require('../package.json').version
 
@@ -63,6 +64,10 @@ function checkAssemblyUrls (result) {
 }
 
 const isFileBasedStream = (stream) => !!stream.path
+
+function getHrTimeMs () {
+  return Number(process.hrtime.bigint() / 1000000n)
+}
 
 class TransloaditClient {
   constructor (opts = {}) {
@@ -154,6 +159,9 @@ class TransloaditClient {
       timeout = 24 * 60 * 60 * 1000, // 1 day
     } = opts
 
+    // Keep track of how long the request took
+    const startTimeMs = getHrTimeMs()
+
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
     for (const [, path] of Object.entries(this._files)) {
@@ -219,13 +227,21 @@ class TransloaditClient {
       }
 
       if (!waitForCompletion) return result
-      return this.awaitAssemblyCompletion(result.assembly_id, onProgress)
+      return this.awaitAssemblyCompletion({ assemblyId: result.assembly_id, timeout, onProgress, startTimeMs })
     }
 
     return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
   }
 
-  async awaitAssemblyCompletion (assemblyId, onProgress) {
+  async awaitAssemblyCompletion ({
+    assemblyId,
+    onProgress = () => {},
+    timeout,
+    startTimeMs = getHrTimeMs(),
+    interval = 1000,
+  }) {
+    assert(assemblyId)
+
     while (true) {
       const result = await this.getAssemblyAsync(assemblyId)
 
@@ -246,7 +262,13 @@ class TransloaditClient {
         log('onProgress threw error', err)
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1 * 1000))
+      const nowMs = getHrTimeMs()
+      if (timeout != null && nowMs - startTimeMs >= timeout) {
+        const err = new Error('Polling timed out')
+        err.code = 'POLLING_TIMED_OUT'
+        throw err
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval))
     }
   }
 

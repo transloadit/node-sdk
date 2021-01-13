@@ -7,7 +7,10 @@ jest.setTimeout(1000)
 const getLocalClient = (opts) => new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost', ...opts })
 
 describe('Mocked API tests', () => {
-  afterEach(() => nock.cleanAll())
+  afterEach(() => {
+    nock.cleanAll()
+    nock.abortPendingRequests() // Abort delayed requests preventing them from ruining the next test
+  })
 
   it('should time out createAssembly with a custom timeout', async () => {
     const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
@@ -29,6 +32,34 @@ describe('Mocked API tests', () => {
       .reply(200)
 
     await expect(client.createTemplateAsync()).rejects.toThrow(TransloaditClient.TimeoutError)
+  })
+
+  it('should time out awaitAssemblyCompletion polling', async () => {
+    const client = getLocalClient()
+
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(() => true)
+      .delay(100)
+      .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
+
+    await expect(client.awaitAssemblyCompletion({ assemblyId: '1', timeout: 1, interval: 1 })).rejects.toThrow(expect.objectContaining({ code: 'POLLING_TIMED_OUT', message: 'Polling timed out' }))
+    scope.done()
+  })
+
+  it('should not time out awaitAssemblyCompletion polling', async () => {
+    const client = getLocalClient()
+
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { ok: 'ASSEMBLY_COMPLETED', assembly_url: '', assembly_ssl_url: '' })
+
+    await expect(client.awaitAssemblyCompletion({ assemblyId: '1', timeout: 100, interval: 1 })).resolves.toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
+    scope.done()
   })
 
   it('should fail on error with error code', async () => {
