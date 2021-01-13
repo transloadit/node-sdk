@@ -226,24 +226,24 @@ class TransloaditClient {
   }
 
   async awaitAssemblyCompletion (assemblyId, onProgress) {
-    const result = await this.getAssemblyAsync(assemblyId)
+    while (true) {
+      const result = await this.getAssemblyAsync(assemblyId)
 
-    if (result.error) {
-      const err = new Error()
-      throw decorateError(err, result)
-    }
+      if (result.error) {
+        const err = new Error()
+        throw decorateError(err, result)
+      }
 
-    if (result.ok === 'ASSEMBLY_COMPLETED') return result
+      if (result.ok === 'ASSEMBLY_COMPLETED') return result
 
-    if (result.ok === 'ASSEMBLY_UPLOADING' || result.ok === 'ASSEMBLY_EXECUTING') {
+      if (!['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING'].includes(result.ok)) {
+        throw new Error(unknownErrMsg(`while processing Assembly ID ${assemblyId}`))
+      }
+
       onProgress({ assemblyProgress: result })
 
       await new Promise((resolve) => setTimeout(resolve, 1 * 1000))
-      // Recurse
-      return this.awaitAssemblyCompletion(assemblyId, onProgress)
     }
-
-    throw new Error(unknownErrMsg(`while processing Assembly ID ${assemblyId}`))
   }
 
   /**
