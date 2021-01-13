@@ -539,14 +539,11 @@ class TransloaditClient {
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
   async _remoteJson (opts, streamsMap, onProgress = () => {}) {
+    const { urlSuffix, url: urlInput, timeout = 5000, method = 'get', params = {}, fields, headers } = opts
+
     // Allow providing either a `urlSuffix` or a full `url`
-    const { urlSuffix, url: urlInput } = opts
     if (!urlSuffix && !urlInput) throw new Error('No URL provided')
     let url = urlInput || `${this._serviceUrl()}${urlSuffix}`
-
-    const timeout = opts.timeout || 5000
-    const method = opts.method || 'get'
-    const params = opts.params || {}
 
     if (method === 'get') {
       url = this._appendParamsToUrl(url, params)
@@ -561,7 +558,7 @@ class TransloaditClient {
 
       if (method === 'post' || method === 'put' || method === 'delete') {
         form = new FormData()
-        this._appendForm(form, params, streamsMap, opts.fields)
+        this._appendForm(form, params, streamsMap, fields)
       }
 
       const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
@@ -573,7 +570,7 @@ class TransloaditClient {
         headers: {
           'Transloadit-Client': `node-sdk:${version}`,
           'User-Agent'        : undefined, // Remove got's user-agent
-          ...opts.headers,
+          ...headers,
         },
         responseType: 'json',
       }
