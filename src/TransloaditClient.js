@@ -69,6 +69,13 @@ function getHrTimeMs () {
   return Number(process.hrtime.bigint() / 1000000n)
 }
 
+function checkResult (result) {
+  if (result.error) {
+    const err = new Error()
+    throw decorateError(err, result)
+  }
+}
+
 class TransloaditClient {
   constructor (opts = {}) {
     if (opts.useSsl == null) {
@@ -213,10 +220,7 @@ class TransloaditClient {
       const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onProgress)
 
       // TODO should do this for all requests?
-      if (result.error) {
-        const err = new Error()
-        throw decorateError(err, result)
-      }
+      checkResult(result)
 
       if (useTus && Object.keys(tusStreamsMap).length > 0) {
         await this._sendTusRequest({
@@ -245,10 +249,7 @@ class TransloaditClient {
     while (true) {
       const result = await this.getAssemblyAsync(assemblyId)
 
-      if (result.error) {
-        const err = new Error()
-        throw decorateError(err, result)
-      }
+      checkResult(result)
 
       if (result.ok === 'ASSEMBLY_COMPLETED') return result
 
