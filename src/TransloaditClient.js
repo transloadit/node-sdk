@@ -240,7 +240,11 @@ class TransloaditClient {
         throw new Error(unknownErrMsg(`while processing Assembly ID ${assemblyId}`))
       }
 
-      onProgress({ assemblyProgress: result })
+      try {
+        onProgress({ assemblyProgress: result })
+      } catch (err) {
+        log('onProgress threw error', err)
+      }
 
       await new Promise((resolve) => setTimeout(resolve, 1 * 1000))
     }
