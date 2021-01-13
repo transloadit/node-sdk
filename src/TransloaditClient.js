@@ -11,6 +11,8 @@ const tus = require('tus-js-client')
 const { access, stat: fsStat } = require('fs').promises
 const log = require('debug')('transloadit')
 const logWarn = require('debug')('transloadit:warn')
+const intoStream = require('into-stream')
+const isStream = require('is-stream')
 
 const version = require('../package.json').version
 
@@ -84,6 +86,22 @@ class TransloaditClient {
     this._maxRetries = 5
 
     this._lastUsedAssemblyUrl = ''
+  }
+
+  /**
+   * Adds an Assembly file
+   *
+   * @param {string} name fieldname of the file
+   * @param {object} value One of Readable | Buffer | TypedArray | ArrayBuffer | string | Iterable<Buffer | string> | AsyncIterable<Buffer | string> | Promise
+   */
+  add (name, value) {
+    let stream
+    if (isStream.readable(value)) {
+      stream = value
+    } else {
+      stream = intoStream(value)
+    }
+    this.addStream(name, stream)
   }
 
   /**

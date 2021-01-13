@@ -1,11 +1,12 @@
 const localtunnel = require('localtunnel')
 const http = require('http')
+const keyBy = require('lodash/keyBy')
 const querystring = require('querystring')
 const temp = require('temp')
-const fs = require('fs')
+const { createWriteStream } = require('fs')
 const { join } = require('path')
 const { promisify } = require('util')
-const { pipeline: streamPipeline, PassThrough } = require('stream')
+const { pipeline: streamPipeline } = require('stream')
 const got = require('got')
 const pipeline = promisify(streamPipeline)
 const intoStream = require('into-stream')
@@ -14,7 +15,7 @@ const TransloaditClient = require('../../../src/TransloaditClient')
 
 async function downloadTmpFile (url) {
   const { path } = await temp.open('transloadit')
-  await pipeline(got.stream(url), fs.createWriteStream(path))
+  await pipeline(got.stream(url), createWriteStream(path))
   return path
 }
 
@@ -78,6 +79,11 @@ const resizeOriginalStep = {
   result: true,
   width : 130,
   height: 130,
+}
+const dummyStep = {
+  use    : ':original',
+  robot  : '/file/filter',
+  accepts: [],
 }
 const genericParams = {
   params: {
@@ -177,35 +183,47 @@ describe('API integration', function () {
       expect(result.fields.myField).toBe('test')
     })
 
-    function createStreamFromString (str) {
-      const rawStream = intoStream(str)
-      // Workaround for https://github.com/tus/tus-js-client/issues/229
-      const stream = new PassThrough()
-      rawStream.pipe(stream)
-      return stream
-    }
-
-    it('should allow adding a stream', async () => {
+    it('should allow adding different types', async () => {
       const client = new TransloaditClient({ authKey, authSecret })
 
       const params = {
         waitForCompletion: true,
         params           : {
           steps: {
-            rasterize: {
-              robot : '/image/resize',
-              use   : ':original',
-              format: 'jpg',
-            },
+            dummy: dummyStep,
           },
         },
       }
 
-      client.addStream('test', createStreamFromString(sampleSvg))
+      const buf = Buffer.from(sampleSvg, 'utf-8')
+
+      client.add('file1', intoStream(sampleSvg))
+      client.addStream('file2', intoStream(sampleSvg)) // Old method
+      client.add('file3', sampleSvg)
+      client.add('file4', buf)
 
       const result = await client.createAssemblyAsync(params)
-      expect(result.results.rasterize).toHaveLength(1)
-      expect(result.results.rasterize[0].name).toBe('test.jpg')
+      // console.log(result)
+
+      const getMatchObject = ({ name }) => ({
+        name             : name,
+        basename         : name,
+        ext              : '',
+        size             : 117,
+        mime             : 'image/svg+xml',
+        type             : 'image',
+        field            : name,
+        md5hash          : '1b199e02dd833b2278ce2a0e75480b14',
+        original_basename: name,
+        original_name    : name,
+        original_path    : '/',
+        original_md5hash : '1b199e02dd833b2278ce2a0e75480b14',
+      })
+      const uploadsKeyed = keyBy(result.uploads, 'name') // Because order is not same as input
+      expect(uploadsKeyed.file1).toMatchObject(getMatchObject({ name: 'file1' }))
+      expect(uploadsKeyed.file2).toMatchObject(getMatchObject({ name: 'file2' }))
+      expect(uploadsKeyed.file3).toMatchObject(getMatchObject({ name: 'file3' }))
+      expect(uploadsKeyed.file4).toMatchObject(getMatchObject({ name: 'file4' }))
     })
 
     async function testUploadProgress (isResumable) {

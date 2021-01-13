@@ -117,13 +117,20 @@ By default `TransloaditClient` will use SSL so it will access `service` with a h
 
 Registers the local file with the client. The next call to `createAssembly` will upload all added files. The `name` may be used in the `createAssembly` `params`.`steps` to refer to the particular file.
 
-#### TransloaditClient.addStream(name, stream)
+#### TransloaditClient.add(name, value)
 
-Same as `addFile` but with a Node.js `Readable` stream instead of a file.
+Same as `addFile` but it accepts any of the following as its `value` argument:
+- `Readable` [stream](https://nodejs.org/api/stream.html#stream_class_stream_readable)
+- `string`, `Buffer`, `TypedArray`, `ArrayBuffer`, `Iterable<Buffer | string>`, `AsyncIterable<Buffer | string>`, `Promise` (see [into-stream](https://github.com/sindresorhus/into-stream#api))
+
+Example of adding an `svg` from a string:
+```js
+transloadit.addFile('mysvg', '<?xml version="1.0" standalone="no"?><svg><circle cx="50" cy="50" r="40" fill="red" /></svg>')
+```
 
 #### TransloaditClient.createAssemblyAsync(options[, onProgress]) -> Promise
 
-Creates a new Assembly on Transloadit, uploading all streams and files that were registered via `.addStream()` and `.addFile()` prior to the call to `.createAssembly()`.
+Creates a new Assembly on Transloadit, uploading all streams and files that were registered via `.addFile()` and `.add()` prior to the call to `.createAssembly()`.
 
 You can provide the following keys inside the `options` object:
 

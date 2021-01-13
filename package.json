@@ -18,6 +18,7 @@
     "debug": "^4.3.1",
     "form-data": "^3.0.0",
     "got": "^11.8.1",
+    "is-stream": "^2.0.0",
     "lodash": "^4.17.20",
     "tus-js-client": "2.2.0"
   },
