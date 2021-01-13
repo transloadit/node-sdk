@@ -4,6 +4,8 @@ const TransloaditClient = require('../../../src/TransloaditClient')
 
 jest.setTimeout(1000)
 
+const getLocalClient = () => new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+
 describe('Mocked API tests', () => {
   afterEach(() => nock.cleanAll())
 
@@ -20,7 +22,7 @@ describe('Mocked API tests', () => {
   })
 
   it('should fail on error with error code', async () => {
-    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+    const client = getLocalClient()
 
     nock('http://localhost')
       .post('/assemblies')
@@ -30,7 +32,7 @@ describe('Mocked API tests', () => {
   })
 
   it('should return assemblyId and response.body in Error', async () => {
-    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+    const client = getLocalClient()
 
     nock('http://localhost')
       .post('/assemblies')
@@ -44,7 +46,7 @@ describe('Mocked API tests', () => {
   })
 
   it('should retry correctly on RATE_LIMIT_REACHED', async () => {
-    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+    const client = getLocalClient()
     client._maxRetries = 1
 
     // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
@@ -60,7 +62,7 @@ describe('Mocked API tests', () => {
   })
 
   it('should retry max 2 times on RATE_LIMIT_REACHED', async () => {
-    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+    const client = getLocalClient()
     client._maxRetries = 1
 
     // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
@@ -76,7 +78,7 @@ describe('Mocked API tests', () => {
   })
 
   it('should not retry on other error', async () => {
-    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+    const client = getLocalClient()
 
     const scope = nock('http://localhost')
       .get('/assemblies/1')
@@ -90,7 +92,7 @@ describe('Mocked API tests', () => {
   }, 5000)
 
   it('should throw error on missing assembly_url/assembly_ssl_url', async () => {
-    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+    const client = getLocalClient()
 
     const scope = nock('http://localhost')
       .get('/assemblies/1')
