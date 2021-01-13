@@ -258,8 +258,7 @@ class TransloaditClient {
     const opts = {
       url,
       // urlSuffix: `/assemblies/${assemblyId}`, // Cannot simply do this, see above
-      timeout: 5000,
-      method : 'delete',
+      method: 'delete',
     }
 
     return this._remoteJson(opts)
