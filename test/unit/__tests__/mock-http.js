@@ -9,16 +9,26 @@ const getLocalClient = () => new TransloaditClient({ authKey: '', authSecret: ''
 describe('Mocked API tests', () => {
   afterEach(() => nock.cleanAll())
 
-  it('should time out requests', async () => {
-    const client = new TransloaditClient({ authKey: '', authSecret: '' })
+  it('should time out createAssembly with a custom timeout', async () => {
+    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
 
     nock('http://localhost')
-      .get('/test')
-      .query(() => true)
+      .post('/assemblies')
       .delay(100)
       .reply(200)
 
-    await expect(client._remoteJson({ url: 'http://localhost/test', method: 'get', timeout: 10 })).rejects.toThrow(TransloaditClient.TimeoutError)
+    await expect(client.createAssemblyAsync({ timeout: 10 })).rejects.toThrow(TransloaditClient.TimeoutError)
+  })
+
+  it('should time out other requests with a custom timeout', async () => {
+    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost', timeout: 10 })
+
+    nock('http://localhost')
+      .post('/templates')
+      .delay(100)
+      .reply(200)
+
+    await expect(client.createTemplateAsync()).rejects.toThrow(TransloaditClient.TimeoutError)
   })
 
   it('should fail on error with error code', async () => {

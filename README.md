@@ -108,7 +108,8 @@ The `options` object can contain the following keys:
 - `service` (default `'api2.transloadit.com'`)
 - `region` (default `'us-east-1'`)
 - `useSsl` (default `true`)
-- `maxRetries` (default 5) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
+- `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
+- `timeout` (default `60000`: 1 minute) - the timeout (in milliseconds) for all requests (except `createAssemblyAsync`)
 
 By default `TransloaditClient` will use SSL so it will access `service` with a https:// prefix. You can switch this off by providing `options`.`useSsl` with a value of `false`.
 
@@ -141,6 +142,7 @@ You can provide the following keys inside the `options` object:
   * `fields` - An object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables). 
   * `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
 * `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
+* `timeout` - Number of milliseconds to wait before aborting (default `86400000`: 24 hours).
 
 If specified, `onProgress({ uploadProgress, assemblyProgress })` will be periodically called with the current file upload progress in `uploadProgress` and then, *once the Assembly finished uploading*, Assembly Execution Status in `assemblyProgress`.
 

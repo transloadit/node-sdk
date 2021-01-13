@@ -84,6 +84,7 @@ class TransloaditClient {
     this._streams = {}
     this._files = {}
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
+    this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
 
     this._lastUsedAssemblyUrl = ''
   }
@@ -149,6 +150,7 @@ class TransloaditClient {
       fields = {},
       waitForCompletion = false,
       isResumable = true,
+      timeout = 24 * 60 * 60 * 1000, // 1 day
     } = opts
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
@@ -184,7 +186,7 @@ class TransloaditClient {
       const requestOpts = {
         urlSuffix: '/assemblies',
         method   : 'post',
-        timeout  : 24 * 60 * 60 * 1000, // 1 day
+        timeout,
         params,
         fields,
       }
@@ -538,7 +540,7 @@ class TransloaditClient {
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
   async _remoteJson (opts, streamsMap, onProgress = () => {}) {
-    const { urlSuffix, url: urlInput, timeout = 5000, method = 'get', params = {}, fields, headers } = opts
+    const { urlSuffix, url: urlInput, timeout = this._defaultTimeout, method = 'get', params = {}, fields, headers } = opts
 
     // Allow providing either a `urlSuffix` or a full `url`
     if (!urlSuffix && !urlInput) throw new Error('No URL provided')

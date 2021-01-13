@@ -199,6 +199,16 @@ describe('TransloaditClient', () => {
     })
   })
 
+  it('should set 1 day timeout by default for createAssembly', async () => {
+    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+    const spy = jest.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
+
+    await client.createAssemblyAsync()
+
+    expect(spy).toBeCalledWith(expect.objectContaining({ timeout: 24 * 60 * 60 * 1000 }), {}, expect.any(Function))
+  })
+
   describe('_calcSignature', () => {
     it('should calculate the signature properly', () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
