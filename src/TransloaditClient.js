@@ -143,8 +143,13 @@ class TransloaditClient {
    * @param {onProgress} function to be triggered on each progress update of the assembly
    * @returns {Promise}
    */
-  async createAssemblyAsync (opts, onProgress = () => {}) {
-    const { params = {}, fields = {}, waitForCompletion = false, isResumable = true } = opts
+  async createAssemblyAsync (opts = {}, onProgress = () => {}) {
+    const {
+      params = {},
+      fields = {},
+      waitForCompletion = false,
+      isResumable = true,
+    } = opts
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
