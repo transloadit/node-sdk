@@ -83,7 +83,7 @@ class TransloaditClient {
     this._protocol = opts.useSsl ? 'https://' : 'http://'
     this._streams = {}
     this._files = {}
-    this._maxRetries = 5
+    this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
 
     this._lastUsedAssemblyUrl = ''
   }

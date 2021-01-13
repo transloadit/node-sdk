@@ -108,6 +108,7 @@ The `options` object can contain the following keys:
 - `service` (default `'api2.transloadit.com'`)
 - `region` (default `'us-east-1'`)
 - `useSsl` (default `true`)
+- `maxRetries` (default 5) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 
 By default `TransloaditClient` will use SSL so it will access `service` with a https:// prefix. You can switch this off by providing `options`.`useSsl` with a value of `false`.
 
@@ -320,7 +321,7 @@ catch (err) {
 
 ### Rate limiting & auto retry
 
-All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`). It will automatically retry requests **5 times** with auto back-off. There is no need to write your own wrapper scripts to handle rate limits.
+All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`). It will automatically retry requests **5 times** with auto back-off (`maxRetries` option). There is no need to write your own wrapper scripts to handle rate limits.
 
 If you want to retry on other errors, please see the [retry example code](examples/retry.js).
 

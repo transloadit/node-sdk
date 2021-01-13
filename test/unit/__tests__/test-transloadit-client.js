@@ -21,12 +21,14 @@ describe('TransloaditClient', () => {
       const opts = {
         authKey   : 'foo_key',
         authSecret: 'foo_secret',
+        maxRetries: 0,
       }
       const client = new TransloaditClient(opts)
       expect(client._authKey).toBe('foo_key')
       expect(client._authSecret).toBe('foo_secret')
       expect(client._service).toBe('api2.transloadit.com')
       expect(client._protocol).toBe('https://')
+      expect(client._maxRetries).toBe(0)
     })
 
     it('should give error when no authSecret', () => {
