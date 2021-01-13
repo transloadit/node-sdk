@@ -59,6 +59,8 @@ function checkAssemblyUrls (result) {
   }
 }
 
+const isFileBasedStream = (stream) => !!stream.path
+
 class TransloaditClient {
   constructor (opts = {}) {
     if (opts.useSsl == null) {
@@ -160,7 +162,7 @@ class TransloaditClient {
     })
 
     const createAssemblyAndUpload = async () => {
-      const useTus = isResumable && streams.every(({ path }) => path)
+      const useTus = isResumable && streams.every(isFileBasedStream)
 
       const requestOpts = {
         urlSuffix: '/assemblies',
