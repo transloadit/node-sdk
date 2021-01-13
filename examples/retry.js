@@ -17,7 +17,7 @@ const client = new TransloaditClient({
 async function run () {
   console.log('Trying...')
   try {
-    const { items } = await client.listTemplatesAsync({ sort: 'created', order: 'asc' })
+    const { items } = await client.listTemplates({ sort: 'created', order: 'asc' })
     return items
   } catch (err) {
     if (err.transloaditErrorCode === 'INVALID_SIGNATURE') {

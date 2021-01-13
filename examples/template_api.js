@@ -27,19 +27,19 @@ const template = {
 
 (async () => {
   try {
-    const { count } = await client.listTemplatesAsync({ sort: 'created', order: 'asc' })
+    const { count } = await client.listTemplates({ sort: 'created', order: 'asc' })
     console.log('Successfully fetched', count, 'template(s)')
 
-    const createTemplateResult = await client.createTemplateAsync({ name: 'node-sdk-test1', template })
+    const createTemplateResult = await client.createTemplate({ name: 'node-sdk-test1', template })
     console.log('Template created successfully:', createTemplateResult)
 
-    const editResult = await client.editTemplateAsync(createTemplateResult.id, { name: 'node-sdk-test2', template })
+    const editResult = await client.editTemplate(createTemplateResult.id, { name: 'node-sdk-test2', template })
     console.log('Successfully edited template', editResult)
 
-    const getTemplateResult = await client.getTemplateAsync(createTemplateResult.id)
+    const getTemplateResult = await client.getTemplate(createTemplateResult.id)
     console.log('Successfully fetched template', getTemplateResult)
 
-    const delResult = await client.deleteTemplateAsync(createTemplateResult.id)
+    const delResult = await client.deleteTemplate(createTemplateResult.id)
     console.log('Successfully deleted template', delResult)
   } catch (err) {
     console.error(err)

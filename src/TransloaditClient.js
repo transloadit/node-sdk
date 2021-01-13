@@ -157,7 +157,7 @@ class TransloaditClient {
    * @param {onProgress} function to be triggered on each progress update of the assembly
    * @returns {Promise}
    */
-  async createAssemblyAsync (opts = {}, onProgress = () => {}) {
+  async createAssembly (opts = {}, onProgress = () => {}) {
     const {
       params = {},
       fields = {},
@@ -247,7 +247,7 @@ class TransloaditClient {
     assert(assemblyId)
 
     while (true) {
-      const result = await this.getAssemblyAsync(assemblyId)
+      const result = await this.getAssembly(assemblyId)
 
       checkResult(result)
 
@@ -279,11 +279,11 @@ class TransloaditClient {
    * @param {string} assemblyId assembly ID
    * @returns {Promise} after the assembly is deleted
    */
-  async cancelAssemblyAsync (assemblyId) {
+  async cancelAssembly (assemblyId) {
     // You may wonder why do we need to call getAssembly first:
     // If we use the default base URL (instead of the one returned in assembly_url_ssl), the delete call will hang in certain cases
     // See test "should stop the assembly from reaching completion"
-    const { assembly_ssl_url: url } = await this.getAssemblyAsync(assemblyId)
+    const { assembly_ssl_url: url } = await this.getAssembly(assemblyId)
     const opts = {
       url,
       // urlSuffix: `/assemblies/${assemblyId}`, // Cannot simply do this, see above
@@ -300,7 +300,7 @@ class TransloaditClient {
    * @param {object} optional params
    * @returns {Promise} after the replay is started
    */
-  async replayAssemblyAsync (assemblyId, params = {}) {
+  async replayAssembly (assemblyId, params = {}) {
     const requestOpts = {
       urlSuffix: `/assemblies/${assemblyId}/replay`,
       method   : 'post',
@@ -316,7 +316,7 @@ class TransloaditClient {
    * @param {object} optional params
    * @returns {Promise} after the replay is started
    */
-  async replayAssemblyNotificationAsync (assemblyId, params = {}) {
+  async replayAssemblyNotification (assemblyId, params = {}) {
     const requestOpts = {
       urlSuffix: `/assembly_notifications/${assemblyId}/replay`,
       method   : 'post',
@@ -331,7 +331,7 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} the list of Assembly notifications
    */
-  async listAssemblyNotificationsAsync (params) {
+  async listAssemblyNotifications (params) {
     const requestOpts = {
       urlSuffix: '/assembly_notifications',
       method   : 'get',
@@ -342,7 +342,7 @@ class TransloaditClient {
   }
 
   streamAssemblyNotifications (params) {
-    return new PaginationStream(async (page) => this.listAssemblyNotificationsAsync({ ...params, page }))
+    return new PaginationStream(async (page) => this.listAssemblyNotifications({ ...params, page }))
   }
 
   /**
@@ -351,7 +351,7 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} list of Assemblies
    */
-  async listAssembliesAsync (params) {
+  async listAssemblies (params) {
     const requestOpts = {
       urlSuffix: '/assemblies',
       method   : 'get',
@@ -362,7 +362,7 @@ class TransloaditClient {
   }
 
   streamAssemblies (params) {
-    return new PaginationStream(async (page) => this.listAssembliesAsync({ ...params, page }))
+    return new PaginationStream(async (page) => this.listAssemblies({ ...params, page }))
   }
 
   /**
@@ -371,7 +371,7 @@ class TransloaditClient {
    * @param {string} assemblyId the Assembly Id
    * @returns {Promise} the retrieved Assembly
    */
-  async getAssemblyAsync (assemblyId) {
+  async getAssembly (assemblyId) {
     const result = await this._remoteJson({ urlSuffix: `/assemblies/${assemblyId}` })
 
     // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
@@ -385,7 +385,7 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} when the template is created
    */
-  async createTemplateAsync (params) {
+  async createTemplate (params) {
     const requestOpts = {
       urlSuffix: '/templates',
       method   : 'post',
@@ -407,7 +407,7 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} when the template is edited
    */
-  async editTemplateAsync (templateId, params) {
+  async editTemplate (templateId, params) {
     const requestOpts = {
       urlSuffix: `/templates/${templateId}`,
       method   : 'put',
@@ -428,7 +428,7 @@ class TransloaditClient {
    * @param {string} templateId the template ID
    * @returns {Promise} when the template is deleted
    */
-  async deleteTemplateAsync (templateId) {
+  async deleteTemplate (templateId) {
     const requestOpts = {
       urlSuffix: `/templates/${templateId}`,
       method   : 'delete',
@@ -443,7 +443,7 @@ class TransloaditClient {
    * @param {string} templateId the template ID
    * @returns {Promise} when the template is retrieved
    */
-  async getTemplateAsync (templateId) {
+  async getTemplate (templateId) {
     const requestOpts = {
       urlSuffix: `/templates/${templateId}`,
       method   : 'get',
@@ -458,7 +458,7 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} the list of templates
    */
-  async listTemplatesAsync (params) {
+  async listTemplates (params) {
     const requestOpts = {
       urlSuffix: '/templates',
       method   : 'get',
@@ -469,7 +469,7 @@ class TransloaditClient {
   }
 
   streamTemplates (params) {
-    return new PaginationStream(async (page) => this.listTemplatesAsync({ ...params, page }))
+    return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
   }
 
   /**
@@ -478,7 +478,7 @@ class TransloaditClient {
    * @param {string} month the date for the required billing in the format yyyy-mm
    * @returns {Promise} with billing data
    */
-  async getBillAsync (month) {
+  async getBill (month) {
     const requestOpts = {
       urlSuffix: `/bill/${month}`,
       method   : 'get',
@@ -703,60 +703,6 @@ class TransloaditClient {
     // TODO throttle concurrency? Can use p-map
     const promises = streamLabels.map((label) => uploadSingleStream(label))
     await Promise.all(promises)
-  }
-
-  // Legacy callback endpoints: TODO remove?
-
-  createAssembly (opts, cb, onProgress) {
-    this.createAssemblyAsync(opts, onProgress).then(val => cb(null, val)).catch(cb)
-  }
-
-  deleteAssembly (assembyId, cb) {
-    this.cancelAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
-  }
-
-  replayAssembly ({ assembly_id: assemblyId, ...params }, cb) {
-    this.replayAssemblyAsync(assemblyId, params).then(val => cb(null, val)).catch(cb)
-  }
-
-  replayAssemblyNotification ({ assembly_id: assemblyId, ...params }, cb) {
-    this.replayAssemblyNotificationAsync(assemblyId, params).then(val => cb(null, val)).catch(cb)
-  }
-
-  listAssemblyNotifications (params, cb) {
-    this.listAssemblyNotificationsAsync(params).then(val => cb(null, val)).catch(cb)
-  }
-
-  listAssemblies (params, cb) {
-    this.listAssembliesAsync(params).then(val => cb(null, val)).catch(cb)
-  }
-
-  getAssembly (assembyId, cb) {
-    this.getAssemblyAsync(assembyId).then(val => cb(null, val)).catch(cb)
-  }
-
-  createTemplate (params, cb) {
-    this.createTemplateAsync(params).then(val => cb(null, val)).catch(cb)
-  }
-
-  editTemplate (templateId, params, cb) {
-    this.editTemplateAsync(templateId, params).then(val => cb(null, val)).catch(cb)
-  }
-
-  deleteTemplate (templateId, cb) {
-    this.deleteTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
-  }
-
-  getTemplate (templateId, cb) {
-    this.getTemplateAsync(templateId).then(val => cb(null, val)).catch(cb)
-  }
-
-  listTemplates (params, cb) {
-    this.listTemplatesAsync(params).then(val => cb(null, val)).catch(cb)
-  }
-
-  getBill (month, cb) {
-    this.getBillAsync(month).then(val => cb(null, val)).catch(cb)
   }
 }
 

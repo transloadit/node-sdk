@@ -32,7 +32,7 @@ transloadit.addFile(fieldName, filePath);
       },
     }
 
-    const status = await transloadit.createAssemblyAsync(opts)
+    const status = await transloadit.createAssembly(opts)
     console.log('Your WebP file:', status.results.webp[0].url)
   } catch (err) {
     console.error('createAssembly failed', err)

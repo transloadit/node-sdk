@@ -20,7 +20,7 @@ describe('Mocked API tests', () => {
       .delay(100)
       .reply(200)
 
-    await expect(client.createAssemblyAsync({ timeout: 10 })).rejects.toThrow(TransloaditClient.TimeoutError)
+    await expect(client.createAssembly({ timeout: 10 })).rejects.toThrow(TransloaditClient.TimeoutError)
   })
 
   it('should time out other requests with a custom timeout', async () => {
@@ -31,7 +31,7 @@ describe('Mocked API tests', () => {
       .delay(100)
       .reply(200)
 
-    await expect(client.createTemplateAsync()).rejects.toThrow(TransloaditClient.TimeoutError)
+    await expect(client.createTemplate()).rejects.toThrow(TransloaditClient.TimeoutError)
   })
 
   it('should time out awaitAssemblyCompletion polling', async () => {
@@ -69,7 +69,7 @@ describe('Mocked API tests', () => {
       .post('/assemblies')
       .reply(400, { error: 'INVALID_FILE_META_DATA' })
 
-    await expect(client.createAssemblyAsync()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'INVALID_FILE_META_DATA', message: 'INVALID_FILE_META_DATA' }))
+    await expect(client.createAssembly()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'INVALID_FILE_META_DATA', message: 'INVALID_FILE_META_DATA' }))
   })
 
   it('should return assemblyId and response.body in Error', async () => {
@@ -79,7 +79,7 @@ describe('Mocked API tests', () => {
       .post('/assemblies')
       .reply(400, { error: 'INVALID_FILE_META_DATA', assembly_id: '123', assembly_ssl_url: 'https://api2-oltu.transloadit.com/assemblies/foo' })
 
-    await expect(client.createAssemblyAsync()).rejects.toThrow(expect.objectContaining({
+    await expect(client.createAssembly()).rejects.toThrow(expect.objectContaining({
       assemblyId: '123',
       message   : 'INVALID_FILE_META_DATA - https://api2-oltu.transloadit.com/assemblies/foo',
       response  : expect.objectContaining({ body: expect.objectContaining({ assembly_id: '123' }) }),
@@ -98,7 +98,7 @@ describe('Mocked API tests', () => {
       .post('/assemblies')
       .reply(200, { ok: 'ASSEMBLY_EXECUTING' })
 
-    await client.createAssemblyAsync()
+    await client.createAssembly()
     scope.done()
   })
 
@@ -109,7 +109,7 @@ describe('Mocked API tests', () => {
       .post('/assemblies')
       .reply(413, { error: 'RATE_LIMIT_REACHED', message: 'Request limit reached', info: { retryIn: 0.01 } })
 
-    await expect(client.createAssemblyAsync()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'RATE_LIMIT_REACHED', message: 'RATE_LIMIT_REACHED: Request limit reached' }))
+    await expect(client.createAssembly()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'RATE_LIMIT_REACHED', message: 'RATE_LIMIT_REACHED: Request limit reached' }))
     scope.done()
   })
 
@@ -121,7 +121,7 @@ describe('Mocked API tests', () => {
       .query(() => true)
       .reply(500)
 
-    const promise = client.getAssemblyAsync(1)
+    const promise = client.getAssembly(1)
     await expect(promise).rejects.toThrow(expect.not.objectContaining({ code: 'ERR_NOCK_NO_MATCH' })) // Make sure that it was called only once
     await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Response code 500 (Internal Server Error)' }))
     scope.done() // Make sure that it was called
@@ -139,10 +139,10 @@ describe('Mocked API tests', () => {
       .reply(200, {})
 
     // Success
-    await client.getAssemblyAsync(1)
+    await client.getAssembly(1)
 
     // Failure
-    const promise = client.getAssemblyAsync(1)
+    const promise = client.getAssembly(1)
     await expect(promise).rejects.toThrow(TransloaditClient.InconsistentResponseError)
     await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Server returned an incomplete assembly response (no URL)' }))
     scope.done()

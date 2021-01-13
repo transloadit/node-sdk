@@ -204,7 +204,7 @@ describe('TransloaditClient', () => {
 
     const spy = jest.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
 
-    await client.createAssemblyAsync()
+    await client.createAssembly()
 
     expect(spy).toBeCalledWith(expect.objectContaining({ timeout: 24 * 60 * 60 * 1000 }), {}, expect.any(Function))
   })

@@ -108,29 +108,24 @@ jest.setTimeout(100000)
 
 describe('API integration', function () {
   describe('assembly creation', () => {
-    it('should create a retrievable assembly on the server', done => {
+    it('should create a retrievable assembly on the server', async () => {
       const client = new TransloaditClient({ authKey, authSecret })
 
-      return client.createAssembly(genericParams, (err, result) => {
-        expect(err).toBeFalsy()
-        expect(result).not.toHaveProperty('error')
-        expect(result).toHaveProperty('ok')
-        expect(result).toHaveProperty('assembly_id') // Since we're using it
+      let result = await client.createAssembly(genericParams)
+      expect(result).not.toHaveProperty('error')
+      expect(result).toHaveProperty('ok')
+      expect(result).toHaveProperty('assembly_id') // Since we're using it
 
-        const id = result.assembly_id
+      const id = result.assembly_id
 
-        return client.getAssembly(id, (err, result) => {
-          expect(err).toBeFalsy()
-          expect(result).not.toHaveProperty('error')
-          expect(result).toEqual(expect.objectContaining({
-            assembly_ssl_url: expect.any(String),
-            assembly_url    : expect.any(String),
-            ok              : expect.any(String),
-            assembly_id     : id,
-          }))
-          return done()
-        })
-      })
+      result = await client.getAssembly(id)
+      expect(result).not.toHaveProperty('error')
+      expect(result).toEqual(expect.objectContaining({
+        assembly_ssl_url: expect.any(String),
+        assembly_url    : expect.any(String),
+        ok              : expect.any(String),
+        assembly_id     : id,
+      }))
     })
 
     it("should signal an error if a file selected for upload doesn't exist", async () => {
@@ -146,7 +141,7 @@ describe('API integration', function () {
 
       client.addFile('original', temp.path({ suffix: '.transloadit.jpg' })) // Non-existing path
 
-      const promise = client.createAssemblyAsync(params)
+      const promise = client.createAssembly(params)
       await expect(promise).rejects.toThrow()
       await expect(promise).rejects.toThrow(expect.objectContaining({ code: 'ENOENT' }))
     })
@@ -165,7 +160,7 @@ describe('API integration', function () {
       const path = await downloadTmpFile(genericImg)
       client.addFile('original', path)
 
-      await client.createAssemblyAsync(params)
+      await client.createAssembly(params)
     })
 
     it('should allow setting fields', async () => {
@@ -179,7 +174,7 @@ describe('API integration', function () {
         },
       }
 
-      const result = await client.createAssemblyAsync(params)
+      const result = await client.createAssembly(params)
       expect(result.fields.myField).toBe('test')
     })
 
@@ -202,7 +197,7 @@ describe('API integration', function () {
       client.add('file3', sampleSvg)
       client.add('file4', buf)
 
-      const result = await client.createAssemblyAsync(params)
+      const result = await client.createAssembly(params)
       // console.log(result)
 
       const getMatchObject = ({ name }) => ({
@@ -247,7 +242,7 @@ describe('API integration', function () {
         expect(progress.uploadProgress.uploadedBytes).toBeDefined()
         progressCalled = true
       }
-      await client.createAssemblyAsync(params, onProgress)
+      await client.createAssembly(params, onProgress)
       expect(progressCalled).toBe(true)
     }
 
@@ -259,16 +254,13 @@ describe('API integration', function () {
       await testUploadProgress(false)
     })
 
-    it('should trigger the callback when waitForCompletion is false', done => {
+    it('should trigger the callback when waitForCompletion is false', async () => {
       const client = new TransloaditClient({ authKey, authSecret })
-      const params = Object.assign({}, genericParams, { waitForCompletion: false })
+      const params = { ...genericParams, waitForCompletion: false }
 
-      return client.createAssembly(params, (err, result) => {
-        expect(err).toBeFalsy()
-        expect(result).not.toHaveProperty('error')
-        expect(result).toHaveProperty('ok')
-        return done()
-      })
+      const result = await client.createAssembly(params)
+      expect(result).not.toHaveProperty('error')
+      expect(result).toHaveProperty('ok')
     })
 
     it('should exit fast when assembly has failed', async () => {
@@ -284,7 +276,7 @@ describe('API integration', function () {
       }
       client.addFile('file', join(__dirname, './fixtures/zerobytes.jpg'))
 
-      const promise = client.createAssemblyAsync(opts)
+      const promise = client.createAssembly(opts)
       await promise.catch((err) => {
         expect(err).toMatchObject({ transloaditErrorCode: 'INVALID_FILE_META_DATA', assemblyId: expect.any(String) })
       })
@@ -343,11 +335,11 @@ describe('API integration', function () {
         }
 
         // Finally send the createAssembly request
-        const { assembly_id: id } = await client.createAssemblyAsync(params)
+        const { assembly_id: id } = await client.createAssembly(params)
 
         // Now delete it
         // console.log('deleting', id)
-        const resp = await client.cancelAssemblyAsync(id)
+        const resp = await client.cancelAssembly(id)
         expect(resp.ok).toBe('ASSEMBLY_CANCELED')
         // console.log('deleted', id)
 
@@ -357,7 +349,7 @@ describe('API integration', function () {
         // Successful cancel requests get ASSEMBLY_CANCELED even when it
         // completed, so we now request the assembly status to check the
         // *actual* status.
-        const resp2 = await client.getAssemblyAsync(id)
+        const resp2 = await client.getAssembly(id)
         expect(resp2.ok).toBe('ASSEMBLY_CANCELED')
       } finally {
         server.close()
@@ -366,36 +358,14 @@ describe('API integration', function () {
   })
 
   describe('replaying assemblies', () => {
-    it('should replay an assembly after it has completed', done => {
+    it('should replay an assembly after it has completed', async () => {
       const client = new TransloaditClient({ authKey, authSecret })
 
-      client.createAssembly(genericParams, (err, { assembly_id: assemblyId } = {}) => {
-        expect(err).toBeFalsy()
+      const { assembly_id: assemblyId } = await client.createAssembly(genericParams)
 
-        const originalId = assemblyId
-
-        // ensure that the assembly has completed
-        const ensureCompletion = cb =>
-          client.getAssembly(originalId, (err, result) => {
-            expect(err).toBeFalsy()
-            const ok = result.ok
-
-            if (ok === 'ASSEMBLY_UPLOADING' || ok === 'ASSEMBLY_EXECUTING') {
-              setTimeout(() => ensureCompletion(cb), 1000)
-            } else {
-              cb()
-            }
-          })
-
-        // Start an asynchonous loop
-        ensureCompletion(() =>
-          client.replayAssembly({ assembly_id: originalId }, (err, { ok } = {}) => {
-            expect(err).toBeFalsy()
-            expect(ok).toBe('ASSEMBLY_REPLAYING')
-            done()
-          }),
-        )
-      })
+      const { ok, assembly_id: newAssemblyId } = await client.replayAssembly(assemblyId)
+      expect(ok).toBe('ASSEMBLY_REPLAYING')
+      expect(newAssemblyId).not.toEqual(assemblyId)
     })
   })
 
@@ -403,7 +373,7 @@ describe('API integration', function () {
     it('should retrieve a list of assemblies', async () => {
       const client = new TransloaditClient({ authKey, authSecret })
 
-      const result = await client.listAssembliesAsync({})
+      const result = await client.listAssemblies({})
       expect(result).toEqual(expect.objectContaining({ count: expect.any(Number), items: expect.any(Array) }))
     })
 
@@ -470,7 +440,7 @@ describe('API integration', function () {
 
       try {
         server = await startServerAsync(onNotificationRequest)
-        await client.createAssemblyAsync({ params: { ...genericParams.params, notify_url: server.url } })
+        await client.createAssembly({ params: { ...genericParams.params, notify_url: server.url } })
       } catch (err) {
         onError(err)
       }
@@ -514,7 +484,7 @@ describe('API integration', function () {
         try {
           expect(url).toBe('/')
           await new Promise((resolve) => setTimeout(resolve, 2000))
-          await client.replayAssemblyNotificationAsync(assemblyId, { notify_url: `${server.url}${newPath}` })
+          await client.replayAssemblyNotification(assemblyId, { notify_url: `${server.url}${newPath}` })
         } catch (err) {
           done(err)
         }
@@ -531,31 +501,24 @@ describe('API integration', function () {
     const client = new TransloaditClient({ authKey, authSecret })
 
     it('should allow creating a template', async () => {
-      const { id } = await client.createTemplateAsync({ name: templName, template: genericParams.params })
+      const { id } = await client.createTemplate({ name: templName, template: genericParams.params })
       templId = id
     })
 
     it("should be able to fetch a template's definition", async () => {
       expect(templId).toBeDefined()
 
-      const { name, content } = await client.getTemplateAsync(templId)
+      const { name, content } = await client.getTemplate(templId)
       expect(name).toBe(templName)
       expect(content).toEqual(genericParams.params)
     })
 
-    it('should delete the template successfully', done => {
+    it('should delete the template successfully', async () => {
       expect(templId).toBeDefined()
 
-      client.deleteTemplate(templId, (err, { ok } = {}) => {
-        expect(err).toBeFalsy()
-        expect(ok).toBe('TEMPLATE_DELETED')
-        client.getTemplate(templId, (err, result) => {
-          expect(result).toBeFalsy()
-          expect(err).toBeDefined()
-          expect(err.transloaditErrorCode).toBe('TEMPLATE_NOT_FOUND')
-          done()
-        })
-      })
+      const { ok } = await client.deleteTemplate(templId)
+      expect(ok).toBe('TEMPLATE_DELETED')
+      await expect(client.getTemplate(templId)).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'TEMPLATE_NOT_FOUND' }))
     })
   })
 })

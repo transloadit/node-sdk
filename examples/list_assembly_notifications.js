@@ -17,7 +17,7 @@ const params = {
 
 (async () => {
   try {
-    const { items } = await client.listAssemblyNotificationsAsync(params)
+    const { items } = await client.listAssemblyNotifications(params)
     console.log(items)
   } catch (err) {
     console.error(err)
