@@ -322,6 +322,8 @@ catch (err) {
 
 All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`). It will automatically retry requests **5 times** with auto back-off. There is no need to write your own wrapper scripts to handle rate limits.
 
+If you want to retry on other errors, please see the [retry example code](examples/retry.js).
+
 - https://transloadit.com/docs/api/#rate-limiting
 - https://transloadit.com/blog/2012/04/introducing-rate-limiting/
 

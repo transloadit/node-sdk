@@ -38,6 +38,7 @@
     "localtunnel": "2.0.0",
     "nock": "^13.0.5",
     "npm-check-updates": "4.0.1",
+    "p-retry": "^4.2.0",
     "temp": "0.9.1"
   },
   "repository": {
