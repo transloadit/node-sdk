@@ -40,11 +40,12 @@ function decorateError (err, body) {
   if (body.message && body.error) message = `${body.error}: ${body.message}`
   else if (body.error) message = body.error
 
-  if (body.assembly_id) message += ` (assembly_id ${body.assembly_id})`
+  if (body.assembly_ssl_url) message += ` - ${body.assembly_ssl_url}`
 
   err.message = message
   if (body.assembly_id) err.assemblyId = body.assembly_id
   if (body.error) err.transloaditErrorCode = body.error
+
   return err
 }
 

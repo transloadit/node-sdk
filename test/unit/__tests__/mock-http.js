@@ -4,7 +4,7 @@ const TransloaditClient = require('../../../src/TransloaditClient')
 
 jest.setTimeout(1000)
 
-const getLocalClient = () => new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+const getLocalClient = (opts) => new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost', ...opts })
 
 describe('Mocked API tests', () => {
   afterEach(() => nock.cleanAll())
@@ -21,7 +21,7 @@ describe('Mocked API tests', () => {
   })
 
   it('should time out other requests with a custom timeout', async () => {
-    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost', timeout: 10 })
+    const client = getLocalClient({ timeout: 10 })
 
     nock('http://localhost')
       .post('/templates')
@@ -46,12 +46,12 @@ describe('Mocked API tests', () => {
 
     nock('http://localhost')
       .post('/assemblies')
-      .reply(400, { error: 'INVALID_FILE_META_DATA', assembly_id: '123', assembly_url: 'foo' })
+      .reply(400, { error: 'INVALID_FILE_META_DATA', assembly_id: '123', assembly_ssl_url: 'https://api2-oltu.transloadit.com/assemblies/foo' })
 
     await expect(client.createAssemblyAsync()).rejects.toThrow(expect.objectContaining({
       assemblyId: '123',
-      message   : 'INVALID_FILE_META_DATA (assembly_id 123)',
-      response  : expect.objectContaining({ body: expect.objectContaining({ assembly_id: '123', assembly_url: 'foo' }) }),
+      message   : 'INVALID_FILE_META_DATA - https://api2-oltu.transloadit.com/assemblies/foo',
+      response  : expect.objectContaining({ body: expect.objectContaining({ assembly_id: '123' }) }),
     }))
   })
 
@@ -71,17 +71,12 @@ describe('Mocked API tests', () => {
     scope.done()
   })
 
-  it('should retry max 2 times on RATE_LIMIT_REACHED', async () => {
-    const client = getLocalClient()
-    client._maxRetries = 1
-
-    // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+  it('should not retry on RATE_LIMIT_REACHED if maxRetries is 0', async () => {
+    const client = getLocalClient({ maxRetries: 0 })
 
     const scope = nock('http://localhost')
       .post('/assemblies')
-      .reply(413, { error: 'RATE_LIMIT_REACHED', info: { retryIn: 0.01 } })
-      .post('/assemblies')
-      .reply(413, { error: 'RATE_LIMIT_REACHED', info: { retryIn: 0.01 }, message: 'Request limit reached' })
+      .reply(413, { error: 'RATE_LIMIT_REACHED', message: 'Request limit reached', info: { retryIn: 0.01 } })
 
     await expect(client.createAssemblyAsync()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'RATE_LIMIT_REACHED', message: 'RATE_LIMIT_REACHED: Request limit reached' }))
     scope.done()
