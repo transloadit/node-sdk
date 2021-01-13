@@ -144,7 +144,7 @@ describe('Mocked API tests', () => {
     // Failure
     const promise = client.getAssemblyAsync(1)
     await expect(promise).rejects.toThrow(TransloaditClient.InconsistentResponseError)
-    await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Server returned an incomplete Assembly response' }))
+    await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Server returned an incomplete assembly response (no URL)' }))
     scope.done()
   }, 5000)
 })

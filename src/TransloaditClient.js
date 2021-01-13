@@ -59,7 +59,7 @@ class InconsistentResponseError extends Error {
 
 function checkAssemblyUrls (result) {
   if (result.assembly_url == null || result.assembly_ssl_url == null) {
-    throw new InconsistentResponseError('Server returned an incomplete Assembly response')
+    throw new InconsistentResponseError('Server returned an incomplete assembly response (no URL)')
   }
 }
 
