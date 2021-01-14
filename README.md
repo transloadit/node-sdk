@@ -18,7 +18,7 @@ This is a **Node.js** SDK to make it easy to talk to the
 ## Requirements
 
 - [Node.js](https://nodejs.org/en/) version 10 or newer
-- [A Transloadit account](https://transloadit.com/signup/) (free to register)
+- [A Transloadit account](https://transloadit.com/signup/) ([free signup](https://transloadit.com/pricing/))
 - [Your API credentials](https://transloadit.com/c/template-credentials) (`authKey`, `authSecret`)
 
 ## Install
@@ -35,10 +35,11 @@ npm install transloadit --save
 
 ## Usage
 
-The following code will show how to upload an image and resize it to a thumbnail:
+The following code will upload an image and resize it to a thumbnail:
 
 ```javascript
 const TransloaditClient = require('transloadit')
+
 const transloadit       = new TransloaditClient({
   authKey   : 'YOUR_TRANSLOADIT_KEY',
   authSecret: 'YOUR_TRANSLOADIT_SECRET'
@@ -50,7 +51,7 @@ try {
   const options = {
     waitForCompletion: true,  // Wait for the assembly (job) to finish executing before returning
     params           : {
-      steps: { // You can have many steps. In this case we will just resize any inputs
+      steps: { // You can have many steps. In this case we will just resize any inputs (:original)
         resize: {
           use   : ':original',
           robot : '/image/resize',
@@ -123,9 +124,11 @@ Same as `addFile` but it accepts any of the following as its `value` argument:
 - `Readable` [stream](https://nodejs.org/api/stream.html#stream_class_stream_readable)
 - `string`, `Buffer`, `TypedArray`, `ArrayBuffer`, `Iterable<Buffer | string>`, `AsyncIterable<Buffer | string>`, `Promise` (see [into-stream](https://github.com/sindresorhus/into-stream#api))
 
+`name` will be used as the uploaded file's name.
+
 Example of adding an `svg` from a string:
 ```js
-transloadit.addFile('mysvg', '<?xml version="1.0" standalone="no"?><svg><circle cx="50" cy="50" r="40" fill="red" /></svg>')
+transloadit.add('my-svg', '<?xml version="1.0" standalone="no"?><svg><circle cx="50" cy="50" r="40" fill="red" /></svg>')
 ```
 
 #### TransloaditClient.createAssembly(options[, onProgress]) -> Promise
