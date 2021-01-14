@@ -237,7 +237,7 @@ Replays the notification for the assembly identified by the given `assemblyId` (
 
 #### TransloaditClient.listAssemblyNotifications(params) -> Promise
 
-Retrieves an array of assembly notifications. [See example](examples/list_assembly_notifications.js) and [API documentation](https://transloadit.com/docs/api/#retrieve-assembly-notification-list) for more info about `params`.
+Retrieves an array of assembly notifications. [See example](examples/list_assembly_notifications.js) and [API documentation](https://transloadit.com/docs/api/#assembly-notifications-get) for more info about `params`.
 
 #### TransloaditClient.streamAssemblyNotifications(params)
 

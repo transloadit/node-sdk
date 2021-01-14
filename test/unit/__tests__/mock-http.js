@@ -147,4 +147,17 @@ describe('Mocked API tests', () => {
     await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Server returned an incomplete assembly response (no URL)' }))
     scope.done()
   }, 5000)
+
+  it('should getBill', async () => {
+    const client = getLocalClient()
+
+    const scope = nock('http://localhost')
+      .get('/bill/2020-01')
+      .query(() => true)
+      .reply(200, { ok: 'BILL_FOUND' })
+
+    const result = await client.getBill('2020-01')
+    expect(result).toMatchObject({ ok: 'BILL_FOUND' })
+    scope.done()
+  })
 })

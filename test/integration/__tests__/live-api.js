@@ -1,6 +1,7 @@
 const localtunnel = require('localtunnel')
 const http = require('http')
 const keyBy = require('lodash/keyBy')
+const sortBy = require('lodash/sortBy')
 const querystring = require('querystring')
 const temp = require('temp')
 const { createWriteStream } = require('fs')
@@ -449,7 +450,7 @@ describe('API integration', function () {
           res.writeHead(200)
           res.end()
 
-          onNotification({ url: req.url, client, assemblyId: result.assembly_id })
+          onNotification({ path: req.url, client, assemblyId: result.assembly_id })
         } catch (err) {
           onError(err)
         }
@@ -465,9 +466,9 @@ describe('API integration', function () {
 
     it('should send a notification upon assembly completion', async () => {
       await new Promise((resolve, reject) => {
-        const onNotification = async ({ url, client, assemblyId }) => {
+        const onNotification = async ({ path, client, assemblyId }) => {
           try {
-            expect(url).toBe('/')
+            expect(path).toBe('/')
             resolve()
           } catch (err) {
             reject(err)
@@ -480,15 +481,21 @@ describe('API integration', function () {
     it('should replay the notification when requested', (done) => {
       let notificationsRecvd = false
 
-      const onNotification = async ({ url, client, assemblyId }) => {
+      const onNotification = async ({ path, client, assemblyId }) => {
         const newPath = '/newPath'
+        const newUrl = `${server.url}${newPath}`
 
         if (notificationsRecvd) {
-          // If we quit immediately, things will not get cleaned up and jest will hang
-          await new Promise((resolve) => setTimeout(resolve, 2000))
+          expect(path).toBe(newPath)
 
           try {
-            expect(url).toBe(newPath)
+            const result = await client.listAssemblyNotifications({ assembly_id: assemblyId })
+            const chronologicalItems = sortBy(result.items, 'created') // They don't come sorted
+            expect(chronologicalItems[0].url).toBe(server.url)
+            expect(chronologicalItems[1].url).toBe(newUrl)
+
+            // If we quit immediately, things will not get cleaned up and jest will hang
+            await new Promise((resolve) => setTimeout(resolve, 2000))
             done()
           } catch (err) {
             done(err)
@@ -499,9 +506,9 @@ describe('API integration', function () {
         notificationsRecvd = true
 
         try {
-          expect(url).toBe('/')
+          expect(path).toBe('/')
           await new Promise((resolve) => setTimeout(resolve, 2000))
-          await client.replayAssemblyNotification(assemblyId, { notify_url: `${server.url}${newPath}` })
+          await client.replayAssemblyNotification(assemblyId, { notify_url: newUrl })
         } catch (err) {
           done(err)
         }
@@ -517,6 +524,11 @@ describe('API integration', function () {
     let templId = null
     const client = createClient()
 
+    it('should allow listing templates', async () => {
+      const result = await client.listTemplates()
+      expect(result.items).toBeInstanceOf(Array)
+    })
+
     it('should allow creating a template', async () => {
       const { id } = await client.createTemplate({ name: templName, template: genericParams })
       templId = id
@@ -528,6 +540,21 @@ describe('API integration', function () {
       const { name, content } = await client.getTemplate(templId)
       expect(name).toBe(templName)
       expect(content).toEqual(genericParams)
+    })
+
+    it('should allow editing a template', async () => {
+      const editedTemplate = {
+        steps: {
+          dummy: dummyStep,
+        },
+      }
+
+      const editedName = `${templName}-edited`
+      const editResult = await client.editTemplate(templId, { name: editedName, template: editedTemplate })
+      expect(editResult.ok).toBe('TEMPLATE_UPDATED')
+      expect(editResult.id).toBe(templId)
+      expect(editResult.name).toBe(editedName)
+      expect(editResult.content).toStrictEqual(editedTemplate)
     })
 
     it('should delete the template successfully', async () => {
