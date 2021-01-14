@@ -19,10 +19,14 @@ async function downloadTmpFile (url) {
   return path
 }
 
-const authKey = process.env.TRANSLOADIT_KEY
-const authSecret = process.env.TRANSLOADIT_SECRET
-if (authKey == null || authSecret == null) {
-  throw new Error('Please specify environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET')
+function createClient (opts = {}) {
+  const authKey = process.env.TRANSLOADIT_KEY
+  const authSecret = process.env.TRANSLOADIT_SECRET
+  if (authKey == null || authSecret == null) {
+    throw new Error('Please specify environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET')
+  }
+
+  return new TransloaditClient({ authKey, authSecret })
 }
 
 const startServerAsync = async (handler) => new Promise((resolve, reject) => {
@@ -110,7 +114,7 @@ jest.setTimeout(100000)
 describe('API integration', function () {
   describe('assembly creation', () => {
     it('should create a retrievable assembly on the server', async () => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
 
       let uploadProgressCalled
       let assemblyProgressCalled
@@ -140,7 +144,7 @@ describe('API integration', function () {
     })
 
     it("should signal an error if a file selected for upload doesn't exist", async () => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
 
       const params = {
         params: {
@@ -158,7 +162,7 @@ describe('API integration', function () {
     })
 
     it('should allow uploading files that do exist', async () => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
 
       const params = {
         params: {
@@ -175,7 +179,7 @@ describe('API integration', function () {
     })
 
     it('should allow setting fields', async () => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
 
       const params = {
         waitForCompletion: true,
@@ -190,7 +194,7 @@ describe('API integration', function () {
     })
 
     it('should allow adding different types', async () => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
 
       const params = {
         waitForCompletion: true,
@@ -233,7 +237,7 @@ describe('API integration', function () {
     })
 
     async function testUploadProgress (isResumable) {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
 
       const path = await downloadTmpFile(genericImg)
       client.addFile('original', path)
@@ -268,7 +272,7 @@ describe('API integration', function () {
     })
 
     it('should return properly waitForCompletion is false', async () => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
       const params = { ...genericOptions, waitForCompletion: false }
 
       const result = await client.createAssembly(params)
@@ -278,7 +282,7 @@ describe('API integration', function () {
 
     it('should exit fast when assembly has failed', async () => {
       // An old bug caused it to continuously retry until timeout when errors such as INVALID_FILE_META_DATA
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
       const opts = {
         params: {
           steps: {
@@ -299,7 +303,7 @@ describe('API integration', function () {
 
   describe('assembly cancelation', () => {
     it('should stop the assembly from reaching completion', async () => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
 
       // We need to ensure that the assembly doesn't complete before it can be
       // canceled, so we start an http server for the assembly to import from,
@@ -372,7 +376,7 @@ describe('API integration', function () {
 
   describe('replaying assemblies', () => {
     it('should replay an assembly after it has completed', async () => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
 
       const { assembly_id: assemblyId } = await client.createAssembly(genericOptions)
 
@@ -384,14 +388,14 @@ describe('API integration', function () {
 
   describe('assembly list retrieval', () => {
     it('should retrieve a list of assemblies', async () => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
 
       const result = await client.listAssemblies({})
       expect(result).toEqual(expect.objectContaining({ count: expect.any(Number), items: expect.any(Array) }))
     })
 
     it('should be able to handle pagination with a stream', done => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
       const assemblies = client.streamAssemblies({ pagesize: 2 })
       let n = 0
       let isDone = false
@@ -431,7 +435,7 @@ describe('API integration', function () {
     })
 
     const runNotificationTest = async (onNotification, onError) => {
-      const client = new TransloaditClient({ authKey, authSecret })
+      const client = createClient()
 
       // listens for notifications
       const onNotificationRequest = async (req, res) => {
@@ -511,7 +515,7 @@ describe('API integration', function () {
     // can contain only lowercase latin letters, numbers, and dashes.
     const templName = `node-sdk-test-${new Date().toISOString().toLocaleLowerCase('en-US').replace(/[^0-9a-z-]/g, '-')}`
     let templId = null
-    const client = new TransloaditClient({ authKey, authSecret })
+    const client = createClient()
 
     it('should allow creating a template', async () => {
       const { id } = await client.createTemplate({ name: templName, template: genericParams })
