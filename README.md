@@ -131,33 +131,34 @@ Example of adding an `svg` from a string:
 transloadit.add('my-svg', '<?xml version="1.0" standalone="no"?><svg><circle cx="50" cy="50" r="40" fill="red" /></svg>')
 ```
 
-#### TransloaditClient.createAssembly(options[, onProgress]) -> Promise
+#### TransloaditClient.createAssembly(options) -> Promise
 
 Creates a new Assembly on Transloadit, uploading all streams and files that were registered via `addFile()` and `add()` prior to the call to `createAssembly()`.
 
 You can provide the following keys inside the `options` object:
 
-* `params` - An object containing keys defining the assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
-  * `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions)
-  * `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
-  * `fields` - An object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables). 
-  * `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
-* `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
-* `timeout` - Number of milliseconds to wait before aborting (default `86400000`: 24 hours).
+- `params` **(required)** - An object containing keys defining the assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
+  - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions)
+  - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
+  - `fields` - An object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables). 
+  - `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
+- `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
+- `timeout` - Number of milliseconds to wait before aborting (default `86400000`: 24 hours).
+- `onUploadProgress` - An optional function that will be periodically called with the file upload progress, which is an with an object containing:
+  - `uploadedBytes` - Number of bytes uploaded so far.
+  - `totalBytes` - Total number of bytes to upload or `undefined` if unknown.
+- `onAssemblyProgress` - Once the assembly has started processing this will be called with the *Assembly Execution Status* (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
 
-If specified, `onProgress({ uploadProgress, assemblyProgress })` will be periodically called with the current file upload progress in `uploadProgress` and then, *once the Assembly finished uploading*, Assembly Execution Status in `assemblyProgress`.
-
-Example `onProgress` handler:
+Example `onUploadProgress` and `onAssemblyProgress` handlers:
 ```javascript
-function onProgress({ uploadProgress, assemblyProgress }) {
-  if (uploadProgress) {
-    console.log(`♻️ Upload progress polled: ${uploadProgress.uploadedBytes} of ${uploadProgress.totalBytes} bytes uploaded.`)
-  } else if (assemblyProgress) {
-    console.log(`♻️ Assembly progress polled: ${assemblyProgress.error ? assemblyProgress.error : assemblyProgress.ok} ${assemblyProgress.assembly_id} ... `)
-  }
+function onUploadProgress({ uploadedBytes, totalBytes }) {
+  console.log(`♻️ Upload progress polled: ${uploadedBytes} of ${totalBytes} bytes uploaded.`)
+}
+function onAssemblyProgress(assembly) {
+  console.log(`♻️ Assembly progress polled: ${assembly.error ? assembly.error : assembly.ok} ${assembly.assembly_id} ... `)
 }
 // ...
-await transloadit.createAssembly(options, onProgress)
+await transloadit.createAssembly({ params, waitForCompletion: true, onUploadProgress, onAssemblyProgress)
 // ...
 ```
 
@@ -220,7 +221,7 @@ This function will continously poll the specified assembly and wait until it is 
 
 `opts` is an object with the keys:
 - `assemblyId` **(required)** - The ID of the assembly to poll
-- `onProgress` - A progress function called on each poll. See `createAssembly`
+- `onAssemblyProgress` - A progress function called on each poll. See `createAssembly`
 - `timeout` - How many milliseconds until polling times out (default: no timeout)
 - `interval` - Poll interval in milliseconds (default `1000`)
 

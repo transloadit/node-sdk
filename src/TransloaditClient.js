@@ -146,24 +146,18 @@ class TransloaditClient {
   /**
    * Create an Assembly
    *
-   * @typedef {object} progressObject
-   * @property {object} assemblyProgress
-   * @property {{totalBytes: number, uploadedBytes: number}} uploadProgress
-   *
-   * @function onProgress
-   * @param {progressObject} progress
-   *
    * @param {object} opts assembly options
-   * @param {onProgress} function to be triggered on each progress update of the assembly
    * @returns {Promise}
    */
-  async createAssembly (opts = {}, onProgress = () => {}) {
+  async createAssembly (opts = {}) {
     const {
       params = {},
       fields = {},
       waitForCompletion = false,
       isResumable = true,
       timeout = 24 * 60 * 60 * 1000, // 1 day
+      onUploadProgress = () => {},
+      onAssemblyProgress = () => {},
     } = opts
 
     // Keep track of how long the request took
@@ -217,7 +211,7 @@ class TransloaditClient {
       const formUploadStreamsMap = useTus ? {} : streamsMap
       const tusStreamsMap = useTus ? streamsMap : {}
 
-      const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onProgress)
+      const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onUploadProgress)
 
       // TODO should do this for all requests?
       checkResult(result)
@@ -226,12 +220,12 @@ class TransloaditClient {
         await this._sendTusRequest({
           streamsMap: tusStreamsMap,
           assembly  : result,
-          onProgress,
+          onProgress: onUploadProgress,
         })
       }
 
       if (!waitForCompletion) return result
-      return this.awaitAssemblyCompletion({ assemblyId: result.assembly_id, timeout, onProgress, startTimeMs })
+      return this.awaitAssemblyCompletion({ assemblyId: result.assembly_id, timeout, onAssemblyProgress, startTimeMs })
     }
 
     return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
@@ -239,7 +233,7 @@ class TransloaditClient {
 
   async awaitAssemblyCompletion ({
     assemblyId,
-    onProgress = () => {},
+    onAssemblyProgress = () => {},
     timeout,
     startTimeMs = getHrTimeMs(),
     interval = 1000,
@@ -258,9 +252,9 @@ class TransloaditClient {
       }
 
       try {
-        onProgress({ assemblyProgress: result })
+        onAssemblyProgress(result)
       } catch (err) {
-        log('onProgress threw error', err)
+        log('Caught onAssemblyProgress error', err)
       }
 
       const nowMs = getHrTimeMs()
@@ -612,7 +606,7 @@ class TransloaditClient {
       try {
         const request = got[method](url, requestOpts)
         if (isUploadingStreams) {
-          request.on('uploadProgress', ({ percent, transferred, total }) => onProgress({ uploadProgress: { uploadedBytes: transferred, totalBytes: total } }))
+          request.on('uploadProgress', ({ percent, transferred, total }) => onProgress({ uploadedBytes: transferred, totalBytes: total }))
         }
         const { body } = await request
         return body
@@ -674,7 +668,7 @@ class TransloaditClient {
         // don't send redundant progress
         if (lastEmittedProgress < uploadedBytes) {
           lastEmittedProgress = uploadedBytes
-          onProgress({ uploadProgress: { uploadedBytes, totalBytes } })
+          onProgress({ uploadedBytes, totalBytes })
         }
       }
 

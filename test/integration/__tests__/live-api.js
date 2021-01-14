@@ -86,21 +86,22 @@ const dummyStep = {
   accepts: [],
 }
 const genericParams = {
-  params: {
-    steps: {
-      import: {
-        robot: '/http/import',
-        url  : genericImg,
-      },
-      resize: {
-        robot : '/image/resize',
-        use   : 'import',
-        result: true,
-        width : 130,
-        height: 130,
-      },
+  steps: {
+    import: {
+      robot: '/http/import',
+      url  : genericImg,
+    },
+    resize: {
+      robot : '/image/resize',
+      use   : 'import',
+      result: true,
+      width : 130,
+      height: 130,
     },
   },
+}
+const genericOptions = {
+  params           : genericParams,
   waitForCompletion: true,
 }
 
@@ -111,10 +112,20 @@ describe('API integration', function () {
     it('should create a retrievable assembly on the server', async () => {
       const client = new TransloaditClient({ authKey, authSecret })
 
-      let result = await client.createAssembly(genericParams)
+      let uploadProgressCalled
+      let assemblyProgressCalled
+      const options = {
+        ...genericOptions,
+        onUploadProgress  : (uploadProgress) => { uploadProgressCalled = uploadProgress },
+        onAssemblyProgress: (assemblyProgress) => { assemblyProgressCalled = assemblyProgress },
+      }
+      let result = await client.createAssembly(options)
       expect(result).not.toHaveProperty('error')
       expect(result).toHaveProperty('ok')
       expect(result).toHaveProperty('assembly_id') // Since we're using it
+
+      expect(uploadProgressCalled).toBeUndefined()
+      expect(assemblyProgressCalled).toMatchObject({ assembly_id: result.assembly_id })
 
       const id = result.assembly_id
 
@@ -224,6 +235,16 @@ describe('API integration', function () {
     async function testUploadProgress (isResumable) {
       const client = new TransloaditClient({ authKey, authSecret })
 
+      const path = await downloadTmpFile(genericImg)
+      client.addFile('original', path)
+
+      let progressCalled = false
+      function onUploadProgress ({ uploadedBytes }) {
+        // console.log(uploadedBytes)
+        expect(uploadedBytes).toBeDefined()
+        progressCalled = true
+      }
+
       const params = {
         isResumable,
         params: {
@@ -231,18 +252,10 @@ describe('API integration', function () {
             resize: resizeOriginalStep,
           },
         },
+        onUploadProgress,
       }
 
-      const path = await downloadTmpFile(genericImg)
-      client.addFile('original', path)
-
-      let progressCalled = false
-      function onProgress (progress) {
-        // console.log(progress)
-        expect(progress.uploadProgress.uploadedBytes).toBeDefined()
-        progressCalled = true
-      }
-      await client.createAssembly(params, onProgress)
+      await client.createAssembly(params)
       expect(progressCalled).toBe(true)
     }
 
@@ -254,9 +267,9 @@ describe('API integration', function () {
       await testUploadProgress(false)
     })
 
-    it('should trigger the callback when waitForCompletion is false', async () => {
+    it('should return properly waitForCompletion is false', async () => {
       const client = new TransloaditClient({ authKey, authSecret })
-      const params = { ...genericParams, waitForCompletion: false }
+      const params = { ...genericOptions, waitForCompletion: false }
 
       const result = await client.createAssembly(params)
       expect(result).not.toHaveProperty('error')
@@ -361,7 +374,7 @@ describe('API integration', function () {
     it('should replay an assembly after it has completed', async () => {
       const client = new TransloaditClient({ authKey, authSecret })
 
-      const { assembly_id: assemblyId } = await client.createAssembly(genericParams)
+      const { assembly_id: assemblyId } = await client.createAssembly(genericOptions)
 
       const { ok, assembly_id: newAssemblyId } = await client.replayAssembly(assemblyId)
       expect(ok).toBe('ASSEMBLY_REPLAYING')
@@ -440,7 +453,7 @@ describe('API integration', function () {
 
       try {
         server = await startServerAsync(onNotificationRequest)
-        await client.createAssembly({ params: { ...genericParams.params, notify_url: server.url } })
+        await client.createAssembly({ params: { ...genericParams, notify_url: server.url } })
       } catch (err) {
         onError(err)
       }
@@ -501,7 +514,7 @@ describe('API integration', function () {
     const client = new TransloaditClient({ authKey, authSecret })
 
     it('should allow creating a template', async () => {
-      const { id } = await client.createTemplate({ name: templName, template: genericParams.params })
+      const { id } = await client.createTemplate({ name: templName, template: genericParams })
       templId = id
     })
 
@@ -510,7 +523,7 @@ describe('API integration', function () {
 
       const { name, content } = await client.getTemplate(templId)
       expect(name).toBe(templName)
-      expect(content).toEqual(genericParams.params)
+      expect(content).toEqual(genericParams)
     })
 
     it('should delete the template successfully', async () => {
