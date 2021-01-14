@@ -26,7 +26,7 @@ function createClient (opts = {}) {
     throw new Error('Please specify environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET')
   }
 
-  return new TransloaditClient({ authKey, authSecret })
+  return new TransloaditClient({ authKey, authSecret, ...opts })
 }
 
 const startServerAsync = async (handler) => new Promise((resolve, reject) => {
