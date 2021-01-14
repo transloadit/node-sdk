@@ -149,7 +149,12 @@ class TransloaditClient {
    * @param {object} opts assembly options
    * @returns {Promise}
    */
-  async createAssembly (opts = {}) {
+  async createAssembly (opts = {}, arg2) {
+    // Warn users of old callback API
+    if (typeof arg2 === 'function') {
+      throw new TypeError('You are trying to send a function as the second argument. This is no longer valid in this version. Please see github README for usage.')
+    }
+
     const {
       params = {},
       fields = {},

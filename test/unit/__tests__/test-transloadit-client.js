@@ -209,6 +209,12 @@ describe('TransloaditClient', () => {
     expect(spy).toBeCalledWith(expect.objectContaining({ timeout: 24 * 60 * 60 * 1000 }), {}, expect.any(Function))
   })
 
+  it('should crash if attempt to use callback', async () => {
+    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const cb = () => {}
+    await expect(client.createAssembly({}, cb)).rejects.toThrow(TypeError)
+  })
+
   describe('_calcSignature', () => {
     it('should calculate the signature properly', () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
