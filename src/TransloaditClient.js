@@ -478,6 +478,7 @@ class TransloaditClient {
    * @returns {Promise} with billing data
    */
   async getBill (month) {
+    assert(month, 'month is required')
     const requestOpts = {
       urlSuffix: `/bill/${month}`,
       method   : 'get',
