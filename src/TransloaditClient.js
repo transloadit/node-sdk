@@ -17,21 +17,6 @@ const assert = require('assert')
 
 const version = require('../package.json').version
 
-function unknownErrMsg (str) {
-  let buff = 'Unknown error'
-  if (str) {
-    buff += ` ${str}`
-  }
-  buff += '. Please report this at '
-  buff += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
-  return buff
-}
-
-function createUnknownError (result, str) {
-  const left = result.error != null ? result.error : result.message
-  return new Error(left != null ? left : unknownErrMsg(str))
-}
-
 // eslint-disable-next-line handle-callback-err
 function decorateError (err, body) {
   if (!body) return err
@@ -57,6 +42,7 @@ class InconsistentResponseError extends Error {
   }
 }
 
+// Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
 function checkAssemblyUrls (result) {
   if (result.assembly_url == null || result.assembly_ssl_url == null) {
     throw new InconsistentResponseError('Server returned an incomplete assembly response (no URL)')
@@ -375,8 +361,6 @@ class TransloaditClient {
    */
   async getAssembly (assemblyId) {
     const result = await this._remoteJson({ urlSuffix: `/assemblies/${assemblyId}` })
-
-    // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
     checkAssemblyUrls(result)
     return result
   }
@@ -394,12 +378,7 @@ class TransloaditClient {
       params   : params || {},
     }
 
-    const result = await this._remoteJson(requestOpts)
-    if (result && result.ok) {
-      return result
-    }
-
-    throw createUnknownError(result, 'while creating Template')
+    return this._remoteJson(requestOpts)
   }
 
   /**
@@ -416,12 +395,7 @@ class TransloaditClient {
       params   : params || {},
     }
 
-    const result = await this._remoteJson(requestOpts)
-    if (result && result.ok) {
-      return result
-    }
-
-    throw createUnknownError(result, 'while editing Template')
+    return this._remoteJson(requestOpts)
   }
 
   /**
