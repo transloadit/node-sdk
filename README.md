@@ -8,7 +8,7 @@ A **Node.js** integration for [Transloadit](https://transloadit.com)'s file uplo
 
 [Transloadit](https://transloadit.com) is a service that helps you handle file
 uploads, resize, crop and watermark your images, make GIFs, transcode your
-videos, extract thumbnails, generate audio waveforms, and so much more. In
+videos, extract thumbnails, generate audio waveforms, [and so much more](https://transloadit.com/demos/). In
 short, [Transloadit](https://transloadit.com) is the Swiss Army Knife for your
 files.
 
