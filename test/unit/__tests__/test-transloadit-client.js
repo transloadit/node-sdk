@@ -249,14 +249,6 @@ describe('TransloaditClient', () => {
   })
 
   describe('_remoteJson', () => {
-    it('should make proper remote GET calls', () => {
-      // @todo figure out how to test direct calls to request
-    })
-
-    it('should append params to the request form for POST requests', () => {
-      // @todo figure out how to test direct calls to request
-    })
-
     it('should add "Transloadit-Client" header to requests', async () => {
       const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
