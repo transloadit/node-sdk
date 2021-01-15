@@ -135,6 +135,10 @@ class TransloaditClient {
     return this._lastUsedAssemblyUrl
   }
 
+  setDefaultTimeout (timeout) {
+    this._defaultTimeout = timeout
+  }
+
   /**
    * Create an Assembly
    *

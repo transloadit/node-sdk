@@ -303,6 +303,10 @@ Creates an `objectMode` `Readable` stream that automates handling of `listTempla
 
 ### Other
 
+#### TransloaditClient.setDefaultTimeout(timeout)
+
+Same as `constructor` `timeout` option: Set the default timeout (in milliseconds) for all requests (except `createAssembly`)
+
 #### TransloaditClient.getBill(date) -> Promise
 
 Retrieves the billing data for a given `date` string with format `YYYY-MM`. See [API documentation](https://transloadit.com/docs/api/#bill-date-get).

@@ -29,6 +29,10 @@ describe('TransloaditClient', () => {
       expect(client._service).toBe('api2.transloadit.com')
       expect(client._protocol).toBe('https://')
       expect(client._maxRetries).toBe(0)
+      expect(client._defaultTimeout).toBe(60000)
+
+      client.setDefaultTimeout(10000)
+      expect(client._defaultTimeout).toBe(10000)
     })
 
     it('should give error when no authSecret', () => {
