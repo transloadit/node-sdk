@@ -86,6 +86,8 @@ You can find [details about your executed assemblies here](https://transloadit.c
 
 - [Upload and resize image](examples/resize_an_image.js)
 - [Upload image and convert to WebP](examples/convert_to_webp.js)
+- [Crop a face out of an image and download the result](examples/face_detect_download.js)
+- [Retry example](examples/retry.js)
 - [Calculate total costs (GB usage)](examples/fetch_costs_of_all_assemblies_in_timeframe.js)
 - [Templates CRUD](examples/template_api.js)
 
@@ -145,7 +147,7 @@ Creates a new Assembly on Transloadit, uploading all streams and files that were
 You can provide the following keys inside the `options` object:
 
 - `params` **(required)** - An object containing keys defining the assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
-  - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions)
+  - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions) and [demos](https://transloadit.com/demos/) for inspiration.
   - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
   - `fields` - An object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables). 
   - `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
