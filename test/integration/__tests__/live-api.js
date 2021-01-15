@@ -357,7 +357,7 @@ describe('API integration', function () {
 
         const awaitCompletionPromise = (async () => {
           try {
-            const ret = await client.awaitAssemblyCompletion({ assemblyId: id })
+            const ret = await client.awaitAssemblyCompletion(id)
             return ret
           } catch (err) {
             console.error(err)

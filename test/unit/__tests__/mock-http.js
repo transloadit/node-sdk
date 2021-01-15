@@ -43,7 +43,7 @@ describe('Mocked API tests', () => {
       .delay(100)
       .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
 
-    await expect(client.awaitAssemblyCompletion({ assemblyId: '1', timeout: 1, interval: 1 })).rejects.toThrow(expect.objectContaining({ code: 'POLLING_TIMED_OUT', message: 'Polling timed out' }))
+    await expect(client.awaitAssemblyCompletion(1, { timeout: 1, interval: 1 })).rejects.toThrow(expect.objectContaining({ code: 'POLLING_TIMED_OUT', message: 'Polling timed out' }))
     scope.done()
   })
 
@@ -59,10 +59,10 @@ describe('Mocked API tests', () => {
 
     await client.createAssembly()
 
-    const result = await client.awaitAssemblyCompletion({ assemblyId: 1 })
+    const result = await client.awaitAssemblyCompletion(1)
     expect(result.ok).toBe('REQUEST_ABORTED')
     scope.done()
-  }, 5000)
+  })
 
   it('should not time out awaitAssemblyCompletion polling', async () => {
     const client = getLocalClient()
@@ -75,7 +75,7 @@ describe('Mocked API tests', () => {
       .query(() => true)
       .reply(200, { ok: 'ASSEMBLY_COMPLETED', assembly_url: '', assembly_ssl_url: '' })
 
-    await expect(client.awaitAssemblyCompletion({ assemblyId: '1', timeout: 100, interval: 1 })).resolves.toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
+    await expect(client.awaitAssemblyCompletion(1, { timeout: 100, interval: 1 })).resolves.toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
     scope.done()
   })
 
@@ -142,7 +142,7 @@ describe('Mocked API tests', () => {
     await expect(promise).rejects.toThrow(expect.not.objectContaining({ code: 'ERR_NOCK_NO_MATCH' })) // Make sure that it was called only once
     await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Response code 500 (Internal Server Error)' }))
     scope.done() // Make sure that it was called
-  }, 5000)
+  })
 
   it('should throw error on missing assembly_url/assembly_ssl_url', async () => {
     const client = getLocalClient()
@@ -163,7 +163,38 @@ describe('Mocked API tests', () => {
     await expect(promise).rejects.toThrow(TransloaditClient.InconsistentResponseError)
     await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Server returned an incomplete assembly response (no URL)' }))
     scope.done()
-  }, 5000)
+  })
+
+  it('should not throw error from getAssembly or awaitAssemblyCompletion with 200 and error in response', async () => {
+    const client = getLocalClient()
+
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { error: 'IMPORT_FILE_ERROR', assembly_url: '', assembly_ssl_url: '' })
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { error: 'IMPORT_FILE_ERROR', assembly_url: '', assembly_ssl_url: '' })
+
+    const assembly = await client.getAssembly(1)
+    expect(assembly).toMatchObject({ error: 'IMPORT_FILE_ERROR' })
+
+    const assembly2 = await client.awaitAssemblyCompletion(1)
+    expect(assembly2).toMatchObject({ error: 'IMPORT_FILE_ERROR' })
+
+    scope.done()
+  })
+
+  it('should throw error createAssembly when 200 and error in response', async () => {
+    const client = getLocalClient()
+
+    const scope = nock('http://localhost')
+      .post('/assemblies')
+      .reply(200, { error: 'IMPORT_FILE_ERROR' })
+
+    await expect(client.createAssembly()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'IMPORT_FILE_ERROR' }))
+    scope.done()
+  })
 
   it('should getBill', async () => {
     const client = getLocalClient()

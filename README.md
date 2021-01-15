@@ -215,12 +215,11 @@ Removes the assembly identified by the given `assemblyId` from the memory of the
 
 Replays the assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-replay-post) for more info about `params`.
 
-#### TransloaditClient.awaitAssemblyCompletion(opts) -> Promise
+#### TransloaditClient.awaitAssemblyCompletion(assemblyId, opts) -> Promise
 
-This function will continously poll the specified assembly and wait until it is completed (until `result.ok` equals `ASSEMBLY_COMPLETED`). When completed, it returns the same as `getAssembly`.
+This function will continously poll the specified assembly `assemblyId` and resolve when it is done uploading and executing (until `result.ok` is no longer `ASSEMBLY_UPLOADING` or `ASSEMBLY_EXECUTING`). It resolves with the same as `getAssembly`.
 
 `opts` is an object with the keys:
-- `assemblyId` **(required)** - The ID of the assembly to poll
 - `onAssemblyProgress` - A progress function called on each poll. See `createAssembly`
 - `timeout` - How many milliseconds until polling times out (default: no timeout)
 - `interval` - Poll interval in milliseconds (default `1000`)

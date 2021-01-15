@@ -70,8 +70,10 @@ function getHrTimeMs () {
 }
 
 function checkResult (result) {
-  if (result.error) {
-    const err = new Error()
+  // In case server returned a successful HTTP status code, but an `error` in the JSON object
+  // This happens sometimes when createAssembly with an invalid file (IMPORT_FILE_ERROR)
+  if (typeof result === 'object' && result !== null && typeof result.error === 'string') {
+    const err = new Error('Error in response')
     throw decorateError(err, result)
   }
 }
@@ -217,8 +219,6 @@ class TransloaditClient {
       const tusStreamsMap = useTus ? streamsMap : {}
 
       const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onUploadProgress)
-
-      // TODO should do this for all requests?
       checkResult(result)
 
       if (useTus && Object.keys(tusStreamsMap).length > 0) {
@@ -230,25 +230,23 @@ class TransloaditClient {
       }
 
       if (!waitForCompletion) return result
-      return this.awaitAssemblyCompletion({ assemblyId: result.assembly_id, timeout, onAssemblyProgress, startTimeMs })
+      const awaitResult = await this.awaitAssemblyCompletion(result.assembly_id, { timeout, onAssemblyProgress, startTimeMs })
+      checkResult(awaitResult)
     }
 
     return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
   }
 
-  async awaitAssemblyCompletion ({
-    assemblyId,
+  async awaitAssemblyCompletion (assemblyId, {
     onAssemblyProgress = () => {},
     timeout,
     startTimeMs = getHrTimeMs(),
     interval = 1000,
-  }) {
+  } = {}) {
     assert(assemblyId)
 
     while (true) {
       const result = await this.getAssembly(assemblyId)
-
-      checkResult(result)
 
       if (!['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING'].includes(result.ok)) {
         return result // Done!
