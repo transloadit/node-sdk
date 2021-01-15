@@ -396,7 +396,6 @@ describe('API integration', function () {
       const createdAssembly = await client.createAssembly(genericOptions)
 
       const replayedAssembly = await client.replayAssembly(createdAssembly.assembly_id)
-      console.log(replayedAssembly)
       expect(replayedAssembly.ok).toBe('ASSEMBLY_REPLAYING')
       expect(replayedAssembly.assembly_id).not.toEqual(createdAssembly.assembly_id)
       expect(replayedAssembly.assembly_url).toBeDefined()
@@ -500,16 +499,19 @@ describe('API integration', function () {
     })
 
     it('should replay the notification when requested', (done) => {
-      let notificationsRecvd = false
+      let secondNotification = false
 
       const onNotification = async ({ path, client, assemblyId }) => {
         const newPath = '/newPath'
         const newUrl = `${server.url}${newPath}`
 
-        if (notificationsRecvd) {
+        if (secondNotification) {
           expect(path).toBe(newPath)
 
           try {
+            // I think there are some eventual consistency issues here
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+
             const result = await client.listAssemblyNotifications({ assembly_id: assemblyId })
             const chronologicalItems = sortBy(result.items, 'created') // They don't come sorted
             expect(chronologicalItems[0].url).toBe(server.url)
@@ -524,7 +526,7 @@ describe('API integration', function () {
 
           return
         }
-        notificationsRecvd = true
+        secondNotification = true
 
         try {
           expect(path).toBe('/')
