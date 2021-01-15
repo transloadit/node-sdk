@@ -390,14 +390,21 @@ describe('API integration', function () {
   })
 
   describe('replaying assemblies', () => {
-    it('should replay an assembly after it has completed', async () => {
+    it('should replay an assembly and await the replay', async () => {
       const client = createClient()
 
-      const { assembly_id: assemblyId } = await client.createAssembly(genericOptions)
+      const createdAssembly = await client.createAssembly(genericOptions)
 
-      const { ok, assembly_id: newAssemblyId } = await client.replayAssembly(assemblyId)
-      expect(ok).toBe('ASSEMBLY_REPLAYING')
-      expect(newAssemblyId).not.toEqual(assemblyId)
+      const replayedAssembly = await client.replayAssembly(createdAssembly.assembly_id)
+      console.log(replayedAssembly)
+      expect(replayedAssembly.ok).toBe('ASSEMBLY_REPLAYING')
+      expect(replayedAssembly.assembly_id).not.toEqual(createdAssembly.assembly_id)
+      expect(replayedAssembly.assembly_url).toBeDefined()
+      // TODO bug?
+      // expect(replayedAssembly.assembly_ssl_url).toBeDefined()
+
+      const result2 = await client.awaitAssemblyCompletion(replayedAssembly.assembly_id)
+      expect(result2.ok).toBe('ASSEMBLY_COMPLETED')
     })
   })
 

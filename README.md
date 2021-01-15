@@ -97,6 +97,13 @@ For more example use cases and information about the available robots and their 
 
 These are the public methods on the `TransloaditClient` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
 
+Table of contents:
+- [Main](#main)
+- [Assemblies](#assemblies)
+- [Assembly notifications](#assembly-notifications)
+- [Templates](#templates)
+- [Errors](#errors)
+
 ### Main
 
 #### constructor([options])
@@ -217,14 +224,14 @@ Replays the assembly identified by the given `assemblyId` (required argument). O
 
 #### TransloaditClient.awaitAssemblyCompletion(assemblyId, opts) -> Promise
 
-This function will continously poll the specified assembly `assemblyId` and resolve when it is done uploading and executing (until `result.ok` is no longer `ASSEMBLY_UPLOADING` or `ASSEMBLY_EXECUTING`). It resolves with the same as `getAssembly`.
+This function will continously poll the specified assembly `assemblyId` and resolve when it is done uploading and executing (until `result.ok` is no longer `ASSEMBLY_UPLOADING`, `ASSEMBLY_EXECUTING` or `ASSEMBLY_REPLAYING`). It resolves with the same value as `getAssembly`.
 
 `opts` is an object with the keys:
 - `onAssemblyProgress` - A progress function called on each poll. See `createAssembly`
 - `timeout` - How many milliseconds until polling times out (default: no timeout)
 - `interval` - Poll interval in milliseconds (default `1000`)
 
-#### TransloaditClient.lastUsedAssemblyUrl()
+#### TransloaditClient.getLastUsedAssemblyUrl()
 
 Returns the internal url that was used for the last call to `createAssembly`. This is meant to be used for debugging purposes.
 
@@ -308,7 +315,7 @@ This function returns an object with the key `signature` (containing the calcula
 
 ### Errors
 
-Errors will be passed on from Node.js and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be a `TransloaditClient.HTTPError` (extends from [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:
+Errors from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be a `TransloaditClient.HTTPError`, which is a [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:
 
 - `HTTPError.response?.body` the JSON object returned by the server along with the error response (**note**: `HTTPError.response` will be `undefined` for non-server errors)
 - `HTTPError.transloaditErrorCode` alias for `HTTPError.response.body.error` ([View all error codes](https://transloadit.com/docs/api/#error-codes))
@@ -328,6 +335,8 @@ catch (err) {
   }
 }
 ```
+
+**Note:** Assemblies that have an error status (`assembly.error`) will only result in an error thrown from `createAssembly` and `replayAssembly`. For other assembly methods, no errors will be thrown, but any error can be found in the response's `error` property
 
 - [More information on Transloadit errors (`transloaditErrorCode`)](https://transloadit.com/docs/api/#error-codes)
 - [More information on request errors](https://github.com/sindresorhus/got#errors)

@@ -165,7 +165,7 @@ describe('Mocked API tests', () => {
     scope.done()
   })
 
-  it('should not throw error from getAssembly or awaitAssemblyCompletion with 200 and error in response', async () => {
+  it('should not throw error from getAssembly or awaitAssemblyCompletion when server returns 200 with error in response', async () => {
     const client = getLocalClient()
 
     const scope = nock('http://localhost')
@@ -185,14 +185,28 @@ describe('Mocked API tests', () => {
     scope.done()
   })
 
-  it('should throw error createAssembly when 200 and error in response', async () => {
+  it('should throw error with response.body createAssembly when server returns 200 with error in response', async () => {
     const client = getLocalClient()
 
     const scope = nock('http://localhost')
       .post('/assemblies')
+      .reply(200, { error: 'IMPORT_FILE_ERROR', assembly_id: '1' })
+
+    await expect(client.createAssembly()).rejects.toThrow(expect.objectContaining({
+      transloaditErrorCode: 'IMPORT_FILE_ERROR',
+      response            : expect.objectContaining({ body: expect.objectContaining({ assembly_id: '1' }) }),
+    }))
+    scope.done()
+  })
+
+  it('should throw error replayAssembly when 200 and error in response', async () => {
+    const client = getLocalClient()
+
+    const scope = nock('http://localhost')
+      .post('/assemblies/1/replay')
       .reply(200, { error: 'IMPORT_FILE_ERROR' })
 
-    await expect(client.createAssembly()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'IMPORT_FILE_ERROR' }))
+    await expect(client.replayAssembly(1)).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'IMPORT_FILE_ERROR' }))
     scope.done()
   })
 

@@ -74,6 +74,10 @@ function checkResult (result) {
   // This happens sometimes when createAssembly with an invalid file (IMPORT_FILE_ERROR)
   if (typeof result === 'object' && result !== null && typeof result.error === 'string') {
     const err = new Error('Error in response')
+    // Mimic got HTTPError structure
+    err.response = {
+      body: result,
+    }
     throw decorateError(err, result)
   }
 }
@@ -249,7 +253,7 @@ class TransloaditClient {
     while (true) {
       const result = await this.getAssembly(assemblyId)
 
-      if (!['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING'].includes(result.ok)) {
+      if (!['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'].includes(result.ok)) {
         return result // Done!
       }
 
@@ -302,7 +306,9 @@ class TransloaditClient {
       method   : 'post',
     }
     if (Object.keys(params).length > 0) requestOpts.params = params
-    return this._remoteJson(requestOpts)
+    const result = await this._remoteJson(requestOpts)
+    checkResult(result)
+    return result
   }
 
   /**
