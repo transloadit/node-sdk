@@ -318,7 +318,7 @@ describe('API integration', function () {
         sendServerResponse = resolve
       })
 
-      const handler = async (req, res) => {
+      const handleRequest = async (req, res) => {
         // console.log('handler', req.url)
 
         expect(req.url).toBe('/')
@@ -331,7 +331,7 @@ describe('API integration', function () {
         got.stream(genericImg).pipe(res)
       }
 
-      const server = await startServerAsync(handler)
+      const server = await startServerAsync(handleRequest)
 
       try {
         const params = {

@@ -250,10 +250,8 @@ class TransloaditClient {
 
       checkResult(result)
 
-      if (result.ok === 'ASSEMBLY_COMPLETED') return result
-
       if (!['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING'].includes(result.ok)) {
-        throw new Error(unknownErrMsg(`while processing Assembly ID ${assemblyId}`))
+        return result // Done!
       }
 
       try {

@@ -47,6 +47,23 @@ describe('Mocked API tests', () => {
     scope.done()
   })
 
+  it('should handle aborted correctly', async () => {
+    const client = getLocalClient()
+
+    const scope = nock('http://localhost')
+      .post('/assemblies')
+      .reply(200, { ok: 'ASSEMBLY_UPLOADING' })
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { ok: 'REQUEST_ABORTED', assembly_url: '', assembly_ssl_url: '' })
+
+    await client.createAssembly()
+
+    const result = await client.awaitAssemblyCompletion({ assemblyId: 1 })
+    expect(result.ok).toBe('REQUEST_ABORTED')
+    scope.done()
+  }, 5000)
+
   it('should not time out awaitAssemblyCompletion polling', async () => {
     const client = getLocalClient()
 
