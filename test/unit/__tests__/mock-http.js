@@ -222,4 +222,17 @@ describe('Mocked API tests', () => {
     expect(result).toMatchObject({ ok: 'BILL_FOUND' })
     scope.done()
   })
+
+  // The old client did not do this
+  it('should throw on 404', async () => {
+    const client = getLocalClient()
+
+    const scope = nock('http://localhost')
+      .get('/assemblies/invalid')
+      .query(() => true)
+      .reply(404, { error: 'SERVER_404', message: 'unknown method / url' })
+
+    await expect(client.getAssembly('invalid')).rejects.toThrow(TransloaditClient.HTTPError)
+    scope.done()
+  })
 })
