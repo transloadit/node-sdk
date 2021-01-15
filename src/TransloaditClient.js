@@ -232,6 +232,7 @@ class TransloaditClient {
       if (!waitForCompletion) return result
       const awaitResult = await this.awaitAssemblyCompletion(result.assembly_id, { timeout, onAssemblyProgress, startTimeMs })
       checkResult(awaitResult)
+      return awaitResult
     }
 
     return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
