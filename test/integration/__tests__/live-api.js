@@ -209,9 +209,9 @@ describe('API integration', function () {
       const buf = Buffer.from(sampleSvg, 'utf-8')
 
       client.add('file1', intoStream(sampleSvg))
-      client.addStream('file2', intoStream(sampleSvg)) // Old method
-      client.add('file3', sampleSvg)
-      client.add('file4', buf)
+      client.add('file2', sampleSvg)
+      client.add('file3', buf)
+      client.addStream('file4', got.stream(genericImg)) // Old method
 
       const result = await client.createAssembly(params)
       // console.log(result)
@@ -234,7 +234,20 @@ describe('API integration', function () {
       expect(uploadsKeyed.file1).toMatchObject(getMatchObject({ name: 'file1' }))
       expect(uploadsKeyed.file2).toMatchObject(getMatchObject({ name: 'file2' }))
       expect(uploadsKeyed.file3).toMatchObject(getMatchObject({ name: 'file3' }))
-      expect(uploadsKeyed.file4).toMatchObject(getMatchObject({ name: 'file4' }))
+      expect(uploadsKeyed.file4).toMatchObject({
+        name             : 'file4',
+        basename         : 'file4',
+        ext              : '',
+        size             : 133788,
+        mime             : 'image/jpeg',
+        type             : 'image',
+        field            : 'file4',
+        md5hash          : '42f29c0d9d5f3ea807ef3c327f8c5890',
+        original_basename: 'file4',
+        original_name    : 'file4',
+        original_path    : '/',
+        original_md5hash : '42f29c0d9d5f3ea807ef3c327f8c5890',
+      })
     })
 
     async function testUploadProgress (isResumable) {
