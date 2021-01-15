@@ -355,11 +355,21 @@ describe('API integration', function () {
         // Finally send the createAssembly request
         const { assembly_id: id } = await client.createAssembly(params)
 
-        // Now delete it
-        // console.log('deleting', id)
+        const awaitCompletionPromise = (async () => {
+          try {
+            const ret = await client.awaitAssemblyCompletion({ assemblyId: id })
+            return ret
+          } catch (err) {
+            console.error(err)
+            return null
+          }
+        })()
+
+        // Now delete it before uploading is done
+        // console.log('canceling', id)
         const resp = await client.cancelAssembly(id)
         expect(resp.ok).toBe('ASSEMBLY_CANCELED')
-        // console.log('deleted', id)
+        // console.log('canceled', id)
 
         // Allow the upload to finish
         sendServerResponse()
@@ -369,6 +379,10 @@ describe('API integration', function () {
         // *actual* status.
         const resp2 = await client.getAssembly(id)
         expect(resp2.ok).toBe('ASSEMBLY_CANCELED')
+
+        // Check that awaitAssemblyCompletion gave the correct response too
+        const awaitCompletionResponse = await awaitCompletionPromise
+        expect(awaitCompletionResponse.ok).toBe('ASSEMBLY_CANCELED')
       } finally {
         server.close()
       }
