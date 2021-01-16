@@ -39,7 +39,8 @@
     "nock": "^13.0.5",
     "npm-check-updates": "4.0.1",
     "p-retry": "^4.2.0",
-    "temp": "0.9.1"
+    "temp": "0.9.1",
+    "tsd": "^0.14.0"
   },
   "repository": {
     "type": "git",
@@ -59,8 +60,10 @@
     "release": "npm version ${SEMANTIC:-patch} -m \"Release %s\" && git push && git push --tags && npm publish",
     "test-unit": "jest --coverage ./test/unit",
     "test-integration": "jest ./test/integration",
-    "test": "jest --coverage --coverageReporters json lcov text clover json-summary --forceExit"
+    "tsd": "tsd",
+    "test": "npm run tsd && jest --coverage --coverageReporters json lcov text clover json-summary --forceExit"
   },
   "license": "MIT",
-  "main": "./index"
+  "main": "./index",
+  "types": "types/index.d.ts"
 }
