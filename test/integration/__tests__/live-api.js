@@ -567,14 +567,15 @@ describe('API integration', function () {
     })
 
     it('should allow creating a template', async () => {
-      const { id } = await client.createTemplate({ name: templName, template: genericParams })
-      templId = id
+      const template = await client.createTemplate({ name: templName, template: genericParams })
+      templId = template.id
     })
 
     it("should be able to fetch a template's definition", async () => {
       expect(templId).toBeDefined()
 
-      const { name, content } = await client.getTemplate(templId)
+      const template = await client.getTemplate(templId)
+      const { name, content } = template
       expect(name).toBe(templName)
       expect(content).toEqual(genericParams)
     })
@@ -597,7 +598,8 @@ describe('API integration', function () {
     it('should delete the template successfully', async () => {
       expect(templId).toBeDefined()
 
-      const { ok } = await client.deleteTemplate(templId)
+      const template = await client.deleteTemplate(templId)
+      const { ok } = template
       expect(ok).toBe('TEMPLATE_DELETED')
       await expect(client.getTemplate(templId)).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'TEMPLATE_NOT_FOUND' }))
     })
