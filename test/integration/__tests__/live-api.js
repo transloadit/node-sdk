@@ -425,7 +425,7 @@ describe('API integration', function () {
     it('should retrieve a list of assemblies', async () => {
       const client = createClient()
 
-      const result = await client.listAssemblies({})
+      const result = await client.listAssemblies()
       expect(result).toEqual(expect.objectContaining({ count: expect.any(Number), items: expect.any(Array) }))
     })
 
