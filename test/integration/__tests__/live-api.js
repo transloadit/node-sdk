@@ -185,13 +185,15 @@ describe('API integration', function () {
       const params = {
         waitForCompletion: true,
         params           : {
-          fields: { myField: 'test' },
+          fields: { myField: 'test', num: 1, obj: { foo: 'bar' } },
           steps : { resize: resizeOriginalStep },
         },
       }
 
       const result = await client.createAssembly(params)
       expect(result.fields.myField).toBe('test')
+      expect(result.fields.num).toBe(1)
+      expect(result.fields.obj).toStrictEqual({ foo: 'bar' })
     })
 
     it('should allow adding different types', async () => {
