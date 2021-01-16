@@ -99,6 +99,8 @@ For more example use cases and information about the available robots and their 
 
 These are the public methods on the `TransloaditClient` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
 
+View [TypeScript definitions](types/index.d.ts).
+
 Table of contents:
 - [Main](#main)
 - [Assemblies](#assemblies)
