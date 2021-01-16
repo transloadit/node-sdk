@@ -3,7 +3,6 @@ const FormData = require('form-data')
 const crypto = require('crypto')
 const fromPairs = require('lodash/fromPairs')
 const sumBy = require('lodash/sumBy')
-const isObject = require('lodash/isObject')
 const fs = require('fs')
 const { basename } = require('path')
 const PaginationStream = require('./PaginationStream')
@@ -153,7 +152,6 @@ class TransloaditClient {
 
     const {
       params = {},
-      fields = {},
       waitForCompletion = false,
       isResumable = true,
       timeout = 24 * 60 * 60 * 1000, // 1 day
@@ -199,11 +197,12 @@ class TransloaditClient {
         method   : 'post',
         timeout,
         params,
-        fields,
       }
 
       if (useTus) {
-        requestOpts.fields.tus_num_expected_upload_files = streams.length
+        requestOpts.fields = {
+          tus_num_expected_upload_files: streams.length,
+        }
       } else if (isResumable) {
         logWarn('Disabling resumability because the size of one or more streams cannot be determined')
       }
@@ -493,7 +492,7 @@ class TransloaditClient {
 
     if (fields != null) {
       for (const [key, val] of Object.entries(fields)) {
-        form.append(key, isObject(val) ? JSON.stringify(val) : val)
+        form.append(key, val)
       }
     }
 

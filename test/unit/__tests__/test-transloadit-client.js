@@ -104,10 +104,7 @@ describe('TransloaditClient', () => {
       const form = new FormData()
       const params = {}
       const fields = {
-        foo : 'shizzle',
-        foo2: {
-          bar: 'baz',
-        },
+        tus_num_expected_upload_files: 1,
       }
 
       mockGetExpiresDate(client)
@@ -120,8 +117,7 @@ describe('TransloaditClient', () => {
 
       expect(formAppendSpy.mock.calls).toEqual([
         ['params', '{"auth":{"key":"foo_key","expires":"2021-01-06T21:11:07.883Z"}}'],
-        ['foo', 'shizzle'],
-        ['foo2', JSON.stringify({ bar: 'baz' })],
+        ['tus_num_expected_upload_files', 1],
         ['signature', '8aa4444c9688bb5f03fcf77b24336b7a3a14f627'],
         ['stream1', stream1, { filename: 'stream1' }],
         ['stream2', stream2, { filename: 'stream2' }],

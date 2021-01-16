@@ -20,7 +20,6 @@ export class TransloaditClient {
 
   createAssembly(options: {
     params?: CreateAssemblyParams,
-    fields?: KeyValStr,
     waitForCompletion?: boolean,
     isResumable?: boolean,
     timeout?: number

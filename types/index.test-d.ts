@@ -16,7 +16,6 @@ expectType<string>(transloadit.getLastUsedAssemblyUrl())
 expectType<void>(transloadit.setDefaultTimeout(1))
 
 expectType<Promise<Assembly>>(transloadit.createAssembly({
-  fields: { a: 'b' },
   params: {
     steps: { foo: 'bar' },
     template_id: 'template',
