@@ -167,7 +167,7 @@ function onAssemblyProgress(assembly) {
   console.log(`♻️ Assembly progress polled: ${assembly.error ? assembly.error : assembly.ok} ${assembly.assembly_id} ... `)
 }
 // ...
-await transloadit.createAssembly({ params, waitForCompletion: true, onUploadProgress, onAssemblyProgress)
+await transloadit.createAssembly({ params, waitForCompletion: true, onUploadProgress, onAssemblyProgress })
 // ...
 ```
 
