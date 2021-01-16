@@ -66,7 +66,7 @@ export interface CreateAssemblyParams {
   steps?: KeyVal,
   template_id?: string,
   notify_url?: string,
-  fields?: KeyValStr,
+  fields?: KeyVal,
   allow_steps_override?: boolean,
 }
 
@@ -74,11 +74,6 @@ export interface CreateAssemblyParams {
 /** Object with properties. See https://transloadit.com/docs/api/ */
 interface KeyVal {
   [key: string]: any
-}
-
-/** Object with string value properties. See https://transloadit.com/docs/api/ */
-export interface KeyValStr {
-  [key: string]: string
 }
 
 export interface UploadProgress {
@@ -123,7 +118,7 @@ export interface Assembly {
   notify_response_code?: any,
   notify_duration?: any,
   last_job_completed?: string,
-  fields: KeyValStr,
+  fields: KeyVal,
   running_jobs: any[],
   bytes_usage: number,
   executing_jobs: any[],

@@ -21,7 +21,7 @@ expectType<Promise<Assembly>>(transloadit.createAssembly({
     steps: { foo: 'bar' },
     template_id: 'template',
     notify_url: 'url',
-    fields: { a: 'b' },
+    fields: { a: 'b', c: 1 },
     allow_steps_override: false,
   },
   isResumable: true,
