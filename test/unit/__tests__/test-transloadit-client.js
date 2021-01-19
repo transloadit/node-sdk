@@ -1,6 +1,7 @@
 const { Readable: ReadableStream } = require('stream')
 const FormData = require('form-data')
 const got = require('got')
+const { join } = require('path')
 
 const TransloaditClient = require('../../../src/TransloaditClient')
 const packageVersion = require('../../../package.json').version
@@ -199,10 +200,12 @@ describe('TransloaditClient', () => {
     })
   })
 
+  const mockRemoteJson = (client) => jest.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
+
   it('should set 1 day timeout by default for createAssembly', async () => {
     const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
-    const spy = jest.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
+    const spy = mockRemoteJson(client)
 
     await client.createAssembly()
 
@@ -213,6 +216,24 @@ describe('TransloaditClient', () => {
     const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
     const cb = () => {}
     await expect(client.createAssembly({}, cb)).rejects.toThrow(TypeError)
+  })
+
+  it('should handle concurrent createAssembly correctly', async () => {
+    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    mockRemoteJson(client)
+
+    client.add('file1', 'file1')
+    client.addFile('file2', join(__dirname, '../../integration/__tests__/fixtures/zerobytes.jpg'))
+    const promise = client.createAssembly()
+    await Promise.all([
+      (async () => {
+        expect(client._streams).toStrictEqual({})
+        expect(client._files).toStrictEqual({})
+      })(),
+      promise,
+    ])
+    // Needs to be ready for a new request (in the same tick!)
+    // See https://github.com/transloadit/node-sdk/pull/87#issuecomment-762858386
   })
 
   describe('_calcSignature', () => {

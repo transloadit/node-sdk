@@ -145,6 +145,14 @@ class TransloaditClient {
    * @returns {Promise}
    */
   async createAssembly (opts = {}, arg2) {
+    // Reset streams/files so they do not get used again in subsequent requests
+    // NOTE: This needs to be done in the same tick (preferrably on top of the function)
+    // See https://github.com/transloadit/node-sdk/pull/87#issuecomment-762858386
+    const addedStreams = this._streams
+    const addedFiles = this._files
+    this._streams = {}
+    this._files = {}
+
     // Warn users of old callback API
     if (typeof arg2 === 'function') {
       throw new TypeError('You are trying to send a function as the second argument. This is no longer valid in this version. Please see github README for usage.')
@@ -164,23 +172,19 @@ class TransloaditClient {
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
-    for (const [, path] of Object.entries(this._files)) {
+    for (const [, path] of Object.entries(addedFiles)) {
       await access(path, fs.F_OK | fs.R_OK)
     }
 
     // Fileless streams
-    const streamsMap = fromPairs(Object.entries(this._streams).map(([label, stream]) => [label, { stream }]))
+    const streamsMap = fromPairs(Object.entries(addedStreams).map(([label, stream]) => [label, { stream }]))
 
     // Create streams from files
-    for (const [label, path] of Object.entries(this._files)) {
+    for (const [label, path] of Object.entries(addedFiles)) {
       const stream = fs.createReadStream(path)
       stream.pause()
       streamsMap[label] = { stream, path }
     }
-
-    // reset streams/files so they do not get used again in subsequent requests
-    this._streams = {}
-    this._files = {}
 
     const streams = Object.values(streamsMap)
 
