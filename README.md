@@ -45,11 +45,11 @@ const transloadit       = new TransloaditClient({
   authSecret: 'YOUR_TRANSLOADIT_SECRET'
 })
 
-transloadit.addFile('file1', '/PATH/TO/FILE.jpg')
-
 try {
   const options = {
-    waitForCompletion: true,  // Wait for the assembly (job) to finish executing before returning
+    files: {
+      file1: '/PATH/TO/FILE.jpg',
+    },
     params           : {
       steps: { // You can have many steps. In this case we will just resize any inputs (:original)
         resize: {
@@ -63,6 +63,7 @@ try {
       // OR if you already created a template, you can use it instead of "steps":
       // template_id: 'YOUR_TEMPLATE_ID',
     },
+    waitForCompletion: true,  // Wait for the assembly (job) to finish executing before returning
   }
 
   const status = await transloadit.createAssembly(options)
@@ -125,40 +126,58 @@ The `options` object can contain the following keys:
 
 ### Assemblies
 
-#### TransloaditClient.addFile(name, path)
-
-Registers the local file with the client. The next call to `createAssembly` will upload all added files. The `name` may be used in the `createAssembly` `params`.`steps` to refer to the particular file.
-
-#### TransloaditClient.add(name, value)
-
-Same as `addFile` but it accepts any of the following as its `value` argument:
-- `Readable` [stream](https://nodejs.org/api/stream.html#stream_class_stream_readable)
-- `string`, `Buffer`, `TypedArray`, `ArrayBuffer`, `Iterable<Buffer | string>`, `AsyncIterable<Buffer | string>`, `Promise` (see [into-stream](https://github.com/sindresorhus/into-stream#api))
-
-`name` will be used as the uploaded file's name.
-
-Example of adding an `svg` from a string:
-```js
-transloadit.add('my-svg', '<?xml version="1.0" standalone="no"?><svg><circle cx="50" cy="50" r="40" fill="red" /></svg>')
-```
-
 #### TransloaditClient.createAssembly(options) -> Promise
 
-Creates a new Assembly on Transloadit, uploading all streams and files that were registered via `addFile()` and `add()` prior to the call to `createAssembly()`.
+Creates a new Assembly on Transloadit and optionally upload the specified `files` and `uploads`.
 
 You can provide the following keys inside the `options` object:
 
 - `params` **(required)** - An object containing keys defining the assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
   - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions) and [demos](https://transloadit.com/demos/) for inspiration.
   - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
-  - `fields` - An object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables). 
+  - `fields` - An object of form fields to add to the request, to make use of in the assembly instructions via [assembly variables](https://transloadit.com/docs#assembly-variables). 
   - `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
+- `files` - An object (key-value pairs) containing one or more file paths to upload and use in your assembly. The *key* is the *field name* and the *value* is the path to the file to be uploaded. The *field name* and the file's name may be used in the ([assembly instructions](https://transloadit.com/docs/#assembly-instructions)) (`params`.`steps`) to refer to the particular file. See example below.
+  - `'fieldName': '/path/to/file'`
+  - more files...
+- `uploads` - An object (key-value pairs) containing one or more files to upload and use in your assembly. The *key* is the *file name* and the *value* is the *content* of the file to be uploaded. *Value* can be one of many types:
+  - `'fieldName': (Readable | Buffer | TypedArray | ArrayBuffer | string | Iterable<Buffer | string> | AsyncIterable<Buffer | string> | Promise)`
+  - more uploads...
 - `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
 - `timeout` - Number of milliseconds to wait before aborting (default `86400000`: 24 hours).
 - `onUploadProgress` - An optional function that will be periodically called with the file upload progress, which is an with an object containing:
   - `uploadedBytes` - Number of bytes uploaded so far.
   - `totalBytes` - Total number of bytes to upload or `undefined` if unknown.
 - `onAssemblyProgress` - Once the assembly has started processing this will be called with the *Assembly Execution Status* (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
+
+Example code showing all options:
+```js
+await transloadit.createAssembly({
+  files: {
+    file1: '/path/to/file.jpg'
+    // ...
+  },
+  uploads: {
+    'file2.bin': Buffer.from([0, 0, 7]), // A buffer
+    'file3.txt': 'file contents', // A string
+    'file4.jpg': process.stdin // A stream
+    // ...
+  },
+  params: {
+    steps: { ... },
+    template_id: 'MY_TEMPLATE_ID',
+    fields: {
+      field1: 'Field value',
+      // ...
+    }, 
+    notify_url: 'https://example.com/notify-url',
+  },
+  waitForCompletion: true,
+  timeout: 60000,
+  onUploadProgress,
+  onAssemblyProgress,
+})
+```
 
 Example `onUploadProgress` and `onAssemblyProgress` handlers:
 ```javascript
@@ -168,9 +187,6 @@ function onUploadProgress({ uploadedBytes, totalBytes }) {
 function onAssemblyProgress(assembly) {
   console.log(`♻️ Assembly progress polled: ${assembly.error ? assembly.error : assembly.ok} ${assembly.assembly_id} ... `)
 }
-// ...
-await transloadit.createAssembly({ params, waitForCompletion: true, onUploadProgress, onAssemblyProgress })
-// ...
 ```
 
 See also:

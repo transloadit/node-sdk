@@ -85,40 +85,10 @@ class TransloaditClient {
     this._authSecret = opts.authSecret
     this._service = opts.service || 'api2.transloadit.com'
     this._protocol = opts.useSsl ? 'https://' : 'http://'
-    this._streams = {}
-    this._files = {}
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
 
     this._lastUsedAssemblyUrl = ''
-  }
-
-  /**
-   * Adds an Assembly file
-   *
-   * @param {string} name field name of the file
-   * @param {object} value One of Readable | Buffer | TypedArray | ArrayBuffer | string | Iterable<Buffer | string> | AsyncIterable<Buffer | string> | Promise
-   */
-  add (name, value) {
-    let stream
-    if (isStream.readable(value)) {
-      stream = value
-    } else {
-      stream = intoStream(value)
-    }
-
-    stream.pause()
-    this._streams[name] = stream
-  }
-
-  /**
-   * Adds an Assembly file
-   *
-   * @param {string} name field name of the file
-   * @param {string} path path to the file
-   */
-  addFile (name, path) {
-    this._files[name] = path
   }
 
   getLastUsedAssemblyUrl () {
@@ -136,14 +106,6 @@ class TransloaditClient {
    * @returns {Promise}
    */
   async createAssembly (opts = {}, arg2) {
-    // Reset streams/files so they do not get used again in subsequent requests
-    // NOTE: This needs to be done in the same tick (preferrably on top of the function)
-    // See https://github.com/transloadit/node-sdk/pull/87#issuecomment-762858386
-    const addedStreams = this._streams
-    const addedFiles = this._files
-    this._streams = {}
-    this._files = {}
-
     // Warn users of old callback API
     if (typeof arg2 === 'function') {
       throw new TypeError('You are trying to send a function as the second argument. This is no longer valid in this version. Please see github README for usage.')
@@ -156,6 +118,8 @@ class TransloaditClient {
       timeout = 24 * 60 * 60 * 1000, // 1 day
       onUploadProgress = () => {},
       onAssemblyProgress = () => {},
+      files = {},
+      uploads = {},
     } = opts
 
     // Keep track of how long the request took
@@ -163,29 +127,37 @@ class TransloaditClient {
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
-    for (const [, path] of Object.entries(addedFiles)) {
+    for (const [, path] of Object.entries(files)) {
       await access(path, fs.F_OK | fs.R_OK)
     }
 
-    // Fileless streams
-    const streamsMap = fromPairs(Object.entries(addedStreams).map(([label, stream]) => [label, { stream }]))
+    // Convert uploads to streams
+    const streamsMap = Object.fromEntries(Object.entries(uploads).map(([label, value]) => [
+      label,
+      isStream.readable(value) ? value : intoStream(value),
+    ]))
 
-    // Create streams from files
-    for (const [label, path] of Object.entries(addedFiles)) {
+    // Wrap in object structure (so we can know if it's a pathless stream or not)
+    const allStreamsMap = fromPairs(Object.entries(streamsMap).map(([label, stream]) => [label, { stream }]))
+
+    // Create streams from files too
+    for (const [label, path] of Object.entries(files)) {
       const stream = fs.createReadStream(path)
-      stream.pause()
-      streamsMap[label] = { stream, path }
+      allStreamsMap[label] = { stream, path } // File streams have path
     }
 
-    const streams = Object.values(streamsMap)
+    const allStreams = Object.values(allStreamsMap)
+
+    // Pause all streams
+    allStreams.forEach(({ stream }) => stream.pause())
 
     // If any stream emits error, we want to handle this and exit with error
     const streamErrorPromise = new Promise((resolve, reject) => {
-      streams.forEach(({ stream }) => stream.on('error', reject))
+      allStreams.forEach(({ stream }) => stream.on('error', reject))
     })
 
     const createAssemblyAndUpload = async () => {
-      const useTus = isResumable && streams.every(isFileBasedStream)
+      const useTus = isResumable && allStreams.every(isFileBasedStream)
 
       const requestOpts = {
         urlSuffix: '/assemblies',
@@ -196,15 +168,15 @@ class TransloaditClient {
 
       if (useTus) {
         requestOpts.fields = {
-          tus_num_expected_upload_files: streams.length,
+          tus_num_expected_upload_files: allStreams.length,
         }
       } else if (isResumable) {
         logWarn('Disabling resumability because the size of one or more streams cannot be determined')
       }
 
       // upload as form multipart or tus?
-      const formUploadStreamsMap = useTus ? {} : streamsMap
-      const tusStreamsMap = useTus ? streamsMap : {}
+      const formUploadStreamsMap = useTus ? {} : allStreamsMap
+      const tusStreamsMap = useTus ? allStreamsMap : {}
 
       const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onUploadProgress)
       checkResult(result)

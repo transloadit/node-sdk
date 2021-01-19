@@ -11,15 +11,15 @@ const transloadit = new TransloaditClient({
   authSecret: process.env.TRANSLOADIT_SECRET,
 })
 
-const fieldName = 'my_file'
-const filePath = process.argv[2]
-transloadit.addFile(fieldName, filePath);
+const filePath = process.argv[2];
 
 (async () => {
   try {
     const opts = {
-      waitForCompletion: true,
-      params           : {
+      files: {
+        file1: filePath,
+      },
+      params: {
         steps: {
           webp: {
             use              : ':original',
@@ -30,6 +30,7 @@ transloadit.addFile(fieldName, filePath);
           },
         },
       },
+      waitForCompletion: true,
     }
 
     const status = await transloadit.createAssembly(opts)

@@ -18,14 +18,15 @@ const transloadit = new TransloaditClient({
   authSecret: process.env.TRANSLOADIT_SECRET,
 })
 
-const filePath = process.argv[2]
-transloadit.addFile('image', filePath);
+const filePath = process.argv[2];
 
 (async () => {
   try {
     const opts = {
-      waitForCompletion: true,
-      params           : {
+      files: {
+        file1: filePath,
+      },
+      params: {
         steps: {
           facesDetected: {
             use         : ':original',
@@ -37,6 +38,7 @@ transloadit.addFile('image', filePath);
           },
         },
       },
+      waitForCompletion: true,
     }
 
     const status = await transloadit.createAssembly(opts)

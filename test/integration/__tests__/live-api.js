@@ -153,9 +153,10 @@ describe('API integration', function () {
             resize: resizeOriginalStep,
           },
         },
+        files: {
+          original: temp.path({ suffix: '.transloadit.jpg' }), // Non-existing path
+        },
       }
-
-      client.addFile('original', temp.path({ suffix: '.transloadit.jpg' })) // Non-existing path
 
       const promise = client.createAssembly(params)
       await expect(promise).rejects.toThrow()
@@ -171,12 +172,14 @@ describe('API integration', function () {
             resize: resizeOriginalStep,
           },
         },
+        files: {
+          original: await downloadTmpFile(genericImg),
+        },
+        waitForCompletion: true,
       }
 
-      const path = await downloadTmpFile(genericImg)
-      client.addFile('original', path)
-
-      await client.createAssembly(params)
+      const result = await client.createAssembly(params)
+      expect(result.uploads[0].field).toBe('original')
     })
 
     it('should allow setting fields', async () => {
@@ -199,21 +202,22 @@ describe('API integration', function () {
     it('should allow adding different types', async () => {
       const client = createClient()
 
+      const buf = Buffer.from(sampleSvg, 'utf-8')
+
       const params = {
         waitForCompletion: true,
-        params           : {
+        uploads          : {
+          file1: intoStream(sampleSvg),
+          file2: sampleSvg,
+          file3: buf,
+          file4: got.stream(genericImg),
+        },
+        params: {
           steps: {
             dummy: dummyStep,
           },
         },
       }
-
-      const buf = Buffer.from(sampleSvg, 'utf-8')
-
-      client.add('file1', intoStream(sampleSvg))
-      client.add('file2', sampleSvg)
-      client.add('file3', buf)
-      client.addStream('file4', got.stream(genericImg)) // Old method
 
       const result = await client.createAssembly(params)
       // console.log(result)
@@ -255,9 +259,6 @@ describe('API integration', function () {
     async function testUploadProgress (isResumable) {
       const client = createClient()
 
-      const path = await downloadTmpFile(genericImg)
-      client.addFile('original', path)
-
       let progressCalled = false
       function onUploadProgress ({ uploadedBytes }) {
         // console.log(uploadedBytes)
@@ -271,6 +272,9 @@ describe('API integration', function () {
           steps: {
             resize: resizeOriginalStep,
           },
+        },
+        files: {
+          original: await downloadTmpFile(genericImg),
         },
         onUploadProgress,
       }
@@ -306,9 +310,11 @@ describe('API integration', function () {
             resize: resizeOriginalStep,
           },
         },
+        files: {
+          file: join(__dirname, './fixtures/zerobytes.jpg'),
+        },
         waitForCompletion: true,
       }
-      client.addFile('file', join(__dirname, './fixtures/zerobytes.jpg'))
 
       const promise = client.createAssembly(opts)
       await promise.catch((err) => {

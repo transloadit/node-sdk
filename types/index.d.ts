@@ -15,11 +15,14 @@ export class TransloaditClient {
 
   setDefaultTimeout(timeout: number): void
 
-  addFile (name: string, path: string): void
-  add (name: string, value: Readable | intoStream.Input): void
-
   createAssembly(options: {
     params?: CreateAssemblyParams,
+    files?: {
+      [name: string]: string
+    },
+    uploads?: {
+      [name: string]: Readable | intoStream.Input
+    }
     waitForCompletion?: boolean,
     isResumable?: boolean,
     timeout?: number

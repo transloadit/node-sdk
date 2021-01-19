@@ -7,11 +7,6 @@ import { TransloaditClient, Assembly, ListedAssembly, ReplayedAssembly, Assembly
 
 const transloadit = new TransloaditClient({ authKey: '123', authSecret: '456', service: 'service', useSsl: true, maxRetries: 1 })
 
-transloadit.addFile('test', '/path/to/file')
-transloadit.add('name', 'string')
-transloadit.add('name', intoStream('string'))
-transloadit.add('name', Buffer.from('string'))
-
 expectType<string>(transloadit.getLastUsedAssemblyUrl())
 expectType<void>(transloadit.setDefaultTimeout(1))
 
@@ -22,6 +17,14 @@ expectType<Promise<Assembly>>(transloadit.createAssembly({
     notify_url: 'url',
     fields: { a: 'b', c: 1 },
     allow_steps_override: false,
+  },
+  files: {
+    file1: '/path/to/file',
+  },
+  uploads: {
+    file2: 'string',
+    file3: intoStream('string'),
+    file4: Buffer.from('string'),
   },
   isResumable: true,
   timeout: 1,
