@@ -98,6 +98,8 @@ For more example use cases and information about the available robots and their 
 
 ## API
 
+**This documentation is for the current version v3. [Looking for v2 docs?](https://github.com/transloadit/node-sdk/tree/v2)**.
+
 These are the public methods on the `TransloaditClient` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
 
 View [TypeScript definitions](types/index.d.ts).
