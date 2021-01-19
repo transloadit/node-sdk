@@ -132,7 +132,7 @@ class TransloaditClient {
     }
 
     // Convert uploads to streams
-    const streamsMap = Object.fromEntries(Object.entries(uploads).map(([label, value]) => [
+    const streamsMap = fromPairs(Object.entries(uploads).map(([label, value]) => [
       label,
       isStream.readable(value) ? value : intoStream(value),
     ]))

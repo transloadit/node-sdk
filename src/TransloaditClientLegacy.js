@@ -1,4 +1,5 @@
 const isObject = require('lodash/isObject')
+const fromPairs = require('lodash/fromPairs')
 const { callbackify } = require('util')
 
 const TransloaditClient = require('./TransloaditClient')
@@ -49,7 +50,7 @@ class TransloaditClientLegacy {
     const { fields: paramsFields = {}, ...restParams } = params
 
     // Combine fields (in new API they are combined)
-    const fields = Object.fromEntries(Object.entries({ ...paramsFields, ...optsFields }).map(([key, val]) => {
+    const fields = fromPairs(Object.entries({ ...paramsFields, ...optsFields }).map(([key, val]) => {
       if (isObject(fields[key])) {
         val = JSON.stringify(fields[key])
       }
