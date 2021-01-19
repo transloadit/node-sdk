@@ -96,7 +96,7 @@ class TransloaditClient {
   /**
    * Adds an Assembly file
    *
-   * @param {string} name fieldname of the file
+   * @param {string} name field name of the file
    * @param {object} value One of Readable | Buffer | TypedArray | ArrayBuffer | string | Iterable<Buffer | string> | AsyncIterable<Buffer | string> | Promise
    */
   add (name, value) {
@@ -106,16 +106,7 @@ class TransloaditClient {
     } else {
       stream = intoStream(value)
     }
-    this.addStream(name, stream)
-  }
 
-  /**
-   * Adds an Assembly file stream
-   *
-   * @param {string} name fieldname of the file
-   * @param {ReadableStream} stream stream to be uploaded
-   */
-  addStream (name, stream) {
     stream.pause()
     this._streams[name] = stream
   }
