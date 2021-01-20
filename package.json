@@ -35,7 +35,6 @@
     "jest": "^26.6.3",
     "localtunnel": "2.0.0",
     "nock": "^13.0.5",
-    "npm-check-updates": "10.2.5",
     "p-retry": "^4.2.0",
     "temp": "0.9.1",
     "tsd": "^0.14.0"
@@ -51,7 +50,6 @@
     "fix": "eslint . --fix",
     "lint": "eslint .",
     "next:update": "next-update --keep true --tldr",
-    "upgrade:modules": "npm-check-updates -u --semverLevel major && yarn && npm run test",
     "test-unit": "jest --coverage ./test/unit",
     "test-integration": "jest ./test/integration",
     "tsd": "tsd",
