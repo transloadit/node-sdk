@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+// https://github.com/axios/axios/issues/2654
 const localtunnel = require('localtunnel')
 const http = require('http')
 const keyBy = require('lodash/keyBy')
