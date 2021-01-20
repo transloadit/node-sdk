@@ -23,14 +23,16 @@ This is a **Node.js** SDK to make it easy to talk to the
 
 ## Install
 
-Inside your project, type
+**Note: This documentation is for the current [version v3](https://github.com/transloadit/node-sdk/releases/tag/v3.0.0-rc.1). [Looking for v2 docs?](https://github.com/transloadit/node-sdk/tree/v2)**
+
+Inside your project, type:
 
 ```bash
-yarn add transloadit
+yarn add transloadit@'>=3.0.0-rc.1'
 ```
 or
 ```bash
-npm install transloadit --save
+npm install --save transloadit@'>=3.0.0-rc.1'
 ```
 
 ## Usage
@@ -97,8 +99,6 @@ For more fully working examples take a look at [`examples/`](examples/).
 For more example use cases and information about the available robots and their parameters, check out the [Transloadit website](https://transloadit.com/).
 
 ## API
-
-**This documentation is for the current version v3. [Looking for v2 docs?](https://github.com/transloadit/node-sdk/tree/v2)**.
 
 These are the public methods on the `TransloaditClient` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
 
