@@ -3,6 +3,8 @@
 import { Readable } from 'stream'
 import * as intoStream from 'into-stream'
 
+import { RequestError, ReadError, ParseError, UploadError, HTTPError, MaxRedirectsError, TimeoutError } from 'got'
+
 export class TransloaditClient {
   constructor (options: {
     authKey: string;
@@ -74,7 +76,7 @@ export interface CreateAssemblyParams {
 
 // TODO
 /** Object with properties. See https://transloadit.com/docs/api/ */
-interface KeyVal {
+export interface KeyVal {
   [key: string]: any
 }
 
@@ -198,4 +200,17 @@ export interface TemplateResponse {
 
 export interface TemplateContent {
   steps: KeyVal,
+}
+
+export class InconsistentResponseError extends Error {
+}
+
+export {
+  RequestError,
+  ReadError,
+  ParseError,
+  UploadError,
+  HTTPError,
+  MaxRedirectsError,
+  TimeoutError,
 }
