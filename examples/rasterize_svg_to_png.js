@@ -1,6 +1,6 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/convert_to_webp.js ./fixtures/berkley.jpg
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node rasterize_svg_to_png.js ./fixtures/circle.svg
 //
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
@@ -21,12 +21,10 @@ const filePath = process.argv[2];
       },
       params: {
         steps: {
-          webp: {
-            use              : ':original',
-            robot            : '/image/resize',
-            result           : true,
-            imagemagick_stack: 'v2.0.7',
-            format           : 'webp',
+          png: {
+            use   : ':original',
+            robot : '/image/resize',
+            format: 'png',
           },
         },
       },
@@ -34,7 +32,7 @@ const filePath = process.argv[2];
     }
 
     const status = await transloadit.createAssembly(opts)
-    console.log('Your WebP file:', status.results.webp[0].url)
+    console.log('Your PNG file:', status.results.png[0].url)
   } catch (err) {
     console.error('createAssembly failed', err)
   }

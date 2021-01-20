@@ -5,9 +5,6 @@ module.exports = {
     "jest": true,
     "node": true
   },
-  "globals": {
-    "GENTLY": true
-  },
   "rules": {
     "no-multi-spaces": 0,
     "comma-dangle": [

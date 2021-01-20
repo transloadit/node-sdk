@@ -1,8 +1,6 @@
-// const gently           = require('./gently-preamble')
-const { expect } = require('chai')
-const PaginationStream = require('../src/PaginationStream')
+const PaginationStream = require('../../../src/PaginationStream')
 const { Writable } = require('stream')
-const _ = require('underscore')
+const _ = require('lodash')
 
 const toArray = callback => {
   const stream = new Writable({ objectMode: true })
@@ -19,13 +17,13 @@ describe('PaginationStream', () => {
     const count = 9
     const pages = [{ count, items: [1, 2, 3] }, { count, items: [4, 5, 6] }, { count, items: [7, 8, 9] }]
 
-    const stream = new PaginationStream((pageno, cb) => cb(null, pages[pageno - 1]))
+    const stream = new PaginationStream(async (pageno) => pages[pageno - 1])
 
     stream.pipe(
       toArray(array => {
         const expected = _.flatten(Array.from(pages).map(({ items }) => items), true)
 
-        expect(array).to.deep.equal(expected)
+        expect(array).toEqual(expected)
         done()
       }),
     )
@@ -37,13 +35,13 @@ describe('PaginationStream', () => {
     const count = 9
     const pages = [{ count, items: [1, 2, 3] }, { count, items: [4, 5, 6] }, { count, items: [7, 8, 9] }]
 
-    const stream = new PaginationStream((pageno, cb) => process.nextTick(() => cb(null, pages[pageno - 1])))
+    const stream = new PaginationStream(async (pageno) => new Promise((resolve) => process.nextTick(() => resolve(pages[pageno - 1]))))
 
     stream.pipe(
       toArray(array => {
         const expected = _.flatten(Array.from(pages).map(({ items }) => items), true)
 
-        expect(array).to.deep.equal(expected)
+        expect(array).toEqual(expected)
         done()
       }),
     )

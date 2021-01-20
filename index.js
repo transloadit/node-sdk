@@ -1,1 +1,1 @@
-module.exports = require('./lib/TransloaditClient')
+module.exports = require('./src/TransloaditClient')

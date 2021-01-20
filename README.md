@@ -1,176 +1,217 @@
-# Transloadit Node.js SDK [![Build Status](https://travis-ci.org/transloadit/node-sdk.svg?branch=master)](https://travis-ci.org/transloadit/node-sdk)
+<img src="https://assets.transloadit.com/assets/images/artwork/logos-transloadit-default.svg" width="400" />
 
-A **Node** integration for [Transloadit](https://transloadit.com)'s file
-uploading and encoding service.
+# Transloadit Node.js SDK [![](https://github.com/transloadit/node-sdk/workflows/Test/badge.svg)](https://github.com/transloadit/node-sdk/actions?query=workflow%3ATest) [![](https://transloadit.github.io/node-sdk-coverage/coverage-badge.svg)](https://transloadit.github.io/node-sdk-coverage)
+
+A **Node.js** integration for [Transloadit](https://transloadit.com)'s file uploading and encoding service.
 
 ## Intro
 
 [Transloadit](https://transloadit.com) is a service that helps you handle file
 uploads, resize, crop and watermark your images, make GIFs, transcode your
-videos, extract thumbnails, generate audio waveforms, and so much more. In
+videos, extract thumbnails, generate audio waveforms, [and so much more](https://transloadit.com/demos/). In
 short, [Transloadit](https://transloadit.com) is the Swiss Army Knife for your
 files.
 
-This is a **Node** SDK to make it easy to talk to the
+This is a **Node.js** SDK to make it easy to talk to the
 [Transloadit](https://transloadit.com) REST API.
+
+## Requirements
+
+- [Node.js](https://nodejs.org/en/) version 10 or newer
+- [A Transloadit account](https://transloadit.com/signup/) ([free signup](https://transloadit.com/pricing/))
+- [Your API credentials](https://transloadit.com/c/template-credentials) (`authKey`, `authSecret`)
 
 ## Install
 
 Inside your project, type
 
 ```bash
+yarn add transloadit
+```
+or
+```bash
 npm install transloadit --save
 ```
 
-If there are no errors, you can start using the module.
-
 ## Usage
+
+The following code will upload an image and resize it to a thumbnail:
 
 ```javascript
 const TransloaditClient = require('transloadit')
+
 const transloadit       = new TransloaditClient({
   authKey   : 'YOUR_TRANSLOADIT_KEY',
   authSecret: 'YOUR_TRANSLOADIT_SECRET'
 })
 
-const options = {
-  waitForCompletion: true,
-  params           : {
-    template_id: 'YOUR_TEMPLATE_ID',
-  },
+try {
+  const options = {
+    files: {
+      file1: '/PATH/TO/FILE.jpg',
+    },
+    params           : {
+      steps: { // You can have many steps. In this case we will just resize any inputs (:original)
+        resize: {
+          use   : ':original',
+          robot : '/image/resize',
+          result: true,
+          width : 75,
+          height: 75,
+        }
+      }
+      // OR if you already created a template, you can use it instead of "steps":
+      // template_id: 'YOUR_TEMPLATE_ID',
+    },
+    waitForCompletion: true,  // Wait for the assembly (job) to finish executing before returning
+  }
+
+  const status = await transloadit.createAssembly(options)
+
+  if (status.results.resize) {
+    console.log('✅ Success - Your resized image:', status.results.resize[0].url)
+  } else {
+    console.log("❌ The assembly didn't produce any output. Make sure you used a valid image file")
+  }
+} catch (err) {
+  console.error('❌ Unable to process assembly.', err)
+  if (err.assemblyId) {
+    console.error(`💡 More info: https://transloadit.com/assemblies/${err.assemblyId}`)
+  }
 }
-
-const doneCb = (err, status) => {
-  let assemblyId = ''
-
-  if (status) {
-    if (status.assembly_id) {
-      assemblyId = status.assembly_id
-    }
-    // Lowlevel errors (e.g. connection errors) are in err, Assembly errors are in status.error.
-    // For this example, we don't discriminate and only care about erroring out:
-    if (!err && status.error) {
-      err = `${status.error}. ${status.message}. `
-    }
-  }
-
-  if (err) {
-    console.error({ status })
-    throw new Error(`❌ Unable to process Assembly ${assemblyId}. ${err}`)
-  }
-
-  console.log({ status })
-  console.log(`✅ Success`)
-}
-
-const progressCb = (ret) => {
-  let msg = ''
-  if (ret.uploadProgress) {
-    msg += `♻️ Upload progress polled: ` + ret.uploadProgress.uploadedBytes + ` of ` + ret.uploadProgress.totalBytes + ` bytes uploaded.`
-  }
-  if (ret.assemblyProgress) {
-    msg += `♻️ Assembly progress polled: ${ ret.assemblyProgress.error ? ret.assemblyProgress.error : ret.assemblyProgress.ok } ret.assemblyProgress.assembly_id ... `
-  }
-
-  console.log(msg)
-}
-
-transloadit.addFile('file1', '/PATH/TO/FILE.jpg')
-transloadit.createAssembly(options, doneCb, progressCb)
 ```
 
-## Example
+You can find [details about your executed assemblies here](https://transloadit.com/assemblies).
 
-For fully working examples take a look at
-[`examples/`](https://github.com/transloadit/node-sdk/tree/master/examples).
+## Examples
+
+- [Upload and resize image](examples/resize_an_image.js)
+- [Upload image and convert to WebP](examples/convert_to_webp.js)
+- [Crop a face out of an image and download the result](examples/face_detect_download.js)
+- [Retry example](examples/retry.js)
+- [Calculate total costs (GB usage)](examples/fetch_costs_of_all_assemblies_in_timeframe.js)
+- [Templates CRUD](examples/template_api.js)
+
+For more fully working examples take a look at [`examples/`](examples/).
+
+For more example use cases and information about the available robots and their parameters, check out the [Transloadit website](https://transloadit.com/).
 
 ## API
 
-These are the public methods on the `TransloaditClient` object and their descriptions.
+**This documentation is for the current version v3. [Looking for v2 docs?](https://github.com/transloadit/node-sdk/tree/v2)**.
+
+These are the public methods on the `TransloaditClient` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
+
+View [TypeScript definitions](types/index.d.ts).
+
+Table of contents:
+- [Main](#main)
+- [Assemblies](#assemblies)
+- [Assembly notifications](#assembly-notifications)
+- [Templates](#templates)
+- [Errors](#errors)
 
 ### Main
 
 #### constructor([options])
 
-Returns a new instance of the client. The `options` object must at least include `authKey` and `authSecret` keys (and their values).
+Returns a new instance of the client.
 
-You can also provide `service`, which defaults to `'api2.transloadit.com'`, and `region`, which defaults to `'us-east-1'`.
-
-By default `TransloaditClient` will use SSL so it will access `service` with a https:// prefix. You can switch this off by providing options.useSsl with a value of `false`.
-
-#### calcSignature(params)
-
-Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
-
-This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
+The `options` object can contain the following keys:
+- `authKey` **(required)** - see [requirements](#requirements)
+- `authSecret` **(required)** - see [requirements](#requirements)
+- `service` (default `'api2.transloadit.com'`)
+- `region` (default `'us-east-1'`)
+- `useSsl` (default `true`) - use SSL to access `service` with a `https://` prefix. Set to `false` to use `http://`
+- `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
+- `timeout` (default `60000`: 1 minute) - the timeout (in milliseconds) for all requests (except `createAssembly`)
 
 ### Assemblies
 
-#### TransloaditClient.addFile(name, path)
+#### TransloaditClient.createAssembly(options) -> Promise
 
-Registers the local file with the client. The next call to `createAssembly` will upload that file.
+Creates a new Assembly on Transloadit and optionally upload the specified `files` and `uploads`.
 
-#### TransloaditClient.addStream(name, stream)
+You can provide the following keys inside the `options` object:
 
-Registers the provided stream with the client. The next call to `createAssembly` will upload that stream.
+- `params` **(required)** - An object containing keys defining the assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
+  - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions) and [demos](https://transloadit.com/demos/) for inspiration.
+  - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
+  - `fields` - An object of form fields to add to the request, to make use of in the assembly instructions via [assembly variables](https://transloadit.com/docs#assembly-variables). 
+  - `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
+- `files` - An object (key-value pairs) containing one or more file paths to upload and use in your assembly. The *key* is the *field name* and the *value* is the path to the file to be uploaded. The *field name* and the file's name may be used in the ([assembly instructions](https://transloadit.com/docs/#assembly-instructions)) (`params`.`steps`) to refer to the particular file. See example below.
+  - `'fieldName': '/path/to/file'`
+  - more files...
+- `uploads` - An object (key-value pairs) containing one or more files to upload and use in your assembly. The *key* is the *file name* and the *value* is the *content* of the file to be uploaded. *Value* can be one of many types:
+  - `'fieldName': (Readable | Buffer | TypedArray | ArrayBuffer | string | Iterable<Buffer | string> | AsyncIterable<Buffer | string> | Promise)`
+  - more uploads...
+- `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
+- `timeout` - Number of milliseconds to wait before aborting (default `86400000`: 24 hours).
+- `onUploadProgress` - An optional function that will be periodically called with the file upload progress, which is an with an object containing:
+  - `uploadedBytes` - Number of bytes uploaded so far.
+  - `totalBytes` - Total number of bytes to upload or `undefined` if unknown.
+- `onAssemblyProgress` - Once the assembly has started processing this will be called with the *Assembly Execution Status* (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
 
-#### TransloaditClient.createAssembly(options, doneCb[, progressCb])
+Example code showing all options:
+```js
+await transloadit.createAssembly({
+  files: {
+    file1: '/path/to/file.jpg'
+    // ...
+  },
+  uploads: {
+    'file2.bin': Buffer.from([0, 0, 7]), // A buffer
+    'file3.txt': 'file contents', // A string
+    'file4.jpg': process.stdin // A stream
+    // ...
+  },
+  params: {
+    steps: { ... },
+    template_id: 'MY_TEMPLATE_ID',
+    fields: {
+      field1: 'Field value',
+      // ...
+    }, 
+    notify_url: 'https://example.com/notify-url',
+  },
+  waitForCompletion: true,
+  timeout: 60000,
+  onUploadProgress,
+  onAssemblyProgress,
+})
+```
 
-Creates a new Assembly on Transloadit, uploading all streams and files that were registered via `.addStream()` and `.addFile()` prior to the call to `.createAssembly()`.
-
-You can provide these keys inside `options`:
-
-* `params` - an object containing your `template_id`, `notify_url`, some steps that overwrite your Transloadit template and other params to control Transloadit behavior.
-* `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the callback is called. If `waitForCompletion` is `true`, this SDK will poll for status updates and call `doneCb` when all encoding work is done. During each polling action, `progressCb(ret)` is called with the current Upload progress in `uploadProgress` and then, *once the Assembly finished uploading*, Assembly Execution Status in `assemblyProgress` inside a result object as its only argument.
-
-You can provide these keys inside `params`:
-* `fields` - An object of form fields to add to the request, to make use of in the assembly via [assembly variables](https://transloadit.com/docs#assembly-variables). 
-* `template_id` - The ID of the Template that contains your Assembly Instructions. steps and template_id are mutually exclusive, and supplying one of these is required.
-* `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
-
-**Note:** For more information about what keys are supported for params, please see our docs about [Supported keys inside the params field](https://transloadit.com/docs/api/#supported-keys-inside-the-params-field)
-
-
-Here is an example for a progressCb function:
-
+Example `onUploadProgress` and `onAssemblyProgress` handlers:
 ```javascript
-const progressCb = (ret) => {
-  let msg = ''
-  if (ret.uploadProgress) {
-    msg += `♻️ Upload progress polled: ` + ret.uploadProgress.uploadedBytes + ` of ` + ret.uploadProgress.totalBytes + ` bytes uploaded.`
-  }
-  if (ret.assemblyProgress) {
-    msg += `♻️ Assembly progress polled: ${ ret.assemblyProgress.error ? ret.assemblyProgress.error : ret.assemblyProgress.ok } ret.assemblyProgress.assembly_id ... `
-  }
-
-  console.log(msg)
+function onUploadProgress({ uploadedBytes, totalBytes }) {
+  console.log(`♻️ Upload progress polled: ${uploadedBytes} of ${totalBytes} bytes uploaded.`)
+}
+function onAssemblyProgress(assembly) {
+  console.log(`♻️ Assembly progress polled: ${assembly.error ? assembly.error : assembly.ok} ${assembly.assembly_id} ... `)
 }
 ```
 
-This function (like all functions of this client) automatically obeys all rate limiting imposed by Transloadit. There is no need to write your own wrapper scripts to handle rate limits.
+See also:
+- [API documentation](https://transloadit.com/docs/api/#assemblies-post)
+- Error codes and retry logic below
 
-#### TransloaditClient.lastUsedAssemblyUrl()
-
-Returns the internal url that was used for the last call to `Transloadit.createAssembly()`. This is meant to be used for debugging purposes.
-
-#### TransloaditClient.listAssemblies(params, cb)
+#### TransloaditClient.listAssemblies(params) -> Promise
 
 Retrieves an array of assemblies according to the given `params`.
 
-Valid params can be page, pagesize, type, fromdate and todate. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs/#retrieve-assembly-list) for details.
+Valid params can be `page`, `pagesize`, `type`, `fromdate`, `todate` and `keywords`. Please consult the [API documentation](https://transloadit.com/docs/api/#retrieve-assembly-list) for details.
 
 #### TransloaditClient.streamAssemblies(params)
 
-Creates an objectMode readable stream that automates handling of listAssembly
-pagination. It accepts the same params as listAssembly.
+Creates an `objectMode` `Readable` stream that automates handling of `listAssemblies` pagination. It accepts the same `params` as `listAssemblies`.
 
 This can be used to iterate through assemblies:
 
 ```javascript
-var assemblyStream = client.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
+const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
 
 assemblyStream.on('readable', function() {
-  var assembly = assemblyStream.read();
+  const assembly = assemblyStream.read();
   if (assembly == null) console.log('end of stream');
 
   console.log(assembly.id);
@@ -181,7 +222,7 @@ Results can also be piped. Here's an example using
 [through2](https://github.com/rvagg/through2):
 
 ```javascript
-var assemblyStream = client.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
+const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
 
 assemblyStream
   .pipe(through.obj(function(chunk, enc, callback) {
@@ -191,73 +232,165 @@ assemblyStream
   .pipe(fs.createWriteStream('assemblies.txt'));
 ```
 
-#### TransloaditClient.getAssembly(assemblyId, cb)
+#### TransloaditClient.getAssembly(assemblyId) -> Promise
 
-Retrieves the JSON status of the assembly identified by the given `assemblyId`.
+Retrieves the JSON status of the assembly identified by the given `assemblyId`. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-get).
 
-#### TransloaditClient.deleteAssembly(assemblyId, cb)
+#### TransloaditClient.cancelAssembly(assemblyId) -> Promise
 
-Removes the assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers.
+Removes the assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-delete).
 
-#### TransloaditClient.replayAssembly(options, cb)
+#### TransloaditClient.replayAssembly(assemblyId, params) -> Promise
 
-Replays the assembly identified by the given `assembly_id`. The `options` parameter must contain an `assembly_id` key containing the assembly id. Optionally you can also provide a `notify_url` key if you want to change the notification target.
+Replays the assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-replay-post) for more info about `params`.
+
+#### TransloaditClient.awaitAssemblyCompletion(assemblyId, opts) -> Promise
+
+This function will continously poll the specified assembly `assemblyId` and resolve when it is done uploading and executing (until `result.ok` is no longer `ASSEMBLY_UPLOADING`, `ASSEMBLY_EXECUTING` or `ASSEMBLY_REPLAYING`). It resolves with the same value as `getAssembly`.
+
+`opts` is an object with the keys:
+- `onAssemblyProgress` - A progress function called on each poll. See `createAssembly`
+- `timeout` - How many milliseconds until polling times out (default: no timeout)
+- `interval` - Poll interval in milliseconds (default `1000`)
+
+#### TransloaditClient.getLastUsedAssemblyUrl()
+
+Returns the internal url that was used for the last call to `createAssembly`. This is meant to be used for debugging purposes.
 
 ### Assembly notifications
 
-#### TransloaditClient.replayAssemblyNotification(options, cb)
+#### TransloaditClient.replayAssemblyNotification(assemblyId, params) -> Promise
 
-Replays the notification for the assembly identified by the given `assembly_id`.  The `options` parameter must contain an `assembly_id` key containing the assembly id. Optionally you can also provide a `notify_url` key if you want to change the notification target.
+Replays the notification for the assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assembly-notifications-assembly-id-replay-post) for more info about `params`.
 
-#### TransloaditClient.listAssemblyNotifications(params, cb)
+#### TransloaditClient.listAssemblyNotifications(params) -> Promise
 
-Retrieves an array of assembly notifications according to the given `params`.
-
-Valid params can be `page`, `pagesize`, `type` and `assembly_id`. Please consult the [Transloadit API docs](https://transloadit.com/docs/api-docs/#retrieve-assembly-notification-list) for details.
+Retrieves an array of assembly notifications. [See example](examples/list_assembly_notifications.js) and [API documentation](https://transloadit.com/docs/api/#assembly-notifications-get) for more info about `params`.
 
 #### TransloaditClient.streamAssemblyNotifications(params)
 
-Creates an objectMode readable stream like streamAssemblies that automates
-handling of listAssemblynotifications pagination.
+Creates an `objectMode` `Readable` stream that automates handling of `listAssemblynotifications` pagination. Similar to `streamAssemblies`.
+
 
 ### Templates
 
-#### TransloaditClient.createTemplate(params, cb)
+Templates are steps that can be reused. [See example template code](examples/template_api.js).
 
-Creates a template the provided params. The required `params` keys are: name (the template name) and template (the template JSON string).
+#### TransloaditClient.createTemplate(params) -> Promise
 
-#### TransloaditClient.editTemplate(templateId, params, cb)
+Creates a template the provided params. The required `params` keys are:
+- `name` - The template name
+- `template` - The template JSON object containing its `steps`
 
-Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call.
+See also [API documentation](https://transloadit.com/docs/api/#templates-post).
 
-#### TransloaditClient.getTemplate(templateId, cb)
+```js
+const template = {
+  steps: {
+    encode: {
+      use   : ':original',
+      robot : '/video/encode',
+      preset: 'ipad-high',
+    },
+    thumbnail: {
+      use  : 'encode',
+      robot: '/video/thumbnails',
+    },
+  },
+}
 
-Retrieves the name and the template JSON for the template represented by the given templateId.
+const result = await transloadit.createTemplate({ name: 'my-template-name', template })
+console.log('✅ Template created with template_id', result.id)
+```
 
-#### TransloaditClient.deleteTemplate(templateId, cb)
+#### TransloaditClient.editTemplate(templateId, params) -> Promise
 
-Deletes the template represented by the given templateId on Transloadit.
+Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-put).
 
-#### TransloaditClient.listTemplates(params, cb)
+#### TransloaditClient.getTemplate(templateId) -> Promise
 
-Retrieves a list of all your templates from Transloadit. The `params` parameter can contain properties such as `order`, `sort`, and `page`. For a list of all available params please check [this entry](https://transloadit.com/docs/api/#templates-get) in the Transloadit API docs.
+Retrieves the name and the template JSON for the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-get).
+
+#### TransloaditClient.deleteTemplate(templateId) -> Promise
+
+Deletes the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-delete).
+
+#### TransloaditClient.listTemplates(params) -> Promise
+
+Retrieves a list of all your templates. See [API documentation](https://transloadit.com/docs/api/#templates-get) for more info about `params`.
 
 #### TransloaditClient.streamTemplates(params)
 
-Creates an objectMode readable stream like streamAssemblies that automates
-handling of listTemplates pagination.
+Creates an `objectMode` `Readable` stream that automates handling of `listTemplates` pagination. Similar to `streamAssemblies`.
+
+### Other
+
+#### TransloaditClient.setDefaultTimeout(timeout)
+
+Same as `constructor` `timeout` option: Set the default timeout (in milliseconds) for all requests (except `createAssembly`)
+
+#### TransloaditClient.getBill(date) -> Promise
+
+Retrieves the billing data for a given `date` string with format `YYYY-MM`. See [API documentation](https://transloadit.com/docs/api/#bill-date-get).
+
+#### TransloaditClient.calcSignature(params)
+
+Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
+
+This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
+
+### Errors
+
+Errors from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be a `TransloaditClient.HTTPError`, which is a [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:
+
+- `HTTPError.response?.body` the JSON object returned by the server along with the error response (**note**: `HTTPError.response` will be `undefined` for non-server errors)
+- `HTTPError.transloaditErrorCode` alias for `HTTPError.response.body.error` ([View all error codes](https://transloadit.com/docs/api/#error-codes))
+- `HTTPError.assemblyId` (alias for `HTTPError.response.body.assembly_id`, if the request regards an [Assembly](https://transloadit.com/docs/api/#assemblies-assembly-id-get))
+
+To identify errors you can either check its props or use `instanceof`, e.g.:
+```js
+catch (err) {
+  if (err instanceof TransloaditClient.TimeoutError) {
+    return console.error('The request timed out', err)
+  }
+  if (err.code === 'ENOENT') {
+    return console.error('Cannot open file', err)
+  }
+  if (err.transloaditErrorCode === 'ASSEMBLY_INVALID_STEPS') {
+    return console.error('Invalid assembly steps', err)
+  }
+}
+```
+
+**Note:** Assemblies that have an error status (`assembly.error`) will only result in an error thrown from `createAssembly` and `replayAssembly`. For other assembly methods, no errors will be thrown, but any error can be found in the response's `error` property
+
+- [More information on Transloadit errors (`transloaditErrorCode`)](https://transloadit.com/docs/api/#error-codes)
+- [More information on request errors](https://github.com/sindresorhus/got#errors)
+
+### Rate limiting & auto retry
+
+All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`). It will automatically retry requests **5 times** with auto back-off (`maxRetries` option). There is no need to write your own wrapper scripts to handle rate limits.
+
+If you want to retry on other errors, please see the [retry example code](examples/retry.js).
+
+- https://transloadit.com/docs/api/#rate-limiting
+- https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+
+## Debugging
+
+This project uses [debug](https://github.com/visionmedia/debug) so you can run node with the `DEBUG=transloadit` evironment variable to enable verbose logging. Example:
+
+```bash
+DEBUG=transloadit* node examples/template_api.js
+```
 
 ## Contributing
 
 We'd be happy to accept pull requests. If you plan on working on something big, please first drop us a line!
 
-### Building
-
-The SDK is written in ES6, but the ES5 JavaScript it generates is committed back into the repository so people can use this module without a ES6 dependency. If you want to work on the source, please do so in `./src` and type: `npm run build` or `npm run test` (also builds first). Please don't edit generated JavaScript in `./lib`!
-
 ### Testing
 
-Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm run test`, or `npm run mocha` for faster iterations.
+Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm run test-unit`
 
 ### Releasing
 

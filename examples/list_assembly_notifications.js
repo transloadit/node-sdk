@@ -1,21 +1,25 @@
+// Run this file as:
+//
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node list_assembly_notifications.js
+//
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
-const TransloaditClient = require('../lib/TransloaditClient')
+const TransloaditClient = require('../src/TransloaditClient')
 
 const client = new TransloaditClient({
-  authKey   : 'YOUR_AUTH_KEY',
-  authSecret: 'YOUR_AUTH_SECRET',
+  authKey   : process.env.TRANSLOADIT_KEY,
+  authSecret: process.env.TRANSLOADIT_SECRET,
 })
 
 const params = {
   type: 'all',
-}
-client.listAssemblyNotifications(params, (err, result) => {
-  if (err) {
-    console.log({ err })
-    console.log('fail')
-  } else {
-    console.log('success')
+};
+
+(async () => {
+  try {
+    const { items } = await client.listAssemblyNotifications(params)
+    console.log(items)
+  } catch (err) {
+    console.error(err)
   }
-  console.log({ result })
-})
+})()

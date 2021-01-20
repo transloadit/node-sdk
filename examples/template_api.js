@@ -1,10 +1,14 @@
+// Run this file as:
+//
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node template_api.js
+//
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
-const TransloaditClient = require('../lib/TransloaditClient')
+const TransloaditClient = require('../src/TransloaditClient')
 
 const client = new TransloaditClient({
-  authKey   : 'YOUR_AUTH_KEY',
-  authSecret: 'YOUR_AUTH_SECRET',
+  authKey   : process.env.TRANSLOADIT_KEY,
+  authSecret: process.env.TRANSLOADIT_SECRET,
 })
 
 const template = {
@@ -19,56 +23,25 @@ const template = {
       robot: '/video/thumbnails',
     },
   },
-}
+};
 
-const templateString = JSON.stringify(template)
-const params = {
-  name    : 'node_sdk_test1',
-  template: templateString,
-}
-const newParams = {
-  name    : 'node_sdk_test2',
-  template: templateString,
-}
-const listParams = {
-  sort : 'created',
-  order: 'asc',
-}
+(async () => {
+  try {
+    const { count } = await client.listTemplates({ sort: 'created', order: 'asc' })
+    console.log('Successfully fetched', count, 'template(s)')
 
-// this just serves as an example, normally you would refactor this
-// christmas tree with control flow modules such as "async"
+    const createTemplateResult = await client.createTemplate({ name: 'node-sdk-test1', template })
+    console.log('Template created successfully:', createTemplateResult)
 
-client.listTemplates(listParams, (err, { count } = {}) => {
-  if (err) {
-    return console.log('failed fetching templates:', err)
+    const editResult = await client.editTemplate(createTemplateResult.id, { name: 'node-sdk-test2', template })
+    console.log('Successfully edited template', editResult)
+
+    const getTemplateResult = await client.getTemplate(createTemplateResult.id)
+    console.log('Successfully fetched template', getTemplateResult)
+
+    const delResult = await client.deleteTemplate(createTemplateResult.id)
+    console.log('Successfully deleted template', delResult)
+  } catch (err) {
+    console.error(err)
   }
-  console.log('Successfully fetched', count, 'template(s)')
-
-  client.createTemplate(params, (err, result) => {
-    if (err) {
-      return console.log('Failed creating template', err)
-    }
-    console.log('Template created successfully:', result)
-
-    client.editTemplate(result.template_id, newParams, (err, editResult) => {
-      if (err) {
-        return console.log('failed editing template:', err)
-      }
-      console.log('Successfully edited template', editResult)
-
-      client.getTemplate(result.template_id, (err, templateResult) => {
-        if (err) {
-          return console.log('failed fetching template:', err)
-        }
-        console.log('Successfully fetched template', templateResult)
-
-        client.deleteTemplate(result.template_id, (err, delResult) => {
-          if (err) {
-            return console.log('failed deleting template:', err)
-          }
-          console.log('Successfully deleted template', delResult)
-        })
-      })
-    })
-  })
-})
+})()

@@ -1,23 +1,70 @@
-const reqr = global.GENTLY ? GENTLY.hijack(require) : require
-const request = reqr('request')
-const crypto = reqr('crypto')
-const _ = reqr('underscore')
-const fs = reqr('fs')
-const path = reqr('path')
-const retry = reqr('retry')
-const PaginationStream = reqr('./PaginationStream')
-const Readable = reqr('stream').Readable
-const tus = reqr('tus-js-client')
-const version = reqr('../package.json').version
+const got = require('got')
+const FormData = require('form-data')
+const crypto = require('crypto')
+const fromPairs = require('lodash/fromPairs')
+const sumBy = require('lodash/sumBy')
+const fs = require('fs')
+const { basename } = require('path')
+const PaginationStream = require('./PaginationStream')
+const tus = require('tus-js-client')
+const { access, stat: fsStat } = require('fs').promises
+const log = require('debug')('transloadit')
+const logWarn = require('debug')('transloadit:warn')
+const intoStream = require('into-stream')
+const isStream = require('is-stream')
+const assert = require('assert')
 
-function unknownErrMsg (str) {
-  let buff = 'Unknown error'
-  if (str) {
-    buff += ` ${str}`
+const version = require('../package.json').version
+
+// eslint-disable-next-line handle-callback-err
+function decorateError (err, body) {
+  if (!body) return err
+  let message = err.message
+
+  // Provide a more useful message if there is one
+  if (body.message && body.error) message = `${body.error}: ${body.message}`
+  else if (body.error) message = body.error
+
+  if (body.assembly_ssl_url) message += ` - ${body.assembly_ssl_url}`
+
+  err.message = message
+  if (body.assembly_id) err.assemblyId = body.assembly_id
+  if (body.error) err.transloaditErrorCode = body.error
+
+  return err
+}
+
+class InconsistentResponseError extends Error {
+  constructor (message) {
+    super(message)
+    this.name = 'InconsistentResponseError'
   }
-  buff += '. Please report this at '
-  buff += 'https://github.com/transloadit/node-sdk/issues/new?title=Unknown%20error'
-  return buff
+}
+
+// Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
+function checkAssemblyUrls (result) {
+  if (result.assembly_url == null || result.assembly_ssl_url == null) {
+    throw new InconsistentResponseError('Server returned an incomplete assembly response (no URL)')
+  }
+}
+
+const isFileBasedStream = (stream) => !!stream.path
+
+function getHrTimeMs () {
+  return Number(process.hrtime.bigint() / 1000000n)
+}
+
+function checkResult (result) {
+  // In case server returned a successful HTTP status code, but an `error` in the JSON object
+  // This happens sometimes when createAssembly with an invalid file (IMPORT_FILE_ERROR)
+  if (typeof result === 'object' && result !== null && typeof result.error === 'string') {
+    const err = new Error('Error in response')
+    // Mimic got HTTPError structure
+    err.response = {
+      body: result,
+    }
+    throw decorateError(err, result)
+  }
 }
 
 class TransloaditClient {
@@ -38,380 +85,270 @@ class TransloaditClient {
     this._authSecret = opts.authSecret
     this._service = opts.service || 'api2.transloadit.com'
     this._protocol = opts.useSsl ? 'https://' : 'http://'
-    this._streams = {}
-    this._tus_streams = {}
+    this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
+    this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
 
     this._lastUsedAssemblyUrl = ''
-  }
-
-  /**
-   * Adds an Assembly file stream
-   *
-   * @param {string} name fieldname of the file
-   * @param {ReadableStream} stream stream to be uploaded
-   */
-  addStream (name, stream) {
-    stream.pause()
-    this._streams[name] = stream
-  }
-
-  /**
-   * Adds an Assembly file
-   *
-   * @param {string} name field name of the file
-   * @param {string} path path to the file
-   */
-  addFile (name, path) {
-    const stream = fs.createReadStream(path)
-    stream.on('error', err => {
-      // handle the error event to avoid the error being thrown
-      console.error(err)
-
-      if (this._streams[name]) {
-        delete this._streams[name]
-      }
-    })
-    this.addStream(name, stream)
   }
 
   getLastUsedAssemblyUrl () {
     return this._lastUsedAssemblyUrl
   }
 
+  setDefaultTimeout (timeout) {
+    this._defaultTimeout = timeout
+  }
+
   /**
    * Create an Assembly
    *
-   * @typedef {object} progressObject
-   * @property {object} assemblyProgress
-   * @property {{totalBytes: number, uploadedBytes: number}} uploadProgress
-   *
-   * @callback onProgress
-   * @param {progressObject} progress
-   *
    * @param {object} opts assembly options
-   * @param {function} cb callback function for when assembly is submitted/done
-   * @param {onProgress} progressCb callback function to be triggered as on each progress update of the assembly
+   * @returns {Promise}
    */
-  createAssembly (opts, cb, progressCb) {
-    const defaultOpts = {
-      params           : {},
-      fields           : {},
-      waitForCompletion: false,
-      isResumable      : true,
+  async createAssembly (opts = {}, arg2) {
+    // Warn users of old callback API
+    if (typeof arg2 === 'function') {
+      throw new TypeError('You are trying to send a function as the second argument. This is no longer valid in this version. Please see github README for usage.')
     }
-    opts = _.extend(defaultOpts, opts)
 
-    let stream
-    const callback = cb
-    let called = false
-    cb = (err, result) => {
-      if (!called) {
-        called = true
-        callback(err, result)
-      }
-    }
+    const {
+      params = {},
+      waitForCompletion = false,
+      isResumable = true,
+      timeout = 24 * 60 * 60 * 1000, // 1 day
+      onUploadProgress = () => {},
+      onAssemblyProgress = () => {},
+      files = {},
+      uploads = {},
+    } = opts
+
+    // Keep track of how long the request took
+    const startTimeMs = getHrTimeMs()
 
     this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
 
-    const streams = (() => {
-      const result = []
-      for (const label in this._streams) {
-        stream = this._streams[label]
-        result.push(stream)
-      }
-      return result
-    })()
-
-    const requestOpts = {
-      url    : this._lastUsedAssemblyUrl,
-      method : 'post',
-      timeout: 24 * 60 * 60 * 1000, // 1 day
-      params : opts.params,
-      fields : opts.fields,
+    for (const [, path] of Object.entries(files)) {
+      await access(path, fs.F_OK | fs.R_OK)
     }
 
-    if (opts.isResumable && this._canGetStreamSizes()) {
-      requestOpts.tus_num_expected_upload_files = streams.length
-      // transfer streams to tus streams so they don't get uploaded as multipart
-      for (const label of Object.keys(this._streams)) {
-        this._tus_streams[label] = this._streams[label]
-        delete this._streams[label]
-      }
-    } else if (opts.isResumable) {
-      opts.isResumable = false
-      console.warn('disabling resumability because the size of one or more streams cannot be determined')
+    // Convert uploads to streams
+    const streamsMap = fromPairs(Object.entries(uploads).map(([label, value]) => [
+      label,
+      isStream.readable(value) ? value : intoStream(value),
+    ]))
+
+    // Wrap in object structure (so we can know if it's a pathless stream or not)
+    const allStreamsMap = fromPairs(Object.entries(streamsMap).map(([label, stream]) => [label, { stream }]))
+
+    // Create streams from files too
+    for (const [label, path] of Object.entries(files)) {
+      const stream = fs.createReadStream(path)
+      allStreamsMap[label] = { stream, path } // File streams have path
     }
 
-    const sendRequest = () => {
-      this._remoteJson(requestOpts, (err, result = {}) => {
-        // reset streams so they do not get used again in subsequent requests
-        this._streams = {}
+    const allStreams = Object.values(allStreamsMap)
 
-        if (!err && result.error != null) {
-          err = new Error(result.error)
+    // Pause all streams
+    allStreams.forEach(({ stream }) => stream.pause())
+
+    // If any stream emits error, we want to handle this and exit with error
+    const streamErrorPromise = new Promise((resolve, reject) => {
+      allStreams.forEach(({ stream }) => stream.on('error', reject))
+    })
+
+    const createAssemblyAndUpload = async () => {
+      const useTus = isResumable && allStreams.every(isFileBasedStream)
+
+      const requestOpts = {
+        urlSuffix: '/assemblies',
+        method   : 'post',
+        timeout,
+        params,
+      }
+
+      if (useTus) {
+        requestOpts.fields = {
+          tus_num_expected_upload_files: allStreams.length,
         }
-
-        if (err) {
-          return cb(err)
-        }
-
-        if (!opts.isResumable || !Object.keys(this._tus_streams).length) {
-          if (!opts.waitForCompletion) {
-            return cb(null, result)
-          }
-
-          return this.awaitAssemblyCompletion(result.assembly_id, cb, progressCb)
-        }
-
-        const tusOpts = { waitForCompletion: opts.waitForCompletion, assembly: result }
-        this._sendTusRequest(tusOpts, cb, progressCb)
-      })
-    }
-
-    let ncompleted = 0
-    const streamErrCb = err => {
-      if (err != null) {
-        cb(err)
+      } else if (isResumable) {
+        logWarn('Disabling resumability because the size of one or more streams cannot be determined')
       }
 
-      if (++ncompleted === streams.length) {
-        sendRequest()
+      // upload as form multipart or tus?
+      const formUploadStreamsMap = useTus ? {} : allStreamsMap
+      const tusStreamsMap = useTus ? allStreamsMap : {}
+
+      const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onUploadProgress)
+      checkResult(result)
+
+      if (useTus && Object.keys(tusStreamsMap).length > 0) {
+        await this._sendTusRequest({
+          streamsMap: tusStreamsMap,
+          assembly  : result,
+          onProgress: onUploadProgress,
+        })
       }
+
+      if (!waitForCompletion) return result
+      const awaitResult = await this.awaitAssemblyCompletion(result.assembly_id, { timeout, onAssemblyProgress, startTimeMs })
+      checkResult(awaitResult)
+      return awaitResult
     }
 
-    for (stream of Array.from(streams)) {
-      stream.on('error', cb)
-
-      // because an http response stream could also have a "path"
-      // attribute but not referring to the local file system
-      // see https://github.com/transloadit/node-sdk/pull/50#issue-261982855
-      if (stream.path == null || !(stream instanceof Readable)) {
-        streamErrCb(null)
-        continue
-      }
-
-      fs.access(stream.path, fs.F_OK | fs.R_OK, err => {
-        if (err != null) {
-          return streamErrCb(err)
-        }
-
-        streamErrCb(null)
-      })
-    }
-
-    // make sure sendRequest gets called when there are no @_streams
-    if (streams.length === 0) {
-      sendRequest()
-    }
+    return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
   }
 
-  awaitAssemblyCompletion (assemblyId, cb, progressCb) {
-    this.getAssembly(assemblyId, (err, result) => {
-      if (!err && result.error != null) {
-        err = new Error(result.error)
+  async awaitAssemblyCompletion (assemblyId, {
+    onAssemblyProgress = () => {},
+    timeout,
+    startTimeMs = getHrTimeMs(),
+    interval = 1000,
+  } = {}) {
+    assert(assemblyId)
+
+    while (true) {
+      const result = await this.getAssembly(assemblyId)
+
+      if (!['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'].includes(result.ok)) {
+        return result // Done!
       }
 
-      if (err) {
-        return cb(err)
+      try {
+        onAssemblyProgress(result)
+      } catch (err) {
+        log('Caught onAssemblyProgress error', err)
       }
 
-      if (result.ok === 'ASSEMBLY_COMPLETED') {
-        return cb(null, result)
+      const nowMs = getHrTimeMs()
+      if (timeout != null && nowMs - startTimeMs >= timeout) {
+        const err = new Error('Polling timed out')
+        err.code = 'POLLING_TIMED_OUT'
+        throw err
       }
-
-      if (result.ok === 'ASSEMBLY_UPLOADING' || result.ok === 'ASSEMBLY_EXECUTING') {
-        setTimeout(() => {
-          this.awaitAssemblyCompletion(assemblyId, cb, progressCb)
-        }, 1 * 1000)
-
-        if (progressCb) {
-          progressCb({ assemblyProgress: result })
-        }
-
-        return
-      }
-
-      return cb(new Error(unknownErrMsg(`while processing Assembly ID ${assemblyId}`)))
-    })
+      await new Promise((resolve) => setTimeout(resolve, interval))
+    }
   }
 
   /**
-   * Delete the assembly
+   * Cancel the assembly
    *
    * @param {string} assemblyId assembly ID
-   * @param {function} cb callback function after the assembly is deleted
+   * @returns {Promise} after the assembly is deleted
    */
-  deleteAssembly (assemblyId, cb) {
-    // eslint-disable-next-line camelcase
-    this.getAssembly(assemblyId, (err, { assembly_url } = {}) => {
-      if (err != null) {
-        return cb(err)
-      }
+  async cancelAssembly (assemblyId) {
+    // You may wonder why do we need to call getAssembly first:
+    // If we use the default base URL (instead of the one returned in assembly_url_ssl), the delete call will hang in certain cases
+    // See test "should stop the assembly from reaching completion"
+    const { assembly_ssl_url: url } = await this.getAssembly(assemblyId)
+    const opts = {
+      url,
+      // urlSuffix: `/assemblies/${assemblyId}`, // Cannot simply do this, see above
+      method: 'delete',
+    }
 
-      const opts = {
-        url    : assembly_url,
-        timeout: 5000,
-        method : 'del',
-        params : {},
-      }
-
-      this._remoteJson(opts, cb)
-    })
+    return this._remoteJson(opts)
   }
 
   /**
    * Replay an Assembly
    *
-   * @typedef {object} replayOptions
-   * @property {string} assembly_id
-   * @property {string} notify_url
-   *
-   * @param {replayOptions} opts options defining the Assembly to replay
-   * @param {function} cb callback function after the replay is started
+   * @param {string} assemblyId of the assembly to replay
+   * @param {object} optional params
+   * @returns {Promise} after the replay is started
    */
-  replayAssembly (opts, cb) {
-    const { assembly_id: assemblyId, notify_url: notifyUrl } = opts
+  async replayAssembly (assemblyId, params = {}) {
     const requestOpts = {
-      url   : this._serviceUrl() + `/assemblies/${assemblyId}/replay`,
-      method: 'post',
+      urlSuffix: `/assemblies/${assemblyId}/replay`,
+      method   : 'post',
     }
-
-    if (notifyUrl != null) {
-      requestOpts.params = { notifyUrl }
-    }
-
-    this._remoteJson(requestOpts, cb)
+    if (Object.keys(params).length > 0) requestOpts.params = params
+    const result = await this._remoteJson(requestOpts)
+    checkResult(result)
+    return result
   }
 
   /**
    * Replay an Assembly notification
    *
-   * @param {replayOptions} opts options defining the Assembly to replay
-   * @param {function} cb callback function after the replay is started
+   * @param {string} assemblyId of the assembly whose notification to replay
+   * @param {object} optional params
+   * @returns {Promise} after the replay is started
    */
-  replayAssemblyNotification ({ assembly_id: assemblyId, notify_url: notifyUrl }, cb) {
+  async replayAssemblyNotification (assemblyId, params = {}) {
     const requestOpts = {
-      url   : this._serviceUrl() + `/assembly_notifications/${assemblyId}/replay`,
-      method: 'post',
+      urlSuffix: `/assembly_notifications/${assemblyId}/replay`,
+      method   : 'post',
     }
-
-    if (notifyUrl != null) {
-      requestOpts.params = { notifyUrl }
-    }
-
-    this._remoteJson(requestOpts, cb)
+    if (Object.keys(params).length > 0) requestOpts.params = params
+    return this._remoteJson(requestOpts)
   }
 
   /**
    * List all assembly notifications
    *
    * @param {object} params optional request options
-   * @param {function} cb callback function triggered with the list of Assembly notifications
+   * @returns {Promise} the list of Assembly notifications
    */
-  listAssemblyNotifications (params, cb) {
+  async listAssemblyNotifications (params) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/assembly_notifications`,
-      method: 'get',
-      params: params || {},
+      urlSuffix: '/assembly_notifications',
+      method   : 'get',
+      params   : params || {},
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
   }
 
   streamAssemblyNotifications (params) {
-    return new PaginationStream((pageno, cb) => {
-      this.listAssemblyNotifications(_.extend({}, params, { page: pageno }), cb)
-    })
+    return new PaginationStream(async (page) => this.listAssemblyNotifications({ ...params, page }))
   }
 
   /**
    * List all assemblies
    *
    * @param {object} params optional request options
-   * @param {function} cb callback function triggered with the list of Assemblies
+   * @returns {Promise} list of Assemblies
    */
-  listAssemblies (params, cb) {
+  async listAssemblies (params) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/assemblies`,
-      method: 'get',
-      params: params || {},
+      urlSuffix: '/assemblies',
+      method   : 'get',
+      params   : params || {},
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
   }
 
   streamAssemblies (params) {
-    return new PaginationStream((pageno, cb) => {
-      this.listAssemblies(_.extend({}, params, { page: pageno }), cb)
-    })
+    return new PaginationStream(async (page) => this.listAssemblies({ ...params, page }))
   }
 
   /**
    * Get an Assembly
    *
    * @param {string} assemblyId the Assembly Id
-   * @param {function} cb callback function triggered with the retrieved Assembly
+   * @returns {Promise} the retrieved Assembly
    */
-  getAssembly (assemblyId, cb) {
-    const opts = { url: this._serviceUrl() + `/assemblies/${assemblyId}` }
-
-    const retryOpts = {
-      retries   : 5,
-      factor    : 3.28,
-      minTimeout: 1 * 1000,
-      maxTimeout: 8 * 1000,
-    }
-
-    const operation = retry.operation(retryOpts)
-    operation.attempt(attempt => {
-      this._remoteJson(opts, (err, result) => {
-        if (err != null) {
-          if (operation.retry(err)) {
-            return
-          }
-
-          return cb(operation.mainError())
-        }
-
-        if (result.assembly_url == null || result.assembly_ssl_url == null) {
-          if (operation.retry(new Error('got incomplete assembly status response'))) {
-            return
-          }
-
-          return cb(operation.mainError())
-        }
-
-        cb(null, result)
-      })
-    })
+  async getAssembly (assemblyId) {
+    const result = await this._remoteJson({ urlSuffix: `/assemblies/${assemblyId}` })
+    checkAssemblyUrls(result)
+    return result
   }
 
   /**
    * Create an Assembly Template
    *
    * @param {object} params optional request options
-   * @param {function} cb callback function triggered when the template is created
+   * @returns {Promise} when the template is created
    */
-  createTemplate (params, cb) {
+  async createTemplate (params) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates`,
-      method: 'post',
-      params: params || {},
+      urlSuffix: '/templates',
+      method   : 'post',
+      params   : params || {},
     }
 
-    this._remoteJson(requestOpts, (err, result) => {
-      let left
-      if (err) {
-        return cb(err)
-      }
-
-      if (result && result.ok) {
-        return cb(null, result)
-      }
-
-      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg('while creating Template'))
-      cb(err)
-    })
+    return this._remoteJson(requestOpts)
   }
 
   /**
@@ -419,98 +356,82 @@ class TransloaditClient {
    *
    * @param {string} templateId the template ID
    * @param {object} params optional request options
-   * @param {function} cb callback function triggered when the template is edited
+   * @returns {Promise} when the template is edited
    */
-  editTemplate (templateId, params, cb) {
+  async editTemplate (templateId, params) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates/${templateId}`,
-      method: 'put',
-      params: params || {},
+      urlSuffix: `/templates/${templateId}`,
+      method   : 'put',
+      params   : params || {},
     }
 
-    this._remoteJson(requestOpts, (err, result) => {
-      let left
-      if (err) {
-        return cb(err)
-      }
-
-      if (result && result.ok) {
-        return cb(null, result)
-      }
-
-      err = new Error((left = result.error != null ? result.error : result.message) != null ? left : unknownErrMsg)
-      cb(err)
-    })
+    return this._remoteJson(requestOpts)
   }
 
   /**
    * Delete an Assembly Template
    *
    * @param {string} templateId the template ID
-   * @param {function} cb callback function triggered when the template is deleted
+   * @returns {Promise} when the template is deleted
    */
-  deleteTemplate (templateId, cb) {
+  async deleteTemplate (templateId) {
     const requestOpts = {
-      url   : this._serviceUrl() + `/templates/${templateId}`,
-      method: 'del',
-      params: {},
+      urlSuffix: `/templates/${templateId}`,
+      method   : 'delete',
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
   }
 
   /**
    * Get an Assembly Template
    *
    * @param {string} templateId the template ID
-   * @param {function} cb callback function triggered when the template is retrieved
+   * @returns {Promise} when the template is retrieved
    */
-  getTemplate (templateId, cb) {
+  async getTemplate (templateId) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates/${templateId}`,
-      method: 'get',
-      params: {},
+      urlSuffix: `/templates/${templateId}`,
+      method   : 'get',
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
   }
 
   /**
    * List all Assembly Templates
    *
    * @param {object} params optional request options
-   * @param {function} cb callback function triggered when the templates are retrieved
+   * @returns {Promise} the list of templates
    */
-  listTemplates (params, cb) {
+  async listTemplates (params) {
     const requestOpts = {
-      url   : `${this._serviceUrl()}/templates`,
-      method: 'get',
-      params: params || {},
+      urlSuffix: '/templates',
+      method   : 'get',
+      params   : params || {},
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
   }
 
   streamTemplates (params) {
-    return new PaginationStream((pageno, cb) => {
-      this.listTemplates(_.extend({}, params, { page: pageno }), cb)
-    })
+    return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
   }
 
   /**
    * Get account Billing details for a specific month
    *
    * @param {string} month the date for the required billing in the format yyyy-mm
-   * @param {function} cb callback function triggered when the billing is retrieved
+   * @returns {Promise} with billing data
    */
-  getBill (month, cb) {
+  async getBill (month) {
+    assert(month, 'month is required')
     const requestOpts = {
-      url   : this._serviceUrl() + `/bill/${month}`,
-      method: 'get',
-      params: {},
+      urlSuffix: `/bill/${month}`,
+      method   : 'get',
     }
 
-    this._remoteJson(requestOpts, cb)
+    return this._remoteJson(requestOpts)
   }
 
   calcSignature (params) {
@@ -529,49 +450,37 @@ class TransloaditClient {
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including
   // the streams, the signed params, and any additional fields.
-  _appendForm (req, params, fields) {
+  _appendForm (form, params, streamsMap, fields) {
     const sigData = this.calcSignature(params)
     const jsonParams = sigData.params
     const { signature } = sigData
-    const form = req.form()
 
     form.append('params', jsonParams)
 
-    if (fields == null) {
-      fields = {}
-    }
-
-    for (const key in fields) {
-      let val = fields[key]
-      if (_.isObject(fields[key]) || _.isArray(fields[key])) {
-        val = JSON.stringify(fields[key])
+    if (fields != null) {
+      for (const [key, val] of Object.entries(fields)) {
+        form.append(key, val)
       }
-
-      form.append(key, val)
     }
 
     form.append('signature', signature)
 
-    _.each(this._streams, (value, key) => form.append(key, value))
+    if (streamsMap) {
+      Object.entries(streamsMap).forEach(([label, { stream, path }]) => {
+        const options = path ? undefined : { filename: label } // https://github.com/transloadit/node-sdk/issues/86
+        form.append(label, stream, options)
+      })
+    }
   }
 
   // Implements HTTP GET query params, handling the case where the url already
   // has params.
   _appendParamsToUrl (url, params) {
-    const sigData = this.calcSignature(params)
-    const { signature } = sigData
-    let jsonParams = sigData.params
+    const { signature, params: jsonParams } = this.calcSignature(params)
 
-    if (url.indexOf('?') === -1) {
-      url += `?signature=${signature}`
-    } else {
-      url += `&signature=${signature}`
-    }
+    const prefix = url.indexOf('?') === -1 ? '?' : '&'
 
-    jsonParams = encodeURIComponent(jsonParams)
-    url += `&params=${jsonParams}`
-
-    return url
+    return `${url}${prefix}signature=${signature}&params=${encodeURIComponent(jsonParams)}`
   }
 
   // Responsible for including auth parameters in all requests
@@ -602,200 +511,158 @@ class TransloaditClient {
     return this._protocol + this._service
   }
 
-  // Wrapper around __remoteJson which will retry in case of error
-  _remoteJson (opts, cb) {
-    const operation = retry.operation({
-      retries   : 5,
-      factor    : 3.28,
-      minTimeout: 1 * 1000,
-      maxTimeout: 8 * 1000,
-    })
-
-    operation.attempt(() => {
-      this.__remoteJson(opts, (err, result) => {
-        if (err != null) {
-          if (err.error === 'RATE_LIMIT_REACHED') {
-            console.warn(`Rate limit reached, retrying request in ${err.info.retryIn} seconds.`)
-            // FIXME uses private internals of node-retry
-            operation._timeouts.unshift(1000 * err.info.retryIn)
-            return operation.retry(err)
-          }
-
-          if (err.code === 'ENOTFOUND') {
-            console.warn('The network connection is down, retrying request in 3 seconds.')
-            // FIXME uses private internals of node-retry
-            operation._timeouts.unshift(3 * 1000)
-            return operation.retry(err)
-          }
-
-          if (err.error === 'GET_ACCOUNT_UNKNOWN_AUTH_KEY') {
-            console.warn('Invalid auth key provided.')
-            return cb(err)
-          }
-
-          if (err.error !== undefined) {
-            const msg = []
-            if (err.error) { msg.push(err.error) }
-            if (opts.url) { msg.push(opts.url) }
-            if (err.message) { msg.push(err.message) }
-
-            console.warn(msg.join(' - '))
-            return cb(err)
-          }
-        }
-
-        if (operation.retry(err)) {
-          return
-        }
-
-        let mainError = null
-        if (err) {
-          mainError = operation.mainError()
-        }
-
-        cb(mainError, result)
-      })
-    })
-  }
-
   // Responsible for making API calls. Automatically sends streams with any POST,
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
-  __remoteJson (opts, cb) {
-    const timeout = opts.timeout || 5000
-    let url = opts.url || null
-    const method = opts.method || 'get'
+  async _remoteJson (opts, streamsMap, onProgress = () => {}) {
+    const { urlSuffix, url: urlInput, timeout = this._defaultTimeout, method = 'get', params = {}, fields, headers } = opts
 
-    if (!url) {
-      const err = new Error('No url provided!')
-      return cb(err)
+    // Allow providing either a `urlSuffix` or a full `url`
+    if (!urlSuffix && !urlInput) throw new Error('No URL provided')
+    let url = urlInput || `${this._serviceUrl()}${urlSuffix}`
+
+    if (method === 'get') {
+      url = this._appendParamsToUrl(url, params)
     }
 
-    if (method === 'get' && opts.params != null) {
-      url = this._appendParamsToUrl(url, opts.params)
-    }
+    log('Sending request', method, url)
 
-    const requestOpts = {
-      uri    : url,
-      timeout,
-      headers: {
-        'Transloadit-Client': `node-sdk:${version}`,
-      },
-    }
+    // Cannot use got.retry because we are using FormData which is a stream and can only be used once
+    // https://github.com/sindresorhus/got/issues/1282
+    for (let retryCount = 0; ; retryCount++) {
+      let form
 
-    if (opts.headers != null) {
-      _.extend(requestOpts.headers, opts.headers)
-    }
-
-    const req = request[method](requestOpts, (err, { body, statusCode } = {}) => {
-      if (err) {
-        return cb(err)
+      if (method === 'post' || method === 'put' || method === 'delete') {
+        form = new FormData()
+        this._appendForm(form, params, streamsMap, fields)
       }
 
-      // parse body
-      let result = null
+      const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
+
+      const requestOpts = {
+        retry  : 0,
+        body   : form,
+        timeout,
+        headers: {
+          'Transloadit-Client': `node-sdk:${version}`,
+          'User-Agent'        : undefined, // Remove got's user-agent
+          ...headers,
+        },
+        responseType: 'json',
+      }
+
+      // For non-file streams transfer encoding does not get set, and the uploaded files will not get accepted
+      // https://github.com/transloadit/node-sdk/issues/86
+      // https://github.com/form-data/form-data/issues/394#issuecomment-573595015
+      if (isUploadingStreams) requestOpts.headers['transfer-encoding'] = 'chunked'
+
       try {
-        result = JSON.parse(body)
-      } catch (e) {
-        const abbr = `${body}`.substr(0, 255)
-        let msg = `Unable to parse JSON from '${requestOpts.uri}'. `
-        msg += `Code: ${statusCode}. Body: ${abbr}. `
-        return cb(new Error(msg))
-      }
-      if (statusCode !== 200 && statusCode !== 404 && statusCode >= 400 && statusCode <= 599) {
-        const extendedMessage = {}
-        if (result.message && result.error) {
-          extendedMessage.message = `${result.error}: ${result.message}`
+        const request = got[method](url, requestOpts)
+        if (isUploadingStreams) {
+          request.on('uploadProgress', ({ percent, transferred, total }) => onProgress({ uploadedBytes: transferred, totalBytes: total }))
         }
-        return cb(_.extend(new Error(), result, extendedMessage))
-      }
+        const { body } = await request
+        return body
+      } catch (err) {
+        if (err instanceof got.HTTPError) {
+          const { statusCode, body } = err.response
+          logWarn('HTTP error', statusCode, body)
 
-      return cb(null, result)
-    })
+          // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+          if (statusCode === 413 && body.error === 'RATE_LIMIT_REACHED' && body.info && body.info.retryIn && retryCount < this._maxRetries) {
+            const { retryIn: retryInSec } = body.info
+            logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
+            const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
+            await new Promise((resolve) => setTimeout(resolve, retryInMs))
+            continue // Retry
+          }
 
-    if (method === 'post' || method === 'put' || method === 'del') {
-      const extraData = Object.assign({}, opts.fields)
-      if (opts.tus_num_expected_upload_files) {
-        extraData.tus_num_expected_upload_files = opts.tus_num_expected_upload_files
+          throw decorateError(err, body)
+        }
+
+        throw err
       }
-      this._appendForm(req, opts.params, extraData)
     }
   }
 
-  // @todo support size retrieval for other streams
-  _canGetStreamSizes () {
-    for (const label in this._streams) {
-      const stream = this._streams[label]
-      // the request module has path attribute that is different from file path
-      // but it also has the attribute httpModule
-      if (!(stream.path && !stream.httpModule)) {
-        return false
-      }
-    }
+  async _sendTusRequest ({ streamsMap, assembly, onProgress }) {
+    const streamLabels = Object.keys(streamsMap)
 
-    return true
-  }
-
-  _sendTusRequest (opts, cb, onProgress) {
-    let uploadsDone = 0
-    const streamLabels = Object.keys(this._tus_streams)
-    const tlClient = this
     let totalBytes = 0
     let lastEmittedProgress = 0
-    const uploadProgresses = {}
-    onProgress = onProgress || (() => {})
+
+    const sizes = {}
+
+    // Initialize data
     for (const label of streamLabels) {
-      const file = this._tus_streams[label]
-      fs.stat(file.path, (err, { size }) => {
-        if (err) {
-          return cb(err)
-        }
+      const { path } = streamsMap[label]
 
-        const uploadSize = size
-        totalBytes += uploadSize
-        uploadProgresses[label] = 0
-        const onTusProgress = (bytesUploaded) => {
-          uploadProgresses[label] = bytesUploaded
-          // get all uploaded bytes for all files
-          const uploadedBytes = streamLabels.reduce((label1, label2) => {
-            return uploadProgresses[label1] + uploadProgresses[label2]
-          })
-          // don't send redundant progress
-          if (lastEmittedProgress < uploadedBytes) {
-            lastEmittedProgress = uploadedBytes
-            onProgress({ uploadProgress: { uploadedBytes, totalBytes } })
-          }
-        }
+      if (path) {
+        const { size } = await fsStat(path)
+        sizes[label] = size
+        totalBytes += size
+      }
+    }
 
-        const filename = file.path ? path.basename(file.path) : label
-        const tusUpload = new tus.Upload(file, {
-          endpoint: opts.assembly.tus_url,
-          resume  : true,
+    const uploadProgresses = {}
+
+    async function uploadSingleStream (label) {
+      uploadProgresses[label] = 0
+
+      const { stream, path } = streamsMap[label]
+      const size = sizes[label]
+
+      const onTusProgress = (bytesUploaded) => {
+        uploadProgresses[label] = bytesUploaded
+
+        // get all uploaded bytes for all files
+        const uploadedBytes = sumBy(streamLabels, (label) => uploadProgresses[label])
+
+        // don't send redundant progress
+        if (lastEmittedProgress < uploadedBytes) {
+          lastEmittedProgress = uploadedBytes
+          onProgress({ uploadedBytes, totalBytes })
+        }
+      }
+
+      const filename = path ? basename(path) : label
+
+      await new Promise((resolve, reject) => {
+        const tusUpload = new tus.Upload(stream, {
+          endpoint: assembly.tus_url,
           metadata: {
-            assembly_url: opts.assembly.assembly_ssl_url,
+            assembly_url: assembly.assembly_ssl_url,
             fieldname   : label,
             filename,
           },
-          uploadSize,
-          onError   : cb,
+          uploadSize: size,
+          onError   : reject,
           onProgress: onTusProgress,
-          onSuccess () {
-            uploadsDone++
-            if (uploadsDone === streamLabels.length) {
-              tlClient._tus_streams = {}
-              if (opts.waitForCompletion) {
-                tlClient.awaitAssemblyCompletion(opts.assembly.assembly_id, cb, onProgress)
-              } else {
-                cb(null, opts.assembly)
-              }
-            }
-          },
+          onSuccess : resolve,
         })
 
         tusUpload.start()
       })
+
+      log(label, 'upload done')
     }
+
+    // TODO throttle concurrency? Can use p-map
+    const promises = streamLabels.map((label) => uploadSingleStream(label))
+    await Promise.all(promises)
   }
 }
+
+// See https://github.com/sindresorhus/got#errors
+// Expose relevant errors
+TransloaditClient.RequestError = got.RequestError
+TransloaditClient.ReadError = got.ReadError
+TransloaditClient.ParseError = got.ParseError
+TransloaditClient.UploadError = got.UploadError
+TransloaditClient.HTTPError = got.HTTPError
+TransloaditClient.MaxRedirectsError = got.MaxRedirectsError
+TransloaditClient.TimeoutError = got.TimeoutError
+
+TransloaditClient.InconsistentResponseError = InconsistentResponseError
 
 module.exports = TransloaditClient
