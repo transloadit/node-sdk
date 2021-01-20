@@ -28,11 +28,11 @@ This is a **Node.js** SDK to make it easy to talk to the
 Inside your project, type:
 
 ```bash
-yarn add transloadit@'>=3.0.0-rc.1'
+yarn add transloadit@^3.0.0-rc.1
 ```
 or
 ```bash
-npm install --save transloadit@'>=3.0.0-rc.1'
+npm install --save transloadit@^3.0.0-rc.1
 ```
 
 ## Usage
