@@ -113,7 +113,7 @@ Table of contents:
 
 ### Main
 
-#### constructor([options])
+#### constructor(options)
 
 Returns a new instance of the client.
 
@@ -128,7 +128,7 @@ The `options` object can contain the following keys:
 
 ### Assemblies
 
-#### TransloaditClient.createAssembly(options) -> Promise
+#### async createAssembly(options)
 
 Creates a new Assembly on Transloadit and optionally upload the specified `files` and `uploads`.
 
@@ -195,13 +195,13 @@ See also:
 - [API documentation](https://transloadit.com/docs/api/#assemblies-post)
 - Error codes and retry logic below
 
-#### TransloaditClient.listAssemblies(params) -> Promise
+#### async listAssemblies(params)
 
 Retrieves an array of assemblies according to the given `params`.
 
 Valid params can be `page`, `pagesize`, `type`, `fromdate`, `todate` and `keywords`. Please consult the [API documentation](https://transloadit.com/docs/api/#retrieve-assembly-list) for details.
 
-#### TransloaditClient.streamAssemblies(params)
+#### streamAssemblies(params)
 
 Creates an `objectMode` `Readable` stream that automates handling of `listAssemblies` pagination. It accepts the same `params` as `listAssemblies`.
 
@@ -232,19 +232,19 @@ assemblyStream
   .pipe(fs.createWriteStream('assemblies.txt'));
 ```
 
-#### TransloaditClient.getAssembly(assemblyId) -> Promise
+#### async getAssembly(assemblyId)
 
 Retrieves the JSON status of the assembly identified by the given `assemblyId`. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-get).
 
-#### TransloaditClient.cancelAssembly(assemblyId) -> Promise
+#### async cancelAssembly(assemblyId)
 
 Removes the assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-delete).
 
-#### TransloaditClient.replayAssembly(assemblyId, params) -> Promise
+#### async replayAssembly(assemblyId, params)
 
 Replays the assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-replay-post) for more info about `params`.
 
-#### TransloaditClient.awaitAssemblyCompletion(assemblyId, opts) -> Promise
+#### async awaitAssemblyCompletion(assemblyId, opts)
 
 This function will continously poll the specified assembly `assemblyId` and resolve when it is done uploading and executing (until `result.ok` is no longer `ASSEMBLY_UPLOADING`, `ASSEMBLY_EXECUTING` or `ASSEMBLY_REPLAYING`). It resolves with the same value as `getAssembly`.
 
@@ -253,21 +253,21 @@ This function will continously poll the specified assembly `assemblyId` and reso
 - `timeout` - How many milliseconds until polling times out (default: no timeout)
 - `interval` - Poll interval in milliseconds (default `1000`)
 
-#### TransloaditClient.getLastUsedAssemblyUrl()
+#### getLastUsedAssemblyUrl()
 
 Returns the internal url that was used for the last call to `createAssembly`. This is meant to be used for debugging purposes.
 
 ### Assembly notifications
 
-#### TransloaditClient.replayAssemblyNotification(assemblyId, params) -> Promise
+#### async replayAssemblyNotification(assemblyId, params)
 
 Replays the notification for the assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assembly-notifications-assembly-id-replay-post) for more info about `params`.
 
-#### TransloaditClient.listAssemblyNotifications(params) -> Promise
+#### async listAssemblyNotifications(params)
 
 Retrieves an array of assembly notifications. [See example](examples/list_assembly_notifications.js) and [API documentation](https://transloadit.com/docs/api/#assembly-notifications-get) for more info about `params`.
 
-#### TransloaditClient.streamAssemblyNotifications(params)
+#### streamAssemblyNotifications(params)
 
 Creates an `objectMode` `Readable` stream that automates handling of `listAssemblynotifications` pagination. Similar to `streamAssemblies`.
 
@@ -276,7 +276,7 @@ Creates an `objectMode` `Readable` stream that automates handling of `listAssemb
 
 Templates are steps that can be reused. [See example template code](examples/template_api.js).
 
-#### TransloaditClient.createTemplate(params) -> Promise
+#### async createTemplate(params)
 
 Creates a template the provided params. The required `params` keys are:
 - `name` - The template name
@@ -303,37 +303,37 @@ const result = await transloadit.createTemplate({ name: 'my-template-name', temp
 console.log('✅ Template created with template_id', result.id)
 ```
 
-#### TransloaditClient.editTemplate(templateId, params) -> Promise
+#### async editTemplate(templateId, params)
 
 Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-put).
 
-#### TransloaditClient.getTemplate(templateId) -> Promise
+#### async getTemplate(templateId)
 
 Retrieves the name and the template JSON for the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-get).
 
-#### TransloaditClient.deleteTemplate(templateId) -> Promise
+#### async deleteTemplate(templateId)
 
 Deletes the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-delete).
 
-#### TransloaditClient.listTemplates(params) -> Promise
+#### async listTemplates(params)
 
 Retrieves a list of all your templates. See [API documentation](https://transloadit.com/docs/api/#templates-get) for more info about `params`.
 
-#### TransloaditClient.streamTemplates(params)
+#### streamTemplates(params)
 
 Creates an `objectMode` `Readable` stream that automates handling of `listTemplates` pagination. Similar to `streamAssemblies`.
 
 ### Other
 
-#### TransloaditClient.setDefaultTimeout(timeout)
+#### setDefaultTimeout(timeout)
 
 Same as `constructor` `timeout` option: Set the default timeout (in milliseconds) for all requests (except `createAssembly`)
 
-#### TransloaditClient.getBill(date) -> Promise
+#### async getBill(date)
 
 Retrieves the billing data for a given `date` string with format `YYYY-MM`. See [API documentation](https://transloadit.com/docs/api/#bill-date-get).
 
-#### TransloaditClient.calcSignature(params)
+#### calcSignature(params)
 
 Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
 
