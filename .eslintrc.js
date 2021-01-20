@@ -1,30 +1,30 @@
 module.exports = {
-  "extends": "standard",
-  "env": {
-    "es6": true,
-    "jest": true,
-    "node": true
+  extends: 'standard',
+  env    : {
+    es6 : true,
+    jest: true,
+    node: true,
   },
-  "rules": {
-    "no-multi-spaces": 0,
-    "comma-dangle": [
-      "error",
-      "always-multiline"
+  rules: {
+    'no-multi-spaces': 0,
+    'comma-dangle'   : [
+      'error',
+      'always-multiline',
     ],
-    "key-spacing": [
-      "error",
+    'key-spacing': [
+      'error',
       {
-        "multiLine": {
-          "beforeColon": false,
-          "afterColon": true
+        multiLine: {
+          beforeColon: false,
+          afterColon : true,
         },
-        "align": {
-          "beforeColon": false,
-          "afterColon": true,
-          "on": "colon",
-          "mode": "strict"
-        }
-      }
-    ]
-  }
+        align: {
+          beforeColon: false,
+          afterColon : true,
+          on         : 'colon',
+          mode       : 'strict',
+        },
+      },
+    ],
+  },
 }
