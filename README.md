@@ -390,7 +390,7 @@ We'd be happy to accept pull requests. If you plan on working on something big, 
 
 ### Testing
 
-Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm run test-unit`
+Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm run test`
 
 ### Releasing
 

@@ -24,7 +24,7 @@ jobs:
 
       - run: yarn
       - run: npm run lint
-      - run: npm test
+      - run: npm test-all
         env:
           TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
           TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
