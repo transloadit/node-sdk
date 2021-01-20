@@ -25,11 +25,46 @@ jobs:
 
       - run: yarn
       - run: npm run lint
+      - run: npm run test-all
+        env:
+          TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
+          TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
+
+      - name: Generate the badge from the json-summary
+        run: node test/generate-coverage-badge.js coverage/coverage-summary.json
+
+      - name: Move HTML report and badge to the correct location
+        run: |
+          mv coverage/lcov-report static-build
+          mv coverage-badge.svg static-build/
+
+      # *** BEGIN PUBLISH STATIC SITE STEPS ***
+      # Use the standard checkout action to check out the destination repo to a separate directory
+      # See https://github.com/mifi/github-action-push-static
+      - uses: actions/checkout@v2
+        with:
+          ssh-key: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
+          repository: transloadit/node-sdk-coverage
+          path: static-files-destination
+
+      # Push coverage data
+      - if: matrix.node == '10'
+        run: |
+          git config --global user.name github-actions
+          git config --global user.email github-actions@github.com
+          # Remove existing files:
+          rm -rf static-files-destination/*
+          # Replace with new files:
+          cp -a static-build/* static-files-destination/
+          cd static-files-destination
+          git add .
+          # git diff-index: to avoid doing the git commit failing if there are no changes to be commit
+          git diff-index --quiet HEAD || git commit --message 'Static file updates'
+          git push
 
   slack-on-failure:
     needs: [test]
-    if: always()
-#    if: failure()
+    if: failure()
 
     runs-on: ubuntu-latest
 
