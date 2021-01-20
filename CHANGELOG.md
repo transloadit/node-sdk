@@ -2,13 +2,7 @@
 
 Here's is a combined todo/done list. You can see what todos are planned for the upcoming release.
 
-## master
-
-Released: TBA.
-
-[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.10...master).
-
-- [ ]
+See [GitHub releases](https://github.com/transloadit/node-sdk/releases) for change log from this point on
 
 ## v2.0.10
 

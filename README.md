@@ -390,16 +390,17 @@ We'd be happy to accept pull requests. If you plan on working on something big, 
 
 ### Testing
 
-Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm run test`
+Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm test`
 
 ### Releasing
 
-Releasing a new version to npmjs.org can be done via `npm run release:major` (or minor / patch, depending on the [semantic versioning](http://semver.org/) impact of your changes). This will automatically:
+1. Install [np](https://github.com/sindresorhus/np): `npm i -g np`
+2. Wait for [tests to succeed](https://github.com/transloadit/node-sdk/actions).
+3. Run `np` and follow instructions.
+4. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
 
- - Bump the version inside the `package.json`
- - Save a release commit with the updated version in Git
- - Push a tag to Github
- - Publish to npmjs.org
+### Change log
+See [Releases](https://github.com/transloadit/node-sdk/releases)
 
 ### Convenience
 
