@@ -85,7 +85,7 @@ const transloadit = new Transloadit({
 })()
 ```
 
-You can find [details about your executed assemblies here](https://transloadit.com/assemblies).
+You can find [details about your executed Assemblies here](https://transloadit.com/assemblies).
 
 ## Examples
 
@@ -210,7 +210,7 @@ The method returns an object containing these properties:
 
 Creates an `objectMode` `Readable` stream that automates handling of `listAssemblies` pagination. It accepts the same `params` as `listAssemblies`.
 
-This can be used to iterate through assemblies:
+This can be used to iterate through Assemblies:
 
 ```javascript
 const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
