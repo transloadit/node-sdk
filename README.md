@@ -53,7 +53,7 @@ try {
       file1: '/PATH/TO/FILE.jpg',
     },
     params           : {
-      steps: { // You can have many steps. In this case we will just resize any inputs (:original)
+      steps: { // You can have many Steps. In this case we will just resize any inputs (:original)
         resize: {
           use   : ':original',
           robot : '/image/resize',
@@ -136,7 +136,7 @@ You can provide the following keys inside the `options` object:
 
 - `params` **(required)** - An object containing keys defining the Assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
   - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions) and [demos](https://transloadit.com/demos/) for inspiration.
-  - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
+  - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any Steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
   - `fields` - An object of form fields to add to the request, to make use of in the Assembly instructions via [Assembly variables](https://transloadit.com/docs#assembly-variables). 
   - `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
 - `files` - An object (key-value pairs) containing one or more file paths to upload and use in your Assembly. The *key* is the *field name* and the *value* is the path to the file to be uploaded. The *field name* and the file's name may be used in the ([Assembly instructions](https://transloadit.com/docs/#assembly-instructions)) (`params`.`steps`) to refer to the particular file. See example below.
@@ -274,7 +274,7 @@ Creates an `objectMode` `Readable` stream that automates handling of `listAssemb
 
 ### Templates
 
-Templates are steps that can be reused. [See example template code](examples/template_api.js).
+Templates are Steps that can be reused. [See example template code](examples/template_api.js).
 
 #### async createTemplate(params)
 
@@ -357,7 +357,7 @@ catch (err) {
     return console.error('Cannot open file', err)
   }
   if (err.transloaditErrorCode === 'ASSEMBLY_INVALID_STEPS') {
-    return console.error('Invalid Assembly steps', err)
+    return console.error('Invalid Assembly Steps', err)
   }
 }
 ```
