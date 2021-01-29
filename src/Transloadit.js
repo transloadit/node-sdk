@@ -127,10 +127,18 @@ class TransloaditClient {
     }
 
     // Convert uploads to streams
-    const streamsMap = fromPairs(Object.entries(uploads).map(([label, value]) => [
-      label,
-      isStream.readable(value) ? value : intoStream(value),
-    ]))
+    const streamsMap = fromPairs(Object.entries(uploads).map(([label, value]) => {
+      const isReadable = isStream.readable(value)
+      if (!isReadable && isStream(value)) {
+        // https://github.com/transloadit/node-sdk/issues/92
+        throw new Error(`Upload named "${label}" is not a Readable stream`)
+      }
+
+      return [
+        label,
+        isStream.readable(value) ? value : intoStream(value),
+      ]
+    }))
 
     // Wrap in object structure (so we can know if it's a pathless stream or not)
     const allStreamsMap = fromPairs(Object.entries(streamsMap).map(([label, stream]) => [label, { stream }]))
