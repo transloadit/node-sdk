@@ -69,10 +69,6 @@ function checkResult (result) {
 
 class TransloaditClient {
   constructor (opts = {}) {
-    if (opts.useSsl == null) {
-      opts.useSsl = true
-    }
-
     if (opts.authKey == null) {
       throw new Error('Please provide an authKey')
     }
@@ -83,8 +79,7 @@ class TransloaditClient {
 
     this._authKey = opts.authKey
     this._authSecret = opts.authSecret
-    this._service = opts.service || 'api2.transloadit.com'
-    this._protocol = opts.useSsl ? 'https://' : 'http://'
+    this._endpoint = opts.endpoint || 'https://api2.transloadit.com'
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
 
@@ -125,7 +120,7 @@ class TransloaditClient {
     // Keep track of how long the request took
     const startTimeMs = getHrTimeMs()
 
-    this._lastUsedAssemblyUrl = `${this._serviceUrl()}/assemblies`
+    this._lastUsedAssemblyUrl = `${this._endpoint}/assemblies`
 
     for (const [, path] of Object.entries(files)) {
       await access(path, fs.F_OK | fs.R_OK)
@@ -507,10 +502,6 @@ class TransloaditClient {
     return expiresDate.toISOString()
   }
 
-  _serviceUrl () {
-    return this._protocol + this._service
-  }
-
   // Responsible for making API calls. Automatically sends streams with any POST,
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
@@ -519,7 +510,7 @@ class TransloaditClient {
 
     // Allow providing either a `urlSuffix` or a full `url`
     if (!urlSuffix && !urlInput) throw new Error('No URL provided')
-    let url = urlInput || `${this._serviceUrl()}${urlSuffix}`
+    let url = urlInput || `${this._endpoint}${urlSuffix}`
 
     if (method === 'get') {
       url = this._appendParamsToUrl(url, params)

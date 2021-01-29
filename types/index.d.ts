@@ -9,8 +9,7 @@ export class Transloadit {
   constructor (options: {
     authKey: string;
     authSecret: string;
-    service?: string;
-    useSsl?: boolean;
+    endpoint?: string;
     maxRetries?: number;
     timeout?: number;
   })
@@ -146,7 +145,6 @@ export interface ListedAssembly {
   notify_url?: string,
   redirect_url?: string,
   files: string,
-  region: string,
   warning_count: number,
   execution_duration: number,
   execution_start: string,

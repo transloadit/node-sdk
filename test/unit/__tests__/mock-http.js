@@ -4,7 +4,7 @@ const Transloadit = require('../../../src/Transloadit')
 
 jest.setTimeout(1000)
 
-const getLocalClient = (opts) => new Transloadit({ authKey: '', authSecret: '', useSsl: false, service: 'localhost', ...opts })
+const getLocalClient = (opts) => new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
 
 describe('Mocked API tests', () => {
   afterEach(() => {
@@ -13,7 +13,7 @@ describe('Mocked API tests', () => {
   })
 
   it('should time out createAssembly with a custom timeout', async () => {
-    const client = new Transloadit({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+    const client = new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost' })
 
     nock('http://localhost')
       .post('/assemblies')

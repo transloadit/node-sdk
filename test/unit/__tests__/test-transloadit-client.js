@@ -27,8 +27,7 @@ describe('Transloadit', () => {
       const client = new Transloadit(opts)
       expect(client._authKey).toBe('foo_key')
       expect(client._authSecret).toBe('foo_secret')
-      expect(client._service).toBe('api2.transloadit.com')
-      expect(client._protocol).toBe('https://')
+      expect(client._endpoint).toBe('https://api2.transloadit.com')
       expect(client._maxRetries).toBe(0)
       expect(client._defaultTimeout).toBe(60000)
 
@@ -48,13 +47,13 @@ describe('Transloadit', () => {
       const opts = {
         authKey   : 'foo_key',
         authSecret: 'foo_secret',
-        service   : 'foo_service',
+        endpoint  : 'http://foo',
       }
 
       const client = new Transloadit(opts)
       expect(client._authKey).toBe('foo_key')
       expect(client._authSecret).toBe('foo_secret')
-      expect(client._service).toBe('foo_service')
+      expect(client._endpoint).toBe('http://foo')
     })
   })
 
@@ -219,17 +218,6 @@ describe('Transloadit', () => {
 
       expected = '8fd625190e1955eb47a9984d3e8308e3afc9049e'
       return expect(client._calcSignature('akjdkadskjads')).toBe(expected)
-    })
-  })
-
-  describe('_serviceUrl', () => {
-    it('should return the service url', () => {
-      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
-
-      client._protocol = 'foo_protocol'
-      client._service = 'foo_service'
-
-      return expect(client._serviceUrl()).toBe(client._protocol + client._service)
     })
   })
 

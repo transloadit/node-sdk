@@ -122,9 +122,7 @@ Returns a new instance of the client.
 The `options` object can contain the following keys:
 - `authKey` **(required)** - see [requirements](#requirements)
 - `authSecret` **(required)** - see [requirements](#requirements)
-- `service` (default `'api2.transloadit.com'`)
-- `region` (default `'us-east-1'`)
-- `useSsl` (default `true`) - use SSL to access `service` with a `https://` prefix. Set to `false` to use `http://`
+- `endpoint` (default `'https://api2.transloadit.com'`)
 - `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `timeout` (default `60000`: 1 minute) - the timeout (in milliseconds) for all requests (except `createAssembly`)
 
