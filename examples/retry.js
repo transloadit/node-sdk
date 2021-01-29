@@ -1,8 +1,11 @@
+// yarn add p-retry
+//
 // Run this file as:
 //
 //   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node retry.js
 //
 
+// eslint-disable-next-line import/no-extraneous-dependencies
 const pRetry = require('p-retry')
 
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
