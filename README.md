@@ -72,7 +72,7 @@ const transloadit = new Transloadit({
     const status = await transloadit.createAssembly(options)
 
     if (status.results.resize) {
-      console.log('✅ Success - Your resized image:', status.results.resize[0].url)
+      console.log('✅ Success - Your resized image:', status.results.resize[0].ssl_url)
     } else {
       console.log("❌ The Assembly didn't produce any output. Make sure you used a valid image file")
     }
