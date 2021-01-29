@@ -2,7 +2,7 @@ const { Readable: ReadableStream } = require('stream')
 const FormData = require('form-data')
 const got = require('got')
 
-const TransloaditClient = require('../../../src/TransloaditClient')
+const Transloadit = require('../../../src/Transloadit')
 const packageVersion = require('../../../package.json').version
 
 jest.mock('got')
@@ -16,7 +16,7 @@ const mockGot = (method) => got[method].mockImplementation(() => {
 })
 const mockRemoteJson = (client) => jest.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
 
-describe('TransloaditClient', () => {
+describe('Transloadit', () => {
   describe('constructor', () => {
     it('should set some default properties', () => {
       const opts = {
@@ -24,7 +24,7 @@ describe('TransloaditClient', () => {
         authSecret: 'foo_secret',
         maxRetries: 0,
       }
-      const client = new TransloaditClient(opts)
+      const client = new Transloadit(opts)
       expect(client._authKey).toBe('foo_key')
       expect(client._authSecret).toBe('foo_secret')
       expect(client._service).toBe('api2.transloadit.com')
@@ -37,11 +37,11 @@ describe('TransloaditClient', () => {
     })
 
     it('should give error when no authSecret', () => {
-      expect(() => new TransloaditClient({ authSecret: '' })).toThrow()
+      expect(() => new Transloadit({ authSecret: '' })).toThrow()
     })
 
     it('should give error when no authKey', () => {
-      expect(() => new TransloaditClient({ authKey: '' })).toThrow()
+      expect(() => new Transloadit({ authKey: '' })).toThrow()
     })
 
     it('should allow overwriting some properties', () => {
@@ -51,7 +51,7 @@ describe('TransloaditClient', () => {
         service   : 'foo_service',
       }
 
-      const client = new TransloaditClient(opts)
+      const client = new Transloadit(opts)
       expect(client._authKey).toBe('foo_key')
       expect(client._authSecret).toBe('foo_secret')
       expect(client._service).toBe('foo_service')
@@ -60,7 +60,7 @@ describe('TransloaditClient', () => {
 
   describe('add stream', () => {
     it('should pause streams', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const name = 'foo_name'
       const pause = jest.fn(() => {})
@@ -76,7 +76,7 @@ describe('TransloaditClient', () => {
 
   describe('_appendForm', () => {
     it('should append all required fields to the request form', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const stream1 = new ReadableStream()
       const stream2 = new ReadableStream()
@@ -112,7 +112,7 @@ describe('TransloaditClient', () => {
 
   describe('_appendParamsToUrl', () => {
     it('should append params and signature to the given url', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       // URL can have question mark also inside parameter
       const url = 'https://example.com/foo_url?param=12?3'
@@ -131,7 +131,7 @@ describe('TransloaditClient', () => {
 
   describe('_prepareParams', () => {
     it('should add the auth key, secret and expires parameters', () => {
-      let client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      let client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       let r = JSON.parse(client._prepareParams())
       expect(r.auth.key).toBe('foo_key')
@@ -141,7 +141,7 @@ describe('TransloaditClient', () => {
         authKey   : 'foo',
         authSecret: 'foo_secret',
       }
-      client = new TransloaditClient(opts)
+      client = new Transloadit(opts)
 
       r = JSON.parse(client._prepareParams())
       expect(r.auth.key).toBe('foo')
@@ -149,7 +149,7 @@ describe('TransloaditClient', () => {
     })
 
     it('should not add anything if the params are already present', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const PARAMS = {
         auth: {
@@ -166,7 +166,7 @@ describe('TransloaditClient', () => {
 
   describe('calcSignature', () => {
     it('should calc _prepareParams and _calcSignature', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       client._authSecret = '13123123123'
 
@@ -185,7 +185,7 @@ describe('TransloaditClient', () => {
   })
 
   it('should set 1 day timeout by default for createAssembly', async () => {
-    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
     const spy = mockRemoteJson(client)
 
@@ -195,14 +195,14 @@ describe('TransloaditClient', () => {
   })
 
   it('should crash if attempt to use callback', async () => {
-    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
     const cb = () => {}
     await expect(client.createAssembly({}, cb)).rejects.toThrow(TypeError)
   })
 
   describe('_calcSignature', () => {
     it('should calculate the signature properly', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       client._authSecret = '13123123123'
 
@@ -224,7 +224,7 @@ describe('TransloaditClient', () => {
 
   describe('_serviceUrl', () => {
     it('should return the service url', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       client._protocol = 'foo_protocol'
       client._service = 'foo_service'
@@ -235,7 +235,7 @@ describe('TransloaditClient', () => {
 
   describe('_remoteJson', () => {
     it('should add "Transloadit-Client" header to requests', async () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const get = mockGot('get')
 

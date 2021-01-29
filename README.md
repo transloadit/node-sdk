@@ -40,9 +40,9 @@ npm install --save transloadit@^3.0.0-rc.1
 The following code will upload an image and resize it to a thumbnail:
 
 ```javascript
-const TransloaditClient = require('transloadit')
+const Transloadit = require('transloadit')
 
-const transloadit       = new TransloaditClient({
+const transloadit       = new Transloadit({
   authKey   : 'YOUR_TRANSLOADIT_KEY',
   authSecret: 'YOUR_TRANSLOADIT_SECRET'
 })
@@ -100,7 +100,7 @@ For more example use cases and information about the available robots and their 
 
 ## API
 
-These are the public methods on the `TransloaditClient` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
+These are the public methods on the `Transloadit` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
 
 View [TypeScript definitions](types/index.d.ts).
 
@@ -341,7 +341,7 @@ This function returns an object with the key `signature` (containing the calcula
 
 ### Errors
 
-Errors from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be a `TransloaditClient.HTTPError`, which is a [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:
+Errors from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be a `Transloadit.HTTPError`, which is a [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:
 
 - `HTTPError.response?.body` the JSON object returned by the server along with the error response (**note**: `HTTPError.response` will be `undefined` for non-server errors)
 - `HTTPError.transloaditErrorCode` alias for `HTTPError.response.body.error` ([View all error codes](https://transloadit.com/docs/api/#error-codes))
@@ -350,7 +350,7 @@ Errors from Node.js will be passed on and we use [GOT](https://github.com/sindre
 To identify errors you can either check its props or use `instanceof`, e.g.:
 ```js
 catch (err) {
-  if (err instanceof TransloaditClient.TimeoutError) {
+  if (err instanceof Transloadit.TimeoutError) {
     return console.error('The request timed out', err)
   }
   if (err.code === 'ENOENT') {

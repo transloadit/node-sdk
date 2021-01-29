@@ -7,7 +7,7 @@ const pMap = require('p-map')
 
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
-const TransloaditClient = require('../src/TransloaditClient')
+const Transloadit = require('../src/Transloadit')
 
 const fromdate = '2020-12-31 15:30:00'
 const todate = '2020-12-31 15:30:01';
@@ -20,7 +20,7 @@ const todate = '2020-12-31 15:30:01';
       page: 1,
     }
 
-    const transloadit = new TransloaditClient({
+    const transloadit = new Transloadit({
       authKey   : process.env.TRANSLOADIT_KEY,
       authSecret: process.env.TRANSLOADIT_SECRET,
     })

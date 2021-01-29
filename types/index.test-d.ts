@@ -3,9 +3,9 @@ import { expectType } from 'tsd'
 import * as intoStream from 'into-stream'
 import { Readable } from 'stream'
 
-import { TransloaditClient, Assembly, ListedAssembly, ReplayedAssembly, AssemblyNotification, TemplateResponse, ListedTemplate, KeyVal } from '../'
+import { Transloadit, Assembly, ListedAssembly, ReplayedAssembly, AssemblyNotification, TemplateResponse, ListedTemplate, KeyVal } from '../'
 
-const transloadit = new TransloaditClient({ authKey: '123', authSecret: '456', service: 'service', useSsl: true, maxRetries: 1 })
+const transloadit = new Transloadit({ authKey: '123', authSecret: '456', service: 'service', useSsl: true, maxRetries: 1 })
 
 expectType<string>(transloadit.getLastUsedAssemblyUrl())
 expectType<void>(transloadit.setDefaultTimeout(1))

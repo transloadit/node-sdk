@@ -16,7 +16,7 @@ const got = require('got')
 const pipeline = promisify(streamPipeline)
 const intoStream = require('into-stream')
 
-const TransloaditClient = require('../../../src/TransloaditClient')
+const Transloadit = require('../../../src/Transloadit')
 
 async function downloadTmpFile (url) {
   const { path } = await temp.open('transloadit')
@@ -31,7 +31,7 @@ function createClient (opts = {}) {
     throw new Error('Please specify environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET')
   }
 
-  return new TransloaditClient({ authKey, authSecret, ...opts })
+  return new Transloadit({ authKey, authSecret, ...opts })
 }
 
 const startServerAsync = async (handler) => new Promise((resolve, reject) => {

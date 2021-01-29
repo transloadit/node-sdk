@@ -1,10 +1,10 @@
 const nock = require('nock')
 
-const TransloaditClient = require('../../../src/TransloaditClient')
+const Transloadit = require('../../../src/Transloadit')
 
 jest.setTimeout(1000)
 
-const getLocalClient = (opts) => new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost', ...opts })
+const getLocalClient = (opts) => new Transloadit({ authKey: '', authSecret: '', useSsl: false, service: 'localhost', ...opts })
 
 describe('Mocked API tests', () => {
   afterEach(() => {
@@ -13,14 +13,14 @@ describe('Mocked API tests', () => {
   })
 
   it('should time out createAssembly with a custom timeout', async () => {
-    const client = new TransloaditClient({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
+    const client = new Transloadit({ authKey: '', authSecret: '', useSsl: false, service: 'localhost' })
 
     nock('http://localhost')
       .post('/assemblies')
       .delay(100)
       .reply(200)
 
-    await expect(client.createAssembly({ timeout: 10 })).rejects.toThrow(TransloaditClient.TimeoutError)
+    await expect(client.createAssembly({ timeout: 10 })).rejects.toThrow(Transloadit.TimeoutError)
   })
 
   it('should time out other requests with a custom timeout', async () => {
@@ -31,7 +31,7 @@ describe('Mocked API tests', () => {
       .delay(100)
       .reply(200)
 
-    await expect(client.createTemplate()).rejects.toThrow(TransloaditClient.TimeoutError)
+    await expect(client.createTemplate()).rejects.toThrow(Transloadit.TimeoutError)
   })
 
   it('should time out awaitAssemblyCompletion polling', async () => {
@@ -160,7 +160,7 @@ describe('Mocked API tests', () => {
 
     // Failure
     const promise = client.getAssembly(1)
-    await expect(promise).rejects.toThrow(TransloaditClient.InconsistentResponseError)
+    await expect(promise).rejects.toThrow(Transloadit.InconsistentResponseError)
     await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Server returned an incomplete assembly response (no URL)' }))
     scope.done()
   })
@@ -232,7 +232,7 @@ describe('Mocked API tests', () => {
       .query(() => true)
       .reply(404, { error: 'SERVER_404', message: 'unknown method / url' })
 
-    await expect(client.getAssembly('invalid')).rejects.toThrow(TransloaditClient.HTTPError)
+    await expect(client.getAssembly('invalid')).rejects.toThrow(Transloadit.HTTPError)
     scope.done()
   })
 })

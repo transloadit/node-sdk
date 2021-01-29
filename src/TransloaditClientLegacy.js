@@ -2,12 +2,12 @@ const isObject = require('lodash/isObject')
 const fromPairs = require('lodash/fromPairs')
 const { callbackify } = require('util')
 
-const TransloaditClient = require('./TransloaditClient')
+const Transloadit = require('./Transloadit')
 
 /** Legacy compatibility layer (DO NOT USE!) */
 class TransloaditClientLegacy {
   constructor (opts) {
-    this._client = new TransloaditClient(opts)
+    this._client = new Transloadit(opts)
 
     this._streams = {}
     this._files = {}

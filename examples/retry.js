@@ -7,9 +7,9 @@ const pRetry = require('p-retry')
 
 // You'll likely just want to `require('transloadit')`, but we're requiring the local
 // variant here for easier testing:
-const TransloaditClient = require('../src/TransloaditClient')
+const Transloadit = require('../src/Transloadit')
 
-const client = new TransloaditClient({
+const client = new Transloadit({
   authKey   : process.env.TRANSLOADIT_KEY,
   authSecret: process.env.TRANSLOADIT_SECRET,
 })
