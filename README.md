@@ -65,7 +65,7 @@ try {
       // OR if you already created a template, you can use it instead of "steps":
       // template_id: 'YOUR_TEMPLATE_ID',
     },
-    waitForCompletion: true,  // Wait for the assembly (job) to finish executing before returning
+    waitForCompletion: true,  // Wait for the Assembly (job) to finish executing before returning
   }
 
   const status = await transloadit.createAssembly(options)
@@ -73,10 +73,10 @@ try {
   if (status.results.resize) {
     console.log('✅ Success - Your resized image:', status.results.resize[0].url)
   } else {
-    console.log("❌ The assembly didn't produce any output. Make sure you used a valid image file")
+    console.log("❌ The Assembly didn't produce any output. Make sure you used a valid image file")
   }
 } catch (err) {
-  console.error('❌ Unable to process assembly.', err)
+  console.error('❌ Unable to process Assembly.', err)
   if (err.assemblyId) {
     console.error(`💡 More info: https://transloadit.com/assemblies/${err.assemblyId}`)
   }
@@ -134,15 +134,15 @@ Creates a new Assembly on Transloadit and optionally upload the specified `files
 
 You can provide the following keys inside the `options` object:
 
-- `params` **(required)** - An object containing keys defining the assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
+- `params` **(required)** - An object containing keys defining the Assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
   - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions) and [demos](https://transloadit.com/demos/) for inspiration.
   - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
-  - `fields` - An object of form fields to add to the request, to make use of in the assembly instructions via [assembly variables](https://transloadit.com/docs#assembly-variables). 
+  - `fields` - An object of form fields to add to the request, to make use of in the Assembly instructions via [Assembly variables](https://transloadit.com/docs#assembly-variables). 
   - `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
-- `files` - An object (key-value pairs) containing one or more file paths to upload and use in your assembly. The *key* is the *field name* and the *value* is the path to the file to be uploaded. The *field name* and the file's name may be used in the ([assembly instructions](https://transloadit.com/docs/#assembly-instructions)) (`params`.`steps`) to refer to the particular file. See example below.
+- `files` - An object (key-value pairs) containing one or more file paths to upload and use in your Assembly. The *key* is the *field name* and the *value* is the path to the file to be uploaded. The *field name* and the file's name may be used in the ([Assembly instructions](https://transloadit.com/docs/#assembly-instructions)) (`params`.`steps`) to refer to the particular file. See example below.
   - `'fieldName': '/path/to/file'`
   - more files...
-- `uploads` - An object (key-value pairs) containing one or more files to upload and use in your assembly. The *key* is the *file name* and the *value* is the *content* of the file to be uploaded. *Value* can be one of many types:
+- `uploads` - An object (key-value pairs) containing one or more files to upload and use in your Assembly. The *key* is the *file name* and the *value* is the *content* of the file to be uploaded. *Value* can be one of many types:
   - `'fieldName': (Readable | Buffer | TypedArray | ArrayBuffer | string | Iterable<Buffer | string> | AsyncIterable<Buffer | string> | Promise)`
   - more uploads...
 - `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
@@ -150,7 +150,7 @@ You can provide the following keys inside the `options` object:
 - `onUploadProgress` - An optional function that will be periodically called with the file upload progress, which is an with an object containing:
   - `uploadedBytes` - Number of bytes uploaded so far.
   - `totalBytes` - Total number of bytes to upload or `undefined` if unknown.
-- `onAssemblyProgress` - Once the assembly has started processing this will be called with the *Assembly Execution Status* (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
+- `onAssemblyProgress` - Once the Assembly has started processing this will be called with the *Assembly Execution Status* (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
 
 Example code showing all options:
 ```js
@@ -234,19 +234,19 @@ assemblyStream
 
 #### async getAssembly(assemblyId)
 
-Retrieves the JSON status of the assembly identified by the given `assemblyId`. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-get).
+Retrieves the JSON status of the Assembly identified by the given `assemblyId`. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-get).
 
 #### async cancelAssembly(assemblyId)
 
-Removes the assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the assembly from the Transloadit servers. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-delete).
+Removes the Assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the Assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the Assembly from the Transloadit servers. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-delete).
 
 #### async replayAssembly(assemblyId, params)
 
-Replays the assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-replay-post) for more info about `params`.
+Replays the Assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-replay-post) for more info about `params`.
 
 #### async awaitAssemblyCompletion(assemblyId, opts)
 
-This function will continously poll the specified assembly `assemblyId` and resolve when it is done uploading and executing (until `result.ok` is no longer `ASSEMBLY_UPLOADING`, `ASSEMBLY_EXECUTING` or `ASSEMBLY_REPLAYING`). It resolves with the same value as `getAssembly`.
+This function will continously poll the specified Assembly `assemblyId` and resolve when it is done uploading and executing (until `result.ok` is no longer `ASSEMBLY_UPLOADING`, `ASSEMBLY_EXECUTING` or `ASSEMBLY_REPLAYING`). It resolves with the same value as `getAssembly`.
 
 `opts` is an object with the keys:
 - `onAssemblyProgress` - A progress function called on each poll. See `createAssembly`
@@ -261,11 +261,11 @@ Returns the internal url that was used for the last call to `createAssembly`. Th
 
 #### async replayAssemblyNotification(assemblyId, params)
 
-Replays the notification for the assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assembly-notifications-assembly-id-replay-post) for more info about `params`.
+Replays the notification for the Assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assembly-notifications-assembly-id-replay-post) for more info about `params`.
 
 #### async listAssemblyNotifications(params)
 
-Retrieves an array of assembly notifications. [See example](examples/list_assembly_notifications.js) and [API documentation](https://transloadit.com/docs/api/#assembly-notifications-get) for more info about `params`.
+Retrieves an array of Assembly notifications. [See example](examples/list_assembly_notifications.js) and [API documentation](https://transloadit.com/docs/api/#assembly-notifications-get) for more info about `params`.
 
 #### streamAssemblyNotifications(params)
 
@@ -357,12 +357,12 @@ catch (err) {
     return console.error('Cannot open file', err)
   }
   if (err.transloaditErrorCode === 'ASSEMBLY_INVALID_STEPS') {
-    return console.error('Invalid assembly steps', err)
+    return console.error('Invalid Assembly steps', err)
   }
 }
 ```
 
-**Note:** Assemblies that have an error status (`assembly.error`) will only result in an error thrown from `createAssembly` and `replayAssembly`. For other assembly methods, no errors will be thrown, but any error can be found in the response's `error` property
+**Note:** Assemblies that have an error status (`assembly.error`) will only result in an error thrown from `createAssembly` and `replayAssembly`. For other Assembly methods, no errors will be thrown, but any error can be found in the response's `error` property
 
 - [More information on Transloadit errors (`transloaditErrorCode`)](https://transloadit.com/docs/api/#error-codes)
 - [More information on request errors](https://github.com/sindresorhus/got#errors)
