@@ -6,7 +6,7 @@
 // variant here for easier testing:
 const Transloadit = require('../src/Transloadit')
 
-const client = new Transloadit({
+const transloadit = new Transloadit({
   authKey   : process.env.TRANSLOADIT_KEY,
   authSecret: process.env.TRANSLOADIT_SECRET,
 })
@@ -17,7 +17,7 @@ const params = {
 
 (async () => {
   try {
-    const { items } = await client.listAssemblyNotifications(params)
+    const { items } = await transloadit.listAssemblyNotifications(params)
     console.log(items)
   } catch (err) {
     console.error(err)

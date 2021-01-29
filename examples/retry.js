@@ -9,7 +9,7 @@ const pRetry = require('p-retry')
 // variant here for easier testing:
 const Transloadit = require('../src/Transloadit')
 
-const client = new Transloadit({
+const transloadit = new Transloadit({
   authKey   : process.env.TRANSLOADIT_KEY,
   authSecret: process.env.TRANSLOADIT_SECRET,
 })
@@ -17,7 +17,7 @@ const client = new Transloadit({
 async function run () {
   console.log('Trying...')
   try {
-    const { items } = await client.listTemplates({ sort: 'created', order: 'asc' })
+    const { items } = await transloadit.listTemplates({ sort: 'created', order: 'asc' })
     return items
   } catch (err) {
     if (err.transloaditErrorCode === 'INVALID_SIGNATURE') {

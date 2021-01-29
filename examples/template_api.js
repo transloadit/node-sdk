@@ -6,7 +6,7 @@
 // variant here for easier testing:
 const Transloadit = require('../src/Transloadit')
 
-const client = new Transloadit({
+const transloadit = new Transloadit({
   authKey   : process.env.TRANSLOADIT_KEY,
   authSecret: process.env.TRANSLOADIT_SECRET,
 })
@@ -27,19 +27,19 @@ const template = {
 
 (async () => {
   try {
-    const { count } = await client.listTemplates({ sort: 'created', order: 'asc' })
+    const { count } = await transloadit.listTemplates({ sort: 'created', order: 'asc' })
     console.log('Successfully fetched', count, 'template(s)')
 
-    const createTemplateResult = await client.createTemplate({ name: 'node-sdk-test1', template })
+    const createTemplateResult = await transloadit.createTemplate({ name: 'node-sdk-test1', template })
     console.log('Template created successfully:', createTemplateResult)
 
-    const editResult = await client.editTemplate(createTemplateResult.id, { name: 'node-sdk-test2', template })
+    const editResult = await transloadit.editTemplate(createTemplateResult.id, { name: 'node-sdk-test2', template })
     console.log('Successfully edited template', editResult)
 
-    const getTemplateResult = await client.getTemplate(createTemplateResult.id)
+    const getTemplateResult = await transloadit.getTemplate(createTemplateResult.id)
     console.log('Successfully fetched template', getTemplateResult)
 
-    const delResult = await client.deleteTemplate(createTemplateResult.id)
+    const delResult = await transloadit.deleteTemplate(createTemplateResult.id)
     console.log('Successfully deleted template', delResult)
   } catch (err) {
     console.error(err)
