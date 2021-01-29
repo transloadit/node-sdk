@@ -59,7 +59,7 @@ expectType<Promise<TemplateResponse>>(transloadit.createTemplate({ param1: { a: 
 expectType<Promise<TemplateResponse>>(transloadit.editTemplate('1', { param1: { a: 1 }}))
 expectType<Promise<{ ok: string, message: string }>>(transloadit.deleteTemplate('1'))
 expectType<Promise<TemplateResponse>>(transloadit.getTemplate('1'))
-expectType<Promise<ListedTemplate>>(transloadit.listTemplates({ param1: { a: 1 }}))
+expectType<Promise<{ count: number, items: ListedTemplate[] }>>(transloadit.listTemplates({ param1: { a: 1 }}))
 expectType<Readable>(transloadit.streamTemplates({ param1: { a: 1 }}))
 
 expectType<Promise<KeyVal>>(transloadit.getBill('2020-01'))

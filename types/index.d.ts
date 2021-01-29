@@ -52,7 +52,7 @@ export class Transloadit {
   createTemplate(params: KeyVal): Promise<TemplateResponse>
   editTemplate(templateId: string, params: KeyVal): Promise<TemplateResponse>
   deleteTemplate(templateId: string): Promise<{ ok: string, message: string }>
-  listTemplates(params: KeyVal): Promise<ListedTemplate>
+  listTemplates(params: KeyVal): Promise<{ count: number, items: ListedTemplate[] }>
   getTemplate(templateId: string): Promise<TemplateResponse>
   streamTemplates(params?: KeyVal): Readable
 

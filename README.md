@@ -197,9 +197,14 @@ See also:
 
 #### async listAssemblies(params)
 
-Retrieves an array of assemblies according to the given `params`.
+Retrieve Assemblies according to the given `params`.
 
 Valid params can be `page`, `pagesize`, `type`, `fromdate`, `todate` and `keywords`. Please consult the [API documentation](https://transloadit.com/docs/api/#retrieve-assembly-list) for details.
+
+The method returns an object containing these properties:
+
+- `items`: An `Array` of up to `pagesize` Assemblies
+- `count`: Total number of Assemblies
 
 #### streamAssemblies(params)
 
@@ -265,12 +270,16 @@ Replays the notification for the Assembly identified by the given `assemblyId` (
 
 #### async listAssemblyNotifications(params)
 
-Retrieves an array of Assembly notifications. [See example](examples/list_assembly_notifications.js) and [API documentation](https://transloadit.com/docs/api/#assembly-notifications-get) for more info about `params`.
+Retrieve Assembly notifications according to `params`. [See example](examples/list_assembly_notifications.js) and [API documentation](https://transloadit.com/docs/api/#assembly-notifications-get) for more info about `params`.
+
+The method returns an object containing these properties:
+
+- `items`: An `Array` of up to `pagesize` Assembly notifications
+- `count`: Total number of Assembly notifications
 
 #### streamAssemblyNotifications(params)
 
 Creates an `objectMode` `Readable` stream that automates handling of `listAssemblynotifications` pagination. Similar to `streamAssemblies`.
-
 
 ### Templates
 
@@ -317,7 +326,12 @@ Deletes the template represented by the given `templateId`. See [API documentati
 
 #### async listTemplates(params)
 
-Retrieves a list of all your templates. See [API documentation](https://transloadit.com/docs/api/#templates-get) for more info about `params`.
+Retrieve all your templates. See [API documentation](https://transloadit.com/docs/api/#templates-get) for more info about `params`.
+
+The method returns an object containing these properties:
+
+- `items`: An `Array` of up to `pagesize` templates
+- `count`: Total number of templates
 
 #### streamTemplates(params)
 
