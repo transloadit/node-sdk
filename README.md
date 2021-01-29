@@ -42,45 +42,47 @@ The following code will upload an image and resize it to a thumbnail:
 ```javascript
 const Transloadit = require('transloadit')
 
-const transloadit       = new Transloadit({
+const transloadit = new Transloadit({
   authKey   : 'YOUR_TRANSLOADIT_KEY',
-  authSecret: 'YOUR_TRANSLOADIT_SECRET'
-})
+  authSecret: 'YOUR_TRANSLOADIT_SECRET',
+});
 
-try {
-  const options = {
-    files: {
-      file1: '/PATH/TO/FILE.jpg',
-    },
-    params           : {
-      steps: { // You can have many Steps. In this case we will just resize any inputs (:original)
-        resize: {
-          use   : ':original',
-          robot : '/image/resize',
-          result: true,
-          width : 75,
-          height: 75,
-        }
-      }
-      // OR if you already created a template, you can use it instead of "steps":
-      // template_id: 'YOUR_TEMPLATE_ID',
-    },
-    waitForCompletion: true,  // Wait for the Assembly (job) to finish executing before returning
-  }
+(async () => {
+  try {
+    const options = {
+      files: {
+        file1: '/PATH/TO/FILE.jpg',
+      },
+      params: {
+        steps: { // You can have many Steps. In this case we will just resize any inputs (:original)
+          resize: {
+            use   : ':original',
+            robot : '/image/resize',
+            result: true,
+            width : 75,
+            height: 75,
+          },
+        },
+        // OR if you already created a template, you can use it instead of "steps":
+        // template_id: 'YOUR_TEMPLATE_ID',
+      },
+      waitForCompletion: true,  // Wait for the Assembly (job) to finish executing before returning
+    }
 
-  const status = await transloadit.createAssembly(options)
+    const status = await transloadit.createAssembly(options)
 
-  if (status.results.resize) {
-    console.log('✅ Success - Your resized image:', status.results.resize[0].url)
-  } else {
-    console.log("❌ The Assembly didn't produce any output. Make sure you used a valid image file")
+    if (status.results.resize) {
+      console.log('✅ Success - Your resized image:', status.results.resize[0].url)
+    } else {
+      console.log("❌ The Assembly didn't produce any output. Make sure you used a valid image file")
+    }
+  } catch (err) {
+    console.error('❌ Unable to process Assembly.', err)
+    if (err.assemblyId) {
+      console.error(`💡 More info: https://transloadit.com/assemblies/${err.assemblyId}`)
+    }
   }
-} catch (err) {
-  console.error('❌ Unable to process Assembly.', err)
-  if (err.assemblyId) {
-    console.error(`💡 More info: https://transloadit.com/assemblies/${err.assemblyId}`)
-  }
-}
+})()
 ```
 
 You can find [details about your executed assemblies here](https://transloadit.com/assemblies).
