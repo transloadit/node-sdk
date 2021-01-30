@@ -16,6 +16,7 @@ const got = require('got')
 const pipeline = promisify(streamPipeline)
 const intoStream = require('into-stream')
 const request = require('request')
+const uuid = require('uuid')
 
 const Transloadit = require('../../../src/Transloadit')
 
@@ -259,6 +260,24 @@ describe('API integration', function () {
         original_path    : '/',
         original_md5hash : '42f29c0d9d5f3ea807ef3c327f8c5890',
       })
+    })
+
+    it('should allow setting an explicit assemblyId on createAssembly', async () => {
+      const client = createClient()
+
+      const assemblyId = uuid.v4().replace(/-/g, '')
+      const params = {
+        assemblyId,
+        waitForCompletion: true,
+        params           : {
+          steps: {
+            dummy: dummyStep,
+          },
+        },
+      }
+
+      const result = await client.createAssembly(params)
+      expect(result.assembly_id).toEqual(assemblyId)
     })
 
     it('should throw a proper error for request stream', async () => {

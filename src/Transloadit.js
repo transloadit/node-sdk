@@ -115,12 +115,17 @@ class TransloaditClient {
       onAssemblyProgress = () => {},
       files = {},
       uploads = {},
+      assemblyId,
     } = opts
 
     // Keep track of how long the request took
     const startTimeMs = getHrTimeMs()
 
-    this._lastUsedAssemblyUrl = `${this._endpoint}/assemblies`
+    // Undocumented feature to allow specifying the assembly id from the client
+    // (not recommended for general use due to security)
+    const urlSuffix = assemblyId != null ? `/assemblies/${assemblyId}` : '/assemblies'
+
+    this._lastUsedAssemblyUrl = `${this._endpoint}${urlSuffix}`
 
     for (const [, path] of Object.entries(files)) {
       await access(path, fs.F_OK | fs.R_OK)
@@ -163,8 +168,8 @@ class TransloaditClient {
       const useTus = isResumable && allStreams.every(isFileBasedStream)
 
       const requestOpts = {
-        urlSuffix: '/assemblies',
-        method   : 'post',
+        urlSuffix,
+        method: 'post',
         timeout,
         params,
       }
