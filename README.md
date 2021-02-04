@@ -249,6 +249,16 @@ Removes the Assembly identified by the given `assemblyId` from the memory of the
 
 Replays the Assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-replay-post) for more info about `params`.
 
+The response from the `replayAssembly` is minimal and does not contain much information about the replayed assembly. Please call `getAssembly` or `awaitAssemblyCompletion` after replay to get more information:
+
+```js
+const replayAssemblyResponse = await transloadit.replayAssembly(failedAssemblyId)
+
+const assembly = await transloadit.getAssembly(replayAssemblyResponse.assembly_id)
+// Or
+const completedAssembly = await transloadit.awaitAssemblyCompletion(replayAssemblyResponse.assembly_id)
+```
+
 #### async awaitAssemblyCompletion(assemblyId, opts)
 
 This function will continously poll the specified Assembly `assemblyId` and resolve when it is done uploading and executing (until `result.ok` is no longer `ASSEMBLY_UPLOADING`, `ASSEMBLY_EXECUTING` or `ASSEMBLY_REPLAYING`). It resolves with the same value as `getAssembly`.

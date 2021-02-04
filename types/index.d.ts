@@ -159,8 +159,7 @@ export interface ReplayedAssembly {
   success: boolean,
   assembly_id: string,
   assembly_url: string,
-  // TODO
-  // assembly_ssl_url: string,
+  assembly_ssl_url: string,
   notify_url?: string,
 }
 

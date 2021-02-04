@@ -454,8 +454,7 @@ describe('API integration', function () {
       expect(replayedAssembly.ok).toBe('ASSEMBLY_REPLAYING')
       expect(replayedAssembly.assembly_id).not.toEqual(createdAssembly.assembly_id)
       expect(replayedAssembly.assembly_url).toBeDefined()
-      // TODO bug?
-      // expect(replayedAssembly.assembly_ssl_url).toBeDefined()
+      expect(replayedAssembly.assembly_ssl_url).toBeDefined()
 
       const result2 = await client.awaitAssemblyCompletion(replayedAssembly.assembly_id)
       expect(result2.ok).toBe('ASSEMBLY_COMPLETED')
