@@ -77,6 +77,10 @@ class TransloaditClient {
       throw new Error('Please provide an authSecret')
     }
 
+    if (opts.endpoint && opts.endpoint.endsWith('/')) {
+      throw new Error('Trailing slash in endpoint is not allowed')
+    }
+
     this._authKey = opts.authKey
     this._authSecret = opts.authSecret
     this._endpoint = opts.endpoint || 'https://api2.transloadit.com'

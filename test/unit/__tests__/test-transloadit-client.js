@@ -35,6 +35,15 @@ describe('Transloadit', () => {
       expect(client._defaultTimeout).toBe(10000)
     })
 
+    it('should throw when sending a trailing slash in endpoint', () => {
+      const opts = {
+        authKey   : 'foo_key',
+        authSecret: 'foo_secret',
+        endpoint  : 'https://api2.transloadit.com/',
+      }
+      expect(() => new Transloadit(opts)).toThrow('Trailing slash in endpoint is not allowed')
+    })
+
     it('should give error when no authSecret', () => {
       expect(() => new Transloadit({ authSecret: '' })).toThrow()
     })
