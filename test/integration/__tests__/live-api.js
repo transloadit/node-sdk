@@ -231,7 +231,7 @@ describe('API integration', function () {
       const getMatchObject = ({ name }) => ({
         name             : name,
         basename         : name,
-        ext              : '',
+        ext              : 'svg',
         size             : 117,
         mime             : 'image/svg+xml',
         type             : 'image',
@@ -249,7 +249,7 @@ describe('API integration', function () {
       expect(uploadsKeyed.file4).toMatchObject({
         name             : 'file4',
         basename         : 'file4',
-        ext              : '',
+        ext              : 'jpg',
         size             : 133788,
         mime             : 'image/jpeg',
         type             : 'image',
