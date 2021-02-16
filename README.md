@@ -102,9 +102,7 @@ For more example use cases and information about the available robots and their 
 
 ## API
 
-These are the public methods on the `Transloadit` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
-
-View [TypeScript definitions](types/index.d.ts).
+These are the public methods on the `Transloadit` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/). See also [TypeScript definitions](types/index.d.ts).
 
 Table of contents:
 - [Main](#main)
@@ -149,8 +147,8 @@ You can provide the following keys inside the `options` object:
 - `timeout` - Number of milliseconds to wait before aborting (default `86400000`: 24 hours).
 - `onUploadProgress` - An optional function that will be periodically called with the file upload progress, which is an with an object containing:
   - `uploadedBytes` - Number of bytes uploaded so far.
-  - `totalBytes` - Total number of bytes to upload or `undefined` if unknown.
-- `onAssemblyProgress` - Once the Assembly has started processing this will be called with the *Assembly Execution Status* (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
+  - `totalBytes` - Total number of bytes to upload or `undefined` if unknown (Streams).
+- `onAssemblyProgress` - Once the Assembly has started processing this will be periodically called with the *Assembly Execution Status* (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
 
 Example code showing all options:
 ```js
@@ -184,6 +182,7 @@ await transloadit.createAssembly({
 Example `onUploadProgress` and `onAssemblyProgress` handlers:
 ```javascript
 function onUploadProgress({ uploadedBytes, totalBytes }) {
+  // NOTE: totalBytes may be undefined
   console.log(`♻️ Upload progress polled: ${uploadedBytes} of ${totalBytes} bytes uploaded.`)
 }
 function onAssemblyProgress(assembly) {
@@ -408,6 +407,10 @@ This project uses [debug](https://github.com/visionmedia/debug) so you can run n
 DEBUG=transloadit* node examples/template_api.js
 ```
 
+## Maintainers
+
+- [Mikael Finstad](https://github.com/mifi)
+
 ## Contributing
 
 We'd be happy to accept pull requests. If you plan on working on something big, please first drop us a line!
@@ -430,22 +433,8 @@ See [Releases](https://github.com/transloadit/node-sdk/releases)
 
 If you come from a unix background and fancy faster auto-complete, you'll be delighted to know that all npm scripts are also accessible under `make`, via fakefile.
 
-## Authors
-
-* [Tim Koschützki](https://twitter.com/tim_kos)
-
-Contributions from:
-
-* [Kevin van Zonneveld](https://twitter.com/kvz)
-* [Adrian Sinclair](https://github.com/adrusi)
-* [Geoff Wilson](mailto:gmwils@gmail.com)
-* [Jim Gibbs](https://www.linkedin.com/pub/james-gibbs/0/8/4ab)
-
-
-Thanks to:
-
-* [Ian Hansen](https://github.com/supershabam) for donating the `transloadit` npm name. You can still access his code under `v0.0.0`.
-
 ## License
 
-[MIT Licensed](LICENSE).
+[MIT](LICENSE)
+
+Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `transloadit` npm name. You can still access his code under `v0.0.0`.
