@@ -5,6 +5,8 @@ const got = require('got')
 const Transloadit = require('../../../src/Transloadit')
 const packageVersion = require('../../../package.json').version
 
+/* eslint-disable no-underscore-dangle */
+
 jest.mock('got')
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
@@ -67,7 +69,7 @@ describe('Transloadit', () => {
   })
 
   describe('add stream', () => {
-    it('should pause streams', () => {
+    it('should pause streams', async () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const name = 'foo_name'
@@ -76,7 +78,7 @@ describe('Transloadit', () => {
 
       mockRemoteJson(client)
 
-      client.createAssembly({ uploads: { [name]: mockStream } })
+      await client.createAssembly({ uploads: { [name]: mockStream } })
 
       expect(pause).toHaveBeenCalled()
     })
@@ -239,7 +241,7 @@ describe('Transloadit', () => {
       const url = '/some-url'
       await client._remoteJson({ url, method: 'get' })
 
-      expect(get).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: { 'Transloadit-Client': 'node-sdk:' + packageVersion } }))
+      expect(get).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: { 'Transloadit-Client': `node-sdk:${packageVersion}` } }))
     })
   })
 })

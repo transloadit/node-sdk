@@ -30,10 +30,12 @@ const todate = '2020-12-31 15:30:01';
     let lastCount
     do {
       console.log('Processing page', params.page)
+      // eslint-disable-next-line no-await-in-loop
       const { count, items } = await transloadit.listAssemblies(params)
       lastCount = count
       params.page++
 
+      // eslint-disable-next-line no-await-in-loop,no-loop-func
       await pMap(items, async (assembly) => {
         const assemblyFull = await transloadit.getAssembly(assembly.id)
         // console.log(assemblyFull.assembly_id)

@@ -13,10 +13,11 @@ const { join } = require('path')
 const { promisify } = require('util')
 const { pipeline: streamPipeline } = require('stream')
 const got = require('got')
-const pipeline = promisify(streamPipeline)
 const intoStream = require('into-stream')
 const request = require('request')
 const uuid = require('uuid')
+
+const pipeline = promisify(streamPipeline)
 
 const Transloadit = require('../../../src/Transloadit')
 
@@ -41,16 +42,15 @@ const startServerAsync = async (handler) => new Promise((resolve, reject) => {
 
   // Find a port to use
   let port = 8000
-  server.on('error', err => {
+  server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       if (++port >= 65535) {
         server.close()
-        reject(new Error('Failed to bind to port'))
+        return reject(new Error('Failed to bind to port'))
       }
       return server.listen(port, '127.0.0.1')
-    } else {
-      return reject(err)
     }
+    return reject(err)
   })
 
   server.listen(port, '127.0.0.1')
@@ -62,6 +62,7 @@ const startServerAsync = async (handler) => new Promise((resolve, reject) => {
       const tunnel = await localtunnel(port)
       // console.log('localtunnel', tunnel.url)
 
+      // eslint-disable-next-line no-console
       tunnel.on('error', console.error)
       tunnel.on('close', () => {
         // console.log('tunnel closed')
@@ -118,7 +119,7 @@ const genericOptions = {
 
 jest.setTimeout(100000)
 
-describe('API integration', function () {
+describe('API integration', () => {
   describe('assembly creation', () => {
     it('should create a retrievable assembly on the server', async () => {
       const client = createClient()
@@ -229,7 +230,7 @@ describe('API integration', function () {
       // console.log(result)
 
       const getMatchObject = ({ name }) => ({
-        name             : name,
+        name,
         basename         : name,
         ext              : 'svg',
         size             : 117,
@@ -293,9 +294,13 @@ describe('API integration', function () {
       const client = createClient()
 
       let progressCalled = false
-      function onUploadProgress ({ uploadedBytes }) {
+      function onUploadProgress ({ uploadedBytes, totalBytes }) {
         // console.log(uploadedBytes)
         expect(uploadedBytes).toBeDefined()
+        if (isResumable) {
+          expect(totalBytes).toBeDefined()
+          expect(totalBytes).toBeGreaterThan(0)
+        }
         progressCalled = true
       }
 
@@ -415,6 +420,7 @@ describe('API integration', function () {
             const ret = await client.awaitAssemblyCompletion(id)
             return ret
           } catch (err) {
+            // eslint-disable-next-line no-console
             console.error(err)
             return null
           }
@@ -469,7 +475,7 @@ describe('API integration', function () {
       expect(result).toEqual(expect.objectContaining({ count: expect.any(Number), items: expect.any(Array) }))
     })
 
-    it('should be able to handle pagination with a stream', done => {
+    it('should be able to handle pagination with a stream', (done) => {
       const client = createClient()
       const assemblies = client.streamAssemblies({ pagesize: 2 })
       let n = 0
@@ -481,12 +487,14 @@ describe('API integration', function () {
         if (isDone) return
 
         if (assembly == null) {
-          return done()
+          done()
+          return
         }
 
         if (n === 5) {
           isDone = true
-          return done()
+          done()
+          return
         }
 
         expect(assembly).toHaveProperty('id')
@@ -504,8 +512,8 @@ describe('API integration', function () {
     // helper function
     const streamToString = (stream) => new Promise((resolve, reject) => {
       const chunks = []
-      stream.on('data', chunk => chunks.push(chunk))
-      stream.on('error', err => reject(err))
+      stream.on('data', (chunk) => chunks.push(chunk))
+      stream.on('error', (err) => reject(err))
       stream.on('end', () => resolve(chunks.join('')))
     })
 
@@ -519,7 +527,10 @@ describe('API integration', function () {
           const body = await streamToString(req)
           const result = JSON.parse(querystring.parse(body).transloadit)
           expect(result).toHaveProperty('ok')
-          if (result.ok !== 'ASSEMBLY_COMPLETED') return onError(new Error(`result.ok was ${result.ok}`))
+          if (result.ok !== 'ASSEMBLY_COMPLETED') {
+            onError(new Error(`result.ok was ${result.ok}`))
+            return
+          }
 
           res.writeHead(200)
           res.end()
@@ -540,7 +551,7 @@ describe('API integration', function () {
 
     it('should send a notification upon assembly completion', async () => {
       await new Promise((resolve, reject) => {
-        const onNotification = async ({ path, client, assemblyId }) => {
+        const onNotification = async ({ path }) => {
           try {
             expect(path).toBe('/')
             resolve()
