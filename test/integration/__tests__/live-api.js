@@ -294,9 +294,13 @@ describe('API integration', () => {
       const client = createClient()
 
       let progressCalled = false
-      function onUploadProgress ({ uploadedBytes }) {
+      function onUploadProgress ({ uploadedBytes, totalBytes }) {
         // console.log(uploadedBytes)
         expect(uploadedBytes).toBeDefined()
+        if (isResumable) {
+          expect(totalBytes).toBeDefined()
+          expect(totalBytes).toBeGreaterThan(0)
+        }
         progressCalled = true
       }
 
