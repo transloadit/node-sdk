@@ -1722,6 +1722,13 @@ eslint-config-airbnb-base@^14.2.1:
     object.assign "^4.1.2"
     object.entries "^1.1.2"
 
+eslint-config-transloadit@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/eslint-config-transloadit/-/eslint-config-transloadit-1.0.2.tgz#a96ba13b19cfa9b21978fff323bd90668906f019"
+  integrity sha512-+cs3N6OhhO7TeXyE6e8SV8TdxihMOP5kr6HjEzqj/ul/fP/59Mpmn1Ep7wj0Szdl0y15qSn4enaB2MX5uvVOaA==
+  dependencies:
+    eslint-config-airbnb-base "^14.2.1"
+
 eslint-formatter-pretty@^4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/eslint-formatter-pretty/-/eslint-formatter-pretty-4.0.0.tgz#dc15f3bf4fb51b7ba5fbedb77f57ba8841140ce2"
