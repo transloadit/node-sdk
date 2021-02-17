@@ -46,7 +46,7 @@ const startServerAsync = async (handler) => new Promise((resolve, reject) => {
     if (err.code === 'EADDRINUSE') {
       if (++port >= 65535) {
         server.close()
-        reject(new Error('Failed to bind to port'))
+        return reject(new Error('Failed to bind to port'))
       }
       return server.listen(port, '127.0.0.1')
     }

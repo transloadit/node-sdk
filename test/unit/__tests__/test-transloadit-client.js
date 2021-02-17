@@ -69,7 +69,7 @@ describe('Transloadit', () => {
   })
 
   describe('add stream', () => {
-    it('should pause streams', () => {
+    it('should pause streams', async () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const name = 'foo_name'
@@ -78,7 +78,7 @@ describe('Transloadit', () => {
 
       mockRemoteJson(client)
 
-      client.createAssembly({ uploads: { [name]: mockStream } })
+      await client.createAssembly({ uploads: { [name]: mockStream } })
 
       expect(pause).toHaveBeenCalled()
     })
