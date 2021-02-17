@@ -5,7 +5,6 @@ const fromPairs = require('lodash/fromPairs')
 const sumBy = require('lodash/sumBy')
 const fs = require('fs')
 const { basename } = require('path')
-const PaginationStream = require('./PaginationStream')
 const tus = require('tus-js-client')
 const { access, stat: fsStat } = require('fs').promises
 const log = require('debug')('transloadit')
@@ -13,13 +12,14 @@ const logWarn = require('debug')('transloadit:warn')
 const intoStream = require('into-stream')
 const isStream = require('is-stream')
 const assert = require('assert')
+const pMap = require('p-map')
 
-const version = require('../package.json').version
+const PaginationStream = require('./PaginationStream')
+const { version } = require('../package.json')
 
-// eslint-disable-next-line handle-callback-err
 function decorateError (err, body) {
   if (!body) return err
-  let message = err.message
+  let { message } = err
 
   // Provide a more useful message if there is one
   if (body.message && body.error) message = `${body.error}: ${body.message}`
@@ -27,9 +27,11 @@ function decorateError (err, body) {
 
   if (body.assembly_ssl_url) message += ` - ${body.assembly_ssl_url}`
 
+  /* eslint-disable no-param-reassign */
   err.message = message
   if (body.assembly_id) err.assemblyId = body.assembly_id
   if (body.error) err.transloaditErrorCode = body.error
+  /* eslint-enable no-param-reassign */
 
   return err
 }
@@ -65,6 +67,73 @@ function checkResult (result) {
     }
     throw decorateError(err, result)
   }
+}
+
+async function sendTusRequest ({ streamsMap, assembly, onProgress }) {
+  const streamLabels = Object.keys(streamsMap)
+
+  let totalBytes = 0
+  let lastEmittedProgress = 0
+
+  const sizes = {}
+
+  // Initialize data
+  for (const label of streamLabels) {
+    const { path } = streamsMap[label]
+
+    if (path) {
+      const { size } = await fsStat(path)
+      sizes[label] = size
+      totalBytes += size
+    }
+  }
+
+  const uploadProgresses = {}
+
+  async function uploadSingleStream (label) {
+    uploadProgresses[label] = 0
+
+    const { stream, path } = streamsMap[label]
+    const size = sizes[label]
+
+    const onTusProgress = (bytesUploaded) => {
+      uploadProgresses[label] = bytesUploaded
+
+      // get all uploaded bytes for all files
+      const uploadedBytes = sumBy(streamLabels, (label) => uploadProgresses[label])
+
+      // don't send redundant progress
+      if (lastEmittedProgress < uploadedBytes) {
+        lastEmittedProgress = uploadedBytes
+        onProgress({ uploadedBytes, totalBytes })
+      }
+    }
+
+    const filename = path ? basename(path) : label
+
+    await new Promise((resolve, reject) => {
+      const tusUpload = new tus.Upload(stream, {
+        endpoint: assembly.tus_url,
+        metadata: {
+          assembly_url: assembly.assembly_ssl_url,
+          fieldname   : label,
+          filename,
+        },
+        uploadSize: size,
+        onError   : reject,
+        onProgress: onTusProgress,
+        onSuccess : resolve,
+      })
+
+      tusUpload.start()
+    })
+
+    log(label, 'upload done')
+  }
+
+  // TODO throttle concurrency? Can use p-map
+  const promises = streamLabels.map((label) => uploadSingleStream(label))
+  await Promise.all(promises)
 }
 
 class TransloaditClient {
@@ -131,9 +200,8 @@ class TransloaditClient {
 
     this._lastUsedAssemblyUrl = `${this._endpoint}${urlSuffix}`
 
-    for (const [, path] of Object.entries(files)) {
-      await access(path, fs.F_OK | fs.R_OK)
-    }
+    // eslint-disable-next-line no-bitwise
+    await pMap(Object.entries(files), async ([, path]) => access(path, fs.F_OK | fs.R_OK), { concurrency: 5 })
 
     // Convert uploads to streams
     const streamsMap = fromPairs(Object.entries(uploads).map(([label, value]) => {
@@ -194,7 +262,7 @@ class TransloaditClient {
       checkResult(result)
 
       if (useTus && Object.keys(tusStreamsMap).length > 0) {
-        await this._sendTusRequest({
+        await sendTusRequest({
           streamsMap: tusStreamsMap,
           assembly  : result,
           onProgress: onUploadProgress,
@@ -218,7 +286,9 @@ class TransloaditClient {
   } = {}) {
     assert(assemblyId)
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
+      // eslint-disable-next-line no-await-in-loop
       const result = await this.getAssembly(assemblyId)
 
       if (!['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'].includes(result.ok)) {
@@ -237,6 +307,7 @@ class TransloaditClient {
         err.code = 'POLLING_TIMED_OUT'
         throw err
       }
+      // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, interval))
     }
   }
@@ -496,7 +567,8 @@ class TransloaditClient {
   }
 
   // Responsible for including auth parameters in all requests
-  _prepareParams (params) {
+  _prepareParams (paramsIn) {
+    let params = paramsIn
     if (params == null) {
       params = {}
     }
@@ -513,6 +585,8 @@ class TransloaditClient {
     return JSON.stringify(params)
   }
 
+  // We want to mock this method
+  // eslint-disable-next-line class-methods-use-this
   _getExpiresDate () {
     const expiresDate = new Date()
     expiresDate.setDate(expiresDate.getDate() + 1)
@@ -567,97 +641,30 @@ class TransloaditClient {
       try {
         const request = got[method](url, requestOpts)
         if (isUploadingStreams) {
-          request.on('uploadProgress', ({ percent, transferred, total }) => onProgress({ uploadedBytes: transferred, totalBytes: total }))
+          request.on('uploadProgress', ({ transferred, total }) => onProgress({ uploadedBytes: transferred, totalBytes: total }))
         }
+        // eslint-disable-next-line no-await-in-loop
         const { body } = await request
         return body
       } catch (err) {
-        if (err instanceof got.HTTPError) {
-          const { statusCode, body } = err.response
-          logWarn('HTTP error', statusCode, body)
+        if (!(err instanceof got.HTTPError)) throw err
 
-          // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
-          if (statusCode === 413 && body.error === 'RATE_LIMIT_REACHED' && body.info && body.info.retryIn && retryCount < this._maxRetries) {
-            const { retryIn: retryInSec } = body.info
-            logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
-            const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
-            await new Promise((resolve) => setTimeout(resolve, retryInMs))
-            continue // Retry
-          }
+        const { statusCode, body } = err.response
+        logWarn('HTTP error', statusCode, body)
 
-          throw decorateError(err, body)
-        }
+        const shouldRetry = statusCode === 413 && body.error === 'RATE_LIMIT_REACHED' && body.info && body.info.retryIn && retryCount < this._maxRetries
 
-        throw err
+        // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+        if (!shouldRetry) throw decorateError(err, body)
+
+        const { retryIn: retryInSec } = body.info
+        logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
+        const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, retryInMs))
+        // Retry
       }
     }
-  }
-
-  async _sendTusRequest ({ streamsMap, assembly, onProgress }) {
-    const streamLabels = Object.keys(streamsMap)
-
-    let totalBytes = 0
-    let lastEmittedProgress = 0
-
-    const sizes = {}
-
-    // Initialize data
-    for (const label of streamLabels) {
-      const { path } = streamsMap[label]
-
-      if (path) {
-        const { size } = await fsStat(path)
-        sizes[label] = size
-        totalBytes += size
-      }
-    }
-
-    const uploadProgresses = {}
-
-    async function uploadSingleStream (label) {
-      uploadProgresses[label] = 0
-
-      const { stream, path } = streamsMap[label]
-      const size = sizes[label]
-
-      const onTusProgress = (bytesUploaded) => {
-        uploadProgresses[label] = bytesUploaded
-
-        // get all uploaded bytes for all files
-        const uploadedBytes = sumBy(streamLabels, (label) => uploadProgresses[label])
-
-        // don't send redundant progress
-        if (lastEmittedProgress < uploadedBytes) {
-          lastEmittedProgress = uploadedBytes
-          onProgress({ uploadedBytes, totalBytes })
-        }
-      }
-
-      const filename = path ? basename(path) : label
-
-      await new Promise((resolve, reject) => {
-        const tusUpload = new tus.Upload(stream, {
-          endpoint: assembly.tus_url,
-          metadata: {
-            assembly_url: assembly.assembly_ssl_url,
-            fieldname   : label,
-            filename,
-          },
-          uploadSize: size,
-          onError   : reject,
-          onProgress: onTusProgress,
-          onSuccess : resolve,
-        })
-
-        tusUpload.start()
-      })
-
-      log(label, 'upload done')
-    }
-
-    // TODO throttle concurrency? Can use p-map
-    const promises = streamLabels.map((label) => uploadSingleStream(label))
-    await Promise.all(promises)
   }
 }
 

@@ -21,6 +21,7 @@
     "into-stream": "^6.0.0",
     "is-stream": "^2.0.0",
     "lodash": "^4.17.20",
+    "p-map": "^4.0.0",
     "tus-js-client": "^2.2.0"
   },
   "devDependencies": {
@@ -28,7 +29,6 @@
     "badge-maker": "^3.3.0",
     "eslint": "^7.18.0",
     "eslint-config-airbnb-base": "^14.2.1",
-    "eslint-config-standard": "^16.0.2",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",

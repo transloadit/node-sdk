@@ -12,11 +12,13 @@ class PaginationStream extends stream.Readable {
   async _read () {
     if (this._items.length > 0) {
       this._itemsRead++
-      return process.nextTick(() => this.push(this._items.pop()))
+      process.nextTick(() => this.push(this._items.pop()))
+      return
     }
 
     if (this._nitems != null && this._itemsRead >= this._nitems) {
-      return process.nextTick(() => this.push(null))
+      process.nextTick(() => this.push(null))
+      return
     }
 
     try {
@@ -26,7 +28,8 @@ class PaginationStream extends stream.Readable {
       this._items = Array.from(items)
       this._items.reverse()
 
-      return this._read()
+      this._read()
+      return
     } catch (err) {
       this.emit('error', err)
     }

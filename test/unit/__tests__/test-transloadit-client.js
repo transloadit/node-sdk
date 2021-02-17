@@ -5,6 +5,8 @@ const got = require('got')
 const Transloadit = require('../../../src/Transloadit')
 const packageVersion = require('../../../package.json').version
 
+/* eslint-disable no-underscore-dangle */
+
 jest.mock('got')
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
@@ -239,7 +241,7 @@ describe('Transloadit', () => {
       const url = '/some-url'
       await client._remoteJson({ url, method: 'get' })
 
-      expect(get).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: { 'Transloadit-Client': 'node-sdk:' + packageVersion } }))
+      expect(get).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: { 'Transloadit-Client': `node-sdk:${packageVersion}` } }))
     })
   })
 })

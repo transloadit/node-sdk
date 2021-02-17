@@ -21,6 +21,7 @@ const { makeBadge } = require('badge-maker');
 
     await fs.writeFile('coverage-badge.svg', svg)
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err)
     process.exit(1)
   }

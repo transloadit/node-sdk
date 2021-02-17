@@ -5,13 +5,13 @@
 // This example will take an image and find a face and crop out the face.
 // Then it will download the result as a file in the current directory
 // See https://transloadit.com/demos/artificial-intelligence/detect-faces-in-images/
-//
-// You'll likely just want to `require('transloadit')`, but we're requiring the local
-// variant here for easier testing:
-const Transloadit = require('../src/Transloadit')
 
 const got = require('got')
 const { createWriteStream } = require('fs')
+
+// You'll likely just want to `require('transloadit')`, but we're requiring the local
+// variant here for easier testing:
+const Transloadit = require('../src/Transloadit')
 
 const transloadit = new Transloadit({
   authKey   : process.env.TRANSLOADIT_KEY,
