@@ -78,7 +78,7 @@ async function sendTusRequest ({ streamsMap, assembly, onProgress }) {
   const sizes = {}
 
   // Initialize data
-  for (const label of streamLabels) {
+  await pMap(streamLabels, async (label) => {
     const { path } = streamsMap[label]
 
     if (path) {
@@ -86,7 +86,7 @@ async function sendTusRequest ({ streamsMap, assembly, onProgress }) {
       sizes[label] = size
       totalBytes += size
     }
-  }
+  }, { concurrency: 5 })
 
   const uploadProgresses = {}
 
@@ -100,7 +100,7 @@ async function sendTusRequest ({ streamsMap, assembly, onProgress }) {
       uploadProgresses[label] = bytesUploaded
 
       // get all uploaded bytes for all files
-      const uploadedBytes = sumBy(streamLabels, (label) => uploadProgresses[label])
+      const uploadedBytes = sumBy(streamLabels, (l) => uploadProgresses[l])
 
       // don't send redundant progress
       if (lastEmittedProgress < uploadedBytes) {
