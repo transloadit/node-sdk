@@ -438,3 +438,11 @@ If you come from a unix background and fancy faster auto-complete, you'll be del
 [MIT](LICENSE)
 
 Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `transloadit` npm name. You can still access his code under `v0.0.0`.
+
+
+
+## Requirements
+
+- [Node.js](https://nodejs.org/en/) version 10 or newer
+- [A Transloadit account](https://transloadit.com/signup/) ([free signup](https://transloadit.com/pricing/))
+- [Your API credentials](https://transloadit.com/c/template-credentials) (`authKey`, `authSecret`)
