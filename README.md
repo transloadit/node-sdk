@@ -89,12 +89,12 @@ You can find [details about your executed Assemblies here](https://transloadit.c
 
 ## Examples
 
-- [Upload and resize image](examples/resize_an_image.js)
-- [Upload image and convert to WebP](examples/convert_to_webp.js)
-- [Crop a face out of an image and download the result](examples/face_detect_download.js)
-- [Retry example](examples/retry.js)
-- [Calculate total costs (GB usage)](examples/fetch_costs_of_all_assemblies_in_timeframe.js)
-- [Templates CRUD](examples/template_api.js)
+- [Upload and resize image](https://github.com/transloadit/node-sdk/blob/master/examples/resize_an_image.js)
+- [Upload image and convert to WebP](https://github.com/transloadit/node-sdk/blob/master/examples/convert_to_webp.js)
+- [Crop a face out of an image and download the result](https://github.com/transloadit/node-sdk/blob/master/examples/face_detect_download.js)
+- [Retry example](https://github.com/transloadit/node-sdk/blob/master/examples/retry.js)
+- [Calculate total costs (GB usage)](https://github.com/transloadit/node-sdk/blob/master/examples/fetch_costs_of_all_assemblies_in_timeframe.js)
+- [Templates CRUD](https://github.com/transloadit/node-sdk/blob/master/examples/template_api.js)
 
 For more fully working examples take a look at [`examples/`](examples/).
 
