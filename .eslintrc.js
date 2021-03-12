@@ -1,7 +1,7 @@
 module.exports = {
-  extends: 'transloadit',
+  extends      : 'transloadit',
   parserOptions: {
-    ecmaVersion: 11,
+    ecmaVersion      : 11,
     requireConfigFile: false,
-  }
+  },
 }
