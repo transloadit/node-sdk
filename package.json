@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "debug": "^4.3.1",
-    "eslint-plugin-jest": "^24.2.1",
     "form-data": "^3.0.0",
     "got": "^11.8.1",
     "into-stream": "^6.0.0",
@@ -32,6 +31,7 @@
     "eslint": "^7.18.0",
     "eslint-config-transloadit": "^1.1.1",
     "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-jest": "^24.2.1",
     "eslint-plugin-jsx-a11y": "^6.4.1",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-react": "^7.22.0",
