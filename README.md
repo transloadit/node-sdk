@@ -23,16 +23,16 @@ This is a **Node.js** SDK to make it easy to talk to the
 
 ## Install
 
-**Note: This documentation is for the current [version v3](https://github.com/transloadit/node-sdk/releases/tag/v3.0.0-rc.1). [Looking for v2 docs?](https://github.com/transloadit/node-sdk/tree/v2)**
+**Note: This documentation is for the current version (v3)**. Looking for [v2 docs?](https://github.com/transloadit/node-sdk/tree/v2) Looking for [breaking changes from v2 to v3?](https://github.com/transloadit/node-sdk/releases/tag/v3.0.0)
 
 Inside your project, type:
 
 ```bash
-yarn add transloadit@^3.0.0-rc.1
+yarn add transloadit
 ```
 or
 ```bash
-npm install --save transloadit@^3.0.0-rc.1
+npm install --save transloadit
 ```
 
 ## Usage
