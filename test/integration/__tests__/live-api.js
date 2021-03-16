@@ -37,6 +37,12 @@ function createClient (opts = {}) {
   return new Transloadit({ authKey, authSecret, ...opts })
 }
 
+async function createAssembly (client, params) {
+  const assemblyId = uuid.v4().replace(/-/g, '')
+  console.log('createAssembly', assemblyId)
+  return client.createAssembly({ assemblyId, ...params })
+}
+
 const startServerAsync = async (handler) => new Promise((resolve, reject) => {
   const server = http.createServer(handler)
 
@@ -131,7 +137,7 @@ describe('API integration', () => {
         onUploadProgress  : (uploadProgress) => { uploadProgressCalled = uploadProgress },
         onAssemblyProgress: (assemblyProgress) => { assemblyProgressCalled = assemblyProgress },
       }
-      let result = await client.createAssembly(options)
+      let result = await createAssembly(client, options)
       expect(result).not.toHaveProperty('error')
       expect(result).toHaveProperty('ok')
       expect(result).toHaveProperty('assembly_id') // Since we're using it
@@ -165,7 +171,7 @@ describe('API integration', () => {
         },
       }
 
-      const promise = client.createAssembly(params)
+      const promise = createAssembly(client, params)
       await expect(promise).rejects.toThrow()
       await expect(promise).rejects.toThrow(expect.objectContaining({ code: 'ENOENT' }))
     })
@@ -185,7 +191,7 @@ describe('API integration', () => {
         waitForCompletion: true,
       }
 
-      const result = await client.createAssembly(params)
+      const result = await createAssembly(client, params)
       expect(result.uploads[0].field).toBe('original')
     })
 
@@ -200,7 +206,7 @@ describe('API integration', () => {
         },
       }
 
-      const result = await client.createAssembly(params)
+      const result = await createAssembly(client, params)
       expect(result.fields.myField).toBe('test')
       expect(result.fields.num).toBe(1)
       expect(result.fields.obj).toStrictEqual({ foo: 'bar' })
@@ -226,7 +232,7 @@ describe('API integration', () => {
         },
       }
 
-      const result = await client.createAssembly(params)
+      const result = await createAssembly(client, params)
       // console.log(result)
 
       const getMatchObject = ({ name }) => ({
@@ -277,7 +283,7 @@ describe('API integration', () => {
         },
       }
 
-      const result = await client.createAssembly(params)
+      const result = await createAssembly(client, params)
       expect(result.assembly_id).toEqual(assemblyId)
     })
 
@@ -286,7 +292,7 @@ describe('API integration', () => {
 
       const req = request(genericImg)
 
-      const promise = client.createAssembly({ uploads: { file: req } })
+      const promise = createAssembly(client, { uploads: { file: req } })
       await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Upload named "file" is not a Readable stream' }))
     })
 
@@ -317,7 +323,7 @@ describe('API integration', () => {
         onUploadProgress,
       }
 
-      await client.createAssembly(params)
+      await createAssembly(client, params)
       expect(progressCalled).toBe(true)
     }
 
@@ -333,7 +339,7 @@ describe('API integration', () => {
       const client = createClient()
       const params = { ...genericOptions, waitForCompletion: false }
 
-      const result = await client.createAssembly(params)
+      const result = await createAssembly(client, params)
       expect(result).not.toHaveProperty('error')
       expect(result).toHaveProperty('ok')
     })
@@ -354,7 +360,7 @@ describe('API integration', () => {
         waitForCompletion: true,
       }
 
-      const promise = client.createAssembly(opts)
+      const promise = createAssembly(client, opts)
       await promise.catch((err) => {
         expect(err).toMatchObject({ transloaditErrorCode: 'INVALID_FILE_META_DATA', assemblyId: expect.any(String) })
       })
@@ -413,7 +419,7 @@ describe('API integration', () => {
         }
 
         // Finally send the createAssembly request
-        const { assembly_id: id } = await client.createAssembly(params)
+        const { assembly_id: id } = await createAssembly(client, params)
 
         const awaitCompletionPromise = (async () => {
           try {
@@ -454,7 +460,7 @@ describe('API integration', () => {
     it('should replay an assembly and await the replay', async () => {
       const client = createClient()
 
-      const createdAssembly = await client.createAssembly(genericOptions)
+      const createdAssembly = await createAssembly(client, genericOptions)
 
       const replayedAssembly = await client.replayAssembly(createdAssembly.assembly_id)
       expect(replayedAssembly.ok).toBe('ASSEMBLY_REPLAYING')
@@ -543,7 +549,7 @@ describe('API integration', () => {
 
       try {
         server = await startServerAsync(onNotificationRequest)
-        await client.createAssembly({ params: { ...genericParams, notify_url: server.url } })
+        await createAssembly(client, { params: { ...genericParams, notify_url: server.url } })
       } catch (err) {
         onError(err)
       }
