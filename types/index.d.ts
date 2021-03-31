@@ -5,7 +5,7 @@ import * as intoStream from 'into-stream'
 
 import { RequestError, ReadError, ParseError, UploadError, HTTPError, MaxRedirectsError, TimeoutError } from 'got'
 
-export class Transloadit {
+export default class Transloadit {
   constructor (options: {
     authKey: string;
     authSecret: string;
