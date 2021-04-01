@@ -132,7 +132,8 @@ export interface Assembly {
   merged_params: string,
   uploads: any[],
   results: any,
-  build_id: string
+  build_id: string,
+  error?: string
 }
 
 /** See https://transloadit.com/docs/api/#assemblies-assembly-id-get */
