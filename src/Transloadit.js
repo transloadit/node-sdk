@@ -270,7 +270,9 @@ class TransloaditClient {
       }
 
       if (!waitForCompletion) return result
-      const awaitResult = await this.awaitAssemblyCompletion(result.assembly_id, { timeout, onAssemblyProgress, startTimeMs })
+      const awaitResult = await this.awaitAssemblyCompletion(result.assembly_id, {
+        timeout, onAssemblyProgress, startTimeMs,
+      })
       checkResult(awaitResult)
       return awaitResult
     }
@@ -320,7 +322,8 @@ class TransloaditClient {
    */
   async cancelAssembly (assemblyId) {
     // You may wonder why do we need to call getAssembly first:
-    // If we use the default base URL (instead of the one returned in assembly_url_ssl), the delete call will hang in certain cases
+    // If we use the default base URL (instead of the one returned in assembly_url_ssl),
+    // the delete call will hang in certain cases
     // See test "should stop the assembly from reaching completion"
     const { assembly_ssl_url: url } = await this.getAssembly(assemblyId)
     const opts = {
