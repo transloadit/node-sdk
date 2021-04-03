@@ -6,6 +6,8 @@ jest.setTimeout(1000)
 
 const getLocalClient = (opts) => new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
 
+const createAssemblyRegex = /\/assemblies\/[0-9a-f]{32}/
+
 describe('Mocked API tests', () => {
   afterEach(() => {
     nock.cleanAll()
@@ -16,7 +18,7 @@ describe('Mocked API tests', () => {
     const client = new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost' })
 
     nock('http://localhost')
-      .post('/assemblies')
+      .post(createAssemblyRegex)
       .delay(100)
       .reply(200)
 
@@ -51,7 +53,7 @@ describe('Mocked API tests', () => {
     const client = getLocalClient()
 
     const scope = nock('http://localhost')
-      .post('/assemblies')
+      .post(createAssemblyRegex)
       .reply(200, { ok: 'ASSEMBLY_UPLOADING' })
       .get('/assemblies/1')
       .query(() => true)
@@ -83,7 +85,7 @@ describe('Mocked API tests', () => {
     const client = getLocalClient()
 
     nock('http://localhost')
-      .post('/assemblies')
+      .post(createAssemblyRegex)
       .reply(400, { error: 'INVALID_FILE_META_DATA' })
 
     await expect(client.createAssembly()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'INVALID_FILE_META_DATA', message: 'INVALID_FILE_META_DATA' }))
@@ -93,7 +95,7 @@ describe('Mocked API tests', () => {
     const client = getLocalClient()
 
     nock('http://localhost')
-      .post('/assemblies')
+      .post(createAssemblyRegex)
       .reply(400, { error: 'INVALID_FILE_META_DATA', assembly_id: '123', assembly_ssl_url: 'https://api2-oltu.transloadit.com/assemblies/foo' })
 
     await expect(client.createAssembly()).rejects.toThrow(expect.objectContaining({
@@ -111,9 +113,9 @@ describe('Mocked API tests', () => {
     // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
 
     const scope = nock('http://localhost')
-      .post('/assemblies')
+      .post(createAssemblyRegex)
       .reply(413, { error: 'RATE_LIMIT_REACHED', info: { retryIn: 0.01 } })
-      .post('/assemblies')
+      .post(createAssemblyRegex)
       .reply(200, { ok: 'ASSEMBLY_EXECUTING' })
 
     await client.createAssembly()
@@ -124,7 +126,7 @@ describe('Mocked API tests', () => {
     const client = getLocalClient({ maxRetries: 0 })
 
     const scope = nock('http://localhost')
-      .post('/assemblies')
+      .post(createAssemblyRegex)
       .reply(413, { error: 'RATE_LIMIT_REACHED', message: 'Request limit reached', info: { retryIn: 0.01 } })
 
     await expect(client.createAssembly()).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'RATE_LIMIT_REACHED', message: 'RATE_LIMIT_REACHED: Request limit reached' }))
@@ -190,7 +192,7 @@ describe('Mocked API tests', () => {
     const client = getLocalClient()
 
     const scope = nock('http://localhost')
-      .post('/assemblies')
+      .post(createAssemblyRegex)
       .reply(200, { error: 'IMPORT_FILE_ERROR', assembly_id: '1' })
 
     await expect(client.createAssembly()).rejects.toThrow(expect.objectContaining({

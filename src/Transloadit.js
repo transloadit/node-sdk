@@ -13,6 +13,7 @@ const intoStream = require('into-stream')
 const isStream = require('is-stream')
 const assert = require('assert')
 const pMap = require('p-map')
+const uuid = require('uuid')
 
 const PaginationStream = require('./PaginationStream')
 const { version } = require('../package.json')
@@ -173,7 +174,7 @@ class TransloaditClient {
    * @param {object} opts assembly options
    * @returns {Promise}
    */
-  async createAssembly (opts = {}, arg2) {
+  createAssembly (opts = {}, arg2) {
     // Warn users of old callback API
     if (typeof arg2 === 'function') {
       throw new TypeError('You are trying to send a function as the second argument. This is no longer valid in this version. Please see github README for usage.')
@@ -194,90 +195,104 @@ class TransloaditClient {
     // Keep track of how long the request took
     const startTimeMs = getHrTimeMs()
 
-    // Undocumented feature to allow specifying the assembly id from the client
-    // (not recommended for general use due to security)
-    const urlSuffix = assemblyId != null ? `/assemblies/${assemblyId}` : '/assemblies'
-
-    this._lastUsedAssemblyUrl = `${this._endpoint}${urlSuffix}`
-
-    // eslint-disable-next-line no-bitwise
-    await pMap(Object.entries(files), async ([, path]) => access(path, fs.F_OK | fs.R_OK), { concurrency: 5 })
-
-    // Convert uploads to streams
-    const streamsMap = fromPairs(Object.entries(uploads).map(([label, value]) => {
-      const isReadable = isStream.readable(value)
-      if (!isReadable && isStream(value)) {
-        // https://github.com/transloadit/node-sdk/issues/92
-        throw new Error(`Upload named "${label}" is not a Readable stream`)
-      }
-
-      return [
-        label,
-        isStream.readable(value) ? value : intoStream(value),
-      ]
-    }))
-
-    // Wrap in object structure (so we can know if it's a pathless stream or not)
-    const allStreamsMap = fromPairs(Object.entries(streamsMap).map(([label, stream]) => [label, { stream }]))
-
-    // Create streams from files too
-    for (const [label, path] of Object.entries(files)) {
-      const stream = fs.createReadStream(path)
-      allStreamsMap[label] = { stream, path } // File streams have path
+    // Undocumented feature to allow specifying a custom assembly id from the client
+    // Not recommended for general use due to security. E.g if the user doesn't provide a cryptographically
+    // secure ID, then anyone could access the assembly.
+    let effectiveAssemblyId
+    if (assemblyId != null) {
+      effectiveAssemblyId = assemblyId
+    } else {
+      effectiveAssemblyId = uuid.v4().replace(/-/g, '')
     }
+    const urlSuffix = `/assemblies/${effectiveAssemblyId}`
 
-    const allStreams = Object.values(allStreamsMap)
+    // We want to be able to return the promise immediately with custom data
+    const promise = (async () => {
+      this._lastUsedAssemblyUrl = `${this._endpoint}${urlSuffix}`
 
-    // Pause all streams
-    allStreams.forEach(({ stream }) => stream.pause())
+      // eslint-disable-next-line no-bitwise
+      await pMap(Object.entries(files), async ([, path]) => access(path, fs.F_OK | fs.R_OK), { concurrency: 5 })
 
-    // If any stream emits error, we want to handle this and exit with error
-    const streamErrorPromise = new Promise((resolve, reject) => {
-      allStreams.forEach(({ stream }) => stream.on('error', reject))
-    })
-
-    const createAssemblyAndUpload = async () => {
-      const useTus = isResumable && allStreams.every(isFileBasedStream)
-
-      const requestOpts = {
-        urlSuffix,
-        method: 'post',
-        timeout,
-        params,
-      }
-
-      if (useTus) {
-        requestOpts.fields = {
-          tus_num_expected_upload_files: allStreams.length,
+      // Convert uploads to streams
+      const streamsMap = fromPairs(Object.entries(uploads).map(([label, value]) => {
+        const isReadable = isStream.readable(value)
+        if (!isReadable && isStream(value)) {
+          // https://github.com/transloadit/node-sdk/issues/92
+          throw new Error(`Upload named "${label}" is not a Readable stream`)
         }
-      } else if (isResumable) {
-        logWarn('Disabling resumability because the size of one or more streams cannot be determined')
+
+        return [
+          label,
+          isStream.readable(value) ? value : intoStream(value),
+        ]
+      }))
+
+      // Wrap in object structure (so we can know if it's a pathless stream or not)
+      const allStreamsMap = fromPairs(Object.entries(streamsMap).map(([label, stream]) => [label, { stream }]))
+
+      // Create streams from files too
+      for (const [label, path] of Object.entries(files)) {
+        const stream = fs.createReadStream(path)
+        allStreamsMap[label] = { stream, path } // File streams have path
       }
 
-      // upload as form multipart or tus?
-      const formUploadStreamsMap = useTus ? {} : allStreamsMap
-      const tusStreamsMap = useTus ? allStreamsMap : {}
+      const allStreams = Object.values(allStreamsMap)
 
-      const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onUploadProgress)
-      checkResult(result)
+      // Pause all streams
+      allStreams.forEach(({ stream }) => stream.pause())
 
-      if (useTus && Object.keys(tusStreamsMap).length > 0) {
-        await sendTusRequest({
-          streamsMap: tusStreamsMap,
-          assembly  : result,
-          onProgress: onUploadProgress,
-        })
-      }
-
-      if (!waitForCompletion) return result
-      const awaitResult = await this.awaitAssemblyCompletion(result.assembly_id, {
-        timeout, onAssemblyProgress, startTimeMs,
+      // If any stream emits error, we want to handle this and exit with error
+      const streamErrorPromise = new Promise((resolve, reject) => {
+        allStreams.forEach(({ stream }) => stream.on('error', reject))
       })
-      checkResult(awaitResult)
-      return awaitResult
-    }
 
-    return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
+      const createAssemblyAndUpload = async () => {
+        const useTus = isResumable && allStreams.every(isFileBasedStream)
+
+        const requestOpts = {
+          urlSuffix,
+          method: 'post',
+          timeout,
+          params,
+        }
+
+        if (useTus) {
+          requestOpts.fields = {
+            tus_num_expected_upload_files: allStreams.length,
+          }
+        } else if (isResumable) {
+          logWarn('Disabling resumability because the size of one or more streams cannot be determined')
+        }
+
+        // upload as form multipart or tus?
+        const formUploadStreamsMap = useTus ? {} : allStreamsMap
+        const tusStreamsMap = useTus ? allStreamsMap : {}
+
+        const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onUploadProgress)
+        checkResult(result)
+
+        if (useTus && Object.keys(tusStreamsMap).length > 0) {
+          await sendTusRequest({
+            streamsMap: tusStreamsMap,
+            assembly  : result,
+            onProgress: onUploadProgress,
+          })
+        }
+
+        if (!waitForCompletion) return result
+        const awaitResult = await this.awaitAssemblyCompletion(result.assembly_id, {
+          timeout, onAssemblyProgress, startTimeMs,
+        })
+        checkResult(awaitResult)
+        return awaitResult
+      }
+
+      return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
+    })()
+
+    // This allows the user to use or log the assemblyId even before it has been created for easier debugging
+    promise.assemblyId = effectiveAssemblyId
+    return promise
   }
 
   async awaitAssemblyCompletion (assemblyId, {
