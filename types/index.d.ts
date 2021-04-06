@@ -133,7 +133,10 @@ export interface Assembly {
   uploads: any[],
   results: any,
   build_id: string,
-  error?: string
+  error?: string,
+  stderr?: string,
+  stdout?: string,
+  reason?: string,
 }
 
 /** See https://transloadit.com/docs/api/#assemblies-assembly-id-get */
