@@ -190,7 +190,7 @@ function onAssemblyProgress(assembly) {
 }
 ```
 
-**Tip:** `createAssembly` returns a `Promise` with an extra property `assemblyId`. This can be used to retrieve the assemblyId before the assembly has even been created. Useful for debugging by logging this ID when the request starts, for example:
+**Tip:** `createAssembly` returns a `Promise` with an extra property `assemblyId`. This can be used to retrieve the Assembly ID before the Assembly has even been created. Useful for debugging by logging this ID when the request starts, for example:
 
 ```js
 const promise = transloadit.createAssembly(options)
