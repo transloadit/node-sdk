@@ -190,6 +190,15 @@ function onAssemblyProgress(assembly) {
 }
 ```
 
+**Tip:** `createAssembly` returns a `Promise` with an extra property `assemblyId`. This can be used to retrieve the Assembly ID before the Assembly has even been created. Useful for debugging by logging this ID when the request starts, for example:
+
+```js
+const promise = transloadit.createAssembly(options)
+console.log('Creating', promise.assemblyId)
+const status = await promise
+```
+
+
 See also:
 - [API documentation](https://transloadit.com/docs/api/#assemblies-post)
 - Error codes and retry logic below

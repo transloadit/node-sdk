@@ -37,10 +37,11 @@ function createClient (opts = {}) {
   return new Transloadit({ authKey, authSecret, ...opts })
 }
 
-async function createAssembly (client, params) {
-  const assemblyId = uuid.v4().replace(/-/g, '')
-  console.log('createAssembly', assemblyId)
-  return client.createAssembly({ assemblyId, ...params })
+function createAssembly (client, params) {
+  const promise = client.createAssembly(params)
+  const { assemblyId } = promise
+  console.log('createAssembly', assemblyId) // For easier debugging
+  return promise
 }
 
 const startServerAsync = async (handler) => new Promise((resolve, reject) => {
@@ -285,6 +286,23 @@ describe('API integration', () => {
 
       const result = await createAssembly(client, params)
       expect(result.assembly_id).toEqual(assemblyId)
+    })
+
+    it('should allow getting the assemblyId on createAssembly even before it has been started', async () => {
+      const client = createClient()
+
+      const params = {
+        params: {
+          steps: {
+            dummy: dummyStep,
+          },
+        },
+      }
+
+      const promise = createAssembly(client, params)
+      expect(promise.assemblyId).toMatch(/^[\da-f]+$/)
+      const result = await promise
+      expect(result.assembly_id).toMatch(promise.assemblyId)
     })
 
     it('should throw a proper error for request stream', async () => {

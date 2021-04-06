@@ -22,7 +22,8 @@
     "is-stream": "^2.0.0",
     "lodash": "^4.17.20",
     "p-map": "^4.0.0",
-    "tus-js-client": "^2.2.0"
+    "tus-js-client": "^2.2.0",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@babel/eslint-plugin": "^7.13.10",
@@ -42,8 +43,7 @@
     "p-retry": "^4.2.0",
     "request": "^2.88.2",
     "temp": "^0.9.1",
-    "tsd": "^0.14.0",
-    "uuid": "^8.3.2"
+    "tsd": "^0.14.0"
   },
   "repository": {
     "type": "git",

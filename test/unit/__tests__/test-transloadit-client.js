@@ -207,7 +207,7 @@ describe('Transloadit', () => {
   it('should crash if attempt to use callback', async () => {
     const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
     const cb = () => {}
-    await expect(client.createAssembly({}, cb)).rejects.toThrow(TypeError)
+    expect(() => client.createAssembly({}, cb)).toThrow(TypeError)
   })
 
   describe('_calcSignature', () => {
