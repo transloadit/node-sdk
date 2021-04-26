@@ -2,12 +2,17 @@ const { Readable: ReadableStream } = require('stream')
 const FormData = require('form-data')
 const got = require('got')
 
+jest.mock('../../../src/tus')
+
+const tus = require('../../../src/tus')
 const Transloadit = require('../../../src/Transloadit')
 const packageVersion = require('../../../package.json').version
 
 /* eslint-disable no-underscore-dangle */
 
 jest.mock('got')
+
+tus.sendTusRequest.mockImplementation(() => {})
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
 const mockGetExpiresDate = (client) => jest.spyOn(client, '_getExpiresDate').mockReturnValue(mockedExpiresDate)

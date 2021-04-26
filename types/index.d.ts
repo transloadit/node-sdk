@@ -26,6 +26,7 @@ export default class Transloadit {
     }
     waitForCompletion?: boolean,
     isResumable?: boolean,
+    chunkSize?: number,
     timeout?: number
     onUploadProgress?: (uploadProgress: UploadProgress) => void,
     onAssemblyProgress?: AssemblyProgress,

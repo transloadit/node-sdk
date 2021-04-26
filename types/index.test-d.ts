@@ -27,6 +27,7 @@ expectType<Promise<Assembly>>(transloadit.createAssembly({
     file4: Buffer.from('string'),
   },
   isResumable: true,
+  chunkSize: Infinity,
   timeout: 1,
   waitForCompletion: true,
   onAssemblyProgress: (assembly) => {
