@@ -5771,13 +5771,14 @@ tunnel-agent@^0.6.0:
   dependencies:
     safe-buffer "^5.0.1"
 
-tus-js-client@^2.2.0:
-  version "2.2.0"
-  resolved "https://registry.yarnpkg.com/tus-js-client/-/tus-js-client-2.2.0.tgz#353db7cba7b84b46188b02fa1295344f0b483c4c"
-  integrity sha512-6RM7SHJD1j3X4o+f8dX1tcPOETsSitbF+ee3Ecz4Lu5+muYJnyYMRUXbz12N7dDfoCQ14Y5EmksbDP4BGzmC8w==
+tus-js-client@^2.3.0:
+  version "2.3.0"
+  resolved "https://registry.yarnpkg.com/tus-js-client/-/tus-js-client-2.3.0.tgz#5d76145476cea46a4e7c045a0054637cddf8dc39"
+  integrity sha512-I4cSwm6N5qxqCmBqenvutwSHe9ntf81lLrtf6BmLpG2v4wTl89atCQKqGgqvkodE6Lx+iKIjMbaXmfvStTg01g==
   dependencies:
     buffer-from "^0.1.1"
     combine-errors "^3.0.3"
+    is-stream "^2.0.0"
     js-base64 "^2.6.1"
     lodash.throttle "^4.1.1"
     proper-lockfile "^2.0.1"
