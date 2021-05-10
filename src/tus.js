@@ -41,7 +41,7 @@ async function sendTusRequest ({ streamsMap, assembly, requestedChunkSize, uploa
       // tus-js-client requires these options to be set for unknown size streams
       // https://github.com/tus/tus-js-client/blob/master/docs/api.md#uploadlengthdeferred
       uploadLengthDeferred = true
-      if (chunkSize === Infinity) chunkSize = 5e6
+      if (chunkSize === Infinity) chunkSize = 50e6
     }
 
     const onTusProgress = (bytesUploaded) => {
