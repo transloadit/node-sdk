@@ -28,6 +28,7 @@ expectType<Promise<Assembly>>(transloadit.createAssembly({
   },
   isResumable: true,
   chunkSize: Infinity,
+  uploadConcurrency: 5,
   timeout: 1,
   waitForCompletion: true,
   onAssemblyProgress: (assembly) => {

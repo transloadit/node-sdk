@@ -114,6 +114,7 @@ class TransloaditClient {
       waitForCompletion = false,
       isResumable = true,
       chunkSize: requestedChunkSize = Infinity,
+      uploadConcurrency = 10,
       timeout = 24 * 60 * 60 * 1000, // 1 day
       onUploadProgress = () => {},
       onAssemblyProgress = () => {},
@@ -206,6 +207,7 @@ class TransloaditClient {
             assembly  : result,
             onProgress: onUploadProgress,
             requestedChunkSize,
+            uploadConcurrency,
           })
         }
 

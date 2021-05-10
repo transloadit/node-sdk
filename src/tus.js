@@ -5,7 +5,7 @@ const tus = require('tus-js-client')
 const { stat: fsStat } = require('fs').promises
 const pMap = require('p-map')
 
-async function sendTusRequest ({ streamsMap, assembly, requestedChunkSize, onProgress }) {
+async function sendTusRequest ({ streamsMap, assembly, requestedChunkSize, uploadConcurrency, onProgress }) {
   const streamLabels = Object.keys(streamsMap)
 
   let totalBytes = 0
@@ -89,9 +89,7 @@ async function sendTusRequest ({ streamsMap, assembly, requestedChunkSize, onPro
     log(label, 'upload done')
   }
 
-  // TODO throttle concurrency? Can use p-map
-  const promises = streamLabels.map((label) => uploadSingleStream(label))
-  await Promise.all(promises)
+  await pMap(streamLabels, uploadSingleStream, { concurrency: uploadConcurrency })
 }
 
 module.exports = {
