@@ -2,11 +2,8 @@ const got = require('got')
 const FormData = require('form-data')
 const crypto = require('crypto')
 const fromPairs = require('lodash/fromPairs')
-const sumBy = require('lodash/sumBy')
 const fs = require('fs')
-const { basename } = require('path')
-const tus = require('tus-js-client')
-const { access, stat: fsStat } = require('fs').promises
+const { access } = require('fs').promises
 const log = require('debug')('transloadit')
 const logWarn = require('debug')('transloadit:warn')
 const intoStream = require('into-stream')
@@ -17,6 +14,7 @@ const uuid = require('uuid')
 
 const PaginationStream = require('./PaginationStream')
 const { version } = require('../package.json')
+const { sendTusRequest } = require('./tus')
 
 function decorateError (err, body) {
   if (!body) return err
@@ -51,8 +49,6 @@ function checkAssemblyUrls (result) {
   }
 }
 
-const isFileBasedStream = (stream) => !!stream.path
-
 function getHrTimeMs () {
   return Number(process.hrtime.bigint() / 1000000n)
 }
@@ -68,73 +64,6 @@ function checkResult (result) {
     }
     throw decorateError(err, result)
   }
-}
-
-async function sendTusRequest ({ streamsMap, assembly, onProgress }) {
-  const streamLabels = Object.keys(streamsMap)
-
-  let totalBytes = 0
-  let lastEmittedProgress = 0
-
-  const sizes = {}
-
-  // Initialize data
-  await pMap(streamLabels, async (label) => {
-    const { path } = streamsMap[label]
-
-    if (path) {
-      const { size } = await fsStat(path)
-      sizes[label] = size
-      totalBytes += size
-    }
-  }, { concurrency: 5 })
-
-  const uploadProgresses = {}
-
-  async function uploadSingleStream (label) {
-    uploadProgresses[label] = 0
-
-    const { stream, path } = streamsMap[label]
-    const size = sizes[label]
-
-    const onTusProgress = (bytesUploaded) => {
-      uploadProgresses[label] = bytesUploaded
-
-      // get all uploaded bytes for all files
-      const uploadedBytes = sumBy(streamLabels, (l) => uploadProgresses[l])
-
-      // don't send redundant progress
-      if (lastEmittedProgress < uploadedBytes) {
-        lastEmittedProgress = uploadedBytes
-        onProgress({ uploadedBytes, totalBytes })
-      }
-    }
-
-    const filename = path ? basename(path) : label
-
-    await new Promise((resolve, reject) => {
-      const tusUpload = new tus.Upload(stream, {
-        endpoint: assembly.tus_url,
-        metadata: {
-          assembly_url: assembly.assembly_ssl_url,
-          fieldname   : label,
-          filename,
-        },
-        uploadSize: size,
-        onError   : reject,
-        onProgress: onTusProgress,
-        onSuccess : resolve,
-      })
-
-      tusUpload.start()
-    })
-
-    log(label, 'upload done')
-  }
-
-  // TODO throttle concurrency? Can use p-map
-  const promises = streamLabels.map((label) => uploadSingleStream(label))
-  await Promise.all(promises)
 }
 
 class TransloaditClient {
@@ -184,6 +113,8 @@ class TransloaditClient {
       params = {},
       waitForCompletion = false,
       isResumable = true,
+      chunkSize: requestedChunkSize = Infinity,
+      uploadConcurrency = 10,
       timeout = 24 * 60 * 60 * 1000, // 1 day
       onUploadProgress = () => {},
       onAssemblyProgress = () => {},
@@ -191,6 +122,10 @@ class TransloaditClient {
       uploads = {},
       assemblyId,
     } = opts
+
+    if (!isResumable) {
+      process.emitWarning('Parameter value isResumable = false is deprecated. All uploads will be resumable (using TUS) in the future', 'DeprecationWarning')
+    }
 
     // Keep track of how long the request took
     const startTimeMs = getHrTimeMs()
@@ -247,8 +182,6 @@ class TransloaditClient {
       })
 
       const createAssemblyAndUpload = async () => {
-        const useTus = isResumable && allStreams.every(isFileBasedStream)
-
         const requestOpts = {
           urlSuffix,
           method: 'post',
@@ -256,26 +189,25 @@ class TransloaditClient {
           params,
         }
 
-        if (useTus) {
+        if (isResumable) {
           requestOpts.fields = {
             tus_num_expected_upload_files: allStreams.length,
           }
-        } else if (isResumable) {
-          logWarn('Disabling resumability because the size of one or more streams cannot be determined')
         }
 
         // upload as form multipart or tus?
-        const formUploadStreamsMap = useTus ? {} : allStreamsMap
-        const tusStreamsMap = useTus ? allStreamsMap : {}
+        const formUploadStreamsMap = isResumable ? {} : allStreamsMap
 
         const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onUploadProgress)
         checkResult(result)
 
-        if (useTus && Object.keys(tusStreamsMap).length > 0) {
+        if (isResumable && Object.keys(allStreamsMap).length > 0) {
           await sendTusRequest({
-            streamsMap: tusStreamsMap,
+            streamsMap: allStreamsMap,
             assembly  : result,
             onProgress: onUploadProgress,
+            requestedChunkSize,
+            uploadConcurrency,
           })
         }
 

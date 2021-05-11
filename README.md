@@ -149,6 +149,8 @@ You can provide the following keys inside the `options` object:
   - `uploadedBytes` - Number of bytes uploaded so far.
   - `totalBytes` - Total number of bytes to upload or `undefined` if unknown (Streams).
 - `onAssemblyProgress` - Once the Assembly has started processing this will be periodically called with the *Assembly Execution Status* (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
+- `chunkSize` - (for uploads) a number indicating the maximum size of a tus `PATCH` request body in bytes. Default to `Infinity` for file uploads and 50MB for streams of unknown length. See [tus-js-client](https://github.com/tus/tus-js-client/blob/master/docs/api.md#chunksize).
+- `uploadConcurrency` - Maximum number of concurrent tus file uploads to occur at any given time (default 10.)
 
 Example code showing all options:
 ```js
