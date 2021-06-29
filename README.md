@@ -96,7 +96,7 @@ You can find [details about your executed Assemblies here](https://transloadit.c
 - [Calculate total costs (GB usage)](https://github.com/transloadit/node-sdk/blob/master/examples/fetch_costs_of_all_assemblies_in_timeframe.js)
 - [Templates CRUD](https://github.com/transloadit/node-sdk/blob/master/examples/template_api.js)
 
-For more fully working examples take a look at [`examples/`](examples/).
+For more fully working examples take a look at [`examples/`](https://github.com/transloadit/node-sdk/blob/master/examples/).
 
 For more example use cases and information about the available robots and their parameters, check out the [Transloadit website](https://transloadit.com/).
 
