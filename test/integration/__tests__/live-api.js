@@ -34,7 +34,32 @@ function createClient (opts = {}) {
     throw new Error('Please specify environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET')
   }
 
-  return new Transloadit({ authKey, authSecret, ...opts })
+  // https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md#retry
+  const gotRetry = {
+    limit  : 2,
+    methods: [
+      'GET',
+      'PUT',
+      'HEAD',
+      'DELETE',
+      'OPTIONS',
+      'TRACE',
+      'POST', // Normally we shouldn't retry on POST, as it is not idempotent, but for tests we can do it
+    ],
+    statusCodes: [],
+    errorCodes : [
+      'ETIMEDOUT',
+      'ECONNRESET',
+      'EADDRINUSE',
+      'ECONNREFUSED',
+      'EPIPE',
+      'ENOTFOUND',
+      'ENETUNREACH',
+      'EAI_AGAIN',
+    ],
+  }
+
+  return new Transloadit({ authKey, authSecret, gotRetry, ...opts })
 }
 
 function createAssembly (client, params) {

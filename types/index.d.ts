@@ -3,7 +3,7 @@
 import { Readable } from 'stream'
 import * as intoStream from 'into-stream'
 
-import { RequestError, ReadError, ParseError, UploadError, HTTPError, MaxRedirectsError, TimeoutError } from 'got'
+import { RequestError, ReadError, ParseError, UploadError, HTTPError, MaxRedirectsError, TimeoutError, RequiredRetryOptions } from 'got'
 
 export default class Transloadit {
   constructor (options: {
@@ -12,6 +12,7 @@ export default class Transloadit {
     endpoint?: string;
     maxRetries?: number;
     timeout?: number;
+    gotRetry?: RequiredRetryOptions;
   })
 
   setDefaultTimeout(timeout: number): void

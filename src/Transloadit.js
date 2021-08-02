@@ -86,6 +86,9 @@ class TransloaditClient {
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
 
+    // Passed on to got https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md
+    this._gotRetry = opts.gotRetry != null ? opts.gotRetry : 0
+
     this._lastUsedAssemblyUrl = ''
   }
 
@@ -572,7 +575,7 @@ class TransloaditClient {
       const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
 
       const requestOpts = {
-        retry  : 0,
+        retry  : this._gotRetry,
         body   : form,
         timeout,
         headers: {
