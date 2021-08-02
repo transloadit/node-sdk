@@ -5,7 +5,20 @@ import { Readable } from 'stream'
 
 import Transloadit, { Assembly, ListedAssembly, ReplayedAssembly, AssemblyNotification, TemplateResponse, ListedTemplate, KeyVal } from '../'
 
-const transloadit = new Transloadit({ authKey: '123', authSecret: '456', endpoint: 'http://localhost', maxRetries: 1 })
+const transloadit = new Transloadit({
+  authKey: '123',
+  authSecret: '456',
+  endpoint: 'http://localhost',
+  maxRetries: 1,
+  gotRetry: {
+    limit: 2,
+    methods: ['GET'],
+    statusCodes: [404],
+    errorCodes: ['ERROR'],
+    calculateDelay: () => 1,
+    maxRetryAfter: 1,
+  },
+})
 
 expectType<string>(transloadit.getLastUsedAssemblyUrl())
 expectType<void>(transloadit.setDefaultTimeout(1))

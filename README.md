@@ -110,6 +110,7 @@ Table of contents:
 - [Assembly notifications](#assembly-notifications)
 - [Templates](#templates)
 - [Errors](#errors)
+- [Rate limiting & auto retry](#rate-limiting--auto-retry)
 
 ### Main
 
@@ -122,6 +123,7 @@ The `options` object can contain the following keys:
 - `authSecret` **(required)** - see [requirements](#requirements)
 - `endpoint` (default `'https://api2.transloadit.com'`)
 - `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
+- `gotRetry` (default `0`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `timeout` (default `60000`: 1 minute) - the timeout (in milliseconds) for all requests (except `createAssembly`)
 
 ### Assemblies
@@ -403,7 +405,19 @@ catch (err) {
 
 ### Rate limiting & auto retry
 
-All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`). It will automatically retry requests **5 times** with auto back-off (`maxRetries` option). There is no need to write your own wrapper scripts to handle rate limits.
+There are three kinds of retries:
+
+#### Retry on rate limiting (`maxRetries`, default `5`)
+
+All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`), so there is no need to write your own wrapper scripts to handle rate limits. The SDK will by default retry requests **5 times** with auto back-off (See `maxRetries` constructor option). 
+
+#### GOT HTTP retries (`gotRetry`, default `0`)
+
+Because we use [got](https://github.com/sindresorhus/got) under the hood, you can pass a `gotRetry` constructor option which is passed on to `got`. This offers great flexibility for handling retries on network errors and HTTP status codes with auto back-off. See [`got` `retry` object documentation](https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md).
+
+**Note that the above `maxRetries` option does not affect the `gotRetry` logic.**
+
+#### Custom retry logic
 
 If you want to retry on other errors, please see the [retry example code](examples/retry.js).
 
