@@ -65,7 +65,7 @@ function createClient (opts = {}) {
 function createAssembly (client, params) {
   const promise = client.createAssembly(params)
   const { assemblyId } = promise
-  console.log('createAssembly', assemblyId) // For easier debugging
+  console.log(expect.getState().currentTestName, 'createAssembly', assemblyId) // For easier debugging
   return promise
 }
 
