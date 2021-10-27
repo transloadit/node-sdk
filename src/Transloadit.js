@@ -12,6 +12,7 @@ const assert = require('assert')
 const pMap = require('p-map')
 const uuid = require('uuid')
 
+const InconsistentResponseError = require('./InconsistentResponseError')
 const PaginationStream = require('./PaginationStream')
 const { version } = require('../package.json')
 const { sendTusRequest } = require('./tus')
@@ -33,13 +34,6 @@ function decorateError (err, body) {
   /* eslint-enable no-param-reassign */
 
   return err
-}
-
-class InconsistentResponseError extends Error {
-  constructor (message) {
-    super(message)
-    this.name = 'InconsistentResponseError'
-  }
 }
 
 // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
@@ -240,7 +234,6 @@ class TransloaditClient {
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      // eslint-disable-next-line no-await-in-loop
       const result = await this.getAssembly(assemblyId)
 
       if (!['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'].includes(result.ok)) {
@@ -259,7 +252,6 @@ class TransloaditClient {
         err.code = 'POLLING_TIMED_OUT'
         throw err
       }
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, interval))
     }
   }
@@ -596,7 +588,6 @@ class TransloaditClient {
         if (isUploadingStreams) {
           request.on('uploadProgress', ({ transferred, total }) => onProgress({ uploadedBytes: transferred, totalBytes: total }))
         }
-        // eslint-disable-next-line no-await-in-loop
         const { body } = await request
         return body
       } catch (err) {
@@ -613,7 +604,6 @@ class TransloaditClient {
         const { retryIn: retryInSec } = body.info
         logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
         const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((resolve) => setTimeout(resolve, retryInMs))
         // Retry
       }
