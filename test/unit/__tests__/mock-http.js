@@ -107,7 +107,6 @@ describe('Mocked API tests', () => {
 
   it('should retry correctly on RATE_LIMIT_REACHED', async () => {
     const client = getLocalClient()
-    // eslint-disable-next-line no-underscore-dangle
     client._maxRetries = 1
 
     // https://transloadit.com/blog/2012/04/introducing-rate-limiting/

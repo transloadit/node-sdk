@@ -8,8 +8,6 @@ const tus = require('../../../src/tus')
 const Transloadit = require('../../../src/Transloadit')
 const packageVersion = require('../../../package.json').version
 
-/* eslint-disable no-underscore-dangle */
-
 jest.mock('got')
 
 tus.sendTusRequest.mockImplementation(() => {})

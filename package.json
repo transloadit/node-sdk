@@ -31,7 +31,7 @@
     "@types/jest": "^26.0.19",
     "badge-maker": "^3.3.0",
     "eslint": "^7.18.0",
-    "eslint-config-transloadit": "2.0.0-0",
+    "eslint-config-transloadit": "^2.0.0",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-jest": "^24.3.3",
     "eslint-plugin-jsx-a11y": "^6.4.1",
