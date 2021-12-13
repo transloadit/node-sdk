@@ -290,19 +290,6 @@ Returns the internal url that was used for the last call to `createAssembly`. Th
 
 Replays the notification for the Assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assembly-notifications-assembly-id-replay-post) for more info about `params`.
 
-#### async listAssemblyNotifications(params)
-
-Retrieve Assembly notifications according to `params`. [See example](examples/list_assembly_notifications.js) and [API documentation](https://transloadit.com/docs/api/#assembly-notifications-get) for more info about `params`.
-
-The method returns an object containing these properties:
-
-- `items`: An `Array` of up to `pagesize` Assembly notifications
-- `count`: Total number of Assembly notifications
-
-#### streamAssemblyNotifications(params)
-
-Creates an `objectMode` `Readable` stream that automates handling of `listAssemblynotifications` pagination. Similar to `streamAssemblies`.
-
 ### Templates
 
 Templates are Steps that can be reused. [See example template code](examples/template_api.js).
