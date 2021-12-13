@@ -5,7 +5,6 @@
 const localtunnel = require('localtunnel')
 const http = require('http')
 const keyBy = require('lodash/keyBy')
-const sortBy = require('lodash/sortBy')
 const querystring = require('querystring')
 const temp = require('temp')
 const { createWriteStream } = require('fs')
