@@ -623,14 +623,6 @@ describe('API integration', () => {
           expect(path).toBe(newPath)
 
           try {
-            // I think there are some eventual consistency issues here
-            await new Promise((resolve) => setTimeout(resolve, 1000))
-
-            const result = await client.listAssemblyNotifications({ assembly_id: assemblyId })
-            const chronologicalItems = sortBy(result.items, 'created') // They don't come sorted
-            expect(chronologicalItems[0].url).toBe(server.url)
-            expect(chronologicalItems[1].url).toBe(newUrl)
-
             // If we quit immediately, things will not get cleaned up and jest will hang
             await new Promise((resolve) => setTimeout(resolve, 2000))
             done()

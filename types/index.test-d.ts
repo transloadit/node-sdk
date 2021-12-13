@@ -3,7 +3,7 @@ import { expectType } from 'tsd'
 import * as intoStream from 'into-stream'
 import { Readable } from 'stream'
 
-import Transloadit, { Assembly, ListedAssembly, ReplayedAssembly, AssemblyNotification, TemplateResponse, ListedTemplate, KeyVal } from '../'
+import Transloadit, { Assembly, ListedAssembly, ReplayedAssembly, TemplateResponse, ListedTemplate, KeyVal } from '../'
 
 const transloadit = new Transloadit({
   authKey: '123',
@@ -64,8 +64,6 @@ expectType<Promise<Assembly>>(transloadit.awaitAssemblyCompletion('1', {
 expectType<Promise<Assembly>>(transloadit.cancelAssembly('1'))
 expectType<Promise<ReplayedAssembly>>(transloadit.replayAssembly('1', { param1: { a: 1 }}))
 expectType<Promise<{ ok: string, success: boolean }>>(transloadit.replayAssemblyNotification('1', { param1: { a: 1 }}))
-expectType<Promise<{ count: number, items: AssemblyNotification[] }>>(transloadit.listAssemblyNotifications({ param1: { a: 1 }}))
-expectType<Readable>(transloadit.streamAssemblyNotifications({ param1: { a: 1 }}))
 expectType<Promise<{ count: number, items: ListedAssembly[] }>>(transloadit.listAssemblies({ param1: { a: 1 }}))
 expectType<Readable>(transloadit.streamAssemblies({ param1: { a: 1 }}))
 expectType<Promise<Assembly>>(transloadit.getAssembly('1'))

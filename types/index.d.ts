@@ -47,8 +47,6 @@ export default class Transloadit {
   }) : Promise<Assembly>
 
   replayAssemblyNotification(assemblyId: string, params?: KeyVal): Promise<{ ok: string, success: boolean }>
-  listAssemblyNotifications(params?: KeyVal): Promise<{ count: number, items: AssemblyNotification[] }>
-  streamAssemblyNotifications(params?: KeyVal): Readable
 
   getLastUsedAssemblyUrl(): string
 
@@ -168,18 +166,6 @@ export interface ReplayedAssembly {
   assembly_url: string,
   assembly_ssl_url: string,
   notify_url?: string,
-}
-
-export interface AssemblyNotification {
-  id: string,
-  assembly_id: string,
-  account_id: string,
-  response_code: number,
-  response_data?: string,
-  url: string,
-  duration: number,
-  error?: string,
-  created: string,
 }
 
 export interface ListedTemplate {
