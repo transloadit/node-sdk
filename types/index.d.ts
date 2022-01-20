@@ -57,7 +57,7 @@ export default class Transloadit {
   getTemplate(templateId: string): Promise<TemplateResponse>
   streamTemplates(params?: KeyVal): Readable
 
-  /** https://transloadit.com/docs/api/#bill-date-get */
+  /** https://transloadit.com/docs/api/bill-date-get/ */
   getBill(month: string): Promise<KeyVal>
 
   calcSignature(params: KeyVal): { signature: string, params: string }
@@ -66,7 +66,7 @@ export default class Transloadit {
 type AssemblyProgress = (assembly: Assembly) => void;
 
 export interface CreateAssemblyParams {
-  /** See https://transloadit.com/docs/#assembly-instructions */
+  /** See https://transloadit.com/docs/topics/assembly-instructions/ */
   steps?: KeyVal,
   template_id?: string,
   notify_url?: string,
@@ -85,7 +85,7 @@ export interface UploadProgress {
   totalBytes?: number
 }
 
-/** https://transloadit.com/docs/api/#explanation-of-fields */
+/** https://transloadit.com/docs/api/assembly-status-response/#explanation-of-fields */
 export interface Assembly {
   ok?: string,
   message?: string,
@@ -140,7 +140,7 @@ export interface Assembly {
   reason?: string,
 }
 
-/** See https://transloadit.com/docs/api/#assemblies-assembly-id-get */
+/** See https://transloadit.com/docs/api/assemblies-assembly-id-get/ */
 export interface ListedAssembly {
   id?: string,
   parent_id?: string,

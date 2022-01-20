@@ -134,12 +134,12 @@ Creates a new Assembly on Transloadit and optionally upload the specified `files
 
 You can provide the following keys inside the `options` object:
 
-- `params` **(required)** - An object containing keys defining the Assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/#assemblies-post) and [examples](#examples))
-  - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/#assembly-instructions) and [demos](https://transloadit.com/demos/) for inspiration.
-  - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any Steps will overrule the template](https://transloadit.com/docs/#overruling-templates-at-runtime).
+- `params` **(required)** - An object containing keys defining the Assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/assemblies-post/) and [examples](#examples))
+  - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/topics/assembly-instructions/) and [demos](https://transloadit.com/demos/) for inspiration.
+  - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any Steps will overrule the template](https://transloadit.com/docs/topics/templates/#overruling-templates-at-runtime).
   - `fields` - An object of form fields to add to the request, to make use of in the Assembly instructions via [Assembly variables](https://transloadit.com/docs#assembly-variables). 
   - `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
-- `files` - An object (key-value pairs) containing one or more file paths to upload and use in your Assembly. The *key* is the *field name* and the *value* is the path to the file to be uploaded. The *field name* and the file's name may be used in the ([Assembly instructions](https://transloadit.com/docs/#assembly-instructions)) (`params`.`steps`) to refer to the particular file. See example below.
+- `files` - An object (key-value pairs) containing one or more file paths to upload and use in your Assembly. The *key* is the *field name* and the *value* is the path to the file to be uploaded. The *field name* and the file's name may be used in the ([Assembly instructions](https://transloadit.com/docs/topics/assembly-instructions/)) (`params`.`steps`) to refer to the particular file. See example below.
   - `'fieldName': '/path/to/file'`
   - more files...
 - `uploads` - An object (key-value pairs) containing one or more files to upload and use in your Assembly. The *key* is the *file name* and the *value* is the *content* of the file to be uploaded. *Value* can be one of many types:
@@ -204,14 +204,14 @@ const status = await promise
 
 
 See also:
-- [API documentation](https://transloadit.com/docs/api/#assemblies-post)
+- [API documentation](https://transloadit.com/docs/api/assemblies-post/)
 - Error codes and retry logic below
 
 #### async listAssemblies(params)
 
 Retrieve Assemblies according to the given `params`.
 
-Valid params can be `page`, `pagesize`, `type`, `fromdate`, `todate` and `keywords`. Please consult the [API documentation](https://transloadit.com/docs/api/#retrieve-assembly-list) for details.
+Valid params can be `page`, `pagesize`, `type`, `fromdate`, `todate` and `keywords`. Please consult the [API documentation](https://transloadit.com/docs/api/assemblies-get/) for details.
 
 The method returns an object containing these properties:
 
@@ -251,15 +251,15 @@ assemblyStream
 
 #### async getAssembly(assemblyId)
 
-Retrieves the JSON status of the Assembly identified by the given `assemblyId`. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-get).
+Retrieves the JSON status of the Assembly identified by the given `assemblyId`. See [API documentation](https://transloadit.com/docs/api/assemblies-assembly-id-get/).
 
 #### async cancelAssembly(assemblyId)
 
-Removes the Assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the Assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the Assembly from the Transloadit servers. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-delete).
+Removes the Assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the Assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the Assembly from the Transloadit servers. See [API documentation](https://transloadit.com/docs/api/assemblies-assembly-id-delete/).
 
 #### async replayAssembly(assemblyId, params)
 
-Replays the Assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assemblies-assembly-id-replay-post) for more info about `params`.
+Replays the Assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/assemblies-assembly-id-replay-post/) for more info about `params`.
 
 The response from the `replayAssembly` is minimal and does not contain much information about the replayed assembly. Please call `getAssembly` or `awaitAssemblyCompletion` after replay to get more information:
 
@@ -288,7 +288,7 @@ Returns the internal url that was used for the last call to `createAssembly`. Th
 
 #### async replayAssemblyNotification(assemblyId, params)
 
-Replays the notification for the Assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/#assembly-notifications-assembly-id-replay-post) for more info about `params`.
+Replays the notification for the Assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/assembly-notifications-assembly-id-replay-post/) for more info about `params`.
 
 ### Templates
 
@@ -300,7 +300,7 @@ Creates a template the provided params. The required `params` keys are:
 - `name` - The template name
 - `template` - The template JSON object containing its `steps`
 
-See also [API documentation](https://transloadit.com/docs/api/#templates-post).
+See also [API documentation](https://transloadit.com/docs/api/templates-post/).
 
 ```js
 const template = {
@@ -323,19 +323,19 @@ console.log('✅ Template created with template_id', result.id)
 
 #### async editTemplate(templateId, params)
 
-Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-put).
+Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call. See [API documentation](https://transloadit.com/docs/api/templates-template-id-put/).
 
 #### async getTemplate(templateId)
 
-Retrieves the name and the template JSON for the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-get).
+Retrieves the name and the template JSON for the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/templates-template-id-get/).
 
 #### async deleteTemplate(templateId)
 
-Deletes the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/#templates-template-id-delete).
+Deletes the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/templates-template-id-delete/).
 
 #### async listTemplates(params)
 
-Retrieve all your templates. See [API documentation](https://transloadit.com/docs/api/#templates-get) for more info about `params`.
+Retrieve all your templates. See [API documentation](https://transloadit.com/docs/api/templates-template-id-get/) for more info about `params`.
 
 The method returns an object containing these properties:
 
@@ -354,7 +354,7 @@ Same as `constructor` `timeout` option: Set the default timeout (in milliseconds
 
 #### async getBill(date)
 
-Retrieves the billing data for a given `date` string with format `YYYY-MM`. See [API documentation](https://transloadit.com/docs/api/#bill-date-get).
+Retrieves the billing data for a given `date` string with format `YYYY-MM`. See [API documentation](https://transloadit.com/docs/api/bill-date-get/).
 
 #### calcSignature(params)
 
@@ -367,8 +367,8 @@ This function returns an object with the key `signature` (containing the calcula
 Errors from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be a `Transloadit.HTTPError`, which is a [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:
 
 - `HTTPError.response?.body` the JSON object returned by the server along with the error response (**note**: `HTTPError.response` will be `undefined` for non-server errors)
-- `HTTPError.transloaditErrorCode` alias for `HTTPError.response.body.error` ([View all error codes](https://transloadit.com/docs/api/#error-codes))
-- `HTTPError.assemblyId` (alias for `HTTPError.response.body.assembly_id`, if the request regards an [Assembly](https://transloadit.com/docs/api/#assemblies-assembly-id-get))
+- `HTTPError.transloaditErrorCode` alias for `HTTPError.response.body.error` ([View all error codes](https://transloadit.com/docs/api/response-codes/#error-codes))
+- `HTTPError.assemblyId` (alias for `HTTPError.response.body.assembly_id`, if the request regards an [Assembly](https://transloadit.com/docs/api/assemblies-assembly-id-get/))
 
 To identify errors you can either check its props or use `instanceof`, e.g.:
 ```js
@@ -387,7 +387,7 @@ catch (err) {
 
 **Note:** Assemblies that have an error status (`assembly.error`) will only result in an error thrown from `createAssembly` and `replayAssembly`. For other Assembly methods, no errors will be thrown, but any error can be found in the response's `error` property
 
-- [More information on Transloadit errors (`transloaditErrorCode`)](https://transloadit.com/docs/api/#error-codes)
+- [More information on Transloadit errors (`transloaditErrorCode`)](https://transloadit.com/docs/api/response-codes/#error-codes)
 - [More information on request errors](https://github.com/sindresorhus/got#errors)
 
 ### Rate limiting & auto retry
@@ -408,7 +408,7 @@ Because we use [got](https://github.com/sindresorhus/got) under the hood, you ca
 
 If you want to retry on other errors, please see the [retry example code](examples/retry.js).
 
-- https://transloadit.com/docs/api/#rate-limiting
+- https://transloadit.com/docs/api/rate-limiting/
 - https://transloadit.com/blog/2012/04/introducing-rate-limiting/
 
 ## Debugging
