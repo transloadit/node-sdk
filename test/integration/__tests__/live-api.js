@@ -387,7 +387,7 @@ describe('API integration', () => {
     })
 
     it('should exit fast when assembly has failed', async () => {
-      // An old bug caused it to continuously retry until timeout when errors such as INVALID_FILE_META_DATA
+      // An old bug caused it to continuously retry until timeout when errors such as INVALID_FILE_META_DATA (now INTERNAL_COMMAND_ERROR)
       // Note: This test sometimes reproduces the case where the server returns 200 but with an "error" in the response
       const client = createClient()
       const opts = {
@@ -404,7 +404,7 @@ describe('API integration', () => {
 
       const promise = createAssembly(client, opts)
       await promise.catch((err) => {
-        expect(err).toMatchObject({ transloaditErrorCode: 'INVALID_FILE_META_DATA', assemblyId: expect.any(String) })
+        expect(err).toMatchObject({ transloaditErrorCode: 'INTERNAL_COMMAND_ERROR', assemblyId: expect.any(String) })
       })
       await expect(promise).rejects.toThrow(Error)
     }, 7000)
@@ -618,8 +618,19 @@ describe('API integration', () => {
         const newPath = '/newPath'
         const newUrl = `${server.url}${newPath}`
 
+        // I think there are some eventual consistency issues here
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        const result = await client.getAssembly(assemblyId)
+
+        expect(result.notify_status).toBe('successful')
+        expect(result.notify_response_code).toBe(200)
+
         if (secondNotification) {
           expect(path).toBe(newPath)
+
+          // notify_url will not get updated to new URL
+          expect(result.notify_url).toBe(server.url)
 
           try {
             // If we quit immediately, things will not get cleaned up and jest will hang
@@ -631,10 +642,13 @@ describe('API integration', () => {
 
           return
         }
+
         secondNotification = true
 
         try {
           expect(path).toBe('/')
+          expect(result.notify_url).toBe(server.url)
+
           await new Promise((resolve) => setTimeout(resolve, 2000))
           await client.replayAssemblyNotification(assemblyId, { notify_url: newUrl })
         } catch (err) {
