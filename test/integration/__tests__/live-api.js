@@ -591,7 +591,10 @@ describe('API integration', () => {
 
       try {
         server = await startServerAsync(onNotificationRequest)
-        await createAssembly(client, { params: { ...genericParams, notify_url: server.url } })
+        const promise = createAssembly(client, { params: { ...genericParams, notify_url: server.url } })
+        await promise
+        const result = await client.getAssembly(promise.assemblyId)
+        console.log('created', JSON.stringify(result))
       } catch (err) {
         onError(err)
       }
@@ -618,8 +621,20 @@ describe('API integration', () => {
         const newPath = '/newPath'
         const newUrl = `${server.url}${newPath}`
 
+        // I think there are some eventual consistency issues here
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        const result = await client.getAssembly(assemblyId)
+        console.log(result)
+
+        expect(result.notify_status).toBe('successful')
+        expect(result.notify_response_code).toBe(200)
+
         if (secondNotification) {
           expect(path).toBe(newPath)
+
+          // For some reason, notify_url doesn't get updated to new URL
+          // expect(result.notify_url).toBe(newUrl)
 
           try {
             // If we quit immediately, things will not get cleaned up and jest will hang
@@ -631,11 +646,15 @@ describe('API integration', () => {
 
           return
         }
+
         secondNotification = true
 
         try {
           expect(path).toBe('/')
+          expect(result.notify_url).toBe(server.url)
+
           await new Promise((resolve) => setTimeout(resolve, 2000))
+          console.log('replaying')
           await client.replayAssemblyNotification(assemblyId, { notify_url: newUrl })
         } catch (err) {
           done(err)
