@@ -591,9 +591,7 @@ describe('API integration', () => {
 
       try {
         server = await startServerAsync(onNotificationRequest)
-        const promise = createAssembly(client, { params: { ...genericParams, notify_url: server.url } })
-        await promise
-        const result = await client.getAssembly(promise.assemblyId)
+        await createAssembly(client, { params: { ...genericParams, notify_url: server.url } })
       } catch (err) {
         onError(err)
       }
