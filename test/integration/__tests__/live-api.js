@@ -623,7 +623,7 @@ describe('API integration', () => {
 
         const result = await client.getAssembly(assemblyId)
 
-        expect(['successful', 'processing']).toContain(result.notify_status);
+        expect(['successful', 'processing']).toContain(result.notify_status)
         expect(result.notify_response_code).toBe(200)
 
         if (secondNotification) {
