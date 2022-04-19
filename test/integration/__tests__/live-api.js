@@ -487,8 +487,17 @@ describe('API integration', () => {
         // Successful cancel requests get ASSEMBLY_CANCELED even when it
         // completed, so we now request the assembly status to check the
         // *actual* status.
-        const resp2 = await client.getAssembly(id)
-        expect(resp2.ok).toBe('ASSEMBLY_CANCELED')
+
+        const timeout = 30000
+        const startedAt = new Date()
+        let lastStatus
+        for (;;) {
+          ({ ok: lastStatus } = await client.getAssembly(id))
+          if (lastStatus === 'ASSEMBLY_CANCELED') break // all good!
+          if (new Date() - startedAt > timeout) {
+            throw new Error(`Timed out trying to wait for assembly to cancel. Last status was ${lastStatus}`)
+          }
+        }
 
         // Check that awaitAssemblyCompletion gave the correct response too
         const awaitCompletionResponse = await awaitCompletionPromise
