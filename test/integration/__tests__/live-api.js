@@ -159,7 +159,8 @@ describe('API integration', () => {
       const options = {
         ...genericOptions,
         onUploadProgress: (uploadProgress) => { uploadProgressCalled = uploadProgress },
-        // Assemblies no longer consistently emit progress
+        // Often an assembly will finish before the node-sdk has time to emit an onAssemblyProgress event,
+        // so we cannot rely on that (will cause unstable tests)
         // onAssemblyProgress: (assemblyProgress) => { assemblyProgressCalled = assemblyProgress },
       }
       let result = await createAssembly(client, options)
