@@ -156,11 +156,12 @@ describe('API integration', () => {
       const client = createClient()
 
       let uploadProgressCalled
-      let assemblyProgressCalled
       const options = {
         ...genericOptions,
-        onUploadProgress  : (uploadProgress) => { uploadProgressCalled = uploadProgress },
-        onAssemblyProgress: (assemblyProgress) => { assemblyProgressCalled = assemblyProgress },
+        onUploadProgress: (uploadProgress) => { uploadProgressCalled = uploadProgress },
+        // Often an assembly will finish before the node-sdk has time to emit an onAssemblyProgress event,
+        // so we cannot rely on that (will cause unstable tests)
+        // onAssemblyProgress: (assemblyProgress) => { assemblyProgressCalled = assemblyProgress },
       }
       let result = await createAssembly(client, options)
       expect(result).not.toHaveProperty('error')
@@ -168,7 +169,6 @@ describe('API integration', () => {
       expect(result).toHaveProperty('assembly_id') // Since we're using it
 
       expect(uploadProgressCalled).toBeUndefined()
-      expect(assemblyProgressCalled).toMatchObject({ assembly_id: result.assembly_id })
 
       const id = result.assembly_id
 
