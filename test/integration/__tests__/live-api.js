@@ -488,6 +488,7 @@ describe('API integration', () => {
         // completed, so we now request the assembly status to check the
         // *actual* status.
         const resp2 = await client.getAssembly(id)
+        console.log(`Expect Assembly ${id} to return 'ASSEMBLY_CANCELED'`)
         expect(resp2.ok).toBe('ASSEMBLY_CANCELED')
 
         // Check that awaitAssemblyCompletion gave the correct response too
