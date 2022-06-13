@@ -388,7 +388,7 @@ describe('API integration', () => {
 
     it('should exit fast when assembly has failed', async () => {
       // An old bug caused it to continuously retry until timeout when errors such as
-      // INVALID_FILE_META_DATA (now INTERNAL_COMMAND_ERROR)
+      // INVALID_FILE_META_DATA, INTERNAL_COMMAND_ERROR, INVALID_INPUT_ERROR
       // Note: This test sometimes reproduces the case where the server returns 200 but with an "error" in the response
       const client = createClient()
       const opts = {
@@ -405,7 +405,7 @@ describe('API integration', () => {
 
       const promise = createAssembly(client, opts)
       await promise.catch((err) => {
-        expect(err).toMatchObject({ transloaditErrorCode: 'INTERNAL_COMMAND_ERROR', assemblyId: expect.any(String) })
+        expect(err).toMatchObject({ transloaditErrorCode: 'INVALID_INPUT_ERROR', assemblyId: expect.any(String) })
       })
       await expect(promise).rejects.toThrow(Error)
     }, 60000)
