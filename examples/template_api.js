@@ -27,7 +27,8 @@ const template = {
 
 (async () => {
   try {
-    const { count } = await transloadit.listTemplates({ sort: 'created', order: 'asc' })
+    const res = await transloadit.listTemplates({ sort: 'created', order: 'asc' })
+    const { count } = res
     console.log('Successfully fetched', count, 'template(s)')
 
     const createTemplateResult = await transloadit.createTemplate({ name: 'node-sdk-test1', template })
