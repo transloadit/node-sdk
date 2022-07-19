@@ -51,15 +51,15 @@ const credentialParams = {
     // ^-- with   Templates, there is `ok`, `message`, `id`, `content`, `name`, `require_signature_auth`. Same is true for: created, updated, fetched
     //     with Credentials, there is `ok`, `message`, `credentials` <-- and a single object nested directly under it, which is unexpected with that plural imho. Same is true for created, updated, fetched
 
-    console.log(`==> editTemplateCredential: ${createTemplateCredentialResult.credentials[0].id} (${createTemplateCredentialResult.credentials[0].name})`)
-    const editResult = await transloadit.editTemplateCredential(createTemplateCredentialResult.credentials[0].id, {
+    console.log(`==> editTemplateCredential: ${createTemplateCredentialResult.credential.id} (${createTemplateCredentialResult.credential.name})`)
+    const editResult = await transloadit.editTemplateCredential(createTemplateCredentialResult.credential.id, {
       ...credentialParams, name: secondName,
     })
     console.log('Successfully edited credential', editResult)
     // ^-- see create
 
-    console.log(`==> getTemplateCredential: ${createTemplateCredentialResult.credentials[0].id} (${createTemplateCredentialResult.credentials[0].name})`)
-    const getTemplateCredentialResult = await transloadit.getTemplateCredential(createTemplateCredentialResult.credentials[0].id)
+    console.log(`==> getTemplateCredential: ${createTemplateCredentialResult.credential.id} (${createTemplateCredentialResult.credential.name})`)
+    const getTemplateCredentialResult = await transloadit.getTemplateCredential(createTemplateCredentialResult.credential.id)
     console.log('Successfully fetched credential', getTemplateCredentialResult)
     // ^-- not working at al, getting a 404. looking at the API, this is not implemented yet
   } catch (err) {
