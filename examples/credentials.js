@@ -8,8 +8,9 @@
 const Transloadit = require('../src/Transloadit')
 
 const transloadit = new Transloadit({
-  authKey   : process.env.TRANSLOADIT_KEY,
-  authSecret: process.env.TRANSLOADIT_SECRET,
+  authKey   : process.env.API2_SYSTEMTEST_AUTH_KEY,
+  authSecret: process.env.API2_SYSTEMTEST_SECRET_KEY,
+  endpoint  : 'https://api2-vbox.transloadit.com',
 })
 
 const firstName = 'myProductionS3'
@@ -50,15 +51,15 @@ const credentialParams = {
     // ^-- with   Templates, there is `ok`, `message`, `id`, `content`, `name`, `require_signature_auth`. Same is true for: created, updated, fetched
     //     with Credentials, there is `ok`, `message`, `credentials` <-- and a single object nested directly under it, which is unexpected with that plural imho. Same is true for created, updated, fetched
 
-    console.log(`==> editTemplateCredential: ${createTemplateCredentialResult.credentials.id} (${createTemplateCredentialResult.credentials.name})`)
-    const editResult = await transloadit.editTemplateCredential(createTemplateCredentialResult.credentials.id, {
+    console.log(`==> editTemplateCredential: ${createTemplateCredentialResult.credentials[0].id} (${createTemplateCredentialResult.credentials[0].name})`)
+    const editResult = await transloadit.editTemplateCredential(createTemplateCredentialResult.credentials[0].id, {
       ...credentialParams, name: secondName,
     })
     console.log('Successfully edited credential', editResult)
     // ^-- see create
 
-    console.log(`==> getTemplateCredential: ${createTemplateCredentialResult.credentials.id} (${createTemplateCredentialResult.credentials.name})`)
-    const getTemplateCredentialResult = await transloadit.getTemplateCredential(createTemplateCredentialResult.id)
+    console.log(`==> getTemplateCredential: ${createTemplateCredentialResult.credentials[0].id} (${createTemplateCredentialResult.credentials[0].name})`)
+    const getTemplateCredentialResult = await transloadit.getTemplateCredential(createTemplateCredentialResult.credentials[0].id)
     console.log('Successfully fetched credential', getTemplateCredentialResult)
     // ^-- not working at al, getting a 404. looking at the API, this is not implemented yet
   } catch (err) {
