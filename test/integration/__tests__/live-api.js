@@ -2,7 +2,6 @@
  * @jest-environment node
  */
 // https://github.com/axios/axios/issues/2654
-const localtunnel = require('localtunnel')
 const http = require('http')
 const keyBy = require('lodash/keyBy')
 const querystring = require('querystring')
@@ -19,6 +18,8 @@ const uuid = require('uuid')
 const pipeline = promisify(streamPipeline)
 
 const Transloadit = require('../../../src/Transloadit')
+
+const createTunnel = require('../../tunnel')
 
 async function downloadTmpFile (url) {
   const { path } = await temp.open('transloadit')
@@ -86,25 +87,24 @@ const startServerAsync = async (handler) => new Promise((resolve, reject) => {
 
   server.listen(port, '127.0.0.1')
 
-  // Once a port has been found and the server is ready, setup the
-  // localtunnel
+  // Once a port has been found and the server is ready, setup the tunnel
   server.on('listening', async () => {
     try {
-      const tunnel = await localtunnel(port)
+      const tunnel = createTunnel(port)
       // console.log('localtunnel', tunnel.url)
 
       // eslint-disable-next-line no-console
-      tunnel.on('error', console.error)
-      tunnel.on('close', () => {
+      tunnel.process.on('error', console.error)
+      tunnel.process.on('close', () => {
         // console.log('tunnel closed')
         server.close()
       })
 
+      const url = await tunnel.urlPromise
+
       resolve({
-        url: tunnel.url,
-        close () {
-          tunnel.close()
-        },
+        url,
+        close: () => tunnel.close(),
       })
     } catch (err) {
       server.close()
