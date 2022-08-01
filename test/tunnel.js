@@ -8,7 +8,10 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
   const process = execa(cloudFlaredPath, ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'], { buffer: false, stdout: 'ignore' })
   const rl = readline.createInterface({ input: process.stderr })
 
+  process.on('error', (err) => console.error(err))
+
   const urlPromise = (async () => {
+    console.log('finding url')
     const url = await new Promise((resolve) => {
       let foundUrl
       rl.on('line', (line) => {
@@ -23,6 +26,7 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
         }
       })
     })
+    console.log('found url')
 
     // We need to wait for DNS to be resolvable.
     // If we don't, the operating system dns cache will be poisoned by the not yet valid dns
