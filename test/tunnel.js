@@ -4,7 +4,7 @@ const { Resolver } = require('dns')
 const { promisify } = require('util')
 
 module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
-  // console.log('starting tunnel', port)
+  console.log('starting tunnel', port)
   const process = execa(cloudFlaredPath, ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'], { buffer: false, stdout: 'ignore' })
   const rl = readline.createInterface({ input: process.stderr })
 
@@ -12,7 +12,7 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
     const url = await new Promise((resolve) => {
       let foundUrl
       rl.on('line', (line) => {
-        // console.log('line', line)
+        console.log('line', line)
         if (!foundUrl) {
           const match = line.match(/(https:\/\/[^.]+\.trycloudflare\.com)/)
           if (!match) return
@@ -36,7 +36,7 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
         await resolve4(host)
         return url
       } catch (err) {
-        // console.error(err)
+        console.error(err.message)
         await new Promise((resolve) => setTimeout(resolve, 3000))
       }
     }

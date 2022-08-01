@@ -110,7 +110,7 @@ const startServerAsync = async (handler2) => {
     })
 
     const url = await tunnel.urlPromise
-    // console.log('tunnel created', url)
+    console.log('tunnel created', url)
 
     try {
       let requestPromise
@@ -119,7 +119,7 @@ const startServerAsync = async (handler2) => {
         let done = false
 
         customHandler = (req, res) => {
-          // console.log('handler', req.url)
+          console.log('handler', req.url)
 
           if (req.url !== curPath) throw new Error(`Unexpected path ${req.url}`)
 
@@ -135,7 +135,7 @@ const startServerAsync = async (handler2) => {
             try {
               await got(`${url}${curPath}`, { timeout: { request: 2000 } })
             } catch (err) {
-              // console.error(err)
+              console.error(err.message)
               // eslint-disable-next-line no-shadow
               await new Promise((resolve) => setTimeout(resolve, 3000))
             }
