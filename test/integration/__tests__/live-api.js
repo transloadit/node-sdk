@@ -109,6 +109,7 @@ const startServerAsync = async (handler2) => {
       server.close()
     })
 
+    console.log('waiting for tunnel to be created')
     const url = await tunnel.urlPromise
     console.log('tunnel created', url)
 

@@ -33,6 +33,7 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
     for (let i = 0; i < 10; i += 1) {
       try {
         const host = new URL(url).hostname
+        console.log('checking dns', host)
         await resolve4(host)
         return url
       } catch (err) {
