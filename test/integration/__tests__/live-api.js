@@ -2,7 +2,6 @@
  * @jest-environment node
  */
 // https://github.com/axios/axios/issues/2654
-const http = require('http')
 const keyBy = require('lodash/keyBy')
 const querystring = require('querystring')
 const temp = require('temp')
@@ -19,7 +18,7 @@ const pipeline = promisify(streamPipeline)
 
 const Transloadit = require('../../../src/Transloadit')
 
-const createTunnel = require('../../tunnel')
+const { startTestServer } = require('../../testserver')
 
 async function downloadTmpFile (url) {
   const { path } = await temp.open('transloadit')
@@ -67,98 +66,6 @@ function createAssembly (client, params) {
   const { assemblyId } = promise
   console.log(expect.getState().currentTestName, 'createAssembly', assemblyId) // For easier debugging
   return promise
-}
-
-const startServerAsync = async (handler2) => {
-  let customHandler
-
-  function handler (...args) {
-    if (customHandler) return customHandler(...args)
-    return handler2(...args)
-  }
-
-  const server = http.createServer(handler)
-
-  // Find a port to use
-  let port = 8000
-  await new Promise((resolve, reject) => {
-    server.on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        if (++port >= 65535) {
-          server.close()
-          return reject(new Error('Failed to bind to port'))
-        }
-        return server.listen(port, '127.0.0.1')
-      }
-      return reject(err)
-    })
-
-    server.listen(port, '127.0.0.1')
-
-    server.on('listening', resolve)
-  })
-
-  let tunnel
-  try {
-    tunnel = createTunnel({ cloudFlaredPath: process.env.CLOUDFLARED_PATH, port })
-
-    // eslint-disable-next-line no-console
-    tunnel.process.on('error', console.error)
-    tunnel.process.on('close', () => {
-      // console.log('tunnel closed')
-      server.close()
-    })
-
-    const url = await tunnel.urlPromise
-    // console.log('tunnel created', url)
-
-    try {
-      let requestPromise
-      await new Promise((resolve, reject) => {
-        let curPath
-        let done = false
-
-        customHandler = (req, res) => {
-          // console.log('handler', req.url)
-
-          if (req.url !== curPath) throw new Error(`Unexpected path ${req.url}`)
-
-          done = true
-          res.end()
-          resolve()
-        }
-
-        ;(async () => {
-          for (let i = 0; i < 10; i += 1) {
-            if (done) return
-            curPath = `/check${i}`
-            try {
-              await got(`${url}${curPath}`, { timeout: { request: 2000 } })
-            } catch (err) {
-              // console.error(err)
-              // eslint-disable-next-line no-shadow
-              await new Promise((resolve) => setTimeout(resolve, 3000))
-            }
-          }
-          reject(new Error('Timed out checking for a functioning tunnel'))
-        })()
-      })
-      await requestPromise
-    } finally {
-      customHandler = undefined
-    }
-
-    // console.log('Tunnel ready')
-
-    return {
-      url,
-      close: () => tunnel.close(),
-    }
-  } catch (err) {
-    if (tunnel) tunnel.close()
-    server.close()
-    throw err
-  }
 }
 
 // https://transloadit.com/demos/importing-files/import-a-file-over-http
@@ -488,7 +395,7 @@ describe('API integration', () => {
         got.stream(genericImg).pipe(res)
       }
 
-      const server = await startServerAsync(handleRequest)
+      const server = await startTestServer(handleRequest)
 
       try {
         const params = {
@@ -640,7 +547,7 @@ describe('API integration', () => {
       }
 
       try {
-        server = await startServerAsync(onNotificationRequest)
+        server = await startTestServer(onNotificationRequest)
         await createAssembly(client, { params: { ...genericParams, notify_url: server.url } })
       } catch (err) {
         onError(err)

@@ -23,13 +23,18 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
-      
-      - run: |
-          curl https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 --output cloudflared-linux-amd64
-          chmod +x cloudflared-linux-amd64
 
       - run: yarn
       - run: npm run lint
+
+      - name: Download cloudflared
+        run: |
+          curl https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -L --output cloudflared-linux-amd64
+          chmod +x cloudflared-linux-amd64
+
+# can be used for debugging:
+#      - name: Setup tmate session
+#        uses: mxschmitt/action-tmate@v3
 
       - run: npm run test-all
         env:

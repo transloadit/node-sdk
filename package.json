@@ -60,9 +60,9 @@
     "lint": "eslint .",
     "next:update": "next-update --keep true --tldr",
     "test-unit": "jest --coverage ./test/unit",
-    "test-integration": "jest ./test/integration",
+    "test-integration": "jest --runInBand ./test/integration",
     "tsd": "tsd",
-    "test-all": "npm run tsd && jest --coverage --coverageReporters json lcov text clover json-summary --forceExit",
+    "test-all": "npm run tsd && jest --runInBand --coverage --coverageReporters json lcov text clover json-summary --forceExit",
     "test": "npm run tsd && npm run test-unit"
   },
   "license": "MIT",
