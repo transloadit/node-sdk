@@ -19,6 +19,9 @@ jobs:
 
       - run: yarn
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - run: |
           curl https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 --output cloudflared-linux-amd64
           chmod +x cloudflared-linux-amd64
