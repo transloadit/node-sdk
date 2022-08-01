@@ -18,18 +18,24 @@ jobs:
         node: ['10', '12', '14']
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
+      
+      - run: |
+        curl https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 --output cloudflared-linux-amd64
+        chmod +x cloudflared-linux-amd64
 
       - run: yarn
       - run: npm run lint
+
       - run: npm run test-all
         env:
           TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
           TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
+          CLOUDFLARED_PATH: ./cloudflared-linux-amd64
 
       - name: Generate the badge from the json-summary
         run: node test/generate-coverage-badge.js coverage/coverage-summary.json

@@ -69,49 +69,97 @@ function createAssembly (client, params) {
   return promise
 }
 
-const startServerAsync = async (handler) => new Promise((resolve, reject) => {
+const startServerAsync = async (handler2) => {
+  let customHandler
+
+  function handler (...args) {
+    if (customHandler) return customHandler(...args)
+    return handler2(...args)
+  }
+
   const server = http.createServer(handler)
 
   // Find a port to use
   let port = 8000
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      if (++port >= 65535) {
-        server.close()
-        return reject(new Error('Failed to bind to port'))
+  await new Promise((resolve, reject) => {
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        if (++port >= 65535) {
+          server.close()
+          return reject(new Error('Failed to bind to port'))
+        }
+        return server.listen(port, '127.0.0.1')
       }
-      return server.listen(port, '127.0.0.1')
-    }
-    return reject(err)
+      return reject(err)
+    })
+
+    server.listen(port, '127.0.0.1')
+
+    server.on('listening', resolve)
   })
 
-  server.listen(port, '127.0.0.1')
+  let tunnel
+  try {
+    tunnel = createTunnel({ cloudFlaredPath: process.env.CLOUDFLARED_PATH, port })
 
-  // Once a port has been found and the server is ready, setup the tunnel
-  server.on('listening', async () => {
-    try {
-      const tunnel = createTunnel(port)
-      // console.log('localtunnel', tunnel.url)
-
-      // eslint-disable-next-line no-console
-      tunnel.process.on('error', console.error)
-      tunnel.process.on('close', () => {
-        // console.log('tunnel closed')
-        server.close()
-      })
-
-      const url = await tunnel.urlPromise
-
-      resolve({
-        url,
-        close: () => tunnel.close(),
-      })
-    } catch (err) {
+    // eslint-disable-next-line no-console
+    tunnel.process.on('error', console.error)
+    tunnel.process.on('close', () => {
+      // console.log('tunnel closed')
       server.close()
-      reject(err)
+    })
+
+    const url = await tunnel.urlPromise
+    // console.log('tunnel created', url)
+
+    try {
+      let requestPromise
+      await new Promise((resolve, reject) => {
+        let curPath
+        let done = false
+
+        customHandler = (req, res) => {
+          // console.log('handler', req.url)
+
+          if (req.url !== curPath) throw new Error(`Unexpected path ${req.url}`)
+
+          done = true
+          res.end()
+          resolve()
+        }
+
+        ;(async () => {
+          for (let i = 0; i < 10; i += 1) {
+            if (done) return
+            curPath = `/check${i}`
+            try {
+              await got(`${url}${curPath}`, { timeout: { request: 2000 } })
+            } catch (err) {
+              // console.error(err)
+              // eslint-disable-next-line no-shadow
+              await new Promise((resolve) => setTimeout(resolve, 3000))
+            }
+          }
+          reject(new Error('Timed out checking for a functioning tunnel'))
+        })()
+      })
+      await requestPromise
+    } finally {
+      customHandler = undefined
     }
-  })
-})
+
+    // console.log('Tunnel ready')
+
+    return {
+      url,
+      close: () => tunnel.close(),
+    }
+  } catch (err) {
+    if (tunnel) tunnel.close()
+    server.close()
+    throw err
+  }
+}
 
 // https://transloadit.com/demos/importing-files/import-a-file-over-http
 const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
