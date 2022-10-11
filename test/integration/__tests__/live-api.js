@@ -2,8 +2,6 @@
  * @jest-environment node
  */
 // https://github.com/axios/axios/issues/2654
-const localtunnel = require('localtunnel')
-const http = require('http')
 const keyBy = require('lodash/keyBy')
 const querystring = require('querystring')
 const temp = require('temp')
@@ -19,6 +17,8 @@ const uuid = require('uuid')
 const pipeline = promisify(streamPipeline)
 
 const Transloadit = require('../../../src/Transloadit')
+
+const { startTestServer } = require('../../testserver')
 
 async function downloadTmpFile (url) {
   const { path } = await temp.open('transloadit')
@@ -67,51 +67,6 @@ function createAssembly (client, params) {
   console.log(expect.getState().currentTestName, 'createAssembly', assemblyId) // For easier debugging
   return promise
 }
-
-const startServerAsync = async (handler) => new Promise((resolve, reject) => {
-  const server = http.createServer(handler)
-
-  // Find a port to use
-  let port = 8000
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      if (++port >= 65535) {
-        server.close()
-        return reject(new Error('Failed to bind to port'))
-      }
-      return server.listen(port, '127.0.0.1')
-    }
-    return reject(err)
-  })
-
-  server.listen(port, '127.0.0.1')
-
-  // Once a port has been found and the server is ready, setup the
-  // localtunnel
-  server.on('listening', async () => {
-    try {
-      const tunnel = await localtunnel(port)
-      // console.log('localtunnel', tunnel.url)
-
-      // eslint-disable-next-line no-console
-      tunnel.on('error', console.error)
-      tunnel.on('close', () => {
-        // console.log('tunnel closed')
-        server.close()
-      })
-
-      resolve({
-        url: tunnel.url,
-        close () {
-          tunnel.close()
-        },
-      })
-    } catch (err) {
-      server.close()
-      reject(err)
-    }
-  })
-})
 
 // https://transloadit.com/demos/importing-files/import-a-file-over-http
 const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
@@ -440,7 +395,7 @@ describe('API integration', () => {
         got.stream(genericImg).pipe(res)
       }
 
-      const server = await startServerAsync(handleRequest)
+      const server = await startTestServer(handleRequest)
 
       try {
         const params = {
@@ -592,7 +547,7 @@ describe('API integration', () => {
       }
 
       try {
-        server = await startServerAsync(onNotificationRequest)
+        server = await startTestServer(onNotificationRequest)
         await createAssembly(client, { params: { ...genericParams, notify_url: server.url } })
       } catch (err) {
         onError(err)
