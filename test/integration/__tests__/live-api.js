@@ -637,9 +637,9 @@ describe('API integration', () => {
       expect(templId).toBeDefined()
 
       const template = await client.getTemplate(templId)
-      const { name, type } = template
+      const { name, content } = template
       expect(name).toBe(templName)
-      expect(type).toEqual('s3')
+      expect(content).toEqual(genericParams)
     })
 
     it('should allow editing a template', async () => {
