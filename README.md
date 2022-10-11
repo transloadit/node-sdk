@@ -89,14 +89,14 @@ You can find [details about your executed Assemblies here](https://transloadit.c
 
 ## Examples
 
-- [Upload and resize image](https://github.com/transloadit/node-sdk/blob/master/examples/resize_an_image.js)
-- [Upload image and convert to WebP](https://github.com/transloadit/node-sdk/blob/master/examples/convert_to_webp.js)
-- [Crop a face out of an image and download the result](https://github.com/transloadit/node-sdk/blob/master/examples/face_detect_download.js)
-- [Retry example](https://github.com/transloadit/node-sdk/blob/master/examples/retry.js)
-- [Calculate total costs (GB usage)](https://github.com/transloadit/node-sdk/blob/master/examples/fetch_costs_of_all_assemblies_in_timeframe.js)
-- [Templates CRUD](https://github.com/transloadit/node-sdk/blob/master/examples/template_api.js)
+- [Upload and resize image](https://github.com/transloadit/node-sdk/blob/main/examples/resize_an_image.js)
+- [Upload image and convert to WebP](https://github.com/transloadit/node-sdk/blob/main/examples/convert_to_webp.js)
+- [Crop a face out of an image and download the result](https://github.com/transloadit/node-sdk/blob/main/examples/face_detect_download.js)
+- [Retry example](https://github.com/transloadit/node-sdk/blob/main/examples/retry.js)
+- [Calculate total costs (GB usage)](https://github.com/transloadit/node-sdk/blob/main/examples/fetch_costs_of_all_assemblies_in_timeframe.js)
+- [Templates CRUD](https://github.com/transloadit/node-sdk/blob/main/examples/template_api.js)
 
-For more fully working examples take a look at [`examples/`](https://github.com/transloadit/node-sdk/blob/master/examples/).
+For more fully working examples take a look at [`examples/`](https://github.com/transloadit/node-sdk/blob/main/examples/).
 
 For more example use cases and information about the available robots and their parameters, check out the [Transloadit website](https://transloadit.com/).
 
