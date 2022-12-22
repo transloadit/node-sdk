@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 
-import * as intoStream from 'into-stream'
+import intoStream from 'into-stream'
 import { Readable } from 'stream'
 
 import Transloadit, { Assembly, ListedAssembly, ReplayedAssembly, TemplateResponse, ListedTemplate, KeyVal } from '../'
