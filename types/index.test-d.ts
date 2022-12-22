@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 
-import * as intoStream from 'into-stream'
+import intoStream from 'into-stream'
 import { Readable } from 'stream'
 
 import Transloadit, { Assembly, ListedAssembly, ReplayedAssembly, TemplateResponse, ListedTemplate, KeyVal } from '../'
@@ -51,6 +51,7 @@ expectType<Promise<Assembly>>(transloadit.createAssembly({
     expectType<number | undefined>(uploadedBytes)
     expectType<number | undefined>(totalBytes)
   },
+  assemblyId: '123',
 }))
 
 expectType<Promise<Assembly>>(transloadit.awaitAssemblyCompletion('1', {

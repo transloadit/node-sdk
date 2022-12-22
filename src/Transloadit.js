@@ -364,6 +364,89 @@ class TransloaditClient {
   }
 
   /**
+   * Create a Credential
+   *
+   * @param {object} params optional request options
+   * @returns {Promise} when the Credential is created
+   */
+  async createTemplateCredential (params) {
+    const requestOpts = {
+      urlSuffix: '/template_credentials',
+      method   : 'post',
+      params   : params || {},
+    }
+
+    return this._remoteJson(requestOpts)
+  }
+
+  /**
+   * Edit a Credential
+   *
+   * @param {string} credentialId the Credential ID
+   * @param {object} params optional request options
+   * @returns {Promise} when the Credential is edited
+   */
+  async editTemplateCredential (credentialId, params) {
+    const requestOpts = {
+      urlSuffix: `/template_credentials/${credentialId}`,
+      method   : 'put',
+      params   : params || {},
+    }
+
+    return this._remoteJson(requestOpts)
+  }
+
+  /**
+   * Delete a Credential
+   *
+   * @param {string} credentialId the Credential ID
+   * @returns {Promise} when the Credential is deleted
+   */
+  async deleteTemplateCredential (credentialId) {
+    const requestOpts = {
+      urlSuffix: `/template_credentials/${credentialId}`,
+      method   : 'delete',
+    }
+
+    return this._remoteJson(requestOpts)
+  }
+
+  /**
+   * Get a Credential
+   *
+   * @param {string} credentialId the Credential ID
+   * @returns {Promise} when the Credential is retrieved
+   */
+  async getTemplateCredential (credentialId) {
+    const requestOpts = {
+      urlSuffix: `/template_credentials/${credentialId}`,
+      method   : 'get',
+    }
+
+    return this._remoteJson(requestOpts)
+  }
+
+  /**
+   * List all TemplateCredentials
+   *
+   * @param {object} params optional request options
+   * @returns {Promise} the list of templates
+   */
+  async listTemplateCredentials (params) {
+    const requestOpts = {
+      urlSuffix: '/template_credentials',
+      method   : 'get',
+      params   : params || {},
+    }
+
+    return this._remoteJson(requestOpts)
+  }
+
+  streamTemplateCredentials (params) {
+    return new PaginationStream(async (page) => this.listTemplateCredentials({ ...params, page }))
+  }
+
+  /**
    * Create an Assembly Template
    *
    * @param {object} params optional request options

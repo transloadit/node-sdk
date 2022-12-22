@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - main
   # schedule:
   #   - cron: '0 8 * * *'
 
@@ -15,7 +15,7 @@ jobs:
       # Integration tests are not yet ready to run in parallel
       max-parallel: 1
       matrix:
-        node: ['14', '16']
+        node: ['14', '16', '18']
 
     steps:
       - uses: actions/checkout@v3

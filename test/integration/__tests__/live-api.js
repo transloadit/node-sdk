@@ -11,7 +11,6 @@ const { promisify } = require('util')
 const { pipeline: streamPipeline } = require('stream')
 const got = require('got')
 const intoStream = require('into-stream')
-const request = require('request')
 const uuid = require('uuid')
 
 const pipeline = promisify(streamPipeline)
@@ -282,15 +281,6 @@ describe('API integration', () => {
       expect(promise.assemblyId).toMatch(/^[\da-f]+$/)
       const result = await promise
       expect(result.assembly_id).toMatch(promise.assemblyId)
-    })
-
-    it('should throw a proper error for request stream', async () => {
-      const client = createClient()
-
-      const req = request(genericImg)
-
-      const promise = createAssembly(client, { uploads: { file: req } })
-      await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Upload named "file" is not a Readable stream' }))
     })
 
     async function testUploadProgress (isResumable) {
@@ -664,6 +654,70 @@ describe('API integration', () => {
       const { ok } = template
       expect(ok).toBe('TEMPLATE_DELETED')
       await expect(client.getTemplate(templId)).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'TEMPLATE_NOT_FOUND' }))
+    })
+  })
+
+  describe('credential methods', () => {
+    // can contain only lowercase latin letters, numbers, and dashes.
+    const credName = `node-sdk-test-${new Date().toISOString().toLocaleLowerCase('en-US').replace(/[^0-9a-z-]/g, '-')}`
+    let credId = null
+    const client = createClient()
+
+    it('should allow listing credentials', async () => {
+      const listResult = await client.listTemplateCredentials()
+      expect(listResult.ok).toBe('TEMPLATE_CREDENTIALS_FOUND')
+      expect(listResult.credentials).toBeInstanceOf(Array)
+    })
+
+    it('should allow creating a credential', async () => {
+      const createResult = await client.createTemplateCredential({
+        type   : 's3',
+        name   : credName,
+        content: {
+          key          : 'xyxy',
+          secret       : 'xyxyxyxy',
+          bucket       : 'mybucket.example.com',
+          bucket_region: 'us-east-1',
+        },
+      })
+      credId = createResult.credential.id
+    })
+
+    it("should be able to fetch a credential's definition", async () => {
+      expect(credId).toBeDefined()
+
+      const readResult = await client.getTemplateCredential(credId)
+      const { name, content } = readResult.credential
+      expect(name).toBe(credName)
+      expect(content.bucket).toEqual('mybucket.example.com')
+    })
+
+    it('should allow editing a credential', async () => {
+      expect(credId).toBeDefined()
+      const editedName = `${credName}-edited`
+      const editResult = await client.editTemplateCredential(credId, {
+        name   : editedName,
+        type   : 's3',
+        content: {
+          key          : 'foobar',
+          secret       : 'barfo',
+          bucket       : 'foo.bar.com',
+          bucket_region: 'us-east-1',
+        },
+      })
+      expect(editResult.ok).toBe('TEMPLATE_CREDENTIALS_UPDATED')
+      expect(editResult.credential.id).toBe(credId)
+      expect(editResult.credential.name).toBe(editedName)
+      expect(editResult.credential.content.bucket).toEqual('foo.bar.com')
+    })
+
+    it('should delete the credential successfully', async () => {
+      expect(credId).toBeDefined()
+
+      const credential = await client.deleteTemplateCredential(credId)
+      const { ok } = credential
+      expect(ok).toBe('TEMPLATE_CREDENTIALS_DELETED')
+      await expect(client.getTemplateCredential(credId)).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'TEMPLATE_CREDENTIALS_NOT_READ' }))
     })
   })
 })
