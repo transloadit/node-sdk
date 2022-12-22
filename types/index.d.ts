@@ -5,6 +5,24 @@ import * as intoStream from 'into-stream'
 
 import { RequestError, ReadError, ParseError, UploadError, HTTPError, MaxRedirectsError, TimeoutError, RequiredRetryOptions } from 'got'
 
+export interface CreateAssemblyOptions {
+  params?: CreateAssemblyParams,
+  files?: {
+    [name: string]: string
+  },
+  uploads?: {
+    [name: string]: Readable | intoStream.Input
+  }
+  waitForCompletion?: boolean,
+  isResumable?: boolean,
+  chunkSize?: number,
+  uploadConcurrency?: number,
+  timeout?: number
+  onUploadProgress?: (uploadProgress: UploadProgress) => void,
+  onAssemblyProgress?: AssemblyProgress,
+  assemblyId?: string,
+}
+
 export default class Transloadit {
   constructor (options: {
     authKey: string;
@@ -17,22 +35,7 @@ export default class Transloadit {
 
   setDefaultTimeout(timeout: number): void
 
-  createAssembly(options: {
-    params?: CreateAssemblyParams,
-    files?: {
-      [name: string]: string
-    },
-    uploads?: {
-      [name: string]: Readable | intoStream.Input
-    }
-    waitForCompletion?: boolean,
-    isResumable?: boolean,
-    chunkSize?: number,
-    uploadConcurrency?: number,
-    timeout?: number
-    onUploadProgress?: (uploadProgress: UploadProgress) => void,
-    onAssemblyProgress?: AssemblyProgress,
-  }): Promise<Assembly>
+  createAssembly(options: CreateAssemblyOptions): Promise<Assembly>
 
   replayAssembly(assemblyId: string, params?: KeyVal): Promise<ReplayedAssembly>
   cancelAssembly(assemblyId: string): Promise<Assembly>
@@ -63,7 +66,7 @@ export default class Transloadit {
   calcSignature(params: KeyVal): { signature: string, params: string }
 }
 
-type AssemblyProgress = (assembly: Assembly) => void;
+export type AssemblyProgress = (assembly: Assembly) => void;
 
 export interface CreateAssemblyParams {
   /** See https://transloadit.com/docs/topics/assembly-instructions/ */
