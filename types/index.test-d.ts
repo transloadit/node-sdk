@@ -51,6 +51,7 @@ expectType<Promise<Assembly>>(transloadit.createAssembly({
     expectType<number | undefined>(uploadedBytes)
     expectType<number | undefined>(totalBytes)
   },
+  assemblyId: '123',
 }))
 
 expectType<Promise<Assembly>>(transloadit.awaitAssemblyCompletion('1', {
