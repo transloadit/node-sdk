@@ -11,7 +11,6 @@ const { promisify } = require('util')
 const { pipeline: streamPipeline } = require('stream')
 const got = require('got')
 const intoStream = require('into-stream')
-const request = require('request')
 const uuid = require('uuid')
 
 const pipeline = promisify(streamPipeline)
@@ -282,15 +281,6 @@ describe('API integration', () => {
       expect(promise.assemblyId).toMatch(/^[\da-f]+$/)
       const result = await promise
       expect(result.assembly_id).toMatch(promise.assemblyId)
-    })
-
-    it('should throw a proper error for request stream', async () => {
-      const client = createClient()
-
-      const req = request(genericImg)
-
-      const promise = createAssembly(client, { uploads: { file: req } })
-      await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Upload named "file" is not a Readable stream' }))
     })
 
     async function testUploadProgress (isResumable) {

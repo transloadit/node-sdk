@@ -22,6 +22,16 @@ const mockGot = (method) => got[method].mockImplementation(() => {
 const mockRemoteJson = (client) => jest.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
+  it('should throw a proper error for request stream', async () => {
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+    // mimic Stream object returned from `request` (which is not a stream v3)
+    const req = { pipe: () => {} }
+
+    const promise = client.createAssembly({ uploads: { file: req } })
+    await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Upload named "file" is not a Readable stream' }))
+  })
+
   describe('constructor', () => {
     it('should set some default properties', () => {
       const opts = {
