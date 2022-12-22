@@ -1,8 +1,6 @@
 # Changelog
 
-Here's is a combined todo/done list. You can see what todos are planned for the upcoming release.
-
-See [GitHub releases](https://github.com/transloadit/node-sdk/releases) for change log from this point on
+We're no longer using this file. Please refer to [GitHub releases](https://github.com/transloadit/node-sdk/releases) to see documented changes after version 2.0.10.
 
 ## v2.0.10
 
