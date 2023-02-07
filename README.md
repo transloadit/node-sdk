@@ -143,7 +143,7 @@ You can provide the following keys inside the `options` object:
   - `'fieldName': '/path/to/file'`
   - more files...
 - `uploads` - An object (key-value pairs) containing one or more files to upload and use in your Assembly. The *key* is the *file name* and the *value* is the *content* of the file to be uploaded. *Value* can be one of many types:
-  - `'fieldName': (Readable | Buffer | TypedArray | ArrayBuffer | string | Iterable<Buffer | string> | AsyncIterable<Buffer | string> | Promise)`
+  - `'fieldName': (Readable | Buffer | TypedArray | ArrayBuffer | string | Iterable<Buffer | string> | AsyncIterable<Buffer | string> | Promise)`.
   - more uploads...
 - `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
 - `timeout` - Number of milliseconds to wait before aborting (default `86400000`: 24 hours).
@@ -153,6 +153,8 @@ You can provide the following keys inside the `options` object:
 - `onAssemblyProgress` - Once the Assembly has started processing this will be periodically called with the *Assembly Execution Status* (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
 - `chunkSize` - (for uploads) a number indicating the maximum size of a tus `PATCH` request body in bytes. Default to `Infinity` for file uploads and 50MB for streams of unknown length. See [tus-js-client](https://github.com/tus/tus-js-client/blob/master/docs/api.md#chunksize).
 - `uploadConcurrency` - Maximum number of concurrent tus file uploads to occur at any given time (default 10.)
+
+ **NOTE**: Make sure the key in `files` and `uploads` is not one of `signature`, `params` or `max_size`.
 
 Example code showing all options:
 ```js
