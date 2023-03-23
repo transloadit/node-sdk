@@ -3,6 +3,7 @@
 const fs = require('fs').promises
 const { makeBadge } = require('badge-maker')
 
+// eslint-disable-next-line import/newline-after-import
 ;(async () => {
   try {
     const json = JSON.parse(await fs.readFile(process.argv[2]), 'utf-8')
