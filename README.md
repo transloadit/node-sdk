@@ -161,7 +161,7 @@ You can provide the following keys inside the `options` object:
 - `chunkSize` - (for uploads) a number indicating the maximum size of a tus `PATCH` request body in bytes. Default to `Infinity` for file uploads and 50MB for streams of unknown length. See [tus-js-client](https://github.com/tus/tus-js-client/blob/master/docs/api.md#chunksize).
 - `uploadConcurrency` - Maximum number of concurrent tus file uploads to occur at any given time (default 10.)
 
- **NOTE**: Make sure the key in `files` and `uploads` is not one of `signature`, `params` or `max_size`.
+**NOTE**: Make sure the key in `files` and `uploads` is not one of `signature`, `params` or `max_size`.
 
 Example code showing all options:
 
