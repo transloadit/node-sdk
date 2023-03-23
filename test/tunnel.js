@@ -4,7 +4,11 @@ const { Resolver } = require('dns')
 const { promisify } = require('util')
 
 module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
-  const process = execa(cloudFlaredPath, ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'], { buffer: false, stdout: 'ignore' })
+  const process = execa(
+    cloudFlaredPath,
+    ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'],
+    { buffer: false, stdout: 'ignore' }
+  )
   const rl = readline.createInterface({ input: process.stderr })
 
   process.on('error', (err) => console.error(err))
@@ -16,9 +20,11 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
         if (!foundUrl) {
           const match = line.match(/(https:\/\/[^.]+\.trycloudflare\.com)/)
           if (!match) return
-          [, foundUrl] = match
+          ;[, foundUrl] = match
         } else {
-          const match = line.match(/Connection [^\s+] registered connIndex=[^\s+] ip=[^\s+] location=[^\s+]/)
+          const match = line.match(
+            /Connection [^\s+] registered connIndex=[^\s+] ip=[^\s+] location=[^\s+]/
+          )
           if (!match) resolve(foundUrl)
         }
       })
@@ -45,7 +51,7 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
     throw new Error('Timed out trying to resolve tunnel dns')
   })()
 
-  function close () {
+  function close() {
     process.kill()
   }
 

@@ -14,13 +14,13 @@ const { createWriteStream } = require('fs')
 const Transloadit = require('../src/Transloadit')
 
 const transloadit = new Transloadit({
-  authKey   : process.env.TRANSLOADIT_KEY,
+  authKey: process.env.TRANSLOADIT_KEY,
   authSecret: process.env.TRANSLOADIT_SECRET,
 })
 
-const filePath = process.argv[2];
+const filePath = process.argv[2]
 
-(async () => {
+;(async () => {
   try {
     const opts = {
       files: {
@@ -29,12 +29,12 @@ const filePath = process.argv[2];
       params: {
         steps: {
           facesDetected: {
-            use         : ':original',
-            robot       : '/image/facedetect',
-            crop        : true,
+            use: ':original',
+            robot: '/image/facedetect',
+            crop: true,
             crop_padding: '10%',
-            faces       : 'max-confidence',
-            format      : 'preserve',
+            faces: 'max-confidence',
+            format: 'preserve',
           },
         },
       },

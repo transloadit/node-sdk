@@ -1,7 +1,7 @@
 const stream = require('stream')
 
 class PaginationStream extends stream.Readable {
-  constructor (_fetchPage) {
+  constructor(_fetchPage) {
     super({ objectMode: true })
     this._fetchPage = _fetchPage
     this._pageno = 0
@@ -9,7 +9,7 @@ class PaginationStream extends stream.Readable {
     this._itemsRead = 0
   }
 
-  async _read () {
+  async _read() {
     if (this._items.length > 0) {
       this._itemsRead++
       process.nextTick(() => this.push(this._items.pop()))

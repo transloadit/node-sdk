@@ -16,7 +16,7 @@ Released: 2018-12-06.
 
 [Diff](https://github.com/transloadit/node-sdk/compare/v2.0.5...v2.0.9).
 
-- [x] Add more helpful message to assembly error (#73) 
+- [x] Add more helpful message to assembly error (#73)
 - [x] Add Assembly ID to unknown errors
 - [x] Upgrade linting and fix newly found errors
 
@@ -26,7 +26,7 @@ Released: 2018-12-06.
 
 [Diff](https://github.com/transloadit/node-sdk/compare/v2.0.5...v2.0.7).
 
-- [x] Fix Transloadit-Client header test for once and all (#62) 
+- [x] Fix Transloadit-Client header test for once and all (#62)
 - [x] Fix bug causing progressCb to only be fired once
 
 ## v2.0.5
@@ -35,9 +35,9 @@ Released: 2018-12-06.
 
 [Diff](https://github.com/transloadit/node-sdk/compare/v2.0.4...v2.0.5).
 
-- [x] Make resize image example more usable irl 
+- [x] Make resize image example more usable irl
 - [x] Update Readme to include example for progressCb.
-- [x] Fix failing test due to version increase (#61) 
+- [x] Fix failing test due to version increase (#61)
 - [x] Update npm-run-all to lose event-stream dependency
 
 ## v2.0.4
@@ -46,7 +46,7 @@ Released: 2018-11-05.
 
 [Diff](https://github.com/transloadit/node-sdk/compare/v2.0.3...v2.0.4).
 
-- [x] Send transloadit-client header (#59) 
+- [x] Send transloadit-client header (#59)
 
 ## v2.0.3
 
@@ -70,7 +70,7 @@ Released: 2018-06-18.
 
 [Diff](https://github.com/transloadit/node-sdk/compare/v2.0.0...v2.0.1).
 
-- [x] Fix bug: invoke callback when waitforcompmletion is false 
+- [x] Fix bug: invoke callback when waitforcompmletion is false
 
 ## v2.0.0
 
@@ -88,7 +88,6 @@ Released: 2018-05-23.
 [Diff](https://github.com/transloadit/node-sdk/compare/v1.10.2...v1.11.0).
 
 - [x] Add Assembly URL to error console logs for easier debugging. (Q: should the node sdk log to console at all? should it not just work with callbacks and the caller decides what to write to what medium?)
-
 
 ## v1.10.3
 
@@ -125,7 +124,7 @@ Released: 2017-09-28.
 
 ## v1.9.6
 
-Released: 2017-09-26. 
+Released: 2017-09-26.
 
 [Diff](https://github.com/transloadit/node-sdk/compare/v1.9.5...v1.9.6).
 
@@ -136,7 +135,7 @@ Released: 2017-09-26.
 
 ## v1.9.5
 
-Released: 2017-09-26. 
+Released: 2017-09-26.
 
 [Diff](https://github.com/transloadit/node-sdk/compare/v0.0.22...1.9.5).
 

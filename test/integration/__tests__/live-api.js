@@ -19,13 +19,13 @@ const Transloadit = require('../../../src/Transloadit')
 
 const { startTestServer } = require('../../testserver')
 
-async function downloadTmpFile (url) {
+async function downloadTmpFile(url) {
   const { path } = await temp.open('transloadit')
   await pipeline(got.stream(url), createWriteStream(path))
   return path
 }
 
-function createClient (opts = {}) {
+function createClient(opts = {}) {
   const authKey = process.env.TRANSLOADIT_KEY
   const authSecret = process.env.TRANSLOADIT_SECRET
   if (authKey == null || authSecret == null) {
@@ -34,7 +34,7 @@ function createClient (opts = {}) {
 
   // https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md#retry
   const gotRetry = {
-    limit  : 2,
+    limit: 2,
     methods: [
       'GET',
       'PUT',
@@ -45,7 +45,7 @@ function createClient (opts = {}) {
       'POST', // Normally we shouldn't retry on POST, as it is not idempotent, but for tests we can do it
     ],
     statusCodes: [],
-    errorCodes : [
+    errorCodes: [
       'ETIMEDOUT',
       'ECONNRESET',
       'EADDRINUSE',
@@ -60,7 +60,7 @@ function createClient (opts = {}) {
   return new Transloadit({ authKey, authSecret, gotRetry, ...opts })
 }
 
-function createAssembly (client, params) {
+function createAssembly(client, params) {
   const promise = client.createAssembly(params)
   const { assemblyId } = promise
   console.log(expect.getState().currentTestName, 'createAssembly', assemblyId) // For easier debugging
@@ -69,36 +69,37 @@ function createAssembly (client, params) {
 
 // https://transloadit.com/demos/importing-files/import-a-file-over-http
 const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
-const sampleSvg = '<?xml version="1.0" standalone="no"?><svg height="100" width="100"><circle cx="50" cy="50" r="40" fill="red" /></svg>'
+const sampleSvg =
+  '<?xml version="1.0" standalone="no"?><svg height="100" width="100"><circle cx="50" cy="50" r="40" fill="red" /></svg>'
 const resizeOriginalStep = {
-  robot : '/image/resize',
-  use   : ':original',
+  robot: '/image/resize',
+  use: ':original',
   result: true,
-  width : 130,
+  width: 130,
   height: 130,
 }
 const dummyStep = {
-  use    : ':original',
-  robot  : '/file/filter',
+  use: ':original',
+  robot: '/file/filter',
   accepts: [],
 }
 const genericParams = {
   steps: {
     import: {
       robot: '/http/import',
-      url  : genericImg,
+      url: genericImg,
     },
     resize: {
-      robot : '/image/resize',
-      use   : 'import',
+      robot: '/image/resize',
+      use: 'import',
       result: true,
-      width : 130,
+      width: 130,
       height: 130,
     },
   },
 }
 const genericOptions = {
-  params           : genericParams,
+  params: genericParams,
   waitForCompletion: true,
 }
 
@@ -112,7 +113,9 @@ describe('API integration', () => {
       let uploadProgressCalled
       const options = {
         ...genericOptions,
-        onUploadProgress: (uploadProgress) => { uploadProgressCalled = uploadProgress },
+        onUploadProgress: (uploadProgress) => {
+          uploadProgressCalled = uploadProgress
+        },
         // Often an assembly will finish before the node-sdk has time to emit an onAssemblyProgress event,
         // so we cannot rely on that (will cause unstable tests)
         // onAssemblyProgress: (assemblyProgress) => { assemblyProgressCalled = assemblyProgress },
@@ -128,12 +131,14 @@ describe('API integration', () => {
 
       result = await client.getAssembly(id)
       expect(result).not.toHaveProperty('error')
-      expect(result).toEqual(expect.objectContaining({
-        assembly_ssl_url: expect.any(String),
-        assembly_url    : expect.any(String),
-        ok              : expect.any(String),
-        assembly_id     : id,
-      }))
+      expect(result).toEqual(
+        expect.objectContaining({
+          assembly_ssl_url: expect.any(String),
+          assembly_url: expect.any(String),
+          ok: expect.any(String),
+          assembly_id: id,
+        })
+      )
     })
 
     it("should signal an error if a file selected for upload doesn't exist", async () => {
@@ -179,9 +184,9 @@ describe('API integration', () => {
 
       const params = {
         waitForCompletion: true,
-        params           : {
+        params: {
           fields: { myField: 'test', num: 1, obj: { foo: 'bar' } },
-          steps : { resize: resizeOriginalStep },
+          steps: { resize: resizeOriginalStep },
         },
       }
 
@@ -198,7 +203,7 @@ describe('API integration', () => {
 
       const params = {
         waitForCompletion: true,
-        uploads          : {
+        uploads: {
           file1: intoStream(sampleSvg),
           file2: sampleSvg,
           file3: buf,
@@ -216,35 +221,35 @@ describe('API integration', () => {
 
       const getMatchObject = ({ name }) => ({
         name,
-        basename         : name,
-        ext              : 'svg',
-        size             : 117,
-        mime             : 'image/svg+xml',
-        type             : 'image',
-        field            : name,
-        md5hash          : '1b199e02dd833b2278ce2a0e75480b14',
+        basename: name,
+        ext: 'svg',
+        size: 117,
+        mime: 'image/svg+xml',
+        type: 'image',
+        field: name,
+        md5hash: '1b199e02dd833b2278ce2a0e75480b14',
         original_basename: name,
-        original_name    : name,
-        original_path    : '/',
-        original_md5hash : '1b199e02dd833b2278ce2a0e75480b14',
+        original_name: name,
+        original_path: '/',
+        original_md5hash: '1b199e02dd833b2278ce2a0e75480b14',
       })
       const uploadsKeyed = keyBy(result.uploads, 'name') // Because order is not same as input
       expect(uploadsKeyed.file1).toMatchObject(getMatchObject({ name: 'file1' }))
       expect(uploadsKeyed.file2).toMatchObject(getMatchObject({ name: 'file2' }))
       expect(uploadsKeyed.file3).toMatchObject(getMatchObject({ name: 'file3' }))
       expect(uploadsKeyed.file4).toMatchObject({
-        name             : 'file4',
-        basename         : 'file4',
-        ext              : 'jpg',
-        size             : 133788,
-        mime             : 'image/jpeg',
-        type             : 'image',
-        field            : 'file4',
-        md5hash          : '42f29c0d9d5f3ea807ef3c327f8c5890',
+        name: 'file4',
+        basename: 'file4',
+        ext: 'jpg',
+        size: 133788,
+        mime: 'image/jpeg',
+        type: 'image',
+        field: 'file4',
+        md5hash: '42f29c0d9d5f3ea807ef3c327f8c5890',
         original_basename: 'file4',
-        original_name    : 'file4',
-        original_path    : '/',
-        original_md5hash : '42f29c0d9d5f3ea807ef3c327f8c5890',
+        original_name: 'file4',
+        original_path: '/',
+        original_md5hash: '42f29c0d9d5f3ea807ef3c327f8c5890',
       })
     })
 
@@ -255,7 +260,7 @@ describe('API integration', () => {
       const params = {
         assemblyId,
         waitForCompletion: true,
-        params           : {
+        params: {
           steps: {
             dummy: dummyStep,
           },
@@ -283,11 +288,11 @@ describe('API integration', () => {
       expect(result.assembly_id).toMatch(promise.assemblyId)
     })
 
-    async function testUploadProgress (isResumable) {
+    async function testUploadProgress(isResumable) {
       const client = createClient()
 
       let progressCalled = false
-      function onUploadProgress ({ uploadedBytes, totalBytes }) {
+      function onUploadProgress({ uploadedBytes, totalBytes }) {
         // console.log(uploadedBytes)
         expect(uploadedBytes).toBeDefined()
         if (isResumable) {
@@ -350,7 +355,10 @@ describe('API integration', () => {
 
       const promise = createAssembly(client, opts)
       await promise.catch((err) => {
-        expect(err).toMatchObject({ transloaditErrorCode: 'INVALID_INPUT_ERROR', assemblyId: expect.any(String) })
+        expect(err).toMatchObject({
+          transloaditErrorCode: 'INVALID_INPUT_ERROR',
+          assemblyId: expect.any(String),
+        })
       })
       await expect(promise).rejects.toThrow(Error)
     }, 60000)
@@ -393,13 +401,13 @@ describe('API integration', () => {
             steps: {
               import: {
                 robot: '/http/import',
-                url  : server.url,
+                url: server.url,
               },
               resize: {
-                robot : '/image/resize',
-                use   : 'import',
+                robot: '/image/resize',
+                use: 'import',
                 result: true,
-                width : 130,
+                width: 130,
                 height: 130,
               },
             },
@@ -467,7 +475,9 @@ describe('API integration', () => {
       const client = createClient()
 
       const result = await client.listAssemblies()
-      expect(result).toEqual(expect.objectContaining({ count: expect.any(Number), items: expect.any(Array) }))
+      expect(result).toEqual(
+        expect.objectContaining({ count: expect.any(Number), items: expect.any(Array) })
+      )
     })
 
     it('should be able to handle pagination with a stream', (done) => {
@@ -505,12 +515,13 @@ describe('API integration', () => {
     })
 
     // helper function
-    const streamToString = (stream) => new Promise((resolve, reject) => {
-      const chunks = []
-      stream.on('data', (chunk) => chunks.push(chunk))
-      stream.on('error', (err) => reject(err))
-      stream.on('end', () => resolve(chunks.join('')))
-    })
+    const streamToString = (stream) =>
+      new Promise((resolve, reject) => {
+        const chunks = []
+        stream.on('data', (chunk) => chunks.push(chunk))
+        stream.on('error', (err) => reject(err))
+        stream.on('end', () => resolve(chunks.join('')))
+      })
 
     const runNotificationTest = async (onNotification, onError) => {
       const client = createClient()
@@ -609,7 +620,10 @@ describe('API integration', () => {
 
   describe('template methods', () => {
     // can contain only lowercase latin letters, numbers, and dashes.
-    const templName = `node-sdk-test-${new Date().toISOString().toLocaleLowerCase('en-US').replace(/[^0-9a-z-]/g, '-')}`
+    const templName = `node-sdk-test-${new Date()
+      .toISOString()
+      .toLocaleLowerCase('en-US')
+      .replace(/[^0-9a-z-]/g, '-')}`
     let templId = null
     const client = createClient()
 
@@ -640,7 +654,10 @@ describe('API integration', () => {
       }
 
       const editedName = `${templName}-edited`
-      const editResult = await client.editTemplate(templId, { name: editedName, template: editedTemplate })
+      const editResult = await client.editTemplate(templId, {
+        name: editedName,
+        template: editedTemplate,
+      })
       expect(editResult.ok).toBe('TEMPLATE_UPDATED')
       expect(editResult.id).toBe(templId)
       expect(editResult.name).toBe(editedName)
@@ -653,13 +670,18 @@ describe('API integration', () => {
       const template = await client.deleteTemplate(templId)
       const { ok } = template
       expect(ok).toBe('TEMPLATE_DELETED')
-      await expect(client.getTemplate(templId)).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'TEMPLATE_NOT_FOUND' }))
+      await expect(client.getTemplate(templId)).rejects.toThrow(
+        expect.objectContaining({ transloaditErrorCode: 'TEMPLATE_NOT_FOUND' })
+      )
     })
   })
 
   describe('credential methods', () => {
     // can contain only lowercase latin letters, numbers, and dashes.
-    const credName = `node-sdk-test-${new Date().toISOString().toLocaleLowerCase('en-US').replace(/[^0-9a-z-]/g, '-')}`
+    const credName = `node-sdk-test-${new Date()
+      .toISOString()
+      .toLocaleLowerCase('en-US')
+      .replace(/[^0-9a-z-]/g, '-')}`
     let credId = null
     const client = createClient()
 
@@ -671,12 +693,12 @@ describe('API integration', () => {
 
     it('should allow creating a credential', async () => {
       const createResult = await client.createTemplateCredential({
-        type   : 's3',
-        name   : credName,
+        type: 's3',
+        name: credName,
         content: {
-          key          : 'xyxy',
-          secret       : 'xyxyxyxy',
-          bucket       : 'mybucket.example.com',
+          key: 'xyxy',
+          secret: 'xyxyxyxy',
+          bucket: 'mybucket.example.com',
           bucket_region: 'us-east-1',
         },
       })
@@ -696,12 +718,12 @@ describe('API integration', () => {
       expect(credId).toBeDefined()
       const editedName = `${credName}-edited`
       const editResult = await client.editTemplateCredential(credId, {
-        name   : editedName,
-        type   : 's3',
+        name: editedName,
+        type: 's3',
         content: {
-          key          : 'foobar',
-          secret       : 'barfo',
-          bucket       : 'foo.bar.com',
+          key: 'foobar',
+          secret: 'barfo',
+          bucket: 'foo.bar.com',
           bucket_region: 'us-east-1',
         },
       })
@@ -717,7 +739,9 @@ describe('API integration', () => {
       const credential = await client.deleteTemplateCredential(credId)
       const { ok } = credential
       expect(ok).toBe('TEMPLATE_CREDENTIALS_DELETED')
-      await expect(client.getTemplateCredential(credId)).rejects.toThrow(expect.objectContaining({ transloaditErrorCode: 'TEMPLATE_CREDENTIALS_NOT_READ' }))
+      await expect(client.getTemplateCredential(credId)).rejects.toThrow(
+        expect.objectContaining({ transloaditErrorCode: 'TEMPLATE_CREDENTIALS_NOT_READ' })
+      )
     })
   })
 })

@@ -30,7 +30,9 @@ Inside your project, type:
 ```bash
 yarn add transloadit
 ```
+
 or
+
 ```bash
 npm install --save transloadit
 ```
@@ -43,30 +45,31 @@ The following code will upload an image and resize it to a thumbnail:
 const Transloadit = require('transloadit')
 
 const transloadit = new Transloadit({
-  authKey   : 'YOUR_TRANSLOADIT_KEY',
+  authKey: 'YOUR_TRANSLOADIT_KEY',
   authSecret: 'YOUR_TRANSLOADIT_SECRET',
-});
+})
 
-(async () => {
+;(async () => {
   try {
     const options = {
       files: {
         file1: '/PATH/TO/FILE.jpg',
       },
       params: {
-        steps: { // You can have many Steps. In this case we will just resize any inputs (:original)
+        steps: {
+          // You can have many Steps. In this case we will just resize any inputs (:original)
           resize: {
-            use   : ':original',
-            robot : '/image/resize',
+            use: ':original',
+            robot: '/image/resize',
             result: true,
-            width : 75,
+            width: 75,
             height: 75,
           },
         },
         // OR if you already created a template, you can use it instead of "steps":
         // template_id: 'YOUR_TEMPLATE_ID',
       },
-      waitForCompletion: true,  // Wait for the Assembly (job) to finish executing before returning
+      waitForCompletion: true, // Wait for the Assembly (job) to finish executing before returning
     }
 
     const status = await transloadit.createAssembly(options)
@@ -74,7 +77,9 @@ const transloadit = new Transloadit({
     if (status.results.resize) {
       console.log('✅ Success - Your resized image:', status.results.resize[0].ssl_url)
     } else {
-      console.log("❌ The Assembly didn't produce any output. Make sure you used a valid image file")
+      console.log(
+        "❌ The Assembly didn't produce any output. Make sure you used a valid image file"
+      )
     }
   } catch (err) {
     console.error('❌ Unable to process Assembly.', err)
@@ -105,6 +110,7 @@ For more example use cases and information about the available robots and their 
 These are the public methods on the `Transloadit` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/). See also [TypeScript definitions](types/index.d.ts).
 
 Table of contents:
+
 - [Main](#main)
 - [Assemblies](#assemblies)
 - [Assembly notifications](#assembly-notifications)
@@ -119,6 +125,7 @@ Table of contents:
 Returns a new instance of the client.
 
 The `options` object can contain the following keys:
+
 - `authKey` **(required)** - see [requirements](#requirements)
 - `authSecret` **(required)** - see [requirements](#requirements)
 - `endpoint` (default `'https://api2.transloadit.com'`)
@@ -137,12 +144,12 @@ You can provide the following keys inside the `options` object:
 - `params` **(required)** - An object containing keys defining the Assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/assemblies-post/) and [examples](#examples))
   - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/topics/assembly-instructions/) and [demos](https://transloadit.com/demos/) for inspiration.
   - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any Steps will overrule the template](https://transloadit.com/docs/topics/templates/#overruling-templates-at-runtime).
-  - `fields` - An object of form fields to add to the request, to make use of in the Assembly instructions via [Assembly variables](https://transloadit.com/docs#assembly-variables). 
+  - `fields` - An object of form fields to add to the request, to make use of in the Assembly instructions via [Assembly variables](https://transloadit.com/docs#assembly-variables).
   - `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
-- `files` - An object (key-value pairs) containing one or more file paths to upload and use in your Assembly. The *key* is the *field name* and the *value* is the path to the file to be uploaded. The *field name* and the file's name may be used in the ([Assembly instructions](https://transloadit.com/docs/topics/assembly-instructions/)) (`params`.`steps`) to refer to the particular file. See example below.
+- `files` - An object (key-value pairs) containing one or more file paths to upload and use in your Assembly. The _key_ is the _field name_ and the _value_ is the path to the file to be uploaded. The _field name_ and the file's name may be used in the ([Assembly instructions](https://transloadit.com/docs/topics/assembly-instructions/)) (`params`.`steps`) to refer to the particular file. See example below.
   - `'fieldName': '/path/to/file'`
   - more files...
-- `uploads` - An object (key-value pairs) containing one or more files to upload and use in your Assembly. The *key* is the *file name* and the *value* is the *content* of the file to be uploaded. *Value* can be one of many types:
+- `uploads` - An object (key-value pairs) containing one or more files to upload and use in your Assembly. The _key_ is the _file name_ and the _value_ is the _content_ of the file to be uploaded. _Value_ can be one of many types:
   - `'fieldName': (Readable | Buffer | TypedArray | ArrayBuffer | string | Iterable<Buffer | string> | AsyncIterable<Buffer | string> | Promise)`.
   - more uploads...
 - `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
@@ -150,13 +157,14 @@ You can provide the following keys inside the `options` object:
 - `onUploadProgress` - An optional function that will be periodically called with the file upload progress, which is an with an object containing:
   - `uploadedBytes` - Number of bytes uploaded so far.
   - `totalBytes` - Total number of bytes to upload or `undefined` if unknown (Streams).
-- `onAssemblyProgress` - Once the Assembly has started processing this will be periodically called with the *Assembly Execution Status* (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
+- `onAssemblyProgress` - Once the Assembly has started processing this will be periodically called with the _Assembly Execution Status_ (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
 - `chunkSize` - (for uploads) a number indicating the maximum size of a tus `PATCH` request body in bytes. Default to `Infinity` for file uploads and 50MB for streams of unknown length. See [tus-js-client](https://github.com/tus/tus-js-client/blob/master/docs/api.md#chunksize).
 - `uploadConcurrency` - Maximum number of concurrent tus file uploads to occur at any given time (default 10.)
 
- **NOTE**: Make sure the key in `files` and `uploads` is not one of `signature`, `params` or `max_size`.
+  **NOTE**: Make sure the key in `files` and `uploads` is not one of `signature`, `params` or `max_size`.
 
 Example code showing all options:
+
 ```js
 await transloadit.createAssembly({
   files: {
@@ -175,7 +183,7 @@ await transloadit.createAssembly({
     fields: {
       field1: 'Field value',
       // ...
-    }, 
+    },
     notify_url: 'https://example.com/notify-url',
   },
   waitForCompletion: true,
@@ -186,13 +194,18 @@ await transloadit.createAssembly({
 ```
 
 Example `onUploadProgress` and `onAssemblyProgress` handlers:
+
 ```javascript
 function onUploadProgress({ uploadedBytes, totalBytes }) {
   // NOTE: totalBytes may be undefined
   console.log(`♻️ Upload progress polled: ${uploadedBytes} of ${totalBytes} bytes uploaded.`)
 }
 function onAssemblyProgress(assembly) {
-  console.log(`♻️ Assembly progress polled: ${assembly.error ? assembly.error : assembly.ok} ${assembly.assembly_id} ... `)
+  console.log(
+    `♻️ Assembly progress polled: ${assembly.error ? assembly.error : assembly.ok} ${
+      assembly.assembly_id
+    } ... `
+  )
 }
 ```
 
@@ -204,8 +217,8 @@ console.log('Creating', promise.assemblyId)
 const status = await promise
 ```
 
-
 See also:
+
 - [API documentation](https://transloadit.com/docs/api/assemblies-post/)
 - Error codes and retry logic below
 
@@ -227,28 +240,30 @@ Creates an `objectMode` `Readable` stream that automates handling of `listAssemb
 This can be used to iterate through Assemblies:
 
 ```javascript
-const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
+const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' })
 
-assemblyStream.on('readable', function() {
-  const assembly = assemblyStream.read();
-  if (assembly == null) console.log('end of stream');
+assemblyStream.on('readable', function () {
+  const assembly = assemblyStream.read()
+  if (assembly == null) console.log('end of stream')
 
-  console.log(assembly.id);
-});
+  console.log(assembly.id)
+})
 ```
 
 Results can also be piped. Here's an example using
 [through2](https://github.com/rvagg/through2):
 
 ```javascript
-const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' });
+const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' })
 
 assemblyStream
-  .pipe(through.obj(function(chunk, enc, callback) {
-    this.push(chunk.id + '\n');
-    callback();
-  }))
-  .pipe(fs.createWriteStream('assemblies.txt'));
+  .pipe(
+    through.obj(function (chunk, enc, callback) {
+      this.push(chunk.id + '\n')
+      callback()
+    })
+  )
+  .pipe(fs.createWriteStream('assemblies.txt'))
 ```
 
 #### async getAssembly(assemblyId)
@@ -270,7 +285,9 @@ const replayAssemblyResponse = await transloadit.replayAssembly(failedAssemblyId
 
 const assembly = await transloadit.getAssembly(replayAssemblyResponse.assembly_id)
 // Or
-const completedAssembly = await transloadit.awaitAssemblyCompletion(replayAssemblyResponse.assembly_id)
+const completedAssembly = await transloadit.awaitAssemblyCompletion(
+  replayAssemblyResponse.assembly_id
+)
 ```
 
 #### async awaitAssemblyCompletion(assemblyId, opts)
@@ -278,6 +295,7 @@ const completedAssembly = await transloadit.awaitAssemblyCompletion(replayAssemb
 This function will continously poll the specified Assembly `assemblyId` and resolve when it is done uploading and executing (until `result.ok` is no longer `ASSEMBLY_UPLOADING`, `ASSEMBLY_EXECUTING` or `ASSEMBLY_REPLAYING`). It resolves with the same value as `getAssembly`.
 
 `opts` is an object with the keys:
+
 - `onAssemblyProgress` - A progress function called on each poll. See `createAssembly`
 - `timeout` - How many milliseconds until polling times out (default: no timeout)
 - `interval` - Poll interval in milliseconds (default `1000`)
@@ -299,6 +317,7 @@ Templates are Steps that can be reused. [See example template code](examples/tem
 #### async createTemplate(params)
 
 Creates a template the provided params. The required `params` keys are:
+
 - `name` - The template name
 - `template` - The template JSON object containing its `steps`
 
@@ -308,12 +327,12 @@ See also [API documentation](https://transloadit.com/docs/api/templates-post/).
 const template = {
   steps: {
     encode: {
-      use   : ':original',
-      robot : '/video/encode',
+      use: ':original',
+      robot: '/video/encode',
       preset: 'ipad-high',
     },
     thumbnail: {
-      use  : 'encode',
+      use: 'encode',
       robot: '/video/thumbnails',
     },
   },
@@ -373,6 +392,7 @@ Errors from Node.js will be passed on and we use [GOT](https://github.com/sindre
 - `HTTPError.assemblyId` (alias for `HTTPError.response.body.assembly_id`, if the request regards an [Assembly](https://transloadit.com/docs/api/assemblies-assembly-id-get/))
 
 To identify errors you can either check its props or use `instanceof`, e.g.:
+
 ```js
 catch (err) {
   if (err instanceof Transloadit.TimeoutError) {
@@ -398,7 +418,7 @@ There are three kinds of retries:
 
 #### Retry on rate limiting (`maxRetries`, default `5`)
 
-All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`), so there is no need to write your own wrapper scripts to handle rate limits. The SDK will by default retry requests **5 times** with auto back-off (See `maxRetries` constructor option). 
+All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`), so there is no need to write your own wrapper scripts to handle rate limits. The SDK will by default retry requests **5 times** with auto back-off (See `maxRetries` constructor option).
 
 #### GOT HTTP retries (`gotRetry`, default `0`)
 
@@ -441,6 +461,7 @@ Check your sources for linting errors via `npm run lint`, and unit tests, and ru
 4. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
 
 ### Change log
+
 See [Releases](https://github.com/transloadit/node-sdk/releases)
 
 ### Convenience

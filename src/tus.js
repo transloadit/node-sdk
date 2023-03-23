@@ -5,7 +5,13 @@ const tus = require('tus-js-client')
 const { stat: fsStat } = require('fs').promises
 const pMap = require('p-map')
 
-async function sendTusRequest ({ streamsMap, assembly, requestedChunkSize, uploadConcurrency, onProgress }) {
+async function sendTusRequest({
+  streamsMap,
+  assembly,
+  requestedChunkSize,
+  uploadConcurrency,
+  onProgress,
+}) {
   const streamLabels = Object.keys(streamsMap)
 
   let totalBytes = 0
@@ -16,19 +22,23 @@ async function sendTusRequest ({ streamsMap, assembly, requestedChunkSize, uploa
   const haveUnknownLengthStreams = streamLabels.some((label) => !streamsMap[label].path)
 
   // Initialize size data
-  await pMap(streamLabels, async (label) => {
-    const { path } = streamsMap[label]
+  await pMap(
+    streamLabels,
+    async (label) => {
+      const { path } = streamsMap[label]
 
-    if (path) {
-      const { size } = await fsStat(path)
-      sizes[label] = size
-      totalBytes += size
-    }
-  }, { concurrency: 5 })
+      if (path) {
+        const { size } = await fsStat(path)
+        sizes[label] = size
+        totalBytes += size
+      }
+    },
+    { concurrency: 5 }
+  )
 
   const uploadProgresses = {}
 
-  async function uploadSingleStream (label) {
+  async function uploadSingleStream(label) {
     uploadProgresses[label] = 0
 
     const { stream, path } = streamsMap[label]
@@ -69,13 +79,13 @@ async function sendTusRequest ({ streamsMap, assembly, requestedChunkSize, uploa
         endpoint: assembly.tus_url,
         metadata: {
           assembly_url: assembly.assembly_ssl_url,
-          fieldname   : label,
+          fieldname: label,
           filename,
         },
         uploadSize: size,
-        onError   : reject,
+        onError: reject,
         onProgress: onTusProgress,
-        onSuccess : resolve,
+        onSuccess: resolve,
       }
       // tus-js-client doesn't like undefined/null
       if (chunkSize) tusOptions.chunkSize = chunkSize

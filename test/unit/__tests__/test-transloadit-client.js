@@ -13,13 +13,16 @@ jest.mock('got')
 tus.sendTusRequest.mockImplementation(() => {})
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
-const mockGetExpiresDate = (client) => jest.spyOn(client, '_getExpiresDate').mockReturnValue(mockedExpiresDate)
-const mockGot = (method) => got[method].mockImplementation(() => {
-  const mockPromise = Promise.resolve({ body: '' })
-  mockPromise.on = jest.fn(() => {})
-  return mockPromise
-})
-const mockRemoteJson = (client) => jest.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
+const mockGetExpiresDate = (client) =>
+  jest.spyOn(client, '_getExpiresDate').mockReturnValue(mockedExpiresDate)
+const mockGot = (method) =>
+  got[method].mockImplementation(() => {
+    const mockPromise = Promise.resolve({ body: '' })
+    mockPromise.on = jest.fn(() => {})
+    return mockPromise
+  })
+const mockRemoteJson = (client) =>
+  jest.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
   it('should throw a proper error for request stream', async () => {
@@ -29,13 +32,15 @@ describe('Transloadit', () => {
     const req = { pipe: () => {} }
 
     const promise = client.createAssembly({ uploads: { file: req } })
-    await expect(promise).rejects.toThrow(expect.objectContaining({ message: 'Upload named "file" is not a Readable stream' }))
+    await expect(promise).rejects.toThrow(
+      expect.objectContaining({ message: 'Upload named "file" is not a Readable stream' })
+    )
   })
 
   describe('constructor', () => {
     it('should set some default properties', () => {
       const opts = {
-        authKey   : 'foo_key',
+        authKey: 'foo_key',
         authSecret: 'foo_secret',
         maxRetries: 0,
       }
@@ -52,9 +57,9 @@ describe('Transloadit', () => {
 
     it('should throw when sending a trailing slash in endpoint', () => {
       const opts = {
-        authKey   : 'foo_key',
+        authKey: 'foo_key',
         authSecret: 'foo_secret',
-        endpoint  : 'https://api2.transloadit.com/',
+        endpoint: 'https://api2.transloadit.com/',
       }
       expect(() => new Transloadit(opts)).toThrow('Trailing slash in endpoint is not allowed')
     })
@@ -69,9 +74,9 @@ describe('Transloadit', () => {
 
     it('should allow overwriting some properties', () => {
       const opts = {
-        authKey   : 'foo_key',
+        authKey: 'foo_key',
         authSecret: 'foo_secret',
-        endpoint  : 'http://foo',
+        endpoint: 'http://foo',
       }
 
       const client = new Transloadit(opts)
@@ -87,7 +92,14 @@ describe('Transloadit', () => {
 
       const name = 'foo_name'
       const pause = jest.fn(() => {})
-      const mockStream = { pause, pipe: () => {}, _read: () => {}, _readableState: {}, on: () => {}, readable: true }
+      const mockStream = {
+        pause,
+        pipe: () => {},
+        _read: () => {},
+        _readableState: {},
+        on: () => {},
+        readable: true,
+      }
 
       mockRemoteJson(client)
 
@@ -140,7 +152,8 @@ describe('Transloadit', () => {
       // URL can have question mark also inside parameter
       const url = 'https://example.com/foo_url?param=12?3'
       const params = { foo: 'bar' }
-      const jsonParams = '{"foo":"bar","auth":{"key":"foo_key","expires":"2021-01-06T21:11:07.883Z"}}'
+      const jsonParams =
+        '{"foo":"bar","auth":{"key":"foo_key","expires":"2021-01-06T21:11:07.883Z"}}'
       const signature = 'c84113bd21fe7b5eb5683ac8513995993240662b'
 
       mockGetExpiresDate(client)
@@ -161,7 +174,7 @@ describe('Transloadit', () => {
       expect(r.auth.expires).not.toBeNull()
 
       const opts = {
-        authKey   : 'foo',
+        authKey: 'foo',
         authSecret: 'foo_secret',
       }
       client = new Transloadit(opts)
@@ -176,7 +189,7 @@ describe('Transloadit', () => {
 
       const PARAMS = {
         auth: {
-          key    : 'foo_key',
+          key: 'foo_key',
           expires: 'foo_expires',
         },
       }
@@ -201,7 +214,9 @@ describe('Transloadit', () => {
 
       const r = client.calcSignature(params)
 
-      expect(r.params).toBe('{"foo":"bar","auth":{"key":"foo_key","expires":"2021-01-06T21:11:07.883Z"}}')
+      expect(r.params).toBe(
+        '{"foo":"bar","auth":{"key":"foo_key","expires":"2021-01-06T21:11:07.883Z"}}'
+      )
       expect(r.signature).toBe('be7aec095815931e6cd6dc322ed886ca9746e5bf')
       expect(prepareParamsSpy).toBeCalledWith(params)
     })
@@ -214,7 +229,11 @@ describe('Transloadit', () => {
 
     await client.createAssembly()
 
-    expect(spy).toBeCalledWith(expect.objectContaining({ timeout: 24 * 60 * 60 * 1000 }), {}, expect.any(Function))
+    expect(spy).toBeCalledWith(
+      expect.objectContaining({ timeout: 24 * 60 * 60 * 1000 }),
+      {},
+      expect.any(Function)
+    )
   })
 
   it('should crash if attempt to use callback', async () => {
@@ -254,7 +273,10 @@ describe('Transloadit', () => {
       const url = '/some-url'
       await client._remoteJson({ url, method: 'get' })
 
-      expect(get).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: { 'Transloadit-Client': `node-sdk:${packageVersion}` } }))
+      expect(get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ headers: { 'Transloadit-Client': `node-sdk:${packageVersion}` } })
+      )
     })
   })
 })
