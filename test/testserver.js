@@ -3,10 +3,10 @@ const got = require('got')
 
 const createTunnel = require('./tunnel')
 
-async function startTestServer (handler2) {
+async function startTestServer(handler2) {
   let customHandler
 
-  function handler (...args) {
+  function handler(...args) {
     if (customHandler) return customHandler(...args)
     return handler2(...args)
   }

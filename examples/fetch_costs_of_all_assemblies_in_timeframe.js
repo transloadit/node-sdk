@@ -10,9 +10,9 @@ const pMap = require('p-map')
 const Transloadit = require('../src/Transloadit')
 
 const fromdate = '2020-12-31 15:30:00'
-const todate = '2020-12-31 15:30:01';
+const todate = '2020-12-31 15:30:01'
 
-(async () => {
+;(async () => {
   try {
     const params = {
       fromdate,
@@ -21,7 +21,7 @@ const todate = '2020-12-31 15:30:01';
     }
 
     const transloadit = new Transloadit({
-      authKey   : process.env.TRANSLOADIT_KEY,
+      authKey: process.env.TRANSLOADIT_KEY,
       authSecret: process.env.TRANSLOADIT_SECRET,
     })
 
@@ -34,15 +34,19 @@ const todate = '2020-12-31 15:30:01';
       lastCount = count
       params.page++
 
-      // eslint-disable-next-line no-loop-func
-      await pMap(items, async (assembly) => {
-        const assemblyFull = await transloadit.getAssembly(assembly.id)
-        // console.log(assemblyFull.assembly_id)
+      await pMap(
+        items,
+        // eslint-disable-next-line no-loop-func
+        async (assembly) => {
+          const assemblyFull = await transloadit.getAssembly(assembly.id)
+          // console.log(assemblyFull.assembly_id)
 
-        const { bytes_usage: bytesUsage } = assemblyFull
+          const { bytes_usage: bytesUsage } = assemblyFull
 
-        totalBytes += bytesUsage || 0
-      }, { concurrency: 20 })
+          totalBytes += bytesUsage || 0
+        },
+        { concurrency: 20 }
+      )
     } while (lastCount > 0)
 
     console.log('Total GB:', (totalBytes / (1024 * 1024 * 1024)).toFixed(2))

@@ -13,11 +13,11 @@ const pRetry = require('p-retry')
 const Transloadit = require('../src/Transloadit')
 
 const transloadit = new Transloadit({
-  authKey   : process.env.TRANSLOADIT_KEY,
+  authKey: process.env.TRANSLOADIT_KEY,
   authSecret: process.env.TRANSLOADIT_SECRET,
 })
 
-async function run () {
+async function run() {
   console.log('Trying...')
   try {
     const { items } = await transloadit.listTemplates({ sort: 'created', order: 'asc' })
@@ -31,7 +31,7 @@ async function run () {
   }
 }
 
-(async () => {
+;(async () => {
   try {
     console.log(await pRetry(run, { retries: 5 }))
   } catch (err) {

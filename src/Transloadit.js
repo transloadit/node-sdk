@@ -17,7 +17,7 @@ const PaginationStream = require('./PaginationStream')
 const { version } = require('../package.json')
 const { sendTusRequest } = require('./tus')
 
-function decorateError (err, body) {
+function decorateError(err, body) {
   if (!body) return err
   let { message } = err
 
@@ -37,17 +37,17 @@ function decorateError (err, body) {
 }
 
 // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
-function checkAssemblyUrls (result) {
+function checkAssemblyUrls(result) {
   if (result.assembly_url == null || result.assembly_ssl_url == null) {
     throw new InconsistentResponseError('Server returned an incomplete assembly response (no URL)')
   }
 }
 
-function getHrTimeMs () {
+function getHrTimeMs() {
   return Number(process.hrtime.bigint() / 1000000n)
 }
 
-function checkResult (result) {
+function checkResult(result) {
   // In case server returned a successful HTTP status code, but an `error` in the JSON object
   // This happens sometimes when createAssembly with an invalid file (IMPORT_FILE_ERROR)
   if (typeof result === 'object' && result !== null && typeof result.error === 'string') {
@@ -61,7 +61,7 @@ function checkResult (result) {
 }
 
 class TransloaditClient {
-  constructor (opts = {}) {
+  constructor(opts = {}) {
     if (opts.authKey == null) {
       throw new Error('Please provide an authKey')
     }
@@ -86,11 +86,11 @@ class TransloaditClient {
     this._lastUsedAssemblyUrl = ''
   }
 
-  getLastUsedAssemblyUrl () {
+  getLastUsedAssemblyUrl() {
     return this._lastUsedAssemblyUrl
   }
 
-  setDefaultTimeout (timeout) {
+  setDefaultTimeout(timeout) {
     this._defaultTimeout = timeout
   }
 
@@ -100,10 +100,12 @@ class TransloaditClient {
    * @param {object} opts assembly options
    * @returns {Promise}
    */
-  createAssembly (opts = {}, arg2) {
+  createAssembly(opts = {}, arg2) {
     // Warn users of old callback API
     if (typeof arg2 === 'function') {
-      throw new TypeError('You are trying to send a function as the second argument. This is no longer valid in this version. Please see github README for usage.')
+      throw new TypeError(
+        'You are trying to send a function as the second argument. This is no longer valid in this version. Please see github README for usage.'
+      )
     }
 
     const {
@@ -121,7 +123,10 @@ class TransloaditClient {
     } = opts
 
     if (!isResumable) {
-      process.emitWarning('Parameter value isResumable = false is deprecated. All uploads will be resumable (using TUS) in the future', 'DeprecationWarning')
+      process.emitWarning(
+        'Parameter value isResumable = false is deprecated. All uploads will be resumable (using TUS) in the future',
+        'DeprecationWarning'
+      )
     }
 
     // Keep track of how long the request took
@@ -143,24 +148,27 @@ class TransloaditClient {
       this._lastUsedAssemblyUrl = `${this._endpoint}${urlSuffix}`
 
       // eslint-disable-next-line no-bitwise
-      await pMap(Object.entries(files), async ([, path]) => access(path, fs.F_OK | fs.R_OK), { concurrency: 5 })
+      await pMap(Object.entries(files), async ([, path]) => access(path, fs.F_OK | fs.R_OK), {
+        concurrency: 5,
+      })
 
       // Convert uploads to streams
-      const streamsMap = fromPairs(Object.entries(uploads).map(([label, value]) => {
-        const isReadable = isStream.readable(value)
-        if (!isReadable && isStream(value)) {
-          // https://github.com/transloadit/node-sdk/issues/92
-          throw new Error(`Upload named "${label}" is not a Readable stream`)
-        }
+      const streamsMap = fromPairs(
+        Object.entries(uploads).map(([label, value]) => {
+          const isReadable = isStream.readable(value)
+          if (!isReadable && isStream(value)) {
+            // https://github.com/transloadit/node-sdk/issues/92
+            throw new Error(`Upload named "${label}" is not a Readable stream`)
+          }
 
-        return [
-          label,
-          isStream.readable(value) ? value : intoStream(value),
-        ]
-      }))
+          return [label, isStream.readable(value) ? value : intoStream(value)]
+        })
+      )
 
       // Wrap in object structure (so we can know if it's a pathless stream or not)
-      const allStreamsMap = fromPairs(Object.entries(streamsMap).map(([label, stream]) => [label, { stream }]))
+      const allStreamsMap = fromPairs(
+        Object.entries(streamsMap).map(([label, stream]) => [label, { stream }])
+      )
 
       // Create streams from files too
       for (const [label, path] of Object.entries(files)) {
@@ -201,7 +209,7 @@ class TransloaditClient {
         if (isResumable && Object.keys(allStreamsMap).length > 0) {
           await sendTusRequest({
             streamsMap: allStreamsMap,
-            assembly  : result,
+            assembly: result,
             onProgress: onUploadProgress,
             requestedChunkSize,
             uploadConcurrency,
@@ -210,7 +218,9 @@ class TransloaditClient {
 
         if (!waitForCompletion) return result
         const awaitResult = await this.awaitAssemblyCompletion(result.assembly_id, {
-          timeout, onAssemblyProgress, startTimeMs,
+          timeout,
+          onAssemblyProgress,
+          startTimeMs,
         })
         checkResult(awaitResult)
         return awaitResult
@@ -224,12 +234,10 @@ class TransloaditClient {
     return promise
   }
 
-  async awaitAssemblyCompletion (assemblyId, {
-    onAssemblyProgress = () => {},
-    timeout,
-    startTimeMs = getHrTimeMs(),
-    interval = 1000,
-  } = {}) {
+  async awaitAssemblyCompletion(
+    assemblyId,
+    { onAssemblyProgress = () => {}, timeout, startTimeMs = getHrTimeMs(), interval = 1000 } = {}
+  ) {
     assert(assemblyId)
 
     // eslint-disable-next-line no-constant-condition
@@ -262,7 +270,7 @@ class TransloaditClient {
    * @param {string} assemblyId assembly ID
    * @returns {Promise} after the assembly is deleted
    */
-  async cancelAssembly (assemblyId) {
+  async cancelAssembly(assemblyId) {
     // You may wonder why do we need to call getAssembly first:
     // If we use the default base URL (instead of the one returned in assembly_url_ssl),
     // the delete call will hang in certain cases
@@ -284,10 +292,10 @@ class TransloaditClient {
    * @param {object} optional params
    * @returns {Promise} after the replay is started
    */
-  async replayAssembly (assemblyId, params = {}) {
+  async replayAssembly(assemblyId, params = {}) {
     const requestOpts = {
       urlSuffix: `/assemblies/${assemblyId}/replay`,
-      method   : 'post',
+      method: 'post',
     }
     if (Object.keys(params).length > 0) requestOpts.params = params
     const result = await this._remoteJson(requestOpts)
@@ -302,10 +310,10 @@ class TransloaditClient {
    * @param {object} optional params
    * @returns {Promise} after the replay is started
    */
-  async replayAssemblyNotification (assemblyId, params = {}) {
+  async replayAssemblyNotification(assemblyId, params = {}) {
     const requestOpts = {
       urlSuffix: `/assembly_notifications/${assemblyId}/replay`,
-      method   : 'post',
+      method: 'post',
     }
     if (Object.keys(params).length > 0) requestOpts.params = params
     return this._remoteJson(requestOpts)
@@ -317,17 +325,17 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} the list of Assembly notifications
    */
-  async listAssemblyNotifications (params) {
+  async listAssemblyNotifications(params) {
     const requestOpts = {
       urlSuffix: '/assembly_notifications',
-      method   : 'get',
-      params   : params || {},
+      method: 'get',
+      params: params || {},
     }
 
     return this._remoteJson(requestOpts)
   }
 
-  streamAssemblyNotifications (params) {
+  streamAssemblyNotifications(params) {
     return new PaginationStream(async (page) => this.listAssemblyNotifications({ ...params, page }))
   }
 
@@ -337,17 +345,17 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} list of Assemblies
    */
-  async listAssemblies (params) {
+  async listAssemblies(params) {
     const requestOpts = {
       urlSuffix: '/assemblies',
-      method   : 'get',
-      params   : params || {},
+      method: 'get',
+      params: params || {},
     }
 
     return this._remoteJson(requestOpts)
   }
 
-  streamAssemblies (params) {
+  streamAssemblies(params) {
     return new PaginationStream(async (page) => this.listAssemblies({ ...params, page }))
   }
 
@@ -357,7 +365,7 @@ class TransloaditClient {
    * @param {string} assemblyId the Assembly Id
    * @returns {Promise} the retrieved Assembly
    */
-  async getAssembly (assemblyId) {
+  async getAssembly(assemblyId) {
     const result = await this._remoteJson({ urlSuffix: `/assemblies/${assemblyId}` })
     checkAssemblyUrls(result)
     return result
@@ -369,11 +377,11 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} when the Credential is created
    */
-  async createTemplateCredential (params) {
+  async createTemplateCredential(params) {
     const requestOpts = {
       urlSuffix: '/template_credentials',
-      method   : 'post',
-      params   : params || {},
+      method: 'post',
+      params: params || {},
     }
 
     return this._remoteJson(requestOpts)
@@ -386,11 +394,11 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} when the Credential is edited
    */
-  async editTemplateCredential (credentialId, params) {
+  async editTemplateCredential(credentialId, params) {
     const requestOpts = {
       urlSuffix: `/template_credentials/${credentialId}`,
-      method   : 'put',
-      params   : params || {},
+      method: 'put',
+      params: params || {},
     }
 
     return this._remoteJson(requestOpts)
@@ -402,10 +410,10 @@ class TransloaditClient {
    * @param {string} credentialId the Credential ID
    * @returns {Promise} when the Credential is deleted
    */
-  async deleteTemplateCredential (credentialId) {
+  async deleteTemplateCredential(credentialId) {
     const requestOpts = {
       urlSuffix: `/template_credentials/${credentialId}`,
-      method   : 'delete',
+      method: 'delete',
     }
 
     return this._remoteJson(requestOpts)
@@ -417,10 +425,10 @@ class TransloaditClient {
    * @param {string} credentialId the Credential ID
    * @returns {Promise} when the Credential is retrieved
    */
-  async getTemplateCredential (credentialId) {
+  async getTemplateCredential(credentialId) {
     const requestOpts = {
       urlSuffix: `/template_credentials/${credentialId}`,
-      method   : 'get',
+      method: 'get',
     }
 
     return this._remoteJson(requestOpts)
@@ -432,17 +440,17 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} the list of templates
    */
-  async listTemplateCredentials (params) {
+  async listTemplateCredentials(params) {
     const requestOpts = {
       urlSuffix: '/template_credentials',
-      method   : 'get',
-      params   : params || {},
+      method: 'get',
+      params: params || {},
     }
 
     return this._remoteJson(requestOpts)
   }
 
-  streamTemplateCredentials (params) {
+  streamTemplateCredentials(params) {
     return new PaginationStream(async (page) => this.listTemplateCredentials({ ...params, page }))
   }
 
@@ -452,11 +460,11 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} when the template is created
    */
-  async createTemplate (params) {
+  async createTemplate(params) {
     const requestOpts = {
       urlSuffix: '/templates',
-      method   : 'post',
-      params   : params || {},
+      method: 'post',
+      params: params || {},
     }
 
     return this._remoteJson(requestOpts)
@@ -469,11 +477,11 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} when the template is edited
    */
-  async editTemplate (templateId, params) {
+  async editTemplate(templateId, params) {
     const requestOpts = {
       urlSuffix: `/templates/${templateId}`,
-      method   : 'put',
-      params   : params || {},
+      method: 'put',
+      params: params || {},
     }
 
     return this._remoteJson(requestOpts)
@@ -485,10 +493,10 @@ class TransloaditClient {
    * @param {string} templateId the template ID
    * @returns {Promise} when the template is deleted
    */
-  async deleteTemplate (templateId) {
+  async deleteTemplate(templateId) {
     const requestOpts = {
       urlSuffix: `/templates/${templateId}`,
-      method   : 'delete',
+      method: 'delete',
     }
 
     return this._remoteJson(requestOpts)
@@ -500,10 +508,10 @@ class TransloaditClient {
    * @param {string} templateId the template ID
    * @returns {Promise} when the template is retrieved
    */
-  async getTemplate (templateId) {
+  async getTemplate(templateId) {
     const requestOpts = {
       urlSuffix: `/templates/${templateId}`,
-      method   : 'get',
+      method: 'get',
     }
 
     return this._remoteJson(requestOpts)
@@ -515,17 +523,17 @@ class TransloaditClient {
    * @param {object} params optional request options
    * @returns {Promise} the list of templates
    */
-  async listTemplates (params) {
+  async listTemplates(params) {
     const requestOpts = {
       urlSuffix: '/templates',
-      method   : 'get',
-      params   : params || {},
+      method: 'get',
+      params: params || {},
     }
 
     return this._remoteJson(requestOpts)
   }
 
-  streamTemplates (params) {
+  streamTemplates(params) {
     return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
   }
 
@@ -535,24 +543,24 @@ class TransloaditClient {
    * @param {string} month the date for the required billing in the format yyyy-mm
    * @returns {Promise} with billing data
    */
-  async getBill (month) {
+  async getBill(month) {
     assert(month, 'month is required')
     const requestOpts = {
       urlSuffix: `/bill/${month}`,
-      method   : 'get',
+      method: 'get',
     }
 
     return this._remoteJson(requestOpts)
   }
 
-  calcSignature (params) {
+  calcSignature(params) {
     const jsonParams = this._prepareParams(params)
     const signature = this._calcSignature(jsonParams)
 
     return { signature, params: jsonParams }
   }
 
-  _calcSignature (toSign) {
+  _calcSignature(toSign) {
     return crypto
       .createHmac('sha1', this._authSecret)
       .update(Buffer.from(toSign, 'utf-8'))
@@ -561,7 +569,7 @@ class TransloaditClient {
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including
   // the streams, the signed params, and any additional fields.
-  _appendForm (form, params, streamsMap, fields) {
+  _appendForm(form, params, streamsMap, fields) {
     const sigData = this.calcSignature(params)
     const jsonParams = sigData.params
     const { signature } = sigData
@@ -586,7 +594,7 @@ class TransloaditClient {
 
   // Implements HTTP GET query params, handling the case where the url already
   // has params.
-  _appendParamsToUrl (url, params) {
+  _appendParamsToUrl(url, params) {
     const { signature, params: jsonParams } = this.calcSignature(params)
 
     const prefix = url.indexOf('?') === -1 ? '?' : '&'
@@ -595,7 +603,7 @@ class TransloaditClient {
   }
 
   // Responsible for including auth parameters in all requests
-  _prepareParams (paramsIn) {
+  _prepareParams(paramsIn) {
     let params = paramsIn
     if (params == null) {
       params = {}
@@ -615,7 +623,7 @@ class TransloaditClient {
 
   // We want to mock this method
   // eslint-disable-next-line class-methods-use-this
-  _getExpiresDate () {
+  _getExpiresDate() {
     const expiresDate = new Date()
     expiresDate.setDate(expiresDate.getDate() + 1)
     return expiresDate.toISOString()
@@ -624,8 +632,16 @@ class TransloaditClient {
   // Responsible for making API calls. Automatically sends streams with any POST,
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
-  async _remoteJson (opts, streamsMap, onProgress = () => {}) {
-    const { urlSuffix, url: urlInput, timeout = this._defaultTimeout, method = 'get', params = {}, fields, headers } = opts
+  async _remoteJson(opts, streamsMap, onProgress = () => {}) {
+    const {
+      urlSuffix,
+      url: urlInput,
+      timeout = this._defaultTimeout,
+      method = 'get',
+      params = {},
+      fields,
+      headers,
+    } = opts
 
     // Allow providing either a `urlSuffix` or a full `url`
     if (!urlSuffix && !urlInput) throw new Error('No URL provided')
@@ -650,12 +666,12 @@ class TransloaditClient {
       const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
 
       const requestOpts = {
-        retry  : this._gotRetry,
-        body   : form,
+        retry: this._gotRetry,
+        body: form,
         timeout,
         headers: {
           'Transloadit-Client': `node-sdk:${version}`,
-          'User-Agent'        : undefined, // Remove got's user-agent
+          'User-Agent': undefined, // Remove got's user-agent
           ...headers,
         },
         responseType: 'json',
@@ -669,7 +685,9 @@ class TransloaditClient {
       try {
         const request = got[method](url, requestOpts)
         if (isUploadingStreams) {
-          request.on('uploadProgress', ({ transferred, total }) => onProgress({ uploadedBytes: transferred, totalBytes: total }))
+          request.on('uploadProgress', ({ transferred, total }) =>
+            onProgress({ uploadedBytes: transferred, totalBytes: total })
+          )
         }
         const { body } = await request
         return body
@@ -679,7 +697,12 @@ class TransloaditClient {
         const { statusCode, body } = err.response
         logWarn('HTTP error', statusCode, body)
 
-        const shouldRetry = statusCode === 413 && body.error === 'RATE_LIMIT_REACHED' && body.info && body.info.retryIn && retryCount < this._maxRetries
+        const shouldRetry =
+          statusCode === 413 &&
+          body.error === 'RATE_LIMIT_REACHED' &&
+          body.info &&
+          body.info.retryIn &&
+          retryCount < this._maxRetries
 
         // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
         if (!shouldRetry) throw decorateError(err, body)

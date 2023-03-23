@@ -1,7 +1,5 @@
 {
   "typeAcquisition": {
-      "include": [
-          "jest"
-      ]
+    "include": ["jest"]
   }
 }

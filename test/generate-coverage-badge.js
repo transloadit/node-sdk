@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 const fs = require('fs').promises
-const { makeBadge } = require('badge-maker');
+const { makeBadge } = require('badge-maker')
 
-(async () => {
+// eslint-disable-next-line import/newline-after-import
+;(async () => {
   try {
     const json = JSON.parse(await fs.readFile(process.argv[2]), 'utf-8')
 
@@ -12,9 +13,9 @@ const { makeBadge } = require('badge-maker');
 
     // https://github.com/badges/shields/tree/master/badge-maker#format
     const format = {
-      label  : 'coverage',
+      label: 'coverage',
       message: coveragePercent,
-      color  : 'green',
+      color: 'green',
     }
 
     const svg = makeBadge(format)
