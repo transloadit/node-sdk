@@ -10,7 +10,7 @@ const intoStream = require('into-stream')
 const isStream = require('is-stream')
 const assert = require('assert')
 const pMap = require('p-map')
-const uuid = require('uuid');
+const uuid = require('uuid')
 
 const InconsistentResponseError = require('./InconsistentResponseError')
 const PaginationStream = require('./PaginationStream')
@@ -31,7 +31,7 @@ function decorateHttpError(err, body) {
 
   if (typeof err.stack === 'string') {
     const indexOfMessageEnd = err.stack.indexOf(err.message) + err.message.length
-    const stacktrace = err.stack.slice(indexOfMessageEnd);
+    const stacktrace = err.stack.slice(indexOfMessageEnd)
     newStack = `${newMessage}${stacktrace}`
   }
 
