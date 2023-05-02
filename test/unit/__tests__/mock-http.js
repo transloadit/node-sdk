@@ -107,7 +107,8 @@ describe('Mocked API tests', () => {
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
         assemblyId: '123',
-        message: 'Response code 400 (Bad Request) INVALID_FILE_META_DATA - https://api2-oltu.transloadit.com/assemblies/foo',
+        message:
+          'Response code 400 (Bad Request) INVALID_FILE_META_DATA - https://api2-oltu.transloadit.com/assemblies/foo',
         response: expect.objectContaining({
           body: expect.objectContaining({ assembly_id: '123' }),
         }),
