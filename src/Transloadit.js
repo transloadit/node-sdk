@@ -17,18 +17,27 @@ const PaginationStream = require('./PaginationStream')
 const { version } = require('../package.json')
 const { sendTusRequest } = require('./tus')
 
-function decorateError(err, body) {
+function decorateHttpError(err, body) {
   if (!body) return err
-  let { message } = err
+
+  let newMessage = err.message
+  let newStack = err.stack
 
   // Provide a more useful message if there is one
-  if (body.message && body.error) message = `${body.error}: ${body.message}`
-  else if (body.error) message = body.error
+  if (body.message && body.error) newMessage += ` ${body.error}: ${body.message}`
+  else if (body.error) newMessage += ` ${body.error}`
 
-  if (body.assembly_ssl_url) message += ` - ${body.assembly_ssl_url}`
+  if (body.assembly_ssl_url) newMessage += ` - ${body.assembly_ssl_url}`
+
+  if (typeof err.stack === 'string') {
+    const indexOfMessageEnd = err.stack.indexOf(err.message) + err.message.length
+    const stacktrace = err.stack.slice(indexOfMessageEnd)
+    newStack = `${newMessage}${stacktrace}`
+  }
 
   /* eslint-disable no-param-reassign */
-  err.message = message
+  err.message = newMessage
+  err.stack = newStack
   if (body.assembly_id) err.assemblyId = body.assembly_id
   if (body.error) err.transloaditErrorCode = body.error
   /* eslint-enable no-param-reassign */
@@ -56,7 +65,7 @@ function checkResult(result) {
     err.response = {
       body: result,
     }
-    throw decorateError(err, result)
+    throw decorateHttpError(err, result)
   }
 }
 
@@ -705,7 +714,7 @@ class TransloaditClient {
           retryCount < this._maxRetries
 
         // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
-        if (!shouldRetry) throw decorateError(err, body)
+        if (!shouldRetry) throw decorateHttpError(err, body)
 
         const { retryIn: retryInSec } = body.info
         logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)

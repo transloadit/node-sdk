@@ -90,7 +90,7 @@ describe('Mocked API tests', () => {
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
         transloaditErrorCode: 'INVALID_FILE_META_DATA',
-        message: 'INVALID_FILE_META_DATA',
+        message: 'Response code 400 (Bad Request) INVALID_FILE_META_DATA',
       })
     )
   })
@@ -107,7 +107,8 @@ describe('Mocked API tests', () => {
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
         assemblyId: '123',
-        message: 'INVALID_FILE_META_DATA - https://api2-oltu.transloadit.com/assemblies/foo',
+        message:
+          'Response code 400 (Bad Request) INVALID_FILE_META_DATA - https://api2-oltu.transloadit.com/assemblies/foo',
         response: expect.objectContaining({
           body: expect.objectContaining({ assembly_id: '123' }),
         }),
@@ -145,7 +146,7 @@ describe('Mocked API tests', () => {
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
         transloaditErrorCode: 'RATE_LIMIT_REACHED',
-        message: 'RATE_LIMIT_REACHED: Request limit reached',
+        message: 'Response code 413 (Payload Too Large) RATE_LIMIT_REACHED: Request limit reached',
       })
     )
     scope.done()
