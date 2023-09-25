@@ -83,6 +83,7 @@ class TransloaditClient {
       throw new Error('Trailing slash in endpoint is not allowed')
     }
 
+    this._awaitAssemblyCompletionInterval = 1000
     this._authKey = opts.authKey
     this._authSecret = opts.authSecret
     this._endpoint = opts.endpoint || 'https://api2.transloadit.com'
@@ -93,6 +94,10 @@ class TransloaditClient {
     this._gotRetry = opts.gotRetry != null ? opts.gotRetry : 0
 
     this._lastUsedAssemblyUrl = ''
+  }
+
+  [Symbol.for('test setAwaitAssemblyCompletionInterval')](v) {
+    this._awaitAssemblyCompletionInterval = v
   }
 
   getLastUsedAssemblyUrl() {
@@ -230,6 +235,7 @@ class TransloaditClient {
           timeout,
           onAssemblyProgress,
           startTimeMs,
+          retry404: true,
         })
         checkResult(awaitResult)
         return awaitResult
@@ -245,22 +251,39 @@ class TransloaditClient {
 
   async awaitAssemblyCompletion(
     assemblyId,
-    { onAssemblyProgress = () => {}, timeout, startTimeMs = getHrTimeMs(), interval = 1000 } = {}
+    {
+      onAssemblyProgress = () => {},
+      timeout,
+      startTimeMs = getHrTimeMs(),
+      interval = this._awaitAssemblyCompletionInterval,
+      retry404 = false,
+    } = {}
   ) {
     assert(assemblyId)
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const result = await this.getAssembly(assemblyId)
-
-      if (!['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'].includes(result.ok)) {
-        return result // Done!
-      }
-
       try {
-        onAssemblyProgress(result)
+        const result = await this.getAssembly(assemblyId)
+
+        if (
+          !['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'].includes(result.ok)
+        ) {
+          return result // Done!
+        }
+
+        try {
+          onAssemblyProgress(result)
+        } catch (err) {
+          log('Caught onAssemblyProgress error', err)
+        }
       } catch (err) {
-        log('Caught onAssemblyProgress error', err)
+        // see api2 issue 4928
+        if (retry404 && err instanceof got.HTTPError && err.response?.statusCode === 404) {
+          log('Retrying 404')
+        } else {
+          throw err
+        }
       }
 
       const nowMs = getHrTimeMs()

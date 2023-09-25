@@ -4,8 +4,16 @@ const Transloadit = require('../../../src/Transloadit')
 
 jest.setTimeout(1000)
 
-const getLocalClient = (opts) =>
-  new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
+function getLocalClient(opts) {
+  const client = new Transloadit({
+    authKey: '',
+    authSecret: '',
+    endpoint: 'http://localhost',
+    ...opts,
+  })
+  client[Symbol.for('test setAwaitAssemblyCompletionInterval')](0)
+  return client
+}
 
 const createAssemblyRegex = /\/assemblies\/[0-9a-f]{32}/
 
@@ -214,6 +222,36 @@ describe('Mocked API tests', () => {
 
     const assembly2 = await client.awaitAssemblyCompletion(1)
     expect(assembly2).toMatchObject({ error: 'IMPORT_FILE_ERROR' })
+
+    scope.done()
+  })
+
+  it('should not throw error when server returns 404 after assembly creation', async () => {
+    const client = getLocalClient()
+
+    const scope = nock('http://localhost')
+      .post(createAssemblyRegex)
+      .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_id: '123' })
+      .get('/assemblies/123')
+      .query(() => true)
+      .reply(404, {
+        error: 'ASSEMBLY_NOT_FOUND',
+        message: 'The Assembly you requested crashed or does not exist.',
+        http_code: 404,
+        assembly_id: '123',
+        reason: 'Assembly not found when fetching status',
+      })
+      .get('/assemblies/123')
+      .query(() => true)
+      .reply(200, {
+        ok: 'ASSEMBLY_COMPLETED',
+        assembly_id: '123',
+        assembly_url: '',
+        assembly_ssl_url: '',
+      })
+
+    const assembly = await client.createAssembly({ waitForCompletion: true })
+    expect(assembly).toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
 
     scope.done()
   })
