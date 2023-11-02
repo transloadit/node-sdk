@@ -11,10 +11,10 @@
     "mp3"
   ],
   "author": "Tim Koschuetzki <tim@transloadit.com>",
-  "packageManager": "yarn@4.0.1+sha224.ca5d6f5a8aecd0801adc32f775675b01961bdc2383867d36f4732a0a",
+  "packageManager": "yarn@1.22.19+sha1.4ba7fc5c6e704fce2066ecbfb0b0d8976fe62447",
   "engines": {
     "node": ">= 14.16",
-    "yarn": "4.0.1"
+    "yarn": ">= 1.22.19"
   },
   "dependencies": {
     "debug": "^4.3.1",
