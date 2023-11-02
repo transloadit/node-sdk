@@ -64,10 +64,10 @@
     "lint": "npm-run-all --parallel 'lint:*'",
     "fix": "npm-run-all --serial 'lint:*'",
     "next:update": "next-update --keep true --tldr",
-    "test-unit": "jest --coverage ./test/unit",
-    "test-integration": "jest --runInBand ./test/integration",
+    "test-unit": "jest --detectOpenHandles --coverage ./test/unit",
+    "test-integration": "jest --verbose --detectOpenHandles --runInBand ./test/integration",
     "tsd": "tsd",
-    "test-all": "npm run tsd && jest --runInBand --coverage --coverageReporters json lcov text clover json-summary --forceExit",
+    "test-all": "npm run tsd && jest --detectOpenHandles --runInBand --coverage --coverageReporters json lcov text clover json-summary --forceExit",
     "test": "npm run tsd && npm run test-unit",
     "fix:formatting": "prettier --write .",
     "lint:formatting": "prettier --check ."
