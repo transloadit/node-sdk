@@ -24,8 +24,8 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - run: yarn
-      - run: npm run lint
+      - run: corepack yarn
+      - run: corepack yarn lint
 
       - name: Download cloudflared
         run: |
@@ -36,7 +36,7 @@ jobs:
       #      - name: Setup tmate session
       #        uses: mxschmitt/action-tmate@v3
 
-      - run: npm run test-all
+      - run: corepack yarn test-all
         env:
           TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
           TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
