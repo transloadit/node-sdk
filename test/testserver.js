@@ -27,9 +27,10 @@ async function startTestServer(handler2) {
       return reject(err)
     })
 
-    server.listen(port, '127.0.0.1')
-
-    server.on('listening', resolve)
+    server.listen(port, '127.0.0.1', () => {
+      console.log('server listening')
+      resolve()
+    })
   })
 
   let tunnel
