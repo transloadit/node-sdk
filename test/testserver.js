@@ -1,5 +1,6 @@
 const http = require('http')
 const got = require('got')
+const debug = require('debug')('transloadit:testserver')
 
 const createTunnel = require('./tunnel')
 
@@ -22,13 +23,16 @@ async function startTestServer(handler2) {
           server.close()
           return reject(new Error('Failed to bind to port'))
         }
-        return server.listen(port, '127.0.0.1')
+        return server.listen(port, '127.0.0.1', () => {
+          debug(`server listening on port ${port}`)
+          resolve()
+        })
       }
       return reject(err)
     })
 
     server.listen(port, '127.0.0.1', () => {
-      console.log('server listening')
+      debug(`server listening on port ${port}`)
       resolve()
     })
   })
