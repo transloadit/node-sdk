@@ -35,6 +35,10 @@ async function startTestServer(handler2) {
 
   let tunnel
   try {
+    if (!process.env.CLOUDFLARED_PATH) {
+      throw new Error('CLOUDFLARED_PATH environment variable not set')
+    }
+
     tunnel = createTunnel({ cloudFlaredPath: process.env.CLOUDFLARED_PATH, port })
 
     // eslint-disable-next-line no-console
