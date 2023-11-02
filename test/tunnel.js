@@ -2,6 +2,7 @@ const execa = require('execa')
 const readline = require('readline')
 const { Resolver } = require('dns')
 const { promisify } = require('util')
+const debug = require('debug')('transloadit:cloudflared-tunnel')
 
 module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
   const process = execa(
@@ -13,10 +14,34 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
 
   process.on('error', (err) => console.error(err))
 
+  let fullStderr = ''
+
   const urlPromise = (async () => {
     const url = await new Promise((resolve) => {
       let foundUrl
+
+      rl.on('error', (err) => {
+        process.kill()
+        throw new Error(
+          `Failed to create tunnel. Errored out on: ${err}. Full stderr: ${fullStderr}`
+        )
+      })
+
+      rl.on('close', () => {
+        process.kill()
+        throw new Error(`Failed to create tunnel. Closed unexpectedly. Full stderr: ${fullStderr}`)
+      })
+
       rl.on('line', (line) => {
+        debug(line)
+        fullStderr += `${line}\n`
+        if (line.includes('failed')) {
+          process.kill()
+          throw new Error(
+            `Failed to create tunnel. There was an error string in the stderr: ${line}`
+          )
+        }
+
         if (!foundUrl) {
           const match = line.match(/(https:\/\/[^.]+\.trycloudflare\.com)/)
           if (!match) return
@@ -29,7 +54,7 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
         }
       })
     })
-    // console.log('Found url')
+    debug('Found url')
 
     // We need to wait for DNS to be resolvable.
     // If we don't, the operating system's dns cache will be poisoned by the not yet valid resolved entry
