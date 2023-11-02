@@ -60,7 +60,7 @@ jobs:
           path: static-files-destination
 
       # Push coverage data
-      - if: matrix.node == '10'
+      - if: matrix.node == '18'
         run: |
           git config --global user.name github-actions
           git config --global user.email github-actions@github.com
