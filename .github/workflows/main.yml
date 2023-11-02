@@ -42,7 +42,7 @@ jobs:
           TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
           NODE_OPTIONS: --trace-deprecation --trace-warnings
           CLOUDFLARED_PATH: ./cloudflared-linux-amd64
-          DEBUG: '*'
+          DEBUG: 'transloadit:*'
 
       - name: Generate the badge from the json-summary
         run: node test/generate-coverage-badge.js coverage/coverage-summary.json
