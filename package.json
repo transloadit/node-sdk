@@ -62,8 +62,8 @@
   "scripts": {
     "fix:js": "eslint . --fix",
     "lint:js": "eslint .",
-    "lint": "npm-run-all --parallel lint:*",
-    "fix": "npm-run-all --serial lint:*",
+    "lint": "npm-run-all --parallel 'lint:*'",
+    "fix": "npm-run-all --serial 'lint:*'",
     "next:update": "next-update --keep true --tldr",
     "test-unit": "jest --coverage ./test/unit",
     "test-integration": "jest --runInBand ./test/integration",
