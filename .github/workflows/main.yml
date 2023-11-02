@@ -7,6 +7,8 @@ on:
   # schedule:
   #   - cron: '0 8 * * *'
 
+env:
+  - YARN_IGNORE_NODE=1
 jobs:
   test:
     runs-on: ubuntu-latest
