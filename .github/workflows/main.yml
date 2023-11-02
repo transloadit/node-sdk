@@ -9,6 +9,7 @@ on:
 
 env:
   YARN_IGNORE_NODE: 1
+  NODE_OPTIONS: --trace-deprecation --trace-warnings
 jobs:
   test:
     runs-on: ubuntu-latest
