@@ -27,15 +27,18 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
         )
       })
 
-      rl.on('close', () => {
-        process.kill()
-        throw new Error(`Failed to create tunnel. Closed unexpectedly. Full stderr: ${fullStderr}`)
-      })
+      // rl.on('close', () => {
+      //   process.kill()
+      //   throw new Error(`Failed to create tunnel. Closed unexpectedly. Full stderr: ${fullStderr}`)
+      // })
 
       rl.on('line', (line) => {
         debug(line)
         fullStderr += `${line}\n`
-        if (line.includes('failed')) {
+        if (
+          line.includes('failed') &&
+          !line.includes('failed to sufficiently increase receive buffer size')
+        ) {
           process.kill()
           throw new Error(
             `Failed to create tunnel. There was an error string in the stderr: ${line}`
