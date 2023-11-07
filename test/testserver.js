@@ -16,7 +16,7 @@ async function startTestServer(handler2) {
   let tunnel
 
   async function cleanup() {
-    await new Promise((resolve) => server.close(() => resolve()));
+    await new Promise((resolve) => server.close(() => resolve()))
     if (tunnel) await tunnel.close()
   }
 
