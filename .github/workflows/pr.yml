@@ -17,6 +17,6 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - run: yarn
-      - run: npm run lint
-      - run: npm run test
+      - run: corepack yarn
+      - run: corepack yarn lint
+      - run: corepack yarn test
