@@ -13,7 +13,7 @@
   "author": "Tim Koschuetzki <tim@transloadit.com>",
   "packageManager": "yarn@4.0.1",
   "engines": {
-    "node": ">= 14.16"
+    "node": ">= 18"
   },
   "dependencies": {
     "debug": "^4.3.1",
