@@ -448,7 +448,7 @@ describe('API integration', () => {
         const awaitCompletionResponse = await awaitCompletionPromise
         expect(awaitCompletionResponse.ok).toBe('ASSEMBLY_CANCELED')
       } finally {
-        server.close()
+        await server.close()
       }
     })
   })
@@ -510,8 +510,8 @@ describe('API integration', () => {
 
   describe('assembly notification', () => {
     let server
-    afterEach(() => {
-      if (server) server.close()
+    afterEach(async () => {
+      if (server) await server.close()
     })
 
     // helper function

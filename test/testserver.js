@@ -13,31 +13,38 @@ async function startTestServer(handler2) {
   }
 
   const server = http.createServer(handler)
+  let tunnel
+
+  async function cleanup() {
+    await new Promise((resolve) => server.close(() => resolve()));
+    if (tunnel) await tunnel.close()
+  }
 
   // Find a free port to use
   let port = 8000
   await new Promise((resolve, reject) => {
+    function tryListen() {
+      server.listen(port, '127.0.0.1', () => {
+        debug(`server listening on port ${port}`)
+        resolve()
+      })
+    }
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         if (++port >= 65535) {
           server.close()
-          return reject(new Error('Failed to bind to port'))
+          reject(new Error('Failed to bind to port'))
+          return
         }
-        return server.listen(port, '127.0.0.1', () => {
-          debug(`server listening on port ${port}`)
-          resolve()
-        })
+        tryListen()
+        return
       }
-      return reject(err)
+      reject(err)
     })
 
-    server.listen(port, '127.0.0.1', () => {
-      debug(`server listening on port ${port}`)
-      resolve()
-    })
+    tryListen()
   })
 
-  let tunnel
   try {
     if (!process.env.CLOUDFLARED_PATH) {
       throw new Error('CLOUDFLARED_PATH environment variable not set')
@@ -52,9 +59,9 @@ async function startTestServer(handler2) {
       server.close()
     })
 
-    // console.log('waiting for tunnel to be created')
+    debug('waiting for tunnel to be created')
     const url = await tunnel.urlPromise
-    // console.log('tunnel created', url)
+    debug('tunnel created', url)
 
     try {
       let curPath
@@ -62,7 +69,7 @@ async function startTestServer(handler2) {
 
       const promise1 = new Promise((resolve) => {
         customHandler = (req, res) => {
-          // console.log('handler', req.url)
+          debug('handler', req.url)
 
           if (req.url !== curPath) throw new Error(`Unexpected path ${req.url}`)
 
@@ -94,15 +101,14 @@ async function startTestServer(handler2) {
       customHandler = undefined
     }
 
-    // console.log('Tunnel ready')
+    debug('Tunnel ready', url)
 
     return {
       url,
-      close: () => tunnel.close(),
+      close: () => cleanup(),
     }
   } catch (err) {
-    if (tunnel) tunnel.close()
-    server.close()
+    cleanup()
     throw err
   }
 }
