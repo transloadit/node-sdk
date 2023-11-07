@@ -50,7 +50,7 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
         if (!foundUrl) {
           const match = line.match(/(https:\/\/[^.]+\.trycloudflare\.com)/)
           if (!match) return
-            ;[, foundUrl] = match
+          ;[, foundUrl] = match
         } else {
           const match = line.match(
             /Connection [^\s+] registered connIndex=[^\s+] ip=[^\s+] location=[^\s+]/
