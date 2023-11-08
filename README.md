@@ -1,14 +1,19 @@
-<a href="https://transloadit.com/?utm_source=github&utm_medium=referral&utm_campaign=sdks&utm_content=node_sdk">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://assets.transloadit.com/assets/images/sponsorships/logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://assets.transloadit.com/assets/images/sponsorships/logo-default.svg">
-    <img src="https://assets.transloadit.com/assets/images/sponsorships/logo-default.svg" alt="Transloadit Logo">
-  </picture>
-</a>
+<div style="text-align: center;">
+  <a href="https://transloadit.com/?utm_source=github&utm_medium=referral&utm_campaign=sdks&utm_content=node_sdk">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://assets.transloadit.com/assets/images/sponsorships/logo-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="https://assets.transloadit.com/assets/images/sponsorships/logo-default.svg">
+      <img src="https://assets.transloadit.com/assets/images/sponsorships/logo-default.svg" alt="Transloadit Logo">
+    </picture>
+  </a>
 
-This is the official **Node.js** SDK for [Transloadit](https://transloadit.com)'s file uploading and encoding service.
+  <p>This is the official <strong>Node.js</strong> SDK for <a href="https://transloadit.com">Transloadit</a>'s file uploading and encoding service.</p>
 
-[![](https://github.com/transloadit/node-sdk/workflows/Tests/badge.svg)](https://github.com/transloadit/node-sdk/actions?query=workflow%3ATests) [![](https://transloadit.github.io/node-sdk-coverage/coverage-badge.svg)](https://transloadit.github.io/node-sdk-coverage)
+  <p>
+    <a href="https://github.com/transloadit/node-sdk/actions?query=workflow%3ATests"><img src="https://github.com/transloadit/node-sdk/workflows/Tests/badge.svg"></a>
+    <a href="https://transloadit.github.io/node-sdk-coverage"><img src="https://transloadit.github.io/node-sdk-coverage/coverage-badge.svg"></a>
+  </p>
+</div>
 
 ## Intro
 
