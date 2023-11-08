@@ -5,11 +5,10 @@
     <img src="https://assets.transloadit.com/assets/images/sponsorships/logo-default.svg" alt="Transloadit Logo">
   </picture>
 </a>
-<hr>
-
-[![](https://github.com/transloadit/node-sdk/workflows/Tests/badge.svg)](https://github.com/transloadit/node-sdk/actions?query=workflow%3ATests) [![](https://transloadit.github.io/node-sdk-coverage/coverage-badge.svg)](https://transloadit.github.io/node-sdk-coverage)
 
 This is the official **Node.js** SDK for [Transloadit](https://transloadit.com)'s file uploading and encoding service.
+
+[![](https://github.com/transloadit/node-sdk/workflows/Tests/badge.svg)](https://github.com/transloadit/node-sdk/actions?query=workflow%3ATests) [![](https://transloadit.github.io/node-sdk-coverage/coverage-badge.svg)](https://transloadit.github.io/node-sdk-coverage)
 
 ## Intro
 
