@@ -365,7 +365,7 @@ describe('API integration', () => {
   })
 
   describe('assembly cancelation', () => {
-    it.skip('should stop the assembly from reaching completion', async () => {
+    it('should stop the assembly from reaching completion', async () => {
       const client = createClient()
 
       // We need to ensure that the assembly doesn't complete before it can be
