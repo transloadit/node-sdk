@@ -4,36 +4,24 @@ const debug = require('debug')('transloadit:testserver')
 
 const createTunnel = require('./tunnel')
 
-async function startTestServer(handler2) {
-  let customHandler
+async function createHttpServer(handler) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(handler)
 
-  function handler(...args) {
-    if (customHandler) return customHandler(...args)
-    return handler2(...args)
-  }
+    let port = 8000
 
-  const server = http.createServer(handler)
-  let tunnel
-
-  async function cleanup() {
-    await new Promise((resolve) => server.close(() => resolve()))
-    if (tunnel) await tunnel.close()
-  }
-
-  // Find a free port to use
-  let port = 8000
-  await new Promise((resolve, reject) => {
+    // Find a free port to use
     function tryListen() {
       server.listen(port, '127.0.0.1', () => {
         debug(`server listening on port ${port}`)
-        resolve()
+        resolve({ server, port })
       })
     }
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         if (++port >= 65535) {
           server.close()
-          reject(new Error('Failed to bind to port'))
+          reject(new Error('Failed to find any free port to listen on'))
           return
         }
         tryListen()
@@ -44,75 +32,88 @@ async function startTestServer(handler2) {
 
     tryListen()
   })
+}
+
+async function createTestServer(onRequest) {
+  if (!process.env.CLOUDFLARED_PATH) {
+    throw new Error('CLOUDFLARED_PATH environment variable not set')
+  }
+
+  let expectedPath
+  let initialized = false
+  let onTunnelOperational
+  let tunnel
+
+  const handleHttpRequest = (req, res) => {
+    debug('HTTP request handler', req.method, req.url)
+
+    if (!initialized) {
+      if (req.url !== expectedPath) throw new Error(`Unexpected path ${req.url}`)
+      initialized = true
+      onTunnelOperational()
+      res.end()
+    } else {
+      onRequest(req, res)
+    }
+  }
+
+  const { server, port } = await createHttpServer(handleHttpRequest)
+
+  async function close() {
+    if (tunnel) await tunnel.close()
+    server.closeAllConnections()
+    await new Promise((resolve) => server.close(() => resolve()))
+    debug('closed tunnel')
+  }
 
   try {
-    if (!process.env.CLOUDFLARED_PATH) {
-      throw new Error('CLOUDFLARED_PATH environment variable not set')
-    }
-
     tunnel = createTunnel({ cloudFlaredPath: process.env.CLOUDFLARED_PATH, port })
 
-    // eslint-disable-next-line no-console
-    tunnel.process.on('error', console.error)
-    tunnel.process.on('close', () => {
-      // console.log('tunnel closed')
-      server.close()
-    })
-
     debug('waiting for tunnel to be created')
-    const url = await tunnel.urlPromise
-    debug('tunnel created', url)
+    const tunnelPublicUrl = await tunnel.urlPromise
+    debug('tunnel created', tunnelPublicUrl)
 
-    try {
-      let curPath
-      let done = false
+    debug('Waiting for tunnel to allow requests to pass through')
 
-      const promise1 = new Promise((resolve) => {
-        customHandler = (req, res) => {
-          debug('handler', req.url)
+    // eslint-disable-next-line no-inner-declarations
+    async function sendTunnelRequest() {
+      // try connecting to the tunnel and resolve when connection successfully passed through
+      for (let i = 0; i < 10; i += 1) {
+        if (initialized) return
 
-          if (req.url !== curPath) throw new Error(`Unexpected path ${req.url}`)
-
-          done = true
-          res.end()
-          resolve()
+        expectedPath = `/initialize-test${i}`
+        try {
+          await got(`${tunnelPublicUrl}${expectedPath}`, { timeout: { request: 2000 } })
+          return
+        } catch (err) {
+          // console.error(err.message)
+          // eslint-disable-next-line no-shadow
+          await new Promise((resolve) => setTimeout(resolve, 3000))
         }
-      })
-
-      const promise2 = (async () => {
-        // try connecting to the tunnel and resolve when connection successfully passed through
-        for (let i = 0; i < 10; i += 1) {
-          if (done) return
-          curPath = `/check${i}`
-          try {
-            await got(`${url}${curPath}`, { timeout: { request: 2000 } })
-            return
-          } catch (err) {
-            // console.error(err.message)
-            // eslint-disable-next-line no-shadow
-            await new Promise((resolve) => setTimeout(resolve, 3000))
-          }
-        }
-        throw new Error('Timed out checking for a functioning tunnel')
-      })()
-
-      await Promise.all([promise1, promise2])
-    } finally {
-      customHandler = undefined
+      }
+      throw new Error('Timed out checking for an operational tunnel')
     }
 
-    debug('Tunnel ready', url)
+    await Promise.all([
+      new Promise((resolve) => {
+        onTunnelOperational = resolve
+      }),
+      sendTunnelRequest(),
+    ])
+
+    debug('Tunnel ready', tunnelPublicUrl)
 
     return {
-      url,
-      close: () => cleanup(),
+      port,
+      close,
+      url: tunnelPublicUrl,
     }
   } catch (err) {
-    cleanup()
+    await close()
     throw err
   }
 }
 
 module.exports = {
-  startTestServer,
+  createTestServer,
 }

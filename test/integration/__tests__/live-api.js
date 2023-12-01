@@ -12,12 +12,13 @@ const { pipeline: streamPipeline } = require('stream')
 const got = require('got')
 const intoStream = require('into-stream')
 const uuid = require('uuid')
+const debug = require('debug')('transloadit:live-api')
 
 const pipeline = promisify(streamPipeline)
 
 const Transloadit = require('../../../src/Transloadit')
 
-const { startTestServer } = require('../../testserver')
+const { createTestServer } = require('../../testserver')
 
 async function downloadTmpFile(url) {
   const { path } = await temp.open('transloadit')
@@ -104,6 +105,52 @@ const genericOptions = {
 }
 
 jest.setTimeout(100000)
+
+const handlers = new Map()
+
+let testServer
+
+beforeAll(async () => {
+  // cloudflared tunnels are a bit unstable, so we share one cloudflared tunnel between all tests
+  // we do this by prefixing each "virtual" server under a uuid subpath
+  testServer = await createTestServer((req, res) => {
+    const regex = /^\/([^/]+)/
+    const match = req.url.match(regex)
+    if (match) {
+      const [, id] = match
+      const handler = handlers.get(id)
+      if (handler) {
+        req.url = req.url.replace(regex, '')
+        if (req.url === '') req.url = '/'
+        handler(req, res)
+      } else {
+        debug('request handler for UUID not found', id)
+      }
+    } else {
+      debug('Invalid path match', req.url)
+    }
+  })
+})
+
+afterAll(async () => {
+  await testServer?.close()
+})
+
+async function createVirtualTestServer(handler) {
+  const id = uuid.v4()
+  debug('Adding virtual server handler', id)
+  const url = `${testServer.url}/${id}`
+  handlers.set(id, handler)
+
+  function close() {
+    handlers.delete(id)
+  }
+
+  return {
+    close,
+    url,
+  }
+}
 
 describe('API integration', () => {
   describe('assembly creation', () => {
@@ -393,7 +440,7 @@ describe('API integration', () => {
         got.stream(genericImg).pipe(res)
       }
 
-      const server = await startTestServer(handleRequest)
+      const server = await createVirtualTestServer(handleRequest)
 
       try {
         const params = {
@@ -448,7 +495,7 @@ describe('API integration', () => {
         const awaitCompletionResponse = await awaitCompletionPromise
         expect(awaitCompletionResponse.ok).toBe('ASSEMBLY_CANCELED')
       } finally {
-        await server.close()
+        server.close()
       }
     })
   })
@@ -510,8 +557,8 @@ describe('API integration', () => {
 
   describe('assembly notification', () => {
     let server
-    afterEach(async () => {
-      if (server) await server.close()
+    afterEach(() => {
+      server?.close()
     })
 
     // helper function
@@ -548,7 +595,7 @@ describe('API integration', () => {
       }
 
       try {
-        server = await startTestServer(onNotificationRequest)
+        server = await createVirtualTestServer(onNotificationRequest)
         await createAssembly(client, { params: { ...genericParams, notify_url: server.url } })
       } catch (err) {
         onError(err)

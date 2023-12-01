@@ -12,18 +12,21 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
   )
   const rl = readline.createInterface({ input: process.stderr })
 
-  process.on('error', (err) => console.error(err))
+  process.on('error', (err) => {
+    console.error(err)
+    // todo recreate tunnel if it fails during operation?
+  })
 
   let fullStderr = ''
 
   const urlPromise = (async () => {
-    const url = await new Promise((resolve) => {
+    const url = await new Promise((resolve, reject) => {
       let foundUrl
 
       rl.on('error', (err) => {
         process.kill()
-        throw new Error(
-          `Failed to create tunnel. Errored out on: ${err}. Full stderr: ${fullStderr}`
+        reject(
+          new Error(`Failed to create tunnel. Errored out on: ${err}. Full stderr: ${fullStderr}`)
         )
       })
 
@@ -38,12 +41,12 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
         fullStderr += `${line}\n`
 
         if (
-          line.includes('failed') &&
+          line.toLocaleLowerCase().includes('failed') &&
           !expectedFailures.some((expectedFailure) => line.includes(expectedFailure))
         ) {
           process.kill()
-          throw new Error(
-            `Failed to create tunnel. There was an error string in the stderr: ${line}`
+          reject(
+            new Error(`Failed to create tunnel. There was an error string in the stderr: ${line}`)
           )
         }
 
@@ -65,29 +68,28 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
     // If we don't, the operating system's dns cache will be poisoned by the not yet valid resolved entry
     // and it will forever fail for that subdomain name...
     const resolver = new Resolver()
-    resolver.setServers(['8.8.8.8']) // if we don't explicitly specify DNS server, it will also poison the OS dns cache
+    resolver.setServers(['1.1.1.1']) // use cloudflare's dns server. if we don't explicitly specify DNS server, it will also poison our OS' dns cache
     const resolve4 = promisify(resolver.resolve4.bind(resolver))
-    for (let i = 0; i < 10; i += 1) {
+
+    for (let i = 0; i < 20; i += 1) {
       try {
         const host = new URL(url).hostname
-        // console.log('checking dns', host)
+        debug('checking dns', host)
         await resolve4(host)
         return url
       } catch (err) {
-        // console.error(err.message)
-        await new Promise((resolve) => setTimeout(resolve, 3000))
+        debug('dns err', err.message)
+        await new Promise((resolve) => setTimeout(resolve, 5000))
       }
     }
+
     throw new Error('Timed out trying to resolve tunnel dns')
   })()
 
   async function close() {
+    const promise = new Promise((resolve) => process.on('close', resolve))
     process.kill()
-    try {
-      await process
-    } catch (err) {
-      // ignored
-    }
+    await promise
   }
 
   return {
