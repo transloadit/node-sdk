@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -78,7 +79,7 @@ jobs:
 
   slack-on-failure:
     needs: [test]
-    if: failure()
+    if: ${{ failure() && github.ref == 'refs/heads/main' }}
 
     runs-on: ubuntu-latest
 
