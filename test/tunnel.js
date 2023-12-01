@@ -3,28 +3,30 @@ const readline = require('readline')
 const { Resolver } = require('dns')
 const { promisify } = require('util')
 const debug = require('debug')('transloadit:cloudflared-tunnel')
+const pRetry = require('p-retry')
 
-module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
+async function startTunnel({ cloudFlaredPath, port }) {
   const process = execa(
     cloudFlaredPath,
     ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'],
     { buffer: false, stdout: 'ignore' }
   )
-  const rl = readline.createInterface({ input: process.stderr })
 
-  process.on('error', (err) => {
-    console.error(err)
-    // todo recreate tunnel if it fails during operation?
-  })
+  try {
+    return await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Timed out trying to start tunnel')), 30000)
 
-  let fullStderr = ''
+      const rl = readline.createInterface({ input: process.stderr })
 
-  const urlPromise = (async () => {
-    const url = await new Promise((resolve, reject) => {
+      process.on('error', (err) => {
+        console.error(err)
+        // todo recreate tunnel if it fails during operation?
+      })
+
+      let fullStderr = ''
       let foundUrl
 
       rl.on('error', (err) => {
-        process.kill()
         reject(
           new Error(`Failed to create tunnel. Errored out on: ${err}. Full stderr: ${fullStderr}`)
         )
@@ -44,7 +46,6 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
           line.toLocaleLowerCase().includes('failed') &&
           !expectedFailures.some((expectedFailure) => line.includes(expectedFailure))
         ) {
-          process.kill()
           reject(
             new Error(`Failed to create tunnel. There was an error string in the stderr: ${line}`)
           )
@@ -58,11 +59,24 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
           const match = line.match(
             /Connection [^\s+] registered connIndex=[^\s+] ip=[^\s+] location=[^\s+]/
           )
-          if (!match) resolve(foundUrl)
+          if (!match) {
+            clearTimeout(timeout)
+            resolve(foundUrl)
+          }
         }
       })
     })
-    debug('Found url')
+  } catch (err) {
+    process.kill()
+    throw err
+  }
+}
+
+module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
+  const urlPromise = (async () => {
+    const url = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), { retries: 1 })
+
+    debug('Found url', url)
 
     // We need to wait for DNS to be resolvable.
     // If we don't, the operating system's dns cache will be poisoned by the not yet valid resolved entry
@@ -71,7 +85,7 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
     resolver.setServers(['1.1.1.1']) // use cloudflare's dns server. if we don't explicitly specify DNS server, it will also poison our OS' dns cache
     const resolve4 = promisify(resolver.resolve4.bind(resolver))
 
-    for (let i = 0; i < 20; i += 1) {
+    for (let i = 0; i < 10; i += 1) {
       try {
         const host = new URL(url).hostname
         debug('checking dns', host)
@@ -79,7 +93,7 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
         return url
       } catch (err) {
         debug('dns err', err.message)
-        await new Promise((resolve) => setTimeout(resolve, 5000))
+        await new Promise((resolve) => setTimeout(resolve, 3000))
       }
     }
 
