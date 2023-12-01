@@ -61,7 +61,6 @@ async function createTestServer(onRequest) {
 
   async function close() {
     if (tunnel) await tunnel.close()
-    server.closeAllConnections()
     await new Promise((resolve) => server.close(() => resolve()))
     debug('closed tunnel')
   }
