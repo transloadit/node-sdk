@@ -61,7 +61,7 @@ async function startTunnel({ cloudFlaredPath, port }) {
           )
           if (!match) {
             clearTimeout(timeout)
-            resolve(foundUrl)
+            resolve({ process, url: foundUrl })
           }
         }
       })
@@ -73,8 +73,12 @@ async function startTunnel({ cloudFlaredPath, port }) {
 }
 
 module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
+  let process
+
   const urlPromise = (async () => {
-    const url = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), { retries: 1 })
+    const tunnel = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), { retries: 1 })
+    ;({ process } = tunnel)
+    const { url } = tunnel
 
     debug('Found url', url)
 
@@ -101,6 +105,7 @@ module.exports = ({ cloudFlaredPath = 'cloudflared', port }) => {
   })()
 
   async function close() {
+    if (!process) return
     const promise = new Promise((resolve) => process.on('close', resolve))
     process.kill()
     await promise
