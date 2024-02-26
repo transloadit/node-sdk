@@ -569,9 +569,9 @@ class TransloaditClient {
     return { signature, params: jsonParams }
   }
 
-  _calcSignature(toSign) {
-    return crypto
-      .createHmac('sha1', this._authSecret)
+  _calcSignature(toSign, algorithm = 'sha384') {
+    return algorithm + ':' + crypto
+      .createHmac(algorithm, this._authSecret)
       .update(Buffer.from(toSign, 'utf-8'))
       .digest('hex')
   }
