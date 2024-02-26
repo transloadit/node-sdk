@@ -570,10 +570,10 @@ class TransloaditClient {
   }
 
   _calcSignature(toSign, algorithm = 'sha384') {
-    return algorithm + ':' + crypto
+    return `${algorithm}:${crypto
       .createHmac(algorithm, this._authSecret)
       .update(Buffer.from(toSign, 'utf-8'))
-      .digest('hex')
+      .digest('hex')}`
   }
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including

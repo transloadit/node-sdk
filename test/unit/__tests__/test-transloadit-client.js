@@ -138,7 +138,10 @@ describe('Transloadit', () => {
       expect(formAppendSpy.mock.calls).toEqual([
         ['params', '{"auth":{"key":"foo_key","expires":"2021-01-06T21:11:07.883Z"}}'],
         ['tus_num_expected_upload_files', 1],
-        ['signature', '8aa4444c9688bb5f03fcf77b24336b7a3a14f627'],
+        [
+          'signature',
+          'sha384:f146533532844d4f4e34221288be08e14a2779eeb802a35afa6a193762f58da95d2423a825aa4cb4c7420e25f75a5c90',
+        ],
         ['stream1', stream1, { filename: 'stream1' }],
         ['stream2', stream2, { filename: 'stream2' }],
       ])
@@ -154,7 +157,8 @@ describe('Transloadit', () => {
       const params = { foo: 'bar' }
       const jsonParams =
         '{"foo":"bar","auth":{"key":"foo_key","expires":"2021-01-06T21:11:07.883Z"}}'
-      const signature = 'c84113bd21fe7b5eb5683ac8513995993240662b'
+      const signature =
+        'sha384:d3eed795abcac19191c9d06b4adf8a7cbd427846a842121e087e60059365bee5fc16f11ed580cb246cda694b3da10e88'
 
       mockGetExpiresDate(client)
 
@@ -217,7 +221,9 @@ describe('Transloadit', () => {
       expect(r.params).toBe(
         '{"foo":"bar","auth":{"key":"foo_key","expires":"2021-01-06T21:11:07.883Z"}}'
       )
-      expect(r.signature).toBe('be7aec095815931e6cd6dc322ed886ca9746e5bf')
+      expect(r.signature).toBe(
+        'sha384:431542b924ecc9e7f062e37d1c83554f5bc19664ed7e6e1ef954c0b021b9be19c9412c2074f226784c5419b630e8b70a'
+      )
       expect(prepareParamsSpy).toBeCalledWith(params)
     })
   })
@@ -248,18 +254,22 @@ describe('Transloadit', () => {
 
       client._authSecret = '13123123123'
 
-      let expected = '57ddad5dbba538590e60f0938f364c7179316eba'
+      let expected =
+        'sha384:8b90663d4b7d14ac7d647c74cb53c529198dee4689d0f8faae44f0df1c2a157acce5cb8c55a375218bc331897cf92e9d'
       expect(client._calcSignature('foo')).toBe(expected)
 
-      expected = 'b8110452b4ba46a9ecf438271bbd79f25d2a5400'
+      expected =
+        'sha384:3595c177fc09c9cc46672cef90685257838a0a4295056dcfd45b5d5c255e8f987e1c1ca8800b9c21ee03e4ada7485e9d'
       expect(client._calcSignature('akjdkadskjads')).toBe(expected)
 
       client._authSecret = '90191902390123'
 
-      expected = 'd393c38de2cbc993bea52f8ecdf56c7ede8b920d'
+      expected =
+        'sha384:b6f967f8bd659652c6c2093bc52045becbd6e8fbd96d8ef419e07bbc9fb411c56316e75f03dfc2a6613dbe896bbad20f'
       expect(client._calcSignature('foo')).toBe(expected)
 
-      expected = '8fd625190e1955eb47a9984d3e8308e3afc9049e'
+      expected =
+        'sha384:fc75f6a4bbb06340653c0f7efff013e94eb8e402e0e45cf40ad4bc95f45a3ae3263032000727359c595a433364a84f96'
       return expect(client._calcSignature('akjdkadskjads')).toBe(expected)
     })
   })
