@@ -1,6 +1,3 @@
-/**
- * @jest-environment node
- */
 // https://github.com/axios/axios/issues/2654
 const keyBy = require('lodash/keyBy')
 const querystring = require('querystring')
@@ -16,9 +13,9 @@ const debug = require('debug')('transloadit:live-api')
 
 const pipeline = promisify(streamPipeline)
 
-const Transloadit = require('../../../src/Transloadit')
+const Transloadit = require('../../src/Transloadit')
 
-const { createTestServer } = require('../../testserver')
+const { createTestServer } = require('../testserver')
 
 async function downloadTmpFile(url) {
   const { path } = await temp.open('transloadit')
@@ -103,8 +100,6 @@ const genericOptions = {
   params: genericParams,
   waitForCompletion: true,
 }
-
-jest.setTimeout(100000)
 
 const handlers = new Map()
 

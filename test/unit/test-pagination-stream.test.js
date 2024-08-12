@@ -1,7 +1,7 @@
 const { Writable } = require('stream')
 const _ = require('lodash')
 
-const PaginationStream = require('../../../src/PaginationStream')
+const PaginationStream = require('../../src/PaginationStream')
 
 const toArray = (callback) => {
   const stream = new Writable({ objectMode: true })
@@ -14,7 +14,7 @@ const toArray = (callback) => {
 }
 
 describe('PaginationStream', () => {
-  it('should preserve order with synchronous data sources', (done) => {
+  it('should preserve order with synchronous data sources', async () => {
     const count = 9
     const pages = [
       { count, items: [1, 2, 3] },
@@ -24,22 +24,24 @@ describe('PaginationStream', () => {
 
     const stream = new PaginationStream(async (pageno) => pages[pageno - 1])
 
-    stream.pipe(
-      toArray((array) => {
-        const expected = _.flatten(
-          Array.from(pages).map(({ items }) => items),
-          true
-        )
+    await new Promise((resolve) => {
+      stream.pipe(
+        toArray((array) => {
+          const expected = _.flatten(
+            Array.from(pages).map(({ items }) => items),
+            true
+          )
 
-        expect(array).toEqual(expected)
-        done()
-      })
-    )
+          expect(array).toEqual(expected)
+          resolve()
+        })
+      )
 
-    stream.resume()
+      stream.resume()
+    })
   })
 
-  it('should preserve order with asynchronous data sources', (done) => {
+  it('should preserve order with asynchronous data sources', async () => {
     const count = 9
     const pages = [
       { count, items: [1, 2, 3] },
@@ -51,18 +53,20 @@ describe('PaginationStream', () => {
       async (pageno) => new Promise((resolve) => process.nextTick(() => resolve(pages[pageno - 1])))
     )
 
-    stream.pipe(
-      toArray((array) => {
-        const expected = _.flatten(
-          Array.from(pages).map(({ items }) => items),
-          true
-        )
+    await new Promise((resolve) => {
+      stream.pipe(
+        toArray((array) => {
+          const expected = _.flatten(
+            Array.from(pages).map(({ items }) => items),
+            true
+          )
 
-        expect(array).toEqual(expected)
-        done()
-      })
-    )
+          expect(array).toEqual(expected)
+          resolve()
+        })
+      )
 
-    stream.resume()
+      stream.resume()
+    })
   })
 })

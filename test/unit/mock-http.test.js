@@ -1,8 +1,6 @@
 const nock = require('nock')
 
-const Transloadit = require('../../../src/Transloadit')
-
-jest.setTimeout(1000)
+const Transloadit = require('../../src/Transloadit')
 
 const getLocalClient = (opts) =>
   new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })

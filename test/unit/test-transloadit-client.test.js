@@ -2,27 +2,21 @@ const { Readable: ReadableStream } = require('stream')
 const FormData = require('form-data')
 const got = require('got')
 
-jest.mock('../../../src/tus')
-
-const tus = require('../../../src/tus')
-const Transloadit = require('../../../src/Transloadit')
-const packageVersion = require('../../../package.json').version
-
-jest.mock('got')
-
-tus.sendTusRequest.mockImplementation(() => {})
+const tus = require('../../src/tus')
+const Transloadit = require('../../src/Transloadit')
+const packageVersion = require('../../package.json').version
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
 const mockGetExpiresDate = (client) =>
-  jest.spyOn(client, '_getExpiresDate').mockReturnValue(mockedExpiresDate)
+  vi.spyOn(client, '_getExpiresDate').mockReturnValue(mockedExpiresDate)
 const mockGot = (method) =>
-  got[method].mockImplementation(() => {
+  vi.spyOn(got, method).mockImplementation(() => {
     const mockPromise = Promise.resolve({ body: '' })
-    mockPromise.on = jest.fn(() => {})
+    mockPromise.on = vi.fn(() => {})
     return mockPromise
   })
 const mockRemoteJson = (client) =>
-  jest.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
+  vi.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
   it('should throw a proper error for request stream', async () => {
@@ -88,10 +82,11 @@ describe('Transloadit', () => {
 
   describe('add stream', () => {
     it('should pause streams', async () => {
+      vi.spyOn(tus, 'sendTusRequest').mockImplementation(() => {})
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const name = 'foo_name'
-      const pause = jest.fn(() => {})
+      const pause = vi.fn(() => {})
       const mockStream = {
         pause,
         pipe: () => {},
@@ -128,8 +123,8 @@ describe('Transloadit', () => {
       }
 
       mockGetExpiresDate(client)
-      const calcSignatureSpy = jest.spyOn(client, 'calcSignature')
-      const formAppendSpy = jest.spyOn(form, 'append')
+      const calcSignatureSpy = vi.spyOn(client, 'calcSignature')
+      const formAppendSpy = vi.spyOn(form, 'append')
 
       client._appendForm(form, params, streamsMap, fields)
 
@@ -214,7 +209,7 @@ describe('Transloadit', () => {
 
       mockGetExpiresDate(client)
 
-      const prepareParamsSpy = jest.spyOn(client, '_prepareParams')
+      const prepareParamsSpy = vi.spyOn(client, '_prepareParams')
 
       const r = client.calcSignature(params)
 
