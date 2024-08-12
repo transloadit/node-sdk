@@ -1,12 +1,17 @@
-const http = require('http')
-const got = require('got')
-const debug = require('debug')
+import http = require('http')
+import got = require('got')
+import debug = require('debug')
 
 const log = debug('transloadit:testserver')
 
-const createTunnel = require('./tunnel')
+import createTunnel = require('./tunnel.ts')
 
-async function createHttpServer(handler) {
+interface HttpServer {
+  server: http.Server
+  port: number
+}
+
+async function createHttpServer(handler: http.RequestListener): Promise<HttpServer> {
   return new Promise((resolve, reject) => {
     const server = http.createServer(handler)
 
@@ -20,7 +25,7 @@ async function createHttpServer(handler) {
       })
     }
     server.on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
+      if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
         if (++port >= 65535) {
           server.close()
           reject(new Error('Failed to find any free port to listen on'))
@@ -36,17 +41,17 @@ async function createHttpServer(handler) {
   })
 }
 
-async function createTestServer(onRequest) {
+async function createTestServer(onRequest: http.RequestListener): Promise<createTestServer.Result> {
   if (!process.env.CLOUDFLARED_PATH) {
     throw new Error('CLOUDFLARED_PATH environment variable not set')
   }
 
-  let expectedPath
+  let expectedPath: string
   let initialized = false
-  let onTunnelOperational
-  let tunnel
+  let onTunnelOperational: () => void
+  let tunnel: createTunnel.Result
 
-  const handleHttpRequest = (req, res) => {
+  const handleHttpRequest: http.RequestListener = (req, res) => {
     log('HTTP request handler', req.method, req.url)
 
     if (!initialized) {
@@ -63,7 +68,7 @@ async function createTestServer(onRequest) {
 
   async function close() {
     if (tunnel) await tunnel.close()
-    await new Promise((resolve) => server.close(() => resolve()))
+    await new Promise<void>((resolve) => server.close(() => resolve()))
     log('closed tunnel')
   }
 
@@ -84,7 +89,7 @@ async function createTestServer(onRequest) {
 
         expectedPath = `/initialize-test${i}`
         try {
-          await got(`${tunnelPublicUrl}${expectedPath}`, { timeout: { request: 2000 } })
+          await got.default(`${tunnelPublicUrl}${expectedPath}`, { timeout: { request: 2000 } })
           return
         } catch (err) {
           // console.error(err.message)
@@ -96,7 +101,7 @@ async function createTestServer(onRequest) {
     }
 
     await Promise.all([
-      new Promise((resolve) => {
+      new Promise<void>((resolve) => {
         onTunnelOperational = resolve
       }),
       sendTunnelRequest(),
@@ -115,6 +120,12 @@ async function createTestServer(onRequest) {
   }
 }
 
-module.exports = {
-  createTestServer,
+namespace createTestServer {
+  export interface Result {
+    port: number
+    close: () => void
+    url: string
+  }
 }
+
+export = createTestServer

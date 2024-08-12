@@ -1,15 +1,21 @@
-const { Writable } = require('stream')
+import stream = require('stream')
 
-const PaginationStream = require('../../src/PaginationStream')
+import PaginationStream = require('../../src/PaginationStream.ts')
 
-const toArray = (callback) => {
-  const stream = new Writable({ objectMode: true })
-  const list = []
-  stream.write = (chunk) => list.push(chunk)
+const toArray = (callback: (list: number[]) => void) => {
+  const writable = new stream.Writable({ objectMode: true })
+  const list: number[] = []
+  writable.write = (chunk) => {
+    list.push(chunk)
+    return false
+  }
 
-  stream.end = () => callback(list)
+  writable.end = () => {
+    callback(list)
+    return writable
+  }
 
-  return stream
+  return writable
 }
 
 describe('PaginationStream', () => {
@@ -21,9 +27,9 @@ describe('PaginationStream', () => {
       { count, items: [7, 8, 9] },
     ]
 
-    const stream = new PaginationStream(async (pageno) => pages[pageno - 1])
+    const stream = new PaginationStream<number>(async (pageno) => pages[pageno - 1])
 
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       stream.pipe(
         toArray((array) => {
           const expected = pages.flatMap(({ items }) => items)
@@ -45,11 +51,14 @@ describe('PaginationStream', () => {
       { count, items: [7, 8, 9] },
     ]
 
-    const stream = new PaginationStream(
-      async (pageno) => new Promise((resolve) => process.nextTick(() => resolve(pages[pageno - 1])))
+    const stream = new PaginationStream<number>(
+      async (pageno) =>
+        new Promise((resolve) => {
+          process.nextTick(() => resolve(pages[pageno - 1]))
+        })
     )
 
-    await new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       stream.pipe(
         toArray((array) => {
           const expected = pages.flatMap(({ items }) => items)

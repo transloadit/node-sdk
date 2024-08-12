@@ -1,9 +1,10 @@
-const nock = require('nock')
+import nock = require('nock')
 
-const Transloadit = require('../../src/Transloadit')
+import Transloadit = require('../../src/Transloadit.ts')
 
-const getLocalClient = (opts) =>
-  new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
+const getLocalClient = (
+  opts?: Omit<Transloadit.TransloaditClientOptions, 'authKey' | 'authSecret' | 'endpoint'>
+) => new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
 
 const createAssemblyRegex = /\/assemblies\/[0-9a-f]{32}/
 
@@ -38,7 +39,7 @@ describe('Mocked API tests', () => {
       .delay(100)
       .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
 
-    await expect(client.awaitAssemblyCompletion(1, { timeout: 1, interval: 1 })).rejects.toThrow(
+    await expect(client.awaitAssemblyCompletion('1', { timeout: 1, interval: 1 })).rejects.toThrow(
       expect.objectContaining({ code: 'POLLING_TIMED_OUT', message: 'Polling timed out' })
     )
     scope.done()
@@ -56,7 +57,7 @@ describe('Mocked API tests', () => {
 
     await client.createAssembly()
 
-    const result = await client.awaitAssemblyCompletion(1)
+    const result = await client.awaitAssemblyCompletion('1')
     expect(result.ok).toBe('REQUEST_ABORTED')
     scope.done()
   })
@@ -73,7 +74,7 @@ describe('Mocked API tests', () => {
       .reply(200, { ok: 'ASSEMBLY_COMPLETED', assembly_url: '', assembly_ssl_url: '' })
 
     await expect(
-      client.awaitAssemblyCompletion(1, { timeout: 100, interval: 1 })
+      client.awaitAssemblyCompletion('1', { timeout: 100, interval: 1 })
     ).resolves.toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
     scope.done()
   })
@@ -115,8 +116,7 @@ describe('Mocked API tests', () => {
   })
 
   it('should retry correctly on RATE_LIMIT_REACHED', async () => {
-    const client = getLocalClient()
-    client._maxRetries = 1
+    const client = getLocalClient({ maxRetries: 1 })
 
     // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
 
@@ -158,7 +158,7 @@ describe('Mocked API tests', () => {
       .query(() => true)
       .reply(500)
 
-    const promise = client.getAssembly(1)
+    const promise = client.getAssembly('1')
     await expect(promise).rejects.toThrow(
       expect.not.objectContaining({ code: 'ERR_NOCK_NO_MATCH' })
     ) // Make sure that it was called only once
@@ -183,10 +183,10 @@ describe('Mocked API tests', () => {
       .reply(200, {})
 
     // Success
-    await client.getAssembly(1)
+    await client.getAssembly('1')
 
     // Failure
-    const promise = client.getAssembly(1)
+    const promise = client.getAssembly('1')
     await expect(promise).rejects.toThrow(Transloadit.InconsistentResponseError)
     await expect(promise).rejects.toThrow(
       expect.objectContaining({
@@ -207,10 +207,10 @@ describe('Mocked API tests', () => {
       .query(() => true)
       .reply(200, { error: 'IMPORT_FILE_ERROR', assembly_url: '', assembly_ssl_url: '' })
 
-    const assembly = await client.getAssembly(1)
+    const assembly = await client.getAssembly('1')
     expect(assembly).toMatchObject({ error: 'IMPORT_FILE_ERROR' })
 
-    const assembly2 = await client.awaitAssemblyCompletion(1)
+    const assembly2 = await client.awaitAssemblyCompletion('1')
     expect(assembly2).toMatchObject({ error: 'IMPORT_FILE_ERROR' })
 
     scope.done()
@@ -239,7 +239,7 @@ describe('Mocked API tests', () => {
       .post('/assemblies/1/replay')
       .reply(200, { error: 'IMPORT_FILE_ERROR' })
 
-    await expect(client.replayAssembly(1)).rejects.toThrow(
+    await expect(client.replayAssembly('1')).rejects.toThrow(
       expect.objectContaining({ transloaditErrorCode: 'IMPORT_FILE_ERROR' })
     )
     scope.done()

@@ -1,10 +1,20 @@
-const debug = require('debug')
-const nodePath = require('path')
-const tus = require('tus-js-client')
-const fsPromises = require('fs/promises')
-const pMap = require('p-map')
+import debug = require('debug')
+import p = require('path')
+import tus = require('tus-js-client')
+import fsPromises = require('fs/promises')
+import pMap = require('p-map')
+import type { Readable } from 'stream'
+import type { Assembly, UploadProgress } from './Transloadit'
 
 const log = debug('transloadit')
+
+interface SendTusRequestOptions {
+  streamsMap: Record<string, export_.Stream>
+  assembly: Assembly
+  requestedChunkSize: number
+  uploadConcurrency: number
+  onProgress: (options: UploadProgress) => void
+}
 
 async function sendTusRequest({
   streamsMap,
@@ -12,13 +22,13 @@ async function sendTusRequest({
   requestedChunkSize,
   uploadConcurrency,
   onProgress,
-}) {
+}: SendTusRequestOptions) {
   const streamLabels = Object.keys(streamsMap)
 
   let totalBytes = 0
   let lastEmittedProgress = 0
 
-  const sizes = {}
+  const sizes: Record<string, number> = {}
 
   const haveUnknownLengthStreams = streamLabels.some((label) => !streamsMap[label].path)
 
@@ -37,16 +47,16 @@ async function sendTusRequest({
     { concurrency: 5 }
   )
 
-  const uploadProgresses = {}
+  const uploadProgresses: Record<string, number> = {}
 
-  async function uploadSingleStream(label) {
+  async function uploadSingleStream(label: string) {
     uploadProgresses[label] = 0
 
     const { stream, path } = streamsMap[label]
     const size = sizes[label]
 
     let chunkSize = requestedChunkSize
-    let uploadLengthDeferred
+    let uploadLengthDeferred: boolean
     const isStreamLengthKnown = !!path
     if (!isStreamLengthKnown) {
       // tus-js-client requires these options to be set for unknown size streams
@@ -55,7 +65,7 @@ async function sendTusRequest({
       if (chunkSize === Infinity) chunkSize = 50e6
     }
 
-    const onTusProgress = (bytesUploaded) => {
+    const onTusProgress = (bytesUploaded: number): void => {
       uploadProgresses[label] = bytesUploaded
 
       // get all uploaded bytes for all files
@@ -76,10 +86,10 @@ async function sendTusRequest({
       }
     }
 
-    const filename = path ? nodePath.basename(path) : label
+    const filename = path ? p.basename(path) : label
 
-    await new Promise((resolve, reject) => {
-      const tusOptions = {
+    await new Promise<void>((resolve, reject) => {
+      const tusOptions: tus.UploadOptions = {
         endpoint: assembly.tus_url,
         metadata: {
           assembly_url: assembly.assembly_ssl_url,
@@ -106,6 +116,15 @@ async function sendTusRequest({
   await pMap(streamLabels, uploadSingleStream, { concurrency: uploadConcurrency })
 }
 
-module.exports = {
+const export_ = {
   sendTusRequest,
 }
+
+namespace export_ {
+  export interface Stream {
+    path?: string
+    stream: Readable
+  }
+}
+
+export = export_

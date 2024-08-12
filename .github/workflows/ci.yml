@@ -27,7 +27,7 @@ jobs:
       - run: corepack yarn
       - run: corepack yarn prettier --check .
 
-  tsd:
+  typescript:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: 22
       - run: corepack yarn
-      - run: corepack yarn tsd
+      - run: corepack yarn tsc --build
 
   vitest:
     runs-on: ubuntu-latest

@@ -1,22 +1,23 @@
-const crypto = require('crypto')
-const querystring = require('querystring')
-const temp = require('temp')
-const fs = require('fs')
-const nodePath = require('path')
-const nodeStream = require('stream/promises')
-const got = require('got')
-const intoStream = require('into-stream')
-const debug = require('debug')
+import crypto = require('crypto')
+import querystring = require('querystring')
+import temp = require('temp')
+import fs = require('fs')
+import http = require('http')
+import nodePath = require('path')
+import nodeStream = require('stream')
+import got = require('got')
+import intoStream = require('into-stream')
+import debug = require('debug')
 
 const log = debug('transloadit:live-api')
 
-const Transloadit = require('../../src/Transloadit')
+import Transloadit = require('../../src/Transloadit.ts')
 
-const { createTestServer } = require('../testserver')
+import createTestServer = require('../testserver.ts')
 
-async function downloadTmpFile(url) {
+async function downloadTmpFile(url: string) {
   const { path } = await temp.open('transloadit')
-  await nodeStream.pipeline(got.stream(url), fs.createWriteStream(path))
+  await nodeStream.pipeline(got.default.stream(url), fs.createWriteStream(path))
   return path
 }
 
@@ -28,7 +29,7 @@ function createClient(opts = {}) {
   }
 
   // https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md#retry
-  const gotRetry = {
+  const gotRetry: got.RequiredRetryOptions = {
     limit: 2,
     methods: [
       'GET',
@@ -39,6 +40,7 @@ function createClient(opts = {}) {
       'TRACE',
       'POST', // Normally we shouldn't retry on POST, as it is not idempotent, but for tests we can do it
     ],
+    calculateDelay: () => 0,
     statusCodes: [],
     errorCodes: [
       'ETIMEDOUT',
@@ -55,7 +57,7 @@ function createClient(opts = {}) {
   return new Transloadit({ authKey, authSecret, gotRetry, ...opts })
 }
 
-function createAssembly(client, params) {
+function createAssembly(client: Transloadit, params: Transloadit.CreateAssemblyOptions) {
   const promise = client.createAssembly(params)
   const { assemblyId } = promise
   console.log(expect.getState().currentTestName, 'createAssembly', assemblyId) // For easier debugging
@@ -100,19 +102,19 @@ const genericOptions = {
 
 const handlers = new Map()
 
-let testServer
+let testServer: createTestServer.Result
 
 beforeAll(async () => {
   // cloudflared tunnels are a bit unstable, so we share one cloudflared tunnel between all tests
   // we do this by prefixing each "virtual" server under a uuid subpath
   testServer = await createTestServer((req, res) => {
     const regex = /^\/([^/]+)/
-    const match = req.url.match(regex)
+    const match = req.url?.match(regex)
     if (match) {
       const [, id] = match
       const handler = handlers.get(id)
       if (handler) {
-        req.url = req.url.replace(regex, '')
+        req.url = req.url?.replace(regex, '')
         if (req.url === '') req.url = '/'
         handler(req, res)
       } else {
@@ -128,7 +130,12 @@ afterAll(async () => {
   await testServer?.close()
 })
 
-async function createVirtualTestServer(handler) {
+interface VirtualTestServer {
+  close: () => void
+  url: string
+}
+
+async function createVirtualTestServer(handler: http.RequestListener): Promise<VirtualTestServer> {
   const id = crypto.randomUUID()
   log('Adding virtual server handler', id)
   const url = `${testServer.url}/${id}`
@@ -150,7 +157,7 @@ describe('API integration', { timeout: 30000 }, () => {
       const client = createClient()
 
       let uploadProgressCalled
-      const options = {
+      const options: Transloadit.CreateAssemblyOptions = {
         ...genericOptions,
         onUploadProgress: (uploadProgress) => {
           uploadProgressCalled = uploadProgress
@@ -246,7 +253,7 @@ describe('API integration', { timeout: 30000 }, () => {
           file1: intoStream(sampleSvg),
           file2: sampleSvg,
           file3: buf,
-          file4: got.stream(genericImg),
+          file4: got.default.stream(genericImg),
         },
         params: {
           steps: {
@@ -258,7 +265,7 @@ describe('API integration', { timeout: 30000 }, () => {
       const result = await createAssembly(client, params)
       // console.log(result)
 
-      const getMatchObject = ({ name }) => ({
+      const getMatchObject = ({ name }: { name: string }) => ({
         name,
         basename: name,
         ext: 'svg',
@@ -328,11 +335,11 @@ describe('API integration', { timeout: 30000 }, () => {
       expect(result.assembly_id).toMatch(promise.assemblyId)
     })
 
-    async function testUploadProgress(isResumable) {
+    async function testUploadProgress(isResumable: boolean) {
       const client = createClient()
 
       let progressCalled = false
-      function onUploadProgress({ uploadedBytes, totalBytes }) {
+      function onUploadProgress({ uploadedBytes, totalBytes }: Transloadit.UploadProgress) {
         // console.log(uploadedBytes)
         expect(uploadedBytes).toBeDefined()
         if (isResumable) {
@@ -342,7 +349,7 @@ describe('API integration', { timeout: 30000 }, () => {
         progressCalled = true
       }
 
-      const params = {
+      const params: Transloadit.CreateAssemblyOptions = {
         isResumable,
         params: {
           steps: {
@@ -414,13 +421,13 @@ describe('API integration', { timeout: 30000 }, () => {
       // request
 
       // Async book-keeping for delaying the response
-      let sendServerResponse
+      let sendServerResponse: () => void
 
-      const promise = new Promise((resolve) => {
+      const promise = new Promise<void>((resolve) => {
         sendServerResponse = resolve
       })
 
-      const handleRequest = async (req, res) => {
+      const handleRequest: http.RequestListener = async (req, res) => {
         // console.log('handler', req.url)
 
         expect(req.url).toBe('/')
@@ -430,7 +437,7 @@ describe('API integration', { timeout: 30000 }, () => {
         // console.log('sending response')
         res.setHeader('Content-type', 'image/jpeg')
         res.writeHead(200)
-        got.stream(genericImg).pipe(res)
+        got.default.stream(genericImg).pipe(res)
       }
 
       const server = await createVirtualTestServer(handleRequest)
@@ -475,7 +482,7 @@ describe('API integration', { timeout: 30000 }, () => {
         // console.log('canceled', id)
 
         // Allow the upload to finish
-        sendServerResponse()
+        sendServerResponse!()
 
         // Successful cancel requests get ASSEMBLY_CANCELED even when it
         // completed, so we now request the assembly status to check the
@@ -486,7 +493,7 @@ describe('API integration', { timeout: 30000 }, () => {
 
         // Check that awaitAssemblyCompletion gave the correct response too
         const awaitCompletionResponse = await awaitCompletionPromise
-        expect(awaitCompletionResponse.ok).toBe('ASSEMBLY_CANCELED')
+        expect(awaitCompletionResponse?.ok).toBe('ASSEMBLY_CANCELED')
       } finally {
         server.close()
       }
@@ -526,7 +533,7 @@ describe('API integration', { timeout: 30000 }, () => {
       let n = 0
       let isDone = false
 
-      await new Promise((resolve) => {
+      await new Promise<void>((resolve) => {
         assemblies.on('readable', () => {
           const assembly = assemblies.read()
 
@@ -551,29 +558,40 @@ describe('API integration', { timeout: 30000 }, () => {
   })
 
   describe('assembly notification', () => {
-    let server
+    type OnNotification = (params: {
+      path?: string
+      client: Transloadit
+      assemblyId: string
+    }) => void
+
+    let server: VirtualTestServer
     afterEach(() => {
       server?.close()
     })
 
     // helper function
-    const streamToString = (stream) =>
-      new Promise((resolve, reject) => {
-        const chunks = []
+    const streamToString = (stream: http.IncomingMessage) =>
+      new Promise<string>((resolve, reject) => {
+        const chunks: string[] = []
         stream.on('data', (chunk) => chunks.push(chunk))
         stream.on('error', (err) => reject(err))
         stream.on('end', () => resolve(chunks.join('')))
       })
 
-    const runNotificationTest = async (onNotification, onError) => {
+    const runNotificationTest = async (
+      onNotification: OnNotification,
+      onError: (error: unknown) => void
+    ) => {
       const client = createClient()
 
       // listens for notifications
-      const onNotificationRequest = async (req, res) => {
+      const onNotificationRequest: http.RequestListener = async (req, res) => {
         try {
           expect(req.method).toBe('POST')
           const body = await streamToString(req)
-          const result = JSON.parse(querystring.parse(body).transloadit)
+          const result = JSON.parse(
+            (querystring.parse(body) as { transloadit: string }).transloadit
+          )
           expect(result).toHaveProperty('ok')
           if (result.ok !== 'ASSEMBLY_COMPLETED') {
             onError(new Error(`result.ok was ${result.ok}`))
@@ -598,8 +616,8 @@ describe('API integration', { timeout: 30000 }, () => {
     }
 
     it('should send a notification upon assembly completion', async () => {
-      await new Promise((resolve, reject) => {
-        const onNotification = async ({ path }) => {
+      await new Promise<void>((resolve, reject) => {
+        const onNotification: OnNotification = async ({ path }) => {
           try {
             expect(path).toBe('/')
             resolve()
@@ -611,52 +629,54 @@ describe('API integration', { timeout: 30000 }, () => {
       })
     })
 
-    it('should replay the notification when requested', (done) => {
+    it('should replay the notification when requested', async () => {
       let secondNotification = false
 
-      const onNotification = async ({ path, client, assemblyId }) => {
-        const newPath = '/newPath'
-        const newUrl = `${server.url}${newPath}`
+      await new Promise<void>((resolve, reject) => {
+        const onNotification: OnNotification = async ({ path, client, assemblyId }) => {
+          const newPath = '/newPath'
+          const newUrl = `${server.url}${newPath}`
 
-        // I think there are some eventual consistency issues here
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+          // I think there are some eventual consistency issues here
+          await new Promise((resolve) => setTimeout(resolve, 1000))
 
-        const result = await client.getAssembly(assemblyId)
+          const result = await client.getAssembly(assemblyId)
 
-        expect(['successful', 'processing']).toContain(result.notify_status)
-        expect(result.notify_response_code).toBe(200)
+          expect(['successful', 'processing']).toContain(result.notify_status)
+          expect(result.notify_response_code).toBe(200)
 
-        if (secondNotification) {
-          expect(path).toBe(newPath)
+          if (secondNotification) {
+            expect(path).toBe(newPath)
 
-          // notify_url will not get updated to new URL
-          expect(result.notify_url).toBe(server.url)
+            // notify_url will not get updated to new URL
+            expect(result.notify_url).toBe(server.url)
 
-          try {
-            // If we quit immediately, things will not get cleaned up and jest will hang
-            await new Promise((resolve) => setTimeout(resolve, 2000))
-            done()
-          } catch (err) {
-            done(err)
+            try {
+              // If we quit immediately, things will not get cleaned up and jest will hang
+              await new Promise((resolve) => setTimeout(resolve, 2000))
+              resolve()
+            } catch (err) {
+              reject(err)
+            }
+
+            return
           }
 
-          return
+          secondNotification = true
+
+          try {
+            expect(path).toBe('/')
+            expect(result.notify_url).toBe(server.url)
+
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+            await client.replayAssemblyNotification(assemblyId, { notify_url: newUrl })
+          } catch (err) {
+            reject(err)
+          }
         }
 
-        secondNotification = true
-
-        try {
-          expect(path).toBe('/')
-          expect(result.notify_url).toBe(server.url)
-
-          await new Promise((resolve) => setTimeout(resolve, 2000))
-          await client.replayAssemblyNotification(assemblyId, { notify_url: newUrl })
-        } catch (err) {
-          done(err)
-        }
-      }
-
-      runNotificationTest(onNotification, (err) => done(err))
+        runNotificationTest(onNotification, reject)
+      })
     })
   })
 
@@ -666,7 +686,7 @@ describe('API integration', { timeout: 30000 }, () => {
       .toISOString()
       .toLocaleLowerCase('en-US')
       .replace(/[^0-9a-z-]/g, '-')}`
-    let templId = null
+    let templId: string | null = null
     const client = createClient()
 
     it('should allow listing templates', async () => {
@@ -682,7 +702,7 @@ describe('API integration', { timeout: 30000 }, () => {
     it("should be able to fetch a template's definition", async () => {
       expect(templId).toBeDefined()
 
-      const template = await client.getTemplate(templId)
+      const template = await client.getTemplate(templId!)
       const { name, content } = template
       expect(name).toBe(templName)
       expect(content).toEqual(genericParams)
@@ -696,7 +716,7 @@ describe('API integration', { timeout: 30000 }, () => {
       }
 
       const editedName = `${templName}-edited`
-      const editResult = await client.editTemplate(templId, {
+      const editResult = await client.editTemplate(templId!, {
         name: editedName,
         template: editedTemplate,
       })
@@ -709,10 +729,10 @@ describe('API integration', { timeout: 30000 }, () => {
     it('should delete the template successfully', async () => {
       expect(templId).toBeDefined()
 
-      const template = await client.deleteTemplate(templId)
+      const template = await client.deleteTemplate(templId!)
       const { ok } = template
       expect(ok).toBe('TEMPLATE_DELETED')
-      await expect(client.getTemplate(templId)).rejects.toThrow(
+      await expect(client.getTemplate(templId!)).rejects.toThrow(
         expect.objectContaining({ transloaditErrorCode: 'TEMPLATE_NOT_FOUND' })
       )
     })
@@ -724,7 +744,7 @@ describe('API integration', { timeout: 30000 }, () => {
       .toISOString()
       .toLocaleLowerCase('en-US')
       .replace(/[^0-9a-z-]/g, '-')}`
-    let credId = null
+    let credId: string | null = null
     const client = createClient()
 
     it('should allow listing credentials', async () => {
@@ -750,7 +770,7 @@ describe('API integration', { timeout: 30000 }, () => {
     it("should be able to fetch a credential's definition", async () => {
       expect(credId).toBeDefined()
 
-      const readResult = await client.getTemplateCredential(credId)
+      const readResult = await client.getTemplateCredential(credId!)
       const { name, content } = readResult.credential
       expect(name).toBe(credName)
       expect(content.bucket).toEqual('mybucket.example.com')
@@ -759,7 +779,7 @@ describe('API integration', { timeout: 30000 }, () => {
     it('should allow editing a credential', async () => {
       expect(credId).toBeDefined()
       const editedName = `${credName}-edited`
-      const editResult = await client.editTemplateCredential(credId, {
+      const editResult = await client.editTemplateCredential(credId!, {
         name: editedName,
         type: 's3',
         content: {
@@ -778,10 +798,10 @@ describe('API integration', { timeout: 30000 }, () => {
     it('should delete the credential successfully', async () => {
       expect(credId).toBeDefined()
 
-      const credential = await client.deleteTemplateCredential(credId)
+      const credential = await client.deleteTemplateCredential(credId!)
       const { ok } = credential
       expect(ok).toBe('TEMPLATE_CREDENTIALS_DELETED')
-      await expect(client.getTemplateCredential(credId)).rejects.toThrow(
+      await expect(client.getTemplateCredential(credId!)).rejects.toThrow(
         expect.objectContaining({ transloaditErrorCode: 'TEMPLATE_CREDENTIALS_NOT_READ' })
       )
     })

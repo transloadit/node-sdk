@@ -1,12 +1,18 @@
-const stream = require('stream')
+import stream = require('stream')
+import type { PaginationList } from './Transloadit'
 
-class PaginationStream extends stream.Readable {
-  constructor(_fetchPage) {
+type FetchPage<T> = (pageno: number) => PaginationList<T> | PromiseLike<PaginationList<T>>
+
+class PaginationStream<T> extends stream.Readable {
+  private _fetchPage: FetchPage<T>
+  private _nitems?: number
+  private _pageno = 0
+  private _items: T[] = []
+  private _itemsRead = 0
+
+  constructor(fetchPage: FetchPage<T>) {
     super({ objectMode: true })
-    this._fetchPage = _fetchPage
-    this._pageno = 0
-    this._items = []
-    this._itemsRead = 0
+    this._fetchPage = fetchPage
   }
 
   async _read() {
@@ -29,11 +35,10 @@ class PaginationStream extends stream.Readable {
       this._items.reverse()
 
       this._read()
-      return
     } catch (err) {
       this.emit('error', err)
     }
   }
 }
 
-module.exports = PaginationStream
+export = PaginationStream

@@ -1,25 +1,40 @@
-const crypto = require('crypto')
-const got = require('got')
-const FormData = require('form-data')
-const fs = require('fs')
-const fsPromises = require('fs/promises')
-const debug = require('debug')
-const intoStream = require('into-stream')
-const isStream = require('is-stream')
-const assert = require('assert')
-const pMap = require('p-map')
+import crypto = require('crypto')
+import got = require('got')
+import FormData = require('form-data')
+import fs = require('fs')
+import fsPromises = require('fs/promises')
+import debug = require('debug')
+import intoStream = require('into-stream')
+import isStream = require('is-stream')
+import assert = require('assert')
+import pMap = require('p-map')
+import InconsistentResponseError = require('./InconsistentResponseError')
+import PaginationStream = require('./PaginationStream')
+import PollingTimeoutError = require('./PollingTimeoutError')
+import TransloaditError = require('./TransloaditError')
+import pkg = require('../package.json')
+import tus = require('./tus')
 
-const InconsistentResponseError = require('./InconsistentResponseError')
-const PaginationStream = require('./PaginationStream')
-const PollingTimeoutError = require('./PollingTimeoutError')
-const TransloaditError = require('./TransloaditError')
-const pkg = require('../package.json')
-const tus = require('./tus')
+import type { Readable } from 'stream'
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
 
-function decorateHttpError(err, body) {
+interface RequestOptions {
+  urlSuffix?: string
+  url?: string
+  timeout?: number
+  method?: 'delete' | 'get' | 'post' | 'put'
+  params?: TransloaditClient.KeyVal
+  fields?: Record<string, string | number>
+  headers?: got.Headers
+}
+
+interface CreateAssemblyPromise extends Promise<TransloaditClient.Assembly> {
+  assemblyId: string
+}
+
+function decorateHttpError(err: TransloaditError, body: any): TransloaditError {
   if (!body) return err
 
   let newMessage = err.message
@@ -48,20 +63,25 @@ function decorateHttpError(err, body) {
 }
 
 // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
-function checkAssemblyUrls(result) {
+function checkAssemblyUrls(result: TransloaditClient.Assembly) {
   if (result.assembly_url == null || result.assembly_ssl_url == null) {
     throw new InconsistentResponseError('Server returned an incomplete assembly response (no URL)')
   }
 }
 
-function getHrTimeMs() {
+function getHrTimeMs(): number {
   return Number(process.hrtime.bigint() / 1000000n)
 }
 
-function checkResult(result) {
+function checkResult<T>(result: T | { error: string }): asserts result is T {
   // In case server returned a successful HTTP status code, but an `error` in the JSON object
   // This happens sometimes when createAssembly with an invalid file (IMPORT_FILE_ERROR)
-  if (typeof result === 'object' && result !== null && typeof result.error === 'string') {
+  if (
+    typeof result === 'object' &&
+    result !== null &&
+    'error' in result &&
+    typeof result.error === 'string'
+  ) {
     throw decorateHttpError(new TransloaditError('Error in response', result), result)
   }
 }
@@ -85,8 +105,16 @@ class TransloaditClient {
 
   static InconsistentResponseError = InconsistentResponseError
 
-  constructor(opts = {}) {
-    if (opts.authKey == null) {
+  private _authKey: string
+  private _authSecret: string
+  private _endpoint: string
+  private _maxRetries: number
+  private _defaultTimeout: number
+  private _gotRetry: got.RequiredRetryOptions | number
+  private _lastUsedAssemblyUrl = ''
+
+  constructor(opts: TransloaditClient.TransloaditClientOptions) {
+    if (opts?.authKey == null) {
       throw new Error('Please provide an authKey')
     }
 
@@ -106,25 +134,25 @@ class TransloaditClient {
 
     // Passed on to got https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md
     this._gotRetry = opts.gotRetry != null ? opts.gotRetry : 0
-
-    this._lastUsedAssemblyUrl = ''
   }
 
-  getLastUsedAssemblyUrl() {
+  getLastUsedAssemblyUrl(): string {
     return this._lastUsedAssemblyUrl
   }
 
-  setDefaultTimeout(timeout) {
+  setDefaultTimeout(timeout: number): void {
     this._defaultTimeout = timeout
   }
 
   /**
    * Create an Assembly
    *
-   * @param {object} opts assembly options
-   * @returns {Promise}
+   * @param opts assembly options
    */
-  createAssembly(opts = {}, arg2) {
+  createAssembly(
+    opts: TransloaditClient.CreateAssemblyOptions = {},
+    arg2?: void
+  ): CreateAssemblyPromise {
     // Warn users of old callback API
     if (typeof arg2 === 'function') {
       throw new TypeError(
@@ -192,7 +220,7 @@ class TransloaditClient {
       )
 
       // Wrap in object structure (so we can know if it's a pathless stream or not)
-      const allStreamsMap = Object.fromEntries(
+      const allStreamsMap = Object.fromEntries<tus.Stream>(
         Object.entries(streamsMap).map(([label, stream]) => [label, { stream }])
       )
 
@@ -208,12 +236,12 @@ class TransloaditClient {
       allStreams.forEach(({ stream }) => stream.pause())
 
       // If any stream emits error, we want to handle this and exit with error
-      const streamErrorPromise = new Promise((resolve, reject) => {
+      const streamErrorPromise = new Promise<TransloaditClient.Assembly>((resolve, reject) => {
         allStreams.forEach(({ stream }) => stream.on('error', reject))
       })
 
       const createAssemblyAndUpload = async () => {
-        const requestOpts = {
+        const requestOpts: RequestOptions = {
           urlSuffix,
           method: 'post',
           timeout,
@@ -227,9 +255,13 @@ class TransloaditClient {
         }
 
         // upload as form multipart or tus?
-        const formUploadStreamsMap = isResumable ? {} : allStreamsMap
+        const formUploadStreamsMap: Record<string, tus.Stream> = isResumable ? {} : allStreamsMap
 
-        const result = await this._remoteJson(requestOpts, formUploadStreamsMap, onUploadProgress)
+        const result = await this._remoteJson<TransloaditClient.Assembly>(
+          requestOpts,
+          formUploadStreamsMap,
+          onUploadProgress
+        )
         checkResult(result)
 
         if (isResumable && Object.keys(allStreamsMap).length > 0) {
@@ -253,7 +285,7 @@ class TransloaditClient {
       }
 
       return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
-    })()
+    })() as CreateAssemblyPromise
 
     // This allows the user to use or log the assemblyId even before it has been created for easier debugging
     promise.assemblyId = effectiveAssemblyId
@@ -261,16 +293,25 @@ class TransloaditClient {
   }
 
   async awaitAssemblyCompletion(
-    assemblyId,
-    { onAssemblyProgress = () => {}, timeout, startTimeMs = getHrTimeMs(), interval = 1000 } = {}
-  ) {
+    assemblyId: string,
+    {
+      onAssemblyProgress = () => {},
+      timeout,
+      startTimeMs = getHrTimeMs(),
+      interval = 1000,
+    }: TransloaditClient.AwaitAssemblyCompletionOptions = {}
+  ): Promise<TransloaditClient.Assembly> {
     assert(assemblyId)
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const result = await this.getAssembly(assemblyId)
 
-      if (!['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'].includes(result.ok)) {
+      if (
+        result.ok !== 'ASSEMBLY_UPLOADING' &&
+        result.ok !== 'ASSEMBLY_EXECUTING' &&
+        result.ok !== 'ASSEMBLY_REPLAYING'
+      ) {
         return result // Done!
       }
 
@@ -291,16 +332,16 @@ class TransloaditClient {
   /**
    * Cancel the assembly
    *
-   * @param {string} assemblyId assembly ID
-   * @returns {Promise} after the assembly is deleted
+   * @param assemblyId assembly ID
+   * @returns after the assembly is deleted
    */
-  async cancelAssembly(assemblyId) {
+  async cancelAssembly(assemblyId: string): Promise<TransloaditClient.Assembly> {
     // You may wonder why do we need to call getAssembly first:
     // If we use the default base URL (instead of the one returned in assembly_url_ssl),
     // the delete call will hang in certain cases
     // See test "should stop the assembly from reaching completion"
     const { assembly_ssl_url: url } = await this.getAssembly(assemblyId)
-    const opts = {
+    const opts: RequestOptions = {
       url,
       // urlSuffix: `/assemblies/${assemblyId}`, // Cannot simply do this, see above
       method: 'delete',
@@ -312,17 +353,20 @@ class TransloaditClient {
   /**
    * Replay an Assembly
    *
-   * @param {string} assemblyId of the assembly to replay
-   * @param {object} optional params
-   * @returns {Promise} after the replay is started
+   * @param assemblyId of the assembly to replay
+   * @param optional params
+   * @returns after the replay is started
    */
-  async replayAssembly(assemblyId, params = {}) {
-    const requestOpts = {
+  async replayAssembly(
+    assemblyId: string,
+    params: TransloaditClient.KeyVal = {}
+  ): Promise<TransloaditClient.ReplayedAssembly> {
+    const requestOpts: RequestOptions = {
       urlSuffix: `/assemblies/${assemblyId}/replay`,
       method: 'post',
     }
     if (Object.keys(params).length > 0) requestOpts.params = params
-    const result = await this._remoteJson(requestOpts)
+    const result = await this._remoteJson<TransloaditClient.ReplayedAssembly>(requestOpts)
     checkResult(result)
     return result
   }
@@ -330,12 +374,15 @@ class TransloaditClient {
   /**
    * Replay an Assembly notification
    *
-   * @param {string} assemblyId of the assembly whose notification to replay
-   * @param {object} optional params
-   * @returns {Promise} after the replay is started
+   * @param assemblyId of the assembly whose notification to replay
+   * @param optional params
+   * @returns after the replay is started
    */
-  async replayAssemblyNotification(assemblyId, params = {}) {
-    const requestOpts = {
+  async replayAssemblyNotification(
+    assemblyId: string,
+    params: TransloaditClient.KeyVal = {}
+  ): Promise<{ ok: string; success: boolean }> {
+    const requestOpts: RequestOptions = {
       urlSuffix: `/assembly_notifications/${assemblyId}/replay`,
       method: 'post',
     }
@@ -346,11 +393,13 @@ class TransloaditClient {
   /**
    * List all assembly notifications
    *
-   * @param {object} params optional request options
-   * @returns {Promise} the list of Assembly notifications
+   * @param params optional request options
+   * @returns the list of Assembly notifications
    */
-  async listAssemblyNotifications(params) {
-    const requestOpts = {
+  async listAssemblyNotifications(
+    params: object
+  ): Promise<TransloaditClient.PaginationList<object>> {
+    const requestOpts: RequestOptions = {
       urlSuffix: '/assembly_notifications',
       method: 'get',
       params: params || {},
@@ -359,18 +408,20 @@ class TransloaditClient {
     return this._remoteJson(requestOpts)
   }
 
-  streamAssemblyNotifications(params) {
+  streamAssemblyNotifications(params: object): PaginationStream<object> {
     return new PaginationStream(async (page) => this.listAssemblyNotifications({ ...params, page }))
   }
 
   /**
    * List all assemblies
    *
-   * @param {object} params optional request options
-   * @returns {Promise} list of Assemblies
+   * @param params optional request options
+   * @returns list of Assemblies
    */
-  async listAssemblies(params) {
-    const requestOpts = {
+  async listAssemblies(
+    params?: TransloaditClient.KeyVal
+  ): Promise<TransloaditClient.PaginationList<TransloaditClient.ListedAssembly>> {
+    const requestOpts: RequestOptions = {
       urlSuffix: '/assemblies',
       method: 'get',
       params: params || {},
@@ -379,18 +430,20 @@ class TransloaditClient {
     return this._remoteJson(requestOpts)
   }
 
-  streamAssemblies(params) {
+  streamAssemblies(params: TransloaditClient.KeyVal): Readable {
     return new PaginationStream(async (page) => this.listAssemblies({ ...params, page }))
   }
 
   /**
    * Get an Assembly
    *
-   * @param {string} assemblyId the Assembly Id
-   * @returns {Promise} the retrieved Assembly
+   * @param assemblyId the Assembly Id
+   * @returns the retrieved Assembly
    */
-  async getAssembly(assemblyId) {
-    const result = await this._remoteJson({ urlSuffix: `/assemblies/${assemblyId}` })
+  async getAssembly(assemblyId: string): Promise<TransloaditClient.Assembly> {
+    const result = await this._remoteJson<TransloaditClient.Assembly>({
+      urlSuffix: `/assemblies/${assemblyId}`,
+    })
     checkAssemblyUrls(result)
     return result
   }
@@ -398,11 +451,11 @@ class TransloaditClient {
   /**
    * Create a Credential
    *
-   * @param {object} params optional request options
-   * @returns {Promise} when the Credential is created
+   * @param params optional request options
+   * @returns when the Credential is created
    */
-  async createTemplateCredential(params) {
-    const requestOpts = {
+  async createTemplateCredential(params: object): Promise<any> {
+    const requestOpts: RequestOptions = {
       urlSuffix: '/template_credentials',
       method: 'post',
       params: params || {},
@@ -414,12 +467,12 @@ class TransloaditClient {
   /**
    * Edit a Credential
    *
-   * @param {string} credentialId the Credential ID
-   * @param {object} params optional request options
-   * @returns {Promise} when the Credential is edited
+   * @param credentialId the Credential ID
+   * @param params optional request options
+   * @returns when the Credential is edited
    */
-  async editTemplateCredential(credentialId, params) {
-    const requestOpts = {
+  async editTemplateCredential(credentialId: string, params: object): Promise<any> {
+    const requestOpts: RequestOptions = {
       urlSuffix: `/template_credentials/${credentialId}`,
       method: 'put',
       params: params || {},
@@ -431,11 +484,11 @@ class TransloaditClient {
   /**
    * Delete a Credential
    *
-   * @param {string} credentialId the Credential ID
-   * @returns {Promise} when the Credential is deleted
+   * @param credentialId the Credential ID
+   * @returns when the Credential is deleted
    */
-  async deleteTemplateCredential(credentialId) {
-    const requestOpts = {
+  async deleteTemplateCredential(credentialId: string): Promise<any> {
+    const requestOpts: RequestOptions = {
       urlSuffix: `/template_credentials/${credentialId}`,
       method: 'delete',
     }
@@ -446,11 +499,11 @@ class TransloaditClient {
   /**
    * Get a Credential
    *
-   * @param {string} credentialId the Credential ID
-   * @returns {Promise} when the Credential is retrieved
+   * @param credentialId the Credential ID
+   * @returns when the Credential is retrieved
    */
-  async getTemplateCredential(credentialId) {
-    const requestOpts = {
+  async getTemplateCredential(credentialId: string): Promise<any> {
+    const requestOpts: RequestOptions = {
       urlSuffix: `/template_credentials/${credentialId}`,
       method: 'get',
     }
@@ -461,11 +514,11 @@ class TransloaditClient {
   /**
    * List all TemplateCredentials
    *
-   * @param {object} params optional request options
-   * @returns {Promise} the list of templates
+   * @param params optional request options
+   * @returns the list of templates
    */
-  async listTemplateCredentials(params) {
-    const requestOpts = {
+  async listTemplateCredentials(params?: object): Promise<any> {
+    const requestOpts: RequestOptions = {
       urlSuffix: '/template_credentials',
       method: 'get',
       params: params || {},
@@ -474,18 +527,20 @@ class TransloaditClient {
     return this._remoteJson(requestOpts)
   }
 
-  streamTemplateCredentials(params) {
+  streamTemplateCredentials(params: object): PaginationStream<any> {
     return new PaginationStream(async (page) => this.listTemplateCredentials({ ...params, page }))
   }
 
   /**
    * Create an Assembly Template
    *
-   * @param {object} params optional request options
-   * @returns {Promise} when the template is created
+   * @param params optional request options
+   * @returns when the template is created
    */
-  async createTemplate(params) {
-    const requestOpts = {
+  async createTemplate(
+    params: TransloaditClient.KeyVal = {}
+  ): Promise<TransloaditClient.TemplateResponse> {
+    const requestOpts: RequestOptions = {
       urlSuffix: '/templates',
       method: 'post',
       params: params || {},
@@ -497,12 +552,15 @@ class TransloaditClient {
   /**
    * Edit an Assembly Template
    *
-   * @param {string} templateId the template ID
-   * @param {object} params optional request options
-   * @returns {Promise} when the template is edited
+   * @param templateId the template ID
+   * @param params optional request options
+   * @returns when the template is edited
    */
-  async editTemplate(templateId, params) {
-    const requestOpts = {
+  async editTemplate(
+    templateId: string,
+    params: TransloaditClient.KeyVal
+  ): Promise<TransloaditClient.TemplateResponse> {
+    const requestOpts: RequestOptions = {
       urlSuffix: `/templates/${templateId}`,
       method: 'put',
       params: params || {},
@@ -514,11 +572,11 @@ class TransloaditClient {
   /**
    * Delete an Assembly Template
    *
-   * @param {string} templateId the template ID
-   * @returns {Promise} when the template is deleted
+   * @param templateId the template ID
+   * @returns when the template is deleted
    */
-  async deleteTemplate(templateId) {
-    const requestOpts = {
+  async deleteTemplate(templateId: string): Promise<{ ok: string; message: string }> {
+    const requestOpts: RequestOptions = {
       urlSuffix: `/templates/${templateId}`,
       method: 'delete',
     }
@@ -529,11 +587,11 @@ class TransloaditClient {
   /**
    * Get an Assembly Template
    *
-   * @param {string} templateId the template ID
-   * @returns {Promise} when the template is retrieved
+   * @param templateId the template ID
+   * @returns when the template is retrieved
    */
-  async getTemplate(templateId) {
-    const requestOpts = {
+  async getTemplate(templateId: string): Promise<TransloaditClient.TemplateResponse> {
+    const requestOpts: RequestOptions = {
       urlSuffix: `/templates/${templateId}`,
       method: 'get',
     }
@@ -544,11 +602,13 @@ class TransloaditClient {
   /**
    * List all Assembly Templates
    *
-   * @param {object} params optional request options
-   * @returns {Promise} the list of templates
+   * @param params optional request options
+   * @returns the list of templates
    */
-  async listTemplates(params) {
-    const requestOpts = {
+  async listTemplates(
+    params?: TransloaditClient.KeyVal
+  ): Promise<TransloaditClient.PaginationList<TransloaditClient.ListedTemplate>> {
+    const requestOpts: RequestOptions = {
       urlSuffix: '/templates',
       method: 'get',
       params: params || {},
@@ -557,19 +617,22 @@ class TransloaditClient {
     return this._remoteJson(requestOpts)
   }
 
-  streamTemplates(params) {
+  streamTemplates(
+    params?: TransloaditClient.KeyVal
+  ): PaginationStream<TransloaditClient.ListedTemplate> {
     return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
   }
 
   /**
    * Get account Billing details for a specific month
    *
-   * @param {string} month the date for the required billing in the format yyyy-mm
-   * @returns {Promise} with billing data
+   * @param month the date for the required billing in the format yyyy-mm
+   * @returns with billing data
+   * @see https://transloadit.com/docs/api/bill-date-get/
    */
-  async getBill(month) {
+  async getBill(month: string): Promise<TransloaditClient.KeyVal> {
     assert(month, 'month is required')
-    const requestOpts = {
+    const requestOpts: RequestOptions = {
       urlSuffix: `/bill/${month}`,
       method: 'get',
     }
@@ -577,14 +640,14 @@ class TransloaditClient {
     return this._remoteJson(requestOpts)
   }
 
-  calcSignature(params) {
+  calcSignature(params: TransloaditClient.KeyVal): { signature: string; params: string } {
     const jsonParams = this._prepareParams(params)
     const signature = this._calcSignature(jsonParams)
 
     return { signature, params: jsonParams }
   }
 
-  _calcSignature(toSign, algorithm = 'sha384') {
+  private _calcSignature(toSign: string, algorithm = 'sha384'): string {
     return `${algorithm}:${crypto
       .createHmac(algorithm, this._authSecret)
       .update(Buffer.from(toSign, 'utf-8'))
@@ -593,7 +656,12 @@ class TransloaditClient {
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including
   // the streams, the signed params, and any additional fields.
-  _appendForm(form, params, streamsMap, fields) {
+  private _appendForm(
+    form: FormData,
+    params: TransloaditClient.KeyVal,
+    streamsMap?: Record<string, tus.Stream>,
+    fields?: Record<string, string | number>
+  ): void {
     const sigData = this.calcSignature(params)
     const jsonParams = sigData.params
     const { signature } = sigData
@@ -618,7 +686,7 @@ class TransloaditClient {
 
   // Implements HTTP GET query params, handling the case where the url already
   // has params.
-  _appendParamsToUrl(url, params) {
+  private _appendParamsToUrl(url: string, params: TransloaditClient.KeyVal): string {
     const { signature, params: jsonParams } = this.calcSignature(params)
 
     const prefix = url.indexOf('?') === -1 ? '?' : '&'
@@ -627,7 +695,7 @@ class TransloaditClient {
   }
 
   // Responsible for including auth parameters in all requests
-  _prepareParams(paramsIn) {
+  private _prepareParams(paramsIn: TransloaditClient.KeyVal): string {
     let params = paramsIn
     if (params == null) {
       params = {}
@@ -647,7 +715,7 @@ class TransloaditClient {
 
   // We want to mock this method
   // eslint-disable-next-line class-methods-use-this
-  _getExpiresDate() {
+  private _getExpiresDate(): string {
     const expiresDate = new Date()
     expiresDate.setDate(expiresDate.getDate() + 1)
     return expiresDate.toISOString()
@@ -656,7 +724,11 @@ class TransloaditClient {
   // Responsible for making API calls. Automatically sends streams with any POST,
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
-  async _remoteJson(opts, streamsMap, onProgress = () => {}) {
+  private async _remoteJson<T>(
+    opts: RequestOptions,
+    streamsMap?: Record<string, tus.Stream>,
+    onProgress: TransloaditClient.CreateAssemblyOptions['onUploadProgress'] = () => {}
+  ): Promise<T> {
     const {
       urlSuffix,
       url: urlInput,
@@ -689,7 +761,7 @@ class TransloaditClient {
 
       const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
 
-      const requestOpts = {
+      const requestOpts: got.OptionsOfJSONResponseBody = {
         retry: this._gotRetry,
         body: form,
         timeout,
@@ -704,10 +776,10 @@ class TransloaditClient {
       // For non-file streams transfer encoding does not get set, and the uploaded files will not get accepted
       // https://github.com/transloadit/node-sdk/issues/86
       // https://github.com/form-data/form-data/issues/394#issuecomment-573595015
-      if (isUploadingStreams) requestOpts.headers['transfer-encoding'] = 'chunked'
+      if (isUploadingStreams) requestOpts.headers!['transfer-encoding'] = 'chunked'
 
       try {
-        const request = got[method](url, requestOpts)
+        const request = got.default[method]<T>(url, requestOpts)
         if (isUploadingStreams) {
           request.on('uploadProgress', ({ transferred, total }) =>
             onProgress({ uploadedBytes: transferred, totalBytes: total })
@@ -723,15 +795,21 @@ class TransloaditClient {
 
         const shouldRetry =
           statusCode === 413 &&
+          typeof body === 'object' &&
+          body != null &&
+          'error' in body &&
           body.error === 'RATE_LIMIT_REACHED' &&
-          body.info &&
-          body.info.retryIn &&
+          'info' in body &&
+          typeof body.info === 'object' &&
+          body.info != null &&
+          'retryIn' in body.info &&
+          Boolean(body.info.retryIn) &&
           retryCount < this._maxRetries
 
         // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
         if (!shouldRetry) throw decorateHttpError(err, body)
 
-        const { retryIn: retryInSec } = body.info
+        const { retryIn: retryInSec } = body.info as { retryIn: number }
         logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
         const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
         await new Promise((resolve) => setTimeout(resolve, retryInMs))
@@ -741,4 +819,174 @@ class TransloaditClient {
   }
 }
 
-module.exports = TransloaditClient
+namespace TransloaditClient {
+  export interface CreateAssemblyOptions {
+    params?: CreateAssemblyParams
+    files?: {
+      [name: string]: string
+    }
+    uploads?: {
+      [name: string]: Readable | intoStream.Input
+    }
+    waitForCompletion?: boolean
+    isResumable?: boolean
+    chunkSize?: number
+    uploadConcurrency?: number
+    timeout?: number
+    onUploadProgress?: (uploadProgress: UploadProgress) => void
+    onAssemblyProgress?: AssemblyProgress
+    assemblyId?: string
+  }
+
+  export type AssemblyProgress = (assembly: Assembly) => void
+
+  export interface CreateAssemblyParams {
+    /** See https://transloadit.com/docs/topics/assembly-instructions/ */
+    steps?: KeyVal
+    template_id?: string
+    notify_url?: string
+    fields?: KeyVal
+    allow_steps_override?: boolean
+  }
+
+  // TODO
+  /** Object with properties. See https://transloadit.com/docs/api/ */
+  export interface KeyVal {
+    [key: string]: any
+  }
+
+  export interface UploadProgress {
+    uploadedBytes?: number
+    totalBytes?: number
+  }
+
+  /** https://transloadit.com/docs/api/assembly-status-response/#explanation-of-fields */
+  export interface Assembly {
+    ok?: string
+    message?: string
+    assembly_id: string
+    parent_id?: string
+    account_id: string
+    template_id?: string
+    instance: string
+    assembly_url: string
+    assembly_ssl_url: string
+    uppyserver_url: string
+    companion_url: string
+    websocket_url: string
+    tus_url: string
+    bytes_received: number
+    bytes_expected: number
+    upload_duration: number
+    client_agent?: string
+    client_ip?: string
+    client_referer?: string
+    transloadit_client: string
+    start_date: string
+    upload_meta_data_extracted: boolean
+    warnings: any[]
+    is_infinite: boolean
+    has_dupe_jobs: boolean
+    execution_start: string
+    execution_duration: number
+    queue_duration: number
+    jobs_queue_duration: number
+    notify_start?: any
+    notify_url?: string
+    notify_status?: any
+    notify_response_code?: any
+    notify_duration?: any
+    last_job_completed?: string
+    fields: KeyVal
+    running_jobs: any[]
+    bytes_usage: number
+    executing_jobs: any[]
+    started_jobs: string[]
+    parent_assembly_status: any
+    params: string
+    template?: any
+    merged_params: string
+    uploads: any[]
+    results: any
+    build_id: string
+    error?: string
+    stderr?: string
+    stdout?: string
+    reason?: string
+  }
+
+  /** See https://transloadit.com/docs/api/assemblies-assembly-id-get/ */
+  export interface ListedAssembly {
+    id?: string
+    parent_id?: string
+    account_id: string
+    template_id?: string
+    instance: string
+    notify_url?: string
+    redirect_url?: string
+    files: string
+    warning_count: number
+    execution_duration: number
+    execution_start: string
+    ok?: string
+    error?: string
+    created: string
+  }
+
+  export interface ReplayedAssembly {
+    ok?: string
+    message?: string
+    success: boolean
+    assembly_id: string
+    assembly_url: string
+    assembly_ssl_url: string
+    notify_url?: string
+  }
+
+  export interface ListedTemplate {
+    id: string
+    name: string
+    encryption_version: number
+    require_signature_auth: number
+    last_used?: string
+    created: string
+    modified: string
+    content: TemplateContent
+  }
+
+  export interface TemplateResponse {
+    ok: string
+    message: string
+    id: string
+    content: TemplateContent
+    name: string
+    require_signature_auth: number
+  }
+
+  export interface TemplateContent {
+    steps: KeyVal
+  }
+
+  export interface TransloaditClientOptions {
+    authKey: string
+    authSecret: string
+    endpoint?: string
+    maxRetries?: number
+    timeout?: number
+    gotRetry?: got.RequiredRetryOptions
+  }
+
+  export interface AwaitAssemblyCompletionOptions {
+    onAssemblyProgress?: AssemblyProgress
+    timeout?: number
+    interval?: number
+    startTimeMs?: number
+  }
+
+  export interface PaginationList<T> {
+    count: number
+    items: T[]
+  }
+}
+
+export = TransloaditClient
