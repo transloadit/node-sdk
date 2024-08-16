@@ -16,7 +16,10 @@ jobs:
       # Integration tests are not yet ready to run in parallel
       max-parallel: 1
       matrix:
-        node: ['16', '18', '20']
+        node:
+          - 18
+          - 20
+          - 22
 
     steps:
       - uses: actions/checkout@v3
