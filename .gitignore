@@ -13,3 +13,4 @@ env.sh
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+.aider*
