@@ -125,7 +125,7 @@ beforeAll(async () => {
       debug('Invalid path match', req.url)
     }
   })
-})
+}, 100000)
 
 afterAll(async () => {
   await testServer?.close()
@@ -147,7 +147,7 @@ async function createVirtualTestServer(handler) {
   }
 }
 
-describe('API integration', () => {
+describe('API integration', { timeout: 30000 }, () => {
   describe('assembly creation', () => {
     it('should create a retrievable assembly on the server', async () => {
       const client = createClient()
@@ -522,30 +522,32 @@ describe('API integration', () => {
       )
     })
 
-    it('should be able to handle pagination with a stream', (done) => {
+    it('should be able to handle pagination with a stream', async () => {
       const client = createClient()
       const assemblies = client.streamAssemblies({ pagesize: 2 })
       let n = 0
       let isDone = false
 
-      assemblies.on('readable', () => {
-        const assembly = assemblies.read()
+      await new Promise((resolve) => {
+        assemblies.on('readable', () => {
+          const assembly = assemblies.read()
 
-        if (isDone) return
+          if (isDone) return
 
-        if (assembly == null) {
-          done()
-          return
-        }
+          if (assembly == null) {
+            resolve()
+            return
+          }
 
-        if (n === 5) {
-          isDone = true
-          done()
-          return
-        }
+          if (n === 5) {
+            isDone = true
+            resolve()
+            return
+          }
 
-        expect(assembly).toHaveProperty('id')
-        n++
+          expect(assembly).toHaveProperty('id')
+          n++
+        })
       })
     })
   })
