@@ -15,7 +15,7 @@ const uuid = require('uuid')
 const InconsistentResponseError = require('./InconsistentResponseError')
 const PaginationStream = require('./PaginationStream')
 const { version } = require('../package.json')
-const { sendTusRequest } = require('./tus')
+const tus = require('./tus')
 
 function decorateHttpError(err, body) {
   if (!body) return err
@@ -216,7 +216,7 @@ class TransloaditClient {
         checkResult(result)
 
         if (isResumable && Object.keys(allStreamsMap).length > 0) {
-          await sendTusRequest({
+          await tus.sendTusRequest({
             streamsMap: allStreamsMap,
             assembly: result,
             onProgress: onUploadProgress,
