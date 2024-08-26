@@ -25,8 +25,10 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: corepack yarn
-      - run: curl -fsSLo cloudflared-linux-amd64 https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-      - run: chmod +x cloudflared-linux-amd64
+      - name: Download cloudflared
+        run: |
+          curl -fsSLo cloudflared-linux-amd64 https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared-linux-amd64
       # can be used for debugging:
       # - uses: mxschmitt/action-tmate@v3
       - run: corepack yarn vitest run --coverage
@@ -37,8 +39,10 @@ jobs:
           CLOUDFLARED_PATH: ./cloudflared-linux-amd64
           DEBUG: 'transloadit:*'
       - run: node test/generate-coverage-badge.js coverage/coverage-summary.json
-      - run: mv coverage/lcov-report static-build
-      - run: mv coverage-badge.svg static-build/
+      - name: Move HTML report and badge to the correct location
+        run: |
+          mv coverage/lcov-report static-build
+          mv coverage-badge.svg static-build/
       # *** BEGIN PUBLISH STATIC SITE STEPS ***
       # Use the standard checkout action to check out the destination repo to a separate directory
       # See https://github.com/mifi/github-action-push-static
