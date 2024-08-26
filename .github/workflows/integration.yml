@@ -29,8 +29,11 @@ jobs:
         run: |
           curl -fsSLo cloudflared-linux-amd64 https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
           chmod +x cloudflared-linux-amd64
+
       # can be used for debugging:
-      # - uses: mxschmitt/action-tmate@v3
+      #      - name: Setup tmate session
+      #        uses: mxschmitt/action-tmate@v3
+
       - run: corepack yarn vitest run --coverage
         env:
           TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
@@ -38,7 +41,9 @@ jobs:
           NODE_OPTIONS: --trace-deprecation --trace-warnings
           CLOUDFLARED_PATH: ./cloudflared-linux-amd64
           DEBUG: 'transloadit:*'
-      - run: node test/generate-coverage-badge.js coverage/coverage-summary.json
+
+      - name: Generate the badge from the json-summary
+        run: node test/generate-coverage-badge.js coverage/coverage-summary.json
       - name: Move HTML report and badge to the correct location
         run: |
           mv coverage/lcov-report static-build
