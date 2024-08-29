@@ -1,3 +1,4 @@
+const crypto = require('crypto')
 const querystring = require('querystring')
 const temp = require('temp')
 const fs = require('fs')
@@ -5,7 +6,6 @@ const nodePath = require('path')
 const nodeStream = require('stream/promises')
 const got = require('got')
 const intoStream = require('into-stream')
-const uuid = require('uuid')
 const debug = require('debug')
 
 const log = debug('transloadit:live-api')
@@ -129,7 +129,7 @@ afterAll(async () => {
 })
 
 async function createVirtualTestServer(handler) {
-  const id = uuid.v4()
+  const id = crypto.randomUUID()
   log('Adding virtual server handler', id)
   const url = `${testServer.url}/${id}`
   handlers.set(id, handler)
@@ -296,7 +296,7 @@ describe('API integration', { timeout: 30000 }, () => {
     it('should allow setting an explicit assemblyId on createAssembly', async () => {
       const client = createClient()
 
-      const assemblyId = uuid.v4().replace(/-/g, '')
+      const assemblyId = crypto.randomUUID().replace(/-/g, '')
       const params = {
         assemblyId,
         waitForCompletion: true,
