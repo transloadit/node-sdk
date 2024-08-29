@@ -273,7 +273,7 @@ describe('API integration', { timeout: 30000 }, () => {
         original_md5hash: '1b199e02dd833b2278ce2a0e75480b14',
       })
       // Because order is not same as input
-      const uploadsKeyed = Object.fromEntries(result.uploads, (upload) => [upload.name, upload])
+      const uploadsKeyed = Object.fromEntries(result.uploads.map((upload) => [upload.name, upload]))
       expect(uploadsKeyed.file1).toMatchObject(getMatchObject({ name: 'file1' }))
       expect(uploadsKeyed.file2).toMatchObject(getMatchObject({ name: 'file2' }))
       expect(uploadsKeyed.file3).toMatchObject(getMatchObject({ name: 'file3' }))
