@@ -1,4 +1,5 @@
 node_modules
+cloudflared*
 credentials.js
 sample.js
 
