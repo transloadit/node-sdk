@@ -1,6 +1,6 @@
+const crypto = require('crypto')
 const got = require('got')
 const FormData = require('form-data')
-const crypto = require('crypto')
 const fs = require('fs')
 const fsPromises = require('fs/promises')
 const debug = require('debug')
@@ -8,7 +8,6 @@ const intoStream = require('into-stream')
 const isStream = require('is-stream')
 const assert = require('assert')
 const pMap = require('p-map')
-const uuid = require('uuid')
 
 const InconsistentResponseError = require('./InconsistentResponseError')
 const PaginationStream = require('./PaginationStream')
@@ -167,7 +166,7 @@ class TransloaditClient {
     if (assemblyId != null) {
       effectiveAssemblyId = assemblyId
     } else {
-      effectiveAssemblyId = uuid.v4().replace(/-/g, '')
+      effectiveAssemblyId = crypto.randomUUID().replace(/-/g, '')
     }
     const urlSuffix = `/assemblies/${effectiveAssemblyId}`
 
