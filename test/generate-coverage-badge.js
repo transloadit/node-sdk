@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const fs = require('fs').promises
+const fs = require('fs/promises')
 const { makeBadge } = require('badge-maker')
 
 // eslint-disable-next-line import/newline-after-import

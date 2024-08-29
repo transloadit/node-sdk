@@ -1,9 +1,10 @@
-const log = require('debug')('transloadit')
-const sumBy = require('lodash/sumBy')
-const { basename } = require('path')
+const debug = require('debug')
+const nodePath = require('path')
 const tus = require('tus-js-client')
-const { stat: fsStat } = require('fs').promises
+const fsPromises = require('fs/promises')
 const pMap = require('p-map')
+
+const log = debug('transloadit')
 
 async function sendTusRequest({
   streamsMap,
@@ -28,7 +29,7 @@ async function sendTusRequest({
       const { path } = streamsMap[label]
 
       if (path) {
-        const { size } = await fsStat(path)
+        const { size } = await fsPromises.stat(path)
         sizes[label] = size
         totalBytes += size
       }
@@ -58,7 +59,10 @@ async function sendTusRequest({
       uploadProgresses[label] = bytesUploaded
 
       // get all uploaded bytes for all files
-      const uploadedBytes = sumBy(streamLabels, (l) => uploadProgresses[l])
+      let uploadedBytes = 0
+      for (const l of streamLabels) {
+        uploadedBytes += uploadProgresses[l]
+      }
 
       // don't send redundant progress
       if (lastEmittedProgress < uploadedBytes) {
@@ -72,7 +76,7 @@ async function sendTusRequest({
       }
     }
 
-    const filename = path ? basename(path) : label
+    const filename = path ? nodePath.basename(path) : label
 
     await new Promise((resolve, reject) => {
       const tusOptions = {

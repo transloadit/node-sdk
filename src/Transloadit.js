@@ -1,11 +1,9 @@
 const got = require('got')
 const FormData = require('form-data')
 const crypto = require('crypto')
-const fromPairs = require('lodash/fromPairs')
 const fs = require('fs')
-const { access } = require('fs').promises
-const log = require('debug')('transloadit')
-const logWarn = require('debug')('transloadit:warn')
+const fsPromises = require('fs/promises')
+const debug = require('debug')
 const intoStream = require('into-stream')
 const isStream = require('is-stream')
 const assert = require('assert')
@@ -14,8 +12,11 @@ const uuid = require('uuid')
 
 const InconsistentResponseError = require('./InconsistentResponseError')
 const PaginationStream = require('./PaginationStream')
-const { version } = require('../package.json')
+const pkg = require('../package.json')
 const tus = require('./tus')
+
+const log = debug('transloadit')
+const logWarn = debug('transloadit:warn')
 
 function decorateHttpError(err, body) {
   if (!body) return err
@@ -70,6 +71,24 @@ function checkResult(result) {
 }
 
 class TransloaditClient {
+  // See https://github.com/sindresorhus/got#errors
+  // Expose relevant errors
+  static RequestError = got.RequestError
+
+  static ReadError = got.ReadError
+
+  static ParseError = got.ParseError
+
+  static UploadError = got.UploadError
+
+  static HTTPError = got.HTTPError
+
+  static MaxRedirectsError = got.MaxRedirectsError
+
+  static TimeoutError = got.TimeoutError
+
+  static InconsistentResponseError = InconsistentResponseError
+
   constructor(opts = {}) {
     if (opts.authKey == null) {
       throw new Error('Please provide an authKey')
@@ -156,13 +175,15 @@ class TransloaditClient {
     const promise = (async () => {
       this._lastUsedAssemblyUrl = `${this._endpoint}${urlSuffix}`
 
-      // eslint-disable-next-line no-bitwise
-      await pMap(Object.entries(files), async ([, path]) => access(path, fs.F_OK | fs.R_OK), {
-        concurrency: 5,
-      })
+      await pMap(
+        Object.entries(files),
+        // eslint-disable-next-line no-bitwise
+        async ([, path]) => fsPromises.access(path, fs.constants.F_OK | fs.constants.R_OK),
+        { concurrency: 5 }
+      )
 
       // Convert uploads to streams
-      const streamsMap = fromPairs(
+      const streamsMap = Object.fromEntries(
         Object.entries(uploads).map(([label, value]) => {
           const isReadable = isStream.readable(value)
           if (!isReadable && isStream(value)) {
@@ -175,7 +196,7 @@ class TransloaditClient {
       )
 
       // Wrap in object structure (so we can know if it's a pathless stream or not)
-      const allStreamsMap = fromPairs(
+      const allStreamsMap = Object.fromEntries(
         Object.entries(streamsMap).map(([label, stream]) => [label, { stream }])
       )
 
@@ -679,7 +700,7 @@ class TransloaditClient {
         body: form,
         timeout,
         headers: {
-          'Transloadit-Client': `node-sdk:${version}`,
+          'Transloadit-Client': `node-sdk:${pkg.version}`,
           'User-Agent': undefined, // Remove got's user-agent
           ...headers,
         },
@@ -725,17 +746,5 @@ class TransloaditClient {
     }
   }
 }
-
-// See https://github.com/sindresorhus/got#errors
-// Expose relevant errors
-TransloaditClient.RequestError = got.RequestError
-TransloaditClient.ReadError = got.ReadError
-TransloaditClient.ParseError = got.ParseError
-TransloaditClient.UploadError = got.UploadError
-TransloaditClient.HTTPError = got.HTTPError
-TransloaditClient.MaxRedirectsError = got.MaxRedirectsError
-TransloaditClient.TimeoutError = got.TimeoutError
-
-TransloaditClient.InconsistentResponseError = InconsistentResponseError
 
 module.exports = TransloaditClient

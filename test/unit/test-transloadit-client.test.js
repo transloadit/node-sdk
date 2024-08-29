@@ -1,10 +1,10 @@
-const { Readable: ReadableStream } = require('stream')
+const stream = require('stream')
 const FormData = require('form-data')
 const got = require('got')
 
 const tus = require('../../src/tus')
 const Transloadit = require('../../src/Transloadit')
-const packageVersion = require('../../package.json').version
+const pkg = require('../../package.json')
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
 const mockGetExpiresDate = (client) =>
@@ -108,8 +108,8 @@ describe('Transloadit', () => {
     it('should append all required fields to the request form', () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
-      const stream1 = new ReadableStream()
-      const stream2 = new ReadableStream()
+      const stream1 = new stream.Readable()
+      const stream2 = new stream.Readable()
 
       const streamsMap = {
         stream1: { stream: stream1 },
@@ -280,7 +280,7 @@ describe('Transloadit', () => {
 
       expect(get).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ headers: { 'Transloadit-Client': `node-sdk:${packageVersion}` } })
+        expect.objectContaining({ headers: { 'Transloadit-Client': `node-sdk:${pkg.version}` } })
       )
     })
   })

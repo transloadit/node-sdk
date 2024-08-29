@@ -1,6 +1,8 @@
 const http = require('http')
 const got = require('got')
-const debug = require('debug')('transloadit:testserver')
+const debug = require('debug')
+
+const log = debug('transloadit:testserver')
 
 const createTunnel = require('./tunnel')
 
@@ -13,7 +15,7 @@ async function createHttpServer(handler) {
     // Find a free port to use
     function tryListen() {
       server.listen(port, '127.0.0.1', () => {
-        debug(`server listening on port ${port}`)
+        log(`server listening on port ${port}`)
         resolve({ server, port })
       })
     }
@@ -45,7 +47,7 @@ async function createTestServer(onRequest) {
   let tunnel
 
   const handleHttpRequest = (req, res) => {
-    debug('HTTP request handler', req.method, req.url)
+    log('HTTP request handler', req.method, req.url)
 
     if (!initialized) {
       if (req.url !== expectedPath) throw new Error(`Unexpected path ${req.url}`)
@@ -62,17 +64,17 @@ async function createTestServer(onRequest) {
   async function close() {
     if (tunnel) await tunnel.close()
     await new Promise((resolve) => server.close(() => resolve()))
-    debug('closed tunnel')
+    log('closed tunnel')
   }
 
   try {
     tunnel = createTunnel({ cloudFlaredPath: process.env.CLOUDFLARED_PATH, port })
 
-    debug('waiting for tunnel to be created')
+    log('waiting for tunnel to be created')
     const tunnelPublicUrl = await tunnel.urlPromise
-    debug('tunnel created', tunnelPublicUrl)
+    log('tunnel created', tunnelPublicUrl)
 
-    debug('Waiting for tunnel to allow requests to pass through')
+    log('Waiting for tunnel to allow requests to pass through')
 
     // eslint-disable-next-line no-inner-declarations
     async function sendTunnelRequest() {
@@ -100,7 +102,7 @@ async function createTestServer(onRequest) {
       sendTunnelRequest(),
     ])
 
-    debug('Tunnel ready', tunnelPublicUrl)
+    log('Tunnel ready', tunnelPublicUrl)
 
     return {
       port,

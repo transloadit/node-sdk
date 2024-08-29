@@ -1,5 +1,4 @@
 const { Writable } = require('stream')
-const _ = require('lodash')
 
 const PaginationStream = require('../../src/PaginationStream')
 
@@ -27,10 +26,7 @@ describe('PaginationStream', () => {
     await new Promise((resolve) => {
       stream.pipe(
         toArray((array) => {
-          const expected = _.flatten(
-            Array.from(pages).map(({ items }) => items),
-            true
-          )
+          const expected = pages.flatMap(({ items }) => items)
 
           expect(array).toEqual(expected)
           resolve()
@@ -56,10 +52,7 @@ describe('PaginationStream', () => {
     await new Promise((resolve) => {
       stream.pipe(
         toArray((array) => {
-          const expected = _.flatten(
-            Array.from(pages).map(({ items }) => items),
-            true
-          )
+          const expected = pages.flatMap(({ items }) => items)
 
           expect(array).toEqual(expected)
           resolve()

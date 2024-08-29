@@ -1,17 +1,14 @@
-// https://github.com/axios/axios/issues/2654
-const keyBy = require('lodash/keyBy')
 const querystring = require('querystring')
 const temp = require('temp')
-const { createWriteStream } = require('fs')
-const { join } = require('path')
-const { promisify } = require('util')
-const { pipeline: streamPipeline } = require('stream')
+const fs = require('fs')
+const nodePath = require('path')
+const nodeStream = require('stream/promises')
 const got = require('got')
 const intoStream = require('into-stream')
 const uuid = require('uuid')
-const debug = require('debug')('transloadit:live-api')
+const debug = require('debug')
 
-const pipeline = promisify(streamPipeline)
+const log = debug('transloadit:live-api')
 
 const Transloadit = require('../../src/Transloadit')
 
@@ -19,7 +16,7 @@ const { createTestServer } = require('../testserver')
 
 async function downloadTmpFile(url) {
   const { path } = await temp.open('transloadit')
-  await pipeline(got.stream(url), createWriteStream(path))
+  await nodeStream.pipeline(got.stream(url), fs.createWriteStream(path))
   return path
 }
 
@@ -119,10 +116,10 @@ beforeAll(async () => {
         if (req.url === '') req.url = '/'
         handler(req, res)
       } else {
-        debug('request handler for UUID not found', id)
+        log('request handler for UUID not found', id)
       }
     } else {
-      debug('Invalid path match', req.url)
+      log('Invalid path match', req.url)
     }
   })
 }, 100000)
@@ -133,7 +130,7 @@ afterAll(async () => {
 
 async function createVirtualTestServer(handler) {
   const id = uuid.v4()
-  debug('Adding virtual server handler', id)
+  log('Adding virtual server handler', id)
   const url = `${testServer.url}/${id}`
   handlers.set(id, handler)
 
@@ -275,7 +272,8 @@ describe('API integration', { timeout: 30000 }, () => {
         original_path: '/',
         original_md5hash: '1b199e02dd833b2278ce2a0e75480b14',
       })
-      const uploadsKeyed = keyBy(result.uploads, 'name') // Because order is not same as input
+      // Because order is not same as input
+      const uploadsKeyed = Object.fromEntries(result.uploads, (upload) => [upload.name, upload])
       expect(uploadsKeyed.file1).toMatchObject(getMatchObject({ name: 'file1' }))
       expect(uploadsKeyed.file2).toMatchObject(getMatchObject({ name: 'file2' }))
       expect(uploadsKeyed.file3).toMatchObject(getMatchObject({ name: 'file3' }))
@@ -390,7 +388,7 @@ describe('API integration', { timeout: 30000 }, () => {
           },
         },
         files: {
-          file: join(__dirname, './fixtures/zerobytes.jpg'),
+          file: nodePath.join(__dirname, './fixtures/zerobytes.jpg'),
         },
         waitForCompletion: true,
       }
