@@ -11,6 +11,8 @@ const pMap = require('p-map')
 
 const InconsistentResponseError = require('./InconsistentResponseError')
 const PaginationStream = require('./PaginationStream')
+const PollingTimeoutError = require('./PollingTimeoutError')
+const TransloaditError = require('./TransloaditError')
 const pkg = require('../package.json')
 const tus = require('./tus')
 
@@ -60,12 +62,7 @@ function checkResult(result) {
   // In case server returned a successful HTTP status code, but an `error` in the JSON object
   // This happens sometimes when createAssembly with an invalid file (IMPORT_FILE_ERROR)
   if (typeof result === 'object' && result !== null && typeof result.error === 'string') {
-    const err = new Error('Error in response')
-    // Mimic got HTTPError structure
-    err.response = {
-      body: result,
-    }
-    throw decorateHttpError(err, result)
+    throw decorateHttpError(new TransloaditError('Error in response', result), result)
   }
 }
 
@@ -285,9 +282,7 @@ class TransloaditClient {
 
       const nowMs = getHrTimeMs()
       if (timeout != null && nowMs - startTimeMs >= timeout) {
-        const err = new Error('Polling timed out')
-        err.code = 'POLLING_TIMED_OUT'
-        throw err
+        throw new PollingTimeoutError('Polling timed out')
       }
       await new Promise((resolve) => setTimeout(resolve, interval))
     }

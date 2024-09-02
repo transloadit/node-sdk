@@ -1,8 +1,5 @@
 class InconsistentResponseError extends Error {
-  constructor(message) {
-    super(message)
-    this.name = 'InconsistentResponseError'
-  }
+  name = 'InconsistentResponseError'
 }
 
 module.exports = InconsistentResponseError
