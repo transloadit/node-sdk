@@ -9,6 +9,6 @@
     "resolveJsonModule": true,
     "rootDir": "src",
     "sourceMap": true,
-    "strict": true,
+    "strict": true
   }
 }
