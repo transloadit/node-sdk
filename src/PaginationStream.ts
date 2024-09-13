@@ -1,9 +1,9 @@
-import stream = require('stream')
-import type { PaginationList } from './Transloadit'
+import { Readable } from 'stream'
+import { PaginationList } from './Transloadit'
 
 type FetchPage<T> = (pageno: number) => PaginationList<T> | PromiseLike<PaginationList<T>>
 
-class PaginationStream<T> extends stream.Readable {
+export class PaginationStream<T> extends Readable {
   private _fetchPage: FetchPage<T>
   private _nitems?: number
   private _pageno = 0
@@ -40,5 +40,3 @@ class PaginationStream<T> extends stream.Readable {
     }
   }
 }
-
-export = PaginationStream

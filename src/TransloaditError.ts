@@ -1,4 +1,4 @@
-class TransloaditError extends Error {
+export class TransloaditError extends Error {
   name = 'TransloaditError'
   response: { body: unknown }
   assemblyId?: string
@@ -9,5 +9,3 @@ class TransloaditError extends Error {
     this.response = { body }
   }
 }
-
-export = TransloaditError

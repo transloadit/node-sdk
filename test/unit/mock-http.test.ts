@@ -1,10 +1,16 @@
-import nock = require('nock')
+import nock from 'nock'
 
-import Transloadit = require('../../src/Transloadit.ts')
+import {
+  HTTPError,
+  InconsistentResponseError,
+  TimeoutError,
+  TransloaditClient,
+  TransloaditClientOptions,
+} from '../../src/Transloadit'
 
 const getLocalClient = (
-  opts?: Omit<Transloadit.TransloaditClientOptions, 'authKey' | 'authSecret' | 'endpoint'>
-) => new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
+  opts?: Omit<TransloaditClientOptions, 'authKey' | 'authSecret' | 'endpoint'>
+) => new TransloaditClient({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
 
 const createAssemblyRegex = /\/assemblies\/[0-9a-f]{32}/
 
@@ -15,11 +21,15 @@ describe('Mocked API tests', () => {
   })
 
   it('should time out createAssembly with a custom timeout', async () => {
-    const client = new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost' })
+    const client = new TransloaditClient({
+      authKey: '',
+      authSecret: '',
+      endpoint: 'http://localhost',
+    })
 
     nock('http://localhost').post(createAssemblyRegex).delay(100).reply(200)
 
-    await expect(client.createAssembly({ timeout: 10 })).rejects.toThrow(Transloadit.TimeoutError)
+    await expect(client.createAssembly({ timeout: 10 })).rejects.toThrow(TimeoutError)
   })
 
   it('should time out other requests with a custom timeout', async () => {
@@ -27,7 +37,7 @@ describe('Mocked API tests', () => {
 
     nock('http://localhost').post('/templates').delay(100).reply(200)
 
-    await expect(client.createTemplate()).rejects.toThrow(Transloadit.TimeoutError)
+    await expect(client.createTemplate()).rejects.toThrow(TimeoutError)
   })
 
   it('should time out awaitAssemblyCompletion polling', async () => {
@@ -187,7 +197,7 @@ describe('Mocked API tests', () => {
 
     // Failure
     const promise = client.getAssembly('1')
-    await expect(promise).rejects.toThrow(Transloadit.InconsistentResponseError)
+    await expect(promise).rejects.toThrow(InconsistentResponseError)
     await expect(promise).rejects.toThrow(
       expect.objectContaining({
         message: 'Server returned an incomplete assembly response (no URL)',
@@ -267,7 +277,7 @@ describe('Mocked API tests', () => {
       .query(() => true)
       .reply(404, { error: 'SERVER_404', message: 'unknown method / url' })
 
-    await expect(client.getAssembly('invalid')).rejects.toThrow(Transloadit.HTTPError)
+    await expect(client.getAssembly('invalid')).rejects.toThrow(HTTPError)
     scope.done()
   })
 })

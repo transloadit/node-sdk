@@ -1,13 +1,13 @@
-import stream = require('stream')
+import { Writable } from 'stream'
 
-import PaginationStream = require('../../src/PaginationStream.ts')
+import { PaginationStream } from '../../src/PaginationStream'
 
 const toArray = (callback: (list: number[]) => void) => {
-  const writable = new stream.Writable({ objectMode: true })
+  const writable = new Writable({ objectMode: true })
   const list: number[] = []
   writable.write = (chunk) => {
     list.push(chunk)
-    return false
+    return true
   }
 
   writable.end = () => {

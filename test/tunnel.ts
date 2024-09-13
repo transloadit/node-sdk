@@ -1,8 +1,8 @@
-import execa = require('execa')
-import readline = require('readline')
-import dns = require('dns/promises')
-import debug = require('debug')
-import pRetry = require('p-retry')
+import execa, { ExecaChildProcess } from 'execa'
+import { createInterface } from 'readline'
+import { Resolver } from 'dns/promises'
+import debug from 'debug'
+import pRetry from 'p-retry'
 
 const log = debug('transloadit:cloudflared-tunnel')
 
@@ -13,7 +13,7 @@ interface CreateTunnelParams {
 
 interface StartTunnelResult {
   url: string
-  process: execa.ExecaChildProcess
+  process: ExecaChildProcess
 }
 
 async function startTunnel({
@@ -30,7 +30,7 @@ async function startTunnel({
     return await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Timed out trying to start tunnel')), 30000)
 
-      const rl = readline.createInterface({ input: process.stderr as NodeJS.ReadStream })
+      const rl = createInterface({ input: process.stderr as NodeJS.ReadStream })
 
       process.on('error', (err) => {
         console.error(err)
@@ -86,10 +86,10 @@ async function startTunnel({
   }
 }
 
-function createTunnel({
+export function createTunnel({
   cloudFlaredPath = 'cloudflared',
   port,
-}: CreateTunnelParams): createTunnel.Result {
+}: CreateTunnelParams): CreateTunnelResult {
   let process: execa.ExecaChildProcess | undefined
 
   const urlPromise = (async () => {
@@ -102,7 +102,7 @@ function createTunnel({
     // We need to wait for DNS to be resolvable.
     // If we don't, the operating system's dns cache will be poisoned by the not yet valid resolved entry
     // and it will forever fail for that subdomain name...
-    const resolver = new dns.Resolver()
+    const resolver = new Resolver()
     resolver.setServers(['1.1.1.1']) // use cloudflare's dns server. if we don't explicitly specify DNS server, it will also poison our OS' dns cache
 
     for (let i = 0; i < 10; i += 1) {
@@ -134,12 +134,8 @@ function createTunnel({
   }
 }
 
-namespace createTunnel {
-  export interface Result {
-    process?: execa.ExecaChildProcess
-    urlPromise: Promise<string>
-    close: () => Promise<void>
-  }
+export interface CreateTunnelResult {
+  process?: execa.ExecaChildProcess
+  urlPromise: Promise<string>
+  close: () => Promise<void>
 }
-
-export = createTunnel

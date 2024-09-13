@@ -1,23 +1,22 @@
-import crypto = require('crypto')
-import querystring = require('querystring')
-import temp = require('temp')
-import fs = require('fs')
-import http = require('http')
-import nodePath = require('path')
-import nodeStream = require('stream')
-import got = require('got')
+import * as crypto from 'crypto'
+import { parse } from 'querystring'
+import * as temp from 'temp'
+import { createWriteStream } from 'fs'
+import { IncomingMessage, RequestListener } from 'http'
+import { join } from 'path'
+import { pipeline } from 'stream'
+import got, { RequiredRetryOptions } from 'got'
 import intoStream = require('into-stream')
 import debug = require('debug')
 
+import { CreateAssemblyOptions, TransloaditClient, UploadProgress } from '../../src/Transloadit'
+import { createTestServer, CreateTestServerResult } from '../testserver'
+
 const log = debug('transloadit:live-api')
-
-import Transloadit = require('../../src/Transloadit.ts')
-
-import createTestServer = require('../testserver.ts')
 
 async function downloadTmpFile(url: string) {
   const { path } = await temp.open('transloadit')
-  await nodeStream.pipeline(got.default.stream(url), fs.createWriteStream(path))
+  await pipeline(got.stream(url), createWriteStream(path))
   return path
 }
 
@@ -29,7 +28,7 @@ function createClient(opts = {}) {
   }
 
   // https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md#retry
-  const gotRetry: got.RequiredRetryOptions = {
+  const gotRetry: RequiredRetryOptions = {
     limit: 2,
     methods: [
       'GET',
@@ -54,10 +53,10 @@ function createClient(opts = {}) {
     ],
   }
 
-  return new Transloadit({ authKey, authSecret, gotRetry, ...opts })
+  return new TransloaditClient({ authKey, authSecret, gotRetry, ...opts })
 }
 
-function createAssembly(client: Transloadit, params: Transloadit.CreateAssemblyOptions) {
+function createAssembly(client: TransloaditClient, params: CreateAssemblyOptions) {
   const promise = client.createAssembly(params)
   const { assemblyId } = promise
   console.log(expect.getState().currentTestName, 'createAssembly', assemblyId) // For easier debugging
@@ -102,7 +101,7 @@ const genericOptions = {
 
 const handlers = new Map()
 
-let testServer: createTestServer.Result
+let testServer: CreateTestServerResult
 
 beforeAll(async () => {
   // cloudflared tunnels are a bit unstable, so we share one cloudflared tunnel between all tests
@@ -135,7 +134,7 @@ interface VirtualTestServer {
   url: string
 }
 
-async function createVirtualTestServer(handler: http.RequestListener): Promise<VirtualTestServer> {
+async function createVirtualTestServer(handler: RequestListener): Promise<VirtualTestServer> {
   const id = crypto.randomUUID()
   log('Adding virtual server handler', id)
   const url = `${testServer.url}/${id}`
@@ -157,7 +156,7 @@ describe('API integration', { timeout: 30000 }, () => {
       const client = createClient()
 
       let uploadProgressCalled
-      const options: Transloadit.CreateAssemblyOptions = {
+      const options: CreateAssemblyOptions = {
         ...genericOptions,
         onUploadProgress: (uploadProgress) => {
           uploadProgressCalled = uploadProgress
@@ -253,7 +252,7 @@ describe('API integration', { timeout: 30000 }, () => {
           file1: intoStream(sampleSvg),
           file2: sampleSvg,
           file3: buf,
-          file4: got.default.stream(genericImg),
+          file4: got.stream(genericImg),
         },
         params: {
           steps: {
@@ -339,7 +338,7 @@ describe('API integration', { timeout: 30000 }, () => {
       const client = createClient()
 
       let progressCalled = false
-      function onUploadProgress({ uploadedBytes, totalBytes }: Transloadit.UploadProgress) {
+      function onUploadProgress({ uploadedBytes, totalBytes }: UploadProgress) {
         // console.log(uploadedBytes)
         expect(uploadedBytes).toBeDefined()
         if (isResumable) {
@@ -349,7 +348,7 @@ describe('API integration', { timeout: 30000 }, () => {
         progressCalled = true
       }
 
-      const params: Transloadit.CreateAssemblyOptions = {
+      const params: CreateAssemblyOptions = {
         isResumable,
         params: {
           steps: {
@@ -395,7 +394,7 @@ describe('API integration', { timeout: 30000 }, () => {
           },
         },
         files: {
-          file: nodePath.join(__dirname, './fixtures/zerobytes.jpg'),
+          file: join(__dirname, './fixtures/zerobytes.jpg'),
         },
         waitForCompletion: true,
       }
@@ -427,7 +426,7 @@ describe('API integration', { timeout: 30000 }, () => {
         sendServerResponse = resolve
       })
 
-      const handleRequest: http.RequestListener = async (req, res) => {
+      const handleRequest: RequestListener = async (req, res) => {
         // console.log('handler', req.url)
 
         expect(req.url).toBe('/')
@@ -437,7 +436,7 @@ describe('API integration', { timeout: 30000 }, () => {
         // console.log('sending response')
         res.setHeader('Content-type', 'image/jpeg')
         res.writeHead(200)
-        got.default.stream(genericImg).pipe(res)
+        got.stream(genericImg).pipe(res)
       }
 
       const server = await createVirtualTestServer(handleRequest)
@@ -560,7 +559,7 @@ describe('API integration', { timeout: 30000 }, () => {
   describe('assembly notification', () => {
     type OnNotification = (params: {
       path?: string
-      client: Transloadit
+      client: TransloaditClient
       assemblyId: string
     }) => void
 
@@ -570,7 +569,7 @@ describe('API integration', { timeout: 30000 }, () => {
     })
 
     // helper function
-    const streamToString = (stream: http.IncomingMessage) =>
+    const streamToString = (stream: IncomingMessage) =>
       new Promise<string>((resolve, reject) => {
         const chunks: string[] = []
         stream.on('data', (chunk) => chunks.push(chunk))
@@ -585,13 +584,11 @@ describe('API integration', { timeout: 30000 }, () => {
       const client = createClient()
 
       // listens for notifications
-      const onNotificationRequest: http.RequestListener = async (req, res) => {
+      const onNotificationRequest: RequestListener = async (req, res) => {
         try {
           expect(req.method).toBe('POST')
           const body = await streamToString(req)
-          const result = JSON.parse(
-            (querystring.parse(body) as { transloadit: string }).transloadit
-          )
+          const result = JSON.parse((parse(body) as { transloadit: string }).transloadit)
           expect(result).toHaveProperty('ok')
           if (result.ok !== 'ASSEMBLY_COMPLETED') {
             onError(new Error(`result.ok was ${result.ok}`))

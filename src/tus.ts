@@ -1,22 +1,22 @@
-import debug = require('debug')
-import p = require('path')
-import tus = require('tus-js-client')
-import fsPromises = require('fs/promises')
-import pMap = require('p-map')
+import debug from 'debug'
+import { basename } from 'path'
+import { Upload, UploadOptions } from 'tus-js-client'
+import { stat } from 'fs/promises'
+import pMap from 'p-map'
 import type { Readable } from 'stream'
 import type { Assembly, UploadProgress } from './Transloadit'
 
 const log = debug('transloadit')
 
 interface SendTusRequestOptions {
-  streamsMap: Record<string, export_.Stream>
+  streamsMap: Record<string, Stream>
   assembly: Assembly
   requestedChunkSize: number
   uploadConcurrency: number
   onProgress: (options: UploadProgress) => void
 }
 
-async function sendTusRequest({
+export async function sendTusRequest({
   streamsMap,
   assembly,
   requestedChunkSize,
@@ -39,7 +39,7 @@ async function sendTusRequest({
       const { path } = streamsMap[label]
 
       if (path) {
-        const { size } = await fsPromises.stat(path)
+        const { size } = await stat(path)
         sizes[label] = size
         totalBytes += size
       }
@@ -86,10 +86,10 @@ async function sendTusRequest({
       }
     }
 
-    const filename = path ? p.basename(path) : label
+    const filename = path ? basename(path) : label
 
     await new Promise<void>((resolve, reject) => {
-      const tusOptions: tus.UploadOptions = {
+      const tusOptions: UploadOptions = {
         endpoint: assembly.tus_url,
         metadata: {
           assembly_url: assembly.assembly_ssl_url,
@@ -105,7 +105,7 @@ async function sendTusRequest({
       if (chunkSize) tusOptions.chunkSize = chunkSize
       if (uploadLengthDeferred) tusOptions.uploadLengthDeferred = uploadLengthDeferred
 
-      const tusUpload = new tus.Upload(stream, tusOptions)
+      const tusUpload = new Upload(stream, tusOptions)
 
       tusUpload.start()
     })
@@ -116,15 +116,7 @@ async function sendTusRequest({
   await pMap(streamLabels, uploadSingleStream, { concurrency: uploadConcurrency })
 }
 
-const export_ = {
-  sendTusRequest,
+export interface Stream {
+  path?: string
+  stream: Readable
 }
-
-namespace export_ {
-  export interface Stream {
-    path?: string
-    stream: Readable
-  }
-}
-
-export = export_

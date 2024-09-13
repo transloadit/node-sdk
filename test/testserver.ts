@@ -1,19 +1,19 @@
-import http = require('http')
-import got = require('got')
-import debug = require('debug')
+import { createServer, RequestListener, Server } from 'http'
+import got from 'got'
+import debug from 'debug'
 
 const log = debug('transloadit:testserver')
 
-import createTunnel = require('./tunnel.ts')
+import { createTunnel, CreateTunnelResult } from './tunnel'
 
 interface HttpServer {
-  server: http.Server
+  server: Server
   port: number
 }
 
-async function createHttpServer(handler: http.RequestListener): Promise<HttpServer> {
+async function createHttpServer(handler: RequestListener): Promise<HttpServer> {
   return new Promise((resolve, reject) => {
-    const server = http.createServer(handler)
+    const server = createServer(handler)
 
     let port = 8000
 
@@ -41,7 +41,9 @@ async function createHttpServer(handler: http.RequestListener): Promise<HttpServ
   })
 }
 
-async function createTestServer(onRequest: http.RequestListener): Promise<createTestServer.Result> {
+export async function createTestServer(
+  onRequest: RequestListener
+): Promise<CreateTestServerResult> {
   if (!process.env.CLOUDFLARED_PATH) {
     throw new Error('CLOUDFLARED_PATH environment variable not set')
   }
@@ -49,9 +51,9 @@ async function createTestServer(onRequest: http.RequestListener): Promise<create
   let expectedPath: string
   let initialized = false
   let onTunnelOperational: () => void
-  let tunnel: createTunnel.Result
+  let tunnel: CreateTunnelResult
 
-  const handleHttpRequest: http.RequestListener = (req, res) => {
+  const handleHttpRequest: RequestListener = (req, res) => {
     log('HTTP request handler', req.method, req.url)
 
     if (!initialized) {
@@ -89,7 +91,7 @@ async function createTestServer(onRequest: http.RequestListener): Promise<create
 
         expectedPath = `/initialize-test${i}`
         try {
-          await got.default(`${tunnelPublicUrl}${expectedPath}`, { timeout: { request: 2000 } })
+          await got(`${tunnelPublicUrl}${expectedPath}`, { timeout: { request: 2000 } })
           return
         } catch (err) {
           // console.error(err.message)
@@ -120,12 +122,8 @@ async function createTestServer(onRequest: http.RequestListener): Promise<create
   }
 }
 
-namespace createTestServer {
-  export interface Result {
-    port: number
-    close: () => void
-    url: string
-  }
+export interface CreateTestServerResult {
+  port: number
+  close: () => void
+  url: string
 }
-
-export = createTestServer

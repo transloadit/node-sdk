@@ -1,5 +1,3 @@
-class InconsistentResponseError extends Error {
+export class InconsistentResponseError extends Error {
   name = 'InconsistentResponseError'
 }
-
-export = InconsistentResponseError
