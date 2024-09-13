@@ -5,6 +5,16 @@ module.exports = {
     ecmaVersion: 11,
     requireConfigFile: false,
   },
+  settings: {
+    'import/resolver': {
+      node: {
+        extensions: ['.js', '.ts'],
+      },
+    },
+  },
+  rules: {
+    'import/extensions': 'off',
+  },
   overrides: [
     {
       files: 'test/**',
@@ -19,7 +29,6 @@ module.exports = {
       },
       rules: {
         'no-console': 'off',
-        'import/extensions': 'off',
       },
     },
   ],
