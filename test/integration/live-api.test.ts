@@ -1,4 +1,4 @@
-import * as crypto from 'crypto'
+import { randomUUID } from 'crypto'
 import { parse } from 'querystring'
 import * as temp from 'temp'
 import { createWriteStream } from 'fs'
@@ -135,7 +135,7 @@ interface VirtualTestServer {
 }
 
 async function createVirtualTestServer(handler: RequestListener): Promise<VirtualTestServer> {
-  const id = crypto.randomUUID()
+  const id = randomUUID()
   log('Adding virtual server handler', id)
   const url = `${testServer.url}/${id}`
   handlers.set(id, handler)
@@ -302,7 +302,7 @@ describe('API integration', { timeout: 30000 }, () => {
     it('should allow setting an explicit assemblyId on createAssembly', async () => {
       const client = createClient()
 
-      const assemblyId = crypto.randomUUID().replace(/-/g, '')
+      const assemblyId = randomUUID().replace(/-/g, '')
       const params = {
         assemblyId,
         waitForCompletion: true,

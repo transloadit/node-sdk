@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto'
+import { createHmac, randomUUID } from 'crypto'
 import got, { RequiredRetryOptions, Headers, OptionsOfJSONResponseBody } from 'got'
 import FormData from 'form-data'
 import { constants, createReadStream } from 'fs'
@@ -183,7 +183,7 @@ export class TransloaditClient {
     if (assemblyId != null) {
       effectiveAssemblyId = assemblyId
     } else {
-      effectiveAssemblyId = crypto.randomUUID().replace(/-/g, '')
+      effectiveAssemblyId = randomUUID().replace(/-/g, '')
     }
     const urlSuffix = `/assemblies/${effectiveAssemblyId}`
 
