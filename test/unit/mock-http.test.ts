@@ -4,13 +4,11 @@ import {
   HTTPError,
   InconsistentResponseError,
   TimeoutError,
-  TransloaditClient,
-  TransloaditClientOptions,
+  Transloadit,
 } from '../../src/Transloadit'
 
-const getLocalClient = (
-  opts?: Omit<TransloaditClientOptions, 'authKey' | 'authSecret' | 'endpoint'>
-) => new TransloaditClient({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
+const getLocalClient = (opts?: Omit<Transloadit.Options, 'authKey' | 'authSecret' | 'endpoint'>) =>
+  new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
 
 const createAssemblyRegex = /\/assemblies\/[0-9a-f]{32}/
 
@@ -21,7 +19,7 @@ describe('Mocked API tests', () => {
   })
 
   it('should time out createAssembly with a custom timeout', async () => {
-    const client = new TransloaditClient({
+    const client = new Transloadit({
       authKey: '',
       authSecret: '',
       endpoint: 'http://localhost',

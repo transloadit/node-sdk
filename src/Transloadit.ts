@@ -99,7 +99,18 @@ function checkResult<T>(result: T | { error: string }): asserts result is T {
   }
 }
 
-export class TransloaditClient {
+export declare namespace Transloadit {
+  interface Options {
+    authKey: string
+    authSecret: string
+    endpoint?: string
+    maxRetries?: number
+    timeout?: number
+    gotRetry?: RequiredRetryOptions
+  }
+}
+
+export class Transloadit {
   private _authKey: string
   private _authSecret: string
   private _endpoint: string
@@ -108,7 +119,7 @@ export class TransloaditClient {
   private _gotRetry: RequiredRetryOptions | number
   private _lastUsedAssemblyUrl = ''
 
-  constructor(opts: TransloaditClientOptions) {
+  constructor(opts: Transloadit.Options) {
     if (opts?.authKey == null) {
       throw new Error('Please provide an authKey')
     }
@@ -939,15 +950,6 @@ export interface TemplateResponse {
 
 export interface TemplateContent {
   steps: KeyVal
-}
-
-export interface TransloaditClientOptions {
-  authKey: string
-  authSecret: string
-  endpoint?: string
-  maxRetries?: number
-  timeout?: number
-  gotRetry?: RequiredRetryOptions
 }
 
 export interface AwaitAssemblyCompletionOptions {

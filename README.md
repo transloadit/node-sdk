@@ -48,9 +48,9 @@ npm install --save transloadit
 The following code will upload an image and resize it to a thumbnail:
 
 ```javascript
-const { TransloaditClient } = require('transloadit')
+const { Transloadit } = require('transloadit')
 
-const transloadit = new TransloaditClient({
+const transloadit = new Transloadit({
   authKey: 'YOUR_TRANSLOADIT_KEY',
   authSecret: 'YOUR_TRANSLOADIT_SECRET',
 })
@@ -113,7 +113,7 @@ For more example use cases and information about the available robots and their 
 
 ## API
 
-These are the public methods on the `TransloaditClient` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
+These are the public methods on the `Transloadit` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
 
 Table of contents:
 

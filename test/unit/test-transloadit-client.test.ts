@@ -3,11 +3,11 @@ import FormData from 'form-data'
 import got, { CancelableRequest } from 'got'
 
 import * as tus from '../../src/tus'
-import { TransloaditClient } from '../../src/Transloadit'
+import { Transloadit } from '../../src/Transloadit'
 import { version } from 'transloadit/package.json'
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
-const mockGetExpiresDate = (client: TransloaditClient) =>
+const mockGetExpiresDate = (client: Transloadit) =>
   // @ts-expect-error This mocks private internals
   vi.spyOn(client, '_getExpiresDate').mockReturnValue(mockedExpiresDate)
 const mockGot = (method: 'get') =>
@@ -18,13 +18,13 @@ const mockGot = (method: 'get') =>
     ;(mockPromise as any).on = vi.fn(() => {})
     return mockPromise
   })
-const mockRemoteJson = (client: TransloaditClient) =>
+const mockRemoteJson = (client: Transloadit) =>
   // @ts-expect-error This mocks private internals
   vi.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
   it('should throw a proper error for request stream', async () => {
-    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
     // mimic Stream object returned from `request` (which is not a stream v3)
     const req = { pipe: () => {} } as Partial<Readable> as Readable
@@ -42,7 +42,7 @@ describe('Transloadit', () => {
         authSecret: 'foo_secret',
         maxRetries: 0,
       }
-      const client = new TransloaditClient(opts)
+      const client = new Transloadit(opts)
       expect(
         // @ts-expect-error This tests private internals
         client._authKey
@@ -77,13 +77,13 @@ describe('Transloadit', () => {
         authSecret: 'foo_secret',
         endpoint: 'https://api2.transloadit.com/',
       }
-      expect(() => new TransloaditClient(opts)).toThrow('Trailing slash in endpoint is not allowed')
+      expect(() => new Transloadit(opts)).toThrow('Trailing slash in endpoint is not allowed')
     })
 
     it('should give error when no authSecret', () => {
       expect(
         () =>
-          new TransloaditClient(
+          new Transloadit(
             // @ts-expect-error This tests invalid types
             { authSecret: '' }
           )
@@ -93,7 +93,7 @@ describe('Transloadit', () => {
     it('should give error when no authKey', () => {
       expect(
         () =>
-          new TransloaditClient(
+          new Transloadit(
             // @ts-expect-error This tests invalid types
             { authKey: '' }
           )
@@ -107,7 +107,7 @@ describe('Transloadit', () => {
         endpoint: 'http://foo',
       }
 
-      const client = new TransloaditClient(opts)
+      const client = new Transloadit(opts)
       expect(
         // @ts-expect-error This tests private internals
         client._authKey
@@ -126,7 +126,7 @@ describe('Transloadit', () => {
   describe('add stream', () => {
     it('should pause streams', async () => {
       vi.spyOn(tus, 'sendTusRequest').mockImplementation(() => Promise.resolve())
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const name = 'foo_name'
       const pause = vi.fn(() => mockStream)
@@ -149,7 +149,7 @@ describe('Transloadit', () => {
 
   describe('_appendForm', () => {
     it('should append all required fields to the request form', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const stream1 = new Readable()
       const stream2 = new Readable()
@@ -189,7 +189,7 @@ describe('Transloadit', () => {
 
   describe('_appendParamsToUrl', () => {
     it('should append params and signature to the given url', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       // URL can have question mark also inside parameter
       const url = 'https://example.com/foo_url?param=12?3'
@@ -211,7 +211,7 @@ describe('Transloadit', () => {
 
   describe('_prepareParams', () => {
     it('should add the auth key, secret and expires parameters', () => {
-      let client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      let client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       // @ts-expect-error This tests private internals
       let r = JSON.parse(client._prepareParams())
@@ -222,7 +222,7 @@ describe('Transloadit', () => {
         authKey: 'foo',
         authSecret: 'foo_secret',
       }
-      client = new TransloaditClient(opts)
+      client = new Transloadit(opts)
 
       // @ts-expect-error This tests private internals
       r = JSON.parse(client._prepareParams())
@@ -231,7 +231,7 @@ describe('Transloadit', () => {
     })
 
     it('should not add anything if the params are already present', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const PARAMS = {
         auth: {
@@ -249,7 +249,7 @@ describe('Transloadit', () => {
 
   describe('calcSignature', () => {
     it('should calc _prepareParams and _calcSignature', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       // @ts-expect-error This tests private internals
       client._authSecret = '13123123123'
@@ -274,7 +274,7 @@ describe('Transloadit', () => {
   })
 
   it('should set 1 day timeout by default for createAssembly', async () => {
-    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
     const spy = mockRemoteJson(client)
 
@@ -288,7 +288,7 @@ describe('Transloadit', () => {
   })
 
   it('should crash if attempt to use callback', async () => {
-    const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
     const cb = () => {}
     expect(() =>
       client.createAssembly(
@@ -301,7 +301,7 @@ describe('Transloadit', () => {
 
   describe('_calcSignature', () => {
     it('should calculate the signature properly', () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       // @ts-expect-error This tests private internals
       client._authSecret = '13123123123'
@@ -341,7 +341,7 @@ describe('Transloadit', () => {
 
   describe('_remoteJson', () => {
     it('should add "Transloadit-Client" header to requests', async () => {
-      const client = new TransloaditClient({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const get = mockGot('get')
 

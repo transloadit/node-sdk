@@ -9,7 +9,7 @@ import got, { RequiredRetryOptions } from 'got'
 import intoStream = require('into-stream')
 import debug = require('debug')
 
-import { CreateAssemblyOptions, TransloaditClient, UploadProgress } from '../../src/Transloadit'
+import { CreateAssemblyOptions, Transloadit, UploadProgress } from '../../src/Transloadit'
 import { createTestServer, CreateTestServerResult } from '../testserver'
 
 const log = debug('transloadit:live-api')
@@ -53,10 +53,10 @@ function createClient(opts = {}) {
     ],
   }
 
-  return new TransloaditClient({ authKey, authSecret, gotRetry, ...opts })
+  return new Transloadit({ authKey, authSecret, gotRetry, ...opts })
 }
 
-function createAssembly(client: TransloaditClient, params: CreateAssemblyOptions) {
+function createAssembly(client: Transloadit, params: CreateAssemblyOptions) {
   const promise = client.createAssembly(params)
   const { assemblyId } = promise
   console.log(expect.getState().currentTestName, 'createAssembly', assemblyId) // For easier debugging
@@ -559,7 +559,7 @@ describe('API integration', { timeout: 30000 }, () => {
   describe('assembly notification', () => {
     type OnNotification = (params: {
       path?: string
-      client: TransloaditClient
+      client: Transloadit
       assemblyId: string
     }) => void
 
