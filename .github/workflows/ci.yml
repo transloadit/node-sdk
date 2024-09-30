@@ -73,7 +73,7 @@ jobs:
       - eslint
       - pack
       - prettier
-      - tsd
+      - typescript
       - vitest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
