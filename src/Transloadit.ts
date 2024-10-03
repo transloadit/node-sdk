@@ -75,16 +75,6 @@ function decorateHttpError(err: TransloaditError, body: any): TransloaditError {
   return err
 }
 
-function assertHttpError(
-  err: TransloaditError,
-  body: unknown,
-  assertion: unknown
-): asserts assertion {
-  if (!assertion) {
-    throw decorateHttpError(err, body)
-  }
-}
-
 // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
 function checkAssemblyUrls(result: Assembly) {
   if (result.assembly_url == null || result.assembly_ssl_url == null) {
@@ -789,23 +779,23 @@ export class Transloadit {
         const { statusCode, body } = err.response
         logWarn('HTTP error', statusCode, body)
 
-        assertHttpError(err, body, statusCode === 413)
-        assertHttpError(err, body, typeof body === 'object')
-        assertHttpError(err, body, body)
-        assertHttpError(err, body, 'error' in body)
-        assertHttpError(err, body, body.error === 'RATE_LIMIT_REACHED')
-        assertHttpError(err, body, 'info' in body)
+        const shouldRetry =
+          statusCode === 413 &&
+          typeof body === 'object' &&
+          body != null &&
+          'error' in body &&
+          body.error === 'RATE_LIMIT_REACHED' &&
+          'info' in body &&
+          typeof body.info === 'object' &&
+          body.info != null &&
+          'retryIn' in body.info &&
+          Boolean(body.info.retryIn) &&
+          retryCount < this._maxRetries
 
-        const { info } = body
-        assertHttpError(err, body, typeof info === 'object')
-        assertHttpError(err, body, info)
-        assertHttpError(err, body, 'retryIn' in info)
-        const { retryIn: retryInSec } = info
+        // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+        if (!shouldRetry) throw decorateHttpError(err, body)
 
-        assertHttpError(err, body, retryInSec)
-        assertHttpError(err, body, typeof retryInSec === 'number')
-        assertHttpError(err, body, retryCount >= this._maxRetries)
-
+        const { retryIn: retryInSec } = body.info as { retryIn: number }
         logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
         const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
         await new Promise((resolve) => setTimeout(resolve, retryInMs))
