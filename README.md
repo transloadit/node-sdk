@@ -451,31 +451,14 @@ DEBUG=transloadit* node examples/template_api.js
 
 - [Mikael Finstad](https://github.com/mifi)
 
-## Contributing
-
-We'd be happy to accept pull requests. If you plan on working on something big, please first drop us a line!
-
-### Testing
-
-Check your sources for linting errors via `npm run lint`, and unit tests, and run them via `npm test`
-
-### Releasing
-
-1. Install [np](https://github.com/sindresorhus/np): `npm i -g np`
-2. Wait for [tests to succeed](https://github.com/transloadit/node-sdk/actions).
-3. Run `np` and follow instructions.
-4. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
-
-### Change log
+### Changelog
 
 See [Releases](https://github.com/transloadit/node-sdk/releases)
 
-### Convenience
+## Attribution
 
-If you come from a unix background and fancy faster auto-complete, you'll be delighted to know that all npm scripts are also accessible under `make`, via fakefile.
+Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `transloadit` npm name. You can still access his code under [`v0.0.0`](https://www.npmjs.com/package/transloadit/v/0.0.0).
 
 ## License
 
-[MIT](LICENSE)
-
-Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `transloadit` npm name. You can still access his code under `v0.0.0`.
+[MIT](LICENSE) © [Transloadit](https://transloadit.com)
