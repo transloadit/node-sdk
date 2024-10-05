@@ -43,7 +43,7 @@ async function createHttpServer(handler: RequestListener): Promise<HttpServer> {
 
 export async function createTestServer(
   onRequest: RequestListener
-): Promise<CreateTestServerResult> {
+) {
   if (!process.env.CLOUDFLARED_PATH) {
     throw new Error('CLOUDFLARED_PATH environment variable not set')
   }
@@ -122,8 +122,4 @@ export async function createTestServer(
   }
 }
 
-export interface CreateTestServerResult {
-  port: number
-  close: () => void
-  url: string
-}
+export type TestServer = Awaited<ReturnType<typeof createTestServer>>

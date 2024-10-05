@@ -10,7 +10,7 @@ import intoStream = require('into-stream')
 import debug = require('debug')
 
 import { CreateAssemblyOptions, Transloadit, UploadProgress } from '../../src/Transloadit'
-import { createTestServer, CreateTestServerResult } from '../testserver'
+import { createTestServer, TestServer } from '../testserver'
 
 const log = debug('transloadit:live-api')
 
@@ -101,7 +101,7 @@ const genericOptions = {
 
 const handlers = new Map()
 
-let testServer: CreateTestServerResult
+let testServer: TestServer
 
 beforeAll(async () => {
   // cloudflared tunnels are a bit unstable, so we share one cloudflared tunnel between all tests
