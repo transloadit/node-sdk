@@ -1,12 +1,26 @@
-const execa = require('execa')
-const readline = require('readline')
-const dns = require('dns/promises')
-const debug = require('debug')
-const pRetry = require('p-retry')
+import execa, { ExecaChildProcess } from 'execa'
+import { createInterface } from 'readline'
+import { Resolver } from 'dns/promises'
+import debug from 'debug'
+import pRetry from 'p-retry'
+import * as timers from 'timers/promises'
 
 const log = debug('transloadit:cloudflared-tunnel')
 
-async function startTunnel({ cloudFlaredPath, port }) {
+interface CreateTunnelParams {
+  cloudFlaredPath: string
+  port: number
+}
+
+interface StartTunnelResult {
+  url: string
+  process: ExecaChildProcess
+}
+
+async function startTunnel({
+  cloudFlaredPath,
+  port,
+}: CreateTunnelParams): Promise<StartTunnelResult> {
   const process = execa(
     cloudFlaredPath,
     ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'],
@@ -17,7 +31,7 @@ async function startTunnel({ cloudFlaredPath, port }) {
     return await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Timed out trying to start tunnel')), 30000)
 
-      const rl = readline.createInterface({ input: process.stderr })
+      const rl = createInterface({ input: process.stderr as NodeJS.ReadStream })
 
       process.on('error', (err) => {
         console.error(err)
@@ -25,7 +39,7 @@ async function startTunnel({ cloudFlaredPath, port }) {
       })
 
       let fullStderr = ''
-      let foundUrl
+      let foundUrl: string
 
       rl.on('error', (err) => {
         reject(
@@ -73,8 +87,11 @@ async function startTunnel({ cloudFlaredPath, port }) {
   }
 }
 
-function createTunnel({ cloudFlaredPath = 'cloudflared', port }) {
-  let process
+export function createTunnel({
+  cloudFlaredPath = 'cloudflared',
+  port,
+}: CreateTunnelParams): CreateTunnelResult {
+  let process: execa.ExecaChildProcess | undefined
 
   const urlPromise = (async () => {
     const tunnel = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), { retries: 1 })
@@ -83,10 +100,12 @@ function createTunnel({ cloudFlaredPath = 'cloudflared', port }) {
 
     log('Found url', url)
 
+    await timers.setTimeout(3000) // seems to help to prevent timeouts (I think tunnel is not actually ready when cloudflared reports it to be)
+
     // We need to wait for DNS to be resolvable.
     // If we don't, the operating system's dns cache will be poisoned by the not yet valid resolved entry
     // and it will forever fail for that subdomain name...
-    const resolver = new dns.Resolver()
+    const resolver = new Resolver()
     resolver.setServers(['1.1.1.1']) // use cloudflare's dns server. if we don't explicitly specify DNS server, it will also poison our OS' dns cache
 
     for (let i = 0; i < 10; i += 1) {
@@ -96,7 +115,7 @@ function createTunnel({ cloudFlaredPath = 'cloudflared', port }) {
         await resolver.resolve4(host)
         return url
       } catch (err) {
-        log('dns err', err.message)
+        log('dns err', (err as Error).message)
         await new Promise((resolve) => setTimeout(resolve, 3000))
       }
     }
@@ -106,7 +125,7 @@ function createTunnel({ cloudFlaredPath = 'cloudflared', port }) {
 
   async function close() {
     if (!process) return
-    const promise = new Promise((resolve) => process.on('close', resolve))
+    const promise = new Promise((resolve) => process!.on('close', resolve))
     process.kill()
     await promise
   }
@@ -118,4 +137,8 @@ function createTunnel({ cloudFlaredPath = 'cloudflared', port }) {
   }
 }
 
-module.exports = createTunnel
+export interface CreateTunnelResult {
+  process?: execa.ExecaChildProcess
+  urlPromise: Promise<string>
+  close: () => Promise<void>
+}

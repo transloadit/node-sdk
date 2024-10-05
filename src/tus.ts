@@ -1,35 +1,45 @@
-const debug = require('debug')
-const nodePath = require('path')
-const tus = require('tus-js-client')
-const fsPromises = require('fs/promises')
-const pMap = require('p-map')
+import debug from 'debug'
+import { basename } from 'path'
+import { Upload, UploadOptions } from 'tus-js-client'
+import { stat } from 'fs/promises'
+import pMap from 'p-map'
+import type { Readable } from 'stream'
+import type { Assembly, UploadProgress } from './Transloadit'
 
 const log = debug('transloadit')
 
-async function sendTusRequest({
+interface SendTusRequestOptions {
+  streamsMap: Record<string, Stream>
+  assembly: Assembly
+  requestedChunkSize: number
+  uploadConcurrency: number
+  onProgress: (options: UploadProgress) => void
+}
+
+export async function sendTusRequest({
   streamsMap,
   assembly,
   requestedChunkSize,
   uploadConcurrency,
   onProgress,
-}) {
+}: SendTusRequestOptions) {
   const streamLabels = Object.keys(streamsMap)
 
   let totalBytes = 0
   let lastEmittedProgress = 0
 
-  const sizes = {}
+  const sizes: Record<string, number> = {}
 
-  const haveUnknownLengthStreams = streamLabels.some((label) => !streamsMap[label].path)
+  const haveUnknownLengthStreams = streamLabels.some((label) => !streamsMap[label]!.path)
 
   // Initialize size data
   await pMap(
     streamLabels,
     async (label) => {
-      const { path } = streamsMap[label]
+      const { path } = streamsMap[label]!
 
       if (path) {
-        const { size } = await fsPromises.stat(path)
+        const { size } = await stat(path)
         sizes[label] = size
         totalBytes += size
       }
@@ -37,16 +47,16 @@ async function sendTusRequest({
     { concurrency: 5 }
   )
 
-  const uploadProgresses = {}
+  const uploadProgresses: Record<string, number> = {}
 
-  async function uploadSingleStream(label) {
+  async function uploadSingleStream(label: string) {
     uploadProgresses[label] = 0
 
-    const { stream, path } = streamsMap[label]
+    const { stream, path } = streamsMap[label]!
     const size = sizes[label]
 
     let chunkSize = requestedChunkSize
-    let uploadLengthDeferred
+    let uploadLengthDeferred: boolean
     const isStreamLengthKnown = !!path
     if (!isStreamLengthKnown) {
       // tus-js-client requires these options to be set for unknown size streams
@@ -55,13 +65,13 @@ async function sendTusRequest({
       if (chunkSize === Infinity) chunkSize = 50e6
     }
 
-    const onTusProgress = (bytesUploaded) => {
+    const onTusProgress = (bytesUploaded: number): void => {
       uploadProgresses[label] = bytesUploaded
 
       // get all uploaded bytes for all files
       let uploadedBytes = 0
       for (const l of streamLabels) {
-        uploadedBytes += uploadProgresses[l]
+        uploadedBytes += uploadProgresses[l] ?? 0
       }
 
       // don't send redundant progress
@@ -76,26 +86,26 @@ async function sendTusRequest({
       }
     }
 
-    const filename = path ? nodePath.basename(path) : label
+    const filename = path ? basename(path) : label
 
-    await new Promise((resolve, reject) => {
-      const tusOptions = {
+    await new Promise<void>((resolve, reject) => {
+      const tusOptions: UploadOptions = {
         endpoint: assembly.tus_url,
         metadata: {
           assembly_url: assembly.assembly_ssl_url,
           fieldname: label,
           filename,
         },
-        uploadSize: size,
         onError: reject,
         onProgress: onTusProgress,
         onSuccess: resolve,
       }
       // tus-js-client doesn't like undefined/null
+      if (size != null) tusOptions.uploadSize = size
       if (chunkSize) tusOptions.chunkSize = chunkSize
       if (uploadLengthDeferred) tusOptions.uploadLengthDeferred = uploadLengthDeferred
 
-      const tusUpload = new tus.Upload(stream, tusOptions)
+      const tusUpload = new Upload(stream, tusOptions)
 
       tusUpload.start()
     })
@@ -106,6 +116,7 @@ async function sendTusRequest({
   await pMap(streamLabels, uploadSingleStream, { concurrency: uploadConcurrency })
 }
 
-module.exports = {
-  sendTusRequest,
+export interface Stream {
+  path?: string
+  stream: Readable
 }
