@@ -288,11 +288,10 @@ export class Transloadit {
       }
 
       return Promise.race([createAssemblyAndUpload(), streamErrorPromise])
-    })() as CreateAssemblyPromise
+    })()
 
     // This allows the user to use or log the assemblyId even before it has been created for easier debugging
-    promise.assemblyId = effectiveAssemblyId
-    return promise
+    return Object.assign(promise, { assemblyId: effectiveAssemblyId })
   }
 
   async awaitAssemblyCompletion(
