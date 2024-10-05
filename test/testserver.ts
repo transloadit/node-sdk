@@ -41,9 +41,7 @@ async function createHttpServer(handler: RequestListener): Promise<HttpServer> {
   })
 }
 
-export async function createTestServer(
-  onRequest: RequestListener
-) {
+export async function createTestServer(onRequest: RequestListener) {
   if (!process.env.CLOUDFLARED_PATH) {
     throw new Error('CLOUDFLARED_PATH environment variable not set')
   }

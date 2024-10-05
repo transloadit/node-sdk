@@ -170,8 +170,8 @@ export class Transloadit {
       chunkSize: requestedChunkSize = Infinity,
       uploadConcurrency = 10,
       timeout = 24 * 60 * 60 * 1000, // 1 day
-      onUploadProgress = () => { },
-      onAssemblyProgress = () => { },
+      onUploadProgress = () => {},
+      onAssemblyProgress = () => {},
       files = {},
       uploads = {},
       assemblyId,
@@ -297,7 +297,7 @@ export class Transloadit {
   async awaitAssemblyCompletion(
     assemblyId: string,
     {
-      onAssemblyProgress = () => { },
+      onAssemblyProgress = () => {},
       timeout,
       startTimeMs = getHrTimeMs(),
       interval = 1000,
@@ -712,7 +712,7 @@ export class Transloadit {
   private async _remoteJson<T>(
     opts: RequestOptions,
     streamsMap?: Record<string, Stream>,
-    onProgress: CreateAssemblyOptions['onUploadProgress'] = () => { }
+    onProgress: CreateAssemblyOptions['onUploadProgress'] = () => {}
   ): Promise<T> {
     const {
       urlSuffix,
@@ -780,20 +780,22 @@ export class Transloadit {
 
         // check whether we should retry
         // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
-        if (!(
-          statusCode === 413 &&
-          typeof body === 'object' &&
-          body != null &&
-          'error' in body &&
-          body.error === 'RATE_LIMIT_REACHED' &&
-          'info' in body &&
-          typeof body.info === 'object' &&
-          body.info != null &&
-          'retryIn' in body.info &&
-          typeof body.info.retryIn === 'number' &&
-          Boolean(body.info.retryIn) &&
-          retryCount < this._maxRetries
-        )) {
+        if (
+          !(
+            statusCode === 413 &&
+            typeof body === 'object' &&
+            body != null &&
+            'error' in body &&
+            body.error === 'RATE_LIMIT_REACHED' &&
+            'info' in body &&
+            typeof body.info === 'object' &&
+            body.info != null &&
+            'retryIn' in body.info &&
+            typeof body.info.retryIn === 'number' &&
+            Boolean(body.info.retryIn) &&
+            retryCount < this._maxRetries
+          )
+        ) {
           throw decorateHttpError(err, body)
         }
 

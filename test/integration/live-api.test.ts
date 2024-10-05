@@ -14,7 +14,6 @@ import { createTestServer, TestServer } from '../testserver'
 
 const log = debug('transloadit:live-api')
 
-
 async function downloadTmpFile(url: string) {
   const { path } = await temp.open('transloadit')
   await pipeline(got.stream(url), createWriteStream(path))
@@ -299,8 +298,8 @@ describe('API integration', { timeout: 60000 }, () => {
           original_path: '/',
           original_md5hash: '42f29c0d9d5f3ea807ef3c327f8c5890',
         }),
-      });
-    });
+      })
+    })
 
     it('should allow setting an explicit assemblyId on createAssembly', async () => {
       const client = createClient()
