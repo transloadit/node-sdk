@@ -1,5 +1,5 @@
 export class TransloaditError extends Error {
-  name = 'TransloaditError'
+  override name = 'TransloaditError'
   response: { body: unknown }
   assemblyId?: string
   transloaditErrorCode?: string

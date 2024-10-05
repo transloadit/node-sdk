@@ -15,7 +15,7 @@ export class PaginationStream<T> extends Readable {
     this._fetchPage = fetchPage
   }
 
-  async _read() {
+  override async _read() {
     if (this._items.length > 0) {
       this._itemsRead++
       process.nextTick(() => this.push(this._items.pop()))

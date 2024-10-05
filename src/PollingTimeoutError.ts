@@ -1,4 +1,4 @@
 export class PollingTimeoutError extends Error {
-  name = 'PollingTimeoutError'
+  override name = 'PollingTimeoutError'
   code = 'POLLING_TIMED_OUT'
 }
