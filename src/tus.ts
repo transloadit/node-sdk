@@ -30,13 +30,13 @@ export async function sendTusRequest({
 
   const sizes: Record<string, number> = {}
 
-  const haveUnknownLengthStreams = streamLabels.some((label) => !streamsMap[label].path)
+  const haveUnknownLengthStreams = streamLabels.some((label) => !streamsMap[label]!.path)
 
   // Initialize size data
   await pMap(
     streamLabels,
     async (label) => {
-      const { path } = streamsMap[label]
+      const { path } = streamsMap[label]!
 
       if (path) {
         const { size } = await stat(path)
@@ -52,7 +52,7 @@ export async function sendTusRequest({
   async function uploadSingleStream(label: string) {
     uploadProgresses[label] = 0
 
-    const { stream, path } = streamsMap[label]
+    const { stream, path } = streamsMap[label]!
     const size = sizes[label]
 
     let chunkSize = requestedChunkSize
@@ -71,7 +71,7 @@ export async function sendTusRequest({
       // get all uploaded bytes for all files
       let uploadedBytes = 0
       for (const l of streamLabels) {
-        uploadedBytes += uploadProgresses[l]
+        uploadedBytes += uploadProgresses[l] ?? 0
       }
 
       // don't send redundant progress

@@ -9,6 +9,9 @@
     "resolveJsonModule": true,
     "rootDir": "src",
     "sourceMap": true,
-    "strict": true
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
   }
 }

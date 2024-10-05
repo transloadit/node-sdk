@@ -67,7 +67,7 @@ function decorateHttpError(err: TransloaditError, body: any): TransloaditError {
 
   /* eslint-disable no-param-reassign */
   err.message = newMessage
-  err.stack = newStack
+  if (newStack != null) err.stack = newStack
   if (body.assembly_id) err.assemblyId = body.assembly_id
   if (body.error) err.transloaditErrorCode = body.error
   /* eslint-enable no-param-reassign */
@@ -685,14 +685,14 @@ export class Transloadit {
     if (params == null) {
       params = {}
     }
-    if (params.auth == null) {
-      params.auth = {}
+    if (params['auth'] == null) {
+      params['auth'] = {}
     }
-    if (params.auth.key == null) {
-      params.auth.key = this._authKey
+    if (params['auth'].key == null) {
+      params['auth'].key = this._authKey
     }
-    if (params.auth.expires == null) {
-      params.auth.expires = this._getExpiresDate()
+    if (params['auth'].expires == null) {
+      params['auth'].expires = this._getExpiresDate()
     }
 
     return JSON.stringify(params)
@@ -748,7 +748,7 @@ export class Transloadit {
 
       const requestOpts: OptionsOfJSONResponseBody = {
         retry: this._gotRetry,
-        body: form,
+        body: form as FormData,
         timeout,
         headers: {
           'Transloadit-Client': `node-sdk:${version}`,
@@ -843,8 +843,8 @@ export interface KeyVal {
 }
 
 export interface UploadProgress {
-  uploadedBytes?: number
-  totalBytes?: number
+  uploadedBytes?: number | undefined
+  totalBytes?: number | undefined
 }
 
 /** https://transloadit.com/docs/api/assembly-status-response/#explanation-of-fields */
