@@ -4,7 +4,7 @@ import * as temp from 'temp'
 import { createWriteStream } from 'fs'
 import { IncomingMessage, RequestListener } from 'http'
 import { join } from 'path'
-import { pipeline } from 'stream'
+import { pipeline } from 'stream/promises'
 import got, { RequiredRetryOptions } from 'got'
 import intoStream = require('into-stream')
 import debug = require('debug')
@@ -13,6 +13,7 @@ import { CreateAssemblyOptions, Transloadit, UploadProgress } from '../../src/Tr
 import { createTestServer, TestServer } from '../testserver'
 
 const log = debug('transloadit:live-api')
+
 
 async function downloadTmpFile(url: string) {
   const { path } = await temp.open('transloadit')
