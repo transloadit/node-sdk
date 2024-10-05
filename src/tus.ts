@@ -96,12 +96,12 @@ export async function sendTusRequest({
           fieldname: label,
           filename,
         },
-        uploadSize: size,
         onError: reject,
         onProgress: onTusProgress,
         onSuccess: resolve,
       }
       // tus-js-client doesn't like undefined/null
+      if (size != null) tusOptions.uploadSize = size
       if (chunkSize) tusOptions.chunkSize = chunkSize
       if (uploadLengthDeferred) tusOptions.uploadLengthDeferred = uploadLengthDeferred
 
