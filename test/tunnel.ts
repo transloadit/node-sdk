@@ -3,6 +3,7 @@ import { createInterface } from 'readline'
 import { Resolver } from 'dns/promises'
 import debug from 'debug'
 import pRetry from 'p-retry'
+import * as timers from 'timers/promises';
 
 const log = debug('transloadit:cloudflared-tunnel')
 
@@ -68,7 +69,7 @@ async function startTunnel({
         if (!foundUrl) {
           const match = line.match(/(https:\/\/[^.]+\.trycloudflare\.com)/)
           if (!match) return
-          ;[, foundUrl] = match
+            ;[, foundUrl] = match
         } else {
           const match = line.match(
             /Connection [^\s+] registered connIndex=[^\s+] ip=[^\s+] location=[^\s+]/
@@ -94,10 +95,12 @@ export function createTunnel({
 
   const urlPromise = (async () => {
     const tunnel = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), { retries: 1 })
-    ;({ process } = tunnel)
+      ; ({ process } = tunnel)
     const { url } = tunnel
 
     log('Found url', url)
+
+    await timers.setTimeout(3000); // seems to help to prevent timeouts (I think tunnel is not actually ready when cloudflared reports it to be)
 
     // We need to wait for DNS to be resolvable.
     // If we don't, the operating system's dns cache will be poisoned by the not yet valid resolved entry
