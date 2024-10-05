@@ -778,7 +778,9 @@ export class Transloadit {
         const { statusCode, body } = err.response
         logWarn('HTTP error', statusCode, body)
 
-        const shouldRetry =
+        // check whether we should retry
+        // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+        if (!(
           statusCode === 413 &&
           typeof body === 'object' &&
           body != null &&
@@ -788,13 +790,14 @@ export class Transloadit {
           typeof body.info === 'object' &&
           body.info != null &&
           'retryIn' in body.info &&
+          typeof body.info.retryIn === 'number' &&
           Boolean(body.info.retryIn) &&
           retryCount < this._maxRetries
+        )) {
+          throw decorateHttpError(err, body)
+        }
 
-        // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
-        if (!shouldRetry) throw decorateHttpError(err, body)
-
-        const { retryIn: retryInSec } = body.info as { retryIn: number }
+        const { retryIn: retryInSec } = body.info
         logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
         const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
         await new Promise((resolve) => setTimeout(resolve, retryInMs))
