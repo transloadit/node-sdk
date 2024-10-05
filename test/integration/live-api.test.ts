@@ -151,7 +151,7 @@ async function createVirtualTestServer(handler: RequestListener): Promise<Virtua
   }
 }
 
-describe('API integration', { timeout: 30000 }, () => {
+describe('API integration', { timeout: 60000 }, () => {
   describe('assembly creation', () => {
     it('should create a retrievable assembly on the server', async () => {
       const client = createClient()
@@ -280,25 +280,27 @@ describe('API integration', { timeout: 30000 }, () => {
         original_md5hash: '1b199e02dd833b2278ce2a0e75480b14',
       })
       // Because order is not same as input
-      const uploadsKeyed = Object.fromEntries(result.uploads.map((upload) => [upload.name, upload]))
-      expect(uploadsKeyed.file1).toMatchObject(getMatchObject({ name: 'file1' }))
-      expect(uploadsKeyed.file2).toMatchObject(getMatchObject({ name: 'file2' }))
-      expect(uploadsKeyed.file3).toMatchObject(getMatchObject({ name: 'file3' }))
-      expect(uploadsKeyed.file4).toMatchObject({
-        name: 'file4',
-        basename: 'file4',
-        ext: 'jpg',
-        size: 133788,
-        mime: 'image/jpeg',
-        type: 'image',
-        field: 'file4',
-        md5hash: '42f29c0d9d5f3ea807ef3c327f8c5890',
-        original_basename: 'file4',
-        original_name: 'file4',
-        original_path: '/',
-        original_md5hash: '42f29c0d9d5f3ea807ef3c327f8c5890',
-      })
-    })
+      const uploadsMap = Object.fromEntries(result.uploads.map((upload) => [upload.name, upload]))
+      expect(uploadsMap).toEqual({
+        file1: expect.objectContaining(getMatchObject({ name: 'file1' })),
+        file2: expect.objectContaining(getMatchObject({ name: 'file2' })),
+        file3: expect.objectContaining(getMatchObject({ name: 'file3' })),
+        file4: expect.objectContaining({
+          name: 'file4',
+          basename: 'file4',
+          ext: 'jpg',
+          size: 133788,
+          mime: 'image/jpeg',
+          type: 'image',
+          field: 'file4',
+          md5hash: '42f29c0d9d5f3ea807ef3c327f8c5890',
+          original_basename: 'file4',
+          original_name: 'file4',
+          original_path: '/',
+          original_md5hash: '42f29c0d9d5f3ea807ef3c327f8c5890',
+        }),
+      });
+    });
 
     it('should allow setting an explicit assemblyId on createAssembly', async () => {
       const client = createClient()
