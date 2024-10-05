@@ -222,7 +222,7 @@ export class Transloadit {
         })
       )
 
-      // Wrap in object structure (so we can know if it's a pathless stream or not)
+      // Wrap in object structure (so we can store whether it's a pathless stream or not)
       const allStreamsMap = Object.fromEntries<Stream>(
         Object.entries(streamsMap).map(([label, stream]) => [label, { stream }])
       )
