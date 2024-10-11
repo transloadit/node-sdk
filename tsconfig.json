@@ -1,0 +1,13 @@
+{
+  "exclude": ["src"],
+  "references": [{ "path": "./tsconfig.build.json" }],
+  "compilerOptions": {
+    "isolatedModules": true,
+    "module": "node16",
+    "noImplicitOverride": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "types": ["vitest/globals"]
+  }
+}

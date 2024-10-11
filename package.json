@@ -28,6 +28,8 @@
     "@babel/core": "^7.12.3",
     "@babel/eslint-parser": "^7.15.8",
     "@babel/eslint-plugin": "^7.13.10",
+    "@types/debug": "^4.1.12",
+    "@types/temp": "^0.9.4",
     "@vitest/coverage-v8": "^2.0.5",
     "badge-maker": "^3.3.0",
     "eslint": "^7.18.0",
@@ -46,7 +48,7 @@
     "p-retry": "^4.2.0",
     "prettier": "^2.8.6",
     "temp": "^0.9.1",
-    "tsd": "^0.25.0",
+    "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   },
   "repository": {
@@ -62,20 +64,22 @@
     "lint": "npm-run-all --parallel 'lint:*'",
     "fix": "npm-run-all --serial 'fix:*'",
     "next:update": "next-update --keep true --tldr",
+    "prepack": "tsc --build",
     "test-unit": "vitest run --coverage ./test/unit",
     "test-integration": "vitest run ./test/integration",
-    "tsd": "tsd",
     "test-all": "npm run tsd && vitest run --coverage",
     "test": "npm run tsd && npm run test-unit",
     "fix:formatting": "prettier --write .",
     "lint:formatting": "prettier --check ."
   },
   "license": "MIT",
-  "main": "./index",
-  "types": "types/index.d.ts",
+  "main": "./dist/Transloadit.js",
+  "exports": {
+    ".": "./dist/Transloadit.js",
+    "./package.json": "./package.json"
+  },
   "files": [
-    "index.js",
-    "src",
-    "types/index.d.ts"
+    "dist",
+    "src"
   ]
 }
