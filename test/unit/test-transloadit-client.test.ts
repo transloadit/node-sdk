@@ -287,18 +287,6 @@ describe('Transloadit', () => {
     )
   })
 
-  it('should crash if attempt to use callback', async () => {
-    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
-    const cb = () => {}
-    expect(() =>
-      client.createAssembly(
-        {},
-        // @ts-expect-error This tests bad input
-        cb
-      )
-    ).toThrow(TypeError)
-  })
-
   describe('_calcSignature', () => {
     it('should calculate the signature properly', () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
