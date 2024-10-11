@@ -1,4 +1,5 @@
 import { createServer, RequestListener, Server } from 'http'
+import { setTimeout } from 'timers/promises'
 import got from 'got'
 import debug from 'debug'
 
@@ -93,8 +94,7 @@ export async function createTestServer(onRequest: RequestListener) {
           return
         } catch (err) {
           // console.error(err.message)
-          // eslint-disable-next-line no-shadow
-          await new Promise((resolve) => setTimeout(resolve, 3000))
+          await setTimeout(3000)
         }
       }
       throw new Error('Timed out checking for an operational tunnel')

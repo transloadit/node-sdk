@@ -116,7 +116,7 @@ export function createTunnel({
         return url
       } catch (err) {
         log('dns err', (err as Error).message)
-        await new Promise((resolve) => setTimeout(resolve, 3000))
+        await timers.setTimeout(3000)
       }
     }
 
