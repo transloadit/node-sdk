@@ -2,7 +2,11 @@
   "exclude": ["src"],
   "references": [{ "path": "./tsconfig.build.json" }],
   "compilerOptions": {
+    "exactOptionalPropertyTypes": true,
+    "isolatedModules": true,
     "module": "node16",
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
     "noEmit": true,
     "resolveJsonModule": true,
     "strict": true,

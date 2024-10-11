@@ -4,19 +4,15 @@
     "composite": true,
     "declaration": true,
     "declarationMap": true,
+    "exactOptionalPropertyTypes": true,
+    "isolatedModules": true,
     "module": "node16",
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
     "outDir": "dist",
     "resolveJsonModule": true,
     "rootDir": "src",
     "sourceMap": true,
-    "strict": true,
-    "exactOptionalPropertyTypes": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "noUncheckedIndexedAccess": true,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true
+    "strict": true
   }
 }
