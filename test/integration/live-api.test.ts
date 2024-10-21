@@ -5,6 +5,7 @@ import { createWriteStream } from 'fs'
 import { IncomingMessage, RequestListener } from 'http'
 import { join } from 'path'
 import { pipeline } from 'stream/promises'
+import { setTimeout } from 'timers/promises'
 import got, { RequiredRetryOptions } from 'got'
 import intoStream = require('into-stream')
 import debug = require('debug')
@@ -637,7 +638,7 @@ describe('API integration', { timeout: 60000 }, () => {
           const newUrl = `${server.url}${newPath}`
 
           // I think there are some eventual consistency issues here
-          await new Promise((resolve) => setTimeout(resolve, 1000))
+          await setTimeout(1000)
 
           const result = await client.getAssembly(assemblyId)
 
@@ -652,7 +653,7 @@ describe('API integration', { timeout: 60000 }, () => {
 
             try {
               // If we quit immediately, things will not get cleaned up and jest will hang
-              await new Promise((resolve) => setTimeout(resolve, 2000))
+              await setTimeout(2000)
               resolve()
             } catch (err) {
               reject(err)
@@ -667,7 +668,7 @@ describe('API integration', { timeout: 60000 }, () => {
             expect(path).toBe('/')
             expect(result.notify_url).toBe(server.url)
 
-            await new Promise((resolve) => setTimeout(resolve, 2000))
+            await setTimeout(2000)
             await client.replayAssemblyNotification(assemblyId, { notify_url: newUrl })
           } catch (err) {
             reject(err)
