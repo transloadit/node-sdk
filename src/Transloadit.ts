@@ -155,14 +155,7 @@ export class Transloadit {
    *
    * @param opts assembly options
    */
-  createAssembly(opts: CreateAssemblyOptions = {}, arg2?: void): CreateAssemblyPromise {
-    // Warn users of old callback API
-    if (typeof arg2 === 'function') {
-      throw new TypeError(
-        'You are trying to send a function as the second argument. This is no longer valid in this version. Please see github README for usage.'
-      )
-    }
-
+  createAssembly(opts: CreateAssemblyOptions = {}): CreateAssemblyPromise {
     const {
       params = {},
       waitForCompletion = false,
