@@ -626,6 +626,38 @@ export class Transloadit {
     return { signature, params: jsonParams }
   }
 
+  /**
+   * Construct a signed Smart CDN URL. See https://transloadit.com/docs/topics/signature-authentication/#smart-cdn.
+   */
+  getSignedSmartCDNUrl(opts: SmartCDNUrlOptions): string {
+    if (opts.workspace == null) throw new TypeError('workspace is required')
+    if (opts.template == null) throw new TypeError('template is required')
+    if (opts.input == null) throw new TypeError('input is required')
+
+    const workspaceSlug = encodeURIComponent(opts.workspace)
+    const templateSlug = encodeURIComponent(opts.template)
+    const inputField = encodeURIComponent(opts.input)
+    const expiresIn = opts.expiresIn || 1 * 60 * 60 * 1000 // 1 hour
+
+    // Convert urlParams to Record<string, string>
+    const stringifiedParams: Record<string, string> = {}
+    for (const [key, value] of Object.entries(opts.urlParams || {})) {
+      stringifiedParams[key] = `${value}`
+    }
+
+    const queryParams = new URLSearchParams(stringifiedParams)
+    queryParams.set('auth_key', this._authKey)
+    queryParams.set('exp', `${Date.now() + expiresIn}`)
+    queryParams.sort()
+
+    const stringToSign = `${workspaceSlug}/${templateSlug}/${inputField}?${queryParams}`
+    const algorithm = 'sha256'
+    const signature = createHmac(algorithm, this._authSecret).update(stringToSign).digest('hex')
+
+    const signedUrl = `https://${workspaceSlug}.tlcdn.com/${templateSlug}/${inputField}?${queryParams}&sig=${algorithm}:${signature}`
+    return signedUrl
+  }
+
   private _calcSignature(toSign: string, algorithm = 'sha384'): string {
     return `${algorithm}:${createHmac(algorithm, this._authSecret)
       .update(Buffer.from(toSign, 'utf-8'))
@@ -959,4 +991,27 @@ export interface AwaitAssemblyCompletionOptions {
 export interface PaginationList<T> {
   count: number
   items: T[]
+}
+
+export interface SmartCDNUrlOptions {
+  /**
+   * Workspace slug
+   */
+  workspace: string
+  /**
+   * Template slug or template ID
+   */
+  template: string
+  /**
+   * Input value that is provided as `${fields.input}` in the template
+   */
+  input: string
+  /**
+   * Additional parameters for the URL query string
+   */
+  urlParams?: Record<string, unknown>
+  /**
+   * Expiration time of the signature in milliseconds. Defaults to 1 hour.
+   */
+  expiresIn?: number
 }

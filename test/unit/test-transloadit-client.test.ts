@@ -343,4 +343,33 @@ describe('Transloadit', () => {
       )
     })
   })
+
+  describe('getSignedSmartCDNUrl', () => {
+    beforeAll(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime('2024-05-01T00:00:00.000Z')
+    })
+
+    afterAll(() => {
+      vi.useRealTimers()
+    })
+
+    it('should return a signed url', () => {
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+      const url = client.getSignedSmartCDNUrl({
+        workspace: 'foo_workspace',
+        template: 'foo_template',
+        input: 'foo/input',
+        urlParams: {
+          foo: 'bar',
+          aaa: 42, // Should be sorted as first param
+        },
+      })
+
+      expect(url).toBe(
+        'https://foo_workspace.tlcdn.com/foo_template/foo%2Finput?aaa=42&auth_key=foo_key&exp=1714525200000&foo=bar&sig=sha256:995dd1aae135fb77fa98b0e6946bd9768e0443a6028eba0361c03807e8fb68a5'
+      )
+    })
+  })
 })
