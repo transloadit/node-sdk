@@ -634,7 +634,7 @@ export class Transloadit {
     if (opts.template == null) throw new TypeError('template is required')
     if (opts.input == null) throw new TypeError('input is required')
 
-    const workspaceSlug = opts.workspace // No need to encode since it does not go in the path.
+    const workspaceSlug = encodeURIComponent(opts.workspace)
     const templateSlug = encodeURIComponent(opts.template)
     const inputField = encodeURIComponent(opts.input)
     const expiresIn = opts.expiresIn || 1 * 60 * 60 * 1000 // 1 hour
