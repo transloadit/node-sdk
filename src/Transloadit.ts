@@ -655,7 +655,7 @@ export class Transloadit {
     const algorithm = 'sha256'
     const signature = createHmac(algorithm, this._authSecret).update(stringToSign).digest('hex')
 
-    queryParams.set('sig', `sha256`:${signature}`)
+    queryParams.set('sig', `sha256:${signature}`)
     const signedUrl = `https://${workspaceSlug}.tlcdn.com/${templateSlug}/${inputField}?${queryParams}`
     return signedUrl
   }
