@@ -637,7 +637,7 @@ export class Transloadit {
     const workspaceSlug = encodeURIComponent(opts.workspace)
     const templateSlug = encodeURIComponent(opts.template)
     const inputField = encodeURIComponent(opts.input)
-    const expiresIn = opts.expiresIn || 1 * 60 * 60 * 1000 // 1 hour
+    const expiresIn = opts.expiresIn || 60 * 60 * 1000 // 1 hour
 
     // Convert urlParams to Record<string, string>
     const stringifiedParams: Record<string, string> = {}
@@ -648,13 +648,15 @@ export class Transloadit {
     const queryParams = new URLSearchParams(stringifiedParams)
     queryParams.set('auth_key', this._authKey)
     queryParams.set('exp', `${Date.now() + expiresIn}`)
+    // The signature changes depending on the order of the query parameters. We therefore sort them on the client- and server-side to ensure that we do not get mismatching signatures if a proxy changes the order of query parameters or implementations handle query parameters ordering differently.
     queryParams.sort()
 
     const stringToSign = `${workspaceSlug}/${templateSlug}/${inputField}?${queryParams}`
     const algorithm = 'sha256'
     const signature = createHmac(algorithm, this._authSecret).update(stringToSign).digest('hex')
 
-    const signedUrl = `https://${workspaceSlug}.tlcdn.com/${templateSlug}/${inputField}?${queryParams}&sig=${algorithm}:${signature}`
+    queryParams.set('sig', `sha256`:${signature}`)
+    const signedUrl = `https://${workspaceSlug}.tlcdn.com/${templateSlug}/${inputField}?${queryParams}`
     return signedUrl
   }
 
@@ -1009,7 +1011,7 @@ export interface SmartCDNUrlOptions {
   /**
    * Additional parameters for the URL query string
    */
-  urlParams?: Record<string, unknown>
+  urlParams?: Record<string, boolean | number | string>
   /**
    * Expiration time of the signature in milliseconds. Defaults to 1 hour.
    */
