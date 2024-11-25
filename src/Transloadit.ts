@@ -630,7 +630,8 @@ export class Transloadit {
    * Construct a signed Smart CDN URL. See https://transloadit.com/docs/topics/signature-authentication/#smart-cdn.
    */
   getSignedSmartCDNUrl(opts: SmartCDNUrlOptions): string {
-    if (opts.workspace == null || opts.workspace === '') throw new TypeError('workspace is required')
+    if (opts.workspace == null || opts.workspace === '')
+      throw new TypeError('workspace is required')
     if (opts.template == null || opts.template === '') throw new TypeError('template is required')
     if (opts.input == null) throw new TypeError('input is required') // `input` can be an empty string.
 
