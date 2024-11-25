@@ -363,12 +363,12 @@ describe('Transloadit', () => {
         input: 'foo/input',
         urlParams: {
           foo: 'bar',
-          aaa: 42, // Should be sorted as first param
+          aaa: [42, 21], // Should be sorted before `foo`.
         },
       })
 
       expect(url).toBe(
-        'https://foo_workspace.tlcdn.com/foo_template/foo%2Finput?aaa=42&auth_key=foo_key&exp=1714525200000&foo=bar&sig=sha256:995dd1aae135fb77fa98b0e6946bd9768e0443a6028eba0361c03807e8fb68a5'
+        'https://foo_workspace.tlcdn.com/foo_template/foo%2Finput?aaa=42&aaa=21&auth_key=foo_key&exp=1714525200000&foo=bar&sig=sha256%3A9a8df3bb28eea621b46ec808a250b7903b2546be7e66c048956d4f30b8da7519'
       )
     })
   })

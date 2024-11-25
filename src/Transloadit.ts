@@ -639,16 +639,22 @@ export class Transloadit {
     const inputField = encodeURIComponent(opts.input)
     const expiresIn = opts.expiresIn || 60 * 60 * 1000 // 1 hour
 
-    // Convert urlParams to Record<string, string>
-    const stringifiedParams: Record<string, string> = {}
+    const queryParams = new URLSearchParams()
     for (const [key, value] of Object.entries(opts.urlParams || {})) {
-      stringifiedParams[key] = `${value}`
+      if (Array.isArray(value)) {
+        for (const val of value) {
+          queryParams.append(key, `${val}`)
+        }
+      } else {
+        queryParams.append(key, `${value}`)
+      }
     }
 
-    const queryParams = new URLSearchParams(stringifiedParams)
     queryParams.set('auth_key', this._authKey)
     queryParams.set('exp', `${Date.now() + expiresIn}`)
-    // The signature changes depending on the order of the query parameters. We therefore sort them on the client- and server-side to ensure that we do not get mismatching signatures if a proxy changes the order of query parameters or implementations handle query parameters ordering differently.
+    // The signature changes depending on the order of the query parameters. We therefore sort them on the client-
+    // and server-side to ensure that we do not get mismatching signatures if a proxy changes the order of query
+    // parameters or implementations handle query parameters ordering differently.
     queryParams.sort()
 
     const stringToSign = `${workspaceSlug}/${templateSlug}/${inputField}?${queryParams}`
@@ -1011,7 +1017,7 @@ export interface SmartCDNUrlOptions {
   /**
    * Additional parameters for the URL query string
    */
-  urlParams?: Record<string, boolean | number | string>
+  urlParams?: Record<string, boolean | number | string | (boolean | number | string)[]>
   /**
    * Expiration time of the signature in milliseconds. Defaults to 1 hour.
    */
