@@ -462,3 +462,46 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## License
 
 [MIT](LICENSE) © [Transloadit](https://transloadit.com)
+
+## Development
+
+### Testing
+
+This project uses [Vitest](https://vitest.dev) for testing. There are two types of tests:
+
+#### Unit Tests
+
+Run unit tests with:
+
+```bash
+yarn test-unit
+```
+
+This will also generate a coverage report in the `coverage` directory.
+
+#### Integration Tests
+
+Run integration tests with:
+
+```bash
+yarn test-integration
+```
+
+Note: Integration tests require valid Transloadit credentials.
+
+### Code Coverage
+
+We maintain high code coverage to ensure reliability. The minimum coverage thresholds are:
+
+- Statements: 80%
+- Branches: 80%
+- Functions: 80%
+- Lines: 80%
+
+Coverage reports are:
+
+- Generated locally in the `coverage` directory
+- Uploaded to Codecov for tracking
+- Enforced in CI (builds will fail if coverage drops below thresholds)
+
+View the coverage report locally by opening `coverage/index.html` in your browser.

@@ -66,6 +66,47 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: corepack yarn
       - run: corepack yarn vitest run --coverage ./test/unit
+      - name: Upload coverage reports
+        if: matrix.node == 22 # Only upload coverage from the latest Node.js version
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage/
+      - name: Upload coverage to Codecov
+        if: matrix.node == 22 # Only upload coverage from the latest Node.js version
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: node-sdk
+          fail_ci_if_error: true
+
+  coverage:
+    needs: vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage
+      - name: Check coverage thresholds
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "No coverage report found"
+            exit 1
+          fi
+
+          COVERAGE=$(jq -r '.total.lines.pct' coverage/coverage-summary.json)
+          THRESHOLD=80
+
+          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+            echo "Coverage ($COVERAGE%) is below threshold ($THRESHOLD%)"
+            exit 1
+          else
+            echo "Coverage ($COVERAGE%) meets threshold ($THRESHOLD%)"
+          fi
 
   release:
     runs-on: ubuntu-latest
@@ -75,6 +116,7 @@ jobs:
       - prettier
       - typescript
       - vitest
+      - coverage
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       id-token: write
