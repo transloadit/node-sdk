@@ -491,13 +491,6 @@ Note: Integration tests require valid Transloadit credentials.
 
 ### Code Coverage
 
-We maintain high code coverage to ensure reliability. The minimum coverage thresholds are:
-
-- Statements: 80%
-- Branches: 80%
-- Functions: 80%
-- Lines: 80%
-
 Coverage reports are:
 
 - Generated locally in the `coverage` directory
