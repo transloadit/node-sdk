@@ -5373,7 +5373,7 @@ __metadata:
     p-retry: "npm:^4.6.2"
     prettier: "npm:^3.3.3"
     temp: "npm:^0.9.4"
-    tus-js-client: "npm:^3.1.3"
+    tus-js-client: "npm:^4.2.3"
     typescript: "npm:^5.6.3"
     vitest: "npm:^2.1.3"
   languageName: unknown
@@ -5409,9 +5409,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tus-js-client@npm:^3.1.3":
-  version: 3.1.3
-  resolution: "tus-js-client@npm:3.1.3"
+"tus-js-client@npm:^4.2.3":
+  version: 4.2.3
+  resolution: "tus-js-client@npm:4.2.3"
   dependencies:
     buffer-from: "npm:^1.1.2"
     combine-errors: "npm:^3.0.3"
@@ -5420,7 +5420,7 @@ __metadata:
     lodash.throttle: "npm:^4.1.1"
     proper-lockfile: "npm:^4.1.2"
     url-parse: "npm:^1.5.7"
-  checksum: 526a82147292cb31404866ef16c315fab231d3f8761dc17509ececcf264d8c32a4a02a377dff0939fb50026bfd4bf62ac6518f657cda7b09033e230814cbb467
+  checksum: 4cf660f58b7a778eaa8df044d6d816f4613b4e30b36476ed28f3d356ec6ed24207065afb140016a3067571be006c159c87bd2dd861af50736e84b1aee8f87f64
   languageName: node
   linkType: hard
 
