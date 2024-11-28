@@ -638,7 +638,7 @@ export class Transloadit {
     const workspaceSlug = encodeURIComponent(opts.workspace)
     const templateSlug = encodeURIComponent(opts.template)
     const inputField = encodeURIComponent(opts.input)
-    const expiresIn = opts.expiresIn || 60 * 60 * 1000 // 1 hour
+    const expiresAt = opts.expiresAt || Date.now() + 60 * 60 * 1000 // 1 hour
 
     const queryParams = new URLSearchParams()
     for (const [key, value] of Object.entries(opts.urlParams || {})) {
@@ -652,7 +652,7 @@ export class Transloadit {
     }
 
     queryParams.set('auth_key', this._authKey)
-    queryParams.set('exp', `${Date.now() + expiresIn}`)
+    queryParams.set('exp', `${expiresAt}`)
     // The signature changes depending on the order of the query parameters. We therefore sort them on the client-
     // and server-side to ensure that we do not get mismatching signatures if a proxy changes the order of query
     // parameters or implementations handle query parameters ordering differently.
@@ -1020,7 +1020,8 @@ export interface SmartCDNUrlOptions {
    */
   urlParams?: Record<string, boolean | number | string | (boolean | number | string)[]>
   /**
-   * Expiration time of the signature in milliseconds. Defaults to 1 hour.
+   * Expiration timestamp of the signature in milliseconds since UNIX epoch.
+   * Defaults to 1 hour from now.
    */
-  expiresIn?: number
+  expiresAt?: number
 }

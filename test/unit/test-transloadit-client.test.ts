@@ -345,15 +345,6 @@ describe('Transloadit', () => {
   })
 
   describe('getSignedSmartCDNUrl', () => {
-    beforeAll(() => {
-      vi.useFakeTimers()
-      vi.setSystemTime('2024-05-01T00:00:00.000Z')
-    })
-
-    afterAll(() => {
-      vi.useRealTimers()
-    })
-
     it('should return a signed url', () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
@@ -365,6 +356,7 @@ describe('Transloadit', () => {
           foo: 'bar',
           aaa: [42, 21], // Should be sorted before `foo`.
         },
+        expiresAt: 1714525200000,
       })
 
       expect(url).toBe(
