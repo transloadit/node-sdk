@@ -1,6 +1,6 @@
 import debug from 'debug'
 import { basename } from 'path'
-import { Upload, UploadOptions } from 'tus-js-client'
+import { OnSuccessPayload, Upload, UploadOptions } from 'tus-js-client'
 import { stat } from 'fs/promises'
 import pMap from 'p-map'
 import type { Readable } from 'stream'
@@ -88,7 +88,7 @@ export async function sendTusRequest({
 
     const filename = path ? basename(path) : label
 
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<OnSuccessPayload>((resolve, reject) => {
       const tusOptions: UploadOptions = {
         endpoint: assembly.tus_url,
         metadata: {
