@@ -397,7 +397,7 @@ Constructs a signed Smart CDN URL, as defined in the [API documentation](https:/
 - `template` - Template slug or template ID (required)
 - `input` - Input value that is provided as `${fields.input}` in the template (required)
 - `urlParams` - Object with additional parameters for the URL query string (optional)
-- `expiresIn` - Expiration time of the signature in milliseconds. Defaults to 1 hour. (optional)
+- `expiresAt` - Expiration timestamp of the signature in milliseconds since UNIX epoch. Defaults to 1 hour from now. (optional)
 
 Example:
 
