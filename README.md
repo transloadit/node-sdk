@@ -389,6 +389,33 @@ Calculates a signature for the given `params` JSON object. If the `params` objec
 
 This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
 
+#### getSignedSmartCDNUrl(params)
+
+Constructs a signed Smart CDN URL, as defined in the [API documentation](https://transloadit.com/docs/topics/signature-authentication/#smart-cdn). `params` must be an object with the following properties:
+
+- `workspace` - Workspace slug (required)
+- `template` - Template slug or template ID (required)
+- `input` - Input value that is provided as `${fields.input}` in the template (required)
+- `urlParams` - Object with additional parameters for the URL query string (optional)
+- `expiresAt` - Expiration timestamp of the signature in milliseconds since UNIX epoch. Defaults to 1 hour from now. (optional)
+
+Example:
+
+```js
+const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+const url = client.getSignedSmartCDNUrl({
+  workspace: 'foo_workspace',
+  template: 'foo_template',
+  input: 'foo_input',
+  urlParams: {
+    foo: 'bar',
+  },
+})
+
+// url is:
+// https://foo_workspace.tlcdn.com/foo_template/foo_input?auth_key=foo_key&exp=1714525200000&foo=bar&sig=sha256:9548915ec70a5f0d05de9497289e792201ceec19a526fe315f4f4fd2e7e377ac
+```
+
 ### Errors
 
 Errors from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be an `HTTPError`, which is a [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:

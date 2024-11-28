@@ -343,4 +343,26 @@ describe('Transloadit', () => {
       )
     })
   })
+
+  describe('getSignedSmartCDNUrl', () => {
+    it('should return a signed url', () => {
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+      const url = client.getSignedSmartCDNUrl({
+        workspace: 'foo_workspace',
+        template: 'foo_template',
+        input: 'foo/input',
+        urlParams: {
+          foo: 'bar',
+          aaa: [42, 21], // Should be sorted before `foo`.
+          empty: '',
+        },
+        expiresAt: 1714525200000,
+      })
+
+      expect(url).toBe(
+        'https://foo_workspace.tlcdn.com/foo_template/foo%2Finput?aaa=42&aaa=21&auth_key=foo_key&empty=&exp=1714525200000&foo=bar&sig=sha256%3A1ab71ef553df3507a9e2cf7beb8f921538bbef49a13a94a22ff49f2f030a5e9e'
+      )
+    })
+  })
 })
