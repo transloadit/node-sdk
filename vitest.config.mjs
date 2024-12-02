@@ -15,10 +15,7 @@ export default defineConfig({
         lines: 2,
         perFile: true,
       },
-      clean: true,
-      reportsDirectory: './coverage',
     },
     globals: true,
-    environment: 'node',
   },
 })
