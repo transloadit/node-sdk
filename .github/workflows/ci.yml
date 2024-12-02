@@ -72,15 +72,6 @@ jobs:
         with:
           name: coverage-reports
           path: coverage/
-      - name: Upload coverage to Codecov
-        if: matrix.node == 22 # Only upload coverage from the latest Node.js version
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
-          flags: unittests
-          name: node-sdk
-          fail_ci_if_error: true
 
   coverage:
     needs: vitest
@@ -91,12 +82,14 @@ jobs:
         with:
           name: coverage-reports
           path: coverage
-      - name: Check coverage thresholds
-        run: |
-          if [ ! -f coverage/coverage-summary.json ]; then
-            echo "No coverage report found"
-            exit 1
-          fi
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: node-sdk
+          fail_ci_if_error: true
 
   release:
     runs-on: ubuntu-latest
