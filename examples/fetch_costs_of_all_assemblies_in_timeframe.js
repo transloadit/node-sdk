@@ -2,12 +2,12 @@
 //
 //   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node fetch_costs_of_all_assemblies_in_timeframe.js
 //
-// make sure to "npm install p-map" for this demo
+// You may need to build the project first using:
+//
+//   yarn prepack
+//
 const pMap = require('p-map')
-
-// You'll likely just want to `require('transloadit')`, but we're requiring the local
-// variant here for easier testing:
-const Transloadit = require('../src/Transloadit')
+const { Transloadit } = require('transloadit')
 
 const fromdate = '2020-12-31 15:30:00'
 const todate = '2020-12-31 15:30:01'
@@ -21,8 +21,8 @@ const todate = '2020-12-31 15:30:01'
     }
 
     const transloadit = new Transloadit({
-      authKey: process.env.TRANSLOADIT_KEY,
-      authSecret: process.env.TRANSLOADIT_SECRET,
+      authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
+      authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
     })
 
     let totalBytes = 0
@@ -38,7 +38,7 @@ const todate = '2020-12-31 15:30:01'
         items,
         // eslint-disable-next-line no-loop-func
         async (assembly) => {
-          const assemblyFull = await transloadit.getAssembly(assembly.id)
+          const assemblyFull = await transloadit.getAssembly(/** @type {string} */ (assembly.id))
           // console.log(assemblyFull.assembly_id)
 
           const { bytes_usage: bytesUsage } = assemblyFull

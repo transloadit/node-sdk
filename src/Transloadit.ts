@@ -28,7 +28,7 @@ export {
   MaxRedirectsError,
   TimeoutError,
 } from 'got'
-export { InconsistentResponseError }
+export { InconsistentResponseError, TransloaditError }
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
