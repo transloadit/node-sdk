@@ -1,5 +1,8 @@
 name: Integration tests
 
+env:
+  YARN_ENABLE_IMMUTABLE_INSTALLS: false
+
 on:
   workflow_dispatch:
   push:
