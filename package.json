@@ -61,6 +61,7 @@
   "scripts": {
     "fix:js": "eslint . --fix",
     "lint:js": "eslint .",
+    "lint:ts": "tsc --noEmit",
     "lint": "npm-run-all --parallel 'lint:*'",
     "fix": "npm-run-all --serial 'fix:*'",
     "next:update": "next-update --keep true --tldr",
