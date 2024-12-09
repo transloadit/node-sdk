@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  YARN_ENABLE_IMMUTABLE_INSTALLS: false
+
 on:
   pull_request:
   push:
