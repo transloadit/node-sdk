@@ -5,6 +5,7 @@
     "isolatedModules": true,
     "module": "node16",
     "noImplicitOverride": true,
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "resolveJsonModule": true,
     "strict": true,
