@@ -1,6 +1,10 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/face_detect_download.js ./fixtures/berkley.jpg
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/face_detect_download.js ./examples/fixtures/berkley.jpg
+//
+// You may need to build the project first using:
+//
+//   yarn prepack
 //
 // This example will take an image and find a face and crop out the face.
 // Then it will download the result as a file in the current directory
@@ -8,14 +12,11 @@
 
 const got = require('got')
 const { createWriteStream } = require('fs')
-
-// You'll likely just want to `require('transloadit')`, but we're requiring the local
-// variant here for easier testing:
-const Transloadit = require('../src/Transloadit')
+const { Transloadit } = require('transloadit')
 
 const transloadit = new Transloadit({
-  authKey: process.env.TRANSLOADIT_KEY,
-  authSecret: process.env.TRANSLOADIT_SECRET,
+  authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
+  authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
 })
 
 const filePath = process.argv[2]
@@ -46,7 +47,7 @@ const filePath = process.argv[2]
     // Now save the file
     const outPath = './output-face.jpg'
     const stream = createWriteStream(outPath)
-    await got.stream(status.results.facesDetected[0].url).pipe(stream)
+    await got.default.stream(status.results.facesDetected[0].url).pipe(stream)
     console.log('Your cropped face has been saved to', outPath)
   } catch (err) {
     console.error('createAssembly failed', err)

@@ -3,16 +3,18 @@
 //
 //   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node template_api.js
 //
-// You'll likely just want to `require('transloadit')`, but we're requiring the local
-// variant here for easier testing:
-const Transloadit = require('../src/Transloadit')
+// You may need to build the project first using:
+//
+//   yarn prepack
+//
+const { Transloadit } = require('transloadit')
 
 const transloadit = new Transloadit({
-  authKey: process.env.TRANSLOADIT_KEY,
-  authSecret: process.env.TRANSLOADIT_SECRET,
-  // authKey   : process.env.API2_SYSTEMTEST_AUTH_KEY,
-  // authSecret: process.env.API2_SYSTEMTEST_SECRET_KEY,
-  // endpoint  : 'https://api2-vbox.transloadit.com',
+  authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
+  authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
+  // authKey: /** @type {string} */ (process.env.API2_SYSTEMTEST_AUTH_KEY),
+  // authSecret: /** @type {string} */ (process.env.API2_SYSTEMTEST_SECRET_KEY),
+  // endpoint: /** @type {string} */ ('https://api2-vbox.transloadit.com'),
 })
 
 const firstName = 'myProductionS3'
@@ -51,9 +53,8 @@ const credentialParams = {
     }
 
     console.log(`==> createTemplateCredential`)
-    const createTemplateCredentialResult = await transloadit.createTemplateCredential(
-      credentialParams
-    )
+    const createTemplateCredentialResult =
+      await transloadit.createTemplateCredential(credentialParams)
     console.log('TemplateCredential created successfully:', createTemplateCredentialResult)
     // ^-- with   Templates, there is `ok`, `message`, `id`, `content`, `name`, `require_signature_auth`. Same is true for: created, updated, fetched
     //     with Credentials, there is `ok`, `message`, `credentials` <-- and a single object nested directly under it, which is unexpected with that plural imho. Same is true for created, updated, fetched

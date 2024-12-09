@@ -1,7 +1,8 @@
 {
-  "exclude": ["src"],
+  "exclude": ["dist", "src"],
   "references": [{ "path": "./tsconfig.build.json" }],
   "compilerOptions": {
+    "checkJs": true,
     "isolatedModules": true,
     "module": "node16",
     "noImplicitOverride": true,

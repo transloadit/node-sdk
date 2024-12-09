@@ -1,14 +1,16 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node rasterize_svg_to_png.js ./fixtures/circle.svg
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node rasterize_svg_to_png.js ./examples/fixtures/circle.svg
 //
-// You'll likely just want to `require('transloadit')`, but we're requiring the local
-// variant here for easier testing:
-const Transloadit = require('../src/Transloadit')
+// You may need to build the project first using:
+//
+//   yarn prepack
+//
+const { Transloadit } = require('transloadit')
 
 const transloadit = new Transloadit({
-  authKey: process.env.TRANSLOADIT_KEY,
-  authSecret: process.env.TRANSLOADIT_SECRET,
+  authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
+  authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
 })
 
 const filePath = process.argv[2]
