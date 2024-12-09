@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     coverage: {
       include: ['src/**/*.ts'],
-      exclude: ['**/*.d.ts', '**/*.test.ts', '**/test/**'],
+      exclude: ['**/*.d.ts', '**/*.test.ts', '**/test/**', '**/alphalib/**'],
       reporter: ['json', 'lcov', 'text', 'clover', 'json-summary', 'html'],
       provider: 'v8',
       thresholds: {
