@@ -1,6 +1,9 @@
 name: CI
 
 env:
+  # @TODO We should really remove this, but at the time of writing even
+  # a completely new yarn.lock currently breaks the build with a:
+  # The lockfile would have been modified by this install, which is explicitly forbidden.
   YARN_ENABLE_IMMUTABLE_INSTALLS: false
 
 on:
