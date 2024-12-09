@@ -1,0 +1,67 @@
+import { z } from 'zod'
+
+import { aiProviderSchema, granularitySchema, useParamSchema } from './_instructions-primitives.ts'
+import type { RobotMeta } from './_instructions-primitives.ts'
+
+export const meta: RobotMeta = {
+  allowed_for_url_transform: true,
+  bytescount: 1,
+  discount_factor: 1,
+  discount_pct: 0,
+  example_code: {
+    steps: {
+      recognized: {
+        robot: '/document/ocr',
+        use: ':original',
+        provider: 'gcp',
+      },
+    },
+  },
+  example_code_description: 'Recognize text in an uploaded document and save it to a JSON file:',
+  extended_description: `
+**Warning:** Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input PDFs. Avoid relying on exact responses in your tests and application. [{.alert .alert-warning}]
+
+**Note:** Currently, this <dfn>Robot</dfn> only supports character recognition for PDFs. To use this <dfn>Robot</dfn> with other document formats, use [/document/convert]({{robot_links["/document/convert"]}}) first to convert the document into a PDF. [{.alert .alert-note}]
+`,
+  minimum_charge: 1048576,
+  output_factor: 1,
+  override_lvl1: 'Artificial Intelligence',
+  purpose_sentence: 'recognizes text in documents and returns it in a machine-readable format',
+  purpose_verb: 'recognize',
+  purpose_word: 'recognize text',
+  purpose_words: 'Recognize text in documents (OCR)',
+  service_slug: 'artificial-intelligence',
+  slot_count: 10,
+  title: 'Recognize text in documents',
+  typical_file_size_mb: 0.8,
+  typical_file_type: 'document',
+}
+
+export const robotDocumentOcrInstructionsSchema = z
+  .object({
+    robot: z.literal('/document/ocr').describe(`
+With this <dfn>Robot</dfn>, you can detect and extract text from PDFs using optical character recognition (OCR).
+
+For example, you can use the results to obtain the content of invoices, legal documents or restaurant menus. You can also pass the text down to other <dfn>Robots</dfn> to filter documents that contain (or do not contain) certain phrases.
+`),
+    use: useParamSchema,
+    provider: aiProviderSchema.describe(`
+Which AI provider to leverage. Valid values are \`"aws"\` and \`"gcp"\`.
+
+Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
+
+AWS supports detection for the following languages: English, Arabic, Russian, German, French, Italian, Portuguese and Spanish. GCP allows for a wider range of languages, with varying levels of support which can be found on the [official documentation](https://cloud.google.com/vision/docs/languages/).
+`),
+    granularity: granularitySchema.describe(`
+Whether to return a full response including coordinates for the text (\`"full"\`), or a flat list of the extracted phrases (\`"list"\`). This parameter has no effect if the \`format\` parameter is set to \`"text"\`.
+`),
+    format: z.enum(['json', 'meta', 'text']).default('json').describe(`
+In what format to return the extracted text.
+- \`"json"\` returns a JSON file.
+- \`"meta"\` does not return a file, but stores the data inside Transloadit's file object (under \`\${file.meta.recognized_text}\`, which is an array of strings) that's passed around between encoding <dfn>Steps</dfn>, so that you can use the values to burn the data into videos, filter on them, etc.
+- \`"text"\` returns the recognized text as a plain UTF-8 encoded text file.
+`),
+  })
+  .strict()
+
+export type RobotDocumentOcrInstructions = z.infer<typeof robotDocumentOcrInstructionsSchema>

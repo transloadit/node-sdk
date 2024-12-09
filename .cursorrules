@@ -1,0 +1,14 @@
+- Favor `contentGapItemSchema = z.object()` over `ContentGapItemSchema = z.object()`
+- Favor `async run() {` over `run = async () => {` inside ES6 classes
+- Favor `from './PosterboyCommand.ts'` over `from './PosterboyCommand'`
+- Favor `return ideas.filter(isPresent)` over `ideas.filter((idea): idea is Idea => idea !== null)`
+- Favor `if (!(err instanceof Error)) { throw new Error(`Was thrown a non-error: ${err}`) }` inside
+  `catch` blocks to ensure the `error` is always an instance of `Error`
+- Favor using real paths (`../lib/schemas.ts`) over aliases (`@/app/lib/schemas`).
+- Favor using `.tsx` over `.jsx`.
+- Favor `for (const comment of comments) {` over `comments.forEach((comment) => {`
+- Do not touch `.env` files!
+- Favor `satisfies` over `as`, consider `as` a sin
+- Favor `unknown` over `any`, consider `any` a sin
+- Favor validating data with Zod over using `any` or custom type guards
+- Favor Yarn (4) over npm

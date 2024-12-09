@@ -1,0 +1,80 @@
+import { z } from 'zod'
+
+import { useParamSchema } from './_instructions-primitives.ts'
+import type { RobotMeta } from './_instructions-primitives.ts'
+
+export const meta: RobotMeta = {
+  allowed_for_url_transform: true,
+  bytescount: 6,
+  discount_factor: 0.15000150001500018,
+  discount_pct: 84.99984999849998,
+  example_code: {
+    steps: {
+      exported: {
+        robot: '/google/store',
+        use: ':original',
+        credentials: 'YOUR_GOOGLE_CREDENTIALS',
+        path: 'my_target_folder/${unique_prefix}/${file.url_name}',
+      },
+    },
+  },
+  example_code_description: 'Export uploaded files to `my_target_folder` on Google Storage:',
+  has_small_icon: true,
+  minimum_charge: 0,
+  output_factor: 1,
+  override_lvl1: 'File Exporting',
+  purpose_sentence: 'exports encoding results to Google Storage',
+  purpose_verb: 'export',
+  purpose_word: 'Google Storage',
+  purpose_words: 'Export files to Google Storage',
+  service_slug: 'file-exporting',
+  slot_count: 10,
+  title: 'Export files to Google Storage',
+  typical_file_size_mb: 1.2,
+  typical_file_type: 'file',
+}
+
+export const robotGoogleStoreInstructionsSchema = z
+  .object({
+    robot: z.literal('/google/store'),
+    use: useParamSchema,
+    credentials: z.string().describe(`
+Create a new [Google service account](https://cloud.google.com/storage/docs/authentication). Set its role to "Storage Object Creator". Choose "JSON" for the key file format and download it to your computer. You will need to upload this file when creating your <dfn>Template Credentials</dfn>.
+
+Go back to your Google credentials project and enable the "Google Cloud Storage JSON API" for it. Wait around ten minutes for the action to propagate through the Google network. Grab the project ID from the dropdown menu in the header bar on the Google site. You will also need it later on.
+
+Now you can set up the \`storage.objects.create\` and \`storage.objects.delete\` permissions. The latter is optional and only required if you intend to overwrite existing paths.
+
+To do this from the Google Cloud console, navigate to "IAM &amp; Admin" and select "Roles". From here, select "+CREATE ROLE", enter a name, set the role launch stage as general availability and set the permissions stated above.
+
+Next, relocate to your storage browser and select the ellipsis on your bucket to edit bucket permissions. From here, select "ADD MEMBER", enter your service account as a new member and select your newly created role.
+
+Then, create your associated [Template Credentials](/c/template-credentials/) in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value.
+`),
+    path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
+The path at which the file is to be stored. This may include any available [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables).
+`),
+    acl: z
+      .enum([
+        'authenticated-read',
+        'bucket-owner-full-control',
+        'private',
+        'project-private',
+        'public-read',
+      ])
+      .default('public-read').describe(`
+The permissions used for this file.
+`),
+    cache_control: z.string().optional().describe(`
+The \`Cache-Control\` header determines how long browsers are allowed to cache your object for. Values specified with this parameter will be added to the object's metadata under the \`Cache-Control\` header. For more information on valid values, take a look at the [official Google documentation](https://cloud.google.com/storage/docs/metadata#cache-control).
+`),
+    url_template: z.string().default('https://{HOST}/{PATH}').describe(`
+The URL of the file in the result JSON. This may include any of the following supported [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
+`),
+    ssl_url_template: z.string().default('https://{HOST}/{PATH}').describe(`
+The SSL URL of the file in the result JSON. The following [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables) are supported.
+`),
+  })
+  .strict()
+
+export type RobotGoogleStoreInstructions = z.infer<typeof robotGoogleStoreInstructionsSchema>
