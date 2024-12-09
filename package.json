@@ -11,7 +11,7 @@
     "mp3"
   ],
   "author": "Tim Koschuetzki <tim@transloadit.com>",
-  "packageManager": "yarn@4.5.3",
+  "packageManager": "yarn@4.0.1",
   "engines": {
     "node": ">= 18"
   },
@@ -22,8 +22,7 @@
     "into-stream": "^6.0.0",
     "is-stream": "^2.0.1",
     "p-map": "^4.0.0",
-    "tus-js-client": "^4.2.3",
-    "zod": "^3.23.8"
+    "tus-js-client": "^4.2.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.8",
