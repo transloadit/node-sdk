@@ -12,9 +12,6 @@ const { Transloadit } = require('transloadit')
 const transloadit = new Transloadit({
   authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
   authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
-  // authKey: /** @type {string} */ (process.env.API2_SYSTEMTEST_AUTH_KEY),
-  // authSecret: /** @type {string} */ (process.env.API2_SYSTEMTEST_SECRET_KEY),
-  // endpoint: /** @type {string} */ ('https://api2-vbox.transloadit.com'),
 })
 
 const firstName = 'myProductionS3'
