@@ -1,5 +1,6 @@
 {
   "include": ["src"],
+  "exclude": ["coverage"],
   "compilerOptions": {
     "composite": true,
     "declaration": true,
@@ -7,7 +8,7 @@
     "isolatedModules": true,
     "module": "node16",
     "noImplicitOverride": true,
-    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "outDir": "dist",
     "resolveJsonModule": true,
     "rootDir": "src",
