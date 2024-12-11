@@ -270,9 +270,7 @@ describe('Transloadit', () => {
 
     await client.createAssembly()
 
-    expect(spy).toBeCalledWith(
-      expect.objectContaining({ timeout: 24 * 60 * 60 * 1000 }),
-    )
+    expect(spy).toBeCalledWith(expect.objectContaining({ timeout: 24 * 60 * 60 * 1000 }))
   })
 
   describe('_calcSignature', () => {
