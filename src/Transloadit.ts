@@ -159,7 +159,6 @@ export class Transloadit {
     const {
       params = {},
       waitForCompletion = false,
-      isResumable = true,
       chunkSize: requestedChunkSize = Infinity,
       uploadConcurrency = 10,
       timeout = 24 * 60 * 60 * 1000, // 1 day
@@ -169,13 +168,6 @@ export class Transloadit {
       uploads = {},
       assemblyId,
     } = opts
-
-    if (!isResumable) {
-      process.emitWarning(
-        'Parameter value isResumable = false is deprecated. All uploads will be resumable (using TUS) in the future',
-        'DeprecationWarning'
-      )
-    }
 
     // Keep track of how long the request took
     const startTimeMs = getHrTimeMs()
@@ -242,25 +234,15 @@ export class Transloadit {
           method: 'post',
           timeout,
           params,
-        }
-
-        if (isResumable) {
-          requestOpts.fields = {
+          fields: {
             tus_num_expected_upload_files: allStreams.length,
-          }
+          },
         }
 
-        // upload as form multipart or tus?
-        const formUploadStreamsMap: Record<string, Stream> = isResumable ? {} : allStreamsMap
-
-        const result = await this._remoteJson<Assembly>(
-          requestOpts,
-          formUploadStreamsMap,
-          onUploadProgress
-        )
+        const result = await this._remoteJson<Assembly>(requestOpts)
         checkResult(result)
 
-        if (isResumable && Object.keys(allStreamsMap).length > 0) {
+        if (Object.keys(allStreamsMap).length > 0) {
           await sendTusRequest({
             streamsMap: allStreamsMap,
             assembly: result,
@@ -678,7 +660,6 @@ export class Transloadit {
   private _appendForm(
     form: FormData,
     params: KeyVal,
-    streamsMap?: Record<string, Stream>,
     fields?: Record<string, string | number>
   ): void {
     const sigData = this.calcSignature(params)
@@ -694,13 +675,6 @@ export class Transloadit {
     }
 
     form.append('signature', signature)
-
-    if (streamsMap) {
-      Object.entries(streamsMap).forEach(([label, { stream, path }]) => {
-        const options = path ? undefined : { filename: label } // https://github.com/transloadit/node-sdk/issues/86
-        form.append(label, stream, options)
-      })
-    }
   }
 
   // Implements HTTP GET query params, handling the case where the url already
@@ -743,11 +717,7 @@ export class Transloadit {
   // Responsible for making API calls. Automatically sends streams with any POST,
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
-  private async _remoteJson<T>(
-    opts: RequestOptions,
-    streamsMap?: Record<string, Stream>,
-    onProgress: CreateAssemblyOptions['onUploadProgress'] = () => {}
-  ): Promise<T> {
+  private async _remoteJson<T>(opts: RequestOptions): Promise<T> {
     const {
       urlSuffix,
       url: urlInput,
@@ -775,10 +745,8 @@ export class Transloadit {
 
       if (method === 'post' || method === 'put' || method === 'delete') {
         form = new FormData()
-        this._appendForm(form, params, streamsMap, fields)
+        this._appendForm(form, params, fields)
       }
-
-      const isUploadingStreams = streamsMap && Object.keys(streamsMap).length > 0
 
       const requestOpts: OptionsOfJSONResponseBody = {
         retry: this._gotRetry,
@@ -792,18 +760,8 @@ export class Transloadit {
         responseType: 'json',
       }
 
-      // For non-file streams transfer encoding does not get set, and the uploaded files will not get accepted
-      // https://github.com/transloadit/node-sdk/issues/86
-      // https://github.com/form-data/form-data/issues/394#issuecomment-573595015
-      if (isUploadingStreams) requestOpts.headers!['transfer-encoding'] = 'chunked'
-
       try {
         const request = got[method]<T>(url, requestOpts)
-        if (isUploadingStreams) {
-          request.on('uploadProgress', ({ transferred, total }) =>
-            onProgress({ uploadedBytes: transferred, totalBytes: total })
-          )
-        }
         const { body } = await request
         return body
       } catch (err) {
@@ -852,7 +810,6 @@ export interface CreateAssemblyOptions {
     [name: string]: Readable | intoStream.Input
   }
   waitForCompletion?: boolean
-  isResumable?: boolean
   chunkSize?: number
   uploadConcurrency?: number
   timeout?: number
