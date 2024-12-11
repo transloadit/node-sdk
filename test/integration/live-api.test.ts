@@ -337,22 +337,19 @@ describe('API integration', { timeout: 60000 }, () => {
       expect(result.assembly_id).toMatch(promise.assemblyId)
     })
 
-    async function testUploadProgress(isResumable: boolean) {
+    async function testUploadProgress() {
       const client = createClient()
 
       let progressCalled = false
       function onUploadProgress({ uploadedBytes, totalBytes }: UploadProgress) {
         // console.log(uploadedBytes)
         expect(uploadedBytes).toBeDefined()
-        if (isResumable) {
-          expect(totalBytes).toBeDefined()
-          expect(totalBytes).toBeGreaterThan(0)
-        }
+        expect(totalBytes).toBeDefined()
+        expect(totalBytes).toBeGreaterThan(0)
         progressCalled = true
       }
 
       const params: CreateAssemblyOptions = {
-        isResumable,
         params: {
           steps: {
             resize: resizeOriginalStep,
@@ -368,12 +365,8 @@ describe('API integration', { timeout: 60000 }, () => {
       expect(progressCalled).toBe(true)
     }
 
-    it('should trigger progress callbacks when uploading files, resumable', async () => {
-      await testUploadProgress(true)
-    })
-
-    it('should trigger progress callbacks when uploading files, nonresumable', async () => {
-      await testUploadProgress(false)
+    it('should trigger progress callbacks when uploading files', async () => {
+      await testUploadProgress()
     })
 
     it('should return properly waitForCompletion is false', async () => {

@@ -151,14 +151,6 @@ describe('Transloadit', () => {
     it('should append all required fields to the request form', () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
-      const stream1 = new Readable()
-      const stream2 = new Readable()
-
-      const streamsMap = {
-        stream1: { stream: stream1 },
-        stream2: { stream: stream2 },
-      }
-
       const form = new FormData()
       const params = {}
       const fields = {
@@ -170,7 +162,7 @@ describe('Transloadit', () => {
       const formAppendSpy = vi.spyOn(form, 'append')
 
       // @ts-expect-error This tests private internals
-      client._appendForm(form, params, streamsMap, fields)
+      client._appendForm(form, params, fields)
 
       expect(calcSignatureSpy).toHaveBeenCalledWith(params)
 
@@ -181,8 +173,6 @@ describe('Transloadit', () => {
           'signature',
           'sha384:f146533532844d4f4e34221288be08e14a2779eeb802a35afa6a193762f58da95d2423a825aa4cb4c7420e25f75a5c90',
         ],
-        ['stream1', stream1, { filename: 'stream1' }],
-        ['stream2', stream2, { filename: 'stream2' }],
       ])
     })
   })
@@ -280,11 +270,7 @@ describe('Transloadit', () => {
 
     await client.createAssembly()
 
-    expect(spy).toBeCalledWith(
-      expect.objectContaining({ timeout: 24 * 60 * 60 * 1000 }),
-      {},
-      expect.any(Function)
-    )
+    expect(spy).toBeCalledWith(expect.objectContaining({ timeout: 24 * 60 * 60 * 1000 }))
   })
 
   describe('_calcSignature', () => {
