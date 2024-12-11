@@ -97,6 +97,9 @@ describe('Mocked API tests', () => {
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
         transloaditErrorCode: 'INVALID_FILE_META_DATA',
+        cause: {
+          error: 'INVALID_FILE_META_DATA',
+        },
         message: 'Response code 400 (Bad Request) INVALID_FILE_META_DATA',
       })
     )
@@ -119,6 +122,7 @@ describe('Mocked API tests', () => {
         response: expect.objectContaining({
           body: expect.objectContaining({ assembly_id: '123' }),
         }),
+        cause: expect.objectContaining({ assembly_id: '123' }),
       })
     )
   })
@@ -152,6 +156,9 @@ describe('Mocked API tests', () => {
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
         transloaditErrorCode: 'RATE_LIMIT_REACHED',
+        cause: expect.objectContaining({
+          error: 'RATE_LIMIT_REACHED',
+        }),
         message: 'Response code 413 (Payload Too Large) RATE_LIMIT_REACHED: Request limit reached',
       })
     )
@@ -234,6 +241,9 @@ describe('Mocked API tests', () => {
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
         transloaditErrorCode: 'IMPORT_FILE_ERROR',
+        cause: expect.objectContaining({
+          error: 'IMPORT_FILE_ERROR',
+        }),
         response: expect.objectContaining({ body: expect.objectContaining({ assembly_id: '1' }) }),
       })
     )
@@ -248,7 +258,12 @@ describe('Mocked API tests', () => {
       .reply(200, { error: 'IMPORT_FILE_ERROR' })
 
     await expect(client.replayAssembly('1')).rejects.toThrow(
-      expect.objectContaining({ transloaditErrorCode: 'IMPORT_FILE_ERROR' })
+      expect.objectContaining({
+        transloaditErrorCode: 'IMPORT_FILE_ERROR',
+        cause: expect.objectContaining({
+          error: 'IMPORT_FILE_ERROR',
+        }),
+      })
     )
     scope.done()
   })

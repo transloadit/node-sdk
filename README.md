@@ -90,8 +90,8 @@ const transloadit = new Transloadit({
     }
   } catch (err) {
     console.error('❌ Unable to process Assembly.', err)
-    if (err.assemblyId) {
-      console.error(`💡 More info: https://transloadit.com/assemblies/${err.assemblyId}`)
+    if (err.cause?.assembly_id) {
+      console.error(`💡 More info: https://transloadit.com/assemblies/${err.cause?.assembly_id}`)
     }
   }
 })()
@@ -421,8 +421,8 @@ const url = client.getSignedSmartCDNUrl({
 
 Errors from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be an `HTTPError`, which is a [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:
 
-- `HTTPError.response?.body` the JSON object returned by the server along with the error response (**note**: `HTTPError.response` will be `undefined` for non-server errors)
-- `HTTPError.transloaditErrorCode` alias for `HTTPError.response.body.error` ([View all error codes](https://transloadit.com/docs/api/response-codes/#error-codes))
+- **(deprecated: use `cause` instead)** `HTTPError.response?.body` the JSON object returned by the server along with the error response (**note**: `HTTPError.response` will be `undefined` for non-server errors)
+- **(deprecated)** `HTTPError.transloaditErrorCode` alias for `HTTPError.cause?.error` ([View all error codes](https://transloadit.com/docs/api/response-codes/#error-codes))
 - `HTTPError.assemblyId` (alias for `HTTPError.response.body.assembly_id`, if the request regards an [Assembly](https://transloadit.com/docs/api/assemblies-assembly-id-get/))
 
 To identify errors you can either check its props or use `instanceof`, e.g.:
@@ -435,7 +435,7 @@ catch (err) {
   if (err.code === 'ENOENT') {
     return console.error('Cannot open file', err)
   }
-  if (err.transloaditErrorCode === 'ASSEMBLY_INVALID_STEPS') {
+  if (err.cause?.error === 'ASSEMBLY_INVALID_STEPS') {
     return console.error('Invalid Assembly Steps', err)
   }
 }
@@ -443,7 +443,7 @@ catch (err) {
 
 **Note:** Assemblies that have an error status (`assembly.error`) will only result in an error thrown from `createAssembly` and `replayAssembly`. For other Assembly methods, no errors will be thrown, but any error can be found in the response's `error` property
 
-- [More information on Transloadit errors (`transloaditErrorCode`)](https://transloadit.com/docs/api/response-codes/#error-codes)
+- [More information on Transloadit errors (`cause.error`)](https://transloadit.com/docs/api/response-codes/#error-codes)
 - [More information on request errors](https://github.com/sindresorhus/got#errors)
 
 ### Rate limiting & auto retry

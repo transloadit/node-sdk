@@ -22,7 +22,7 @@ async function run() {
     const { items } = await transloadit.listTemplates({ sort: 'created', order: 'asc' })
     return items
   } catch (err) {
-    if (err instanceof TransloaditError && err.transloaditErrorCode === 'INVALID_SIGNATURE') {
+    if (err instanceof TransloaditError && err.cause?.error === 'INVALID_SIGNATURE') {
       // This is an unrecoverable error, abort retry
       throw new pRetry.AbortError('INVALID_SIGNATURE')
     }
