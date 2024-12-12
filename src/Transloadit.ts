@@ -1,5 +1,5 @@
 import { createHmac, randomUUID } from 'crypto'
-import got, { RequiredRetryOptions, Headers, OptionsOfJSONResponseBody } from 'got'
+import got, { RequiredRetryOptions, Headers, OptionsOfJSONResponseBody, HTTPError } from 'got'
 import FormData from 'form-data'
 import { constants, createReadStream } from 'fs'
 import { access } from 'fs/promises'
@@ -11,7 +11,7 @@ import pMap from 'p-map'
 import { InconsistentResponseError } from './InconsistentResponseError'
 import { PaginationStream } from './PaginationStream'
 import { PollingTimeoutError } from './PollingTimeoutError'
-import { TransloaditError } from './TransloaditError'
+import { TransloaditResponseBody, TransloaditError } from './TransloaditError'
 import { version } from '../package.json'
 import { sendTusRequest, Stream } from './tus'
 
@@ -47,17 +47,15 @@ interface CreateAssemblyPromise extends Promise<Assembly> {
   assemblyId: string
 }
 
-function decorateHttpError(err: TransloaditError, body: any): TransloaditError {
-  if (!body) return err
-
+function getTransloaditErrorPropsFromBody(err: Error, body: TransloaditResponseBody) {
   let newMessage = err.message
   let newStack = err.stack
 
   // Provide a more useful message if there is one
-  if (body.message && body.error) newMessage += ` ${body.error}: ${body.message}`
-  else if (body.error) newMessage += ` ${body.error}`
+  if (body?.message && body?.error) newMessage += ` ${body.error}: ${body.message}`
+  else if (body?.error) newMessage += ` ${body.error}`
 
-  if (body.assembly_ssl_url) newMessage += ` - ${body.assembly_ssl_url}`
+  if (body?.assembly_ssl_url) newMessage += ` - ${body.assembly_ssl_url}`
 
   if (typeof err.stack === 'string') {
     const indexOfMessageEnd = err.stack.indexOf(err.message) + err.message.length
@@ -65,14 +63,42 @@ function decorateHttpError(err: TransloaditError, body: any): TransloaditError {
     newStack = `${newMessage}${stacktrace}`
   }
 
+  return {
+    message: newMessage,
+    ...(newStack != null && { stack: newStack }),
+    ...(body?.assembly_id && { assemblyId: body.assembly_id }),
+    ...(body?.error && { transloaditErrorCode: body.error }),
+  }
+}
+
+function decorateTransloaditError(err: HTTPError, body: TransloaditResponseBody): TransloaditError {
+  // todo improve this
+  const transloaditErr = err as HTTPError & TransloaditError
   /* eslint-disable no-param-reassign */
-  err.message = newMessage
-  if (newStack != null) err.stack = newStack
-  if (body.assembly_id) err.assemblyId = body.assembly_id
-  if (body.error) err.transloaditErrorCode = body.error
+  if (body) transloaditErr.cause = body
+  const props = getTransloaditErrorPropsFromBody(err, body)
+  transloaditErr.message = props.message
+  if (props.stack != null) transloaditErr.stack = props.stack
+  if (props.assemblyId) transloaditErr.assemblyId = props.assemblyId
+  if (props.transloaditErrorCode) transloaditErr.transloaditErrorCode = props.transloaditErrorCode
   /* eslint-enable no-param-reassign */
 
-  return err
+  return transloaditErr
+}
+
+function makeTransloaditError(err: Error, body: TransloaditResponseBody): TransloaditError {
+  const transloaditErr = new TransloaditError(err.message, body)
+  // todo improve this
+  /* eslint-disable no-param-reassign */
+  if (body) transloaditErr.cause = body
+  const props = getTransloaditErrorPropsFromBody(err, body)
+  transloaditErr.message = props.message
+  if (props.stack != null) transloaditErr.stack = props.stack
+  if (props.assemblyId) transloaditErr.assemblyId = props.assemblyId
+  if (props.transloaditErrorCode) transloaditErr.transloaditErrorCode = props.transloaditErrorCode
+  /* eslint-enable no-param-reassign */
+
+  return transloaditErr
 }
 
 // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
@@ -95,7 +121,7 @@ function checkResult<T>(result: T | { error: string }): asserts result is T {
     'error' in result &&
     typeof result.error === 'string'
   ) {
-    throw decorateHttpError(new TransloaditError('Error in response', result), result)
+    throw makeTransloaditError(new Error('Error in response'), result)
   }
 }
 
@@ -738,7 +764,7 @@ export class Transloadit {
 
     log('Sending request', method, url)
 
-    // Cannot use got.retry because we are using FormData which is a stream and can only be used once
+    // todo use got.retry instead because we are no longer using FormData (which is a stream and can only be used once)
     // https://github.com/sindresorhus/got/issues/1282
     for (let retryCount = 0; ; retryCount++) {
       let form
@@ -788,7 +814,7 @@ export class Transloadit {
             retryCount < this._maxRetries
           )
         ) {
-          throw decorateHttpError(err, body)
+          throw decorateTransloaditError(err, body as TransloaditResponseBody) // todo improve
         }
 
         const { retryIn: retryInSec } = body.info
