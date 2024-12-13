@@ -398,10 +398,8 @@ describe('API integration', { timeout: 60000 }, () => {
       const promise = createAssembly(client, opts)
       await promise.catch((err) => {
         expect(err).toMatchObject({
-          response: expect.objectContaining({
-            error: 'INVALID_INPUT_ERROR',
-            assembly_id: expect.any(String),
-          }),
+          code: 'INVALID_INPUT_ERROR',
+          assemblyId: expect.any(String),
         })
       })
       await expect(promise).rejects.toThrow(Error)
@@ -729,9 +727,7 @@ describe('API integration', { timeout: 60000 }, () => {
       expect(ok).toBe('TEMPLATE_DELETED')
       await expect(client.getTemplate(templId!)).rejects.toThrow(
         expect.objectContaining({
-          response: expect.objectContaining({
-            error: 'TEMPLATE_NOT_FOUND',
-          }),
+          code: 'TEMPLATE_NOT_FOUND',
         })
       )
     })
@@ -802,9 +798,7 @@ describe('API integration', { timeout: 60000 }, () => {
       expect(ok).toBe('TEMPLATE_CREDENTIALS_DELETED')
       await expect(client.getTemplateCredential(credId!)).rejects.toThrow(
         expect.objectContaining({
-          response: expect.objectContaining({
-            error: 'TEMPLATE_CREDENTIALS_NOT_READ',
-          }),
+          code: 'TEMPLATE_CREDENTIALS_NOT_READ',
         })
       )
     })
