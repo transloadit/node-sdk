@@ -416,10 +416,11 @@ const url = client.getSignedSmartCDNUrl({
 ### Errors
 
 Any errors originating from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) v11 for HTTP requests. [Errors from `got`](https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors) will also be passed on, _except_ the `got.HTTPError` which will be replaced with a `transloadit.ApiError`, which will have its `cause` property set to the instance of the original `got.HTTPError`. `transloadit.ApiError` has these properties:
-  - `code` (`string`) - [The Transloadit API error code](https://transloadit.com/docs/api/response-codes/#error-codes).
-  - `rawMessage` (`string`) - A textual representation of the Transloadit API error.
-  - `assemblyId`: (`string`) - If the request is related to an assembly, this will be the ID of the assembly.
-  - `assemblySslUrl` (`string`) - If the request is related to an assembly, this will be the SSL URL to the assembly .
+
+- `code` (`string`) - [The Transloadit API error code](https://transloadit.com/docs/api/response-codes/#error-codes).
+- `rawMessage` (`string`) - A textual representation of the Transloadit API error.
+- `assemblyId`: (`string`) - If the request is related to an assembly, this will be the ID of the assembly.
+- `assemblySslUrl` (`string`) - If the request is related to an assembly, this will be the SSL URL to the assembly .
 
 To identify errors you can either check its props or use `instanceof`, e.g.:
 
