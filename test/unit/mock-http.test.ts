@@ -1,6 +1,8 @@
 import nock from 'nock'
+import { inspect } from 'node:util'
 
 import {
+  ApiError,
   HTTPError,
   InconsistentResponseError,
   TimeoutError,
@@ -92,39 +94,92 @@ describe('Mocked API tests', () => {
 
     nock('http://localhost')
       .post(createAssemblyRegex)
-      .reply(400, { error: 'INVALID_FILE_META_DATA' })
+      .reply(400, { error: 'INVALID_FILE_META_DATA', message: 'Invalid file metadata' })
 
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
-        transloaditErrorCode: 'INVALID_FILE_META_DATA',
-        cause: {
+        response: {
           error: 'INVALID_FILE_META_DATA',
+          message: 'Invalid file metadata',
         },
-        message: 'Response code 400 (Bad Request) INVALID_FILE_META_DATA',
+        message: 'API error (HTTP 400) INVALID_FILE_META_DATA: Invalid file metadata',
       })
     )
   })
 
-  it('should return assemblyId and response.body in Error', async () => {
+  it('should return informative errors', async () => {
     const client = getLocalClient()
 
     nock('http://localhost').post(createAssemblyRegex).reply(400, {
       error: 'INVALID_FILE_META_DATA',
+      message: 'Invalid file metadata',
       assembly_id: '123',
       assembly_ssl_url: 'https://api2-oltu.transloadit.com/assemblies/foo',
     })
 
-    await expect(client.createAssembly()).rejects.toThrow(
+    const promise = client.createAssembly()
+    await expect(promise).rejects.toThrow(
       expect.objectContaining({
-        assemblyId: '123',
         message:
-          'Response code 400 (Bad Request) INVALID_FILE_META_DATA - https://api2-oltu.transloadit.com/assemblies/foo',
-        response: expect.objectContaining({
-          body: expect.objectContaining({ assembly_id: '123' }),
-        }),
-        cause: expect.objectContaining({ assembly_id: '123' }),
+          'API error (HTTP 400) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo',
+        response: expect.objectContaining({ assembly_id: '123' }),
       })
     )
+
+    try {
+      await promise
+    } catch (err) {
+      expect(inspect(err).split('\n')).toEqual([
+        expect.stringMatching(
+          `API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo`
+        ),
+        expect.stringMatching(`    at .+`),
+        expect.stringMatching(`    at .+`),
+        expect.stringMatching(
+          `    at Transloadit\\._remoteJson \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)`
+        ),
+        expect.stringMatching(
+          `    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)`
+        ),
+        expect.stringMatching(`    at .+\\/src\\/Transloadit\\.ts:\\d+:\\d+`),
+        expect.stringMatching(`    at .+`),
+        expect.stringMatching(`    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+`),
+        expect.stringMatching(`    at .+`),
+        expect.stringMatching(`    at .+`),
+        expect.stringMatching(`    at .+`),
+        expect.stringMatching(`    at .+`),
+        expect.stringMatching(`    at .+`),
+        expect.stringMatching(`  name: 'ApiError',`),
+        expect.stringMatching(`  response: \\{`),
+        expect.stringMatching(`    error: 'INVALID_FILE_META_DATA',`),
+        expect.stringMatching(`    message: 'Invalid file metadata',`),
+        expect.stringMatching(`    assembly_id: '123',`),
+        expect.stringMatching(
+          `    assembly_ssl_url: 'https:\\/\\/api2-oltu\\.transloadit\\.com\\/assemblies\\/foo'`
+        ),
+        expect.stringMatching(`  \\},`),
+        expect.stringMatching(`  cause: HTTPError: Response code 400 \\(Bad Request\\)`),
+        expect.stringMatching(`      at .+`),
+        expect.stringMatching(`      at .+`),
+        expect.stringMatching(`    code: 'ERR_NON_2XX_3XX_RESPONSE',`),
+        // don't care about the rest:
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.stringMatching('    }'),
+        expect.stringMatching('  }'),
+        expect.stringMatching('}'),
+      ])
+    }
   })
 
   it('should retry correctly on RATE_LIMIT_REACHED', async () => {
@@ -155,11 +210,10 @@ describe('Mocked API tests', () => {
 
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
-        transloaditErrorCode: 'RATE_LIMIT_REACHED',
-        cause: expect.objectContaining({
+        message: 'API error (HTTP 413) RATE_LIMIT_REACHED: Request limit reached',
+        response: expect.objectContaining({
           error: 'RATE_LIMIT_REACHED',
         }),
-        message: 'Response code 413 (Payload Too Large) RATE_LIMIT_REACHED: Request limit reached',
       })
     )
     scope.done()
@@ -177,9 +231,7 @@ describe('Mocked API tests', () => {
     await expect(promise).rejects.toThrow(
       expect.not.objectContaining({ code: 'ERR_NOCK_NO_MATCH' })
     ) // Make sure that it was called only once
-    await expect(promise).rejects.toThrow(
-      expect.objectContaining({ message: 'Response code 500 (Internal Server Error)' })
-    )
+    await expect(promise).rejects.toThrow('API error (HTTP 500)')
     scope.done() // Make sure that it was called
   })
 
@@ -240,11 +292,10 @@ describe('Mocked API tests', () => {
 
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
-        transloaditErrorCode: 'IMPORT_FILE_ERROR',
-        cause: expect.objectContaining({
+        response: expect.objectContaining({
           error: 'IMPORT_FILE_ERROR',
+          assembly_id: '1',
         }),
-        response: expect.objectContaining({ body: expect.objectContaining({ assembly_id: '1' }) }),
       })
     )
     scope.done()
@@ -259,8 +310,7 @@ describe('Mocked API tests', () => {
 
     await expect(client.replayAssembly('1')).rejects.toThrow(
       expect.objectContaining({
-        transloaditErrorCode: 'IMPORT_FILE_ERROR',
-        cause: expect.objectContaining({
+        response: expect.objectContaining({
           error: 'IMPORT_FILE_ERROR',
         }),
       })
@@ -290,7 +340,8 @@ describe('Mocked API tests', () => {
       .query(() => true)
       .reply(404, { error: 'SERVER_404', message: 'unknown method / url' })
 
-    await expect(client.getAssembly('invalid')).rejects.toThrow(HTTPError)
+    const promise = client.getAssembly('invalid')
+    await expect(promise).rejects.toThrow(ApiError)
     scope.done()
   })
 })

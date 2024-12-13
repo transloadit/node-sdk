@@ -56,45 +56,41 @@ const transloadit = new Transloadit({
   authSecret: 'YOUR_TRANSLOADIT_SECRET',
 })
 
-;(async () => {
-  try {
-    const options = {
-      files: {
-        file1: '/PATH/TO/FILE.jpg',
-      },
-      params: {
-        steps: {
-          // You can have many Steps. In this case we will just resize any inputs (:original)
-          resize: {
-            use: ':original',
-            robot: '/image/resize',
-            result: true,
-            width: 75,
-            height: 75,
-          },
+try {
+  const options = {
+    files: {
+      file1: '/PATH/TO/FILE.jpg',
+    },
+    params: {
+      steps: {
+        // You can have many Steps. In this case we will just resize any inputs (:original)
+        resize: {
+          use: ':original',
+          robot: '/image/resize',
+          result: true,
+          width: 75,
+          height: 75,
         },
-        // OR if you already created a template, you can use it instead of "steps":
-        // template_id: 'YOUR_TEMPLATE_ID',
       },
-      waitForCompletion: true, // Wait for the Assembly (job) to finish executing before returning
-    }
-
-    const status = await transloadit.createAssembly(options)
-
-    if (status.results.resize) {
-      console.log('✅ Success - Your resized image:', status.results.resize[0].ssl_url)
-    } else {
-      console.log(
-        "❌ The Assembly didn't produce any output. Make sure you used a valid image file"
-      )
-    }
-  } catch (err) {
-    console.error('❌ Unable to process Assembly.', err)
-    if (err.cause?.assembly_id) {
-      console.error(`💡 More info: https://transloadit.com/assemblies/${err.cause?.assembly_id}`)
-    }
+      // OR if you already created a template, you can use it instead of "steps":
+      // template_id: 'YOUR_TEMPLATE_ID',
+    },
+    waitForCompletion: true, // Wait for the Assembly (job) to finish executing before returning
   }
-})()
+
+  const status = await transloadit.createAssembly(options)
+
+  if (status.results.resize) {
+    console.log('✅ Success - Your resized image:', status.results.resize[0].ssl_url)
+  } else {
+    console.log("❌ The Assembly didn't produce any output. Make sure you used a valid image file")
+  }
+} catch (err) {
+  console.error('❌ Unable to process Assembly.', err)
+  if (err instanceof ApiError && err.response.assembly_id) {
+    console.error(`💡 More info: https://transloadit.com/assemblies/${err.response.assembly_id}`)
+  }
+}
 ```
 
 You can find [details about your executed Assemblies here](https://transloadit.com/assemblies).
@@ -419,31 +415,35 @@ const url = client.getSignedSmartCDNUrl({
 
 ### Errors
 
-Errors from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) for HTTP requests and errors from there will also be passed on. When the HTTP response code is not 200, the error will be an `HTTPError`, which is a [got.HTTPError](https://github.com/sindresorhus/got#errors)) with some additional properties:
+Any errors originating from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) v11 for HTTP requests. [Errors from `got`](https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors) will also be passed on, _except_ the `got.HTTPError` which will be replaced with a `transloadit.ApiError`, which will have its `cause` property set to the instance of the original `got.HTTPError`. `transloadit.ApiError` has these properties:
 
-- **(deprecated: use `cause` instead)** `HTTPError.response?.body` the JSON object returned by the server along with the error response (**note**: `HTTPError.response` will be `undefined` for non-server errors)
-- **(deprecated)** `HTTPError.transloaditErrorCode` alias for `HTTPError.cause?.error` ([View all error codes](https://transloadit.com/docs/api/response-codes/#error-codes))
-- `HTTPError.assemblyId` (alias for `HTTPError.response.body.assembly_id`, if the request regards an [Assembly](https://transloadit.com/docs/api/assemblies-assembly-id-get/))
+- `HTTPError.response` the JSON object returned by the server. It has these properties
+  - `error` (`string`) - [The Transloadit API error code](https://transloadit.com/docs/api/response-codes/#error-codes).
+  - `message` (`string`) - A textual representation of the Transloadit API error.
+  - `assembly_id`: (`string`) - If the request is related to an assembly, this will be the ID of the assembly.
+  - `assembly_ssl_url` (`string`) - If the request is related to an assembly, this will be the SSL URL to the assembly .
 
 To identify errors you can either check its props or use `instanceof`, e.g.:
 
 ```js
-catch (err) {
-  if (err instanceof TimeoutError) {
+try {
+  await transloadit.createAssembly(options)
+} catch (err) {
+  if (err instanceof got.TimeoutError) {
     return console.error('The request timed out', err)
   }
   if (err.code === 'ENOENT') {
     return console.error('Cannot open file', err)
   }
-  if (err.cause?.error === 'ASSEMBLY_INVALID_STEPS') {
+  if (err instanceof transloadit.ApiError && err.response.error === 'ASSEMBLY_INVALID_STEPS') {
     return console.error('Invalid Assembly Steps', err)
   }
 }
 ```
 
-**Note:** Assemblies that have an error status (`assembly.error`) will only result in an error thrown from `createAssembly` and `replayAssembly`. For other Assembly methods, no errors will be thrown, but any error can be found in the response's `error` property
+**Note:** Assemblies that have an error status (`assembly.error`) will only result in an error being thrown from `createAssembly` and `replayAssembly`. For other Assembly methods, no errors will be thrown, but any error can be found in the response's `error` property
 
-- [More information on Transloadit errors (`cause.error`)](https://transloadit.com/docs/api/response-codes/#error-codes)
+- [More information on Transloadit errors (`ApiError.response.error`)](https://transloadit.com/docs/api/response-codes/#error-codes)
 - [More information on request errors](https://github.com/sindresorhus/got#errors)
 
 ### Rate limiting & auto retry
