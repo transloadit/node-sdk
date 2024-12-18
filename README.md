@@ -434,7 +434,7 @@ try {
   if (err.code === 'ENOENT') {
     return console.error('Cannot open file', err)
   }
-  if (err instanceof transloadit.ApiError && err.code === 'ASSEMBLY_INVALID_STEPS') {
+  if (err instanceof ApiError && err.code === 'ASSEMBLY_INVALID_STEPS') {
     return console.error('Invalid Assembly Steps', err)
   }
 }
