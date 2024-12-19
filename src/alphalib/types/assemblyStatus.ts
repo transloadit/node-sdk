@@ -122,7 +122,7 @@ const assemblyStatusMetaSchema = z
       .nullable()
       .optional(),
   })
-  .strict()
+  .passthrough()
 export type AssemblyStatusMeta = z.infer<typeof assemblyStatusMetaSchema>
 
 const assemblyStatusUploadSchema = z

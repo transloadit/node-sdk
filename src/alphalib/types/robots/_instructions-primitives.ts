@@ -199,6 +199,8 @@ export const ffmpegParamSchema = z
     'qscale:v': z.number().optional(),
     'x264-params': z.string().optional(),
     'overshoot-pct': z.number().optional(),
+    deadline: z.string().optional(),
+    'cpu-used': z.string().optional(),
     'undershoot-pct': z.number().optional(),
     'row-mt': z.number().optional(),
     'x265-params': z
@@ -270,7 +272,7 @@ export const ffmpegParamSchema = z
     x264opts: z.string().optional(),
     vbr: z.union([z.string(), z.number()]).optional(),
   })
-  .strict().describe(`
+  .passthrough().describe(`
 A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the [FFmpeg documentation](https://ffmpeg.org/ffmpeg-doc.html). Options specified here take precedence over the preset options.
 `)
 export type FfmpegParams = z.infer<typeof ffmpegParamSchema>
