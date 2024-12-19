@@ -43,6 +43,10 @@ export const meta: RobotMeta = {
 
 export const robotImageMergeInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/image/merge').describe(`
 The final result will be a spritesheet, with the images displayed horizontally or vertically.
 

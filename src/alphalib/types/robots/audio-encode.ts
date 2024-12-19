@@ -46,6 +46,10 @@ export const meta: RobotMeta = {
 
 export const robotAudioEncodeInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/audio/encode'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
@@ -63,7 +67,7 @@ Bit rate of the resulting audio file, in bits per second. If not specified will 
 Sample rate of the resulting audio file, in Hertz. If not specified will default to the sample rate of the input audio file.
 `),
     ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema,
+    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotAudioEncodeInstructions = z.infer<typeof robotAudioEncodeInstructionsSchema>

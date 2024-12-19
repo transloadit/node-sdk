@@ -34,6 +34,10 @@ export const meta: RobotMeta = {
 
 export const robotImageOptimizeInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/image/optimize'),
     use: useParamSchema,
     priority: optimize_priority.describe(`

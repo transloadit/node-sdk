@@ -34,6 +34,10 @@ export const meta: RobotMeta = {
 
 export const robotFileDecompressInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/file/decompress').describe(`
 This Robot supports the following archive formats:
 
@@ -68,7 +72,12 @@ This <dfn>Robot</dfn> also detects and handles any of the following before evalu
 For security reasons, archives that contain symlinks to outside the archived dir, will error out the <dfn>Assembly</dfn>. Decompressing password-protected archives (encrypted archives) is currently not fully supported but will not cause an <dfn>Assembly</dfn> to fail.
 `),
     use: useParamSchema,
-    ignore_errors: z.union([z.boolean(), z.array(z.enum(['meta']))]).default([]).describe(`
+    ignore_errors: z
+      .union([z.boolean(), z.array(z.enum(['meta']))])
+      .transform((ignoreErrors): 'meta'[] =>
+        ignoreErrors === true ? ['meta'] : ignoreErrors === false ? [] : ignoreErrors
+      )
+      .default([]).describe(`
 A possible array member is only \`"meta"\`.
 
 You might see an error when trying to extract metadata from the files inside your archive. This happens, for example, for files with a size of zero bytes. Setting this to \`true\` will cause the <dfn>Robot</dfn> to not stop the file decompression (and the entire <dfn>Assembly</dfn>) when that happens.

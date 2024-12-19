@@ -46,6 +46,10 @@ export const meta: RobotMeta = {
 
 export const robotVideoConcatInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/video/concat'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,

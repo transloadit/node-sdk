@@ -36,6 +36,10 @@ export const meta: RobotMeta = {
 
 export const robotFtpImportInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/ftp/import'),
     ignore_errors,
     credentials: credentials.describe(`
@@ -56,3 +60,4 @@ Determines if passive mode should be used for the FTP connection.
   .strict()
 
 export type RobotFtpImportInstructions = z.infer<typeof robotFtpImportInstructionsSchema>
+export type RobotFtpImportInstructionsInput = z.input<typeof robotFtpImportInstructionsSchema>

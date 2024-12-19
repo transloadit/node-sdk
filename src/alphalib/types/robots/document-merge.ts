@@ -50,6 +50,10 @@ Input files are sorted alphanumerically unless you provide the as-syntax in the 
 
 export const robotDocumentMergeInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/document/merge'),
     use: useParamSchema,
     input_passwords: z.array(z.string()).default([]).describe(`

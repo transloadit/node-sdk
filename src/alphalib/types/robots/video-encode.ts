@@ -2,8 +2,12 @@ import { z } from 'zod'
 
 import {
   color_with_alpha,
+  complexHeightSchema,
+  complexWidthSchema,
   ffmpegParamSchema,
   ffmpegStackVersionSchema,
+  interpolationSchemaToYieldNumber,
+  interpolationSchemaToYieldString,
   outputMetaParamSchema,
   percentageSchema,
   positionSchema,
@@ -44,8 +48,12 @@ export const meta: RobotMeta = {
   typical_file_type: 'video',
 }
 
-export const robotVideoEncodeInstructionsSchema = z
+export const robotVideoEncodeInstructionsInterpolatedSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/video/encode'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
@@ -54,12 +62,12 @@ Converts a video according to [pre-configured settings](/docs/transcoding/video-
 
 If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s and/or do not not want Transloadit to set any encoding setting, starting \`ffmpeg_stack: "{{stacks.ffmpeg.recommended_version}}"\`,  you can use the value \`'empty'\` here.
 `),
-    width: z.number().int().min(1).max(1920).optional().describe(`
+    width: complexWidthSchema.optional().describe(`
 Width of the new video, in pixels.
 
 If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied width](/docs/transcoding/video-encoding/video-presets/) will be implemented.
 `),
-    height: z.number().int().min(1).max(1080).optional().describe(`
+    height: complexHeightSchema.optional().describe(`
 Height of the new video, in pixels.
 
 If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied height](/docs/transcoding/video-encoding/video-presets/) will be implemented.
@@ -204,7 +212,36 @@ The duration in seconds for the watermark to be shown. Can be used together with
     watermark_opacity: z.number().min(0).max(1).default(1).describe(`
 The opacity of the watermark. Valid values are between \`0\` (invisible) and \`1.0\` (full visibility).
 `),
+    segment: z.boolean().default(false).describe(`
+Splits the file into multiple parts, to be used for Apple's [HTTP Live Streaming](https://developer.apple.com/resources/http-streaming/).
+`),
+    segment_duration: z.number().int().min(1).default(10).describe(`
+Specifies the length of each HTTP segment. This is optional, and the default value as recommended by Apple is \`10\`. Do not change this value unless you have a good reason.
+`),
+    segment_prefix: z.string().default('').describe(`
+The prefix used for the naming. For example, a prefix of \`"segment_"\` would produce files named \`"segment_0.ts"\`, \`"segment_1.ts"\` and so on. This is optional, and defaults to the base name of the input file. Also see the related \`segment_name\` parameter.
+`),
+    segment_name: z.string().default('').describe(`
+The name used for the final segment. Available variables are \`\${segment_prefix}\`, \`\${segment_number}\` and \`\${segment_id}\` (which is a UUIDv4 without dashes).
+`),
   })
   .strict()
 
+export const robotVideoEncodeInstructionsSchema =
+  robotVideoEncodeInstructionsInterpolatedSchema.extend({
+    width: robotVideoEncodeInstructionsInterpolatedSchema.shape.width.or(
+      interpolationSchemaToYieldNumber
+    ),
+    height: robotVideoEncodeInstructionsInterpolatedSchema.shape.height.or(
+      interpolationSchemaToYieldNumber
+    ),
+    background: robotVideoEncodeInstructionsInterpolatedSchema.shape.background.or(
+      interpolationSchemaToYieldString
+    ),
+    resize_strategy: robotVideoEncodeInstructionsInterpolatedSchema.shape.resize_strategy.or(
+      interpolationSchemaToYieldString
+    ),
+  })
+
 export type RobotVideoEncodeInstructions = z.infer<typeof robotVideoEncodeInstructionsSchema>
+export type RobotVideoEncodeInstructionsInput = z.input<typeof robotVideoEncodeInstructionsSchema>

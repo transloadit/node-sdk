@@ -1,8 +1,11 @@
 import { z } from 'zod'
 
+import type { RobotMeta } from './_instructions-primitives.ts'
 import {
   color_without_alpha,
   colorspaceSchema,
+  complexHeightSchema,
+  complexWidthSchema,
   imagemagickStackVersionSchema,
   imageQualitySchema,
   outputMetaParamSchema,
@@ -10,8 +13,9 @@ import {
   positionSchema,
   unsafeCoordinatesSchema,
   useParamSchema,
+  interpolationSchemaToYieldString,
+  interpolationSchemaToYieldNumber,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: true,
@@ -44,8 +48,12 @@ export const meta: RobotMeta = {
   typical_file_type: 'image',
 }
 
-export const robotImageResizeInstructionsSchema = z
+export const robotImageResizeInstructionsInterpolatedSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/image/resize'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
@@ -59,9 +67,10 @@ If \`null\` (default), then the input image's format will be used as the output 
 
 If you wish to convert to \`"pdf"\`, please consider [🤖/document/convert](/docs/transcoding/document-processing/document-convert/) instead.
 `),
-    width: z.number().int().min(1).max(5000).optional().describe(`
-Width of the new image, in pixels. If not specified, will default to the width of the input image.`),
-    height: z.number().int().min(1).max(5000).optional().describe(`
+    width: complexWidthSchema.optional().describe(`
+Width of the result in pixels. If not specified, will default to the width of the original.
+`),
+    height: complexHeightSchema.optional().describe(`
 Height of the new image, in pixels. If not specified, will default to the height of the input image.
 `),
     resize_strategy: z.enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch']).default('fit')
@@ -149,7 +158,9 @@ Prevents gamma errors [common in many image scaling algorithms](https://www.4p8.
     adaptive_filtering: z.boolean().default(false).describe(`
 Controls the image compression for PNG images. Setting to \`true\` results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled.
 `),
-    background: color_without_alpha.default('#FFFFFF').describe(`
+    background: z
+      .union([z.literal('transparent'), z.literal('none'), color_without_alpha])
+      .default('#FFFFFF').describe(`
 Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (only used for the pad resize strategy).
 
 By default, the background of transparent images is changed to white. For details about how to preserve transparency across all image types, see [this demo](/demos/image-manipulation/properly-preserve-transparency-across-all-image-types/).
@@ -194,7 +205,7 @@ Please also take a look at [🤖/image/optimize](/docs/transcoding/image-manipul
 `),
     blur: z
       .string()
-      .regex(/^\dx\d(\.\d+)?$/)
+      .regex(/^\d+(\.\d+)?x\d+(\.\d+)?$/)
       .nullable()
       .default(null).describe(`
 Specifies gaussian blur, using a value with the form \`{radius}x{sigma}\`. The radius value specifies the size of area the operator should look at when spreading pixels, and should typically be either \`"0"\` or at least two times the sigma value. The sigma value is an approximation of how many pixels the image is "spread"; think of it as the size of the brush used to blur the image. This number is a floating point value, enabling small values like \`"0.5"\` to be used.
@@ -203,10 +214,10 @@ Specifies gaussian blur, using a value with the form \`{radius}x{sigma}\`. The r
       .array(
         z.object({
           // TODO: These types are not documented.
-          x: z.number().int(),
-          y: z.number().int(),
-          width: z.number().int(),
-          height: z.number().int(),
+          x: complexWidthSchema,
+          y: complexHeightSchema,
+          width: complexWidthSchema,
+          height: complexHeightSchema,
         })
       )
       .nullable()
@@ -227,10 +238,17 @@ Changes the hue by rotating the color of the image. The value \`100\` would prod
     monochrome: z.boolean().default(false).describe(`
   Transforms the image to black and white.
 `),
+    watermark_url: z.string().optional(),
+    watermark_position: positionSchema.default('center'),
+    watermark_x_offset: z.number().int().default(0),
+    watermark_y_offset: z.number().int().default(0),
+    watermark_size: percentageSchema.optional(),
+    watermark_resize_strategy: z.enum(['area', 'fit', 'min_fit', 'stretch']).default('fit'),
     text: z
       .array(
         z.object({
           // TODO: Determine valid fonts
+          text: z.string(),
           font: z.string().default('Arial'),
           size: z.number().int().min(1).default(12),
           rotate: z.number().int().default(0),
@@ -246,12 +264,6 @@ Changes the hue by rotating the color of the image. The value \`100\` would prod
           valign: z.enum(['bottom', 'center', 'top']).default('center'),
           x_offset: z.number().int().default(0),
           y_offset: z.number().int().default(0),
-          watermark_url: z.string().optional(),
-          watermark_position: positionSchema.default('center'),
-          watermark_x_offset: z.number().int().default(0),
-          watermark_y_offset: z.number().int().default(0),
-          watermark_size: percentageSchema.optional(),
-          watermark_resize_strategy: z.enum(['area', 'fit', 'min_fit', 'stretch']).default('fit'),
         })
       )
       .default([]).describe(`
@@ -280,8 +292,9 @@ An array of objects each containing text rules. The following text parameters ar
     progressive: z.boolean().default(false).describe(`
 Interlaces the image if set to \`true\`, which makes the image load progressively in browsers. Instead of rendering the image from top to bottom, the browser will first show a low-res blurry version of the images which is then quickly replaced with the actual image as the data arrives. This greatly increases the user experience, but comes at a cost of a file size increase by around 10%.
 `),
-    transparent: z.enum(['', 'BMP', 'GIF', 'JP2', 'PNG', 'TIFF', 'WebP']).optional().describe(`
-Make this color transparent within the image. Formats which support this parameter include \`"GIF"\`, \`"PNG"\`, \`"BMP"\`, \`"TIFF"\`, \`"WebP"\`, and \`"JP2"\`.
+    transparent: z.union([color_without_alpha, z.string().regex(/^\d+,\d+,\d+$/)]).optional()
+      .describe(`
+Make this color transparent within the image. Example: \`"255,255,255"\`.
 `),
     trim_whitespace: z.boolean().default(false).describe(`
 This determines if additional whitespace around the image should first be trimmed away. If you set this to \`true\` this parameter removes any edges that are exactly the same color as the corner pixels.
@@ -308,4 +321,31 @@ If your converted image is unsharp, please try increasing density.
   })
   .strict()
 
+export const robotImageResizeInstructionsSchema =
+  robotImageResizeInstructionsInterpolatedSchema.extend({
+    width: robotImageResizeInstructionsInterpolatedSchema.shape.width.or(
+      interpolationSchemaToYieldNumber
+    ),
+    height: robotImageResizeInstructionsInterpolatedSchema.shape.height.or(
+      interpolationSchemaToYieldNumber
+    ),
+    background: robotImageResizeInstructionsInterpolatedSchema.shape.background.or(
+      interpolationSchemaToYieldString
+    ),
+    resize_strategy: robotImageResizeInstructionsInterpolatedSchema.shape.resize_strategy.or(
+      interpolationSchemaToYieldString
+    ),
+    blur_regions: robotImageResizeInstructionsInterpolatedSchema.shape.blur_regions.or(
+      z.array(
+        z.object({
+          x: complexWidthSchema.or(interpolationSchemaToYieldNumber),
+          y: complexHeightSchema.or(interpolationSchemaToYieldNumber),
+          width: complexWidthSchema.or(interpolationSchemaToYieldNumber),
+          height: complexHeightSchema.or(interpolationSchemaToYieldNumber),
+        })
+      )
+    ),
+  })
+
 export type RobotImageResizeInstructions = z.infer<typeof robotImageResizeInstructionsSchema>
+export type RobotImageResizeInstructionsInput = z.input<typeof robotImageResizeInstructionsSchema>

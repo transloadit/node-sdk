@@ -12,3 +12,5 @@
 - Favor `unknown` over `any`, consider `any` a sin
 - Favor validating data with Zod over using `any` or custom type guards
 - Favor Yarn (4) over npm
+- We use the `rewriteRelativeImportExtensions` TS 5.7 compiler option, so for local TypeScript
+  files, import with the `.ts` / `.tsx` extension (not js, not extensionless)

@@ -45,6 +45,10 @@ export const meta: RobotMeta = {
 
 export const robotMinioImportInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/minio/import'),
     ignore_errors,
     credentials: credentials.describe(`
@@ -80,3 +84,4 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   .strict()
 
 export type RobotMinioImportInstructions = z.infer<typeof robotMinioImportInstructionsSchema>
+export type RobotMinioImportInstructionsInput = z.input<typeof robotMinioImportInstructionsSchema>

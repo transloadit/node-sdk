@@ -24,6 +24,10 @@ export const meta: RobotMeta = {
 
 export const robotMediaPlaylistInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/media/playlist').describe(`
 🤖/media/playlist is deprecated and will be removed! Please use [🤖/video/adaptive](/docs/transcoding/video-encoding/video-adaptive/) for all your HLS and MPEG-Dash needs instead.
 `),

@@ -36,6 +36,10 @@ export const meta: RobotMeta = {
 
 export const robotSftpStoreInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/sftp/store'),
     use: useParamSchema,
     credentials: z.string().describe(`
@@ -54,7 +58,7 @@ The URL of the file in the result JSON. This may include any of the following su
 `),
     file_chmod: z
       .string()
-      .regex(/[0-7]{3}/)
+      .regex(/([0-7]{3}|auto)/)
       .default('auto').describe(`
 This optional parameter controls how an uploaded file's permission bits are set. You can use any string format that the \`chmod\` command would accept, such as \`"755"\`. If you don't specify this option, the file's permission bits aren't changed at all, meaning it's up to your server's configuration (e.g. umask).
       `),
@@ -62,3 +66,4 @@ This optional parameter controls how an uploaded file's permission bits are set.
   .strict()
 
 export type RobotSftpStoreInstructions = z.infer<typeof robotSftpStoreInstructionsSchema>
+export type RobotSftpStoreInstructionsInput = z.input<typeof robotSftpStoreInstructionsSchema>

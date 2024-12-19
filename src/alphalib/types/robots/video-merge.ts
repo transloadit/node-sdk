@@ -33,6 +33,10 @@ export const meta: RobotMeta = {
 
 export const robotVideoMergeInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/video/merge'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
@@ -41,12 +45,12 @@ Generates the video according to [pre-configured video presets](/docs/transcodin
 
 If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`"flash"\` preset is not applied. This is to prevent you from having to override each of the flash preset's values manually.
 `),
-    width: z.number().int().min(1).max(1920).describe(`
+    width: z.number().int().min(1).max(1920).optional().describe(`
 Width of the new video, in pixels.
 
 If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied width](/docs/transcoding/video-encoding/video-presets/) will be implemented.
 `),
-    height: z.number().int().min(1).max(1080).describe(`
+    height: z.number().int().min(1).max(1080).optional().describe(`
 Height of the new video, in pixels.
 
 If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied height](/docs/transcoding/video-encoding/video-presets/) will be implemented.
@@ -83,7 +87,7 @@ Determines whether the audio of the video should be replaced with a provided aud
 Stacks the input media vertically. All streams need to have the same pixel format and width - so consider using a [/video/encode]({{robot_links["/video/encode"]}}) <dfn>Step</dfn> before using this parameter to enforce this.
 `),
     ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema,
+    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotVideoMergeInstructions = z.infer<typeof robotVideoMergeInstructionsSchema>

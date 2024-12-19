@@ -37,6 +37,10 @@ export const meta: RobotMeta = {
 
 export const robotSftpImportInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/sftp/import'),
     ignore_errors,
     credentials: credentials.describe(`
@@ -54,3 +58,4 @@ The port to use for the connection.
   .strict()
 
 export type RobotSftpImportInstructions = z.infer<typeof robotSftpImportInstructionsSchema>
+export type RobotSftpImportInstructionsInput = z.input<typeof robotSftpImportInstructionsSchema>

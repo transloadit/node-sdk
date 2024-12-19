@@ -34,6 +34,10 @@ export const meta: RobotMeta = {
 
 export const robotFileHashInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/file/hash'),
     use: useParamSchema,
     algorithm: z

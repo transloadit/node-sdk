@@ -39,6 +39,10 @@ export const meta: RobotMeta = {
 
 export const robotImageFacedetectInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/image/facedetect').describe(`
 You can specify padding around the extracted faces, tailoring the output for your needs.
 

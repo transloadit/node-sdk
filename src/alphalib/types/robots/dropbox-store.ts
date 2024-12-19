@@ -36,6 +36,10 @@ export const meta: RobotMeta = {
 
 export const robotDropboxStoreInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/dropbox/store'),
     use: useParamSchema,
     credentials: z.string().describe(`
@@ -53,3 +57,4 @@ Whether to create a URL to this file for sharing with other people. This will ov
   .strict()
 
 export type RobotDropboxStoreInstructions = z.infer<typeof robotDropboxStoreInstructionsSchema>
+export type RobotDropboxStoreInstructionsInput = z.input<typeof robotDropboxStoreInstructionsSchema>

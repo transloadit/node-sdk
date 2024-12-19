@@ -36,6 +36,10 @@ export const meta: RobotMeta = {
 
 export const robotAzureStoreInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/azure/store'),
     use: useParamSchema,
     credentials: z.string().describe(`
@@ -77,3 +81,4 @@ Set this to a combination of \`r\` (read), \`w\` (write) and \`d\` (delete) for 
   .strict()
 
 export type RobotAzureStoreInstructions = z.infer<typeof robotAzureStoreInstructionsSchema>
+export type RobotAzureStoreInstructionsInput = z.input<typeof robotAzureStoreInstructionsSchema>

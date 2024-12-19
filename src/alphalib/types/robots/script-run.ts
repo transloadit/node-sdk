@@ -24,6 +24,10 @@ export const meta: RobotMeta = {
 
 export const robotScriptRunInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/script/run').describe(`
 This <dfn>Robot</dfn> allows you to run arbitrary \`JavaScript\` as part of the <dfn>Assembly</dfn>
 execution process. The <dfn>Robot</dfn> is invoked automatically when there are <dfn>Assembly

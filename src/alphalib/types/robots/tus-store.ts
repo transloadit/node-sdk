@@ -35,7 +35,21 @@ export const meta: RobotMeta = {
 
 export const robotTusStoreInstructionsSchema = z
   .object({
-    robot: z.literal('/tus/store'),
+    robot: z.literal('/tus/store').describe(`
+**Note:** This <dfn>Robot</dfn> only accepts videos. [{.alert .alert-note}]
+
+**Warning:** Vimeo's API limits the number of concurrent uploads per minute based on your Vimeo account plan. To see how many videos can be uploaded at once based on your plan, click the following [link](https://developer.vimeo.com/guidelines/rate-limiting#table-1). [{.alert .alert-warning}]
+
+## Installation
+
+Since Vimeo works with OAuth, you will need to generate [Template Credentials](https://transloadit.com/c/template-credentials/) to use this <dfn>Robot</dfn>.
+
+To change the \`title\` or \`description\` per video, we recommend to [inject variables into your Template](/docs/topics/templates/).
+`),
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     use: useParamSchema,
     endpoint: z.string().url().describe('The URL of the destination Tus server').describe(`
 The URL of the Tus-compatible server, which you're uploading files to.
@@ -54,13 +68,14 @@ Although, we recommend to exclusively use <dfn>Template Credentials</dfn>, this 
       .default({ filename: 'example.png', basename: 'example', extension: 'png' }).describe(`
 Metadata to pass along to destination. Includes some file info by default.
 `),
-    url_template: z.string().default('https://{HOST}/{PATH}').describe(`
+    url_template: z.string().optional().describe(`
 The URL of the file in the <dfn>Assembly Status JSON</dfn>. The following [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables) are supported. If this is not specified, the upload URL specified by the destination server will be used instead.
 `),
-    ssl_url_template: z.string().default('https://{HOST}/{PATH}').describe(`
+    ssl_url_template: z.string().optional().describe(`
 The SSL URL of the file in the <dfn>Assembly Status JSON</dfn>. The following [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables) are supported. If this is not specified, the upload URL specified by the destination server will be used instead, as long as it starts with \`https\`.
 `),
   })
   .strict()
 
 export type RobotTusStoreInstructions = z.infer<typeof robotTusStoreInstructionsSchema>
+export type RobotTusStoreInstructionsInput = z.input<typeof robotTusStoreInstructionsSchema>

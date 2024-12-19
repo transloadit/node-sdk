@@ -36,6 +36,10 @@ export const meta: RobotMeta = {
 
 export const robotDigitaloceanStoreInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/digitalocean/store'),
     use: useParamSchema,
     credentials: z.string().describe(`
@@ -66,5 +70,8 @@ This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\
   .strict()
 
 export type RobotDigitaloceanStoreInstructions = z.infer<
+  typeof robotDigitaloceanStoreInstructionsSchema
+>
+export type RobotDigitaloceanStoreInstructionsInput = z.input<
   typeof robotDigitaloceanStoreInstructionsSchema
 >

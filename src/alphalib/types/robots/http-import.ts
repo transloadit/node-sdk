@@ -34,6 +34,10 @@ export const meta: RobotMeta = {
 
 export const robotHttpImportInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/http/import'),
     ignore_errors,
     url: z.union([z.string().url(), z.array(z.string().url())]).describe(`
@@ -65,3 +69,4 @@ Disable the internal retry mechanism, and fail immediately if a resource can't b
   .strict()
 
 export type RobotHttpImportInstructions = z.infer<typeof robotHttpImportInstructionsSchema>
+export type RobotHttpImportInstructionsInput = z.input<typeof robotHttpImportInstructionsSchema>

@@ -36,16 +36,28 @@ export const meta: RobotMeta = {
 
 export const robotFileFilterInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/file/filter'),
     use: useParamSchema,
-    accept: z.union([z.string(), z.array(z.string())]).default([]).describe(`
+    accepts: z
+      .array(
+        z.union([z.string(), z.tuple([z.string(), z.string(), z.union([z.string(), z.number()])])])
+      )
+      .default([]).describe(`
 Files that match at least one requirement will be accepted, or declined otherwise. If the array is empty, all files will be accepted. Example:
 
 \`[["\${file.mime}", "==", "image/gif"]]\`.
 
 If the \`condition_type\` parameter is set to \`"and"\`, then all requirements must match for the file to be accepted.
 `),
-    declines: z.array(z.union([z.string(), z.array(z.string())])).default([]).describe(`
+    declines: z
+      .array(
+        z.union([z.string(), z.tuple([z.string(), z.string(), z.union([z.string(), z.number()])])])
+      )
+      .default([]).describe(`
 Files that match at least one requirement will be declined, or accepted otherwise. Example:
 
 \`[["\${file.size}",">","1024"]]\`.
@@ -65,3 +77,4 @@ The error message shown to your users (such as by Uppy) when a file is declined 
   .strict()
 
 export type RobotFileFilterInstructions = z.infer<typeof robotFileFilterInstructionsSchema>
+export type RobotFileFilterInstructionsInput = z.input<typeof robotFileFilterInstructionsSchema>

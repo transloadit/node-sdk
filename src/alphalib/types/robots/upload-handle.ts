@@ -38,6 +38,10 @@ export const meta: RobotMeta = {
 
 export const robotUploadHandleInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/upload/handle'),
     output_meta: outputMetaParamSchema,
   })

@@ -44,6 +44,10 @@ export const meta: RobotMeta = {
 
 export const robotBackblazeImportInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/backblaze/import'),
     ignore_errors,
     credentials: credentials.describe(`
@@ -83,5 +87,8 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   .strict()
 
 export type RobotBackblazeImportInstructions = z.infer<
+  typeof robotBackblazeImportInstructionsSchema
+>
+export type RobotBackblazeImportInstructionsInput = z.input<
   typeof robotBackblazeImportInstructionsSchema
 >

@@ -36,8 +36,14 @@ export const meta: RobotMeta = {
 
 export const robotGoogleStoreInstructionsSchema = z
   .object({
-    robot: z.literal('/google/store'),
+    robot: z.literal('/google/store').describe(`
+The URL to the exported file in your Google bucket will be presented in the Transloadit <dfn>Assembly Status</dfn> JSON. This <dfn>Robot</dfn> can also be used to export encoded files to Google's Firebase as demonstrated in [this blogpost](/blog/2018/12/2h-youtube-clone/).
+`),
     use: useParamSchema,
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     credentials: z.string().describe(`
 Create a new [Google service account](https://cloud.google.com/storage/docs/authentication). Set its role to "Storage Object Creator". Choose "JSON" for the key file format and download it to your computer. You will need to upload this file when creating your <dfn>Template Credentials</dfn>.
 
@@ -78,3 +84,4 @@ The SSL URL of the file in the result JSON. The following [Assembly variables](/
   .strict()
 
 export type RobotGoogleStoreInstructions = z.infer<typeof robotGoogleStoreInstructionsSchema>
+export type RobotGoogleStoreInstructionsInput = z.input<typeof robotGoogleStoreInstructionsSchema>

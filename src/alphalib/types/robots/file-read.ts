@@ -24,6 +24,10 @@ export const meta: RobotMeta = {
 
 export const robotFileReadInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/file/read').describe(`
 This <dfn>Robot</dfn> accepts any file, and will read the file using UTF-8 encoding. The result is outputted to \`file.meta.content\` to be accessed in later <dfn>Steps</dfn>.
 

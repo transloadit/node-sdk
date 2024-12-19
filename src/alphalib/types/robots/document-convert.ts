@@ -77,6 +77,10 @@ The following file formats can be converted from:
 
 export const robotDocumentConvertInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/document/convert'),
     use: useParamSchema,
     format: z.enum([

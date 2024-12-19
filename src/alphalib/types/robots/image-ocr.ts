@@ -38,6 +38,10 @@ export const meta: RobotMeta = {
 
 export const robotImageOcrInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/image/ocr').describe(`
 With this <dfn>Robot</dfn> you can detect and extract text from images using optical character recognition (OCR).
 

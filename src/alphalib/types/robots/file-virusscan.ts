@@ -40,6 +40,10 @@ export const meta: RobotMeta = {
 
 export const robotFileVirusscanInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/file/virusscan'),
     use: useParamSchema,
     error_on_decline: z.boolean().default(false).describe(`

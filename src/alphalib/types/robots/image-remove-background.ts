@@ -4,6 +4,10 @@ import { outputMetaParamSchema, useParamSchema } from './_instructions-primitive
 
 export const robotImageRemoveBackgroundInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/image/remove-background'),
     endpoint: z.string().describe('The URL of the destination Tus server'),
     select: z

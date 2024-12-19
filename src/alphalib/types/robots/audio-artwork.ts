@@ -36,6 +36,10 @@ export const meta: RobotMeta = {
 
 export const robotAudioArtworkInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/audio/artwork').describe(`
 For extraction, this <dfn>Robot</dfn> uses the image format embedded within the audio file — most often, this is JPEG.
 

@@ -41,6 +41,10 @@ Your Backblaze buckets need to have the \`listBuckets\` (to obtain a bucket ID f
 
 export const robotBackblazeStoreInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/backblaze/store'),
     use: useParamSchema,
     credentials: z.string().describe(`
@@ -68,3 +72,6 @@ Object Metadata can be specified using \`X-Bz-Info-*\` headers.
   .strict()
 
 export type RobotBackblazeStoreInstructions = z.infer<typeof robotBackblazeStoreInstructionsSchema>
+export type RobotBackblazeStoreInstructionsInput = z.input<
+  typeof robotBackblazeStoreInstructionsSchema
+>

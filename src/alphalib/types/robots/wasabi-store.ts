@@ -36,8 +36,14 @@ export const meta: RobotMeta = {
 
 export const robotWasabiStoreInstructionsSchema = z
   .object({
-    robot: z.literal('/wasabi/store'),
+    robot: z.literal('/wasabi/store').describe(`
+The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
+`),
     use: useParamSchema,
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     credentials: z.string().describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your [Template Credentials](/c/template-credentials/) as this parameter's value. They will contain the values for your Wasabi bucket, Host, Key and Secret.
 
@@ -61,3 +67,4 @@ This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\
   .strict()
 
 export type RobotWasabiStoreInstructions = z.infer<typeof robotWasabiStoreInstructionsSchema>
+export type RobotWasabiStoreInstructionsInput = z.input<typeof robotWasabiStoreInstructionsSchema>

@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import {
   color_with_alpha,
+  color_without_alpha,
   ffmpegParamSchema,
   ffmpegStackVersionSchema,
   outputMetaParamSchema,
@@ -51,6 +52,10 @@ export const meta: RobotMeta = {
 
 export const robotVideoSubtitleInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/video/subtitle'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
@@ -59,8 +64,11 @@ Performs conversion using pre-configured settings. By default, no settings are a
 
 For a list of video presets, see [video presets](/docs/transcoding/video-encoding/video-presets/).
 `),
-    subtitles_type: z.enum(['burn', 'external']).default('external').describe(`
-Determines if subtitles are added as a separate stream to the video (value \`"external"\`) that then can be switched on and off in your video player, or if they should be burned directly into the video (value \`"burn"\`) so that they become part of the video stream.
+    subtitles_type: z
+      .enum(['burned', 'external', 'burn'])
+      .transform((val) => (val === 'burn' ? 'burned' : val))
+      .default('external').describe(`
+Determines if subtitles are added as a separate stream to the video (value \`"external"\`) that then can be switched on and off in your video player, or if they should be burned directly into the video (value \`"burned"\` or \`"burn"\`) so that they become part of the video stream.
 `),
     border_style: z.enum(['box', 'outline', 'shadow']).default('outline').describe(`
 Specifies the style of the subtitle. Use the \`border_color\` parameter to specify the color of the border.
@@ -74,7 +82,7 @@ The font family to use. Also includes boldness and style of the font.
 
 [Here](/docs/supported-formats/fonts/) is a list of all supported fonts.
 `),
-    font_color: color_with_alpha.default('00FFFFFF').describe(`
+    font_color: color_without_alpha.default('FFFFFF').describe(`
 The color of the subtitle text. The first two hex digits specify the alpha value of the color.
 `),
     font_size: z.number().int().min(1).default(16).describe(`
@@ -84,7 +92,7 @@ Specifies the size of the text.
 Specifies the position of the subtitles.
 `),
     ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema,
+    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotVideoSubtitleInstructions = z.infer<typeof robotVideoSubtitleInstructionsSchema>

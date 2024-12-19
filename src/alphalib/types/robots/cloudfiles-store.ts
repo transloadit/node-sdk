@@ -46,6 +46,10 @@ The storage container URL for this file is always available via \`file.meta.stor
 
 export const robotCloudfilesStoreInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/cloudfiles/store'),
     use: useParamSchema,
     credentials: z.string().describe(`
@@ -60,5 +64,8 @@ The path at which to store the file. This value can also contain [Assembly varia
   .strict()
 
 export type RobotCloudfilesStoreInstructions = z.infer<
+  typeof robotCloudfilesStoreInstructionsSchema
+>
+export type RobotCloudfilesStoreInstructionsInput = z.input<
   typeof robotCloudfilesStoreInstructionsSchema
 >

@@ -36,8 +36,14 @@ export const meta: RobotMeta = {
 
 export const robotMinioStoreInstructionsSchema = z
   .object({
-    robot: z.literal('/minio/store'),
+    robot: z.literal('/minio/store').describe(`
+The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
+`),
     use: useParamSchema,
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     credentials: z.string().describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your MinIO bucket, Key, Secret and Bucket region.
 
@@ -63,3 +69,4 @@ If this parameter is not used, no URL signing is done.
   .strict()
 
 export type RobotMinioStoreInstructions = z.infer<typeof robotMinioStoreInstructionsSchema>
+export type RobotMinioStoreInstructionsInput = z.input<typeof robotMinioStoreInstructionsSchema>

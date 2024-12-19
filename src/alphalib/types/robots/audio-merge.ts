@@ -51,6 +51,10 @@ export const meta: RobotMeta = {
 
 export const robotAudioMergeInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/audio/merge'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
@@ -76,7 +80,7 @@ Specifies if any input files that do not match the target duration should be loo
 Valid values are \`"average"\` and \`"sum"\` here. \`"average"\` means each input is scaled 1/n (n is the number of inputs) or \`"sum"\` which means each individual audio stays on the same volume, but since we merge tracks 'on top' of each other, this could result in very loud output.
 `),
     ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema,
+    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotAudioMergeInstructions = z.infer<typeof robotAudioMergeInstructionsSchema>

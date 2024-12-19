@@ -4,6 +4,10 @@ import { outputMetaParamSchema, useParamSchema } from './_instructions-primitive
 
 export const robotImageGenerateInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/image/generate'),
     prompt: z.string().describe('The prompt describing the desired image content.'),
     format: z

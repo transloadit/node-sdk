@@ -46,6 +46,10 @@ export const meta: RobotMeta = {
 
 export const robotAudioLoopInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/audio/loop'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
@@ -66,7 +70,7 @@ Sample rate of the resulting audio file, in Hertz. If not specified will default
 Target duration for the whole process in seconds. The <dfn>Robot</dfn> will loop the input audio file for as long as this target duration is not reached yet.
 `),
     ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema,
+    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotAudioLoopInstructions = z.infer<typeof robotAudioLoopInstructionsSchema>

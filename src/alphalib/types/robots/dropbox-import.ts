@@ -37,6 +37,10 @@ export const meta: RobotMeta = {
 
 export const robotDropboxImportInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/dropbox/import'),
     ignore_errors,
     credentials: credentials.describe(`
@@ -59,3 +63,6 @@ You can also use an array of path strings here to import multiple paths in the s
   .strict()
 
 export type RobotDropboxImportInstructions = z.infer<typeof robotDropboxImportInstructionsSchema>
+export type RobotDropboxImportInstructionsInput = z.input<
+  typeof robotDropboxImportInstructionsSchema
+>

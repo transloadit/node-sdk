@@ -159,12 +159,14 @@ const robotStepsInstructions = [
 /**
  * Public robot instructions
  */
-export const robotStepsInstructionsSchema = z.union(robotStepsInstructions)
+export const robotStepsInstructionsSchema = z.discriminatedUnion('robot', [
+  ...robotStepsInstructions,
+])
 
 /**
  * All robot instructions, including private ones.
  */
-export const robotAnyInstructionsSchema = z.union([
+export const robotAnyInstructionsSchema = z.discriminatedUnion('robot', [
   ...robotStepsInstructions,
   robotFileWatermarkInstructionsSchema,
   robotImageGenerateInstructionsSchema,

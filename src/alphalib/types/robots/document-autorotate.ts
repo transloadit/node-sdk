@@ -5,25 +5,31 @@ import { outputMetaParamSchema, useParamSchema } from './_instructions-primitive
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: true,
-  bytescount: 0,
-  discount_factor: 0,
-  discount_pct: 100,
-  example_code_description: '',
-  minimum_charge: 0,
+  bytescount: 1,
+  discount_factor: 1,
+  discount_pct: 0,
+  example_code_description:
+    'Auto-rotate individual pages of a documents to the correction orientation:',
+  minimum_charge: 2097152,
   output_factor: 1,
-  purpose_sentence: '',
-  purpose_verb: 'export',
-  purpose_word: '',
-  purpose_words: '',
+  override_lvl1: 'Document Processing',
+  purpose_sentence: 'corrects the orientation of documents',
+  purpose_verb: 'auto-rotate',
+  purpose_word: 'auto-rotate documents',
+  purpose_words: 'Auto-rotate documents',
   service_slug: 'document-processing',
-  slot_count: 0,
-  title: '',
-  typical_file_size_mb: 0,
+  slot_count: 10,
+  title: 'Auto-rotate documents to the correct orientation',
+  typical_file_size_mb: 0.8,
   typical_file_type: 'document',
 }
 
 export const robotDocumentAutorotateInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/document/autorotate'),
     output_meta: outputMetaParamSchema.optional(),
     use: useParamSchema,

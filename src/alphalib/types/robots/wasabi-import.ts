@@ -45,6 +45,10 @@ export const meta: RobotMeta = {
 
 export const robotWasabiImportInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/wasabi/import'),
     ignore_errors,
     credentials: credentials.describe(`
@@ -80,3 +84,4 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   .strict()
 
 export type RobotWasabiImportInstructions = z.infer<typeof robotWasabiImportInstructionsSchema>
+export type RobotWasabiImportInstructionsInput = z.input<typeof robotWasabiImportInstructionsSchema>

@@ -23,6 +23,10 @@ export const meta: RobotMeta = {
 
 export const robotFileServeInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/file/serve').describe(`
 When you want Transloadit to tranform files on the fly, you can use this <dfn>Robot</dfn> to determine which <dfn>Step</dfn> of a <dfn>Template</dfn> should be served to the end-user (via a CDN), as well as set extra information on the served files, such as headers. This way you can for instance suggest the CDN for how long to keep cached copies of the result around. By default, as you can see in the \`headers\` parameter, we instruct browsers to cache the result for 72h (\`259200\` seconds) and CDNs to cache the content for 24h (\`86400\` seconds). These values should be adjusted to suit your use case.
 
@@ -55,3 +59,4 @@ An object containing a list of headers to be set for a file as we serve it to a 
   .strict()
 
 export type RobotFileServeInstructions = z.infer<typeof robotFileServeInstructionsSchema>
+export type RobotFileServeInstructionsInput = z.input<typeof robotFileServeInstructionsSchema>

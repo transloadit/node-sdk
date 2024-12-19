@@ -37,6 +37,10 @@ export const meta: RobotMeta = {
 
 export const robotFtpStoreInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/ftp/store'),
     use: useParamSchema,
     credentials: z.string().describe(`
@@ -65,3 +69,4 @@ Determines whether to establish a secure connection to the FTP server using SSL.
   .strict()
 
 export type RobotFtpStoreInstructions = z.infer<typeof robotFtpStoreInstructionsSchema>
+export type RobotFtpStoreInstructionsInput = z.input<typeof robotFtpStoreInstructionsSchema>

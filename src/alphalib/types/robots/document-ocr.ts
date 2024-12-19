@@ -39,6 +39,10 @@ export const meta: RobotMeta = {
 
 export const robotDocumentOcrInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/document/ocr').describe(`
 With this <dfn>Robot</dfn>, you can detect and extract text from PDFs using optical character recognition (OCR).
 

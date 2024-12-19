@@ -46,6 +46,10 @@ export const meta: RobotMeta = {
 
 export const robotVideoThumbsInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/video/thumbs'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
@@ -64,11 +68,11 @@ This option cannot be used with the \`count\` parameter, and takes precedence if
     format: z.enum(['jpeg', 'jpg', 'png']).default('jpeg').describe(`
 The format of the extracted thumbnail. Supported values are \`"jpg"\`, \`"jpeg"\` and \`"png"\`. Even if you specify the format to be \`"jpeg"\` the resulting thumbnails will have a \`"jpg"\` file extension.
 `),
-    width: z.number().int().min(1).max(1920).describe(`
-The width of the thumbnail, in pixels.
+    width: z.number().int().min(1).max(1920).optional().describe(`
+The width of the thumbnail, in pixels. Defaults to the original width of the video.
 `),
-    height: z.number().int().min(1).max(1080).describe(`
-The height of the thumbnail, in pixels.
+    height: z.number().int().min(1).max(1080).optional().describe(`
+The height of the thumbnail, in pixels. Defaults to the original height of the video.
 `),
     resize_strategy: resize_strategy.describe(`
 One of the [available resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).

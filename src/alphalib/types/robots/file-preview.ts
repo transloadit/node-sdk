@@ -2,6 +2,9 @@ import { z } from 'zod'
 
 import {
   color_with_optional_alpha,
+  complexHeightSchema,
+  complexWidthSchema,
+  interpolationSchemaToYieldNumber,
   optimize_priority,
   resize_strategy,
   useParamSchema,
@@ -41,17 +44,21 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotFilePreviewInstructionsSchema = z
+export const robotFilePreviewInstructionsInterpolatedSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/file/preview'),
     use: useParamSchema,
     format: z.enum(['gif', 'jpg', 'png']).default('png').describe(`
 The output format for the generated thumbnail image. If a short video clip is generated using the \`clip\` strategy, its format is defined by \`clip_format\`.
 `),
-    width: z.number().int().min(1).max(5000).default(300).describe(`
+    width: complexWidthSchema.default(300).describe(`
 Width of the thumbnail, in pixels.
 `),
-    height: z.number().int().min(1).max(5000).default(200).describe(`
+    height: complexHeightSchema.default(200).describe(`
 Height of the thumbnail, in pixels.
 `),
     resize_strategy: resize_strategy.describe(`
@@ -147,4 +154,15 @@ Specifies whether the generated animated image should loop forever (\`true\`) or
   })
   .strict()
 
+export const robotFilePreviewInstructionsSchema =
+  robotFilePreviewInstructionsInterpolatedSchema.extend({
+    width: robotFilePreviewInstructionsInterpolatedSchema.shape.width.or(
+      interpolationSchemaToYieldNumber
+    ),
+    height: robotFilePreviewInstructionsInterpolatedSchema.shape.height.or(
+      interpolationSchemaToYieldNumber
+    ),
+  })
+
 export type RobotFilePreviewInstructions = z.infer<typeof robotFilePreviewInstructionsSchema>
+export type RobotFilePreviewInstructionsInput = z.input<typeof robotFilePreviewInstructionsSchema>

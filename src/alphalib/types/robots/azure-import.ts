@@ -43,6 +43,10 @@ export const meta: RobotMeta = {
 
 export const robotAzureImportInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/azure/import'),
     ignore_errors,
     credentials: credentials.describe(`
@@ -69,3 +73,4 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   .strict()
 
 export type RobotAzureImportInstructions = z.infer<typeof robotAzureImportInstructionsSchema>
+export type RobotAzureImportInstructionsInput = z.input<typeof robotAzureImportInstructionsSchema>

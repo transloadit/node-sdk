@@ -73,6 +73,10 @@ Here is an example:
 
 export const robotFileCompressInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/file/compress'),
     use: useParamSchema,
     format: z.enum(['tar', 'zip']).default('tar').describe(`
@@ -80,7 +84,7 @@ The format of the archive to be created. Supported values are \`"tar"\` and \`"z
 
 Note that \`"tar"\` without setting \`gzip\` to \`true\` results in an archive that's not compressed in any way.
 `),
-    gzip: z.boolean().default(true).describe(`
+    gzip: z.boolean().default(false).describe(`
 Determines if the result archive should also be gzipped. Gzip compression is only applied if you use the \`"tar"\` format.
 `),
     password: z.string().nullable().default(null).describe(`

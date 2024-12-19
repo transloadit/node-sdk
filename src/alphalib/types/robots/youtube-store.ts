@@ -40,8 +40,36 @@ export const meta: RobotMeta = {
 
 export const robotYoutubeStoreInstructionsSchema = z
   .object({
-    robot: z.literal('/youtube/store'),
+    robot: z.literal('/youtube/store').describe(`
+**Note:** This <dfn>Robot</dfn> only accepts videos. [{.alert .alert-note}]
+
+## Installation
+
+Since YouTube works with OAuth, you will need to generate [Template Credentials](/c/template-credentials/) to use this <dfn>Robot</dfn>.
+
+To change the \`title\`, \`description\`, \`category\`, or \`keywords\` per video, we recommend to [inject variables into your Template](/docs/topics/templates/).
+
+## Adding a thumbnail image to your video
+
+You can add a custom thumbnail to your video on YouTube by using our \`"as"\` syntax for the \`"use"\` parameter to supply both a video and an image to the step:
+
+\`\`\`json
+"exported": {
+  "use": [
+    { "name": "video_encode_step", "as": "video" },
+    { "name": "image_resize_step", "as": "image" },
+  ],
+  ...
+},
+\`\`\`
+
+If you encounter an error such as "The authenticated user doesnʼt have permissions to upload and set custom video thumbnails", you should go to your YouTube account and try adding a custom thumbnail to one of your existing videos. Youʼll be prompted to add your phone number. Once youʼve added it, the error should go away.
+`),
     use: useParamSchema,
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     credentials: z.string().describe(`
 The authentication Template credentials used for your YouTube account. You can generate them on the [Template Credentials page](/c/template-credentials/). Simply add the name of your YouTube channel, and you will be redirected to a Google verification page. Accept the presented permissions and you will be good to go.
 `),
@@ -81,3 +109,4 @@ Defines the visibility of the uploaded video.
   .strict()
 
 export type RobotYoutubeStoreInstructions = z.infer<typeof robotYoutubeStoreInstructionsSchema>
+export type RobotYoutubeStoreInstructionsInput = z.input<typeof robotYoutubeStoreInstructionsSchema>

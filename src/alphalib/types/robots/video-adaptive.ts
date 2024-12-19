@@ -66,6 +66,10 @@ export const meta: RobotMeta = {
 
 export const robotVideoAdaptiveInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/video/adaptive'),
     use: useParamSchema,
     technique: z.enum(['dash', 'hls']).default('dash').describe(`

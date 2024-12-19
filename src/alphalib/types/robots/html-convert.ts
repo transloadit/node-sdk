@@ -39,6 +39,10 @@ export const meta: RobotMeta = {
 
 export const robotHtmlConvertInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/html/convert').describe(`
 A URL can be provided instead of an input HTML file, to capture a screenshot from the website referenced by the URL.
 

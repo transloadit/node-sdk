@@ -44,6 +44,10 @@ export const meta: RobotMeta = {
 
 export const robotDigitaloceanImportInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/digitalocean/import'),
     ignore_errors,
     credentials: credentials.describe(`
@@ -77,5 +81,8 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   .strict()
 
 export type RobotDigitaloceanImportInstructions = z.infer<
+  typeof robotDigitaloceanImportInstructionsSchema
+>
+export type RobotDigitaloceanImportInstructionsInput = z.input<
   typeof robotDigitaloceanImportInstructionsSchema
 >

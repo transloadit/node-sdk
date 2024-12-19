@@ -53,6 +53,10 @@ Here is an example waveform image:
 
 export const robotAudioWaveformInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/audio/waveform').describe(`
 We recommend that you use an [🤖/audio/encode](/docs/transcoding/audio-encoding/audio-encode/) <dfn>Step</dfn> prior to your waveform <dfn>Step</dfn> to convert audio files to MP3. This way it is guaranteed that [🤖/audio/waveform](/docs/transcoding/audio-encoding/audio-waveform/) accepts your audio file and you can also down-sample large audio files and save some money.
 

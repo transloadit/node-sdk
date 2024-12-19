@@ -31,9 +31,9 @@ export const meta: RobotMeta = {
   minimum_charge: 0,
   output_factor: 1,
   override_lvl1: 'File Importing',
-  purpose_sentence: 'imports whole directories of files from your supabase bucket',
+  purpose_sentence: 'imports whole directories of files from your Supabase bucket',
   purpose_verb: 'import',
-  purpose_word: 'supabase',
+  purpose_word: 'Supabase',
   purpose_words: 'Import files from Supabase',
   requires_credentials: true,
   service_slug: 'file-importing',
@@ -45,10 +45,16 @@ export const meta: RobotMeta = {
 
 export const robotSupabaseImportInstructionsSchema = z
   .object({
-    robot: z.literal('/supabase/import'),
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+    robot: z.literal('/supabase/import').describe(`
+The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
+`),
     ignore_errors,
     credentials: credentials.describe(`
-Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your supabase bucket, Key, Secret and Bucket region.
+Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Supabase bucket, Key, Secret and Bucket region.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
 
@@ -82,3 +88,6 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   .strict()
 
 export type RobotSupabaseImportInstructions = z.infer<typeof robotSupabaseImportInstructionsSchema>
+export type RobotSupabaseImportInstructionsInput = z.input<
+  typeof robotSupabaseImportInstructionsSchema
+>

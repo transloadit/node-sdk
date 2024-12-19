@@ -64,6 +64,10 @@ export const meta: RobotMeta = {
 
 export const robotTextSpeakInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/text/speak').describe(`
 You can use the audio that we return in your application, or you can pass the audio down to other <dfn>Robots</dfn> to add a voice track to a video for example.
 

@@ -36,8 +36,13 @@ export const meta: RobotMeta = {
 
 export const robotSwiftStoreInstructionsSchema = z
   .object({
-    robot: z.literal('/swift/store'),
+    robot: z.literal('/swift/store').describe(`
+The URL to the result file in your OpenStack bucket will be returned in the <dfn>Assembly Status JSON</dfn>.`),
     use: useParamSchema,
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     credentials: z.string().describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Swift bucket, Key, Secret and Bucket region.
 
@@ -61,3 +66,4 @@ This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\
   .strict()
 
 export type RobotSwiftStoreInstructions = z.infer<typeof robotSwiftStoreInstructionsSchema>
+export type RobotSwiftStoreInstructionsInput = z.input<typeof robotSwiftStoreInstructionsSchema>

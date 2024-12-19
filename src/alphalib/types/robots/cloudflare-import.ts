@@ -45,6 +45,10 @@ export const meta: RobotMeta = {
 
 export const robotCloudflareImportInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/cloudflare/import'),
     ignore_errors,
     credentials: credentials.describe(`
@@ -80,5 +84,8 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   .strict()
 
 export type RobotCloudflareImportInstructions = z.infer<
+  typeof robotCloudflareImportInstructionsSchema
+>
+export type RobotCloudflareImportInstructionsInput = z.input<
   typeof robotCloudflareImportInstructionsSchema
 >

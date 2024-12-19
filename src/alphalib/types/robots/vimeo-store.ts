@@ -37,6 +37,10 @@ export const meta: RobotMeta = {
 
 export const robotVimeoStoreInstructionsSchema = z
   .object({
+    result: z
+      .boolean()
+      .optional()
+      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/vimeo/store'),
     use: useParamSchema,
     credentials: z.string().describe(`
@@ -81,3 +85,4 @@ When visiting one of your folders, the URL is similar to \`https://vimeo.com/man
   .strict()
 
 export type RobotVimeoStoreInstructions = z.infer<typeof robotVimeoStoreInstructionsSchema>
+export type RobotVimeoStoreInstructionsInput = z.input<typeof robotVimeoStoreInstructionsSchema>
