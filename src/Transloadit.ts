@@ -67,7 +67,7 @@ function checkResult<T>(result: T | { error: string }): asserts result is T {
     'error' in result &&
     typeof result.error === 'string'
   ) {
-    throw new ApiError({ body: result }) // in this case there is no `cause` because we don't have a HTTPError
+    throw new ApiError({ body: result }) // in this case there is no `cause` because we don't have an HTTPError
   }
 }
 
@@ -732,10 +732,6 @@ export class Transloadit {
         responseType: 'json',
       }
 
-      // `got` stacktraces are very lacking, so we capture our own
-      // https://github.com/sindresorhus/got/blob/main/documentation/async-stack-traces.md
-      const stack = new Error().stack
-
       try {
         const request = got[method]<T>(url, requestOpts)
         const { body } = await request
@@ -766,7 +762,6 @@ export class Transloadit {
         ) {
           throw new ApiError({
             cause: err,
-            appendStack: stack,
             body: body as TransloaditErrorResponseBody,
           }) // todo don't assert type
         }

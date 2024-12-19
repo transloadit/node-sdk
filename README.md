@@ -87,8 +87,8 @@ try {
   }
 } catch (err) {
   console.error('❌ Unable to process Assembly.', err)
-  if (err instanceof ApiError && err.response.assembly_id) {
-    console.error(`💡 More info: https://transloadit.com/assemblies/${err.response.assembly_id}`)
+  if (err instanceof ApiError && err.assemblyId) {
+    console.error(`💡 More info: https://transloadit.com/assemblies/${err.assemblyId}`)
   }
 }
 ```
@@ -417,11 +417,10 @@ const url = client.getSignedSmartCDNUrl({
 
 Any errors originating from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) v11 for HTTP requests. [Errors from `got`](https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors) will also be passed on, _except_ the `got.HTTPError` which will be replaced with a `transloadit.ApiError`, which will have its `cause` property set to the instance of the original `got.HTTPError`. `transloadit.ApiError` has these properties:
 
-- `HTTPError.response` the JSON object returned by the server. It has these properties
-  - `error` (`string`) - [The Transloadit API error code](https://transloadit.com/docs/api/response-codes/#error-codes).
-  - `message` (`string`) - A textual representation of the Transloadit API error.
-  - `assembly_id`: (`string`) - If the request is related to an assembly, this will be the ID of the assembly.
-  - `assembly_ssl_url` (`string`) - If the request is related to an assembly, this will be the SSL URL to the assembly .
+- `code` (`string`) - [The Transloadit API error code](https://transloadit.com/docs/api/response-codes/#error-codes).
+- `rawMessage` (`string`) - A textual representation of the Transloadit API error.
+- `assemblyId`: (`string`) - If the request is related to an assembly, this will be the ID of the assembly.
+- `assemblySslUrl` (`string`) - If the request is related to an assembly, this will be the SSL URL to the assembly .
 
 To identify errors you can either check its props or use `instanceof`, e.g.:
 
@@ -435,15 +434,15 @@ try {
   if (err.code === 'ENOENT') {
     return console.error('Cannot open file', err)
   }
-  if (err instanceof transloadit.ApiError && err.response.error === 'ASSEMBLY_INVALID_STEPS') {
+  if (err instanceof ApiError && err.code === 'ASSEMBLY_INVALID_STEPS') {
     return console.error('Invalid Assembly Steps', err)
   }
 }
 ```
 
-**Note:** Assemblies that have an error status (`assembly.error`) will only result in an error being thrown from `createAssembly` and `replayAssembly`. For other Assembly methods, no errors will be thrown, but any error can be found in the response's `error` property
+**Note:** Assemblies that have an error status (`assembly.error`) will only result in an error being thrown from `createAssembly` and `replayAssembly`. For other Assembly methods, no errors will be thrown, but any error can be found in the response's `error` property (also `ApiError.code`).
 
-- [More information on Transloadit errors (`ApiError.response.error`)](https://transloadit.com/docs/api/response-codes/#error-codes)
+- [More information on Transloadit errors (`ApiError.code`)](https://transloadit.com/docs/api/response-codes/#error-codes)
 - [More information on request errors](https://github.com/sindresorhus/got#errors)
 
 ### Rate limiting & auto retry
