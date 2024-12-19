@@ -60,6 +60,7 @@
     "src": "./src"
   },
   "scripts": {
+    "check": "yarn lint:ts && yarn fix && yarn test-unit",
     "fix:js": "eslint . --fix",
     "lint:js": "eslint .",
     "lint:ts": "tsc --noEmit",
