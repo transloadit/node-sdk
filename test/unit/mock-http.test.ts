@@ -125,7 +125,7 @@ describe('Mocked API tests', () => {
     )
 
     const errorString = await promise.catch(inspect)
-    expect(typeof errorString === 'string').toBeTruthy();
+    expect(typeof errorString === 'string').toBeTruthy()
     expect(inspect(errorString).split('\n')).toEqual([
       expect.stringMatching(
         `API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo`

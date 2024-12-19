@@ -19,10 +19,7 @@ export class ApiError extends Error {
 
   override cause?: HTTPError | undefined
 
-  constructor(params: {
-    cause?: HTTPError
-    body: TransloaditErrorResponseBody | undefined
-  }) {
+  constructor(params: { cause?: HTTPError; body: TransloaditErrorResponseBody | undefined }) {
     const { cause, body = {} } = params
 
     const parts = ['API error']
