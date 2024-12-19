@@ -75,7 +75,7 @@ For security reasons, archives that contain symlinks to outside the archived dir
     ignore_errors: z
       .union([z.boolean(), z.array(z.enum(['meta']))])
       .transform((ignoreErrors): 'meta'[] =>
-        ignoreErrors === true ? ['meta'] : ignoreErrors === false ? [] : ignoreErrors
+        ignoreErrors === true ? ['meta'] : ignoreErrors === false ? [] : ignoreErrors,
       )
       .default([]).describe(`
 A possible array member is only \`"meta"\`.

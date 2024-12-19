@@ -57,7 +57,7 @@ const assemblyStatusMetaSchema = z
         z.object({
           text: z.string(),
           boundingPolygon: z.array(z.object({ x: z.number(), y: z.number() })),
-        })
+        }),
       )
       .optional(),
     descriptions: z.array(z.string()).optional(),
@@ -117,7 +117,7 @@ const assemblyStatusMetaSchema = z
           confidence: z.number().optional(),
           width: z.number(),
           height: z.number(),
-        })
+        }),
       )
       .nullable()
       .optional(),
@@ -278,7 +278,7 @@ export const assemblyStatusSchema = z
           offset: z.number(),
           finished: z.boolean(),
           upload_url: z.string(),
-        })
+        }),
       )
       .optional(),
     update_stream_url: z.string().optional(),
@@ -289,7 +289,7 @@ export const assemblyStatusSchema = z
       z.object({
         level: z.literal('notice').or(z.literal('warning')),
         msg: z.string(),
-      })
+      }),
     ),
     websocket_url: z.string(),
     uploads: assemblyStatusUploadsSchema,

@@ -44,7 +44,7 @@ export const robotFileFilterInstructionsSchema = z
     use: useParamSchema,
     accepts: z
       .array(
-        z.union([z.string(), z.tuple([z.string(), z.string(), z.union([z.string(), z.number()])])])
+        z.union([z.string(), z.tuple([z.string(), z.string(), z.union([z.string(), z.number()])])]),
       )
       .default([]).describe(`
 Files that match at least one requirement will be accepted, or declined otherwise. If the array is empty, all files will be accepted. Example:
@@ -55,7 +55,7 @@ If the \`condition_type\` parameter is set to \`"and"\`, then all requirements m
 `),
     declines: z
       .array(
-        z.union([z.string(), z.tuple([z.string(), z.string(), z.union([z.string(), z.number()])])])
+        z.union([z.string(), z.tuple([z.string(), z.string(), z.union([z.string(), z.number()])])]),
       )
       .default([]).describe(`
 Files that match at least one requirement will be declined, or accepted otherwise. Example:

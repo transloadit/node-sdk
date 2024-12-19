@@ -157,10 +157,10 @@ Specifies whether the generated animated image should loop forever (\`true\`) or
 export const robotFilePreviewInstructionsSchema =
   robotFilePreviewInstructionsInterpolatedSchema.extend({
     width: robotFilePreviewInstructionsInterpolatedSchema.shape.width.or(
-      interpolationSchemaToYieldNumber
+      interpolationSchemaToYieldNumber,
     ),
     height: robotFilePreviewInstructionsInterpolatedSchema.shape.height.or(
-      interpolationSchemaToYieldNumber
+      interpolationSchemaToYieldNumber,
     ),
   })
 

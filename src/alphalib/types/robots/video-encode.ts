@@ -230,16 +230,16 @@ The name used for the final segment. Available variables are \`\${segment_prefix
 export const robotVideoEncodeInstructionsSchema =
   robotVideoEncodeInstructionsInterpolatedSchema.extend({
     width: robotVideoEncodeInstructionsInterpolatedSchema.shape.width.or(
-      interpolationSchemaToYieldNumber
+      interpolationSchemaToYieldNumber,
     ),
     height: robotVideoEncodeInstructionsInterpolatedSchema.shape.height.or(
-      interpolationSchemaToYieldNumber
+      interpolationSchemaToYieldNumber,
     ),
     background: robotVideoEncodeInstructionsInterpolatedSchema.shape.background.or(
-      interpolationSchemaToYieldString
+      interpolationSchemaToYieldString,
     ),
     resize_strategy: robotVideoEncodeInstructionsInterpolatedSchema.shape.resize_strategy.or(
-      interpolationSchemaToYieldString
+      interpolationSchemaToYieldString,
     ),
   })
 

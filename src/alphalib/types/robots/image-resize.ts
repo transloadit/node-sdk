@@ -218,7 +218,7 @@ Specifies gaussian blur, using a value with the form \`{radius}x{sigma}\`. The r
           y: complexHeightSchema,
           width: complexWidthSchema,
           height: complexHeightSchema,
-        })
+        }),
       )
       .nullable()
       .default(null).describe(`
@@ -264,7 +264,7 @@ Changes the hue by rotating the color of the image. The value \`100\` would prod
           valign: z.enum(['bottom', 'center', 'top']).default('center'),
           x_offset: z.number().int().default(0),
           y_offset: z.number().int().default(0),
-        })
+        }),
       )
       .default([]).describe(`
 An array of objects each containing text rules. The following text parameters are intended to be used as properties for your array of text overlays. Here is an example:
@@ -324,16 +324,16 @@ If your converted image is unsharp, please try increasing density.
 export const robotImageResizeInstructionsSchema =
   robotImageResizeInstructionsInterpolatedSchema.extend({
     width: robotImageResizeInstructionsInterpolatedSchema.shape.width.or(
-      interpolationSchemaToYieldNumber
+      interpolationSchemaToYieldNumber,
     ),
     height: robotImageResizeInstructionsInterpolatedSchema.shape.height.or(
-      interpolationSchemaToYieldNumber
+      interpolationSchemaToYieldNumber,
     ),
     background: robotImageResizeInstructionsInterpolatedSchema.shape.background.or(
-      interpolationSchemaToYieldString
+      interpolationSchemaToYieldString,
     ),
     resize_strategy: robotImageResizeInstructionsInterpolatedSchema.shape.resize_strategy.or(
-      interpolationSchemaToYieldString
+      interpolationSchemaToYieldString,
     ),
     blur_regions: robotImageResizeInstructionsInterpolatedSchema.shape.blur_regions.or(
       z.array(
@@ -342,8 +342,8 @@ export const robotImageResizeInstructionsSchema =
           y: complexHeightSchema.or(interpolationSchemaToYieldNumber),
           width: complexWidthSchema.or(interpolationSchemaToYieldNumber),
           height: complexHeightSchema.or(interpolationSchemaToYieldNumber),
-        })
-      )
+        }),
+      ),
     ),
   })
 
