@@ -21,10 +21,9 @@ export class ApiError extends Error {
 
   constructor(params: {
     cause?: HTTPError
-    appendStack?: string
     body: TransloaditErrorResponseBody | undefined
   }) {
-    const { cause, body = {}, appendStack } = params
+    const { cause, body = {} } = params
 
     const parts = ['API error']
     if (cause?.response.statusCode) parts.push(`(HTTP ${cause.response.statusCode})`)
@@ -35,19 +34,6 @@ export class ApiError extends Error {
     const message = parts.join(' ')
 
     super(message)
-
-    // if we have a cause, use the stack trace from it instead
-    if (cause != null && typeof cause.stack === 'string') {
-      const indexOfMessageEnd = cause.stack.indexOf(cause.message) + cause.message.length
-      const gotStacktrace = cause.stack.slice(indexOfMessageEnd)
-      this.stack = `${message}${gotStacktrace}`
-    }
-
-    // If we have an original stack, append it to the bottom, because `got`s stack traces are not very good
-    if (this.stack != null && appendStack != null) {
-      this.stack += `\n${appendStack.replace(/^([^\n]+\n)/, '')}`
-    }
-
     this.rawMessage = body.message
     this.assemblyId = body.assembly_id
     this.assemblySslUrl = body.assembly_ssl_url

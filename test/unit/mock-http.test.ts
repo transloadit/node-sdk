@@ -134,20 +134,15 @@ describe('Mocked API tests', () => {
         expect.stringMatching(`    at .+`),
         expect.stringMatching(`    at .+`),
         expect.stringMatching(
-          `    at Transloadit\\._remoteJson \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)`
-        ),
-        expect.stringMatching(
           `    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)`
         ),
-        expect.stringMatching(`    at .+\\/src\\/Transloadit\\.ts:\\d+:\\d+`),
-        expect.stringMatching(`    at .+`),
         expect.stringMatching(`    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+`),
         expect.stringMatching(`    at .+`),
         expect.stringMatching(`    at .+`),
         expect.stringMatching(`    at .+`),
         expect.stringMatching(`    at .+`),
         expect.stringMatching(`    at .+`),
-        expect.stringMatching(`  name: 'ApiError',`),
+        expect.stringMatching(`    at .+`),
         expect.stringMatching(`  rawMessage: 'Invalid file metadata',`),
         expect.stringMatching(`  assemblyId: '123',`),
         expect.stringMatching(

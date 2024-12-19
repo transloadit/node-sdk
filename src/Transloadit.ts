@@ -732,10 +732,6 @@ export class Transloadit {
         responseType: 'json',
       }
 
-      // `got` stacktraces are very lacking, so we capture our own
-      // https://github.com/sindresorhus/got/blob/main/documentation/async-stack-traces.md
-      const stack = new Error().stack
-
       try {
         const request = got[method]<T>(url, requestOpts)
         const { body } = await request
@@ -766,7 +762,6 @@ export class Transloadit {
         ) {
           throw new ApiError({
             cause: err,
-            appendStack: stack,
             body: body as TransloaditErrorResponseBody,
           }) // todo don't assert type
         }
