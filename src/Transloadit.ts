@@ -1,5 +1,5 @@
 import { createHmac, randomUUID } from 'crypto'
-import got, { RequiredRetryOptions, Headers, OptionsOfJSONResponseBody, HTTPError } from 'got'
+import got, { RequiredRetryOptions, Headers, OptionsOfJSONResponseBody } from 'got'
 import FormData from 'form-data'
 import { constants, createReadStream } from 'fs'
 import { access } from 'fs/promises'
@@ -11,13 +11,13 @@ import pMap from 'p-map'
 import { InconsistentResponseError } from './InconsistentResponseError'
 import { PaginationStream } from './PaginationStream'
 import { PollingTimeoutError } from './PollingTimeoutError'
-import { TransloaditResponseBody, TransloaditError } from './TransloaditError'
+import { TransloaditErrorResponseBody, ApiError } from './ApiError'
 import { version } from '../package.json'
 import { sendTusRequest, Stream } from './tus'
 
 import type { Readable } from 'stream'
 
-// See https://github.com/sindresorhus/got#errors
+// See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
 // Expose relevant errors
 export {
   RequestError,
@@ -28,7 +28,7 @@ export {
   MaxRedirectsError,
   TimeoutError,
 } from 'got'
-export { InconsistentResponseError, TransloaditError }
+export { InconsistentResponseError, ApiError }
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
@@ -47,60 +47,6 @@ interface CreateAssemblyPromise extends Promise<Assembly> {
   assemblyId: string
 }
 
-function getTransloaditErrorPropsFromBody(err: Error, body: TransloaditResponseBody) {
-  let newMessage = err.message
-  let newStack = err.stack
-
-  // Provide a more useful message if there is one
-  if (body?.message && body?.error) newMessage += ` ${body.error}: ${body.message}`
-  else if (body?.error) newMessage += ` ${body.error}`
-
-  if (body?.assembly_ssl_url) newMessage += ` - ${body.assembly_ssl_url}`
-
-  if (typeof err.stack === 'string') {
-    const indexOfMessageEnd = err.stack.indexOf(err.message) + err.message.length
-    const stacktrace = err.stack.slice(indexOfMessageEnd)
-    newStack = `${newMessage}${stacktrace}`
-  }
-
-  return {
-    message: newMessage,
-    ...(newStack != null && { stack: newStack }),
-    ...(body?.assembly_id && { assemblyId: body.assembly_id }),
-    ...(body?.error && { transloaditErrorCode: body.error }),
-  }
-}
-
-function decorateTransloaditError(err: HTTPError, body: TransloaditResponseBody): TransloaditError {
-  // todo improve this
-  const transloaditErr = err as HTTPError & TransloaditError
-  /* eslint-disable no-param-reassign */
-  if (body) transloaditErr.cause = body
-  const props = getTransloaditErrorPropsFromBody(err, body)
-  transloaditErr.message = props.message
-  if (props.stack != null) transloaditErr.stack = props.stack
-  if (props.assemblyId) transloaditErr.assemblyId = props.assemblyId
-  if (props.transloaditErrorCode) transloaditErr.transloaditErrorCode = props.transloaditErrorCode
-  /* eslint-enable no-param-reassign */
-
-  return transloaditErr
-}
-
-function makeTransloaditError(err: Error, body: TransloaditResponseBody): TransloaditError {
-  const transloaditErr = new TransloaditError(err.message, body)
-  // todo improve this
-  /* eslint-disable no-param-reassign */
-  if (body) transloaditErr.cause = body
-  const props = getTransloaditErrorPropsFromBody(err, body)
-  transloaditErr.message = props.message
-  if (props.stack != null) transloaditErr.stack = props.stack
-  if (props.assemblyId) transloaditErr.assemblyId = props.assemblyId
-  if (props.transloaditErrorCode) transloaditErr.transloaditErrorCode = props.transloaditErrorCode
-  /* eslint-enable no-param-reassign */
-
-  return transloaditErr
-}
-
 // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
 function checkAssemblyUrls(result: Assembly) {
   if (result.assembly_url == null || result.assembly_ssl_url == null) {
@@ -114,14 +60,14 @@ function getHrTimeMs(): number {
 
 function checkResult<T>(result: T | { error: string }): asserts result is T {
   // In case server returned a successful HTTP status code, but an `error` in the JSON object
-  // This happens sometimes when createAssembly with an invalid file (IMPORT_FILE_ERROR)
+  // This happens sometimes, for example when createAssembly with an invalid file (IMPORT_FILE_ERROR)
   if (
     typeof result === 'object' &&
     result !== null &&
     'error' in result &&
     typeof result.error === 'string'
   ) {
-    throw makeTransloaditError(new Error('Error in response'), result)
+    throw new ApiError({ body: result }) // in this case there is no `cause` because we don't have an HTTPError
   }
 }
 
@@ -814,7 +760,10 @@ export class Transloadit {
             retryCount < this._maxRetries
           )
         ) {
-          throw decorateTransloaditError(err, body as TransloaditResponseBody) // todo improve
+          throw new ApiError({
+            cause: err,
+            body: body as TransloaditErrorResponseBody,
+          }) // todo don't assert type
         }
 
         const { retryIn: retryInSec } = body.info
