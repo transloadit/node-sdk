@@ -67,7 +67,7 @@ function checkResult<T>(result: T | { error: string }): asserts result is T {
     'error' in result &&
     typeof result.error === 'string'
   ) {
-    throw new ApiError({ body: result }) // in this case there is no `cause` because we don't have a HTTPError
+    throw new ApiError({ body: result }) // in this case there is no `cause` because we don't have an HTTPError
   }
 }
 
