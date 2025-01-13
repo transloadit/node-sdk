@@ -40,7 +40,46 @@ export const robotFileFilterInstructionsSchema = z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    robot: z.literal('/file/filter'),
+    robot: z.literal('/file/filter').describe(`
+Think of this <dfn>Robot</dfn> as an \`if/else\` condition for building advanced file conversion workflows. With it, you can filter and direct certain uploaded files depending on their metadata.
+
+The <dfn>Robot</dfn> has two modes of operation:
+
+- Constructing conditions out of arrays with 3 members each. For example, \`["\${file.size}", "<=", "720"]\`
+- Writing conditions in JavaScript. For example, \`\${file.size <= 720}\`. See also [Dynamic Evaluation](/docs/topics/dynamic-evaluation/).
+
+Passing JavaScript allows you to implement logic as complex as you wish, however it’s slower than combining arrays of conditions, and will be charged for per invocation via [🤖/script/run]({{robot_links["/script/run"]}}).
+
+### Conditions as arrays
+
+The \`accepts\` and \`declines\` parameters can each be set to an array of arrays with three members:
+
+1. A value or job variable, such as \`\${file.mime}\`
+2. One of the following operators: \`==\`, \`===\`, \`<\`, \`>\`, \`<=\`, \`>=\`, \`!=\`, \`!==\`, \`regex\`, \`!regex\`
+3. A value or job variable, such as \`50\` or \`"foo"\`
+
+Examples:
+
+- \`[["\${file.meta.width}", ">", "\${file.meta.height}"]]\`
+- \`[["\${file.size}", "<=", "720"]]\`
+- \`[["720", ">=", "\${file.size}"]]\`
+- \`[["\${file.mime}", "regex", "image"]]\`
+
+**Warning:** If you would like to match against a \`null\` value or a value that is not present (like an audio file does not have a \`video_codec\` property in its metadata), match against \`""\` (an empty string) instead. We’ll support proper matching against \`null\` in the future, but we cannot easily do so right now without breaking backwards compatibility. [{.alert .alert-warning}]
+
+### Conditions as JavaScript
+
+The \`accepts\` and \`declines\` parameters can each be set to strings of JavaScript, which return a boolean value.
+
+Examples:
+
+- \`\${file.meta.width > file.meta.height}\`
+- \`\${file.size <= 720}\`
+- \`\${/image/.test(file.mime)}\`
+- \`\${Math.max(file.meta.width, file.meta.height) > 100}\`
+
+As indicated, we charge for this via [🤖/script/run]({{robot_links["/script/run"]}}). See also [Dynamic Evaluation](/docs/topics/dynamic-evaluation/) for more details on allowed syntax and behavior.
+`),
     use: useParamSchema,
     accepts: z
       .array(

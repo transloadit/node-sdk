@@ -161,9 +161,9 @@ Controls the image compression for PNG images. Setting to \`true\` results in sm
     background: z
       .union([z.literal('transparent'), z.literal('none'), color_without_alpha])
       .default('#FFFFFF').describe(`
-Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (only used for the pad resize strategy).
+Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (used for the \`pad\` resize strategy).
 
-By default, the background of transparent images is changed to white. For details about how to preserve transparency across all image types, see [this demo](/demos/image-manipulation/properly-preserve-transparency-across-all-image-types/).
+**Note:** By default, the background of transparent images is changed to white. To preserve transparency, set \`"background"\` to \`"none"\`.
 `),
     frame: z.number().int().min(1).nullable().default(null).describe(`
 Use this parameter when dealing with animated GIF files to specify which frame of the GIF is used for the operation. Specify \`1\` to use the first frame, \`2\` to use the second, and so on. \`null\` means all frames.

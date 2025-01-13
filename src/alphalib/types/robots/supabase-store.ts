@@ -25,7 +25,7 @@ export const meta: RobotMeta = {
   override_lvl1: 'File Exporting',
   purpose_sentence: 'exports encoding results to supabase buckets',
   purpose_verb: 'export',
-  purpose_word: 'supabase',
+  purpose_word: 'Supabase',
   purpose_words: 'Export files to Supabase',
   service_slug: 'file-exporting',
   slot_count: 10,

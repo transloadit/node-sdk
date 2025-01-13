@@ -436,6 +436,6 @@ export const imageQualitySchema = z.number().int().min(1).max(100).default(92).d
 Controls the image compression for JPG and PNG images. Please also take a look at [🤖/image/optimize](/docs/transcoding/image-manipulation/image-optimize/).
 `)
 
-export const aiProviderSchema = z.enum(['aws', 'gcp'])
+export const aiProviderSchema = z.enum(['aws', 'gcp', 'replicate', 'fal', 'transloadit'])
 
 export const granularitySchema = z.enum(['full', 'list']).default('full')

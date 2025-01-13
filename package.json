@@ -16,6 +16,8 @@
     "node": ">= 18"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.726.1",
+    "@aws-sdk/s3-request-presigner": "^3.726.1",
     "debug": "^4.3.7",
     "form-data": "^4.0.1",
     "got": "^11.8.6",

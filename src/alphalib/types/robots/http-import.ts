@@ -38,7 +38,18 @@ export const robotHttpImportInstructionsSchema = z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    robot: z.literal('/http/import'),
+    robot: z.literal('/http/import').describe(`
+The result of this <dfn>Robot</dfn> will carry a field \`import_url\` in their metadata, which references the URL from which they were imported. Further conversion results that use this file will also carry this \`import_url\` field. This allows you to to match conversion results with the original import URL that you used.
+
+This <dfn>Robot</dfn> knows to interpret links to files on these services:
+
+- Dropbox
+- Google Drive
+- Google Docs
+- OneDrive
+
+Instead of downloading the HTML page previewing the file, the actual file itself will be imported.
+`),
     ignore_errors,
     url: z.union([z.string().url(), z.array(z.string().url())]).describe(`
 The URL from which the file to be imported can be retrieved.
