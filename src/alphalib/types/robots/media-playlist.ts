@@ -5,7 +5,7 @@ import { useParamSchema } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: true,
-  bytescount: 20,
+  bytescount: 10,
   discount_factor: 0.1,
   discount_pct: 90,
   minimum_charge: 0,
@@ -29,7 +29,7 @@ export const robotMediaPlaylistInstructionsSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/media/playlist').describe(`
-🤖/media/playlist is deprecated and will be removed! Please use [🤖/video/adaptive](/docs/transcoding/video-encoding/video-adaptive/) for all your HLS and MPEG-Dash needs instead.
+**Warning:** 🤖/media/playlist is deprecated and will be removed! Please use [🤖/video/adaptive](/docs/transcoding/video-encoding/video-adaptive/) for all your HLS and MPEG-Dash needs instead.
 `),
     use: useParamSchema,
     name: z.string().default('playlist.m3u8').describe(`
@@ -41,10 +41,10 @@ URL prefixes to use in the playlist file. Example: \`"/234p/"\`
     resolution: z.string().optional().describe(`
 The resolution reported in the playlist file. Example: \`"416×234"\`. [More info](https://developer.apple.com/library/ios/technotes/tn2224/_index.html#//apple_ref/doc/uid/DTS40009745-CH1-DECIDEONYOURVARIANTS-DEVICE_CAPABILITIES).
 `),
-    codes: z.string().optional().describe(`
+    codecs: z.string().optional().describe(`
 The codecs reported in the playlist file. Example: \`"avc1.42001e,mp4a.40.34"\`. [More info](https://developer.apple.com/library/ios/technotes/tn2224/_index.html#//apple_ref/doc/uid/DTS40009745-CH1-DECIDEONYOURVARIANTS-DEVICE_CAPABILITIES).
 `),
-    bandwidth: z.union([z.literal('auto'), z.number()]).default('auto').describe(`
+    bandwidth: z.union([z.literal('auto'), z.number().int()]).default('auto').describe(`
 The bandwidth reported in the playlist file. Example: \`2560000\`. [More  info](https://developer.apple.com/library/ios/technotes/tn2224/_index.html#//apple_ref/doc/uid/DTS40009745-CH1-DECIDEONYOURVARIANTS-DEVICE_CAPABILITIES). This value is expressed in bits per second.
 `),
     closed_captions: z.boolean().default(true).describe(`

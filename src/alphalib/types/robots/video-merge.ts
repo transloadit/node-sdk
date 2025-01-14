@@ -13,7 +13,7 @@ import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: false,
-  bytescount: 0,
+  bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
   minimum_charge: 0,

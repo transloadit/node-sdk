@@ -46,14 +46,18 @@ export const meta: RobotMeta = {
 
 export const robotVideoConcatInstructionsSchema = z
   .object({
+    robot: z.literal('/video/concat').describe(`
+**Warning:** All videos you concatenate must have the same dimensions (width and height) and the same streams (audio and video streams), otherwise you will run into errors. If your videos donʼt have the desired dimensions when passing them to [🤖/video/concat](/docs/transcoding/video-encoding/video-concat/), encode them first with [🤖/video/encode](/docs/transcoding/video-encoding/video-encode/). [{.alert .alert-warning}]
+
+Itʼs possible to concatenate a virtually infinite number of video files using [🤖/video/concat](/docs/transcoding/video-encoding/video-concat/).
+`),
     result: z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    robot: z.literal('/video/concat'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
-    preset: preset.optional().describe(`
+    preset: preset.default('flash').optional().describe(`
 Performs conversion using pre-configured settings.
 
 If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`"flash"\` preset is not applied. This is to prevent you from having to override each of the flash preset's values manually.

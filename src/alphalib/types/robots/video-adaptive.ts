@@ -6,7 +6,7 @@ import type { RobotMeta } from './_instructions-primitives.ts'
 export const meta: RobotMeta = {
   allowed_for_free_plans: true,
   allowed_for_url_transform: false,
-  bytescount: 0,
+  bytescount: Infinity,
   discount_factor: 1,
   discount_pct: 0,
   example_code: {
@@ -66,11 +66,51 @@ export const meta: RobotMeta = {
 
 export const robotVideoAdaptiveInstructionsSchema = z
   .object({
+    robot: z.literal('/video/adaptive').describe(`
+This <dfn>Robot</dfn> accepts all types of video files and audio files. Do not forget to use <dfn>Step</dfn> bundling in your \`use\` parameter to make the <dfn>Robot</dfn> work on several input files at once.
+
+This <dfn>Robot</dfn> is normally used in combination with [🤖/video/encode](/docs/transcoding/video-encoding/video-encode/). We have implemented video and audio encoding presets specifically for MPEG-Dash and HTTP Live Streaming support. These presets are prefixed with \`"dash/"\` and \`"hls/"\`. [View a HTTP Live Streaming demo here](/demos/video-encoding/implement-http-live-streaming/).
+
+### Required CORS settings for MPEG-Dash and HTTP Live Streaming
+
+Playing back MPEG-Dash Manifest or HLS playlist files requires a proper CORS setup on the server-side. The file-serving server should be configured to add the following header fields to responses:
+
+\`\`\`
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET
+Access-Control-Allow-Headers: *
+\`\`\`
+
+If the files are stored in an Amazon S3 Bucket, you can use the following [CORS definition](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ManageCorsUsing.html) to ensure the CORS header fields are set correctly:
+
+\`\`\`json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET"],
+    "AllowedOrigins": ["*"],
+    "ExposeHeaders": []
+  }
+]
+\`\`\`
+
+To set up CORS for your S3 bucket:
+
+1. Visit <https://s3.console.aws.amazon.com/s3/buckets/>
+1. Click on your bucket
+1. Click "Permissions"
+1. Edit "Cross-origin resource sharing (CORS)"
+
+### Storing Segments and Playlist files
+
+The <dfn>Robot</dfn> gives its result files (segments, initialization segments, MPD manifest files and M3U8 playlist files) the right metadata property \`relative_path\`, so that you can store them easily using one of our storage <dfn>Robots</dfn>.
+
+In the \`path\` parameter of the storage <dfn>Robot</dfn> of your choice, use the <dfn>Assembly Variable</dfn> \`\${file.meta.relative_path}\` to store files in the proper paths to make the playlist files work.
+`),
     result: z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    robot: z.literal('/video/adaptive'),
     use: useParamSchema,
     technique: z.enum(['dash', 'hls']).default('dash').describe(`
 Determines which streaming technique should be used. Currently supports \`"dash"\` for MPEG-Dash and \`"hls"\` for HTTP Live Streaming.

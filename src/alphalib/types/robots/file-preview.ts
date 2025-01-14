@@ -46,11 +46,17 @@ export const meta: RobotMeta = {
 
 export const robotFilePreviewInstructionsInterpolatedSchema = z
   .object({
+    robot: z.literal('/file/preview').describe(`
+This <dfn>Robot</dfn>'s purpose is to generate a meaningful preview image for any file, in such a way that the resulting thumbnail highlights the file's content. The goal is not to losslessly present the original media in a smaller way. Instead, it is to maximize the chance of a person recognizing the media at a glance, while being visually pleasing and consistent with other previews. The generation process depends on the file type. For example, the <dfn>Robot</dfn> can extract artwork from media files, frames from videos, generate a waveform for audio files, and preview the content of documents and images. The details of all available strategies are provided in the next section.
+
+If no file-specific thumbnail can be generated because the file type is not supported, a generic icon containing the file extension will be generated.
+
+The default parameters ensure that the <dfn>Robot</dfn> always generates a preview image with the predefined dimensions and formats, to allow an easy integration into your application's UI. In addition, the generated preview images are optimized by default to reduce their file size while keeping their quality.
+`),
     result: z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    robot: z.literal('/file/preview'),
     use: useParamSchema,
     format: z.enum(['gif', 'jpg', 'png']).default('png').describe(`
 The output format for the generated thumbnail image. If a short video clip is generated using the \`clip\` strategy, its format is defined by \`clip_format\`.
@@ -65,6 +71,9 @@ Height of the thumbnail, in pixels.
 To achieve the desired dimensions of the preview thumbnail, the <dfn>Robot</dfn> might have to resize the generated image. This happens, for example, when the dimensions of a frame extracted from a video do not match the chosen \`width\` and \`height\` parameters.
 
 See the list of available [resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies) for more details.
+`),
+    background: color_with_optional_alpha.default('#ffffffff').describe(`
+The hexadecimal code of the color used to fill the background (only used for the pad resize strategy). The format is \`#rrggbb[aa]\` (red, green, blue, alpha). Use \`#00000000\` for a transparent padding.
 `),
     strategy: z
       .object({

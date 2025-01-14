@@ -46,11 +46,13 @@ export const meta: RobotMeta = {
 
 export const robotVideoThumbsInstructionsSchema = z
   .object({
+    robot: z.literal('/video/thumbs').describe(`
+**Note:** Even though thumbnails are extracted from videos in parallel, we sort the thumbnails before adding them to the Assembly results. So the order in which they appear there reflects the order in which they appear in the video. You can also make sure by checking the <code>thumb_index</code> meta key. [{.alert .alert-note}]
+`),
     result: z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    robot: z.literal('/video/thumbs'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
     count: z.number().int().min(1).max(999).default(8).describe(`
@@ -82,7 +84,9 @@ The background color of the resulting thumbnails in the \`"rrggbbaa"\` format (r
 `),
     rotate: z
       .union([z.literal(0), z.literal(90), z.literal(180), z.literal(270), z.literal(360)])
-      .default(0),
+      .default(0).describe(`
+Forces the video to be rotated by the specified degree integer. Currently, only multiples of 90 are supported. We automatically correct the orientation of many videos when the orientation is provided by the camera. This option is only useful for videos requiring rotation because it was not detected by the camera.
+`),
     ffmpeg_stack: ffmpegStackVersionSchema.describe(`
 Forces the video to be rotated by the specified degree integer. Currently, only multiples of 90 are supported. We automatically correct the orientation of many videos when the orientation is provided by the camera. This option is only useful for videos requiring rotation because it was not detected by the camera.
 `),

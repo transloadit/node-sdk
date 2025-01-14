@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
-import { ffmpegStackVersionSchema, useParamSchema } from './_instructions-primitives.ts'
+import {
+  ffmpegAudioInstructions,
+  ffmpegStackVersionSchema,
+  useParamSchema,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -42,13 +46,16 @@ export const robotMetaWriteInstructionsSchema = z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    robot: z.literal('/meta/write'),
+    robot: z.literal('/meta/write').describe(`
+**Note:** This <dfn>Robot</dfn> currently accepts images, videos and audio files.
+`),
     use: useParamSchema,
     data_to_write: z.object({}).passthrough().default({}).describe(`
 A key/value map defining the metadata to write into the file.
 
 Valid metadata keys can be found [here](https://exiftool.org/TagNames/EXIF.html). For example: \`ProcessingSoftware\`.
 `),
+    ffmpeg: ffmpegAudioInstructions.optional(),
     ffmpeg_stack: ffmpegStackVersionSchema.optional(),
   })
   .strict()

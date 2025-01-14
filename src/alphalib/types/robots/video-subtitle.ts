@@ -52,11 +52,13 @@ export const meta: RobotMeta = {
 
 export const robotVideoSubtitleInstructionsSchema = z
   .object({
+    robot: z.literal('/video/subtitle').describe(`
+This <dfn>Robot</dfn> supports both SRT and VTT subtitle files.
+`),
     result: z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    robot: z.literal('/video/subtitle'),
     use: useParamSchema,
     output_meta: outputMetaParamSchema,
     preset: preset.default('empty').describe(`

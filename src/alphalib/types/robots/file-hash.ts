@@ -34,11 +34,13 @@ export const meta: RobotMeta = {
 
 export const robotFileHashInstructionsSchema = z
   .object({
+    robot: z.literal('/file/hash').describe(`
+This <dfn>Robot</dfn> allows you to hash any file as part of the <dfn>Assembly</dfn> execution process. This can be useful for verifying the integrity of a file for example.
+`),
     result: z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    robot: z.literal('/file/hash'),
     use: useParamSchema,
     algorithm: z
       .enum(['b2', 'md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512'])

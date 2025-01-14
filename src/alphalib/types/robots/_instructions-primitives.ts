@@ -387,8 +387,8 @@ export const bitrateSchema = z.number().int().min(1)
 export const sampleRateSchema = z.number().int().min(1)
 
 export const optimize_priority = z
-  .enum(['compression-ratio', 'conversation-speed'])
-  .default('compression-ratio')
+  .enum(['compression-ratio', 'conversion-speed'])
+  .default('conversion-speed')
 
 export const imagemagickStackVersionSchema = z.enum(['v2.0.10', 'v3.0.1']).default('v2.0.10')
 export type ImagemagickStackVersion = z.infer<typeof imagemagickStackVersionSchema>
