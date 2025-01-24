@@ -5,7 +5,8 @@
 - Favor `if (!(err instanceof Error)) { throw new Error(`Was thrown a non-error: ${err}`) }` inside
   `catch` blocks to ensure the `error` is always an instance of `Error`
 - Favor using real paths (`../lib/schemas.ts`) over aliases (`@/app/lib/schemas`).
-- Favor using `.tsx` over `.jsx`.
+- Favor using `.tsx` over `.jsx` file extensions.
+- Favor the `tsx` CLI over `ts-node` for running TypeScript files.
 - Favor `for (const comment of comments) {` over `comments.forEach((comment) => {`
 - Do not touch `.env` files!
 - Favor `satisfies` over `as`, consider `as` a sin
