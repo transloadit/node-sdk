@@ -49,7 +49,7 @@ export const robotMetaWriteInstructionsSchema = z
     robot: z.literal('/meta/write').describe(`
 **Note:** This <dfn>Robot</dfn> currently accepts images, videos and audio files.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     data_to_write: z.object({}).passthrough().default({}).describe(`
 A key/value map defining the metadata to write into the file.
 

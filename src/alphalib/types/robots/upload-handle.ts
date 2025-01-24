@@ -29,6 +29,7 @@ export const meta: RobotMeta = {
   purpose_verb: 'handle',
   purpose_word: 'handle uploads',
   purpose_words: 'Handle uploads',
+  redirect_from: ['/robots/upload-receive/', '/services/handling-uploads/upload-receive/'],
   service_slug: 'handling-uploads',
   slot_count: 0,
   title: 'Handle uploads',
@@ -42,7 +43,17 @@ export const robotUploadHandleInstructionsSchema = z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    robot: z.literal('/upload/handle'),
+    robot: z.literal('/upload/handle').describe(`
+Transloadit handles file uploads by default, so specifying this <dfn>Robot</dfn> is optional.
+
+It can still be a good idea to define this <dfn>Robot</dfn>, though. It makes your <dfn>Assembly Instructions</dfn> explicit, and allows you to configure exactly how uploads should be handled. For example, you can extract specific metadata from the uploaded files.
+
+There are **3 important constraints** when using this <dfn>Robot</dfn>:
+
+1. Don’t define a \`use\` parameter, unlike with other <dfn>Robots</dfn>.
+2. Use it only once in a single set of <dfn>Assembly Instructions</dfn>.
+3. Name the Step as \`:original\`.
+`),
     output_meta: outputMetaParamSchema,
   })
   .strict()

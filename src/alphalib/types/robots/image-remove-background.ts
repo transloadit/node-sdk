@@ -19,7 +19,7 @@ export const robotImageRemoveBackgroundInstructionsSchema = z
       .optional()
       .describe('Provider to use for removing the background.'),
     output_meta: outputMetaParamSchema.optional(),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
   })
   .strict()
 

@@ -38,7 +38,7 @@ export const robotSwiftStoreInstructionsSchema = z
   .object({
     robot: z.literal('/swift/store').describe(`
 The URL to the result file in your OpenStack bucket will be returned in the <dfn>Assembly Status JSON</dfn>.`),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     result: z
       .boolean()
       .optional()

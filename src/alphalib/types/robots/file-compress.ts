@@ -78,7 +78,7 @@ export const robotFileCompressInstructionsSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/file/compress'),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     format: z.enum(['tar', 'zip']).default('tar').describe(`
 The format of the archive to be created. Supported values are \`"tar"\` and \`"zip"\`.
 

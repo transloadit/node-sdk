@@ -39,9 +39,9 @@ More information on:
 - [Content Delivery](/services/content-delivery/).
 - [🤖/file/serve]({{robot_links["/file/serve"]}}) pricing.
 - [🤖/tlcdn/deliver]({{robot_links["/tlcdn/deliver"]}}) pricing.
-- [File Preview Feature](/blog/2024/06/file-preview-tour/) blog post.
+- [File Preview Feature](/blog/2024/06/file-preview-with-smart-cdn/) blog post.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     headers: z.record(z.string()).default({
       'Access-Control-Allow-Headers':
         'X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization',

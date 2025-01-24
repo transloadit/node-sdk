@@ -38,7 +38,7 @@ export const robotVideoMergeInstructionsSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/video/merge'),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
     preset: preset.describe(`
 Generates the video according to [pre-configured video presets](/docs/transcoding/video-encoding/video-presets/).

@@ -39,7 +39,7 @@ export const robotMinioStoreInstructionsSchema = z
     robot: z.literal('/minio/store').describe(`
 The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     result: z
       .boolean()
       .optional()

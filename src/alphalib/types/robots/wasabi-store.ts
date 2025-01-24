@@ -39,7 +39,7 @@ export const robotWasabiStoreInstructionsSchema = z
     robot: z.literal('/wasabi/store').describe(`
 The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     result: z
       .boolean()
       .optional()

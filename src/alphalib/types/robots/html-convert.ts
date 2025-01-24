@@ -48,7 +48,7 @@ A URL can be provided instead of an input HTML file, to capture a screenshot fro
 
 Use [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/) to resize or crop the screenshot as needed.
 `),
-    use: useParamSchema.optional(),
+    use: useParamSchema.optional().optional(),
     url: z.string().nullable().default(null).describe(`
 The URL of the web page to be converted. Optional, as you can also upload/import HTML files and pass it to this <dfn>Robot</dfn>.
 `),

@@ -33,7 +33,7 @@ This <dfn>Robot</dfn> accepts any file, and will read the file using UTF-8 encod
 
 The <dfn>Robot</dfn> currently only accepts files under 500KB.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
   })
   .strict()
 

@@ -58,7 +58,7 @@ This <dfn>Robot</dfn> works well together with [🤖/image/resize](/docs/transco
 
 </div>
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     provider: aiProviderSchema.optional().describe(`
 Which AI provider to leverage.
 

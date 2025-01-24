@@ -54,7 +54,7 @@ It's recommended to use this Robot with
 [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/) so your images are of a
 similar size before merging them.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
     format: z
       .enum(['jpg', 'png'])

@@ -31,7 +31,7 @@ export const robotMediaPlaylistInstructionsSchema = z
     robot: z.literal('/media/playlist').describe(`
 **Warning:** 🤖/media/playlist is deprecated and will be removed! Please use [🤖/video/adaptive](/docs/transcoding/video-encoding/video-adaptive/) for all your HLS and MPEG-Dash needs instead.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     name: z.string().default('playlist.m3u8').describe(`
 The final name of the playlist file.
 `),

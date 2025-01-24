@@ -65,7 +65,7 @@ You can add a custom thumbnail to your video on YouTube by using our \`"as"\` sy
 
 If you encounter an error such as "The authenticated user doesnʼt have permissions to upload and set custom video thumbnails", you should go to your YouTube account and try adding a custom thumbnail to one of your existing videos. Youʼll be prompted to add your phone number. Once youʼve added it, the error should go away.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     result: z
       .boolean()
       .optional()

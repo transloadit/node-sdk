@@ -53,7 +53,7 @@ export const robotVideoThumbsInstructionsSchema = z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
     count: z.number().int().min(1).max(999).default(8).describe(`
 The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of thumbnails we currently allow is 999.

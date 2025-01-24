@@ -45,7 +45,7 @@ export const robotImageDescribeInstructionsSchema = z
     robot: z.literal('/image/describe').describe(`
 You can use the labels that we return in your application to automatically classify images. You can also pass the labels down to other <dfn>Robots</dfn> to filter images that contain (or do not contain) certain content.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage.
 

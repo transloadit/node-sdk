@@ -111,7 +111,7 @@ In the \`path\` parameter of the storage <dfn>Robot</dfn> of your choice, use th
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     technique: z.enum(['dash', 'hls']).default('dash').describe(`
 Determines which streaming technique should be used. Currently supports \`"dash"\` for MPEG-Dash and \`"hls"\` for HTTP Live Streaming.
 `),

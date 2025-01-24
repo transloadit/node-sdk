@@ -55,7 +55,7 @@ export const robotDocumentMergeInstructionsSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/document/merge'),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     input_passwords: z.array(z.string()).default([]).describe(`
 An array of passwords for the input documents, in case they are encrypted. The order of passwords must match the order of the documents as they are passed to the /document/merge step.
 

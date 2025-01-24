@@ -71,7 +71,7 @@ This <dfn>Robot</dfn> also detects and handles any of the following before evalu
 
 For security reasons, archives that contain symlinks to outside the archived dir, will error out the <dfn>Assembly</dfn>. Decompressing password-protected archives (encrypted archives) is currently not fully supported but will not cause an <dfn>Assembly</dfn> to fail.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     ignore_errors: z
       .union([z.boolean(), z.array(z.enum(['meta']))])
       .transform((ignoreErrors): 'meta'[] =>

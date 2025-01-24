@@ -21,7 +21,7 @@ export const robotImageGenerateInstructionsSchema = z
     width: z.number().optional().describe('Width of the generated image.'),
     style: z.string().optional().describe('Style of the generated image.'),
     output_meta: outputMetaParamSchema.optional(),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
   })
   .strict()
 

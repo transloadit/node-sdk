@@ -179,7 +179,7 @@ You can use the text that we return in your application, or you can pass the tex
 
 **This <dfn>Robot</dfn> accepts only files with a \`text/*\` MIME-type,** including plain text and Markdown. For documents in other formats, use [🤖/document/convert](/docs/transcoding/document-processing/document-convert/) to first convert them into a compatible text format before proceeding. [{.alert .alert-note}]
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage. Valid values are \`"aws"\` (Amazon Web Services) and \`"gcp"\` (Google Cloud Platform).
 

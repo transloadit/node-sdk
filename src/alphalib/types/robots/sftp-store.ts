@@ -41,7 +41,7 @@ export const robotSftpStoreInstructionsSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/sftp/store'),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     credentials: z.string().describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your SFTP host, user and optional custom public key.
 

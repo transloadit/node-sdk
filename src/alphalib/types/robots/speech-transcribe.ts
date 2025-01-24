@@ -49,7 +49,7 @@ You can use the text that we return in your application, or you can pass the tex
 
 Another common use case is automatically subtitling videos, or making audio searchable.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage.
 

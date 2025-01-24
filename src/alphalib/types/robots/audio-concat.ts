@@ -57,7 +57,7 @@ export const robotAudioConcatInstructionsSchema = z
     robot: z.literal('/audio/concat').describe(`
 This Robot can concatenate an almost infinite number of audio files.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
     preset: preset.optional().describe(`
 Performs conversion using pre-configured settings.

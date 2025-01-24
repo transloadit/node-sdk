@@ -11,7 +11,7 @@ export const robotFileWatermarkInstructionsSchema = z
     robot: z.literal('/file/watermark'),
     randomize: z.boolean().optional(),
     output_meta: outputMetaParamSchema.optional(),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
   })
   .strict()
 

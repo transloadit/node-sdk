@@ -42,7 +42,7 @@ export const robotVimeoStoreInstructionsSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/vimeo/store'),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     credentials: z.string().describe(`
 The authentication Template Credentials used for your Vimeo account. You can generate them on the [Template Credentials page](/c/template-credentials/). You will be redirected to a Vimeo verification page. Accept the presented permissions and you will be good to go.
 `),

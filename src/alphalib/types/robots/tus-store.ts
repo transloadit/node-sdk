@@ -50,7 +50,7 @@ To change the \`title\` or \`description\` per video, we recommend to [inject va
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     endpoint: z.string().url().describe('The URL of the destination Tus server').describe(`
 The URL of the Tus-compatible server, which you're uploading files to.
 `),

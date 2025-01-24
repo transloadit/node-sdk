@@ -57,7 +57,7 @@ The default parameters ensure that the <dfn>Robot</dfn> always generates a previ
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     format: z.enum(['gif', 'jpg', 'png']).default('png').describe(`
 The output format for the generated thumbnail image. If a short video clip is generated using the \`clip\` strategy, its format is defined by \`clip_format\`.
 `),

@@ -55,7 +55,7 @@ Itʼs possible to concatenate a virtually infinite number of video files using [
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
     preset: preset.default('flash').optional().describe(`
 Performs conversion using pre-configured settings.

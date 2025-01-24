@@ -55,7 +55,7 @@ export const robotImageResizeInstructionsInterpolatedSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/image/resize'),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
     // TODO: Use an enum
     format: z.string().nullable().default(null).describe(`
@@ -173,7 +173,6 @@ Sets the image colorspace. For details about the available values, see the [Imag
 `),
     type: z
       .enum([
-        '',
         'Bilevel',
         'ColorSeparation',
         'ColorSeparationAlpha',
@@ -235,35 +234,92 @@ Increases or decreases the saturation of the image by using a multiplier. For ex
     hue: z.number().min(0).default(100).describe(`
 Changes the hue by rotating the color of the image. The value \`100\` would produce no change whereas \`0\` and \`200\` will negate the colors in the image.
 `),
-    monochrome: z.boolean().default(false).describe(`
-  Transforms the image to black and white.
+    watermark_url: z.string().optional().describe(`
+A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/transcoding/image-manipulation/image-resize/#image-resize-supply-watermark-via-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.
 `),
-    watermark_url: z.string().optional(),
-    watermark_position: positionSchema.default('center'),
-    watermark_x_offset: z.number().int().default(0),
-    watermark_y_offset: z.number().int().default(0),
-    watermark_size: percentageSchema.optional(),
-    watermark_resize_strategy: z.enum(['area', 'fit', 'min_fit', 'stretch']).default('fit'),
+    watermark_position: z.union([positionSchema, z.array(positionSchema)]).default('center')
+      .describe(`
+The position at which the watermark is placed. The available options are \`"center"\`, \`"top"\`, \`"bottom"\`, \`"left"\`, and \`"right"\`. You can also combine options, such as \`"bottom-right"\`.
+
+An array of possible values can also be specified, in which case one value will be selected at random, such as \`[ "center", "left", "bottom-left", "bottom-right" ]\`.
+
+This setting puts the watermark in the specified corner. To use a specific pixel offset for the watermark, you will need to add the padding to the image itself.
+`),
+    watermark_x_offset: z.number().int().default(0).describe(`
+The x-offset in number of pixels at which the watermark will be placed in relation to the position it has due to \`watermark_position\`.
+
+Values can be both positive and negative and yield different results depending on the \`watermark_position\` parameter. Positive values move the watermark closer to the image's center point, whereas negative values move the watermark further away from the image's center point.
+`),
+    watermark_y_offset: z.number().int().default(0).describe(`
+The y-offset in number of pixels at which the watermark will be placed in relation to the position it has due to \`watermark_position\`.
+
+Values can be both positive and negative and yield different results depending on the \`watermark_position\` parameter. Positive values move the watermark closer to the image's center point, whereas negative values move the watermark further away from the image's center point.
+`),
+    watermark_size: percentageSchema.optional().describe(`
+The size of the watermark, as a percentage.
+
+For example, a value of \`"50%"\` means that size of the watermark will be 50% of the size of image on which it is placed. The exact sizing depends on \`watermark_resize_strategy\`, too.
+`),
+    watermark_resize_strategy: z.enum(['area', 'fit', 'min_fit', 'stretch']).default('fit')
+      .describe(`
+Available values are \`"fit"\`, \`"min_fit"\`, \`"stretch"\` and \`"area"\`.
+
+To explain how the resize strategies work, let's assume our target image size is 800×800 pixels and our watermark image is 400×300 pixels. Let's also assume, the \`watermark_size\` parameter is set to \`"25%"\`.
+
+For the \`"fit"\` resize strategy, the watermark is scaled so that the longer side of the watermark takes up 25% of the corresponding image side. And the other side is scaled according to the aspect ratio of the watermark image. So with our watermark, the width is the longer side, and 25% of the image size would be 200px. Hence, the watermark would be resized to 200×150 pixels. If the \`watermark_size\` was set to \`"50%"\`, it would be resized to 400×300 pixels (so just left at its original size).
+
+For the \`"min_fit"\` resize strategy, the watermark is scaled so that the shorter side of the watermark takes up 25% of the corresponding image side. And the other side is scaled according to the aspect ratio of the watermark image. So with our watermark, the height is the shorter side, and 25% of the image size would be 200px. Hence, the watermark would be resized to 267×200 pixels. If the \`watermark_size\` was set to \`"50%"\`, it would be resized to 533×400 pixels (so larger than its original size).
+
+For the \`"stretch"\` resize strategy, the watermark is stretched (meaning, it is resized without keeping its aspect ratio in mind) so that both sides take up 25% of the corresponding image side. Since our image is 800×800 pixels, for a watermark size of 25% the watermark would be resized to 200×200 pixels. Its height would appear stretched, because keeping the aspect ratio in mind it would be resized to 200×150 pixels instead.
+
+For the \`"area"\` resize strategy, the watermark is resized (keeping its aspect ratio in check) so that it covers \`"xx%"\` of the image's surface area. The value from \`watermark_size\` is used for the percentage area size.
+`),
     text: z
       .array(
         z.object({
           // TODO: Determine valid fonts
           text: z.string(),
-          font: z.string().default('Arial'),
-          size: z.number().int().min(1).default(12),
-          rotate: z.number().int().default(0),
-          color: z.union([color_without_alpha, z.literal('transparent')]).default('#000000'),
+          font: z.string().default('Arial').describe(`
+The font family to use. Also includes boldness and style of the font.
+
+[Here](/docs/supported-formats/fonts/) is a list of all
+supported fonts.
+`),
+          size: z.number().int().min(1).default(12).describe(`
+The text size in pixels.
+`),
+          rotate: z.number().int().default(0).describe(`
+The rotation angle in degrees.
+`),
+          color: z.union([color_without_alpha, z.literal('transparent')]).default('#000000')
+            .describe(`
+The text color. All hex colors in the form \`"#xxxxxx"\` are supported, where each x can be \`0-9\` or \`a-f\`. \`"transparent"\` is also supported if you want a transparent text color. In that case use "stroke" instead, otherwise your text will not be visible.
+`),
           background_color: z
             .union([color_without_alpha, z.literal('transparent')])
-            .default('transparent'),
-          stroke_width: z.number().int().min(0).default(0),
+            .default('transparent').describe(`
+The text color. All hex colors in the form \`"#xxxxxx"\` are supported, where each x is can be \`0-9\` or \`a-f\`. \`"transparent"\` is also supported.
+`),
+          stroke_width: z.number().int().min(0).default(0).describe(`
+The stroke's width in pixels.
+`),
           stroke_color: z
             .union([color_without_alpha, z.literal('transparent')])
-            .default('transparent'),
-          align: z.enum(['center', 'left', 'right']).default('center'),
-          valign: z.enum(['bottom', 'center', 'top']).default('center'),
-          x_offset: z.number().int().default(0),
-          y_offset: z.number().int().default(0),
+            .default('transparent').describe(`
+The stroke's color. All hex colors in the form \`"#xxxxxx"\` are supported, where each x is can be \`0-9\` or \`a-f\`. \`"transparent"\` is also supported.
+`),
+          align: z.enum(['center', 'left', 'right']).default('center').describe(`
+The horizontal text alignment. Can be \`"left"\`, \`"center"\` and \`"right"\`.
+`),
+          valign: z.enum(['bottom', 'center', 'top']).default('center').describe(`
+The vertical text alignment. Can be \`"top"\`, \`"center"\` and \`"bottom"\`.
+`),
+          x_offset: z.number().int().default(0).describe(`
+The horizontal offset for the text in pixels that is added (positive integer) or removed (negative integer) from the horizontal alignment.
+`),
+          y_offset: z.number().int().default(0).describe(`
+The vertical offset for the text in pixels that is added (positive integer) or removed (negative integer) from the vertical alignment.
+`),
         }),
       )
       .default([]).describe(`

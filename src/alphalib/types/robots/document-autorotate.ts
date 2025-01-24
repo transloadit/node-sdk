@@ -32,7 +32,7 @@ export const robotDocumentAutorotateInstructionsSchema = z
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/document/autorotate'),
     output_meta: outputMetaParamSchema.optional(),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
   })
   .strict()
 

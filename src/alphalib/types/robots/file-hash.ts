@@ -41,7 +41,7 @@ This <dfn>Robot</dfn> allows you to hash any file as part of the <dfn>Assembly</
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     algorithm: z
       .enum(['b2', 'md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512'])
       .default('sha256').describe(`

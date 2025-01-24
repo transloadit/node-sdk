@@ -53,7 +53,7 @@ export const robotDocumentThumbsInstructionsSchema = z
 - If you convert a multi-page PDF file into several images, all result images will be sorted with the first image being the thumbnail of the first document page, etc.
 - You can also check the \`meta.thumb_index\` key of each result image to find out which page it corresponds to. Keep in mind that these thumb indices **start at 0,** not at 1.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     page: z.number().int().nullable().default(null).describe(`
 The PDF page that you want to convert to an image. By default the value is \`null\` which means that all pages will be converted into images.
 `),

@@ -47,7 +47,7 @@ If you need the image in a different format, pipe the result of this <dfn>Robot<
 
 The \`method\` parameter determines whether to extract or insert.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     method: z.enum(['extract', 'insert']).default('extract').describe(`
 What should be done with the audio file. A value of \`"extract"\` means audio artwork will be extracted. A value of \`"insert"\` means the provided image will be inserted as audio artwork.
 `),

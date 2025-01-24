@@ -73,8 +73,8 @@ You can use the audio that we return in your application, or you can pass the au
 
 Another common use case is making your product accessible to people with a reading disability.
 `),
-    use: useParamSchema,
-    prompt: z.string().nullable().optional().describe(`
+    use: useParamSchema.optional(),
+    prompt: z.string().nullish().describe(`
 Which text to speak. You can also set this to \`null\` and supply an input text file.
 `),
     provider: aiProviderSchema.describe(`

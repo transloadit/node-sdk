@@ -191,7 +191,7 @@ export const ffmpegParamSchema = z
     t: z.union([z.string(), z.number()]).optional(),
     to: z.union([z.string(), z.number()]).optional(),
     vendor: z.string().optional(),
-    shortest: z.boolean().nullable().optional(),
+    shortest: z.boolean().nullish(),
     filter_complex: z.union([z.string(), z.record(z.string())]).optional(),
     'level:v': z.union([z.string(), z.number()]).optional(),
     'profile:v': z.union([z.number(), z.enum(['baseline', 'main', 'high'])]).optional(),
@@ -280,8 +280,8 @@ export type FfmpegParams = z.infer<typeof ffmpegParamSchema>
 export const ffmpegPresetSchema = z
   .object({
     ffmpeg: ffmpegParamSchema,
-    width: z.number().nullable().optional(),
-    height: z.number().nullable().optional(),
+    width: z.number().nullish(),
+    height: z.number().nullish(),
   })
   .strict()
 
@@ -295,8 +295,8 @@ export type FfmpegStackVersion = z.infer<typeof ffmpegStackVersionSchema>
 
 export const ffmpegAudioInstructions = z
   .object({
-    width: z.number().nullable().optional(),
-    height: z.number().nullable().optional(),
+    width: z.number().nullish(),
+    height: z.number().nullish(),
     preset: z.string().optional(),
     ffmpeg: ffmpegParamSchema.optional(),
     ffmpeg_stack: ffmpegStackVersionSchema.optional(),
@@ -305,8 +305,8 @@ export const ffmpegAudioInstructions = z
 export type FfmpegAudioInstructions = z.infer<typeof ffmpegAudioInstructions>
 export const ffmpegVideoInstructions = z
   .object({
-    width: z.number().nullable().optional(),
-    height: z.number().nullable().optional(),
+    width: z.number().nullish(),
+    height: z.number().nullish(),
     preset: z.string().optional(),
     ffmpeg: ffmpegParamSchema.optional(),
     ffmpeg_stack: ffmpegStackVersionSchema.optional(),
@@ -317,10 +317,10 @@ export type FfmpegVideoInstructions = z.infer<typeof ffmpegVideoInstructions>
 export const unsafeCoordinatesSchema = z.union([
   z
     .object({
-      x1: z.union([z.string(), z.number()]).nullable().optional(),
-      y1: z.union([z.string(), z.number()]).nullable().optional(),
-      x2: z.union([z.string(), z.number()]).nullable().optional(),
-      y2: z.union([z.string(), z.number()]).nullable().optional(),
+      x1: z.union([z.string(), z.number()]).nullish(),
+      y1: z.union([z.string(), z.number()]).nullish(),
+      x2: z.union([z.string(), z.number()]).nullish(),
+      y2: z.union([z.string(), z.number()]).nullish(),
     })
     .strict(),
   z.string(),

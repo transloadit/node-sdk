@@ -69,7 +69,7 @@ Compared to only accessing an <dfn>Assembly Variable</dfn>:
 
 For more information, see [Dynamic Evaluation](/docs/topics/dynamic-evaluation/).
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     script: z.string().describe(`
 A string of JavaScript to evaluate. It has access to all JavaScript features available in a modern browser environment.
 

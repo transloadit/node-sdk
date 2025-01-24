@@ -20,6 +20,7 @@ import { robotDocumentAutorotateInstructionsSchema } from './document-autorotate
 import { robotDocumentConvertInstructionsSchema } from './document-convert.ts'
 import { robotDocumentMergeInstructionsSchema } from './document-merge.ts'
 import { robotDocumentOcrInstructionsSchema } from './document-ocr.ts'
+import { robotDocumentSplitInstructionsSchema } from './document-split.ts'
 import { robotDocumentThumbsInstructionsSchema } from './document-thumbs.ts'
 import { robotDropboxImportInstructionsSchema } from './dropbox-import.ts'
 import { robotDropboxStoreInstructionsSchema } from './dropbox-store.ts'
@@ -101,6 +102,7 @@ const robotStepsInstructions = [
   robotDocumentMergeInstructionsSchema,
   robotDocumentOcrInstructionsSchema,
   robotFileReadInstructionsSchema,
+  robotDocumentSplitInstructionsSchema,
   robotDocumentThumbsInstructionsSchema,
   robotDropboxImportInstructionsSchema,
   robotDropboxStoreInstructionsSchema,

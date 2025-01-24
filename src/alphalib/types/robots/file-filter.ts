@@ -80,7 +80,7 @@ Examples:
 
 As indicated, we charge for this via [🤖/script/run]({{robot_links["/script/run"]}}). See also [Dynamic Evaluation](/docs/topics/dynamic-evaluation/) for more details on allowed syntax and behavior.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     accepts: z
       .array(
         z.union([z.string(), z.tuple([z.string(), z.string(), z.union([z.string(), z.number()])])]),

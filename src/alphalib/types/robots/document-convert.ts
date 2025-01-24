@@ -82,7 +82,7 @@ export const robotDocumentConvertInstructionsSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/document/convert'),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     format: z.enum([
       'ai',
       'csv',

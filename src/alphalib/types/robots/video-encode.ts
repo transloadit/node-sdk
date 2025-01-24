@@ -55,7 +55,7 @@ export const robotVideoEncodeInstructionsInterpolatedSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/video/encode'),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
     preset: preset.describe(`
 Converts a video according to [pre-configured settings](/docs/transcoding/video-encoding/video-presets/).

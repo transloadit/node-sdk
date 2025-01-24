@@ -78,7 +78,7 @@ In order to build proper result URLs we need to know the region in which your S3
 
 Please keep in mind that if you use bucket encryption you may also need to add \`"sts:*"\` and \`"kms:*"\` to the bucket policy. Please read [here](https://docs.aws.amazon.com/kms/latest/developerguide/kms-api-permissions-reference.html) and [here](https://aws.amazon.com/blogs/security/how-to-restrict-amazon-s3-bucket-access-to-a-specific-iam-role/) in case you run into trouble with our example bucket policy.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     result: z
       .boolean()
       .optional()

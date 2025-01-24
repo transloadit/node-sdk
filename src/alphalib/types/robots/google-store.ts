@@ -39,7 +39,7 @@ export const robotGoogleStoreInstructionsSchema = z
     robot: z.literal('/google/store').describe(`
 The URL to the exported file in your Google bucket will be presented in the Transloadit <dfn>Assembly Status</dfn> JSON. This <dfn>Robot</dfn> can also be used to export encoded files to Google's Firebase as demonstrated in [this blogpost](/blog/2018/12/2h-youtube-clone/).
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     result: z
       .boolean()
       .optional()
@@ -68,6 +68,7 @@ The path at which the file is to be stored. This may include any available [Asse
         'project-private',
         'public-read',
       ])
+      .nullable()
       .default('public-read').describe(`
 The permissions used for this file.
 `),

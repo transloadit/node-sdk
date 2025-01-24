@@ -62,7 +62,7 @@ We recommend that you use an [🤖/audio/encode](/docs/transcoding/audio-encodin
 
 Similarly, if you need the output image in a different format, please pipe the result of this <dfn>Robot</dfn> into [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/).
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
     format: z.enum(['image', 'json']).default('image').describe(`
 The format of the result file. Can be \`"image"\` or \`"json"\`. If \`"image"\` is supplied, a PNG image will be created, otherwise a JSON file.

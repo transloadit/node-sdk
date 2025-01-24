@@ -51,7 +51,7 @@ export const robotAudioEncodeInstructionsSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/audio/encode'),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
     preset: preset.default('mp3').describe(`
 Performs conversion using pre-configured settings.

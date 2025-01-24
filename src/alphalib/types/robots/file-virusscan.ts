@@ -51,7 +51,7 @@ By default, this <dfn>Robot</dfn> excludes all malicious files from further proc
 
 We allow the use of industry standard [EICAR files](https://www.eicar.org/download-anti-malware-testfile/) for integration testing without needing to use potentially dangerous live virus samples.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     error_on_decline: z.boolean().default(false).describe(`
 If this is set to \`true\` and one or more files are declined, the Assembly will be stopped and marked with an error.
 `),

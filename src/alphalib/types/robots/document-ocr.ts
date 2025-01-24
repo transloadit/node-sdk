@@ -48,7 +48,7 @@ With this <dfn>Robot</dfn>, you can detect and extract text from PDFs using opti
 
 For example, you can use the results to obtain the content of invoices, legal documents or restaurant menus. You can also pass the text down to other <dfn>Robots</dfn> to filter documents that contain (or do not contain) certain phrases.
 `),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage. Valid values are \`"aws"\` and \`"gcp"\`.
 

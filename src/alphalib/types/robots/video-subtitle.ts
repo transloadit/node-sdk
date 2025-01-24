@@ -59,7 +59,7 @@ This <dfn>Robot</dfn> supports both SRT and VTT subtitle files.
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
     preset: preset.default('empty').describe(`
 Performs conversion using pre-configured settings. By default, no settings are applied and the original settings of the video are preserved.

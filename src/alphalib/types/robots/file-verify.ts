@@ -43,7 +43,7 @@ export const robotFileVerifyInstructionsSchema = z
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/file/verify'),
-    use: useParamSchema,
+    use: useParamSchema.optional(),
     error_on_decline: z.boolean().default(false).describe(`
 If this is set to \`true\` and one or more files are declined, the Assembly will be stopped and marked with an error.
 `),
