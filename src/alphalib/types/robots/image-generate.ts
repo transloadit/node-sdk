@@ -12,7 +12,7 @@ export const robotImageGenerateInstructionsSchema = z
     model: z.string(),
     prompt: z.string().describe('The prompt describing the desired image content.'),
     format: z
-      .enum(['jpeg', 'png', 'gif', 'webp'])
+      .enum(['jpeg', 'png', 'gif', 'webp', 'svg'])
       .optional()
       .describe('Format of the generated image.'),
     seed: z.number().optional().describe('Seed for the random number generator.'),
@@ -25,12 +25,13 @@ export const robotImageGenerateInstructionsSchema = z
   })
   .strict()
 
-export const robotImageGenerateInstructionsWithHiddenFields =
+export const robotImageGenerateInstructionsWithHiddenFieldsSchema =
   robotImageGenerateInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotImageGenerateInstructionsSchema.shape.result]),
     provider: z.string().optional().describe('Provider for generating the image.'),
   })
 
 export type RobotImageGenerateInstructions = z.infer<typeof robotImageGenerateInstructionsSchema>
 export type RobotImageGenerateInstructionsWithHiddenFields = z.infer<
-  typeof robotImageGenerateInstructionsWithHiddenFields
+  typeof robotImageGenerateInstructionsWithHiddenFieldsSchema
 >

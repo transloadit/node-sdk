@@ -59,3 +59,4 @@ There are **3 important constraints** when using this <dfn>Robot</dfn>:
   .strict()
 
 export type RobotUploadHandleInstructions = z.infer<typeof robotUploadHandleInstructionsSchema>
+export type RobotUploadHandleInstructionsInput = z.input<typeof robotUploadHandleInstructionsSchema>

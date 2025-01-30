@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { aiProviderSchema, granularitySchema, useParamSchema } from './_instructions-primitives.ts'
+import {
+  aiProviderSchema,
+  granularitySchema,
+  outputMetaParamSchema,
+  useParamSchema,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -66,15 +71,31 @@ Output format for the transcription.
 - \`"srt"\` and \`"webvtt"\` output subtitle files of those respective file types, which can be stored separately or used in other encoding <dfn>Steps</dfn>.
 - \`"meta"\` does not return a file, but stores the data inside  Transloadit's file object (under \`\${file.meta.transcription.text}\`) that's passed around between encoding <dfn>Steps</dfn>, so that you can use the values to burn the data into videos, filter on them, etc.
 `),
+    output_meta: outputMetaParamSchema.optional(),
     // TODO determine the list of languages
     source_language: z.string().default('en-US').describe(`
 The spoken language of the audio or video. This will also be the language of the transcribed text.
 
 The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as \`"en-GB"\`, \`"de-DE"\` or \`"fr-FR"\`. Please also consult the list of supported languages for [the \`gcp\` provider](https://cloud.google.com/speech-to-text/docs/languages) and the [the \`aws\` provider](https://docs.aws.amazon.com/transcribe/latest/dg/what-is-transcribe.html).
 `),
+    // TODO determine the list of languages
+    target_language: z.string().default('en-US').describe(`
+      This will also be the language of the written text.
+
+      The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as \`"en-GB"\`, \`"de-DE"\` or \`"fr-FR"\`. Please consult the list of supported languages and voices.
+    `),
   })
   .strict()
 
 export type RobotSpeechTranscribeInstructions = z.infer<
   typeof robotSpeechTranscribeInstructionsSchema
+>
+
+export const robotSpeechTranscribeInstructionsWithHiddenFieldsSchema =
+  robotSpeechTranscribeInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotSpeechTranscribeInstructionsSchema.shape.result]),
+  })
+
+export type RobotSpeechTranscribeInstructionsWithHiddenFields = z.infer<
+  typeof robotSpeechTranscribeInstructionsWithHiddenFieldsSchema
 >

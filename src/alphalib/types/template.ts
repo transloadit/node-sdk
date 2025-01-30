@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotStepsInstructionsSchema } from './robots/_index.ts'
+import { robotsWithHiddenBotsAndFieldsSchema, robotsSchema } from './robots/_index.ts'
 import type { UseParamInput } from './robots/_instructions-primitives.ts'
 
 export const stepSchema = z
@@ -8,14 +8,27 @@ export const stepSchema = z
     // This is a hack to get nicer robot hover messages in editors.
     robot: z.string().describe('The [robot](https://transloadit.com/docs/transcoding/) to use'),
   })
-  .and(robotStepsInstructionsSchema)
+  .and(robotsSchema)
+export const stepsSchema = z.record(stepSchema).describe('Contains Assembly Instructions.')
 export type Step = z.infer<typeof stepSchema>
 export type StepInput = z.input<typeof stepSchema>
 export type StepInputWithUse = StepInput & { use: UseParamInput }
-export const stepsSchema = z.record(stepSchema).describe('Contains Assembly Instructions.')
-
 export type Steps = z.infer<typeof stepsSchema>
 export type StepsInput = z.input<typeof stepsSchema>
+
+export const stepSchemaWithHiddenFields = z
+  .object({
+    // This is a hack to get nicer robot hover messages in editors.
+    robot: z.string().describe('The [robot](https://transloadit.com/docs/transcoding/) to use'),
+  })
+  .and(robotsWithHiddenBotsAndFieldsSchema)
+export const stepsSchemaWithHiddenFields = z
+  .record(stepSchemaWithHiddenFields)
+  .describe('Contains Assembly Instructions.')
+export type StepWithHiddenFields = z.infer<typeof stepSchemaWithHiddenFields>
+export type StepWithHiddenFieldsInput = z.input<typeof stepSchemaWithHiddenFields>
+export type StepsWithHiddenFields = z.infer<typeof stepsSchemaWithHiddenFields>
+export type StepsWithHiddenFieldsInput = z.input<typeof stepsSchemaWithHiddenFields>
 
 export const assemblyAuthInstructionsSchema = z.object({
   key: z.string().describe('The Transloadit API key to use'),
@@ -44,7 +57,7 @@ export const assemblyInstructionsSchema = z.object({
     .describe(
       'An object of string to string pairs (name -> value) that can be used as Assembly Variables, just like additional form fields can.',
     ),
-  quite: z
+  quiet: z
     .boolean()
     .optional()
     .describe(

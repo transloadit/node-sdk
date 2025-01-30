@@ -1,6 +1,9 @@
 import type { z } from 'zod'
 
-export type ZodIssueWithContext = z.ZodIssue & { parentObj: unknown }
+export type ZodIssueWithContext = z.ZodIssue & {
+  parentObj: unknown
+  humanReadable: string
+}
 
 function getByPath(obj: unknown, path: string): unknown {
   if (!path) return obj
@@ -13,12 +16,19 @@ function getByPath(obj: unknown, path: string): unknown {
   return current
 }
 
-interface ZodParseWithContextResult<T extends z.ZodType> {
-  success: boolean
-  safe?: z.infer<T>
+type ZodParseWithContextResult<T extends z.ZodType> = {
   errors: ZodIssueWithContext[]
   humanReadable: string
-}
+} & (
+  | {
+      success: true
+      safe: z.infer<T>
+    }
+  | {
+      success: false
+      safe?: never
+    }
+)
 
 export function zodParseWithContext<T extends z.ZodType>(
   schema: T,
@@ -27,6 +37,8 @@ export function zodParseWithContext<T extends z.ZodType>(
   const zodRes = schema.safeParse(obj)
   if (!zodRes.success) {
     const zodIssuesWithContext: ZodIssueWithContext[] = []
+    const badPaths = new Map<string, string[]>()
+
     for (const zodIssue of zodRes.error.errors) {
       const lastPath = zodIssue.path
       let parentObj: unknown = {}
@@ -35,27 +47,19 @@ export function zodParseWithContext<T extends z.ZodType>(
         parentObj = getByPath(obj, strPath) ?? {}
       }
 
-      zodIssuesWithContext.push({
-        ...zodIssue,
-        parentObj,
-      })
-    }
-
-    const badPaths = new Map<string, string[]>()
-    for (const issue of zodIssuesWithContext) {
-      const path = issue.path
+      const path = zodIssue.path
         .map((p) => (typeof p === 'string' ? p.replaceAll('.', '\\.') : p))
         .join('.')
       if (!badPaths.has(path)) {
         badPaths.set(path, [])
       }
 
-      // Handle union type validation errors (e.g., when a value must be one of several allowed values)
-      // For example: z.union([z.literal(0), z.literal(90), z.literal(180)]) for rotation values
-      // This extracts all the valid values from the union type to show in the error message
-      if ('unionErrors' in issue && issue.unionErrors) {
+      const messages: string[] = []
+
+      // Handle union type validation errors
+      if ('unionErrors' in zodIssue && zodIssue.unionErrors) {
         const validValues: (string | number | boolean)[] = []
-        for (const unionError of issue.unionErrors) {
+        for (const unionError of zodIssue.unionErrors) {
           if (
             Array.isArray(unionError.errors) &&
             unionError.errors[0]?.code === 'invalid_literal'
@@ -73,58 +77,64 @@ export function zodParseWithContext<T extends z.ZodType>(
           }
         }
         if (validValues.length > 0) {
-          badPaths.get(path)?.push(`should be one of: \`${validValues.join('`, `')}\``)
+          messages.push(`should be one of: \`${validValues.join('`, `')}\``)
         } else {
-          for (const unionError of issue.unionErrors) {
+          for (const unionError of zodIssue.unionErrors) {
             if ('expected' in unionError && typeof unionError.expected === 'string') {
-              badPaths.get(path)?.push(`should be ${unionError.expected}`)
+              messages.push(`should be ${unionError.expected}`)
             } else {
-              badPaths.get(path)?.push(unionError.message)
+              messages.push(unionError.message)
             }
           }
         }
-      } else if ('expected' in issue && typeof issue.expected === 'string') {
-        badPaths.get(path)?.push(`should be ${issue.expected}`)
+      } else if ('expected' in zodIssue && typeof zodIssue.expected === 'string') {
+        messages.push(`should be ${zodIssue.expected}`)
       } else {
         // Handle specific error codes for better messages
         let received: string
         let type: string
         let bigType: string
 
-        // Handle different validation error types with specific human-readable messages
-        // Each case formats the error message based on the type of validation that failed:
-        // - invalid_type: Wrong data type (e.g., string instead of number)
-        // - invalid_string: String format validation (email, url)
-        // - too_small/too_big: Length/size validations for strings and arrays
-        switch (issue.code) {
+        switch (zodIssue.code) {
           case 'invalid_type':
-            received = issue.received === 'undefined' ? 'missing' : issue.received
-            badPaths.get(path)?.push(`should be ${issue.expected} but got ${received}`)
+            received = zodIssue.received === 'undefined' ? 'missing' : zodIssue.received
+            messages.push(`should be ${zodIssue.expected} but got ${received}`)
             break
           case 'invalid_string':
-            if (issue.validation === 'email') {
-              badPaths.get(path)?.push('should be a valid email address')
-            } else if (issue.validation === 'url') {
-              badPaths.get(path)?.push('should be a valid URL')
+            if (zodIssue.validation === 'email') {
+              messages.push('should be a valid email address')
+            } else if (zodIssue.validation === 'url') {
+              messages.push('should be a valid URL')
             } else {
-              badPaths.get(path)?.push(issue.message)
+              messages.push(zodIssue.message)
             }
             break
           case 'too_small':
-            type = issue.type === 'string' ? 'characters' : 'items'
-            badPaths.get(path)?.push(`should have at least ${issue.minimum} ${type}`)
+            type = zodIssue.type === 'string' ? 'characters' : 'items'
+            messages.push(`should have at least ${zodIssue.minimum} ${type}`)
             break
           case 'too_big':
-            bigType = issue.type === 'string' ? 'characters' : 'items'
-            badPaths.get(path)?.push(`should have at most ${issue.maximum} ${bigType}`)
+            bigType = zodIssue.type === 'string' ? 'characters' : 'items'
+            messages.push(`should have at most ${zodIssue.maximum} ${bigType}`)
             break
           case 'custom':
-            badPaths.get(path)?.push(issue.message)
+            messages.push(zodIssue.message)
             break
           default:
-            badPaths.get(path)?.push(issue.message)
+            messages.push(zodIssue.message)
         }
       }
+
+      badPaths.get(path)?.push(...messages)
+
+      const field = path || 'Input'
+      const humanReadable = `Path \`${field}\` ${messages.join(', ')}`
+
+      zodIssuesWithContext.push({
+        ...zodIssue,
+        parentObj,
+        humanReadable,
+      })
     }
 
     const humanReadable = Array.from(badPaths.entries())

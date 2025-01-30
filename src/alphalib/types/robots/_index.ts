@@ -43,7 +43,10 @@ import { robotHtmlConvertInstructionsSchema } from './html-convert.ts'
 import { robotHttpImportInstructionsSchema } from './http-import.ts'
 import { robotImageDescribeInstructionsSchema } from './image-describe.ts'
 import { robotImageFacedetectInstructionsSchema } from './image-facedetect.ts'
-import { robotImageGenerateInstructionsSchema } from './image-generate.ts'
+import {
+  robotImageGenerateInstructionsSchema,
+  robotImageGenerateInstructionsWithHiddenFieldsSchema,
+} from './image-generate.ts'
 import { robotImageMergeInstructionsSchema } from './image-merge.ts'
 import { robotImageOcrInstructionsSchema } from './image-ocr.ts'
 import { robotImageOptimizeInstructionsSchema } from './image-optimize.ts'
@@ -59,7 +62,10 @@ import { robotS3StoreInstructionsSchema } from './s3-store.ts'
 import { robotScriptRunInstructionsSchema } from './script-run.ts'
 import { robotSftpImportInstructionsSchema } from './sftp-import.ts'
 import { robotSftpStoreInstructionsSchema } from './sftp-store.ts'
-import { robotSpeechTranscribeInstructionsSchema } from './speech-transcribe.ts'
+import {
+  robotSpeechTranscribeInstructionsSchema,
+  robotSpeechTranscribeInstructionsWithHiddenFieldsSchema,
+} from './speech-transcribe.ts'
 import { robotSupabaseImportInstructionsSchema } from './supabase-import.ts'
 import { robotSupabaseStoreInstructionsSchema } from './supabase-store.ts'
 import { robotSwiftImportInstructionsSchema } from './swift-import.ts'
@@ -158,21 +164,109 @@ const robotStepsInstructions = [
   robotYoutubeStoreInstructionsSchema,
 ] as const
 
+const robotStepsInstructionsWithHiddenFields = [
+  robotAudioArtworkInstructionsSchema,
+  robotAudioConcatInstructionsSchema,
+  robotAudioEncodeInstructionsSchema,
+  robotAudioLoopInstructionsSchema,
+  robotAudioMergeInstructionsSchema,
+  robotAudioWaveformInstructionsSchema,
+  robotAzureImportInstructionsSchema,
+  robotAzureStoreInstructionsSchema,
+  robotBackblazeImportInstructionsSchema,
+  robotBackblazeStoreInstructionsSchema,
+  robotCloudfilesImportInstructionsSchema,
+  robotCloudfilesStoreInstructionsSchema,
+  robotCloudflareImportInstructionsSchema,
+  robotCloudflareStoreInstructionsSchema,
+  robotDigitaloceanImportInstructionsSchema,
+  robotDigitaloceanStoreInstructionsSchema,
+  robotDocumentAutorotateInstructionsSchema,
+  robotDocumentConvertInstructionsSchema,
+  robotDocumentMergeInstructionsSchema,
+  robotDocumentOcrInstructionsSchema,
+  robotFileReadInstructionsSchema,
+  robotDocumentSplitInstructionsSchema,
+  robotDocumentThumbsInstructionsSchema,
+  robotDropboxImportInstructionsSchema,
+  robotDropboxStoreInstructionsSchema,
+  robotEdglyDeliverInstructionsSchema,
+  robotFileCompressInstructionsSchema,
+  robotFileDecompressInstructionsSchema,
+  robotFileFilterInstructionsSchema,
+  robotFileHashInstructionsSchema,
+  robotFilePreviewInstructionsSchema,
+  robotFileServeInstructionsSchema,
+  robotFileVerifyInstructionsSchema,
+  robotFileVirusscanInstructionsSchema,
+  robotFtpImportInstructionsSchema,
+  robotFtpStoreInstructionsSchema,
+  robotGoogleImportInstructionsSchema,
+  robotGoogleStoreInstructionsSchema,
+  robotHtmlConvertInstructionsSchema,
+  robotHttpImportInstructionsSchema,
+  robotImageDescribeInstructionsSchema,
+  robotImageFacedetectInstructionsSchema,
+  robotImageMergeInstructionsSchema,
+  robotImageOcrInstructionsSchema,
+  robotImageOptimizeInstructionsSchema,
+  robotImageResizeInstructionsSchema,
+  robotMediaPlaylistInstructionsSchema,
+  robotMetaWriteInstructionsSchema,
+  robotMinioImportInstructionsSchema,
+  robotMinioStoreInstructionsSchema,
+  robotS3ImportInstructionsSchema,
+  robotS3StoreInstructionsSchema,
+  robotScriptRunInstructionsSchema,
+  robotSftpImportInstructionsSchema,
+  robotSftpStoreInstructionsSchema,
+  robotSpeechTranscribeInstructionsWithHiddenFieldsSchema,
+  robotSupabaseImportInstructionsSchema,
+  robotSupabaseStoreInstructionsSchema,
+  robotSwiftImportInstructionsSchema,
+  robotSwiftStoreInstructionsSchema,
+  robotTextSpeakInstructionsSchema,
+  robotTextTranslateInstructionsSchema,
+  robotTlcdnDeliverInstructionsSchema,
+  robotTusStoreInstructionsSchema,
+  robotUploadHandleInstructionsSchema,
+  robotVideoAdaptiveInstructionsSchema,
+  robotVideoConcatInstructionsSchema,
+  robotVideoEncodeInstructionsSchema,
+  robotVideoMergeInstructionsSchema,
+  robotVideoSubtitleInstructionsSchema,
+  robotVideoThumbsInstructionsSchema,
+  robotVimeoStoreInstructionsSchema,
+  robotWasabiImportInstructionsSchema,
+  robotWasabiStoreInstructionsSchema,
+  robotYoutubeStoreInstructionsSchema,
+] as const
+
 /**
  * Public robot instructions
  */
-export const robotStepsInstructionsSchema = z.discriminatedUnion('robot', [
-  ...robotStepsInstructions,
+export const robotsSchema = z.discriminatedUnion('robot', [...robotStepsInstructions])
+export const robotsWithHiddenFieldsSchema = z.discriminatedUnion('robot', [
+  ...robotStepsInstructionsWithHiddenFields,
 ])
 
 /**
  * All robot instructions, including private ones.
  */
-export const robotAnyInstructionsSchema = z.discriminatedUnion('robot', [
+export const robotsWithHiddenBotsSchema = z.discriminatedUnion('robot', [
   ...robotStepsInstructions,
   robotFileWatermarkInstructionsSchema,
   robotImageGenerateInstructionsSchema,
   robotImageRemoveBackgroundInstructionsSchema,
   robotProgressSimulateInstructionsSchema,
 ])
-export type RobotAnyInstructions = z.infer<typeof robotAnyInstructionsSchema>
+export const robotsWithHiddenBotsAndFieldsSchema = z.discriminatedUnion('robot', [
+  ...robotStepsInstructionsWithHiddenFields,
+  robotFileWatermarkInstructionsSchema,
+  robotImageGenerateInstructionsWithHiddenFieldsSchema,
+  robotImageRemoveBackgroundInstructionsSchema,
+  robotProgressSimulateInstructionsSchema,
+])
+
+export type RobotsWithHiddenBots = z.infer<typeof robotsWithHiddenBotsSchema>
+export type RobotsWithHiddenBotsAndFields = z.infer<typeof robotsWithHiddenBotsAndFieldsSchema>

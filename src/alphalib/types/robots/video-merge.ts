@@ -62,8 +62,7 @@ If the given width/height parameters are bigger than the input image's dimension
 The background color of the resulting video the \`"rrggbbaa"\` format (red, green, blue, alpha) when used with the \`"pad"\` resize strategy. The default color is black.
 `),
     framerate: z
-      .string()
-      .regex(/^\d+\/\d+$/)
+      .union([z.number().int().min(1), z.string().regex(/^\d+(?:\/\d+)?$/)])
       .default('1/5').describe(`
 When merging images to generate a video this is the input framerate. A value of "1/5" means each image is given 5 seconds before the next frame appears (the inverse of a framerate of "5"). Likewise for "1/10", "1/20", etc. A value of "5" means there are 5 frames per second.
 `),
@@ -80,6 +79,8 @@ When merging audio files and video files, the duration of the longest video or a
     audio_delay: z.number().default(0).describe(`
 When merging a video and an audio file, and when merging images and an audio file to generate a video, this is the desired delay in seconds for the audio file to start playing. Imagine you merge a video file without sound and an audio file, but you wish the audio to start playing after 5 seconds and not immediately, then this is the parameter to use.
 `),
+    loop: z.boolean().default(false).describe(`
+  Determines whether the shorter media file should be looped to match the duration of the longer one. For example, if you merge a 1-minute video with a 3-minute audio file and enable this option, the video will play three times in a row to match the audio length.`),
     replace_audio: z.boolean().default(false).describe(`
 Determines whether the audio of the video should be replaced with a provided audio file.
 `),
