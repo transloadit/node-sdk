@@ -20,7 +20,6 @@ export const meta: RobotMeta = {
         data_to_write: {
           copyright: '© Transloadit',
         },
-        // @ts-expect-error Discuss and resolve interpolation.
         ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
       },
     },

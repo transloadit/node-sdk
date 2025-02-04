@@ -13,7 +13,6 @@ export const meta: RobotMeta = {
       artwork_extracted: {
         robot: '/audio/artwork',
         use: ':original',
-        // @ts-expect-error Discuss and resolve interpolation.
         ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
       },
     },

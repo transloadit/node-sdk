@@ -11,7 +11,6 @@ import {
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
-  allowed_for_free_plans: true,
   allowed_for_url_transform: false,
   bytescount: 10,
   discount_factor: 0.1,
@@ -23,14 +22,12 @@ export const meta: RobotMeta = {
         robot: '/video/thumbs',
         use: ':original',
         count: 10,
-        // @ts-expect-error Discuss and resolve interpolation.
         ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
       },
     },
   },
   example_code_description: 'Extract 10 thumbnails from each uploaded video:',
   minimum_charge: 0,
-  old_title: 'The /video/thumbs Robot',
   output_factor: 0.05,
   override_lvl1: 'Video Encoding',
   purpose_sentence: 'extracts any number of images from videos for use as previews',

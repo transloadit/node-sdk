@@ -287,7 +287,10 @@ export const ffmpegPresetSchema = z
 
 export type FfmpegPreset = z.infer<typeof ffmpegPresetSchema>
 
-export const ffmpegStackVersionSchema = z.enum(['v5.0.0', 'v6.0.0']).default('v5.0.0').describe(`
+export const ffmpegStackVersionSchema = z
+  // Any semver in range is allowed and normalized. The enum is used for editor completions.
+  .union([z.enum(['v5', 'v6']), z.string().regex(/^v?[56](\.\d+)?(\.\d+)?$/)])
+  .default('v5.0.0').describe(`
 Selects the FFmpeg stack version to use for encoding. These versions reflect real FFmpeg versions. We currently recommend to use "v6.0.0".
 `)
 
@@ -390,7 +393,10 @@ export const optimize_priority = z
   .enum(['compression-ratio', 'conversion-speed'])
   .default('conversion-speed')
 
-export const imagemagickStackVersionSchema = z.enum(['v2.0.10', 'v3.0.1']).default('v2.0.10')
+export const imagemagickStackVersionSchema = z
+  // Any semver in range is allowed and normalized. The enum is used for editor completions.
+  .union([z.enum(['v2', 'v3']), z.string().regex(/^v?[23](\.\d+)?(\.\d+)?$/)])
+  .default('v2')
 export type ImagemagickStackVersion = z.infer<typeof imagemagickStackVersionSchema>
 
 export const colorspaceSchema = z.enum([

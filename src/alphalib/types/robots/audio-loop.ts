@@ -22,7 +22,6 @@ export const meta: RobotMeta = {
         robot: '/audio/loop',
         use: ':original',
         duration: 300,
-        // @ts-expect-error Discuss and resolve interpolation.
         ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
       },
     },
@@ -53,7 +52,7 @@ export const robotAudioLoopInstructionsSchema = z
     robot: z.literal('/audio/loop'),
     use: useParamSchema.optional(),
     output_meta: outputMetaParamSchema,
-    preset: preset.describe(`
+    preset: preset.optional().describe(`
 Performs conversion using pre-configured settings.
 
 If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`mp3\` preset is not applied. This is to prevent you from having to override each of the \`mp3\` preset's values manually.

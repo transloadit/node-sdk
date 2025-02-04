@@ -23,7 +23,6 @@ export const meta: RobotMeta = {
         use: ':original',
         preset: 'mp3',
         bitrate: 256000,
-        // @ts-expect-error Discuss and resolve interpolation.
         ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
       },
     },

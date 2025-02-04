@@ -13,7 +13,6 @@ import {
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
-  allowed_for_free_plans: true,
   allowed_for_url_transform: false,
   bytescount: 1,
   discount_factor: 1,
@@ -28,7 +27,6 @@ export const meta: RobotMeta = {
             { name: ':original', fields: 'input_srt', as: 'subtitles' },
           ],
         },
-        // @ts-expect-error Discuss and resolve interpolation.
         ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
       },
     },
@@ -36,7 +34,6 @@ export const meta: RobotMeta = {
   example_code_description:
     'If you have two file input fields in a form — one for a video and another for an SRT or VTT subtitle, named `input_video` and `input_srt` respectively (with the HTML `name` attribute), hereʼs how to embed the subtitles into the video with Transloadit:',
   minimum_charge: 0,
-  old_title: 'The /video/subtitle Robot',
   output_factor: 0.6,
   override_lvl1: 'Video Encoding',
   purpose_sentence: 'adds subtitles and closed captions to videos',

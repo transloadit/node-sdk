@@ -27,7 +27,6 @@ export const meta: RobotMeta = {
             { name: ':original', fields: 'third_audio_file', as: 'audio_3' },
           ],
         },
-        // @ts-expect-error Discuss and resolve interpolation.
         ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
       },
     },

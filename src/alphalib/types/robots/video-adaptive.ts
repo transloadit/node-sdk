@@ -4,7 +4,6 @@ import { useParamSchema } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
-  allowed_for_free_plans: true,
   allowed_for_url_transform: false,
   bytescount: Infinity,
   discount_factor: 1,
@@ -18,21 +17,18 @@ export const meta: RobotMeta = {
         robot: '/video/encode',
         use: ':original',
         preset: 'hls/480p',
-        // @ts-expect-error Discuss and resolve interpolation.
         ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
       },
       encoded_720p: {
         robot: '/video/encode',
         use: ':original',
         preset: 'hls/720p',
-        // @ts-expect-error Discuss and resolve interpolation.
         ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
       },
       encoded_1080p: {
         robot: '/video/encode',
         use: ':original',
         preset: 'hls/1080p',
-        // @ts-expect-error Discuss and resolve interpolation.
         ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
       },
       hls_bundled: {
@@ -49,7 +45,6 @@ export const meta: RobotMeta = {
   example_code_description:
     'Implementing HTTP Live Streaming: encode the uploaded video into three versions, then cut them into several segments and generate playlist files containing all the segments:',
   minimum_charge: 0,
-  old_title: 'The /video/adaptive Robot',
   output_factor: 1.2,
   override_lvl1: 'Video Encoding',
   purpose_sentence:
