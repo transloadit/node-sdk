@@ -66,6 +66,7 @@ Object Metadata can be specified using \`x-amz-meta-*\` headers. Note that these
     sign_urls_for: z.number().int().min(0).optional().describe(`
 This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\` property). The number that you set this parameter to is the URL expiry time in seconds. If this parameter is not used, no URL signing is done.
 `),
+    space: z.string().optional(),
   })
   .strict()
 

@@ -157,6 +157,7 @@ const assemblyStatusUploadSchema = z
     queue_time: z.number().optional(),
     exec_time: z.number().optional(),
     import_url: z.string().optional(),
+    cost: z.number().nullable().optional(),
   })
   .strict()
 export type AssemblyStatusUpload = z.infer<typeof assemblyStatusUploadSchema>
