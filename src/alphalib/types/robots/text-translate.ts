@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { aiProviderSchema, useParamSchema } from './_instructions-primitives.ts'
+import { aiProviderSchema, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -168,18 +168,14 @@ const translatableLanguages = z
   ])
   .default('en')
 
-export const robotTextTranslateInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotTextTranslateInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/text/translate').describe(`
 You can use the text that we return in your application, or you can pass the text down to other <dfn>Robots</dfn> to add a translated subtitle track to a video for example.
 
 **This <dfn>Robot</dfn> accepts only files with a \`text/*\` MIME-type,** including plain text and Markdown. For documents in other formats, use [🤖/document/convert](/docs/transcoding/document-processing/document-convert/) to first convert them into a compatible text format before proceeding. [{.alert .alert-note}]
 `),
-    use: useParamSchema.optional(),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage. Valid values are \`"aws"\` (Amazon Web Services) and \`"gcp"\` (Google Cloud Platform).
 

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { googleBase, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -34,12 +34,13 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotGoogleStoreInstructionsSchema = z
-  .object({
+export const robotGoogleStoreInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(googleBase)
+  .extend({
     robot: z.literal('/google/store').describe(`
 The URL to the exported file in your Google bucket will be presented in the Transloadit <dfn>Assembly Status</dfn> JSON. This <dfn>Robot</dfn> can also be used to export encoded files to Google's Firebase as demonstrated in [this blogpost](/blog/2018/12/2h-youtube-clone/).
 `),
-    use: useParamSchema.optional(),
     result: z
       .boolean()
       .optional()

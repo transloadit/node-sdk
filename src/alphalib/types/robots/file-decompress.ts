@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -32,12 +32,9 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotFileDecompressInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotFileDecompressInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/file/decompress').describe(`
 This Robot supports the following archive formats:
 
@@ -71,7 +68,6 @@ This <dfn>Robot</dfn> also detects and handles any of the following before evalu
 
 For security reasons, archives that contain symlinks to outside the archived dir, will error out the <dfn>Assembly</dfn>. Decompressing password-protected archives (encrypted archives) is currently not fully supported but will not cause an <dfn>Assembly</dfn> to fail.
 `),
-    use: useParamSchema.optional(),
     ignore_errors: z
       .union([z.boolean(), z.array(z.enum(['meta']))])
       .transform((ignoreErrors): 'meta'[] =>

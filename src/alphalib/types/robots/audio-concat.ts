@@ -2,12 +2,11 @@ import { z } from 'zod'
 
 import {
   bitrateSchema,
-  ffmpegParamSchema,
-  ffmpegStackVersionSchema,
-  outputMetaParamSchema,
+  robotFFmpeg,
   preset,
+  robotBase,
+  robotUse,
   sampleRateSchema,
-  useParamSchema,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -47,8 +46,10 @@ export const meta: RobotMeta = {
   typical_file_type: 'audio file',
 }
 
-export const robotAudioConcatInstructionsSchema = z
-  .object({
+export const robotAudioConcatInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     result: z
       .boolean()
       .optional()
@@ -56,8 +57,6 @@ export const robotAudioConcatInstructionsSchema = z
     robot: z.literal('/audio/concat').describe(`
 This Robot can concatenate an almost infinite number of audio files.
 `),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     preset: preset.optional().describe(`
 Performs conversion using pre-configured settings.
 
@@ -76,8 +75,6 @@ When used this adds an audio fade in and out effect between each section of your
 
 This parameter does not add an audio fade effect at the beginning or end of your result audio file. If you want to do so, create an additional [🤖/audio/encode](/docs/transcoding/audio-encoding/audio-encode/) <dfn>Step</dfn> and use our \`ffmpeg\` parameter as shown in this [demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
 `),
-    ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotAudioConcatInstructions = z.infer<typeof robotAudioConcatInstructionsSchema>

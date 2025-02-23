@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse, s3Base } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -35,8 +35,10 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotS3StoreInstructionsSchema = z
-  .object({
+export const robotS3StoreInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(s3Base)
+  .extend({
     robot: z.literal('/s3/store').describe(`
 If you are new to Amazon S3, see our tutorial on [using your own S3 bucket](/docs/faq/how-to-set-up-an-amazon-s3-bucket/).
 
@@ -78,16 +80,6 @@ In order to build proper result URLs we need to know the region in which your S3
 
 Please keep in mind that if you use bucket encryption you may also need to add \`"sts:*"\` and \`"kms:*"\` to the bucket policy. Please read [here](https://docs.aws.amazon.com/kms/latest/developerguide/kms-api-permissions-reference.html) and [here](https://aws.amazon.com/blogs/security/how-to-restrict-amazon-s3-bucket-access-to-a-specific-iam-role/) in case you run into trouble with our example bucket policy.
 `),
-    use: useParamSchema.optional(),
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    credentials: z.string().describe(`
-Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your S3 bucket, Key, Secret and Bucket region.
-
-While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"bucket_region"\` (for example: \`"us-east-1"\` or \`"eu-west-2"\`), \`"key"\`, \`"secret"\`.
-`),
     path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
 The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables). The path must not be a directory.
 `),
@@ -111,7 +103,7 @@ An object containing a list of headers to be set for this file on S3, such as \`
 Object Metadata can be specified using \`x-amz-meta-*\` headers. Note that these headers [do not support non-ASCII metadata values](https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html#UserMetadata).
 `),
     tags: z.record(z.string()).default({}).describe(`
-A hashmap of x-amz meta tags you can attach to the file during the export.
+Object tagging allows you to categorize storage. You can associate up to 10 tags with an object. Tags that are associated with an object must have unique tag keys.
 `),
     host: z.string().default('s3.amazonaws.com').describe(`
 The host of the storage service used. This only needs to be set when the storage service used is not Amazon S3, but has a compatible API (such as hosteurope.de). The default protocol used is HTTP, for anything else the protocol needs to be explicitly specified. For example, prefix the host with \`https://\` or \`s3://\` to use either respective protocol.

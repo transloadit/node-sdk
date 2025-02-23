@@ -2,11 +2,11 @@ import { z } from 'zod'
 
 import {
   color_with_alpha,
-  ffmpegStackVersionSchema,
-  outputMetaParamSchema,
+  robotFFmpeg,
   percentageSchema,
   resize_strategy,
-  useParamSchema,
+  robotBase,
+  robotUse,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -41,17 +41,13 @@ export const meta: RobotMeta = {
   typical_file_type: 'video',
 }
 
-export const robotVideoThumbsInstructionsSchema = z
-  .object({
+export const robotVideoThumbsInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     robot: z.literal('/video/thumbs').describe(`
 **Note:** Even though thumbnails are extracted from videos in parallel, we sort the thumbnails before adding them to the Assembly results. So the order in which they appear there reflects the order in which they appear in the video. You can also make sure by checking the <code>thumb_index</code> meta key. [{.alert .alert-note}]
 `),
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     count: z.number().int().min(1).max(999).default(8).describe(`
 The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of thumbnails we currently allow is 999.
 
@@ -82,9 +78,6 @@ The background color of the resulting thumbnails in the \`"rrggbbaa"\` format (r
     rotate: z
       .union([z.literal(0), z.literal(90), z.literal(180), z.literal(270), z.literal(360)])
       .default(0).describe(`
-Forces the video to be rotated by the specified degree integer. Currently, only multiples of 90 are supported. We automatically correct the orientation of many videos when the orientation is provided by the camera. This option is only useful for videos requiring rotation because it was not detected by the camera.
-`),
-    ffmpeg_stack: ffmpegStackVersionSchema.describe(`
 Forces the video to be rotated by the specified degree integer. Currently, only multiples of 90 are supported. We automatically correct the orientation of many videos when the orientation is provided by the camera. This option is only useful for videos requiring rotation because it was not detected by the camera.
 `),
   })

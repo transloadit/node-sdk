@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { outputMetaParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -37,12 +37,9 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotUploadHandleInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotUploadHandleInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/upload/handle').describe(`
 Transloadit handles file uploads by default, so specifying this <dfn>Robot</dfn> is optional.
 
@@ -54,7 +51,6 @@ There are **3 important constraints** when using this <dfn>Robot</dfn>:
 2. Use it only once in a single set of <dfn>Assembly Instructions</dfn>.
 3. Name the Step as \`:original\`.
 `),
-    output_meta: outputMetaParamSchema,
   })
   .strict()
 

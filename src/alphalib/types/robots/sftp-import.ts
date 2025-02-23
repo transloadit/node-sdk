@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { credentials, ignore_errors, port } from './_instructions-primitives.ts'
+import { robotImport, robotBase, sftpBase } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -35,24 +35,13 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotSftpImportInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotSftpImportInstructionsSchema = robotBase
+  .merge(robotImport)
+  .merge(sftpBase)
+  .extend({
     robot: z.literal('/sftp/import'),
-    ignore_errors,
-    credentials: credentials.describe(`
-Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your SFTP host, user and optional custom public key.
-
-While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"host"\`, \`"port"\`, \`"user"\`, \`"public_key"\` (optional).
-`),
     path: z.string().describe(`
 The path on your SFTP server where to search for files.
-`),
-    port: port.default(22).describe(`
-The port to use for the connection.
 `),
   })
   .strict()

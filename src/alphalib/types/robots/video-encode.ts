@@ -4,17 +4,16 @@ import {
   color_with_alpha,
   complexHeightSchema,
   complexWidthSchema,
-  ffmpegParamSchema,
-  ffmpegStackVersionSchema,
+  robotFFmpeg,
   interpolationSchemaToYieldNumber,
   interpolationSchemaToYieldString,
-  outputMetaParamSchema,
   percentageSchema,
   positionSchema,
   preset,
   resize_strategy,
+  robotBase,
+  robotUse,
   unsafeCoordinatesSchema,
-  useParamSchema,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -48,15 +47,11 @@ export const meta: RobotMeta = {
   typical_file_type: 'video',
 }
 
-export const robotVideoEncodeInstructionsInterpolatedSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotVideoEncodeInstructionsInterpolatedSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     robot: z.literal('/video/encode'),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     preset: preset.describe(`
 Converts a video according to [pre-configured settings](/docs/transcoding/video-encoding/video-presets/).
 
@@ -126,49 +121,6 @@ Allows you to specify the duration of each chunk when \`turbo\` is set to \`true
 `),
     freeze_detect: z.boolean().default(false).describe(`
 Examines the transcoding result file for video freeze frames and re-transcodes the video a second time if they are found. This is useful when you are using \`turbo: true\` because freeze frames can sometimes happen there. The re-transcode would then happen without turbo mode.
-`),
-    ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema.optional().describe(`
-<a id="video-encode-ffmpeg-parameters" aria-hidden="true"></a>
-
-A parameter object to be passed to FFmpeg. For available options, see the [FFmpeg documentation](https://ffmpeg.org/ffmpeg-doc.html). If a preset is used, the options specified are merged on top of the ones from the preset.
-
-The FFmpeg \`r\` parameter (framerate) has a default value of \`25\` and maximum value of \`60\`.
-
-If you set \`r\` to \`null\`, you clear the default of \`25\` and can preserve the original video's framerate. For example:
-
-\`\`\`json
-"steps": {
-  "encoded": {
-    "robot": "/video/encode",
-    "use": ":original",
-    "ffmpeg_stack": "{{stacks.ffmpeg.recommended_version}}",
-    "preset": "web/mp4/1080p",
-    "ffmpeg": {
-      "b:v": "600k"
-    }
-  }
-}
-\`\`\`
-
-You can also add \`input_options\` which will be used before the \`-i\` in ffmpeg. For example in the following case, the final command will look like \`ffmpeg -fflags +genpts -i input_video …\`:
-
-\`\`\`json
-"steps": {
-  "encoded": {
-    "robot": "/video/encode",
-    "use": ":original",
-    "ffmpeg_stack": "{{stacks.ffmpeg.recommended_version}}",
-    "preset": "web/mp4/1080p",
-    "ffmpeg": {
-      "input_options": {
-        "fflags": "+genpts"
-      },
-      "b:v": "600k"
-    }
-  }
-}
-\`\`\`
 `),
     watermark_url: z.string().default('').describe(`
 A URL indicating a PNG image to be overlaid above this image. You can also [supply the watermark via another Assembly Step](/docs/transcoding/video-encoding/video-encode/#watermark-parameters-video-encode).

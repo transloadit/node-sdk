@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { aiProviderSchema, useParamSchema } from './_instructions-primitives.ts'
+import { aiProviderSchema, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -37,12 +37,9 @@ export const meta: RobotMeta = {
   typical_file_type: 'image',
 }
 
-export const robotImageFacedetectInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotImageFacedetectInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/image/facedetect').describe(`
 You can specify padding around the extracted faces, tailoring the output for your needs.
 
@@ -58,7 +55,6 @@ This <dfn>Robot</dfn> works well together with [🤖/image/resize](/docs/transco
 
 </div>
 `),
-    use: useParamSchema.optional(),
     provider: aiProviderSchema.optional().describe(`
 Which AI provider to leverage.
 

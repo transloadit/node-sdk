@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -35,14 +35,10 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotVimeoStoreInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotVimeoStoreInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/vimeo/store'),
-    use: useParamSchema.optional(),
     credentials: z.string().describe(`
 The authentication Template Credentials used for your Vimeo account. You can generate them on the [Template Credentials page](/c/template-credentials/). You will be redirected to a Vimeo verification page. Accept the presented permissions and you will be good to go.
 `),

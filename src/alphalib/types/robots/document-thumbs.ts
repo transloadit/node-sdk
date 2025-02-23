@@ -2,9 +2,9 @@ import { z } from 'zod'
 
 import {
   colorspaceSchema,
-  imagemagickStackVersionSchema,
-  outputMetaParamSchema,
-  useParamSchema,
+  robotImagemagick,
+  robotBase,
+  robotUse,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -41,19 +41,16 @@ export const meta: RobotMeta = {
   typical_file_type: 'document',
 }
 
-export const robotDocumentThumbsInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotDocumentThumbsInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotImagemagick)
+  .extend({
     robot: z.literal('/document/thumbs').describe(`
 ## Things to keep in mind
 
 - If you convert a multi-page PDF file into several images, all result images will be sorted with the first image being the thumbnail of the first document page, etc.
 - You can also check the \`meta.thumb_index\` key of each result image to find out which page it corresponds to. Keep in mind that these thumb indices **start at 0,** not at 1.
 `),
-    use: useParamSchema.optional(),
     page: z.number().int().nullable().default(null).describe(`
 The PDF page that you want to convert to an image. By default the value is \`null\` which means that all pages will be converted into images.
 `),
@@ -115,12 +112,6 @@ If you need to reflect the PDF's dimensions in your image, it is generally a goo
     pdf_use_cropbox: z.boolean().default(true).describe(`
 Some PDF documents lie about their dimensions. For instance they'll say they are landscape, but when opened in decent Desktop readers, it's really in portrait mode. This can happen if the document has a cropbox defined. When this option is enabled (by default), the cropbox is leading in determining the dimensions of the resulting thumbnails.
 `),
-    output_meta: outputMetaParamSchema.describe(`
-Generally, this parameter allows you to specify a set of metadata that is more expensive on cpu power to calculate, and thus is disabled by default to keep your Assemblies processing fast.
-
-This Robot only supports the default value of \`{}\` (meaning all meta data will be extracted) and \`false\`. A value of \`false\` means that only width, height, size and thumb_index will be extracted for the result images, which would also provide a great performance boost for documents with many pages.
-`),
-    imagemagick_stack: imagemagickStackVersionSchema,
   })
   .strict()
 

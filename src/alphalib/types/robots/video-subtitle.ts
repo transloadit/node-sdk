@@ -3,12 +3,11 @@ import { z } from 'zod'
 import {
   color_with_alpha,
   color_without_alpha,
-  ffmpegParamSchema,
-  ffmpegStackVersionSchema,
-  outputMetaParamSchema,
+  robotFFmpeg,
   positionSchema,
   preset,
-  useParamSchema,
+  robotBase,
+  robotUse,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -47,17 +46,13 @@ export const meta: RobotMeta = {
   typical_file_type: 'video',
 }
 
-export const robotVideoSubtitleInstructionsSchema = z
-  .object({
+export const robotVideoSubtitleInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     robot: z.literal('/video/subtitle').describe(`
 This <dfn>Robot</dfn> supports both SRT and VTT subtitle files.
 `),
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     preset: preset.default('empty').describe(`
 Performs conversion using pre-configured settings. By default, no settings are applied and the original settings of the video are preserved.
 
@@ -90,8 +85,6 @@ Specifies the size of the text.
     position: positionSchema.default('bottom').describe(`
 Specifies the position of the subtitles.
 `),
-    ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotVideoSubtitleInstructions = z.infer<typeof robotVideoSubtitleInstructionsSchema>

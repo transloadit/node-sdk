@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { robotsWithHiddenBotsAndFieldsSchema, robotsSchema } from './robots/_index.ts'
-import type { UseParamInput } from './robots/_instructions-primitives.ts'
+import type { RobotUse } from './robots/_instructions-primitives.ts'
 
 export const stepSchema = z
   .object({
@@ -12,7 +12,7 @@ export const stepSchema = z
 export const stepsSchema = z.record(stepSchema).describe('Contains Assembly Instructions.')
 export type Step = z.infer<typeof stepSchema>
 export type StepInput = z.input<typeof stepSchema>
-export type StepInputWithUse = StepInput & { use: UseParamInput }
+export type StepInputWithUse = StepInput & RobotUse
 export type Steps = z.infer<typeof stepsSchema>
 export type StepsInput = z.input<typeof stepsSchema>
 

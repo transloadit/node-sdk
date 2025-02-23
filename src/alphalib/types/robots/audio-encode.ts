@@ -2,12 +2,11 @@ import { z } from 'zod'
 
 import {
   bitrateSchema,
-  ffmpegParamSchema,
-  ffmpegStackVersionSchema,
-  outputMetaParamSchema,
+  robotFFmpeg,
   preset,
+  robotBase,
+  robotUse,
   sampleRateSchema,
-  useParamSchema,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -43,15 +42,15 @@ export const meta: RobotMeta = {
   typical_file_type: 'audio file',
 }
 
-export const robotAudioEncodeInstructionsSchema = z
-  .object({
+export const robotAudioEncodeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     result: z
       .boolean()
       .optional()
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/audio/encode'),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     preset: preset.default('mp3').describe(`
 Performs conversion using pre-configured settings.
 
@@ -65,8 +64,6 @@ Bit rate of the resulting audio file, in bits per second. If not specified will 
     sample_rate: sampleRateSchema.optional().describe(`
 Sample rate of the resulting audio file, in Hertz. If not specified will default to the sample rate of the input audio file.
 `),
-    ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotAudioEncodeInstructions = z.infer<typeof robotAudioEncodeInstructionsSchema>

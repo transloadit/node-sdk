@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { aiProviderSchema, granularitySchema, useParamSchema } from './_instructions-primitives.ts'
+import {
+  aiProviderSchema,
+  granularitySchema,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -36,18 +41,14 @@ export const meta: RobotMeta = {
   typical_file_type: 'image',
 }
 
-export const robotImageOcrInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotImageOcrInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/image/ocr').describe(`
 With this <dfn>Robot</dfn> you can detect and extract text from images using optical character recognition (OCR).
 
 For example, you can use the results to obtain the content of traffic signs, name tags, package labels and many more. You can also pass the text down to other <dfn>Robots</dfn> to filter images that contain (or do not contain) certain phrases. For images of dense documents, results may vary and be less accurate than for small pieces of text in photos.
 `),
-    use: useParamSchema.optional(),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage.
 

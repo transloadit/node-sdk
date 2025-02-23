@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { digitalOceanBase, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -34,19 +34,11 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotDropboxStoreInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotDropboxStoreInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(digitalOceanBase)
+  .extend({
     robot: z.literal('/dropbox/store'),
-    use: useParamSchema.optional(),
-    credentials: z.string().describe(`
-Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your access token. You can create your Dropbox Access Token [here](https://www.dropbox.com/developers/apps/create).
-
-While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the \`"access_token"\` parameter instead.
-`),
     path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
 The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
 `),

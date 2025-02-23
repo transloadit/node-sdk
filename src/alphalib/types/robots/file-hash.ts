@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -32,16 +32,12 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotFileHashInstructionsSchema = z
-  .object({
+export const robotFileHashInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/file/hash').describe(`
 This <dfn>Robot</dfn> allows you to hash any file as part of the <dfn>Assembly</dfn> execution process. This can be useful for verifying the integrity of a file for example.
 `),
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema.optional(),
     algorithm: z
       .enum(['b2', 'md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512'])
       .default('sha256').describe(`

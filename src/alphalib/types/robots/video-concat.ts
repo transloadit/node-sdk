@@ -1,12 +1,6 @@
 import { z } from 'zod'
 
-import {
-  ffmpegParamSchema,
-  ffmpegStackVersionSchema,
-  outputMetaParamSchema,
-  preset,
-  useParamSchema,
-} from './_instructions-primitives.ts'
+import { robotFFmpeg, preset, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -44,19 +38,15 @@ export const meta: RobotMeta = {
   typical_file_type: 'video',
 }
 
-export const robotVideoConcatInstructionsSchema = z
-  .object({
+export const robotVideoConcatInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     robot: z.literal('/video/concat').describe(`
 **Warning:** All videos you concatenate must have the same dimensions (width and height) and the same streams (audio and video streams), otherwise you will run into errors. If your videos donʼt have the desired dimensions when passing them to [🤖/video/concat](/docs/transcoding/video-encoding/video-concat/), encode them first with [🤖/video/encode](/docs/transcoding/video-encoding/video-encode/). [{.alert .alert-warning}]
 
 Itʼs possible to concatenate a virtually infinite number of video files using [🤖/video/concat](/docs/transcoding/video-encoding/video-concat/).
 `),
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     preset: preset.default('flash').optional().describe(`
 Performs conversion using pre-configured settings.
 
@@ -78,8 +68,6 @@ This parameter does not add an audio fade effect at the beginning or end of your
 
 Please note this parameter is independent of adding video fades between sections.
 `),
-    ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 

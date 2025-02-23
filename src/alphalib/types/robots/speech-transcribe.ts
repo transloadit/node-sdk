@@ -3,8 +3,8 @@ import { z } from 'zod'
 import {
   aiProviderSchema,
   granularitySchema,
-  outputMetaParamSchema,
-  useParamSchema,
+  robotBase,
+  robotUse,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -43,18 +43,14 @@ export const meta: RobotMeta = {
   typical_file_type: 'audio or video file',
 }
 
-export const robotSpeechTranscribeInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotSpeechTranscribeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/speech/transcribe').describe(`
 You can use the text that we return in your application, or you can pass the text down to other <dfn>Robots</dfn> to filter audio or video files that contain (or do not contain) certain content, or burn the text into images or video for example.
 
 Another common use case is automatically subtitling videos, or making audio searchable.
 `),
-    use: useParamSchema.optional(),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage.
 
@@ -71,7 +67,6 @@ Output format for the transcription.
 - \`"srt"\` and \`"webvtt"\` output subtitle files of those respective file types, which can be stored separately or used in other encoding <dfn>Steps</dfn>.
 - \`"meta"\` does not return a file, but stores the data inside  Transloadit's file object (under \`\${file.meta.transcription.text}\`) that's passed around between encoding <dfn>Steps</dfn>, so that you can use the values to burn the data into videos, filter on them, etc.
 `),
-    output_meta: outputMetaParamSchema.optional(),
     // TODO determine the list of languages
     source_language: z.string().default('en-US').describe(`
 The spoken language of the audio or video. This will also be the language of the transcribed text.

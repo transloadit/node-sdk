@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { credentials, ignore_errors, path } from './_instructions-primitives.ts'
+import { digitalOceanBase, robotImport, path, robotBase } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -35,21 +35,11 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotDropboxImportInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotDropboxImportInstructionsSchema = robotBase
+  .merge(robotImport)
+  .merge(digitalOceanBase)
+  .extend({
     robot: z.literal('/dropbox/import'),
-    ignore_errors,
-    credentials: credentials.describe(`
-Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your access token.
-
-To obtain an access token please [create your own Dropbox app](https://www.dropbox.com/developers/apps/create). The app requires the scopes \`files.content.write\` and \`files.content.read\`. As a redirect_url please allow list \`https://webapi.transloadit.com/credentials/dropbox\`.
-
-Then go into your Transloadit account and create <dfn>Template Credentials</dfn>. Pick "Dropbox" from the list, enter your app's key and secret and then follow the oAuth flow.
-`),
     path: path.describe(`
 The path in your Dropbox to the specific file or directory. If the path points to a file, only this file will be imported. For example: \`images/avatar.jpg\`.
 

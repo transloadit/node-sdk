@@ -6,15 +6,15 @@ import {
   colorspaceSchema,
   complexHeightSchema,
   complexWidthSchema,
-  imagemagickStackVersionSchema,
   imageQualitySchema,
-  outputMetaParamSchema,
   percentageSchema,
   positionSchema,
   unsafeCoordinatesSchema,
-  useParamSchema,
   interpolationSchemaToYieldString,
   interpolationSchemaToYieldNumber,
+  robotBase,
+  robotUse,
+  robotImagemagick,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -48,15 +48,11 @@ export const meta: RobotMeta = {
   typical_file_type: 'image',
 }
 
-export const robotImageResizeInstructionsInterpolatedSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotImageResizeInstructionsInterpolatedSchema = robotBase
+  .merge(robotUse)
+  .merge(robotImagemagick)
+  .extend({
     robot: z.literal('/image/resize'),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     // TODO: Use an enum
     format: z.string().nullable().default(null).describe(`
 The output format for the modified image.
@@ -372,8 +368,6 @@ You can set this value to a specific \`width\` or in the format \`width\`x\`heig
 
 If your converted image is unsharp, please try increasing density.
 `),
-    imagemagick_stack: imagemagickStackVersionSchema.optional(),
-    // TODO: Add missing properties
   })
   .strict()
 

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -71,14 +71,10 @@ Here is an example:
   typical_file_type: 'file',
 }
 
-export const robotFileCompressInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotFileCompressInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/file/compress'),
-    use: useParamSchema.optional(),
     format: z.enum(['tar', 'zip']).default('tar').describe(`
 The format of the archive to be created. Supported values are \`"tar"\` and \`"zip"\`.
 

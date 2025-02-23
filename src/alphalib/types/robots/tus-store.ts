@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -33,8 +33,9 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotTusStoreInstructionsSchema = z
-  .object({
+export const robotTusStoreInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/tus/store').describe(`
 **Note:** This <dfn>Robot</dfn> only accepts videos. [{.alert .alert-note}]
 
@@ -46,11 +47,6 @@ Since Vimeo works with OAuth, you will need to generate [Template Credentials](h
 
 To change the \`title\` or \`description\` per video, we recommend to [inject variables into your Template](/docs/topics/templates/).
 `),
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema.optional(),
     endpoint: z.string().url().describe('The URL of the destination Tus server').describe(`
 The URL of the Tus-compatible server, which you're uploading files to.
 `),

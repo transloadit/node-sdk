@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { aiProviderSchema, granularitySchema, useParamSchema } from './_instructions-primitives.ts'
+import {
+  aiProviderSchema,
+  granularitySchema,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -37,18 +42,14 @@ export const meta: RobotMeta = {
   typical_file_type: 'document',
 }
 
-export const robotDocumentOcrInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotDocumentOcrInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/document/ocr').describe(`
 With this <dfn>Robot</dfn>, you can detect and extract text from PDFs using optical character recognition (OCR).
 
 For example, you can use the results to obtain the content of invoices, legal documents or restaurant menus. You can also pass the text down to other <dfn>Robots</dfn> to filter documents that contain (or do not contain) certain phrases.
 `),
-    use: useParamSchema.optional(),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage. Valid values are \`"aws"\` and \`"gcp"\`.
 

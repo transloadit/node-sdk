@@ -3,8 +3,8 @@ import { z } from 'zod'
 import {
   color_without_alpha,
   imageQualitySchema,
-  outputMetaParamSchema,
-  useParamSchema,
+  robotBase,
+  robotUse,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -41,12 +41,9 @@ export const meta: RobotMeta = {
   typical_file_type: 'image',
 }
 
-export const robotImageMergeInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotImageMergeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/image/merge').describe(`
 The final result will be a spritesheet, with the images displayed horizontally or vertically.
 
@@ -54,8 +51,6 @@ It's recommended to use this Robot with
 [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/) so your images are of a
 similar size before merging them.
 `),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     format: z
       .enum(['jpg', 'png'])
       .default('png')

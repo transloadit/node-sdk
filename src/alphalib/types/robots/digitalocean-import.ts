@@ -1,12 +1,13 @@
 import { z } from 'zod'
 
 import {
-  credentials,
+  digitalOceanBase,
   files_per_page,
-  ignore_errors,
+  robotImport,
   page_number,
   path,
   recursive,
+  robotBase,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -42,19 +43,11 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotDigitaloceanImportInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotDigitaloceanImportInstructionsSchema = robotBase
+  .merge(robotImport)
+  .merge(digitalOceanBase)
+  .extend({
     robot: z.literal('/digitalocean/import'),
-    ignore_errors,
-    credentials: credentials.describe(`
-Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your [Template Credentials](/c/template-credentials/) as this parameter's value. They will contain the values for your DigitalOcean Space, Key, Secret and Region.
-
-While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"space"\`, \`"region"\` (for example: \`"fra1"\` or \`"nyc3"\`), \`"key"\`, \`"secret"\`.
-`),
     path: path.describe(`
 The path in your bucket to the specific file or directory. If the path points to a file, only this file will be imported. For example: \`images/avatar.jpg\`.
 

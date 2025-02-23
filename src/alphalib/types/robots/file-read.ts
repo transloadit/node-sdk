@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -22,18 +22,14 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotFileReadInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotFileReadInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/file/read').describe(`
 This <dfn>Robot</dfn> accepts any file, and will read the file using UTF-8 encoding. The result is outputted to \`file.meta.content\` to be accessed in later <dfn>Steps</dfn>.
 
 The <dfn>Robot</dfn> currently only accepts files under 500KB.
 `),
-    use: useParamSchema.optional(),
   })
   .strict()
 

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -48,14 +48,10 @@ Input files are sorted alphanumerically unless you provide the as-syntax in the 
   typical_file_type: 'document',
 }
 
-export const robotDocumentMergeInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotDocumentMergeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/document/merge'),
-    use: useParamSchema.optional(),
     input_passwords: z.array(z.string()).default([]).describe(`
 An array of passwords for the input documents, in case they are encrypted. The order of passwords must match the order of the documents as they are passed to the /document/merge step.
 

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { optimize_priority, useParamSchema } from './_instructions-primitives.ts'
+import { optimize_priority, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -32,12 +32,9 @@ export const meta: RobotMeta = {
   typical_file_type: 'image',
 }
 
-export const robotImageOptimizeInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotImageOptimizeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/image/optimize').describe(`
 With this <dfn>Robot</dfn> it's possible to reduce the file size of your JPEG, PNG, GIF, WEBP and SVG images by up to 80% for big images and 65% for small to medium sized ones — while keeping their original quality!
 
@@ -47,7 +44,6 @@ It works well together with [🤖/image/resize](/docs/transcoding/image-manipula
 
 **Note:** This <dfn>Robot</dfn> accepts all image types and will just pass on unsupported image types unoptimized. Hence, there is no need to set up [🤖/file/filter](/docs/transcoding/file-filtering/file-filter/) workflows for this. [{.alert .alert-note}]
 `),
-    use: useParamSchema.optional(),
     priority: optimize_priority.describe(`
 Provides different algorithms for better or worse compression for your images, but that run slower or faster. The value \`"conversion-speed"\` will result in an average compression ratio of 18%. \`"compression-ratio"\` will result in an average compression ratio of 31%.
 `),

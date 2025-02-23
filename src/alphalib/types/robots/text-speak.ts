@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { aiProviderSchema, useParamSchema } from './_instructions-primitives.ts'
+import { aiProviderSchema, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -62,18 +62,14 @@ export const meta: RobotMeta = {
   typical_file_type: 'document',
 }
 
-export const robotTextSpeakInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotTextSpeakInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/text/speak').describe(`
 You can use the audio that we return in your application, or you can pass the audio down to other <dfn>Robots</dfn> to add a voice track to a video for example.
 
 Another common use case is making your product accessible to people with a reading disability.
 `),
-    use: useParamSchema.optional(),
     prompt: z.string().nullish().describe(`
 Which text to speak. You can also set this to \`null\` and supply an input text file.
 `),

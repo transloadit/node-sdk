@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -75,14 +75,10 @@ The following file formats can be converted from:
   typical_file_type: 'document',
 }
 
-export const robotDocumentConvertInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotDocumentConvertInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/document/convert'),
-    use: useParamSchema.optional(),
     format: z.enum([
       'ai',
       'csv',

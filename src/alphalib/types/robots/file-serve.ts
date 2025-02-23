@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -21,18 +21,17 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotFileServeInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotFileServeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/file/serve').describe(`
 When you want Transloadit to tranform files on the fly, you can use this <dfn>Robot</dfn> to determine which <dfn>Step</dfn> of a <dfn>Template</dfn> should be served to the end-user (via a CDN), as well as set extra information on the served files, such as headers. This way you can for instance suggest the CDN for how long to keep cached copies of the result around. By default, as you can see in the \`headers\` parameter, we instruct browsers to cache the result for 72h (\`259200\` seconds) and CDNs to cache the content for 24h (\`86400\` seconds). These values should be adjusted to suit your use case.
 
 🤖/file/serve merely acts as the glue layer between our <dfn>Assembly</dfn> engine and serving files over HTTP. It let's you pick the proper result of a series of <dfn>Steps</dfn> via the \`use\` parameter and configure headers on the original content. That is where its responsibilies end, and 🤖/tlcdn/deliver, then takes over to globally distribute this original content across the globe, and make sure that is cached close to your end-users, when they make requests such as <https://my-app.tlcdn.com/resize-img/canoe.jpg?w=500>, another. 🤖/tlcdn/deliver is not a part of your <dfn>Assembly Instructions</dfn>, but it may appear on your invoices as bandwidth charges incur when distributing the cached copies. 🤖/file/serve only charges when the CDN does not have a cached copy and requests to regenerate the original content, which depending on your caching settings could be just once a month, or year, per file/transformation.
 
 While theoretically possible, you could use [🤖/file/serve]({{robot_links["/file/serve"]}}) directly in HTML files, but we strongly recommend against this, because if your site gets popular and the media URL that /file/serve is handling gets hit one million times, that is one million new image resizes. Wrapping it with a CDN (and thanks to the caching that comes with it) makes sure encoding charges stay low, as well as latencies.
+
+Also consider configuring caching headers and cache-control directives to control how content is cached and invalidated on the CDN edge servers, balancing between freshness and efficiency.
 
 More information on:
 
@@ -41,7 +40,6 @@ More information on:
 - [🤖/tlcdn/deliver]({{robot_links["/tlcdn/deliver"]}}) pricing.
 - [File Preview Feature](/blog/2024/06/file-preview-with-smart-cdn/) blog post.
 `),
-    use: useParamSchema.optional(),
     headers: z.record(z.string()).default({
       'Access-Control-Allow-Headers':
         'X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization',

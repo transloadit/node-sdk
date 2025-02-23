@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -34,12 +34,9 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotFileFilterInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotFileFilterInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/file/filter').describe(`
 Think of this <dfn>Robot</dfn> as an \`if/else\` condition for building advanced file conversion workflows. With it, you can filter and direct certain uploaded files depending on their metadata.
 
@@ -80,7 +77,6 @@ Examples:
 
 As indicated, we charge for this via [🤖/script/run]({{robot_links["/script/run"]}}). See also [Dynamic Evaluation](/docs/topics/dynamic-evaluation/) for more details on allowed syntax and behavior.
 `),
-    use: useParamSchema.optional(),
     accepts: z
       .array(
         z.union([z.string(), z.tuple([z.string(), z.string(), z.union([z.string(), z.number()])])]),

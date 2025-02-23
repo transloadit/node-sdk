@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -38,8 +38,9 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotYoutubeStoreInstructionsSchema = z
-  .object({
+export const robotYoutubeStoreInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/youtube/store').describe(`
 **Note:** This <dfn>Robot</dfn> only accepts videos. [{.alert .alert-note}]
 
@@ -65,11 +66,6 @@ You can add a custom thumbnail to your video on YouTube by using our \`"as"\` sy
 
 If you encounter an error such as "The authenticated user doesnʼt have permissions to upload and set custom video thumbnails", you should go to your YouTube account and try adding a custom thumbnail to one of your existing videos. Youʼll be prompted to add your phone number. Once youʼve added it, the error should go away.
 `),
-    use: useParamSchema.optional(),
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     credentials: z.string().describe(`
 The authentication Template credentials used for your YouTube account. You can generate them on the [Template Credentials page](/c/template-credentials/). Simply add the name of your YouTube channel, and you will be redirected to a Google verification page. Accept the presented permissions and you will be good to go.
 `),

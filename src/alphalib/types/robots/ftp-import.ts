@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { credentials, ignore_errors, path, port } from './_instructions-primitives.ts'
+import { ftpBase, robotImport, path, robotBase } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -34,24 +34,13 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotFtpImportInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotFtpImportInstructionsSchema = robotBase
+  .merge(robotImport)
+  .merge(ftpBase)
+  .extend({
     robot: z.literal('/ftp/import'),
-    ignore_errors,
-    credentials: credentials.describe(`
-Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your FTP host, user and password.
-
-While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> with their static nature is too unwieldy. If you have this requirement, feel free to use the following parameters instead: \`"host"\`, \`"user"\`, \`"password"\`.
-`),
     path: path.describe(`
 The path on your FTP server where to search for files. Files are imported recursively from all sub-directories and sub-sub-directories (and so on) from this path.
-`),
-    port: port.default(21).describe(`
-The port to use for the FTP connection.
 `),
     passive_mode: z.boolean().default(true).describe(`
 Determines if passive mode should be used for the FTP connection.

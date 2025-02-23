@@ -1,13 +1,10 @@
 import { z } from 'zod'
 
-import { outputMetaParamSchema, useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 
-export const robotImageGenerateInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotImageGenerateInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/image/generate'),
     model: z.string(),
     prompt: z.string().describe('The prompt describing the desired image content.'),
@@ -20,8 +17,6 @@ export const robotImageGenerateInstructionsSchema = z
     height: z.number().optional().describe('Height of the generated image.'),
     width: z.number().optional().describe('Width of the generated image.'),
     style: z.string().optional().describe('Style of the generated image.'),
-    output_meta: outputMetaParamSchema.optional(),
-    use: useParamSchema.optional(),
   })
   .strict()
 

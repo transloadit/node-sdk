@@ -2,12 +2,11 @@ import { z } from 'zod'
 
 import {
   color_with_alpha,
-  ffmpegParamSchema,
-  ffmpegStackVersionSchema,
-  outputMetaParamSchema,
+  robotFFmpeg,
   preset,
   resize_strategy,
-  useParamSchema,
+  robotBase,
+  robotUse,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -31,15 +30,11 @@ export const meta: RobotMeta = {
   typical_file_type: 'video',
 }
 
-export const robotVideoMergeInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotVideoMergeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     robot: z.literal('/video/merge'),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     preset: preset.describe(`
 Generates the video according to [pre-configured video presets](/docs/transcoding/video-encoding/video-presets/).
 
@@ -87,8 +82,6 @@ Determines whether the audio of the video should be replaced with a provided aud
     vstack: z.boolean().default(false).describe(`
 Stacks the input media vertically. All streams need to have the same pixel format and width - so consider using a [/video/encode]({{robot_links["/video/encode"]}}) <dfn>Step</dfn> before using this parameter to enforce this.
 `),
-    ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotVideoMergeInstructions = z.infer<typeof robotVideoMergeInstructionsSchema>

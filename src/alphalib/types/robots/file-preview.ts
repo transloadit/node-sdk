@@ -7,7 +7,8 @@ import {
   interpolationSchemaToYieldNumber,
   optimize_priority,
   resize_strategy,
-  useParamSchema,
+  robotBase,
+  robotUse,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -44,8 +45,9 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotFilePreviewInstructionsInterpolatedSchema = z
-  .object({
+export const robotFilePreviewInstructionsInterpolatedSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/file/preview').describe(`
 This <dfn>Robot</dfn>'s purpose is to generate a meaningful preview image for any file, in such a way that the resulting thumbnail highlights the file's content. The goal is not to losslessly present the original media in a smaller way. Instead, it is to maximize the chance of a person recognizing the media at a glance, while being visually pleasing and consistent with other previews. The generation process depends on the file type. For example, the <dfn>Robot</dfn> can extract artwork from media files, frames from videos, generate a waveform for audio files, and preview the content of documents and images. The details of all available strategies are provided in the next section.
 
@@ -53,11 +55,6 @@ If no file-specific thumbnail can be generated because the file type is not supp
 
 The default parameters ensure that the <dfn>Robot</dfn> always generates a preview image with the predefined dimensions and formats, to allow an easy integration into your application's UI. In addition, the generated preview images are optimized by default to reduce their file size while keeping their quality.
 `),
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema.optional(),
     format: z.enum(['gif', 'jpg', 'png']).default('png').describe(`
 The output format for the generated thumbnail image. If a short video clip is generated using the \`clip\` strategy, its format is defined by \`clip_format\`.
 `),

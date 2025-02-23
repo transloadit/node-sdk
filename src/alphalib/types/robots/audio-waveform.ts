@@ -1,12 +1,6 @@
 import { z } from 'zod'
 
-import {
-  color_with_alpha,
-  ffmpegParamSchema,
-  ffmpegStackVersionSchema,
-  outputMetaParamSchema,
-  useParamSchema,
-} from './_instructions-primitives.ts'
+import { color_with_alpha, robotFFmpeg, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -51,19 +45,15 @@ Here is an example waveform image:
   typical_file_type: 'audio file',
 }
 
-export const robotAudioWaveformInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotAudioWaveformInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     robot: z.literal('/audio/waveform').describe(`
 We recommend that you use an [🤖/audio/encode](/docs/transcoding/audio-encoding/audio-encode/) <dfn>Step</dfn> prior to your waveform <dfn>Step</dfn> to convert audio files to MP3. This way it is guaranteed that [🤖/audio/waveform](/docs/transcoding/audio-encoding/audio-waveform/) accepts your audio file and you can also down-sample large audio files and save some money.
 
 Similarly, if you need the output image in a different format, please pipe the result of this <dfn>Robot</dfn> into [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/).
 `),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     format: z.enum(['image', 'json']).default('image').describe(`
 The format of the result file. Can be \`"image"\` or \`"json"\`. If \`"image"\` is supplied, a PNG image will be created, otherwise a JSON file.
 `),
@@ -88,8 +78,6 @@ The color used in the center of the gradient. The format is "rrggbbaa" (red, gre
     outer_color: color_with_alpha.default('000000ff').describe(`
 The color used in the outer parts of the gradient. The format is "rrggbbaa" (red, green, blue, alpha).
 `),
-    ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotAudioWaveformInstructions = z.infer<typeof robotAudioWaveformInstructionsSchema>

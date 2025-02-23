@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import type { RobotMeta } from './_instructions-primitives.ts'
-import { outputMetaParamSchema, useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: true,
@@ -24,15 +24,10 @@ export const meta: RobotMeta = {
   typical_file_type: 'document',
 }
 
-export const robotDocumentAutorotateInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotDocumentAutorotateInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/document/autorotate'),
-    output_meta: outputMetaParamSchema.optional(),
-    use: useParamSchema.optional(),
   })
   .strict()
 

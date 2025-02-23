@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { aiProviderSchema, granularitySchema, useParamSchema } from './_instructions-primitives.ts'
+import {
+  aiProviderSchema,
+  granularitySchema,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -36,16 +41,12 @@ export const meta: RobotMeta = {
   typical_file_type: 'image',
 }
 
-export const robotImageDescribeInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotImageDescribeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/image/describe').describe(`
 You can use the labels that we return in your application to automatically classify images. You can also pass the labels down to other <dfn>Robots</dfn> to filter images that contain (or do not contain) certain content.
 `),
-    use: useParamSchema.optional(),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage.
 

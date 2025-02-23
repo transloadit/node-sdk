@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { RobotMeta } from './_instructions-primitives'
+import { robotBase, type RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: false,
@@ -21,12 +21,8 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotEdglyDeliverInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotEdglyDeliverInstructionsSchema = robotBase
+  .extend({
     robot: z.literal('/edgly/deliver').describe(`
 When you want Transloadit to tranform files on the fly, this <dfn>Robot</dfn> can cache and deliver the results close to your end-user, saving on latency and encoding volume. The use of this <dfn>Robot</dfn> is implicit when you use the <code>edgly.net</code> domain.
 `),

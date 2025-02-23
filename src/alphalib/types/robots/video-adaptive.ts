@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotFFmpeg, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -59,8 +59,10 @@ export const meta: RobotMeta = {
   typical_file_type: 'video',
 }
 
-export const robotVideoAdaptiveInstructionsSchema = z
-  .object({
+export const robotVideoAdaptiveInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     robot: z.literal('/video/adaptive').describe(`
 This <dfn>Robot</dfn> accepts all types of video files and audio files. Do not forget to use <dfn>Step</dfn> bundling in your \`use\` parameter to make the <dfn>Robot</dfn> work on several input files at once.
 
@@ -102,11 +104,6 @@ The <dfn>Robot</dfn> gives its result files (segments, initialization segments, 
 
 In the \`path\` parameter of the storage <dfn>Robot</dfn> of your choice, use the <dfn>Assembly Variable</dfn> \`\${file.meta.relative_path}\` to store files in the proper paths to make the playlist files work.
 `),
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    use: useParamSchema.optional(),
     technique: z.enum(['dash', 'hls']).default('dash').describe(`
 Determines which streaming technique should be used. Currently supports \`"dash"\` for MPEG-Dash and \`"hls"\` for HTTP Live Streaming.
 `),

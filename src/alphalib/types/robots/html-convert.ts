@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -37,18 +37,14 @@ export const meta: RobotMeta = {
   typical_file_type: 'webpage',
 }
 
-export const robotHtmlConvertInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotHtmlConvertInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/html/convert').describe(`
 A URL can be provided instead of an input HTML file, to capture a screenshot from the website referenced by the URL.
 
 Use [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/) to resize or crop the screenshot as needed.
 `),
-    use: useParamSchema.optional().optional(),
     url: z.string().nullable().default(null).describe(`
 The URL of the web page to be converted. Optional, as you can also upload/import HTML files and pass it to this <dfn>Robot</dfn>.
 `),

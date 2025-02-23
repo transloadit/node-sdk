@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -22,12 +22,9 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotScriptRunInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotScriptRunInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/script/run').describe(`
 This <dfn>Robot</dfn> allows you to run arbitrary \`JavaScript\` as part of the <dfn>Assembly</dfn>
 execution process. The <dfn>Robot</dfn> is invoked automatically when there are <dfn>Assembly
@@ -69,7 +66,6 @@ Compared to only accessing an <dfn>Assembly Variable</dfn>:
 
 For more information, see [Dynamic Evaluation](/docs/topics/dynamic-evaluation/).
 `),
-    use: useParamSchema.optional(),
     script: z.string().describe(`
 A string of JavaScript to evaluate. It has access to all JavaScript features available in a modern browser environment.
 

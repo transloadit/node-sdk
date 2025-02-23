@@ -2,12 +2,11 @@ import { z } from 'zod'
 
 import {
   bitrateSchema,
-  ffmpegParamSchema,
-  ffmpegStackVersionSchema,
-  outputMetaParamSchema,
+  robotFFmpeg,
   preset,
+  robotBase,
+  robotUse,
   sampleRateSchema,
-  useParamSchema,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -48,15 +47,11 @@ export const meta: RobotMeta = {
   typical_file_type: 'audio file',
 }
 
-export const robotAudioMergeInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotAudioMergeInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     robot: z.literal('/audio/merge'),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     preset: preset.describe(`
 Performs conversion using pre-configured settings.
 
@@ -78,8 +73,6 @@ Specifies if any input files that do not match the target duration should be loo
     volume: z.enum(['average', 'sum']).default('average').describe(`
 Valid values are \`"average"\` and \`"sum"\` here. \`"average"\` means each input is scaled 1/n (n is the number of inputs) or \`"sum"\` which means each individual audio stays on the same volume, but since we merge tracks 'on top' of each other, this could result in very loud output.
 `),
-    ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotAudioMergeInstructions = z.infer<typeof robotAudioMergeInstructionsSchema>

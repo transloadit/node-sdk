@@ -2,12 +2,11 @@ import { z } from 'zod'
 
 import {
   bitrateSchema,
-  ffmpegParamSchema,
-  ffmpegStackVersionSchema,
-  outputMetaParamSchema,
+  robotFFmpeg,
   preset,
+  robotBase,
+  robotUse,
   sampleRateSchema,
-  useParamSchema,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -43,15 +42,11 @@ export const meta: RobotMeta = {
   typical_file_type: 'audio file',
 }
 
-export const robotAudioLoopInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotAudioLoopInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpeg)
+  .extend({
     robot: z.literal('/audio/loop'),
-    use: useParamSchema.optional(),
-    output_meta: outputMetaParamSchema,
     preset: preset.optional().describe(`
 Performs conversion using pre-configured settings.
 
@@ -68,8 +63,6 @@ Sample rate of the resulting audio file, in Hertz. If not specified will default
     duration: z.number().default(60).describe(`
 Target duration for the whole process in seconds. The <dfn>Robot</dfn> will loop the input audio file for as long as this target duration is not reached yet.
 `),
-    ffmpeg_stack: ffmpegStackVersionSchema.optional(),
-    ffmpeg: ffmpegParamSchema.optional(),
   })
   .strict()
 export type RobotAudioLoopInstructions = z.infer<typeof robotAudioLoopInstructionsSchema>

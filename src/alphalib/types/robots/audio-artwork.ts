@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { ffmpegStackVersionSchema, useParamSchema } from './_instructions-primitives.ts'
+import { robotFFmpegAudio, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -33,12 +33,10 @@ export const meta: RobotMeta = {
   typical_file_type: 'audio file',
 }
 
-export const robotAudioArtworkInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotAudioArtworkInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(robotFFmpegAudio)
+  .extend({
     robot: z.literal('/audio/artwork').describe(`
 For extraction, this <dfn>Robot</dfn> uses the image format embedded within the audio file — most often, this is JPEG.
 
@@ -46,14 +44,12 @@ If you need the image in a different format, pipe the result of this <dfn>Robot<
 
 The \`method\` parameter determines whether to extract or insert.
 `),
-    use: useParamSchema.optional(),
     method: z.enum(['extract', 'insert']).default('extract').describe(`
 What should be done with the audio file. A value of \`"extract"\` means audio artwork will be extracted. A value of \`"insert"\` means the provided image will be inserted as audio artwork.
 `),
     change_format_if_necessary: z.boolean().default(false).describe(`
 Whether the original file should be transcoded into a new format if there is an issue with the original file.
 `),
-    ffmpeg_stack: ffmpegStackVersionSchema.optional(),
   })
   .strict()
 export type RobotAudioArtworkInstructions = z.infer<typeof robotAudioArtworkInstructionsSchema>

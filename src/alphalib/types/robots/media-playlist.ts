@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import type { RobotMeta } from './_instructions-primitives.ts'
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: true,
@@ -22,16 +22,12 @@ export const meta: RobotMeta = {
   typical_file_type: 'video',
 }
 
-export const robotMediaPlaylistInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotMediaPlaylistInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/media/playlist').describe(`
 **Warning:** 🤖/media/playlist is deprecated and will be removed! Please use [🤖/video/adaptive](/docs/transcoding/video-encoding/video-adaptive/) for all your HLS and MPEG-Dash needs instead.
 `),
-    use: useParamSchema.optional(),
     name: z.string().default('playlist.m3u8').describe(`
 The final name of the playlist file.
 `),

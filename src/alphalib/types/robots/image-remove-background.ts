@@ -1,13 +1,10 @@
 import { z } from 'zod'
 
-import { outputMetaParamSchema, useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse } from './_instructions-primitives.ts'
 
-export const robotImageRemoveBackgroundInstructionsSchema = z
-  .object({
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+export const robotImageRemoveBackgroundInstructionsSchema = robotBase
+  .merge(robotUse)
+  .extend({
     robot: z.literal('/image/remove-background'),
     select: z
       .enum(['foreground', 'background'])
@@ -18,8 +15,6 @@ export const robotImageRemoveBackgroundInstructionsSchema = z
       .enum(['transloadit', 'replicate', 'fal'])
       .optional()
       .describe('Provider to use for removing the background.'),
-    output_meta: outputMetaParamSchema.optional(),
-    use: useParamSchema.optional(),
   })
   .strict()
 

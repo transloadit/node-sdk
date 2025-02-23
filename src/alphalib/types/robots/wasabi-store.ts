@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useParamSchema } from './_instructions-primitives.ts'
+import { robotBase, robotUse, wasabiBase } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -34,20 +34,12 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotWasabiStoreInstructionsSchema = z
-  .object({
+export const robotWasabiStoreInstructionsSchema = robotBase
+  .merge(robotUse)
+  .merge(wasabiBase)
+  .extend({
     robot: z.literal('/wasabi/store').describe(`
 The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
-`),
-    use: useParamSchema.optional(),
-    result: z
-      .boolean()
-      .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
-    credentials: z.string().describe(`
-Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your [Template Credentials](/c/template-credentials/) as this parameter's value. They will contain the values for your Wasabi bucket, Host, Key and Secret.
-
-While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
 `),
     path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
 The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables). The path must not be a directory.
