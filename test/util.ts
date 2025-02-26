@@ -1,14 +1,14 @@
-import { HTTPError, Transloadit } from '../src/Transloadit';
+import { HTTPError, Transloadit } from '../src/Transloadit'
 
 export const createProxy = (transloaditInstance: Transloadit) => {
   return new Proxy(transloaditInstance, {
     get(target, propKey) {
       // @ts-expect-error I dunno how to type
-      const origMethod = target[propKey];
+      const origMethod = target[propKey]
       if (typeof origMethod === 'function') {
         return async function (...args: any) {
           try {
-            return await origMethod.apply(target, args);
+            return await origMethod.apply(target, args)
           } catch (err) {
             if (err instanceof Error && 'cause' in err && err.cause instanceof HTTPError) {
               if (err.cause.request) {
@@ -32,9 +32,9 @@ export const createProxy = (transloaditInstance: Transloadit) => {
             }
             throw err
           }
-        };
+        }
       }
-      return origMethod;
-    }
-  });
-};
+      return origMethod
+    },
+  })
+}

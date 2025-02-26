@@ -10,7 +10,9 @@ import {
 import { createProxy } from '../util'
 
 const getLocalClient = (opts?: Omit<Transloadit.Options, 'authKey' | 'authSecret' | 'endpoint'>) =>
-  createProxy(new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts }))
+  createProxy(
+    new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
+  )
 
 const createAssemblyRegex = /\/assemblies\/[0-9a-f]{32}/
 
