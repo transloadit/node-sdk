@@ -12,6 +12,7 @@ import debug = require('debug')
 
 import { CreateAssemblyOptions, Transloadit, UploadProgress } from '../../src/Transloadit'
 import { createTestServer, TestServer } from '../testserver'
+import { createProxy } from '../util'
 
 const log = debug('transloadit:live-api')
 
@@ -54,7 +55,7 @@ function createClient(opts = {}) {
     ],
   }
 
-  return new Transloadit({ authKey, authSecret, gotRetry, ...opts })
+  return createProxy(new Transloadit({ authKey, authSecret, gotRetry, ...opts }))
 }
 
 function createAssembly(client: Transloadit, params: CreateAssemblyOptions) {

@@ -3,14 +3,14 @@ import { inspect } from 'node:util'
 
 import {
   ApiError,
-  HTTPError,
   InconsistentResponseError,
   TimeoutError,
   Transloadit,
 } from '../../src/Transloadit'
+import { createProxy } from '../util'
 
 const getLocalClient = (opts?: Omit<Transloadit.Options, 'authKey' | 'authSecret' | 'endpoint'>) =>
-  new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
+  createProxy(new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts }))
 
 const createAssemblyRegex = /\/assemblies\/[0-9a-f]{32}/
 
@@ -21,11 +21,7 @@ describe('Mocked API tests', () => {
   })
 
   it('should time out createAssembly with a custom timeout', async () => {
-    const client = new Transloadit({
-      authKey: '',
-      authSecret: '',
-      endpoint: 'http://localhost',
-    })
+    const client = getLocalClient()
 
     nock('http://localhost').post(createAssemblyRegex).delay(100).reply(200)
 
@@ -135,8 +131,8 @@ describe('Mocked API tests', () => {
       expect.stringMatching(
         `    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)`
       ),
+      expect.stringMatching(`    at .+\\/test\\/util\\.ts:\\d+:\\d+`),
       expect.stringMatching(`    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+`),
-      expect.stringMatching(`    at .+`),
       expect.stringMatching(`    at .+`),
       expect.stringMatching(`    at .+`),
       expect.stringMatching(`    at .+`),
@@ -326,5 +322,22 @@ describe('Mocked API tests', () => {
     const promise = client.getAssembly('invalid')
     await expect(promise).rejects.toThrow(ApiError)
     scope.done()
+  })
+
+  it.skip('should not log monster error stack traces in vitest', async () => {
+    const client = getLocalClient()
+
+    const scope = nock('http://localhost')
+      .get('/assemblies/invalid')
+      .query(() => true)
+      .reply(404, { error: 'SERVER_404', message: 'not found' })
+
+    try {
+      await client.getAssembly('invalid')
+      // NOTE: manually check output from vitest
+      // Check that it doesn't print a huge blob of JSON
+    } finally {
+      scope.done()
+    }
   })
 })
