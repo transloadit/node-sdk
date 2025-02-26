@@ -746,18 +746,18 @@ export class Transloadit {
         // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
         if (
           !(
-            statusCode === 413 &&
             typeof body === 'object' &&
             body != null &&
             'error' in body &&
-            body.error === 'RATE_LIMIT_REACHED' &&
             'info' in body &&
             typeof body.info === 'object' &&
             body.info != null &&
             'retryIn' in body.info &&
             typeof body.info.retryIn === 'number' &&
             Boolean(body.info.retryIn) &&
-            retryCount < this._maxRetries
+            retryCount < this._maxRetries && // 413 taken from https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+            // todo can it be removed?
+            ((statusCode === 413 && body.error === 'RATE_LIMIT_REACHED') || statusCode === 429)
           )
         ) {
           throw new ApiError({

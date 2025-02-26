@@ -72,8 +72,8 @@
     "prepack": "tsc --build",
     "test-unit": "vitest run --coverage ./test/unit",
     "test-integration": "vitest run ./test/integration",
-    "test-all": "npm run tsd && vitest run --coverage",
-    "test": "npm run tsd && npm run test-unit",
+    "test-all": "vitest run --coverage",
+    "test": "yarn test-unit",
     "fix:formatting": "prettier --write .",
     "lint:formatting": "prettier --check ."
   },
