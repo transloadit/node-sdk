@@ -755,11 +755,9 @@ export class Transloadit {
             'retryIn' in body.info &&
             typeof body.info.retryIn === 'number' &&
             Boolean(body.info.retryIn) &&
-            retryCount < this._maxRetries &&
-            (// 413 taken from https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+            retryCount < this._maxRetries && // 413 taken from https://transloadit.com/blog/2012/04/introducing-rate-limiting/
             // todo can it be removed?
-            (statusCode === 413 && body.error === 'RATE_LIMIT_REACHED') ||
-              statusCode === 429)
+            ((statusCode === 413 && body.error === 'RATE_LIMIT_REACHED') || statusCode === 429)
           )
         ) {
           throw new ApiError({
