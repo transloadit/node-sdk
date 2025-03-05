@@ -145,6 +145,8 @@ import {
   robotTextTranslateInstructionsSchema,
   meta as textTranslateMeta,
 } from './text-translate.ts'
+import { robotTigrisImportInstructionsSchema, meta as tigrisImport } from './tigris-import.ts'
+import { robotTigrisStoreInstructionsSchema, meta as tigrisStore } from './tigris-store.ts'
 import { robotTlcdnDeliverInstructionsSchema, meta as tlcdnDeliverMeta } from './tlcdn-deliver.ts'
 import { robotTusStoreInstructionsSchema, meta as tusStoreMeta } from './tus-store.ts'
 import { robotUploadHandleInstructionsSchema, meta as uploadHandleMeta } from './upload-handle.ts'
@@ -228,6 +230,8 @@ const robotStepsInstructions = [
   robotSwiftStoreInstructionsSchema,
   robotTextSpeakInstructionsSchema,
   robotTextTranslateInstructionsSchema,
+  robotTigrisImportInstructionsSchema,
+  robotTigrisStoreInstructionsSchema,
   robotTlcdnDeliverInstructionsSchema,
   robotTusStoreInstructionsSchema,
   robotUploadHandleInstructionsSchema,
@@ -306,6 +310,8 @@ const robotStepsInstructionsWithHiddenFields = [
   robotSwiftStoreInstructionsSchema,
   robotTextSpeakInstructionsSchema,
   robotTextTranslateInstructionsSchema,
+  robotTigrisImportInstructionsSchema,
+  robotTigrisStoreInstructionsSchema,
   robotTlcdnDeliverInstructionsSchema,
   robotTusStoreInstructionsSchema,
   robotUploadHandleInstructionsSchema,
@@ -413,6 +419,8 @@ export const robotsMeta = {
   swiftStoreMeta,
   textSpeakMeta,
   textTranslateMeta,
+  tigrisImport,
+  tigrisStore,
   tlcdnDeliverMeta,
   tusStoreMeta,
   uploadHandleMeta,

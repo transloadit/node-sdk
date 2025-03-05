@@ -759,7 +759,22 @@ export type SwiftBase = z.infer<typeof swiftBase>
 export const swiftBase = z
   .object({
     credentials: z.string().optional().describe(`
-Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Swift bucket, Key, Secret and Bucket region.
+  Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Swift bucket, Key, Secret and Bucket region.
+
+  While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
+  `),
+    bucket: z.string().optional(),
+    host: z.string().optional(),
+    key: z.string().optional(),
+    secret: z.string().optional(),
+  })
+  .strict()
+
+export type TigrisBase = z.infer<typeof tigrisBase>
+export const tigrisBase = z
+  .object({
+    credentials: z.string().optional().describe(`
+Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your MinIO bucket, Key, Secret and Bucket region.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
 `),
