@@ -33,6 +33,7 @@ export const meta: RobotMeta = {
   title: 'Write metadata to media',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotMetaWriteInstructionsSchema = robotBase

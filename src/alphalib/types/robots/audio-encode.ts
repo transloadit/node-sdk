@@ -40,6 +40,7 @@ export const meta: RobotMeta = {
   title: 'Encode audio',
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotAudioEncodeInstructionsSchema = robotBase

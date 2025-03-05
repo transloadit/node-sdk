@@ -44,6 +44,7 @@ export const meta: RobotMeta = {
   title: 'Add subtitles to videos',
   typical_file_size_mb: 80,
   typical_file_type: 'video',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotVideoSubtitleInstructionsSchema = robotBase

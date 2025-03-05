@@ -31,6 +31,7 @@ export const meta: RobotMeta = {
   title: 'Extract or insert audio artwork',
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotAudioArtworkInstructionsSchema = robotBase

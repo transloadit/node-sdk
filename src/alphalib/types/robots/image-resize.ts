@@ -46,6 +46,7 @@ export const meta: RobotMeta = {
   title: 'Convert, resize, or watermark images',
   typical_file_size_mb: 0.8,
   typical_file_type: 'image',
+  uses_tools: ['imagemagick'],
 }
 
 export const robotImageResizeInstructionsInterpolatedSchema = robotBase

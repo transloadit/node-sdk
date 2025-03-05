@@ -28,6 +28,7 @@ export const meta: RobotMeta = {
   title: 'Merge video, audio, images into one video',
   typical_file_size_mb: 80,
   typical_file_type: 'video',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotVideoMergeInstructionsSchema = robotBase

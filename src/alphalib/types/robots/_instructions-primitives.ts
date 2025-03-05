@@ -86,6 +86,8 @@ export interface RobotMeta {
     | 'image'
     | 'video'
     | 'webpage'
+
+  uses_tools?: ('ffmpeg' | 'imagemagick')[]
 }
 
 /**

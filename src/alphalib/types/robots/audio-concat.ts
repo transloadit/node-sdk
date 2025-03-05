@@ -44,6 +44,7 @@ export const meta: RobotMeta = {
   title: 'Concatenate audio',
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotAudioConcatInstructionsSchema = robotBase
