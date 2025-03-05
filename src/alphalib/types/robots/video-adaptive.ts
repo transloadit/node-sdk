@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotFFmpeg, robotBase, robotUse } from './_instructions-primitives.ts'
+import { robotBase, robotUse, robotFFmpegVideo } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -61,7 +61,7 @@ export const meta: RobotMeta = {
 
 export const robotVideoAdaptiveInstructionsSchema = robotBase
   .merge(robotUse)
-  .merge(robotFFmpeg)
+  .merge(robotFFmpegVideo)
   .extend({
     robot: z.literal('/video/adaptive').describe(`
 This <dfn>Robot</dfn> accepts all types of video files and audio files. Do not forget to use <dfn>Step</dfn> bundling in your \`use\` parameter to make the <dfn>Robot</dfn> work on several input files at once.

@@ -3,9 +3,8 @@ import { z } from 'zod'
 import {
   color_with_alpha,
   color_without_alpha,
-  robotFFmpeg,
+  robotFFmpegVideo,
   positionSchema,
-  preset,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
@@ -49,15 +48,10 @@ export const meta: RobotMeta = {
 
 export const robotVideoSubtitleInstructionsSchema = robotBase
   .merge(robotUse)
-  .merge(robotFFmpeg)
+  .merge(robotFFmpegVideo)
   .extend({
     robot: z.literal('/video/subtitle').describe(`
 This <dfn>Robot</dfn> supports both SRT and VTT subtitle files.
-`),
-    preset: preset.default('empty').describe(`
-Performs conversion using pre-configured settings. By default, no settings are applied and the original settings of the video are preserved.
-
-For a list of video presets, see [video presets](/docs/transcoding/video-encoding/video-presets/).
 `),
     subtitles_type: z
       .enum(['burned', 'external', 'burn'])

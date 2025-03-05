@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotFFmpeg, preset, robotBase, robotUse } from './_instructions-primitives.ts'
+import { robotFFmpegVideo, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -41,19 +41,12 @@ export const meta: RobotMeta = {
 
 export const robotVideoConcatInstructionsSchema = robotBase
   .merge(robotUse)
-  .merge(robotFFmpeg)
+  .merge(robotFFmpegVideo)
   .extend({
     robot: z.literal('/video/concat').describe(`
 **Warning:** All videos you concatenate must have the same dimensions (width and height) and the same streams (audio and video streams), otherwise you will run into errors. If your videos donʼt have the desired dimensions when passing them to [🤖/video/concat](/docs/transcoding/video-encoding/video-concat/), encode them first with [🤖/video/encode](/docs/transcoding/video-encoding/video-encode/). [{.alert .alert-warning}]
 
 Itʼs possible to concatenate a virtually infinite number of video files using [🤖/video/concat](/docs/transcoding/video-encoding/video-concat/).
-`),
-    preset: preset.default('flash').optional().describe(`
-Performs conversion using pre-configured settings.
-
-If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`"flash"\` preset is not applied. This is to prevent you from having to override each of the flash preset's values manually.
-
-For a list of video presets, see [video presets](/docs/transcoding/video-encoding/video-presets/).
 `),
     video_fade_seconds: z.number().default(1).describe(`
 When used this adds a video fade in and out effect between each section of your concatenated video. The float value is used so if you want a video delay effect of 500 milliseconds between each video section you would select \`0.5\`, however, integer values can also be represented.

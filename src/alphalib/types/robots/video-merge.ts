@@ -2,8 +2,7 @@ import { z } from 'zod'
 
 import {
   color_with_alpha,
-  robotFFmpeg,
-  preset,
+  robotFFmpegVideo,
   resize_strategy,
   robotBase,
   robotUse,
@@ -33,24 +32,9 @@ export const meta: RobotMeta = {
 
 export const robotVideoMergeInstructionsSchema = robotBase
   .merge(robotUse)
-  .merge(robotFFmpeg)
+  .merge(robotFFmpegVideo)
   .extend({
     robot: z.literal('/video/merge'),
-    preset: preset.describe(`
-Generates the video according to [pre-configured video presets](/docs/transcoding/video-encoding/video-presets/).
-
-If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`"flash"\` preset is not applied. This is to prevent you from having to override each of the flash preset's values manually.
-`),
-    width: z.number().int().min(1).max(1920).optional().describe(`
-Width of the new video, in pixels.
-
-If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied width](/docs/transcoding/video-encoding/video-presets/) will be implemented.
-`),
-    height: z.number().int().min(1).max(1080).optional().describe(`
-Height of the new video, in pixels.
-
-If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied height](/docs/transcoding/video-encoding/video-presets/) will be implemented.
-`),
     resize_strategy: resize_strategy.describe(`
 If the given width/height parameters are bigger than the input image's dimensions, then the \`resize_strategy\` determines how the image will be resized to match the provided width/height. See the [available resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).
 `),

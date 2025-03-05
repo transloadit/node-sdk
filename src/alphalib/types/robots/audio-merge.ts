@@ -2,8 +2,7 @@ import { z } from 'zod'
 
 import {
   bitrateSchema,
-  robotFFmpeg,
-  preset,
+  robotFFmpegAudio,
   robotBase,
   robotUse,
   sampleRateSchema,
@@ -50,15 +49,9 @@ export const meta: RobotMeta = {
 
 export const robotAudioMergeInstructionsSchema = robotBase
   .merge(robotUse)
-  .merge(robotFFmpeg)
+  .merge(robotFFmpegAudio)
   .extend({
     robot: z.literal('/audio/merge'),
-    preset: preset.describe(`
-Performs conversion using pre-configured settings.
-
-If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default "mp3" preset is not applied. This is to prevent you from having to override each of the mp3 preset's values manually.
-
-For a list of audio presets, see [audio presets](/docs/transcoding/audio-encoding/audio-presets/).`),
     bitrate: bitrateSchema.optional().describe(`
 Bit rate of the resulting audio file, in bits per second. If not specified will default to the bit rate of the input audio file.
 `),

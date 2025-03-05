@@ -313,127 +313,160 @@ Selects the FFmpeg stack version to use for encoding. These versions reflect rea
 `),
 })
 
+function preprocessPreset(preset: unknown) {
+  return typeof preset === 'string' ? preset.replaceAll('_', '-') : preset
+}
+
+const audioPresets = [
+  'aac',
+  'alac',
+  'audio/aac',
+  'audio/alac',
+  'audio/flac',
+  'audio/mp3',
+  'audio/ogg',
+  'dash/32k-audio',
+  'dash/64k-audio',
+  'dash/128k-audio',
+  'dash/256k-audio',
+  'dash-32k-audio',
+  'dash-64k-audio',
+  'dash-128k-audio',
+  'dash-256k-audio',
+  'empty',
+  'flac',
+  'gif',
+  'hg-transformers-audio',
+  'mp3',
+  'ogg',
+  'opus',
+  'speech',
+  'wav',
+] as const
+
+/**
+ * A robot that uses FFmpeg to **output** audio.
+ */
 export type FFmpegAudio = z.infer<typeof robotFFmpegAudio>
 export const robotFFmpegAudio = robotFFmpeg
   .extend({
-    preset: z
-      .enum([
-        'aac',
-        'alac',
-        'audio/aac',
-        'audio/alac',
-        'audio/flac',
-        'audio/mp3',
-        'audio/ogg',
-        'dash/32k-audio',
-        'dash/64k-audio',
-        'dash/128k-audio',
-        'dash/256k-audio',
-        'dash-32k-audio',
-        'dash-64k-audio',
-        'dash-128k-audio',
-        'dash-256k-audio',
-        'empty',
-        'flac',
-        'gif',
-        'hg-transformers-audio',
-        'mp3',
-        'ogg',
-        'opus',
-        'speech',
-        'wav',
-      ])
-      .optional(),
+    preset: z.preprocess(preprocessPreset, z.enum(audioPresets)).optional().describe(`
+Performs conversion using pre-configured settings.
+
+If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`mp3\` preset is not applied. This is to prevent you from having to override each of the MP3 preset's values manually.
+
+For a list of audio presets, see [audio presets](/docs/transcoding/audio-encoding/audio-presets/).
+`),
   })
   .strict()
 
+/**
+ * A robot that uses FFmpeg to **output** video.
+ */
 export type FFmpegVideo = z.infer<typeof robotFFmpegVideo>
 export const robotFFmpegVideo = robotFFmpeg
   .extend({
-    width: z.number().nullish(),
-    height: z.number().nullish(),
+    width: z.number().int().min(1).nullish().describe(`
+Width of the new video, in pixels.
+
+If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied width](/docs/transcoding/video-encoding/video-presets/) will be implemented.
+`),
+    height: z.number().int().min(1).nullish().describe(`
+Height of the new video, in pixels.
+
+If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied height](/docs/transcoding/video-encoding/video-presets/) will be implemented.
+`),
     preset: z
-      .enum([
-        'android-high',
-        'android-low',
-        'android',
-        'dash/270p-video',
-        'dash/360p-video',
-        'dash/480p-video',
-        'dash/540p-video',
-        'dash/576p-video',
-        'dash/720p-video',
-        'dash/1080p-video',
-        'dash-270p-video',
-        'dash-360p-video',
-        'dash-480p-video',
-        'dash-540p-video',
-        'dash-576p-video',
-        'dash-720p-video',
-        'dash-1080p-video',
-        'flash',
-        'hevc',
-        'hls/270p',
-        'hls/360p',
-        'hls/480p',
-        'hls/540p',
-        'hls/720p',
-        'hls/1080p',
-        'hls/4k',
-        'hls-1080p',
-        'hls-360p',
-        'hls-480p',
-        'hls-540p',
-        'hls-576p',
-        'hls-720p',
-        'hls-270p',
-        'ipad-high',
-        'ipad-low',
-        'ipad',
-        'iphone-high',
-        'iphone-low',
-        'iphone',
-        'ogv',
-        'vp9',
-        'vp9-270p',
-        'vp9-360p',
-        'vp9-480p',
-        'vp9-540p',
-        'vp9-576p',
-        'vp9-720p',
-        'vp9-1080p',
-        'web/mp4-x265/240p',
-        'web/mp4-x265/360p',
-        'web/mp4-x265/480p',
-        'web/mp4-x265/720p',
-        'web/mp4-x265/1080p',
-        'web/mp4-x265/4k',
-        'web/mp4-x265/8k',
-        'web/mp4/240p',
-        'web/mp4/360p',
-        'web/mp4/480p',
-        'web/mp4/540p',
-        'web/mp4/720p',
-        'web/mp4/1080p',
-        'web/mp4/4k',
-        'web/webm/240p',
-        'web/webm/360p',
-        'web/webm/480p',
-        'web/webm/720p',
-        'web/webm/1080p',
-        'web/webm/4k',
-        'web/webm/8k',
-        'webm-270p',
-        'webm-360p',
-        'webm-480p',
-        'webm-540p',
-        'webm-576p',
-        'webm-720p',
-        'webm-1080p',
-        'webm',
-        'wmv',
-      ])
-      .optional(),
+      .preprocess(
+        preprocessPreset,
+        z.enum([
+          'android-high',
+          'android-low',
+          'android',
+          'dash/270p-video',
+          'dash/360p-video',
+          'dash/480p-video',
+          'dash/540p-video',
+          'dash/576p-video',
+          'dash/720p-video',
+          'dash/1080p-video',
+          'dash-270p-video',
+          'dash-360p-video',
+          'dash-480p-video',
+          'dash-540p-video',
+          'dash-576p-video',
+          'dash-720p-video',
+          'dash-1080p-video',
+          'empty',
+          'flash',
+          'hevc',
+          'hls/270p',
+          'hls/360p',
+          'hls/480p',
+          'hls/540p',
+          'hls/720p',
+          'hls/1080p',
+          'hls/4k',
+          'hls-1080p',
+          'hls-360p',
+          'hls-480p',
+          'hls-540p',
+          'hls-576p',
+          'hls-720p',
+          'hls-270p',
+          'ipad-high',
+          'ipad-low',
+          'ipad',
+          'iphone-high',
+          'iphone-low',
+          'iphone',
+          'ogv',
+          'vp9',
+          'vp9-270p',
+          'vp9-360p',
+          'vp9-480p',
+          'vp9-540p',
+          'vp9-576p',
+          'vp9-720p',
+          'vp9-1080p',
+          'web/mp4-x265/240p',
+          'web/mp4-x265/360p',
+          'web/mp4-x265/480p',
+          'web/mp4-x265/720p',
+          'web/mp4-x265/1080p',
+          'web/mp4-x265/4k',
+          'web/mp4-x265/8k',
+          'web/mp4/240p',
+          'web/mp4/360p',
+          'web/mp4/480p',
+          'web/mp4/540p',
+          'web/mp4/720p',
+          'web/mp4/1080p',
+          'web/mp4/4k',
+          'web/webm/240p',
+          'web/webm/360p',
+          'web/webm/480p',
+          'web/webm/720p',
+          'web/webm/1080p',
+          'web/webm/4k',
+          'web/webm/8k',
+          'webm-270p',
+          'webm-360p',
+          'webm-480p',
+          'webm-540p',
+          'webm-576p',
+          'webm-720p',
+          'webm-1080p',
+          'webm',
+          'wmv',
+          ...audioPresets,
+        ]),
+      )
+      .optional().describe(`
+Converts a video according to [pre-configured settings](/docs/transcoding/video-encoding/video-presets/).
+
+If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s and/or do not not want Transloadit to set any encoding setting, starting \`ffmpeg_stack: "{{stacks.ffmpeg.recommended_version}}"\`,  you can use the value \`'empty'\` here.
+`),
   })
   .strict()
 
