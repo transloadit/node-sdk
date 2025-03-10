@@ -1,0 +1,11 @@
+---
+description: Coding Style
+globs: 
+alwaysApply: false
+---
+- Favor `async run() {` over `run = async () => {` inside ES6 classes
+- Favor `if (!(err instanceof Error)) { throw new Error(`Was thrown a non-error: ${err}`) }` inside
+  `catch` blocks to ensure the `error` is always an instance of `Error`
+- Favor using real paths (`../lib/schemas.ts`) over aliases (`@/app/lib/schemas`).
+- Favor `for (const comment of comments) {` over `comments.forEach((comment) => {`
+- Favor named exports over default exports, with the exception of Next.js pages

@@ -1,0 +1,9 @@
+---
+description: General
+globs: 
+alwaysApply: true
+---
+- Do not touch `.env` files!
+- Favor Yarn (4) over npm
+- Most of my git commands run through pagers, so pipe their output to `cat` to avoid blocking the
+  terminal
