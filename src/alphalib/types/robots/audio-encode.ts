@@ -8,6 +8,7 @@ import {
   sampleRateSchema,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
+import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: false,
@@ -21,7 +22,7 @@ export const meta: RobotMeta = {
         use: ':original',
         preset: 'mp3',
         bitrate: 256000,
-        ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },

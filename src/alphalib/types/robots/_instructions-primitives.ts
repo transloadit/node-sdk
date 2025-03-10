@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { stackVersions } from '../stackVersions.ts'
 import type { assemblyInstructionsSchema } from '../template'
 
 export const interpolationSchemaToYieldNumber = z.string().regex(/^[\d.]*\${.+}[\d.]*$/)
@@ -465,7 +466,7 @@ If the value is not specified and the \`preset\` parameter is available, the \`p
       .optional().describe(`
 Converts a video according to [pre-configured settings](/docs/transcoding/video-encoding/video-presets/).
 
-If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s and/or do not not want Transloadit to set any encoding setting, starting \`ffmpeg_stack: "{{stacks.ffmpeg.recommended_version}}"\`,  you can use the value \`'empty'\` here.
+If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s and/or do not not want Transloadit to set any encoding setting, starting \`ffmpeg_stack: "${stackVersions.ffmpeg.recommendedVersion}"\`,  you can use the value \`'empty'\` here.
 `),
   })
   .strict()

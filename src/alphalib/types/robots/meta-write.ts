@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { robotFFmpeg, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
+import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: true,
@@ -16,7 +17,7 @@ export const meta: RobotMeta = {
         data_to_write: {
           copyright: '© Transloadit',
         },
-        ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },

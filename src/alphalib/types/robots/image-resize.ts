@@ -326,7 +326,6 @@ An array of objects each containing text rules. The following text parameters ar
 "watermarked": {
   "use": "resized",
   "robot": "/image/resize",
-  "imagemagick_stack": "{{stacks.imagemagick.recommended_version}}",
   "text": [
     {
       "text": "© 2018 Transloadit.com",

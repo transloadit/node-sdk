@@ -29,15 +29,15 @@ When you want Transloadit to tranform files on the fly, you can use this <dfn>Ro
 
 🤖/file/serve merely acts as the glue layer between our <dfn>Assembly</dfn> engine and serving files over HTTP. It let's you pick the proper result of a series of <dfn>Steps</dfn> via the \`use\` parameter and configure headers on the original content. That is where its responsibilies end, and 🤖/tlcdn/deliver, then takes over to globally distribute this original content across the globe, and make sure that is cached close to your end-users, when they make requests such as <https://my-app.tlcdn.com/resize-img/canoe.jpg?w=500>, another. 🤖/tlcdn/deliver is not a part of your <dfn>Assembly Instructions</dfn>, but it may appear on your invoices as bandwidth charges incur when distributing the cached copies. 🤖/file/serve only charges when the CDN does not have a cached copy and requests to regenerate the original content, which depending on your caching settings could be just once a month, or year, per file/transformation.
 
-While theoretically possible, you could use [🤖/file/serve]({{robot_links["/file/serve"]}}) directly in HTML files, but we strongly recommend against this, because if your site gets popular and the media URL that /file/serve is handling gets hit one million times, that is one million new image resizes. Wrapping it with a CDN (and thanks to the caching that comes with it) makes sure encoding charges stay low, as well as latencies.
+While theoretically possible, you could use [🤖/file/serve](/docs/transcoding/content-delivery/file-serve/) directly in HTML files, but we strongly recommend against this, because if your site gets popular and the media URL that /file/serve is handling gets hit one million times, that is one million new image resizes. Wrapping it with a CDN (and thanks to the caching that comes with it) makes sure encoding charges stay low, as well as latencies.
 
 Also consider configuring caching headers and cache-control directives to control how content is cached and invalidated on the CDN edge servers, balancing between freshness and efficiency.
 
 More information on:
 
 - [Content Delivery](/services/content-delivery/).
-- [🤖/file/serve]({{robot_links["/file/serve"]}}) pricing.
-- [🤖/tlcdn/deliver]({{robot_links["/tlcdn/deliver"]}}) pricing.
+- [🤖/file/serve](/docs/transcoding/content-delivery/file-serve/) pricing.
+- [🤖/tlcdn/deliver](/docs/transcoding/content-delivery/tlcdn-deliver/) pricing.
 - [File Preview Feature](/blog/2024/06/file-preview-with-smart-cdn/) blog post.
 `),
     headers: z.record(z.string()).default({

@@ -8,6 +8,7 @@ import {
   sampleRateSchema,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
+import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: false,
@@ -20,13 +21,13 @@ export const meta: RobotMeta = {
         robot: '/audio/loop',
         use: ':original',
         duration: 300,
-        ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },
   example_code_description: 'Loop uploaded audio to achieve a target duration of 300 seconds:',
   marketing_intro:
-    'Whether you’re producing beats, white-noise, or just empty segments as fillers between audio tracks that you’re to stringing together with [🤖/audio/concat]({{robot_links["/audio/concat"]}}), [🤖/audio/loop]({{robot_links["/audio/loop"]}}) has got your back.',
+    'Whether you’re producing beats, white-noise, or just empty segments as fillers between audio tracks that you’re to stringing together with [🤖/audio/concat](/docs/transcoding/audio-encoding/audio-concat/), [🤖/audio/loop](/docs/transcoding/audio-encoding/audio-loop/) has got your back.',
   minimum_charge: 0,
   output_factor: 0.8,
   override_lvl1: 'Audio Encoding',

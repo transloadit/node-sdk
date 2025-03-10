@@ -65,7 +65,7 @@ When merging a video and an audio file, and when merging images and an audio fil
 Determines whether the audio of the video should be replaced with a provided audio file.
 `),
     vstack: z.boolean().default(false).describe(`
-Stacks the input media vertically. All streams need to have the same pixel format and width - so consider using a [/video/encode]({{robot_links["/video/encode"]}}) <dfn>Step</dfn> before using this parameter to enforce this.
+Stacks the input media vertically. All streams need to have the same pixel format and width - so consider using a [/video/encode](/docs/transcoding/video-encoding/video-encode/) <dfn>Step</dfn> before using this parameter to enforce this.
 `),
   })
   .strict()
