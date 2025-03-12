@@ -5,5 +5,5 @@ alwaysApply: true
 ---
 - Do not touch `.env` files!
 - Favor Yarn (4) over npm
-- Most of my git commands run through pagers, so pipe their output to `cat` to avoid blocking the
-  terminal
+- Avoid blocking the conversation with terminal commands. For example: A) most of my git commands run through pagers, so pipe their output to `cat` to avoid blocking the
+  terminal. B) Running a server in the foreground will block the conversation. Avoid it. C) You can use `tail` for logs, but be smart and use `-n` instead of `-f`, or the conversation will block

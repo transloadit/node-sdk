@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "transloadit-internal-sse": {
+      "url": "http://localhost:5555/mcp"
+    }
+  }
+}
