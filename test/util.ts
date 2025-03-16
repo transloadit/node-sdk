@@ -12,7 +12,7 @@ export const createProxy = (transloaditInstance: Transloadit) => {
           if (!(result && 'then' in result)) {
             return result
           }
-        
+
           // @ts-expect-error any
           return result.catch((err) => {
             if (err instanceof Error && 'cause' in err && err.cause instanceof HTTPError) {
