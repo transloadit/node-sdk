@@ -6,10 +6,15 @@ export const createProxy = (transloaditInstance: Transloadit) => {
       // @ts-expect-error I dunno how to type
       const origMethod = target[propKey]
       if (typeof origMethod === 'function') {
-        return async function (...args: any) {
-          try {
-            return await origMethod.apply(target, args)
-          } catch (err) {
+        return function (...args: any) {
+          const result = origMethod.apply(target, args)
+
+          if (!(result && 'then' in result)) {
+            return result
+          }
+        
+          // @ts-expect-error any
+          return result.catch((err) => {
             if (err instanceof Error && 'cause' in err && err.cause instanceof HTTPError) {
               if (err.cause.request) {
                 Object.defineProperty(err.cause.request, 'toJSON', {
@@ -31,9 +36,10 @@ export const createProxy = (transloaditInstance: Transloadit) => {
               }
             }
             throw err
-          }
+          })
         }
       }
+
       return origMethod
     },
   })

@@ -133,8 +133,8 @@ describe('Mocked API tests', () => {
       expect.stringMatching(
         `    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)`
       ),
-      expect.stringMatching(`    at .+\\/test\\/util\\.ts:\\d+:\\d+`),
       expect.stringMatching(`    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+`),
+      expect.stringMatching(`    at .+`),
       expect.stringMatching(`    at .+`),
       expect.stringMatching(`    at .+`),
       expect.stringMatching(`    at .+`),
