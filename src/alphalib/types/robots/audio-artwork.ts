@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { robotFFmpegAudio, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
+import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: true,
@@ -13,7 +14,7 @@ export const meta: RobotMeta = {
       artwork_extracted: {
         robot: '/audio/artwork',
         use: ':original',
-        ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },
@@ -31,6 +32,7 @@ export const meta: RobotMeta = {
   title: 'Extract or insert audio artwork',
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotAudioArtworkInstructionsSchema = robotBase

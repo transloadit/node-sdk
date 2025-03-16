@@ -2,13 +2,13 @@ import { z } from 'zod'
 
 import {
   bitrateSchema,
-  robotFFmpeg,
-  preset,
   robotBase,
   robotUse,
   sampleRateSchema,
+  robotFFmpegAudio,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
+import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: false,
@@ -26,7 +26,7 @@ export const meta: RobotMeta = {
             { name: ':original', fields: 'third_audio_file', as: 'audio_3' },
           ],
         },
-        ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },
@@ -44,11 +44,12 @@ export const meta: RobotMeta = {
   title: 'Concatenate audio',
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotAudioConcatInstructionsSchema = robotBase
   .merge(robotUse)
-  .merge(robotFFmpeg)
+  .merge(robotFFmpegAudio)
   .extend({
     result: z
       .boolean()
@@ -56,13 +57,6 @@ export const robotAudioConcatInstructionsSchema = robotBase
       .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
     robot: z.literal('/audio/concat').describe(`
 This Robot can concatenate an almost infinite number of audio files.
-`),
-    preset: preset.optional().describe(`
-Performs conversion using pre-configured settings.
-
-If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`mp3\` preset is not applied. This is to prevent you from having to override each of the MP3 preset's values manually.
-
-For a list of audio presets, see [audio presets](/docs/transcoding/audio-encoding/audio-presets/).
 `),
     bitrate: bitrateSchema.optional().describe(`
 Bit rate of the resulting audio file, in bits per second. If not specified will default to the bit rate of the input audio file.

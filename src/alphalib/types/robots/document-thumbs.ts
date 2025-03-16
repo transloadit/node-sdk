@@ -39,6 +39,7 @@ export const meta: RobotMeta = {
   title: 'Extract thumbnail images from documents',
   typical_file_size_mb: 0.8,
   typical_file_type: 'document',
+  uses_tools: ['imagemagick'],
 }
 
 export const robotDocumentThumbsInstructionsSchema = robotBase

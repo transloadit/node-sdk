@@ -176,7 +176,7 @@ describe('Mocked API tests', () => {
 
     const scope = nock('http://localhost')
       .post(createAssemblyRegex)
-      .reply(413, { error: 'RATE_LIMIT_REACHED', info: { retryIn: 0.01 } })
+      .reply(429, { error: 'ASSEMBLY_STATUS_FETCHING_RATE_LIMIT_REACHED', info: { retryIn: 0.01 } })
       .post(createAssemblyRegex)
       .reply(200, { ok: 'ASSEMBLY_EXECUTING' })
 
@@ -189,7 +189,7 @@ describe('Mocked API tests', () => {
 
     const scope = nock('http://localhost')
       .post(createAssemblyRegex)
-      .reply(413, {
+      .reply(429, {
         error: 'RATE_LIMIT_REACHED',
         message: 'Request limit reached',
         info: { retryIn: 0.01 },
@@ -197,7 +197,7 @@ describe('Mocked API tests', () => {
 
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining({
-        message: 'API error (HTTP 413) RATE_LIMIT_REACHED: Request limit reached',
+        message: 'API error (HTTP 429) RATE_LIMIT_REACHED: Request limit reached',
         code: 'RATE_LIMIT_REACHED',
       })
     )

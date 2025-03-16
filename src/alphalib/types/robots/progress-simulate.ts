@@ -6,6 +6,7 @@ export const robotProgressSimulateInstructionsSchema = robotBase
   .extend({
     robot: z.literal('/progress/simulate'),
     duration: z.number(),
+    output_files: z.number(),
     emit_progress: z.boolean(),
     predict_output: z.boolean(),
   })

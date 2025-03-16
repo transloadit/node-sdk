@@ -2,13 +2,13 @@ import { z } from 'zod'
 
 import {
   bitrateSchema,
-  robotFFmpeg,
-  preset,
+  robotFFmpegAudio,
   robotBase,
   robotUse,
   sampleRateSchema,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
+import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: false,
@@ -21,13 +21,13 @@ export const meta: RobotMeta = {
         robot: '/audio/loop',
         use: ':original',
         duration: 300,
-        ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },
   example_code_description: 'Loop uploaded audio to achieve a target duration of 300 seconds:',
   marketing_intro:
-    'Whether you’re producing beats, white-noise, or just empty segments as fillers between audio tracks that you’re to stringing together with [🤖/audio/concat]({{robot_links["/audio/concat"]}}), [🤖/audio/loop]({{robot_links["/audio/loop"]}}) has got your back.',
+    'Whether you’re producing beats, white-noise, or just empty segments as fillers between audio tracks that you’re to stringing together with [🤖/audio/concat](/docs/transcoding/audio-encoding/audio-concat/), [🤖/audio/loop](/docs/transcoding/audio-encoding/audio-loop/) has got your back.',
   minimum_charge: 0,
   output_factor: 0.8,
   override_lvl1: 'Audio Encoding',
@@ -40,20 +40,14 @@ export const meta: RobotMeta = {
   title: 'Loop audio',
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotAudioLoopInstructionsSchema = robotBase
   .merge(robotUse)
-  .merge(robotFFmpeg)
+  .merge(robotFFmpegAudio)
   .extend({
     robot: z.literal('/audio/loop'),
-    preset: preset.optional().describe(`
-Performs conversion using pre-configured settings.
-
-If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`mp3\` preset is not applied. This is to prevent you from having to override each of the \`mp3\` preset's values manually.
-
-For a list of audio presets, see [audio presets](/docs/transcoding/audio-encoding/audio-presets/).
-`),
     bitrate: bitrateSchema.optional().describe(`
 Bit rate of the resulting audio file, in bits per second. If not specified will default to the bit rate of the input audio file.
 `),

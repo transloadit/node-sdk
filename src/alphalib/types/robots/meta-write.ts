@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { robotFFmpeg, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
+import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: true,
@@ -16,7 +17,7 @@ export const meta: RobotMeta = {
         data_to_write: {
           copyright: '© Transloadit',
         },
-        ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },
@@ -33,6 +34,7 @@ export const meta: RobotMeta = {
   title: 'Write metadata to media',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotMetaWriteInstructionsSchema = robotBase

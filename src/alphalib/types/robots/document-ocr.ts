@@ -26,7 +26,7 @@ export const meta: RobotMeta = {
   extended_description: `
 **Warning:** Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input PDFs. Avoid relying on exact responses in your tests and application. [{.alert .alert-warning}]
 
-**Note:** Currently, this <dfn>Robot</dfn> only supports character recognition for PDFs. To use this <dfn>Robot</dfn> with other document formats, use [/document/convert]({{robot_links["/document/convert"]}}) first to convert the document into a PDF. [{.alert .alert-note}]
+**Note:** Currently, this <dfn>Robot</dfn> only supports character recognition for PDFs. To use this <dfn>Robot</dfn> with other document formats, use [/document/convert](/docs/transcoding/document-processing/document-convert/) first to convert the document into a PDF. [{.alert .alert-note}]
 `,
   minimum_charge: 1048576,
   output_factor: 1,

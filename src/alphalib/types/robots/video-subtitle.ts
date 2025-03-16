@@ -3,13 +3,13 @@ import { z } from 'zod'
 import {
   color_with_alpha,
   color_without_alpha,
-  robotFFmpeg,
+  robotFFmpegVideo,
   positionSchema,
-  preset,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
+import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: false,
@@ -26,7 +26,7 @@ export const meta: RobotMeta = {
             { name: ':original', fields: 'input_srt', as: 'subtitles' },
           ],
         },
-        ffmpeg_stack: '{{ stacks.ffmpeg.recommended_version }}',
+        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },
@@ -44,19 +44,15 @@ export const meta: RobotMeta = {
   title: 'Add subtitles to videos',
   typical_file_size_mb: 80,
   typical_file_type: 'video',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotVideoSubtitleInstructionsSchema = robotBase
   .merge(robotUse)
-  .merge(robotFFmpeg)
+  .merge(robotFFmpegVideo)
   .extend({
     robot: z.literal('/video/subtitle').describe(`
 This <dfn>Robot</dfn> supports both SRT and VTT subtitle files.
-`),
-    preset: preset.default('empty').describe(`
-Performs conversion using pre-configured settings. By default, no settings are applied and the original settings of the video are preserved.
-
-For a list of video presets, see [video presets](/docs/transcoding/video-encoding/video-presets/).
 `),
     subtitles_type: z
       .enum(['burned', 'external', 'burn'])

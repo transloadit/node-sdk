@@ -2,14 +2,11 @@ import { z } from 'zod'
 
 import {
   color_with_alpha,
-  complexHeightSchema,
-  complexWidthSchema,
-  robotFFmpeg,
+  robotFFmpegVideo,
   interpolationSchemaToYieldNumber,
   interpolationSchemaToYieldString,
   percentageSchema,
   positionSchema,
-  preset,
   resize_strategy,
   robotBase,
   robotUse,
@@ -45,28 +42,14 @@ export const meta: RobotMeta = {
   title: 'Transcode, resize, or watermark videos',
   typical_file_size_mb: 80,
   typical_file_type: 'video',
+  uses_tools: ['ffmpeg'],
 }
 
 export const robotVideoEncodeInstructionsInterpolatedSchema = robotBase
   .merge(robotUse)
-  .merge(robotFFmpeg)
+  .merge(robotFFmpegVideo)
   .extend({
     robot: z.literal('/video/encode'),
-    preset: preset.describe(`
-Converts a video according to [pre-configured settings](/docs/transcoding/video-encoding/video-presets/).
-
-If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s and/or do not not want Transloadit to set any encoding setting, starting \`ffmpeg_stack: "{{stacks.ffmpeg.recommended_version}}"\`,  you can use the value \`'empty'\` here.
-`),
-    width: complexWidthSchema.optional().describe(`
-Width of the new video, in pixels.
-
-If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied width](/docs/transcoding/video-encoding/video-presets/) will be implemented.
-`),
-    height: complexHeightSchema.optional().describe(`
-Height of the new video, in pixels.
-
-If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied height](/docs/transcoding/video-encoding/video-presets/) will be implemented.
-`),
     resize_strategy: resize_strategy.describe(`
 See the [available resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).
 `),

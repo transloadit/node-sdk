@@ -1,90 +1,171 @@
 import { z } from 'zod'
 
-import { robotAudioArtworkInstructionsSchema } from './audio-artwork.ts'
-import { robotAudioConcatInstructionsSchema } from './audio-concat.ts'
-import { robotAudioEncodeInstructionsSchema } from './audio-encode.ts'
-import { robotAudioLoopInstructionsSchema } from './audio-loop.ts'
-import { robotAudioMergeInstructionsSchema } from './audio-merge.ts'
-import { robotAudioWaveformInstructionsSchema } from './audio-waveform.ts'
-import { robotAzureImportInstructionsSchema } from './azure-import.ts'
-import { robotAzureStoreInstructionsSchema } from './azure-store.ts'
-import { robotBackblazeImportInstructionsSchema } from './backblaze-import.ts'
-import { robotBackblazeStoreInstructionsSchema } from './backblaze-store.ts'
-import { robotCloudfilesImportInstructionsSchema } from './cloudfiles-import.ts'
-import { robotCloudfilesStoreInstructionsSchema } from './cloudfiles-store.ts'
-import { robotCloudflareImportInstructionsSchema } from './cloudflare-import.ts'
-import { robotCloudflareStoreInstructionsSchema } from './cloudflare-store.ts'
-import { robotDigitaloceanImportInstructionsSchema } from './digitalocean-import.ts'
-import { robotDigitaloceanStoreInstructionsSchema } from './digitalocean-store.ts'
-import { robotDocumentAutorotateInstructionsSchema } from './document-autorotate.ts'
-import { robotDocumentConvertInstructionsSchema } from './document-convert.ts'
-import { robotDocumentMergeInstructionsSchema } from './document-merge.ts'
-import { robotDocumentOcrInstructionsSchema } from './document-ocr.ts'
-import { robotDocumentSplitInstructionsSchema } from './document-split.ts'
-import { robotDocumentThumbsInstructionsSchema } from './document-thumbs.ts'
-import { robotDropboxImportInstructionsSchema } from './dropbox-import.ts'
-import { robotDropboxStoreInstructionsSchema } from './dropbox-store.ts'
-import { robotEdglyDeliverInstructionsSchema } from './edgly-deliver.ts'
-import { robotFileCompressInstructionsSchema } from './file-compress.ts'
-import { robotFileDecompressInstructionsSchema } from './file-decompress.ts'
-import { robotFileFilterInstructionsSchema } from './file-filter.ts'
-import { robotFileHashInstructionsSchema } from './file-hash.ts'
-import { robotFilePreviewInstructionsSchema } from './file-preview.ts'
-import { robotFileReadInstructionsSchema } from './file-read.ts'
-import { robotFileServeInstructionsSchema } from './file-serve.ts'
-import { robotFileVerifyInstructionsSchema } from './file-verify.ts'
-import { robotFileVirusscanInstructionsSchema } from './file-virusscan.ts'
+import { robotAudioArtworkInstructionsSchema, meta as audioArtworkMeta } from './audio-artwork.ts'
+import { robotAudioConcatInstructionsSchema, meta as audioConcatMeta } from './audio-concat.ts'
+import { robotAudioEncodeInstructionsSchema, meta as audioEncodeMeta } from './audio-encode.ts'
+import { robotAudioLoopInstructionsSchema, meta as audioLoopMeta } from './audio-loop.ts'
+import { robotAudioMergeInstructionsSchema, meta as audioMergeMeta } from './audio-merge.ts'
+import {
+  robotAudioWaveformInstructionsSchema,
+  meta as audioWaveformMeta,
+} from './audio-waveform.ts'
+import { robotAzureImportInstructionsSchema, meta as azureImportMeta } from './azure-import.ts'
+import { robotAzureStoreInstructionsSchema, meta as azureStoreMeta } from './azure-store.ts'
+import {
+  robotBackblazeImportInstructionsSchema,
+  meta as backblazeImportMeta,
+} from './backblaze-import.ts'
+import {
+  robotBackblazeStoreInstructionsSchema,
+  meta as backblazeStoreMeta,
+} from './backblaze-store.ts'
+import {
+  robotCloudfilesImportInstructionsSchema,
+  meta as cloudfilesImportMeta,
+} from './cloudfiles-import.ts'
+import {
+  robotCloudfilesStoreInstructionsSchema,
+  meta as cloudfilesStoreMeta,
+} from './cloudfiles-store.ts'
+import {
+  robotCloudflareImportInstructionsSchema,
+  meta as cloudflareImportMeta,
+} from './cloudflare-import.ts'
+import {
+  robotCloudflareStoreInstructionsSchema,
+  meta as cloudflareStoreMeta,
+} from './cloudflare-store.ts'
+import {
+  robotDigitaloceanImportInstructionsSchema,
+  meta as digitaloceanImportMeta,
+} from './digitalocean-import.ts'
+import {
+  robotDigitaloceanStoreInstructionsSchema,
+  meta as digitaloceanStoreMeta,
+} from './digitalocean-store.ts'
+import {
+  robotDocumentAutorotateInstructionsSchema,
+  meta as documentAutorotateMeta,
+} from './document-autorotate.ts'
+import {
+  robotDocumentConvertInstructionsSchema,
+  meta as documentConvertMeta,
+} from './document-convert.ts'
+import {
+  robotDocumentMergeInstructionsSchema,
+  meta as documentMergeMeta,
+} from './document-merge.ts'
+import { robotDocumentOcrInstructionsSchema, meta as documentOcrMeta } from './document-ocr.ts'
+import {
+  robotDocumentSplitInstructionsSchema,
+  meta as documentSplitMeta,
+} from './document-split.ts'
+import {
+  robotDocumentThumbsInstructionsSchema,
+  meta as documentThumbsMeta,
+} from './document-thumbs.ts'
+import {
+  robotDropboxImportInstructionsSchema,
+  meta as dropboxImportMeta,
+} from './dropbox-import.ts'
+import { robotDropboxStoreInstructionsSchema, meta as dropboxStoreMeta } from './dropbox-store.ts'
+import { robotEdglyDeliverInstructionsSchema, meta as edglyDeliverMeta } from './edgly-deliver.ts'
+import { robotFileCompressInstructionsSchema, meta as fileCompressMeta } from './file-compress.ts'
+import {
+  robotFileDecompressInstructionsSchema,
+  meta as fileDecompressMeta,
+} from './file-decompress.ts'
+import { robotFileFilterInstructionsSchema, meta as fileFilterMeta } from './file-filter.ts'
+import { robotFileHashInstructionsSchema, meta as fileHashMeta } from './file-hash.ts'
+import { robotFilePreviewInstructionsSchema, meta as filePreviewMeta } from './file-preview.ts'
+import { robotFileReadInstructionsSchema, meta as fileReadMeta } from './file-read.ts'
+import { robotFileServeInstructionsSchema, meta as fileServeMeta } from './file-serve.ts'
+import { robotFileVerifyInstructionsSchema, meta as fileVerifyMeta } from './file-verify.ts'
+import {
+  robotFileVirusscanInstructionsSchema,
+  meta as fileVirusscanMeta,
+} from './file-virusscan.ts'
 import { robotFileWatermarkInstructionsSchema } from './file-watermark.ts'
-import { robotFtpImportInstructionsSchema } from './ftp-import.ts'
-import { robotFtpStoreInstructionsSchema } from './ftp-store.ts'
-import { robotGoogleImportInstructionsSchema } from './google-import.ts'
-import { robotGoogleStoreInstructionsSchema } from './google-store.ts'
-import { robotHtmlConvertInstructionsSchema } from './html-convert.ts'
-import { robotHttpImportInstructionsSchema } from './http-import.ts'
-import { robotImageDescribeInstructionsSchema } from './image-describe.ts'
-import { robotImageFacedetectInstructionsSchema } from './image-facedetect.ts'
+import { robotFtpImportInstructionsSchema, meta as ftpImportMeta } from './ftp-import.ts'
+import { robotFtpStoreInstructionsSchema, meta as ftpStoreMeta } from './ftp-store.ts'
+import { robotGoogleImportInstructionsSchema, meta as googleImportMeta } from './google-import.ts'
+import { robotGoogleStoreInstructionsSchema, meta as googleStoreMeta } from './google-store.ts'
+import { robotHtmlConvertInstructionsSchema, meta as htmlConvertMeta } from './html-convert.ts'
+import { robotHttpImportInstructionsSchema, meta as httpImportMeta } from './http-import.ts'
+import {
+  robotImageDescribeInstructionsSchema,
+  meta as imageDescribeMeta,
+} from './image-describe.ts'
+import {
+  robotImageFacedetectInstructionsSchema,
+  meta as imageFacedetectMeta,
+} from './image-facedetect.ts'
 import {
   robotImageGenerateInstructionsSchema,
   robotImageGenerateInstructionsWithHiddenFieldsSchema,
 } from './image-generate.ts'
-import { robotImageMergeInstructionsSchema } from './image-merge.ts'
-import { robotImageOcrInstructionsSchema } from './image-ocr.ts'
-import { robotImageOptimizeInstructionsSchema } from './image-optimize.ts'
+import { robotImageMergeInstructionsSchema, meta as imageMergeMeta } from './image-merge.ts'
+import { robotImageOcrInstructionsSchema, meta as imageOcrMeta } from './image-ocr.ts'
+import {
+  robotImageOptimizeInstructionsSchema,
+  meta as imageOptimizeMeta,
+} from './image-optimize.ts'
 import { robotImageRemoveBackgroundInstructionsSchema } from './image-remove-background.ts'
-import { robotImageResizeInstructionsSchema } from './image-resize.ts'
-import { robotMediaPlaylistInstructionsSchema } from './media-playlist.ts'
-import { robotMetaWriteInstructionsSchema } from './meta-write.ts'
-import { robotMinioImportInstructionsSchema } from './minio-import.ts'
-import { robotMinioStoreInstructionsSchema } from './minio-store.ts'
+import { robotImageResizeInstructionsSchema, meta as imageResizeMeta } from './image-resize.ts'
+import {
+  robotMediaPlaylistInstructionsSchema,
+  meta as mediaPlaylistMeta,
+} from './media-playlist.ts'
+import { robotMetaWriteInstructionsSchema, meta as metaWriteMeta } from './meta-write.ts'
+import { robotMinioImportInstructionsSchema, meta as minioImportMeta } from './minio-import.ts'
+import { robotMinioStoreInstructionsSchema, meta as minioStoreMeta } from './minio-store.ts'
 import { robotProgressSimulateInstructionsSchema } from './progress-simulate.ts'
-import { robotS3ImportInstructionsSchema } from './s3-import.ts'
-import { robotS3StoreInstructionsSchema } from './s3-store.ts'
-import { robotScriptRunInstructionsSchema } from './script-run.ts'
-import { robotSftpImportInstructionsSchema } from './sftp-import.ts'
-import { robotSftpStoreInstructionsSchema } from './sftp-store.ts'
+import { robotS3ImportInstructionsSchema, meta as s3ImportMeta } from './s3-import.ts'
+import { robotS3StoreInstructionsSchema, meta as s3StoreMeta } from './s3-store.ts'
+import { robotScriptRunInstructionsSchema, meta as scriptRunMeta } from './script-run.ts'
+import { robotSftpImportInstructionsSchema, meta as sftpImportMeta } from './sftp-import.ts'
+import { robotSftpStoreInstructionsSchema, meta as sftpStoreMeta } from './sftp-store.ts'
 import {
   robotSpeechTranscribeInstructionsSchema,
   robotSpeechTranscribeInstructionsWithHiddenFieldsSchema,
+  meta as speechTranscribeMeta,
 } from './speech-transcribe.ts'
-import { robotSupabaseImportInstructionsSchema } from './supabase-import.ts'
-import { robotSupabaseStoreInstructionsSchema } from './supabase-store.ts'
-import { robotSwiftImportInstructionsSchema } from './swift-import.ts'
-import { robotSwiftStoreInstructionsSchema } from './swift-store.ts'
-import { robotTextSpeakInstructionsSchema } from './text-speak.ts'
-import { robotTextTranslateInstructionsSchema } from './text-translate.ts'
-import { robotTlcdnDeliverInstructionsSchema } from './tlcdn-deliver.ts'
-import { robotTusStoreInstructionsSchema } from './tus-store.ts'
-import { robotUploadHandleInstructionsSchema } from './upload-handle.ts'
-import { robotVideoAdaptiveInstructionsSchema } from './video-adaptive.ts'
-import { robotVideoConcatInstructionsSchema } from './video-concat.ts'
-import { robotVideoEncodeInstructionsSchema } from './video-encode.ts'
-import { robotVideoMergeInstructionsSchema } from './video-merge.ts'
-import { robotVideoSubtitleInstructionsSchema } from './video-subtitle.ts'
-import { robotVideoThumbsInstructionsSchema } from './video-thumbs.ts'
-import { robotVimeoStoreInstructionsSchema } from './vimeo-store.ts'
-import { robotWasabiImportInstructionsSchema } from './wasabi-import.ts'
-import { robotWasabiStoreInstructionsSchema } from './wasabi-store.ts'
-import { robotYoutubeStoreInstructionsSchema } from './youtube-store.ts'
+import {
+  robotSupabaseImportInstructionsSchema,
+  meta as supabaseImportMeta,
+} from './supabase-import.ts'
+import {
+  robotSupabaseStoreInstructionsSchema,
+  meta as supabaseStoreMeta,
+} from './supabase-store.ts'
+import { robotSwiftImportInstructionsSchema, meta as swiftImportMeta } from './swift-import.ts'
+import { robotSwiftStoreInstructionsSchema, meta as swiftStoreMeta } from './swift-store.ts'
+import { robotTextSpeakInstructionsSchema, meta as textSpeakMeta } from './text-speak.ts'
+import {
+  robotTextTranslateInstructionsSchema,
+  meta as textTranslateMeta,
+} from './text-translate.ts'
+import { robotTigrisImportInstructionsSchema, meta as tigrisImport } from './tigris-import.ts'
+import { robotTigrisStoreInstructionsSchema, meta as tigrisStore } from './tigris-store.ts'
+import { robotTlcdnDeliverInstructionsSchema, meta as tlcdnDeliverMeta } from './tlcdn-deliver.ts'
+import { robotTusStoreInstructionsSchema, meta as tusStoreMeta } from './tus-store.ts'
+import { robotUploadHandleInstructionsSchema, meta as uploadHandleMeta } from './upload-handle.ts'
+import {
+  robotVideoAdaptiveInstructionsSchema,
+  meta as videoAdaptiveMeta,
+} from './video-adaptive.ts'
+import { robotVideoConcatInstructionsSchema, meta as videoConcatMeta } from './video-concat.ts'
+import { robotVideoEncodeInstructionsSchema, meta as videoEncodeMeta } from './video-encode.ts'
+import { robotVideoMergeInstructionsSchema, meta as videoMergeMeta } from './video-merge.ts'
+import {
+  robotVideoSubtitleInstructionsSchema,
+  meta as videoSubtitleMeta,
+} from './video-subtitle.ts'
+import { robotVideoThumbsInstructionsSchema, meta as videoThumbsMeta } from './video-thumbs.ts'
+import { robotVimeoStoreInstructionsSchema, meta as vimeoStoreMeta } from './vimeo-store.ts'
+import { robotWasabiImportInstructionsSchema, meta as wasabiImportMeta } from './wasabi-import.ts'
+import { robotWasabiStoreInstructionsSchema, meta as wasabiStoreMeta } from './wasabi-store.ts'
+import { robotYoutubeStoreInstructionsSchema, meta as youtubeStoreMeta } from './youtube-store.ts'
 
 const robotStepsInstructions = [
   robotAudioArtworkInstructionsSchema,
@@ -149,6 +230,8 @@ const robotStepsInstructions = [
   robotSwiftStoreInstructionsSchema,
   robotTextSpeakInstructionsSchema,
   robotTextTranslateInstructionsSchema,
+  robotTigrisImportInstructionsSchema,
+  robotTigrisStoreInstructionsSchema,
   robotTlcdnDeliverInstructionsSchema,
   robotTusStoreInstructionsSchema,
   robotUploadHandleInstructionsSchema,
@@ -227,6 +310,8 @@ const robotStepsInstructionsWithHiddenFields = [
   robotSwiftStoreInstructionsSchema,
   robotTextSpeakInstructionsSchema,
   robotTextTranslateInstructionsSchema,
+  robotTigrisImportInstructionsSchema,
+  robotTigrisStoreInstructionsSchema,
   robotTlcdnDeliverInstructionsSchema,
   robotTusStoreInstructionsSchema,
   robotUploadHandleInstructionsSchema,
@@ -270,3 +355,83 @@ export const robotsWithHiddenBotsAndFieldsSchema = z.discriminatedUnion('robot',
 
 export type RobotsWithHiddenBots = z.infer<typeof robotsWithHiddenBotsSchema>
 export type RobotsWithHiddenBotsAndFields = z.infer<typeof robotsWithHiddenBotsAndFieldsSchema>
+
+export const robotsMeta = {
+  audioArtworkMeta,
+  audioConcatMeta,
+  audioEncodeMeta,
+  audioLoopMeta,
+  audioMergeMeta,
+  audioWaveformMeta,
+  azureImportMeta,
+  azureStoreMeta,
+  backblazeImportMeta,
+  backblazeStoreMeta,
+  cloudfilesImportMeta,
+  cloudfilesStoreMeta,
+  cloudflareImportMeta,
+  cloudflareStoreMeta,
+  digitaloceanImportMeta,
+  digitaloceanStoreMeta,
+  documentAutorotateMeta,
+  documentConvertMeta,
+  documentMergeMeta,
+  documentOcrMeta,
+  documentSplitMeta,
+  documentThumbsMeta,
+  dropboxImportMeta,
+  dropboxStoreMeta,
+  edglyDeliverMeta,
+  fileCompressMeta,
+  fileDecompressMeta,
+  fileFilterMeta,
+  fileHashMeta,
+  filePreviewMeta,
+  fileReadMeta,
+  fileServeMeta,
+  fileVerifyMeta,
+  fileVirusscanMeta,
+  ftpImportMeta,
+  ftpStoreMeta,
+  googleImportMeta,
+  googleStoreMeta,
+  htmlConvertMeta,
+  httpImportMeta,
+  imageDescribeMeta,
+  imageFacedetectMeta,
+  imageMergeMeta,
+  imageOcrMeta,
+  imageOptimizeMeta,
+  imageResizeMeta,
+  mediaPlaylistMeta,
+  metaWriteMeta,
+  minioImportMeta,
+  minioStoreMeta,
+  s3ImportMeta,
+  s3StoreMeta,
+  scriptRunMeta,
+  sftpImportMeta,
+  sftpStoreMeta,
+  speechTranscribeMeta,
+  supabaseImportMeta,
+  supabaseStoreMeta,
+  swiftImportMeta,
+  swiftStoreMeta,
+  textSpeakMeta,
+  textTranslateMeta,
+  tigrisImport,
+  tigrisStore,
+  tlcdnDeliverMeta,
+  tusStoreMeta,
+  uploadHandleMeta,
+  videoAdaptiveMeta,
+  videoConcatMeta,
+  videoEncodeMeta,
+  videoMergeMeta,
+  videoSubtitleMeta,
+  videoThumbsMeta,
+  vimeoStoreMeta,
+  wasabiImportMeta,
+  wasabiStoreMeta,
+  youtubeStoreMeta,
+}
