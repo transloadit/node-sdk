@@ -713,7 +713,7 @@ export class Transloadit {
     // todo use got.retry instead because we are no longer using FormData (which is a stream and can only be used once)
     // https://github.com/sindresorhus/got/issues/1282
     for (let retryCount = 0; ; retryCount++) {
-      let form
+      let form: FormData | undefined
 
       if (method === 'post' || method === 'put' || method === 'delete') {
         form = new FormData()
@@ -722,7 +722,7 @@ export class Transloadit {
 
       const requestOpts: OptionsOfJSONResponseBody = {
         retry: this._gotRetry,
-        body: form as FormData,
+        body: form,
         timeout,
         headers: {
           'Transloadit-Client': `node-sdk:${version}`,
