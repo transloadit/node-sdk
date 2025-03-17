@@ -737,15 +737,15 @@ export class Transloadit {
         const { body } = await request
         return body
       } catch (err) {
-        if (!(err instanceof got.HTTPError)) throw err
+        if (!(err instanceof got.RequestError)) throw err
 
-        const { statusCode, body } = err.response
-        logWarn('HTTP error', statusCode, body)
+        if (err instanceof got.HTTPError) {
+          const { statusCode, body } = err.response
+          logWarn('HTTP error', statusCode, body)
 
-        // check whether we should retry
-        // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
-        if (
-          !(
+          // check whether we should retry
+          // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+          if (
             typeof body === 'object' &&
             body != null &&
             'error' in body &&
@@ -756,21 +756,22 @@ export class Transloadit {
             typeof body.info.retryIn === 'number' &&
             Boolean(body.info.retryIn) &&
             retryCount < this._maxRetries && // 413 taken from https://transloadit.com/blog/2012/04/introducing-rate-limiting/
-            // todo can it be removed?
+            // todo can 413 be removed?
             ((statusCode === 413 && body.error === 'RATE_LIMIT_REACHED') || statusCode === 429)
-          )
-        ) {
+          ) {
+            const { retryIn: retryInSec } = body.info
+            logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
+            const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
+            await new Promise((resolve) => setTimeout(resolve, retryInMs))
+            // Retry
+          }
+        } else {
+          // RequestError
           throw new ApiError({
             cause: err,
-            body: body as TransloaditErrorResponseBody,
+            body: err.response?.body as TransloaditErrorResponseBody | undefined,
           }) // todo don't assert type
         }
-
-        const { retryIn: retryInSec } = body.info
-        logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
-        const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
-        await new Promise((resolve) => setTimeout(resolve, retryInMs))
-        // Retry
       }
     }
   }

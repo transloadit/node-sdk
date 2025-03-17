@@ -1,4 +1,4 @@
-import { HTTPError } from 'got'
+import { HTTPError, RequestError } from 'got'
 
 export interface TransloaditErrorResponseBody {
   error?: string
@@ -17,13 +17,14 @@ export class ApiError extends Error {
   assemblySslUrl?: string
   assemblyId?: string
 
-  override cause?: HTTPError | undefined
+  override cause?: RequestError | undefined
 
-  constructor(params: { cause?: HTTPError; body: TransloaditErrorResponseBody | undefined }) {
+  constructor(params: { cause?: RequestError; body: TransloaditErrorResponseBody | undefined }) {
     const { cause, body = {} } = params
 
     const parts = ['API error']
-    if (cause?.response.statusCode) parts.push(`(HTTP ${cause.response.statusCode})`)
+    if (cause instanceof HTTPError && cause?.response.statusCode)
+      parts.push(`(HTTP ${cause.response.statusCode})`)
     if (body.error) parts.push(`${body.error}:`)
     if (body.message) parts.push(body.message)
     if (body.assembly_ssl_url) parts.push(body.assembly_ssl_url)
