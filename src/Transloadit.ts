@@ -764,13 +764,14 @@ export class Transloadit {
             const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
             await new Promise((resolve) => setTimeout(resolve, retryInMs))
             // Retry
+          } else {
+            throw new ApiError({
+              cause: err,
+              body: err.response?.body as TransloaditErrorResponseBody | undefined,
+            }) // todo don't assert type
           }
         } else {
-          // RequestError
-          throw new ApiError({
-            cause: err,
-            body: err.response?.body as TransloaditErrorResponseBody | undefined,
-          }) // todo don't assert type
+          throw err
         }
       }
     }
