@@ -1,4 +1,4 @@
-import { HTTPError, Transloadit } from '../src/Transloadit'
+import { RequestError, Transloadit } from '../src/Transloadit'
 
 export const createProxy = (transloaditInstance: Transloadit) => {
   return new Proxy(transloaditInstance, {
@@ -14,8 +14,8 @@ export const createProxy = (transloaditInstance: Transloadit) => {
           }
 
           // @ts-expect-error any
-          return result.catch((err) => {
-            if (err instanceof Error && 'cause' in err && err.cause instanceof HTTPError) {
+          const newPromise = result.catch((err) => {
+            if (err instanceof Error && 'cause' in err && err.cause instanceof RequestError) {
               if (err.cause.request) {
                 Object.defineProperty(err.cause.request, 'toJSON', {
                   value: () => undefined,
@@ -37,6 +37,12 @@ export const createProxy = (transloaditInstance: Transloadit) => {
             }
             throw err
           })
+
+          // pass on the assembly id if present
+          if (result?.assemblyId != null) {
+            Object.assign(newPromise, { assemblyId: result.assemblyId })
+          }
+          return newPromise
         }
       }
 
