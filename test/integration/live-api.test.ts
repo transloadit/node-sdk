@@ -55,7 +55,10 @@ function createClient(opts = {}) {
     ],
   }
 
-  return createProxy(new Transloadit({ authKey, authSecret, gotRetry, ...opts }))
+  // lower timeout so we don't get a race condition with test timeout which is 60sec
+  const timeout = 30000
+
+  return createProxy(new Transloadit({ authKey, authSecret, gotRetry, timeout, ...opts }))
 }
 
 function createAssembly(client: Transloadit, params: CreateAssemblyOptions) {

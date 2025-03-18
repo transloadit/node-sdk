@@ -16,31 +16,29 @@ export const createProxy = (transloaditInstance: Transloadit) => {
           // @ts-expect-error any
           const newPromise = result.catch((err) => {
             if (err instanceof Error && 'cause' in err && err.cause instanceof RequestError) {
-              if (err.cause.request) {
-                if (err.cause.request != null) {
-                  Object.defineProperty(err.cause.request, 'toJSON', {
-                    value: () => undefined,
-                    enumerable: false,
-                  })
-                }
-                if (err.cause.response != null) {
-                  Object.defineProperty(err.cause.response, 'toJSON', {
-                    value: () => undefined,
-                    enumerable: false,
-                  })
-                }
-                if (err.cause.options != null) {
-                  Object.defineProperty(err.cause.options, 'toJSON', {
-                    value: () => undefined,
-                    enumerable: false,
-                  })
-                }
-                if (err.cause.timings != null) {
-                  Object.defineProperty(err.cause.timings, 'toJSON', {
-                    value: () => undefined,
-                    enumerable: false,
-                  })
-                }
+              if (err.cause.request != null) {
+                Object.defineProperty(err.cause.request, 'toJSON', {
+                  value: () => undefined,
+                  enumerable: false,
+                })
+              }
+              if (err.cause.response != null) {
+                Object.defineProperty(err.cause.response, 'toJSON', {
+                  value: () => undefined,
+                  enumerable: false,
+                })
+              }
+              if (err.cause.options != null) {
+                Object.defineProperty(err.cause.options, 'toJSON', {
+                  value: () => undefined,
+                  enumerable: false,
+                })
+              }
+              if (err.cause.timings != null) {
+                Object.defineProperty(err.cause.timings, 'toJSON', {
+                  value: () => undefined,
+                  enumerable: false,
+                })
               }
             }
             throw err
