@@ -1,8 +1,14 @@
 import { Readable } from 'stream'
-import { PaginationList } from './Transloadit'
+import { PaginationList, PaginationListWithCount } from './apiTypes'
 
 // eslint-disable-next-line no-unused-vars
-type FetchPage<T> = (pageno: number) => PaginationList<T> | PromiseLike<PaginationList<T>>
+type FetchPage<T> = (
+  pageno: number
+) =>
+  | PaginationList<T>
+  | PromiseLike<PaginationList<T>>
+  | PaginationListWithCount<T>
+  | PromiseLike<PaginationListWithCount<T>>
 
 export default class PaginationStream<T> extends Readable {
   private _fetchPage: FetchPage<T>
@@ -33,8 +39,10 @@ export default class PaginationStream<T> extends Readable {
     }
 
     try {
-      const { count, items } = await this._fetchPage(++this._pageno)
-      this._nitems = count
+      const { items, ...rest } = await this._fetchPage(++this._pageno)
+      if ('count' in rest) {
+        this._nitems = rest.count
+      }
 
       this._items = Array.from(items)
       this._items.reverse()

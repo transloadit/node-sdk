@@ -252,6 +252,7 @@ describe('Transloadit', () => {
       // @ts-expect-error This tests private internals
       const prepareParamsSpy = vi.spyOn(client, '_prepareParams')
 
+      // @ts-expect-error don't want to rewrite this test
       const r = client.calcSignature(params)
 
       expect(r.params).toBe(

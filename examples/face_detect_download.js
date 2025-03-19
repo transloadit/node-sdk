@@ -13,6 +13,7 @@
 const got = require('got')
 const { createWriteStream } = require('fs')
 const { Transloadit } = require('transloadit')
+const assert = require('assert')
 
 const transloadit = new Transloadit({
   authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
@@ -23,7 +24,7 @@ const filePath = process.argv[2]
 
 ;(async () => {
   try {
-    const opts = {
+    const status = await transloadit.createAssembly({
       files: {
         file1: filePath,
       },
@@ -40,14 +41,14 @@ const filePath = process.argv[2]
         },
       },
       waitForCompletion: true,
-    }
-
-    const status = await transloadit.createAssembly(opts)
+    })
 
     // Now save the file
     const outPath = './output-face.jpg'
     const stream = createWriteStream(outPath)
-    await got.default.stream(status.results.facesDetected[0].url).pipe(stream)
+    const { url } = status.results.facesDetected[0]
+    assert(url != null)
+    await got.default.stream(url).pipe(stream)
     console.log('Your cropped face has been saved to', outPath)
   } catch (err) {
     console.error('createAssembly failed', err)

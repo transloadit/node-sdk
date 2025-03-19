@@ -13,6 +13,7 @@ const transloadit = new Transloadit({
   authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
 })
 
+/** @type {import('transloadit').TemplateContent} */
 const template = {
   steps: {
     encode: {
@@ -22,7 +23,7 @@ const template = {
     },
     thumbnail: {
       use: 'encode',
-      robot: '/video/thumbnails',
+      robot: '/video/thumbs',
     },
   },
 }

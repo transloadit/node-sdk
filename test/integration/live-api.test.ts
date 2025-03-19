@@ -10,9 +10,16 @@ import got, { RequiredRetryOptions } from 'got'
 import intoStream = require('into-stream')
 import debug = require('debug')
 
-import { CreateAssemblyOptions, Transloadit, UploadProgress } from '../../src/Transloadit'
+import {
+  CreateAssemblyOptions,
+  CreateAssemblyParams,
+  Transloadit,
+  UploadProgress,
+} from '../../src/Transloadit'
 import { createTestServer, TestServer } from '../testserver'
 import { createProxy } from '../util'
+import { RobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize'
+import { RobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter'
 
 const log = debug('transloadit:live-api')
 
@@ -72,19 +79,19 @@ function createAssembly(client: Transloadit, params: CreateAssemblyOptions) {
 const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
 const sampleSvg =
   '<?xml version="1.0" standalone="no"?><svg height="100" width="100"><circle cx="50" cy="50" r="40" fill="red" /></svg>'
-const resizeOriginalStep = {
+const resizeOriginalStep: RobotImageResizeInstructionsInput = {
   robot: '/image/resize',
   use: ':original',
   result: true,
   width: 130,
   height: 130,
 }
-const dummyStep = {
+const dummyStep: RobotFileFilterInstructionsInput = {
   use: ':original',
   robot: '/file/filter',
   accepts: [],
 }
-const genericParams = {
+const genericParams: CreateAssemblyParams = {
   steps: {
     import: {
       robot: '/http/import',
@@ -194,7 +201,7 @@ describe('API integration', { timeout: 60000 }, () => {
     it("should signal an error if a file selected for upload doesn't exist", async () => {
       const client = createClient()
 
-      const params = {
+      const promise = createAssembly(client, {
         params: {
           steps: {
             resize: resizeOriginalStep,
@@ -203,9 +210,7 @@ describe('API integration', { timeout: 60000 }, () => {
         files: {
           original: temp.path({ suffix: '.transloadit.jpg' }), // Non-existing path
         },
-      }
-
-      const promise = createAssembly(client, params)
+      })
       await expect(promise).rejects.toThrow()
       await expect(promise).rejects.toThrow(expect.objectContaining({ code: 'ENOENT' }))
     })
@@ -232,15 +237,13 @@ describe('API integration', { timeout: 60000 }, () => {
     it('should allow setting fields', async () => {
       const client = createClient()
 
-      const params = {
+      const result = await createAssembly(client, {
         waitForCompletion: true,
         params: {
           fields: { myField: 'test', num: 1, obj: { foo: 'bar' } },
           steps: { resize: resizeOriginalStep },
         },
-      }
-
-      const result = await createAssembly(client, params)
+      })
       expect(result.fields.myField).toBe('test')
       expect(result.fields.num).toBe(1)
       expect(result.fields.obj).toStrictEqual({ foo: 'bar' })
@@ -442,7 +445,8 @@ describe('API integration', { timeout: 60000 }, () => {
       const server = await createVirtualTestServer(handleRequest)
 
       try {
-        const params = {
+        // Finally send the createAssembly request
+        const { assembly_id: id } = await createAssembly(client, {
           params: {
             steps: {
               import: {
@@ -458,10 +462,7 @@ describe('API integration', { timeout: 60000 }, () => {
               },
             },
           },
-        }
-
-        // Finally send the createAssembly request
-        const { assembly_id: id } = await createAssembly(client, params)
+        })
 
         const awaitCompletionPromise = (async () => {
           try {

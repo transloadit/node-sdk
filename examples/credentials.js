@@ -17,6 +17,9 @@ const transloadit = new Transloadit({
 const firstName = 'myProductionS3'
 const secondName = 'myStagingS3'
 
+/**
+ * @type {import('transloadit').CreateTemplateCredentialParams}
+ */
 const credentialParams = {
   name: firstName,
   type: 's3',

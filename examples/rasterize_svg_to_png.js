@@ -17,7 +17,7 @@ const filePath = process.argv[2]
 
 ;(async () => {
   try {
-    const opts = {
+    const status = await transloadit.createAssembly({
       files: {
         file1: filePath,
       },
@@ -31,9 +31,7 @@ const filePath = process.argv[2]
         },
       },
       waitForCompletion: true,
-    }
-
-    const status = await transloadit.createAssembly(opts)
+    })
     console.log('Your PNG file:', status.results.png[0].url)
   } catch (err) {
     console.error('createAssembly failed', err)

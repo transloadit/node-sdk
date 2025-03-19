@@ -4,7 +4,8 @@ import { OnSuccessPayload, Upload, UploadOptions } from 'tus-js-client'
 import { stat } from 'fs/promises'
 import pMap from 'p-map'
 import type { Readable } from 'stream'
-import type { Assembly, UploadProgress } from './Transloadit'
+import type { UploadProgress } from './Transloadit'
+import { AssemblyStatus } from './alphalib/types/assemblyStatus'
 
 const log = debug('transloadit')
 
@@ -15,7 +16,7 @@ export interface Stream {
 
 interface SendTusRequestOptions {
   streamsMap: Record<string, Stream>
-  assembly: Assembly
+  assembly: AssemblyStatus
   requestedChunkSize: number
   uploadConcurrency: number
   onProgress: (options: UploadProgress) => void
