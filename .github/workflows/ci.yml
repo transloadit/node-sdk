@@ -102,7 +102,6 @@ jobs:
       - prettier
       - typescript
       - vitest
-      - coverage
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       id-token: write
