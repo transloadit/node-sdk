@@ -52,10 +52,10 @@ export const assemblyInstructionsSchema = z.object({
       'Transloadit can send a Pingback to your server when the Assembly is completed. We’ll send the Assembly status in a form url-encoded JSON string inside of a transloadit field in a multipart POST request to the URL supplied here.',
     ),
   fields: z
-    .record(z.union([z.number(), z.string()]))
+    .record(z.any())
     .optional()
     .describe(
-      'An object of string to string pairs (name -> value) that can be used as Assembly Variables, just like additional form fields can.',
+      'An object of string keyed values (name -> value) that can be used as Assembly Variables, just like additional form fields can. You can use anything that is JSON stringifyable as a value',
     ),
   quiet: z
     .boolean()
