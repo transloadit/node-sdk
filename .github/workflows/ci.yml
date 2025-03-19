@@ -106,6 +106,9 @@ jobs:
     permissions:
       id-token: write
     steps:
+      - uses: softprops/action-gh-release@v1
+        with:
+          draft: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
