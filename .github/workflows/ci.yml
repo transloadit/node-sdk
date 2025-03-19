@@ -105,6 +105,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       id-token: write
+      contents: write
     steps:
       - uses: softprops/action-gh-release@v1
         with:
