@@ -25,7 +25,7 @@ yarn upgrade-interactive
 This project is linted using [ESLint](https://eslint.org). You can lint the project by running:
 
 ```sh
-yarn eslint .
+yarn lint:js
 ```
 
 ## Formatting
@@ -33,7 +33,7 @@ yarn eslint .
 This project is formatted using [Prettier](https://prettier.io). You can check format the project:
 
 ```sh
-prettier --write .
+yarn fix:formatting
 ```
 
 ## Testing
@@ -45,8 +45,10 @@ This project is tested using [Vitest](https://vitest.dev). There are two kinds o
 Unit tests are in the [`test/unit`](test/unit) folder of the project. You can run them using the following command:
 
 ```sh
-yarn vitest test/unit
+yarn yarn test:unit
 ```
+
+This will also generate a coverage report in the `coverage` directory.
 
 ### Integration tests
 
@@ -64,8 +66,18 @@ They also require a Transloadit key and secret, which you can get from https://t
 You can run the integration tests with:
 
 ```sh
-TRANSLOADIT_KEY='YOUR_TRANSLOADIT_KEY' TRANSLOADIT_SECRET='YOUR_TRANSLOADIT_SECRET' CLOUDFLARED_PATH='./cloudflared-linux-amd64' vitest run test/integration
+TRANSLOADIT_KEY='YOUR_TRANSLOADIT_KEY' TRANSLOADIT_SECRET='YOUR_TRANSLOADIT_SECRET' CLOUDFLARED_PATH='./cloudflared-linux-amd64' yarn test:integration
 ```
+
+### Code Coverage
+
+Coverage reports are:
+
+- Generated locally in the `coverage` directory
+- Uploaded to Codecov for tracking
+- Enforced in CI (builds will fail if coverage drops below thresholds)
+
+View the coverage report locally by opening `coverage/index.html` in your browser.
 
 ## Releasing
 
