@@ -79,14 +79,6 @@ export interface ReplayAssemblyNotificationResponse {
   notification_id: string
 }
 
-export type ListAssemblyNotificationsParams = OptionalAuthParams & {
-  [key: string]: any // todo
-}
-
-export type AssemblyNotification = {
-  [key: string]: any // todo
-}
-
 export type TemplateContent = Pick<
   CreateAssemblyParams,
   'allow_steps_override' | 'steps' | 'auth' | 'notify_url'

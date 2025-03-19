@@ -24,8 +24,6 @@ import type {
   CreateTemplateParams,
   EditTemplateParams,
   ListAssembliesParams,
-  AssemblyNotification,
-  ListAssemblyNotificationsParams,
   ListedAssembly,
   ListedTemplate,
   ListTemplateCredentialsParams,
@@ -409,28 +407,6 @@ export class Transloadit {
       method: 'post',
       ...(Object.keys(params).length > 0 && { params }),
     })
-  }
-
-  /**
-   * List all assembly notifications
-   *
-   * @param params optional request options
-   * @returns the list of Assembly notifications
-   */
-  async listAssemblyNotifications(
-    params: ListAssemblyNotificationsParams
-  ): Promise<PaginationListWithCount<AssemblyNotification>> {
-    return this._remoteJson({
-      urlSuffix: '/assembly_notifications',
-      method: 'get',
-      params: params || {},
-    })
-  }
-
-  streamAssemblyNotifications(
-    params: ListAssemblyNotificationsParams
-  ): PaginationStream<AssemblyNotification> {
-    return new PaginationStream(async (page) => this.listAssemblyNotifications({ ...params, page }))
   }
 
   /**
