@@ -13,8 +13,11 @@ export class ApiError extends Error {
   // there might not be an error code (or message) if the server didn't respond with any JSON response at all
   // e.g. if there was a 500 in the HTTP reverse proxy
   code?: string
+
   rawMessage?: string
+
   assemblySslUrl?: string
+
   assemblyId?: string
 
   override cause?: RequestError | undefined

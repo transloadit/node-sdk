@@ -1,5 +1,6 @@
 import { RequestError, Transloadit } from '../src/Transloadit'
 
+// eslint-disable-next-line import/prefer-default-export
 export const createProxy = (transloaditInstance: Transloadit) => {
   return new Proxy(transloaditInstance, {
     get(target, propKey) {

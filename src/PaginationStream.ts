@@ -1,13 +1,18 @@
 import { Readable } from 'stream'
 import { PaginationList } from './Transloadit'
 
+// eslint-disable-next-line no-unused-vars
 type FetchPage<T> = (pageno: number) => PaginationList<T> | PromiseLike<PaginationList<T>>
 
-export class PaginationStream<T> extends Readable {
+export default class PaginationStream<T> extends Readable {
   private _fetchPage: FetchPage<T>
+
   private _nitems?: number
+
   private _pageno = 0
+
   private _items: T[] = []
+
   private _itemsRead = 0
 
   constructor(fetchPage: FetchPage<T>) {

@@ -2,9 +2,9 @@ import { Readable } from 'stream'
 import FormData from 'form-data'
 import got, { CancelableRequest } from 'got'
 
+import { version } from '../../package.json'
 import * as tus from '../../src/tus'
 import { Transloadit } from '../../src/Transloadit'
-import { version } from 'transloadit/package.json'
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
 const mockGetExpiresDate = (client: Transloadit) =>
@@ -129,6 +129,7 @@ describe('Transloadit', () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const name = 'foo_name'
+      // eslint-disable-next-line no-use-before-define
       const pause = vi.fn(() => mockStream)
       const mockStream = {
         pause,

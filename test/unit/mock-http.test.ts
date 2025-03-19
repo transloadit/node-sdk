@@ -4,12 +4,13 @@ import { inspect } from 'node:util'
 import {
   ApiError,
   InconsistentResponseError,
+  Options,
   TimeoutError,
   Transloadit,
 } from '../../src/Transloadit'
 import { createProxy } from '../util'
 
-const getLocalClient = (opts?: Omit<Transloadit.Options, 'authKey' | 'authSecret' | 'endpoint'>) =>
+const getLocalClient = (opts?: Omit<Options, 'authKey' | 'authSecret' | 'endpoint'>) =>
   createProxy(
     new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
   )

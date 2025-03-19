@@ -1,6 +1,6 @@
 import { Writable } from 'stream'
 
-import { PaginationStream } from '../../src/PaginationStream'
+import PaginationStream from '../../src/PaginationStream'
 
 const toArray = (callback: (list: number[]) => void) => {
   const writable = new Writable({ objectMode: true })

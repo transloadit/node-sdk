@@ -8,6 +8,11 @@ import type { Assembly, UploadProgress } from './Transloadit'
 
 const log = debug('transloadit')
 
+export interface Stream {
+  path?: string
+  stream: Readable
+}
+
 interface SendTusRequestOptions {
   streamsMap: Record<string, Stream>
   assembly: Assembly
@@ -114,9 +119,4 @@ export async function sendTusRequest({
   }
 
   await pMap(streamLabels, uploadSingleStream, { concurrency: uploadConcurrency })
-}
-
-export interface Stream {
-  path?: string
-  stream: Readable
 }

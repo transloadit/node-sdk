@@ -3,9 +3,9 @@ import { setTimeout } from 'timers/promises'
 import got from 'got'
 import debug from 'debug'
 
-const log = debug('transloadit:testserver')
-
 import { createTunnel, CreateTunnelResult } from './tunnel'
+
+const log = debug('transloadit:testserver')
 
 interface HttpServer {
   server: Server
@@ -26,7 +26,7 @@ async function createHttpServer(handler: RequestListener): Promise<HttpServer> {
       })
     }
     server.on('error', (err) => {
-      if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+      if ('code' in err && err.code === 'EADDRINUSE') {
         if (++port >= 65535) {
           server.close()
           reject(new Error('Failed to find any free port to listen on'))
@@ -92,7 +92,7 @@ export async function createTestServer(onRequest: RequestListener) {
         try {
           await got(`${tunnelPublicUrl}${expectedPath}`, { timeout: { request: 2000 } })
           return
-        } catch (err) {
+        } catch {
           // console.error(err.message)
           await setTimeout(3000)
         }

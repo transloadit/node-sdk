@@ -87,6 +87,12 @@ async function startTunnel({
   }
 }
 
+export interface CreateTunnelResult {
+  process?: execa.ExecaChildProcess
+  urlPromise: Promise<string>
+  close: () => Promise<void>
+}
+
 export function createTunnel({
   cloudFlaredPath = 'cloudflared',
   port,
@@ -135,10 +141,4 @@ export function createTunnel({
     urlPromise,
     close,
   }
-}
-
-export interface CreateTunnelResult {
-  process?: execa.ExecaChildProcess
-  urlPromise: Promise<string>
-  close: () => Promise<void>
 }
