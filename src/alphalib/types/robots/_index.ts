@@ -92,6 +92,7 @@ import { robotGoogleImportInstructionsSchema, meta as googleImportMeta } from '.
 import { robotGoogleStoreInstructionsSchema, meta as googleStoreMeta } from './google-store.ts'
 import { robotHtmlConvertInstructionsSchema, meta as htmlConvertMeta } from './html-convert.ts'
 import { robotHttpImportInstructionsSchema, meta as httpImportMeta } from './http-import.ts'
+import { robotImageBgremoveInstructionsSchema } from './image-bgremove.ts'
 import {
   robotImageDescribeInstructionsSchema,
   meta as imageDescribeMeta,
@@ -110,12 +111,7 @@ import {
   robotImageOptimizeInstructionsSchema,
   meta as imageOptimizeMeta,
 } from './image-optimize.ts'
-import { robotImageRemoveBackgroundInstructionsSchema } from './image-remove-background.ts'
 import { robotImageResizeInstructionsSchema, meta as imageResizeMeta } from './image-resize.ts'
-import {
-  robotMediaPlaylistInstructionsSchema,
-  meta as mediaPlaylistMeta,
-} from './media-playlist.ts'
 import { robotMetaWriteInstructionsSchema, meta as metaWriteMeta } from './meta-write.ts'
 import { robotMinioImportInstructionsSchema, meta as minioImportMeta } from './minio-import.ts'
 import { robotMinioStoreInstructionsSchema, meta as minioStoreMeta } from './minio-store.ts'
@@ -208,13 +204,13 @@ const robotStepsInstructions = [
   robotGoogleStoreInstructionsSchema,
   robotHtmlConvertInstructionsSchema,
   robotHttpImportInstructionsSchema,
+  robotImageBgremoveInstructionsSchema,
   robotImageDescribeInstructionsSchema,
   robotImageFacedetectInstructionsSchema,
   robotImageMergeInstructionsSchema,
   robotImageOcrInstructionsSchema,
   robotImageOptimizeInstructionsSchema,
   robotImageResizeInstructionsSchema,
-  robotMediaPlaylistInstructionsSchema,
   robotMetaWriteInstructionsSchema,
   robotMinioImportInstructionsSchema,
   robotMinioStoreInstructionsSchema,
@@ -294,7 +290,6 @@ const robotStepsInstructionsWithHiddenFields = [
   robotImageOcrInstructionsSchema,
   robotImageOptimizeInstructionsSchema,
   robotImageResizeInstructionsSchema,
-  robotMediaPlaylistInstructionsSchema,
   robotMetaWriteInstructionsSchema,
   robotMinioImportInstructionsSchema,
   robotMinioStoreInstructionsSchema,
@@ -342,14 +337,12 @@ export const robotsWithHiddenBotsSchema = z.discriminatedUnion('robot', [
   ...robotStepsInstructions,
   robotFileWatermarkInstructionsSchema,
   robotImageGenerateInstructionsSchema,
-  robotImageRemoveBackgroundInstructionsSchema,
   robotProgressSimulateInstructionsSchema,
 ])
 export const robotsWithHiddenBotsAndFieldsSchema = z.discriminatedUnion('robot', [
   ...robotStepsInstructionsWithHiddenFields,
   robotFileWatermarkInstructionsSchema,
   robotImageGenerateInstructionsWithHiddenFieldsSchema,
-  robotImageRemoveBackgroundInstructionsSchema,
   robotProgressSimulateInstructionsSchema,
 ])
 
@@ -403,7 +396,6 @@ export const robotsMeta = {
   imageOcrMeta,
   imageOptimizeMeta,
   imageResizeMeta,
-  mediaPlaylistMeta,
   metaWriteMeta,
   minioImportMeta,
   minioStoreMeta,

@@ -102,9 +102,6 @@ Splits the video into multiple chunks so that each chunk can be encoded in paral
     chunk_duration: z.number().int().min(1).optional().describe(`
 Allows you to specify the duration of each chunk when \`turbo\` is set to \`true\`. This means you can take advantage of that feature while using fewer <dfn>Priority Job Slots</dfn>. For instance, the longer each chunk is, the fewer <dfn>Encoding Jobs</dfn> will need to be used.
 `),
-    freeze_detect: z.boolean().default(false).describe(`
-Examines the transcoding result file for video freeze frames and re-transcodes the video a second time if they are found. This is useful when you are using \`turbo: true\` because freeze frames can sometimes happen there. The re-transcode would then happen without turbo mode.
-`),
     watermark_url: z.string().default('').describe(`
 A URL indicating a PNG image to be overlaid above this image. You can also [supply the watermark via another Assembly Step](/docs/transcoding/video-encoding/video-encode/#watermark-parameters-video-encode).
 `),

@@ -9,3 +9,6 @@ alwaysApply: false
 - Favor using real paths (`../lib/schemas.ts`) over aliases (`@/app/lib/schemas`).
 - Favor `for (const comment of comments) {` over `comments.forEach((comment) => {`
 - Favor named exports over default exports, with the exception of Next.js pages
+- Do not wrap each function body and function call in `try`/`catch` blocks. It pollutes the code. Assume we will always have an e.g. `main().catch((err) => { console.error(err); process.exit(1) })` to catch us.
+- Before creating new files and new code, see if we can leverage existing work, maybe slighty adapt that without breaking BC, to keep things DRY.
+- Favor early exits, so quickly `continue`, `return false` (or `throw` if needed), over nesting everything in positive conditions, creating christmas trees.
