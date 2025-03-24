@@ -55,6 +55,7 @@ export interface RobotMeta {
     | 'transcribe'
     | 'translate'
     | 'verify'
+    | 'remove'
     | 'write'
 
   purpose_word: string
