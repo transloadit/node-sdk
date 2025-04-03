@@ -1,3 +1,4 @@
+import type { Replace } from 'type-fest'
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
@@ -315,11 +316,72 @@ Selects the FFmpeg stack version to use for encoding. These versions reflect rea
 `),
 })
 
-function preprocessPreset(preset: unknown) {
-  return typeof preset === 'string' ? preset.replaceAll('_', '-') : preset
+/**
+ * Replace all underscores with hyphens.
+ *
+ * @param preset
+ *   The input preset which may contain underscores.
+ * @returns
+ *   The hyphenated preset.
+ */
+function transformPreset<T extends string>(preset: T): Replace<T, '_', '-', { all: true }> {
+  return preset.replaceAll('_', '-') as Replace<T, '_', '-', { all: true }>
 }
 
-const audioPresets = [
+/**
+ * Convert a preset with hyphens to any underscore/hyphen combination.
+ *
+ * @template T
+ *   The preset to process.
+ */
+type ReplacePreset<T extends string> = T extends `${infer T0}-${infer Tail}`
+  ? T | `${T0}-${ReplacePreset<Tail>}` | `${T0}_${ReplacePreset<Tail>}`
+  : T
+
+/**
+ * Generate all possible underscore/hyphen combinations of a preset.
+ *
+ * @param chunks
+ *   A normalized preset split on hyphens.
+ * @returns
+ *   An iterable that yields all possible combinations.
+ */
+function* generateCombinations(chunks: string[]): Iterable<string> {
+  if (chunks.length === 0) {
+    return
+  }
+
+  if (chunks.length === 1) {
+    yield chunks[0]
+  }
+
+  const [head, ...remaining] = chunks
+  for (const result of generateCombinations(remaining)) {
+    yield `${head}-${result}`
+    yield `${head}_${result}`
+  }
+}
+
+/**
+ * Create all possible preset combinations from a list of normalized presets.
+ *
+ * @param inputs
+ *   The hyphenated presets.
+ * @returns
+ *   An array of all possible combinations.
+ */
+function createPresets<T extends string>(
+  inputs: T[],
+): readonly [ReplacePreset<T>, ...ReplacePreset<T>[]] {
+  const results: string[] = []
+  for (const input of inputs) {
+    results.push(...generateCombinations(input.split('-')))
+  }
+
+  return [...results].sort() as [ReplacePreset<T>, ...ReplacePreset<T>[]]
+}
+
+const audioPresets = createPresets([
   'aac',
   'alac',
   'audio/aac',
@@ -344,7 +406,7 @@ const audioPresets = [
   'opus',
   'speech',
   'wav',
-] as const
+])
 
 /**
  * A robot that uses FFmpeg to **output** audio.
@@ -352,7 +414,7 @@ const audioPresets = [
 export type FFmpegAudio = z.infer<typeof robotFFmpegAudio>
 export const robotFFmpegAudio = robotFFmpeg
   .extend({
-    preset: z.preprocess(preprocessPreset, z.enum(audioPresets)).optional().describe(`
+    preset: z.enum(audioPresets).transform(transformPreset).optional().describe(`
 Performs conversion using pre-configured settings.
 
 If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`mp3\` preset is not applied. This is to prevent you from having to override each of the MP3 preset's values manually.
@@ -379,9 +441,8 @@ Height of the new video, in pixels.
 If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied height](/docs/transcoding/video-encoding/video-presets/) will be implemented.
 `),
     preset: z
-      .preprocess(
-        preprocessPreset,
-        z.enum([
+      .enum([
+        ...createPresets([
           'android-high',
           'android-low',
           'android',
@@ -461,9 +522,10 @@ If the value is not specified and the \`preset\` parameter is available, the \`p
           'webm-1080p',
           'webm',
           'wmv',
-          ...audioPresets,
         ]),
-      )
+        ...audioPresets,
+      ])
+      .transform(transformPreset)
       .optional().describe(`
 Converts a video according to [pre-configured settings](/docs/transcoding/video-encoding/video-presets/).
 
@@ -834,3 +896,58 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
     secret: z.string().optional(),
   })
   .strict()
+
+export type FilterExpression = z.infer<typeof filterExpression>
+export const filterExpression = z.union([
+  z.string(),
+  z.number(),
+  z.array(z.union([z.string(), z.number()])),
+])
+
+export type FilterCondition = z.infer<typeof filterCondition>
+export const filterCondition = z
+  .array(
+    z.union([
+      z.tuple([
+        filterExpression,
+        z.union([
+          z.literal('==').describe('Equals without type check'),
+          z.literal('===').describe('Strict equals with type check'),
+          z.literal('<').describe('Less than'),
+          z.literal('>').describe('Greater than'),
+          z.literal('<=').describe('Less or equal'),
+          z.literal('>=').describe('Greater or equal'),
+          z.literal('!=').describe('Simple inequality check without type check'),
+          z.literal('!==').describe('Strict inequality check with type check'),
+          z
+            .literal('regex')
+            .describe(
+              'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `.match()`',
+            ),
+          z
+            .literal('!regex')
+            .describe(
+              'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `!.match()`',
+            ),
+          z
+            .literal('includes')
+            .describe(
+              'Check if the right element is included in the array, which is represented by the left element',
+            ),
+          z
+            .literal('empty')
+            .describe(
+              'Check if the left element is an empty array, an object without properties, an empty string, the number zero or the boolean false. Leave the third element of the array to be an empty string. It won’t be evaluated.',
+            ),
+          z
+            .literal('!empty')
+            .describe(
+              'Check if the left element is an array with members, an object with at least one property, a non-empty string, a number that does not equal zero or the boolean true. Leave the third element of the array to be an empty string. It won’t be evaluated.',
+            ),
+        ]),
+        filterExpression,
+      ]),
+      z.string(),
+    ]),
+  )
+  .default([])

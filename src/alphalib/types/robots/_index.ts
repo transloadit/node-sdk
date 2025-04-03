@@ -325,6 +325,7 @@ const robotStepsInstructionsWithHiddenFields = [
 /**
  * Public robot instructions
  */
+export type RobotsSchema = z.infer<typeof robotsSchema>
 export const robotsSchema = z.discriminatedUnion('robot', [...robotStepsInstructions])
 export const robotsWithHiddenFieldsSchema = z.discriminatedUnion('robot', [
   ...robotStepsInstructionsWithHiddenFields,

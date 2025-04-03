@@ -17,3 +17,4 @@ env.sh
 !.yarn/sdks
 !.yarn/versions
 .aider*
+.DS_Store
