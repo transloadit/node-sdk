@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { filterCondition, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -13,7 +13,7 @@ export const meta: RobotMeta = {
       filtered: {
         robot: '/file/filter',
         use: ':original',
-        declines: [['${file.size}', '&gt;', '20971520']],
+        declines: [['${file.size}', '>', '20971520']],
         error_on_decline: true,
         error_msg: 'File size must not exceed 20 MB',
       },
@@ -77,22 +77,14 @@ Examples:
 
 As indicated, we charge for this via [🤖/script/run](/docs/transcoding/code-evaluation/script-run/). See also [Dynamic Evaluation](/docs/topics/dynamic-evaluation/) for more details on allowed syntax and behavior.
 `),
-    accepts: z
-      .array(
-        z.union([z.string(), z.tuple([z.string(), z.string(), z.union([z.string(), z.number()])])]),
-      )
-      .default([]).describe(`
+    accepts: filterCondition.describe(`
 Files that match at least one requirement will be accepted, or declined otherwise. If the array is empty, all files will be accepted. Example:
 
 \`[["\${file.mime}", "==", "image/gif"]]\`.
 
 If the \`condition_type\` parameter is set to \`"and"\`, then all requirements must match for the file to be accepted.
 `),
-    declines: z
-      .array(
-        z.union([z.string(), z.tuple([z.string(), z.string(), z.union([z.string(), z.number()])])]),
-      )
-      .default([]).describe(`
+    declines: filterCondition.describe(`
 Files that match at least one requirement will be declined, or accepted otherwise. Example:
 
 \`[["\${file.size}",">","1024"]]\`.

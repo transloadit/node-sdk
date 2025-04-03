@@ -13,7 +13,7 @@ export const robotImageGenerateInstructionsSchema = robotBase
       .optional()
       .describe('Format of the generated image.'),
     seed: z.number().optional().describe('Seed for the random number generator.'),
-    aspectRatio: z.string().optional().describe('Aspect ratio of the generated image.'),
+    aspect_ratio: z.string().optional().describe('Aspect ratio of the generated image.'),
     height: z.number().optional().describe('Height of the generated image.'),
     width: z.number().optional().describe('Width of the generated image.'),
     style: z.string().optional().describe('Style of the generated image.'),
