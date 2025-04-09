@@ -1,5 +1,5 @@
 import { createHmac, randomUUID } from 'crypto'
-import got, { RequiredRetryOptions, Headers, OptionsOfJSONResponseBody } from 'got'
+import got, { RetryOptions, Headers, OptionsOfJSONResponseBody, Delays, RequestError, HTTPError } from 'got'
 import FormData from 'form-data'
 import { constants, createReadStream } from 'fs'
 import { access } from 'fs/promises'
@@ -9,13 +9,13 @@ import isStream from 'is-stream'
 import * as assert from 'assert'
 import pMap from 'p-map'
 import type { Readable } from 'stream'
-import InconsistentResponseError from './InconsistentResponseError'
-import PaginationStream from './PaginationStream'
-import PollingTimeoutError from './PollingTimeoutError'
-import { TransloaditErrorResponseBody, ApiError } from './ApiError'
-import { version } from '../package.json'
-import { sendTusRequest, Stream } from './tus'
-import { AssemblyStatus } from './alphalib/types/assemblyStatus'
+import InconsistentResponseError from './InconsistentResponseError.js'
+import PaginationStream from './PaginationStream.js'
+import PollingTimeoutError from './PollingTimeoutError.js'
+import { TransloaditErrorResponseBody, ApiError } from './ApiError.js'
+import packageJson from '../package.json' assert { type: 'json' }
+import { sendTusRequest, Stream } from './tus.js'
+import { AssemblyStatus } from './alphalib/types/assemblyStatus.js'
 import type {
   BaseResponse,
   BillResponse,
@@ -37,9 +37,9 @@ import type {
   TemplateCredentialResponse,
   TemplateCredentialsResponse,
   TemplateResponse,
-} from './apiTypes'
+} from './apiTypes.js'
 
-export type * from './apiTypes'
+export type * from './apiTypes.js'
 
 // See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
 // Expose relevant errors
@@ -61,6 +61,8 @@ export interface UploadProgress {
   uploadedBytes?: number | undefined
   totalBytes?: number | undefined
 }
+
+const { version } = packageJson
 
 export type AssemblyProgress = (assembly: AssemblyStatus) => void
 
@@ -149,7 +151,7 @@ export interface Options {
   endpoint?: string
   maxRetries?: number
   timeout?: number
-  gotRetry?: RequiredRetryOptions
+  gotRetry?: Partial<RetryOptions>
 }
 
 export class Transloadit {
@@ -163,7 +165,7 @@ export class Transloadit {
 
   private _defaultTimeout: number
 
-  private _gotRetry: RequiredRetryOptions | number
+  private _gotRetry: Partial<RetryOptions>
 
   private _lastUsedAssemblyUrl = ''
 
@@ -187,7 +189,7 @@ export class Transloadit {
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
 
     // Passed on to got https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md
-    this._gotRetry = opts.gotRetry != null ? opts.gotRetry : 0
+    this._gotRetry = opts.gotRetry != null ? opts.gotRetry : { limit: 0 }
   }
 
   getLastUsedAssemblyUrl(): string {
@@ -280,7 +282,7 @@ export class Transloadit {
         const result: AssemblyStatus = await this._remoteJson({
           urlSuffix,
           method: 'post',
-          timeout,
+          timeout: { request: timeout },
           params,
           fields: {
             tus_num_expected_upload_files: allStreams.length,
@@ -730,7 +732,7 @@ export class Transloadit {
   private async _remoteJson<TRet, TParams extends OptionalAuthParams>(opts: {
     urlSuffix?: string
     url?: string
-    timeout?: number
+    timeout?: Delays
     method?: 'delete' | 'get' | 'post' | 'put'
     params?: TParams
     fields?: Fields
@@ -739,7 +741,7 @@ export class Transloadit {
     const {
       urlSuffix,
       url: urlInput,
-      timeout = this._defaultTimeout,
+      timeout = { request: this._defaultTimeout },
       method = 'get',
       params = {},
       fields,
@@ -784,9 +786,9 @@ export class Transloadit {
         // console.log(body)
         return body
       } catch (err) {
-        if (!(err instanceof got.RequestError)) throw err
+        if (!(err instanceof RequestError)) throw err
 
-        if (err instanceof got.HTTPError) {
+        if (err instanceof HTTPError) {
           const { statusCode, body } = err.response
           logWarn('HTTP error', statusCode, body)
 

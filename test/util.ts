@@ -18,26 +18,26 @@ export const createProxy = (transloaditInstance: Transloadit) => {
           const newPromise = result.catch((err) => {
             if (err instanceof Error && 'cause' in err && err.cause instanceof RequestError) {
               if (err.cause.request != null) {
-                Object.defineProperty(err.cause.request, 'toJSON', {
-                  value: () => undefined,
+                Object.defineProperty(err.cause, 'request', {
+                  value: err.cause.request,
                   enumerable: false,
                 })
               }
               if (err.cause.response != null) {
-                Object.defineProperty(err.cause.response, 'toJSON', {
-                  value: () => undefined,
+                Object.defineProperty(err.cause, 'response', {
+                  value: err.cause.response,
                   enumerable: false,
                 })
               }
               if (err.cause.options != null) {
-                Object.defineProperty(err.cause.options, 'toJSON', {
-                  value: () => undefined,
+                Object.defineProperty(err.cause, 'options', {
+                  value: err.cause.options,
                   enumerable: false,
                 })
               }
               if (err.cause.timings != null) {
-                Object.defineProperty(err.cause.timings, 'toJSON', {
-                  value: () => undefined,
+                Object.defineProperty(err.cause, 'timings', {
+                  value: err.cause.timings,
                   enumerable: false,
                 })
               }

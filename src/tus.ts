@@ -4,8 +4,8 @@ import { OnSuccessPayload, Upload, UploadOptions } from 'tus-js-client'
 import { stat } from 'fs/promises'
 import pMap from 'p-map'
 import type { Readable } from 'stream'
-import type { UploadProgress } from './Transloadit'
-import { AssemblyStatus } from './alphalib/types/assemblyStatus'
+import type { UploadProgress } from './Transloadit.js'
+import { AssemblyStatus } from './alphalib/types/assemblyStatus.js'
 
 const log = debug('transloadit')
 

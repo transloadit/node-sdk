@@ -6,20 +6,20 @@ import { IncomingMessage, RequestListener } from 'http'
 import { join } from 'path'
 import { pipeline } from 'stream/promises'
 import { setTimeout } from 'timers/promises'
-import got, { RequiredRetryOptions } from 'got'
-import intoStream = require('into-stream')
-import debug = require('debug')
+import got, { RetryOptions } from 'got'
+import intoStream from 'into-stream'
+import debug from 'debug'
 
 import {
   CreateAssemblyOptions,
   CreateAssemblyParams,
   Transloadit,
   UploadProgress,
-} from '../../src/Transloadit'
-import { createTestServer, TestServer } from '../testserver'
-import { createProxy } from '../util'
-import { RobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize'
-import { RobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter'
+} from '../../src/Transloadit.js'
+import { createTestServer, TestServer } from '../testserver.js'
+import { createProxy } from '../util.js'
+import { RobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize.js'
+import { RobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter.js'
 
 const log = debug('transloadit:live-api')
 
@@ -37,7 +37,7 @@ function createClient(opts = {}) {
   }
 
   // https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md#retry
-  const gotRetry: RequiredRetryOptions = {
+  const gotRetry: Partial<RetryOptions> = {
     limit: 2,
     methods: [
       'GET',

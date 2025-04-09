@@ -1,12 +1,14 @@
 {
   "include": ["src"],
-  "exclude": ["coverage", "dist"],
+  "exclude": ["test", "coverage", "dist"],
   "compilerOptions": {
     "composite": true,
     "declaration": true,
     "declarationMap": true,
     "isolatedModules": true,
-    "module": "node16",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
     "noImplicitOverride": true,
     "rewriteRelativeImportExtensions": true,
     "outDir": "dist",

@@ -4,7 +4,7 @@
   "compilerOptions": {
     "checkJs": true,
     "isolatedModules": true,
-    "module": "node16",
+    "module": "NodeNext",
     "noImplicitOverride": true,
     "rewriteRelativeImportExtensions": true,
     "noEmit": true,

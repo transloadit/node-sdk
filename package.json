@@ -2,6 +2,7 @@
   "name": "transloadit",
   "version": "4.0.0-4",
   "description": "Node.js SDK for Transloadit",
+  "type": "module",
   "keywords": [
     "transloadit",
     "encoding",
@@ -20,7 +21,7 @@
     "@aws-sdk/s3-request-presigner": "^3.758.0",
     "debug": "^4.4.0",
     "form-data": "^4.0.2",
-    "got": "^11.8.6",
+    "got": "13",
     "into-stream": "^6.0.0",
     "is-stream": "^2.0.1",
     "p-map": "^4.0.0",
@@ -82,8 +83,12 @@
   },
   "license": "MIT",
   "main": "./dist/Transloadit.js",
+  "types": "./dist/Transloadit.d.ts",
   "exports": {
-    ".": "./dist/Transloadit.js",
+    ".": {
+      "import": "./dist/Transloadit.js",
+      "types": "./dist/Transloadit.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [

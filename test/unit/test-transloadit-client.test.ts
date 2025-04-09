@@ -2,9 +2,11 @@ import { Readable } from 'stream'
 import FormData from 'form-data'
 import got, { CancelableRequest } from 'got'
 
-import { version } from '../../package.json'
-import * as tus from '../../src/tus'
-import { Transloadit } from '../../src/Transloadit'
+import packageJson from '../../package.json' assert { type: 'json' }
+import * as tus from '../../src/tus.js'
+import { Transloadit } from '../../src/Transloadit.js'
+
+const { version } = packageJson
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
 const mockGetExpiresDate = (client: Transloadit) =>
@@ -272,7 +274,7 @@ describe('Transloadit', () => {
 
     await client.createAssembly()
 
-    expect(spy).toBeCalledWith(expect.objectContaining({ timeout: 24 * 60 * 60 * 1000 }))
+    expect(spy).toBeCalledWith(expect.objectContaining({ timeout: { request: 24 * 60 * 60 * 1000 } }))
   })
 
   describe('_calcSignature', () => {

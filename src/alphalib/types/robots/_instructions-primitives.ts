@@ -1,8 +1,8 @@
 import type { Replace } from 'type-fest'
 import { z } from 'zod'
 
-import { stackVersions } from '../stackVersions.ts'
-import type { assemblyInstructionsSchema } from '../template'
+import { stackVersions } from '../stackVersions.js'
+import type { assemblyInstructionsSchema } from '../template.js'
 
 export const interpolationSchemaToYieldNumber = z.string().regex(/^[\d.]*\${.+}[\d.]*$/)
 export const interpolationSchemaToYieldString = z.string().regex(/\${.+}/)

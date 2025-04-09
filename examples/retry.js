@@ -8,8 +8,8 @@
 //
 //   yarn prepack
 //
-const pRetry = require('p-retry')
-const { Transloadit, ApiError } = require('transloadit')
+import pRetry from 'p-retry'
+import { Transloadit, ApiError } from 'transloadit'
 
 const transloadit = new Transloadit({
   authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
@@ -30,10 +30,8 @@ async function run() {
   }
 }
 
-;(async () => {
-  try {
-    console.log(await pRetry(run, { retries: 5 }))
-  } catch (err) {
-    console.error('Operation failed', err)
-  }
-})()
+try {
+  console.log(await pRetry(run, { retries: 5 }))
+} catch (err) {
+  console.error('Operation failed', err)
+}

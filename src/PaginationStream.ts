@@ -1,5 +1,5 @@
 import { Readable } from 'stream'
-import { PaginationList, PaginationListWithCount } from './apiTypes'
+import { PaginationList, PaginationListWithCount } from './apiTypes.js'
 
 // eslint-disable-next-line no-unused-vars
 type FetchPage<T> = (

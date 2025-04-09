@@ -47,7 +47,7 @@ npm install --save transloadit
 The following code will upload an image and resize it to a thumbnail:
 
 ```javascript
-const { Transloadit } = require('transloadit')
+import { Transloadit } from 'transloadit'
 
 const transloadit = new Transloadit({
   authKey: 'YOUR_TRANSLOADIT_KEY',
