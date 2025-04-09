@@ -19,8 +19,14 @@ export const createProxy = (transloaditInstance: Transloadit) => {
           const newPromise = result.catch((err) => {
             if (err instanceof Error && 'cause' in err && err.cause instanceof RequestError) {
               if (err.cause.request != null) {
+                // for util.inspect:
                 Object.defineProperty(err.cause, 'request', {
                   value: err.cause.request,
+                  enumerable: false,
+                })
+                // for vitest "Serialized Error"
+                Object.defineProperty(err.cause.request, 'toJSON', {
+                  value: () => undefined,
                   enumerable: false,
                 })
               }
@@ -29,16 +35,28 @@ export const createProxy = (transloaditInstance: Transloadit) => {
                   value: err.cause.response,
                   enumerable: false,
                 })
+                Object.defineProperty(err.cause.response, 'toJSON', {
+                  value: () => undefined,
+                  enumerable: false,
+                })
               }
               if (err.cause.options != null) {
                 Object.defineProperty(err.cause, 'options', {
                   value: err.cause.options,
                   enumerable: false,
                 })
+                Object.defineProperty(err.cause.options, 'toJSON', {
+                  value: () => undefined,
+                  enumerable: false,
+                })
               }
               if (err.cause.timings != null) {
                 Object.defineProperty(err.cause, 'timings', {
                   value: err.cause.timings,
+                  enumerable: false,
+                })
+                Object.defineProperty(err.cause.timings, 'toJSON', {
+                  value: () => undefined,
                   enumerable: false,
                 })
               }
