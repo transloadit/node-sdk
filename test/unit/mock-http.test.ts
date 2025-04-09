@@ -7,6 +7,7 @@ import {
   Options,
   TimeoutError,
   Transloadit,
+  assemblyInstructionsSchema,
 } from '../../src/Transloadit.js'
 import { createProxy } from '../util.js'
 
@@ -329,5 +330,9 @@ describe('Mocked API tests', () => {
     } finally {
       scope.done()
     }
+  })
+
+  it('should export assemblyInstructionsSchema', () => {
+    expect(assemblyInstructionsSchema).toBe
   })
 })

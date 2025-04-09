@@ -46,7 +46,9 @@ import type {
   TemplateResponse,
 } from './apiTypes.js'
 
-export type * from './apiTypes.js'
+export * from './apiTypes.js'
+
+export type { AssemblyStatus } from './alphalib/types/assemblyStatus.js'
 
 // See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
 // Expose relevant errors
