@@ -137,11 +137,6 @@ describe('Mocked API tests', () => {
       ),
       expect.stringMatching(`    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+`),
       expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
       expect.stringMatching(`  code: 'INVALID_FILE_META_DATA',`),
       expect.stringMatching(`  rawMessage: 'Invalid file metadata',`),
       expect.stringMatching(

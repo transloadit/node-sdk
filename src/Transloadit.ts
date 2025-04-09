@@ -1,11 +1,18 @@
 import { createHmac, randomUUID } from 'crypto'
-import got, { RetryOptions, Headers, OptionsOfJSONResponseBody, Delays, RequestError, HTTPError } from 'got'
+import got, {
+  RetryOptions,
+  Headers,
+  OptionsOfJSONResponseBody,
+  Delays,
+  RequestError,
+  HTTPError,
+} from 'got'
 import FormData from 'form-data'
 import { constants, createReadStream } from 'fs'
 import { access } from 'fs/promises'
 import debug from 'debug'
-import intoStream from 'into-stream'
-import isStream from 'is-stream'
+import intoStream, { Input as IntoStreamInput } from 'into-stream'
+import { isReadableStream, isStream } from 'is-stream'
 import * as assert from 'assert'
 import pMap from 'p-map'
 import type { Readable } from 'stream'
@@ -72,7 +79,7 @@ export interface CreateAssemblyOptions {
     [name: string]: string
   }
   uploads?: {
-    [name: string]: Readable | intoStream.Input
+    [name: string]: Readable | IntoStreamInput
   }
   waitForCompletion?: boolean
   chunkSize?: number
@@ -247,13 +254,13 @@ export class Transloadit {
       // Convert uploads to streams
       const streamsMap = Object.fromEntries(
         Object.entries(uploads).map(([label, value]) => {
-          const isReadable = isStream.readable(value)
+          const isReadable = isReadableStream(value)
           if (!isReadable && isStream(value)) {
             // https://github.com/transloadit/node-sdk/issues/92
             throw new Error(`Upload named "${label}" is not a Readable stream`)
           }
 
-          return [label, isStream.readable(value) ? value : intoStream(value)]
+          return [label, isReadableStream(value) ? value : intoStream(value)]
         })
       )
 

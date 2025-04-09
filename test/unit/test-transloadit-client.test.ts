@@ -1,4 +1,4 @@
-import { Readable } from 'stream'
+import { PassThrough, Readable } from 'stream'
 import FormData from 'form-data'
 import got, { CancelableRequest } from 'got'
 
@@ -131,22 +131,14 @@ describe('Transloadit', () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const name = 'foo_name'
-      // eslint-disable-next-line no-use-before-define
-      const pause = vi.fn(() => mockStream)
-      const mockStream = {
-        pause,
-        pipe: () => undefined,
-        _read: () => undefined,
-        _readableState: {},
-        on: () => mockStream,
-        readable: true,
-      } as Partial<Readable> as Readable
+      const mockStream = new PassThrough()
+      const pauseSpy = vi.spyOn(mockStream, 'pause')
 
       mockRemoteJson(client)
 
       await client.createAssembly({ uploads: { [name]: mockStream } })
 
-      expect(pause).toHaveBeenCalled()
+      expect(pauseSpy).toHaveBeenCalled()
     })
   })
 
@@ -274,7 +266,9 @@ describe('Transloadit', () => {
 
     await client.createAssembly()
 
-    expect(spy).toBeCalledWith(expect.objectContaining({ timeout: { request: 24 * 60 * 60 * 1000 } }))
+    expect(spy).toBeCalledWith(
+      expect.objectContaining({ timeout: { request: 24 * 60 * 60 * 1000 } })
+    )
   })
 
   describe('_calcSignature', () => {
