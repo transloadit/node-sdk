@@ -333,6 +333,6 @@ describe('Mocked API tests', () => {
   })
 
   it('should export assemblyInstructionsSchema', () => {
-    expect(assemblyInstructionsSchema).toBe
+    expect(assemblyInstructionsSchema).toBeDefined()
   })
 })
