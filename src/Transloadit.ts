@@ -20,7 +20,7 @@ import InconsistentResponseError from './InconsistentResponseError.js'
 import PaginationStream from './PaginationStream.js'
 import PollingTimeoutError from './PollingTimeoutError.js'
 import { TransloaditErrorResponseBody, ApiError } from './ApiError.js'
-import packageJson from '../package.json' assert { type: 'json' }
+import packageJson from '../package.json' with { type: 'json' }
 import { sendTusRequest, Stream } from './tus.js'
 import { AssemblyStatus } from './alphalib/types/assemblyStatus.js'
 import type {

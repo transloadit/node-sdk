@@ -2,7 +2,7 @@ import { PassThrough, Readable } from 'stream'
 import FormData from 'form-data'
 import got, { CancelableRequest } from 'got'
 
-import packageJson from '../../package.json' assert { type: 'json' }
+import packageJson from '../../package.json' with { type: 'json' }
 import * as tus from '../../src/tus.js'
 import { Transloadit } from '../../src/Transloadit.js'
 
