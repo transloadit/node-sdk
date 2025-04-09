@@ -8,7 +8,7 @@
 //
 //   yarn prepack
 //
-import pRetry from 'p-retry'
+import pRetry, { AbortError } from 'p-retry'
 import { Transloadit, ApiError } from 'transloadit'
 
 const transloadit = new Transloadit({
@@ -24,7 +24,7 @@ async function run() {
   } catch (err) {
     if (err instanceof ApiError && err.code === 'INVALID_SIGNATURE') {
       // This is an unrecoverable error, abort retry
-      throw new pRetry.AbortError('INVALID_SIGNATURE')
+      throw new AbortError('INVALID_SIGNATURE')
     }
     throw err
   }
