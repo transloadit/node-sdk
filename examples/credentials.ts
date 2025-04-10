@@ -7,20 +7,17 @@
 //
 //   yarn prepack
 //
-import { Transloadit } from 'transloadit'
+import { CreateTemplateCredentialParams, Transloadit } from 'transloadit'
 
 const transloadit = new Transloadit({
-  authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
-  authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
+  authKey: process.env.TRANSLOADIT_KEY!,
+  authSecret: process.env.TRANSLOADIT_SECRET!,
 })
 
 const firstName = 'myProductionS3'
 const secondName = 'myStagingS3'
 
-/**
- * @type {import('transloadit').CreateTemplateCredentialParams}
- */
-const credentialParams = {
+const credentialParams: CreateTemplateCredentialParams = {
   name: firstName,
   type: 's3',
   content: {
@@ -51,8 +48,7 @@ for (const credential of credentials) {
 }
 
 console.log(`==> createTemplateCredential`)
-const createTemplateCredentialResult =
-  await transloadit.createTemplateCredential(credentialParams)
+const createTemplateCredentialResult = await transloadit.createTemplateCredential(credentialParams)
 console.log('TemplateCredential created successfully:', createTemplateCredentialResult)
 // ^-- with   Templates, there is `ok`, `message`, `id`, `content`, `name`, `require_signature_auth`. Same is true for: created, updated, fetched
 //     with Credentials, there is `ok`, `message`, `credentials` <-- and a single object nested directly under it, which is unexpected with that plural imho. Same is true for created, updated, fetched

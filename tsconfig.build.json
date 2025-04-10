@@ -1,6 +1,6 @@
 {
   "include": ["src"],
-  "exclude": ["test", "coverage", "dist"],
+  "exclude": ["test", "coverage", "dist", "examples"],
   "compilerOptions": {
     "composite": true,
     "declaration": true,

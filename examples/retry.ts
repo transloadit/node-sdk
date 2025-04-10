@@ -12,8 +12,8 @@ import pRetry, { AbortError } from 'p-retry'
 import { Transloadit, ApiError } from 'transloadit'
 
 const transloadit = new Transloadit({
-  authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
-  authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
+  authKey: process.env.TRANSLOADIT_KEY!,
+  authSecret: process.env.TRANSLOADIT_SECRET!,
 })
 
 async function run() {

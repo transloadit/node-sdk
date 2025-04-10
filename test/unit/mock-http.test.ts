@@ -97,12 +97,17 @@ describe('Mocked API tests', () => {
     const scope = nock('http://localhost')
       .get('/assemblies/1')
       .query(() => true)
-      .reply(200, { error: 'INVALID_FILE_META_DATA', message: 'Invalid file metadata', assembly_url: '', assembly_ssl_url: '' })
+      .reply(200, {
+        error: 'INVALID_FILE_META_DATA',
+        message: 'Invalid file metadata',
+        assembly_url: '',
+        assembly_ssl_url: '',
+      })
 
     expect(await client.getAssembly('1')).toMatchObject<AssemblyStatus>({
       // @ts-expect-error todo
       error: 'INVALID_FILE_META_DATA',
-      message: 'Invalid file metadata'
+      message: 'Invalid file metadata',
     })
 
     scope.done()

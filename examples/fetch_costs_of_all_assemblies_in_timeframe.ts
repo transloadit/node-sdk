@@ -19,8 +19,8 @@ const params = {
 }
 
 const transloadit = new Transloadit({
-  authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
-  authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
+  authKey: process.env.TRANSLOADIT_KEY!,
+  authSecret: process.env.TRANSLOADIT_SECRET!,
 })
 
 let totalBytes = 0
@@ -36,7 +36,7 @@ do {
     items,
     // eslint-disable-next-line no-loop-func
     async (assembly) => {
-      const assemblyFull = await transloadit.getAssembly(/** @type {string} */ (assembly.id))
+      const assemblyFull = await transloadit.getAssembly(assembly.id)
       // console.log(assemblyFull.assembly_id)
 
       const { bytes_usage: bytesUsage } = assemblyFull
