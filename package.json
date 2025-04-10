@@ -83,12 +83,8 @@
   },
   "license": "MIT",
   "main": "./dist/Transloadit.js",
-  "types": "./dist/Transloadit.d.ts",
   "exports": {
-    ".": {
-      "import": "./dist/Transloadit.js",
-      "types": "./dist/Transloadit.d.ts"
-    },
+    ".": "./dist/Transloadit.js",
     "./package.json": "./package.json"
   },
   "files": [
