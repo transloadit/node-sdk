@@ -7,7 +7,6 @@
     "declarationMap": true,
     "isolatedModules": true,
     "module": "NodeNext",
-    "moduleResolution": "NodeNext",
     "target": "ES2022",
     "noImplicitOverride": true,
     "rewriteRelativeImportExtensions": true,
