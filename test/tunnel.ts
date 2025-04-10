@@ -1,4 +1,4 @@
-import execa, { ExecaChildProcess } from 'execa'
+import { execa, ResultPromise } from 'execa'
 import { createInterface } from 'readline'
 import { Resolver } from 'dns/promises'
 import debug from 'debug'
@@ -14,7 +14,8 @@ interface CreateTunnelParams {
 
 interface StartTunnelResult {
   url: string
-  process: ExecaChildProcess
+  process: ResultPromise<{ buffer: false; stdout: 'ignore' }>
+
 }
 
 async function startTunnel({
@@ -88,7 +89,7 @@ async function startTunnel({
 }
 
 export interface CreateTunnelResult {
-  process?: execa.ExecaChildProcess
+  process?: ResultPromise<{ buffer: false; stdout: 'ignore' }>
   urlPromise: Promise<string>
   close: () => Promise<void>
 }
@@ -97,7 +98,7 @@ export function createTunnel({
   cloudFlaredPath = 'cloudflared',
   port,
 }: CreateTunnelParams): CreateTunnelResult {
-  let process: execa.ExecaChildProcess | undefined
+  let process: ResultPromise<{ buffer: false; stdout: 'ignore' }> | undefined
 
   const urlPromise = (async () => {
     const tunnel = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), { retries: 1 })

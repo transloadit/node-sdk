@@ -178,7 +178,8 @@ describe('Mocked API tests', () => {
       expect.stringMatching(`      at .+`),
       expect.stringMatching(`      at .+`),
       expect.stringMatching(`    input: undefined,`),
-      expect.stringMatching(`    code: 'ERR_NON_2XX_3XX_RESPONSE'`),
+      expect.stringMatching(`    code: 'ERR_NON_2XX_3XX_RESPONSE',`),
+      expect.stringMatching('    \\[cause\\]: {}'),
       expect.stringMatching('  }'),
       expect.stringMatching('}'),
     ])

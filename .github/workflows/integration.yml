@@ -16,7 +16,6 @@ jobs:
       max-parallel: 1
       matrix:
         node:
-          - 18
           - 20.15.1
           - 22.3.0
     steps:
