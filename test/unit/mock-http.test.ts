@@ -3,6 +3,7 @@ import { inspect } from 'node:util'
 
 import {
   ApiError,
+  AssemblyStatus,
   InconsistentResponseError,
   Options,
   TimeoutError,
@@ -89,7 +90,25 @@ describe('Mocked API tests', () => {
     scope.done()
   })
 
-  it('should fail on error with error code', async () => {
+  it('should return error when GETting a failed assembly', async () => {
+    const client = getLocalClient()
+
+    // when an assembly exists but has failed, the GET endpoint returns 200, but the assembly has an `error` property
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { error: 'INVALID_FILE_META_DATA', message: 'Invalid file metadata', assembly_url: '', assembly_ssl_url: '' })
+
+    expect(await client.getAssembly('1')).toMatchObject<AssemblyStatus>({
+      // @ts-expect-error todo
+      error: 'INVALID_FILE_META_DATA',
+      message: 'Invalid file metadata'
+    })
+
+    scope.done()
+  })
+
+  it('should throw error with error code', async () => {
     const client = getLocalClient()
 
     nock('http://localhost')
@@ -97,7 +116,8 @@ describe('Mocked API tests', () => {
       .reply(400, { error: 'INVALID_FILE_META_DATA', message: 'Invalid file metadata' })
 
     await expect(client.createAssembly()).rejects.toThrow(
-      expect.objectContaining({
+      expect.objectContaining<ApiError>({
+        name: 'ApiError',
         code: 'INVALID_FILE_META_DATA',
         rawMessage: 'Invalid file metadata',
         message: 'API error (HTTP 400) INVALID_FILE_META_DATA: Invalid file metadata',
@@ -105,7 +125,7 @@ describe('Mocked API tests', () => {
     )
   })
 
-  it('should return informative errors', async () => {
+  it('should throw informative errors', async () => {
     const client = getLocalClient()
 
     nock('http://localhost').post(createAssemblyRegex).reply(400, {
@@ -117,7 +137,8 @@ describe('Mocked API tests', () => {
 
     const promise = client.createAssembly()
     await expect(promise).rejects.toThrow(
-      expect.objectContaining({
+      expect.objectContaining<ApiError>({
+        name: 'ApiError',
         message:
           'API error (HTTP 400) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo',
         assemblyId: '123',
