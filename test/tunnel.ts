@@ -15,7 +15,6 @@ interface CreateTunnelParams {
 interface StartTunnelResult {
   url: string
   process: ResultPromise<{ buffer: false; stdout: 'ignore' }>
-
 }
 
 async function startTunnel({
