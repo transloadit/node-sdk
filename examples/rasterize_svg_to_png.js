@@ -15,23 +15,19 @@ const transloadit = new Transloadit({
 
 const filePath = process.argv[2]
 
-try {
-  const status = await transloadit.createAssembly({
-    files: {
-      file1: filePath,
-    },
-    params: {
-      steps: {
-        png: {
-          use: ':original',
-          robot: '/image/resize',
-          format: 'png',
-        },
+const status = await transloadit.createAssembly({
+  files: {
+    file1: filePath,
+  },
+  params: {
+    steps: {
+      png: {
+        use: ':original',
+        robot: '/image/resize',
+        format: 'png',
       },
     },
-    waitForCompletion: true,
-  })
-  console.log('Your PNG file:', status.results.png[0].url)
-} catch (err) {
-  console.error('createAssembly failed', err)
-}
+  },
+  waitForCompletion: true,
+})
+console.log('Your PNG file:', status.results.png[0].url)

@@ -12,43 +12,39 @@ import { Transloadit } from 'transloadit'
 const fromdate = '2020-12-31 15:30:00'
 const todate = '2020-12-31 15:30:01'
 
-try {
-  const params = {
-    fromdate,
-    todate,
-    page: 1,
-  }
-
-  const transloadit = new Transloadit({
-    authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
-    authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
-  })
-
-  let totalBytes = 0
-
-  let lastCount
-  do {
-    console.log('Processing page', params.page)
-    const { count, items } = await transloadit.listAssemblies(params)
-    lastCount = count
-    params.page++
-
-    await pMap(
-      items,
-      // eslint-disable-next-line no-loop-func
-      async (assembly) => {
-        const assemblyFull = await transloadit.getAssembly(/** @type {string} */ (assembly.id))
-        // console.log(assemblyFull.assembly_id)
-
-        const { bytes_usage: bytesUsage } = assemblyFull
-
-        totalBytes += bytesUsage || 0
-      },
-      { concurrency: 20 }
-    )
-  } while (lastCount > 0)
-
-  console.log('Total GB:', (totalBytes / (1024 * 1024 * 1024)).toFixed(2))
-} catch (err) {
-  console.error(err)
+const params = {
+  fromdate,
+  todate,
+  page: 1,
 }
+
+const transloadit = new Transloadit({
+  authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
+  authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
+})
+
+let totalBytes = 0
+
+let lastCount
+do {
+  console.log('Processing page', params.page)
+  const { count, items } = await transloadit.listAssemblies(params)
+  lastCount = count
+  params.page++
+
+  await pMap(
+    items,
+    // eslint-disable-next-line no-loop-func
+    async (assembly) => {
+      const assemblyFull = await transloadit.getAssembly(/** @type {string} */ (assembly.id))
+      // console.log(assemblyFull.assembly_id)
+
+      const { bytes_usage: bytesUsage } = assemblyFull
+
+      totalBytes += bytesUsage || 0
+    },
+    { concurrency: 20 }
+  )
+} while (lastCount > 0)
+
+console.log('Total GB:', (totalBytes / (1024 * 1024 * 1024)).toFixed(2))

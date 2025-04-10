@@ -15,25 +15,21 @@ const transloadit = new Transloadit({
 
 const filePath = process.argv[2]
 
-try {
-  const status = await transloadit.createAssembly({
-    files: {
-      file1: filePath,
-    },
-    params: {
-      steps: {
-        webp: {
-          use: ':original',
-          robot: '/image/resize',
-          result: true,
-          imagemagick_stack: 'v2.0.7',
-          format: 'webp',
-        },
+const status = await transloadit.createAssembly({
+  files: {
+    file1: filePath,
+  },
+  params: {
+    steps: {
+      webp: {
+        use: ':original',
+        robot: '/image/resize',
+        result: true,
+        imagemagick_stack: 'v2.0.7',
+        format: 'webp',
       },
     },
-    waitForCompletion: true,
-  })
-  console.log('Your WebP file:', status.results.webp[0].url)
-} catch (err) {
-  console.error('createAssembly failed', err)
-}
+  },
+  waitForCompletion: true,
+})
+console.log('Your WebP file:', status.results.webp[0].url)

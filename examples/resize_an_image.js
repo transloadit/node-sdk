@@ -15,26 +15,22 @@ const transloadit = new Transloadit({
 
 const filePath = process.argv[2]
 
-try {
-  const status = await transloadit.createAssembly({
-    files: {
-      file1: filePath,
-    },
-    params: {
-      steps: {
-        resize: {
-          use: ':original',
-          robot: '/image/resize',
-          result: true,
-          imagemagick_stack: 'v2.0.7',
-          width: 75,
-          height: 75,
-        },
+const status = await transloadit.createAssembly({
+  files: {
+    file1: filePath,
+  },
+  params: {
+    steps: {
+      resize: {
+        use: ':original',
+        robot: '/image/resize',
+        result: true,
+        imagemagick_stack: 'v2.0.7',
+        width: 75,
+        height: 75,
       },
     },
-    waitForCompletion: true,
-  })
-  console.log('Your resized image:', status.results.resize[0].url)
-} catch (err) {
-  console.error('createAssembly failed', err)
-}
+  },
+  waitForCompletion: true,
+})
+console.log('Your resized image:', status.results.resize[0].url)

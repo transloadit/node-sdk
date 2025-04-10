@@ -22,33 +22,29 @@ const transloadit = new Transloadit({
 
 const filePath = process.argv[2]
 
-try {
-  const status = await transloadit.createAssembly({
-    files: {
-      file1: filePath,
-    },
-    params: {
-      steps: {
-        facesDetected: {
-          use: ':original',
-          robot: '/image/facedetect',
-          crop: true,
-          crop_padding: '10%',
-          faces: 'max-confidence',
-          format: 'preserve',
-        },
+const status = await transloadit.createAssembly({
+  files: {
+    file1: filePath,
+  },
+  params: {
+    steps: {
+      facesDetected: {
+        use: ':original',
+        robot: '/image/facedetect',
+        crop: true,
+        crop_padding: '10%',
+        faces: 'max-confidence',
+        format: 'preserve',
       },
     },
-    waitForCompletion: true,
-  })
+  },
+  waitForCompletion: true,
+})
 
-  // Now save the file
-  const outPath = './output-face.jpg'
-  const stream = createWriteStream(outPath)
-  const { url } = status.results.facesDetected[0]
-  assert(url != null)
-  await got.stream(url).pipe(stream)
-  console.log('Your cropped face has been saved to', outPath)
-} catch (err) {
-  console.error('createAssembly failed', err)
-}
+// Now save the file
+const outPath = './output-face.jpg'
+const stream = createWriteStream(outPath)
+const { url } = status.results.facesDetected[0]
+assert(url != null)
+await got.stream(url).pipe(stream)
+console.log('Your cropped face has been saved to', outPath)

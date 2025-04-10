@@ -30,8 +30,4 @@ async function run() {
   }
 }
 
-try {
-  console.log(await pRetry(run, { retries: 5 }))
-} catch (err) {
-  console.error('Operation failed', err)
-}
+console.log(await pRetry(run, { retries: 5 }))
