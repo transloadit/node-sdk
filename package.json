@@ -73,7 +73,7 @@
     "lint": "npm-run-all --parallel 'lint:*'",
     "fix": "npm-run-all --serial 'fix:*'",
     "next:update": "next-update --keep true --tldr",
-    "prepack": "tsc --build",
+    "prepack": "tsc --build tsconfig.build.json",
     "test:unit": "vitest run --coverage ./test/unit",
     "test:integration": "vitest run ./test/integration",
     "test:all": "vitest run --coverage",
