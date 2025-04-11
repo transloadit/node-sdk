@@ -42,7 +42,7 @@ jobs:
           DEBUG: 'transloadit:*'
 
       - name: Generate the badge from the json-summary
-        run: npx tsx test/generate-coverage-badge.ts coverage/coverage-summary.json
+        run: yarn exec tsx test/generate-coverage-badge.ts coverage/coverage-summary.json
       - name: Move HTML report and badge to the correct location
         run: |
           mv coverage/lcov-report static-build
