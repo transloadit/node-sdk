@@ -2,7 +2,6 @@ import { createServer, RequestListener, Server } from 'http'
 import { setTimeout } from 'timers/promises'
 import got from 'got'
 import debug from 'debug'
-import { ExecaError } from 'execa'
 
 import { createTunnel, CreateTunnelResult } from './tunnel.js'
 
@@ -76,12 +75,6 @@ export async function createTestServer(onRequest: RequestListener) {
 
   try {
     tunnel = createTunnel({ cloudFlaredPath: process.env.CLOUDFLARED_PATH, port })
-
-    tunnel.process?.catch((err) => {
-      if (!(err instanceof ExecaError && err.isForcefullyTerminated)) {
-        log('Process failed', err);
-      }
-    })
 
     log('waiting for tunnel to be created')
     const tunnelPublicUrl = await tunnel.urlPromise

@@ -1,4 +1,4 @@
-import { execa, ResultPromise } from 'execa'
+import { execa, ExecaError, ResultPromise } from 'execa'
 import { createInterface } from 'readline'
 import { Resolver } from 'dns/promises'
 import debug from 'debug'
@@ -26,6 +26,12 @@ async function startTunnel({
     ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'],
     { buffer: false, stdout: 'ignore' }
   )
+
+  process?.catch((err) => {
+    if (!(err instanceof ExecaError && err.isForcefullyTerminated)) {
+      log('Process failed', err)
+    }
+  })
 
   try {
     return await new Promise((resolve, reject) => {
