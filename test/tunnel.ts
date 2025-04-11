@@ -106,7 +106,7 @@ export function createTunnel({
 
     log('Found url', url)
 
-    await timers.setTimeout(3000) // seems to help to prevent timeouts (I think tunnel is not actually ready when cloudflared reports it to be)
+    await timers.setTimeout(5000) // seems to help to prevent timeouts (I think tunnel is not actually ready when cloudflared reports it to be)
 
     // We need to wait for DNS to be resolvable.
     // If we don't, the operating system's dns cache will be poisoned by the not yet valid resolved entry
