@@ -1,4 +1,6 @@
-import { AssemblyInstructions, AssemblyInstructionsInput } from './alphalib/types/template'
+import { AssemblyInstructions, AssemblyInstructionsInput } from './alphalib/types/template.js'
+
+export { assemblyInstructionsSchema } from './alphalib/types/template.js'
 
 export interface OptionalAuthParams {
   auth?: { key?: string; expires?: string }

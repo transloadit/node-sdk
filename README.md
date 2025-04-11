@@ -24,7 +24,7 @@ This is a **Node.js** SDK to make it easy to talk to the
 
 ## Requirements
 
-- [Node.js](https://nodejs.org/en/) version 18 or newer
+- [Node.js](https://nodejs.org/en/) version 20 or newer
 - [A Transloadit account](https://transloadit.com/signup/) ([free signup](https://transloadit.com/pricing/))
 - [Your API credentials](https://transloadit.com/c/template-credentials) (`authKey`, `authSecret`)
 
@@ -47,7 +47,7 @@ npm install --save transloadit
 The following code will upload an image and resize it to a thumbnail:
 
 ```javascript
-const { Transloadit } = require('transloadit')
+import { Transloadit } from 'transloadit'
 
 const transloadit = new Transloadit({
   authKey: 'YOUR_TRANSLOADIT_KEY',
@@ -451,7 +451,7 @@ There are three kinds of retries:
 
 All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`), so there is no need to write your own wrapper scripts to handle rate limits. The SDK will by default retry requests **5 times** with auto back-off (See `maxRetries` constructor option).
 
-#### GOT HTTP retries (`gotRetry`, default `0`)
+#### GOT HTTP retries (`gotRetry`, default `{ limit: 0 }`)
 
 Because we use [got](https://github.com/sindresorhus/got) under the hood, you can pass a `gotRetry` constructor option which is passed on to `got`. This offers great flexibility for handling retries on network errors and HTTP status codes with auto back-off. See [`got` `retry` object documentation](https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md).
 

@@ -8,12 +8,12 @@
 //
 //   yarn prepack
 //
-const pRetry = require('p-retry')
-const { Transloadit, ApiError } = require('transloadit')
+import pRetry, { AbortError } from 'p-retry'
+import { Transloadit, ApiError } from 'transloadit'
 
 const transloadit = new Transloadit({
-  authKey: /** @type {string} */ (process.env.TRANSLOADIT_KEY),
-  authSecret: /** @type {string} */ (process.env.TRANSLOADIT_SECRET),
+  authKey: process.env.TRANSLOADIT_KEY!,
+  authSecret: process.env.TRANSLOADIT_SECRET!,
 })
 
 async function run() {
@@ -24,16 +24,10 @@ async function run() {
   } catch (err) {
     if (err instanceof ApiError && err.code === 'INVALID_SIGNATURE') {
       // This is an unrecoverable error, abort retry
-      throw new pRetry.AbortError('INVALID_SIGNATURE')
+      throw new AbortError('INVALID_SIGNATURE')
     }
     throw err
   }
 }
 
-;(async () => {
-  try {
-    console.log(await pRetry(run, { retries: 5 }))
-  } catch (err) {
-    console.error('Operation failed', err)
-  }
-})()
+console.log(await pRetry(run, { retries: 5 }))

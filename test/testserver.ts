@@ -3,7 +3,7 @@ import { setTimeout } from 'timers/promises'
 import got from 'got'
 import debug from 'debug'
 
-import { createTunnel, CreateTunnelResult } from './tunnel'
+import { createTunnel, CreateTunnelResult } from './tunnel.js'
 
 const log = debug('transloadit:testserver')
 

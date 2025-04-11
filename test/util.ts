@@ -1,4 +1,4 @@
-import { RequestError, Transloadit } from '../src/Transloadit'
+import { RequestError, Transloadit } from '../src/Transloadit.js'
 
 // eslint-disable-next-line import/prefer-default-export
 export const createProxy = (transloaditInstance: Transloadit) => {
@@ -7,6 +7,7 @@ export const createProxy = (transloaditInstance: Transloadit) => {
       // @ts-expect-error I dunno how to type
       const origMethod = target[propKey]
       if (typeof origMethod === 'function') {
+        // eslint-disable-next-line func-names
         return function (...args: any) {
           const result = origMethod.apply(target, args)
 
@@ -18,24 +19,42 @@ export const createProxy = (transloaditInstance: Transloadit) => {
           const newPromise = result.catch((err) => {
             if (err instanceof Error && 'cause' in err && err.cause instanceof RequestError) {
               if (err.cause.request != null) {
+                // for util.inspect:
+                Object.defineProperty(err.cause, 'request', {
+                  value: err.cause.request,
+                  enumerable: false,
+                })
+                // for vitest "Serialized Error"
                 Object.defineProperty(err.cause.request, 'toJSON', {
                   value: () => undefined,
                   enumerable: false,
                 })
               }
               if (err.cause.response != null) {
+                Object.defineProperty(err.cause, 'response', {
+                  value: err.cause.response,
+                  enumerable: false,
+                })
                 Object.defineProperty(err.cause.response, 'toJSON', {
                   value: () => undefined,
                   enumerable: false,
                 })
               }
               if (err.cause.options != null) {
+                Object.defineProperty(err.cause, 'options', {
+                  value: err.cause.options,
+                  enumerable: false,
+                })
                 Object.defineProperty(err.cause.options, 'toJSON', {
                   value: () => undefined,
                   enumerable: false,
                 })
               }
               if (err.cause.timings != null) {
+                Object.defineProperty(err.cause, 'timings', {
+                  value: err.cause.timings,
+                  enumerable: false,
+                })
                 Object.defineProperty(err.cause.timings, 'toJSON', {
                   value: () => undefined,
                   enumerable: false,

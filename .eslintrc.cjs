@@ -19,6 +19,7 @@ module.exports = {
     },
   },
   rules: {
+    'import/no-unresolved': 'off',
     'import/extensions': 'off',
     'no-unused-vars': 'off',
     '@typescript-eslint/no-unused-vars': ['error'],
@@ -37,6 +38,14 @@ module.exports = {
       },
       rules: {
         'no-console': 'off',
+      },
+    },
+    {
+      files: 'examples/**',
+      rules: {
+        'no-console': 0,
+        'import/no-extraneous-dependencies': 0,
+        'import/no-unresolved': 0,
       },
     },
   ],

@@ -16,7 +16,6 @@ jobs:
       max-parallel: 1
       matrix:
         node:
-          - 18
           - 20.15.1
           - 22.3.0
     steps:
@@ -43,7 +42,7 @@ jobs:
           DEBUG: 'transloadit:*'
 
       - name: Generate the badge from the json-summary
-        run: node test/generate-coverage-badge.js coverage/coverage-summary.json
+        run: node --experimental-strip-types test/generate-coverage-badge.ts coverage/coverage-summary.json
       - name: Move HTML report and badge to the correct location
         run: |
           mv coverage/lcov-report static-build

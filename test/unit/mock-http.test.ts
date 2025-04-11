@@ -3,12 +3,14 @@ import { inspect } from 'node:util'
 
 import {
   ApiError,
+  AssemblyStatus,
   InconsistentResponseError,
   Options,
   TimeoutError,
   Transloadit,
-} from '../../src/Transloadit'
-import { createProxy } from '../util'
+  assemblyInstructionsSchema,
+} from '../../src/Transloadit.js'
+import { createProxy } from '../util.js'
 
 const getLocalClient = (opts?: Omit<Options, 'authKey' | 'authSecret' | 'endpoint'>) =>
   createProxy(
@@ -88,7 +90,30 @@ describe('Mocked API tests', () => {
     scope.done()
   })
 
-  it('should fail on error with error code', async () => {
+  it('should return error when GETting a failed assembly', async () => {
+    const client = getLocalClient()
+
+    // when an assembly exists but has failed, the GET endpoint returns 200, but the assembly has an `error` property
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, {
+        error: 'INVALID_FILE_META_DATA',
+        message: 'Invalid file metadata',
+        assembly_url: '',
+        assembly_ssl_url: '',
+      })
+
+    expect(await client.getAssembly('1')).toMatchObject<AssemblyStatus>({
+      // @ts-expect-error todo
+      error: 'INVALID_FILE_META_DATA',
+      message: 'Invalid file metadata',
+    })
+
+    scope.done()
+  })
+
+  it('should throw error with error code', async () => {
     const client = getLocalClient()
 
     nock('http://localhost')
@@ -96,7 +121,8 @@ describe('Mocked API tests', () => {
       .reply(400, { error: 'INVALID_FILE_META_DATA', message: 'Invalid file metadata' })
 
     await expect(client.createAssembly()).rejects.toThrow(
-      expect.objectContaining({
+      expect.objectContaining<ApiError>({
+        name: 'ApiError',
         code: 'INVALID_FILE_META_DATA',
         rawMessage: 'Invalid file metadata',
         message: 'API error (HTTP 400) INVALID_FILE_META_DATA: Invalid file metadata',
@@ -104,7 +130,7 @@ describe('Mocked API tests', () => {
     )
   })
 
-  it('should return informative errors', async () => {
+  it('should throw informative errors', async () => {
     const client = getLocalClient()
 
     nock('http://localhost').post(createAssemblyRegex).reply(400, {
@@ -116,7 +142,8 @@ describe('Mocked API tests', () => {
 
     const promise = client.createAssembly()
     await expect(promise).rejects.toThrow(
-      expect.objectContaining({
+      expect.objectContaining<ApiError>({
+        name: 'ApiError',
         message:
           'API error (HTTP 400) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo',
         assemblyId: '123',
@@ -125,6 +152,7 @@ describe('Mocked API tests', () => {
 
     const errorString = await promise.catch(inspect)
     expect(typeof errorString === 'string').toBeTruthy()
+    // console.log(inspect(errorString))
     expect(inspect(errorString).split('\n')).toEqual([
       expect.stringMatching(
         `API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo`
@@ -136,35 +164,22 @@ describe('Mocked API tests', () => {
       ),
       expect.stringMatching(`    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+`),
       expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
+      expect.stringMatching(`  code: 'INVALID_FILE_META_DATA',`),
       expect.stringMatching(`  rawMessage: 'Invalid file metadata',`),
-      expect.stringMatching(`  assemblyId: '123',`),
       expect.stringMatching(
         `  assemblySslUrl: 'https:\\/\\/api2-oltu\\.transloadit\\.com\\/assemblies\\/foo'`
       ),
-      expect.stringMatching(`  code: 'INVALID_FILE_META_DATA',`),
+      expect.stringMatching(`  assemblyId: '123',`),
       expect.stringMatching(`  cause: HTTPError: Response code 400 \\(Bad Request\\)`),
       expect.stringMatching(`      at .+`),
       expect.stringMatching(`      at .+`),
+      expect.stringMatching(`      at .+`),
+      expect.stringMatching(`      at .+`),
+      expect.stringMatching(`      at .+`),
+      expect.stringMatching(`      at .+`),
+      expect.stringMatching(`    input: undefined,`),
       expect.stringMatching(`    code: 'ERR_NON_2XX_3XX_RESPONSE',`),
-      // don't care about the rest:
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.stringMatching('    }'),
+      expect.stringMatching('    \\[cause\\]: {}'),
       expect.stringMatching('  }'),
       expect.stringMatching('}'),
     ])
@@ -342,5 +357,9 @@ describe('Mocked API tests', () => {
     } finally {
       scope.done()
     }
+  })
+
+  it('should export assemblyInstructionsSchema', () => {
+    expect(assemblyInstructionsSchema).toBeDefined()
   })
 })
