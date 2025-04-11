@@ -41,16 +41,19 @@ jobs:
           CLOUDFLARED_PATH: ./cloudflared-linux-amd64
           DEBUG: 'transloadit:*'
 
-      - name: Generate the badge from the json-summary
+      - if: matrix.node == '22.14.0'
+        name: Generate the badge from the json-summary
         run: node --experimental-strip-types test/generate-coverage-badge.ts coverage/coverage-summary.json
-      - name: Move HTML report and badge to the correct location
+      - if: matrix.node == '22.14.0'
+        name: Move HTML report and badge to the correct location
         run: |
           mv coverage/lcov-report static-build
           mv coverage-badge.svg static-build/
       # *** BEGIN PUBLISH STATIC SITE STEPS ***
       # Use the standard checkout action to check out the destination repo to a separate directory
       # See https://github.com/mifi/github-action-push-static
-      - uses: actions/checkout@v4
+      - if: matrix.node == '22.14.0'
+        uses: actions/checkout@v4
         with:
           ssh-key: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
           repository: transloadit/node-sdk-coverage
