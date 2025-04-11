@@ -16,8 +16,8 @@ jobs:
       max-parallel: 1
       matrix:
         node:
-          - 20.15.1
-          - 22.3.0
+          - 20.19.0
+          - 22.14.0
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -57,7 +57,7 @@ jobs:
           path: static-files-destination
 
       # Push coverage data
-      - if: matrix.node == '22.3.0'
+      - if: matrix.node == '22.14.0'
         run: |
           git config --global user.name github-actions
           git config --global user.email github-actions@github.com
