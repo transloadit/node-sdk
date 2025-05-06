@@ -33,4 +33,4 @@ const status = await transloadit.createAssembly({
   },
   waitForCompletion: true,
 })
-console.log('Your resized image:', status.results.resize[0].url)
+console.log('Your resized image:', status.results?.resize?.[0]?.url)

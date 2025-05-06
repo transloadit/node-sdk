@@ -69,7 +69,7 @@ describe('Mocked API tests', () => {
     await client.createAssembly()
 
     const result = await client.awaitAssemblyCompletion('1')
-    expect(result.ok).toBe('REQUEST_ABORTED')
+    expect((result as Extract<AssemblyStatus, { ok: any }>).ok).toBe('REQUEST_ABORTED')
     scope.done()
   })
 
@@ -105,7 +105,6 @@ describe('Mocked API tests', () => {
       })
 
     expect(await client.getAssembly('1')).toMatchObject<AssemblyStatus>({
-      // @ts-expect-error todo
       error: 'INVALID_FILE_META_DATA',
       message: 'Invalid file metadata',
     })

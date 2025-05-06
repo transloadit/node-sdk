@@ -310,6 +310,12 @@ export class Transloadit {
         }
 
         if (!waitForCompletion) return result
+
+        if (result.assembly_id == null) {
+          throw new InconsistentResponseError(
+            'Server returned an assembly response without an assembly_id after creation'
+          )
+        }
         const awaitResult = await this.awaitAssemblyCompletion(result.assembly_id, {
           timeout,
           onAssemblyProgress,
@@ -341,10 +347,18 @@ export class Transloadit {
     while (true) {
       const result = await this.getAssembly(assemblyId)
 
+      // If 'ok' is not in result, it implies a terminal state (e.g., error, completed, canceled).
+      // If 'ok' is present, then we check if it's one of the non-terminal polling states.
       if (
-        result.ok !== 'ASSEMBLY_UPLOADING' &&
-        result.ok !== 'ASSEMBLY_EXECUTING' &&
-        result.ok !== 'ASSEMBLY_REPLAYING'
+        !('ok' in result) ||
+        (result.ok !== 'ASSEMBLY_UPLOADING' &&
+          result.ok !== 'ASSEMBLY_EXECUTING' &&
+          // ASSEMBLY_REPLAYING is not a valid 'ok' status for polling, it means it's done replaying.
+          // The API does not seem to have an ASSEMBLY_REPLAYING status in the typical polling loop.
+          // It's usually a final status from the replay endpoint.
+          // For polling, we only care about UPLOADING and EXECUTING.
+          // If a replay operation puts it into a pollable state, that state would be EXECUTING.
+          result.ok !== 'ASSEMBLY_REPLAYING') // This line might need review based on actual API behavior for replayed assembly polling
       ) {
         return result // Done!
       }

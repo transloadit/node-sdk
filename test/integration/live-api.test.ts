@@ -186,7 +186,8 @@ describe('API integration', { timeout: 60000 }, () => {
 
       const id = result.assembly_id
 
-      result = await client.getAssembly(id)
+      expect(id).toBeDefined()
+      result = await client.getAssembly(id!)
       expect(result).not.toHaveProperty('error')
       expect(result).toEqual(
         expect.objectContaining({
@@ -231,7 +232,7 @@ describe('API integration', { timeout: 60000 }, () => {
       }
 
       const result = await createAssembly(client, params)
-      expect(result.uploads[0].field).toBe('original')
+      expect(result.uploads?.[0]?.field).toBe('original')
     })
 
     it('should allow setting fields', async () => {
@@ -244,9 +245,9 @@ describe('API integration', { timeout: 60000 }, () => {
           steps: { resize: resizeOriginalStep },
         },
       })
-      expect(result.fields.myField).toBe('test')
-      expect(result.fields.num).toBe(1)
-      expect(result.fields.obj).toStrictEqual({ foo: 'bar' })
+      expect(result.fields?.myField).toBe('test')
+      expect(result.fields?.num).toBe(1)
+      expect(result.fields?.obj).toStrictEqual({ foo: 'bar' })
     })
 
     it('should allow adding different types', async () => {
@@ -287,7 +288,9 @@ describe('API integration', { timeout: 60000 }, () => {
         original_md5hash: '1b199e02dd833b2278ce2a0e75480b14',
       })
       // Because order is not same as input
-      const uploadsMap = Object.fromEntries(result.uploads.map((upload) => [upload.name, upload]))
+      const uploadsMap = Object.fromEntries(
+        result.uploads?.map((upload) => [upload.name, upload]) ?? []
+      )
       expect(uploadsMap).toEqual({
         file1: expect.objectContaining(getMatchObject({ name: 'file1' })),
         file2: expect.objectContaining(getMatchObject({ name: 'file2' })),
@@ -466,7 +469,8 @@ describe('API integration', { timeout: 60000 }, () => {
 
         const awaitCompletionPromise = (async () => {
           try {
-            const ret = await client.awaitAssemblyCompletion(id)
+            expect(id).toBeDefined()
+            const ret = await client.awaitAssemblyCompletion(id!)
             return ret
           } catch (err) {
             // eslint-disable-next-line no-console
@@ -477,8 +481,9 @@ describe('API integration', { timeout: 60000 }, () => {
 
         // Now delete it before uploading is done
         // console.log('canceling', id)
-        const resp = await client.cancelAssembly(id)
-        expect(resp.ok).toBe('ASSEMBLY_CANCELED')
+        expect(id).toBeDefined()
+        const resp = await client.cancelAssembly(id!)
+        expect((resp as Extract<typeof resp, { ok: any }>).ok).toBe('ASSEMBLY_CANCELED')
         // console.log('canceled', id)
 
         // Allow the upload to finish
@@ -487,13 +492,22 @@ describe('API integration', { timeout: 60000 }, () => {
         // Successful cancel requests get ASSEMBLY_CANCELED even when it
         // completed, so we now request the assembly status to check the
         // *actual* status.
-        const resp2 = await client.getAssembly(id)
+        expect(id).toBeDefined()
+        const resp2 = await client.getAssembly(id!)
         console.log(`Expect Assembly ${id} to return 'ASSEMBLY_CANCELED'`)
-        expect(resp2.ok).toBe('ASSEMBLY_CANCELED')
+        expect((resp2 as Extract<typeof resp2, { ok: any }>).ok).toBe('ASSEMBLY_CANCELED')
 
         // Check that awaitAssemblyCompletion gave the correct response too
         const awaitCompletionResponse = await awaitCompletionPromise
-        expect(awaitCompletionResponse?.ok).toBe('ASSEMBLY_CANCELED')
+        expect(awaitCompletionResponse).toBeDefined() // Ensure it's not null
+        if (awaitCompletionResponse) {
+          // Type guard
+          expect(
+            (awaitCompletionResponse as Extract<typeof awaitCompletionResponse, { ok: any }>).ok
+          ).toBe('ASSEMBLY_CANCELED')
+        } else {
+          throw new Error('awaitCompletionResponse was null or undefined')
+        }
       } finally {
         server.close()
       }
@@ -505,15 +519,18 @@ describe('API integration', { timeout: 60000 }, () => {
       const client = createClient()
 
       const createdAssembly = await createAssembly(client, genericOptions)
-
-      const replayedAssembly = await client.replayAssembly(createdAssembly.assembly_id)
-      expect(replayedAssembly.ok).toBe('ASSEMBLY_REPLAYING')
+      expect(createdAssembly.assembly_id).toBeDefined()
+      const replayedAssembly = await client.replayAssembly(createdAssembly.assembly_id!)
+      expect((replayedAssembly as Extract<typeof replayedAssembly, { ok: any }>).ok).toBe(
+        'ASSEMBLY_REPLAYING'
+      )
       expect(replayedAssembly.assembly_id).not.toEqual(createdAssembly.assembly_id)
       expect(replayedAssembly.assembly_url).toBeDefined()
       expect(replayedAssembly.assembly_ssl_url).toBeDefined()
 
-      const result2 = await client.awaitAssemblyCompletion(replayedAssembly.assembly_id)
-      expect(result2.ok).toBe('ASSEMBLY_COMPLETED')
+      expect(replayedAssembly.assembly_id).toBeDefined()
+      const result2 = await client.awaitAssemblyCompletion(replayedAssembly.assembly_id!)
+      expect((result2 as Extract<typeof result2, { ok: any }>).ok).toBe('ASSEMBLY_COMPLETED')
     })
   })
 

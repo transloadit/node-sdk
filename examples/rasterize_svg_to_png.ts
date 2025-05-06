@@ -30,4 +30,4 @@ const status = await transloadit.createAssembly({
   },
   waitForCompletion: true,
 })
-console.log('Your PNG file:', status.results.png[0].url)
+console.log('Your PNG file:', status.results?.png?.[0]?.url)

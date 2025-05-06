@@ -95,6 +95,11 @@ export async function sendTusRequest({
     const filename = path ? basename(path) : label
 
     await new Promise<OnSuccessPayload>((resolve, reject) => {
+      if (!assembly.assembly_ssl_url) {
+        reject(new Error('assembly_ssl_url is not present in the assembly status'))
+        return
+      }
+
       const tusOptions: UploadOptions = {
         endpoint: assembly.tus_url,
         metadata: {
