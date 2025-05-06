@@ -6,6 +6,7 @@ import {
   resize_strategy,
   robotBase,
   robotUse,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -70,3 +71,10 @@ Stacks the input media vertically. All streams need to have the same pixel forma
   })
   .strict()
 export type RobotVideoMergeInstructions = z.infer<typeof robotVideoMergeInstructionsSchema>
+
+export const interpolatableRobotVideoMergeInstructionsSchema = interpolateRobot(
+  robotVideoMergeInstructionsSchema,
+)
+export type InterpolatableRobotVideoMergeInstructions = z.input<
+  typeof interpolatableRobotVideoMergeInstructionsSchema
+>

@@ -6,6 +6,7 @@ import {
   robotBase,
   robotUse,
   sampleRateSchema,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
@@ -61,3 +62,10 @@ Sample rate of the resulting audio file, in Hertz. If not specified will default
   })
   .strict()
 export type RobotAudioEncodeInstructions = z.infer<typeof robotAudioEncodeInstructionsSchema>
+
+export const interpolatableRobotAudioEncodeInstructionsSchema = interpolateRobot(
+  robotAudioEncodeInstructionsSchema,
+)
+export type InterpolatableRobotAudioEncodeInstructions = z.input<
+  typeof interpolatableRobotAudioEncodeInstructionsSchema
+>

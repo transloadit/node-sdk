@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -56,3 +56,10 @@ There are **3 important constraints** when using this <dfn>Robot</dfn>:
 
 export type RobotUploadHandleInstructions = z.infer<typeof robotUploadHandleInstructionsSchema>
 export type RobotUploadHandleInstructionsInput = z.input<typeof robotUploadHandleInstructionsSchema>
+
+export const interpolatableRobotUploadHandleInstructionsSchema = interpolateRobot(
+  robotUploadHandleInstructionsSchema,
+)
+export type InterpolatableRobotUploadHandleInstructions = z.input<
+  typeof interpolatableRobotUploadHandleInstructionsSchema
+>

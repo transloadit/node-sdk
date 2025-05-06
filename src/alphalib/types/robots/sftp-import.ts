@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotImport, robotBase, sftpBase } from './_instructions-primitives.ts'
+import { robotImport, robotBase, sftpBase, interpolateRobot } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -48,3 +48,10 @@ The path on your SFTP server where to search for files.
 
 export type RobotSftpImportInstructions = z.infer<typeof robotSftpImportInstructionsSchema>
 export type RobotSftpImportInstructionsInput = z.input<typeof robotSftpImportInstructionsSchema>
+
+export const interpolatableRobotSftpImportInstructionsSchema = interpolateRobot(
+  robotSftpImportInstructionsSchema,
+)
+export type InterpolatableRobotSftpImportInstructions = z.input<
+  typeof interpolatableRobotSftpImportInstructionsSchema
+>

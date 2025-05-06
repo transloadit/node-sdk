@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -102,3 +102,10 @@ Files with same names are numbered in the \`"simple"\` file layout to avoid nami
   .strict()
 
 export type RobotFileCompressInstructions = z.infer<typeof robotFileCompressInstructionsSchema>
+
+export const interpolatableRobotFileCompressInstructionsSchema = interpolateRobot(
+  robotFileCompressInstructionsSchema,
+)
+export type InterpolatableRobotFileCompressInstructions = z.input<
+  typeof interpolatableRobotFileCompressInstructionsSchema
+>

@@ -1,6 +1,25 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import type { RobotMeta } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+
+export const meta: RobotMeta = {
+  allowed_for_url_transform: true,
+  bytescount: 1,
+  discount_factor: 1,
+  discount_pct: 0,
+  minimum_charge: 0,
+  output_factor: 0.6,
+  purpose_sentence: 'generates images from text prompts using AI',
+  purpose_verb: 'generate',
+  purpose_word: 'generate',
+  purpose_words: 'Generate images from text prompts',
+  service_slug: 'artificial-intelligence',
+  slot_count: 10,
+  title: 'Generate images from text prompts',
+  typical_file_size_mb: 1.2,
+  typical_file_type: 'image',
+}
 
 export const robotImageGenerateInstructionsSchema = robotBase
   .merge(robotUse)
@@ -29,4 +48,11 @@ export const robotImageGenerateInstructionsWithHiddenFieldsSchema =
 export type RobotImageGenerateInstructions = z.infer<typeof robotImageGenerateInstructionsSchema>
 export type RobotImageGenerateInstructionsWithHiddenFields = z.infer<
   typeof robotImageGenerateInstructionsWithHiddenFieldsSchema
+>
+
+export const interpolatableRobotImageGenerateInstructionsSchema = interpolateRobot(
+  robotImageGenerateInstructionsSchema,
+)
+export type InterpolatableRobotImageGenerateInstructions = z.input<
+  typeof interpolatableRobotImageGenerateInstructionsSchema
 >

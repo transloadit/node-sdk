@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { ftpBase, robotBase, robotUse } from './_instructions-primitives.ts'
+import { ftpBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -59,3 +59,10 @@ Determines whether to establish a secure connection to the FTP server using SSL.
 
 export type RobotFtpStoreInstructions = z.infer<typeof robotFtpStoreInstructionsSchema>
 export type RobotFtpStoreInstructionsInput = z.input<typeof robotFtpStoreInstructionsSchema>
+
+export const interpolatableRobotFtpStoreInstructionsSchema = interpolateRobot(
+  robotFtpStoreInstructionsSchema,
+)
+export type InterpolatableRobotFtpStoreInstructions = z.input<
+  typeof interpolatableRobotFtpStoreInstructionsSchema
+>

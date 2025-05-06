@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse, supabaseBase } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse, supabaseBase } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -56,4 +56,11 @@ This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\
 export type RobotSupabaseStoreInstructions = z.infer<typeof robotSupabaseStoreInstructionsSchema>
 export type RobotSupabaseStoreInstructionsInput = z.input<
   typeof robotSupabaseStoreInstructionsSchema
+>
+
+export const interpolatableRobotSupabaseStoreInstructionsSchema = interpolateRobot(
+  robotSupabaseStoreInstructionsSchema,
+)
+export type InterpolatableRobotSupabaseStoreInstructions = z.input<
+  typeof interpolatableRobotSupabaseStoreInstructionsSchema
 >

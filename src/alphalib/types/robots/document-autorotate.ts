@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import type { RobotMeta } from './_instructions-primitives.ts'
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: true,
@@ -33,4 +33,11 @@ export const robotDocumentAutorotateInstructionsSchema = robotBase
 
 export type RobotDocumentAutorotateInstructions = z.infer<
   typeof robotDocumentAutorotateInstructionsSchema
+>
+
+export const interpolatableRobotDocumentAutorotateInstructionsSchema = interpolateRobot(
+  robotDocumentAutorotateInstructionsSchema,
+)
+export type InterpolatableRobotDocumentAutorotateInstructions = z.input<
+  typeof interpolatableRobotDocumentAutorotateInstructionsSchema
 >

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -42,7 +42,8 @@ export const robotYoutubeStoreInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/youtube/store').describe(`
-**Note:** This <dfn>Robot</dfn> only accepts videos. [{.alert .alert-note}]
+> [!Note]
+> This <dfn>Robot</dfn> only accepts videos.
 
 ## Installation
 
@@ -106,3 +107,10 @@ Defines the visibility of the uploaded video.
 
 export type RobotYoutubeStoreInstructions = z.infer<typeof robotYoutubeStoreInstructionsSchema>
 export type RobotYoutubeStoreInstructionsInput = z.input<typeof robotYoutubeStoreInstructionsSchema>
+
+export const interpolatableRobotYoutubeStoreInstructionsSchema = interpolateRobot(
+  robotYoutubeStoreInstructionsSchema,
+)
+export type InterpolatableRobotYoutubeStoreInstructions = z.input<
+  typeof interpolatableRobotYoutubeStoreInstructionsSchema
+>

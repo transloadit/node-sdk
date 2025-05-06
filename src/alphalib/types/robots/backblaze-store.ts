@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { backblazeBase, robotBase, robotUse } from './_instructions-primitives.ts'
+import { backblazeBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -60,4 +60,11 @@ Object Metadata can be specified using \`X-Bz-Info-*\` headers.
 export type RobotBackblazeStoreInstructions = z.infer<typeof robotBackblazeStoreInstructionsSchema>
 export type RobotBackblazeStoreInstructionsInput = z.input<
   typeof robotBackblazeStoreInstructionsSchema
+>
+
+export const interpolatableRobotBackblazeStoreInstructionsSchema = interpolateRobot(
+  robotBackblazeStoreInstructionsSchema,
+)
+export type InterpolatableRobotBackblazeStoreInstructions = z.input<
+  typeof interpolatableRobotBackblazeStoreInstructionsSchema
 >

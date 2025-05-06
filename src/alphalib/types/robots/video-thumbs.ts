@@ -7,6 +7,7 @@ import {
   resize_strategy,
   robotBase,
   robotUse,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
@@ -48,7 +49,8 @@ export const robotVideoThumbsInstructionsSchema = robotBase
   .merge(robotFFmpeg)
   .extend({
     robot: z.literal('/video/thumbs').describe(`
-**Note:** Even though thumbnails are extracted from videos in parallel, we sort the thumbnails before adding them to the Assembly results. So the order in which they appear there reflects the order in which they appear in the video. You can also make sure by checking the <code>thumb_index</code> meta key. [{.alert .alert-note}]
+> [!Note]
+> Even though thumbnails are extracted from videos in parallel, we sort the thumbnails before adding them to the Assembly results. So the order in which they appear there reflects the order in which they appear in the video. You can also make sure by checking the <code>thumb_index</code> meta key.
 `),
     count: z.number().int().min(1).max(999).default(8).describe(`
 The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of thumbnails we currently allow is 999.
@@ -86,3 +88,10 @@ Forces the video to be rotated by the specified degree integer. Currently, only 
   .strict()
 
 export type RobotVideoThumbsInstructions = z.infer<typeof robotVideoThumbsInstructionsSchema>
+
+export const interpolatableRobotVideoThumbsInstructionsSchema = interpolateRobot(
+  robotVideoThumbsInstructionsSchema,
+)
+export type InterpolatableRobotVideoThumbsInstructions = z.input<
+  typeof interpolatableRobotVideoThumbsInstructionsSchema
+>

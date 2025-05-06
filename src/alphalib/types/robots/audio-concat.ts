@@ -6,6 +6,7 @@ import {
   robotUse,
   sampleRateSchema,
   robotFFmpegAudio,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
@@ -72,3 +73,10 @@ This parameter does not add an audio fade effect at the beginning or end of your
   })
   .strict()
 export type RobotAudioConcatInstructions = z.infer<typeof robotAudioConcatInstructionsSchema>
+
+export const interpolatableRobotAudioConcatInstructionsSchema = interpolateRobot(
+  robotAudioConcatInstructionsSchema,
+)
+export type InterpolatableRobotAudioConcatInstructions = z.input<
+  typeof interpolatableRobotAudioConcatInstructionsSchema
+>

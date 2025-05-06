@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { robotFFmpegVideo, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  robotFFmpegVideo,
+  robotBase,
+  robotUse,
+  interpolateRobot,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -44,7 +49,8 @@ export const robotVideoConcatInstructionsSchema = robotBase
   .merge(robotFFmpegVideo)
   .extend({
     robot: z.literal('/video/concat').describe(`
-**Warning:** All videos you concatenate must have the same dimensions (width and height) and the same streams (audio and video streams), otherwise you will run into errors. If your videos donʼt have the desired dimensions when passing them to [🤖/video/concat](/docs/transcoding/video-encoding/video-concat/), encode them first with [🤖/video/encode](/docs/transcoding/video-encoding/video-encode/). [{.alert .alert-warning}]
+> [!Warning]
+> All videos you concatenate must have the same dimensions (width and height) and the same streams (audio and video streams), otherwise you will run into errors. If your videos donʼt have the desired dimensions when passing them to [🤖/video/concat](/docs/transcoding/video-encoding/video-concat/), encode them first with [🤖/video/encode](/docs/transcoding/video-encoding/video-encode/).
 
 Itʼs possible to concatenate a virtually infinite number of video files using [🤖/video/concat](/docs/transcoding/video-encoding/video-concat/).
 `),
@@ -66,3 +72,10 @@ Please note this parameter is independent of adding video fades between sections
   .strict()
 
 export type RobotVideoConcatInstructions = z.infer<typeof robotVideoConcatInstructionsSchema>
+
+export const interpolatableRobotVideoConcatInstructionsSchema = interpolateRobot(
+  robotVideoConcatInstructionsSchema,
+)
+export type InterpolatableRobotVideoConcatInstructions = z.input<
+  typeof interpolatableRobotVideoConcatInstructionsSchema
+>

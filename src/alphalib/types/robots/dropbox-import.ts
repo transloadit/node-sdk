@@ -1,6 +1,12 @@
 import { z } from 'zod'
 
-import { digitalOceanBase, robotImport, path, robotBase } from './_instructions-primitives.ts'
+import {
+  digitalOceanBase,
+  robotImport,
+  path,
+  robotBase,
+  interpolateRobot,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -55,4 +61,11 @@ You can also use an array of path strings here to import multiple paths in the s
 export type RobotDropboxImportInstructions = z.infer<typeof robotDropboxImportInstructionsSchema>
 export type RobotDropboxImportInstructionsInput = z.input<
   typeof robotDropboxImportInstructionsSchema
+>
+
+export const interpolatableRobotDropboxImportInstructionsSchema = interpolateRobot(
+  robotDropboxImportInstructionsSchema,
+)
+export type InterpolatableRobotDropboxImportInstructions = z.input<
+  typeof interpolatableRobotDropboxImportInstructionsSchema
 >

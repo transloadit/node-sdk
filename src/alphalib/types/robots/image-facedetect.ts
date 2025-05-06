@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { aiProviderSchema, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  aiProviderSchema,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -128,4 +133,11 @@ For the following examples, the input image is:
 
 export type RobotImageFacedetectInstructions = z.infer<
   typeof robotImageFacedetectInstructionsSchema
+>
+
+export const interpolatableRobotImageFacedetectInstructionsSchema = interpolateRobot(
+  robotImageFacedetectInstructionsSchema,
+)
+export type InterpolatableRobotImageFacedetectInstructions = z.input<
+  typeof interpolatableRobotImageFacedetectInstructionsSchema
 >

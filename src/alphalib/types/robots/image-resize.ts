@@ -10,11 +10,10 @@ import {
   percentageSchema,
   positionSchema,
   unsafeCoordinatesSchema,
-  interpolationSchemaToYieldString,
-  interpolationSchemaToYieldNumber,
   robotBase,
   robotUse,
   robotImagemagick,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -49,7 +48,7 @@ export const meta: RobotMeta = {
   uses_tools: ['imagemagick'],
 }
 
-export const robotImageResizeInstructionsInterpolatedSchema = robotBase
+export const robotImageResizeInstructionsSchema = robotBase
   .merge(robotUse)
   .merge(robotImagemagick)
   .extend({
@@ -371,31 +370,12 @@ If your converted image is unsharp, please try increasing density.
   })
   .strict()
 
-export const robotImageResizeInstructionsSchema =
-  robotImageResizeInstructionsInterpolatedSchema.extend({
-    width: robotImageResizeInstructionsInterpolatedSchema.shape.width.or(
-      interpolationSchemaToYieldNumber,
-    ),
-    height: robotImageResizeInstructionsInterpolatedSchema.shape.height.or(
-      interpolationSchemaToYieldNumber,
-    ),
-    background: robotImageResizeInstructionsInterpolatedSchema.shape.background.or(
-      interpolationSchemaToYieldString,
-    ),
-    resize_strategy: robotImageResizeInstructionsInterpolatedSchema.shape.resize_strategy.or(
-      interpolationSchemaToYieldString,
-    ),
-    blur_regions: robotImageResizeInstructionsInterpolatedSchema.shape.blur_regions.or(
-      z.array(
-        z.object({
-          x: complexWidthSchema.or(interpolationSchemaToYieldNumber),
-          y: complexHeightSchema.or(interpolationSchemaToYieldNumber),
-          width: complexWidthSchema.or(interpolationSchemaToYieldNumber),
-          height: complexHeightSchema.or(interpolationSchemaToYieldNumber),
-        }),
-      ),
-    ),
-  })
-
 export type RobotImageResizeInstructions = z.infer<typeof robotImageResizeInstructionsSchema>
 export type RobotImageResizeInstructionsInput = z.input<typeof robotImageResizeInstructionsSchema>
+
+export const interpolatableRobotImageResizeInstructionsSchema = interpolateRobot(
+  robotImageResizeInstructionsSchema,
+)
+export type InterpolatableRobotImageResizeInstructions = z.input<
+  typeof interpolatableRobotImageResizeInstructionsSchema
+>

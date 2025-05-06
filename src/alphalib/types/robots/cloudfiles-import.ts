@@ -7,6 +7,7 @@ import {
   page_number,
   path,
   robotBase,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -77,4 +78,11 @@ export type RobotCloudfilesImportInstructions = z.infer<
 >
 export type RobotCloudfilesImportInstructionsInput = z.input<
   typeof robotCloudfilesImportInstructionsSchema
+>
+
+export const interpolatableRobotCloudfilesImportInstructionsSchema = interpolateRobot(
+  robotCloudfilesImportInstructionsSchema,
+)
+export type InterpolatableRobotCloudfilesImportInstructions = z.input<
+  typeof interpolatableRobotCloudfilesImportInstructionsSchema
 >

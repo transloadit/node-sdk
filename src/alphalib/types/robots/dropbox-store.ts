@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { digitalOceanBase, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  digitalOceanBase,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -50,3 +55,10 @@ Whether to create a URL to this file for sharing with other people. This will ov
 
 export type RobotDropboxStoreInstructions = z.infer<typeof robotDropboxStoreInstructionsSchema>
 export type RobotDropboxStoreInstructionsInput = z.input<typeof robotDropboxStoreInstructionsSchema>
+
+export const interpolatableRobotDropboxStoreInstructionsSchema = interpolateRobot(
+  robotDropboxStoreInstructionsSchema,
+)
+export type InterpolatableRobotDropboxStoreInstructions = z.input<
+  typeof interpolatableRobotDropboxStoreInstructionsSchema
+>

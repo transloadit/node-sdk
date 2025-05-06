@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { filterCondition, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  filterCondition,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -62,7 +67,8 @@ Examples:
 - \`[["720", ">=", "\${file.size}"]]\`
 - \`[["\${file.mime}", "regex", "image"]]\`
 
-**Warning:** If you would like to match against a \`null\` value or a value that is not present (like an audio file does not have a \`video_codec\` property in its metadata), match against \`""\` (an empty string) instead. We’ll support proper matching against \`null\` in the future, but we cannot easily do so right now without breaking backwards compatibility. [{.alert .alert-warning}]
+> [!Warning]
+> If you would like to match against a \`null\` value or a value that is not present (like an audio file does not have a \`video_codec\` property in its metadata), match against \`""\` (an empty string) instead. We’ll support proper matching against \`null\` in the future, but we cannot easily do so right now without breaking backwards compatibility.
 
 ### Conditions as JavaScript
 
@@ -77,20 +83,32 @@ Examples:
 
 As indicated, we charge for this via [🤖/script/run](/docs/transcoding/code-evaluation/script-run/). See also [Dynamic Evaluation](/docs/topics/dynamic-evaluation/) for more details on allowed syntax and behavior.
 `),
-    accepts: filterCondition.describe(`
-Files that match at least one requirement will be accepted, or declined otherwise. If the array is empty, all files will be accepted. Example:
+    accepts: filterCondition
+      .describe(
+        `
+Files that match at least one requirement will be accepted, or declined otherwise. If the value is \`null\`, all files will be accepted. If the array is empty, no files will be accepted. Example:
 
 \`[["\${file.mime}", "==", "image/gif"]]\`.
 
 If the \`condition_type\` parameter is set to \`"and"\`, then all requirements must match for the file to be accepted.
-`),
-    declines: filterCondition.describe(`
-Files that match at least one requirement will be declined, or accepted otherwise. Example:
+
+If \`accepts\` and \`declines\` are both provided, the requirements in \`accepts\` will be evaluated first, before the conditions in \`declines\`.
+`,
+      )
+      .optional(),
+    declines: filterCondition
+      .describe(
+        `
+Files that match at least one requirement will be declined, or accepted otherwise. If the value is \`null\` or an empty array, no files will be declined. Example:
 
 \`[["\${file.size}",">","1024"]]\`.
 
 If the \`condition_type\` parameter is set to \`"and"\`, then all requirements must match for the file to be declined.
-`),
+
+If \`accepts\` and \`declines\` are both provided, the requirements in \`accepts\` will be evaluated first, before the conditions in \`declines\`.
+`,
+      )
+      .optional(),
     condition_type: z.enum(['and', 'or']).default('or').describe(`
 Specifies the condition type according to which the members of the \`accepts\` or \`declines\` arrays should be evaluated. Can be \`"or"\` or \`"and"\`.
 `),
@@ -105,3 +123,10 @@ The error message shown to your users (such as by Uppy) when a file is declined 
 
 export type RobotFileFilterInstructions = z.infer<typeof robotFileFilterInstructionsSchema>
 export type RobotFileFilterInstructionsInput = z.input<typeof robotFileFilterInstructionsSchema>
+
+export const interpolatableRobotFileFilterInstructionsSchema = interpolateRobot(
+  robotFileFilterInstructionsSchema,
+)
+export type InterpolatableRobotFileFilterInstructions = z.input<
+  typeof interpolatableRobotFileFilterInstructionsSchema
+>

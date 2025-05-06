@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   aiProviderSchema,
   granularitySchema,
+  interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
@@ -25,7 +26,8 @@ export const meta: RobotMeta = {
   },
   example_code_description: 'Recognize text in an uploaded image and save it to a text file:',
   extended_description: `
-**Warning:** Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input images. Avoid relying on exact responses in your tests and application. [{.alert .alert-warning}]
+> [!Warning]
+> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input images. Avoid relying on exact responses in your tests and application.
 `,
   minimum_charge: 1048576,
   output_factor: 0.6,
@@ -69,3 +71,10 @@ In what format to return the extracted text.
   .strict()
 
 export type RobotImageOcrInstructions = z.infer<typeof robotImageOcrInstructionsSchema>
+
+export const interpolatableRobotImageOcrInstructionsSchema = interpolateRobot(
+  robotImageOcrInstructionsSchema,
+)
+export type InterpolatableRobotImageOcrInstructions = z.input<
+  typeof interpolatableRobotImageOcrInstructionsSchema
+>

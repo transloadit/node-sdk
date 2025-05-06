@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   aiProviderSchema,
   granularitySchema,
+  interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
@@ -25,7 +26,8 @@ export const meta: RobotMeta = {
   example_code_description:
     'Recognize objects in an uploaded image and store the labels in a JSON file:',
   extended_description: `
-**Warning:** Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input images. Avoid relying on exact responses in your tests and application. [{.alert .alert-warning}]
+> [!Warning]
+> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input images. Avoid relying on exact responses in your tests and application.
 `,
   minimum_charge: 1572864,
   output_factor: 0.05,
@@ -72,3 +74,10 @@ For an example of how to automatically reject NSFW content and malware, please c
   .strict()
 
 export type RobotImageDescribeInstructions = z.infer<typeof robotImageDescribeInstructionsSchema>
+
+export const interpolatableRobotImageDescribeInstructionsSchema = interpolateRobot(
+  robotImageDescribeInstructionsSchema,
+)
+export type InterpolatableRobotImageDescribeInstructions = z.input<
+  typeof interpolatableRobotImageDescribeInstructionsSchema
+>

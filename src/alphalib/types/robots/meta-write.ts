@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotFFmpeg, robotBase, robotUse } from './_instructions-primitives.ts'
+import { robotFFmpeg, robotBase, robotUse, interpolateRobot } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
@@ -53,3 +53,10 @@ Valid metadata keys can be found [here](https://exiftool.org/TagNames/EXIF.html)
   .strict()
 
 export type RobotMetaWriteInstructions = z.infer<typeof robotMetaWriteInstructionsSchema>
+
+export const interpolatableRobotMetaWriteInstructionsSchema = interpolateRobot(
+  robotMetaWriteInstructionsSchema,
+)
+export type InterpolatableRobotMetaWriteInstructions = z.input<
+  typeof interpolatableRobotMetaWriteInstructionsSchema
+>

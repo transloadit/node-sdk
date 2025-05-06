@@ -37,7 +37,17 @@ export const assemblyAuthInstructionsSchema = z.object({
   max_size: z.number().optional().describe('The Transloadit API max_size to use'),
 })
 
-export const assemblyInstructionsSchema = z.object({
+export type AssemblyInstructionsSchemaType = z.ZodObject<{
+  auth: z.ZodOptional<typeof assemblyAuthInstructionsSchema>
+  allow_steps_override: z.ZodOptional<z.ZodBoolean>
+  notify_url: z.ZodOptional<z.ZodString>
+  fields: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>
+  quiet: z.ZodOptional<z.ZodBoolean>
+  steps: z.ZodOptional<typeof stepsSchema>
+  template_id: z.ZodOptional<z.ZodString>
+}>
+
+export const assemblyInstructionsSchema: AssemblyInstructionsSchemaType = z.object({
   auth: assemblyAuthInstructionsSchema.optional(),
   allow_steps_override: z
     .boolean()
@@ -49,7 +59,7 @@ export const assemblyInstructionsSchema = z.object({
     .string()
     .optional()
     .describe(
-      'Transloadit can send a Pingback to your server when the Assembly is completed. We’ll send the Assembly status in a form url-encoded JSON string inside of a transloadit field in a multipart POST request to the URL supplied here.',
+      `Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly status in a form url-encoded JSON string inside of a transloadit field in a multipart POST request to the URL supplied here.`,
     ),
   fields: z
     .record(z.any())

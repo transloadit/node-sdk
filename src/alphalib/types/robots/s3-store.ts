@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse, s3Base } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse, s3Base } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -44,9 +44,11 @@ If you are new to Amazon S3, see our tutorial on [using your own S3 bucket](/doc
 
 The URL to the result file in your S3 bucket will be returned in the <dfn>Assembly Status JSON</dfn>. If your S3 bucket has versioning enabled, the version ID of the file will be returned within \`meta.version_id\`
 
-**Avoid permission errors.** By default, \`acl\` is set to \`"public"\`. AWS S3 has a bucket setting called "Block new public ACLs and uploading public objects". Set this to <strong>False</strong> in your bucket if you intend to leave \`acl\` as \`"public"\`. Otherwise, you’ll receive permission errors in your Assemblies despite your S3 credentials being configured correctly. [{.alert .alert-warning}]
+> [!Warning]
+> **Avoid permission errors.** By default, \`acl\` is set to \`"public"\`. AWS S3 has a bucket setting called "Block new public ACLs and uploading public objects". Set this to <strong>False</strong> in your bucket if you intend to leave \`acl\` as \`"public"\`. Otherwise, you’ll receive permission errors in your Assemblies despite your S3 credentials being configured correctly.
 
-**Use DNS-compliant bucket names.** Your bucket name [must be DNS-compliant](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) and must not contain uppercase letters. Any non-alphanumeric characters in the file names will be replaced with an underscore, and spaces will be replaced with dashes. If your existing S3 bucket contains uppercase letters or is otherwise not DNS-compliant, rewrite the result URLs using the <dfn>Robot</dfn>’s \`url_prefix\` parameter. [{.alert .alert-warning}]
+> [!Warning]
+> **Use DNS-compliant bucket names.** Your bucket name [must be DNS-compliant](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) and must not contain uppercase letters. Any non-alphanumeric characters in the file names will be replaced with an underscore, and spaces will be replaced with dashes. If your existing S3 bucket contains uppercase letters or is otherwise not DNS-compliant, rewrite the result URLs using the <dfn>Robot</dfn>’s \`url_prefix\` parameter.
 
 <a id="minimum-s3-iam-permissions" aria-hidden="true"></a>
 
@@ -119,3 +121,10 @@ This parameter provides signed URLs in the result JSON (in the \`signed_url\` an
 
 export type RobotS3StoreInstructions = z.infer<typeof robotS3StoreInstructionsSchema>
 export type RobotS3StoreInstructionsInput = z.input<typeof robotS3StoreInstructionsSchema>
+
+export const interpolatableRobotS3StoreInstructionsSchema = interpolateRobot(
+  robotS3StoreInstructionsSchema,
+)
+export type InterpolatableRobotS3StoreInstructions = z.input<
+  typeof interpolatableRobotS3StoreInstructionsSchema
+>

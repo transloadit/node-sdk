@@ -6,6 +6,7 @@ import {
   robotBase,
   robotUse,
   sampleRateSchema,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
@@ -71,3 +72,10 @@ Valid values are \`"average"\` and \`"sum"\` here. \`"average"\` means each inpu
   })
   .strict()
 export type RobotAudioMergeInstructions = z.infer<typeof robotAudioMergeInstructionsSchema>
+
+export const interpolatableRobotAudioMergeInstructionsSchema = interpolateRobot(
+  robotAudioMergeInstructionsSchema,
+)
+export type InterpolatableRobotAudioMergeInstructions = z.input<
+  typeof interpolatableRobotAudioMergeInstructionsSchema
+>

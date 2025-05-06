@@ -16,7 +16,7 @@ function getByPath(obj: unknown, path: string): unknown {
   return current
 }
 
-type ZodParseWithContextResult<T extends z.ZodType> = {
+export type ZodParseWithContextResult<T extends z.ZodType> = {
   errors: ZodIssueWithContext[]
   humanReadable: string
 } & (
@@ -42,6 +42,7 @@ export function zodParseWithContext<T extends z.ZodType>(
     for (const zodIssue of zodRes.error.errors) {
       const lastPath = zodIssue.path
       let parentObj: unknown = {}
+
       if (lastPath) {
         const strPath = lastPath.slice(0, -1).join('.')
         parentObj = getByPath(obj, strPath) ?? {}
@@ -56,50 +57,145 @@ export function zodParseWithContext<T extends z.ZodType>(
 
       const messages: string[] = []
 
-      // Handle union type validation errors
-      if ('unionErrors' in zodIssue && zodIssue.unionErrors) {
-        const validValues: (string | number | boolean)[] = []
+      // --- Handle specific high-priority codes BEFORE union/switch ---
+      if (zodIssue.code === 'unrecognized_keys') {
+        const maxKeysToShow = 3
+        const { keys } = zodIssue
+        const truncatedKeys = keys.slice(0, maxKeysToShow)
+        const ellipsis = keys.length > maxKeysToShow ? '...' : ''
+        let message = `has unrecognized keys: ${truncatedKeys.map((k) => `\`${k}\``).join(', ')}${ellipsis}`
+        // Add hint for root-level unrecognized keys, likely from union .strict() failures
+        if (zodIssue.path.length === 0) {
+          message +=
+            ' (Hint: No union variant matched. Check for extra keys or type mismatches in variants.)'
+        }
+        messages.push(message)
+      }
+      // --- End high-priority handling ---
+
+      // Handle union type validation errors (only if not handled above)
+      else if ('unionErrors' in zodIssue && zodIssue.unionErrors) {
+        // --- Moved initialization out of the loop ---
+        const collectedLiterals: Record<string, (string | number | boolean)[]> = {}
+        const collectedMessages: Record<string, string[]> = {}
+
+        // Process nested issues within the union
         for (const unionError of zodIssue.unionErrors) {
-          if (
-            Array.isArray(unionError.errors) &&
-            unionError.errors[0]?.code === 'invalid_literal'
-          ) {
-            const { expected } = unionError.errors[0]
-            if (
-              expected !== undefined &&
-              expected !== null &&
-              (typeof expected === 'string' ||
-                typeof expected === 'number' ||
-                typeof expected === 'boolean')
-            ) {
-              validValues.push(expected)
+          for (const issue of unionError.issues) {
+            // console.log('---- Zod Union Issue ----\\n', JSON.stringify(issue, null, 2))
+            const nestedPath = issue.path.join('.')
+
+            // Ensure paths exist in collection maps
+            if (!collectedLiterals[nestedPath]) collectedLiterals[nestedPath] = []
+            if (!collectedMessages[nestedPath]) collectedMessages[nestedPath] = []
+
+            if (issue.code === 'invalid_literal') {
+              const { expected } = issue
+              if (
+                expected !== undefined &&
+                expected !== null &&
+                (typeof expected === 'string' ||
+                  typeof expected === 'number' ||
+                  typeof expected === 'boolean')
+              ) {
+                collectedLiterals[nestedPath].push(expected)
+              }
+              // Still add the raw message for fallback
+              collectedMessages[nestedPath].push(issue.message)
+            }
+            // Keep existing enum handling if needed, but literal should cover most cases
+            else if (issue.code === 'invalid_enum_value') {
+              const { options } = issue
+              if (options && options.length > 0) {
+                collectedLiterals[nestedPath].push(...options.map(String)) // Assuming options are compatible
+              }
+              collectedMessages[nestedPath].push(issue.message)
+            }
+            // Keep existing unrecognized keys handling
+            else if (issue.code === 'unrecognized_keys') {
+              const maxKeysToShow = 3
+              const { keys } = issue
+              const truncatedKeys = keys.slice(0, maxKeysToShow)
+              const ellipsis = keys.length > maxKeysToShow ? '...' : ''
+              collectedMessages[nestedPath].push(
+                `has unrecognized keys: ${truncatedKeys.map((k) => `\`${k}\``).join(', ')}${ellipsis}`,
+              )
+            }
+            // <-- Add handling for invalid_type here -->
+            else if (issue.code === 'invalid_type') {
+              const received = issue.received === 'undefined' ? 'missing' : issue.received
+              // Get the actual value for context
+              const actualValue = getByPath(parentObj, nestedPath) // Get value from parent context
+              const actualValueStr =
+                typeof actualValue === 'object' && actualValue !== null
+                  ? JSON.stringify(actualValue)
+                  : String(actualValue)
+              // Simple message not relying on issue.expected
+              collectedMessages[nestedPath].push(
+                `got invalid type: ${received} (value: \`${actualValueStr}\`, expected: ${issue.expected})`,
+              )
+            }
+            // <-- End added handling -->
+            else {
+              collectedMessages[nestedPath].push(issue.message) // Handle other nested codes
             }
           }
         }
-        if (validValues.length > 0) {
-          messages.push(`should be one of: \`${validValues.join('`, `')}\``)
-        } else {
-          for (const unionError of zodIssue.unionErrors) {
-            if ('expected' in unionError && typeof unionError.expected === 'string') {
-              messages.push(`should be ${unionError.expected}`)
-            } else {
-              messages.push(unionError.message)
-            }
+
+        // --- Moved processing logic here ---
+        // Now, add messages to badPaths based on collected info AFTER processing ALL union errors
+        for (const nestedPath in collectedMessages) {
+          if (!badPaths.has(nestedPath)) {
+            badPaths.set(nestedPath, [])
+          }
+          const targetMessages = badPaths.get(nestedPath)!
+
+          // Prioritize more specific messages (like invalid type with details)
+          const invalidTypeMessages = collectedMessages[nestedPath].filter((m) =>
+            m.startsWith('got invalid type:'),
+          )
+          const unrecognizedKeyMessages = collectedMessages[nestedPath].filter((m) =>
+            m.startsWith('has unrecognized keys:'),
+          )
+          const literalMessages = collectedLiterals[nestedPath] ?? []
+
+          if (invalidTypeMessages.length > 0) {
+            targetMessages.push(...invalidTypeMessages)
+          } else if (unrecognizedKeyMessages.length > 0) {
+            targetMessages.push(...unrecognizedKeyMessages)
+          } else if (literalMessages.length > 0) {
+            const uniqueLiterals = [...new Set(literalMessages)]
+            targetMessages.push(`should be one of: \`${uniqueLiterals.join('`, `')}\``)
+          } else {
+            // Fallback to joining the collected raw messages for this path
+            targetMessages.push(...collectedMessages[nestedPath])
           }
         }
-      } else if ('expected' in zodIssue && typeof zodIssue.expected === 'string') {
-        messages.push(`should be ${zodIssue.expected}`)
-      } else {
+
+        // Prevent the main `messages` array from being populated further for this union issue
+        continue // Skip adding messages directly from the top-level union issue itself
+      }
+      // Handle other specific error codes (only if not handled above)
+      else {
         // Handle specific error codes for better messages
         let received: string
         let type: string
         let bigType: string
 
         switch (zodIssue.code) {
-          case 'invalid_type':
+          case 'invalid_type': {
             received = zodIssue.received === 'undefined' ? 'missing' : zodIssue.received
-            messages.push(`should be ${zodIssue.expected} but got ${received}`)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const actualValue = getByPath(obj, path) as any
+            const actualValueStr =
+              typeof actualValue === 'object' && actualValue !== null
+                ? JSON.stringify(actualValue)
+                : String(actualValue) // Use String() for null/primitives
+
+            // Simple message not relying on zodIssue.expected
+            messages.push(`got invalid type: ${received} (value: \`${actualValueStr}\`)`)
             break
+          }
           case 'invalid_string':
             if (zodIssue.validation === 'email') {
               messages.push('should be a valid email address')
@@ -125,10 +221,17 @@ export function zodParseWithContext<T extends z.ZodType>(
         }
       }
 
-      badPaths.get(path)?.push(...messages)
+      // Ensure messages collected directly in the `messages` array (e.g., from the switch)
+      // are added to the correct path in badPaths.
+      if (messages.length > 0) {
+        badPaths.get(path)?.push(...messages)
+      }
 
       const field = path || 'Input'
-      const humanReadable = `Path \`${field}\` ${messages.join(', ')}`
+      // Ensure humanReadable for the individual ZodIssueWithContext is still generated correctly
+      // even if messages array is empty because handled via badPaths/nested issues.
+      const issueSpecificMessages = badPaths.get(path) ?? messages
+      const humanReadable = `Path \`${field}\` ${issueSpecificMessages.join(', ')}`
 
       zodIssuesWithContext.push({
         ...zodIssue,
@@ -137,12 +240,15 @@ export function zodParseWithContext<T extends z.ZodType>(
       })
     }
 
-    const humanReadable = Array.from(badPaths.entries())
+    // Improved formatting for the top-level humanReadable string
+    const errorList = Array.from(badPaths.entries())
       .map(([path, messages]) => {
         const field = path || 'Input'
-        return `Path \`${field}\` ${messages.join(', ')}`
+        return ` - \`${field}\`: ${messages.join(', ')}` // Format as list item
       })
       .join('\n')
+
+    const humanReadable = `Validation failed for the following fields:\n${errorList}` // Add header
 
     return { success: false, errors: zodIssuesWithContext, humanReadable }
   }

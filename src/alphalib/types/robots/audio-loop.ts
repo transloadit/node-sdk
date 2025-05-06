@@ -6,6 +6,7 @@ import {
   robotBase,
   robotUse,
   sampleRateSchema,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
@@ -60,3 +61,10 @@ Target duration for the whole process in seconds. The <dfn>Robot</dfn> will loop
   })
   .strict()
 export type RobotAudioLoopInstructions = z.infer<typeof robotAudioLoopInstructionsSchema>
+
+export const interpolatableRobotAudioLoopInstructionsSchema = interpolateRobot(
+  robotAudioLoopInstructionsSchema,
+)
+export type InterpolatableRobotAudioLoopInstructions = z.input<
+  typeof interpolatableRobotAudioLoopInstructionsSchema
+>

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -19,13 +19,15 @@ export const meta: RobotMeta = {
   },
   example_code_description: 'Convert uploaded files to PDF documents:',
   extended_description: `
-**Note:** This <dfn>Robot</dfn> can convert files to PDF, but cannot convert PDFs to different formats. If you want to convert PDFs to say, JPEG or TIFF, use [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/). If you want to turn them into text files or recognize (OCR) them to make them searchable, reach out, as we have a new <dfn>Robot</dfn> in the works for this. [{.alert .alert-note}]
+> [!Note]
+> This <dfn>Robot</dfn> can convert files to PDF, but cannot convert PDFs to different formats. If you want to convert PDFs to say, JPEG or TIFF, use [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/). If you want to turn them into text files or recognize (OCR) them to make them searchable, reach out, as we have a new <dfn>Robot</dfn> in the works for this.
 
 Sometimes, a certain file type might not support what you are trying to accomplish. Perhaps your company is trying to automate document formatting, but it only works with docx, so all your docs need to be converted. Or maybe your stored jpg files are taking up too much space and you want a lighter format. Whatever the case, we have you covered.
 
 Using this <dfn>Robot</dfn>, you can bypass the issues that certain file types may bring, by converting your file into the most suitable format. This also works in conjunction with our other <dfn>Robots</dfn>, allowing for even greater versatility when using our services.
 
-**Warning:** A general rule of this <dfn>Robot</dfn> is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format, but not to an image. [{.alert .alert-warning}]
+> ![Warning]
+> A general rule of this <dfn>Robot</dfn> is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format, but not to an image.
 
 The following file formats can be converted from:
 
@@ -183,4 +185,11 @@ To change the formatting of the HTML element, the \`font-size\` must be specifie
 
 export type RobotDocumentConvertInstructions = z.infer<
   typeof robotDocumentConvertInstructionsSchema
+>
+
+export const interpolatableRobotDocumentConvertInstructionsSchema = interpolateRobot(
+  robotDocumentConvertInstructionsSchema,
+)
+export type InterpolatableRobotDocumentConvertInstructions = z.input<
+  typeof interpolatableRobotDocumentConvertInstructionsSchema
 >

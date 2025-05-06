@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse, sftpBase } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse, sftpBase } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -59,3 +59,10 @@ This optional parameter controls how an uploaded file's permission bits are set.
 
 export type RobotSftpStoreInstructions = z.infer<typeof robotSftpStoreInstructionsSchema>
 export type RobotSftpStoreInstructionsInput = z.input<typeof robotSftpStoreInstructionsSchema>
+
+export const interpolatableRobotSftpStoreInstructionsSchema = interpolateRobot(
+  robotSftpStoreInstructionsSchema,
+)
+export type InterpolatableRobotSftpStoreInstructions = z.input<
+  typeof interpolatableRobotSftpStoreInstructionsSchema
+>

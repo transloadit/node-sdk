@@ -1,10 +1,10 @@
 import { z } from 'zod'
 
 import {
-  color_with_optional_alpha,
+  color_with_alpha,
   complexHeightSchema,
   complexWidthSchema,
-  interpolationSchemaToYieldNumber,
+  interpolateRobot,
   optimize_priority,
   resize_strategy,
   robotBase,
@@ -45,7 +45,7 @@ export const meta: RobotMeta = {
   typical_file_type: 'file',
 }
 
-export const robotFilePreviewInstructionsInterpolatedSchema = robotBase
+export const robotFilePreviewInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/file/preview').describe(`
@@ -69,7 +69,7 @@ To achieve the desired dimensions of the preview thumbnail, the <dfn>Robot</dfn>
 
 See the list of available [resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies) for more details.
 `),
-    background: color_with_optional_alpha.default('#ffffffff').describe(`
+    background: color_with_alpha.default('#ffffffff').describe(`
 The hexadecimal code of the color used to fill the background (only used for the pad resize strategy). The format is \`#rrggbb[aa]\` (red, green, blue, alpha). Use \`#00000000\` for a transparent padding.
 `),
     strategy: z
@@ -101,10 +101,10 @@ The parameter defaults to the following definition:
 }
 \`\`\`
 `),
-    waveform_center_color: color_with_optional_alpha.default('#000000ff').describe(`
+    waveform_center_color: color_with_alpha.default('#000000ff').describe(`
 The color used in the center of the waveform's gradient. The format is \`#rrggbb[aa]\` (red, green, blue, alpha). Only used if the \`waveform\` strategy for audio files is applied.
 `),
-    waveform_outer_color: color_with_optional_alpha.default('#000000ff').describe(`
+    waveform_outer_color: color_with_alpha.default('#000000ff').describe(`
 The color used in the outer parts of the waveform's gradient. The format is \`#rrggbb[aa]\` (red, green, blue, alpha). Only used if the \`waveform\` strategy for audio files is applied.
 `),
     waveform_height: z.number().int().min(1).max(5000).default(100).describe(`
@@ -121,7 +121,7 @@ The style of the icon generated if the \`icon\` strategy is applied. The default
 <br><br> <strong>\`square\` style:</strong> <br>
 ![Image with square style]({{site.asset_cdn}}/assets/images/file-preview/icon-square.png)
 `),
-    icon_text_color: color_with_optional_alpha.default('#a2a2a2').describe(`
+    icon_text_color: color_with_alpha.default('#a2a2a2').describe(`
 The color of the text used in the icon. The format is \`#rrggbb[aa]\`. Only used if the \`icon\` strategy is applied.
 `),
     // TODO: Determine the font enum.
@@ -160,15 +160,12 @@ Specifies whether the generated animated image should loop forever (\`true\`) or
   })
   .strict()
 
-export const robotFilePreviewInstructionsSchema =
-  robotFilePreviewInstructionsInterpolatedSchema.extend({
-    width: robotFilePreviewInstructionsInterpolatedSchema.shape.width.or(
-      interpolationSchemaToYieldNumber,
-    ),
-    height: robotFilePreviewInstructionsInterpolatedSchema.shape.height.or(
-      interpolationSchemaToYieldNumber,
-    ),
-  })
-
 export type RobotFilePreviewInstructions = z.infer<typeof robotFilePreviewInstructionsSchema>
 export type RobotFilePreviewInstructionsInput = z.input<typeof robotFilePreviewInstructionsSchema>
+
+export const interpolatableRobotFilePreviewInstructionsSchema = interpolateRobot(
+  robotFilePreviewInstructionsSchema,
+)
+export type InterpolatableRobotFilePreviewInstructions = z.input<
+  typeof interpolatableRobotFilePreviewInstructionsSchema
+>

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -58,3 +58,10 @@ The error message shown to your users (such as by Uppy) when a file is declined 
   .strict()
 
 export type RobotFileVirusscanInstructions = z.infer<typeof robotFileVirusscanInstructionsSchema>
+
+export const interpolatableRobotFileVirusscanInstructionsSchema = interpolateRobot(
+  robotFileVirusscanInstructionsSchema,
+)
+export type InterpolatableRobotFileVirusscanInstructions = z.input<
+  typeof interpolatableRobotFileVirusscanInstructionsSchema
+>

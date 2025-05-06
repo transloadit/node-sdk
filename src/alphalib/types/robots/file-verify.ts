@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -53,3 +53,10 @@ The type that you want to match against to ensure your file is of this type. For
   .strict()
 
 export type RobotFileVerifyInstructions = z.infer<typeof robotFileVerifyInstructionsSchema>
+
+export const interpolatableRobotFileVerifyInstructionsSchema = interpolateRobot(
+  robotFileVerifyInstructionsSchema,
+)
+export type InterpolatableRobotFileVerifyInstructions = z.input<
+  typeof interpolatableRobotFileVerifyInstructionsSchema
+>

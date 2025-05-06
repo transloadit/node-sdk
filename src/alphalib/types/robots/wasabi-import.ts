@@ -7,7 +7,9 @@ import {
   path,
   recursive,
   robotBase,
+  return_file_stubs,
   wasabiBase,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -77,8 +79,16 @@ When doing big imports, make sure no files are added or removed from other scrip
     files_per_page: files_per_page.describe(`
 The pagination page size. This only works when recursive is \`true\` for now, in order to not break backwards compatibility in non-recursive imports.
 `),
+    return_file_stubs,
   })
   .strict()
 
 export type RobotWasabiImportInstructions = z.infer<typeof robotWasabiImportInstructionsSchema>
 export type RobotWasabiImportInstructionsInput = z.input<typeof robotWasabiImportInstructionsSchema>
+
+export const interpolatableRobotWasabiImportInstructionsSchema = interpolateRobot(
+  robotWasabiImportInstructionsSchema,
+)
+export type InterpolatableRobotWasabiImportInstructions = z.input<
+  typeof interpolatableRobotWasabiImportInstructionsSchema
+>

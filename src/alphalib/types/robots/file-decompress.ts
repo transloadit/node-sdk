@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -84,3 +84,10 @@ To keep backwards compatibility, setting this parameter to \`true\` will set it 
   .strict()
 
 export type RobotFileDecompressInstructions = z.infer<typeof robotFileDecompressInstructionsSchema>
+
+export const interpolatableRobotFileDecompressInstructionsSchema = interpolateRobot(
+  robotFileDecompressInstructionsSchema,
+)
+export type InterpolatableRobotFileDecompressInstructions = z.input<
+  typeof interpolatableRobotFileDecompressInstructionsSchema
+>

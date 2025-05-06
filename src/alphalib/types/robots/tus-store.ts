@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -37,9 +37,11 @@ export const robotTusStoreInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/tus/store').describe(`
-**Note:** This <dfn>Robot</dfn> only accepts videos. [{.alert .alert-note}]
+> [!Note]
+> This <dfn>Robot</dfn> only accepts videos.
 
-**Warning:** Vimeo's API limits the number of concurrent uploads per minute based on your Vimeo account plan. To see how many videos can be uploaded at once based on your plan, click the following [link](https://developer.vimeo.com/guidelines/rate-limiting#table-1). [{.alert .alert-warning}]
+> [!Warning]
+> Vimeo's API limits the number of concurrent uploads per minute based on your Vimeo account plan. To see how many videos can be uploaded at once based on your plan, click the following [link](https://developer.vimeo.com/guidelines/rate-limiting#table-1).
 
 ## Installation
 
@@ -75,3 +77,10 @@ The SSL URL of the file in the <dfn>Assembly Status JSON</dfn>. The following [A
 
 export type RobotTusStoreInstructions = z.infer<typeof robotTusStoreInstructionsSchema>
 export type RobotTusStoreInstructionsInput = z.input<typeof robotTusStoreInstructionsSchema>
+
+export const interpolatableRobotTusStoreInstructionsSchema = interpolateRobot(
+  robotTusStoreInstructionsSchema,
+)
+export type InterpolatableRobotTusStoreInstructions = z.input<
+  typeof interpolatableRobotTusStoreInstructionsSchema
+>

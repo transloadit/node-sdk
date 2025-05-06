@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -58,3 +58,10 @@ An object containing a list of headers to be set for a file as we serve it to a 
 
 export type RobotFileServeInstructions = z.infer<typeof robotFileServeInstructionsSchema>
 export type RobotFileServeInstructionsInput = z.input<typeof robotFileServeInstructionsSchema>
+
+export const interpolatableRobotFileServeInstructionsSchema = interpolateRobot(
+  robotFileServeInstructionsSchema,
+)
+export type InterpolatableRobotFileServeInstructions = z.input<
+  typeof interpolatableRobotFileServeInstructionsSchema
+>
