@@ -64,6 +64,7 @@ export const assemblyInstructionsSchema = z.object({
     .describe(
       'Set this to true to reduce the response from an Assembly POST request to only the necessary fields. This prevents any potentially confidential information being leaked to the end user who is making the Assembly request. A successful Assembly will only include the ok and assembly_id fields. An erroneous Assembly will only include the error, http_code, message and assembly_id fields. The full Assembly Status will then still be sent to the notify_url if one was specified.',
     ),
+  // This is done to avoid heavy inference cost
   steps: optionalStepsSchema as typeof optionalStepsSchema,
   template_id: z.string().optional().describe('The Template ID to use'),
 })
