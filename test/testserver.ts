@@ -77,7 +77,7 @@ export async function createTestServer(onRequest: RequestListener) {
     tunnel = await createTunnel({ cloudFlaredPath: process.env.CLOUDFLARED_PATH, port })
 
     log('waiting for tunnel to be created')
-    const { url: tunnelPublicUrl } = await tunnel;
+    const { url: tunnelPublicUrl } = await tunnel
     log('tunnel created', tunnelPublicUrl)
 
     log('Waiting for tunnel to allow requests to pass through')

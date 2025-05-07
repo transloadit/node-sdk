@@ -17,10 +17,7 @@ interface Tunnel {
   process: ResultPromise<{ buffer: false; stdout: 'ignore' }>
 }
 
-async function startTunnel({
-  cloudFlaredPath,
-  port,
-}: CreateTunnelParams) {
+async function startTunnel({ cloudFlaredPath, port }: CreateTunnelParams) {
   const process = execa(
     cloudFlaredPath,
     ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'],
@@ -124,11 +121,10 @@ export interface CreateTunnelResult {
   close: () => Promise<void>
 }
 
-export async function createTunnel({
-  cloudFlaredPath = 'cloudflared',
-  port,
-}: CreateTunnelParams) {
-  const { process, url } = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), { retries: 1 })
+export async function createTunnel({ cloudFlaredPath = 'cloudflared', port }: CreateTunnelParams) {
+  const { process, url } = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), {
+    retries: 1,
+  })
 
   async function close() {
     if (!process) return
