@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   aiProviderSchema,
   granularitySchema,
+  interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
@@ -24,9 +25,11 @@ export const meta: RobotMeta = {
   },
   example_code_description: 'Recognize text in an uploaded document and save it to a JSON file:',
   extended_description: `
-**Warning:** Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input PDFs. Avoid relying on exact responses in your tests and application. [{.alert .alert-warning}]
+> [!Warning]
+> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input PDFs. Avoid relying on exact responses in your tests and application.
 
-**Note:** Currently, this <dfn>Robot</dfn> only supports character recognition for PDFs. To use this <dfn>Robot</dfn> with other document formats, use [/document/convert](/docs/transcoding/document-processing/document-convert/) first to convert the document into a PDF. [{.alert .alert-note}]
+> [!Note]
+> Currently, this <dfn>Robot</dfn> only supports character recognition for PDFs. To use this <dfn>Robot</dfn> with other document formats, use [/document/convert](/docs/transcoding/document-processing/document-convert/) first to convert the document into a PDF.
 `,
   minimum_charge: 1048576,
   output_factor: 1,
@@ -70,3 +73,10 @@ In what format to return the extracted text.
   .strict()
 
 export type RobotDocumentOcrInstructions = z.infer<typeof robotDocumentOcrInstructionsSchema>
+
+export const interpolatableRobotDocumentOcrInstructionsSchema = interpolateRobot(
+  robotDocumentOcrInstructionsSchema,
+)
+export type InterpolatableRobotDocumentOcrInstructions = z.input<
+  typeof interpolatableRobotDocumentOcrInstructionsSchema
+>

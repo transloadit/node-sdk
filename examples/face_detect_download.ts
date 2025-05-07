@@ -44,7 +44,7 @@ const status = await transloadit.createAssembly({
 // Now save the file
 const outPath = './output-face.jpg'
 const stream = createWriteStream(outPath)
-const { url } = status.results.facesDetected[0]
+const url = status.results?.facesDetected?.[0]?.url
 assert(url != null)
-await got.stream(url).pipe(stream)
+got.stream(url).pipe(stream)
 console.log('Your cropped face has been saved to', outPath)

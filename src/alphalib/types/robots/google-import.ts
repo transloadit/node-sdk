@@ -8,6 +8,7 @@ import {
   path,
   recursive,
   robotBase,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -75,3 +76,10 @@ The pagination page size. This only works when recursive is \`true\` for now, in
 
 export type RobotGoogleImportInstructions = z.infer<typeof robotGoogleImportInstructionsSchema>
 export type RobotGoogleImportInstructionsInput = z.input<typeof robotGoogleImportInstructionsSchema>
+
+export const interpolatableRobotGoogleImportInstructionsSchema = interpolateRobot(
+  robotGoogleImportInstructionsSchema,
+)
+export type InterpolatableRobotGoogleImportInstructions = z.input<
+  typeof interpolatableRobotGoogleImportInstructionsSchema
+>

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -49,3 +49,10 @@ The file hash is exported as \`file.meta.hash\`.
   .strict()
 
 export type RobotFileHashInstructions = z.infer<typeof robotFileHashInstructionsSchema>
+
+export const interpolatableRobotFileHashInstructionsSchema = interpolateRobot(
+  robotFileHashInstructionsSchema,
+)
+export type InterpolatableRobotFileHashInstructions = z.input<
+  typeof interpolatableRobotFileHashInstructionsSchema
+>

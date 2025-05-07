@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { optimize_priority, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  interpolateRobot,
+  optimize_priority,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -42,7 +47,8 @@ This <dfn>Robot</dfn> enables you to lower your storage and bandwidth costs, and
 
 It works well together with [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/) to bring the full power of resized and optimized images to your website or app.
 
-**Note:** This <dfn>Robot</dfn> accepts all image types and will just pass on unsupported image types unoptimized. Hence, there is no need to set up [🤖/file/filter](/docs/transcoding/file-filtering/file-filter/) workflows for this. [{.alert .alert-note}]
+> [!Note]
+> This <dfn>Robot</dfn> accepts all image types and will just pass on unsupported image types unoptimized. Hence, there is no need to set up [🤖/file/filter](/docs/transcoding/file-filtering/file-filter/) workflows for this.
 `),
     priority: optimize_priority.describe(`
 Provides different algorithms for better or worse compression for your images, but that run slower or faster. The value \`"conversion-speed"\` will result in an average compression ratio of 18%. \`"compression-ratio"\` will result in an average compression ratio of 31%.
@@ -59,3 +65,10 @@ If set to \`true\` this parameter tries to fix images that would otherwise make 
   })
   .strict()
 export type RobotImageOptimizeInstructions = z.infer<typeof robotImageOptimizeInstructionsSchema>
+
+export const interpolatableRobotImageOptimizeInstructionsSchema = interpolateRobot(
+  robotImageOptimizeInstructionsSchema,
+)
+export type InterpolatableRobotImageOptimizeInstructions = z.input<
+  typeof interpolatableRobotImageOptimizeInstructionsSchema
+>

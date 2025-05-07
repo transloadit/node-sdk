@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { azureBase, robotBase, robotUse } from './_instructions-primitives.ts'
+import { azureBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -51,6 +51,9 @@ The content encoding with which to store the file. By default this will be guess
     content_language: z.string().optional().describe(`
 The content language with which to store the file. By default this will be guessed by Azure.
 `),
+    content_disposition: z.string().optional().describe(`
+The content disposition with which to store the file. By default this will be guessed by Azure.
+`),
     cache_control: z.string().optional().describe(`
 The cache control header with which to store the file.
 `),
@@ -74,3 +77,10 @@ Set this to a combination of \`r\` (read), \`w\` (write) and \`d\` (delete) for 
 
 export type RobotAzureStoreInstructions = z.infer<typeof robotAzureStoreInstructionsSchema>
 export type RobotAzureStoreInstructionsInput = z.input<typeof robotAzureStoreInstructionsSchema>
+
+export const interpolatableRobotAzureStoreInstructionsSchema = interpolateRobot(
+  robotAzureStoreInstructionsSchema,
+)
+export type InterpolatableRobotAzureStoreInstructions = z.input<
+  typeof interpolatableRobotAzureStoreInstructionsSchema
+>

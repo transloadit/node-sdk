@@ -1,6 +1,12 @@
 import { z } from 'zod'
 
-import { ftpBase, robotImport, path, robotBase } from './_instructions-primitives.ts'
+import {
+  ftpBase,
+  robotImport,
+  path,
+  robotBase,
+  interpolateRobot,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -50,3 +56,10 @@ Determines if passive mode should be used for the FTP connection.
 
 export type RobotFtpImportInstructions = z.infer<typeof robotFtpImportInstructionsSchema>
 export type RobotFtpImportInstructionsInput = z.input<typeof robotFtpImportInstructionsSchema>
+
+export const interpolatableRobotFtpImportInstructionsSchema = interpolateRobot(
+  robotFtpImportInstructionsSchema,
+)
+export type InterpolatableRobotFtpImportInstructions = z.input<
+  typeof interpolatableRobotFtpImportInstructionsSchema
+>

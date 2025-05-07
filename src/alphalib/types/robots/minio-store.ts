@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { minioBase, robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, minioBase, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -62,3 +62,10 @@ If this parameter is not used, no URL signing is done.
 
 export type RobotMinioStoreInstructions = z.infer<typeof robotMinioStoreInstructionsSchema>
 export type RobotMinioStoreInstructionsInput = z.input<typeof robotMinioStoreInstructionsSchema>
+
+export const interpolatableRobotMinioStoreInstructionsSchema = interpolateRobot(
+  robotMinioStoreInstructionsSchema,
+)
+export type InterpolatableRobotMinioStoreInstructions = z.input<
+  typeof interpolatableRobotMinioStoreInstructionsSchema
+>

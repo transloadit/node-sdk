@@ -32,4 +32,4 @@ const status = await transloadit.createAssembly({
   },
   waitForCompletion: true,
 })
-console.log('Your WebP file:', status.results.webp[0].url)
+console.log('Your WebP file:', status.results?.webp?.[0]?.url)

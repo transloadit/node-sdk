@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { robotImport, robotBase } from './_instructions-primitives.ts'
+import {
+  interpolateRobot,
+  robotImport,
+  robotBase,
+  return_file_stubs,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -60,20 +65,22 @@ Custom headers to be sent for file import.
 
 This is an empty array by default, such that no additional headers except the necessary ones (e.g. Host) are sent.
 `),
-    force_name: z
-      .union([z.string(), z.array(z.string())])
-      .nullable()
-      .default(null).describe(`
-Custom name for the imported file(s). Defaults to \`null\`, which means the file names are derived from the supplied URL(s).
-`),
     import_on_errors: z.array(z.string()).default([]).describe(`
 Setting this to \`"meta"\` will still import the file on metadata extraction errors. \`ignore_errors\` is similar, it also ignores the error and makes sure the Robot doesn't stop, but it doesn't import the file.
 `),
     fail_fast: z.boolean().default(false).describe(`
 Disable the internal retry mechanism, and fail immediately if a resource can't be imported. This can be useful for performance critical applications.
 `),
+    return_file_stubs,
   })
   .strict()
 
 export type RobotHttpImportInstructions = z.infer<typeof robotHttpImportInstructionsSchema>
 export type RobotHttpImportInstructionsInput = z.input<typeof robotHttpImportInstructionsSchema>
+
+export const interpolatableRobotHttpImportInstructionsSchema = interpolateRobot(
+  robotHttpImportInstructionsSchema,
+)
+export type InterpolatableRobotHttpImportInstructions = z.input<
+  typeof interpolatableRobotHttpImportInstructionsSchema
+>

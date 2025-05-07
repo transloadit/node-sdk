@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { aiProviderSchema, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  aiProviderSchema,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -22,7 +27,8 @@ export const meta: RobotMeta = {
   example_code_description:
     'Synthesize speech from uploaded text documents, using a female voice in American English:',
   extended_description: `
-**Warning:** Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application. [{.alert .alert-warning}]
+> [!Warning]
+> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
 
 ## Supported languages and voices
 
@@ -98,3 +104,10 @@ Please see the supported syntaxes for [AWS](https://docs.aws.amazon.com/polly/la
   .strict()
 
 export type RobotTextSpeakInstructions = z.infer<typeof robotTextSpeakInstructionsSchema>
+
+export const interpolatableRobotTextSpeakInstructionsSchema = interpolateRobot(
+  robotTextSpeakInstructionsSchema,
+)
+export type InterpolatableRobotTextSpeakInstructions = z.input<
+  typeof interpolatableRobotTextSpeakInstructionsSchema
+>

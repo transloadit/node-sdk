@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { cloudfilesBase, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  cloudfilesBase,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -60,4 +65,11 @@ export type RobotCloudfilesStoreInstructions = z.infer<
 >
 export type RobotCloudfilesStoreInstructionsInput = z.input<
   typeof robotCloudfilesStoreInstructionsSchema
+>
+
+export const interpolatableRobotCloudfilesStoreInstructionsSchema = interpolateRobot(
+  robotCloudfilesStoreInstructionsSchema,
+)
+export type InterpolatableRobotCloudfilesStoreInstructions = z.input<
+  typeof interpolatableRobotCloudfilesStoreInstructionsSchema
 >

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const robotFileWatermarkInstructionsSchema = robotBase
   .merge(robotUse)
@@ -11,3 +11,10 @@ export const robotFileWatermarkInstructionsSchema = robotBase
   .strict()
 
 export type RobotFileWatermarkInstructions = z.infer<typeof robotFileWatermarkInstructionsSchema>
+
+export const interpolatableRobotFileWatermarkInstructionsSchema = interpolateRobot(
+  robotFileWatermarkInstructionsSchema,
+)
+export type InterpolatableRobotFileWatermarkInstructions = z.input<
+  typeof interpolatableRobotFileWatermarkInstructionsSchema
+>

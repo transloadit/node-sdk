@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 
 export const robotProgressSimulateInstructionsSchema = robotBase
   .extend({
@@ -13,4 +13,11 @@ export const robotProgressSimulateInstructionsSchema = robotBase
   .strict()
 export type RobotProgressSimulateInstructions = z.infer<
   typeof robotProgressSimulateInstructionsSchema
+>
+
+export const interpolatableRobotProgressSimulateInstructionsSchema = interpolateRobot(
+  robotProgressSimulateInstructionsSchema,
+)
+export type InterpolatableRobotProgressSimulateInstructions = z.input<
+  typeof interpolatableRobotProgressSimulateInstructionsSchema
 >

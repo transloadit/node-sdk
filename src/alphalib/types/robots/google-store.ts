@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { googleBase, robotBase, robotUse } from './_instructions-primitives.ts'
+import { googleBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -87,3 +87,10 @@ The SSL URL of the file in the result JSON. The following [Assembly variables](/
 
 export type RobotGoogleStoreInstructions = z.infer<typeof robotGoogleStoreInstructionsSchema>
 export type RobotGoogleStoreInstructionsInput = z.input<typeof robotGoogleStoreInstructionsSchema>
+
+export const interpolatableRobotGoogleStoreInstructionsSchema = interpolateRobot(
+  robotGoogleStoreInstructionsSchema,
+)
+export type InterpolatableRobotGoogleStoreInstructions = z.input<
+  typeof interpolatableRobotGoogleStoreInstructionsSchema
+>

@@ -3,14 +3,13 @@ import { z } from 'zod'
 import {
   color_with_alpha,
   robotFFmpegVideo,
-  interpolationSchemaToYieldNumber,
-  interpolationSchemaToYieldString,
   percentageSchema,
   positionSchema,
   resize_strategy,
   robotBase,
   robotUse,
   unsafeCoordinatesSchema,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -45,7 +44,7 @@ export const meta: RobotMeta = {
   uses_tools: ['ffmpeg'],
 }
 
-export const robotVideoEncodeInstructionsInterpolatedSchema = robotBase
+export const robotVideoEncodeInstructionsSchema = robotBase
   .merge(robotUse)
   .merge(robotFFmpegVideo)
   .extend({
@@ -159,21 +158,12 @@ The name used for the final segment. Available variables are \`\${segment_prefix
   })
   .strict()
 
-export const robotVideoEncodeInstructionsSchema =
-  robotVideoEncodeInstructionsInterpolatedSchema.extend({
-    width: robotVideoEncodeInstructionsInterpolatedSchema.shape.width.or(
-      interpolationSchemaToYieldNumber,
-    ),
-    height: robotVideoEncodeInstructionsInterpolatedSchema.shape.height.or(
-      interpolationSchemaToYieldNumber,
-    ),
-    background: robotVideoEncodeInstructionsInterpolatedSchema.shape.background.or(
-      interpolationSchemaToYieldString,
-    ),
-    resize_strategy: robotVideoEncodeInstructionsInterpolatedSchema.shape.resize_strategy.or(
-      interpolationSchemaToYieldString,
-    ),
-  })
-
 export type RobotVideoEncodeInstructions = z.infer<typeof robotVideoEncodeInstructionsSchema>
 export type RobotVideoEncodeInstructionsInput = z.input<typeof robotVideoEncodeInstructionsSchema>
+
+export const interpolatableRobotVideoEncodeInstructionsSchema = interpolateRobot(
+  robotVideoEncodeInstructionsSchema,
+)
+export type InterpolatableRobotVideoEncodeInstructions = z.input<
+  typeof interpolatableRobotVideoEncodeInstructionsSchema
+>

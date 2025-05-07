@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { robotFFmpegAudio, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  robotFFmpegAudio,
+  robotBase,
+  robotUse,
+  interpolateRobot,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
@@ -55,3 +60,10 @@ Whether the original file should be transcoded into a new format if there is an 
   })
   .strict()
 export type RobotAudioArtworkInstructions = z.infer<typeof robotAudioArtworkInstructionsSchema>
+
+export const interpolatableRobotAudioArtworkInstructionsSchema = interpolateRobot(
+  robotAudioArtworkInstructionsSchema,
+)
+export type InterpolatableRobotAudioArtworkInstructions = z.input<
+  typeof interpolatableRobotAudioArtworkInstructionsSchema
+>

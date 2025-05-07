@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -21,7 +21,8 @@ export const meta: RobotMeta = {
   },
   example_code_description: 'Merge all uploaded PDF documents into one:',
   extended_description: `
-**Note:** This <dfn>Robot</dfn> can merge PDF files only at the moment. [{.alert .alert-note}]
+> ![Note]
+> This <dfn>Robot</dfn> can merge PDF files only at the moment.
 
 Input files are sorted alphanumerically unless you provide the as-syntax in the "use" parameter. For example:
 
@@ -66,3 +67,10 @@ If not empty, encrypts the output file and makes it accessible only by typing in
   .strict()
 
 export type RobotDocumentMergeInstructions = z.infer<typeof robotDocumentMergeInstructionsSchema>
+
+export const interpolatableRobotDocumentMergeInstructionsSchema = interpolateRobot(
+  robotDocumentMergeInstructionsSchema,
+)
+export type InterpolatableRobotDocumentMergeInstructions = z.input<
+  typeof interpolatableRobotDocumentMergeInstructionsSchema
+>

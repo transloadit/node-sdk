@@ -5,6 +5,7 @@ import {
   robotImagemagick,
   robotBase,
   robotUse,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -117,3 +118,10 @@ Some PDF documents lie about their dimensions. For instance they'll say they are
   .strict()
 
 export type RobotDocumentThumbsInstructions = z.infer<typeof robotDocumentThumbsInstructionsSchema>
+
+export const interpolatableRobotDocumentThumbsInstructionsSchema = interpolateRobot(
+  robotDocumentThumbsInstructionsSchema,
+)
+export type InterpolatableRobotDocumentThumbsInstructions = z.input<
+  typeof interpolatableRobotDocumentThumbsInstructionsSchema
+>

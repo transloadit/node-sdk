@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   color_without_alpha,
   imageQualitySchema,
+  interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
@@ -79,3 +80,10 @@ Controls the image compression for PNG images. Setting to \`true\` results in sm
   })
   .strict()
 export type RobotImageMergeInstructions = z.infer<typeof robotImageMergeInstructionsSchema>
+
+export const interpolatableRobotImageMergeInstructionsSchema = interpolateRobot(
+  robotImageMergeInstructionsSchema,
+)
+export type InterpolatableRobotImageMergeInstructions = z.input<
+  typeof interpolatableRobotImageMergeInstructionsSchema
+>

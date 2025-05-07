@@ -1,6 +1,12 @@
 import { z } from 'zod'
 
-import { color_with_alpha, robotFFmpeg, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  color_with_alpha,
+  robotFFmpeg,
+  robotBase,
+  robotUse,
+  interpolateRobot,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -81,3 +87,10 @@ The color used in the outer parts of the gradient. The format is "rrggbbaa" (red
   })
   .strict()
 export type RobotAudioWaveformInstructions = z.infer<typeof robotAudioWaveformInstructionsSchema>
+
+export const interpolatableRobotAudioWaveformInstructionsSchema = interpolateRobot(
+  robotAudioWaveformInstructionsSchema,
+)
+export type InterpolatableRobotAudioWaveformInstructions = z.input<
+  typeof interpolatableRobotAudioWaveformInstructionsSchema
+>

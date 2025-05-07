@@ -7,6 +7,7 @@ import {
   positionSchema,
   robotBase,
   robotUse,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
@@ -84,3 +85,10 @@ Specifies the position of the subtitles.
   })
   .strict()
 export type RobotVideoSubtitleInstructions = z.infer<typeof robotVideoSubtitleInstructionsSchema>
+
+export const interpolatableRobotVideoSubtitleInstructionsSchema = interpolateRobot(
+  robotVideoSubtitleInstructionsSchema,
+)
+export type InterpolatableRobotVideoSubtitleInstructions = z.input<
+  typeof interpolatableRobotVideoSubtitleInstructionsSchema
+>

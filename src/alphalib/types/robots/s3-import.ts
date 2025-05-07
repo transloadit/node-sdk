@@ -2,12 +2,14 @@ import { z } from 'zod'
 
 import {
   files_per_page,
+  interpolateRobot,
   robotImport,
-  minioBase,
   page_number,
   path,
   recursive,
   robotBase,
+  return_file_stubs,
+  s3Base,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -46,14 +48,15 @@ export const meta: RobotMeta = {
 
 export const robotS3ImportInstructionsSchema = robotBase
   .merge(robotImport)
-  .merge(minioBase)
+  .merge(s3Base)
   .extend({
     robot: z.literal('/s3/import').describe(`
 If you are new to Amazon S3, see our tutorial on [using your own S3 bucket](/docs/faq/how-to-set-up-an-amazon-s3-bucket/).
 
 The URL to the result file in your S3 bucket will be returned in the <dfn>Assembly Status JSON</dfn>.
 
-**Use DNS-compliant bucket names.** Your bucket name [must be DNS-compliant](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) and must not contain uppercase letters. Any non-alphanumeric characters in the file names will be replaced with an underscore, and spaces will be replaced with dashes. If your existing S3 bucket contains uppercase letters or is otherwise not DNS-compliant, rewrite the result URLs using the <dfn>Robot</dfn>’s \`url_prefix\` parameter. [{.alert .alert-warning}]
+> [!Warning]
+> **Use DNS-compliant bucket names**. Your bucket name [must be DNS-compliant](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) and must not contain uppercase letters. Any non-alphanumeric characters in the file names will be replaced with an underscore, and spaces will be replaced with dashes. If your existing S3 bucket contains uppercase letters or is otherwise not DNS-compliant, rewrite the result URLs using the <dfn>Robot</dfn>’s \`url_prefix\` parameter.
 
 <a id="minimum-s3-iam-permissions" aria-hidden="true"></a>
 
@@ -109,8 +112,16 @@ When doing big imports, make sure no files are added or removed from other scrip
     files_per_page: files_per_page.optional().describe(`
 The pagination page size. This only works when recursive is \`true\` for now, in order to not break backwards compatibility in non-recursive imports.
 `),
+    return_file_stubs,
   })
   .strict()
 
 export type RobotS3ImportInstructions = z.infer<typeof robotS3ImportInstructionsSchema>
 export type RobotS3ImportInstructionsInput = z.input<typeof robotS3ImportInstructionsSchema>
+
+export const interpolatableRobotS3ImportInstructionsSchema = interpolateRobot(
+  robotS3ImportInstructionsSchema,
+)
+export type InterpolatableRobotS3ImportInstructions = z.input<
+  typeof interpolatableRobotS3ImportInstructionsSchema
+>

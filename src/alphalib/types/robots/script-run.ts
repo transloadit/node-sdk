@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -79,3 +79,10 @@ You can check whether evaluating this script was free by inspecting \`file.meta.
   .strict()
 
 export type RobotScriptRunInstructions = z.infer<typeof robotScriptRunInstructionsSchema>
+
+export const interpolatableRobotScriptRunInstructionsSchema = interpolateRobot(
+  robotScriptRunInstructionsSchema,
+)
+export type InterpolatableRobotScriptRunInstructions = z.input<
+  typeof interpolatableRobotScriptRunInstructionsSchema
+>

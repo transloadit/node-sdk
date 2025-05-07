@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse, robotFFmpegVideo } from './_instructions-primitives.ts'
+import {
+  robotBase,
+  robotUse,
+  robotFFmpegVideo,
+  interpolateRobot,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
@@ -121,3 +126,10 @@ Determines whether you want closed caption support when using the \`"hls"\` tech
   .strict()
 
 export type RobotVideoAdaptiveInstructions = z.infer<typeof robotVideoAdaptiveInstructionsSchema>
+
+export const interpolatableRobotVideoAdaptiveInstructionsSchema = interpolateRobot(
+  robotVideoAdaptiveInstructionsSchema,
+)
+export type InterpolatableRobotVideoAdaptiveInstructions = z.input<
+  typeof interpolatableRobotVideoAdaptiveInstructionsSchema
+>

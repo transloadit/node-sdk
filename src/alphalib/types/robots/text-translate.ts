@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { aiProviderSchema, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  aiProviderSchema,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -20,7 +25,8 @@ export const meta: RobotMeta = {
   },
   example_code_description: 'Translate uploaded text file contents to German:',
   extended_description: `
-**Warning:** This <dfn>Robot</dfn> uses third-party AI services. They may tweak their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application. [{.alert .alert-warning}]
+> [!Warning]
+> This <dfn>Robot</dfn> uses third-party AI services. They may tweak their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
 
 ## Supported languages
 
@@ -174,7 +180,8 @@ export const robotTextTranslateInstructionsSchema = robotBase
     robot: z.literal('/text/translate').describe(`
 You can use the text that we return in your application, or you can pass the text down to other <dfn>Robots</dfn> to add a translated subtitle track to a video for example.
 
-**This <dfn>Robot</dfn> accepts only files with a \`text/*\` MIME-type,** including plain text and Markdown. For documents in other formats, use [🤖/document/convert](/docs/transcoding/document-processing/document-convert/) to first convert them into a compatible text format before proceeding. [{.alert .alert-note}]
+> [!Note]
+> **This <dfn>Robot</dfn> accepts only files with a \`text/*\` MIME-type,** including plain text and Markdown. For documents in other formats, use [🤖/document/convert](/docs/transcoding/document-processing/document-convert/) to first convert them into a compatible text format before proceeding.
 `),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage. Valid values are \`"aws"\` (Amazon Web Services) and \`"gcp"\` (Google Cloud Platform).
@@ -197,3 +204,10 @@ If the exact language can't be found, a generic variant can be fallen back to. F
   .strict()
 
 export type RobotTextTranslateInstructions = z.infer<typeof robotTextTranslateInstructionsSchema>
+
+export const interpolatableRobotTextTranslateInstructionsSchema = interpolateRobot(
+  robotTextTranslateInstructionsSchema,
+)
+export type InterpolatableRobotTextTranslateInstructions = z.input<
+  typeof interpolatableRobotTextTranslateInstructionsSchema
+>

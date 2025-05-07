@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, type RobotMeta } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, type RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
   allowed_for_url_transform: false,
@@ -30,3 +30,10 @@ When you want Transloadit to tranform files on the fly, this <dfn>Robot</dfn> ca
   .strict()
 
 export type RobotTlcdnDeliverInstructions = z.infer<typeof robotTlcdnDeliverInstructionsSchema>
+
+export const interpolatableRobotTlcdnDeliverInstructionsSchema = interpolateRobot(
+  robotTlcdnDeliverInstructionsSchema,
+)
+export type InterpolatableRobotTlcdnDeliverInstructions = z.input<
+  typeof interpolatableRobotTlcdnDeliverInstructionsSchema
+>

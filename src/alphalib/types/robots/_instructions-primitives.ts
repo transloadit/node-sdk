@@ -1,11 +1,8 @@
 import type { Replace } from 'type-fest'
 import { z } from 'zod'
 
-import { stackVersions } from '../stackVersions.js'
-import type { assemblyInstructionsSchema } from '../template.js'
-
-export const interpolationSchemaToYieldNumber = z.string().regex(/^[\d.]*\${.+}[\d.]*$/)
-export const interpolationSchemaToYieldString = z.string().regex(/\${.+}/)
+import { stackVersions } from '../stackVersions.ts'
+import type { assemblyInstructionsSchema } from '../template.ts'
 
 export interface RobotMeta {
   allowed_for_url_transform: boolean
@@ -19,6 +16,8 @@ export interface RobotMeta {
   extended_description?: string
   has_small_icon?: true
   minimum_charge: number
+  minimum_charge_usd?: number | Record<string, number>
+  minimum_charge_usd_note?: string
   ogimage?: string
   marketing_intro?: string
   output_factor: number
@@ -58,6 +57,7 @@ export interface RobotMeta {
     | 'verify'
     | 'remove'
     | 'write'
+    | 'stream'
 
   purpose_word: string
   purpose_words: string
@@ -93,6 +93,194 @@ export interface RobotMeta {
   uses_tools?: ('ffmpeg' | 'imagemagick')[]
 }
 
+export const interpolationSchemaFull = z
+  .string()
+  .regex(/^\${.+}$/, 'Must be a full interpolation string')
+export const interpolationSchemaPartial = z
+  .string()
+  .regex(/\${.+}/, 'Must be a partially interpolatable string')
+export const booleanStringSchema = z.enum(['true', 'false'])
+
+type InterpolatableTuple<Schemas extends readonly z.ZodTypeAny[]> = Schemas extends readonly [
+  infer Head extends z.ZodTypeAny,
+  ...infer Rest extends z.ZodTypeAny[],
+]
+  ? [InterpolatableSchema<Head>, ...InterpolatableTuple<Rest>]
+  : Schemas
+
+type InterpolatableSchema<Schema extends z.ZodTypeAny> = Schema extends
+  | z.ZodBoolean
+  | z.ZodEffects<z.ZodTypeAny>
+  | z.ZodEnum<[string, ...string[]]>
+  | z.ZodLiteral<unknown>
+  | z.ZodNumber
+  | z.ZodString
+  ? z.ZodUnion<[z.ZodString, Schema]>
+  : Schema extends z.ZodArray<infer T, infer Cardinality>
+    ? z.ZodUnion<[z.ZodString, z.ZodArray<InterpolatableSchema<T>, Cardinality>]>
+    : Schema extends z.ZodDefault<infer T>
+      ? z.ZodDefault<InterpolatableSchema<T>>
+      : Schema extends z.ZodNullable<infer T>
+        ? z.ZodNullable<InterpolatableSchema<T>>
+        : Schema extends z.ZodOptional<infer T>
+          ? z.ZodOptional<InterpolatableSchema<T>>
+          : Schema extends z.ZodRecord<infer Key, infer Value>
+            ? z.ZodRecord<Key, InterpolatableSchema<Value>>
+            : Schema extends z.ZodTuple<infer T, infer Rest>
+              ? z.ZodUnion<
+                  [
+                    z.ZodString,
+                    z.ZodTuple<
+                      InterpolatableTuple<T>,
+                      Rest extends z.ZodTypeAny ? InterpolatableSchema<Rest> : null
+                    >,
+                  ]
+                >
+              : Schema extends z.ZodObject<infer T, infer UnknownKeys, infer Catchall>
+                ? z.ZodUnion<
+                    [
+                      z.ZodString,
+                      z.ZodObject<
+                        { [Key in keyof T]: InterpolatableSchema<T[Key]> },
+                        UnknownKeys,
+                        Catchall
+                      >,
+                    ]
+                  >
+                : Schema extends z.ZodUnion<infer T>
+                  ? z.ZodUnion<[z.ZodString, ...InterpolatableTuple<T>]>
+                  : Schema
+
+export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
+  schema: Schema,
+): InterpolatableSchema<Schema> {
+  const def = schema._def
+
+  switch (def.typeName) {
+    case z.ZodFirstPartyTypeKind.ZodBoolean:
+      return z
+        .union([interpolationSchemaFull, schema, booleanStringSchema])
+        .transform((value) => value === true || value === false) as InterpolatableSchema<Schema>
+    case z.ZodFirstPartyTypeKind.ZodArray: {
+      let replacement = z.array(interpolateRecursive(def.type), def)
+
+      if (def.exactLength != null) {
+        replacement = replacement.min(def.exactLength.value, def.exactLength.message)
+      }
+
+      if (def.maxLength != null) {
+        replacement = replacement.min(def.maxLength.value, def.maxLength.message)
+      }
+
+      if (def.minLength != null) {
+        replacement = replacement.min(def.minLength.value, def.minLength.message)
+      }
+
+      return z.union([interpolationSchemaFull, replacement]) as InterpolatableSchema<Schema>
+    }
+    case z.ZodFirstPartyTypeKind.ZodDefault:
+      return (interpolateRecursive(def.innerType) as InterpolatableSchema<Schema>).default(
+        def.defaultValue(),
+      ) as InterpolatableSchema<Schema>
+    case z.ZodFirstPartyTypeKind.ZodEffects:
+    case z.ZodFirstPartyTypeKind.ZodEnum:
+    case z.ZodFirstPartyTypeKind.ZodLiteral:
+      return z.union([interpolationSchemaFull, schema]) as InterpolatableSchema<Schema>
+    case z.ZodFirstPartyTypeKind.ZodNumber:
+      return z.union([
+        z
+          .string()
+          .regex(/^\d+(\.\d+)?$/)
+          .transform((value) => Number(value)),
+        interpolationSchemaFull,
+        schema,
+      ]) as InterpolatableSchema<Schema>
+    case z.ZodFirstPartyTypeKind.ZodNullable:
+      return interpolateRecursive(def.innerType).nullable() as InterpolatableSchema<Schema>
+    case z.ZodFirstPartyTypeKind.ZodObject: {
+      const replacement = z.object(
+        Object.fromEntries(
+          Object.entries(def.shape()).map(([key, nested]) => [
+            key,
+            interpolateRecursive(nested as z.ZodFirstPartySchemaTypes),
+          ]),
+        ),
+        def,
+      )
+      return z.union([
+        interpolationSchemaFull,
+        def.unknownKeys === 'strict'
+          ? replacement.strict()
+          : def.unknownKeys === 'passthrough'
+            ? replacement.passthrough()
+            : replacement,
+      ]) as InterpolatableSchema<Schema>
+    }
+    case z.ZodFirstPartyTypeKind.ZodOptional:
+      return z.optional(interpolateRecursive(def.innerType), def) as InterpolatableSchema<Schema>
+    case z.ZodFirstPartyTypeKind.ZodRecord:
+      return z.record(
+        def.keyType,
+        interpolateRecursive(def.valueType),
+        def,
+      ) as InterpolatableSchema<Schema>
+    case z.ZodFirstPartyTypeKind.ZodString:
+      return z.union([interpolationSchemaPartial, schema]) as InterpolatableSchema<Schema>
+    case z.ZodFirstPartyTypeKind.ZodTuple: {
+      const tuple = z.tuple(def.items.map(interpolateRecursive))
+
+      return z.union([
+        interpolationSchemaFull,
+        def.rest ? tuple.rest(def.rest) : tuple,
+      ]) as InterpolatableSchema<Schema>
+    }
+    case z.ZodFirstPartyTypeKind.ZodUnion:
+      return z.union([
+        interpolationSchemaFull,
+        ...(def.options.map(interpolateRecursive) as z.ZodUnionOptions),
+      ]) as InterpolatableSchema<Schema>
+    default:
+      return schema as InterpolatableSchema<Schema>
+  }
+}
+
+/**
+ * The robot keys specified in this array can’t be interpolated.
+ */
+const uninterpolatableKeys = ['robot', 'use'] as const
+
+type InterpolatableRobot<Schema extends z.ZodObject<z.ZodRawShape>> =
+  Schema extends z.ZodObject<infer T, infer UnknownKeys, infer Catchall>
+    ? z.ZodObject<
+        {
+          [Key in keyof T]: Key extends (typeof uninterpolatableKeys)[number]
+            ? T[Key]
+            : InterpolatableSchema<T[Key]>
+        },
+        UnknownKeys,
+        Catchall
+      >
+    : never
+
+export function interpolateRobot<Schema extends z.ZodObject<z.ZodRawShape>>(
+  schema: Schema,
+): InterpolatableRobot<Schema> {
+  const def = schema._def
+  return z
+    .object(
+      Object.fromEntries(
+        Object.entries(def.shape()).map(([key, nested]) => [
+          key,
+          (uninterpolatableKeys as readonly string[]).includes(key)
+            ? nested
+            : interpolateRecursive(nested as z.ZodFirstPartySchemaTypes),
+        ]),
+      ),
+      def,
+    )
+    .strict() as InterpolatableRobot<Schema>
+}
+
 /**
  * Fields that are shared by all Transloadit robots.
  */
@@ -115,6 +303,13 @@ You can also set this to \`false\` to skip metadata extraction and speed up tran
       .boolean()
       .default(false)
       .describe('Whether the results of this Step should be present in the Assembly Status JSON'),
+
+    queue: z
+      .enum(['batch'])
+      .optional()
+      .describe(
+        `Setting the queue to 'batch', manually downgrades the priority of jobs for this step to avoid consuming Priority job slots for jobs that don't need zero queue waiting times`,
+      ),
   })
   .strict()
 
@@ -166,7 +361,8 @@ Specifies which Step(s) to use as input.
   }
   \`\`\`
 
-💡That’s likely all you need to know about \`use\`, but you can view [Advanced use cases](/docs/topics/use-parameter/).
+> [!Tip]
+> That’s likely all you need to know about \`use\`, but you can view [Advanced use cases](/docs/topics/use-parameter/).
 `,
       )
       .optional(),
@@ -243,9 +439,18 @@ export const robotFFmpeg = z.object({
         })
         .strict()
         .optional(),
-      ac: z.union([z.number(), interpolationSchemaToYieldNumber]).optional(),
+      'svtav1-params': z
+        .object({
+          tune: z.number().optional(),
+          'enable-qm': z.number().optional(),
+          'fast-decode': z.number().optional(),
+          'film-grain-denoise': z.number().optional(),
+        })
+        .strict()
+        .optional(),
+      ac: z.number().optional(),
       an: z.boolean().optional(),
-      ar: z.union([z.number(), interpolationSchemaToYieldNumber]).optional(),
+      ar: z.number().optional(),
       async: z.number().optional(),
       b: z
         .union([
@@ -282,14 +487,14 @@ export const robotFFmpeg = z.object({
       movflags: z.string().optional(),
       partitions: z.string().optional(),
       pix_fmt: z.string().optional(),
-      preset: z.string().optional(),
+      preset: z.union([z.string(), z.number()]).optional(),
       profile: z.string().optional(),
       'q:a': z.number().optional(),
       qcomp: z.union([z.string(), z.number()]).optional(),
       qdiff: z.number().optional(),
       qmax: z.number().optional(),
       qmin: z.number().optional(),
-      r: z.union([z.number(), interpolationSchemaToYieldNumber]).optional(),
+      r: z.number().optional(),
       rc_eq: z.string().optional(),
       refs: z.number().optional(),
       s: z.string().optional(),
@@ -310,7 +515,7 @@ A parameter object to be passed to FFmpeg. If a preset is used, the options spec
 
   ffmpeg_stack: z
     // Any semver in range is allowed and normalized. The enum is used for editor completions.
-    .union([z.enum(['v5', 'v6']), z.string().regex(/^v?[56](\.\d+)?(\.\d+)?$/)])
+    .union([z.enum(['v5', 'v6', 'v7']), z.string().regex(/^v?[567](\.\d+)?(\.\d+)?$/)])
     .default('v5.0.0').describe(`
 Selects the FFmpeg stack version to use for encoding. These versions reflect real FFmpeg versions. We currently recommend to use "v6.0.0".
 `),
@@ -569,6 +774,15 @@ export const page_number = z.number().int().default(1)
 
 export const recursive = z.boolean().default(false)
 
+export const return_file_stubs = z
+  .boolean()
+  .describe(
+    `
+If set to \`true\`, the Robot will not yet import the actual files but instead return an empty file stub that includes a URL from where the file can be imported by subsequent Robots. This is useful for cases where subsequent Steps need more control over the import process, such as with 🤖/video/ondemand. This parameter should only be set if all subsequent Steps use Robots that support file stubs.
+`,
+  )
+  .default(false)
+
 export const port = z.number().int().min(1).max(65535)
 
 // TODO: Use an enum.
@@ -592,9 +806,7 @@ export const positionSchema = z.enum([
 
 export const percentageSchema = z.string().regex(/^\d+%$/)
 
-export const color_with_alpha = z.string().regex(/^#?[0-9a-fA-F]{8}$/)
-
-export const color_with_optional_alpha = z.string().regex(/^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/)
+export const color_with_alpha = z.string().regex(/^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/)
 
 export const color_without_alpha = z.string().regex(/^#?[0-9a-fA-F]{6}$/)
 
@@ -669,6 +881,13 @@ export const granularitySchema = z.enum(['full', 'list']).default('full')
 export type RobotImport = z.infer<typeof robotImport>
 export const robotImport = z
   .object({
+    force_name: z
+      .union([z.string(), z.array(z.string())])
+      .nullable()
+      .default(null)
+      .describe(
+        'Custom name for the imported file(s). By default file names are derived from the source.',
+      ),
     ignore_errors: z
       .union([z.boolean(), z.array(z.enum(['meta', 'import']))])
       .transform((value) => (value === true ? ['meta', 'import'] : value === false ? [] : value))
@@ -905,49 +1124,53 @@ export const filterExpression = z.union([
 ])
 
 export type FilterCondition = z.infer<typeof filterCondition>
-export const filterCondition = z
-  .array(
-    z.union([
-      z.tuple([
-        filterExpression,
-        z.union([
-          z.literal('==').describe('Equals without type check'),
-          z.literal('===').describe('Strict equals with type check'),
-          z.literal('<').describe('Less than'),
-          z.literal('>').describe('Greater than'),
-          z.literal('<=').describe('Less or equal'),
-          z.literal('>=').describe('Greater or equal'),
-          z.literal('!=').describe('Simple inequality check without type check'),
-          z.literal('!==').describe('Strict inequality check with type check'),
-          z
-            .literal('regex')
-            .describe(
-              'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `.match()`',
-            ),
-          z
-            .literal('!regex')
-            .describe(
-              'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `!.match()`',
-            ),
-          z
-            .literal('includes')
-            .describe(
-              'Check if the right element is included in the array, which is represented by the left element',
-            ),
-          z
-            .literal('empty')
-            .describe(
-              'Check if the left element is an empty array, an object without properties, an empty string, the number zero or the boolean false. Leave the third element of the array to be an empty string. It won’t be evaluated.',
-            ),
-          z
-            .literal('!empty')
-            .describe(
-              'Check if the left element is an array with members, an object with at least one property, a non-empty string, a number that does not equal zero or the boolean true. Leave the third element of the array to be an empty string. It won’t be evaluated.',
-            ),
-        ]),
-        filterExpression,
+export const filterCondition = z.union([
+  z.string(),
+  z.array(
+    z.tuple([
+      filterExpression,
+      z.union([
+        z.literal('=').describe('Equals without type check'),
+        z.literal('==').describe('Equals without type check'),
+        z.literal('===').describe('Strict equals with type check'),
+        z.literal('<').describe('Less than'),
+        z.literal('>').describe('Greater than'),
+        z.literal('<=').describe('Less or equal'),
+        z.literal('>=').describe('Greater or equal'),
+        z.literal('!=').describe('Simple inequality check without type check'),
+        z.literal('!==').describe('Strict inequality check with type check'),
+        z
+          .literal('regex')
+          .describe(
+            'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `.match()`',
+          ),
+        z
+          .literal('!regex')
+          .describe(
+            'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `!.match()`',
+          ),
+        z
+          .literal('includes')
+          .describe(
+            'Check if the right element is included in the array, which is represented by the left element',
+          ),
+        z
+          .literal('!includes')
+          .describe(
+            'Check if the right element is not included in the array, which is represented by the left element',
+          ),
+        z
+          .literal('empty')
+          .describe(
+            'Check if the left element is an empty array, an object without properties, an empty string, the number zero or the boolean false. Leave the third element of the array to be an empty string. It won’t be evaluated.',
+          ),
+        z
+          .literal('!empty')
+          .describe(
+            'Check if the left element is an array with members, an object with at least one property, a non-empty string, a number that does not equal zero or the boolean true. Leave the third element of the array to be an empty string. It won’t be evaluated.',
+          ),
       ]),
-      z.string(),
+      filterExpression,
     ]),
-  )
-  .default([])
+  ),
+])

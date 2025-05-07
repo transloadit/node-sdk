@@ -7,6 +7,7 @@ import {
   path,
   recursive,
   robotBase,
+  interpolateRobot,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -78,4 +79,11 @@ export type RobotBackblazeImportInstructions = z.infer<
 >
 export type RobotBackblazeImportInstructionsInput = z.input<
   typeof robotBackblazeImportInstructionsSchema
+>
+
+export const interpolatableRobotBackblazeImportInstructionsSchema = interpolateRobot(
+  robotBackblazeImportInstructionsSchema,
+)
+export type InterpolatableRobotBackblazeImportInstructions = z.input<
+  typeof interpolatableRobotBackblazeImportInstructionsSchema
 >

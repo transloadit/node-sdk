@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -19,9 +19,11 @@ export const meta: RobotMeta = {
   },
   example_code_description: 'Take a full screenshot of the Transloadit homepage:',
   extended_description: `
-**Warning:** A validation error will occur if neither an HTML file is uploaded nor a URL parameter is given. [{.alert .alert-warning}]
+> [!Warning]
+> A validation error will occur if neither an HTML file is uploaded nor a URL parameter is given.
 
-**Note:** Any files imported within the HTML page will be included in the cost. [{.alert .alert-note}]
+> [!Note]
+> Any files imported within the HTML page will be included in the cost.
 `,
   minimum_charge: 1048576,
   output_factor: 0.5,
@@ -81,3 +83,10 @@ An object containing optional headers that will be passed along with the origina
   .strict()
 
 export type RobotHtmlConvertInstructions = z.infer<typeof robotHtmlConvertInstructionsSchema>
+
+export const interpolatableRobotHtmlConvertInstructionsSchema = interpolateRobot(
+  robotHtmlConvertInstructionsSchema,
+)
+export type InterpolatableRobotHtmlConvertInstructions = z.input<
+  typeof interpolatableRobotHtmlConvertInstructionsSchema
+>

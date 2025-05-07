@@ -2,12 +2,14 @@ import { z } from 'zod'
 
 import {
   files_per_page,
+  interpolateRobot,
   robotImport,
   minioBase,
   page_number,
   path,
   recursive,
   robotBase,
+  return_file_stubs,
 } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
@@ -73,8 +75,16 @@ When doing big imports, make sure no files are added or removed from other scrip
     files_per_page: files_per_page.describe(`
 The pagination page size. This only works when recursive is \`true\` for now, in order to not break backwards compatibility in non-recursive imports.
 `),
+    return_file_stubs,
   })
   .strict()
 
 export type RobotMinioImportInstructions = z.infer<typeof robotMinioImportInstructionsSchema>
 export type RobotMinioImportInstructionsInput = z.input<typeof robotMinioImportInstructionsSchema>
+
+export const interpolatableRobotMinioImportInstructionsSchema = interpolateRobot(
+  robotMinioImportInstructionsSchema,
+)
+export type InterpolatableRobotMinioImportInstructions = z.input<
+  typeof interpolatableRobotMinioImportInstructionsSchema
+>

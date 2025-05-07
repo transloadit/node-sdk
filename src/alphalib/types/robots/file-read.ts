@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -34,3 +34,10 @@ The <dfn>Robot</dfn> currently only accepts files under 500KB.
   .strict()
 
 export type RobotFileReadInstructions = z.infer<typeof robotFileReadInstructionsSchema>
+
+export const interpolatableRobotFileReadInstructionsSchema = interpolateRobot(
+  robotFileReadInstructionsSchema,
+)
+export type InterpolatableRobotFileReadInstructions = z.input<
+  typeof interpolatableRobotFileReadInstructionsSchema
+>

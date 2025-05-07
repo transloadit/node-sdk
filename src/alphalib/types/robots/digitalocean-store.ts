@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { digitalOceanBase, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  digitalOceanBase,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -66,4 +71,11 @@ export type RobotDigitaloceanStoreInstructions = z.infer<
 >
 export type RobotDigitaloceanStoreInstructionsInput = z.input<
   typeof robotDigitaloceanStoreInstructionsSchema
+>
+
+export const interpolatableRobotDigitaloceanStoreInstructionsSchema = interpolateRobot(
+  robotDigitaloceanStoreInstructionsSchema,
+)
+export type InterpolatableRobotDigitaloceanStoreInstructions = z.input<
+  typeof interpolatableRobotDigitaloceanStoreInstructionsSchema
 >

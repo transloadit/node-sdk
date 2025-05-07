@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotBase, robotUse } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -82,3 +82,10 @@ When visiting one of your folders, the URL is similar to \`https://vimeo.com/man
 
 export type RobotVimeoStoreInstructions = z.infer<typeof robotVimeoStoreInstructionsSchema>
 export type RobotVimeoStoreInstructionsInput = z.input<typeof robotVimeoStoreInstructionsSchema>
+
+export const interpolatableRobotVimeoStoreInstructionsSchema = interpolateRobot(
+  robotVimeoStoreInstructionsSchema,
+)
+export type InterpolatableRobotVimeoStoreInstructions = z.input<
+  typeof interpolatableRobotVimeoStoreInstructionsSchema
+>
