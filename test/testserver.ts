@@ -68,16 +68,16 @@ export async function createTestServer(onRequest: RequestListener) {
   const { server, port } = await createHttpServer(handleHttpRequest)
 
   async function close() {
-    if (tunnel) await tunnel.close()
+    await tunnel?.close()
     await new Promise<void>((resolve) => server.close(() => resolve()))
     log('closed tunnel')
   }
 
   try {
-    tunnel = createTunnel({ cloudFlaredPath: process.env.CLOUDFLARED_PATH, port })
+    tunnel = await createTunnel({ cloudFlaredPath: process.env.CLOUDFLARED_PATH, port })
 
     log('waiting for tunnel to be created')
-    const tunnelPublicUrl = await tunnel.urlPromise
+    const { url: tunnelPublicUrl } = await tunnel;
     log('tunnel created', tunnelPublicUrl)
 
     log('Waiting for tunnel to allow requests to pass through')

@@ -12,7 +12,7 @@ interface CreateTunnelParams {
   port: number
 }
 
-interface StartTunnelResult {
+interface Tunnel {
   url: string
   process: ResultPromise<{ buffer: false; stdout: 'ignore' }>
 }
@@ -20,7 +20,7 @@ interface StartTunnelResult {
 async function startTunnel({
   cloudFlaredPath,
   port,
-}: CreateTunnelParams): Promise<StartTunnelResult> {
+}: CreateTunnelParams) {
   const process = execa(
     cloudFlaredPath,
     ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'],
@@ -34,7 +34,7 @@ async function startTunnel({
   })
 
   try {
-    return await new Promise((resolve, reject) => {
+    const tunnel = await new Promise<Tunnel>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Timed out trying to start tunnel')), 30000)
 
       const rl = createInterface({ input: process.stderr as NodeJS.ReadStream })
@@ -87,29 +87,8 @@ async function startTunnel({
         }
       })
     })
-  } catch (err) {
-    process.kill()
-    throw err
-  }
-}
 
-export interface CreateTunnelResult {
-  process?: ResultPromise<{ buffer: false; stdout: 'ignore' }>
-  urlPromise: Promise<string>
-  close: () => Promise<void>
-}
-
-export function createTunnel({
-  cloudFlaredPath = 'cloudflared',
-  port,
-}: CreateTunnelParams): CreateTunnelResult {
-  let process: ResultPromise<{ buffer: false; stdout: 'ignore' }> | undefined
-
-  const urlPromise = (async () => {
-    const tunnel = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), { retries: 1 })
-    ;({ process } = tunnel)
     const { url } = tunnel
-
     log('Found url', url)
 
     await timers.setTimeout(5000) // seems to help to prevent timeouts (I think tunnel is not actually ready when cloudflared reports it to be)
@@ -125,7 +104,7 @@ export function createTunnel({
         const host = new URL(url).hostname
         log('checking dns', host)
         await resolver.resolve4(host)
-        return url
+        return tunnel
       } catch (err) {
         log('dns err', (err as Error).message)
         await timers.setTimeout(3000)
@@ -133,7 +112,23 @@ export function createTunnel({
     }
 
     throw new Error('Timed out trying to resolve tunnel dns')
-  })()
+  } catch (err) {
+    process.kill()
+    throw err
+  }
+}
+
+export interface CreateTunnelResult {
+  process?: ResultPromise<{ buffer: false; stdout: 'ignore' }>
+  url: string
+  close: () => Promise<void>
+}
+
+export async function createTunnel({
+  cloudFlaredPath = 'cloudflared',
+  port,
+}: CreateTunnelParams) {
+  const { process, url } = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), { retries: 1 })
 
   async function close() {
     if (!process) return
@@ -144,7 +139,7 @@ export function createTunnel({
 
   return {
     process,
-    urlPromise,
+    url,
     close,
   }
 }
