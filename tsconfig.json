@@ -3,6 +3,7 @@
   "references": [{ "path": "./tsconfig.build.json" }],
   "compilerOptions": {
     "checkJs": true,
+    "erasableSyntaxOnly": true,
     "isolatedModules": true,
     "module": "NodeNext",
     "noImplicitOverride": true,
