@@ -69,8 +69,35 @@ Width of the result in pixels. If not specified, will default to the width of th
     height: complexHeightSchema.optional().describe(`
 Height of the new image, in pixels. If not specified, will default to the height of the input image.
 `),
-    resize_strategy: z.enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch']).default('fit')
-      .describe(`
+    resize_strategy: z
+      .union([
+        z.literal('crop')
+          .describe(`Cuts an area out of an image, discarding any overlapping parts. If the source image is smaller than the crop frame, it will be zoomed. This strategy is implied when you specify coordinates in the \`crop\` parameter, and cannot be used without it.
+
+To crop around human faces, see [🤖/image/facedetect](https://transloadit.com/docs/transcoding/artificial-intelligence/image-facedetect/) instead.`),
+        z.literal('fillcrop')
+          .describe(`Scales the image to fit into our 100×100 target while preserving aspect ratio, while trimming away any excess surface. This means both sides will become exactly 100 pixels, at the tradeoff of destroying parts of the image.
+
+By default the resulting image is horizontally/vertically centered to fill the target rectangle. Use the \`gravity\` parameter to change where to crop the image, such as \`"bottom\`" or \`"left\`".`),
+        z.literal('fit')
+          .describe(`Uses the larger side of the original image as a base for the resize. Aspect ratio is preserved. Either side will become at most 100 pixels.
+
+For example: resizing a 400×300 image into 100×100, would produce a 100×75 image.`),
+        z.literal('min_fit')
+          .describe(`Uses the **smaller** side of the original image as a base for the resize. After resizing, the larger side will have a larger value than specified. Aspect ratio is preserved. Either side will become at least 100 pixels.
+
+For example: resizing a 400×300 image into 100×100, would produce a 133×100 image.`),
+        z.literal('pad')
+          .describe(`Scales the image to fit while preserving aspect ratio. Both sides of the resized image become exactly 100 pixels, and any remaining surface is filled with a background color.
+
+In this example, the background color is determined by the [Assembly Variable](https://transloadit.com/docs/topics/assembly-instructions/#assembly-variables) \`\${file.meta.average_color}\`. If you set \`zoom\` to \`false\` (default is \`true\`), smaller images will be centered horizontally and vertically, and have the background padding all around them.`),
+        z
+          .literal('stretch')
+          .describe(
+            'Ignores aspect ratio, resizing the image to the exact width and height specified. This may result in a stretched or distorted image.',
+          ),
+      ])
+      .default('fit').describe(`
 See the list of available [resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).
 `),
     zoom: z.boolean().default(true).describe(`

@@ -5,7 +5,7 @@ import {
   interpolateRobot,
   robotBase,
   robotUse,
-  robotFFmpegVideo,
+  videoEncodeSpecificInstructionsSchema,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMeta = {
@@ -68,7 +68,7 @@ export const robotVideoOndemandInstructionsSchema = robotBase
   .extend({
     robot: z.literal('/video/ondemand'),
     variants: z
-      .record(robotFFmpegVideo)
+      .record(videoEncodeSpecificInstructionsSchema)
       .describe(
         'Defines the variants the video player can choose from. The keys are the names of the variant as they will appear in the generated playlists and URLs.',
       ),

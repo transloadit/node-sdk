@@ -1,9 +1,0 @@
----
-description: Next.js
-globs: 
-alwaysApply: false
----
-- In case of Next.js, we use the `./src` directory, version 15, the App Router, and we have
-  shadcn/ui installed (`npx shadcn@latest add <component>`). Assume we have a dev server running so
-  never start one unless specifically prompted.
-- In case of Next.js, our config file is `next.config.ts`. Don't work in js or mjs alternatives.
