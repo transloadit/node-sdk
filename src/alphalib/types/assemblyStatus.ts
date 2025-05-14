@@ -515,3 +515,72 @@ export const assemblyStatusSchema = z.union([
 ])
 
 export type AssemblyStatus = z.infer<typeof assemblyStatusSchema>
+
+/**
+ * Type guard to check if an assembly has an error
+ */
+export function hasError(
+  assembly: AssemblyStatus | undefined | null,
+): assembly is AssemblyStatus & { error: string } {
+  return (
+    Boolean(assembly) && assembly != null && typeof assembly === 'object' && 'error' in assembly
+  )
+}
+
+/**
+ * Type guard to check if an assembly has an ok status
+ */
+export function hasOk(
+  assembly: AssemblyStatus | undefined | null,
+): assembly is AssemblyStatus & { ok: string } {
+  return Boolean(assembly) && assembly != null && typeof assembly === 'object' && 'ok' in assembly
+}
+
+/**
+ * Returns the error value if it exists or undefined
+ */
+export function getError(assembly: AssemblyStatus | undefined | null): string | undefined {
+  return assembly && assembly != null && typeof assembly === 'object' && 'error' in assembly
+    ? String(assembly.error)
+    : undefined
+}
+
+/**
+ * Returns the ok value if it exists or undefined
+ */
+export function getOk(assembly: AssemblyStatus | undefined | null): string | undefined {
+  return assembly && assembly != null && typeof assembly === 'object' && 'ok' in assembly
+    ? String(assembly.ok)
+    : undefined
+}
+
+/**
+ * This type and these functions below are compatibility helpers for
+ * working with partial assembly status objects during the transition
+ * from the old types to the new Zod-based schema.
+ */
+export type PartialAssemblyStatus = Partial<AssemblyStatus>
+
+export function hasErrorPartial(
+  assembly: PartialAssemblyStatus | undefined | null,
+): assembly is PartialAssemblyStatus & { error: string } {
+  return (
+    Boolean(assembly) &&
+    assembly != null &&
+    typeof assembly === 'object' &&
+    'error' in assembly &&
+    Boolean(assembly.error)
+  )
+}
+
+export function hasOkPartial(
+  assembly: PartialAssemblyStatus | undefined | null,
+): assembly is PartialAssemblyStatus & { ok: string } {
+  return (
+    Boolean(assembly) &&
+    assembly != null &&
+    typeof assembly === 'object' &&
+    'ok' in assembly &&
+    Boolean(assembly.ok)
+  )
+}

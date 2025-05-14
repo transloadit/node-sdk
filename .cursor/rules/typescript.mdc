@@ -1,8 +1,10 @@
 ---
-description: TypeScript
-globs: 
-alwaysApply: false
+description:
+globs:
+alwaysApply: true
 ---
+For Typescript:
+
 - Favor `contentGapItemSchema = z.object()` over `ContentGapItemSchema = z.object()`
 - Favor `from './PosterboyCommand.ts'` over `from './PosterboyCommand'`
 - Favor `return ideas.filter(isPresent)` over `ideas.filter((idea): idea is Idea => idea !== null)`
