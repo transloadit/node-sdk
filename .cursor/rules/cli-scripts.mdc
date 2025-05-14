@@ -1,12 +1,14 @@
 ---
-description: CLI Scripts
-globs: 
+description: Rules for CLI scripts
+globs:
 alwaysApply: false
 ---
+For CLI Scripts:
+
 - For CLI scripts, use TypeScript
-- Use tsx vs ts-node
+- Use `tsx` vs `ts-node`
 - If we need complex CLI arg parsing use Clipanion & Typanion
-- Use execa for running commands. We use version 4 because not all repo's are ESM compatible yet
-- Use dotenv to load secrets
-- Have one main() or run() method that catches fails and exit(1) the process. Then have less excessive try/catches throughout the entire script
+- Use `execa` for running commands. We use version 4 because not all repo's are ESM compatible yet
+- Use `dotenv` to load secrets
+- Have one `main()` or `run()` method that catches fails and `exit(1)` the process. Then have less excessive `try`/`catch`es throughout the entire script
 - Use `import { randomUUID } from 'node:crypto'` vs `import { v4 as uuidv4 } from 'uuid'`

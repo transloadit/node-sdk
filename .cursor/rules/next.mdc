@@ -1,9 +1,42 @@
 ---
-description: Next.js
-globs: 
+description:
+globs: src/**,next*.*,tsconfig*,package.json
 alwaysApply: false
 ---
+For Next.js:
+
 - In case of Next.js, we use the `./src` directory, version 15, the App Router, and we have
   shadcn/ui installed (`npx shadcn@latest add <component>`). Assume we have a dev server running so
   never start one unless specifically prompted.
 - In case of Next.js, our config file is `next.config.ts`. Don't work in js or mjs alternatives.
+- The integration runs Eleventy on port 8111 (HTTPS) and Next.js on port 3001 (HTTP). Eleventy proxies
+  specific paths to Next.js, allowing both frameworks to coexist during development.
+
+## Project Structure
+
+The project uses Next.js App Router.
+
+- Configuration files (`next.config.ts`, `tailwind.config.mjs`, etc.) and `public/` are in root, Next.js sources are in `src/`:
+  - `src/app/layout.tsx`: Root layout
+  - `src/app/page.tsx`: Home page
+  - `src/app/[route]/page.(tsx|mdx)`: Route-specific pages
+  - `src/app/[route]/_components/*.tsx`: Route-specific components (that cannot be re-used by other places)
+  - `src/app/[route]/layout.tsx`: Route-specific layouts
+  - Components organized in:
+    - `src/components/custom-ui/`: Reusable UI components
+    - `src/components/icons/`: Reusable SVG icons as tsx components
+    - `src/components/ui/`: Shadcn's UI components
+    - `src/components/features/`: Feature-specific components
+    - `src/components/*.txt`: Root layout components
+  - `src/i18n/`: i18n code
+  - `src/messages/`: i18n translations
+  - `src/lib/`: Re-usable utilities, context providers, libs
+  - `src/styles/`: Editor themes, tailwind helpers. Generally, do not touch this and instead exclusively use Tailwind classes for styling
+  - `src/types/`: Next.js specific types
+
+If code is re-used between Next.js, legacy Eleventy/Vite/React work, and/or CLI scripts, you can typically find it in:
+
+- `_types`: types
+- `_src/javascripts/sharedWithConsole/`: helpers that work for old & new
+
+Next can use code from these two places, but not from e.g. `_console`. We're in the process of porting to Next.js, and when we're done we just want to delete `_console`.
