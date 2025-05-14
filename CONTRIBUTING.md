@@ -83,7 +83,7 @@ View the coverage report locally by opening `coverage/index.html` in your browse
 
 Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub actions. To make a release, perform the following steps:
 
-1. Update the version using Yarn, e.g. `yarn version patch`. This will update the version in the `package.json` file.
+1. Update the version using Yarn, e.g. `yarn version patch` (n.b. use `yarn version prerelease` for pre-releases). This will update the version in the `package.json` file.
 2. Commit the changes to the `package.json` file.
 3. Create a new Git tag, e.g. `git tag v4.0.0-6`.
 4. Push the tag to GitHub: `git push origin main --tags`
