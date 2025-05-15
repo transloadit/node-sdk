@@ -16,7 +16,6 @@ import { isReadableStream, isStream } from 'is-stream'
 import * as assert from 'assert'
 import pMap from 'p-map'
 import type { Readable } from 'stream'
-import { z } from 'zod'
 import InconsistentResponseError from './InconsistentResponseError.js'
 import PaginationStream from './PaginationStream.js'
 import PollingTimeoutError from './PollingTimeoutError.js'
@@ -26,7 +25,6 @@ import { sendTusRequest, Stream } from './tus.js'
 import {
   AssemblyStatus,
   assemblyStatusSchema,
-  assemblyIndexItemSchema,
   type AssemblyIndexItem,
   assemblyIndexSchema,
   AssemblyIndex,
