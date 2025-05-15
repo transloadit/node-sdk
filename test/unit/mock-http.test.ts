@@ -238,27 +238,25 @@ describe('Mocked API tests', () => {
   it('should throw error on missing assembly_url/assembly_ssl_url', async () => {
     const client = getLocalClient()
 
+    const validOkStatusMissingUrls = {
+      ok: 'ASSEMBLY_COMPLETED',
+      assembly_id: 'test-id', // assembly_id is optional, but good to have for a realistic "ok" status
+      // assembly_url is intentionally missing/null
+      // assembly_ssl_url is intentionally missing/null
+    }
+
     const scope = nock('http://localhost')
       .get('/assemblies/1')
       .query(() => true)
-      .reply(200, {
-        assembly_url: 'https://transloadit.com/',
-        assembly_ssl_url: 'https://transloadit.com/',
-      })
-      .get('/assemblies/1')
-      .query(() => true)
-      .reply(200, {})
+      .reply(200, validOkStatusMissingUrls)
 
-    // Success
-    await client.getAssembly('1')
-
-    // Failure
+    // This call should pass Zod validation but fail at checkAssemblyUrls
     const promise = client.getAssembly('1')
-    await expect(promise).rejects.toThrow(InconsistentResponseError)
-    await expect(promise).rejects.toThrow(
-      expect.objectContaining({
-        message: 'Server returned an incomplete assembly response (no URL)',
-      })
+
+    await expect(promise).rejects.toBeInstanceOf(InconsistentResponseError)
+    await expect(promise).rejects.toHaveProperty(
+      'message',
+      'Server returned an incomplete assembly response (no URL)'
     )
     scope.done()
   })

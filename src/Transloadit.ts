@@ -16,13 +16,19 @@ import { isReadableStream, isStream } from 'is-stream'
 import * as assert from 'assert'
 import pMap from 'p-map'
 import type { Readable } from 'stream'
+import { z } from 'zod'
 import InconsistentResponseError from './InconsistentResponseError.js'
 import PaginationStream from './PaginationStream.js'
 import PollingTimeoutError from './PollingTimeoutError.js'
 import { TransloaditErrorResponseBody, ApiError } from './ApiError.js'
 import packageJson from '../package.json' with { type: 'json' }
 import { sendTusRequest, Stream } from './tus.js'
-import { AssemblyStatus } from './alphalib/types/assemblyStatus.js'
+import {
+  AssemblyStatus,
+  assemblyStatusSchema,
+  assemblyIndexItemSchema,
+  type AssemblyIndexItem,
+} from './alphalib/types/assemblyStatus.js'
 import type {
   BaseResponse,
   BillResponse,
@@ -31,8 +37,6 @@ import type {
   CreateTemplateParams,
   EditTemplateParams,
   ListAssembliesParams,
-  ListedAssembly,
-  ListedTemplate,
   ListTemplateCredentialsParams,
   ListTemplatesParams,
   OptionalAuthParams,
@@ -44,7 +48,9 @@ import type {
   TemplateCredentialResponse,
   TemplateCredentialsResponse,
   TemplateResponse,
+  ListedTemplate,
 } from './apiTypes.js'
+import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 
 export * from './apiTypes.js'
 
@@ -384,16 +390,19 @@ export class Transloadit {
    * @returns after the assembly is deleted
    */
   async cancelAssembly(assemblyId: string): Promise<AssemblyStatus> {
-    // You may wonder why do we need to call getAssembly first:
-    // If we use the default base URL (instead of the one returned in assembly_url_ssl),
-    // the delete call will hang in certain cases
-    // See test "should stop the assembly from reaching completion"
     const { assembly_ssl_url: url } = await this.getAssembly(assemblyId)
-    return this._remoteJson({
+    const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
       url,
-      // urlSuffix: `/assemblies/${assemblyId}`, // Cannot simply do this, see above
       method: 'delete',
     })
+
+    const parsedResult = zodParseWithContext(assemblyStatusSchema, rawResult)
+    if (!parsedResult.success) {
+      throw new InconsistentResponseError(
+        `The API responded with data that does not match the expected schema.\n${parsedResult.humanReadable}`
+      )
+    }
+    return parsedResult.safe
   }
 
   /**
@@ -442,12 +451,38 @@ export class Transloadit {
    */
   async listAssemblies(
     params?: ListAssembliesParams
-  ): Promise<PaginationListWithCount<ListedAssembly>> {
-    return this._remoteJson({
+  ): Promise<PaginationListWithCount<AssemblyIndexItem>> {
+    const rawResponse = await this._remoteJson<
+      PaginationListWithCount<Record<string, unknown>>,
+      ListAssembliesParams
+    >({
       urlSuffix: '/assemblies',
       method: 'get',
       params: params || {},
     })
+
+    if (
+      rawResponse == null ||
+      typeof rawResponse !== 'object' ||
+      !Array.isArray(rawResponse.items)
+    ) {
+      throw new InconsistentResponseError(
+        'API response for listAssemblies is malformed or missing items array'
+      )
+    }
+
+    const parsedResult = zodParseWithContext(z.array(assemblyIndexItemSchema), rawResponse.items)
+
+    if (!parsedResult.success) {
+      throw new InconsistentResponseError(
+        `API response for listAssemblies contained items that do not match the expected schema.\n${parsedResult.humanReadable}`
+      )
+    }
+
+    return {
+      items: parsedResult.safe,
+      count: rawResponse.count,
+    }
   }
 
   streamAssemblies(params: ListAssembliesParams): Readable {
@@ -461,11 +496,20 @@ export class Transloadit {
    * @returns the retrieved Assembly
    */
   async getAssembly(assemblyId: string): Promise<AssemblyStatus> {
-    const result: AssemblyStatus = await this._remoteJson({
+    const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
       urlSuffix: `/assemblies/${assemblyId}`,
     })
-    checkAssemblyUrls(result)
-    return result
+
+    const parsedResult = zodParseWithContext(assemblyStatusSchema, rawResult)
+
+    if (!parsedResult.success) {
+      throw new InconsistentResponseError(
+        `The API responded with data that does not match the expected schema.\n${parsedResult.humanReadable}`
+      )
+    }
+
+    checkAssemblyUrls(parsedResult.safe)
+    return parsedResult.safe
   }
 
   /**

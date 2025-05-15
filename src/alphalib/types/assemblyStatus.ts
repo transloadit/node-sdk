@@ -2,14 +2,14 @@ import { z } from 'zod'
 
 const assemblyBusyCodeSchema = z.enum(['ASSEMBLY_UPLOADING'])
 
-const assemblyStatusOkCodeSchema = z.enum([
+export const assemblyStatusOkCodeSchema = z.enum([
   'ASSEMBLY_COMPLETED',
   'REQUEST_ABORTED',
   'ASSEMBLY_CANCELED',
   'ASSEMBLY_EXECUTING',
 ])
 
-const assemblyStatusErrCodeSchema = z.enum([
+export const assemblyStatusErrCodeSchema = z.enum([
   'INVALID_INPUT_ERROR',
   'FILE_FILTER_DECLINED_FILE',
   'INTERNAL_COMMAND_TIMEOUT',
@@ -202,7 +202,7 @@ const assemblyStatusMetaSchema = z
     line_count: z.union([z.number(), z.null()]).optional(),
     paragraph_count: z.union([z.number(), z.null()]).optional(),
   })
-  .strict()
+  .passthrough()
 export type AssemblyStatusMeta = z.infer<typeof assemblyStatusMetaSchema>
 
 // --- Define HLS Nested Meta Schema ---
@@ -584,3 +584,25 @@ export function hasOkPartial(
     Boolean(assembly.ok)
   )
 }
+
+// Schema for items returned by the List Assemblies endpoint
+export const assemblyIndexItemSchema = z
+  .object({
+    id: z.string(), // Likely always present for a list item
+    parent_id: assemblyStatusBaseSchema.shape.parent_id.optional(), // from base, made optional explicitly
+    account_id: assemblyStatusBaseSchema.shape.account_id.unwrap().optional(), // from base (it's string().optional() so unwrap then optional)
+    template_id: assemblyStatusBaseSchema.shape.template_id.optional(), // from base, made optional
+    instance: assemblyStatusBaseSchema.shape.instance.unwrap().optional(), // from base
+    notify_url: assemblyStatusBaseSchema.shape.notify_url.optional(), // from base
+    redirect_url: z.string().nullable().optional(), // Specific to list item, was in old ListedAssembly
+    files: z.string(), // JSON stringified, specific to list item
+    warning_count: z.number().optional(), // Specific to list item
+    execution_duration: assemblyStatusBaseSchema.shape.execution_duration.optional(), // from base
+    execution_start: assemblyStatusBaseSchema.shape.execution_start.optional(), // from base
+    ok: assemblyStatusOkCodeSchema.nullable().optional(), // Use exported enum
+    error: assemblyStatusErrCodeSchema.nullable().optional(), // Use exported enum
+    created: z.string(), // Specific to list item, mandatory based on old interface
+  })
+  .strict()
+
+export type AssemblyIndexItem = z.infer<typeof assemblyIndexItemSchema>

@@ -36,6 +36,39 @@ export function zodParseWithContext<T extends z.ZodType>(
 ): ZodParseWithContextResult<T> {
   const zodRes = schema.safeParse(obj)
   if (!zodRes.success) {
+    // Check for empty object input causing a general union failure
+    if (
+      typeof obj === 'object' &&
+      obj !== null &&
+      Object.keys(obj).length === 0 &&
+      zodRes.error.errors.length > 0
+    ) {
+      // eslint-disable-next-line no-console
+      // console.log('[zodParseWithContext] Empty object detected, Zod errors:', JSON.stringify(zodRes.error.errors, null, 2));
+
+      const firstError = zodRes.error.errors[0]
+      if (
+        zodRes.error.errors.length === 1 &&
+        firstError &&
+        firstError.code === 'invalid_union' &&
+        firstError.path.length === 0 &&
+        Array.isArray((firstError as z.ZodInvalidUnionIssue).unionErrors) &&
+        (firstError as z.ZodInvalidUnionIssue).unionErrors.length > 0
+      ) {
+        const humanReadable =
+          "Validation failed: Input object is empty or missing key fields required to determine its type, " +
+          "and does not match any variant of the expected schema. Please provide a valid object."
+        return {
+          success: false,
+          // For this specific summarized error, we might not need to map all detailed ZodIssueWithContext
+          // or we can provide a simplified single error entry reflecting this summary.
+          // For now, let's return the original errors but with the new top-level humanReadable.
+          errors: zodRes.error.errors.map(e => ({...e, parentObj: obj, humanReadable: e.message})),
+          humanReadable,
+        }
+      }
+    }
+
     const zodIssuesWithContext: ZodIssueWithContext[] = []
     const badPaths = new Map<string, string[]>()
 
