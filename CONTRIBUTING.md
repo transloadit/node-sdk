@@ -85,7 +85,7 @@ Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are
 
 1. Update the version using Yarn, e.g. `yarn version patch` (n.b. use `yarn version prerelease` for pre-releases). This will update the version in the `package.json` file.
 2. Commit the changes to the `package.json` file.
-3. Create a new Git tag, e.g. `git tag v4.0.0-6`.
+3. Create a new Git tag, e.g. `git tag v4.0.0-6` (add the `v`!).
 4. Push the tag to GitHub: `git push origin main --tags`
 5. If the tests pass, GitHub actions will now publish the new version to npm.
 6. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
