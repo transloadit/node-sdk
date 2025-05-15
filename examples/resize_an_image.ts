@@ -25,7 +25,7 @@ const status = await transloadit.createAssembly({
         result: true,
         imagemagick_stack: 'v2.0.7',
         width: 75,
-        height: 75
+        height: 75,
       },
     },
   },
