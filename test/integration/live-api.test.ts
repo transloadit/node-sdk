@@ -9,6 +9,7 @@ import { setTimeout } from 'timers/promises'
 import got, { RetryOptions } from 'got'
 import intoStream from 'into-stream'
 import debug from 'debug'
+import { config } from 'dotenv'
 
 import {
   CreateAssemblyOptions,
@@ -20,6 +21,9 @@ import { createTestServer, TestServer } from '../testserver.js'
 import { createProxy } from '../util.js'
 import { RobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize.js'
 import { RobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter.js'
+
+// Load environment variables from .env file
+config()
 
 const log = debug('transloadit:live-api')
 

@@ -403,7 +403,7 @@ export class Transloadit {
       )
       // eslint-disable-next-line no-console
       console.error(
-        `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!---\n`
+        `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!\n---\n`
       )
       // @TODO, once our schemas have matured, we should throw the error here.
       // But as it stands, schemas are new, and we can't easily update all customer's node-sdks,
@@ -490,7 +490,7 @@ export class Transloadit {
       )
       // eslint-disable-next-line no-console
       console.error(
-        `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!---\n`
+        `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!\n---\n`
       )
       return {
         // @TODO, once our schemas have matured, we should throw the error here.
@@ -530,7 +530,7 @@ export class Transloadit {
       )
       // eslint-disable-next-line no-console
       console.error(
-        `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!---\n`
+        `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!\n---\n`
       )
       // @TODO, once our schemas have matured, we should throw the error here.
       // But as it stands, schemas are new, and we can't easily update all customer's node-sdks,

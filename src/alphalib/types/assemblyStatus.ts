@@ -595,13 +595,18 @@ export const assemblyIndexItemSchema = z
     instance: assemblyStatusBaseSchema.shape.instance.unwrap().optional(), // from base
     notify_url: assemblyStatusBaseSchema.shape.notify_url.optional(), // from base
     redirect_url: z.string().nullable().optional(), // Specific to list item, was in old ListedAssembly
-    files: z.string(), // JSON stringified, specific to list item
+    files: z.string().nullable(), // JSON stringified, specific to list item, CAN BE NULL
     warning_count: z.number().optional(), // Specific to list item
     execution_duration: assemblyStatusBaseSchema.shape.execution_duration.optional(), // from base
     execution_start: assemblyStatusBaseSchema.shape.execution_start.optional(), // from base
+    region: assemblyStatusBaseSchema.shape.region.optional(), // from base
+    num_input_files: assemblyStatusBaseSchema.shape.num_input_files.optional(), // from base
+    bytes_usage: assemblyStatusBaseSchema.shape.bytes_usage.optional(), // from base
     ok: assemblyStatusOkCodeSchema.nullable().optional(), // Use exported enum
     error: assemblyStatusErrCodeSchema.nullable().optional(), // Use exported enum
     created: z.string(), // Specific to list item, mandatory based on old interface
+    created_ts: z.number().optional(), // Add new field
+    template_name: z.string().nullable().optional(), // Add new field
   })
   .strict()
 
