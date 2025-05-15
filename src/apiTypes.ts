@@ -1,7 +1,11 @@
 import { AssemblyInstructions, AssemblyInstructionsInput } from './alphalib/types/template.js'
 
 export { assemblyInstructionsSchema } from './alphalib/types/template.js'
-export { assemblyStatusSchema } from './alphalib/types/assemblyStatus.js'
+export {
+  assemblyStatusSchema,
+  assemblyIndexItemSchema,
+  type AssemblyIndexItem,
+} from './alphalib/types/assemblyStatus.js'
 
 export interface OptionalAuthParams {
   auth?: { key?: string; expires?: string }
@@ -35,25 +39,6 @@ export type ListAssembliesParams = OptionalAuthParams & {
   fromdate?: string
   todate?: string
   keywords?: string[]
-}
-
-// todo this is outdated and possibly wrong
-/** See https://transloadit.com/docs/api/assemblies-assembly-id-get/ */
-export interface ListedAssembly {
-  id: string
-  parent_id?: string | null
-  account_id: string
-  template_id?: string | null
-  instance: string
-  notify_url?: string | null
-  redirect_url?: string | null
-  files: string // json stringified
-  warning_count: number
-  execution_duration: number
-  execution_start: string
-  ok?: string | null
-  error?: string | null
-  created: string
 }
 
 export type ReplayAssemblyParams = Pick<

@@ -16,13 +16,19 @@ import { isReadableStream, isStream } from 'is-stream'
 import * as assert from 'assert'
 import pMap from 'p-map'
 import type { Readable } from 'stream'
+import { z } from 'zod'
 import InconsistentResponseError from './InconsistentResponseError.js'
 import PaginationStream from './PaginationStream.js'
 import PollingTimeoutError from './PollingTimeoutError.js'
 import { TransloaditErrorResponseBody, ApiError } from './ApiError.js'
 import packageJson from '../package.json' with { type: 'json' }
 import { sendTusRequest, Stream } from './tus.js'
-import { AssemblyStatus, assemblyStatusSchema } from './alphalib/types/assemblyStatus.js'
+import {
+  AssemblyStatus,
+  assemblyStatusSchema,
+  assemblyIndexItemSchema,
+  type AssemblyIndexItem,
+} from './alphalib/types/assemblyStatus.js'
 import type {
   BaseResponse,
   BillResponse,
@@ -31,8 +37,6 @@ import type {
   CreateTemplateParams,
   EditTemplateParams,
   ListAssembliesParams,
-  ListedAssembly,
-  ListedTemplate,
   ListTemplateCredentialsParams,
   ListTemplatesParams,
   OptionalAuthParams,
@@ -44,6 +48,7 @@ import type {
   TemplateCredentialResponse,
   TemplateCredentialsResponse,
   TemplateResponse,
+  ListedTemplate,
 } from './apiTypes.js'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 
@@ -446,12 +451,38 @@ export class Transloadit {
    */
   async listAssemblies(
     params?: ListAssembliesParams
-  ): Promise<PaginationListWithCount<ListedAssembly>> {
-    return this._remoteJson({
+  ): Promise<PaginationListWithCount<AssemblyIndexItem>> {
+    const rawResponse = await this._remoteJson<
+      PaginationListWithCount<Record<string, unknown>>,
+      ListAssembliesParams
+    >({
       urlSuffix: '/assemblies',
       method: 'get',
       params: params || {},
     })
+
+    if (
+      rawResponse == null ||
+      typeof rawResponse !== 'object' ||
+      !Array.isArray(rawResponse.items)
+    ) {
+      throw new InconsistentResponseError(
+        'API response for listAssemblies is malformed or missing items array'
+      )
+    }
+
+    const parsedResult = zodParseWithContext(z.array(assemblyIndexItemSchema), rawResponse.items)
+
+    if (!parsedResult.success) {
+      throw new InconsistentResponseError(
+        `API response for listAssemblies contained items that do not match the expected schema.\n${parsedResult.humanReadable}`
+      )
+    }
+
+    return {
+      items: parsedResult.safe,
+      count: rawResponse.count,
+    }
   }
 
   streamAssemblies(params: ListAssembliesParams): Readable {

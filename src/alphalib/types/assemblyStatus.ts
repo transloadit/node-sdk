@@ -584,3 +584,27 @@ export function hasOkPartial(
     Boolean(assembly.ok)
   )
 }
+
+// Schema for items returned by the List Assemblies endpoint
+export const assemblyIndexItemSchema = z
+  .object({
+    id: z.string(),
+    parent_id: z.string().nullable().optional(),
+    account_id: z.string(),
+    template_id: z.string().nullable().optional(),
+    instance: z.string(),
+    notify_url: z.string().nullable().optional(),
+    redirect_url: z.string().nullable().optional(), // Field from old ListedAssembly
+    files: z.string(), // JSON stringified, as per old ListedAssembly
+    warning_count: z.number().optional(), // Field from old ListedAssembly
+    execution_duration: z.number().optional(),
+    execution_start: z.string().optional(),
+    ok: z.string().nullable().optional(), // Based on old ListedAssembly
+    error: z.string().nullable().optional(), // Based on old ListedAssembly
+    created: z.string(), // Field from old ListedAssembly
+    // Consider if other common fields from assemblyStatusBaseSchema should be here if consistently returned by list endpoint
+    // For now, keeping it aligned with the old ListedAssembly interface + making some fields optional for safety.
+  })
+  .strict()
+
+export type AssemblyIndexItem = z.infer<typeof assemblyIndexItemSchema>
