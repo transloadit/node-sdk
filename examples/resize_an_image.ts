@@ -17,7 +17,7 @@ const filePath = process.argv[2]
 
 const status = await transloadit.createAssembly({
   files: {
-    file1: filePath,
+    file1: process.argv[2],
   },
   params: {
     steps: {
