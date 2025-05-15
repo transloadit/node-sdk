@@ -2,14 +2,14 @@ import { z } from 'zod'
 
 const assemblyBusyCodeSchema = z.enum(['ASSEMBLY_UPLOADING'])
 
-const assemblyStatusOkCodeSchema = z.enum([
+export const assemblyStatusOkCodeSchema = z.enum([
   'ASSEMBLY_COMPLETED',
   'REQUEST_ABORTED',
   'ASSEMBLY_CANCELED',
   'ASSEMBLY_EXECUTING',
 ])
 
-const assemblyStatusErrCodeSchema = z.enum([
+export const assemblyStatusErrCodeSchema = z.enum([
   'INVALID_INPUT_ERROR',
   'FILE_FILTER_DECLINED_FILE',
   'INTERNAL_COMMAND_TIMEOUT',
@@ -588,22 +588,20 @@ export function hasOkPartial(
 // Schema for items returned by the List Assemblies endpoint
 export const assemblyIndexItemSchema = z
   .object({
-    id: z.string(),
-    parent_id: z.string().nullable().optional(),
-    account_id: z.string(),
-    template_id: z.string().nullable().optional(),
-    instance: z.string(),
-    notify_url: z.string().nullable().optional(),
-    redirect_url: z.string().nullable().optional(), // Field from old ListedAssembly
-    files: z.string(), // JSON stringified, as per old ListedAssembly
-    warning_count: z.number().optional(), // Field from old ListedAssembly
-    execution_duration: z.number().optional(),
-    execution_start: z.string().optional(),
-    ok: z.string().nullable().optional(), // Based on old ListedAssembly
-    error: z.string().nullable().optional(), // Based on old ListedAssembly
-    created: z.string(), // Field from old ListedAssembly
-    // Consider if other common fields from assemblyStatusBaseSchema should be here if consistently returned by list endpoint
-    // For now, keeping it aligned with the old ListedAssembly interface + making some fields optional for safety.
+    id: z.string(), // Likely always present for a list item
+    parent_id: assemblyStatusBaseSchema.shape.parent_id.optional(), // from base, made optional explicitly
+    account_id: assemblyStatusBaseSchema.shape.account_id.unwrap().optional(), // from base (it's string().optional() so unwrap then optional)
+    template_id: assemblyStatusBaseSchema.shape.template_id.optional(), // from base, made optional
+    instance: assemblyStatusBaseSchema.shape.instance.unwrap().optional(), // from base
+    notify_url: assemblyStatusBaseSchema.shape.notify_url.optional(), // from base
+    redirect_url: z.string().nullable().optional(), // Specific to list item, was in old ListedAssembly
+    files: z.string(), // JSON stringified, specific to list item
+    warning_count: z.number().optional(), // Specific to list item
+    execution_duration: assemblyStatusBaseSchema.shape.execution_duration.optional(), // from base
+    execution_start: assemblyStatusBaseSchema.shape.execution_start.optional(), // from base
+    ok: assemblyStatusOkCodeSchema.nullable().optional(), // Use exported enum
+    error: assemblyStatusErrCodeSchema.nullable().optional(), // Use exported enum
+    created: z.string(), // Specific to list item, mandatory based on old interface
   })
   .strict()
 
