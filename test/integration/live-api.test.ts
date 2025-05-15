@@ -11,9 +11,6 @@ import intoStream from 'into-stream'
 import debug from 'debug'
 import { config } from 'dotenv'
 
-// Load environment variables from .env file
-config()
-
 import {
   CreateAssemblyOptions,
   CreateAssemblyParams,
@@ -24,6 +21,9 @@ import { createTestServer, TestServer } from '../testserver.js'
 import { createProxy } from '../util.js'
 import { RobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize.js'
 import { RobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter.js'
+
+// Load environment variables from .env file
+config()
 
 const log = debug('transloadit:live-api')
 
