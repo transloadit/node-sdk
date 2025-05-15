@@ -202,7 +202,7 @@ const assemblyStatusMetaSchema = z
     line_count: z.union([z.number(), z.null()]).optional(),
     paragraph_count: z.union([z.number(), z.null()]).optional(),
   })
-  .strict()
+  .passthrough()
 export type AssemblyStatusMeta = z.infer<typeof assemblyStatusMetaSchema>
 
 // --- Define HLS Nested Meta Schema ---
