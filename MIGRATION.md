@@ -106,44 +106,7 @@ try {
   - Methods like `transloadit.getAssembly(id)`, `transloadit.cancelAssembly(id)`, and `transloadit.awaitAssemblyCompletion(id)` now return a strictly typed `AssemblyStatus` object. This type is inferred directly from the `assemblyStatusSchema` Zod schema.
   - Previously, the returned object might have been more loosely typed.
 - **New Error on Schema Mismatch:**
-  - If the API response for an assembly status does not conform to `assemblyStatusSchema`, an `InconsistentResponseError` will be thrown. The error message will include a human-readable summary of the validation failures, powered by `zodParseWithContext`.
-  - This is a change from potentially returning partial/incorrect data or a different error type.
-
-**Migration Steps:**
-
-- Review any code that consumes the results of these methods.
-- Update type annotations if you were explicitly typing the results to an older, manual `AssemblyStatus` type. Rely on the SDK's exported `AssemblyStatus` type.
-- Be prepared to handle `InconsistentResponseError` for schema validation issues.
-- Access to properties on the `AssemblyStatus` object will now be strictly enforced by TypeScript based on the Zod schema (e.g., optional fields are correctly typed as optional).
-
-**Example (Conceptual):**
-
-```typescript
-// Old v3.x style (may have had looser typing)
-// const assembly = await transloadit.getAssembly(id);
-// if (assembly.ok === 'ASSEMBLY_COMPLETED') { /* ... */ }
-
-// New v4.x style
-import { Transloadit, AssemblyStatus, InconsistentResponseError } from 'transloadit' // Adjust import path
-
-// const transloadit = new Transloadit({ ... });
-try {
-  const assembly: AssemblyStatus = await transloadit.getAssembly('YOUR_ASSEMBLY_ID')
-  // Autocomplete and type checking are now based on assemblyStatusSchema
-  if (assembly.ok === 'ASSEMBLY_COMPLETED') {
-    // assembly.results will be correctly typed
-  } else if (assembly.error) {
-    // assembly.message, assembly.reason etc., will be typed
-  }
-} catch (err) {
-  if (err instanceof InconsistentResponseError) {
-    console.error('API response did not match expected schema:', err.message)
-    // err.message contains detailed validation issues from zodParseWithContext
-  } else {
-    // Handle other errors
-  }
-}
-```
+  - If the API response for an assembly status does not conform to `assemblyStatusSchema`, an `InconsistentResponseError` will be shown (not thrown, yet). The error message will include a human-readable summary of the validation failures. We still pass the raw response back to your program, as we are still iterating on our schemas, and do not want to risk unnecesary throwings of errors. Without the possibility to mass-update all node-sdk installs, these could pop up for a long time to come.
 
 ### 3. Listing Assemblies (`listAssemblies`)
 
