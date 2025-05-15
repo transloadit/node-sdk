@@ -9,6 +9,10 @@ import { setTimeout } from 'timers/promises'
 import got, { RetryOptions } from 'got'
 import intoStream from 'into-stream'
 import debug from 'debug'
+import { config } from 'dotenv'
+
+// Load environment variables from .env file
+config()
 
 import {
   CreateAssemblyOptions,

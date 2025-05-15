@@ -18,3 +18,4 @@ env.sh
 !.yarn/versions
 .aider*
 .DS_Store
+.env
