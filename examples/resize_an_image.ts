@@ -13,15 +13,12 @@ const transloadit = new Transloadit({
   authSecret: process.env.TRANSLOADIT_SECRET!,
 })
 
-const filePath = process.argv[2]
-
 const status = await transloadit.createAssembly({
   files: {
     file1: process.argv[2],
   },
   params: {
     steps: {
-      resize: {
       resized: {
         use: ':original',
         robot: '/image/resize',
