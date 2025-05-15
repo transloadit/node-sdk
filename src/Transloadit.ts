@@ -28,6 +28,8 @@ import {
   assemblyStatusSchema,
   assemblyIndexItemSchema,
   type AssemblyIndexItem,
+  assemblyIndexSchema,
+  AssemblyIndex,
 } from './alphalib/types/assemblyStatus.js'
 import type {
   BaseResponse,
@@ -398,10 +400,21 @@ export class Transloadit {
 
     const parsedResult = zodParseWithContext(assemblyStatusSchema, rawResult)
     if (!parsedResult.success) {
-      throw new InconsistentResponseError(
+      const err = new InconsistentResponseError(
         `The API responded with data that does not match the expected schema.\n${parsedResult.humanReadable}`
       )
+      // eslint-disable-next-line no-console
+      console.error(
+        `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!---\n`
+      )
+      // @TODO, once our schemas have matured, we should throw the error here.
+      // But as it stands, schemas are new, and we can't easily update all customer's node-sdks,
+      // so there will be a long tail of throws if we enable this now.
+      checkAssemblyUrls(rawResult as AssemblyStatus)
+      return rawResult as AssemblyStatus
     }
+
+    checkAssemblyUrls(parsedResult.safe)
     return parsedResult.safe
   }
 
@@ -471,12 +484,23 @@ export class Transloadit {
       )
     }
 
-    const parsedResult = zodParseWithContext(z.array(assemblyIndexItemSchema), rawResponse.items)
+    const parsedResult = zodParseWithContext(assemblyIndexSchema, rawResponse.items)
 
     if (!parsedResult.success) {
-      throw new InconsistentResponseError(
+      const err = new InconsistentResponseError(
         `API response for listAssemblies contained items that do not match the expected schema.\n${parsedResult.humanReadable}`
       )
+      // eslint-disable-next-line no-console
+      console.error(
+        `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!---\n`
+      )
+      return {
+        // @TODO, once our schemas have matured, we should throw the error here.
+        // But as it stands, schemas are new, and we can't easily update all customer's node-sdks,
+        // so there will be a long tail of throws if we enable this now.
+        items: rawResponse.items as AssemblyIndex,
+        count: rawResponse.count,
+      }
     }
 
     return {
@@ -503,9 +527,18 @@ export class Transloadit {
     const parsedResult = zodParseWithContext(assemblyStatusSchema, rawResult)
 
     if (!parsedResult.success) {
-      throw new InconsistentResponseError(
+      const err = new InconsistentResponseError(
         `The API responded with data that does not match the expected schema.\n${parsedResult.humanReadable}`
       )
+      // eslint-disable-next-line no-console
+      console.error(
+        `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!---\n`
+      )
+      // @TODO, once our schemas have matured, we should throw the error here.
+      // But as it stands, schemas are new, and we can't easily update all customer's node-sdks,
+      // so there will be a long tail of throws if we enable this now.
+      checkAssemblyUrls(rawResult as AssemblyStatus)
+      return rawResult as AssemblyStatus
     }
 
     checkAssemblyUrls(parsedResult.safe)

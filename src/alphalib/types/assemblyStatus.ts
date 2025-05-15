@@ -381,8 +381,8 @@ const assemblyStatusBaseSchema = z.object({
     .optional(),
   is_infinite: z.boolean().optional(),
   has_dupe_jobs: z.boolean().optional(),
-  execution_start: z.string().optional(),
-  execution_duration: z.number().optional(),
+  execution_start: z.string().nullable().optional(),
+  execution_duration: z.number().nullable().optional(),
   queue_duration: z.number().optional(),
   jobs_queue_duration: z.number().optional(),
   notify_start: z.string().nullable().optional(),
@@ -606,3 +606,6 @@ export const assemblyIndexItemSchema = z
   .strict()
 
 export type AssemblyIndexItem = z.infer<typeof assemblyIndexItemSchema>
+
+export const assemblyIndexSchema = z.array(assemblyIndexItemSchema)
+export type AssemblyIndex = z.infer<typeof assemblyIndexSchema>
