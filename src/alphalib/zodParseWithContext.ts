@@ -56,14 +56,18 @@ export function zodParseWithContext<T extends z.ZodType>(
         (firstError as z.ZodInvalidUnionIssue).unionErrors.length > 0
       ) {
         const humanReadable =
-          "Validation failed: Input object is empty or missing key fields required to determine its type, " +
-          "and does not match any variant of the expected schema. Please provide a valid object."
+          'Validation failed: Input object is empty or missing key fields required to determine its type, ' +
+          'and does not match any variant of the expected schema. Please provide a valid object.'
         return {
           success: false,
           // For this specific summarized error, we might not need to map all detailed ZodIssueWithContext
           // or we can provide a simplified single error entry reflecting this summary.
           // For now, let's return the original errors but with the new top-level humanReadable.
-          errors: zodRes.error.errors.map(e => ({...e, parentObj: obj, humanReadable: e.message})),
+          errors: zodRes.error.errors.map((e) => ({
+            ...e,
+            parentObj: obj,
+            humanReadable: e.message,
+          })),
           humanReadable,
         }
       }
