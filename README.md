@@ -133,6 +133,7 @@ The `options` object can contain the following keys:
 - `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `gotRetry` (default `0`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `timeout` (default `60000`: 1 minute) - the timeout (in milliseconds) for all requests (except `createAssembly`)
+- `validateResponses` (default `true`)
 
 ### Assemblies
 
@@ -456,6 +457,10 @@ All functions of the client automatically obey all rate limiting imposed by Tran
 Because we use [got](https://github.com/sindresorhus/got) under the hood, you can pass a `gotRetry` constructor option which is passed on to `got`. This offers great flexibility for handling retries on network errors and HTTP status codes with auto back-off. See [`got` `retry` object documentation](https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md).
 
 **Note that the above `maxRetries` option does not affect the `gotRetry` logic.**
+
+#### Validate API responses (`validateResponses`, default `true`)
+
+As we have ported the JavaScript SDK to TypeScript in v4, we are now also validating API responses using `zod` schemas. Having schema validation enabled (`true`), guarantees that the data returned by the SDK adheres to the TypeScript types of this SDK. However we are still working on improving the schemas and they are not yet 100% complete. This means that if you hit a bug in the schemas, a `zod` schema validation error will be thrown. If you encounter such an error, please report it and we will fix it as soon as possible. If you set this option to `false`, schema validation will be disabled, and you won't get any such errors, however the TypeScript types will not protect you should such a bug be encountered.
 
 #### Custom retry logic
 
