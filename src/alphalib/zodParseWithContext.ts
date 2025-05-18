@@ -212,7 +212,7 @@ export function zodParseWithContext<T extends z.ZodType>(
             targetMessages.push(...unrecognizedKeyMessages)
           } else if (literalMessages.length > 0) {
             const uniqueLiterals = [...new Set(literalMessages)]
-            targetMessages.push(`should be one of: \`${uniqueLiterals.join('\`, \`')}\``)
+            targetMessages.push(`should be one of: \`${uniqueLiterals.join('`, `')}\``)
           } else {
             // Fallback to joining the collected raw messages for this path
             targetMessages.push(...collectedMessages[nestedPath])
