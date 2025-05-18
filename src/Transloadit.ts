@@ -399,7 +399,7 @@ export class Transloadit {
     const parsedResult = zodParseWithContext(assemblyStatusSchema, rawResult)
     if (!parsedResult.success) {
       const err = new InconsistentResponseError(
-        `The API responded with data that does not match the expected schema.\n${parsedResult.humanReadable}`
+        `The API responded with data that does not match the expected schema while cancelling Assembly: ${assemblyId}.\n${parsedResult.humanReadable}`
       )
       // eslint-disable-next-line no-console
       console.error(
@@ -526,7 +526,7 @@ export class Transloadit {
 
     if (!parsedResult.success) {
       const err = new InconsistentResponseError(
-        `The API responded with data that does not match the expected schema.\n${parsedResult.humanReadable}`
+        `The API responded with data that does not match the expected schema while getting Assembly: ${assemblyId}.\n${parsedResult.humanReadable}`
       )
       // eslint-disable-next-line no-console
       console.error(

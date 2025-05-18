@@ -161,15 +161,25 @@ export function zodParseWithContext<T extends z.ZodType>(
             // <-- Add handling for invalid_type here -->
             else if (issue.code === 'invalid_type') {
               const received = issue.received === 'undefined' ? 'missing' : issue.received
-              // Get the actual value for context
-              const actualValue = getByPath(parentObj, nestedPath) // Get value from parent context
+              const actualValue = getByPath(parentObj, nestedPath)
               const actualValueStr =
                 typeof actualValue === 'object' && actualValue !== null
                   ? JSON.stringify(actualValue)
                   : String(actualValue)
-              // Simple message not relying on issue.expected
+
+              let expectedOutput = String(issue.expected)
+              const MAX_EXPECTED_TO_SHOW = 3
+              if (typeof issue.expected === 'string' && issue.expected.includes(' | ')) {
+                const expectedValues = issue.expected.split(' | ')
+                if (expectedValues.length > MAX_EXPECTED_TO_SHOW) {
+                  const shownValues = expectedValues.slice(0, MAX_EXPECTED_TO_SHOW).join(' | ')
+                  const remainingCount = expectedValues.length - MAX_EXPECTED_TO_SHOW
+                  expectedOutput = `${shownValues} | .. or ${remainingCount} others ..`
+                }
+              }
+
               collectedMessages[nestedPath].push(
-                `got invalid type: ${received} (value: \`${actualValueStr}\`, expected: ${issue.expected})`,
+                `got invalid type: ${received} (value: \`${actualValueStr}\`, expected: ${expectedOutput})`,
               )
             }
             // <-- End added handling -->
@@ -202,7 +212,7 @@ export function zodParseWithContext<T extends z.ZodType>(
             targetMessages.push(...unrecognizedKeyMessages)
           } else if (literalMessages.length > 0) {
             const uniqueLiterals = [...new Set(literalMessages)]
-            targetMessages.push(`should be one of: \`${uniqueLiterals.join('`, `')}\``)
+            targetMessages.push(`should be one of: \`${uniqueLiterals.join('\`, \`')}\``)
           } else {
             // Fallback to joining the collected raw messages for this path
             targetMessages.push(...collectedMessages[nestedPath])
