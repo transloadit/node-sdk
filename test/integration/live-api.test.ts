@@ -697,7 +697,7 @@ describe('API integration', { timeout: 60000 }, () => {
         runNotificationTest(onNotification, reject)
       })
     })
-  })
+  }, { retry: 2 })
 
   describe('template methods', () => {
     // can contain only lowercase latin letters, numbers, and dashes.
