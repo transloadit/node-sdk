@@ -185,7 +185,7 @@ export class Transloadit {
 
   private _lastUsedAssemblyUrl = ''
 
-  private _validateResponses = true
+  private _validateResponses = false
 
   constructor(opts: Options) {
     if (opts?.authKey == null) {
