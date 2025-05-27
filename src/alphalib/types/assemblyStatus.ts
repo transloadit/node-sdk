@@ -199,11 +199,13 @@ const assemblyStatusMetaSchema = z
             text: z.string(),
             boundingPolygon: z.array(z.object({ x: z.number(), y: z.number() })),
           })
-          .strict(),
+          .passthrough(),
       )
       .optional(),
     descriptions: z
-      .array(z.union([z.string(), z.object({ name: z.string(), confidence: z.number() }).strict()]))
+      .array(
+        z.union([z.string(), z.object({ name: z.string(), confidence: z.number() }).passthrough()]),
+      )
       .optional(),
     framerate: z.union([z.number(), z.null()]).optional(),
     mean_volume: z.union([z.number(), z.null()]).optional(),
@@ -270,7 +272,7 @@ const assemblyStatusMetaSchema = z
             width: z.number(),
             height: z.number(),
           })
-          .strict(),
+          .passthrough(),
       )
       .nullable()
       .optional(),
@@ -360,7 +362,7 @@ const assemblyStatusUploadSchema = z
     import_url: z.string().optional(),
     cost: z.union([z.number(), z.null()]).optional(),
   })
-  .strict()
+  .passthrough()
 export type AssemblyStatusUpload = z.infer<typeof assemblyStatusUploadSchema>
 
 export const assemblyStatusUploadsSchema = z.array(assemblyStatusUploadSchema)
@@ -421,7 +423,7 @@ export const assemblyStatusResultSchema = z
     hls_url: z.string().optional(),
     forcedFileExt: z.string().optional(),
   })
-  .strict()
+  .passthrough()
 export type AssemblyStatusResult = z.infer<typeof assemblyStatusResultSchema>
 
 export const assemblyStatusResultsSchema = z.record(z.array(assemblyStatusResultSchema))
@@ -463,7 +465,9 @@ const assemblyStatusBaseSchema = z.object({
   upload_meta_data_extracted: z.boolean().optional(),
   warnings: z
     .array(
-      z.object({ level: z.literal('notice').or(z.literal('warning')), msg: z.string() }).strict(),
+      z
+        .object({ level: z.literal('notice').or(z.literal('warning')), msg: z.string() })
+        .passthrough(),
     )
     .optional(),
   is_infinite: z.boolean().optional(),
@@ -509,7 +513,7 @@ const assemblyStatusBaseSchema = z.object({
           upload_url: z.string(),
           local_path: z.string().optional(),
         })
-        .strict(),
+        .passthrough(),
     )
     .optional(),
 })
@@ -523,14 +527,14 @@ export const assemblyStatusBusySchema = z
     // Let's make it extend the *non-recursive* base for now.
   })
   .extend(assemblyStatusBaseSchema.shape) // Extend with non-recursive base fields
-  .strict()
+  .passthrough()
 
 // --- Refactor Ok Schema to use Base ---
 export const assemblyStatusOkSchema = assemblyStatusBaseSchema // Use original base
   .extend({
     ok: assemblyStatusOkCodeSchema,
   })
-  .strict()
+  .passthrough()
 
 // --- Refactor Err Schema to use Base ---
 export const assemblyStatusErrSchema = assemblyStatusBaseSchema // Use ORIGINAL base
@@ -552,7 +556,7 @@ export const assemblyStatusErrSchema = assemblyStatusBaseSchema // Use ORIGINAL 
     headers: z.record(z.unknown()).optional(),
     retryable: z.boolean().optional(),
   })
-  .strict() // Restore strict()
+  .passthrough() // Restore passthrough()
 
 // --- Define Step Failed Schema ---
 // Represents an error that occurred during a specific step,
@@ -566,7 +570,7 @@ export const assemblyStatusStepFailedSchema = assemblyStatusBaseSchema // Use OR
     // Message is optional in base, but seems required for this state
     message: z.string(),
   })
-  .strict() // Restore strict()
+  .passthrough() // Restore passthrough()
 // --- End Step Failed Schema ---
 
 // --- Define System Error Schema ---
@@ -604,14 +608,20 @@ export const assemblyStatusSchema = z.union([
 export type AssemblyStatus = z.infer<typeof assemblyStatusSchema>
 
 /**
- * Type guard to check if an assembly has an error
+ * Type guard to check if an assembly has an error.
  */
 export function hasError(
   assembly: AssemblyStatus | undefined | null,
+  particularErrorCode?: z.infer<typeof assemblyStatusErrCodeSchema>,
 ): assembly is AssemblyStatus & { error: string } {
-  return (
+  const errorExists =
     Boolean(assembly) && assembly != null && typeof assembly === 'object' && 'error' in assembly
-  )
+
+  if (particularErrorCode) {
+    return errorExists && assembly.error === particularErrorCode
+  }
+
+  return errorExists
 }
 
 /**
@@ -619,8 +629,15 @@ export function hasError(
  */
 export function hasOk(
   assembly: AssemblyStatus | undefined | null,
+  particularOkCode?: z.infer<typeof assemblyStatusOkCodeSchema>,
 ): assembly is AssemblyStatus & { ok: string } {
-  return Boolean(assembly) && assembly != null && typeof assembly === 'object' && 'ok' in assembly
+  const okExists =
+    Boolean(assembly) && assembly != null && typeof assembly === 'object' && 'ok' in assembly
+
+  if (particularOkCode) {
+    return okExists && assembly.ok === particularOkCode
+  }
+  return okExists
 }
 
 /**
@@ -695,7 +712,7 @@ export const assemblyIndexItemSchema = z
     created_ts: z.number().optional(), // Add new field
     template_name: z.string().nullable().optional(), // Add new field
   })
-  .strict()
+  .passthrough()
 
 export type AssemblyIndexItem = z.infer<typeof assemblyIndexItemSchema>
 
