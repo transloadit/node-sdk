@@ -605,7 +605,7 @@ export const assemblyStatusSchema: z.ZodUnion<
     typeof assemblyStatusOkSchema,
     typeof assemblyStatusErrSchema,
     typeof assemblyStatusStepFailedSchema,
-    typeof assemblyStatusSysErrSchema
+    typeof assemblyStatusSysErrSchema,
   ]
 > = z.union([
   assemblyStatusBusySchema, // Use schema defined above
