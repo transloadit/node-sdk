@@ -239,7 +239,7 @@ const assemblyStatusMetaSchema = z
     encoder: z.string().nullable().optional(),
     thumb_index: z.number().nullable().optional(),
     thumb_offset: z
-      .preprocess((val) => (typeof val === 'string' ? parseInt(val, 10) : val), z.number())
+      .preprocess((val) => (typeof val === 'string' ? Number.parseInt(val, 10) : val), z.number())
       .nullable()
       .optional(),
     page_count: z.union([z.number(), z.null()]).optional(),
@@ -597,7 +597,17 @@ export const assemblyStatusSysErrSchema = assemblyStatusBaseSchema // Use ORIGIN
 // --- End System Error Schema ---
 
 // Final schema defined lazily to handle recursion
-export const assemblyStatusSchema = z.union([
+// We break up inference to avoid:
+// error TS7056: The inferred type of this node exceeds the maximum length the compiler will serialize. An explicit type annotation is needed.
+export const assemblyStatusSchema: z.ZodUnion<
+  [
+    typeof assemblyStatusBusySchema,
+    typeof assemblyStatusOkSchema,
+    typeof assemblyStatusErrSchema,
+    typeof assemblyStatusStepFailedSchema,
+    typeof assemblyStatusSysErrSchema
+  ]
+> = z.union([
   assemblyStatusBusySchema, // Use schema defined above
   assemblyStatusOkSchema, // Use schema defined above
   assemblyStatusErrSchema, // Use schema defined above
