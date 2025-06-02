@@ -440,8 +440,8 @@ const assemblyStatusBaseSchema = z.object({
   assembly_id: z.string().optional(),
   parent_id: z.string().nullable().optional(),
   account_id: z.string().optional(),
-  account_name: z.string().optional(),
-  account_slug: z.string().optional(),
+  account_name: z.string().nullable().optional(),
+  account_slug: z.string().nullable().optional(),
   api_auth_key_id: z.string().nullable().optional(),
   template_id: z.string().nullable().optional(),
   template_name: z.string().nullable().optional(),
@@ -540,6 +540,7 @@ export const assemblyStatusOkSchema = assemblyStatusBaseSchema // Use original b
 export const assemblyStatusErrSchema = assemblyStatusBaseSchema // Use ORIGINAL base
   .extend({
     error: assemblyStatusErrCodeSchema,
+    ok: z.null().optional(),
     retries: z.number().optional(),
     numRetries: z.number().optional(),
     reason: z.string().optional(),

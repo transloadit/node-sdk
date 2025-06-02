@@ -1,0 +1,25 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+goal: address PR comments
+
+- get PR comments
+```bash
+# Find PR for current branch
+gh pr list --head $(git branch --show-current) | cat
+
+# Get inline comments (most important)
+gh api repos/:owner/:repo/pulls/PR_NUMBER/comments --jq '.[] | {author: .user.login, body: .body, path: .path, line: .line}' | cat
+
+# Get review comments if needed
+gh api repos/:owner/:repo/pulls/PR_NUMBER/reviews --jq '.[] | select(.body != "") | {author: .user.login, body: .body}' | cat
+```
+
+- if no PR exists, abort
+- suggest fixes for each comment
+- always use `| cat`
+
+
+<!-- From https://x.com/ericzakariasson/status/1928224127942545605 -->

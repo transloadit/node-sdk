@@ -28,7 +28,7 @@
     "tsx": "^4.19.4",
     "tus-js-client": "^4.3.1",
     "type-fest": "^4.41.0",
-    "zod": "^3.25.30"
+    "zod": "^3.25.48"
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",
