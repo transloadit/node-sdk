@@ -45,7 +45,7 @@ This project is tested using [Vitest](https://vitest.dev). There are two kinds o
 Unit tests are in the [`test/unit`](test/unit) folder of the project. You can run them using the following command:
 
 ```sh
-yarn yarn test:unit
+yarn test:unit
 ```
 
 This will also generate a coverage report in the `coverage` directory.
