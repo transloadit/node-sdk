@@ -11,12 +11,56 @@ on:
     types: [submitted]
 
 jobs:
+  check-permissions:
+    runs-on: ubuntu-latest
+    outputs:
+      has-write-access: ${{ steps.check.outputs.has-write-access }}
+    steps:
+      - name: Check user permissions
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get the username of the person who triggered the event
+            let username;
+            if (context.eventName === 'issue_comment' || context.eventName === 'pull_request_review_comment') {
+              username = context.payload.comment.user.login;
+            } else if (context.eventName === 'pull_request_review') {
+              username = context.payload.review.user.login;
+            } else if (context.eventName === 'issues') {
+              username = context.payload.issue.user.login;
+            }
+
+            // Check if user has write permissions
+            try {
+              const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: username
+              });
+
+              const hasWriteAccess = ['admin', 'maintain', 'write'].includes(permission.permission);
+              console.log(`User ${username} has permission: ${permission.permission}`);
+              core.setOutput('has-write-access', hasWriteAccess.toString());
+
+              if (!hasWriteAccess) {
+                console.log(`User ${username} does not have write access. Claude bot will not be triggered.`);
+              }
+            } catch (error) {
+              console.log(`Error checking permissions for ${username}: ${error.message}`);
+              core.setOutput('has-write-access', 'false');
+            }
+
   claude:
+    needs: check-permissions
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      needs.check-permissions.outputs.has-write-access == 'true' &&
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,4 +78,3 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-

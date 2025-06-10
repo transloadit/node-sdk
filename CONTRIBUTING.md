@@ -30,7 +30,7 @@ yarn lint:js
 
 ## Formatting
 
-This project is formatted using [Prettier](https://prettier.io). You can check format the project:
+This project is formatted using [Prettier](https://prettier.io). You can format the project:
 
 ```sh
 yarn fix:formatting
@@ -45,7 +45,7 @@ This project is tested using [Vitest](https://vitest.dev). There are two kinds o
 Unit tests are in the [`test/unit`](test/unit) folder of the project. You can run them using the following command:
 
 ```sh
-yarn yarn test:unit
+yarn test:unit
 ```
 
 This will also generate a coverage report in the `coverage` directory.
@@ -83,9 +83,14 @@ View the coverage report locally by opening `coverage/index.html` in your browse
 
 Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub actions. To make a release, perform the following steps:
 
-1. Update the version using Yarn, e.g. `yarn version patch` (n.b. use `yarn version prerelease` for pre-releases). This will update the version in the `package.json` file.
-2. Commit the changes to the `package.json` file.
-3. Create a new Git tag, e.g. `git tag v4.0.0-6` (add the `v`!).
-4. Push the tag to GitHub: `git push origin main --tags`
-5. If the tests pass, GitHub actions will now publish the new version to npm.
-6. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
+1. Update the version using npm, `npm version patch`. This will update the version in the `package.json` file and create a git tag. E.g.:
+
+- `npm version patch`
+- `npm version prerelease` (for pre-releases)
+
+2. Push the tag to GitHub: `git push origin main --tags`
+3. If the tests pass, GitHub actions will now publish the new version to npm.
+4. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
+5. If this was a pre-release, remember to run this to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
+
+- `npm dist-tag add transloadit@X.Y.Z latest`
