@@ -30,7 +30,7 @@ yarn lint:js
 
 ## Formatting
 
-This project is formatted using [Prettier](https://prettier.io). You can check format the project:
+This project is formatted using [Prettier](https://prettier.io). You can format the project:
 
 ```sh
 yarn fix:formatting
@@ -89,6 +89,5 @@ Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are
 2. Push the tag to GitHub: `git push origin main --tags`
 3. If the tests pass, GitHub actions will now publish the new version to npm.
 4. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
-5. If this was a pre-release, remember to run this to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions
-) to the previous version (replace `x.y.z` with previous version):
+5. If this was a pre-release, remember to run this to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
   - `npm dist-tag add transloadit@X.Y.Z latest`
