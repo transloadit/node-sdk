@@ -10,7 +10,6 @@ export interface RobotMeta {
   description?: string
   discount_factor: number
   discount_pct: number
-  docs_redirect_from?: string[]
   example_code?: z.input<typeof assemblyInstructionsSchema>
   example_code_description?: string
   extended_description?: string
@@ -61,7 +60,6 @@ export interface RobotMeta {
 
   purpose_word: string
   purpose_words: string
-  redirect_from?: string[]
   requires_credentials?: true
   service_slug:
     | 'artificial-intelligence'

@@ -8,7 +8,6 @@ export const meta: RobotMeta = {
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
-  docs_redirect_from: ['/docs/taking-screenshots-of-websites/'],
   example_code: {
     steps: {
       captured: {

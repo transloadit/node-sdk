@@ -29,7 +29,6 @@ export const meta: RobotMeta = {
   purpose_verb: 'handle',
   purpose_word: 'handle uploads',
   purpose_words: 'Handle uploads',
-  redirect_from: ['/robots/upload-receive/', '/services/handling-uploads/upload-receive/'],
   service_slug: 'handling-uploads',
   slot_count: 0,
   title: 'Handle uploads',

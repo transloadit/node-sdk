@@ -34,7 +34,6 @@ export const meta: RobotMeta = {
   purpose_verb: 'detect',
   purpose_word: 'detect faces',
   purpose_words: 'Detect faces in images',
-  redirect_from: ['/services/computer-vision/image-facedetect/'],
   service_slug: 'artificial-intelligence',
   slot_count: 20,
   title: 'Detect faces in images',

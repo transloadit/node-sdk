@@ -8,7 +8,6 @@ export const meta: RobotMeta = {
   bytescount: 6,
   discount_factor: 0.15000150001500018,
   discount_pct: 84.99984999849998,
-  docs_redirect_from: ['/docs/export-to-youtube/'],
   example_code: {
     steps: {
       exported: {

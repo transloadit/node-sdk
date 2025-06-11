@@ -25,10 +25,10 @@
     "into-stream": "^8.0.1",
     "is-stream": "^4.0.1",
     "p-map": "^7.0.3",
-    "tsx": "^4.19.4",
+    "tsx": "^4.20.1",
     "tus-js-client": "^4.3.1",
     "type-fest": "^4.41.0",
-    "zod": "^3.25.48"
+    "zod": "^3.25.61"
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",
