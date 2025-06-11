@@ -8,7 +8,6 @@ export const meta: RobotMeta = {
   discount_factor: 1,
   bytescount: 1,
   discount_pct: 0,
-  docs_redirect_from: ['/docs/image-bgremove/'],
   example_code: {
     steps: {
       remove_background: {

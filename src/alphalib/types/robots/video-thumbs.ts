@@ -17,7 +17,6 @@ export const meta: RobotMeta = {
   bytescount: 10,
   discount_factor: 0.1,
   discount_pct: 90,
-  docs_redirect_from: ['/docs/extracting-thumbnails-from-videos/'],
   example_code: {
     steps: {
       thumbnailed: {

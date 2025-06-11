@@ -272,6 +272,7 @@ import {
 } from './video-merge.ts'
 import {
   interpolatableRobotVideoOndemandInstructionsSchema,
+  robotVideoOndemandInstructionsWithHiddenFieldsSchema,
   meta as videoOndemandMeta,
 } from './video-ondemand.ts'
 import {
@@ -453,7 +454,7 @@ const robotStepsInstructionsWithHiddenFields = [
   interpolatableRobotVideoConcatInstructionsSchema,
   interpolatableRobotVideoEncodeInstructionsSchema,
   interpolatableRobotVideoMergeInstructionsSchema,
-  interpolatableRobotVideoOndemandInstructionsSchema,
+  robotVideoOndemandInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVideoSubtitleInstructionsSchema,
   interpolatableRobotVideoThumbsInstructionsSchema,
   interpolatableRobotVimeoStoreInstructionsSchema,

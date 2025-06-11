@@ -13,7 +13,6 @@ export const meta: RobotMeta = {
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
-  docs_redirect_from: ['/docs/image-optimization/'],
   example_code: {
     steps: {
       optimized: {

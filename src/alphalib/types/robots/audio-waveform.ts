@@ -14,7 +14,6 @@ export const meta: RobotMeta = {
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
-  docs_redirect_from: ['/docs/audio-waveform-images/'],
   example_code: {
     steps: {
       waveformed: {

@@ -13,7 +13,6 @@ export const meta: RobotMeta = {
   discount_factor: 1,
   discount_pct: 0,
   bytescount: 1,
-  docs_redirect_from: ['/docs/video-ondemand/'],
   example_code: {
     steps: {
       import: {
@@ -106,7 +105,28 @@ export const robotVideoOndemandInstructionsSchema = robotBase
   })
   .strict()
 
+export const robotVideoOndemandInstructionsWithHiddenFieldsSchema =
+  robotVideoOndemandInstructionsSchema.extend({
+    cdn_required_bypass: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'Internal parameter that indicates whether `cdn=required` should be added to the URLs in playlists. Useful for testing with URL Transform directly and not through Smart CDN.',
+      ),
+    url_transform_format: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'Internal parameter that indicates whether the URLs in playlists should use the Smart CDN or the URL Transform format.',
+      ),
+  })
+
 export type RobotVideoOndemandInstructions = z.infer<typeof robotVideoOndemandInstructionsSchema>
+export type RobotVideoOndemandInstructionsWithHiddenFields = z.infer<
+  typeof robotVideoOndemandInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotVideoOndemandInstructionsSchema = interpolateRobot(
   robotVideoOndemandInstructionsSchema,
