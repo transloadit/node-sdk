@@ -718,7 +718,7 @@ describe('API integration', { timeout: 60000 }, () => {
     })
 
     it('should allow creating a template', async () => {
-      const template = await client.createTemplate({ name: templName, template: { ...genericParams, notify_url: undefined, allow_steps_override: undefined } })
+      const template = await client.createTemplate({ name: templName, template: genericParams })
       templId = template.id
     })
 
@@ -736,8 +736,6 @@ describe('API integration', { timeout: 60000 }, () => {
         steps: {
           dummy: dummyStep,
         },
-        notify_url: undefined,
-        allow_steps_override: undefined,
       }
 
       const editedName = `${templName}-edited`

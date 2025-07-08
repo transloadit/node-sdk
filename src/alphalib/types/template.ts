@@ -3,19 +3,19 @@ import { z } from 'zod'
 import { robotsWithHiddenBotsAndFieldsSchema, robotsSchema } from './robots/_index.ts'
 import type { RobotUse } from './robots/_instructions-primitives.ts'
 
-export const stepSchema: z.ZodIntersection<any, any> = z
+export const stepSchema = z
   .object({
     // This is a hack to get nicer robot hover messages in editors.
     robot: z.string().describe('The [robot](https://transloadit.com/docs/robots/) to use'),
   })
   .and(robotsSchema)
-export const stepsSchema: z.ZodRecord<any> = z.record(stepSchema).describe('Contains Assembly Instructions.')
+export const stepsSchema = z.record(stepSchema).describe('Contains Assembly Instructions.')
 export type Step = z.infer<typeof stepSchema>
 export type StepInput = z.input<typeof stepSchema>
 export type StepInputWithUse = StepInput & RobotUse
 export type Steps = z.infer<typeof stepsSchema>
 export type StepsInput = z.input<typeof stepsSchema>
-const optionalStepsSchema: z.ZodOptional<any> = stepsSchema.optional()
+const optionalStepsSchema = stepsSchema.optional()
 
 export const stepSchemaWithHiddenFields = z
   .object({

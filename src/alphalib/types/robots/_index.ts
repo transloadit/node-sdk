@@ -466,8 +466,8 @@ const robotStepsInstructionsWithHiddenFields = [
 /**
  * Public robot instructions
  */
-export const robotsSchema: z.ZodDiscriminatedUnion<'robot', any[]> = z.discriminatedUnion('robot', [...robotStepsInstructions])
 export type RobotsSchema = z.infer<typeof robotsSchema>
+export const robotsSchema = z.discriminatedUnion('robot', [...robotStepsInstructions])
 export const robotsWithHiddenFieldsSchema = z.discriminatedUnion('robot', [
   ...robotStepsInstructionsWithHiddenFields,
 ])
@@ -475,7 +475,7 @@ export const robotsWithHiddenFieldsSchema = z.discriminatedUnion('robot', [
 /**
  * All robot instructions, including private ones.
  */
-export const robotsWithHiddenBotsSchema: z.ZodDiscriminatedUnion<'robot', any[]> = z.discriminatedUnion('robot', [
+export const robotsWithHiddenBotsSchema = z.discriminatedUnion('robot', [
   ...robotStepsInstructions,
   interpolatableRobotFileWatermarkInstructionsSchema,
   interpolatableRobotProgressSimulateInstructionsSchema,
