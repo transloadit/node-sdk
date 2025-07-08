@@ -1,16 +1,10 @@
 {
-  "exclude": ["dist", "src", "coverage"],
-  "references": [{ "path": "./tsconfig.build.json" }],
+  "extends": "./tsconfig.build.json",
+  "include": ["src", "test", "examples"],
   "compilerOptions": {
-    "checkJs": true,
-    "erasableSyntaxOnly": true,
-    "isolatedModules": true,
-    "module": "NodeNext",
-    "noImplicitOverride": true,
-    "rewriteRelativeImportExtensions": true,
-    "noEmit": true,
-    "resolveJsonModule": true,
-    "strict": true,
-    "types": ["vitest/globals"]
+    "noEmit": false,
+    "declaration": false,
+    "outDir": "dist",
+    "rootDir": "src"
   }
 }
