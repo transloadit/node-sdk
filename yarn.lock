@@ -6852,12 +6852,12 @@ __metadata:
     p-retry: "npm:^6.2.1"
     prettier: "npm:^3.5.3"
     temp: "npm:^0.9.4"
-    tsx: "npm:^4.20.1"
+    tsx: "npm:^4.20.3"
     tus-js-client: "npm:^4.3.1"
     type-fest: "npm:^4.41.0"
     typescript: "npm:^5.8.3"
     vitest: "npm:^3.1.3"
-    zod: "npm:^3.25.61"
+    zod: "npm:^3.25.76"
   languageName: unknown
   linkType: soft
 
@@ -6889,9 +6889,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tsx@npm:^4.20.1":
-  version: 4.20.1
-  resolution: "tsx@npm:4.20.1"
+"tsx@npm:^4.20.3":
+  version: 4.20.3
+  resolution: "tsx@npm:4.20.3"
   dependencies:
     esbuild: "npm:~0.25.0"
     fsevents: "npm:~2.3.3"
@@ -6901,7 +6901,7 @@ __metadata:
       optional: true
   bin:
     tsx: dist/cli.mjs
-  checksum: 10c0/10f861c66d13fcdcae1d4203f06c682d4c4beadb915d644aa198dfac49be18496e6e26daf5f693be87cf2776c1a883abb21e811f77ffd5b0a5cdd41d49c8cd52
+  checksum: 10c0/6ff0d91ed046ec743fac7ed60a07f3c025e5b71a5aaf58f3d2a6b45e4db114c83e59ebbb078c8e079e48d3730b944a02bc0de87695088aef4ec8bbc705dc791b
   languageName: node
   linkType: hard
 
@@ -7413,9 +7413,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.25.61":
-  version: 3.25.61
-  resolution: "zod@npm:3.25.61"
-  checksum: 10c0/45386e88c52b5946dbe22c95fe45f3e7c1c90c4fba8cd7b8ce4e6cf0a79c987026990cbb082c54bb2926be35ed49947f351f05b35d6507aa17c23c088a5f4667
+"zod@npm:^3.25.76":
+  version: 3.25.76
+  resolution: "zod@npm:3.25.76"
+  checksum: 10c0/5718ec35e3c40b600316c5b4c5e4976f7fee68151bc8f8d90ec18a469be9571f072e1bbaace10f1e85cf8892ea12d90821b200e980ab46916a6166a4260a983c
   languageName: node
   linkType: hard

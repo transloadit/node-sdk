@@ -2,94 +2,213 @@ import type { Replace } from 'type-fest'
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
-import type { assemblyInstructionsSchema } from '../template.ts'
 
-export interface RobotMeta {
-  allowed_for_url_transform: boolean
-  bytescount: number
-  description?: string
-  discount_factor: number
-  discount_pct: number
-  example_code?: z.input<typeof assemblyInstructionsSchema>
-  example_code_description?: string
-  extended_description?: string
-  has_small_icon?: true
-  minimum_charge: number
-  minimum_charge_usd?: number | Record<string, number>
-  minimum_charge_usd_note?: string
-  ogimage?: string
-  marketing_intro?: string
-  output_factor: number
-  override_lvl1?: string
-  purpose_sentence: string
-  purpose_verb:
-    | 'auto-rotate'
-    | 'cache & deliver'
-    | 'compress'
-    | 'concatenate'
-    | 'concatenate'
-    | 'convert'
-    | 'decompress'
-    | 'detect'
-    | 'encode'
-    | 'export'
-    | 'extract'
-    | 'filter'
-    | 'generate'
-    | 'handle'
-    | 'hash'
-    | 'import'
-    | 'loop'
-    | 'merge'
-    | 'optimize'
-    | 'read'
-    | 'recognize'
-    | 'run'
-    | 'scan'
-    | 'serve'
-    | 'speak'
-    | 'subtitle'
-    | 'take'
-    | 'transcode'
-    | 'transcribe'
-    | 'translate'
-    | 'verify'
-    | 'remove'
-    | 'write'
-    | 'stream'
+export const robotNames = z.enum([
+  'UploadHandleRobot',
+  'FileServeRobot',
+  'FileWatermarkRobot',
+  'FileVerifyRobot',
+  'EdglyDeliverRobot',
+  'TlcdnDeliverRobot',
+  'VideoSubtitleRobot',
+  'VideoEncodeRobot',
+  'VideoAdaptiveRobot',
+  'VideoMergeRobot',
+  'VideoConcatRobot',
+  'AudioWaveformRobot',
+  'AudioEncodeRobot',
+  'AudioLoopRobot',
+  'AudioConcatRobot',
+  'AudioMergeRobot',
+  'AudioArtworkRobot',
+  'ImageFacedetectRobot',
+  'ImageDescribeRobot',
+  'ImageOcrRobot',
+  'ImageBgremoveRobot',
+  'ImageGenerateRobot',
+  'DocumentOcrRobot',
+  'SpeechTranscribeRobot',
+  'VideoThumbsRobot',
+  'FileVirusscanRobot',
+  'ImageOptimizeRobot',
+  'FileCompressRobot',
+  'MetaReadRobot',
+  'FileDecompressRobot',
+  'MetaWriteRobot',
+  'DocumentThumbsRobot',
+  'DocumentConvertRobot',
+  'DocumentMergeRobot',
+  'DocumentSplitRobot',
+  'DocumentAutorotateRobot',
+  'HtmlConvertRobot',
+  'ImageResizeRobot',
+  'ImageMergeRobot',
+  'S3ImportRobot',
+  'S3StoreRobot',
+  'DigitalOceanImportRobot',
+  'DigitalOceanStoreRobot',
+  'BackblazeImportRobot',
+  'BackblazeStoreRobot',
+  'MinioImportRobot',
+  'TigrisImportRobot',
+  'CloudflareImportRobot',
+  'SupabaseImportRobot',
+  'MinioStoreRobot',
+  'TigrisStoreRobot',
+  'CloudflareStoreRobot',
+  'SupabaseStoreRobot',
+  'WasabiImportRobot',
+  'WasabiStoreRobot',
+  'SwiftImportRobot',
+  'SwiftStoreRobot',
+  'GoogleImportRobot',
+  'GoogleStoreRobot',
+  'DropboxImportRobot',
+  'DropboxStoreRobot',
+  'HttpImportRobot',
+  'SftpImportRobot',
+  'SftpStoreRobot',
+  'FtpImportRobot',
+  'FtpStoreRobot',
+  'CloudfilesImportRobot',
+  'CloudfilesStoreRobot',
+  'AzureImportRobot',
+  'AzureStoreRobot',
+  'YoutubeStoreRobot',
+  'VimeoStoreRobot',
+  'AssemblySavejsonRobot',
+  'ScriptRunRobot',
+  'FileHashRobot',
+  'FileReadRobot',
+  'VideoOndemandRobot',
+  'FileFilterRobot',
+  'TextSpeakRobot',
+  'TextTranslateRobot',
+  'FilePreviewRobot',
+  'TusStoreRobot',
+  'ProgressSimulateRobot',
+])
 
-  purpose_word: string
-  purpose_words: string
-  requires_credentials?: true
-  service_slug:
-    | 'artificial-intelligence'
-    | 'audio-encoding'
-    | 'code-evaluation'
-    | 'content-delivery'
-    | 'document-processing'
-    | 'file-compressing'
-    | 'file-exporting'
-    | 'file-filtering'
-    | 'file-importing'
-    | 'handling-uploads'
-    | 'image-manipulation'
-    | 'media-cataloging'
-    | 'video-encoding'
+export const robotMetaSchema = z.object({
+  // Added keys from api2/lib/config.ts:
+  name: robotNames,
+  priceFactor: z.number(),
+  queueSlotCount: z.number(),
+  downloadInputFiles: z.boolean().optional(),
+  preserveInputFileUrls: z.boolean().optional(),
+  minimumCharge: z.number().optional(),
+  minimumChargeUsd: z.number().optional(),
+  minimumChargeUsdPerSpeechTranscribeMinute: z
+    .object({
+      aws: z.number(),
+      gcp: z.number(),
+    })
+    .optional(),
+  minimumChargeUsdPerDocumentOcrPage: z
+    .object({
+      aws: z.number(),
+      gcp: z.number(),
+    })
+    .optional(),
+  isAllowedForUrlTransform: z.boolean(),
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: z.boolean(),
+  lazyLoad: z.boolean().optional(),
+  installVersionFile: z.string().optional(),
+  trackOutputFileSize: z.boolean().optional(),
+  isInternal: z.boolean(),
+  numDaemons: z.number().optional(),
+  importRanges: z.array(z.string()).optional(),
+  extraChargeForImageResize: z.number().optional(),
 
-  slot_count: number
-  title: string
-  typical_file_size_mb: number
-  typical_file_type:
-    | 'audio file'
-    | 'audio or video file'
-    | 'document'
-    | 'file'
-    | 'image'
-    | 'video'
-    | 'webpage'
+  // Original keys from content repo:
+  allowed_for_url_transform: z.boolean(),
+  bytescount: z.number(),
+  description: z.string().optional(),
+  discount_factor: z.number(),
+  discount_pct: z.number(),
+  // To avoid a cycling dependency back to template.ts, we'll use any for now:
+  // example_code: assemblyInstructionsSchema.optional(),
+  example_code: z.any().optional(),
+  example_code_description: z.string().optional(),
+  extended_description: z.string().optional(),
+  has_small_icon: z.literal(true).optional(),
+  minimum_charge: z.number(),
+  minimum_charge_usd: z.union([z.number(), z.record(z.string(), z.number())]).optional(),
+  minimum_charge_usd_note: z.string().optional(),
+  ogimage: z.string().optional(),
+  marketing_intro: z.string().optional(),
+  output_factor: z.number(),
+  override_lvl1: z.string().optional(),
+  purpose_sentence: z.string(),
+  purpose_verb: z.enum([
+    'auto-rotate',
+    'cache & deliver',
+    'compress',
+    'concatenate',
+    'convert',
+    'decompress',
+    'detect',
+    'encode',
+    'export',
+    'extract',
+    'filter',
+    'generate',
+    'handle',
+    'hash',
+    'import',
+    'loop',
+    'merge',
+    'optimize',
+    'read',
+    'recognize',
+    'run',
+    'scan',
+    'serve',
+    'speak',
+    'subtitle',
+    'take',
+    'transcode',
+    'transcribe',
+    'translate',
+    'verify',
+    'remove',
+    'write',
+    'stream',
+  ]),
+  purpose_word: z.string(),
+  purpose_words: z.string(),
+  requires_credentials: z.literal(true).optional(),
+  service_slug: z.enum([
+    'artificial-intelligence',
+    'audio-encoding',
+    'code-evaluation',
+    'content-delivery',
+    'document-processing',
+    'file-compressing',
+    'file-exporting',
+    'file-filtering',
+    'file-importing',
+    'handling-uploads',
+    'image-manipulation',
+    'media-cataloging',
+    'video-encoding',
+  ]),
+  slot_count: z.number(),
+  title: z.string(),
+  typical_file_size_mb: z.number(),
+  typical_file_type: z.enum([
+    'audio file',
+    'audio or video file',
+    'document',
+    'file',
+    'image',
+    'video',
+    'webpage',
+  ]),
+  uses_tools: z.array(z.enum(['ffmpeg', 'imagemagick'])).optional(),
+})
 
-  uses_tools?: ('ffmpeg' | 'imagemagick')[]
-}
+export type RobotMetaInput = z.input<typeof robotMetaSchema>
 
 export const interpolationSchemaFull = z
   .string()
@@ -176,23 +295,31 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
 
       return z.union([interpolationSchemaFull, replacement]) as InterpolatableSchema<Schema>
     }
-    case z.ZodFirstPartyTypeKind.ZodDefault:
-      return (interpolateRecursive(def.innerType) as InterpolatableSchema<Schema>).default(
-        def.defaultValue(),
+    case z.ZodFirstPartyTypeKind.ZodDefault: {
+      const replacement = (
+        interpolateRecursive(def.innerType) as InterpolatableSchema<Schema>
+      ).default(def.defaultValue())
+
+      return (
+        def.description ? replacement.describe(def.description) : replacement
       ) as InterpolatableSchema<Schema>
+    }
     case z.ZodFirstPartyTypeKind.ZodEffects:
     case z.ZodFirstPartyTypeKind.ZodEnum:
     case z.ZodFirstPartyTypeKind.ZodLiteral:
-      return z.union([interpolationSchemaFull, schema]) as InterpolatableSchema<Schema>
+      return z.union([interpolationSchemaFull, schema], def) as InterpolatableSchema<Schema>
     case z.ZodFirstPartyTypeKind.ZodNumber:
-      return z.union([
-        z
-          .string()
-          .regex(/^\d+(\.\d+)?$/)
-          .transform((value) => Number(value)),
-        interpolationSchemaFull,
-        schema,
-      ]) as InterpolatableSchema<Schema>
+      return z.union(
+        [
+          z
+            .string()
+            .regex(/^\d+(\.\d+)?$/)
+            .transform((value) => Number(value)),
+          interpolationSchemaFull,
+          schema,
+        ],
+        def,
+      ) as InterpolatableSchema<Schema>
     case z.ZodFirstPartyTypeKind.ZodNullable:
       return interpolateRecursive(def.innerType).nullable() as InterpolatableSchema<Schema>
     case z.ZodFirstPartyTypeKind.ZodObject: {
@@ -223,7 +350,7 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
         def,
       ) as InterpolatableSchema<Schema>
     case z.ZodFirstPartyTypeKind.ZodString:
-      return z.union([interpolationSchemaPartial, schema]) as InterpolatableSchema<Schema>
+      return z.union([interpolationSchemaPartial, schema], def) as InterpolatableSchema<Schema>
     case z.ZodFirstPartyTypeKind.ZodTuple: {
       const tuple = z.tuple(def.items.map(interpolateRecursive))
 
@@ -308,6 +435,17 @@ You can also set this to \`false\` to skip metadata extraction and speed up tran
       .describe(
         `Setting the queue to 'batch', manually downgrades the priority of jobs for this step to avoid consuming Priority job slots for jobs that don't need zero queue waiting times`,
       ),
+
+    force_accept: z.boolean().default(false).describe(`
+      Force a Robot to accept a file type it would have ignored.
+
+By default Robots ignore files they are not familiar with.
+[🤖/video/encode](https://transloadit.com/docs/robots/video-encode/), for
+example, will happily ignore input images.
+
+With the force_accept parameter set to true you can force Robots to accept all files thrown at them.
+This will typically lead to errors and should only be used for debugging or combatting edge cases.
+`),
   })
   .strict()
 
@@ -621,7 +759,7 @@ Performs conversion using pre-configured settings.
 
 If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`mp3\` preset is not applied. This is to prevent you from having to override each of the MP3 preset's values manually.
 
-For a list of audio presets, see [audio presets](/docs/transcoding/audio-encoding/audio-presets/).
+For a list of audio presets, see [audio presets](/docs/presets/audio/).
 `),
   })
   .strict()
@@ -635,12 +773,12 @@ export const robotFFmpegVideo = robotFFmpeg
     width: z.number().int().min(1).nullish().describe(`
 Width of the new video, in pixels.
 
-If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied width](/docs/transcoding/video-encoding/video-presets/) will be implemented.
+If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied width](/docs/presets/video/) will be implemented.
 `),
     height: z.number().int().min(1).nullish().describe(`
 Height of the new video, in pixels.
 
-If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied height](/docs/transcoding/video-encoding/video-presets/) will be implemented.
+If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied height](/docs/presets/video/) will be implemented.
 `),
     preset: z
       .enum([
@@ -741,7 +879,7 @@ If the value is not specified and the \`preset\` parameter is available, the \`p
       ])
       .transform(transformPreset)
       .optional().describe(`
-Converts a video according to [pre-configured settings](/docs/transcoding/video-encoding/video-presets/).
+Converts a video according to [pre-configured settings](/docs/presets/video/).
 
 If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s and/or do not not want Transloadit to set any encoding setting, starting \`ffmpeg_stack: "${stackVersions.ffmpeg.recommendedVersion}"\`,  you can use the value \`'empty'\` here.
 `),
@@ -877,7 +1015,7 @@ export const colorspaceSchema = z.enum([
 
 // TODO: add before and after images to the description.
 export const imageQualitySchema = z.number().int().min(1).max(100).default(92).describe(`
-Controls the image compression for JPG and PNG images. Please also take a look at [🤖/image/optimize](/docs/transcoding/image-manipulation/image-optimize/).
+Controls the image compression for JPG and PNG images. Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).
 `)
 
 export const aiProviderSchema = z.enum(['aws', 'gcp', 'replicate', 'fal', 'transloadit'])
@@ -1190,10 +1328,10 @@ export const filterCondition = z.union([
 export const videoEncodeSpecificInstructionsSchema = robotFFmpegVideo
   .extend({
     resize_strategy: resize_strategy.describe(`
-See the [available resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).
+See the [available resize strategies](/docs/robots/image-resize/#resize-strategies).
 `),
     zoom: z.boolean().default(true).describe(`
-If this is set to \`false\`, smaller videos will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).
+If this is set to \`false\`, smaller videos will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/robots/image-resize/#resize-strategies).
 `),
     crop: unsafeCoordinatesSchema.optional().describe(`
 Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original video(s). Values can be integers for absolute pixel values or strings for percentage based values.
@@ -1242,7 +1380,7 @@ Splits the video into multiple chunks so that each chunk can be encoded in paral
 Allows you to specify the duration of each chunk when \`turbo\` is set to \`true\`. This means you can take advantage of that feature while using fewer <dfn>Priority Job Slots</dfn>. For instance, the longer each chunk is, the fewer <dfn>Encoding Jobs</dfn> will need to be used.
 `),
     watermark_url: z.string().default('').describe(`
-A URL indicating a PNG image to be overlaid above this image. You can also [supply the watermark via another Assembly Step](/docs/transcoding/video-encoding/video-encode/#watermark-parameters-video-encode).
+A URL indicating a PNG image to be overlaid above this image. You can also [supply the watermark via another Assembly Step](/docs/robots/video-encode/#watermark-parameters-video-encode).
 `),
     watermark_position: z.union([positionSchema, z.array(positionSchema)]).default('center')
       .describe(`

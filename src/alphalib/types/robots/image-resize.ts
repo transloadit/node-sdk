@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_without_alpha,
   colorspaceSchema,
@@ -16,7 +16,7 @@ import {
   interpolateRobot,
 } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -46,6 +46,13 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 0.8,
   typical_file_type: 'image',
   uses_tools: ['imagemagick'],
+  name: 'ImageResizeRobot',
+  priceFactor: 1,
+  queueSlotCount: 5,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotImageResizeInstructionsSchema = robotBase
@@ -61,7 +68,7 @@ Some of the most important available formats are \`"jpg"\`, \`"png"\`, \`"gif"\`
 
 If \`null\` (default), then the input image's format will be used as the output format.
 
-If you wish to convert to \`"pdf"\`, please consider [🤖/document/convert](/docs/transcoding/document-processing/document-convert/) instead.
+If you wish to convert to \`"pdf"\`, please consider [🤖/document/convert](/docs/robots/document-convert/) instead.
 `),
     width: complexWidthSchema.optional().describe(`
 Width of the result in pixels. If not specified, will default to the width of the original.
@@ -74,7 +81,7 @@ Height of the new image, in pixels. If not specified, will default to the height
         z.literal('crop')
           .describe(`Cuts an area out of an image, discarding any overlapping parts. If the source image is smaller than the crop frame, it will be zoomed. This strategy is implied when you specify coordinates in the \`crop\` parameter, and cannot be used without it.
 
-To crop around human faces, see [🤖/image/facedetect](https://transloadit.com/docs/transcoding/artificial-intelligence/image-facedetect/) instead.`),
+To crop around human faces, see [🤖/image/facedetect](https://transloadit.com/docs/robots/image-facedetect/) instead.`),
         z.literal('fillcrop')
           .describe(`Scales the image to fit into our 100×100 target while preserving aspect ratio, while trimming away any excess surface. This means both sides will become exactly 100 pixels, at the tradeoff of destroying parts of the image.
 
@@ -98,10 +105,10 @@ In this example, the background color is determined by the [Assembly Variable](h
           ),
       ])
       .default('fit').describe(`
-See the list of available [resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).
+See the list of available [resize strategies](/docs/robots/image-resize/#resize-strategies).
 `),
     zoom: z.boolean().default(true).describe(`
-If this is set to \`false\`, smaller images will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).
+If this is set to \`false\`, smaller images will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/robots/image-resize/#resize-strategies).
 `),
     crop: unsafeCoordinatesSchema.optional().describe(`
 Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original image(s). The coordinate system is rooted in the top left corner of the image. Values can be integers for absolute pixel values or strings for percentage based values.
@@ -125,7 +132,7 @@ You can also use a JSON string of such an object with coordinates in similar fas
 "{"x1": <Integer>, "y1": <Integer>, "x2": <Integer>, "y2": <Integer>}"
 \`\`\`
 
-To crop around human faces, see [🤖/image/facedetect](/docs/transcoding/artificial-intelligence/image-facedetect/).
+To crop around human faces, see [🤖/image/facedetect](/docs/robots/image-facedetect/).
 `),
     gravity: positionSchema.default('center').describe(`
 The direction from which the image is to be cropped, when \`"resize_strategy"\` is set to \`"crop"\`, but no crop coordinates are defined.
@@ -223,7 +230,7 @@ Determines whether the image should be rotated. Use integers to specify the rota
       .default(null).describe(`
 Specifies pixel compression for when the image is written. Compression is disabled by default.
 
-Please also take a look at [🤖/image/optimize](/docs/transcoding/image-manipulation/image-optimize/).
+Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).
 `),
     blur: z
       .string()
@@ -258,7 +265,7 @@ Increases or decreases the saturation of the image by using a multiplier. For ex
 Changes the hue by rotating the color of the image. The value \`100\` would produce no change whereas \`0\` and \`200\` will negate the colors in the image.
 `),
     watermark_url: z.string().optional().describe(`
-A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/transcoding/image-manipulation/image-resize/#image-resize-supply-watermark-via-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.
+A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/robots/image-resize/#image-resize-supply-watermark-via-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.
 `),
     watermark_position: z.union([positionSchema, z.array(positionSchema)]).default('center')
       .describe(`

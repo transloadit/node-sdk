@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 1,
   discount_factor: 1,
@@ -36,7 +36,7 @@ To achieve all this, we have created the following archive file structure.
 - There is a subfolder for each <dfn>Step</dfn> name that has result files in the archive.
 - Files are named according to the first two letters of the unique original prefix + "_" + the first two letters of the unique prefix + "_" + the original file name. If you do not know what the original prefixes are, please check [our available Assembly variables](/docs/topics/assembly-instructions/#assembly-variables) and look for \`\${unique_original_prefix}\` and \`\${unique_prefix}\`.
 - Files that belong to the \`:original\` <dfn>Step</dfn> (originally uploaded files) do **not** include the first two letters of the \`unique_original_prefix\`.
-- If you are dealing with thumbnails from [🤖/video/thumbs](/docs/transcoding/video-encoding/video-thumbs/), there is an additional digit representing the order in the file name.
+- If you are dealing with thumbnails from [🤖/video/thumbs](/docs/robots/video-thumbs/), there is an additional digit representing the order in the file name.
 
 Here is an example:
 
@@ -69,6 +69,13 @@ Here is an example:
   title: 'Compress files',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'FileCompressRobot',
+  priceFactor: 1,
+  queueSlotCount: 15,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotFileCompressInstructionsSchema = robotBase

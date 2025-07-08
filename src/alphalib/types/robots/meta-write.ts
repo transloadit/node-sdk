@@ -1,10 +1,10 @@
 import { z } from 'zod'
 
 import { robotFFmpeg, robotBase, robotUse, interpolateRobot } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -35,6 +35,13 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
   uses_tools: ['ffmpeg'],
+  name: 'MetaWriteRobot',
+  priceFactor: 1,
+  queueSlotCount: 10,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotMetaWriteInstructionsSchema = robotBase

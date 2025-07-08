@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -20,7 +20,7 @@ export const meta: RobotMeta = {
   example_code_description: 'Convert uploaded files to PDF documents:',
   extended_description: `
 > [!Note]
-> This <dfn>Robot</dfn> can convert files to PDF, but cannot convert PDFs to different formats. If you want to convert PDFs to say, JPEG or TIFF, use [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/). If you want to turn them into text files or recognize (OCR) them to make them searchable, reach out, as we have a new <dfn>Robot</dfn> in the works for this.
+> This <dfn>Robot</dfn> can convert files to PDF, but cannot convert PDFs to different formats. If you want to convert PDFs to say, JPEG or TIFF, use [🤖/image/resize](/docs/robots/image-resize/). If you want to turn them into text files or recognize (OCR) them to make them searchable, reach out, as we have a new <dfn>Robot</dfn> in the works for this.
 
 Sometimes, a certain file type might not support what you are trying to accomplish. Perhaps your company is trying to automate document formatting, but it only works with docx, so all your docs need to be converted. Or maybe your stored jpg files are taking up too much space and you want a lighter format. Whatever the case, we have you covered.
 
@@ -75,6 +75,22 @@ The following file formats can be converted from:
   title: 'Convert documents into different formats',
   typical_file_size_mb: 0.8,
   typical_file_type: 'document',
+  name: 'DocumentConvertRobot',
+  priceFactor: 1,
+  // This slot count needs to be unique, because unoconv can only process one document at a time,
+  // and is also only included in WorkerSlotCalculator::slotsThatFit() when
+  // we have enough idle unoconv daemons.
+  // We do not want a queue of this Robot to block any other Robot's jobs.
+  queueSlotCount: 32,
+  minimumCharge: 1048576,
+  lazyLoad: true,
+  installVersionFile: process.env.API2_UNOCONV_INSTALL_VERSION_FILE || '',
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  // we cannot use coreConfig.numUnoconvDaemons, because it does not live in alphalib
+  numDaemons: 8,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotDocumentConvertInstructionsSchema = robotBase

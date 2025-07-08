@@ -6,9 +6,9 @@ import {
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 0,
   discount_factor: 0,
@@ -37,6 +37,15 @@ export const meta: RobotMeta = {
   title: 'Filter files',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'FileFilterRobot',
+  priceFactor: 100,
+  queueSlotCount: 0,
+  downloadInputFiles: false,
+  preserveInputFileUrls: true,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotFileFilterInstructionsSchema = robotBase
@@ -50,7 +59,7 @@ The <dfn>Robot</dfn> has two modes of operation:
 - Constructing conditions out of arrays with 3 members each. For example, \`["\${file.size}", "<=", "720"]\`
 - Writing conditions in JavaScript. For example, \`\${file.size <= 720}\`. See also [Dynamic Evaluation](/docs/topics/dynamic-evaluation/).
 
-Passing JavaScript allows you to implement logic as complex as you wish, however it’s slower than combining arrays of conditions, and will be charged for per invocation via [🤖/script/run](/docs/transcoding/code-evaluation/script-run/).
+Passing JavaScript allows you to implement logic as complex as you wish, however it’s slower than combining arrays of conditions, and will be charged for per invocation via [🤖/script/run](/docs/robots/script-run/).
 
 ### Conditions as arrays
 
@@ -81,7 +90,7 @@ Examples:
 - \`\${/image/.test(file.mime)}\`
 - \`\${Math.max(file.meta.width, file.meta.height) > 100}\`
 
-As indicated, we charge for this via [🤖/script/run](/docs/transcoding/code-evaluation/script-run/). See also [Dynamic Evaluation](/docs/topics/dynamic-evaluation/) for more details on allowed syntax and behavior.
+As indicated, we charge for this via [🤖/script/run](/docs/robots/script-run/). See also [Dynamic Evaluation](/docs/topics/dynamic-evaluation/) for more details on allowed syntax and behavior.
 `),
     accepts: filterCondition
       .describe(

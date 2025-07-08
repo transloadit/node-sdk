@@ -8,10 +8,10 @@ import {
   sampleRateSchema,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 4,
   discount_factor: 0.25,
@@ -42,6 +42,13 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
   uses_tools: ['ffmpeg'],
+  name: 'AudioEncodeRobot',
+  priceFactor: 4,
+  queueSlotCount: 20,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotAudioEncodeInstructionsSchema = robotBase

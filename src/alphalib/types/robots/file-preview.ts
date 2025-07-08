@@ -10,9 +10,9 @@ import {
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -42,6 +42,15 @@ export const meta: RobotMeta = {
   title: 'Generate a preview thumbnail',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'FilePreviewRobot',
+  priceFactor: 1,
+  queueSlotCount: 15,
+  minimumCharge: 1048576,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  importRanges: ['0-19999999', '-1000000'],
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotFilePreviewInstructionsSchema = robotBase
@@ -66,7 +75,7 @@ Height of the thumbnail, in pixels.
     resize_strategy: resize_strategy.describe(`
 To achieve the desired dimensions of the preview thumbnail, the <dfn>Robot</dfn> might have to resize the generated image. This happens, for example, when the dimensions of a frame extracted from a video do not match the chosen \`width\` and \`height\` parameters.
 
-See the list of available [resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies) for more details.
+See the list of available [resize strategies](/docs/robots/image-resize/#resize-strategies) for more details.
 `),
     background: color_with_alpha.default('#ffffffff').describe(`
 The hexadecimal code of the color used to fill the background (only used for the pad resize strategy). The format is \`#rrggbb[aa]\` (red, green, blue, alpha). Use \`#00000000\` for a transparent padding.
@@ -131,13 +140,13 @@ The font family of the text used in the icon. Only used if the \`icon\` strategy
 The content of the text box in generated icons. Only used if the \`icon_style\` parameter is set to \`with-text\`. The default value, \`extension\`, adds the file extension (e.g. MP4, JPEG) to the icon. The value \`none\` can be used to render an empty text box, which is useful if no text should not be included in the raster image, but some place should be reserved in the image for later overlaying custom text over the image using HTML etc.
 `),
     optimize: z.boolean().default(true).describe(`
-Specifies whether the generated preview image should be optimized to reduce the image's file size while keeping their quaility. If enabled, the images will be optimized using [🤖/image/optimize](/docs/transcoding/image-manipulation/image-optimize/).
+Specifies whether the generated preview image should be optimized to reduce the image's file size while keeping their quaility. If enabled, the images will be optimized using [🤖/image/optimize](/docs/robots/image-optimize/).
 `),
     optimize_priority: optimize_priority.describe(`
-Specifies whether conversion speed or compression ratio is prioritized when optimizing images. Only used if \`optimize\` is enabled. Please see the [🤖/image/optimize documentation](/docs/transcoding/image-manipulation/image-optimize/#param-priority) for more details.
+Specifies whether conversion speed or compression ratio is prioritized when optimizing images. Only used if \`optimize\` is enabled. Please see the [🤖/image/optimize documentation](/docs/robots/image-optimize/#param-priority) for more details.
 `),
     optimize_progressive: z.boolean().default(false).describe(`
-Specifies whether images should be interlaced, which makes the result image load progressively in browsers. Only used if \`optimize\` is enabled. Please see the [🤖/image/optimize documentation](/docs/transcoding/image-manipulation/image-optimize/#param-progressive) for more details.
+Specifies whether images should be interlaced, which makes the result image load progressively in browsers. Only used if \`optimize\` is enabled. Please see the [🤖/image/optimize documentation](/docs/robots/image-optimize/#param-progressive) for more details.
 `),
     clip_format: z.enum(['apng', 'avif', 'gif', 'webp']).default('webp').describe(`
 The animated image format for the generated video clip. Only used if the \`clip\` strategy for video files is applied.

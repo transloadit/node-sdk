@@ -6,9 +6,9 @@ import {
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -39,6 +39,14 @@ export const meta: RobotMeta = {
   title: 'Detect faces in images',
   typical_file_size_mb: 0.8,
   typical_file_type: 'image',
+  name: 'ImageFacedetectRobot',
+  priceFactor: 1,
+  queueSlotCount: 20,
+  minimumChargeUsd: 0.0013,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotImageFacedetectInstructionsSchema = robotBase
@@ -47,7 +55,7 @@ export const robotImageFacedetectInstructionsSchema = robotBase
     robot: z.literal('/image/facedetect').describe(`
 You can specify padding around the extracted faces, tailoring the output for your needs.
 
-This <dfn>Robot</dfn> works well together with [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/) to bring the full power of resized and optimized images to your website or app.
+This <dfn>Robot</dfn> works well together with [🤖/image/resize](/docs/robots/image-resize/) to bring the full power of resized and optimized images to your website or app.
 
 <div class="alert alert-note">
 

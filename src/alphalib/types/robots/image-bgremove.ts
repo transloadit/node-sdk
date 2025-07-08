@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   discount_factor: 1,
   bytescount: 1,
@@ -29,6 +29,14 @@ export const meta: RobotMeta = {
   title: 'Remove the background from images',
   typical_file_size_mb: 0.8,
   typical_file_type: 'image',
+  name: 'ImageBgremoveRobot',
+  priceFactor: 1,
+  queueSlotCount: 10,
+  minimumChargeUsd: 0.006,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotImageBgremoveInstructionsSchema = robotBase

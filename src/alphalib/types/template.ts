@@ -6,7 +6,7 @@ import type { RobotUse } from './robots/_instructions-primitives.ts'
 export const stepSchema = z
   .object({
     // This is a hack to get nicer robot hover messages in editors.
-    robot: z.string().describe('The [robot](https://transloadit.com/docs/transcoding/) to use'),
+    robot: z.string().describe('The [robot](https://transloadit.com/docs/robots/) to use'),
   })
   .and(robotsSchema)
 export const stepsSchema = z.record(stepSchema).describe('Contains Assembly Instructions.')
@@ -20,7 +20,7 @@ const optionalStepsSchema = stepsSchema.optional()
 export const stepSchemaWithHiddenFields = z
   .object({
     // This is a hack to get nicer robot hover messages in editors.
-    robot: z.string().describe('The [robot](https://transloadit.com/docs/transcoding/) to use'),
+    robot: z.string().describe('The [robot](https://transloadit.com/docs/robots/) to use'),
   })
   .and(robotsWithHiddenBotsAndFieldsSchema)
 export const stepsSchemaWithHiddenFields = z

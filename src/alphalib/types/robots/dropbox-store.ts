@@ -6,9 +6,9 @@ import {
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 6,
   discount_factor: 0.15000150001500018,
@@ -23,7 +23,7 @@ export const meta: RobotMeta = {
       },
     },
   },
-  example_code_description: 'Export uploaded files to `my_target_folder` on Dropbox:',
+  example_code_description: `Export uploaded files to \`my_target_folder\` on Dropbox:`,
   has_small_icon: true,
   minimum_charge: 0,
   output_factor: 1,
@@ -37,6 +37,13 @@ export const meta: RobotMeta = {
   title: 'Export files to Dropbox',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'DropboxStoreRobot',
+  priceFactor: 6.6666,
+  queueSlotCount: 10,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: false,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotDropboxStoreInstructionsSchema = robotBase

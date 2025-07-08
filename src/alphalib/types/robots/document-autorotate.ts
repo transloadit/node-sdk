@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -22,6 +22,14 @@ export const meta: RobotMeta = {
   title: 'Auto-rotate documents to the correct orientation',
   typical_file_size_mb: 0.8,
   typical_file_type: 'document',
+  name: 'DocumentAutorotateRobot',
+  priceFactor: 1,
+  queueSlotCount: 10,
+  minimumCharge: 2097152,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotDocumentAutorotateInstructionsSchema = robotBase

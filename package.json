@@ -12,7 +12,7 @@
     "mp3"
   ],
   "author": "Tim Koschuetzki <tim@transloadit.com>",
-  "packageManager": "yarn@4.9.1",
+  "packageManager": "yarn@4.9.2",
   "engines": {
     "node": ">= 20"
   },
@@ -25,10 +25,10 @@
     "into-stream": "^8.0.1",
     "is-stream": "^4.0.1",
     "p-map": "^7.0.3",
-    "tsx": "^4.20.1",
+    "tsx": "^4.20.3",
     "tus-js-client": "^4.3.1",
     "type-fest": "^4.41.0",
-    "zod": "^3.25.61"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",

@@ -6,12 +6,13 @@ import {
   robotImport,
   next_page_token,
   path,
+  recursive,
   robotBase,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 10,
   discount_factor: 0.1,
@@ -25,8 +26,7 @@ export const meta: RobotMeta = {
       },
     },
   },
-  example_code_description:
-    'Import files from the `path/to/files` directory and its subdirectories:',
+  example_code_description: `Import files from the \`path/to/files\` directory and its subdirectories:`,
   has_small_icon: true,
   minimum_charge: 0,
   output_factor: 1,
@@ -41,6 +41,13 @@ export const meta: RobotMeta = {
   title: 'Import files from Azure',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'AzureImportRobot',
+  priceFactor: 6.6666,
+  queueSlotCount: 20,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: false,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
 }
 
 export const robotAzureImportInstructionsSchema = robotBase
@@ -57,11 +64,14 @@ If you want to import all files from the root directory, please use \`/\` as the
 
 You can also use an array of path strings here to import multiple paths in the same <dfn>Robot</dfn>'s <dfn>Step</dfn>.
 `),
+    recursive: recursive.describe(`
+  Setting this to \`true\` will enable importing files from subdirectories and sub-subdirectories (etc.) of the given path.
+  `),
     next_page_token: next_page_token.describe(`
 A string token used for pagination. The returned files of one paginated call have the next page token inside of their meta data, which needs to be used for the subsequent paging call.
 `),
     files_per_page: files_per_page.describe(`
-The pagination page size. This only works when recursive is \`true\` for now, in order to not break backwards compatibility in non-recursive imports.
+The pagination page size.
 `),
   })
   .strict()
