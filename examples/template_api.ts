@@ -25,6 +25,8 @@ const template: TemplateContent = {
       robot: '/video/thumbs',
     },
   },
+  notify_url: undefined,
+  allow_steps_override: undefined,
 }
 
 const { count } = await transloadit.listTemplates({ sort: 'created', order: 'asc' })

@@ -38,7 +38,7 @@ describe('Mocked API tests', () => {
 
     nock('http://localhost').post('/templates').delay(100).reply(200)
 
-    await expect(client.createTemplate({ name: '', template: {} })).rejects.toThrow(TimeoutError)
+    await expect(client.createTemplate({ name: '', template: { steps: {}, notify_url: undefined, allow_steps_override: undefined } })).rejects.toThrow(TimeoutError)
   })
 
   it('should time out awaitAssemblyCompletion polling', async () => {
