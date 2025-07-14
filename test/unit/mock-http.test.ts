@@ -115,15 +115,18 @@ describe('Mocked API tests', () => {
   it('should throw error with error code', async () => {
     const client = getLocalClient()
 
-    nock('http://localhost')
-      .post(createAssemblyRegex)
-      .reply(400, { error: 'INVALID_FILE_META_DATA', message: 'Invalid file metadata' })
+    nock('http://localhost').post(createAssemblyRegex).reply(400, {
+      error: 'INVALID_FILE_META_DATA',
+      message: 'Invalid file metadata',
+      reason: 'Some reason',
+    })
 
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining<ApiError>({
         name: 'ApiError',
         code: 'INVALID_FILE_META_DATA',
         rawMessage: 'Invalid file metadata',
+        reason: 'Some reason',
         message: 'API error (HTTP 400) INVALID_FILE_META_DATA: Invalid file metadata',
       })
     )
@@ -165,6 +168,7 @@ describe('Mocked API tests', () => {
       expect.stringMatching(`    at .+`),
       expect.stringMatching(`  code: 'INVALID_FILE_META_DATA',`),
       expect.stringMatching(`  rawMessage: 'Invalid file metadata',`),
+      expect.stringMatching(`  reason: undefined,`),
       expect.stringMatching(
         `  assemblySslUrl: 'https:\\/\\/api2-oltu\\.transloadit\\.com\\/assemblies\\/foo'`
       ),
