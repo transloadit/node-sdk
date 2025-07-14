@@ -6,9 +6,9 @@ import {
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -53,6 +53,13 @@ export const meta: RobotMeta = {
   title: 'Translate text',
   typical_file_size_mb: 1,
   typical_file_type: 'document',
+  name: 'TextTranslateRobot',
+  priceFactor: 0.00008,
+  queueSlotCount: 10,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 const translatableLanguages = z
@@ -181,7 +188,7 @@ export const robotTextTranslateInstructionsSchema = robotBase
 You can use the text that we return in your application, or you can pass the text down to other <dfn>Robots</dfn> to add a translated subtitle track to a video for example.
 
 > [!Note]
-> **This <dfn>Robot</dfn> accepts only files with a \`text/*\` MIME-type,** including plain text and Markdown. For documents in other formats, use [🤖/document/convert](/docs/transcoding/document-processing/document-convert/) to first convert them into a compatible text format before proceeding.
+> **This <dfn>Robot</dfn> accepts only files with a \`text/*\` MIME-type,** including plain text and Markdown. For documents in other formats, use [🤖/document/convert](/docs/robots/document-convert/) to first convert them into a compatible text format before proceeding.
 `),
     provider: aiProviderSchema.describe(`
 Which AI provider to leverage. Valid values are \`"aws"\` (Amazon Web Services) and \`"gcp"\` (Google Cloud Platform).

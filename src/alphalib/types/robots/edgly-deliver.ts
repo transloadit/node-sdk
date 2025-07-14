@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, type RobotMeta } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, type RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 20,
   discount_factor: 0.05,
@@ -19,6 +19,16 @@ export const meta: RobotMeta = {
   title: 'Cache and deliver files globally',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'EdglyDeliverRobot',
+  priceFactor: 20,
+  queueSlotCount: 0,
+  minimumCharge: 102400,
+  downloadInputFiles: false,
+  preserveInputFileUrls: true,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: false,
+  isInternal: true,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotEdglyDeliverInstructionsSchema = robotBase

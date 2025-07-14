@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 10,
   discount_factor: 0.1,
@@ -34,6 +34,15 @@ export const meta: RobotMeta = {
   title: 'Handle uploads',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'UploadHandleRobot',
+  priceFactor: 10,
+  queueSlotCount: 0,
+  downloadInputFiles: false,
+  preserveInputFileUrls: true,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: false,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotUploadHandleInstructionsSchema = robotBase

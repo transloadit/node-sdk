@@ -6,10 +6,10 @@ import {
   robotUse,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -38,6 +38,13 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
   uses_tools: ['ffmpeg'],
+  name: 'AudioArtworkRobot',
+  priceFactor: 1,
+  queueSlotCount: 20,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotAudioArtworkInstructionsSchema = robotBase
@@ -47,7 +54,7 @@ export const robotAudioArtworkInstructionsSchema = robotBase
     robot: z.literal('/audio/artwork').describe(`
 For extraction, this <dfn>Robot</dfn> uses the image format embedded within the audio file — most often, this is JPEG.
 
-If you need the image in a different format, pipe the result of this <dfn>Robot</dfn> into [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/).
+If you need the image in a different format, pipe the result of this <dfn>Robot</dfn> into [🤖/image/resize](/docs/robots/image-resize/).
 
 The \`method\` parameter determines whether to extract or insert.
 `),

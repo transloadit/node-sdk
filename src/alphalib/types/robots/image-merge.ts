@@ -7,9 +7,9 @@ import {
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -40,6 +40,12 @@ export const meta: RobotMeta = {
   title: 'Merge several images into a single image',
   typical_file_size_mb: 0.8,
   typical_file_type: 'image',
+  name: 'ImageMergeRobot',
+  priceFactor: 1,
+  queueSlotCount: 10,
+  isAllowedForUrlTransform: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotImageMergeInstructionsSchema = robotBase
@@ -49,7 +55,7 @@ export const robotImageMergeInstructionsSchema = robotBase
 The final result will be a spritesheet, with the images displayed horizontally or vertically.
 
 It's recommended to use this Robot with
-[🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/) so your images are of a
+[🤖/image/resize](/docs/robots/image-resize/) so your images are of a
 similar size before merging them.
 `),
     format: z

@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -19,6 +19,14 @@ export const meta: RobotMeta = {
   title: 'Generate images from text prompts',
   typical_file_size_mb: 1.2,
   typical_file_type: 'image',
+  name: 'ImageGenerateRobot',
+  priceFactor: 1,
+  queueSlotCount: 10,
+  minimumChargeUsd: 0.06,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotImageGenerateInstructionsSchema = robotBase

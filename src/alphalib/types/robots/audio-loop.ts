@@ -8,10 +8,10 @@ import {
   sampleRateSchema,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 4,
   discount_factor: 0.25,
@@ -28,7 +28,7 @@ export const meta: RobotMeta = {
   },
   example_code_description: 'Loop uploaded audio to achieve a target duration of 300 seconds:',
   marketing_intro:
-    'Whether you’re producing beats, white-noise, or just empty segments as fillers between audio tracks that you’re to stringing together with [🤖/audio/concat](/docs/transcoding/audio-encoding/audio-concat/), [🤖/audio/loop](/docs/transcoding/audio-encoding/audio-loop/) has got your back.',
+    'Whether you’re producing beats, white-noise, or just empty segments as fillers between audio tracks that you’re to stringing together with [🤖/audio/concat](/docs/robots/audio-concat/), [🤖/audio/loop](/docs/robots/audio-loop/) has got your back.',
   minimum_charge: 0,
   output_factor: 0.8,
   override_lvl1: 'Audio Encoding',
@@ -42,6 +42,13 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
   uses_tools: ['ffmpeg'],
+  name: 'AudioLoopRobot',
+  priceFactor: 4,
+  queueSlotCount: 20,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotAudioLoopInstructionsSchema = robotBase

@@ -6,9 +6,9 @@ import {
   interpolateRobot,
   videoEncodeSpecificInstructionsSchema,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 1,
   discount_factor: 1,
@@ -37,6 +37,13 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 80,
   typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
+  name: 'VideoEncodeRobot',
+  priceFactor: 1,
+  queueSlotCount: 60,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotVideoEncodeInstructionsSchema = robotBase

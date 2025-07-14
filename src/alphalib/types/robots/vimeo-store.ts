@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import { vimeoBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 6,
   discount_factor: 0.15000150001500018,
@@ -33,15 +33,20 @@ export const meta: RobotMeta = {
   title: 'Export files to Vimeo',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'VimeoStoreRobot',
+  priceFactor: 6.6666,
+  queueSlotCount: 10,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: false,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotVimeoStoreInstructionsSchema = robotBase
   .merge(robotUse)
+  .merge(vimeoBase)
   .extend({
     robot: z.literal('/vimeo/store'),
-    credentials: z.string().describe(`
-The authentication Template Credentials used for your Vimeo account. You can generate them on the [Template Credentials page](/c/template-credentials/). You will be redirected to a Vimeo verification page. Accept the presented permissions and you will be good to go.
-`),
     title: z.string().describe(`
 The title of the video to be displayed on Vimeo.
 `),

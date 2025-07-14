@@ -284,6 +284,10 @@ import {
   meta as videoThumbsMeta,
 } from './video-thumbs.ts'
 import {
+  interpolatableRobotVimeoImportInstructionsSchema,
+  meta as vimeoImportMeta,
+} from './vimeo-import.ts'
+import {
   interpolatableRobotVimeoStoreInstructionsSchema,
   meta as vimeoStoreMeta,
 } from './vimeo-store.ts'
@@ -457,6 +461,7 @@ const robotStepsInstructionsWithHiddenFields = [
   robotVideoOndemandInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVideoSubtitleInstructionsSchema,
   interpolatableRobotVideoThumbsInstructionsSchema,
+  interpolatableRobotVimeoImportInstructionsSchema,
   interpolatableRobotVimeoStoreInstructionsSchema,
   interpolatableRobotWasabiImportInstructionsSchema,
   interpolatableRobotWasabiStoreInstructionsSchema,
@@ -565,6 +570,7 @@ export const robotsMeta = {
   videoOndemandMeta,
   videoSubtitleMeta,
   videoThumbsMeta,
+  vimeoImportMeta,
   vimeoStoreMeta,
   wasabiImportMeta,
   wasabiStoreMeta,

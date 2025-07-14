@@ -6,10 +6,10 @@ import {
   robotFFmpegVideo,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: Infinity,
   discount_factor: 1,
@@ -63,6 +63,13 @@ export const meta: RobotMeta = {
   title: 'Convert videos to HLS and MPEG-Dash',
   typical_file_size_mb: 80,
   typical_file_type: 'video',
+  name: 'VideoAdaptiveRobot',
+  priceFactor: 1,
+  queueSlotCount: 60,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotVideoAdaptiveInstructionsSchema = robotBase
@@ -72,7 +79,7 @@ export const robotVideoAdaptiveInstructionsSchema = robotBase
     robot: z.literal('/video/adaptive').describe(`
 This <dfn>Robot</dfn> accepts all types of video files and audio files. Do not forget to use <dfn>Step</dfn> bundling in your \`use\` parameter to make the <dfn>Robot</dfn> work on several input files at once.
 
-This <dfn>Robot</dfn> is normally used in combination with [🤖/video/encode](/docs/transcoding/video-encoding/video-encode/). We have implemented video and audio encoding presets specifically for MPEG-Dash and HTTP Live Streaming support. These presets are prefixed with \`"dash/"\` and \`"hls/"\`. [View a HTTP Live Streaming demo here](/demos/video-encoding/implement-http-live-streaming/).
+This <dfn>Robot</dfn> is normally used in combination with [🤖/video/encode](/docs/robots/video-encode/). We have implemented video and audio encoding presets specifically for MPEG-Dash and HTTP Live Streaming support. These presets are prefixed with \`"dash/"\` and \`"hls/"\`. [View a HTTP Live Streaming demo here](/demos/video-encoding/implement-http-live-streaming/).
 
 ### Required CORS settings for MPEG-Dash and HTTP Live Streaming
 

@@ -7,9 +7,9 @@ import {
   robotBase,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 10,
   discount_factor: 0.1,
@@ -23,8 +23,7 @@ export const meta: RobotMeta = {
       },
     },
   },
-  example_code_description:
-    'Import files from the `path/to/files` directory and its subdirectories:',
+  example_code_description: `Import files from the \`path/to/files\` directory and its subdirectories:`,
   minimum_charge: 0,
   output_factor: 1,
   override_lvl1: 'File Importing',
@@ -38,6 +37,13 @@ export const meta: RobotMeta = {
   title: 'Import files from FTP servers',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'FtpImportRobot',
+  priceFactor: 6.6666,
+  queueSlotCount: 20,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: false,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
 }
 
 export const robotFtpImportInstructionsSchema = robotBase

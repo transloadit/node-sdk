@@ -7,9 +7,9 @@ import {
   robotUse,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 1,
   discount_factor: 1,
@@ -26,8 +26,7 @@ export const meta: RobotMeta = {
       },
     },
   },
-  example_code_description:
-    'Generate a 400×200 waveform in `#0099cc` color from an uploaded audio file:',
+  example_code_description: `Generate a 400×200 waveform in \`#0099cc\` color from an uploaded audio file:`,
   extended_description: `
 Here is an example waveform image:
 
@@ -48,6 +47,14 @@ Here is an example waveform image:
   title: 'Generate waveform images from audio',
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
+  name: 'AudioWaveformRobot',
+  priceFactor: 1,
+  queueSlotCount: 20,
+  minimumCharge: 1048576,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotAudioWaveformInstructionsSchema = robotBase
@@ -55,9 +62,9 @@ export const robotAudioWaveformInstructionsSchema = robotBase
   .merge(robotFFmpeg)
   .extend({
     robot: z.literal('/audio/waveform').describe(`
-We recommend that you use an [🤖/audio/encode](/docs/transcoding/audio-encoding/audio-encode/) <dfn>Step</dfn> prior to your waveform <dfn>Step</dfn> to convert audio files to MP3. This way it is guaranteed that [🤖/audio/waveform](/docs/transcoding/audio-encoding/audio-waveform/) accepts your audio file and you can also down-sample large audio files and save some money.
+We recommend that you use an [🤖/audio/encode](/docs/robots/audio-encode/) <dfn>Step</dfn> prior to your waveform <dfn>Step</dfn> to convert audio files to MP3. This way it is guaranteed that [🤖/audio/waveform](/docs/robots/audio-waveform/) accepts your audio file and you can also down-sample large audio files and save some money.
 
-Similarly, if you need the output image in a different format, please pipe the result of this <dfn>Robot</dfn> into [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/).
+Similarly, if you need the output image in a different format, please pipe the result of this <dfn>Robot</dfn> into [🤖/image/resize](/docs/robots/image-resize/).
 `),
     format: z.enum(['image', 'json']).default('image').describe(`
 The format of the result file. Can be \`"image"\` or \`"json"\`. If \`"image"\` is supplied, a PNG image will be created, otherwise a JSON file.

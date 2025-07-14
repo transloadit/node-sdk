@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 1,
   description:
@@ -36,6 +36,16 @@ export const meta: RobotMeta = {
   title: 'Scan files for viruses',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'FileVirusscanRobot',
+  priceFactor: 1,
+  queueSlotCount: 38,
+  minimumCharge: 1048576,
+  lazyLoad: true,
+  installVersionFile: process.env.API2_CLAMD_INSTALL_VERSION_FILE || '',
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotFileVirusscanInstructionsSchema = robotBase
