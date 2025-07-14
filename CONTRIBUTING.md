@@ -83,7 +83,7 @@ View the coverage report locally by opening `coverage/index.html` in your browse
 
 Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub actions. To make a release, perform the following steps:
 
-1. Update the version using npm, `npm version patch`. This will update the version in the `package.json` file and create a git tag. E.g.:
+1. Update the version using npm, `npm version`. This will update the version in the `package.json` file and create a git tag. E.g.:
 
 - `npm version patch`
 - `npm version prerelease` (for pre-releases)
