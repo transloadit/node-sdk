@@ -7,9 +7,9 @@ import {
   robotUse,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -40,6 +40,14 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 0.8,
   typical_file_type: 'document',
   uses_tools: ['imagemagick'],
+  name: 'DocumentThumbsRobot',
+  priceFactor: 1,
+  queueSlotCount: 10,
+  minimumCharge: 524288,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotDocumentThumbsInstructionsSchema = robotBase
@@ -73,7 +81,7 @@ Height of the new image, in pixels. If not specified, will default to the height
 `),
     resize_strategy: z.enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch']).default('pad')
       .describe(`
-One of the [available resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).
+One of the [available resize strategies](/docs/robots/image-resize/#resize-strategies).
 `),
     // TODO: Determine the allowed colors
     background: z.string().default('#FFFFFF').describe(`

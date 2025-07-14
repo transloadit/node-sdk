@@ -9,10 +9,10 @@ import {
   robotUse,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 10,
   discount_factor: 0.1,
@@ -41,6 +41,13 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 80,
   typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
+  name: 'VideoThumbsRobot',
+  priceFactor: 10,
+  queueSlotCount: 15,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotVideoThumbsInstructionsSchema = robotBase
@@ -73,7 +80,7 @@ The width of the thumbnail, in pixels. Defaults to the original width of the vid
 The height of the thumbnail, in pixels. Defaults to the original height of the video.
 `),
     resize_strategy: resize_strategy.describe(`
-One of the [available resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).
+One of the [available resize strategies](/docs/robots/image-resize/#resize-strategies).
 `),
     background: color_with_alpha.default('#00000000').describe(`
 The background color of the resulting thumbnails in the \`"rrggbbaa"\` format (red, green, blue, alpha) when used with the \`"pad"\` resize strategy. The default color is black.

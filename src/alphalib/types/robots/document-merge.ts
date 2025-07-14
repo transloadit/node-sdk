@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -47,6 +47,14 @@ Input files are sorted alphanumerically unless you provide the as-syntax in the 
   title: 'Merge documents into one',
   typical_file_size_mb: 0.8,
   typical_file_type: 'document',
+  name: 'DocumentMergeRobot',
+  priceFactor: 1,
+  queueSlotCount: 10,
+  minimumCharge: 1048576,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotDocumentMergeInstructionsSchema = robotBase

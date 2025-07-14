@@ -8,9 +8,9 @@ import {
   robotUse,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 1,
   discount_factor: 1,
@@ -29,6 +29,13 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 80,
   typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
+  name: 'VideoMergeRobot',
+  priceFactor: 1,
+  queueSlotCount: 60,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotVideoMergeInstructionsSchema = robotBase
@@ -37,7 +44,7 @@ export const robotVideoMergeInstructionsSchema = robotBase
   .extend({
     robot: z.literal('/video/merge'),
     resize_strategy: resize_strategy.describe(`
-If the given width/height parameters are bigger than the input image's dimensions, then the \`resize_strategy\` determines how the image will be resized to match the provided width/height. See the [available resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies).
+If the given width/height parameters are bigger than the input image's dimensions, then the \`resize_strategy\` determines how the image will be resized to match the provided width/height. See the [available resize strategies](/docs/robots/image-resize/#resize-strategies).
 `),
     background: color_with_alpha.default('#00000000').describe(`
 The background color of the resulting video the \`"rrggbbaa"\` format (red, green, blue, alpha) when used with the \`"pad"\` resize strategy. The default color is black.
@@ -66,7 +73,7 @@ When merging a video and an audio file, and when merging images and an audio fil
 Determines whether the audio of the video should be replaced with a provided audio file.
 `),
     vstack: z.boolean().default(false).describe(`
-Stacks the input media vertically. All streams need to have the same pixel format and width - so consider using a [/video/encode](/docs/transcoding/video-encoding/video-encode/) <dfn>Step</dfn> before using this parameter to enforce this.
+Stacks the input media vertically. All streams need to have the same pixel format and width - so consider using a [/video/encode](/docs/robots/video-encode/) <dfn>Step</dfn> before using this parameter to enforce this.
 `),
   })
   .strict()

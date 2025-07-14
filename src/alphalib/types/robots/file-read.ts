@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 5,
   discount_factor: 0.2,
@@ -20,6 +20,13 @@ export const meta: RobotMeta = {
   title: 'Read file contents',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'FileReadRobot',
+  priceFactor: 5,
+  queueSlotCount: 5,
+  minimumCharge: 512000,
+  isAllowedForUrlTransform: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotFileReadInstructionsSchema = robotBase

@@ -9,10 +9,10 @@ import {
   robotUse,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 1,
   discount_factor: 1,
@@ -23,16 +23,23 @@ export const meta: RobotMeta = {
         robot: '/video/subtitle',
         use: {
           steps: [
-            { name: ':original', fields: 'input_video', as: 'video' },
-            { name: ':original', fields: 'input_srt', as: 'subtitles' },
+            {
+              name: ':original',
+              fields: 'input_video',
+              as: 'video',
+            },
+            {
+              name: ':original',
+              fields: 'input_srt',
+              as: 'subtitles',
+            },
           ],
         },
         ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },
-  example_code_description:
-    'If you have two file input fields in a form — one for a video and another for an SRT or VTT subtitle, named `input_video` and `input_srt` respectively (with the HTML `name` attribute), hereʼs how to embed the subtitles into the video with Transloadit:',
+  example_code_description: `If you have two file input fields in a form — one for a video and another for an SRT or VTT subtitle, named \`input_video\` and \`input_srt\` respectively (with the HTML \`name\` attribute), hereʼs how to embed the subtitles into the video with Transloadit:`,
   minimum_charge: 0,
   output_factor: 0.6,
   override_lvl1: 'Video Encoding',
@@ -46,6 +53,13 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 80,
   typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
+  name: 'VideoSubtitleRobot',
+  priceFactor: 1,
+  queueSlotCount: 60,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotVideoSubtitleInstructionsSchema = robotBase
@@ -81,6 +95,12 @@ Specifies the size of the text.
 `),
     position: positionSchema.default('bottom').describe(`
 Specifies the position of the subtitles.
+`),
+    language: z.string().optional().nullable().describe(`
+Specifies the language of the subtitles. Only used if the subtitles are external.
+`),
+    keep_subtitles: z.boolean().default(false).describe(`
+Specifies if existing subtitles in the input file should be kept or be replaced by the new subtitle. Only used if the subtitles are external.
 `),
   })
   .strict()

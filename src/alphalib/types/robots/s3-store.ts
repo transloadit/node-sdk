@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse, s3Base } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 10,
   discount_factor: 0.1,
@@ -18,7 +18,7 @@ export const meta: RobotMeta = {
       },
     },
   },
-  example_code_description: 'Export uploaded files to `my_target_folder` in an S3 bucket:',
+  example_code_description: `Export uploaded files to \`my_target_folder\` in an S3 bucket:`,
   has_small_icon: true,
   minimum_charge: 0,
   output_factor: 1,
@@ -32,6 +32,13 @@ export const meta: RobotMeta = {
   title: 'Export files to Amazon S3',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'S3StoreRobot',
+  priceFactor: 10,
+  queueSlotCount: 10,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: false,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotS3StoreInstructionsSchema = robotBase
@@ -49,7 +56,7 @@ The URL to the result file in your S3 bucket will be returned in the <dfn>Assemb
 > [!Warning]
 > **Use DNS-compliant bucket names.** Your bucket name [must be DNS-compliant](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) and must not contain uppercase letters. Any non-alphanumeric characters in the file names will be replaced with an underscore, and spaces will be replaced with dashes. If your existing S3 bucket contains uppercase letters or is otherwise not DNS-compliant, rewrite the result URLs using the <dfn>Robot</dfn>’s \`url_prefix\` parameter.
 
-<a id="minimum-s3-iam-permissions" aria-hidden="true"></a>
+<span id="minimum-s3-iam-permissions" aria-hidden="true"></span>
 
 ## Limit access
 

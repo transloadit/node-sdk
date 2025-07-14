@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   interpolateRobot,
   robotBase,
@@ -8,7 +8,7 @@ import {
   videoEncodeSpecificInstructionsSchema,
 } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   discount_factor: 1,
   discount_pct: 0,
@@ -60,6 +60,14 @@ export const meta: RobotMeta = {
   title: 'Stream videos with on-demand encoding',
   typical_file_size_mb: 300,
   typical_file_type: 'video',
+  name: 'VideoOndemandRobot',
+  priceFactor: 1,
+  queueSlotCount: 60,
+  downloadInputFiles: false,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotVideoOndemandInstructionsSchema = robotBase

@@ -8,10 +8,10 @@ import {
   sampleRateSchema,
   interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
   bytescount: 4,
   discount_factor: 0.25,
@@ -23,17 +23,28 @@ export const meta: RobotMeta = {
         preset: 'mp3',
         use: {
           steps: [
-            { name: ':original', fields: 'first_audio_file', as: 'audio' },
-            { name: ':original', fields: 'second_audio_file', as: 'audio' },
-            { name: ':original', fields: 'third_audio_file', as: 'audio' },
+            {
+              name: ':original',
+              fields: 'first_audio_file',
+              as: 'audio',
+            },
+            {
+              name: ':original',
+              fields: 'second_audio_file',
+              as: 'audio',
+            },
+            {
+              name: ':original',
+              fields: 'third_audio_file',
+              as: 'audio',
+            },
           ],
         },
         ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
       },
     },
   },
-  example_code_description:
-    'If you have a form with 3 file input fields and wish to overlay the uploaded audios, instruct Transloadit using the `name` attribute of each input field. Use this attribute as the value for the `fields` key in the JSON, and set `as` to `audio`:',
+  example_code_description: `If you have a form with 3 file input fields and wish to overlay the uploaded audios, instruct Transloadit using the \`name\` attribute of each input field. Use this attribute as the value for the \`fields\` key in the JSON, and set \`as\` to \`audio\`:`,
   minimum_charge: 0,
   output_factor: 0.8,
   override_lvl1: 'Audio Encoding',
@@ -47,6 +58,13 @@ export const meta: RobotMeta = {
   typical_file_size_mb: 3.8,
   typical_file_type: 'audio file',
   uses_tools: ['ffmpeg'],
+  name: 'AudioMergeRobot',
+  priceFactor: 4,
+  queueSlotCount: 20,
+  isAllowedForUrlTransform: false,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotAudioMergeInstructionsSchema = robotBase

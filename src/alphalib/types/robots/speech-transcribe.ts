@@ -7,9 +7,9 @@ import {
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -43,6 +43,17 @@ export const meta: RobotMeta = {
   title: 'Transcribe speech in audio or video files',
   typical_file_size_mb: 2.4,
   typical_file_type: 'audio or video file',
+  name: 'SpeechTranscribeRobot',
+  priceFactor: 1,
+  queueSlotCount: 10,
+  minimumChargeUsdPerSpeechTranscribeMinute: {
+    aws: 0.024,
+    gcp: 0.016,
+  },
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotSpeechTranscribeInstructionsSchema = robotBase

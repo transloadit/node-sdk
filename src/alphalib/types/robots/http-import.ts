@@ -6,9 +6,9 @@ import {
   robotBase,
   return_file_stubs,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 10,
   discount_factor: 0.1,
@@ -34,6 +34,13 @@ export const meta: RobotMeta = {
   title: 'Import files from web servers',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'HttpImportRobot',
+  priceFactor: 10,
+  queueSlotCount: 10,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: false,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
 }
 
 export const robotHttpImportInstructionsSchema = robotBase

@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 0.8,
@@ -30,6 +30,13 @@ export const meta: RobotMeta = {
   title: 'Decompress archives',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'FileDecompressRobot',
+  priceFactor: 1.25,
+  queueSlotCount: 10,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
 }
 
 export const robotFileDecompressInstructionsSchema = robotBase

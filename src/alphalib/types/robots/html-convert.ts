@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -36,6 +36,14 @@ export const meta: RobotMeta = {
   title: 'Take screenshots of webpages or uploaded HTML files',
   typical_file_size_mb: 0.6,
   typical_file_type: 'webpage',
+  name: 'HtmlConvertRobot',
+  priceFactor: 1,
+  queueSlotCount: 30,
+  minimumCharge: 1048576,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotHtmlConvertInstructionsSchema = robotBase
@@ -44,7 +52,7 @@ export const robotHtmlConvertInstructionsSchema = robotBase
     robot: z.literal('/html/convert').describe(`
 A URL can be provided instead of an input HTML file, to capture a screenshot from the website referenced by the URL.
 
-Use [🤖/image/resize](/docs/transcoding/image-manipulation/image-resize/) to resize or crop the screenshot as needed.
+Use [🤖/image/resize](/docs/robots/image-resize/) to resize or crop the screenshot as needed.
 `),
     url: z.string().nullable().default(null).describe(`
 The URL of the web page to be converted. Optional, as you can also upload/import HTML files and pass it to this <dfn>Robot</dfn>.
@@ -77,6 +85,12 @@ The delay (in milliseconds) applied to allow the page and all of its JavaScript 
 `),
     headers: z.record(z.string()).optional().describe(`
 An object containing optional headers that will be passed along with the original request to the website. For example, this parameter can be used to pass along an authorization token along with the request.
+`),
+    wait_until: z.enum(['domcontentloaded', 'load', 'networkidle', 'commit']).default('networkidle')
+      .describe(`
+The event to wait for before taking the screenshot. Used for loading Javascript, and images.
+
+See [Playwright's documentation](https://playwright.dev/docs/api/class-page#page-wait-for-load-state) for more information.
 `),
   })
   .strict()

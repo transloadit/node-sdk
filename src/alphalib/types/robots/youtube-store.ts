@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 6,
   discount_factor: 0.15000150001500018,
@@ -35,6 +35,13 @@ export const meta: RobotMeta = {
   title: 'Export files to YouTube',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'YoutubeStoreRobot',
+  priceFactor: 6.6666,
+  queueSlotCount: 10,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: false,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotYoutubeStoreInstructionsSchema = robotBase

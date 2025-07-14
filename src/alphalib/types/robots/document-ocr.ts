@@ -7,9 +7,9 @@ import {
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
@@ -29,7 +29,7 @@ export const meta: RobotMeta = {
 > Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input PDFs. Avoid relying on exact responses in your tests and application.
 
 > [!Note]
-> Currently, this <dfn>Robot</dfn> only supports character recognition for PDFs. To use this <dfn>Robot</dfn> with other document formats, use [/document/convert](/docs/transcoding/document-processing/document-convert/) first to convert the document into a PDF.
+> Currently, this <dfn>Robot</dfn> only supports character recognition for PDFs. To use this <dfn>Robot</dfn> with other document formats, use [/document/convert](/docs/robots/document-convert/) first to convert the document into a PDF.
 `,
   minimum_charge: 1048576,
   output_factor: 1,
@@ -43,6 +43,17 @@ export const meta: RobotMeta = {
   title: 'Recognize text in documents',
   typical_file_size_mb: 0.8,
   typical_file_type: 'document',
+  name: 'DocumentOcrRobot',
+  priceFactor: 1,
+  queueSlotCount: 10,
+  minimumChargeUsdPerDocumentOcrPage: {
+    aws: 0.02,
+    gcp: 0.015,
+  },
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: true,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotDocumentOcrInstructionsSchema = robotBase

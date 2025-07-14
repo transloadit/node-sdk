@@ -6,9 +6,9 @@ import {
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMeta } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 
-export const meta: RobotMeta = {
+export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
   bytescount: 6,
   discount_factor: 0.15000150001500018,
@@ -23,7 +23,7 @@ export const meta: RobotMeta = {
       },
     },
   },
-  example_code_description: 'Export uploaded files to `my_target_folder` on Rackspace Cloud Files:',
+  example_code_description: `Export uploaded files to \`my_target_folder\` on Rackspace Cloud Files:`,
   extended_description: `
 <a id="export-to-rackspace-cloudfiles" aria-hidden="true"></a>
 
@@ -46,6 +46,13 @@ The storage container URL for this file is always available via \`file.meta.stor
   title: 'Export files to Rackspace Cloud Files',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
+  name: 'CloudfilesStoreRobot',
+  priceFactor: 6.6666,
+  queueSlotCount: 10,
+  isAllowedForUrlTransform: true,
+  trackOutputFileSize: false,
+  isInternal: false,
+  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotCloudfilesStoreInstructionsSchema = robotBase
