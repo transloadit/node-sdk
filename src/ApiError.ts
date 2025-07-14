@@ -3,6 +3,7 @@ import { HTTPError, RequestError } from 'got'
 export interface TransloaditErrorResponseBody {
   error?: string
   message?: string
+  reason?: string
   assembly_ssl_url?: string
   assembly_id?: string
 }
@@ -15,6 +16,8 @@ export class ApiError extends Error {
   code?: string
 
   rawMessage?: string
+
+  reason?: string
 
   assemblySslUrl?: string
 
@@ -36,6 +39,7 @@ export class ApiError extends Error {
 
     super(message)
     this.rawMessage = body.message
+    this.reason = body.reason
     this.assemblyId = body.assembly_id
     this.assemblySslUrl = body.assembly_ssl_url
     this.code = body.error

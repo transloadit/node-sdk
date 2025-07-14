@@ -418,6 +418,7 @@ Any errors originating from Node.js will be passed on and we use [GOT](https://g
 
 - `code` (`string`) - [The Transloadit API error code](https://transloadit.com/docs/api/response-codes/#error-codes).
 - `rawMessage` (`string`) - A textual representation of the Transloadit API error.
+- `reason` (`string`) - Additional information about the Transloadit API error.
 - `assemblyId`: (`string`) - If the request is related to an assembly, this will be the ID of the assembly.
 - `assemblySslUrl` (`string`) - If the request is related to an assembly, this will be the SSL URL to the assembly .
 
