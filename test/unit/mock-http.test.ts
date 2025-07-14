@@ -115,13 +115,11 @@ describe('Mocked API tests', () => {
   it('should throw error with error code', async () => {
     const client = getLocalClient()
 
-    nock('http://localhost')
-      .post(createAssemblyRegex)
-      .reply(400, {
-        error: 'INVALID_FILE_META_DATA',
-        message: 'Invalid file metadata',
-        reason: 'Some reason',
-      })
+    nock('http://localhost').post(createAssemblyRegex).reply(400, {
+      error: 'INVALID_FILE_META_DATA',
+      message: 'Invalid file metadata',
+      reason: 'Some reason',
+    })
 
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining<ApiError>({
