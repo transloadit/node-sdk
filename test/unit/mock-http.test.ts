@@ -117,7 +117,11 @@ describe('Mocked API tests', () => {
 
     nock('http://localhost')
       .post(createAssemblyRegex)
-      .reply(400, { error: 'INVALID_FILE_META_DATA', message: 'Invalid file metadata', reason: 'Some reason' })
+      .reply(400, {
+        error: 'INVALID_FILE_META_DATA',
+        message: 'Invalid file metadata',
+        reason: 'Some reason',
+      })
 
     await expect(client.createAssembly()).rejects.toThrow(
       expect.objectContaining<ApiError>({
