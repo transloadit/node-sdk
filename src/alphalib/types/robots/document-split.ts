@@ -38,7 +38,7 @@ export const robotDocumentSplitInstructionsSchema = robotBase
     pages: z
       .union([z.string(), z.array(z.string())])
       .describe(
-        'The pages to select from the input PDF and to be included in the output PDF. Each entry can be a single page number (e.g. 5), or a range (e.g. `5-10`). Page numbers start at 1.',
+        'The pages to select from the input PDF and to be included in the output PDF. Each entry can be a single page number (e.g. 5), or a range (e.g. `5-10`). Page numbers start at 1. By default all pages are extracted.',
       )
       .optional(),
   })
