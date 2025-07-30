@@ -44,7 +44,7 @@ export const robotVideoMergeInstructionsSchema = robotBase
   .extend({
     robot: z.literal('/video/merge'),
     resize_strategy: resize_strategy.describe(`
-If the given width/height parameters are bigger than the input image's dimensions, then the \`resize_strategy\` determines how the image will be resized to match the provided width/height. See the [available resize strategies](/docs/robots/image-resize/#resize-strategies).
+If the given width/height parameters are bigger than the input image's dimensions, then the \`resize_strategy\` determines how the image will be resized to match the provided width/height. See the [available resize strategies](/docs/topics/resize-strategies/).
 `),
     background: color_with_alpha.default('#00000000').describe(`
 The background color of the resulting video the \`"rrggbbaa"\` format (red, green, blue, alpha) when used with the \`"pad"\` resize strategy. The default color is black.

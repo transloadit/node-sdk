@@ -81,7 +81,7 @@ Height of the new image, in pixels. If not specified, will default to the height
 `),
     resize_strategy: z.enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch']).default('pad')
       .describe(`
-One of the [available resize strategies](/docs/robots/image-resize/#resize-strategies).
+One of the [available resize strategies](/docs/topics/resize-strategies/).
 `),
     // TODO: Determine the allowed colors
     background: z.string().default('#FFFFFF').describe(`

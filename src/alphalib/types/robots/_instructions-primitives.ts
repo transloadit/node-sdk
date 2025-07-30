@@ -323,7 +323,9 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
         def,
       ) as InterpolatableSchema<Schema>
     case z.ZodFirstPartyTypeKind.ZodNullable:
-      return interpolateRecursive(def.innerType).nullable() as InterpolatableSchema<Schema>
+      return interpolateRecursive(def.innerType)
+        .nullable()
+        .describe(def.description) as InterpolatableSchema<Schema>
     case z.ZodFirstPartyTypeKind.ZodObject: {
       const replacement = z.object(
         Object.fromEntries(
@@ -354,7 +356,7 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
     case z.ZodFirstPartyTypeKind.ZodString:
       return z.union([interpolationSchemaPartial, schema], def) as InterpolatableSchema<Schema>
     case z.ZodFirstPartyTypeKind.ZodTuple: {
-      const tuple = z.tuple(def.items.map(interpolateRecursive))
+      const tuple = z.tuple(def.items.map(interpolateRecursive), def)
 
       return z.union([
         interpolationSchemaFull,
@@ -362,10 +364,10 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
       ]) as InterpolatableSchema<Schema>
     }
     case z.ZodFirstPartyTypeKind.ZodUnion:
-      return z.union([
-        interpolationSchemaFull,
-        ...(def.options.map(interpolateRecursive) as z.ZodUnionOptions),
-      ]) as InterpolatableSchema<Schema>
+      return z.union(
+        [interpolationSchemaFull, ...(def.options.map(interpolateRecursive) as z.ZodUnionOptions)],
+        def,
+      ) as InterpolatableSchema<Schema>
     default:
       return schema as InterpolatableSchema<Schema>
   }
@@ -438,14 +440,14 @@ You can also set this to \`false\` to skip metadata extraction and speed up tran
         `Setting the queue to 'batch', manually downgrades the priority of jobs for this step to avoid consuming Priority job slots for jobs that don't need zero queue waiting times`,
       ),
 
-    force_accept: z.boolean().default(false).describe(`
-      Force a Robot to accept a file type it would have ignored.
+    force_accept: z.boolean().default(false)
+      .describe(`Force a Robot to accept a file type it would have ignored.
 
-By default Robots ignore files they are not familiar with.
-[🤖/video/encode](https://transloadit.com/docs/robots/video-encode/), for
+By default, Robots ignore files they are not familiar with.
+[🤖/video/encode](/docs/robots/video-encode/), for
 example, will happily ignore input images.
 
-With the force_accept parameter set to true you can force Robots to accept all files thrown at them.
+With the \`force_accept\` parameter set to \`true\`, you can force Robots to accept all files thrown at them.
 This will typically lead to errors and should only be used for debugging or combatting edge cases.
 `),
   })
@@ -1167,9 +1169,9 @@ Go back to your Google credentials project and enable the "Google Cloud Storage 
 
 Now you can set up the \`storage.objects.create\` and \`storage.objects.delete\` permissions. The latter is optional and only required if you intend to overwrite existing paths.
 
-To do this from the Google Cloud console, navigate to "IAM &amp; Admin" and select "Roles". From here, select "+CREATE ROLE", enter a name, set the role launch stage as general availability and set the permissions stated above.
+To do this from the Google Cloud console, navigate to "IAM &amp; Admin" and select "Roles". From here, click "Create Role", enter a name, set the role launch stage to _General availability,_ and set the permissions stated above.
 
-Next, relocate to your storage browser and select the ellipsis on your bucket to edit bucket permissions. From here, select "ADD MEMBER", enter your service account as a new member and select your newly created role.
+Next, go to Storage browser and select the ellipsis on your bucket to edit bucket permissions. From here, select "Add Member", enter your service account as a new member, and select your newly created role.
 
 Then, create your associated [Template Credentials](/c/template-credentials/) in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value.
 `),
@@ -1348,10 +1350,10 @@ export const filterCondition = z.union([
 export const videoEncodeSpecificInstructionsSchema = robotFFmpegVideo
   .extend({
     resize_strategy: resize_strategy.describe(`
-See the [available resize strategies](/docs/robots/image-resize/#resize-strategies).
+See the [available resize strategies](/docs/topics/resize-strategies/).
 `),
     zoom: z.boolean().default(true).describe(`
-If this is set to \`false\`, smaller videos will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/robots/image-resize/#resize-strategies).
+If this is set to \`false\`, smaller videos will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/topics/resize-strategies/).
 `),
     crop: unsafeCoordinatesSchema.optional().describe(`
 Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original video(s). Values can be integers for absolute pixel values or strings for percentage based values.
@@ -1359,19 +1361,21 @@ Specify an object containing coordinates for the top left and bottom right corne
 For example:
 
 \`\`\`json
-
 {
   "x1": 80,
   "y1": 100,
   "x2": "60%",
   "y2": "80%"
 }
-
 \`\`\`
 
 This will crop the area from \`(80, 100)\` to \`(600, 800)\` from a 1000×1000 pixels video, which is a square whose width is 520px and height is 700px. If \`crop\` is set, the width and height parameters are ignored, and the \`resize_strategy\` is set to \`crop\` automatically.
 
-You can also use a JSON string of such an object with coordinates in similar fashion: \`"{ "x1": <Integer>, "y1": <Integer>, "x2": <Integer>, "y2": <Integer> }"\`
+You can also use a JSON string of such an object with coordinates in similar fashion:
+
+\`\`\`json
+"{\\"x1\\": <Integer>, \\"y1\\": <Integer>, \\"x2\\": <Integer>, \\"y2\\": <Integer>}"
+\`\`\`
 `),
     background: color_with_alpha.default('#00000000').describe(`
 The background color of the resulting video the \`"rrggbbaa"\` format (red, green, blue, alpha) when used with the \`"pad"\` resize strategy. The default color is black.
@@ -1400,7 +1404,7 @@ Splits the video into multiple chunks so that each chunk can be encoded in paral
 Allows you to specify the duration of each chunk when \`turbo\` is set to \`true\`. This means you can take advantage of that feature while using fewer <dfn>Priority Job Slots</dfn>. For instance, the longer each chunk is, the fewer <dfn>Encoding Jobs</dfn> will need to be used.
 `),
     watermark_url: z.string().default('').describe(`
-A URL indicating a PNG image to be overlaid above this image. You can also [supply the watermark via another Assembly Step](/docs/robots/video-encode/#watermark-parameters-video-encode).
+A URL indicating a PNG image to be overlaid above this image. You can also [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step).
 `),
     watermark_position: z.union([positionSchema, z.array(positionSchema)]).default('center')
       .describe(`
