@@ -59,9 +59,9 @@ Go back to your Google credentials project and enable the "Google Cloud Storage 
 
 Now you can set up the \`storage.objects.create\` and \`storage.objects.delete\` permissions. The latter is optional and only required if you intend to overwrite existing paths.
 
-To do this from the Google Cloud console, navigate to "IAM &amp; Admin" and select "Roles". From here, select "+CREATE ROLE", enter a name, set the role launch stage as general availability and set the permissions stated above.
+To do this from the Google Cloud console, navigate to "IAM &amp; Admin" and select "Roles". From here, click "Create Role", enter a name, set the role launch stage to _General availability,_ and set the permissions stated above.
 
-Next, relocate to your storage browser and select the ellipsis on your bucket to edit bucket permissions. From here, select "ADD MEMBER", enter your service account as a new member and select your newly created role.
+Next, go to Storage browser and select the ellipsis on your bucket to edit bucket permissions. From here, select "Add Member", enter your service account as a new member, and select your newly created role.
 
 Then, create your associated [Template Credentials](/c/template-credentials/) in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value.
 `),

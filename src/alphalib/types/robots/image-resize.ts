@@ -105,10 +105,10 @@ In this example, the background color is determined by the [Assembly Variable](h
           ),
       ])
       .default('fit').describe(`
-See the list of available [resize strategies](/docs/robots/image-resize/#resize-strategies).
+See the list of available [resize strategies](/docs/topics/resize-strategies/).
 `),
     zoom: z.boolean().default(true).describe(`
-If this is set to \`false\`, smaller images will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/robots/image-resize/#resize-strategies).
+If this is set to \`false\`, smaller images will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/topics/resize-strategies/).
 `),
     crop: unsafeCoordinatesSchema.optional().describe(`
 Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original image(s). The coordinate system is rooted in the top left corner of the image. Values can be integers for absolute pixel values or strings for percentage based values.
@@ -129,7 +129,7 @@ This will crop the area from \`(80, 100)\` to \`(600, 800)\` from a 1000×1000 p
 You can also use a JSON string of such an object with coordinates in similar fashion:
 
 \`\`\`json
-"{"x1": <Integer>, "y1": <Integer>, "x2": <Integer>, "y2": <Integer>}"
+"{\\"x1\\": <Integer>, \\"y1\\": <Integer>, \\"x2\\": <Integer>, \\"y2\\": <Integer>}"
 \`\`\`
 
 To crop around human faces, see [🤖/image/facedetect](/docs/robots/image-facedetect/).
@@ -265,7 +265,7 @@ Increases or decreases the saturation of the image by using a multiplier. For ex
 Changes the hue by rotating the color of the image. The value \`100\` would produce no change whereas \`0\` and \`200\` will negate the colors in the image.
 `),
     watermark_url: z.string().optional().describe(`
-A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/robots/image-resize/#image-resize-supply-watermark-via-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.
+A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.
 `),
     watermark_position: z.union([positionSchema, z.array(positionSchema)]).default('center')
       .describe(`

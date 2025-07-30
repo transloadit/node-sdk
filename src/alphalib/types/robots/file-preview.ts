@@ -75,7 +75,7 @@ Height of the thumbnail, in pixels.
     resize_strategy: resize_strategy.describe(`
 To achieve the desired dimensions of the preview thumbnail, the <dfn>Robot</dfn> might have to resize the generated image. This happens, for example, when the dimensions of a frame extracted from a video do not match the chosen \`width\` and \`height\` parameters.
 
-See the list of available [resize strategies](/docs/robots/image-resize/#resize-strategies) for more details.
+See the list of available [resize strategies](/docs/topics/resize-strategies/) for more details.
 `),
     background: color_with_alpha.default('#ffffffff').describe(`
 The hexadecimal code of the color used to fill the background (only used for the pad resize strategy). The format is \`#rrggbb[aa]\` (red, green, blue, alpha). Use \`#00000000\` for a transparent padding.

@@ -59,7 +59,7 @@ To change the \`title\` or \`description\` per video, we recommend to [inject va
 The URL of the Tus-compatible server, which you're uploading files to.
 `),
     credentials: z.string().optional().describe(`
-Create <dfn>Template Credentials</dfn> for this <dfn>Robot</dfn> in your [Transloadit account]({{site.base_url}}/c/template-credentials/) and use the name of the <dfn>Template Credentials</dfn> as this parameter's value. For this <dfn>Robot</dfn>, use the HTTP template, which allows request headers to be passed along to the destination server.
+Create <dfn>Template Credentials</dfn> for this <dfn>Robot</dfn> in your [Transloadit account](/c/template-credentials/) and use the name of the <dfn>Template Credentials</dfn> as this parameter's value. For this <dfn>Robot</dfn>, use the HTTP template, which allows request headers to be passed along to the destination server.
 `),
     headers: z.record(z.string()).default({}).describe('Headers to pass along to destination')
       .describe(`

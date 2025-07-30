@@ -80,7 +80,7 @@ The width of the thumbnail, in pixels. Defaults to the original width of the vid
 The height of the thumbnail, in pixels. Defaults to the original height of the video.
 `),
     resize_strategy: resize_strategy.describe(`
-One of the [available resize strategies](/docs/robots/image-resize/#resize-strategies).
+One of the [available resize strategies](/docs/topics/resize-strategies/).
 `),
     background: color_with_alpha.default('#00000000').describe(`
 The background color of the resulting thumbnails in the \`"rrggbbaa"\` format (red, green, blue, alpha) when used with the \`"pad"\` resize strategy. The default color is black.
