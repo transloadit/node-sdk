@@ -42,7 +42,7 @@ export const meta: RobotMetaInput = {
   uses_tools: ['imagemagick'],
   name: 'DocumentThumbsRobot',
   priceFactor: 1,
-  queueSlotCount: 10,
+  queueSlotCount: 60,
   minimumCharge: 524288,
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
