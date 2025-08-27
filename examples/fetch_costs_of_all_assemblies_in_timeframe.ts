@@ -25,7 +25,7 @@ const transloadit = new Transloadit({
 
 let totalBytes = 0
 
-let lastCount
+let lastCount: number
 do {
   console.log('Processing page', params.page)
   const { count, items } = await transloadit.listAssemblies(params)

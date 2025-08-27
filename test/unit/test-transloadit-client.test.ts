@@ -10,10 +10,7 @@ const { version } = packageJson
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
 const mockGetExpiresDate = (client: Transloadit) =>
-  // @ts-expect-error This mocks private internals
-  vi
-    .spyOn(client, '_getExpiresDate')
-    .mockReturnValue(mockedExpiresDate)
+  vi.spyOn(client as any, '_getExpiresDate').mockReturnValue(mockedExpiresDate)
 const mockGot = (method: 'get') =>
   vi.spyOn(got, method).mockImplementation(() => {
     const mockPromise = Promise.resolve({
@@ -23,10 +20,7 @@ const mockGot = (method: 'get') =>
     return mockPromise
   })
 const mockRemoteJson = (client: Transloadit) =>
-  // @ts-expect-error This mocks private internals
-  vi
-    .spyOn(client, '_remoteJson')
-    .mockImplementation(() => ({ body: {} }))
+  vi.spyOn(client as any, '_remoteJson').mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
   it('should throw a proper error for request stream', async () => {
