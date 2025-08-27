@@ -429,7 +429,7 @@ describe('API integration', { timeout: 60000 }, () => {
       // request
 
       // Async book-keeping for delaying the response
-      let sendServerResponse: () => void
+      let sendServerResponse!: () => void
 
       const promise = new Promise<void>((resolve) => {
         sendServerResponse = resolve
