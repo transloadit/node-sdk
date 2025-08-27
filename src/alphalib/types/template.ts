@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { robotsWithHiddenBotsAndFieldsSchema, robotsSchema } from './robots/_index.ts'
+import { robotsSchema, robotsWithHiddenBotsAndFieldsSchema } from './robots/_index.ts'
 import type { RobotUse } from './robots/_instructions-primitives.ts'
 
 export const stepSchema = z

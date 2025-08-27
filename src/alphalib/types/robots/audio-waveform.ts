@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_with_alpha,
-  robotFFmpeg,
-  robotBase,
-  robotUse,
   interpolateRobot,
+  robotBase,
+  robotFFmpeg,
+  robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,

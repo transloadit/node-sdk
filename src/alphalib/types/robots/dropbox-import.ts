@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   dropboxBase,
-  robotImport,
+  interpolateRobot,
   path,
   robotBase,
-  interpolateRobot,
+  robotImport,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,

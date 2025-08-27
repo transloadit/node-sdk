@@ -7,13 +7,13 @@ import {
   complexHeightSchema,
   complexWidthSchema,
   imageQualitySchema,
+  interpolateRobot,
   percentageSchema,
   positionSchema,
-  unsafeCoordinatesSchema,
   robotBase,
-  robotUse,
   robotImagemagick,
-  interpolateRobot,
+  robotUse,
+  unsafeCoordinatesSchema,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {

@@ -1,15 +1,15 @@
 import { z } from 'zod'
 
+import { stackVersions } from '../stackVersions.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   bitrateSchema,
-  robotFFmpegAudio,
+  interpolateRobot,
   robotBase,
+  robotFFmpegAudio,
   robotUse,
   sampleRateSchema,
-  interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
-import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,

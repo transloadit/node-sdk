@@ -1,17 +1,17 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   files_per_page,
   interpolateRobot,
-  robotImport,
   page_number,
   path,
   recursive,
-  robotBase,
   return_file_stubs,
+  robotBase,
+  robotImport,
   s3Base,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,

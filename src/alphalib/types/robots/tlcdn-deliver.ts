@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, type RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, type RobotMetaInput, robotBase } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,

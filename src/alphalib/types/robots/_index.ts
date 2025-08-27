@@ -1,248 +1,248 @@
 import { z } from 'zod'
 
 import {
+  meta as audioArtworkMeta,
   interpolatableRobotAudioArtworkInstructionsSchema,
   interpolatableRobotAudioArtworkInstructionsWithHiddenFieldsSchema,
-  meta as audioArtworkMeta,
 } from './audio-artwork.ts'
 import {
+  meta as audioConcatMeta,
   interpolatableRobotAudioConcatInstructionsSchema,
   interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema,
-  meta as audioConcatMeta,
 } from './audio-concat.ts'
 import {
+  meta as audioEncodeMeta,
   interpolatableRobotAudioEncodeInstructionsSchema,
   interpolatableRobotAudioEncodeInstructionsWithHiddenFieldsSchema,
-  meta as audioEncodeMeta,
 } from './audio-encode.ts'
 import {
+  meta as audioLoopMeta,
   interpolatableRobotAudioLoopInstructionsSchema,
   interpolatableRobotAudioLoopInstructionsWithHiddenFieldsSchema,
-  meta as audioLoopMeta,
 } from './audio-loop.ts'
 import {
+  meta as audioMergeMeta,
   interpolatableRobotAudioMergeInstructionsSchema,
   interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema,
-  meta as audioMergeMeta,
 } from './audio-merge.ts'
 import {
+  meta as audioWaveformMeta,
   interpolatableRobotAudioWaveformInstructionsSchema,
   interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema,
-  meta as audioWaveformMeta,
 } from './audio-waveform.ts'
 import {
+  meta as azureImportMeta,
   interpolatableRobotAzureImportInstructionsSchema,
   interpolatableRobotAzureImportInstructionsWithHiddenFieldsSchema,
-  meta as azureImportMeta,
 } from './azure-import.ts'
 import {
+  meta as azureStoreMeta,
   interpolatableRobotAzureStoreInstructionsSchema,
   interpolatableRobotAzureStoreInstructionsWithHiddenFieldsSchema,
-  meta as azureStoreMeta,
 } from './azure-store.ts'
 import {
+  meta as backblazeImportMeta,
   interpolatableRobotBackblazeImportInstructionsSchema,
   interpolatableRobotBackblazeImportInstructionsWithHiddenFieldsSchema,
-  meta as backblazeImportMeta,
 } from './backblaze-import.ts'
 import {
+  meta as backblazeStoreMeta,
   interpolatableRobotBackblazeStoreInstructionsSchema,
   interpolatableRobotBackblazeStoreInstructionsWithHiddenFieldsSchema,
-  meta as backblazeStoreMeta,
 } from './backblaze-store.ts'
 import {
+  meta as cloudfilesImportMeta,
   interpolatableRobotCloudfilesImportInstructionsSchema,
   interpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsSchema,
-  meta as cloudfilesImportMeta,
 } from './cloudfiles-import.ts'
 import {
+  meta as cloudfilesStoreMeta,
   interpolatableRobotCloudfilesStoreInstructionsSchema,
   interpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsSchema,
-  meta as cloudfilesStoreMeta,
 } from './cloudfiles-store.ts'
 import {
+  meta as cloudflareImportMeta,
   interpolatableRobotCloudflareImportInstructionsSchema,
   interpolatableRobotCloudflareImportInstructionsWithHiddenFieldsSchema,
-  meta as cloudflareImportMeta,
 } from './cloudflare-import.ts'
 import {
+  meta as cloudflareStoreMeta,
   interpolatableRobotCloudflareStoreInstructionsSchema,
   interpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsSchema,
-  meta as cloudflareStoreMeta,
 } from './cloudflare-store.ts'
 import {
+  meta as digitaloceanImportMeta,
   interpolatableRobotDigitaloceanImportInstructionsSchema,
   interpolatableRobotDigitaloceanImportInstructionsWithHiddenFieldsSchema,
-  meta as digitaloceanImportMeta,
 } from './digitalocean-import.ts'
 import {
+  meta as digitaloceanStoreMeta,
   interpolatableRobotDigitaloceanStoreInstructionsSchema,
   interpolatableRobotDigitaloceanStoreInstructionsWithHiddenFieldsSchema,
-  meta as digitaloceanStoreMeta,
 } from './digitalocean-store.ts'
 import {
+  meta as documentAutorotateMeta,
   interpolatableRobotDocumentAutorotateInstructionsSchema,
   interpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsSchema,
-  meta as documentAutorotateMeta,
 } from './document-autorotate.ts'
 import {
+  meta as documentConvertMeta,
   interpolatableRobotDocumentConvertInstructionsSchema,
   interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema,
-  meta as documentConvertMeta,
 } from './document-convert.ts'
 import {
+  meta as documentMergeMeta,
   interpolatableRobotDocumentMergeInstructionsSchema,
   interpolatableRobotDocumentMergeInstructionsWithHiddenFieldsSchema,
-  meta as documentMergeMeta,
 } from './document-merge.ts'
 import {
+  meta as documentOcrMeta,
   interpolatableRobotDocumentOcrInstructionsSchema,
   interpolatableRobotDocumentOcrInstructionsWithHiddenFieldsSchema,
-  meta as documentOcrMeta,
 } from './document-ocr.ts'
 import {
+  meta as documentSplitMeta,
   interpolatableRobotDocumentSplitInstructionsSchema,
   interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema,
-  meta as documentSplitMeta,
 } from './document-split.ts'
 import {
+  meta as documentThumbsMeta,
   interpolatableRobotDocumentThumbsInstructionsSchema,
   interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema,
-  meta as documentThumbsMeta,
 } from './document-thumbs.ts'
 import {
+  meta as dropboxImportMeta,
   interpolatableRobotDropboxImportInstructionsSchema,
   interpolatableRobotDropboxImportInstructionsWithHiddenFieldsSchema,
-  meta as dropboxImportMeta,
 } from './dropbox-import.ts'
 import {
+  meta as dropboxStoreMeta,
   interpolatableRobotDropboxStoreInstructionsSchema,
   interpolatableRobotDropboxStoreInstructionsWithHiddenFieldsSchema,
-  meta as dropboxStoreMeta,
 } from './dropbox-store.ts'
 import {
+  meta as edglyDeliverMeta,
   interpolatableRobotEdglyDeliverInstructionsSchema,
   interpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsSchema,
-  meta as edglyDeliverMeta,
 } from './edgly-deliver.ts'
 import {
+  meta as fileCompressMeta,
   interpolatableRobotFileCompressInstructionsSchema,
   interpolatableRobotFileCompressInstructionsWithHiddenFieldsSchema,
-  meta as fileCompressMeta,
 } from './file-compress.ts'
 import {
+  meta as fileDecompressMeta,
   interpolatableRobotFileDecompressInstructionsSchema,
   interpolatableRobotFileDecompressInstructionsWithHiddenFieldsSchema,
-  meta as fileDecompressMeta,
 } from './file-decompress.ts'
 import {
+  meta as fileFilterMeta,
   interpolatableRobotFileFilterInstructionsSchema,
   interpolatableRobotFileFilterInstructionsWithHiddenFieldsSchema,
-  meta as fileFilterMeta,
 } from './file-filter.ts'
 import {
+  meta as fileHashMeta,
   interpolatableRobotFileHashInstructionsSchema,
   interpolatableRobotFileHashInstructionsWithHiddenFieldsSchema,
-  meta as fileHashMeta,
 } from './file-hash.ts'
 import {
+  meta as filePreviewMeta,
   interpolatableRobotFilePreviewInstructionsSchema,
   interpolatableRobotFilePreviewInstructionsWithHiddenFieldsSchema,
-  meta as filePreviewMeta,
 } from './file-preview.ts'
 import {
+  meta as fileReadMeta,
   interpolatableRobotFileReadInstructionsSchema,
   interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema,
-  meta as fileReadMeta,
 } from './file-read.ts'
 import {
+  meta as fileServeMeta,
   interpolatableRobotFileServeInstructionsSchema,
   interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema,
-  meta as fileServeMeta,
 } from './file-serve.ts'
 import {
+  meta as fileVerifyMeta,
   interpolatableRobotFileVerifyInstructionsSchema,
   interpolatableRobotFileVerifyInstructionsWithHiddenFieldsSchema,
-  meta as fileVerifyMeta,
 } from './file-verify.ts'
 import {
+  meta as fileVirusscanMeta,
   interpolatableRobotFileVirusscanInstructionsSchema,
   interpolatableRobotFileVirusscanInstructionsWithHiddenFieldsSchema,
-  meta as fileVirusscanMeta,
 } from './file-virusscan.ts'
 import {
   interpolatableRobotFileWatermarkInstructionsSchema,
   interpolatableRobotFileWatermarkInstructionsWithHiddenFieldsSchema,
 } from './file-watermark.ts'
 import {
+  meta as ftpImportMeta,
   interpolatableRobotFtpImportInstructionsSchema,
   interpolatableRobotFtpImportInstructionsWithHiddenFieldsSchema,
-  meta as ftpImportMeta,
 } from './ftp-import.ts'
 import {
+  meta as ftpStoreMeta,
   interpolatableRobotFtpStoreInstructionsSchema,
   interpolatableRobotFtpStoreInstructionsWithHiddenFieldsSchema,
-  meta as ftpStoreMeta,
 } from './ftp-store.ts'
 import {
+  meta as googleImportMeta,
   interpolatableRobotGoogleImportInstructionsSchema,
   interpolatableRobotGoogleImportInstructionsWithHiddenFieldsSchema,
-  meta as googleImportMeta,
 } from './google-import.ts'
 import {
+  meta as googleStoreMeta,
   interpolatableRobotGoogleStoreInstructionsSchema,
   interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema,
-  meta as googleStoreMeta,
 } from './google-store.ts'
 import {
+  meta as htmlConvertMeta,
   interpolatableRobotHtmlConvertInstructionsSchema,
   interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema,
-  meta as htmlConvertMeta,
 } from './html-convert.ts'
 import {
+  meta as httpImportMeta,
   interpolatableRobotHttpImportInstructionsSchema,
   interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema,
-  meta as httpImportMeta,
 } from './http-import.ts'
 import {
+  meta as imageBgremoveMeta,
   interpolatableRobotImageBgremoveInstructionsSchema,
   interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema,
-  meta as imageBgremoveMeta,
 } from './image-bgremove.ts'
 import {
+  meta as imageDescribeMeta,
   interpolatableRobotImageDescribeInstructionsSchema,
   interpolatableRobotImageDescribeInstructionsWithHiddenFieldsSchema,
-  meta as imageDescribeMeta,
 } from './image-describe.ts'
 import {
+  meta as imageFacedetectMeta,
   interpolatableRobotImageFacedetectInstructionsSchema,
   interpolatableRobotImageFacedetectInstructionsWithHiddenFieldsSchema,
-  meta as imageFacedetectMeta,
 } from './image-facedetect.ts'
 import {
+  meta as imageGenerateMeta,
   interpolatableRobotImageGenerateInstructionsSchema,
   interpolatableRobotImageGenerateInstructionsWithHiddenFieldsSchema,
-  meta as imageGenerateMeta,
 } from './image-generate.ts'
 import {
+  meta as imageMergeMeta,
   interpolatableRobotImageMergeInstructionsSchema,
   interpolatableRobotImageMergeInstructionsWithHiddenFieldsSchema,
-  meta as imageMergeMeta,
 } from './image-merge.ts'
 import {
+  meta as imageOcrMeta,
   interpolatableRobotImageOcrInstructionsSchema,
   interpolatableRobotImageOcrInstructionsWithHiddenFieldsSchema,
-  meta as imageOcrMeta,
 } from './image-ocr.ts'
 import {
+  meta as imageOptimizeMeta,
   interpolatableRobotImageOptimizeInstructionsSchema,
   interpolatableRobotImageOptimizeInstructionsWithHiddenFieldsSchema,
-  meta as imageOptimizeMeta,
 } from './image-optimize.ts'
 import {
+  meta as imageResizeMeta,
   interpolatableRobotImageResizeInstructionsSchema,
   interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema,
-  meta as imageResizeMeta,
 } from './image-resize.ts'
 import {
   interpolatableRobotMetaReadInstructionsSchema,
