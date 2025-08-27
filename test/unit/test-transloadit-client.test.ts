@@ -10,17 +10,23 @@ const { version } = packageJson
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
 const mockGetExpiresDate = (client: Transloadit) =>
-  vi.spyOn(client as any, '_getExpiresDate').mockReturnValue(mockedExpiresDate)
+  vi
+    .spyOn(client as unknown as Record<string, unknown>, '_getExpiresDate')
+    .mockReturnValue(mockedExpiresDate)
 const mockGot = (method: 'get') =>
   vi.spyOn(got, method).mockImplementation(() => {
     const mockPromise = Promise.resolve({
       body: '',
     }) as CancelableRequest
-    ;(mockPromise as any).on = vi.fn(() => {})
+    ;(mockPromise as unknown as { on: (cb: (...args: unknown[]) => void) => void }).on = vi.fn(
+      () => {},
+    )
     return mockPromise
   })
 const mockRemoteJson = (client: Transloadit) =>
-  vi.spyOn(client as any, '_remoteJson').mockImplementation(() => ({ body: {} }))
+  vi
+    .spyOn(client as unknown as Record<string, unknown>, '_remoteJson')
+    .mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
   it('should throw a proper error for request stream', async () => {

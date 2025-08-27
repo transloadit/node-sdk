@@ -8,7 +8,7 @@ export const createProxy = (transloaditInstance: Transloadit) => {
       const origMethod = target[propKey]
       if (typeof origMethod === 'function') {
         // eslint-disable-next-line func-names
-        return (...args: any) => {
+        return (...args: unknown[]) => {
           const result = origMethod.apply(target, args)
 
           if (!(result && 'then' in result)) {
@@ -16,7 +16,7 @@ export const createProxy = (transloaditInstance: Transloadit) => {
           }
 
           // @ts-expect-error any
-          const newPromise = result.catch((err) => {
+          const newPromise = result.catch((err: unknown) => {
             if (err instanceof Error && 'cause' in err && err.cause instanceof RequestError) {
               if (err.cause.request != null) {
                 // for util.inspect:

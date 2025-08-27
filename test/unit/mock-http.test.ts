@@ -69,7 +69,7 @@ describe('Mocked API tests', () => {
     await client.createAssembly()
 
     const result = await client.awaitAssemblyCompletion('1')
-    expect((result as Extract<AssemblyStatus, { ok: any }>).ok).toBe('REQUEST_ABORTED')
+    expect((result as Extract<AssemblyStatus, { ok: unknown }>).ok).toBe('REQUEST_ABORTED')
     scope.done()
   })
 

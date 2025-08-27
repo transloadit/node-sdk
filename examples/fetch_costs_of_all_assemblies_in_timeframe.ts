@@ -18,9 +18,13 @@ const params = {
   page: 1,
 }
 
+const { TRANSLOADIT_KEY, TRANSLOADIT_SECRET } = process.env
+if (TRANSLOADIT_KEY == null || TRANSLOADIT_SECRET == null) {
+  throw new Error('Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET')
+}
 const transloadit = new Transloadit({
-  authKey: process.env.TRANSLOADIT_KEY!,
-  authSecret: process.env.TRANSLOADIT_SECRET!,
+  authKey: TRANSLOADIT_KEY,
+  authSecret: TRANSLOADIT_SECRET,
 })
 
 let totalBytes = 0
