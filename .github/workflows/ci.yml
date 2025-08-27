@@ -33,7 +33,7 @@ jobs:
           name: package
           path: '*.tgz'
 
-  prettier:
+  biome:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
         with:
           node-version: 22
       - run: corepack yarn
-      - run: corepack yarn lint:formatting
+      - run: corepack yarn lint:js
 
   typescript:
     runs-on: ubuntu-latest

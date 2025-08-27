@@ -3,6 +3,7 @@ description:
 globs:
 alwaysApply: true
 ---
+
 Coding style:
 
 - Favor `async run() {` over `run = async () => {` inside ES6 classes
@@ -14,6 +15,6 @@ Coding style:
 - Do not wrap each function body and function call in `try`/`catch` blocks. It pollutes the code. Assume we will always have an e.g. `main().catch((err) => { console.error(err); process.exit(1) })` to catch us. I repeat: Avoid over-use of try-catch such as `try { // foo } catch (err) { console.error('error while foo'); throw err }`, assume we catch errors on a higher level and do not need the extra explananation.
 - Before creating new files and new code, see if we can leverage existing work, maybe slighty adapt that without breaking BC, to keep things DRY.
 - Favor early exits, so quickly `continue`, `return false` (or `throw` if needed), over nesting everything in positive conditions, creating christmas trees.
-- Use Prettier with 100 char line width, single quotes for JS/TS, semi: false
+- Use Biome with 100 char line width, single quotes for JS/TS, semi: false
 - Use descriptive names: PascalCase for components/types, camelCase for variables/methods/schemas
 - Alphabetize imports, group by source type (built-in/external/internal)
