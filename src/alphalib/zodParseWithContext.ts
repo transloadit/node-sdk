@@ -43,7 +43,6 @@ export function zodParseWithContext<T extends z.ZodType>(
       Object.keys(obj).length === 0 &&
       zodRes.error.errors.length > 0
     ) {
-      // eslint-disable-next-line no-console
       // console.log('[zodParseWithContext] Empty object detected, Zod errors:', JSON.stringify(zodRes.error.errors, null, 2));
 
       const firstError = zodRes.error.errors[0]
@@ -232,7 +231,6 @@ export function zodParseWithContext<T extends z.ZodType>(
         switch (zodIssue.code) {
           case 'invalid_type': {
             received = zodIssue.received === 'undefined' ? 'missing' : zodIssue.received
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const actualValue = getByPath(obj, path) as any
             const actualValueStr =
               typeof actualValue === 'object' && actualValue !== null

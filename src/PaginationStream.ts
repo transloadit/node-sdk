@@ -1,7 +1,6 @@
 import { Readable } from 'node:stream'
 import type { PaginationList, PaginationListWithCount } from './apiTypes.js'
 
-// eslint-disable-next-line no-unused-vars
 type FetchPage<T> = (
   pageno: number,
 ) =>

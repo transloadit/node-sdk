@@ -1,13 +1,11 @@
 import { RequestError, type Transloadit } from '../src/Transloadit.js'
 
-// eslint-disable-next-line import/prefer-default-export
 export const createProxy = (transloaditInstance: Transloadit) => {
   return new Proxy(transloaditInstance, {
     get(target, propKey) {
       // @ts-expect-error I dunno how to type
       const origMethod = target[propKey]
       if (typeof origMethod === 'function') {
-        // eslint-disable-next-line func-names
         return (...args: unknown[]) => {
           const result = origMethod.apply(target, args)
 

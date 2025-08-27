@@ -38,7 +38,6 @@ do {
 
   await pMap(
     items,
-    // eslint-disable-next-line no-loop-func
     async (assembly) => {
       const assemblyFull = await transloadit.getAssembly(assembly.id)
       // console.log(assemblyFull.assembly_id)

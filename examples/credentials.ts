@@ -1,4 +1,3 @@
-/* eslint-disable max-len */
 // Run this file as:
 //
 //   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node template_api.js

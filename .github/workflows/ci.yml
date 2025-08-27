@@ -9,16 +9,6 @@ on:
       - '*'
 
 jobs:
-  eslint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: corepack yarn
-      - run: corepack yarn lint:js
-
   pack:
     runs-on: ubuntu-latest
     steps:
@@ -96,7 +86,6 @@ jobs:
   release:
     runs-on: ubuntu-latest
     needs:
-      - eslint
       - pack
       - biome
       - typescript

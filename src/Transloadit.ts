@@ -258,7 +258,6 @@ export class Transloadit {
 
       await pMap(
         Object.entries(files),
-        // eslint-disable-next-line no-bitwise
         async ([, path]) => access(path, constants.F_OK | constants.R_OK),
         { concurrency: 5 },
       )
@@ -357,7 +356,6 @@ export class Transloadit {
   ): Promise<AssemblyStatus> {
     assert.ok(assemblyId)
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const result = await this.getAssembly(assemblyId)
 
@@ -401,7 +399,6 @@ export class Transloadit {
       throw err
     }
 
-    // eslint-disable-next-line no-console
     console.error(
       `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!\n---\n`,
     )
@@ -813,7 +810,6 @@ export class Transloadit {
   }
 
   // We want to mock this method
-  // eslint-disable-next-line class-methods-use-this
   private _getExpiresDate(): string {
     const expiresDate = new Date()
     expiresDate.setDate(expiresDate.getDate() + 1)

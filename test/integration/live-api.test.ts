@@ -481,7 +481,6 @@ describe('API integration', { timeout: 60000 }, () => {
             const ret = await client.awaitAssemblyCompletion(nn(id, 'assembly_id'))
             return ret
           } catch (err) {
-            // eslint-disable-next-line no-console
             console.error(err)
             return null
           }
