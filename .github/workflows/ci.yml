@@ -98,7 +98,7 @@ jobs:
     needs:
       - eslint
       - pack
-      - prettier
+      - biome
       - typescript
       - vitest
     if: startsWith(github.ref, 'refs/tags/')
