@@ -1,9 +1,9 @@
-import { Readable } from 'stream'
-import { PaginationList, PaginationListWithCount } from './apiTypes.js'
+import { Readable } from 'node:stream'
+import type { PaginationList, PaginationListWithCount } from './apiTypes.js'
 
 // eslint-disable-next-line no-unused-vars
 type FetchPage<T> = (
-  pageno: number
+  pageno: number,
 ) =>
   | PaginationList<T>
   | PromiseLike<PaginationList<T>>
