@@ -83,11 +83,31 @@ In what format to return the extracted text.
   })
   .strict()
 
+export const robotDocumentOcrInstructionsWithHiddenFieldsSchema =
+  robotDocumentOcrInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotDocumentOcrInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotDocumentOcrInstructions = z.infer<typeof robotDocumentOcrInstructionsSchema>
+export type RobotDocumentOcrInstructionsWithHiddenFields = z.infer<
+  typeof robotDocumentOcrInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotDocumentOcrInstructionsSchema = interpolateRobot(
   robotDocumentOcrInstructionsSchema,
 )
 export type InterpolatableRobotDocumentOcrInstructions = z.input<
   typeof interpolatableRobotDocumentOcrInstructionsSchema
+>
+
+export const interpolatableRobotDocumentOcrInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotDocumentOcrInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotDocumentOcrInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotDocumentOcrInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotDocumentOcrInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotDocumentOcrInstructionsWithHiddenFieldsSchema
 >

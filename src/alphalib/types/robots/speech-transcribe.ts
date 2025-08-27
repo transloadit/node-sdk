@@ -95,15 +95,16 @@ The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/
   })
   .strict()
 
+export const robotSpeechTranscribeInstructionsWithHiddenFieldsSchema =
+  robotSpeechTranscribeInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotSpeechTranscribeInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotSpeechTranscribeInstructions = z.infer<
   typeof robotSpeechTranscribeInstructionsSchema
 >
-
-export const robotSpeechTranscribeInstructionsWithHiddenFieldsSchema =
-  robotSpeechTranscribeInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotSpeechTranscribeInstructionsSchema.shape.result]),
-  })
-
 export type RobotSpeechTranscribeInstructionsWithHiddenFields = z.infer<
   typeof robotSpeechTranscribeInstructionsWithHiddenFieldsSchema
 >
@@ -113,4 +114,13 @@ export const interpolatableRobotSpeechTranscribeInstructionsSchema = interpolate
 )
 export type InterpolatableRobotSpeechTranscribeInstructions = z.input<
   typeof interpolatableRobotSpeechTranscribeInstructionsSchema
+>
+
+export const interpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsSchema =
+  interpolateRobot(robotSpeechTranscribeInstructionsWithHiddenFieldsSchema)
+export type InterpolatableRobotSpeechTranscribeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsSchema
 >

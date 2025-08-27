@@ -74,11 +74,31 @@ If not empty, encrypts the output file and makes it accessible only by typing in
   })
   .strict()
 
+export const robotDocumentMergeInstructionsWithHiddenFieldsSchema =
+  robotDocumentMergeInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotDocumentMergeInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotDocumentMergeInstructions = z.infer<typeof robotDocumentMergeInstructionsSchema>
+export type RobotDocumentMergeInstructionsWithHiddenFields = z.infer<
+  typeof robotDocumentMergeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotDocumentMergeInstructionsSchema = interpolateRobot(
   robotDocumentMergeInstructionsSchema,
 )
 export type InterpolatableRobotDocumentMergeInstructions = z.input<
   typeof interpolatableRobotDocumentMergeInstructionsSchema
+>
+
+export const interpolatableRobotDocumentMergeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotDocumentMergeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotDocumentMergeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotDocumentMergeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotDocumentMergeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotDocumentMergeInstructionsWithHiddenFieldsSchema
 >

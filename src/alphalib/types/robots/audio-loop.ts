@@ -67,11 +67,30 @@ Target duration for the whole process in seconds. The <dfn>Robot</dfn> will loop
 `),
   })
   .strict()
+
+export const robotAudioLoopInstructionsWithHiddenFieldsSchema =
+  robotAudioLoopInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotAudioLoopInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotAudioLoopInstructions = z.infer<typeof robotAudioLoopInstructionsSchema>
+export type RobotAudioLoopInstructionsWithHiddenFields = z.infer<
+  typeof robotAudioLoopInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotAudioLoopInstructionsSchema = interpolateRobot(
   robotAudioLoopInstructionsSchema,
 )
 export type InterpolatableRobotAudioLoopInstructions = z.input<
   typeof interpolatableRobotAudioLoopInstructionsSchema
+>
+
+export const interpolatableRobotAudioLoopInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotAudioLoopInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotAudioLoopInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAudioLoopInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotAudioLoopInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAudioLoopInstructionsWithHiddenFieldsSchema
 >

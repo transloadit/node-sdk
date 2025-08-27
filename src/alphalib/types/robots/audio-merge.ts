@@ -5,6 +5,7 @@ import {
   robotFFmpegAudio,
   robotBase,
   robotUse,
+  robotUseWithHiddenFields,
   sampleRateSchema,
   interpolateRobot,
 } from './_instructions-primitives.ts'
@@ -89,11 +90,34 @@ Valid values are \`"average"\` and \`"sum"\` here. \`"average"\` means each inpu
 `),
   })
   .strict()
+
+export const robotAudioMergeInstructionsWithHiddenFieldsSchema = robotAudioMergeInstructionsSchema
+  .omit({ use: true })
+  .merge(robotUseWithHiddenFields)
+  .extend({
+    result: z
+      .union([z.literal('debug'), robotAudioMergeInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotAudioMergeInstructions = z.infer<typeof robotAudioMergeInstructionsSchema>
+export type RobotAudioMergeInstructionsWithHiddenFields = z.infer<
+  typeof robotAudioMergeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotAudioMergeInstructionsSchema = interpolateRobot(
   robotAudioMergeInstructionsSchema,
 )
 export type InterpolatableRobotAudioMergeInstructions = z.input<
   typeof interpolatableRobotAudioMergeInstructionsSchema
+>
+
+export const interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotAudioMergeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotAudioMergeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotAudioMergeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema
 >

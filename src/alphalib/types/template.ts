@@ -30,6 +30,7 @@ export type StepWithHiddenFields = z.infer<typeof stepSchemaWithHiddenFields>
 export type StepWithHiddenFieldsInput = z.input<typeof stepSchemaWithHiddenFields>
 export type StepsWithHiddenFields = z.infer<typeof stepsSchemaWithHiddenFields>
 export type StepsWithHiddenFieldsInput = z.input<typeof stepsSchemaWithHiddenFields>
+const optionalStepsWithHiddenFieldsSchema = stepsSchemaWithHiddenFields.optional()
 
 export const assemblyAuthInstructionsSchema = z.object({
   key: z.string().describe('The Transloadit API key to use'),
@@ -48,6 +49,7 @@ export const assemblyInstructionsSchema = z.object({
     ),
   notify_url: z
     .string()
+    .nullable()
     .optional()
     .describe(
       'Transloadit can send a Pingback to your server when the Assembly is completed. We’ll send the Assembly status in a form url-encoded JSON string inside of a transloadit field in a multipart POST request to the URL supplied here.',
@@ -71,3 +73,37 @@ export const assemblyInstructionsSchema = z.object({
 
 export type AssemblyInstructions = z.infer<typeof assemblyInstructionsSchema>
 export type AssemblyInstructionsInput = z.input<typeof assemblyInstructionsSchema>
+
+// These are used in system tests, but not exposed to the public right now
+// Meaning we do not want to document them, do not want to offer auto complete on them
+// if customers use them, they will have to surpress a typescript error
+// however when they do, our runtime schema validation will not blow up on it
+// because we are using this version of the schema in our actual API
+// so that tests can also use them:
+export const assemblyInstructionsWithHiddenSchema = assemblyInstructionsSchema.extend({
+  steps: optionalStepsWithHiddenFieldsSchema as typeof optionalStepsWithHiddenFieldsSchema,
+  imagemagick_stack: z.string().optional(),
+  exiftool_stack: z.string().optional(),
+  mplayer_stack: z.string().optional(),
+  mediainfo_stack: z.string().optional(),
+  ffmpeg_stack: z.string().optional(),
+  usage_tags: z.string().optional(),
+  randomize_watermarks: z.boolean().optional(),
+  await: z
+    .union([
+      z.boolean(),
+      z.literal('notification'),
+      z.literal('persisting'),
+      z.literal('transcoding'),
+    ])
+    .optional(),
+  blocking: z.boolean().optional(),
+  reparse_template: z.union([z.literal(1), z.boolean()]).optional(),
+  ignore_upload_meta_data_errors: z.boolean().optional(),
+  emit_execution_progress: z.boolean().optional(),
+})
+
+export type AssemblyInstructionsWithHidden = z.infer<typeof assemblyInstructionsWithHiddenSchema>
+export type AssemblyInstructionsWithHiddenInput = z.input<
+  typeof assemblyInstructionsWithHiddenSchema
+>

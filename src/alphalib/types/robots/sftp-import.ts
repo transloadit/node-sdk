@@ -51,12 +51,34 @@ The path on your SFTP server where to search for files.
   })
   .strict()
 
+export const robotSftpImportInstructionsWithHiddenFieldsSchema =
+  robotSftpImportInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotSftpImportInstructionsSchema.shape.result])
+      .optional(),
+    allowNetwork: z.string().optional().describe(`
+Network access permission for the SFTP connection. This is used to control which networks the SFTP robot can access.
+`),
+  })
+
 export type RobotSftpImportInstructions = z.infer<typeof robotSftpImportInstructionsSchema>
-export type RobotSftpImportInstructionsInput = z.input<typeof robotSftpImportInstructionsSchema>
+export type RobotSftpImportInstructionsWithHiddenFields = z.infer<
+  typeof robotSftpImportInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotSftpImportInstructionsSchema = interpolateRobot(
   robotSftpImportInstructionsSchema,
 )
 export type InterpolatableRobotSftpImportInstructions = z.input<
   typeof interpolatableRobotSftpImportInstructionsSchema
+>
+
+export const interpolatableRobotSftpImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotSftpImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotSftpImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotSftpImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotSftpImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotSftpImportInstructionsWithHiddenFieldsSchema
 >

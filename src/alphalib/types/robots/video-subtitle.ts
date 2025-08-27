@@ -104,11 +104,32 @@ Specifies if existing subtitles in the input file should be kept or be replaced 
 `),
   })
   .strict()
+
+export const robotVideoSubtitleInstructionsWithHiddenFieldsSchema =
+  robotVideoSubtitleInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotVideoSubtitleInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotVideoSubtitleInstructions = z.infer<typeof robotVideoSubtitleInstructionsSchema>
+export type RobotVideoSubtitleInstructionsWithHiddenFields = z.infer<
+  typeof robotVideoSubtitleInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotVideoSubtitleInstructionsSchema = interpolateRobot(
   robotVideoSubtitleInstructionsSchema,
 )
 export type InterpolatableRobotVideoSubtitleInstructions = z.input<
   typeof interpolatableRobotVideoSubtitleInstructionsSchema
+>
+
+export const interpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotVideoSubtitleInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotVideoSubtitleInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsSchema
 >

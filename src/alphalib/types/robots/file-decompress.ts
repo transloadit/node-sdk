@@ -90,11 +90,31 @@ To keep backwards compatibility, setting this parameter to \`true\` will set it 
   })
   .strict()
 
+export const robotFileDecompressInstructionsWithHiddenFieldsSchema =
+  robotFileDecompressInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotFileDecompressInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotFileDecompressInstructions = z.infer<typeof robotFileDecompressInstructionsSchema>
+export type RobotFileDecompressInstructionsWithHiddenFields = z.infer<
+  typeof robotFileDecompressInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFileDecompressInstructionsSchema = interpolateRobot(
   robotFileDecompressInstructionsSchema,
 )
 export type InterpolatableRobotFileDecompressInstructions = z.input<
   typeof interpolatableRobotFileDecompressInstructionsSchema
+>
+
+export const interpolatableRobotFileDecompressInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFileDecompressInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFileDecompressInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFileDecompressInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFileDecompressInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFileDecompressInstructionsWithHiddenFieldsSchema
 >

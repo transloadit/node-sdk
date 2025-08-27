@@ -68,11 +68,32 @@ Sample rate of the resulting audio file, in Hertz. If not specified will default
 `),
   })
   .strict()
+
+export const robotAudioEncodeInstructionsWithHiddenFieldsSchema =
+  robotAudioEncodeInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotAudioEncodeInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotAudioEncodeInstructions = z.infer<typeof robotAudioEncodeInstructionsSchema>
+export type RobotAudioEncodeInstructionsWithHiddenFields = z.infer<
+  typeof robotAudioEncodeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotAudioEncodeInstructionsSchema = interpolateRobot(
   robotAudioEncodeInstructionsSchema,
 )
 export type InterpolatableRobotAudioEncodeInstructions = z.input<
   typeof interpolatableRobotAudioEncodeInstructionsSchema
+>
+
+export const interpolatableRobotAudioEncodeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotAudioEncodeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotAudioEncodeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAudioEncodeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotAudioEncodeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAudioEncodeInstructionsWithHiddenFieldsSchema
 >

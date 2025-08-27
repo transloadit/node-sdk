@@ -39,8 +39,18 @@ export const robotDocumentAutorotateInstructionsSchema = robotBase
   })
   .strict()
 
+export const robotDocumentAutorotateInstructionsWithHiddenFieldsSchema =
+  robotDocumentAutorotateInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotDocumentAutorotateInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotDocumentAutorotateInstructions = z.infer<
   typeof robotDocumentAutorotateInstructionsSchema
+>
+export type RobotDocumentAutorotateInstructionsWithHiddenFields = z.infer<
+  typeof robotDocumentAutorotateInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotDocumentAutorotateInstructionsSchema = interpolateRobot(
@@ -48,4 +58,13 @@ export const interpolatableRobotDocumentAutorotateInstructionsSchema = interpola
 )
 export type InterpolatableRobotDocumentAutorotateInstructions = z.input<
   typeof interpolatableRobotDocumentAutorotateInstructionsSchema
+>
+
+export const interpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsSchema =
+  interpolateRobot(robotDocumentAutorotateInstructionsWithHiddenFieldsSchema)
+export type InterpolatableRobotDocumentAutorotateInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsSchema
 >

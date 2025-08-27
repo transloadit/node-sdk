@@ -416,7 +416,8 @@ export function interpolateRobot<Schema extends z.ZodObject<z.ZodRawShape>>(
 export type RobotBase = z.infer<typeof robotBase>
 export const robotBase = z
   .object({
-    output_meta: z.union([z.record(z.boolean()), z.boolean()]).optional().describe(`
+    output_meta: z.union([z.record(z.boolean()), z.boolean(), z.array(z.string())]).optional()
+      .describe(`
 Allows you to specify a set of metadata that is more expensive on CPU power to calculate, and thus is disabled by default to keep your Assemblies processing fast.
 
 For images, you can add \`"has_transparency": true\` in this object to extract if the image contains transparent parts and \`"dominant_colors": true\` to extract an array of hexadecimal color codes from the image.
@@ -474,6 +475,33 @@ export const useParamObjectOfStepsSchema = z
     steps: useParamStepsSchema,
     bundle_steps: z.boolean().optional(),
     group_by_original: z.boolean().optional(),
+    fields: z.array(z.string()).optional().describe(`
+Array of field names to filter input files by when using steps.
+`),
+  })
+  .strict()
+
+// Hidden fields variants for use parameters
+export const useParamObjectWithHiddenFieldsSchema = useParamObjectSchema.extend({
+  result: z.union([z.literal('debug'), z.boolean()]).optional(),
+})
+
+export const useParamArrayOfUseParamObjectWithHiddenFieldsSchema = z.array(
+  useParamObjectWithHiddenFieldsSchema,
+)
+export const useParamStepsWithHiddenFieldsSchema = z.union([
+  useParamStringSchema,
+  useParamArrayOfStringsSchema,
+  useParamArrayOfUseParamObjectWithHiddenFieldsSchema,
+])
+export const useParamObjectOfStepsWithHiddenFieldsSchema = z
+  .object({
+    steps: useParamStepsWithHiddenFieldsSchema,
+    bundle_steps: z.boolean().optional(),
+    group_by_original: z.boolean().optional(),
+    fields: z.array(z.string()).optional().describe(`
+Array of field names to filter input files by when using steps.
+`),
   })
   .strict()
 
@@ -502,7 +530,36 @@ Specifies which Step(s) to use as input.
   \`\`\`
 
 > [!Tip]
-> That’s likely all you need to know about \`use\`, but you can view [Advanced use cases](/docs/topics/use-parameter/).
+> That's likely all you need to know about \`use\`, but you can view [Advanced use cases](/docs/topics/use-parameter/).
+`,
+      )
+      .optional(),
+  })
+  .strict()
+
+export type RobotUseWithHiddenFields = z.infer<typeof robotUseWithHiddenFields>
+export const robotUseWithHiddenFields = z
+  .object({
+    use: z
+      .union([useParamStepsWithHiddenFieldsSchema, useParamObjectOfStepsWithHiddenFieldsSchema])
+      .describe(
+        `
+Specifies which Step(s) to use as input.
+
+- You can pick any names for Steps except \`":original"\` (reserved for user uploads handled by Transloadit)
+- You can provide several Steps as input with arrays:
+  \`\`\`json
+  {
+    "use": [
+      ":original",
+      "encoded",
+      "resized"
+    ]
+  }
+  \`\`\`
+
+> [!Tip]
+> That's likely all you need to know about \`use\`, but you can view [Advanced use cases](/docs/topics/use-parameter/).
 `,
       )
       .optional(),
@@ -634,7 +691,7 @@ export const robotFFmpeg = z.object({
       qdiff: z.number().optional(),
       qmax: z.number().optional(),
       qmin: z.number().optional(),
-      r: z.number().optional(),
+      r: z.union([z.number(), z.string()]).nullable().optional(),
       rc_eq: z.string().optional(),
       refs: z.number().optional(),
       s: z.string().optional(),
@@ -959,7 +1016,46 @@ export const percentageSchema = z.string().regex(/^\d+%$/)
 
 export const color_with_alpha = z.string().regex(/^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/)
 
-export const color_without_alpha = z.string().regex(/^#?[0-9a-fA-F]{6}$/)
+export const color_without_alpha = z.string().regex(/^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/)
+
+// Extended color schemas that also support named colors (for robots that support them)
+export const color_with_alpha_with_named = z.union([
+  color_with_alpha, // Extend the base hex color schema
+  z.enum([
+    'transparent',
+    'none',
+    'black',
+    'white',
+    'red',
+    'green',
+    'blue',
+    'yellow',
+    'cyan',
+    'magenta',
+    'gray',
+    'grey',
+    'opaque',
+  ]), // Named colors
+])
+
+export const color_without_alpha_with_named = z.union([
+  color_without_alpha, // Extend the base hex color schema
+  z.enum([
+    'transparent',
+    'none',
+    'black',
+    'white',
+    'red',
+    'green',
+    'blue',
+    'yellow',
+    'cyan',
+    'magenta',
+    'gray',
+    'grey',
+    'opaque',
+  ]), // Named colors
+])
 
 export const bitrateSchema = z.number().int().min(1)
 
@@ -1234,6 +1330,9 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 If you do use these parameters, make sure to use the **Endpoint** value under \`Storage > S3 Connection\` in the Supabase console for the \`"host"\` value, and the values under **S3 Access Keys** on the same page for your \`"key"\` and \`"secret"\`.
 `),
     bucket: z.string().optional(),
+    bucket_region: z.string().optional().describe(`
+The region where the bucket is located.
+`),
     host: z.string().optional(),
     key: z.string().optional(),
     secret: z.string().optional(),
@@ -1249,6 +1348,9 @@ export const swiftBase = z
   While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
   `),
     bucket: z.string().optional(),
+    bucket_region: z.string().optional().describe(`
+The region where the bucket is located.
+`),
     host: z.string().optional(),
     key: z.string().optional(),
     secret: z.string().optional(),
@@ -1264,6 +1366,9 @@ Please create your associated <dfn>Template Credentials</dfn> in your Transloadi
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
 `),
     bucket: z.string().optional(),
+    bucket_region: z.string().optional().describe(`
+The region where the bucket is located.
+`),
     host: z.string().optional(),
     key: z.string().optional(),
     secret: z.string().optional(),
@@ -1279,6 +1384,9 @@ Please create your associated <dfn>Template Credentials</dfn> in your Transloadi
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
 `),
     bucket: z.string().optional(),
+    bucket_region: z.string().optional().describe(`
+The region where the bucket is located.
+`),
     host: z.string().optional(),
     key: z.string().optional(),
     secret: z.string().optional(),
@@ -1289,11 +1397,13 @@ export type FilterExpression = z.infer<typeof filterExpression>
 export const filterExpression = z.union([
   z.string(),
   z.number(),
-  z.array(z.union([z.string(), z.number()])),
+  z.null(),
+  z.array(z.union([z.string(), z.number(), z.null()])),
 ])
 
 export type FilterCondition = z.infer<typeof filterCondition>
 export const filterCondition = z.union([
+  z.null(),
   z.string(),
   z.array(
     z.tuple([
@@ -1456,6 +1566,9 @@ The prefix used for the naming. For example, a prefix of \`"segment_"\` would pr
 `),
     segment_name: z.string().default('').describe(`
 The name used for the final segment. Available variables are \`\${segment_prefix}\`, \`\${segment_number}\` and \`\${segment_id}\` (which is a UUIDv4 without dashes).
+`),
+    segment_time_delta: z.number().optional().describe(`
+Delta to apply to segment duration. This is optional and allows fine-tuning of segment boundaries.
 `),
   })
   .strict()

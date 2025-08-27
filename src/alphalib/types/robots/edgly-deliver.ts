@@ -39,11 +39,31 @@ When you want Transloadit to tranform files on the fly, this <dfn>Robot</dfn> ca
   })
   .strict()
 
+export const robotEdglyDeliverInstructionsWithHiddenFieldsSchema =
+  robotEdglyDeliverInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotEdglyDeliverInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotEdglyDeliverInstructions = z.infer<typeof robotEdglyDeliverInstructionsSchema>
+export type RobotEdglyDeliverInstructionsWithHiddenFields = z.infer<
+  typeof robotEdglyDeliverInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotEdglyDeliverInstructionsSchema = interpolateRobot(
   robotEdglyDeliverInstructionsSchema,
 )
 export type InterpolatableRobotEdglyDeliverInstructions = z.input<
   typeof interpolatableRobotEdglyDeliverInstructionsSchema
+>
+
+export const interpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotEdglyDeliverInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotEdglyDeliverInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsSchema
 >

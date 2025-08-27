@@ -67,12 +67,31 @@ If this parameter is not used, no URL signing is done.
   })
   .strict()
 
+export const robotMinioStoreInstructionsWithHiddenFieldsSchema =
+  robotMinioStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotMinioStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotMinioStoreInstructions = z.infer<typeof robotMinioStoreInstructionsSchema>
-export type RobotMinioStoreInstructionsInput = z.input<typeof robotMinioStoreInstructionsSchema>
+export type RobotMinioStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotMinioStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotMinioStoreInstructionsSchema = interpolateRobot(
   robotMinioStoreInstructionsSchema,
 )
 export type InterpolatableRobotMinioStoreInstructions = z.input<
   typeof interpolatableRobotMinioStoreInstructionsSchema
+>
+
+export const interpolatableRobotMinioStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotMinioStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotMinioStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotMinioStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotMinioStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotMinioStoreInstructionsWithHiddenFieldsSchema
 >

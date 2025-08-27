@@ -49,8 +49,10 @@ export const robotImageGenerateInstructionsSchema = robotBase
 
 export const robotImageGenerateInstructionsWithHiddenFieldsSchema =
   robotImageGenerateInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotImageGenerateInstructionsSchema.shape.result]),
     provider: z.string().optional().describe('Provider for generating the image.'),
+    result: z
+      .union([z.literal('debug'), robotImageGenerateInstructionsSchema.shape.result])
+      .optional(),
   })
 
 export type RobotImageGenerateInstructions = z.infer<typeof robotImageGenerateInstructionsSchema>
@@ -63,4 +65,14 @@ export const interpolatableRobotImageGenerateInstructionsSchema = interpolateRob
 )
 export type InterpolatableRobotImageGenerateInstructions = z.input<
   typeof interpolatableRobotImageGenerateInstructionsSchema
+>
+
+export const interpolatableRobotImageGenerateInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotImageGenerateInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotImageGenerateInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotImageGenerateInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotImageGenerateInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotImageGenerateInstructionsWithHiddenFieldsSchema
 >

@@ -70,11 +70,32 @@ If set to \`true\` this parameter tries to fix images that would otherwise make 
 `),
   })
   .strict()
+
+export const robotImageOptimizeInstructionsWithHiddenFieldsSchema =
+  robotImageOptimizeInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotImageOptimizeInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotImageOptimizeInstructions = z.infer<typeof robotImageOptimizeInstructionsSchema>
+export type RobotImageOptimizeInstructionsWithHiddenFields = z.infer<
+  typeof robotImageOptimizeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotImageOptimizeInstructionsSchema = interpolateRobot(
   robotImageOptimizeInstructionsSchema,
 )
 export type InterpolatableRobotImageOptimizeInstructions = z.input<
   typeof interpolatableRobotImageOptimizeInstructionsSchema
+>
+
+export const interpolatableRobotImageOptimizeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotImageOptimizeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotImageOptimizeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotImageOptimizeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotImageOptimizeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotImageOptimizeInstructionsWithHiddenFieldsSchema
 >

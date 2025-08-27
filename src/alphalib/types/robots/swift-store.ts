@@ -64,12 +64,31 @@ This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\
   })
   .strict()
 
+export const robotSwiftStoreInstructionsWithHiddenFieldsSchema =
+  robotSwiftStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotSwiftStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotSwiftStoreInstructions = z.infer<typeof robotSwiftStoreInstructionsSchema>
-export type RobotSwiftStoreInstructionsInput = z.input<typeof robotSwiftStoreInstructionsSchema>
+export type RobotSwiftStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotSwiftStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotSwiftStoreInstructionsSchema = interpolateRobot(
   robotSwiftStoreInstructionsSchema,
 )
 export type InterpolatableRobotSwiftStoreInstructions = z.input<
   typeof interpolatableRobotSwiftStoreInstructionsSchema
+>
+
+export const interpolatableRobotSwiftStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotSwiftStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotSwiftStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotSwiftStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotSwiftStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotSwiftStoreInstructionsWithHiddenFieldsSchema
 >

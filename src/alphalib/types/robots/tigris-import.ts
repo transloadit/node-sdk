@@ -82,15 +82,38 @@ When doing big imports, make sure no files are added or removed from other scrip
 The pagination page size. This only works when recursive is \`true\` for now, in order to not break backwards compatibility in non-recursive imports.
 `),
     return_file_stubs,
+    bucket_region: z
+      .string()
+      .optional()
+      .describe(`The region of your Tigris bucket. This is optional as it can often be derived.`),
   })
   .strict()
 
+export const robotTigrisImportInstructionsWithHiddenFieldsSchema =
+  robotTigrisImportInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotTigrisImportInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotTigrisImportInstructions = z.infer<typeof robotTigrisImportInstructionsSchema>
-export type RobotTigrisImportInstructionsInput = z.input<typeof robotTigrisImportInstructionsSchema>
+export type RobotTigrisImportInstructionsWithHiddenFields = z.infer<
+  typeof robotTigrisImportInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotTigrisImportInstructionsSchema = interpolateRobot(
   robotTigrisImportInstructionsSchema,
 )
 export type InterpolatableRobotTigrisImportInstructions = z.input<
   typeof interpolatableRobotTigrisImportInstructionsSchema
+>
+
+export const interpolatableRobotTigrisImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotTigrisImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotTigrisImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotTigrisImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotTigrisImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotTigrisImportInstructionsWithHiddenFieldsSchema
 >

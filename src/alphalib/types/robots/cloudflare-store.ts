@@ -65,14 +65,24 @@ Object Metadata can be specified using \`x-amz-meta-*\` headers. Note that these
     sign_urls_for: z.number().int().min(0).optional().describe(`
 This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\` property). The number that you set this parameter to is the URL expiry time in seconds. If this parameter is not used, no URL signing is done.
 `),
+    url_prefix: z.string().optional().describe(`
+The URL prefix used for accessing files from your Cloudflare R2 bucket. This is typically the custom public URL access host set up in your Cloudflare account.
+`),
   })
   .strict()
+
+export const robotCloudflareStoreInstructionsWithHiddenFieldsSchema =
+  robotCloudflareStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotCloudflareStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
 
 export type RobotCloudflareStoreInstructions = z.infer<
   typeof robotCloudflareStoreInstructionsSchema
 >
-export type RobotCloudflareStoreInstructionsInput = z.input<
-  typeof robotCloudflareStoreInstructionsSchema
+export type RobotCloudflareStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotCloudflareStoreInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotCloudflareStoreInstructionsSchema = interpolateRobot(
@@ -80,4 +90,13 @@ export const interpolatableRobotCloudflareStoreInstructionsSchema = interpolateR
 )
 export type InterpolatableRobotCloudflareStoreInstructions = z.input<
   typeof interpolatableRobotCloudflareStoreInstructionsSchema
+>
+
+export const interpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsSchema =
+  interpolateRobot(robotCloudflareStoreInstructionsWithHiddenFieldsSchema)
+export type InterpolatableRobotCloudflareStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsSchema
 >

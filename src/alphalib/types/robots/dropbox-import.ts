@@ -64,9 +64,17 @@ You can also use an array of path strings here to import multiple paths in the s
   })
   .strict()
 
+export const robotDropboxImportInstructionsWithHiddenFieldsSchema =
+  robotDropboxImportInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotDropboxImportInstructionsSchema.shape.result])
+      .optional(),
+    access_token: z.string().optional(), // Legacy field for backward compatibility
+  })
+
 export type RobotDropboxImportInstructions = z.infer<typeof robotDropboxImportInstructionsSchema>
-export type RobotDropboxImportInstructionsInput = z.input<
-  typeof robotDropboxImportInstructionsSchema
+export type RobotDropboxImportInstructionsWithHiddenFields = z.infer<
+  typeof robotDropboxImportInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotDropboxImportInstructionsSchema = interpolateRobot(
@@ -74,4 +82,14 @@ export const interpolatableRobotDropboxImportInstructionsSchema = interpolateRob
 )
 export type InterpolatableRobotDropboxImportInstructions = z.input<
   typeof interpolatableRobotDropboxImportInstructionsSchema
+>
+
+export const interpolatableRobotDropboxImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotDropboxImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotDropboxImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotDropboxImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotDropboxImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotDropboxImportInstructionsWithHiddenFieldsSchema
 >

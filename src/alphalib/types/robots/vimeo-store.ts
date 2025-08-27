@@ -82,15 +82,41 @@ The ID of the folder to which the video is uploaded.
 
 When visiting one of your folders, the URL is similar to \`https://vimeo.com/manage/folders/xxxxxxxx\`. The folder_id would be \`"xxxxxxxx"\`.
 `),
+    folder_uri: z.string().optional().describe(`
+Deprecated. Please use \`folder_id\` instead. The URI of the folder to which the video is uploaded.
+`),
   })
   .strict()
 
+export const robotVimeoStoreInstructionsWithHiddenFieldsSchema =
+  robotVimeoStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotVimeoStoreInstructionsSchema.shape.result])
+      .optional(),
+    access_token: z
+      .string()
+      .optional()
+      .describe('Legacy authentication field. Use credentials instead.'),
+  })
+
 export type RobotVimeoStoreInstructions = z.infer<typeof robotVimeoStoreInstructionsSchema>
-export type RobotVimeoStoreInstructionsInput = z.input<typeof robotVimeoStoreInstructionsSchema>
+export type RobotVimeoStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotVimeoStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotVimeoStoreInstructionsSchema = interpolateRobot(
   robotVimeoStoreInstructionsSchema,
 )
 export type InterpolatableRobotVimeoStoreInstructions = z.input<
   typeof interpolatableRobotVimeoStoreInstructionsSchema
+>
+
+export const interpolatableRobotVimeoStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotVimeoStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotVimeoStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotVimeoStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotVimeoStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotVimeoStoreInstructionsWithHiddenFieldsSchema
 >

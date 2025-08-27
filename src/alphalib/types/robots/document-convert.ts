@@ -243,8 +243,18 @@ To change the formatting of the HTML element, the \`font-size\` must be specifie
   })
   .strict()
 
+export const robotDocumentConvertInstructionsWithHiddenFieldsSchema =
+  robotDocumentConvertInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotDocumentConvertInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotDocumentConvertInstructions = z.infer<
   typeof robotDocumentConvertInstructionsSchema
+>
+export type RobotDocumentConvertInstructionsWithHiddenFields = z.infer<
+  typeof robotDocumentConvertInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotDocumentConvertInstructionsSchema = interpolateRobot(
@@ -252,4 +262,13 @@ export const interpolatableRobotDocumentConvertInstructionsSchema = interpolateR
 )
 export type InterpolatableRobotDocumentConvertInstructions = z.input<
   typeof interpolatableRobotDocumentConvertInstructionsSchema
+>
+
+export const interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema =
+  interpolateRobot(robotDocumentConvertInstructionsWithHiddenFieldsSchema)
+export type InterpolatableRobotDocumentConvertInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotDocumentConvertInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema
 >

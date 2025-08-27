@@ -21,9 +21,21 @@ export const robotMetaReadInstructionsSchema = robotBase
 
 export type RobotMetaReadInstructions = z.infer<typeof robotMetaReadInstructionsSchema>
 
+export const robotMetaReadInstructionsWithHiddenFieldsSchema =
+  robotMetaReadInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotMetaReadInstructionsSchema.shape.result]).optional(),
+  })
+
 export const interpolatableRobotMetaReadInstructionsSchema = interpolateRobot(
   robotMetaReadInstructionsSchema,
 )
 export type InterpolatableRobotMetaReadInstructions = z.input<
   typeof interpolatableRobotMetaReadInstructionsSchema
+>
+
+export const interpolatableRobotMetaReadInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotMetaReadInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotMetaReadInstructionsWithHiddenFields = z.input<
+  typeof interpolatableRobotMetaReadInstructionsWithHiddenFieldsSchema
 >

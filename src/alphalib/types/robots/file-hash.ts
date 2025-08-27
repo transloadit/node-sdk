@@ -54,11 +54,29 @@ The file hash is exported as \`file.meta.hash\`.
   })
   .strict()
 
+export const robotFileHashInstructionsWithHiddenFieldsSchema =
+  robotFileHashInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotFileHashInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotFileHashInstructions = z.infer<typeof robotFileHashInstructionsSchema>
+export type RobotFileHashInstructionsWithHiddenFields = z.infer<
+  typeof robotFileHashInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFileHashInstructionsSchema = interpolateRobot(
   robotFileHashInstructionsSchema,
 )
 export type InterpolatableRobotFileHashInstructions = z.input<
   typeof interpolatableRobotFileHashInstructionsSchema
+>
+
+export const interpolatableRobotFileHashInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFileHashInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFileHashInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFileHashInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFileHashInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFileHashInstructionsWithHiddenFieldsSchema
 >

@@ -67,7 +67,7 @@ similar size before merging them.
       .default('horizontal')
       .describe('Specifies the direction which the images are displayed.'),
     // TODO: default is not between 1 and 10
-    border: z.number().int().min(1).max(10).default(0).describe(`
+    border: z.number().int().default(0).describe(`
 An integer value which defines the gap between images on the spritesheet.
 
 A value of \`10\` would cause the images to have the largest gap between them, while a value of \`1\` would place the images side-by-side.
@@ -85,11 +85,32 @@ Controls the image compression for PNG images. Setting to \`true\` results in sm
     quality: imageQualitySchema,
   })
   .strict()
+
+export const robotImageMergeInstructionsWithHiddenFieldsSchema =
+  robotImageMergeInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotImageMergeInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotImageMergeInstructions = z.infer<typeof robotImageMergeInstructionsSchema>
+export type RobotImageMergeInstructionsWithHiddenFields = z.infer<
+  typeof robotImageMergeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotImageMergeInstructionsSchema = interpolateRobot(
   robotImageMergeInstructionsSchema,
 )
 export type InterpolatableRobotImageMergeInstructions = z.input<
   typeof interpolatableRobotImageMergeInstructionsSchema
+>
+
+export const interpolatableRobotImageMergeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotImageMergeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotImageMergeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotImageMergeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotImageMergeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotImageMergeInstructionsWithHiddenFieldsSchema
 >

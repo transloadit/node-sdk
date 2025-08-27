@@ -66,11 +66,32 @@ Whether the original file should be transcoded into a new format if there is an 
 `),
   })
   .strict()
+
+export const robotAudioArtworkInstructionsWithHiddenFieldsSchema =
+  robotAudioArtworkInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotAudioArtworkInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotAudioArtworkInstructions = z.infer<typeof robotAudioArtworkInstructionsSchema>
+export type RobotAudioArtworkInstructionsWithHiddenFields = z.infer<
+  typeof robotAudioArtworkInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotAudioArtworkInstructionsSchema = interpolateRobot(
   robotAudioArtworkInstructionsSchema,
 )
 export type InterpolatableRobotAudioArtworkInstructions = z.input<
   typeof interpolatableRobotAudioArtworkInstructionsSchema
+>
+
+export const interpolatableRobotAudioArtworkInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotAudioArtworkInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotAudioArtworkInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAudioArtworkInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotAudioArtworkInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAudioArtworkInstructionsWithHiddenFieldsSchema
 >

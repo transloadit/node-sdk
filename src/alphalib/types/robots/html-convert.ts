@@ -95,11 +95,34 @@ See [Playwright's documentation](https://playwright.dev/docs/api/class-page#page
   })
   .strict()
 
+export const robotHtmlConvertInstructionsWithHiddenFieldsSchema =
+  robotHtmlConvertInstructionsSchema.extend({
+    debuginfo: z.boolean().optional(),
+    timeouts: z.record(z.unknown()).optional(),
+    actions: z.array(z.record(z.unknown())).optional(),
+    result: z
+      .union([z.literal('debug'), robotHtmlConvertInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotHtmlConvertInstructions = z.infer<typeof robotHtmlConvertInstructionsSchema>
+export type RobotHtmlConvertInstructionsWithHiddenFields = z.infer<
+  typeof robotHtmlConvertInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotHtmlConvertInstructionsSchema = interpolateRobot(
   robotHtmlConvertInstructionsSchema,
 )
 export type InterpolatableRobotHtmlConvertInstructions = z.input<
   typeof interpolatableRobotHtmlConvertInstructionsSchema
+>
+
+export const interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotHtmlConvertInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotHtmlConvertInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotHtmlConvertInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema
 >

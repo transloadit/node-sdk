@@ -82,12 +82,31 @@ Set this to a combination of \`r\` (read), \`w\` (write) and \`d\` (delete) for 
   })
   .strict()
 
+export const robotAzureStoreInstructionsWithHiddenFieldsSchema =
+  robotAzureStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotAzureStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotAzureStoreInstructions = z.infer<typeof robotAzureStoreInstructionsSchema>
-export type RobotAzureStoreInstructionsInput = z.input<typeof robotAzureStoreInstructionsSchema>
+export type RobotAzureStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotAzureStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotAzureStoreInstructionsSchema = interpolateRobot(
   robotAzureStoreInstructionsSchema,
 )
 export type InterpolatableRobotAzureStoreInstructions = z.input<
   typeof interpolatableRobotAzureStoreInstructionsSchema
+>
+
+export const interpolatableRobotAzureStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotAzureStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotAzureStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAzureStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotAzureStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAzureStoreInstructionsWithHiddenFieldsSchema
 >

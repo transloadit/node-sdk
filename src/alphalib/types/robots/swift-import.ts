@@ -85,12 +85,31 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   })
   .strict()
 
+export const robotSwiftImportInstructionsWithHiddenFieldsSchema =
+  robotSwiftImportInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotSwiftImportInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotSwiftImportInstructions = z.infer<typeof robotSwiftImportInstructionsSchema>
-export type RobotSwiftImportInstructionsInput = z.input<typeof robotSwiftImportInstructionsSchema>
+export type RobotSwiftImportInstructionsWithHiddenFields = z.infer<
+  typeof robotSwiftImportInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotSwiftImportInstructionsSchema = interpolateRobot(
   robotSwiftImportInstructionsSchema,
 )
 export type InterpolatableRobotSwiftImportInstructions = z.input<
   typeof interpolatableRobotSwiftImportInstructionsSchema
+>
+
+export const interpolatableRobotSwiftImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotSwiftImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotSwiftImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotSwiftImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotSwiftImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotSwiftImportInstructionsWithHiddenFieldsSchema
 >

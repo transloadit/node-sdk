@@ -119,15 +119,50 @@ When doing big imports, make sure no files are added or removed from other scrip
 The pagination page size. This only works when recursive is \`true\` for now, in order to not break backwards compatibility in non-recursive imports.
 `),
     return_file_stubs,
+    range: z.union([z.string(), z.array(z.string())]).optional().describe(`
+Allows you to specify one or more byte ranges to import from the file. S3 must support range requests for this to work.
+
+**Single range**: Use a string like \`"0-99"\` to import bytes 0-99 (the first 100 bytes).
+
+**Multiple ranges**: Use an array like \`["0-99", "200-299"]\` to import multiple separate ranges. The resulting file will contain all requested ranges concatenated together, with zero bytes (\\0) filling any gaps between non-contiguous ranges.
+
+**Range formats**:
+- \`"0-99"\`: Bytes 0 through 99 (inclusive)
+- \`"100-199"\`: Bytes 100 through 199 (inclusive)
+- \`"-100"\`: The last 100 bytes of the file
+
+**Important notes**:
+- S3 supports range requests by default
+- Overlapping ranges are allowed and will be included as requested
+- The resulting file size will be the highest byte position requested, with gaps filled with zero bytes
+- Each range is fetched in a separate request to ensure compatibility with S3
+`),
   })
   .strict()
 
+export const robotS3ImportInstructionsWithHiddenFieldsSchema =
+  robotS3ImportInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotS3ImportInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotS3ImportInstructions = z.infer<typeof robotS3ImportInstructionsSchema>
-export type RobotS3ImportInstructionsInput = z.input<typeof robotS3ImportInstructionsSchema>
+export type RobotS3ImportInstructionsWithHiddenFields = z.infer<
+  typeof robotS3ImportInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotS3ImportInstructionsSchema = interpolateRobot(
   robotS3ImportInstructionsSchema,
 )
 export type InterpolatableRobotS3ImportInstructions = z.input<
   typeof interpolatableRobotS3ImportInstructionsSchema
+>
+
+export const interpolatableRobotS3ImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotS3ImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotS3ImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotS3ImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotS3ImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotS3ImportInstructionsWithHiddenFieldsSchema
 >

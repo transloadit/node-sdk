@@ -92,12 +92,31 @@ The SSL URL of the file in the result JSON. The following [Assembly variables](/
   })
   .strict()
 
+export const robotGoogleStoreInstructionsWithHiddenFieldsSchema =
+  robotGoogleStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotGoogleStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotGoogleStoreInstructions = z.infer<typeof robotGoogleStoreInstructionsSchema>
-export type RobotGoogleStoreInstructionsInput = z.input<typeof robotGoogleStoreInstructionsSchema>
+export type RobotGoogleStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotGoogleStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotGoogleStoreInstructionsSchema = interpolateRobot(
   robotGoogleStoreInstructionsSchema,
 )
 export type InterpolatableRobotGoogleStoreInstructions = z.input<
   typeof interpolatableRobotGoogleStoreInstructionsSchema
+>
+
+export const interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotGoogleStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema
 >

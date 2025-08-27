@@ -78,11 +78,29 @@ In what format to return the extracted text.
   })
   .strict()
 
+export const robotImageOcrInstructionsWithHiddenFieldsSchema =
+  robotImageOcrInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotImageOcrInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotImageOcrInstructions = z.infer<typeof robotImageOcrInstructionsSchema>
+export type RobotImageOcrInstructionsWithHiddenFields = z.infer<
+  typeof robotImageOcrInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotImageOcrInstructionsSchema = interpolateRobot(
   robotImageOcrInstructionsSchema,
 )
 export type InterpolatableRobotImageOcrInstructions = z.input<
   typeof interpolatableRobotImageOcrInstructionsSchema
+>
+
+export const interpolatableRobotImageOcrInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotImageOcrInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotImageOcrInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotImageOcrInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotImageOcrInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotImageOcrInstructionsWithHiddenFieldsSchema
 >

@@ -51,15 +51,39 @@ export const robotVideoEncodeInstructionsSchema = robotBase
   .merge(videoEncodeSpecificInstructionsSchema)
   .extend({
     robot: z.literal('/video/encode'),
+    font_size: z.number().optional(),
+    font_color: z.string().optional(),
+    text_background_color: z.string().optional(),
   })
   .strict()
 
+export const robotVideoEncodeInstructionsWithHiddenFieldsSchema =
+  robotVideoEncodeInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotVideoEncodeInstructionsSchema.shape.result])
+      .optional(),
+    chunked_transcoding: z.boolean().optional(),
+    realtime: z.boolean().optional(),
+  })
+
 export type RobotVideoEncodeInstructions = z.infer<typeof robotVideoEncodeInstructionsSchema>
-export type RobotVideoEncodeInstructionsInput = z.input<typeof robotVideoEncodeInstructionsSchema>
+export type RobotVideoEncodeInstructionsWithHiddenFields = z.infer<
+  typeof robotVideoEncodeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotVideoEncodeInstructionsSchema = interpolateRobot(
   robotVideoEncodeInstructionsSchema,
 )
 export type InterpolatableRobotVideoEncodeInstructions = z.input<
   typeof interpolatableRobotVideoEncodeInstructionsSchema
+>
+
+export const interpolatableRobotVideoEncodeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotVideoEncodeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotVideoEncodeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotVideoEncodeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotVideoEncodeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotVideoEncodeInstructionsWithHiddenFieldsSchema
 >

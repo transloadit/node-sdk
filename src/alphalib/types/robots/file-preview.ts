@@ -109,6 +109,12 @@ The parameter defaults to the following definition:
 }
 \`\`\`
 `),
+    artwork_outer_color: color_with_alpha.optional().describe(`
+  The color used in the outer parts of the artwork's gradient.
+  `),
+    artwork_center_color: color_with_alpha.optional().describe(`
+  The color used in the center of the artwork's gradient.
+  `),
     waveform_center_color: color_with_alpha.default('#000000ff').describe(`
 The color used in the center of the waveform's gradient. The format is \`#rrggbb[aa]\` (red, green, blue, alpha). Only used if the \`waveform\` strategy for audio files is applied.
 `),
@@ -168,12 +174,32 @@ Specifies whether the generated animated image should loop forever (\`true\`) or
   })
   .strict()
 
+export const robotFilePreviewInstructionsWithHiddenFieldsSchema =
+  robotFilePreviewInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotFilePreviewInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotFilePreviewInstructions = z.infer<typeof robotFilePreviewInstructionsSchema>
 export type RobotFilePreviewInstructionsInput = z.input<typeof robotFilePreviewInstructionsSchema>
+export type RobotFilePreviewInstructionsWithHiddenFields = z.infer<
+  typeof robotFilePreviewInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFilePreviewInstructionsSchema = interpolateRobot(
   robotFilePreviewInstructionsSchema,
 )
 export type InterpolatableRobotFilePreviewInstructions = z.input<
   typeof interpolatableRobotFilePreviewInstructionsSchema
+>
+
+export const interpolatableRobotFilePreviewInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFilePreviewInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFilePreviewInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFilePreviewInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFilePreviewInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFilePreviewInstructionsWithHiddenFieldsSchema
 >

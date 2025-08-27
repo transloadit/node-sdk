@@ -40,11 +40,29 @@ The <dfn>Robot</dfn> currently only accepts files under 500KB.
   })
   .strict()
 
+export const robotFileReadInstructionsWithHiddenFieldsSchema =
+  robotFileReadInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotFileReadInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotFileReadInstructions = z.infer<typeof robotFileReadInstructionsSchema>
+export type RobotFileReadInstructionsWithHiddenFields = z.infer<
+  typeof robotFileReadInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFileReadInstructionsSchema = interpolateRobot(
   robotFileReadInstructionsSchema,
 )
 export type InterpolatableRobotFileReadInstructions = z.input<
   typeof interpolatableRobotFileReadInstructionsSchema
+>
+
+export const interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFileReadInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFileReadInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFileReadInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema
 >

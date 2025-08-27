@@ -96,3 +96,27 @@ export const interpolatableRobotVimeoImportInstructionsSchema = interpolateRobot
 export type InterpolatableRobotVimeoImportInstructions = z.input<
   typeof interpolatableRobotVimeoImportInstructionsSchema
 >
+
+export const robotVimeoImportInstructionsWithHiddenFieldsSchema =
+  robotVimeoImportInstructionsSchema.extend({
+    access_token: z
+      .string()
+      .optional()
+      .describe('Legacy authentication field. Use credentials instead.'),
+    return_file_stubs: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, returns file stubs instead of downloading the actual files. Used for testing.',
+      ),
+  })
+
+export const interpolatableRobotVimeoImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotVimeoImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotVimeoImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotVimeoImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotVimeoImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotVimeoImportInstructionsWithHiddenFieldsSchema
+>

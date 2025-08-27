@@ -130,12 +130,31 @@ The error message shown to your users (such as by Uppy) when a file is declined 
   })
   .strict()
 
+export const robotFileFilterInstructionsWithHiddenFieldsSchema =
+  robotFileFilterInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotFileFilterInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotFileFilterInstructions = z.infer<typeof robotFileFilterInstructionsSchema>
-export type RobotFileFilterInstructionsInput = z.input<typeof robotFileFilterInstructionsSchema>
+export type RobotFileFilterInstructionsWithHiddenFields = z.infer<
+  typeof robotFileFilterInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFileFilterInstructionsSchema = interpolateRobot(
   robotFileFilterInstructionsSchema,
 )
 export type InterpolatableRobotFileFilterInstructions = z.input<
   typeof interpolatableRobotFileFilterInstructionsSchema
+>
+
+export const interpolatableRobotFileFilterInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFileFilterInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFileFilterInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFileFilterInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFileFilterInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFileFilterInstructionsWithHiddenFieldsSchema
 >

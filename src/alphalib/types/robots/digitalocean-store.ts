@@ -73,11 +73,18 @@ This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\
   })
   .strict()
 
+export const robotDigitaloceanStoreInstructionsWithHiddenFieldsSchema =
+  robotDigitaloceanStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotDigitaloceanStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotDigitaloceanStoreInstructions = z.infer<
   typeof robotDigitaloceanStoreInstructionsSchema
 >
-export type RobotDigitaloceanStoreInstructionsInput = z.input<
-  typeof robotDigitaloceanStoreInstructionsSchema
+export type RobotDigitaloceanStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotDigitaloceanStoreInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotDigitaloceanStoreInstructionsSchema = interpolateRobot(
@@ -85,4 +92,13 @@ export const interpolatableRobotDigitaloceanStoreInstructionsSchema = interpolat
 )
 export type InterpolatableRobotDigitaloceanStoreInstructions = z.input<
   typeof interpolatableRobotDigitaloceanStoreInstructionsSchema
+>
+
+export const interpolatableRobotDigitaloceanStoreInstructionsWithHiddenFieldsSchema =
+  interpolateRobot(robotDigitaloceanStoreInstructionsWithHiddenFieldsSchema)
+export type InterpolatableRobotDigitaloceanStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotDigitaloceanStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotDigitaloceanStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotDigitaloceanStoreInstructionsWithHiddenFieldsSchema
 >

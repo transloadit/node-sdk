@@ -44,11 +44,31 @@ export const robotDocumentSplitInstructionsSchema = robotBase
   })
   .strict()
 
+export const robotDocumentSplitInstructionsWithHiddenFieldsSchema =
+  robotDocumentSplitInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotDocumentSplitInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotDocumentSplitInstructions = z.infer<typeof robotDocumentSplitInstructionsSchema>
+export type RobotDocumentSplitInstructionsWithHiddenFields = z.infer<
+  typeof robotDocumentSplitInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotDocumentSplitInstructionsSchema = interpolateRobot(
   robotDocumentSplitInstructionsSchema,
 )
 export type InterpolatableRobotDocumentSplitInstructions = z.input<
   typeof interpolatableRobotDocumentSplitInstructionsSchema
+>
+
+export const interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotDocumentSplitInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotDocumentSplitInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotDocumentSplitInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema
 >

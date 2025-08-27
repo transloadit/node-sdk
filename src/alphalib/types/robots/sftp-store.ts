@@ -63,12 +63,32 @@ This optional parameter controls how an uploaded file's permission bits are set.
   })
   .strict()
 
+export const robotSftpStoreInstructionsWithHiddenFieldsSchema =
+  robotSftpStoreInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotSftpStoreInstructionsSchema.shape.result]).optional(),
+    allowNetwork: z.string().optional().describe(`
+Network access permission for the SFTP connection. This is used to control which networks the SFTP robot can access.
+`),
+  })
+
 export type RobotSftpStoreInstructions = z.infer<typeof robotSftpStoreInstructionsSchema>
-export type RobotSftpStoreInstructionsInput = z.input<typeof robotSftpStoreInstructionsSchema>
+export type RobotSftpStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotSftpStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotSftpStoreInstructionsSchema = interpolateRobot(
   robotSftpStoreInstructionsSchema,
 )
 export type InterpolatableRobotSftpStoreInstructions = z.input<
   typeof interpolatableRobotSftpStoreInstructionsSchema
+>
+
+export const interpolatableRobotSftpStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotSftpStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotSftpStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotSftpStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotSftpStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotSftpStoreInstructionsWithHiddenFieldsSchema
 >

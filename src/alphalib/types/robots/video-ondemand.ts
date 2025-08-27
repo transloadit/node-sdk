@@ -115,6 +115,9 @@ export const robotVideoOndemandInstructionsSchema = robotBase
 
 export const robotVideoOndemandInstructionsWithHiddenFieldsSchema =
   robotVideoOndemandInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotVideoOndemandInstructionsSchema.shape.result])
+      .optional(),
     cdn_required_bypass: z
       .boolean()
       .optional()
@@ -141,4 +144,14 @@ export const interpolatableRobotVideoOndemandInstructionsSchema = interpolateRob
 )
 export type InterpolatableRobotVideoOndemandInstructions = z.input<
   typeof interpolatableRobotVideoOndemandInstructionsSchema
+>
+
+export const interpolatableRobotVideoOndemandInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotVideoOndemandInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotVideoOndemandInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotVideoOndemandInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotVideoOndemandInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotVideoOndemandInstructionsWithHiddenFieldsSchema
 >

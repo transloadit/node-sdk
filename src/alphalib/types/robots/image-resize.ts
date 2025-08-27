@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
-  color_without_alpha,
+  color_without_alpha_with_named,
   colorspaceSchema,
   complexHeightSchema,
   complexWidthSchema,
@@ -54,6 +54,69 @@ export const meta: RobotMetaInput = {
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
+
+export const oneTextSchema = z.object({
+  // TODO: Determine valid fonts
+  text: z.string(),
+  font: z.string().default('Arial').describe(`
+The font family to use. Also includes boldness and style of the font.
+
+[Here](/docs/supported-formats/fonts/) is a list of all
+supported fonts.
+`),
+  size: z.number().int().min(1).default(12).describe(`
+The text size in pixels.
+`),
+  rotate: z.number().int().default(0).describe(`
+The rotation angle in degrees.
+`),
+  color: color_without_alpha_with_named.default('#000000').describe(`
+The text color. All hex colors in the form \`"#xxxxxx"\` are supported, where each x can be \`0-9\` or \`a-f\`. Named colors like \`"black"\`, \`"white"\`, \`"transparent"\` etc. are also supported. If you want a transparent text color, use "stroke" instead, otherwise your text will not be visible.
+`),
+  background_color: color_without_alpha_with_named.default('transparent').describe(`
+The background color behind the text. All hex colors in the form \`"#xxxxxx"\` are supported, where each x can be \`0-9\` or \`a-f\`. Named colors like \`"black"\`, \`"white"\`, \`"transparent"\` etc. are also supported.
+`),
+  stroke_width: z.number().int().min(0).default(0).describe(`
+The stroke's width in pixels.
+`),
+  stroke_color: color_without_alpha_with_named.default('transparent').describe(`
+The stroke's color. All hex colors in the form \`"#xxxxxx"\` are supported, where each x can be \`0-9\` or \`a-f\`. Named colors like \`"black"\`, \`"white"\`, \`"transparent"\` etc. are also supported.
+`),
+  align: z.enum(['center', 'left', 'right']).default('center').describe(`
+The horizontal text alignment. Can be \`"left"\`, \`"center"\` and \`"right"\`.
+`),
+  valign: z.enum(['bottom', 'center', 'top']).default('center').describe(`
+The vertical text alignment. Can be \`"top"\`, \`"center"\` and \`"bottom"\`.
+`),
+  x_offset: z.number().int().default(0).describe(`
+The horizontal offset for the text in pixels that is added (positive integer) or removed (negative integer) from the horizontal alignment.
+`),
+  y_offset: z.number().int().default(0).describe(`
+The vertical offset for the text in pixels that is added (positive integer) or removed (negative integer) from the vertical alignment.
+`),
+})
+
+const TEXT_DESCRIPTION = `
+Text overlays to be applied to the image. Can be either a single text object or an array of text objects. Each text object contains text rules. The following text parameters are intended to be used as properties for your text overlays. Here is an example:
+
+\`\`\`json
+"watermarked": {
+  "use": "resized",
+  "robot": "/image/resize",
+  "text": [
+    {
+      "text": "© 2018 Transloadit.com",
+      "size": 12,
+      "font": "Ubuntu",
+      "color": "#eeeeee",
+      "valign": "bottom",
+      "align": "right",
+      "x_offset": 16,
+      "y_offset": -10
+    }
+  ]
+}
+\`\`\``
 
 export const robotImageResizeInstructionsSchema = robotBase
   .merge(robotUse)
@@ -177,7 +240,7 @@ Gives control of the alpha/matte channel of an image.
 Gives control of the alpha/matte channel of an image before applying the clipping path via \`clip: true\`.
 `),
     flatten: z.boolean().default(true).describe(`
-Flattens all layers onto the specified background to achieve better results from transparent formats to non-transparent formats, as explained in the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php?#layers).
+Flattens all layers onto the specified background to achieve better results from transparent formats to non-transparent formats, as explained in the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#layers).
 
 To preserve animations, GIF files are not flattened when this is set to \`true\`. To flatten GIF animations, use the \`frame\` parameter.
 `),
@@ -188,9 +251,7 @@ Prevents gamma errors [common in many image scaling algorithms](https://www.4p8.
     adaptive_filtering: z.boolean().default(false).describe(`
 Controls the image compression for PNG images. Setting to \`true\` results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled.
 `),
-    background: z
-      .union([z.literal('transparent'), z.literal('none'), color_without_alpha])
-      .default('#FFFFFF').describe(`
+    background: color_without_alpha_with_named.default('#FFFFFF').describe(`
 Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (used for the \`pad\` resize strategy).
 
 **Note:** By default, the background of transparent images is changed to white. To preserve transparency, set \`"background"\` to \`"none"\`.
@@ -220,9 +281,13 @@ Sets the image color type. For details about the available values, see the [Imag
 Applies a sepia tone effect in percent.
 `),
     rotation: z
-      .union([z.literal(90), z.literal(180), z.literal(270), z.literal(360), z.boolean()])
+      .union([
+        z.number(), // Support any numeric rotation value (including precise angles like 2.9)
+        z.boolean(),
+        z.literal('auto'), // Support 'auto' string value
+      ])
       .default(true).describe(`
-Determines whether the image should be rotated. Use integers to specify the rotation for each quarter revolution(\`90\`, \`180\`, \`270\`, \`360\`). Use the value \`true\` to auto-rotate images that are rotated incorrectly or depend on EXIF rotation settings. Otherwise, use \`false\` to disable auto-fixing altogether.
+Determines whether the image should be rotated. Use any number to specify the rotation angle in degrees (e.g., \`90\`, \`180\`, \`270\`, \`360\`, or precise values like \`2.9\`). Use the value \`true\` or \`"auto"\` to auto-rotate images that are rotated incorrectly or depend on EXIF rotation settings. Otherwise, use \`false\` to disable auto-fixing altogether.
 `),
     compress: z
       .enum(['BZip', 'Fax', 'Group4', 'JPEG', 'JPEG2000', 'Lossless', 'LZW', 'None', 'RLE', 'Zip'])
@@ -305,80 +370,20 @@ For the \`"stretch"\` resize strategy, the watermark is stretched (meaning, it i
 For the \`"area"\` resize strategy, the watermark is resized (keeping its aspect ratio in check) so that it covers \`"xx%"\` of the image's surface area. The value from \`watermark_size\` is used for the percentage area size.
 `),
     text: z
-      .array(
-        z.object({
-          // TODO: Determine valid fonts
-          text: z.string(),
-          font: z.string().default('Arial').describe(`
-The font family to use. Also includes boldness and style of the font.
-
-[Here](/docs/supported-formats/fonts/) is a list of all
-supported fonts.
-`),
-          size: z.number().int().min(1).default(12).describe(`
-The text size in pixels.
-`),
-          rotate: z.number().int().default(0).describe(`
-The rotation angle in degrees.
-`),
-          color: z.union([color_without_alpha, z.literal('transparent')]).default('#000000')
-            .describe(`
-The text color. All hex colors in the form \`"#xxxxxx"\` are supported, where each x can be \`0-9\` or \`a-f\`. \`"transparent"\` is also supported if you want a transparent text color. In that case use "stroke" instead, otherwise your text will not be visible.
-`),
-          background_color: z
-            .union([color_without_alpha, z.literal('transparent')])
-            .default('transparent').describe(`
-The text color. All hex colors in the form \`"#xxxxxx"\` are supported, where each x is can be \`0-9\` or \`a-f\`. \`"transparent"\` is also supported.
-`),
-          stroke_width: z.number().int().min(0).default(0).describe(`
-The stroke's width in pixels.
-`),
-          stroke_color: z
-            .union([color_without_alpha, z.literal('transparent')])
-            .default('transparent').describe(`
-The stroke's color. All hex colors in the form \`"#xxxxxx"\` are supported, where each x is can be \`0-9\` or \`a-f\`. \`"transparent"\` is also supported.
-`),
-          align: z.enum(['center', 'left', 'right']).default('center').describe(`
-The horizontal text alignment. Can be \`"left"\`, \`"center"\` and \`"right"\`.
-`),
-          valign: z.enum(['bottom', 'center', 'top']).default('center').describe(`
-The vertical text alignment. Can be \`"top"\`, \`"center"\` and \`"bottom"\`.
-`),
-          x_offset: z.number().int().default(0).describe(`
-The horizontal offset for the text in pixels that is added (positive integer) or removed (negative integer) from the horizontal alignment.
-`),
-          y_offset: z.number().int().default(0).describe(`
-The vertical offset for the text in pixels that is added (positive integer) or removed (negative integer) from the vertical alignment.
-`),
-        }),
-      )
-      .default([]).describe(`
-An array of objects each containing text rules. The following text parameters are intended to be used as properties for your array of text overlays. Here is an example:
-
-\`\`\`json
-"watermarked": {
-  "use": "resized",
-  "robot": "/image/resize",
-  "text": [
-    {
-      "text": "© 2018 Transloadit.com",
-      "size": 12,
-      "font": "Ubuntu",
-      "color": "#eeeeee",
-      "valign": "bottom",
-      "align": "right",
-      "x_offset": 16,
-      "y_offset": -10
-    }
-  ]
-}
-\`\`\`
-`),
+      .union([
+        // Support single text object (backward compatibility)
+        oneTextSchema,
+        // Support array of text objects (current schema)
+        z.array(oneTextSchema),
+      ])
+      .optional()
+      .describe(TEXT_DESCRIPTION),
     progressive: z.boolean().default(false).describe(`
 Interlaces the image if set to \`true\`, which makes the image load progressively in browsers. Instead of rendering the image from top to bottom, the browser will first show a low-res blurry version of the images which is then quickly replaced with the actual image as the data arrives. This greatly increases the user experience, but comes at a cost of a file size increase by around 10%.
 `),
-    transparent: z.union([color_without_alpha, z.string().regex(/^\d+,\d+,\d+$/)]).optional()
-      .describe(`
+    transparent: z
+      .union([color_without_alpha_with_named, z.string().regex(/^\d+,\d+,\d+$/)])
+      .optional().describe(`
 Make this color transparent within the image. Example: \`"255,255,255"\`.
 `),
     trim_whitespace: z.boolean().default(false).describe(`
@@ -401,15 +406,71 @@ You can set this value to a specific \`width\` or in the format \`width\`x\`heig
 
 If your converted image is unsharp, please try increasing density.
 `),
+    monochrome: z.boolean().default(false).describe(`
+Transform the image to black and white. This is a shortcut for setting the colorspace to Gray and type to Bilevel.
+`),
+    shave: z
+      .union([
+        z.string().regex(/^\d+(x\d+)?$/),
+        z.number().int().min(0).transform(String), // Accept numbers and convert to string
+      ])
+      .optional().describe(`
+Shave pixels from the image edges. The value should be in the format \`width\` or \`width\`x\`height\` to specify the number of pixels to remove from each side.
+`),
   })
   .strict()
 
+export const robotImageResizeInstructionsWithHiddenFieldsSchema =
+  robotImageResizeInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotImageResizeInstructionsSchema.shape.result])
+      .optional(),
+    stack: z.string().optional().describe('Legacy parameter, use imagemagick_stack instead'),
+    text: z
+      .union([
+        // Support single text object (backward compatibility)
+        oneTextSchema.extend({
+          gravity: positionSchema.default('top-left').optional().describe(`
+            Legacy. The direction from which to start the offsets.
+            `),
+        }),
+        // Support array of text objects (current schema)
+        z.array(
+          oneTextSchema.extend({
+            gravity: positionSchema.default('top-left').optional().describe(`
+              Legacy. The direction from which to start the offsets.
+              `),
+          }),
+        ),
+      ])
+      .optional()
+      .describe(TEXT_DESCRIPTION),
+    watermark_position_x: z.number().int().optional().describe(`
+      Legacy alias for \`watermark_x_offset\`. The x-offset in number of pixels at which the watermark will be placed.
+      `),
+    watermark_position_y: z.number().int().optional().describe(`
+      Legacy alias for \`watermark_y_offset\`. The y-offset in number of pixels at which the watermark will be placed.
+      `),
+  })
+
 export type RobotImageResizeInstructions = z.infer<typeof robotImageResizeInstructionsSchema>
-export type RobotImageResizeInstructionsInput = z.input<typeof robotImageResizeInstructionsSchema>
+export type RobotImageResizeInstructionsWithHiddenFields = z.infer<
+  typeof robotImageResizeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotImageResizeInstructionsSchema = interpolateRobot(
   robotImageResizeInstructionsSchema,
 )
 export type InterpolatableRobotImageResizeInstructions = z.input<
   typeof interpolatableRobotImageResizeInstructionsSchema
+>
+
+export const interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotImageResizeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotImageResizeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotImageResizeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema
 >

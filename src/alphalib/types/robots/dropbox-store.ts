@@ -55,12 +55,33 @@ Whether to create a URL to this file for sharing with other people. This will ov
   })
   .strict()
 
+export const robotDropboxStoreInstructionsWithHiddenFieldsSchema =
+  robotDropboxStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotDropboxStoreInstructionsSchema.shape.result])
+      .optional(),
+    access_token: z.string().optional(), // Legacy field for backward compatibility
+  })
+
 export type RobotDropboxStoreInstructions = z.infer<typeof robotDropboxStoreInstructionsSchema>
 export type RobotDropboxStoreInstructionsInput = z.input<typeof robotDropboxStoreInstructionsSchema>
+export type RobotDropboxStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotDropboxStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotDropboxStoreInstructionsSchema = interpolateRobot(
   robotDropboxStoreInstructionsSchema,
 )
 export type InterpolatableRobotDropboxStoreInstructions = z.input<
   typeof interpolatableRobotDropboxStoreInstructionsSchema
+>
+
+export const interpolatableRobotDropboxStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotDropboxStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotDropboxStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotDropboxStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotDropboxStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotDropboxStoreInstructionsWithHiddenFieldsSchema
 >
