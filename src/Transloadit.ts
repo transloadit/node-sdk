@@ -244,7 +244,7 @@ export class Transloadit {
     // Undocumented feature to allow specifying a custom assembly id from the client
     // Not recommended for general use due to security. E.g if the user doesn't provide a cryptographically
     // secure ID, then anyone could access the assembly.
-    let effectiveAssemblyId
+    let effectiveAssemblyId: string
     if (assemblyId != null) {
       effectiveAssemblyId = assemblyId
     } else {
@@ -290,11 +290,15 @@ export class Transloadit {
       const allStreams = Object.values(allStreamsMap)
 
       // Pause all streams
-      allStreams.forEach(({ stream }) => stream.pause())
+      for (const { stream } of allStreams) {
+        stream.pause()
+      }
 
       // If any stream emits error, we want to handle this and exit with error
       const streamErrorPromise = new Promise<AssemblyStatus>((_resolve, reject) => {
-        allStreams.forEach(({ stream }) => stream.on('error', reject))
+        for (const { stream } of allStreams) {
+          stream.on('error', reject)
+        }
       })
 
       const createAssemblyAndUpload = async () => {

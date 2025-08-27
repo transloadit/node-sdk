@@ -42,7 +42,11 @@ export async function sendTusRequest({
   await pMap(
     streamLabels,
     async (label) => {
-      const { path } = streamsMap[label]!
+      const streamInfo = streamsMap[label]
+      if (!streamInfo) {
+        throw new Error(`Stream info not found for label: ${label}`)
+      }
+      const { path } = streamInfo
 
       if (path) {
         const { size } = await stat(path)
@@ -58,7 +62,11 @@ export async function sendTusRequest({
   async function uploadSingleStream(label: string) {
     uploadProgresses[label] = 0
 
-    const { stream, path } = streamsMap[label]!
+    const streamInfo = streamsMap[label]
+    if (!streamInfo) {
+      throw new Error(`Stream info not found for label: ${label}`)
+    }
+    const { stream, path } = streamInfo
     const size = sizes[label]
 
     let chunkSize = requestedChunkSize

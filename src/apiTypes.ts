@@ -150,4 +150,4 @@ export interface TemplateCredentialsResponse extends BaseResponse {
   credentials: TemplateCredential[]
 }
 
-export type BillResponse = any // todo
+export type BillResponse = unknown // todo
