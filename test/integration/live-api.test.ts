@@ -1,26 +1,25 @@
-import { randomUUID } from 'crypto'
-import { parse } from 'querystring'
-import * as temp from 'temp'
-import { createWriteStream } from 'fs'
-import { IncomingMessage, RequestListener } from 'http'
-import { join } from 'path'
-import { pipeline } from 'stream/promises'
-import { setTimeout } from 'timers/promises'
-import got, { RetryOptions } from 'got'
-import intoStream from 'into-stream'
+import { randomUUID } from 'node:crypto'
+import { createWriteStream } from 'node:fs'
+import type { IncomingMessage, RequestListener } from 'node:http'
+import { join } from 'node:path'
+import { parse } from 'node:querystring'
+import { pipeline } from 'node:stream/promises'
+import { setTimeout } from 'node:timers/promises'
 import debug from 'debug'
 import { config } from 'dotenv'
-
+import got, { type RetryOptions } from 'got'
+import intoStream from 'into-stream'
+import * as temp from 'temp'
+import type { InterpolatableRobotFileFilterInstructions } from '../../src/alphalib/types/robots/file-filter.js'
+import type { InterpolatableRobotImageResizeInstructions } from '../../src/alphalib/types/robots/image-resize.js'
 import {
-  CreateAssemblyOptions,
-  CreateAssemblyParams,
+  type CreateAssemblyOptions,
+  type CreateAssemblyParams,
   Transloadit,
-  UploadProgress,
+  type UploadProgress,
 } from '../../src/Transloadit.js'
-import { createTestServer, TestServer } from '../testserver.js'
+import { createTestServer, type TestServer } from '../testserver.js'
 import { createProxy } from '../util.js'
-import { RobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize.js'
-import { RobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter.js'
 
 // Load environment variables from .env file
 config()
@@ -83,14 +82,14 @@ function createAssembly(client: Transloadit, params: CreateAssemblyOptions) {
 const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
 const sampleSvg =
   '<?xml version="1.0" standalone="no"?><svg height="100" width="100"><circle cx="50" cy="50" r="40" fill="red" /></svg>'
-const resizeOriginalStep: RobotImageResizeInstructionsInput = {
+const resizeOriginalStep: InterpolatableRobotImageResizeInstructions = {
   robot: '/image/resize',
   use: ':original',
   result: true,
   width: 130,
   height: 130,
 }
-const dummyStep: RobotFileFilterInstructionsInput = {
+const dummyStep: InterpolatableRobotFileFilterInstructions = {
   use: ':original',
   robot: '/file/filter',
   accepts: [],
@@ -171,7 +170,7 @@ describe('API integration', { timeout: 60000 }, () => {
     it('should create a retrievable assembly on the server', async () => {
       const client = createClient()
 
-      let uploadProgressCalled
+      let uploadProgressCalled: UploadProgress | undefined
       const options: CreateAssemblyOptions = {
         ...genericOptions,
         onUploadProgress: (uploadProgress) => {
@@ -199,7 +198,7 @@ describe('API integration', { timeout: 60000 }, () => {
           assembly_url: expect.any(String),
           ok: expect.any(String),
           assembly_id: id,
-        })
+        }),
       )
     })
 
@@ -293,7 +292,7 @@ describe('API integration', { timeout: 60000 }, () => {
       })
       // Because order is not same as input
       const uploadsMap = Object.fromEntries(
-        result.uploads?.map((upload) => [upload.name, upload]) ?? []
+        result.uploads?.map((upload) => [upload.name, upload]) ?? [],
       )
       expect(uploadsMap).toEqual({
         file1: expect.objectContaining(getMatchObject({ name: 'file1' })),
@@ -491,7 +490,7 @@ describe('API integration', { timeout: 60000 }, () => {
         // console.log('canceled', id)
 
         // Allow the upload to finish
-        sendServerResponse!()
+        sendServerResponse?.()
 
         // Successful cancel requests get ASSEMBLY_CANCELED even when it
         // completed, so we now request the assembly status to check the
@@ -507,7 +506,7 @@ describe('API integration', { timeout: 60000 }, () => {
         if (awaitCompletionResponse) {
           // Type guard
           expect(
-            (awaitCompletionResponse as Extract<typeof awaitCompletionResponse, { ok: any }>).ok
+            (awaitCompletionResponse as Extract<typeof awaitCompletionResponse, { ok: any }>).ok,
           ).toBe('ASSEMBLY_CANCELED')
         } else {
           throw new Error('awaitCompletionResponse was null or undefined')
@@ -526,7 +525,7 @@ describe('API integration', { timeout: 60000 }, () => {
       expect(createdAssembly.assembly_id).toBeDefined()
       const replayedAssembly = await client.replayAssembly(createdAssembly.assembly_id!)
       expect((replayedAssembly as Extract<typeof replayedAssembly, { ok: any }>).ok).toBe(
-        'ASSEMBLY_REPLAYING'
+        'ASSEMBLY_REPLAYING',
       )
       expect(replayedAssembly.assembly_id).not.toEqual(createdAssembly.assembly_id)
       expect(replayedAssembly.assembly_url).toBeDefined()
@@ -544,7 +543,7 @@ describe('API integration', { timeout: 60000 }, () => {
 
       const result = await client.listAssemblies()
       expect(result).toEqual(
-        expect.objectContaining({ count: expect.any(Number), items: expect.any(Array) })
+        expect.objectContaining({ count: expect.any(Number), items: expect.any(Array) }),
       )
     })
 
@@ -603,7 +602,7 @@ describe('API integration', { timeout: 60000 }, () => {
 
       const runNotificationTest = async (
         onNotification: OnNotification,
-        onError: (error: unknown) => void
+        onError: (error: unknown) => void,
       ) => {
         const client = createClient()
 
@@ -700,7 +699,7 @@ describe('API integration', { timeout: 60000 }, () => {
         })
       })
     },
-    { retry: 2 }
+    { retry: 2 },
   )
 
   describe('template methods', () => {
@@ -758,7 +757,7 @@ describe('API integration', { timeout: 60000 }, () => {
       await expect(client.getTemplate(templId!)).rejects.toThrow(
         expect.objectContaining({
           code: 'TEMPLATE_NOT_FOUND',
-        })
+        }),
       )
     })
   })
@@ -829,7 +828,7 @@ describe('API integration', { timeout: 60000 }, () => {
       await expect(client.getTemplateCredential(credId!)).rejects.toThrow(
         expect.objectContaining({
           code: 'TEMPLATE_CREDENTIALS_NOT_READ',
-        })
+        }),
       )
     })
   })
