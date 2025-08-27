@@ -3,11 +3,11 @@
   "files": {
     "includes": [
       "**",
-      "!**/coverage",
-      "!**/dist",
-      "!**/node_modules",
-      "!**/fixture",
-      "!**/.vscode",
+      "!coverage",
+      "!dist",
+      "!node_modules",
+      "!fixture",
+      "!.vscode",
       "!src/alphalib"
     ]
   },
