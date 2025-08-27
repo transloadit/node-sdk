@@ -10,8 +10,9 @@ import { config } from 'dotenv'
 import got, { type RetryOptions } from 'got'
 import intoStream from 'into-stream'
 import * as temp from 'temp'
-import type { InterpolatableRobotFileFilterInstructions } from '../../src/alphalib/types/robots/file-filter.js'
-import type { InterpolatableRobotImageResizeInstructions } from '../../src/alphalib/types/robots/image-resize.js'
+import type z from 'zod/v3'
+import type { interpolatableRobotFileFilterInstructionsSchema } from '../../src/alphalib/types/robots/file-filter.js'
+import type { interpolatableRobotImageResizeInstructionsSchema } from '../../src/alphalib/types/robots/image-resize.js'
 import {
   type CreateAssemblyOptions,
   type CreateAssemblyParams,
@@ -87,14 +88,14 @@ function createAssembly(client: Transloadit, params: CreateAssemblyOptions) {
 const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
 const sampleSvg =
   '<?xml version="1.0" standalone="no"?><svg height="100" width="100"><circle cx="50" cy="50" r="40" fill="red" /></svg>'
-const resizeOriginalStep: InterpolatableRobotImageResizeInstructions = {
+const resizeOriginalStep: z.input<typeof interpolatableRobotImageResizeInstructionsSchema> = {
   robot: '/image/resize',
   use: ':original',
   result: true,
   width: 130,
   height: 130,
 }
-const dummyStep: InterpolatableRobotFileFilterInstructions = {
+const dummyStep: z.input<typeof interpolatableRobotFileFilterInstructionsSchema> = {
   use: ':original',
   robot: '/file/filter',
   accepts: [],
