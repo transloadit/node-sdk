@@ -55,7 +55,7 @@
   "scripts": {
     "check": "yarn lint:ts && yarn fix && yarn test:unit",
     "fix:js": "biome check --write ./src",
-    "lint:ts": "tsc --build --noEmit",
+    "lint:ts": "tsc --build",
     "fix:js:unsafe": "biome check --write ./src --unsafe",
     "lint:js": "biome check ./src",
     "lint": "npm-run-all --parallel 'lint:js'",
