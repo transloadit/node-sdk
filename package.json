@@ -64,7 +64,7 @@
     "test:unit": "vitest run --coverage ./test/unit",
     "test:integration": "vitest run ./test/integration",
     "test:all": "vitest run --coverage",
-    "test": "yarn test:unit",
+    "test": "yarn test:unit"
   },
   "license": "MIT",
   "main": "./dist/Transloadit.js",
