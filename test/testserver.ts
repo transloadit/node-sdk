@@ -1,9 +1,9 @@
-import { createServer, RequestListener, Server } from 'http'
-import { setTimeout } from 'timers/promises'
-import got from 'got'
+import { createServer, type RequestListener, type Server } from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import debug from 'debug'
+import got from 'got'
 
-import { createTunnel, CreateTunnelResult } from './tunnel.js'
+import { type CreateTunnelResult, createTunnel } from './tunnel.js'
 
 const log = debug('transloadit:testserver')
 

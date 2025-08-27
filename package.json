@@ -54,10 +54,10 @@
   },
   "scripts": {
     "check": "yarn lint:ts && yarn fix && yarn test:unit",
-    "fix:js": "biome check --write ./src",
+    "fix:js": "biome check --write .",
     "lint:ts": "tsc --build",
-    "fix:js:unsafe": "biome check --write ./src --unsafe",
-    "lint:js": "biome check ./src",
+    "fix:js:unsafe": "biome check --write . --unsafe",
+    "lint:js": "biome check .",
     "lint": "npm-run-all --parallel 'lint:js'",
     "fix": "npm-run-all --serial 'fix:js'",
     "next:update": "next-update --keep true --tldr",

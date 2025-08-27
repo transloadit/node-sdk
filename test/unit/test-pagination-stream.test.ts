@@ -1,4 +1,4 @@
-import { Writable } from 'stream'
+import { Writable } from 'node:stream'
 
 import PaginationStream from '../../src/PaginationStream.js'
 
@@ -36,7 +36,7 @@ describe('PaginationStream', () => {
 
           expect(array).toEqual(expected)
           resolve()
-        })
+        }),
       )
 
       stream.resume()
@@ -55,7 +55,7 @@ describe('PaginationStream', () => {
       async (pageno) =>
         new Promise((resolve) => {
           process.nextTick(() => resolve(pages[pageno - 1]))
-        })
+        }),
     )
 
     await new Promise<void>((resolve) => {
@@ -65,7 +65,7 @@ describe('PaginationStream', () => {
 
           expect(array).toEqual(expected)
           resolve()
-        })
+        }),
       )
 
       stream.resume()

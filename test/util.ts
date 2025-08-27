@@ -1,4 +1,4 @@
-import { RequestError, Transloadit } from '../src/Transloadit.js'
+import { RequestError, type Transloadit } from '../src/Transloadit.js'
 
 // eslint-disable-next-line import/prefer-default-export
 export const createProxy = (transloaditInstance: Transloadit) => {
@@ -8,7 +8,7 @@ export const createProxy = (transloaditInstance: Transloadit) => {
       const origMethod = target[propKey]
       if (typeof origMethod === 'function') {
         // eslint-disable-next-line func-names
-        return function (...args: any) {
+        return (...args: any) => {
           const result = origMethod.apply(target, args)
 
           if (!(result && 'then' in result)) {

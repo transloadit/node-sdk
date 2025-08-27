@@ -1,9 +1,9 @@
-import { execa, ExecaError, ResultPromise } from 'execa'
-import { createInterface } from 'readline'
-import { Resolver } from 'dns/promises'
+import { Resolver } from 'node:dns/promises'
+import { createInterface } from 'node:readline'
+import * as timers from 'node:timers/promises'
 import debug from 'debug'
+import { ExecaError, execa, type ResultPromise } from 'execa'
 import pRetry from 'p-retry'
-import * as timers from 'timers/promises'
 
 const log = debug('transloadit:cloudflared-tunnel')
 
@@ -21,7 +21,7 @@ async function startTunnel({ cloudFlaredPath, port }: CreateTunnelParams) {
   const process = execa(
     cloudFlaredPath,
     ['tunnel', '--url', `http://localhost:${port}`, '--no-autoupdate'],
-    { buffer: false, stdout: 'ignore' }
+    { buffer: false, stdout: 'ignore' },
   )
 
   process?.catch((err) => {
@@ -46,7 +46,7 @@ async function startTunnel({ cloudFlaredPath, port }: CreateTunnelParams) {
 
       rl.on('error', (err) => {
         reject(
-          new Error(`Failed to create tunnel. Errored out on: ${err}. Full stderr: ${fullStderr}`)
+          new Error(`Failed to create tunnel. Errored out on: ${err}. Full stderr: ${fullStderr}`),
         )
       })
 
@@ -65,7 +65,7 @@ async function startTunnel({ cloudFlaredPath, port }: CreateTunnelParams) {
           !expectedFailures.some((expectedFailure) => line.includes(expectedFailure))
         ) {
           reject(
-            new Error(`Failed to create tunnel. There was an error string in the stderr: ${line}`)
+            new Error(`Failed to create tunnel. There was an error string in the stderr: ${line}`),
           )
         }
 
@@ -75,7 +75,7 @@ async function startTunnel({ cloudFlaredPath, port }: CreateTunnelParams) {
           ;[, foundUrl] = match
         } else {
           const match = line.match(
-            /Connection [^\s+] registered connIndex=[^\s+] ip=[^\s+] location=[^\s+]/
+            /Connection [^\s+] registered connIndex=[^\s+] ip=[^\s+] location=[^\s+]/,
           )
           if (!match) {
             clearTimeout(timeout)
@@ -128,7 +128,7 @@ export async function createTunnel({ cloudFlaredPath = 'cloudflared', port }: Cr
 
   async function close() {
     if (!process) return
-    const promise = new Promise((resolve) => process!.on('close', resolve))
+    const promise = new Promise((resolve) => process?.on('close', resolve))
     process.kill()
     await promise
   }

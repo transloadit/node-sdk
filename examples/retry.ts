@@ -9,7 +9,7 @@
 //   yarn prepack
 //
 import pRetry, { AbortError } from 'p-retry'
-import { Transloadit, ApiError } from 'transloadit'
+import { ApiError, Transloadit } from 'transloadit'
 
 const transloadit = new Transloadit({
   authKey: process.env.TRANSLOADIT_KEY!,

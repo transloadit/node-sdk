@@ -6,7 +6,7 @@
 //
 //   yarn prepack
 //
-import { TemplateContent, Transloadit } from 'transloadit'
+import { type TemplateContent, Transloadit } from 'transloadit'
 
 const transloadit = new Transloadit({
   authKey: process.env.TRANSLOADIT_KEY!,

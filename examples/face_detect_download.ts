@@ -10,10 +10,10 @@
 // Then it will download the result as a file in the current directory
 // See https://transloadit.com/demos/artificial-intelligence/detect-faces-in-images/
 
-import got from 'got'
+import assert from 'node:assert'
 import { createWriteStream } from 'node:fs'
+import got from 'got'
 import { Transloadit } from 'transloadit'
-import assert from 'assert'
 
 const transloadit = new Transloadit({
   authKey: process.env.TRANSLOADIT_KEY!,

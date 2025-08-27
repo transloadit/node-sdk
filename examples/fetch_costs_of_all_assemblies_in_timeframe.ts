@@ -43,7 +43,7 @@ do {
 
       totalBytes += bytesUsage || 0
     },
-    { concurrency: 20 }
+    { concurrency: 20 },
   )
 } while (lastCount > 0)
 
