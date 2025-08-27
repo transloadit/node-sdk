@@ -15,8 +15,7 @@ export const createProxy = (transloaditInstance: Transloadit) => {
             return result
           }
 
-          // @ts-expect-error any
-          const newPromise = result.catch((err: unknown) => {
+          const newPromise = (result as Promise<unknown>).catch((err: unknown) => {
             if (err instanceof Error && 'cause' in err && err.cause instanceof RequestError) {
               if (err.cause.request != null) {
                 // for util.inspect:

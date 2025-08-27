@@ -11,7 +11,7 @@ const { version } = packageJson
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
 const mockGetExpiresDate = (client: Transloadit) =>
   vi
-    .spyOn(client as unknown as Record<string, unknown>, '_getExpiresDate')
+    .spyOn(client as unknown as Record<string, (...args: unknown[]) => unknown>, '_getExpiresDate')
     .mockReturnValue(mockedExpiresDate)
 const mockGot = (method: 'get') =>
   vi.spyOn(got, method).mockImplementation(() => {
@@ -25,7 +25,7 @@ const mockGot = (method: 'get') =>
   })
 const mockRemoteJson = (client: Transloadit) =>
   vi
-    .spyOn(client as unknown as Record<string, unknown>, '_remoteJson')
+    .spyOn(client as unknown as Record<string, (...args: unknown[]) => unknown>, '_remoteJson')
     .mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
