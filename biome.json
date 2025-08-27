@@ -1,13 +1,13 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.2.2/schema.json",
   "files": {
-    "includes": [
-      "**",
-      "!**/coverage/",
-      "!**/dist/",
-      "!**/node_modules/",
-      "!**/fixture/",
-      "!src/alphalib"
+    "ignore": [
+      "**/coverage/",
+      "**/dist/", 
+      "**/node_modules/",
+      "**/fixture/",
+      "**/.vscode/",
+      "src/alphalib/"
     ]
   },
   "formatter": {
