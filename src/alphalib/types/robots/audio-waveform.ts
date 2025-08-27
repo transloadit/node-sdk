@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_with_alpha,
-  robotFFmpeg,
-  robotBase,
-  robotUse,
   interpolateRobot,
+  robotBase,
+  robotFFmpeg,
+  robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -78,8 +78,8 @@ The height of the resulting image if the format \`"image"\` was selected.
     style: z.union([z.literal(0), z.literal(1)]).default(0).describe(`
 Either a value of \`0\` or \`1\`, corresponding to using either the legacy waveform tool, or the new tool respectively, with the new tool offering an improved style. Other Robot parameters still function as described, with either tool.
 `),
-    antialiasing: z.union([z.literal(0), z.literal(1)]).default(0).describe(`
-Either a value of \`0\` or \`1\`, corresponding to if you want to enable antialiasing to achieve smoother edges in the waveform graph or not.
+    antialiasing: z.union([z.literal(0), z.literal(1), z.boolean()]).default(0).describe(`
+Either a value of \`0\` or \`1\`, or \`true\`/\`false\`, corresponding to if you want to enable antialiasing to achieve smoother edges in the waveform graph or not.
 `),
     background_color: color_with_alpha.default('#00000000').describe(`
 The background color of the resulting image in the "rrggbbaa" format (red, green, blue, alpha), if the format \`"image"\` was selected.
@@ -92,11 +92,32 @@ The color used in the outer parts of the gradient. The format is "rrggbbaa" (red
 `),
   })
   .strict()
+
+export const robotAudioWaveformInstructionsWithHiddenFieldsSchema =
+  robotAudioWaveformInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotAudioWaveformInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotAudioWaveformInstructions = z.infer<typeof robotAudioWaveformInstructionsSchema>
+export type RobotAudioWaveformInstructionsWithHiddenFields = z.infer<
+  typeof robotAudioWaveformInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotAudioWaveformInstructionsSchema = interpolateRobot(
   robotAudioWaveformInstructionsSchema,
 )
 export type InterpolatableRobotAudioWaveformInstructions = z.input<
   typeof interpolatableRobotAudioWaveformInstructionsSchema
+>
+
+export const interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotAudioWaveformInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotAudioWaveformInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotAudioWaveformInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema
 >

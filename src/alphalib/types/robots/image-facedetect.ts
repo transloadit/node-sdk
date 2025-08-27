@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   aiProviderSchema,
   interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -138,8 +138,18 @@ For the following examples, the input image is:
   })
   .strict()
 
+export const robotImageFacedetectInstructionsWithHiddenFieldsSchema =
+  robotImageFacedetectInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotImageFacedetectInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotImageFacedetectInstructions = z.infer<
   typeof robotImageFacedetectInstructionsSchema
+>
+export type RobotImageFacedetectInstructionsWithHiddenFields = z.infer<
+  typeof robotImageFacedetectInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotImageFacedetectInstructionsSchema = interpolateRobot(
@@ -147,4 +157,13 @@ export const interpolatableRobotImageFacedetectInstructionsSchema = interpolateR
 )
 export type InterpolatableRobotImageFacedetectInstructions = z.input<
   typeof interpolatableRobotImageFacedetectInstructionsSchema
+>
+
+export const interpolatableRobotImageFacedetectInstructionsWithHiddenFieldsSchema =
+  interpolateRobot(robotImageFacedetectInstructionsWithHiddenFieldsSchema)
+export type InterpolatableRobotImageFacedetectInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotImageFacedetectInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotImageFacedetectInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotImageFacedetectInstructionsWithHiddenFieldsSchema
 >

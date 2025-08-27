@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse, s3Base } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse, s3Base } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -125,12 +125,34 @@ This parameter provides signed URLs in the result JSON (in the \`signed_url\` an
   })
   .strict()
 
+export const robotS3StoreInstructionsWithHiddenFieldsSchema = robotS3StoreInstructionsSchema.extend(
+  {
+    result: z.union([z.literal('debug'), robotS3StoreInstructionsSchema.shape.result]).optional(),
+    skip_region_lookup: z.boolean().optional().describe(`
+Internal parameter to skip region lookup for testing purposes.
+`),
+  },
+)
+
 export type RobotS3StoreInstructions = z.infer<typeof robotS3StoreInstructionsSchema>
 export type RobotS3StoreInstructionsInput = z.input<typeof robotS3StoreInstructionsSchema>
+export type RobotS3StoreInstructionsWithHiddenFields = z.infer<
+  typeof robotS3StoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotS3StoreInstructionsSchema = interpolateRobot(
   robotS3StoreInstructionsSchema,
 )
 export type InterpolatableRobotS3StoreInstructions = z.input<
   typeof interpolatableRobotS3StoreInstructionsSchema
+>
+
+export const interpolatableRobotS3StoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotS3StoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotS3StoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotS3StoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotS3StoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotS3StoreInstructionsWithHiddenFieldsSchema
 >

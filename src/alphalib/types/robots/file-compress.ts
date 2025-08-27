@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -100,19 +100,42 @@ Determines how fiercely to try to compress the archive. \`-0\` is compressionles
 
 If you are using \`-0\` in combination with the \`tar\` format with \`gzip\` enabled, consider setting \`gzip: false\` instead. This results in a plain Tar archive, meaning it already has no compression.
 `),
-    file_layout: z.enum(['advanced', 'simple']).default('advanced').describe(`
-Determines if the result archive should contain all files in one directory (value for this is \`"simple"\`) or in subfolders according to the explanation below (value for this is \`"advanced"\`).
+    file_layout: z.enum(['advanced', 'simple', 'relative-path']).default('advanced').describe(`
+Determines if the result archive should contain all files in one directory (value for this is \`"simple"\`) or in subfolders according to the explanation below (value for this is \`"advanced"\`). The \`"relative-path"\` option preserves the relative directory structure of the input files.
 
 Files with same names are numbered in the \`"simple"\` file layout to avoid naming collisions.
+`),
+    archive_name: z.string().optional().describe(`
+The name of the archive file to be created (without the file extension).
 `),
   })
   .strict()
 
+export const robotFileCompressInstructionsWithHiddenFieldsSchema =
+  robotFileCompressInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotFileCompressInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotFileCompressInstructions = z.infer<typeof robotFileCompressInstructionsSchema>
+export type RobotFileCompressInstructionsWithHiddenFields = z.infer<
+  typeof robotFileCompressInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFileCompressInstructionsSchema = interpolateRobot(
   robotFileCompressInstructionsSchema,
 )
 export type InterpolatableRobotFileCompressInstructions = z.input<
   typeof interpolatableRobotFileCompressInstructionsSchema
+>
+
+export const interpolatableRobotFileCompressInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFileCompressInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFileCompressInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFileCompressInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFileCompressInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFileCompressInstructionsWithHiddenFieldsSchema
 >

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const assemblyBusyCodeSchema = z.enum(['ASSEMBLY_UPLOADING'])
+export const assemblyBusyCodeSchema = z.enum(['ASSEMBLY_UPLOADING'])
 
 export const assemblyStatusOkCodeSchema = z.enum([
   'ASSEMBLY_CANCELED',
@@ -55,21 +55,34 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'AUTH_KEY_SCOPES_NOT_FOUND',
   'AUTH_KEYS_NOT_FOUND',
   'AUTH_SECRET_NOT_RETRIEVED',
+  'AZURE_STORE_ACCESS_DENIED',
+  'BACKBLAZE_IMPORT_ACCESS_DENIED',
+  'BACKBLAZE_IMPORT_NOT_FOUND',
+  'BACKBLAZE_STORE_ACCESS_DENIED',
   'BACKBLAZE_STORE_FAILURE',
   'BAD_PRICING',
   'BILL_LIMIT_EXCEEDED',
   'CANNOT_ACCEPT_NEW_ASSEMBLIES',
   'CANNOT_FETCH_ACTIVE_ASSEMBLIES',
   'CDN_REQUIRED',
+  'CLOUDFILES_IMPORT_ACCESS_DENIED',
+  'CLOUDFILES_IMPORT_NOT_FOUND',
+  'CLOUDFILES_STORE_ACCESS_DENIED',
   'CLOUDFILES_STORE_ERROR',
   'CLOUDFLARE_IMPORT_VALIDATION',
+  'DIGITALOCEAN_STORE_ACCESS_DENIED',
   'DO_NOT_REUSE_ASSEMBLY_IDS',
   'DOCUMENT_CONVERT_UNSUPPORTED_CONVERSION',
+  'DOCUMENT_SPLIT_VALIDATION',
   'FILE_DOWNLOAD_ERROR',
   'FILE_FILTER_DECLINED_FILE',
+  'FILE_FILTER_INVALID_OPERATOR',
   'FILE_FILTER_VALIDATION',
   'FILE_META_DATA_ERROR',
   'FILE_PREVIEW_VALIDATION',
+  'FILE_READ_VALIDATION_ERROR',
+  'FILE_VERIFY_INVALID_FILE',
+  'FILE_VIRUSSCAN_DECLINED_FILE',
   'GET_ACCOUNT_DB_ERROR',
   'GET_ACCOUNT_UNKNOWN_AUTH_KEY',
   'GOOGLE_IMPORT_VALIDATION',
@@ -79,6 +92,7 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'HTTP_IMPORT_FAILURE',
   'HTTP_IMPORT_NOT_FOUND',
   'HTTP_IMPORT_VALIDATION',
+  'IMAGE_DESCRIBE_VALIDATION',
   'IMAGE_RESIZE_ERROR',
   'IMAGE_RESIZE_VALIDATION',
   'IMPORT_FILE_ERROR',
@@ -115,12 +129,16 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'PLAN_LIMIT_EXCEEDED',
   'POSSIBLY_MALICIOUS_FILE_FOUND',
   'PRIORITY_JOB_SLOTS_NOT_FOUND',
+  'RATE_LIMIT_REACHED',
   'REFERER_MISMATCH',
   'REQUEST_PREMATURE_CLOSED',
   'ROBOT_VALIDATION_BASE_ERROR',
   'S3_ACCESS_DENIED',
+  'S3_IMPORT_ACCESS_DENIED',
+  'S3_IMPORT_VALIDATION',
   'S3_NOT_FOUND',
   'S3_STORE_ACCESS_DENIED',
+  'S3_STORE_VALIDATION',
   'SERVER_403',
   'SERVER_404',
   'SERVER_500',
@@ -133,10 +151,11 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'TMP_FILE_DOWNLOAD_ERROR',
   'USER_COMMAND_ERROR',
   'VERIFIED_EMAIL_REQUIRED',
+  'VIDEO_ENCODE_VALIDATION',
+  'VIMEO_IMPORT_FAILURE',
   'WORKER_JOB_ERROR',
 ])
 
-// --- Define Main Meta Schema (remove HLS specific fields) ---
 const assemblyStatusMetaSchema = z
   .object({
     width: z.union([z.number(), z.null()]).optional(),
@@ -152,7 +171,7 @@ const assemblyStatusMetaSchema = z
     svgViewBoxHeight: z.union([z.number(), z.null()]).optional(),
     date_recorded: z.union([z.string(), z.number()]).nullable().optional(),
     date_file_created: z.string().nullable().optional(),
-    title: z.string().nullable().optional(),
+    title: z.union([z.string(), z.number()]).nullable().optional(),
     description: z.string().nullable().optional(),
     duration: z.union([z.number(), z.null()]).optional(),
     location: z.string().nullable().optional(),
@@ -182,7 +201,7 @@ const assemblyStatusMetaSchema = z
     device_software: z.union([z.string(), z.number()]).nullable().optional(),
     latitude: z.union([z.number(), z.null()]).optional(),
     longitude: z.union([z.number(), z.null()]).optional(),
-    orientation: z.string().nullable().optional(),
+    orientation: z.union([z.string(), z.number()]).nullable().optional(),
     creator: z.string().nullable().optional(),
     author: z.string().nullable().optional(),
     copyright: z.string().nullable().optional(),
@@ -193,14 +212,17 @@ const assemblyStatusMetaSchema = z
     xp_keywords: z.string().nullable().optional(),
     xp_subject: z.string().nullable().optional(),
     recognized_text: z
-      .array(
-        z
-          .object({
-            text: z.string(),
-            boundingPolygon: z.array(z.object({ x: z.number(), y: z.number() })),
-          })
-          .passthrough(),
-      )
+      .union([
+        z.array(z.string()),
+        z.array(
+          z
+            .object({
+              text: z.string(),
+              boundingPolygon: z.array(z.object({ x: z.number(), y: z.number() })),
+            })
+            .passthrough(),
+        ),
+      ])
       .optional(),
     descriptions: z
       .array(
@@ -215,10 +237,28 @@ const assemblyStatusMetaSchema = z
     audio_bitrate: z.union([z.number(), z.null()]).optional(),
     audio_samplerate: z.union([z.number(), z.null()]).optional(),
     audio_channels: z.union([z.number(), z.null()]).optional(),
+    audio_channel_layout: z.union([z.string(), z.null()]).optional(),
+    audio_sample_format: z.union([z.string(), z.null()]).optional(),
+    audio_profile: z.union([z.string(), z.null()]).optional(),
     audio_codec: z.union([z.string(), z.null()]).optional(),
-    num_audio_streams: z.number().optional(),
+    num_audio_streams: z.union([z.number(), z.null()]).optional(),
+    num_video_streams: z.union([z.number(), z.null()]).optional(),
+    num_subtitles: z.union([z.number(), z.null()]).optional(),
     bit_depth: z.union([z.number(), z.null()]).optional(),
     seekable: z.union([z.boolean(), z.null()]).optional(),
+    pixel_format: z.union([z.string(), z.null()]).optional(),
+    reference_count: z.union([z.number(), z.null()]).optional(),
+    time_base: z.union([z.string(), z.null()]).optional(),
+    streams: z
+      .union([
+        z.object({
+          video: z.array(z.unknown()).optional(),
+          audio: z.array(z.unknown()).optional(),
+          subtitle: z.array(z.unknown()).optional(),
+        }),
+        z.null(),
+      ])
+      .optional(),
     rotation: z.union([z.number(), z.null()]).optional(),
     album: z.string().nullable().optional(),
     comment: z.string().nullable().optional(),
@@ -294,7 +334,9 @@ const assemblyStatusMetaSchema = z
   .passthrough()
 export type AssemblyStatusMeta = z.infer<typeof assemblyStatusMetaSchema>
 
-// --- Define HLS Nested Meta Schema ---
+// Need to export the schema itself for assemblyStatusForTests.ts
+export { assemblyStatusMetaSchema }
+
 const hlsNestedMetaSchema = z.object({
   relative_path: z.string().optional(),
   duration: z.number().optional(),
@@ -316,9 +358,7 @@ const hlsNestedMetaSchema = z.object({
   has_alpha_channel: z.boolean().optional(),
   version_id: z.string().optional(),
 })
-// --- End HLS Nested Meta Schema ---
 
-// --- Define HLS Playlist Schema ---
 const hlsPlaylistSchema = z.object({
   name: z.union([z.string(), z.number()]).optional(),
   content: z.string().optional(),
@@ -326,9 +366,8 @@ const hlsPlaylistSchema = z.object({
   stream: z.string().optional(),
   meta: hlsNestedMetaSchema.optional(),
 })
-// --- End HLS Playlist Schema ---
 
-const assemblyStatusUploadSchema = z
+export const assemblyStatusUploadSchema = z
   .object({
     id: z.string(),
     name: z.string(),
@@ -339,7 +378,7 @@ const assemblyStatusUploadSchema = z
     type: z.string().nullable(),
     field: z.string().nullable(),
     md5hash: z.string().nullable(),
-    original_id: z.string(),
+    original_id: z.union([z.string(), z.array(z.string())]),
     original_basename: z.string(),
     original_name: z.string(),
     original_path: z.string(),
@@ -348,7 +387,7 @@ const assemblyStatusUploadSchema = z
     is_tus_file: z.boolean(),
     tus_upload_url: z.string().nullable(),
     url: z.string().nullable(),
-    ssl_url: z.string(),
+    ssl_url: z.string().nullable(),
     meta: assemblyStatusMetaSchema,
     user_meta: z.record(z.unknown()).optional(),
     as: z
@@ -374,7 +413,7 @@ export const assemblyStatusResultSchema = z
     basename: z.string().nullable().optional(),
     field: z.string().nullable().optional(),
     md5hash: z.string().nullable().optional(),
-    original_id: z.string().optional(),
+    original_id: z.union([z.string(), z.array(z.string())]).optional(),
     original_basename: z.string().nullable().optional(),
     original_path: z.string().nullable().optional(),
     original_md5hash: z.string().nullable().optional(),
@@ -388,7 +427,7 @@ export const assemblyStatusResultSchema = z
     exec_time: z.number().nullable().optional(),
     ext: z.string().nullable().optional(),
     filepath: z.string().nullable().optional(),
-    path: z.string().optional(),
+    path: z.string().nullable().optional(),
     height: z.number().nullable().optional(),
     meta: assemblyStatusMetaSchema.nullable().optional(),
     mime: z.string().nullable().optional(),
@@ -422,6 +461,13 @@ export const assemblyStatusResultSchema = z
     playlists: z.array(hlsPlaylistSchema).optional(),
     hls_url: z.string().optional(),
     forcedFileExt: z.string().optional(),
+    // Robot-specific metadata added at runtime by /vimeo/import
+    vimeo: z
+      .object({
+        title: z.string(),
+        uri: z.string(),
+      })
+      .optional(),
   })
   .passthrough()
 export type AssemblyStatusResult = z.infer<typeof assemblyStatusResultSchema>
@@ -429,11 +475,20 @@ export type AssemblyStatusResult = z.infer<typeof assemblyStatusResultSchema>
 export const assemblyStatusResultsSchema = z.record(z.array(assemblyStatusResultSchema))
 export type AssemblyStatusResults = z.infer<typeof assemblyStatusResultsSchema>
 
-// --- Create Base Schema ---
+// Define a more specific schema for debuginfo if its structure is known
+export const debugInfoSchema = z
+  .object({
+    err: z.unknown().optional(), // Or a more specific error type if known
+    screenshot_ssl_url: z.string().optional(),
+    screenshot_filepath: z.string().optional(),
+    screenshot_s3_url: z.string().optional(), // Add s3 URL field
+    console_filepath: z.string().optional(),
+    console_ssl_url: z.string().optional(), // Add console SSL URL field
+    console_s3_url: z.string().optional(), // Add console s3 URL field
+  })
+  .passthrough()
 
-const assemblyStatusBaseSchema = z.object({
-  // Extracted fields from assemblyStatusOkSchema
-  http_code: z.number().optional(),
+export const assemblyStatusBaseSchema = z.object({
   message: z.string().optional(),
   admin_cmd: z.unknown().optional(),
   assemblyId: z.string().optional(),
@@ -471,6 +526,7 @@ const assemblyStatusBaseSchema = z.object({
     )
     .optional(),
   is_infinite: z.boolean().optional(),
+  error: z.undefined().optional(),
   has_dupe_jobs: z.boolean().optional(),
   execution_start: z.string().nullable().optional(),
   execution_duration: z.number().nullable().optional(),
@@ -500,6 +556,7 @@ const assemblyStatusBaseSchema = z.object({
   expected_tus_uploads: z.number().optional(),
   started_tus_uploads: z.number().optional(),
   finished_tus_uploads: z.number().optional(),
+  virusname: z.string().optional(),
   tus_uploads: z
     .array(
       z
@@ -516,8 +573,16 @@ const assemblyStatusBaseSchema = z.object({
         .passthrough(),
     )
     .optional(),
+  debuginfo: debugInfoSchema.optional(),
+  step: z.string().optional(),
+  previousStep: z.string().optional(),
+  worker: z.string().optional(),
+  info: z
+    .object({
+      retryIn: z.number().optional(),
+    })
+    .optional(),
 })
-// --- End Base Schema ---
 
 export const assemblyStatusBusySchema = z
   .object({
@@ -526,18 +591,16 @@ export const assemblyStatusBusySchema = z
     // Assuming for now it might share some base fields but not all recursively?
     // Let's make it extend the *non-recursive* base for now.
   })
-  .extend(assemblyStatusBaseSchema.shape) // Extend with non-recursive base fields
+  .extend(assemblyStatusBaseSchema.shape)
   .passthrough()
 
-// --- Refactor Ok Schema to use Base ---
-export const assemblyStatusOkSchema = assemblyStatusBaseSchema // Use original base
+export const assemblyStatusOkSchema = assemblyStatusBaseSchema
   .extend({
     ok: assemblyStatusOkCodeSchema,
   })
   .passthrough()
 
-// --- Refactor Err Schema to use Base ---
-export const assemblyStatusErrSchema = assemblyStatusBaseSchema // Use ORIGINAL base
+export const assemblyStatusErrSchema = assemblyStatusBaseSchema
   .extend({
     error: assemblyStatusErrCodeSchema,
     ok: z.null().optional(),
@@ -552,29 +615,14 @@ export const assemblyStatusErrSchema = assemblyStatusBaseSchema // Use ORIGINAL 
     stdout: z.string().optional(),
     stderr: z.string().optional(),
     cmd: z.union([z.string(), z.array(z.union([z.string(), z.number()]))]).optional(),
+    admin_cmd: z.union([z.string(), z.array(z.union([z.string(), z.number()]))]).optional(),
     worker: z.string().optional(),
-    err: z.record(z.unknown()).optional(),
     headers: z.record(z.unknown()).optional(),
     retryable: z.boolean().optional(),
+    err: z.unknown().optional(),
   })
-  .passthrough() // Restore passthrough()
+  .passthrough()
 
-// --- Define Step Failed Schema ---
-// Represents an error that occurred during a specific step,
-// but isn't one of the predefined general error codes.
-export const assemblyStatusStepFailedSchema = assemblyStatusBaseSchema // Use ORIGINAL base
-  .extend({
-    // No 'ok' or 'error' discriminator
-    step: z.string(),
-    previousStep: z.string(),
-    worker: z.string(),
-    // Message is optional in base, but seems required for this state
-    message: z.string(),
-  })
-  .passthrough() // Restore passthrough()
-// --- End Step Failed Schema ---
-
-// --- Define System Error Schema ---
 // Represents a low-level system error not mapped to standard assembly errors.
 // Happened in Assemblies:
 // - 13ca71f3b8714859b48ec11e49be10f1
@@ -584,7 +632,7 @@ export const assemblyStatusStepFailedSchema = assemblyStatusBaseSchema // Use OR
 // - dfa372cef24a420092f1be42af6d1df1
 // - e975612bc76e4738b759d1b36bc527f1
 // All for Workspace: 6f86325febd14de4bfb38cbd04ee1f39
-export const assemblyStatusSysErrSchema = assemblyStatusBaseSchema // Use ORIGINAL base
+export const assemblyStatusSysErrSchema = assemblyStatusBaseSchema
   .extend({
     // Changed from .object()
     // No 'ok' or 'error' discriminator
@@ -594,8 +642,7 @@ export const assemblyStatusSysErrSchema = assemblyStatusBaseSchema // Use ORIGIN
     path: z.string().optional(), // Path might be present
     // Consider adding other potential sys error fields if observed later
   })
-  .passthrough() // SysErr can keep passthrough as it's inherently less defined
-// --- End System Error Schema ---
+  .passthrough()
 
 // Final schema defined lazily to handle recursion
 // We break up inference to avoid:
@@ -605,14 +652,12 @@ export const assemblyStatusSchema: z.ZodUnion<
     typeof assemblyStatusBusySchema,
     typeof assemblyStatusOkSchema,
     typeof assemblyStatusErrSchema,
-    typeof assemblyStatusStepFailedSchema,
     typeof assemblyStatusSysErrSchema,
   ]
 > = z.union([
   assemblyStatusBusySchema, // Use schema defined above
   assemblyStatusOkSchema, // Use schema defined above
   assemblyStatusErrSchema, // Use schema defined above
-  assemblyStatusStepFailedSchema, // Add the new step failed state
   assemblyStatusSysErrSchema, // Add the new system error state
 ])
 
@@ -704,24 +749,24 @@ export function hasOkPartial(
 export const assemblyIndexItemSchema = z
   .object({
     id: z.string(), // Likely always present for a list item
-    parent_id: assemblyStatusBaseSchema.shape.parent_id.optional(), // from base, made optional explicitly
-    account_id: assemblyStatusBaseSchema.shape.account_id.unwrap().optional(), // from base (it's string().optional() so unwrap then optional)
-    template_id: assemblyStatusBaseSchema.shape.template_id.optional(), // from base, made optional
-    instance: assemblyStatusBaseSchema.shape.instance.unwrap().optional(), // from base
-    notify_url: assemblyStatusBaseSchema.shape.notify_url.optional(), // from base
-    redirect_url: z.string().nullable().optional(), // Specific to list item, was in old ListedAssembly
+    parent_id: assemblyStatusBaseSchema.shape.parent_id.optional(),
+    account_id: assemblyStatusBaseSchema.shape.account_id.unwrap().optional(),
+    template_id: assemblyStatusBaseSchema.shape.template_id.optional(),
+    instance: assemblyStatusBaseSchema.shape.instance.unwrap().optional(),
+    notify_url: assemblyStatusBaseSchema.shape.notify_url.optional(),
+    redirect_url: z.string().nullable().optional(),
     files: z.string().nullable(), // JSON stringified, specific to list item, CAN BE NULL
-    warning_count: z.number().optional(), // Specific to list item
-    execution_duration: assemblyStatusBaseSchema.shape.execution_duration.optional(), // from base
-    execution_start: assemblyStatusBaseSchema.shape.execution_start.optional(), // from base
-    region: assemblyStatusBaseSchema.shape.region.optional(), // from base
-    num_input_files: assemblyStatusBaseSchema.shape.num_input_files.optional(), // from base
-    bytes_usage: assemblyStatusBaseSchema.shape.bytes_usage.optional(), // from base
-    ok: assemblyStatusOkCodeSchema.nullable().optional(), // Use exported enum
-    error: assemblyStatusErrCodeSchema.nullable().optional(), // Use exported enum
-    created: z.string(), // Specific to list item, mandatory based on old interface
-    created_ts: z.number().optional(), // Add new field
-    template_name: z.string().nullable().optional(), // Add new field
+    warning_count: z.number().optional(),
+    execution_duration: assemblyStatusBaseSchema.shape.execution_duration.optional(),
+    execution_start: assemblyStatusBaseSchema.shape.execution_start.optional(),
+    region: assemblyStatusBaseSchema.shape.region.optional(),
+    num_input_files: assemblyStatusBaseSchema.shape.num_input_files.optional(),
+    bytes_usage: assemblyStatusBaseSchema.shape.bytes_usage.optional(),
+    ok: assemblyStatusOkCodeSchema.nullable().optional(),
+    error: assemblyStatusErrCodeSchema.nullable().optional(),
+    created: z.string(),
+    created_ts: z.number().optional(),
+    template_name: z.string().nullable().optional(),
   })
   .passthrough()
 

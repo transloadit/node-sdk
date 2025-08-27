@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -46,7 +46,6 @@ export const meta: RobotMetaInput = {
 }
 
 export const robotUploadHandleInstructionsSchema = robotBase
-  .merge(robotUse)
   .extend({
     robot: z.literal('/upload/handle').describe(`
 Transloadit handles file uploads by default, so specifying this <dfn>Robot</dfn> is optional.
@@ -62,12 +61,31 @@ There are **3 important constraints** when using this <dfn>Robot</dfn>:
   })
   .strict()
 
+export const robotUploadHandleInstructionsWithHiddenFieldsSchema =
+  robotUploadHandleInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotUploadHandleInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotUploadHandleInstructions = z.infer<typeof robotUploadHandleInstructionsSchema>
-export type RobotUploadHandleInstructionsInput = z.input<typeof robotUploadHandleInstructionsSchema>
+export type RobotUploadHandleInstructionsWithHiddenFields = z.infer<
+  typeof robotUploadHandleInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotUploadHandleInstructionsSchema = interpolateRobot(
   robotUploadHandleInstructionsSchema,
 )
 export type InterpolatableRobotUploadHandleInstructions = z.input<
   typeof interpolatableRobotUploadHandleInstructionsSchema
+>
+
+export const interpolatableRobotUploadHandleInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotUploadHandleInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotUploadHandleInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotUploadHandleInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotUploadHandleInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotUploadHandleInstructionsWithHiddenFieldsSchema
 >

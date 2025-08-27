@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   aiProviderSchema,
   interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -111,11 +111,29 @@ Please see the supported syntaxes for [AWS](https://docs.aws.amazon.com/polly/la
   })
   .strict()
 
+export const robotTextSpeakInstructionsWithHiddenFieldsSchema =
+  robotTextSpeakInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotTextSpeakInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotTextSpeakInstructions = z.infer<typeof robotTextSpeakInstructionsSchema>
+export type RobotTextSpeakInstructionsWithHiddenFields = z.infer<
+  typeof robotTextSpeakInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotTextSpeakInstructionsSchema = interpolateRobot(
   robotTextSpeakInstructionsSchema,
 )
 export type InterpolatableRobotTextSpeakInstructions = z.input<
   typeof interpolatableRobotTextSpeakInstructionsSchema
+>
+
+export const interpolatableRobotTextSpeakInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotTextSpeakInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotTextSpeakInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotTextSpeakInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotTextSpeakInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotTextSpeakInstructionsWithHiddenFieldsSchema
 >

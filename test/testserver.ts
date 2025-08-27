@@ -1,9 +1,9 @@
-import { createServer, RequestListener, Server } from 'http'
-import { setTimeout } from 'timers/promises'
-import got from 'got'
+import { createServer, type RequestListener, type Server } from 'node:http'
+import { setTimeout } from 'node:timers/promises'
 import debug from 'debug'
+import got from 'got'
 
-import { createTunnel, CreateTunnelResult } from './tunnel.js'
+import { type CreateTunnelResult, createTunnel } from './tunnel.js'
 
 const log = debug('transloadit:testserver')
 
@@ -82,7 +82,6 @@ export async function createTestServer(onRequest: RequestListener) {
 
     log('Waiting for tunnel to allow requests to pass through')
 
-    // eslint-disable-next-line no-inner-declarations
     async function sendTunnelRequest() {
       // try connecting to the tunnel and resolve when connection successfully passed through
       for (let i = 0; i < 10; i += 1) {

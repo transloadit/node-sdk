@@ -1,4 +1,3 @@
-/* eslint-disable max-len */
 // Run this file as:
 //
 //   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node template_api.js
@@ -7,11 +6,15 @@
 //
 //   yarn prepack
 //
-import { CreateTemplateCredentialParams, Transloadit } from 'transloadit'
+import { type CreateTemplateCredentialParams, Transloadit } from 'transloadit'
 
+const { TRANSLOADIT_KEY, TRANSLOADIT_SECRET } = process.env
+if (TRANSLOADIT_KEY == null || TRANSLOADIT_SECRET == null) {
+  throw new Error('Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET')
+}
 const transloadit = new Transloadit({
-  authKey: process.env.TRANSLOADIT_KEY!,
-  authSecret: process.env.TRANSLOADIT_SECRET!,
+  authKey: TRANSLOADIT_KEY,
+  authSecret: TRANSLOADIT_SECRET,
 })
 
 const firstName = 'myProductionS3'
@@ -54,23 +57,23 @@ console.log('TemplateCredential created successfully:', createTemplateCredential
 //     with Credentials, there is `ok`, `message`, `credentials` <-- and a single object nested directly under it, which is unexpected with that plural imho. Same is true for created, updated, fetched
 
 console.log(
-  `==> editTemplateCredential: ${createTemplateCredentialResult.credential.id} (${createTemplateCredentialResult.credential.name})`
+  `==> editTemplateCredential: ${createTemplateCredentialResult.credential.id} (${createTemplateCredentialResult.credential.name})`,
 )
 const editResult = await transloadit.editTemplateCredential(
   createTemplateCredentialResult.credential.id,
   {
     ...credentialParams,
     name: secondName,
-  }
+  },
 )
 console.log('Successfully edited credential', editResult)
 // ^-- see create
 
 console.log(
-  `==> getTemplateCredential: ${createTemplateCredentialResult.credential.id} (${createTemplateCredentialResult.credential.name})`
+  `==> getTemplateCredential: ${createTemplateCredentialResult.credential.id} (${createTemplateCredentialResult.credential.name})`,
 )
 const getTemplateCredentialResult = await transloadit.getTemplateCredential(
-  createTemplateCredentialResult.credential.id
+  createTemplateCredentialResult.credential.id,
 )
 console.log('Successfully fetched credential', getTemplateCredentialResult)
 // ^-- not working at al, getting a 404. looking at the API, this is not implemented yet

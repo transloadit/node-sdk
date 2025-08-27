@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { backblazeBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { backblazeBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -64,9 +64,16 @@ Object Metadata can be specified using \`X-Bz-Info-*\` headers.
   })
   .strict()
 
+export const robotBackblazeStoreInstructionsWithHiddenFieldsSchema =
+  robotBackblazeStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotBackblazeStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotBackblazeStoreInstructions = z.infer<typeof robotBackblazeStoreInstructionsSchema>
-export type RobotBackblazeStoreInstructionsInput = z.input<
-  typeof robotBackblazeStoreInstructionsSchema
+export type RobotBackblazeStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotBackblazeStoreInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotBackblazeStoreInstructionsSchema = interpolateRobot(
@@ -74,4 +81,14 @@ export const interpolatableRobotBackblazeStoreInstructionsSchema = interpolateRo
 )
 export type InterpolatableRobotBackblazeStoreInstructions = z.input<
   typeof interpolatableRobotBackblazeStoreInstructionsSchema
+>
+
+export const interpolatableRobotBackblazeStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotBackblazeStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotBackblazeStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotBackblazeStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotBackblazeStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotBackblazeStoreInstructionsWithHiddenFieldsSchema
 >

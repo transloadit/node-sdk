@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -40,11 +40,29 @@ The <dfn>Robot</dfn> currently only accepts files under 500KB.
   })
   .strict()
 
+export const robotFileReadInstructionsWithHiddenFieldsSchema =
+  robotFileReadInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotFileReadInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotFileReadInstructions = z.infer<typeof robotFileReadInstructionsSchema>
+export type RobotFileReadInstructionsWithHiddenFields = z.infer<
+  typeof robotFileReadInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFileReadInstructionsSchema = interpolateRobot(
   robotFileReadInstructionsSchema,
 )
 export type InterpolatableRobotFileReadInstructions = z.input<
   typeof interpolatableRobotFileReadInstructionsSchema
+>
+
+export const interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFileReadInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFileReadInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFileReadInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema
 >

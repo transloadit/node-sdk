@@ -1,14 +1,14 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_with_alpha,
-  robotFFmpegVideo,
+  interpolateRobot,
   resize_strategy,
   robotBase,
+  robotFFmpegVideo,
   robotUse,
-  interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -75,13 +75,37 @@ Determines whether the audio of the video should be replaced with a provided aud
     vstack: z.boolean().default(false).describe(`
 Stacks the input media vertically. All streams need to have the same pixel format and width - so consider using a [/video/encode](/docs/robots/video-encode/) <dfn>Step</dfn> before using this parameter to enforce this.
 `),
+    image_url: z.string().url().optional().describe(`
+The URL of an image to be merged with the audio or video. When this parameter is provided, the robot will download the image from the URL and merge it with the other media.
+`),
   })
   .strict()
+
+export const robotVideoMergeInstructionsWithHiddenFieldsSchema =
+  robotVideoMergeInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotVideoMergeInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotVideoMergeInstructions = z.infer<typeof robotVideoMergeInstructionsSchema>
+export type RobotVideoMergeInstructionsWithHiddenFields = z.infer<
+  typeof robotVideoMergeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotVideoMergeInstructionsSchema = interpolateRobot(
   robotVideoMergeInstructionsSchema,
 )
 export type InterpolatableRobotVideoMergeInstructions = z.input<
   typeof interpolatableRobotVideoMergeInstructionsSchema
+>
+
+export const interpolatableRobotVideoMergeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotVideoMergeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotVideoMergeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotVideoMergeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotVideoMergeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotVideoMergeInstructionsWithHiddenFieldsSchema
 >

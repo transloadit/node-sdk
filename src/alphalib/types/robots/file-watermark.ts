@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 // @ts-expect-error - FileWatermarkRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
@@ -22,11 +22,31 @@ export const robotFileWatermarkInstructionsSchema = robotBase
   })
   .strict()
 
+export const robotFileWatermarkInstructionsWithHiddenFieldsSchema =
+  robotFileWatermarkInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotFileWatermarkInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotFileWatermarkInstructions = z.infer<typeof robotFileWatermarkInstructionsSchema>
+export type RobotFileWatermarkInstructionsWithHiddenFields = z.infer<
+  typeof robotFileWatermarkInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFileWatermarkInstructionsSchema = interpolateRobot(
   robotFileWatermarkInstructionsSchema,
 )
 export type InterpolatableRobotFileWatermarkInstructions = z.input<
   typeof interpolatableRobotFileWatermarkInstructionsSchema
+>
+
+export const interpolatableRobotFileWatermarkInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFileWatermarkInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFileWatermarkInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFileWatermarkInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFileWatermarkInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFileWatermarkInstructionsWithHiddenFieldsSchema
 >

@@ -1,11 +1,11 @@
+import { stat } from 'node:fs/promises'
+import { basename } from 'node:path'
+import type { Readable } from 'node:stream'
 import debug from 'debug'
-import { basename } from 'path'
-import { OnSuccessPayload, Upload, UploadOptions } from 'tus-js-client'
-import { stat } from 'fs/promises'
 import pMap from 'p-map'
-import type { Readable } from 'stream'
+import { type OnSuccessPayload, Upload, type UploadOptions } from 'tus-js-client'
+import type { AssemblyStatus } from './alphalib/types/assemblyStatus.js'
 import type { UploadProgress } from './Transloadit.js'
-import { AssemblyStatus } from './alphalib/types/assemblyStatus.js'
 
 const log = debug('transloadit')
 
@@ -36,13 +36,17 @@ export async function sendTusRequest({
 
   const sizes: Record<string, number> = {}
 
-  const haveUnknownLengthStreams = streamLabels.some((label) => !streamsMap[label]!.path)
+  const haveUnknownLengthStreams = streamLabels.some((label) => !streamsMap[label]?.path)
 
   // Initialize size data
   await pMap(
     streamLabels,
     async (label) => {
-      const { path } = streamsMap[label]!
+      const streamInfo = streamsMap[label]
+      if (!streamInfo) {
+        throw new Error(`Stream info not found for label: ${label}`)
+      }
+      const { path } = streamInfo
 
       if (path) {
         const { size } = await stat(path)
@@ -50,7 +54,7 @@ export async function sendTusRequest({
         totalBytes += size
       }
     },
-    { concurrency: 5 }
+    { concurrency: 5 },
   )
 
   const uploadProgresses: Record<string, number> = {}
@@ -58,7 +62,11 @@ export async function sendTusRequest({
   async function uploadSingleStream(label: string) {
     uploadProgresses[label] = 0
 
-    const { stream, path } = streamsMap[label]!
+    const streamInfo = streamsMap[label]
+    if (!streamInfo) {
+      throw new Error(`Stream info not found for label: ${label}`)
+    }
+    const { stream, path } = streamInfo
     const size = sizes[label]
 
     let chunkSize = requestedChunkSize
@@ -68,7 +76,7 @@ export async function sendTusRequest({
       // tus-js-client requires these options to be set for unknown size streams
       // https://github.com/tus/tus-js-client/blob/master/docs/api.md#uploadlengthdeferred
       uploadLengthDeferred = true
-      if (chunkSize === Infinity) chunkSize = 50e6
+      if (chunkSize === Number.POSITIVE_INFINITY) chunkSize = 50e6
     }
 
     const onTusProgress = (bytesUploaded: number): void => {

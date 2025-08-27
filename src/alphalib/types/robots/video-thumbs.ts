@@ -1,16 +1,16 @@
 import { z } from 'zod'
 
+import { stackVersions } from '../stackVersions.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_with_alpha,
-  robotFFmpeg,
+  interpolateRobot,
   percentageSchema,
   resize_strategy,
   robotBase,
+  robotFFmpeg,
   robotUse,
-  interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
-import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -65,7 +65,7 @@ The thumbnails are taken at regular intervals, determined by dividing the video 
 
 To extract thumbnails for specific timestamps, use the \`offsets\` parameter.
 `),
-    offsets: z.union([z.array(z.number().int()), z.array(percentageSchema)]).default([]).describe(`
+    offsets: z.union([z.array(z.number()), z.array(percentageSchema)]).default([]).describe(`
 An array of offsets representing seconds of the file duration, such as \`[ 2, 45, 120 ]\`. Millisecond durations of a file can also be used by using decimal place values. For example, an offset from 1250 milliseconds would be represented with \`1.25\`. Offsets can also be percentage values such as \`[ "2%", "50%", "75%" ]\`.
 
 This option cannot be used with the \`count\` parameter, and takes precedence if both are specified. Out-of-range offsets are silently ignored.
@@ -90,14 +90,37 @@ The background color of the resulting thumbnails in the \`"rrggbbaa"\` format (r
       .default(0).describe(`
 Forces the video to be rotated by the specified degree integer. Currently, only multiples of 90 are supported. We automatically correct the orientation of many videos when the orientation is provided by the camera. This option is only useful for videos requiring rotation because it was not detected by the camera.
 `),
+    input_codec: z.string().optional().describe(`
+Specifies the input codec to use when decoding the video. This is useful for videos with special codecs that require specific decoders.
+`),
   })
   .strict()
 
+export const robotVideoThumbsInstructionsWithHiddenFieldsSchema =
+  robotVideoThumbsInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotVideoThumbsInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotVideoThumbsInstructions = z.infer<typeof robotVideoThumbsInstructionsSchema>
+export type RobotVideoThumbsInstructionsWithHiddenFields = z.infer<
+  typeof robotVideoThumbsInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotVideoThumbsInstructionsSchema = interpolateRobot(
   robotVideoThumbsInstructionsSchema,
 )
 export type InterpolatableRobotVideoThumbsInstructions = z.input<
   typeof interpolatableRobotVideoThumbsInstructionsSchema
+>
+
+export const interpolatableRobotVideoThumbsInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotVideoThumbsInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotVideoThumbsInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotVideoThumbsInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotVideoThumbsInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotVideoThumbsInstructionsWithHiddenFieldsSchema
 >

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -81,12 +81,29 @@ The SSL URL of the file in the <dfn>Assembly Status JSON</dfn>. The following [A
   })
   .strict()
 
+export const robotTusStoreInstructionsWithHiddenFieldsSchema =
+  robotTusStoreInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotTusStoreInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotTusStoreInstructions = z.infer<typeof robotTusStoreInstructionsSchema>
-export type RobotTusStoreInstructionsInput = z.input<typeof robotTusStoreInstructionsSchema>
+export type RobotTusStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotTusStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotTusStoreInstructionsSchema = interpolateRobot(
   robotTusStoreInstructionsSchema,
 )
 export type InterpolatableRobotTusStoreInstructions = z.input<
   typeof interpolatableRobotTusStoreInstructionsSchema
+>
+
+export const interpolatableRobotTusStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotTusStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotTusStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotTusStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotTusStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotTusStoreInstructionsWithHiddenFieldsSchema
 >

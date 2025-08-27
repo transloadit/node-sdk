@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   colorspaceSchema,
-  robotImagemagick,
-  robotBase,
-  robotUse,
   interpolateRobot,
+  robotBase,
+  robotImagemagick,
+  robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -93,7 +93,7 @@ By default, the background of transparent images is changed to white. For detail
     alpha: z.enum(['Remove', 'Set']).optional().describe(`
 Change how the alpha channel of the resulting image should work. Valid values are \`"Set"\` to enable transparency and \`"Remove"\` to remove transparency.
 
-For a list of all valid values please check the ImageMagick documentation [here](http://www.imagemagick.org/script/command-line-options.php?#alpha).
+For a list of all valid values please check the ImageMagick documentation [here](http://www.imagemagick.org/script/command-line-options.php#alpha).
 `),
     density: z
       .string()
@@ -124,11 +124,44 @@ Some PDF documents lie about their dimensions. For instance they'll say they are
   })
   .strict()
 
+export const robotDocumentThumbsInstructionsWithHiddenFieldsSchema =
+  robotDocumentThumbsInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotDocumentThumbsInstructionsSchema.shape.result])
+      .optional(),
+    stack: z.string().optional().describe(`
+The image processing stack to use. Defaults to the robot's preferred stack (ImageMagick).
+`),
+    // Override to support lowercase for BC:
+    alpha: z.enum(['Remove', 'Set', 'remove', 'set']).optional().describe(`
+Change how the alpha channel of the resulting image should work. Valid values are \`"Set"\` to enable transparency and \`"Remove"\` to remove transparency. Lowercase values are also accepted for backwards compatibility.
+`),
+    // Override to support 'none' for BC
+    resize_strategy: z
+      .enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch', 'none'])
+      .optional().describe(`
+One of the [available resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies). The 'none' value is supported for backwards compatibility.
+`),
+  })
+
 export type RobotDocumentThumbsInstructions = z.infer<typeof robotDocumentThumbsInstructionsSchema>
+export type RobotDocumentThumbsInstructionsWithHiddenFields = z.infer<
+  typeof robotDocumentThumbsInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotDocumentThumbsInstructionsSchema = interpolateRobot(
   robotDocumentThumbsInstructionsSchema,
 )
 export type InterpolatableRobotDocumentThumbsInstructions = z.input<
   typeof interpolatableRobotDocumentThumbsInstructionsSchema
+>
+
+export const interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotDocumentThumbsInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotDocumentThumbsInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema
 >

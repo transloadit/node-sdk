@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   aiProviderSchema,
   granularitySchema,
@@ -7,7 +8,6 @@ import {
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -78,11 +78,29 @@ In what format to return the extracted text.
   })
   .strict()
 
+export const robotImageOcrInstructionsWithHiddenFieldsSchema =
+  robotImageOcrInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotImageOcrInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotImageOcrInstructions = z.infer<typeof robotImageOcrInstructionsSchema>
+export type RobotImageOcrInstructionsWithHiddenFields = z.infer<
+  typeof robotImageOcrInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotImageOcrInstructionsSchema = interpolateRobot(
   robotImageOcrInstructionsSchema,
 )
 export type InterpolatableRobotImageOcrInstructions = z.input<
   typeof interpolatableRobotImageOcrInstructionsSchema
+>
+
+export const interpolatableRobotImageOcrInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotImageOcrInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotImageOcrInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotImageOcrInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotImageOcrInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotImageOcrInstructionsWithHiddenFieldsSchema
 >

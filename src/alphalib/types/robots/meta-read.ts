@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, type RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, type RobotMetaInput, robotBase } from './_instructions-primitives.ts'
 
 // @ts-expect-error - MetaReadRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
@@ -21,9 +21,21 @@ export const robotMetaReadInstructionsSchema = robotBase
 
 export type RobotMetaReadInstructions = z.infer<typeof robotMetaReadInstructionsSchema>
 
+export const robotMetaReadInstructionsWithHiddenFieldsSchema =
+  robotMetaReadInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotMetaReadInstructionsSchema.shape.result]).optional(),
+  })
+
 export const interpolatableRobotMetaReadInstructionsSchema = interpolateRobot(
   robotMetaReadInstructionsSchema,
 )
 export type InterpolatableRobotMetaReadInstructions = z.input<
   typeof interpolatableRobotMetaReadInstructionsSchema
+>
+
+export const interpolatableRobotMetaReadInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotMetaReadInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotMetaReadInstructionsWithHiddenFields = z.input<
+  typeof interpolatableRobotMetaReadInstructionsWithHiddenFieldsSchema
 >

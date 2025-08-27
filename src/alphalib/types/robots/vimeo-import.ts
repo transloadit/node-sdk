@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
-  vimeoBase,
-  robotImport,
+  interpolateRobot,
   path,
   robotBase,
-  interpolateRobot,
+  robotImport,
+  vimeoBase,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -95,4 +95,28 @@ export const interpolatableRobotVimeoImportInstructionsSchema = interpolateRobot
 )
 export type InterpolatableRobotVimeoImportInstructions = z.input<
   typeof interpolatableRobotVimeoImportInstructionsSchema
+>
+
+export const robotVimeoImportInstructionsWithHiddenFieldsSchema =
+  robotVimeoImportInstructionsSchema.extend({
+    access_token: z
+      .string()
+      .optional()
+      .describe('Legacy authentication field. Use credentials instead.'),
+    return_file_stubs: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, returns file stubs instead of downloading the actual files. Used for testing.',
+      ),
+  })
+
+export const interpolatableRobotVimeoImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotVimeoImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotVimeoImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotVimeoImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotVimeoImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotVimeoImportInstructionsWithHiddenFieldsSchema
 >

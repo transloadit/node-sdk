@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse, tigrisBase } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse, tigrisBase } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -64,15 +64,38 @@ This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\
 
 If this parameter is not used, no URL signing is done.
 `),
+    bucket_region: z
+      .string()
+      .optional()
+      .describe(`The region of your Tigris bucket. This is optional as it can often be derived.`),
   })
   .strict()
 
+export const robotTigrisStoreInstructionsWithHiddenFieldsSchema =
+  robotTigrisStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotTigrisStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotTigrisStoreInstructions = z.infer<typeof robotTigrisStoreInstructionsSchema>
-export type RobotTigrisStoreInstructionsInput = z.input<typeof robotTigrisStoreInstructionsSchema>
+export type RobotTigrisStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotTigrisStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotTigrisStoreInstructionsSchema = interpolateRobot(
   robotTigrisStoreInstructionsSchema,
 )
 export type InterpolatableRobotTigrisStoreInstructions = z.input<
   typeof interpolatableRobotTigrisStoreInstructionsSchema
+>
+
+export const interpolatableRobotTigrisStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotTigrisStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotTigrisStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotTigrisStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotTigrisStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotTigrisStoreInstructionsWithHiddenFieldsSchema
 >

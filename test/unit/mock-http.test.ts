@@ -1,20 +1,20 @@
-import nock from 'nock'
 import { inspect } from 'node:util'
+import nock from 'nock'
 
 import {
   ApiError,
-  AssemblyStatus,
+  type AssemblyStatus,
+  assemblyInstructionsSchema,
   InconsistentResponseError,
-  Options,
+  type Options,
   TimeoutError,
   Transloadit,
-  assemblyInstructionsSchema,
 } from '../../src/Transloadit.js'
 import { createProxy } from '../util.js'
 
 const getLocalClient = (opts?: Omit<Options, 'authKey' | 'authSecret' | 'endpoint'>) =>
   createProxy(
-    new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts })
+    new Transloadit({ authKey: '', authSecret: '', endpoint: 'http://localhost', ...opts }),
   )
 
 const createAssemblyRegex = /\/assemblies\/[0-9a-f]{32}/
@@ -51,7 +51,7 @@ describe('Mocked API tests', () => {
       .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
 
     await expect(client.awaitAssemblyCompletion('1', { timeout: 1, interval: 1 })).rejects.toThrow(
-      expect.objectContaining({ code: 'POLLING_TIMED_OUT', message: 'Polling timed out' })
+      expect.objectContaining({ code: 'POLLING_TIMED_OUT', message: 'Polling timed out' }),
     )
     scope.done()
   })
@@ -69,7 +69,7 @@ describe('Mocked API tests', () => {
     await client.createAssembly()
 
     const result = await client.awaitAssemblyCompletion('1')
-    expect((result as Extract<AssemblyStatus, { ok: any }>).ok).toBe('REQUEST_ABORTED')
+    expect((result as Extract<AssemblyStatus, { ok: unknown }>).ok).toBe('REQUEST_ABORTED')
     scope.done()
   })
 
@@ -85,7 +85,7 @@ describe('Mocked API tests', () => {
       .reply(200, { ok: 'ASSEMBLY_COMPLETED', assembly_url: '', assembly_ssl_url: '' })
 
     await expect(
-      client.awaitAssemblyCompletion('1', { timeout: 100, interval: 1 })
+      client.awaitAssemblyCompletion('1', { timeout: 100, interval: 1 }),
     ).resolves.toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
     scope.done()
   })
@@ -128,7 +128,7 @@ describe('Mocked API tests', () => {
         rawMessage: 'Invalid file metadata',
         reason: 'Some reason',
         message: 'API error (HTTP 400) INVALID_FILE_META_DATA: Invalid file metadata',
-      })
+      }),
     )
   })
 
@@ -149,7 +149,7 @@ describe('Mocked API tests', () => {
         message:
           'API error (HTTP 400) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo',
         assemblyId: '123',
-      })
+      }),
     )
 
     const errorString = await promise.catch(inspect)
@@ -157,12 +157,12 @@ describe('Mocked API tests', () => {
     // console.log(inspect(errorString))
     expect(inspect(errorString).split('\n')).toEqual([
       expect.stringMatching(
-        `API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo`
+        `API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo`,
       ),
       expect.stringMatching(`    at .+`),
       expect.stringMatching(`    at .+`),
       expect.stringMatching(
-        `    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)`
+        `    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)`,
       ),
       expect.stringMatching(`    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+`),
       expect.stringMatching(`    at .+`),
@@ -170,7 +170,7 @@ describe('Mocked API tests', () => {
       expect.stringMatching(`  rawMessage: 'Invalid file metadata',`),
       expect.stringMatching(`  reason: undefined,`),
       expect.stringMatching(
-        `  assemblySslUrl: 'https:\\/\\/api2-oltu\\.transloadit\\.com\\/assemblies\\/foo'`
+        `  assemblySslUrl: 'https:\\/\\/api2-oltu\\.transloadit\\.com\\/assemblies\\/foo'`,
       ),
       expect.stringMatching(`  assemblyId: '123',`),
       expect.stringMatching(`  cause: HTTPError: Response code 400 \\(Bad Request\\)`),
@@ -218,7 +218,7 @@ describe('Mocked API tests', () => {
       expect.objectContaining({
         message: 'API error (HTTP 429) RATE_LIMIT_REACHED: Request limit reached',
         code: 'RATE_LIMIT_REACHED',
-      })
+      }),
     )
     scope.done()
   })
@@ -233,7 +233,7 @@ describe('Mocked API tests', () => {
 
     const promise = client.getAssembly('1')
     await expect(promise).rejects.toThrow(
-      expect.not.objectContaining({ code: 'ERR_NOCK_NO_MATCH' })
+      expect.not.objectContaining({ code: 'ERR_NOCK_NO_MATCH' }),
     ) // Make sure that it was called only once
     await expect(promise).rejects.toThrow('API error (HTTP 500)')
     scope.done() // Make sure that it was called
@@ -260,7 +260,7 @@ describe('Mocked API tests', () => {
     await expect(promise).rejects.toBeInstanceOf(InconsistentResponseError)
     await expect(promise).rejects.toHaveProperty(
       'message',
-      'Server returned an incomplete assembly response (no URL)'
+      'Server returned an incomplete assembly response (no URL)',
     )
     scope.done()
   })
@@ -296,7 +296,7 @@ describe('Mocked API tests', () => {
       expect.objectContaining({
         code: 'IMPORT_FILE_ERROR',
         assemblyId: '1',
-      })
+      }),
     )
     scope.done()
   })
@@ -311,7 +311,7 @@ describe('Mocked API tests', () => {
     await expect(client.replayAssembly('1')).rejects.toThrow(
       expect.objectContaining({
         code: 'IMPORT_FILE_ERROR',
-      })
+      }),
     )
     scope.done()
   })

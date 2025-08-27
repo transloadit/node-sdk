@@ -1,17 +1,17 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   files_per_page,
-  robotImport,
+  interpolateRobot,
   page_number,
   path,
   recursive,
-  robotBase,
   return_file_stubs,
+  robotBase,
+  robotImport,
   wasabiBase,
-  interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -89,12 +89,31 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   })
   .strict()
 
+export const robotWasabiImportInstructionsWithHiddenFieldsSchema =
+  robotWasabiImportInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotWasabiImportInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotWasabiImportInstructions = z.infer<typeof robotWasabiImportInstructionsSchema>
-export type RobotWasabiImportInstructionsInput = z.input<typeof robotWasabiImportInstructionsSchema>
+export type RobotWasabiImportInstructionsWithHiddenFields = z.infer<
+  typeof robotWasabiImportInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotWasabiImportInstructionsSchema = interpolateRobot(
   robotWasabiImportInstructionsSchema,
 )
 export type InterpolatableRobotWasabiImportInstructions = z.input<
   typeof interpolatableRobotWasabiImportInstructionsSchema
+>
+
+export const interpolatableRobotWasabiImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotWasabiImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotWasabiImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotWasabiImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotWasabiImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotWasabiImportInstructionsWithHiddenFieldsSchema
 >

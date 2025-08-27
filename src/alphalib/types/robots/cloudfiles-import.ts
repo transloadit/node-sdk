@@ -1,15 +1,15 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   cloudfilesBase,
   files_per_page,
-  robotImport,
+  interpolateRobot,
   page_number,
   path,
   robotBase,
-  interpolateRobot,
+  robotImport,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -79,11 +79,18 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   })
   .strict()
 
+export const robotCloudfilesImportInstructionsWithHiddenFieldsSchema =
+  robotCloudfilesImportInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotCloudfilesImportInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotCloudfilesImportInstructions = z.infer<
   typeof robotCloudfilesImportInstructionsSchema
 >
-export type RobotCloudfilesImportInstructionsInput = z.input<
-  typeof robotCloudfilesImportInstructionsSchema
+export type RobotCloudfilesImportInstructionsWithHiddenFields = z.infer<
+  typeof robotCloudfilesImportInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotCloudfilesImportInstructionsSchema = interpolateRobot(
@@ -91,4 +98,13 @@ export const interpolatableRobotCloudfilesImportInstructionsSchema = interpolate
 )
 export type InterpolatableRobotCloudfilesImportInstructions = z.input<
   typeof interpolatableRobotCloudfilesImportInstructionsSchema
+>
+
+export const interpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsSchema =
+  interpolateRobot(robotCloudfilesImportInstructionsWithHiddenFieldsSchema)
+export type InterpolatableRobotCloudfilesImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsSchema
 >

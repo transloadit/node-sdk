@@ -1,4 +1,4 @@
-import { HTTPError, RequestError } from 'got'
+import { HTTPError, type RequestError } from 'got'
 
 export interface TransloaditErrorResponseBody {
   error?: string

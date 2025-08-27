@@ -22,7 +22,7 @@ yarn upgrade-interactive
 
 ## Linting
 
-This project is linted using [ESLint](https://eslint.org). You can lint the project by running:
+This project is linted using Biome. You can lint the project by running:
 
 ```sh
 yarn lint:js
@@ -30,10 +30,10 @@ yarn lint:js
 
 ## Formatting
 
-This project is formatted using [Prettier](https://prettier.io). You can format the project:
+This project is formatted using Biome. You can format the project:
 
 ```sh
-yarn fix:formatting
+yarn fix:js
 ```
 
 ## Testing

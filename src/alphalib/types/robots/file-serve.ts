@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -65,12 +65,30 @@ An object containing a list of headers to be set for a file as we serve it to a 
   })
   .strict()
 
+export const robotFileServeInstructionsWithHiddenFieldsSchema =
+  robotFileServeInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotFileServeInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotFileServeInstructions = z.infer<typeof robotFileServeInstructionsSchema>
 export type RobotFileServeInstructionsInput = z.input<typeof robotFileServeInstructionsSchema>
+export type RobotFileServeInstructionsWithHiddenFields = z.infer<
+  typeof robotFileServeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFileServeInstructionsSchema = interpolateRobot(
   robotFileServeInstructionsSchema,
 )
 export type InterpolatableRobotFileServeInstructions = z.input<
   typeof interpolatableRobotFileServeInstructionsSchema
+>
+
+export const interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFileServeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFileServeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFileServeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema
 >

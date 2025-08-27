@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   aiProviderSchema,
   interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -81,6 +81,7 @@ const translatableLanguages = z
     'de',
     'el',
     'en',
+    'en-US',
     'eo',
     'es',
     'es-MX',
@@ -210,11 +211,31 @@ If the exact language can't be found, a generic variant can be fallen back to. F
   })
   .strict()
 
+export const robotTextTranslateInstructionsWithHiddenFieldsSchema =
+  robotTextTranslateInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotTextTranslateInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotTextTranslateInstructions = z.infer<typeof robotTextTranslateInstructionsSchema>
+export type RobotTextTranslateInstructionsWithHiddenFields = z.infer<
+  typeof robotTextTranslateInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotTextTranslateInstructionsSchema = interpolateRobot(
   robotTextTranslateInstructionsSchema,
 )
 export type InterpolatableRobotTextTranslateInstructions = z.input<
   typeof interpolatableRobotTextTranslateInstructionsSchema
+>
+
+export const interpolatableRobotTextTranslateInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotTextTranslateInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotTextTranslateInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotTextTranslateInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotTextTranslateInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotTextTranslateInstructionsWithHiddenFieldsSchema
 >

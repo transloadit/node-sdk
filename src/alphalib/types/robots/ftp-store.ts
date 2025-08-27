@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { ftpBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { ftpBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -63,12 +63,36 @@ Determines whether to establish a secure connection to the FTP server using SSL.
   })
   .strict()
 
+export const robotFtpStoreInstructionsWithHiddenFieldsSchema =
+  robotFtpStoreInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotFtpStoreInstructionsSchema.shape.result]).optional(),
+    use_remote_utime: z.boolean().optional().describe(`
+Use the remote file's modification time instead of the current time when storing the file.
+`),
+    version: z.union([z.string(), z.number()]).optional().describe(`
+Version identifier for the underlying tool used (2 is ncftp, 1 is ftp).
+`),
+    allowNetwork: z.string().optional(), // For internal test purposes
+  })
+
 export type RobotFtpStoreInstructions = z.infer<typeof robotFtpStoreInstructionsSchema>
-export type RobotFtpStoreInstructionsInput = z.input<typeof robotFtpStoreInstructionsSchema>
+export type RobotFtpStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotFtpStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFtpStoreInstructionsSchema = interpolateRobot(
   robotFtpStoreInstructionsSchema,
 )
 export type InterpolatableRobotFtpStoreInstructions = z.input<
   typeof interpolatableRobotFtpStoreInstructionsSchema
+>
+
+export const interpolatableRobotFtpStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFtpStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFtpStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFtpStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFtpStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFtpStoreInstructionsWithHiddenFieldsSchema
 >

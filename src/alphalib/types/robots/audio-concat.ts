@@ -1,15 +1,16 @@
 import { z } from 'zod'
 
+import { stackVersions } from '../stackVersions.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   bitrateSchema,
-  robotBase,
-  robotUse,
-  sampleRateSchema,
-  robotFFmpegAudio,
   interpolateRobot,
+  robotBase,
+  robotFFmpegAudio,
+  robotUse,
+  robotUseWithHiddenFields,
+  sampleRateSchema,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
-import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -88,13 +89,43 @@ When used this adds an audio fade in and out effect between each section of your
 
 This parameter does not add an audio fade effect at the beginning or end of your result audio file. If you want to do so, create an additional [🤖/audio/encode](/docs/robots/audio-encode/) <dfn>Step</dfn> and use our \`ffmpeg\` parameter as shown in this [demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
 `),
+    crossfade: z.boolean().default(false).describe(`
+When set to \`true\`, this parameter enables crossfading between concatenated audio files using FFmpeg's \`acrossfade\` filter. This creates a smooth transition where the end of one audio file overlaps and blends with the beginning of the next file.
+
+The duration of the crossfade is controlled by the \`audio_fade_seconds\` parameter (defaults to 1 second if \`audio_fade_seconds\` is 0).
+
+Note: This parameter requires at least 2 audio files to concatenate and only works with audio files, not video files.
+`),
   })
   .strict()
+
+export const robotAudioConcatInstructionsWithHiddenFieldsSchema = robotAudioConcatInstructionsSchema
+  .omit({ use: true })
+  .merge(robotUseWithHiddenFields)
+  .extend({
+    result: z
+      .union([z.literal('debug'), robotAudioConcatInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotAudioConcatInstructions = z.infer<typeof robotAudioConcatInstructionsSchema>
+export type RobotAudioConcatInstructionsWithHiddenFields = z.infer<
+  typeof robotAudioConcatInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotAudioConcatInstructionsSchema = interpolateRobot(
   robotAudioConcatInstructionsSchema,
 )
 export type InterpolatableRobotAudioConcatInstructions = z.input<
   typeof interpolatableRobotAudioConcatInstructionsSchema
+>
+
+export const interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotAudioConcatInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotAudioConcatInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotAudioConcatInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema
 >

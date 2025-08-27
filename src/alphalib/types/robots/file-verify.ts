@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -58,11 +58,31 @@ The type that you want to match against to ensure your file is of this type. For
   })
   .strict()
 
+export const robotFileVerifyInstructionsWithHiddenFieldsSchema =
+  robotFileVerifyInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotFileVerifyInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotFileVerifyInstructions = z.infer<typeof robotFileVerifyInstructionsSchema>
+export type RobotFileVerifyInstructionsWithHiddenFields = z.infer<
+  typeof robotFileVerifyInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFileVerifyInstructionsSchema = interpolateRobot(
   robotFileVerifyInstructionsSchema,
 )
 export type InterpolatableRobotFileVerifyInstructions = z.input<
   typeof interpolatableRobotFileVerifyInstructionsSchema
+>
+
+export const interpolatableRobotFileVerifyInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFileVerifyInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFileVerifyInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFileVerifyInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFileVerifyInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFileVerifyInstructionsWithHiddenFieldsSchema
 >

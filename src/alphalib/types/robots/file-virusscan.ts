@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -67,11 +67,34 @@ The error message shown to your users (such as by Uppy) when a file is declined 
   })
   .strict()
 
+export const robotFileVirusscanInstructionsWithHiddenFieldsSchema =
+  robotFileVirusscanInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotFileVirusscanInstructionsSchema.shape.result])
+      .optional(),
+    can_use_daemon_fallback: z.boolean().optional().describe(`
+Allow the robot to use a daemon fallback mechanism if the primary scanning method fails.
+`),
+  })
+
 export type RobotFileVirusscanInstructions = z.infer<typeof robotFileVirusscanInstructionsSchema>
+export type RobotFileVirusscanInstructionsWithHiddenFields = z.infer<
+  typeof robotFileVirusscanInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFileVirusscanInstructionsSchema = interpolateRobot(
   robotFileVirusscanInstructionsSchema,
 )
 export type InterpolatableRobotFileVirusscanInstructions = z.input<
   typeof interpolatableRobotFileVirusscanInstructionsSchema
+>
+
+export const interpolatableRobotFileVirusscanInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFileVirusscanInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFileVirusscanInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFileVirusscanInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFileVirusscanInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFileVirusscanInstructionsWithHiddenFieldsSchema
 >

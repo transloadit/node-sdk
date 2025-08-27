@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse, supabaseBase } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse, supabaseBase } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -60,9 +60,16 @@ This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\
   })
   .strict()
 
+export const robotSupabaseStoreInstructionsWithHiddenFieldsSchema =
+  robotSupabaseStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotSupabaseStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotSupabaseStoreInstructions = z.infer<typeof robotSupabaseStoreInstructionsSchema>
-export type RobotSupabaseStoreInstructionsInput = z.input<
-  typeof robotSupabaseStoreInstructionsSchema
+export type RobotSupabaseStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotSupabaseStoreInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotSupabaseStoreInstructionsSchema = interpolateRobot(
@@ -70,4 +77,14 @@ export const interpolatableRobotSupabaseStoreInstructionsSchema = interpolateRob
 )
 export type InterpolatableRobotSupabaseStoreInstructions = z.input<
   typeof interpolatableRobotSupabaseStoreInstructionsSchema
+>
+
+export const interpolatableRobotSupabaseStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotSupabaseStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotSupabaseStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotSupabaseStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotSupabaseStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotSupabaseStoreInstructionsWithHiddenFieldsSchema
 >

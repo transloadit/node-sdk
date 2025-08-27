@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
-import { robotFFmpeg, robotBase, robotUse, interpolateRobot } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotFFmpeg, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -59,11 +59,29 @@ Valid metadata keys can be found [here](https://exiftool.org/TagNames/EXIF.html)
   })
   .strict()
 
+export const robotMetaWriteInstructionsWithHiddenFieldsSchema =
+  robotMetaWriteInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotMetaWriteInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotMetaWriteInstructions = z.infer<typeof robotMetaWriteInstructionsSchema>
+export type RobotMetaWriteInstructionsWithHiddenFields = z.infer<
+  typeof robotMetaWriteInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotMetaWriteInstructionsSchema = interpolateRobot(
   robotMetaWriteInstructionsSchema,
 )
 export type InterpolatableRobotMetaWriteInstructions = z.input<
   typeof interpolatableRobotMetaWriteInstructionsSchema
+>
+
+export const interpolatableRobotMetaWriteInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotMetaWriteInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotMetaWriteInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotMetaWriteInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotMetaWriteInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotMetaWriteInstructionsWithHiddenFieldsSchema
 >

@@ -1,28 +1,32 @@
-import { PassThrough, Readable } from 'stream'
+import { PassThrough, type Readable } from 'node:stream'
 import FormData from 'form-data'
-import got, { CancelableRequest } from 'got'
+import got, { type CancelableRequest } from 'got'
 
 import packageJson from '../../package.json' with { type: 'json' }
-import * as tus from '../../src/tus.js'
 import { Transloadit } from '../../src/Transloadit.js'
+import * as tus from '../../src/tus.js'
 
 const { version } = packageJson
 
 const mockedExpiresDate = '2021-01-06T21:11:07.883Z'
 const mockGetExpiresDate = (client: Transloadit) =>
-  // @ts-expect-error This mocks private internals
-  vi.spyOn(client, '_getExpiresDate').mockReturnValue(mockedExpiresDate)
+  vi
+    .spyOn(client as unknown as Record<string, (...args: unknown[]) => unknown>, '_getExpiresDate')
+    .mockReturnValue(mockedExpiresDate)
 const mockGot = (method: 'get') =>
   vi.spyOn(got, method).mockImplementation(() => {
     const mockPromise = Promise.resolve({
       body: '',
     }) as CancelableRequest
-    ;(mockPromise as any).on = vi.fn(() => {})
+    ;(mockPromise as unknown as { on: (cb: (...args: unknown[]) => void) => void }).on = vi.fn(
+      () => {},
+    )
     return mockPromise
   })
 const mockRemoteJson = (client: Transloadit) =>
-  // @ts-expect-error This mocks private internals
-  vi.spyOn(client, '_remoteJson').mockImplementation(() => ({ body: {} }))
+  vi
+    .spyOn(client as unknown as Record<string, (...args: unknown[]) => unknown>, '_remoteJson')
+    .mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
   it('should throw a proper error for request stream', async () => {
@@ -33,7 +37,7 @@ describe('Transloadit', () => {
 
     const promise = client.createAssembly({ uploads: { file: req } })
     await expect(promise).rejects.toThrow(
-      expect.objectContaining({ message: 'Upload named "file" is not a Readable stream' })
+      expect.objectContaining({ message: 'Upload named "file" is not a Readable stream' }),
     )
   })
 
@@ -47,29 +51,29 @@ describe('Transloadit', () => {
       const client = new Transloadit(opts)
       expect(
         // @ts-expect-error This tests private internals
-        client._authKey
+        client._authKey,
       ).toBe('foo_key')
       expect(
         // @ts-expect-error This tests private internals
-        client._authSecret
+        client._authSecret,
       ).toBe('foo_secret')
       expect(
         // @ts-expect-error This tests private internals
-        client._endpoint
+        client._endpoint,
       ).toBe('https://api2.transloadit.com')
       expect(
         // @ts-expect-error This tests private internals
-        client._maxRetries
+        client._maxRetries,
       ).toBe(0)
       expect(
         // @ts-expect-error This tests private internals
-        client._defaultTimeout
+        client._defaultTimeout,
       ).toBe(60000)
 
       client.setDefaultTimeout(10000)
       expect(
         // @ts-expect-error This tests private internals
-        client._defaultTimeout
+        client._defaultTimeout,
       ).toBe(10000)
     })
 
@@ -87,8 +91,8 @@ describe('Transloadit', () => {
         () =>
           new Transloadit(
             // @ts-expect-error This tests invalid types
-            { authSecret: '' }
-          )
+            { authSecret: '' },
+          ),
       ).toThrow()
     })
 
@@ -97,8 +101,8 @@ describe('Transloadit', () => {
         () =>
           new Transloadit(
             // @ts-expect-error This tests invalid types
-            { authKey: '' }
-          )
+            { authKey: '' },
+          ),
       ).toThrow()
     })
 
@@ -112,15 +116,15 @@ describe('Transloadit', () => {
       const client = new Transloadit(opts)
       expect(
         // @ts-expect-error This tests private internals
-        client._authKey
+        client._authKey,
       ).toBe('foo_key')
       expect(
         // @ts-expect-error This tests private internals
-        client._authSecret
+        client._authSecret,
       ).toBe('foo_secret')
       expect(
         // @ts-expect-error This tests private internals
-        client._endpoint
+        client._endpoint,
       ).toBe('http://foo')
     })
   })
@@ -250,10 +254,10 @@ describe('Transloadit', () => {
       const r = client.calcSignature(params)
 
       expect(r.params).toBe(
-        '{"foo":"bar","auth":{"key":"foo_key","expires":"2021-01-06T21:11:07.883Z"}}'
+        '{"foo":"bar","auth":{"key":"foo_key","expires":"2021-01-06T21:11:07.883Z"}}',
       )
       expect(r.signature).toBe(
-        'sha384:431542b924ecc9e7f062e37d1c83554f5bc19664ed7e6e1ef954c0b021b9be19c9412c2074f226784c5419b630e8b70a'
+        'sha384:431542b924ecc9e7f062e37d1c83554f5bc19664ed7e6e1ef954c0b021b9be19c9412c2074f226784c5419b630e8b70a',
       )
       expect(prepareParamsSpy).toBeCalledWith(params)
     })
@@ -267,7 +271,7 @@ describe('Transloadit', () => {
     await client.createAssembly()
 
     expect(spy).toBeCalledWith(
-      expect.objectContaining({ timeout: { request: 24 * 60 * 60 * 1000 } })
+      expect.objectContaining({ timeout: { request: 24 * 60 * 60 * 1000 } }),
     )
   })
 
@@ -282,14 +286,14 @@ describe('Transloadit', () => {
         'sha384:8b90663d4b7d14ac7d647c74cb53c529198dee4689d0f8faae44f0df1c2a157acce5cb8c55a375218bc331897cf92e9d'
       expect(
         // @ts-expect-error This tests private internals
-        client._calcSignature('foo')
+        client._calcSignature('foo'),
       ).toBe(expected)
 
       expected =
         'sha384:3595c177fc09c9cc46672cef90685257838a0a4295056dcfd45b5d5c255e8f987e1c1ca8800b9c21ee03e4ada7485e9d'
       expect(
         // @ts-expect-error This tests private internals
-        client._calcSignature('akjdkadskjads')
+        client._calcSignature('akjdkadskjads'),
       ).toBe(expected)
 
       // @ts-expect-error This tests private internals
@@ -299,14 +303,14 @@ describe('Transloadit', () => {
         'sha384:b6f967f8bd659652c6c2093bc52045becbd6e8fbd96d8ef419e07bbc9fb411c56316e75f03dfc2a6613dbe896bbad20f'
       expect(
         // @ts-expect-error This tests private internals
-        client._calcSignature('foo')
+        client._calcSignature('foo'),
       ).toBe(expected)
 
       expected =
         'sha384:fc75f6a4bbb06340653c0f7efff013e94eb8e402e0e45cf40ad4bc95f45a3ae3263032000727359c595a433364a84f96'
       return expect(
         // @ts-expect-error This tests private internals
-        client._calcSignature('akjdkadskjads')
+        client._calcSignature('akjdkadskjads'),
       ).toBe(expected)
     })
   })
@@ -323,7 +327,7 @@ describe('Transloadit', () => {
 
       expect(get).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ headers: { 'Transloadit-Client': `node-sdk:${version}` } })
+        expect.objectContaining({ headers: { 'Transloadit-Client': `node-sdk:${version}` } }),
       )
     })
   })
@@ -345,7 +349,7 @@ describe('Transloadit', () => {
       })
 
       expect(url).toBe(
-        'https://foo_workspace.tlcdn.com/foo_template/foo%2Finput?aaa=42&aaa=21&auth_key=foo_key&empty=&exp=1714525200000&foo=bar&sig=sha256%3A1ab71ef553df3507a9e2cf7beb8f921538bbef49a13a94a22ff49f2f030a5e9e'
+        'https://foo_workspace.tlcdn.com/foo_template/foo%2Finput?aaa=42&aaa=21&auth_key=foo_key&empty=&exp=1714525200000&foo=bar&sig=sha256%3A1ab71ef553df3507a9e2cf7beb8f921538bbef49a13a94a22ff49f2f030a5e9e',
       )
     })
   })

@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   cloudfilesBase,
   interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -66,11 +66,18 @@ The path at which to store the file. This value can also contain [Assembly varia
   })
   .strict()
 
+export const robotCloudfilesStoreInstructionsWithHiddenFieldsSchema =
+  robotCloudfilesStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotCloudfilesStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotCloudfilesStoreInstructions = z.infer<
   typeof robotCloudfilesStoreInstructionsSchema
 >
-export type RobotCloudfilesStoreInstructionsInput = z.input<
-  typeof robotCloudfilesStoreInstructionsSchema
+export type RobotCloudfilesStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotCloudfilesStoreInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotCloudfilesStoreInstructionsSchema = interpolateRobot(
@@ -78,4 +85,13 @@ export const interpolatableRobotCloudfilesStoreInstructionsSchema = interpolateR
 )
 export type InterpolatableRobotCloudfilesStoreInstructions = z.input<
   typeof interpolatableRobotCloudfilesStoreInstructionsSchema
+>
+
+export const interpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsSchema =
+  interpolateRobot(robotCloudfilesStoreInstructionsWithHiddenFieldsSchema)
+export type InterpolatableRobotCloudfilesStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsSchema
 >

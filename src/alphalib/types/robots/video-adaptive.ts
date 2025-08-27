@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
-import {
-  robotBase,
-  robotUse,
-  robotFFmpegVideo,
-  interpolateRobot,
-} from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { stackVersions } from '../stackVersions.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+import {
+  interpolateRobot,
+  robotBase,
+  robotFFmpegVideo,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -132,11 +132,31 @@ Determines whether you want closed caption support when using the \`"hls"\` tech
   })
   .strict()
 
+export const robotVideoAdaptiveInstructionsWithHiddenFieldsSchema =
+  robotVideoAdaptiveInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotVideoAdaptiveInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotVideoAdaptiveInstructions = z.infer<typeof robotVideoAdaptiveInstructionsSchema>
+export type RobotVideoAdaptiveInstructionsWithHiddenFields = z.infer<
+  typeof robotVideoAdaptiveInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotVideoAdaptiveInstructionsSchema = interpolateRobot(
   robotVideoAdaptiveInstructionsSchema,
 )
 export type InterpolatableRobotVideoAdaptiveInstructions = z.input<
   typeof interpolatableRobotVideoAdaptiveInstructionsSchema
+>
+
+export const interpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotVideoAdaptiveInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotVideoAdaptiveInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsSchema
 >

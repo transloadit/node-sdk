@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
-import {
-  robotFFmpegVideo,
-  robotBase,
-  robotUse,
-  interpolateRobot,
-} from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import {
+  interpolateRobot,
+  robotBase,
+  robotFFmpegVideo,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -89,11 +89,31 @@ Please note this parameter is independent of adding video fades between sections
   })
   .strict()
 
+export const robotVideoConcatInstructionsWithHiddenFieldsSchema =
+  robotVideoConcatInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotVideoConcatInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotVideoConcatInstructions = z.infer<typeof robotVideoConcatInstructionsSchema>
+export type RobotVideoConcatInstructionsWithHiddenFields = z.infer<
+  typeof robotVideoConcatInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotVideoConcatInstructionsSchema = interpolateRobot(
   robotVideoConcatInstructionsSchema,
 )
 export type InterpolatableRobotVideoConcatInstructions = z.input<
   typeof interpolatableRobotVideoConcatInstructionsSchema
+>
+
+export const interpolatableRobotVideoConcatInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotVideoConcatInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotVideoConcatInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotVideoConcatInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotVideoConcatInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotVideoConcatInstructionsWithHiddenFieldsSchema
 >

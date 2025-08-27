@@ -1,17 +1,17 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   files_per_page,
-  robotImport,
+  interpolateRobot,
   page_number,
   path,
   recursive,
-  robotBase,
   return_file_stubs,
+  robotBase,
+  robotImport,
   supabaseBase,
-  interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -87,9 +87,16 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   })
   .strict()
 
+export const robotSupabaseImportInstructionsWithHiddenFieldsSchema =
+  robotSupabaseImportInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotSupabaseImportInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotSupabaseImportInstructions = z.infer<typeof robotSupabaseImportInstructionsSchema>
-export type RobotSupabaseImportInstructionsInput = z.input<
-  typeof robotSupabaseImportInstructionsSchema
+export type RobotSupabaseImportInstructionsWithHiddenFields = z.infer<
+  typeof robotSupabaseImportInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotSupabaseImportInstructionsSchema = interpolateRobot(
@@ -97,4 +104,14 @@ export const interpolatableRobotSupabaseImportInstructionsSchema = interpolateRo
 )
 export type InterpolatableRobotSupabaseImportInstructions = z.input<
   typeof interpolatableRobotSupabaseImportInstructionsSchema
+>
+
+export const interpolatableRobotSupabaseImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotSupabaseImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotSupabaseImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotSupabaseImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotSupabaseImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotSupabaseImportInstructionsWithHiddenFieldsSchema
 >

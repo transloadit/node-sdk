@@ -1,15 +1,15 @@
 import { z } from 'zod'
 
+import { stackVersions } from '../stackVersions.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   bitrateSchema,
-  robotFFmpegAudio,
+  interpolateRobot,
   robotBase,
+  robotFFmpegAudio,
   robotUse,
   sampleRateSchema,
-  interpolateRobot,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
-import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -68,11 +68,32 @@ Sample rate of the resulting audio file, in Hertz. If not specified will default
 `),
   })
   .strict()
+
+export const robotAudioEncodeInstructionsWithHiddenFieldsSchema =
+  robotAudioEncodeInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotAudioEncodeInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotAudioEncodeInstructions = z.infer<typeof robotAudioEncodeInstructionsSchema>
+export type RobotAudioEncodeInstructionsWithHiddenFields = z.infer<
+  typeof robotAudioEncodeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotAudioEncodeInstructionsSchema = interpolateRobot(
   robotAudioEncodeInstructionsSchema,
 )
 export type InterpolatableRobotAudioEncodeInstructions = z.input<
   typeof interpolatableRobotAudioEncodeInstructionsSchema
+>
+
+export const interpolatableRobotAudioEncodeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotAudioEncodeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotAudioEncodeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAudioEncodeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotAudioEncodeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAudioEncodeInstructionsWithHiddenFieldsSchema
 >

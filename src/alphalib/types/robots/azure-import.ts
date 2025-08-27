@@ -1,16 +1,16 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   azureBase,
   files_per_page,
-  robotImport,
+  interpolateRobot,
   next_page_token,
   path,
   recursive,
   robotBase,
-  interpolateRobot,
+  robotImport,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -76,12 +76,31 @@ The pagination page size.
   })
   .strict()
 
+export const robotAzureImportInstructionsWithHiddenFieldsSchema =
+  robotAzureImportInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotAzureImportInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotAzureImportInstructions = z.infer<typeof robotAzureImportInstructionsSchema>
-export type RobotAzureImportInstructionsInput = z.input<typeof robotAzureImportInstructionsSchema>
+export type RobotAzureImportInstructionsWithHiddenFields = z.infer<
+  typeof robotAzureImportInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotAzureImportInstructionsSchema = interpolateRobot(
   robotAzureImportInstructionsSchema,
 )
 export type InterpolatableRobotAzureImportInstructions = z.input<
   typeof interpolatableRobotAzureImportInstructionsSchema
+>
+
+export const interpolatableRobotAzureImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotAzureImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotAzureImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAzureImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotAzureImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAzureImportInstructionsWithHiddenFieldsSchema
 >

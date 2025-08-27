@@ -1,16 +1,16 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   files_per_page,
   googleBase,
-  robotImport,
+  interpolateRobot,
   next_page_token,
   path,
   recursive,
   robotBase,
-  interpolateRobot,
+  robotImport,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -80,12 +80,31 @@ The pagination page size. This only works when recursive is \`true\` for now, in
   })
   .strict()
 
+export const robotGoogleImportInstructionsWithHiddenFieldsSchema =
+  robotGoogleImportInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotGoogleImportInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotGoogleImportInstructions = z.infer<typeof robotGoogleImportInstructionsSchema>
-export type RobotGoogleImportInstructionsInput = z.input<typeof robotGoogleImportInstructionsSchema>
+export type RobotGoogleImportInstructionsWithHiddenFields = z.infer<
+  typeof robotGoogleImportInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotGoogleImportInstructionsSchema = interpolateRobot(
   robotGoogleImportInstructionsSchema,
 )
 export type InterpolatableRobotGoogleImportInstructions = z.input<
   typeof interpolatableRobotGoogleImportInstructionsSchema
+>
+
+export const interpolatableRobotGoogleImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotGoogleImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotGoogleImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotGoogleImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotGoogleImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotGoogleImportInstructionsWithHiddenFieldsSchema
 >

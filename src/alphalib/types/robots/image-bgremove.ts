@@ -55,11 +55,31 @@ export const robotImageBgremoveInstructionsSchema = robotBase
   })
   .strict()
 
+export const robotImageBgremoveInstructionsWithHiddenFieldsSchema =
+  robotImageBgremoveInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotImageBgremoveInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotImageBgremoveInstructions = z.infer<typeof robotImageBgremoveInstructionsSchema>
+export type RobotImageBgremoveInstructionsWithHiddenFields = z.infer<
+  typeof robotImageBgremoveInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotImageBgremoveInstructionsSchema = interpolateRobot(
   robotImageBgremoveInstructionsSchema,
 )
 export type InterpolatableRobotImageBgremoveInstructions = z.input<
   typeof interpolatableRobotImageBgremoveInstructionsSchema
+>
+
+export const interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotImageBgremoveInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotImageBgremoveInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotImageBgremoveInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema
 >

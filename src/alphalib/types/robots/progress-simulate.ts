@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 // @ts-expect-error - ProgressSimulateRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
@@ -15,6 +15,7 @@ export const meta: RobotMetaInput = {
 }
 
 export const robotProgressSimulateInstructionsSchema = robotBase
+  .merge(robotUse)
   .extend({
     robot: z.literal('/progress/simulate'),
     duration: z.number(),

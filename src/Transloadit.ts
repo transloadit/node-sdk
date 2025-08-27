@@ -1,34 +1,31 @@
-import { createHmac, randomUUID } from 'crypto'
-import got, {
-  RetryOptions,
-  Headers,
-  OptionsOfJSONResponseBody,
-  Delays,
-  RequestError,
-  HTTPError,
-} from 'got'
-import FormData from 'form-data'
-import { constants, createReadStream } from 'fs'
-import { access } from 'fs/promises'
+import * as assert from 'node:assert'
+import { createHmac, randomUUID } from 'node:crypto'
+import { constants, createReadStream } from 'node:fs'
+import { access } from 'node:fs/promises'
+import type { Readable } from 'node:stream'
 import debug from 'debug'
-import intoStream, { Input as IntoStreamInput } from 'into-stream'
+import FormData from 'form-data'
+import got, {
+  type Delays,
+  type Headers,
+  HTTPError,
+  type OptionsOfJSONResponseBody,
+  RequestError,
+  type RetryOptions,
+} from 'got'
+import intoStream, { type Input as IntoStreamInput } from 'into-stream'
 import { isReadableStream, isStream } from 'is-stream'
-import * as assert from 'assert'
 import pMap from 'p-map'
-import type { Readable } from 'stream'
-import InconsistentResponseError from './InconsistentResponseError.js'
-import PaginationStream from './PaginationStream.js'
-import PollingTimeoutError from './PollingTimeoutError.js'
-import { TransloaditErrorResponseBody, ApiError } from './ApiError.js'
 import packageJson from '../package.json' with { type: 'json' }
-import { sendTusRequest, Stream } from './tus.js'
+import { ApiError, type TransloaditErrorResponseBody } from './ApiError.js'
 import {
-  AssemblyStatus,
-  assemblyStatusSchema,
+  type AssemblyIndex,
   type AssemblyIndexItem,
+  type AssemblyStatus,
   assemblyIndexSchema,
-  AssemblyIndex,
+  assemblyStatusSchema,
 } from './alphalib/types/assemblyStatus.js'
+import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import type {
   BaseResponse,
   BillResponse,
@@ -37,6 +34,7 @@ import type {
   CreateTemplateParams,
   EditTemplateParams,
   ListAssembliesParams,
+  ListedTemplate,
   ListTemplateCredentialsParams,
   ListTemplatesParams,
   OptionalAuthParams,
@@ -48,25 +46,26 @@ import type {
   TemplateCredentialResponse,
   TemplateCredentialsResponse,
   TemplateResponse,
-  ListedTemplate,
 } from './apiTypes.js'
-import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
-
-export * from './apiTypes.js'
-
-export type { AssemblyStatus } from './alphalib/types/assemblyStatus.js'
+import InconsistentResponseError from './InconsistentResponseError.js'
+import PaginationStream from './PaginationStream.js'
+import PollingTimeoutError from './PollingTimeoutError.js'
+import { type Stream, sendTusRequest } from './tus.js'
 
 // See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
 // Expose relevant errors
 export {
-  RequestError,
-  ReadError,
-  ParseError,
-  UploadError,
   HTTPError,
   MaxRedirectsError,
+  ParseError,
+  ReadError,
+  RequestError,
   TimeoutError,
+  UploadError,
 } from 'got'
+
+export type { AssemblyStatus } from './alphalib/types/assemblyStatus.js'
+export * from './apiTypes.js'
 export { InconsistentResponseError, ApiError }
 
 const log = debug('transloadit')
@@ -196,7 +195,7 @@ export class Transloadit {
       throw new Error('Please provide an authSecret')
     }
 
-    if (opts.endpoint && opts.endpoint.endsWith('/')) {
+    if (opts.endpoint?.endsWith('/')) {
       throw new Error('Trailing slash in endpoint is not allowed')
     }
 
@@ -229,7 +228,7 @@ export class Transloadit {
     const {
       params = {},
       waitForCompletion = false,
-      chunkSize: requestedChunkSize = Infinity,
+      chunkSize: requestedChunkSize = Number.POSITIVE_INFINITY,
       uploadConcurrency = 10,
       timeout = 24 * 60 * 60 * 1000, // 1 day
       onUploadProgress = () => {},
@@ -245,7 +244,7 @@ export class Transloadit {
     // Undocumented feature to allow specifying a custom assembly id from the client
     // Not recommended for general use due to security. E.g if the user doesn't provide a cryptographically
     // secure ID, then anyone could access the assembly.
-    let effectiveAssemblyId
+    let effectiveAssemblyId: string
     if (assemblyId != null) {
       effectiveAssemblyId = assemblyId
     } else {
@@ -259,9 +258,8 @@ export class Transloadit {
 
       await pMap(
         Object.entries(files),
-        // eslint-disable-next-line no-bitwise
         async ([, path]) => access(path, constants.F_OK | constants.R_OK),
-        { concurrency: 5 }
+        { concurrency: 5 },
       )
 
       // Convert uploads to streams
@@ -274,12 +272,12 @@ export class Transloadit {
           }
 
           return [label, isReadableStream(value) ? value : intoStream(value)]
-        })
+        }),
       )
 
       // Wrap in object structure (so we can store whether it's a pathless stream or not)
       const allStreamsMap = Object.fromEntries<Stream>(
-        Object.entries(streamsMap).map(([label, stream]) => [label, { stream }])
+        Object.entries(streamsMap).map(([label, stream]) => [label, { stream }]),
       )
 
       // Create streams from files too
@@ -291,11 +289,15 @@ export class Transloadit {
       const allStreams = Object.values(allStreamsMap)
 
       // Pause all streams
-      allStreams.forEach(({ stream }) => stream.pause())
+      for (const { stream } of allStreams) {
+        stream.pause()
+      }
 
       // If any stream emits error, we want to handle this and exit with error
-      const streamErrorPromise = new Promise<AssemblyStatus>((resolve, reject) => {
-        allStreams.forEach(({ stream }) => stream.on('error', reject))
+      const streamErrorPromise = new Promise<AssemblyStatus>((_resolve, reject) => {
+        for (const { stream } of allStreams) {
+          stream.on('error', reject)
+        }
       })
 
       const createAssemblyAndUpload = async () => {
@@ -324,7 +326,7 @@ export class Transloadit {
 
         if (result.assembly_id == null) {
           throw new InconsistentResponseError(
-            'Server returned an assembly response without an assembly_id after creation'
+            'Server returned an assembly response without an assembly_id after creation',
           )
         }
         const awaitResult = await this.awaitAssemblyCompletion(result.assembly_id, {
@@ -350,11 +352,10 @@ export class Transloadit {
       timeout,
       startTimeMs = getHrTimeMs(),
       interval = 1000,
-    }: AwaitAssemblyCompletionOptions = {}
+    }: AwaitAssemblyCompletionOptions = {},
   ): Promise<AssemblyStatus> {
     assert.ok(assemblyId)
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const result = await this.getAssembly(assemblyId)
 
@@ -398,9 +399,8 @@ export class Transloadit {
       throw err
     }
 
-    // eslint-disable-next-line no-console
     console.error(
-      `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!\n---\n`
+      `---\nPlease report this error to Transloadit (support@transloadit.com). We are working on better schemas for our API and this looks like something we do not cover yet: \n\n${err}\nThank you in advance!\n---\n`,
     )
   }
 
@@ -421,7 +421,7 @@ export class Transloadit {
 
     if (!parsedResult.success) {
       this.maybeThrowInconsistentResponseError(
-        `The API responded with data that does not match the expected schema while cancelling Assembly: ${assemblyId}.\n${parsedResult.humanReadable}`
+        `The API responded with data that does not match the expected schema while cancelling Assembly: ${assemblyId}.\n${parsedResult.humanReadable}`,
       )
     }
 
@@ -438,7 +438,7 @@ export class Transloadit {
    */
   async replayAssembly(
     assemblyId: string,
-    params: ReplayAssemblyParams = {}
+    params: ReplayAssemblyParams = {},
   ): Promise<ReplayAssemblyResponse> {
     const result: ReplayAssemblyResponse = await this._remoteJson({
       urlSuffix: `/assemblies/${assemblyId}/replay`,
@@ -458,7 +458,7 @@ export class Transloadit {
    */
   async replayAssemblyNotification(
     assemblyId: string,
-    params: ReplayAssemblyNotificationParams = {}
+    params: ReplayAssemblyNotificationParams = {},
   ): Promise<ReplayAssemblyNotificationResponse> {
     return this._remoteJson({
       urlSuffix: `/assembly_notifications/${assemblyId}/replay`,
@@ -474,7 +474,7 @@ export class Transloadit {
    * @returns list of Assemblies
    */
   async listAssemblies(
-    params?: ListAssembliesParams
+    params?: ListAssembliesParams,
   ): Promise<PaginationListWithCount<AssemblyIndexItem>> {
     const rawResponse = await this._remoteJson<
       PaginationListWithCount<Record<string, unknown>>,
@@ -491,7 +491,7 @@ export class Transloadit {
       !Array.isArray(rawResponse.items)
     ) {
       throw new InconsistentResponseError(
-        'API response for listAssemblies is malformed or missing items array'
+        'API response for listAssemblies is malformed or missing items array',
       )
     }
 
@@ -499,7 +499,7 @@ export class Transloadit {
 
     if (!parsedResult.success) {
       this.maybeThrowInconsistentResponseError(
-        `API response for listAssemblies contained items that do not match the expected schema.\n${parsedResult.humanReadable}`
+        `API response for listAssemblies contained items that do not match the expected schema.\n${parsedResult.humanReadable}`,
       )
     }
 
@@ -528,7 +528,7 @@ export class Transloadit {
 
     if (!parsedResult.success) {
       this.maybeThrowInconsistentResponseError(
-        `The API responded with data that does not match the expected schema while getting Assembly: ${assemblyId}.\n${parsedResult.humanReadable}`
+        `The API responded with data that does not match the expected schema while getting Assembly: ${assemblyId}.\n${parsedResult.humanReadable}`,
       )
     }
 
@@ -543,7 +543,7 @@ export class Transloadit {
    * @returns when the Credential is created
    */
   async createTemplateCredential(
-    params: CreateTemplateCredentialParams
+    params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
     return this._remoteJson({
       urlSuffix: '/template_credentials',
@@ -561,7 +561,7 @@ export class Transloadit {
    */
   async editTemplateCredential(
     credentialId: string,
-    params: CreateTemplateCredentialParams
+    params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
     return this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
@@ -603,7 +603,7 @@ export class Transloadit {
    * @returns the list of templates
    */
   async listTemplateCredentials(
-    params?: ListTemplateCredentialsParams
+    params?: ListTemplateCredentialsParams,
   ): Promise<TemplateCredentialsResponse> {
     return this._remoteJson({
       urlSuffix: '/template_credentials',
@@ -680,7 +680,7 @@ export class Transloadit {
    * @returns the list of templates
    */
   async listTemplates(
-    params?: ListTemplatesParams
+    params?: ListTemplatesParams,
   ): Promise<PaginationListWithCount<ListedTemplate>> {
     return this._remoteJson({
       urlSuffix: '/templates',
@@ -810,7 +810,6 @@ export class Transloadit {
   }
 
   // We want to mock this method
-  // eslint-disable-next-line class-methods-use-this
   private _getExpiresDate(): string {
     const expiresDate = new Date()
     expiresDate.setDate(expiresDate.getDate() + 1)

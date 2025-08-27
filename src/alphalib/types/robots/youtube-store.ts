@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -84,22 +84,25 @@ Note that since the YouTube API requires titles to be within 80 characters, long
     description: z.string().describe(`
 The description of the video to be displayed on YouTube. This can be up to 5000 characters, including \`\\n\` for new-lines.
 `),
-    category: z.enum([
-      'autos & vehicles',
-      'comedy',
-      'education',
-      'entertainment',
-      'film & animation',
-      'gaming',
-      'howto & style',
-      'music',
-      'news & politics',
-      'people & blogs',
-      'pets & animals',
-      'science & technology',
-      'sports',
-      'travel & events',
-    ]).describe(`
+    category: z.preprocess(
+      (val) => (typeof val === 'string' ? val.toLowerCase() : val),
+      z.enum([
+        'autos & vehicles',
+        'comedy',
+        'education',
+        'entertainment',
+        'film & animation',
+        'gaming',
+        'howto & style',
+        'music',
+        'news & politics',
+        'people & blogs',
+        'pets & animals',
+        'science & technology',
+        'sports',
+        'travel & events',
+      ]),
+    ).describe(`
 The category to which this video will be assigned.
 `),
     keywords: z.string().describe(`
@@ -111,12 +114,31 @@ Defines the visibility of the uploaded video.
   })
   .strict()
 
+export const robotYoutubeStoreInstructionsWithHiddenFieldsSchema =
+  robotYoutubeStoreInstructionsSchema.extend({
+    result: z
+      .union([z.literal('debug'), robotYoutubeStoreInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotYoutubeStoreInstructions = z.infer<typeof robotYoutubeStoreInstructionsSchema>
-export type RobotYoutubeStoreInstructionsInput = z.input<typeof robotYoutubeStoreInstructionsSchema>
+export type RobotYoutubeStoreInstructionsWithHiddenFields = z.infer<
+  typeof robotYoutubeStoreInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotYoutubeStoreInstructionsSchema = interpolateRobot(
   robotYoutubeStoreInstructionsSchema,
 )
 export type InterpolatableRobotYoutubeStoreInstructions = z.input<
   typeof interpolatableRobotYoutubeStoreInstructionsSchema
+>
+
+export const interpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotYoutubeStoreInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotYoutubeStoreInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsSchema
 >

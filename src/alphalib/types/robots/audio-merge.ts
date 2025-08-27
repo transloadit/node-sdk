@@ -1,15 +1,16 @@
 import { z } from 'zod'
 
+import { stackVersions } from '../stackVersions.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   bitrateSchema,
-  robotFFmpegAudio,
-  robotBase,
-  robotUse,
-  sampleRateSchema,
   interpolateRobot,
+  robotBase,
+  robotFFmpegAudio,
+  robotUse,
+  robotUseWithHiddenFields,
+  sampleRateSchema,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
-import { stackVersions } from '../stackVersions.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
@@ -89,11 +90,34 @@ Valid values are \`"average"\` and \`"sum"\` here. \`"average"\` means each inpu
 `),
   })
   .strict()
+
+export const robotAudioMergeInstructionsWithHiddenFieldsSchema = robotAudioMergeInstructionsSchema
+  .omit({ use: true })
+  .merge(robotUseWithHiddenFields)
+  .extend({
+    result: z
+      .union([z.literal('debug'), robotAudioMergeInstructionsSchema.shape.result])
+      .optional(),
+  })
+
 export type RobotAudioMergeInstructions = z.infer<typeof robotAudioMergeInstructionsSchema>
+export type RobotAudioMergeInstructionsWithHiddenFields = z.infer<
+  typeof robotAudioMergeInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotAudioMergeInstructionsSchema = interpolateRobot(
   robotAudioMergeInstructionsSchema,
 )
 export type InterpolatableRobotAudioMergeInstructions = z.input<
   typeof interpolatableRobotAudioMergeInstructionsSchema
+>
+
+export const interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotAudioMergeInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotAudioMergeInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotAudioMergeInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema
 >

@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
+import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   ftpBase,
-  robotImport,
+  interpolateRobot,
   path,
   robotBase,
-  interpolateRobot,
+  robotImport,
 } from './_instructions-primitives.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: true,
@@ -60,12 +60,29 @@ Determines if passive mode should be used for the FTP connection.
   })
   .strict()
 
+export const robotFtpImportInstructionsWithHiddenFieldsSchema =
+  robotFtpImportInstructionsSchema.extend({
+    result: z.union([z.literal('debug'), robotFtpImportInstructionsSchema.shape.result]).optional(),
+  })
+
 export type RobotFtpImportInstructions = z.infer<typeof robotFtpImportInstructionsSchema>
-export type RobotFtpImportInstructionsInput = z.input<typeof robotFtpImportInstructionsSchema>
+export type RobotFtpImportInstructionsWithHiddenFields = z.infer<
+  typeof robotFtpImportInstructionsWithHiddenFieldsSchema
+>
 
 export const interpolatableRobotFtpImportInstructionsSchema = interpolateRobot(
   robotFtpImportInstructionsSchema,
 )
 export type InterpolatableRobotFtpImportInstructions = z.input<
   typeof interpolatableRobotFtpImportInstructionsSchema
+>
+
+export const interpolatableRobotFtpImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
+  robotFtpImportInstructionsWithHiddenFieldsSchema,
+)
+export type InterpolatableRobotFtpImportInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotFtpImportInstructionsWithHiddenFieldsSchema
+>
+export type InterpolatableRobotFtpImportInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotFtpImportInstructionsWithHiddenFieldsSchema
 >

@@ -1,31 +1,35 @@
-import { randomUUID } from 'crypto'
-import { parse } from 'querystring'
-import * as temp from 'temp'
-import { createWriteStream } from 'fs'
-import { IncomingMessage, RequestListener } from 'http'
-import { join } from 'path'
-import { pipeline } from 'stream/promises'
-import { setTimeout } from 'timers/promises'
-import got, { RetryOptions } from 'got'
-import intoStream from 'into-stream'
+import { randomUUID } from 'node:crypto'
+import { createWriteStream } from 'node:fs'
+import type { IncomingMessage, RequestListener } from 'node:http'
+import { join } from 'node:path'
+import { parse } from 'node:querystring'
+import { pipeline } from 'node:stream/promises'
+import { setTimeout } from 'node:timers/promises'
 import debug from 'debug'
 import { config } from 'dotenv'
-
+import got, { type RetryOptions } from 'got'
+import intoStream from 'into-stream'
+import * as temp from 'temp'
+import type { InterpolatableRobotFileFilterInstructions } from '../../src/alphalib/types/robots/file-filter.js'
+import type { InterpolatableRobotImageResizeInstructions } from '../../src/alphalib/types/robots/image-resize.js'
 import {
-  CreateAssemblyOptions,
-  CreateAssemblyParams,
+  type CreateAssemblyOptions,
+  type CreateAssemblyParams,
   Transloadit,
-  UploadProgress,
+  type UploadProgress,
 } from '../../src/Transloadit.js'
-import { createTestServer, TestServer } from '../testserver.js'
+import { createTestServer, type TestServer } from '../testserver.js'
 import { createProxy } from '../util.js'
-import { RobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize.js'
-import { RobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter.js'
 
 // Load environment variables from .env file
 config()
 
 const log = debug('transloadit:live-api')
+
+function nn<T>(value: T | null | undefined, name = 'value'): T {
+  if (value == null) throw new Error(`${name} was undefined`)
+  return value
+}
 
 async function downloadTmpFile(url: string) {
   const { path } = await temp.open('transloadit')
@@ -83,14 +87,14 @@ function createAssembly(client: Transloadit, params: CreateAssemblyOptions) {
 const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
 const sampleSvg =
   '<?xml version="1.0" standalone="no"?><svg height="100" width="100"><circle cx="50" cy="50" r="40" fill="red" /></svg>'
-const resizeOriginalStep: RobotImageResizeInstructionsInput = {
+const resizeOriginalStep: InterpolatableRobotImageResizeInstructions = {
   robot: '/image/resize',
   use: ':original',
   result: true,
   width: 130,
   height: 130,
 }
-const dummyStep: RobotFileFilterInstructionsInput = {
+const dummyStep: InterpolatableRobotFileFilterInstructions = {
   use: ':original',
   robot: '/file/filter',
   accepts: [],
@@ -171,7 +175,7 @@ describe('API integration', { timeout: 60000 }, () => {
     it('should create a retrievable assembly on the server', async () => {
       const client = createClient()
 
-      let uploadProgressCalled
+      let uploadProgressCalled: UploadProgress | undefined
       const options: CreateAssemblyOptions = {
         ...genericOptions,
         onUploadProgress: (uploadProgress) => {
@@ -191,7 +195,7 @@ describe('API integration', { timeout: 60000 }, () => {
       const id = result.assembly_id
 
       expect(id).toBeDefined()
-      result = await client.getAssembly(id!)
+      result = await client.getAssembly(nn(id, 'assembly_id'))
       expect(result).not.toHaveProperty('error')
       expect(result).toEqual(
         expect.objectContaining({
@@ -199,7 +203,7 @@ describe('API integration', { timeout: 60000 }, () => {
           assembly_url: expect.any(String),
           ok: expect.any(String),
           assembly_id: id,
-        })
+        }),
       )
     })
 
@@ -293,7 +297,7 @@ describe('API integration', { timeout: 60000 }, () => {
       })
       // Because order is not same as input
       const uploadsMap = Object.fromEntries(
-        result.uploads?.map((upload) => [upload.name, upload]) ?? []
+        result.uploads?.map((upload) => [upload.name, upload]) ?? [],
       )
       expect(uploadsMap).toEqual({
         file1: expect.objectContaining(getMatchObject({ name: 'file1' })),
@@ -430,7 +434,7 @@ describe('API integration', { timeout: 60000 }, () => {
       // request
 
       // Async book-keeping for delaying the response
-      let sendServerResponse: () => void
+      let sendServerResponse!: () => void
 
       const promise = new Promise<void>((resolve) => {
         sendServerResponse = resolve
@@ -474,10 +478,9 @@ describe('API integration', { timeout: 60000 }, () => {
         const awaitCompletionPromise = (async () => {
           try {
             expect(id).toBeDefined()
-            const ret = await client.awaitAssemblyCompletion(id!)
+            const ret = await client.awaitAssemblyCompletion(nn(id, 'assembly_id'))
             return ret
           } catch (err) {
-            // eslint-disable-next-line no-console
             console.error(err)
             return null
           }
@@ -486,20 +489,20 @@ describe('API integration', { timeout: 60000 }, () => {
         // Now delete it before uploading is done
         // console.log('canceling', id)
         expect(id).toBeDefined()
-        const resp = await client.cancelAssembly(id!)
-        expect((resp as Extract<typeof resp, { ok: any }>).ok).toBe('ASSEMBLY_CANCELED')
+        const resp = await client.cancelAssembly(nn(id, 'assembly_id'))
+        expect((resp as Extract<typeof resp, { ok: unknown }>).ok).toBe('ASSEMBLY_CANCELED')
         // console.log('canceled', id)
 
         // Allow the upload to finish
-        sendServerResponse!()
+        sendServerResponse?.()
 
         // Successful cancel requests get ASSEMBLY_CANCELED even when it
         // completed, so we now request the assembly status to check the
         // *actual* status.
         expect(id).toBeDefined()
-        const resp2 = await client.getAssembly(id!)
+        const resp2 = await client.getAssembly(nn(id, 'assembly_id'))
         console.log(`Expect Assembly ${id} to return 'ASSEMBLY_CANCELED'`)
-        expect((resp2 as Extract<typeof resp2, { ok: any }>).ok).toBe('ASSEMBLY_CANCELED')
+        expect((resp2 as Extract<typeof resp2, { ok: unknown }>).ok).toBe('ASSEMBLY_CANCELED')
 
         // Check that awaitAssemblyCompletion gave the correct response too
         const awaitCompletionResponse = await awaitCompletionPromise
@@ -507,7 +510,8 @@ describe('API integration', { timeout: 60000 }, () => {
         if (awaitCompletionResponse) {
           // Type guard
           expect(
-            (awaitCompletionResponse as Extract<typeof awaitCompletionResponse, { ok: any }>).ok
+            (awaitCompletionResponse as Extract<typeof awaitCompletionResponse, { ok: unknown }>)
+              .ok,
           ).toBe('ASSEMBLY_CANCELED')
         } else {
           throw new Error('awaitCompletionResponse was null or undefined')
@@ -524,17 +528,21 @@ describe('API integration', { timeout: 60000 }, () => {
 
       const createdAssembly = await createAssembly(client, genericOptions)
       expect(createdAssembly.assembly_id).toBeDefined()
-      const replayedAssembly = await client.replayAssembly(createdAssembly.assembly_id!)
-      expect((replayedAssembly as Extract<typeof replayedAssembly, { ok: any }>).ok).toBe(
-        'ASSEMBLY_REPLAYING'
+      const replayedAssembly = await client.replayAssembly(
+        nn(createdAssembly.assembly_id, 'assembly_id'),
+      )
+      expect((replayedAssembly as Extract<typeof replayedAssembly, { ok: unknown }>).ok).toBe(
+        'ASSEMBLY_REPLAYING',
       )
       expect(replayedAssembly.assembly_id).not.toEqual(createdAssembly.assembly_id)
       expect(replayedAssembly.assembly_url).toBeDefined()
       expect(replayedAssembly.assembly_ssl_url).toBeDefined()
 
       expect(replayedAssembly.assembly_id).toBeDefined()
-      const result2 = await client.awaitAssemblyCompletion(replayedAssembly.assembly_id!)
-      expect((result2 as Extract<typeof result2, { ok: any }>).ok).toBe('ASSEMBLY_COMPLETED')
+      const result2 = await client.awaitAssemblyCompletion(
+        nn(replayedAssembly.assembly_id, 'assembly_id'),
+      )
+      expect((result2 as Extract<typeof result2, { ok: unknown }>).ok).toBe('ASSEMBLY_COMPLETED')
     })
   })
 
@@ -544,7 +552,7 @@ describe('API integration', { timeout: 60000 }, () => {
 
       const result = await client.listAssemblies()
       expect(result).toEqual(
-        expect.objectContaining({ count: expect.any(Number), items: expect.any(Array) })
+        expect.objectContaining({ count: expect.any(Number), items: expect.any(Array) }),
       )
     })
 
@@ -603,7 +611,7 @@ describe('API integration', { timeout: 60000 }, () => {
 
       const runNotificationTest = async (
         onNotification: OnNotification,
-        onError: (error: unknown) => void
+        onError: (error: unknown) => void,
       ) => {
         const client = createClient()
 
@@ -700,7 +708,7 @@ describe('API integration', { timeout: 60000 }, () => {
         })
       })
     },
-    { retry: 2 }
+    { retry: 2 },
   )
 
   describe('template methods', () => {
@@ -725,7 +733,7 @@ describe('API integration', { timeout: 60000 }, () => {
     it("should be able to fetch a template's definition", async () => {
       expect(templId).toBeDefined()
 
-      const template = await client.getTemplate(templId!)
+      const template = await client.getTemplate(nn(templId, 'templId'))
       const { name, content } = template
       expect(name).toBe(templName)
       expect(content).toEqual(genericParams)
@@ -739,7 +747,7 @@ describe('API integration', { timeout: 60000 }, () => {
       }
 
       const editedName = `${templName}-edited`
-      const editResult = await client.editTemplate(templId!, {
+      const editResult = await client.editTemplate(nn(templId, 'templId'), {
         name: editedName,
         template: editedTemplate,
       })
@@ -752,13 +760,13 @@ describe('API integration', { timeout: 60000 }, () => {
     it('should delete the template successfully', async () => {
       expect(templId).toBeDefined()
 
-      const template = await client.deleteTemplate(templId!)
+      const template = await client.deleteTemplate(nn(templId, 'templId'))
       const { ok } = template
       expect(ok).toBe('TEMPLATE_DELETED')
-      await expect(client.getTemplate(templId!)).rejects.toThrow(
+      await expect(client.getTemplate(nn(templId, 'templId'))).rejects.toThrow(
         expect.objectContaining({
           code: 'TEMPLATE_NOT_FOUND',
-        })
+        }),
       )
     })
   })
@@ -795,7 +803,7 @@ describe('API integration', { timeout: 60000 }, () => {
     it("should be able to fetch a credential's definition", async () => {
       expect(credId).toBeDefined()
 
-      const readResult = await client.getTemplateCredential(credId!)
+      const readResult = await client.getTemplateCredential(nn(credId, 'credId'))
       const { name, content } = readResult.credential
       expect(name).toBe(credName)
       expect(content.bucket).toEqual('mybucket.example.com')
@@ -804,7 +812,7 @@ describe('API integration', { timeout: 60000 }, () => {
     it('should allow editing a credential', async () => {
       expect(credId).toBeDefined()
       const editedName = `${credName}-edited`
-      const editResult = await client.editTemplateCredential(credId!, {
+      const editResult = await client.editTemplateCredential(nn(credId, 'credId'), {
         name: editedName,
         type: 's3',
         content: {
@@ -823,13 +831,13 @@ describe('API integration', { timeout: 60000 }, () => {
     it('should delete the credential successfully', async () => {
       expect(credId).toBeDefined()
 
-      const credential = await client.deleteTemplateCredential(credId!)
+      const credential = await client.deleteTemplateCredential(nn(credId, 'credId'))
       const { ok } = credential
       expect(ok).toBe('TEMPLATE_CREDENTIALS_DELETED')
-      await expect(client.getTemplateCredential(credId!)).rejects.toThrow(
+      await expect(client.getTemplateCredential(nn(credId, 'credId'))).rejects.toThrow(
         expect.objectContaining({
           code: 'TEMPLATE_CREDENTIALS_NOT_READ',
-        })
+        }),
       )
     })
   })
