@@ -61,14 +61,20 @@ export const robotDocumentMergeInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/document/merge'),
-    input_passwords: z.array(z.string()).default([]).describe(`
+    input_passwords: z
+      .array(z.string())
+      .default([])
+      .describe(`
 An array of passwords for the input documents, in case they are encrypted. The order of passwords must match the order of the documents as they are passed to the /document/merge step.
 
 This can be achieved via our as-syntax using "document_1", "document_2", etc if provided. See the demos below.
 
 If the as-syntax is not used in the "use" parameter, the documents are sorted alphanumerically based on their filename, and in that order input passwords should be provided.
 `),
-    output_password: z.string().optional().describe(`
+    output_password: z
+      .string()
+      .optional()
+      .describe(`
 If not empty, encrypts the output file and makes it accessible only by typing in this password.
 `),
   })

@@ -63,7 +63,10 @@ The URL from which the file to be imported can be retrieved.
 
 You can also specify an array of URLs or a string of \`|\` delimited URLs to import several files at once. Please also check the \`url_delimiter\` parameter for that.
 `),
-    url_delimiter: z.string().default('|').describe(`
+    url_delimiter: z
+      .string()
+      .default('|')
+      .describe(`
 Provides the delimiter that is used to split the URLs in your \`url\` parameter value.
 `),
     headers: z
@@ -72,7 +75,8 @@ Provides the delimiter that is used to split the URLs in your \`url\` parameter 
         z.array(z.record(z.string())),
         z.string(), // For JSON strings like '{"X-Database":"volt"}'
       ])
-      .default([]).describe(`
+      .default([])
+      .describe(`
 Custom headers to be sent for file import.
 
 This is an empty array by default, such that no additional headers except the necessary ones (e.g. Host) are sent.
@@ -82,14 +86,23 @@ Headers can be specified as:
 - An array of objects with header names as keys and values as values
 - A JSON string that will be parsed into an object
 `),
-    import_on_errors: z.array(z.string()).default([]).describe(`
+    import_on_errors: z
+      .array(z.string())
+      .default([])
+      .describe(`
 Setting this to \`"meta"\` will still import the file on metadata extraction errors. \`ignore_errors\` is similar, it also ignores the error and makes sure the Robot doesn't stop, but it doesn't import the file.
 `),
-    fail_fast: z.boolean().default(false).describe(`
+    fail_fast: z
+      .boolean()
+      .default(false)
+      .describe(`
 Disable the internal retry mechanism, and fail immediately if a resource can't be imported. This can be useful for performance critical applications.
 `),
     return_file_stubs,
-    range: z.union([z.string(), z.array(z.string())]).optional().describe(`
+    range: z
+      .union([z.string(), z.array(z.string())])
+      .optional()
+      .describe(`
 Allows you to specify one or more byte ranges to import from the file. The server must support range requests for this to work.
 
 **Single range**: Use a string like \`"0-99"\` to import bytes 0-99 (the first 100 bytes).
@@ -113,7 +126,10 @@ Allows you to specify one or more byte ranges to import from the file. The serve
 export const robotHttpImportInstructionsWithHiddenFieldsSchema =
   robotHttpImportInstructionsSchema.extend({
     force_original_id: z.string().optional(),
-    force_name: z.union([z.string(), z.record(z.string())]).optional().describe(`
+    force_name: z
+      .union([z.string(), z.record(z.string())])
+      .optional()
+      .describe(`
 Force a specific filename for imported files. Can be a string to apply to all imports, or an object mapping URLs to filenames.
 `),
     result: z

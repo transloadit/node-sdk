@@ -46,18 +46,30 @@ export const robotFtpStoreInstructionsSchema = robotBase
   .merge(ftpBase)
   .extend({
     robot: z.literal('/ftp/store'),
-    path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
+    path: z
+      .string()
+      .default('${unique_prefix}/${file.url_name}')
+      .describe(`
 The path at which the file is to be stored. This can contain any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
 
 Please note that you might need to include your homedir at the beginning of the path.
 `),
-    url_template: z.string().default('https://{HOST}/{PATH}').describe(`
+    url_template: z
+      .string()
+      .default('https://{HOST}/{PATH}')
+      .describe(`
 The URL of the file in the result JSON. The following [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables) are supported.
 `),
-    ssl_url_template: z.string().default('https://{HOST}/{PATH}').describe(`
+    ssl_url_template: z
+      .string()
+      .default('https://{HOST}/{PATH}')
+      .describe(`
 The SSL URL of the file in the result JSON. The following [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables) are supported.
 `),
-    secure: z.boolean().default(false).describe(`
+    secure: z
+      .boolean()
+      .default(false)
+      .describe(`
 Determines whether to establish a secure connection to the FTP server using SSL.
 `),
   })
@@ -66,10 +78,16 @@ Determines whether to establish a secure connection to the FTP server using SSL.
 export const robotFtpStoreInstructionsWithHiddenFieldsSchema =
   robotFtpStoreInstructionsSchema.extend({
     result: z.union([z.literal('debug'), robotFtpStoreInstructionsSchema.shape.result]).optional(),
-    use_remote_utime: z.boolean().optional().describe(`
+    use_remote_utime: z
+      .boolean()
+      .optional()
+      .describe(`
 Use the remote file's modification time instead of the current time when storing the file.
 `),
-    version: z.union([z.string(), z.number()]).optional().describe(`
+    version: z
+      .union([z.string(), z.number()])
+      .optional()
+      .describe(`
 Version identifier for the underlying tool used (2 is ncftp, 1 is ftp).
 `),
     allowNetwork: z.string().optional(), // For internal test purposes

@@ -60,7 +60,10 @@ export const robotCloudfilesStoreInstructionsSchema = robotBase
   .merge(cloudfilesBase)
   .extend({
     robot: z.literal('/cloudfiles/store'),
-    path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
+    path: z
+      .string()
+      .default('${unique_prefix}/${file.url_name}')
+      .describe(`
 The path at which to store the file. This value can also contain [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
 `),
   })

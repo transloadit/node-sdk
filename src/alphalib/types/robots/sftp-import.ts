@@ -56,7 +56,10 @@ export const robotSftpImportInstructionsWithHiddenFieldsSchema =
     result: z
       .union([z.literal('debug'), robotSftpImportInstructionsSchema.shape.result])
       .optional(),
-    allowNetwork: z.string().optional().describe(`
+    allowNetwork: z
+      .string()
+      .optional()
+      .describe(`
 Network access permission for the SFTP connection. This is used to control which networks the SFTP robot can access.
 `),
   })

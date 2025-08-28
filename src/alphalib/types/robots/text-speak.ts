@@ -84,7 +84,10 @@ You can use the audio that we return in your application, or you can pass the au
 
 Another common use case is making your product accessible to people with a reading disability.
 `),
-    prompt: z.string().nullish().describe(`
+    prompt: z
+      .string()
+      .nullish()
+      .describe(`
 Which text to speak. You can also set this to \`null\` and supply an input text file.
 `),
     provider: aiProviderSchema.describe(`
@@ -93,17 +96,24 @@ Which AI provider to leverage.
 Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
 `),
     // TODO determine the list of languages
-    target_language: z.string().default('en-US').describe(`
+    target_language: z
+      .string()
+      .default('en-US')
+      .describe(`
 The written language of the document. This will also be the language of the spoken text.
 
 The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as \`"en-GB"\`, \`"de-DE"\` or \`"fr-FR"\`. Please consult the list of supported languages and voices.
 `),
     voice: z
       .enum(['female-1', 'female-2', 'female-3', 'female-child-1', 'male-1', 'male-child-1'])
-      .default('female-1').describe(`
+      .default('female-1')
+      .describe(`
 The gender to be used for voice synthesis. Please consult the list of supported languages and voices.
       `),
-    ssml: z.boolean().default(false).describe(`
+    ssml: z
+      .boolean()
+      .default(false)
+      .describe(`
 Supply [Speech Synthesis Markup Language](https://en.wikipedia.org/wiki/Speech_Synthesis_Markup_Language) instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations.
 
 Please see the supported syntaxes for [AWS](https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html) and [GCP](https://cloud.google.com/text-to-speech/docs/ssml).

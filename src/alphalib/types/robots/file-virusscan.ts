@@ -58,10 +58,16 @@ By default, this <dfn>Robot</dfn> excludes all malicious files from further proc
 
 We allow the use of industry standard [EICAR files](https://www.eicar.org/download-anti-malware-testfile/) for integration testing without needing to use potentially dangerous live virus samples.
 `),
-    error_on_decline: z.boolean().default(false).describe(`
+    error_on_decline: z
+      .boolean()
+      .default(false)
+      .describe(`
 If this is set to \`true\` and one or more files are declined, the Assembly will be stopped and marked with an error.
 `),
-    error_msg: z.string().default('One of your files was declined').describe(`
+    error_msg: z
+      .string()
+      .default('One of your files was declined')
+      .describe(`
 The error message shown to your users (such as by Uppy) when a file is declined and \`error_on_decline\` is set to \`true\`.
 `),
   })
@@ -72,7 +78,10 @@ export const robotFileVirusscanInstructionsWithHiddenFieldsSchema =
     result: z
       .union([z.literal('debug'), robotFileVirusscanInstructionsSchema.shape.result])
       .optional(),
-    can_use_daemon_fallback: z.boolean().optional().describe(`
+    can_use_daemon_fallback: z
+      .boolean()
+      .optional()
+      .describe(`
 Allow the robot to use a daemon fallback mechanism if the primary scanning method fails.
 `),
   })

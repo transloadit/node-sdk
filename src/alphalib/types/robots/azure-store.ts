@@ -46,29 +46,55 @@ export const robotAzureStoreInstructionsSchema = robotBase
   .merge(azureBase)
   .extend({
     robot: z.literal('/azure/store'),
-    path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
+    path: z
+      .string()
+      .default('${unique_prefix}/${file.url_name}')
+      .describe(`
 The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
 `),
-    content_type: z.string().optional().describe(`
+    content_type: z
+      .string()
+      .optional()
+      .describe(`
 The content type with which to store the file. By default this will be guessed by Azure.
 `),
-    content_encoding: z.string().optional().describe(`
+    content_encoding: z
+      .string()
+      .optional()
+      .describe(`
 The content encoding with which to store the file. By default this will be guessed by Azure.
 `),
-    content_language: z.string().optional().describe(`
+    content_language: z
+      .string()
+      .optional()
+      .describe(`
 The content language with which to store the file. By default this will be guessed by Azure.
 `),
-    content_disposition: z.string().optional().describe(`
+    content_disposition: z
+      .string()
+      .optional()
+      .describe(`
 The content disposition with which to store the file. By default this will be guessed by Azure.
 `),
-    cache_control: z.string().optional().describe(`
+    cache_control: z
+      .string()
+      .optional()
+      .describe(`
 The cache control header with which to store the file.
 `),
     // TODO: verify if this is correct.
-    metadata: z.record(z.string()).default({}).describe(`
+    metadata: z
+      .record(z.string())
+      .default({})
+      .describe(`
 A JavaScript object containing a list of metadata to be set for this file on Azure, such as \`{ FileURL: "\${file.url_name}" }\`. This can also include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
 `),
-    sas_expires_in: z.number().int().min(0).optional().describe(`
+    sas_expires_in: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(`
 Set this to a number to enable shared access signatures for your stored object. This reflects the number of seconds that the signature will be valid for once the object is stored. Enabling this will attach the shared access signature (SAS) to the result URL of your object.
 `),
     sas_permissions: z
@@ -76,7 +102,8 @@ Set this to a number to enable shared access signatures for your stored object. 
       .regex(/^[rdw]+$/)
       .min(0)
       .max(3)
-      .optional().describe(`
+      .optional()
+      .describe(`
 Set this to a combination of \`r\` (read), \`w\` (write) and \`d\` (delete) for your shared access signatures (SAS) permissions.
 `),
   })

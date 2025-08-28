@@ -65,13 +65,19 @@ Transloadit outsources this task and abstracts the interface so you can expect t
     granularity: granularitySchema.describe(`
 Whether to return a full response (\`"full"\`) including confidence percentages for each found label, or just a flat list of labels (\`"list"\`).
 `),
-    format: z.enum(['json', 'meta', 'text']).default('json').describe(`
+    format: z
+      .enum(['json', 'meta', 'text'])
+      .default('json')
+      .describe(`
 In what format to return the descriptions.
 
 - \`"json"\` returns a JSON file.
 - \`"meta"\` does not return a file, but stores the data inside Transloadit's file object (under \`\${file.meta.descriptions}\`) that's passed around between encoding <dfn>Steps</dfn>, so that you can use the values to burn the data into videos, filter on them, etc.
 `),
-    explicit_descriptions: z.boolean().default(false).describe(`
+    explicit_descriptions: z
+      .boolean()
+      .default(false)
+      .describe(`
 Whether to return only explicit or only non-explicit descriptions of the provided image. Explicit descriptions include labels for NSFW content (nudity, violence, etc). If set to \`false\`, only non-explicit descriptions (such as human or chair) will be returned. If set to \`true\`, only explicit descriptions will be returned.
 
 The possible descriptions depend on the chosen provider. The list of labels from AWS can be found [in their documentation](https://docs.aws.amazon.com/rekognition/latest/dg/moderation.html#moderation-api). GCP labels the image based on five categories, as described [in their documentation](https://cloud.google.com/vision/docs/detecting-safe-search).

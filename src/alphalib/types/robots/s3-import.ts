@@ -119,7 +119,10 @@ When doing big imports, make sure no files are added or removed from other scrip
 The pagination page size. This only works when recursive is \`true\` for now, in order to not break backwards compatibility in non-recursive imports.
 `),
     return_file_stubs,
-    range: z.union([z.string(), z.array(z.string())]).optional().describe(`
+    range: z
+      .union([z.string(), z.array(z.string())])
+      .optional()
+      .describe(`
 Allows you to specify one or more byte ranges to import from the file. S3 must support range requests for this to work.
 
 **Single range**: Use a string like \`"0-99"\` to import bytes 0-99 (the first 100 bytes).

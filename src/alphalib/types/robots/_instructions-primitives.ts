@@ -378,18 +378,21 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
  */
 const uninterpolatableKeys = ['robot', 'use'] as const
 
-type InterpolatableRobot<Schema extends z.ZodObject<z.ZodRawShape>> =
-  Schema extends z.ZodObject<infer T, infer UnknownKeys, infer Catchall>
-    ? z.ZodObject<
-        {
-          [Key in keyof T]: Key extends (typeof uninterpolatableKeys)[number]
-            ? T[Key]
-            : InterpolatableSchema<T[Key]>
-        },
-        UnknownKeys,
-        Catchall
-      >
-    : never
+type InterpolatableRobot<Schema extends z.ZodObject<z.ZodRawShape>> = Schema extends z.ZodObject<
+  infer T,
+  infer UnknownKeys,
+  infer Catchall
+>
+  ? z.ZodObject<
+      {
+        [Key in keyof T]: Key extends (typeof uninterpolatableKeys)[number]
+          ? T[Key]
+          : InterpolatableSchema<T[Key]>
+      },
+      UnknownKeys,
+      Catchall
+    >
+  : never
 
 export function interpolateRobot<Schema extends z.ZodObject<z.ZodRawShape>>(
   schema: Schema,
@@ -416,7 +419,9 @@ export function interpolateRobot<Schema extends z.ZodObject<z.ZodRawShape>>(
 export type RobotBase = z.infer<typeof robotBase>
 export const robotBase = z
   .object({
-    output_meta: z.union([z.record(z.boolean()), z.boolean(), z.array(z.string())]).optional()
+    output_meta: z
+      .union([z.record(z.boolean()), z.boolean(), z.array(z.string())])
+      .optional()
       .describe(`
 Allows you to specify a set of metadata that is more expensive on CPU power to calculate, and thus is disabled by default to keep your Assemblies processing fast.
 
@@ -441,7 +446,9 @@ You can also set this to \`false\` to skip metadata extraction and speed up tran
         `Setting the queue to 'batch', manually downgrades the priority of jobs for this step to avoid consuming Priority job slots for jobs that don't need zero queue waiting times`,
       ),
 
-    force_accept: z.boolean().default(false)
+    force_accept: z
+      .boolean()
+      .default(false)
       .describe(`Force a Robot to accept a file type it would have ignored.
 
 By default, Robots ignore files they are not familiar with.
@@ -475,7 +482,10 @@ export const useParamObjectOfStepsSchema = z
     steps: useParamStepsSchema,
     bundle_steps: z.boolean().optional(),
     group_by_original: z.boolean().optional(),
-    fields: z.array(z.string()).optional().describe(`
+    fields: z
+      .array(z.string())
+      .optional()
+      .describe(`
 Array of field names to filter input files by when using steps.
 `),
   })
@@ -499,7 +509,10 @@ export const useParamObjectOfStepsWithHiddenFieldsSchema = z
     steps: useParamStepsWithHiddenFieldsSchema,
     bundle_steps: z.boolean().optional(),
     group_by_original: z.boolean().optional(),
-    fields: z.array(z.string()).optional().describe(`
+    fields: z
+      .array(z.string())
+      .optional()
+      .describe(`
 Array of field names to filter input files by when using steps.
 `),
   })
@@ -571,8 +584,8 @@ export const complexWidthSchema = z.preprocess((val) => {
     return val
   }
   if (typeof val === 'string') {
-    const num = parseInt(val, 10)
-    if (isNaN(num) || val.includes('x')) {
+    const num = Number.parseInt(val, 10)
+    if (Number.isNaN(num) || val.includes('x')) {
       return val
     }
     return num
@@ -585,8 +598,8 @@ export const complexHeightSchema = z.preprocess((val) => {
     return val
   }
   if (typeof val === 'string') {
-    const num = parseInt(val, 10)
-    if (isNaN(num) || val.includes('x')) {
+    const num = Number.parseInt(val, 10)
+    if (Number.isNaN(num) || val.includes('x')) {
       return val
     }
     return num
@@ -706,14 +719,16 @@ export const robotFFmpeg = z.object({
       vbr: z.union([z.string(), z.number()]).optional(),
     })
     .passthrough()
-    .optional().describe(`
+    .optional()
+    .describe(`
 A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the [FFmpeg documentation](https://ffmpeg.org/ffmpeg-doc.html). Options specified here take precedence over the preset options.
 `),
 
   ffmpeg_stack: z
     // Any semver in range is allowed and normalized. The enum is used for editor completions.
     .union([z.enum(['v5', 'v6', 'v7']), z.string().regex(/^v?[567](\.\d+)?(\.\d+)?$/)])
-    .default('v5.0.0').describe(`
+    .default('v5.0.0')
+    .describe(`
 Selects the FFmpeg stack version to use for encoding. These versions reflect real FFmpeg versions. We currently recommend to use "v6.0.0".
 `),
 })
@@ -815,7 +830,11 @@ const audioPresets = createPresets([
 export type FFmpegAudio = z.infer<typeof robotFFmpegAudio>
 export const robotFFmpegAudio = robotFFmpeg
   .extend({
-    preset: z.enum(audioPresets).transform(transformPreset).optional().describe(`
+    preset: z
+      .enum(audioPresets)
+      .transform(transformPreset)
+      .optional()
+      .describe(`
 Performs conversion using pre-configured settings.
 
 If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s \`ffmpeg\` parameter and you have not specified a preset, then the default \`mp3\` preset is not applied. This is to prevent you from having to override each of the MP3 preset's values manually.
@@ -831,12 +850,22 @@ For a list of audio presets, see [audio presets](/docs/presets/audio/).
 export type FFmpegVideo = z.infer<typeof robotFFmpegVideo>
 export const robotFFmpegVideo = robotFFmpeg
   .extend({
-    width: z.number().int().min(1).nullish().describe(`
+    width: z
+      .number()
+      .int()
+      .min(1)
+      .nullish()
+      .describe(`
 Width of the new video, in pixels.
 
 If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied width](/docs/presets/video/) will be implemented.
 `),
-    height: z.number().int().min(1).nullish().describe(`
+    height: z
+      .number()
+      .int()
+      .min(1)
+      .nullish()
+      .describe(`
 Height of the new video, in pixels.
 
 If the value is not specified and the \`preset\` parameter is available, the \`preset\`'s [supplied height](/docs/presets/video/) will be implemented.
@@ -939,7 +968,8 @@ If the value is not specified and the \`preset\` parameter is available, the \`p
         ...audioPresets,
       ])
       .transform(transformPreset)
-      .optional().describe(`
+      .optional()
+      .describe(`
 Converts a video according to [pre-configured settings](/docs/presets/video/).
 
 If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s and/or do not not want Transloadit to set any encoding setting, starting \`ffmpeg_stack: "${stackVersions.ffmpeg.recommendedVersion}"\`,  you can use the value \`'empty'\` here.
@@ -947,17 +977,19 @@ If you specify your own FFmpeg parameters using the <dfn>Robot</dfn>'s and/or do
   })
   .strict()
 
-export const unsafeCoordinatesSchema = z.union([
-  z
-    .object({
-      x1: z.union([z.string(), z.number()]).nullish(),
-      y1: z.union([z.string(), z.number()]).nullish(),
-      x2: z.union([z.string(), z.number()]).nullish(),
-      y2: z.union([z.string(), z.number()]).nullish(),
-    })
-    .strict(),
-  z.string(),
-]).describe(`
+export const unsafeCoordinatesSchema = z
+  .union([
+    z
+      .object({
+        x1: z.union([z.string(), z.number()]).nullish(),
+        y1: z.union([z.string(), z.number()]).nullish(),
+        x2: z.union([z.string(), z.number()]).nullish(),
+        y2: z.union([z.string(), z.number()]).nullish(),
+      })
+      .strict(),
+    z.string(),
+  ])
+  .describe(`
 Coordinates for watermarking.
 `)
 export type UnsafeCoordinates = z.infer<typeof unsafeCoordinatesSchema>
@@ -1114,7 +1146,13 @@ export const colorspaceSchema = z.enum([
 ])
 
 // TODO: add before and after images to the description.
-export const imageQualitySchema = z.number().int().min(1).max(100).default(92).describe(`
+export const imageQualitySchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(100)
+  .default(92)
+  .describe(`
 Controls the image compression for JPG and PNG images. Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).
 `)
 
@@ -1145,7 +1183,10 @@ export const robotImport = z
 export type AzureBase = z.infer<typeof azureBase>
 export const azureBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your [Template Credentials](/c/template-credentials/) as this parameter's value. They will contain the values for your Azure Container, Account and Key.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"account"\`, \`"key"\`, \`"container"\`.
@@ -1159,7 +1200,10 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 export type BackblazeBase = z.infer<typeof backblazeBase>
 export const backblazeBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Backblaze Bucket Name, App Key ID, and App Key.
 
 To create your credential information, head over to Backblaze, sign in to your account, and select "Create a Bucket". Save the name of your bucket, and click on the "App Keys" tab, scroll to the bottom of the page then select “Add a New Application Key”. Allow access to your recently created bucket, select  “Read and Write” as your type of access, and tick the “Allow List All Bucket Names” option.
@@ -1179,7 +1223,10 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 export type CloudfilesBase = z.infer<typeof cloudfilesBase>
 export const cloudfilesBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your [Template Credentials](/c/template-credentials/) as this parameter's value. They will contain the values for your Cloud Files Container, User, Key, Account type and Data center.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"account_type"\` ("us" or "uk"), \`"data_center"\` ("dfw" for Dallas or "ord" for Chicago for example), \`"user"\`, \`"key"\`, \`"container"\`.
@@ -1195,7 +1242,10 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 export type CloudflareBase = z.infer<typeof cloudflareBase>
 export const cloudflareBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your cloudflare bucket, Key, Secret and Bucket region.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
@@ -1210,7 +1260,10 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 export type DigitalOceanBase = z.infer<typeof digitalOceanBase>
 export const digitalOceanBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your [Template Credentials](/c/template-credentials/) as this parameter's value. They will contain the values for your DigitalOcean Space, Key, Secret and Region.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"space"\`, \`"region"\` (for example: \`"fra1"\` or \`"nyc3"\`), \`"key"\`, \`"secret"\`.
@@ -1225,7 +1278,10 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 export type DropboxBase = z.infer<typeof dropboxBase>
 export const dropboxBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Dropbox access token.
 `),
   })
@@ -1234,7 +1290,10 @@ Please create your associated <dfn>Template Credentials</dfn> in your Transloadi
 export type VimeoBase = z.infer<typeof vimeoBase>
 export const vimeoBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Vimeo access token.
 `),
   })
@@ -1243,7 +1302,10 @@ Please create your associated <dfn>Template Credentials</dfn> in your Transloadi
 export type FtpBase = z.infer<typeof ftpBase>
 export const ftpBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your FTP host, user and password.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> with their static nature is too unwieldy. If you have this requirement, feel free to use the following parameters instead: \`"host"\`, \`"user"\`, \`"password"\`.
@@ -1258,7 +1320,10 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 export type GoogleBase = z.infer<typeof googleBase>
 export const googleBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Create a new [Google service account](https://cloud.google.com/storage/docs/authentication). Set its role to "Storage Object Creator". Choose "JSON" for the key file format and download it to your computer. You will need to upload this file when creating your <dfn>Template Credentials</dfn>.
 
 Go back to your Google credentials project and enable the "Google Cloud Storage JSON API" for it. Wait around ten minutes for the action to propagate through the Google network. Grab the project ID from the dropdown menu in the header bar on the Google site. You will also need it later on.
@@ -1277,7 +1342,10 @@ Then, create your associated [Template Credentials](/c/template-credentials/) in
 export type MinioBase = z.infer<typeof minioBase>
 export const minioBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your MinIO bucket, Key, Secret and Bucket region.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
@@ -1292,7 +1360,10 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 export type S3Base = z.infer<typeof s3Base>
 export const s3Base = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your S3 bucket, Key, Secret and Bucket region.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"bucket_region"\` (for example: \`"us-east-1"\` or \`"eu-west-2"\`), \`"key"\`, \`"secret"\`.
@@ -1307,7 +1378,10 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 export type SftpBase = z.infer<typeof sftpBase>
 export const sftpBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your SFTP host, user and optional custom public key.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"host"\`, \`"port"\`, \`"user"\`, \`"public_key"\` (optional).
@@ -1322,7 +1396,10 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 export type SupabaseBase = z.infer<typeof supabaseBase>
 export const supabaseBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Supabase bucket, Key, Secret and Bucket region.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
@@ -1330,7 +1407,10 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
 If you do use these parameters, make sure to use the **Endpoint** value under \`Storage > S3 Connection\` in the Supabase console for the \`"host"\` value, and the values under **S3 Access Keys** on the same page for your \`"key"\` and \`"secret"\`.
 `),
     bucket: z.string().optional(),
-    bucket_region: z.string().optional().describe(`
+    bucket_region: z
+      .string()
+      .optional()
+      .describe(`
 The region where the bucket is located.
 `),
     host: z.string().optional(),
@@ -1342,13 +1422,19 @@ The region where the bucket is located.
 export type SwiftBase = z.infer<typeof swiftBase>
 export const swiftBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
   Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Swift bucket, Key, Secret and Bucket region.
 
   While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
   `),
     bucket: z.string().optional(),
-    bucket_region: z.string().optional().describe(`
+    bucket_region: z
+      .string()
+      .optional()
+      .describe(`
 The region where the bucket is located.
 `),
     host: z.string().optional(),
@@ -1360,13 +1446,19 @@ The region where the bucket is located.
 export type TigrisBase = z.infer<typeof tigrisBase>
 export const tigrisBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your MinIO bucket, Key, Secret and Bucket region.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
 `),
     bucket: z.string().optional(),
-    bucket_region: z.string().optional().describe(`
+    bucket_region: z
+      .string()
+      .optional()
+      .describe(`
 The region where the bucket is located.
 `),
     host: z.string().optional(),
@@ -1378,13 +1470,19 @@ The region where the bucket is located.
 export type WasabiBase = z.infer<typeof wasabiBase>
 export const wasabiBase = z
   .object({
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your Wasabi bucket, Key, Secret and Bucket region.
 
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
 `),
     bucket: z.string().optional(),
-    bucket_region: z.string().optional().describe(`
+    bucket_region: z
+      .string()
+      .optional()
+      .describe(`
 The region where the bucket is located.
 `),
     host: z.string().optional(),
@@ -1462,7 +1560,10 @@ export const videoEncodeSpecificInstructionsSchema = robotFFmpegVideo
     resize_strategy: resize_strategy.describe(`
 See the [available resize strategies](/docs/topics/resize-strategies/).
 `),
-    zoom: z.boolean().default(true).describe(`
+    zoom: z
+      .boolean()
+      .default(true)
+      .describe(`
 If this is set to \`false\`, smaller videos will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/topics/resize-strategies/).
 `),
     crop: unsafeCoordinatesSchema.optional().describe(`
@@ -1501,22 +1602,39 @@ The background color of the resulting video the \`"rrggbbaa"\` format (red, gree
         z.literal(360),
         z.literal(false),
       ])
-      .optional().describe(`
+      .optional()
+      .describe(`
 Forces the video to be rotated by the specified degree integer. Currently, only multiples of \`90\` are supported. We automatically correct the orientation of many videos when the orientation is provided by the camera. This option is only useful for videos requiring rotation because it was not detected by the camera. If you set \`rotate\` to \`false\` no rotation is performed, even if the metadata contains such instructions.
 `),
-    hint: z.boolean().default(false).describe(`
+    hint: z
+      .boolean()
+      .default(false)
+      .describe(`
 Enables hinting for mp4 files, for RTP/RTSP streaming.
 `),
-    turbo: z.boolean().default(false).describe(`
+    turbo: z
+      .boolean()
+      .default(false)
+      .describe(`
 Splits the video into multiple chunks so that each chunk can be encoded in parallel before all encoded chunks are stitched back together to form the result video. This comes at the expense of extra <dfn>Priority Job Slots</dfn> and may prove to be counter-productive for very small video files.
 `),
-    chunk_duration: z.number().int().min(1).optional().describe(`
+    chunk_duration: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe(`
 Allows you to specify the duration of each chunk when \`turbo\` is set to \`true\`. This means you can take advantage of that feature while using fewer <dfn>Priority Job Slots</dfn>. For instance, the longer each chunk is, the fewer <dfn>Encoding Jobs</dfn> will need to be used.
 `),
-    watermark_url: z.string().default('').describe(`
+    watermark_url: z
+      .string()
+      .default('')
+      .describe(`
 A URL indicating a PNG image to be overlaid above this image. You can also [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step).
 `),
-    watermark_position: z.union([positionSchema, z.array(positionSchema)]).default('center')
+    watermark_position: z
+      .union([positionSchema, z.array(positionSchema)])
+      .default('center')
       .describe(`
 The position at which the watermark is placed.
 
@@ -1524,12 +1642,20 @@ An array of possible values can also be specified, in which case one value will 
 
 This setting puts the watermark in the specified corner. To use a specific pixel offset for the watermark, you will need to add the padding to the image itself.
 `),
-    watermark_x_offset: z.number().int().default(0).describe(`
+    watermark_x_offset: z
+      .number()
+      .int()
+      .default(0)
+      .describe(`
 The x-offset in number of pixels at which the watermark will be placed in relation to the position it has due to \`watermark_position\`.
 
 Values can be both positive and negative and yield different results depending on the \`watermark_position\` parameter. Positive values move the watermark closer to the image's center point, whereas negative values move the watermark further away from the image's center point.
 `),
-    watermark_y_offset: z.number().int().default(0).describe(`
+    watermark_y_offset: z
+      .number()
+      .int()
+      .default(0)
+      .describe(`
 The y-offset in number of pixels at which the watermark will be placed in relation to the position it has due to \`watermark_position\`.
 
 Values can be both positive and negative and yield different results depending on the \`watermark_position\` parameter. Positive values move the watermark closer to the image's center point, whereas negative values move the watermark further away from the image's center point.
@@ -1537,7 +1663,10 @@ Values can be both positive and negative and yield different results depending o
     watermark_size: percentageSchema.optional().describe(`
 The size of the watermark, as a percentage, such as \`"50%"\`. How the watermark is resized greatly depends on the \`watermark_resize_strategy\`.
 `),
-    watermark_resize_strategy: z.enum(['area', 'fit', 'stretch']).default('fit').describe(`
+    watermark_resize_strategy: z
+      .enum(['area', 'fit', 'stretch'])
+      .default('fit')
+      .describe(`
 To explain how the resize strategies work, let's assume our target video size is 800×800 pixels and our watermark image is 400×300 pixels. Let's also assume, the \`watermark_size\` parameter is set to \`"25%"\`.
 
 For the \`"fit"\` resize strategy, the watermark is scaled so that the longer side of the watermark takes up 25% of the corresponding video side. And the other side is scaled according to the aspect ratio of the watermark image. So with our watermark, the width is the longer side, and 25% of the video size would be 200px. Hence, the watermark would be resized to 200×150 pixels. If the \`watermark_size\` was set to \`"50%"\`", it would be resized to 400×300 pixels (so just left at its original size).
@@ -1546,28 +1675,56 @@ For the \`"stretch"\` resize strategy, the watermark image is stretched (meaning
 
 For the \`"area"\` resize strategy, the watermark is resized (keeping its aspect ratio in check) so that it covers \`"xx%"\` of the video's surface area. The value from \`watermark_size\` is used for the percentage area size.
 `),
-    watermark_start_time: z.number().default(0).describe(`
+    watermark_start_time: z
+      .number()
+      .default(0)
+      .describe(`
 The delay in seconds from the start of the video for the watermark to appear. By default the watermark is immediately shown.
 `),
-    watermark_duration: z.number().default(-1).describe(`
+    watermark_duration: z
+      .number()
+      .default(-1)
+      .describe(`
 The duration in seconds for the watermark to be shown. Can be used together with \`watermark_start_time\` to create nice effects. The default value is \`-1.0\`, which means that the watermark is shown for the entire duration of the video.
 `),
-    watermark_opacity: z.number().min(0).max(1).default(1).describe(`
+    watermark_opacity: z
+      .number()
+      .min(0)
+      .max(1)
+      .default(1)
+      .describe(`
 The opacity of the watermark. Valid values are between \`0\` (invisible) and \`1.0\` (full visibility).
 `),
-    segment: z.boolean().default(false).describe(`
+    segment: z
+      .boolean()
+      .default(false)
+      .describe(`
 Splits the file into multiple parts, to be used for Apple's [HTTP Live Streaming](https://developer.apple.com/resources/http-streaming/).
 `),
-    segment_duration: z.number().int().min(1).default(10).describe(`
+    segment_duration: z
+      .number()
+      .int()
+      .min(1)
+      .default(10)
+      .describe(`
 Specifies the length of each HTTP segment. This is optional, and the default value as recommended by Apple is \`10\`. Do not change this value unless you have a good reason.
 `),
-    segment_prefix: z.string().default('').describe(`
+    segment_prefix: z
+      .string()
+      .default('')
+      .describe(`
 The prefix used for the naming. For example, a prefix of \`"segment_"\` would produce files named \`"segment_0.ts"\`, \`"segment_1.ts"\` and so on. This is optional, and defaults to the base name of the input file. Also see the related \`segment_name\` parameter.
 `),
-    segment_name: z.string().default('').describe(`
+    segment_name: z
+      .string()
+      .default('')
+      .describe(`
 The name used for the final segment. Available variables are \`\${segment_prefix}\`, \`\${segment_number}\` and \`\${segment_id}\` (which is a UUIDv4 without dashes).
 `),
-    segment_time_delta: z.number().optional().describe(`
+    segment_time_delta: z
+      .number()
+      .optional()
+      .describe(`
 Delta to apply to segment duration. This is optional and allows fine-tuning of segment boundaries.
 `),
   })

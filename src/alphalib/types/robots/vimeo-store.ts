@@ -55,7 +55,8 @@ The description of the video to be displayed on Vimeo.
 `),
     acl: z
       .enum(['anybody', 'contacts', 'disable', 'nobody', 'password', 'unlisted', 'users'])
-      .default('anybody').describe(`
+      .default('anybody')
+      .describe(`
 Controls access permissions for the video. Here are the valid values:
 
 - \`"anybody"\` — anyone can access the video.
@@ -66,23 +67,39 @@ Controls access permissions for the video. Here are the valid values:
 - \`"unlisted"\` — only those with the private link can access the video.
 - \`"users"\` — only Vimeo members can access the video.
 `),
-    password: z.string().optional().describe(`
+    password: z
+      .string()
+      .optional()
+      .describe(`
 The password to access the video if \`acl\` is \`"password"\`.
 `),
-    showcases: z.array(z.string()).default([]).describe(`
+    showcases: z
+      .array(z.string())
+      .default([])
+      .describe(`
 An array of string IDs of showcases that you want to add the video to. The IDs can be found when browsing Vimeo. For example \`https://vimeo.com/manage/showcases/[SHOWCASE_ID]/info\`.
 `),
-    downloadable: z.boolean().default(false).describe(`
+    downloadable: z
+      .boolean()
+      .default(false)
+      .describe(`
 Whether or not the video can be downloaded from the Vimeo website.
 
 Only set this to \`true\` if you have unlocked this feature in your Vimeo accounting by upgrading to their "Pro" plan. If you use it while on their Freemium plan, the Vimeo API will return an \`"Invalid parameter supplied"\` error.
 `),
-    folder_id: z.string().nullable().default(null).describe(`
+    folder_id: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe(`
 The ID of the folder to which the video is uploaded.
 
 When visiting one of your folders, the URL is similar to \`https://vimeo.com/manage/folders/xxxxxxxx\`. The folder_id would be \`"xxxxxxxx"\`.
 `),
-    folder_uri: z.string().optional().describe(`
+    folder_uri: z
+      .string()
+      .optional()
+      .describe(`
 Deprecated. Please use \`folder_id\` instead. The URI of the folder to which the video is uploaded.
 `),
   })

@@ -45,19 +45,29 @@ export const robotSftpStoreInstructionsSchema = robotBase
   .merge(sftpBase)
   .extend({
     robot: z.literal('/sftp/store'),
-    path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
+    path: z
+      .string()
+      .default('${unique_prefix}/${file.url_name}')
+      .describe(`
 The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
 `),
-    url_template: z.string().default('http://host/path').describe(`
+    url_template: z
+      .string()
+      .default('http://host/path')
+      .describe(`
 The URL of the file in the result JSON. This may include any of the following supported [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
 `),
-    ssl_url_template: z.string().default('https://{HOST}/{PATH}').describe(`
+    ssl_url_template: z
+      .string()
+      .default('https://{HOST}/{PATH}')
+      .describe(`
   The SSL URL of the file in the result JSON. The following [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables) are supported.
 `),
     file_chmod: z
       .string()
       .regex(/([0-7]{3}|auto)/)
-      .default('auto').describe(`
+      .default('auto')
+      .describe(`
 This optional parameter controls how an uploaded file's permission bits are set. You can use any string format that the \`chmod\` command would accept, such as \`"755"\`. If you don't specify this option, the file's permission bits aren't changed at all, meaning it's up to your server's configuration (e.g. umask).
       `),
   })
@@ -66,7 +76,10 @@ This optional parameter controls how an uploaded file's permission bits are set.
 export const robotSftpStoreInstructionsWithHiddenFieldsSchema =
   robotSftpStoreInstructionsSchema.extend({
     result: z.union([z.literal('debug'), robotSftpStoreInstructionsSchema.shape.result]).optional(),
-    allowNetwork: z.string().optional().describe(`
+    allowNetwork: z
+      .string()
+      .optional()
+      .describe(`
 Network access permission for the SFTP connection. This is used to control which networks the SFTP robot can access.
 `),
   })

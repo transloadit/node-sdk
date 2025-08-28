@@ -46,13 +46,22 @@ export const robotFileVerifyInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/file/verify'),
-    error_on_decline: z.boolean().default(false).describe(`
+    error_on_decline: z
+      .boolean()
+      .default(false)
+      .describe(`
 If this is set to \`true\` and one or more files are declined, the Assembly will be stopped and marked with an error.
 `),
-    error_msg: z.string().default('One of your files was declined').describe(`
+    error_msg: z
+      .string()
+      .default('One of your files was declined')
+      .describe(`
 The error message shown to your users (such as by Uppy) when a file is declined and \`error_on_decline\` is set to \`true\`.
 `),
-    verify_to_be: z.string().default('pdf').describe(`
+    verify_to_be: z
+      .string()
+      .default('pdf')
+      .describe(`
 The type that you want to match against to ensure your file is of this type. For example, \`image\` will verify whether uploaded files are images. This also works against file media types, in this case \`image/png\` would also work to match against specifically \`png\` files.
 `),
   })

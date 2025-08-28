@@ -46,10 +46,16 @@ export const robotDropboxStoreInstructionsSchema = robotBase
   .merge(dropboxBase)
   .extend({
     robot: z.literal('/dropbox/store'),
-    path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
+    path: z
+      .string()
+      .default('${unique_prefix}/${file.url_name}')
+      .describe(`
 The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
 `),
-    create_sharing_link: z.boolean().default(false).describe(`
+    create_sharing_link: z
+      .boolean()
+      .default(false)
+      .describe(`
 Whether to create a URL to this file for sharing with other people. This will overwrite the file's \`"url"\` property.
 `),
   })

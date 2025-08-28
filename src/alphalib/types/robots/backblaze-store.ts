@@ -51,10 +51,16 @@ export const robotBackblazeStoreInstructionsSchema = robotBase
   .merge(backblazeBase)
   .extend({
     robot: z.literal('/backblaze/store'),
-    path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
+    path: z
+      .string()
+      .default('${unique_prefix}/${file.url_name}')
+      .describe(`
 The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
 `),
-    headers: z.record(z.string()).default({}).describe(`
+    headers: z
+      .record(z.string())
+      .default({})
+      .describe(`
 An object containing a list of headers to be set for this file on backblaze, such as \`{ FileURL: "\${file.url_name}" }\`. This can also include any available [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables).
 
 [Here](https://www.backblaze.com/b2/docs/b2_upload_file.html) you can find a list of available headers.
