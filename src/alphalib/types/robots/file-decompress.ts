@@ -80,7 +80,8 @@ For security reasons, archives that contain symlinks to outside the archived dir
       .transform((ignoreErrors): 'meta'[] =>
         ignoreErrors === true ? ['meta'] : ignoreErrors === false ? [] : ignoreErrors,
       )
-      .default([]).describe(`
+      .default([])
+      .describe(`
 A possible array member is only \`"meta"\`.
 
 You might see an error when trying to extract metadata from the files inside your archive. This happens, for example, for files with a size of zero bytes. Setting this to \`true\` will cause the <dfn>Robot</dfn> to not stop the file decompression (and the entire <dfn>Assembly</dfn>) when that happens.

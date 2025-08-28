@@ -66,19 +66,38 @@ We recommend that you use an [🤖/audio/encode](/docs/robots/audio-encode/) <df
 
 Similarly, if you need the output image in a different format, please pipe the result of this <dfn>Robot</dfn> into [🤖/image/resize](/docs/robots/image-resize/).
 `),
-    format: z.enum(['image', 'json']).default('image').describe(`
+    format: z
+      .enum(['image', 'json'])
+      .default('image')
+      .describe(`
 The format of the result file. Can be \`"image"\` or \`"json"\`. If \`"image"\` is supplied, a PNG image will be created, otherwise a JSON file.
 `),
-    width: z.number().int().min(1).default(256).describe(`
+    width: z
+      .number()
+      .int()
+      .min(1)
+      .default(256)
+      .describe(`
 The width of the resulting image if the format \`"image"\` was selected.
 `),
-    height: z.number().int().min(1).default(64).describe(`
+    height: z
+      .number()
+      .int()
+      .min(1)
+      .default(64)
+      .describe(`
 The height of the resulting image if the format \`"image"\` was selected.
 `),
-    style: z.union([z.literal(0), z.literal(1)]).default(0).describe(`
+    style: z
+      .union([z.literal(0), z.literal(1)])
+      .default(0)
+      .describe(`
 Either a value of \`0\` or \`1\`, corresponding to using either the legacy waveform tool, or the new tool respectively, with the new tool offering an improved style. Other Robot parameters still function as described, with either tool.
 `),
-    antialiasing: z.union([z.literal(0), z.literal(1), z.boolean()]).default(0).describe(`
+    antialiasing: z
+      .union([z.literal(0), z.literal(1), z.boolean()])
+      .default(0)
+      .describe(`
 Either a value of \`0\` or \`1\`, or \`true\`/\`false\`, corresponding to if you want to enable antialiasing to achieve smoother edges in the waveform graph or not.
 `),
     background_color: color_with_alpha.default('#00000000').describe(`

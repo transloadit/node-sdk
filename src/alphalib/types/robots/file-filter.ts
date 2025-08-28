@@ -118,13 +118,22 @@ If \`accepts\` and \`declines\` are both provided, the requirements in \`accepts
 `,
       )
       .optional(),
-    condition_type: z.enum(['and', 'or']).default('or').describe(`
+    condition_type: z
+      .enum(['and', 'or'])
+      .default('or')
+      .describe(`
 Specifies the condition type according to which the members of the \`accepts\` or \`declines\` arrays should be evaluated. Can be \`"or"\` or \`"and"\`.
 `),
-    error_on_decline: z.boolean().default(false).describe(`
+    error_on_decline: z
+      .boolean()
+      .default(false)
+      .describe(`
 If this is set to \`true\` and one or more files are declined, the Assembly will be stopped and marked with an error.
 `),
-    error_msg: z.string().default('One of your files was declined').describe(`
+    error_msg: z
+      .string()
+      .default('One of your files was declined')
+      .describe(`
 The error message shown to your users (such as by Uppy) when a file is declined and \`error_on_decline\` is set to \`true\`.
 `),
   })

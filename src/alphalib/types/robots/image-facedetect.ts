@@ -72,26 +72,40 @@ Which AI provider to leverage.
 
 Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
 `),
-    crop: z.boolean().default(false).describe(`
+    crop: z
+      .boolean()
+      .default(false)
+      .describe(`
 Determine if the detected faces should be extracted. If this option is set to \`false\`, then the <dfn>Robot</dfn> returns the input image again, but with the coordinates of all detected faces attached to \`file.meta.faces\` in the result JSON. If this parameter is set to \`true\`, the <dfn>Robot</dfn> will output all detected faces as images.
 `),
     crop_padding: z
       .string()
       .regex(/^\d+(px|%)$/)
-      .default('5px').describe(`
+      .default('5px')
+      .describe(`
 Specifies how much padding is added to the extracted face images if \`crop\` is set to \`true\`. Values can be in \`px\` (pixels) or \`%\` (percentage of the width and height of the particular face image).
 `),
-    format: z.enum(['jpg', 'png', 'preserve', 'tiff']).default('preserve').describe(`
+    format: z
+      .enum(['jpg', 'png', 'preserve', 'tiff'])
+      .default('preserve')
+      .describe(`
 Determines the output format of the extracted face images if \`crop\` is set to \`true\`.
 
 The default value \`"preserve"\` means that the input image format is re-used.
 `),
-    min_confidence: z.number().int().min(0).max(100).default(70).describe(`
+    min_confidence: z
+      .number()
+      .int()
+      .min(0)
+      .max(100)
+      .default(70)
+      .describe(`
 Specifies the minimum confidence that a detected face must have. Only faces which have a higher confidence value than this threshold will be included in the result.
 `),
     faces: z
       .union([z.enum(['each', 'group', 'max-confidence', 'max-size']), z.number().int()])
-      .default('each').describe(`
+      .default('each')
+      .describe(`
 Determines which of the detected faces should be returned. Valid values are:
 
 - \`"each"\` — each face is returned individually.

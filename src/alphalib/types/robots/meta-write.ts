@@ -51,7 +51,11 @@ export const robotMetaWriteInstructionsSchema = robotBase
     robot: z.literal('/meta/write').describe(`
 **Note:** This <dfn>Robot</dfn> currently accepts images, videos and audio files.
 `),
-    data_to_write: z.object({}).passthrough().default({}).describe(`
+    data_to_write: z
+      .object({})
+      .passthrough()
+      .default({})
+      .describe(`
 A key/value map defining the metadata to write into the file.
 
 Valid metadata keys can be found [here](https://exiftool.org/TagNames/EXIF.html). For example: \`ProcessingSoftware\`.

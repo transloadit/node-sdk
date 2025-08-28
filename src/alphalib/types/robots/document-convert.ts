@@ -141,75 +141,96 @@ The following file formats can be converted from:
 - \`xlsx\`
 - \`xml\`
 `),
-    format: z.enum([
-      'ai',
-      'csv',
-      'doc',
-      'docx',
-      'eps',
-      'gif',
-      'html',
-      'jpeg',
-      'jpg',
-      'latex',
-      'oda',
-      'odd',
-      'odt',
-      'ott',
-      'pdf',
-      'png',
-      'pot',
-      'pps',
-      'ppt',
-      'pptx',
-      'ppz',
-      'ps',
-      'rtf',
-      'rtx',
-      'srt',
-      'svg',
-      'text',
-      'txt',
-      'vtt',
-      'xhtml',
-      'xla',
-      'xls',
-      'xlsx',
-      'xml',
-    ]).describe(`
+    format: z
+      .enum([
+        'ai',
+        'csv',
+        'doc',
+        'docx',
+        'eps',
+        'gif',
+        'html',
+        'jpeg',
+        'jpg',
+        'latex',
+        'oda',
+        'odd',
+        'odt',
+        'ott',
+        'pdf',
+        'png',
+        'pot',
+        'pps',
+        'ppt',
+        'pptx',
+        'ppz',
+        'ps',
+        'rtf',
+        'rtx',
+        'srt',
+        'svg',
+        'text',
+        'txt',
+        'vtt',
+        'xhtml',
+        'xla',
+        'xls',
+        'xlsx',
+        'xml',
+      ])
+      .describe(`
 The desired format for document conversion.
 `),
-    markdown_format: z.enum(['commonmark', 'gfm']).default('gfm').describe(`
+    markdown_format: z
+      .enum(['commonmark', 'gfm'])
+      .default('gfm')
+      .describe(`
 Markdown can be represented in several [variants](https://www.iana.org/assignments/markdown-variants/markdown-variants.xhtml), so when using this Robot to transform Markdown into HTML please specify which revision is being used.
 `),
-    markdown_theme: z.enum(['bare', 'github']).default('github').describe(`
+    markdown_theme: z
+      .enum(['bare', 'github'])
+      .default('github')
+      .describe(`
 This parameter overhauls your Markdown files styling based on several canned presets.
 `),
-    pdf_margin: z.string().default('6.25mm,6.25mm,14.11mm,6.25mm').describe(`
+    pdf_margin: z
+      .string()
+      .default('6.25mm,6.25mm,14.11mm,6.25mm')
+      .describe(`
 PDF Paper margins, separated by \`,\` and with units.
 
 We support the following unit values: \`px\`, \`in\`, \`cm\`, \`mm\`.
 
 Currently this parameter is only supported when converting from \`html\`.
 `),
-    pdf_print_background: z.boolean().default(true).describe(`
+    pdf_print_background: z
+      .boolean()
+      .default(true)
+      .describe(`
 Print PDF background graphics.
 
 Currently this parameter is only supported when converting from \`html\`.
 `),
     pdf_format: z
       .enum(['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'Ledger', 'Legal', 'Letter', 'Tabloid'])
-      .default('Letter').describe(`
+      .default('Letter')
+      .describe(`
 PDF paper format.
 
 Currently this parameter is only supported when converting from \`html\`.
 `),
-    pdf_display_header_footer: z.boolean().default(false).describe(`
+    pdf_display_header_footer: z
+      .boolean()
+      .default(false)
+      .describe(`
 Display PDF header and footer.
 
 Currently this parameter is only supported when converting from \`html\`.
 `),
-    pdf_header_template: z.string().optional().describe(`
+    pdf_header_template: z
+      .string()
+      .optional()
+      .describe(`
 HTML template for the PDF print header.
 
 Should be valid HTML markup with following classes used to inject printing values into them:
@@ -227,7 +248,10 @@ To change the formatting of the HTML element, the \`font-size\` must be specifie
 <div style="font-size: 15px; width: 100%; text-align: center;"><span class="pageNumber"></span></div>
 \`\`\`
 `),
-    pdf_footer_template: z.string().optional().describe(`
+    pdf_footer_template: z
+      .string()
+      .optional()
+      .describe(`
 HTML template for the PDF print footer.
 
 Should use the same format as the \`pdf_header_template\`.

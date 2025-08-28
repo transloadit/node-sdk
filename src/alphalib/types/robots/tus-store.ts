@@ -55,13 +55,23 @@ Since Vimeo works with OAuth, you will need to generate [Template Credentials](h
 
 To change the \`title\` or \`description\` per video, we recommend to [inject variables into your Template](/docs/topics/templates/).
 `),
-    endpoint: z.string().url().describe('The URL of the destination Tus server').describe(`
+    endpoint: z
+      .string()
+      .url()
+      .describe('The URL of the destination Tus server')
+      .describe(`
 The URL of the Tus-compatible server, which you're uploading files to.
 `),
-    credentials: z.string().optional().describe(`
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
 Create <dfn>Template Credentials</dfn> for this <dfn>Robot</dfn> in your [Transloadit account](/c/template-credentials/) and use the name of the <dfn>Template Credentials</dfn> as this parameter's value. For this <dfn>Robot</dfn>, use the HTTP template, which allows request headers to be passed along to the destination server.
 `),
-    headers: z.record(z.string()).default({}).describe('Headers to pass along to destination')
+    headers: z
+      .record(z.string())
+      .default({})
+      .describe('Headers to pass along to destination')
       .describe(`
 Optional extra headers outside of the <dfn>Template Credentials</dfn> can be passed along within this parameter.
 
@@ -69,13 +79,20 @@ Although, we recommend to exclusively use <dfn>Template Credentials</dfn>, this 
 `),
     metadata: z
       .record(z.string())
-      .default({ filename: 'example.png', basename: 'example', extension: 'png' }).describe(`
+      .default({ filename: 'example.png', basename: 'example', extension: 'png' })
+      .describe(`
 Metadata to pass along to destination. Includes some file info by default.
 `),
-    url_template: z.string().optional().describe(`
+    url_template: z
+      .string()
+      .optional()
+      .describe(`
 The URL of the file in the <dfn>Assembly Status JSON</dfn>. The following [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables) are supported. If this is not specified, the upload URL specified by the destination server will be used instead.
 `),
-    ssl_url_template: z.string().optional().describe(`
+    ssl_url_template: z
+      .string()
+      .optional()
+      .describe(`
 The SSL URL of the file in the <dfn>Assembly Status JSON</dfn>. The following [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables) are supported. If this is not specified, the upload URL specified by the destination server will be used instead, as long as it starts with \`https\`.
 `),
   })

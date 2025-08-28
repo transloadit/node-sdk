@@ -67,7 +67,11 @@ similar size before merging them.
       .default('horizontal')
       .describe('Specifies the direction which the images are displayed.'),
     // TODO: default is not between 1 and 10
-    border: z.number().int().default(0).describe(`
+    border: z
+      .number()
+      .int()
+      .default(0)
+      .describe(`
 An integer value which defines the gap between images on the spritesheet.
 
 A value of \`10\` would cause the images to have the largest gap between them, while a value of \`1\` would place the images side-by-side.
@@ -79,7 +83,10 @@ By default, the background of transparent images is changed to white.
 
 For details about how to preserve transparency across all image types, see [this demo](/demos/image-manipulation/properly-preserve-transparency-across-all-image-types/).
 `),
-    adaptive_filtering: z.boolean().default(false).describe(`
+    adaptive_filtering: z
+      .boolean()
+      .default(false)
+      .describe(`
 Controls the image compression for PNG images. Setting to \`true\` results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled.
 `),
     quality: imageQualitySchema,

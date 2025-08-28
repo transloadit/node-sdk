@@ -46,7 +46,8 @@ This <dfn>Robot</dfn> allows you to hash any file as part of the <dfn>Assembly</
 `),
     algorithm: z
       .enum(['b2', 'md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512'])
-      .default('sha256').describe(`
+      .default('sha256')
+      .describe(`
 The hashing algorithm to use.
 
 The file hash is exported as \`file.meta.hash\`.

@@ -54,7 +54,10 @@ export const robotFtpImportInstructionsSchema = robotBase
     path: path.describe(`
 The path on your FTP server where to search for files. Files are imported recursively from all sub-directories and sub-sub-directories (and so on) from this path.
 `),
-    passive_mode: z.boolean().default(true).describe(`
+    passive_mode: z
+      .boolean()
+      .default(true)
+      .describe(`
 Determines if passive mode should be used for the FTP connection.
 `),
   })

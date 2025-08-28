@@ -88,7 +88,10 @@ You can check whether evaluating this script was free by inspecting \`file.meta.
 export const robotScriptRunInstructionsWithHiddenFieldsSchema =
   robotScriptRunInstructionsSchema.extend({
     result: z.union([z.literal('debug'), robotScriptRunInstructionsSchema.shape.result]).optional(),
-    contextJSON: z.string().optional().describe(`
+    contextJSON: z
+      .string()
+      .optional()
+      .describe(`
 A JSON string that provides additional context data to the script. This will be parsed and made available to the script as a \`context\` variable. For example, if you pass \`'{"foo":{"bar":"baz"}}'\`, the script can access \`context.foo.bar\` to get the value \`"baz"\`.
 `),
   })

@@ -62,7 +62,10 @@ Bit rate of the resulting audio file, in bits per second. If not specified will 
     sample_rate: sampleRateSchema.optional().describe(`
 Sample rate of the resulting audio file, in Hertz. If not specified will default to the sample rate of the input audio file.
 `),
-    duration: z.number().default(60).describe(`
+    duration: z
+      .number()
+      .default(60)
+      .describe(`
 Target duration for the whole process in seconds. The <dfn>Robot</dfn> will loop the input audio file for as long as this target duration is not reached yet.
 `),
   })

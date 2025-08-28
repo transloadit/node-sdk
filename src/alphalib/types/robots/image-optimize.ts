@@ -59,13 +59,22 @@ It works well together with [🤖/image/resize](/docs/robots/image-resize/) to b
     priority: optimize_priority.describe(`
 Provides different algorithms for better or worse compression for your images, but that run slower or faster. The value \`"conversion-speed"\` will result in an average compression ratio of 18%. \`"compression-ratio"\` will result in an average compression ratio of 31%.
 `),
-    progressive: z.boolean().default(false).describe(`
+    progressive: z
+      .boolean()
+      .default(false)
+      .describe(`
 Interlaces the image if set to \`true\`, which makes the result image load progressively in browsers. Instead of rendering the image from top to bottom, the browser will first show a low-res blurry version of the image which is then quickly replaced with the actual image as the data arrives. This greatly increases the user experience, but comes at a loss of about 10% of the file size reduction.
 `),
-    preserve_meta_data: z.boolean().default(true).describe(`
+    preserve_meta_data: z
+      .boolean()
+      .default(true)
+      .describe(`
 Specifies if the image's metadata should be preserved during the optimization, or not. If it is not preserved, the file size is even further reduced. But be aware that this could strip a photographer's copyright information, which for obvious reasons can be frowned upon.
 `),
-    fix_breaking_images: z.boolean().default(true).describe(`
+    fix_breaking_images: z
+      .boolean()
+      .default(true)
+      .describe(`
 If set to \`true\` this parameter tries to fix images that would otherwise make the underlying tool error out and thereby break your <dfn>Assemblies</dfn>. This can sometimes result in a larger file size, though.
 `),
   })

@@ -72,17 +72,24 @@ This <dfn>Robot</dfn> supports both SRT and VTT subtitle files.
     subtitles_type: z
       .enum(['burned', 'external', 'burn'])
       .transform((val) => (val === 'burn' ? 'burned' : val))
-      .default('external').describe(`
+      .default('external')
+      .describe(`
 Determines if subtitles are added as a separate stream to the video (value \`"external"\`) that then can be switched on and off in your video player, or if they should be burned directly into the video (value \`"burned"\` or \`"burn"\`) so that they become part of the video stream.
 `),
-    border_style: z.enum(['box', 'outline', 'shadow']).default('outline').describe(`
+    border_style: z
+      .enum(['box', 'outline', 'shadow'])
+      .default('outline')
+      .describe(`
 Specifies the style of the subtitle. Use the \`border_color\` parameter to specify the color of the border.
 `),
     border_color: color_with_alpha.default('40000000').describe(`
 The color for the subtitle border. The first two hex digits specify the alpha value of the color.
 `),
     // TODO: Make font an enum
-    font: z.string().default('Arial').describe(`
+    font: z
+      .string()
+      .default('Arial')
+      .describe(`
 The font family to use. Also includes boldness and style of the font.
 
 [Here](/docs/supported-formats/fonts/) is a list of all supported fonts.
@@ -90,16 +97,28 @@ The font family to use. Also includes boldness and style of the font.
     font_color: color_without_alpha.default('FFFFFF').describe(`
 The color of the subtitle text. The first two hex digits specify the alpha value of the color.
 `),
-    font_size: z.number().int().min(1).default(16).describe(`
+    font_size: z
+      .number()
+      .int()
+      .min(1)
+      .default(16)
+      .describe(`
 Specifies the size of the text.
 `),
     position: positionSchema.default('bottom').describe(`
 Specifies the position of the subtitles.
 `),
-    language: z.string().optional().nullable().describe(`
+    language: z
+      .string()
+      .optional()
+      .nullable()
+      .describe(`
 Specifies the language of the subtitles. Only used if the subtitles are external.
 `),
-    keep_subtitles: z.boolean().default(false).describe(`
+    keep_subtitles: z
+      .boolean()
+      .default(false)
+      .describe(`
 Specifies if existing subtitles in the input file should be kept or be replaced by the new subtitle. Only used if the subtitles are external.
 `),
   })

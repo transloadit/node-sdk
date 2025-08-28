@@ -82,30 +82,52 @@ export const robotFileCompressInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/file/compress'),
-    format: z.enum(['tar', 'zip']).default('tar').describe(`
+    format: z
+      .enum(['tar', 'zip'])
+      .default('tar')
+      .describe(`
 The format of the archive to be created. Supported values are \`"tar"\` and \`"zip"\`.
 
 Note that \`"tar"\` without setting \`gzip\` to \`true\` results in an archive that's not compressed in any way.
 `),
-    gzip: z.boolean().default(false).describe(`
+    gzip: z
+      .boolean()
+      .default(false)
+      .describe(`
 Determines if the result archive should also be gzipped. Gzip compression is only applied if you use the \`"tar"\` format.
 `),
-    password: z.string().nullable().default(null).describe(`
+    password: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe(`
 This allows you to encrypt all archive contents with a password and thereby protect it against unauthorized use. To unzip the archive, the user will need to provide the password in a text input field prompt.
 
 This parameter has no effect if the format parameter is anything other than \`"zip"\`.
 `),
-    compression_level: z.number().int().min(-9).max(0).default(-6).describe(`
+    compression_level: z
+      .number()
+      .int()
+      .min(-9)
+      .max(0)
+      .default(-6)
+      .describe(`
 Determines how fiercely to try to compress the archive. \`-0\` is compressionless, which is suitable for media that is already compressed. \`-1\` is fastest with lowest compression. \`-9\` is slowest with the highest compression.
 
 If you are using \`-0\` in combination with the \`tar\` format with \`gzip\` enabled, consider setting \`gzip: false\` instead. This results in a plain Tar archive, meaning it already has no compression.
 `),
-    file_layout: z.enum(['advanced', 'simple', 'relative-path']).default('advanced').describe(`
+    file_layout: z
+      .enum(['advanced', 'simple', 'relative-path'])
+      .default('advanced')
+      .describe(`
 Determines if the result archive should contain all files in one directory (value for this is \`"simple"\`) or in subfolders according to the explanation below (value for this is \`"advanced"\`). The \`"relative-path"\` option preserves the relative directory structure of the input files.
 
 Files with same names are numbered in the \`"simple"\` file layout to avoid naming collisions.
 `),
-    archive_name: z.string().optional().describe(`
+    archive_name: z
+      .string()
+      .optional()
+      .describe(`
 The name of the archive file to be created (without the file extension).
 `),
   })

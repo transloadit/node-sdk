@@ -51,31 +51,54 @@ The background color of the resulting video the \`"rrggbbaa"\` format (red, gree
 `),
     framerate: z
       .union([z.number().int().min(1), z.string().regex(/^\d+(?:\/\d+)?$/)])
-      .default('1/5').describe(`
+      .default('1/5')
+      .describe(`
 When merging images to generate a video this is the input framerate. A value of "1/5" means each image is given 5 seconds before the next frame appears (the inverse of a framerate of "5"). Likewise for "1/10", "1/20", etc. A value of "5" means there are 5 frames per second.
 `),
-    image_durations: z.array(z.number()).default([]).describe(`
+    image_durations: z
+      .array(z.number())
+      .default([])
+      .describe(`
 When merging images to generate a video this allows you to define how long (in seconds) each image will be shown inside of the video. So if you pass 3 images and define \`[2.4, 5.6, 9]\` the first image will be shown for 2.4s, the second image for 5.6s and the last one for 9s. The \`duration\` parameter will automatically be set to the sum of the image_durations, so \`17\` in our example. It can still be overwritten, though, in which case the last image will be shown until the defined duration is reached.
 `),
-    duration: z.number().default(5).describe(`
+    duration: z
+      .number()
+      .default(5)
+      .describe(`
 When merging images to generate a video or when merging audio and video this is the desired target duration in seconds. The float value can take one decimal digit. If you want all images to be displayed exactly once, then you can set the duration according to this formula: \`duration = numberOfImages / framerate\`. This also works for the inverse framerate values like \`1/5\`.
 
 If you set this value to \`null\` (default), then the duration of the input audio file will be used when merging images with an audio file.
 
 When merging audio files and video files, the duration of the longest video or audio file is used by default.
 `),
-    audio_delay: z.number().default(0).describe(`
+    audio_delay: z
+      .number()
+      .default(0)
+      .describe(`
 When merging a video and an audio file, and when merging images and an audio file to generate a video, this is the desired delay in seconds for the audio file to start playing. Imagine you merge a video file without sound and an audio file, but you wish the audio to start playing after 5 seconds and not immediately, then this is the parameter to use.
 `),
-    loop: z.boolean().default(false).describe(`
+    loop: z
+      .boolean()
+      .default(false)
+      .describe(`
   Determines whether the shorter media file should be looped to match the duration of the longer one. For example, if you merge a 1-minute video with a 3-minute audio file and enable this option, the video will play three times in a row to match the audio length.`),
-    replace_audio: z.boolean().default(false).describe(`
+    replace_audio: z
+      .boolean()
+      .default(false)
+      .describe(`
 Determines whether the audio of the video should be replaced with a provided audio file.
 `),
-    vstack: z.boolean().default(false).describe(`
+    vstack: z
+      .boolean()
+      .default(false)
+      .describe(`
 Stacks the input media vertically. All streams need to have the same pixel format and width - so consider using a [/video/encode](/docs/robots/video-encode/) <dfn>Step</dfn> before using this parameter to enforce this.
 `),
-    image_url: z.string().url().optional().describe(`
+    image_url: z
+      .string()
+      .url()
+      .optional()
+      .describe(`
 The URL of an image to be merged with the audio or video. When this parameter is provided, the robot will download the image from the URL and merge it with the other media.
 `),
   })

@@ -60,37 +60,70 @@ export const robotDocumentThumbsInstructionsSchema = robotBase
 - If you convert a multi-page PDF file into several images, all result images will be sorted with the first image being the thumbnail of the first document page, etc.
 - You can also check the \`meta.thumb_index\` key of each result image to find out which page it corresponds to. Keep in mind that these thumb indices **start at 0,** not at 1.
 `),
-    page: z.number().int().nullable().default(null).describe(`
+    page: z
+      .number()
+      .int()
+      .nullable()
+      .default(null)
+      .describe(`
 The PDF page that you want to convert to an image. By default the value is \`null\` which means that all pages will be converted into images.
 `),
-    format: z.enum(['gif', 'jpeg', 'jpg', 'png']).default('png').describe(`
+    format: z
+      .enum(['gif', 'jpeg', 'jpg', 'png'])
+      .default('png')
+      .describe(`
 The format of the extracted image(s).
 
 If you specify the value \`"gif"\`, then an animated gif cycling through all pages is created. Please check out [this demo](/demos/document-processing/convert-all-pages-of-a-document-into-an-animated-gif/) to learn more about this.
 `),
-    delay: z.number().int().min(0).optional().describe(`
+    delay: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(`
 If your output format is \`"gif"\` then this parameter sets the number of 100th seconds to pass before the next frame is shown in the animation. Set this to \`100\` for example to allow 1 second to pass between the frames of the animated gif.
 
 If your output format is not \`"gif"\`, then this parameter does not have any effect.
 `),
-    width: z.number().int().min(1).max(5000).optional().describe(`
+    width: z
+      .number()
+      .int()
+      .min(1)
+      .max(5000)
+      .optional()
+      .describe(`
 Width of the new image, in pixels. If not specified, will default to the width of the input image
 `),
-    height: z.number().int().min(1).max(5000).optional().describe(`
+    height: z
+      .number()
+      .int()
+      .min(1)
+      .max(5000)
+      .optional()
+      .describe(`
 Height of the new image, in pixels. If not specified, will default to the height of the input image
 `),
-    resize_strategy: z.enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch']).default('pad')
+    resize_strategy: z
+      .enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch'])
+      .default('pad')
       .describe(`
 One of the [available resize strategies](/docs/topics/resize-strategies/).
 `),
     // TODO: Determine the allowed colors
-    background: z.string().default('#FFFFFF').describe(`
+    background: z
+      .string()
+      .default('#FFFFFF')
+      .describe(`
 Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (only used for the pad resize strategy).
 
 By default, the background of transparent images is changed to white. For details about how to preserve transparency across all image types, see [this demo](/demos/image-manipulation/properly-preserve-transparency-across-all-image-types/).
 `),
     // TODO: Update options list. Why are they capitalized? They are lowercase in th ImageMagick docs.
-    alpha: z.enum(['Remove', 'Set']).optional().describe(`
+    alpha: z
+      .enum(['Remove', 'Set'])
+      .optional()
+      .describe(`
 Change how the alpha channel of the resulting image should work. Valid values are \`"Set"\` to enable transparency and \`"Remove"\` to remove transparency.
 
 For a list of all valid values please check the ImageMagick documentation [here](http://www.imagemagick.org/script/command-line-options.php#alpha).
@@ -98,14 +131,18 @@ For a list of all valid values please check the ImageMagick documentation [here]
     density: z
       .string()
       .regex(/\d+(x\d+)?/)
-      .optional().describe(`
+      .optional()
+      .describe(`
 While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. That is the density (in pixels per inch) of an image and defines how far apart (or how big) the individual pixels are. It defines the size of the image in real world terms when displayed on devices or printed.
 
 You can set this value to a specific \`width\` or in the format \`width\`x\`height\`.
 
 If your converted image has a low resolution, please try using the density parameter to resolve that.
 `),
-    antialiasing: z.boolean().default(false).describe(`
+    antialiasing: z
+      .boolean()
+      .default(false)
+      .describe(`
 Controls whether or not antialiasing is used to remove jagged edges from text or images in a document.
 `),
     colorspace: colorspaceSchema.optional().describe(`
@@ -113,12 +150,18 @@ Sets the image colorspace. For details about the available values, see the [Imag
 
 Please note that if you were using \`"RGB"\`, we recommend using \`"sRGB"\`. ImageMagick might try to find the most efficient \`colorspace\` based on the color of an image, and default to e.g. \`"Gray"\`. To force colors, you might then have to use this parameter.
 `),
-    trim_whitespace: z.boolean().default(true).describe(`
+    trim_whitespace: z
+      .boolean()
+      .default(true)
+      .describe(`
 This determines if additional whitespace around the PDF should first be trimmed away before it is converted to an image. If you set this to \`true\` only the real PDF page contents will be shown in the image.
 
 If you need to reflect the PDF's dimensions in your image, it is generally a good idea to set this to \`false\`.
 `),
-    pdf_use_cropbox: z.boolean().default(true).describe(`
+    pdf_use_cropbox: z
+      .boolean()
+      .default(true)
+      .describe(`
 Some PDF documents lie about their dimensions. For instance they'll say they are landscape, but when opened in decent Desktop readers, it's really in portrait mode. This can happen if the document has a cropbox defined. When this option is enabled (by default), the cropbox is leading in determining the dimensions of the resulting thumbnails.
 `),
   })
@@ -129,17 +172,24 @@ export const robotDocumentThumbsInstructionsWithHiddenFieldsSchema =
     result: z
       .union([z.literal('debug'), robotDocumentThumbsInstructionsSchema.shape.result])
       .optional(),
-    stack: z.string().optional().describe(`
+    stack: z
+      .string()
+      .optional()
+      .describe(`
 The image processing stack to use. Defaults to the robot's preferred stack (ImageMagick).
 `),
     // Override to support lowercase for BC:
-    alpha: z.enum(['Remove', 'Set', 'remove', 'set']).optional().describe(`
+    alpha: z
+      .enum(['Remove', 'Set', 'remove', 'set'])
+      .optional()
+      .describe(`
 Change how the alpha channel of the resulting image should work. Valid values are \`"Set"\` to enable transparency and \`"Remove"\` to remove transparency. Lowercase values are also accepted for backwards compatibility.
 `),
     // Override to support 'none' for BC
     resize_strategy: z
       .enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch', 'none'])
-      .optional().describe(`
+      .optional()
+      .describe(`
 One of the [available resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies). The 'none' value is supported for backwards compatibility.
 `),
   })

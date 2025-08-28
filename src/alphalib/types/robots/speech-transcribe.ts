@@ -72,7 +72,10 @@ Transloadit outsources this task and abstracts the interface so you can expect t
     granularity: granularitySchema.describe(`
 Whether to return a full response (\`"full"\`), or a flat list of descriptions (\`"list"\`).
 `),
-    format: z.enum(['json', 'meta', 'srt', 'meta', 'text', 'webvtt']).default('json').describe(`
+    format: z
+      .enum(['json', 'meta', 'srt', 'meta', 'text', 'webvtt'])
+      .default('json')
+      .describe(`
 Output format for the transcription.
 
 - \`"text"\` outputs a plain text file that you can store and process.
@@ -81,13 +84,19 @@ Output format for the transcription.
 - \`"meta"\` does not return a file, but stores the data inside  Transloadit's file object (under \`\${file.meta.transcription.text}\`) that's passed around between encoding <dfn>Steps</dfn>, so that you can use the values to burn the data into videos, filter on them, etc.
 `),
     // TODO determine the list of languages
-    source_language: z.string().default('en-US').describe(`
+    source_language: z
+      .string()
+      .default('en-US')
+      .describe(`
 The spoken language of the audio or video. This will also be the language of the transcribed text.
 
 The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as \`"en-GB"\`, \`"de-DE"\` or \`"fr-FR"\`. Please also consult the list of supported languages for [the \`gcp\` provider](https://cloud.google.com/speech-to-text/docs/languages) and the [the \`aws\` provider](https://docs.aws.amazon.com/transcribe/latest/dg/what-is-transcribe.html).
 `),
     // TODO determine the list of languages
-    target_language: z.string().default('en-US').describe(`
+    target_language: z
+      .string()
+      .default('en-US')
+      .describe(`
       This will also be the language of the written text.
 
       The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as \`"en-GB"\`, \`"de-DE"\` or \`"fr-FR"\`. Please consult the list of supported languages and voices.

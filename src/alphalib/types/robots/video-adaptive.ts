@@ -11,7 +11,7 @@ import {
 
 export const meta: RobotMetaInput = {
   allowed_for_url_transform: false,
-  bytescount: Infinity,
+  bytescount: Number.POSITIVE_INFINITY,
   discount_factor: 1,
   discount_pct: 0,
   example_code: {
@@ -117,16 +117,29 @@ The <dfn>Robot</dfn> gives its result files (segments, initialization segments, 
 
 In the \`path\` parameter of the storage <dfn>Robot</dfn> of your choice, use the <dfn>Assembly Variable</dfn> \`\${file.meta.relative_path}\` to store files in the proper paths to make the playlist files work.
 `),
-    technique: z.enum(['dash', 'hls']).default('dash').describe(`
+    technique: z
+      .enum(['dash', 'hls'])
+      .default('dash')
+      .describe(`
 Determines which streaming technique should be used. Currently supports \`"dash"\` for MPEG-Dash and \`"hls"\` for HTTP Live Streaming.
 `),
-    playlist_name: z.string().optional().describe(`
+    playlist_name: z
+      .string()
+      .optional()
+      .describe(`
 The filename for the generated manifest/playlist file. The default is \`"playlist.mpd"\` if your \`technique\` is \`"dash"\`, and \`"playlist.m3u8"\` if your \`technique\` is \`"hls"\`.
 `),
-    segment_duration: z.number().int().default(10).describe(`
+    segment_duration: z
+      .number()
+      .int()
+      .default(10)
+      .describe(`
 The duration for each segment in seconds.
 `),
-    closed_captions: z.boolean().default(true).describe(`
+    closed_captions: z
+      .boolean()
+      .default(true)
+      .describe(`
 Determines whether you want closed caption support when using the \`"hls"\` technique.
 `),
   })

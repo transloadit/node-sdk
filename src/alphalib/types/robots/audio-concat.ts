@@ -84,12 +84,18 @@ Bit rate of the resulting audio file, in bits per second. If not specified will 
     sample_rate: sampleRateSchema.optional().describe(`
 Sample rate of the resulting audio file, in Hertz. If not specified will default to the sample rate of the input audio file.
 `),
-    audio_fade_seconds: z.number().default(1).describe(`
+    audio_fade_seconds: z
+      .number()
+      .default(1)
+      .describe(`
 When used this adds an audio fade in and out effect between each section of your concatenated audio file. The float value is used, so if you want an audio delay effect of 500 milliseconds between each video section, you would select 0.5. Integer values can also be represented.
 
 This parameter does not add an audio fade effect at the beginning or end of your result audio file. If you want to do so, create an additional [🤖/audio/encode](/docs/robots/audio-encode/) <dfn>Step</dfn> and use our \`ffmpeg\` parameter as shown in this [demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
 `),
-    crossfade: z.boolean().default(false).describe(`
+    crossfade: z
+      .boolean()
+      .default(false)
+      .describe(`
 When set to \`true\`, this parameter enables crossfading between concatenated audio files using FFmpeg's \`acrossfade\` filter. This creates a smooth transition where the end of one audio file overlaps and blends with the beginning of the next file.
 
 The duration of the crossfade is controlled by the \`audio_fade_seconds\` parameter (defaults to 1 second if \`audio_fade_seconds\` is 0).

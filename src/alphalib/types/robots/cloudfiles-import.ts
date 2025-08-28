@@ -63,7 +63,10 @@ Directories are **not** imported recursively. If you want to import files from s
 
 You can also use an array of path strings here to import multiple paths in the same <dfn>Robot</dfn>'s <dfn>Step</dfn>.
 `),
-    recursive: z.boolean().default(false).describe(`
+    recursive: z
+      .boolean()
+      .default(false)
+      .describe(`
 Setting this to \`true\` will enable importing files from subdirectories and sub-subdirectories (etc.) of the given path.
 
 Please use the pagination parameters \`page_number\` and \`files_per_page\`wisely here.

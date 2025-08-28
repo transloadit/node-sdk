@@ -65,7 +65,10 @@ Next, go to Storage browser and select the ellipsis on your bucket to edit bucke
 
 Then, create your associated [Template Credentials](/c/template-credentials/) in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value.
 `),
-    path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
+    path: z
+      .string()
+      .default('${unique_prefix}/${file.url_name}')
+      .describe(`
 The path at which the file is to be stored. This may include any available [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables).
 `),
     acl: z
@@ -77,16 +80,26 @@ The path at which the file is to be stored. This may include any available [Asse
         'public-read',
       ])
       .nullable()
-      .default('public-read').describe(`
+      .default('public-read')
+      .describe(`
 The permissions used for this file.
 `),
-    cache_control: z.string().optional().describe(`
+    cache_control: z
+      .string()
+      .optional()
+      .describe(`
 The \`Cache-Control\` header determines how long browsers are allowed to cache your object for. Values specified with this parameter will be added to the object's metadata under the \`Cache-Control\` header. For more information on valid values, take a look at the [official Google documentation](https://cloud.google.com/storage/docs/metadata#cache-control).
 `),
-    url_template: z.string().default('https://{HOST}/{PATH}').describe(`
+    url_template: z
+      .string()
+      .default('https://{HOST}/{PATH}')
+      .describe(`
 The URL of the file in the result JSON. This may include any of the following supported [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
 `),
-    ssl_url_template: z.string().default('https://{HOST}/{PATH}').describe(`
+    ssl_url_template: z
+      .string()
+      .default('https://{HOST}/{PATH}')
+      .describe(`
 The SSL URL of the file in the result JSON. The following [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables) are supported.
 `),
   })

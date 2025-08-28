@@ -49,17 +49,20 @@ More information on:
 - [🤖/tlcdn/deliver](/docs/robots/tlcdn-deliver/) pricing.
 - [File Preview Feature](/blog/2024/06/file-preview-with-smart-cdn/) blog post.
 `),
-    headers: z.record(z.string()).default({
-      'Access-Control-Allow-Headers':
-        'X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization',
-      'Access-Control-Allow-Methods': 'POST, GET, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'public, max-age=259200, s-max-age=86400',
-      'Content-Type': '${file.mime}; charset=utf-8',
-      'Transfer-Encoding': 'chunked',
-      'Transloadit-Assembly': '…',
-      'Transloadit-RequestID': '…',
-    }).describe(`
+    headers: z
+      .record(z.string())
+      .default({
+        'Access-Control-Allow-Headers':
+          'X-Requested-With, Content-Type, Cache-Control, Accept, Content-Length, Transloadit-Client, Authorization',
+        'Access-Control-Allow-Methods': 'POST, GET, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'public, max-age=259200, s-max-age=86400',
+        'Content-Type': '${file.mime}; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+        'Transloadit-Assembly': '…',
+        'Transloadit-RequestID': '…',
+      })
+      .describe(`
 An object containing a list of headers to be set for a file as we serve it to a CDN/web browser, such as \`{ FileURL: "\${file.url_name}" }\` which will be merged over the defaults, and can include any available [Assembly Variable](/docs/topics/assembly-instructions/#assembly-variables).
 `),
   })

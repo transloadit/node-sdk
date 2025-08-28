@@ -54,18 +54,32 @@ export const robotCloudflareStoreInstructionsSchema = robotBase
   .merge(cloudflareBase)
   .extend({
     robot: z.literal('/cloudflare/store'),
-    path: z.string().default('${unique_prefix}/${file.url_name}').describe(`
+    path: z
+      .string()
+      .default('${unique_prefix}/${file.url_name}')
+      .describe(`
 The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables). The path must not be a directory.
 `),
-    headers: z.record(z.string()).default({ 'Content-Type': '${file.mime}' }).describe(`
+    headers: z
+      .record(z.string())
+      .default({ 'Content-Type': '${file.mime}' })
+      .describe(`
 An object containing a list of headers to be set for this file on cloudflare Spaces, such as \`{ FileURL: "\${file.url_name}" }\`. This can also include any available [Assembly Variables](/docs/topics/assembly-instructions/#assembly-variables).
 
 Object Metadata can be specified using \`x-amz-meta-*\` headers. Note that these headers [do not support non-ASCII metadata values](https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html#UserMetadata).
 `),
-    sign_urls_for: z.number().int().min(0).optional().describe(`
+    sign_urls_for: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(`
 This parameter provides signed URLs in the result JSON (in the \`signed_ssl_url\` property). The number that you set this parameter to is the URL expiry time in seconds. If this parameter is not used, no URL signing is done.
 `),
-    url_prefix: z.string().optional().describe(`
+    url_prefix: z
+      .string()
+      .optional()
+      .describe(`
 The URL prefix used for accessing files from your Cloudflare R2 bucket. This is typically the custom public URL access host set up in your Cloudflare account.
 `),
   })

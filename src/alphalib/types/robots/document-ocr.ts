@@ -74,7 +74,10 @@ AWS supports detection for the following languages: English, Arabic, Russian, Ge
     granularity: granularitySchema.describe(`
 Whether to return a full response including coordinates for the text (\`"full"\`), or a flat list of the extracted phrases (\`"list"\`). This parameter has no effect if the \`format\` parameter is set to \`"text"\`.
 `),
-    format: z.enum(['json', 'meta', 'text']).default('json').describe(`
+    format: z
+      .enum(['json', 'meta', 'text'])
+      .default('json')
+      .describe(`
 In what format to return the extracted text.
 - \`"json"\` returns a JSON file.
 - \`"meta"\` does not return a file, but stores the data inside Transloadit's file object (under \`\${file.meta.recognized_text}\`, which is an array of strings) that's passed around between encoding <dfn>Steps</dfn>, so that you can use the values to burn the data into videos, filter on them, etc.
