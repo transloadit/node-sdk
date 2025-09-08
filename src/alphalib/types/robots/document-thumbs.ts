@@ -164,6 +164,16 @@ If you need to reflect the PDF's dimensions in your image, it is generally a goo
       .describe(`
 Some PDF documents lie about their dimensions. For instance they'll say they are landscape, but when opened in decent Desktop readers, it's really in portrait mode. This can happen if the document has a cropbox defined. When this option is enabled (by default), the cropbox is leading in determining the dimensions of the resulting thumbnails.
 `),
+    turbo: z
+      .boolean()
+      .default(true)
+      .describe(`
+If you set this to \`false\`, the robot will not emit files as they become available. This is useful if you are only interested in the final result and not in the intermediate steps.
+
+Also, extracted pages will be resized a lot faster as they are sent off to other machines for the resizing. This is especially useful for large documents with many pages to get up to 20 times faster processing.
+
+Turbo mode increases pricing, though, in that the input document's file size is added for every extracted page. There are no performance benefits nor increased charges for single-page documents.
+`),
   })
   .strict()
 
