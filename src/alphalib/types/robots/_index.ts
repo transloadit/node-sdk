@@ -686,3 +686,415 @@ export const robotsMeta = {
   wasabiStoreMeta,
   youtubeStoreMeta,
 }
+
+export type { InterpolatableRobotAssemblySavejsonInstructions } from './assembly-savejson.ts'
+export type {
+  InterpolatableRobotAudioArtworkInstructions,
+  InterpolatableRobotAudioArtworkInstructionsWithHiddenFields,
+  InterpolatableRobotAudioArtworkInstructionsWithHiddenFieldsInput,
+} from './audio-artwork.ts'
+export type {
+  InterpolatableRobotAudioConcatInstructions,
+  InterpolatableRobotAudioConcatInstructionsWithHiddenFields,
+  InterpolatableRobotAudioConcatInstructionsWithHiddenFieldsInput,
+} from './audio-concat.ts'
+export type {
+  InterpolatableRobotAudioEncodeInstructions,
+  InterpolatableRobotAudioEncodeInstructionsWithHiddenFields,
+  InterpolatableRobotAudioEncodeInstructionsWithHiddenFieldsInput,
+} from './audio-encode.ts'
+export type {
+  InterpolatableRobotAudioLoopInstructions,
+  InterpolatableRobotAudioLoopInstructionsWithHiddenFields,
+  InterpolatableRobotAudioLoopInstructionsWithHiddenFieldsInput,
+} from './audio-loop.ts'
+export type {
+  InterpolatableRobotAudioMergeInstructions,
+  InterpolatableRobotAudioMergeInstructionsWithHiddenFields,
+  InterpolatableRobotAudioMergeInstructionsWithHiddenFieldsInput,
+} from './audio-merge.ts'
+export type {
+  InterpolatableRobotAudioWaveformInstructions,
+  InterpolatableRobotAudioWaveformInstructionsWithHiddenFields,
+  InterpolatableRobotAudioWaveformInstructionsWithHiddenFieldsInput,
+} from './audio-waveform.ts'
+export type {
+  InterpolatableRobotAzureImportInstructions,
+  InterpolatableRobotAzureImportInstructionsWithHiddenFields,
+  InterpolatableRobotAzureImportInstructionsWithHiddenFieldsInput,
+} from './azure-import.ts'
+export type {
+  InterpolatableRobotAzureStoreInstructions,
+  InterpolatableRobotAzureStoreInstructionsWithHiddenFields,
+  InterpolatableRobotAzureStoreInstructionsWithHiddenFieldsInput,
+} from './azure-store.ts'
+export type {
+  InterpolatableRobotBackblazeImportInstructions,
+  InterpolatableRobotBackblazeImportInstructionsWithHiddenFields,
+  InterpolatableRobotBackblazeImportInstructionsWithHiddenFieldsInput,
+} from './backblaze-import.ts'
+export type {
+  InterpolatableRobotBackblazeStoreInstructions,
+  InterpolatableRobotBackblazeStoreInstructionsWithHiddenFields,
+  InterpolatableRobotBackblazeStoreInstructionsWithHiddenFieldsInput,
+} from './backblaze-store.ts'
+export type {
+  InterpolatableRobotCloudfilesImportInstructions,
+  InterpolatableRobotCloudfilesImportInstructionsWithHiddenFields,
+  InterpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsInput,
+} from './cloudfiles-import.ts'
+export type {
+  InterpolatableRobotCloudfilesStoreInstructions,
+  InterpolatableRobotCloudfilesStoreInstructionsWithHiddenFields,
+  InterpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsInput,
+} from './cloudfiles-store.ts'
+export type {
+  InterpolatableRobotCloudflareImportInstructions,
+  InterpolatableRobotCloudflareImportInstructionsWithHiddenFields,
+  InterpolatableRobotCloudflareImportInstructionsWithHiddenFieldsInput,
+} from './cloudflare-import.ts'
+export type {
+  InterpolatableRobotCloudflareStoreInstructions,
+  InterpolatableRobotCloudflareStoreInstructionsWithHiddenFields,
+  InterpolatableRobotCloudflareStoreInstructionsWithHiddenFieldsInput,
+} from './cloudflare-store.ts'
+export type {
+  InterpolatableRobotDigitaloceanImportInstructions,
+  InterpolatableRobotDigitaloceanImportInstructionsWithHiddenFields,
+  InterpolatableRobotDigitaloceanImportInstructionsWithHiddenFieldsInput,
+} from './digitalocean-import.ts'
+export type {
+  InterpolatableRobotDigitaloceanStoreInstructions,
+  InterpolatableRobotDigitaloceanStoreInstructionsWithHiddenFields,
+  InterpolatableRobotDigitaloceanStoreInstructionsWithHiddenFieldsInput,
+} from './digitalocean-store.ts'
+export type {
+  InterpolatableRobotDocumentAutorotateInstructions,
+  InterpolatableRobotDocumentAutorotateInstructionsWithHiddenFields,
+  InterpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsInput,
+} from './document-autorotate.ts'
+export type {
+  InterpolatableRobotDocumentConvertInstructions,
+  InterpolatableRobotDocumentConvertInstructionsWithHiddenFields,
+  InterpolatableRobotDocumentConvertInstructionsWithHiddenFieldsInput,
+} from './document-convert.ts'
+export type {
+  InterpolatableRobotDocumentMergeInstructions,
+  InterpolatableRobotDocumentMergeInstructionsWithHiddenFields,
+  InterpolatableRobotDocumentMergeInstructionsWithHiddenFieldsInput,
+} from './document-merge.ts'
+export type {
+  InterpolatableRobotDocumentOcrInstructions,
+  InterpolatableRobotDocumentOcrInstructionsWithHiddenFields,
+  InterpolatableRobotDocumentOcrInstructionsWithHiddenFieldsInput,
+} from './document-ocr.ts'
+export type {
+  InterpolatableRobotDocumentSplitInstructions,
+  InterpolatableRobotDocumentSplitInstructionsWithHiddenFields,
+  InterpolatableRobotDocumentSplitInstructionsWithHiddenFieldsInput,
+} from './document-split.ts'
+export type {
+  InterpolatableRobotDocumentThumbsInstructions,
+  InterpolatableRobotDocumentThumbsInstructionsWithHiddenFields,
+  InterpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsInput,
+} from './document-thumbs.ts'
+export type {
+  InterpolatableRobotDropboxImportInstructions,
+  InterpolatableRobotDropboxImportInstructionsWithHiddenFields,
+  InterpolatableRobotDropboxImportInstructionsWithHiddenFieldsInput,
+} from './dropbox-import.ts'
+export type {
+  InterpolatableRobotDropboxStoreInstructions,
+  InterpolatableRobotDropboxStoreInstructionsWithHiddenFields,
+  InterpolatableRobotDropboxStoreInstructionsWithHiddenFieldsInput,
+} from './dropbox-store.ts'
+export type {
+  InterpolatableRobotEdglyDeliverInstructions,
+  InterpolatableRobotEdglyDeliverInstructionsWithHiddenFields,
+  InterpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsInput,
+} from './edgly-deliver.ts'
+export type {
+  InterpolatableRobotFileCompressInstructions,
+  InterpolatableRobotFileCompressInstructionsWithHiddenFields,
+  InterpolatableRobotFileCompressInstructionsWithHiddenFieldsInput,
+} from './file-compress.ts'
+export type {
+  InterpolatableRobotFileDecompressInstructions,
+  InterpolatableRobotFileDecompressInstructionsWithHiddenFields,
+  InterpolatableRobotFileDecompressInstructionsWithHiddenFieldsInput,
+} from './file-decompress.ts'
+export type {
+  InterpolatableRobotFileFilterInstructions,
+  InterpolatableRobotFileFilterInstructionsWithHiddenFields,
+  InterpolatableRobotFileFilterInstructionsWithHiddenFieldsInput,
+} from './file-filter.ts'
+export type {
+  InterpolatableRobotFileHashInstructions,
+  InterpolatableRobotFileHashInstructionsWithHiddenFields,
+  InterpolatableRobotFileHashInstructionsWithHiddenFieldsInput,
+} from './file-hash.ts'
+export type {
+  InterpolatableRobotFilePreviewInstructions,
+  InterpolatableRobotFilePreviewInstructionsWithHiddenFields,
+  InterpolatableRobotFilePreviewInstructionsWithHiddenFieldsInput,
+} from './file-preview.ts'
+export type {
+  InterpolatableRobotFileReadInstructions,
+  InterpolatableRobotFileReadInstructionsWithHiddenFields,
+  InterpolatableRobotFileReadInstructionsWithHiddenFieldsInput,
+} from './file-read.ts'
+export type {
+  InterpolatableRobotFileServeInstructions,
+  InterpolatableRobotFileServeInstructionsWithHiddenFields,
+  InterpolatableRobotFileServeInstructionsWithHiddenFieldsInput,
+} from './file-serve.ts'
+export type {
+  InterpolatableRobotFileVerifyInstructions,
+  InterpolatableRobotFileVerifyInstructionsWithHiddenFields,
+  InterpolatableRobotFileVerifyInstructionsWithHiddenFieldsInput,
+} from './file-verify.ts'
+export type {
+  InterpolatableRobotFileVirusscanInstructions,
+  InterpolatableRobotFileVirusscanInstructionsWithHiddenFields,
+  InterpolatableRobotFileVirusscanInstructionsWithHiddenFieldsInput,
+} from './file-virusscan.ts'
+export type {
+  InterpolatableRobotFileWatermarkInstructions,
+  InterpolatableRobotFileWatermarkInstructionsWithHiddenFields,
+  InterpolatableRobotFileWatermarkInstructionsWithHiddenFieldsInput,
+} from './file-watermark.ts'
+export type {
+  InterpolatableRobotFtpImportInstructions,
+  InterpolatableRobotFtpImportInstructionsWithHiddenFields,
+  InterpolatableRobotFtpImportInstructionsWithHiddenFieldsInput,
+} from './ftp-import.ts'
+export type {
+  InterpolatableRobotFtpStoreInstructions,
+  InterpolatableRobotFtpStoreInstructionsWithHiddenFields,
+  InterpolatableRobotFtpStoreInstructionsWithHiddenFieldsInput,
+} from './ftp-store.ts'
+export type {
+  InterpolatableRobotGoogleImportInstructions,
+  InterpolatableRobotGoogleImportInstructionsWithHiddenFields,
+  InterpolatableRobotGoogleImportInstructionsWithHiddenFieldsInput,
+} from './google-import.ts'
+export type {
+  InterpolatableRobotGoogleStoreInstructions,
+  InterpolatableRobotGoogleStoreInstructionsWithHiddenFields,
+  InterpolatableRobotGoogleStoreInstructionsWithHiddenFieldsInput,
+} from './google-store.ts'
+export type {
+  InterpolatableRobotHtmlConvertInstructions,
+  InterpolatableRobotHtmlConvertInstructionsWithHiddenFields,
+  InterpolatableRobotHtmlConvertInstructionsWithHiddenFieldsInput,
+} from './html-convert.ts'
+export type {
+  InterpolatableRobotHttpImportInstructions,
+  InterpolatableRobotHttpImportInstructionsWithHiddenFields,
+  InterpolatableRobotHttpImportInstructionsWithHiddenFieldsInput,
+} from './http-import.ts'
+export type {
+  InterpolatableRobotImageBgremoveInstructions,
+  InterpolatableRobotImageBgremoveInstructionsWithHiddenFields,
+  InterpolatableRobotImageBgremoveInstructionsWithHiddenFieldsInput,
+} from './image-bgremove.ts'
+export type {
+  InterpolatableRobotImageDescribeInstructions,
+  InterpolatableRobotImageDescribeInstructionsWithHiddenFields,
+  InterpolatableRobotImageDescribeInstructionsWithHiddenFieldsInput,
+} from './image-describe.ts'
+export type {
+  InterpolatableRobotImageFacedetectInstructions,
+  InterpolatableRobotImageFacedetectInstructionsWithHiddenFields,
+  InterpolatableRobotImageFacedetectInstructionsWithHiddenFieldsInput,
+} from './image-facedetect.ts'
+export type {
+  InterpolatableRobotImageGenerateInstructions,
+  InterpolatableRobotImageGenerateInstructionsWithHiddenFields,
+  InterpolatableRobotImageGenerateInstructionsWithHiddenFieldsInput,
+} from './image-generate.ts'
+export type {
+  InterpolatableRobotImageMergeInstructions,
+  InterpolatableRobotImageMergeInstructionsWithHiddenFields,
+  InterpolatableRobotImageMergeInstructionsWithHiddenFieldsInput,
+} from './image-merge.ts'
+export type {
+  InterpolatableRobotImageOcrInstructions,
+  InterpolatableRobotImageOcrInstructionsWithHiddenFields,
+  InterpolatableRobotImageOcrInstructionsWithHiddenFieldsInput,
+} from './image-ocr.ts'
+export type {
+  InterpolatableRobotImageOptimizeInstructions,
+  InterpolatableRobotImageOptimizeInstructionsWithHiddenFields,
+  InterpolatableRobotImageOptimizeInstructionsWithHiddenFieldsInput,
+} from './image-optimize.ts'
+export type {
+  InterpolatableRobotImageResizeInstructions,
+  InterpolatableRobotImageResizeInstructionsWithHiddenFields,
+  InterpolatableRobotImageResizeInstructionsWithHiddenFieldsInput,
+} from './image-resize.ts'
+export type {
+  InterpolatableRobotMetaReadInstructions,
+  InterpolatableRobotMetaReadInstructionsWithHiddenFields,
+} from './meta-read.ts'
+export type {
+  InterpolatableRobotMetaWriteInstructions,
+  InterpolatableRobotMetaWriteInstructionsWithHiddenFields,
+  InterpolatableRobotMetaWriteInstructionsWithHiddenFieldsInput,
+} from './meta-write.ts'
+export type {
+  InterpolatableRobotMinioImportInstructions,
+  InterpolatableRobotMinioImportInstructionsWithHiddenFields,
+  InterpolatableRobotMinioImportInstructionsWithHiddenFieldsInput,
+} from './minio-import.ts'
+export type {
+  InterpolatableRobotMinioStoreInstructions,
+  InterpolatableRobotMinioStoreInstructionsWithHiddenFields,
+  InterpolatableRobotMinioStoreInstructionsWithHiddenFieldsInput,
+} from './minio-store.ts'
+export type { InterpolatableRobotProgressSimulateInstructions } from './progress-simulate.ts'
+export type {
+  InterpolatableRobotS3ImportInstructions,
+  InterpolatableRobotS3ImportInstructionsWithHiddenFields,
+  InterpolatableRobotS3ImportInstructionsWithHiddenFieldsInput,
+} from './s3-import.ts'
+export type {
+  InterpolatableRobotS3StoreInstructions,
+  InterpolatableRobotS3StoreInstructionsWithHiddenFields,
+  InterpolatableRobotS3StoreInstructionsWithHiddenFieldsInput,
+} from './s3-store.ts'
+export type {
+  InterpolatableRobotScriptRunInstructions,
+  InterpolatableRobotScriptRunInstructionsWithHiddenFields,
+  InterpolatableRobotScriptRunInstructionsWithHiddenFieldsInput,
+} from './script-run.ts'
+export type {
+  InterpolatableRobotSftpImportInstructions,
+  InterpolatableRobotSftpImportInstructionsWithHiddenFields,
+  InterpolatableRobotSftpImportInstructionsWithHiddenFieldsInput,
+} from './sftp-import.ts'
+export type {
+  InterpolatableRobotSftpStoreInstructions,
+  InterpolatableRobotSftpStoreInstructionsWithHiddenFields,
+  InterpolatableRobotSftpStoreInstructionsWithHiddenFieldsInput,
+} from './sftp-store.ts'
+export type {
+  InterpolatableRobotSpeechTranscribeInstructions,
+  InterpolatableRobotSpeechTranscribeInstructionsWithHiddenFields,
+  InterpolatableRobotSpeechTranscribeInstructionsWithHiddenFieldsInput,
+} from './speech-transcribe.ts'
+export type {
+  InterpolatableRobotSupabaseImportInstructions,
+  InterpolatableRobotSupabaseImportInstructionsWithHiddenFields,
+  InterpolatableRobotSupabaseImportInstructionsWithHiddenFieldsInput,
+} from './supabase-import.ts'
+export type {
+  InterpolatableRobotSupabaseStoreInstructions,
+  InterpolatableRobotSupabaseStoreInstructionsWithHiddenFields,
+  InterpolatableRobotSupabaseStoreInstructionsWithHiddenFieldsInput,
+} from './supabase-store.ts'
+export type {
+  InterpolatableRobotSwiftImportInstructions,
+  InterpolatableRobotSwiftImportInstructionsWithHiddenFields,
+  InterpolatableRobotSwiftImportInstructionsWithHiddenFieldsInput,
+} from './swift-import.ts'
+export type {
+  InterpolatableRobotSwiftStoreInstructions,
+  InterpolatableRobotSwiftStoreInstructionsWithHiddenFields,
+  InterpolatableRobotSwiftStoreInstructionsWithHiddenFieldsInput,
+} from './swift-store.ts'
+export type {
+  InterpolatableRobotTextSpeakInstructions,
+  InterpolatableRobotTextSpeakInstructionsWithHiddenFields,
+  InterpolatableRobotTextSpeakInstructionsWithHiddenFieldsInput,
+} from './text-speak.ts'
+export type {
+  InterpolatableRobotTextTranslateInstructions,
+  InterpolatableRobotTextTranslateInstructionsWithHiddenFields,
+  InterpolatableRobotTextTranslateInstructionsWithHiddenFieldsInput,
+} from './text-translate.ts'
+export type {
+  InterpolatableRobotTigrisImportInstructions,
+  InterpolatableRobotTigrisImportInstructionsWithHiddenFields,
+  InterpolatableRobotTigrisImportInstructionsWithHiddenFieldsInput,
+} from './tigris-import.ts'
+export type {
+  InterpolatableRobotTigrisStoreInstructions,
+  InterpolatableRobotTigrisStoreInstructionsWithHiddenFields,
+  InterpolatableRobotTigrisStoreInstructionsWithHiddenFieldsInput,
+} from './tigris-store.ts'
+export type {
+  InterpolatableRobotTlcdnDeliverInstructions,
+  InterpolatableRobotTlcdnDeliverInstructionsWithHiddenFields,
+  InterpolatableRobotTlcdnDeliverInstructionsWithHiddenFieldsInput,
+} from './tlcdn-deliver.ts'
+export type {
+  InterpolatableRobotTusStoreInstructions,
+  InterpolatableRobotTusStoreInstructionsWithHiddenFields,
+  InterpolatableRobotTusStoreInstructionsWithHiddenFieldsInput,
+} from './tus-store.ts'
+export type {
+  InterpolatableRobotUploadHandleInstructions,
+  InterpolatableRobotUploadHandleInstructionsWithHiddenFields,
+  InterpolatableRobotUploadHandleInstructionsWithHiddenFieldsInput,
+} from './upload-handle.ts'
+export type {
+  InterpolatableRobotVideoAdaptiveInstructions,
+  InterpolatableRobotVideoAdaptiveInstructionsWithHiddenFields,
+  InterpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsInput,
+} from './video-adaptive.ts'
+export type {
+  InterpolatableRobotVideoConcatInstructions,
+  InterpolatableRobotVideoConcatInstructionsWithHiddenFields,
+  InterpolatableRobotVideoConcatInstructionsWithHiddenFieldsInput,
+} from './video-concat.ts'
+export type {
+  InterpolatableRobotVideoEncodeInstructions,
+  InterpolatableRobotVideoEncodeInstructionsWithHiddenFields,
+  InterpolatableRobotVideoEncodeInstructionsWithHiddenFieldsInput,
+} from './video-encode.ts'
+export type {
+  InterpolatableRobotVideoMergeInstructions,
+  InterpolatableRobotVideoMergeInstructionsWithHiddenFields,
+  InterpolatableRobotVideoMergeInstructionsWithHiddenFieldsInput,
+} from './video-merge.ts'
+export type {
+  InterpolatableRobotVideoOndemandInstructions,
+  InterpolatableRobotVideoOndemandInstructionsWithHiddenFields,
+  InterpolatableRobotVideoOndemandInstructionsWithHiddenFieldsInput,
+} from './video-ondemand.ts'
+export type {
+  InterpolatableRobotVideoSubtitleInstructions,
+  InterpolatableRobotVideoSubtitleInstructionsWithHiddenFields,
+  InterpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsInput,
+} from './video-subtitle.ts'
+export type {
+  InterpolatableRobotVideoThumbsInstructions,
+  InterpolatableRobotVideoThumbsInstructionsWithHiddenFields,
+  InterpolatableRobotVideoThumbsInstructionsWithHiddenFieldsInput,
+} from './video-thumbs.ts'
+export type {
+  InterpolatableRobotVimeoImportInstructions,
+  InterpolatableRobotVimeoImportInstructionsWithHiddenFields,
+  InterpolatableRobotVimeoImportInstructionsWithHiddenFieldsInput,
+} from './vimeo-import.ts'
+export type {
+  InterpolatableRobotVimeoStoreInstructions,
+  InterpolatableRobotVimeoStoreInstructionsWithHiddenFields,
+  InterpolatableRobotVimeoStoreInstructionsWithHiddenFieldsInput,
+} from './vimeo-store.ts'
+export type {
+  InterpolatableRobotWasabiImportInstructions,
+  InterpolatableRobotWasabiImportInstructionsWithHiddenFields,
+  InterpolatableRobotWasabiImportInstructionsWithHiddenFieldsInput,
+} from './wasabi-import.ts'
+export type {
+  InterpolatableRobotWasabiStoreInstructions,
+  InterpolatableRobotWasabiStoreInstructionsWithHiddenFields,
+  InterpolatableRobotWasabiStoreInstructionsWithHiddenFieldsInput,
+} from './wasabi-store.ts'
+export type {
+  InterpolatableRobotYoutubeStoreInstructions,
+  InterpolatableRobotYoutubeStoreInstructionsWithHiddenFields,
+  InterpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsInput,
+} from './youtube-store.ts'
