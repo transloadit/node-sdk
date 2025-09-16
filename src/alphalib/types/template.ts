@@ -106,8 +106,7 @@ The file size is checked as soon as the upload is started and if it exceeds the 
 If you want to just ignore the files that exceed a certain size, but process all others, then please use [🤖/file/filter](https://transloadit.com/docs/robots/file-filter/).
 `)
 
-export const assemblyInstructionsSchema = z.object({
-  auth: assemblyAuthInstructionsSchema.optional(),
+const assemblyInstructionsSharedShape = {
   allow_steps_override: z
     .boolean()
     .optional()
@@ -125,10 +124,16 @@ export const assemblyInstructionsSchema = z.object({
   // This is done to avoid heavy inference cost
   steps: optionalStepsSchema as typeof optionalStepsSchema,
   template_id: templateIdSchema,
+} as const
+
+export const assemblyInstructionsSchema = z.object({
+  auth: assemblyAuthInstructionsSchema.optional(),
+  ...assemblyInstructionsSharedShape,
 })
 
-export const assemblyInstructionsSchemaWithRequiredAuth = assemblyInstructionsSchema.required({
-  auth: true,
+export const assemblyInstructionsSchemaWithRequiredAuth = z.object({
+  auth: assemblyAuthInstructionsSchema,
+  ...assemblyInstructionsSharedShape,
 })
 
 export type AssemblyInstructions = z.infer<typeof assemblyInstructionsSchema>
