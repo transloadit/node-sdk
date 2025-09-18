@@ -71,4 +71,21 @@ describe('PaginationStream', () => {
       stream.resume()
     })
   })
+
+  it('supports responses without count before count becomes available', async () => {
+    const pages = [{ items: [1, 2] }, { count: 3, items: [3] }]
+
+    const stream = new PaginationStream<number>(async (pageno) => pages[pageno - 1])
+
+    await new Promise<void>((resolve) => {
+      stream.pipe(
+        toArray((array) => {
+          expect(array).toEqual([1, 2, 3])
+          resolve()
+        }),
+      )
+
+      stream.resume()
+    })
+  })
 })
