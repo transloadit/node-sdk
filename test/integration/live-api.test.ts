@@ -10,16 +10,16 @@ import { config } from 'dotenv'
 import got, { type RetryOptions } from 'got'
 import intoStream from 'into-stream'
 import * as temp from 'temp'
-import type { InterpolatableRobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter.js'
-import type { InterpolatableRobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize.js'
+import type { InterpolatableRobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter.ts'
+import type { InterpolatableRobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize.ts'
 import {
   type CreateAssemblyOptions,
   type CreateAssemblyParams,
   Transloadit,
   type UploadProgress,
-} from '../../src/Transloadit.js'
-import { createTestServer, type TestServer } from '../testserver.js'
-import { createProxy } from '../util.js'
+} from '../../src/Transloadit.ts'
+import { createTestServer, type TestServer } from '../testserver.ts'
+import { createProxy } from '../util.ts'
 
 // Load environment variables from .env file
 config()

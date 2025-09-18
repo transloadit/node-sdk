@@ -2,7 +2,7 @@
 //
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node retry.js
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy yarn tsx examples/retry.ts
 //
 // You may need to build the project first using:
 //

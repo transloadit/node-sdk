@@ -57,8 +57,8 @@ vi.mock('p-map', () => ({
   default: pMapSpy,
 }))
 
-import type { AssemblyStatus } from '../../src/alphalib/types/assemblyStatus.js'
-import { sendTusRequest } from '../../src/tus.js'
+import type { AssemblyStatus } from '../../src/alphalib/types/assemblyStatus.ts'
+import { sendTusRequest } from '../../src/tus.ts'
 
 const baseAssembly = {
   assembly_ssl_url: 'https://assembly.example.com',

@@ -1,4 +1,4 @@
-import { RequestError, type Transloadit } from '../src/Transloadit.js'
+import { RequestError, type Transloadit } from '../src/Transloadit.ts'
 
 export const createProxy = (transloaditInstance: Transloadit) => {
   return new Proxy(transloaditInstance, {

@@ -1,6 +1,6 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/convert_to_webp.js ./examples/fixtures/berkley.jpg
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy yarn tsx examples/convert_to_webp.ts ./examples/fixtures/berkley.jpg
 //
 // You may need to build the project first using:
 //

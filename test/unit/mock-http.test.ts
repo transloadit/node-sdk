@@ -9,8 +9,8 @@ import {
   type Options,
   TimeoutError,
   Transloadit,
-} from '../../src/Transloadit.js'
-import { createProxy } from '../util.js'
+} from '../../src/Transloadit.ts'
+import { createProxy } from '../util.ts'
 
 const getLocalClient = (opts?: Omit<Options, 'authKey' | 'authSecret' | 'endpoint'>) =>
   createProxy(

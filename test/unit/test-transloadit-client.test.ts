@@ -3,8 +3,8 @@ import FormData from 'form-data'
 import got, { type CancelableRequest } from 'got'
 
 import packageJson from '../../package.json' with { type: 'json' }
-import { Transloadit } from '../../src/Transloadit.js'
-import * as tus from '../../src/tus.js'
+import { Transloadit } from '../../src/Transloadit.ts'
+import * as tus from '../../src/tus.ts'
 
 const { version } = packageJson
 

@@ -17,14 +17,14 @@ import intoStream, { type Input as IntoStreamInput } from 'into-stream'
 import { isReadableStream, isStream } from 'is-stream'
 import pMap from 'p-map'
 import packageJson from '../package.json' with { type: 'json' }
-import { ApiError, type TransloaditErrorResponseBody } from './ApiError.js'
+import { ApiError, type TransloaditErrorResponseBody } from './ApiError.ts'
 import {
   type AssemblyIndex,
   type AssemblyIndexItem,
   type AssemblyStatus,
   assemblyIndexSchema,
   assemblyStatusSchema,
-} from './alphalib/types/assemblyStatus.js'
+} from './alphalib/types/assemblyStatus.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import type {
   BaseResponse,
@@ -46,11 +46,11 @@ import type {
   TemplateCredentialResponse,
   TemplateCredentialsResponse,
   TemplateResponse,
-} from './apiTypes.js'
-import InconsistentResponseError from './InconsistentResponseError.js'
-import PaginationStream from './PaginationStream.js'
-import PollingTimeoutError from './PollingTimeoutError.js'
-import { type Stream, sendTusRequest } from './tus.js'
+} from './apiTypes.ts'
+import InconsistentResponseError from './InconsistentResponseError.ts'
+import PaginationStream from './PaginationStream.ts'
+import PollingTimeoutError from './PollingTimeoutError.ts'
+import { type Stream, sendTusRequest } from './tus.ts'
 
 // See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
 // Expose relevant errors
@@ -64,8 +64,8 @@ export {
   UploadError,
 } from 'got'
 
-export type { AssemblyStatus } from './alphalib/types/assemblyStatus.js'
-export * from './apiTypes.js'
+export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
+export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }
 
 const log = debug('transloadit')

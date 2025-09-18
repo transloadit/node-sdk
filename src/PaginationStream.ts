@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream'
-import type { PaginationList, PaginationListWithCount } from './apiTypes.js'
+import type { PaginationList, PaginationListWithCount } from './apiTypes.ts'
 
 type FetchPage<T> = (
   pageno: number,
