@@ -1,6 +1,54 @@
 # Changelog
 
-We're no longer using this file. Please refer to [GitHub releases](https://github.com/transloadit/node-sdk/releases) to see documented changes after version 2.0.10.
+You may also want to refer to [GitHub releases](https://github.com/transloadit/node-sdk/releases).
+
+## v4.0.1
+
+Released: 2025-09-18.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v4.0.0...v4.0.1).
+
+- [x] Re-published v4.0.0 under v4.0.1 to fix release metadata. No functional changes.
+
+## v4.0.0
+
+Released: 2025-09-18.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v3.0.2...v4.0.0).
+
+- [x] **Breaking:** Package is now pure ESM, requires Node.js 20+, and exports `{ Transloadit }` instead of a default client.
+- [x] **Breaking:** Assembly inputs are validated against rich schemas; migrate to the new `AssemblyInstructionsInput` types and expect `listAssemblies()` to return `{ items, count }`.
+- [x] Added end-to-end TypeScript typings for robots, assemblies, templates, and responses, so assembly instructions now autocomplete every robot and its supported parameters.
+- [x] Introduced structured error classes (`ApiError`, `InconsistentResponseError`, `PollingTimeoutError`) that preserve assembly IDs and server metadata.
+- [x] Added opt-in `validateResponses` safeguard and a `getSignedSmartCDNUrl` helper for generating signed Smart CDN URLs.
+- [x] Modernized tooling, tests, and examples (Vitest, Biome, TypeScript examples). See [MIGRATION.md](./MIGRATION.md) for a guided upgrade path.
+
+## v3.0.2
+
+Released: 2021-04-06.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v3.0.1...v3.0.2).
+
+- [x] Generate assembly IDs on the client to avoid relying on server timing.
+- [x] Completed TypeScript surface for assembly responses by adding missing output properties.
+
+## v3.0.1
+
+Released: 2021-03-31.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v3.0.0...v3.0.1).
+
+- [x] Fixed the published default export to match the actual runtime client.
+
+## v3.0.0
+
+Released: 2021-03-16.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v2.0.10...v3.0.0).
+
+- [x] Finalized the promise-based client by removing legacy wrappers and tightening trailing-slash validation.
+- [x] Expanded continuous testing, linting, and documentation coverage ahead of the stable v3 release.
+- [x] Improved `createAssembly` diagnostics by logging assembly IDs and exposing replayed assembly URLs.
 
 ## v2.0.10
 
