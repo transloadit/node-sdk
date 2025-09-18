@@ -85,7 +85,9 @@ try {
   await transloadit.createAssembly({ params })
 } catch (error) {
   if (error instanceof ApiError && error.assemblyId) {
-    console.error('Troubleshoot at https://transloadit.com/assemblies/' + error.assemblyId)
+    console.error(
+      'Troubleshoot at https://transloadit.com/c/assemblies/' + error.assemblyId
+    )
   }
   throw error
 }
@@ -96,7 +98,11 @@ try {
 - `validateResponses` (client option) replays schema validation against responses you receive. Enable it when integrating with new workflows to surface unexpected fields early:
 
   ```ts
-  const transloadit = new Transloadit({ authKey, authSecret, validateResponses: true })
+  const transloadit = new Transloadit({
+    authKey,
+    authSecret,
+    validateResponses: true,
+  })
   ```
 
 - `getSignedSmartCDNUrl` generates Smart CDN URLs with signatures that match the server-side implementation:
