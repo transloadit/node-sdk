@@ -586,130 +586,126 @@ describe('API integration', { timeout: 60000 }, () => {
     })
   })
 
-  describe(
-    'assembly notification',
-    { retry: 2 },
-    () => {
-      type OnNotification = (params: {
-        path?: string
-        client: Transloadit
-        assemblyId: string
-      }) => void
+  describe('assembly notification', { retry: 2 }, () => {
+    type OnNotification = (params: {
+      path?: string
+      client: Transloadit
+      assemblyId: string
+    }) => void
 
-      let server: VirtualTestServer
-      afterEach(() => {
-        server?.close()
+    let server: VirtualTestServer
+    afterEach(() => {
+      server?.close()
+    })
+
+    // helper function
+    const streamToString = (stream: IncomingMessage) =>
+      new Promise<string>((resolve, reject) => {
+        const chunks: string[] = []
+        stream.on('data', (chunk) => chunks.push(chunk))
+        stream.on('error', (err) => reject(err))
+        stream.on('end', () => resolve(chunks.join('')))
       })
 
-      // helper function
-      const streamToString = (stream: IncomingMessage) =>
-        new Promise<string>((resolve, reject) => {
-          const chunks: string[] = []
-          stream.on('data', (chunk) => chunks.push(chunk))
-          stream.on('error', (err) => reject(err))
-          stream.on('end', () => resolve(chunks.join('')))
-        })
+    const runNotificationTest = async (
+      onNotification: OnNotification,
+      onError: (error: unknown) => void,
+    ) => {
+      const client = createClient()
 
-      const runNotificationTest = async (
-        onNotification: OnNotification,
-        onError: (error: unknown) => void,
-      ) => {
-        const client = createClient()
-
-        // listens for notifications
-        const onNotificationRequest: RequestListener = async (req, res) => {
-          try {
-            expect(req.method).toBe('POST')
-            const body = await streamToString(req)
-            const result = JSON.parse((parse(body) as { transloadit: string }).transloadit)
-            expect(result).toHaveProperty('ok')
-            if (result.ok !== 'ASSEMBLY_COMPLETED') {
-              onError(new Error(`result.ok was ${result.ok}`))
-              return
-            }
-
-            res.writeHead(200)
-            res.end()
-
-            onNotification({ path: req.url, client, assemblyId: result.assembly_id })
-          } catch (err) {
-            onError(err)
-          }
-        }
-
+      // listens for notifications
+      const onNotificationRequest: RequestListener = async (req, res) => {
         try {
-          server = await createVirtualTestServer(onNotificationRequest)
-          await createAssembly(client, { params: { ...genericParams, notify_url: server.url } })
+          expect(req.method).toBe('POST')
+          const body = await streamToString(req)
+          const result = JSON.parse((parse(body) as { transloadit: string }).transloadit)
+          expect(result).toHaveProperty('ok')
+          if (result.ok !== 'ASSEMBLY_COMPLETED') {
+            onError(new Error(`result.ok was ${result.ok}`))
+            return
+          }
+
+          res.writeHead(200)
+          res.end()
+
+          onNotification({ path: req.url, client, assemblyId: result.assembly_id })
         } catch (err) {
           onError(err)
         }
       }
 
-      it('should send a notification upon assembly completion', async () => {
-        await new Promise<void>((resolve, reject) => {
-          const onNotification: OnNotification = async ({ path }) => {
+      try {
+        server = await createVirtualTestServer(onNotificationRequest)
+        await createAssembly(client, { params: { ...genericParams, notify_url: server.url } })
+      } catch (err) {
+        onError(err)
+      }
+    }
+
+    it('should send a notification upon assembly completion', async () => {
+      await new Promise<void>((resolve, reject) => {
+        const onNotification: OnNotification = async ({ path }) => {
+          try {
+            expect(path).toBe('/')
+            resolve()
+          } catch (err) {
+            reject(err)
+          }
+        }
+        runNotificationTest(onNotification, reject)
+      })
+    })
+
+    it('should replay the notification when requested', async () => {
+      let secondNotification = false
+
+      await new Promise<void>((resolve, reject) => {
+        const onNotification: OnNotification = async ({ path, client, assemblyId }) => {
+          const newPath = '/newPath'
+          const newUrl = `${server.url}${newPath}`
+
+          // I think there are some eventual consistency issues here
+          await setTimeout(1000)
+
+          const result = await client.getAssembly(assemblyId)
+
+          expect(['successful', 'processing']).toContain(result.notify_status)
+          expect(result.notify_response_code).toBe(200)
+
+          if (secondNotification) {
+            expect(path).toBe(newPath)
+
+            // notify_url will not get updated to new URL
+            expect(result.notify_url).toBe(server.url)
+
             try {
-              expect(path).toBe('/')
+              // If we quit immediately, things will not get cleaned up and jest will hang
+              await setTimeout(2000)
               resolve()
             } catch (err) {
               reject(err)
             }
-          }
-          runNotificationTest(onNotification, reject)
-        })
-      })
 
-      it('should replay the notification when requested', async () => {
-        let secondNotification = false
-
-        await new Promise<void>((resolve, reject) => {
-          const onNotification: OnNotification = async ({ path, client, assemblyId }) => {
-            const newPath = '/newPath'
-            const newUrl = `${server.url}${newPath}`
-
-            // I think there are some eventual consistency issues here
-            await setTimeout(1000)
-
-            const result = await client.getAssembly(assemblyId)
-
-            expect(['successful', 'processing']).toContain(result.notify_status)
-            expect(result.notify_response_code).toBe(200)
-
-            if (secondNotification) {
-              expect(path).toBe(newPath)
-
-              // notify_url will not get updated to new URL
-              expect(result.notify_url).toBe(server.url)
-
-              try {
-                // If we quit immediately, things will not get cleaned up and jest will hang
-                await setTimeout(2000)
-                resolve()
-              } catch (err) {
-                reject(err)
-              }
-
-              return
-            }
-
-            secondNotification = true
-
-            try {
-              expect(path).toBe('/')
-              expect(result.notify_url).toBe(server.url)
-
-              await setTimeout(2000)
-              await client.replayAssemblyNotification(assemblyId, { notify_url: newUrl })
-            } catch (err) {
-              reject(err)
-            }
+            return
           }
 
-          runNotificationTest(onNotification, reject)
-        })
+          secondNotification = true
+
+          try {
+            expect(path).toBe('/')
+            expect(result.notify_url).toBe(server.url)
+
+            await setTimeout(2000)
+            await client.replayAssemblyNotification(assemblyId, { notify_url: newUrl })
+          } catch (err) {
+            reject(err)
+          }
+        }
+
+        runNotificationTest(onNotification, reject)
       })
-    },
-  )
+    })
+  })
 
   describe('template methods', () => {
     // can contain only lowercase latin letters, numbers, and dashes.
