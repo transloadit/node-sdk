@@ -154,7 +154,10 @@ export type RobotFileFilterInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotFileFilterInstructionsSchema = interpolateRobot(
   robotFileFilterInstructionsSchema,
 )
-export type InterpolatableRobotFileFilterInstructions = z.input<
+export type InterpolatableRobotFileFilterInstructions =
+  InterpolatableRobotFileFilterInstructionsInput
+
+export type InterpolatableRobotFileFilterInstructionsInput = z.input<
   typeof interpolatableRobotFileFilterInstructionsSchema
 >
 

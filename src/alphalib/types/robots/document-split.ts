@@ -59,7 +59,10 @@ export type RobotDocumentSplitInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotDocumentSplitInstructionsSchema = interpolateRobot(
   robotDocumentSplitInstructionsSchema,
 )
-export type InterpolatableRobotDocumentSplitInstructions = z.input<
+export type InterpolatableRobotDocumentSplitInstructions =
+  InterpolatableRobotDocumentSplitInstructionsInput
+
+export type InterpolatableRobotDocumentSplitInstructionsInput = z.input<
   typeof interpolatableRobotDocumentSplitInstructionsSchema
 >
 

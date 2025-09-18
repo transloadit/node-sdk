@@ -70,7 +70,10 @@ export type RobotImageBgremoveInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotImageBgremoveInstructionsSchema = interpolateRobot(
   robotImageBgremoveInstructionsSchema,
 )
-export type InterpolatableRobotImageBgremoveInstructions = z.input<
+export type InterpolatableRobotImageBgremoveInstructions =
+  InterpolatableRobotImageBgremoveInstructionsInput
+
+export type InterpolatableRobotImageBgremoveInstructionsInput = z.input<
   typeof interpolatableRobotImageBgremoveInstructionsSchema
 >
 

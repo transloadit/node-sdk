@@ -82,7 +82,10 @@ export type RobotFileVerifyInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotFileVerifyInstructionsSchema = interpolateRobot(
   robotFileVerifyInstructionsSchema,
 )
-export type InterpolatableRobotFileVerifyInstructions = z.input<
+export type InterpolatableRobotFileVerifyInstructions =
+  InterpolatableRobotFileVerifyInstructionsInput
+
+export type InterpolatableRobotFileVerifyInstructionsInput = z.input<
   typeof interpolatableRobotFileVerifyInstructionsSchema
 >
 

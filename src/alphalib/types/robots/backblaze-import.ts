@@ -100,7 +100,10 @@ export type RobotBackblazeImportInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotBackblazeImportInstructionsSchema = interpolateRobot(
   robotBackblazeImportInstructionsSchema,
 )
-export type InterpolatableRobotBackblazeImportInstructions = z.input<
+export type InterpolatableRobotBackblazeImportInstructions =
+  InterpolatableRobotBackblazeImportInstructionsInput
+
+export type InterpolatableRobotBackblazeImportInstructionsInput = z.input<
   typeof interpolatableRobotBackblazeImportInstructionsSchema
 >
 

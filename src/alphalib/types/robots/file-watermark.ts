@@ -37,7 +37,10 @@ export type RobotFileWatermarkInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotFileWatermarkInstructionsSchema = interpolateRobot(
   robotFileWatermarkInstructionsSchema,
 )
-export type InterpolatableRobotFileWatermarkInstructions = z.input<
+export type InterpolatableRobotFileWatermarkInstructions =
+  InterpolatableRobotFileWatermarkInstructionsInput
+
+export type InterpolatableRobotFileWatermarkInstructionsInput = z.input<
   typeof interpolatableRobotFileWatermarkInstructionsSchema
 >
 

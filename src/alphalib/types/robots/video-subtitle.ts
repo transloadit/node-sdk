@@ -139,7 +139,10 @@ export type RobotVideoSubtitleInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotVideoSubtitleInstructionsSchema = interpolateRobot(
   robotVideoSubtitleInstructionsSchema,
 )
-export type InterpolatableRobotVideoSubtitleInstructions = z.input<
+export type InterpolatableRobotVideoSubtitleInstructions =
+  InterpolatableRobotVideoSubtitleInstructionsInput
+
+export type InterpolatableRobotVideoSubtitleInstructionsInput = z.input<
   typeof interpolatableRobotVideoSubtitleInstructionsSchema
 >
 

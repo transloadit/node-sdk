@@ -101,7 +101,10 @@ export type RobotDocumentOcrInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotDocumentOcrInstructionsSchema = interpolateRobot(
   robotDocumentOcrInstructionsSchema,
 )
-export type InterpolatableRobotDocumentOcrInstructions = z.input<
+export type InterpolatableRobotDocumentOcrInstructions =
+  InterpolatableRobotDocumentOcrInstructionsInput
+
+export type InterpolatableRobotDocumentOcrInstructionsInput = z.input<
   typeof interpolatableRobotDocumentOcrInstructionsSchema
 >
 

@@ -99,7 +99,10 @@ export type RobotCloudfilesImportInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotCloudfilesImportInstructionsSchema = interpolateRobot(
   robotCloudfilesImportInstructionsSchema,
 )
-export type InterpolatableRobotCloudfilesImportInstructions = z.input<
+export type InterpolatableRobotCloudfilesImportInstructions =
+  InterpolatableRobotCloudfilesImportInstructionsInput
+
+export type InterpolatableRobotCloudfilesImportInstructionsInput = z.input<
   typeof interpolatableRobotCloudfilesImportInstructionsSchema
 >
 

@@ -84,7 +84,10 @@ export type RobotAudioEncodeInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotAudioEncodeInstructionsSchema = interpolateRobot(
   robotAudioEncodeInstructionsSchema,
 )
-export type InterpolatableRobotAudioEncodeInstructions = z.input<
+export type InterpolatableRobotAudioEncodeInstructions =
+  InterpolatableRobotAudioEncodeInstructionsInput
+
+export type InterpolatableRobotAudioEncodeInstructionsInput = z.input<
   typeof interpolatableRobotAudioEncodeInstructionsSchema
 >
 

@@ -93,7 +93,10 @@ export type RobotSwiftStoreInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotSwiftStoreInstructionsSchema = interpolateRobot(
   robotSwiftStoreInstructionsSchema,
 )
-export type InterpolatableRobotSwiftStoreInstructions = z.input<
+export type InterpolatableRobotSwiftStoreInstructions =
+  InterpolatableRobotSwiftStoreInstructionsInput
+
+export type InterpolatableRobotSwiftStoreInstructionsInput = z.input<
   typeof interpolatableRobotSwiftStoreInstructionsSchema
 >
 

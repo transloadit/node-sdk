@@ -96,7 +96,10 @@ export type RobotMinioStoreInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotMinioStoreInstructionsSchema = interpolateRobot(
   robotMinioStoreInstructionsSchema,
 )
-export type InterpolatableRobotMinioStoreInstructions = z.input<
+export type InterpolatableRobotMinioStoreInstructions =
+  InterpolatableRobotMinioStoreInstructionsInput
+
+export type InterpolatableRobotMinioStoreInstructionsInput = z.input<
   typeof interpolatableRobotMinioStoreInstructionsSchema
 >
 

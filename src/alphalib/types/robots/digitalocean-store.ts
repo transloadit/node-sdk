@@ -107,7 +107,10 @@ export type RobotDigitaloceanStoreInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotDigitaloceanStoreInstructionsSchema = interpolateRobot(
   robotDigitaloceanStoreInstructionsSchema,
 )
-export type InterpolatableRobotDigitaloceanStoreInstructions = z.input<
+export type InterpolatableRobotDigitaloceanStoreInstructions =
+  InterpolatableRobotDigitaloceanStoreInstructionsInput
+
+export type InterpolatableRobotDigitaloceanStoreInstructionsInput = z.input<
   typeof interpolatableRobotDigitaloceanStoreInstructionsSchema
 >
 

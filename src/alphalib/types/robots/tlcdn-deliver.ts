@@ -54,7 +54,10 @@ export type RobotTlcdnDeliverInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotTlcdnDeliverInstructionsSchema = interpolateRobot(
   robotTlcdnDeliverInstructionsSchema,
 )
-export type InterpolatableRobotTlcdnDeliverInstructions = z.input<
+export type InterpolatableRobotTlcdnDeliverInstructions =
+  InterpolatableRobotTlcdnDeliverInstructionsInput
+
+export type InterpolatableRobotTlcdnDeliverInstructionsInput = z.input<
   typeof interpolatableRobotTlcdnDeliverInstructionsSchema
 >
 

@@ -94,7 +94,10 @@ export type RobotWasabiStoreInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotWasabiStoreInstructionsSchema = interpolateRobot(
   robotWasabiStoreInstructionsSchema,
 )
-export type InterpolatableRobotWasabiStoreInstructions = z.input<
+export type InterpolatableRobotWasabiStoreInstructions =
+  InterpolatableRobotWasabiStoreInstructionsInput
+
+export type InterpolatableRobotWasabiStoreInstructionsInput = z.input<
   typeof interpolatableRobotWasabiStoreInstructionsSchema
 >
 

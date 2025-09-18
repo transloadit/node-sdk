@@ -102,7 +102,10 @@ export type RobotSupabaseImportInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotSupabaseImportInstructionsSchema = interpolateRobot(
   robotSupabaseImportInstructionsSchema,
 )
-export type InterpolatableRobotSupabaseImportInstructions = z.input<
+export type InterpolatableRobotSupabaseImportInstructions =
+  InterpolatableRobotSupabaseImportInstructionsInput
+
+export type InterpolatableRobotSupabaseImportInstructionsInput = z.input<
   typeof interpolatableRobotSupabaseImportInstructionsSchema
 >
 

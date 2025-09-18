@@ -99,7 +99,10 @@ export type RobotDigitaloceanImportInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotDigitaloceanImportInstructionsSchema = interpolateRobot(
   robotDigitaloceanImportInstructionsSchema,
 )
-export type InterpolatableRobotDigitaloceanImportInstructions = z.input<
+export type InterpolatableRobotDigitaloceanImportInstructions =
+  InterpolatableRobotDigitaloceanImportInstructionsInput
+
+export type InterpolatableRobotDigitaloceanImportInstructionsInput = z.input<
   typeof interpolatableRobotDigitaloceanImportInstructionsSchema
 >
 

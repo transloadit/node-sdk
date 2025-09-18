@@ -119,7 +119,10 @@ export type RobotVideoMergeInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotVideoMergeInstructionsSchema = interpolateRobot(
   robotVideoMergeInstructionsSchema,
 )
-export type InterpolatableRobotVideoMergeInstructions = z.input<
+export type InterpolatableRobotVideoMergeInstructions =
+  InterpolatableRobotVideoMergeInstructionsInput
+
+export type InterpolatableRobotVideoMergeInstructionsInput = z.input<
   typeof interpolatableRobotVideoMergeInstructionsSchema
 >
 

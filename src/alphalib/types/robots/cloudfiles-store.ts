@@ -86,7 +86,10 @@ export type RobotCloudfilesStoreInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotCloudfilesStoreInstructionsSchema = interpolateRobot(
   robotCloudfilesStoreInstructionsSchema,
 )
-export type InterpolatableRobotCloudfilesStoreInstructions = z.input<
+export type InterpolatableRobotCloudfilesStoreInstructions =
+  InterpolatableRobotCloudfilesStoreInstructionsInput
+
+export type InterpolatableRobotCloudfilesStoreInstructionsInput = z.input<
   typeof interpolatableRobotCloudfilesStoreInstructionsSchema
 >
 

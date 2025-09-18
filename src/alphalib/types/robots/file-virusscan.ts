@@ -94,7 +94,10 @@ export type RobotFileVirusscanInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotFileVirusscanInstructionsSchema = interpolateRobot(
   robotFileVirusscanInstructionsSchema,
 )
-export type InterpolatableRobotFileVirusscanInstructions = z.input<
+export type InterpolatableRobotFileVirusscanInstructions =
+  InterpolatableRobotFileVirusscanInstructionsInput
+
+export type InterpolatableRobotFileVirusscanInstructionsInput = z.input<
   typeof interpolatableRobotFileVirusscanInstructionsSchema
 >
 

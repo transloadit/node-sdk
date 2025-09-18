@@ -31,6 +31,9 @@ export type RobotProgressSimulateInstructions = z.infer<
 export const interpolatableRobotProgressSimulateInstructionsSchema = interpolateRobot(
   robotProgressSimulateInstructionsSchema,
 )
-export type InterpolatableRobotProgressSimulateInstructions = z.input<
+export type InterpolatableRobotProgressSimulateInstructions =
+  InterpolatableRobotProgressSimulateInstructionsInput
+
+export type InterpolatableRobotProgressSimulateInstructionsInput = z.input<
   typeof interpolatableRobotProgressSimulateInstructionsSchema
 >

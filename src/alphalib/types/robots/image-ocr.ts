@@ -94,7 +94,9 @@ export type RobotImageOcrInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotImageOcrInstructionsSchema = interpolateRobot(
   robotImageOcrInstructionsSchema,
 )
-export type InterpolatableRobotImageOcrInstructions = z.input<
+export type InterpolatableRobotImageOcrInstructions = InterpolatableRobotImageOcrInstructionsInput
+
+export type InterpolatableRobotImageOcrInstructionsInput = z.input<
   typeof interpolatableRobotImageOcrInstructionsSchema
 >
 

@@ -139,7 +139,10 @@ export type RobotVideoThumbsInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotVideoThumbsInstructionsSchema = interpolateRobot(
   robotVideoThumbsInstructionsSchema,
 )
-export type InterpolatableRobotVideoThumbsInstructions = z.input<
+export type InterpolatableRobotVideoThumbsInstructions =
+  InterpolatableRobotVideoThumbsInstructionsInput
+
+export type InterpolatableRobotVideoThumbsInstructionsInput = z.input<
   typeof interpolatableRobotVideoThumbsInstructionsSchema
 >
 

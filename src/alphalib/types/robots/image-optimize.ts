@@ -95,7 +95,10 @@ export type RobotImageOptimizeInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotImageOptimizeInstructionsSchema = interpolateRobot(
   robotImageOptimizeInstructionsSchema,
 )
-export type InterpolatableRobotImageOptimizeInstructions = z.input<
+export type InterpolatableRobotImageOptimizeInstructions =
+  InterpolatableRobotImageOptimizeInstructionsInput
+
+export type InterpolatableRobotImageOptimizeInstructionsInput = z.input<
   typeof interpolatableRobotImageOptimizeInstructionsSchema
 >
 
