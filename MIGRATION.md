@@ -55,4 +55,4 @@ items.forEach((a: AssemblyIndexItem) => console.log(a.id, a.created))
 
 Schemas are still bit wider than we would like as the first priority when retrofitting our API with schemas/types, was modeling its behavior exactly, or we'd risk the types being a lie, and hence runtime type errors.
 
-We'll also outfit our API's testsuite with these schemas, and this will allow us to gradually, over time, narrow what our API can respond, along with the schemas.
+We'll also outfit our API's testsuite with these schemas, and this will allow us to gradually, over time, narrow what our API can receive and respond, along with the schemas.
