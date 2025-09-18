@@ -588,6 +588,7 @@ describe('API integration', { timeout: 60000 }, () => {
 
   describe(
     'assembly notification',
+    { retry: 2 },
     () => {
       type OnNotification = (params: {
         path?: string
@@ -708,7 +709,6 @@ describe('API integration', { timeout: 60000 }, () => {
         })
       })
     },
-    { retry: 2 },
   )
 
   describe('template methods', () => {
