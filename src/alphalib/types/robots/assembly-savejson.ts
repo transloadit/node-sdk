@@ -28,6 +28,9 @@ export type RobotAssemblySavejsonInstructions = z.infer<
 export const interpolatableRobotAssemblySavejsonInstructionsSchema = interpolateRobot(
   robotAssemblySavejsonInstructionsSchema,
 )
-export type InterpolatableRobotAssemblySavejsonInstructions = z.input<
+export type InterpolatableRobotAssemblySavejsonInstructions =
+  InterpolatableRobotAssemblySavejsonInstructionsInput
+
+export type InterpolatableRobotAssemblySavejsonInstructionsInput = z.input<
   typeof interpolatableRobotAssemblySavejsonInstructionsSchema
 >

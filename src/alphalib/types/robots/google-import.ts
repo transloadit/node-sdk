@@ -95,7 +95,10 @@ export type RobotGoogleImportInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotGoogleImportInstructionsSchema = interpolateRobot(
   robotGoogleImportInstructionsSchema,
 )
-export type InterpolatableRobotGoogleImportInstructions = z.input<
+export type InterpolatableRobotGoogleImportInstructions =
+  InterpolatableRobotGoogleImportInstructionsInput
+
+export type InterpolatableRobotGoogleImportInstructionsInput = z.input<
   typeof interpolatableRobotGoogleImportInstructionsSchema
 >
 

@@ -146,7 +146,10 @@ export type RobotHtmlConvertInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotHtmlConvertInstructionsSchema = interpolateRobot(
   robotHtmlConvertInstructionsSchema,
 )
-export type InterpolatableRobotHtmlConvertInstructions = z.input<
+export type InterpolatableRobotHtmlConvertInstructions =
+  InterpolatableRobotHtmlConvertInstructionsInput
+
+export type InterpolatableRobotHtmlConvertInstructionsInput = z.input<
   typeof interpolatableRobotHtmlConvertInstructionsSchema
 >
 

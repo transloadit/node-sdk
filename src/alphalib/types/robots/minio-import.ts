@@ -100,7 +100,10 @@ export type RobotMinioImportInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotMinioImportInstructionsSchema = interpolateRobot(
   robotMinioImportInstructionsSchema,
 )
-export type InterpolatableRobotMinioImportInstructions = z.input<
+export type InterpolatableRobotMinioImportInstructions =
+  InterpolatableRobotMinioImportInstructionsInput
+
+export type InterpolatableRobotMinioImportInstructionsInput = z.input<
   typeof interpolatableRobotMinioImportInstructionsSchema
 >
 

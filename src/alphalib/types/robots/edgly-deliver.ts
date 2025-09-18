@@ -54,7 +54,10 @@ export type RobotEdglyDeliverInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotEdglyDeliverInstructionsSchema = interpolateRobot(
   robotEdglyDeliverInstructionsSchema,
 )
-export type InterpolatableRobotEdglyDeliverInstructions = z.input<
+export type InterpolatableRobotEdglyDeliverInstructions =
+  InterpolatableRobotEdglyDeliverInstructionsInput
+
+export type InterpolatableRobotEdglyDeliverInstructionsInput = z.input<
   typeof interpolatableRobotEdglyDeliverInstructionsSchema
 >
 

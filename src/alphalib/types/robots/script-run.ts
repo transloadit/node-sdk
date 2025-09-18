@@ -104,7 +104,9 @@ export type RobotScriptRunInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotScriptRunInstructionsSchema = interpolateRobot(
   robotScriptRunInstructionsSchema,
 )
-export type InterpolatableRobotScriptRunInstructions = z.input<
+export type InterpolatableRobotScriptRunInstructions = InterpolatableRobotScriptRunInstructionsInput
+
+export type InterpolatableRobotScriptRunInstructionsInput = z.input<
   typeof interpolatableRobotScriptRunInstructionsSchema
 >
 

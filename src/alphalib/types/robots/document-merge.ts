@@ -95,7 +95,10 @@ export type RobotDocumentMergeInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotDocumentMergeInstructionsSchema = interpolateRobot(
   robotDocumentMergeInstructionsSchema,
 )
-export type InterpolatableRobotDocumentMergeInstructions = z.input<
+export type InterpolatableRobotDocumentMergeInstructions =
+  InterpolatableRobotDocumentMergeInstructionsInput
+
+export type InterpolatableRobotDocumentMergeInstructionsInput = z.input<
   typeof interpolatableRobotDocumentMergeInstructionsSchema
 >
 

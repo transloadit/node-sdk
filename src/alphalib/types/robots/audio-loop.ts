@@ -84,7 +84,9 @@ export type RobotAudioLoopInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotAudioLoopInstructionsSchema = interpolateRobot(
   robotAudioLoopInstructionsSchema,
 )
-export type InterpolatableRobotAudioLoopInstructions = z.input<
+export type InterpolatableRobotAudioLoopInstructions = InterpolatableRobotAudioLoopInstructionsInput
+
+export type InterpolatableRobotAudioLoopInstructionsInput = z.input<
   typeof interpolatableRobotAudioLoopInstructionsSchema
 >
 

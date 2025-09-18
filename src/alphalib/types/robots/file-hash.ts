@@ -68,7 +68,9 @@ export type RobotFileHashInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotFileHashInstructionsSchema = interpolateRobot(
   robotFileHashInstructionsSchema,
 )
-export type InterpolatableRobotFileHashInstructions = z.input<
+export type InterpolatableRobotFileHashInstructions = InterpolatableRobotFileHashInstructionsInput
+
+export type InterpolatableRobotFileHashInstructionsInput = z.input<
   typeof interpolatableRobotFileHashInstructionsSchema
 >
 

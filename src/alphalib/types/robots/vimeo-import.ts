@@ -93,7 +93,10 @@ export type RobotVimeoImportInstructionsInput = z.input<typeof robotVimeoImportI
 export const interpolatableRobotVimeoImportInstructionsSchema = interpolateRobot(
   robotVimeoImportInstructionsSchema,
 )
-export type InterpolatableRobotVimeoImportInstructions = z.input<
+export type InterpolatableRobotVimeoImportInstructions =
+  InterpolatableRobotVimeoImportInstructionsInput
+
+export type InterpolatableRobotVimeoImportInstructionsInput = z.input<
   typeof interpolatableRobotVimeoImportInstructionsSchema
 >
 

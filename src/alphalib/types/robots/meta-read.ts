@@ -29,7 +29,9 @@ export const robotMetaReadInstructionsWithHiddenFieldsSchema =
 export const interpolatableRobotMetaReadInstructionsSchema = interpolateRobot(
   robotMetaReadInstructionsSchema,
 )
-export type InterpolatableRobotMetaReadInstructions = z.input<
+export type InterpolatableRobotMetaReadInstructions = InterpolatableRobotMetaReadInstructionsInput
+
+export type InterpolatableRobotMetaReadInstructionsInput = z.input<
   typeof interpolatableRobotMetaReadInstructionsSchema
 >
 

@@ -124,7 +124,10 @@ export type RobotVimeoStoreInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotVimeoStoreInstructionsSchema = interpolateRobot(
   robotVimeoStoreInstructionsSchema,
 )
-export type InterpolatableRobotVimeoStoreInstructions = z.input<
+export type InterpolatableRobotVimeoStoreInstructions =
+  InterpolatableRobotVimeoStoreInstructionsInput
+
+export type InterpolatableRobotVimeoStoreInstructionsInput = z.input<
   typeof interpolatableRobotVimeoStoreInstructionsSchema
 >
 

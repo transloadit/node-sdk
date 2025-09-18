@@ -226,7 +226,10 @@ export type RobotTextTranslateInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotTextTranslateInstructionsSchema = interpolateRobot(
   robotTextTranslateInstructionsSchema,
 )
-export type InterpolatableRobotTextTranslateInstructions = z.input<
+export type InterpolatableRobotTextTranslateInstructions =
+  InterpolatableRobotTextTranslateInstructionsInput
+
+export type InterpolatableRobotTextTranslateInstructionsInput = z.input<
   typeof interpolatableRobotTextTranslateInstructionsSchema
 >
 

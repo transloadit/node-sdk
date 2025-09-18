@@ -284,7 +284,10 @@ export type RobotDocumentConvertInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotDocumentConvertInstructionsSchema = interpolateRobot(
   robotDocumentConvertInstructionsSchema,
 )
-export type InterpolatableRobotDocumentConvertInstructions = z.input<
+export type InterpolatableRobotDocumentConvertInstructions =
+  InterpolatableRobotDocumentConvertInstructionsInput
+
+export type InterpolatableRobotDocumentConvertInstructionsInput = z.input<
   typeof interpolatableRobotDocumentConvertInstructionsSchema
 >
 

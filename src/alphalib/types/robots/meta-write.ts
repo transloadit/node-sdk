@@ -76,7 +76,9 @@ export type RobotMetaWriteInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotMetaWriteInstructionsSchema = interpolateRobot(
   robotMetaWriteInstructionsSchema,
 )
-export type InterpolatableRobotMetaWriteInstructions = z.input<
+export type InterpolatableRobotMetaWriteInstructions = InterpolatableRobotMetaWriteInstructionsInput
+
+export type InterpolatableRobotMetaWriteInstructionsInput = z.input<
   typeof interpolatableRobotMetaWriteInstructionsSchema
 >
 

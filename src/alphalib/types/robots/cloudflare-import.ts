@@ -102,7 +102,10 @@ export type RobotCloudflareImportInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotCloudflareImportInstructionsSchema = interpolateRobot(
   robotCloudflareImportInstructionsSchema,
 )
-export type InterpolatableRobotCloudflareImportInstructions = z.input<
+export type InterpolatableRobotCloudflareImportInstructions =
+  InterpolatableRobotCloudflareImportInstructionsInput
+
+export type InterpolatableRobotCloudflareImportInstructionsInput = z.input<
   typeof interpolatableRobotCloudflareImportInstructionsSchema
 >
 

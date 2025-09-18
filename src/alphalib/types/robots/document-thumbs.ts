@@ -212,7 +212,10 @@ export type RobotDocumentThumbsInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotDocumentThumbsInstructionsSchema = interpolateRobot(
   robotDocumentThumbsInstructionsSchema,
 )
-export type InterpolatableRobotDocumentThumbsInstructions = z.input<
+export type InterpolatableRobotDocumentThumbsInstructions =
+  InterpolatableRobotDocumentThumbsInstructionsInput
+
+export type InterpolatableRobotDocumentThumbsInstructionsInput = z.input<
   typeof interpolatableRobotDocumentThumbsInstructionsSchema
 >
 

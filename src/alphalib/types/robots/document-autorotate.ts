@@ -56,7 +56,10 @@ export type RobotDocumentAutorotateInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotDocumentAutorotateInstructionsSchema = interpolateRobot(
   robotDocumentAutorotateInstructionsSchema,
 )
-export type InterpolatableRobotDocumentAutorotateInstructions = z.input<
+export type InterpolatableRobotDocumentAutorotateInstructions =
+  InterpolatableRobotDocumentAutorotateInstructionsInput
+
+export type InterpolatableRobotDocumentAutorotateInstructionsInput = z.input<
   typeof interpolatableRobotDocumentAutorotateInstructionsSchema
 >
 

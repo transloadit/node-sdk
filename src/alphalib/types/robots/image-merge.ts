@@ -108,7 +108,10 @@ export type RobotImageMergeInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotImageMergeInstructionsSchema = interpolateRobot(
   robotImageMergeInstructionsSchema,
 )
-export type InterpolatableRobotImageMergeInstructions = z.input<
+export type InterpolatableRobotImageMergeInstructions =
+  InterpolatableRobotImageMergeInstructionsInput
+
+export type InterpolatableRobotImageMergeInstructionsInput = z.input<
   typeof interpolatableRobotImageMergeInstructionsSchema
 >
 

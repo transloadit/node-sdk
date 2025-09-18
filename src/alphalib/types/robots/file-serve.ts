@@ -82,7 +82,9 @@ export type RobotFileServeInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotFileServeInstructionsSchema = interpolateRobot(
   robotFileServeInstructionsSchema,
 )
-export type InterpolatableRobotFileServeInstructions = z.input<
+export type InterpolatableRobotFileServeInstructions = InterpolatableRobotFileServeInstructionsInput
+
+export type InterpolatableRobotFileServeInstructionsInput = z.input<
   typeof interpolatableRobotFileServeInstructionsSchema
 >
 

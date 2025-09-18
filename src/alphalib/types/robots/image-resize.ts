@@ -600,7 +600,10 @@ export type RobotImageResizeInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotImageResizeInstructionsSchema = interpolateRobot(
   robotImageResizeInstructionsSchema,
 )
-export type InterpolatableRobotImageResizeInstructions = z.input<
+export type InterpolatableRobotImageResizeInstructions =
+  InterpolatableRobotImageResizeInstructionsInput
+
+export type InterpolatableRobotImageResizeInstructionsInput = z.input<
   typeof interpolatableRobotImageResizeInstructionsSchema
 >
 

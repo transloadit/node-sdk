@@ -53,7 +53,9 @@ export type RobotFileReadInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotFileReadInstructionsSchema = interpolateRobot(
   robotFileReadInstructionsSchema,
 )
-export type InterpolatableRobotFileReadInstructions = z.input<
+export type InterpolatableRobotFileReadInstructions = InterpolatableRobotFileReadInstructionsInput
+
+export type InterpolatableRobotFileReadInstructionsInput = z.input<
   typeof interpolatableRobotFileReadInstructionsSchema
 >
 

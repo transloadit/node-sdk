@@ -124,7 +124,10 @@ export type RobotAzureStoreInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotAzureStoreInstructionsSchema = interpolateRobot(
   robotAzureStoreInstructionsSchema,
 )
-export type InterpolatableRobotAzureStoreInstructions = z.input<
+export type InterpolatableRobotAzureStoreInstructions =
+  InterpolatableRobotAzureStoreInstructionsInput
+
+export type InterpolatableRobotAzureStoreInstructionsInput = z.input<
   typeof interpolatableRobotAzureStoreInstructionsSchema
 >
 

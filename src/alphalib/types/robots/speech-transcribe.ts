@@ -121,7 +121,10 @@ export type RobotSpeechTranscribeInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotSpeechTranscribeInstructionsSchema = interpolateRobot(
   robotSpeechTranscribeInstructionsSchema,
 )
-export type InterpolatableRobotSpeechTranscribeInstructions = z.input<
+export type InterpolatableRobotSpeechTranscribeInstructions =
+  InterpolatableRobotSpeechTranscribeInstructionsInput
+
+export type InterpolatableRobotSpeechTranscribeInstructionsInput = z.input<
   typeof interpolatableRobotSpeechTranscribeInstructionsSchema
 >
 

@@ -76,7 +76,9 @@ export type RobotFtpImportInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotFtpImportInstructionsSchema = interpolateRobot(
   robotFtpImportInstructionsSchema,
 )
-export type InterpolatableRobotFtpImportInstructions = z.input<
+export type InterpolatableRobotFtpImportInstructions = InterpolatableRobotFtpImportInstructionsInput
+
+export type InterpolatableRobotFtpImportInstructionsInput = z.input<
   typeof interpolatableRobotFtpImportInstructionsSchema
 >
 

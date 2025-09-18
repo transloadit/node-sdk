@@ -106,7 +106,10 @@ export type RobotFileDecompressInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotFileDecompressInstructionsSchema = interpolateRobot(
   robotFileDecompressInstructionsSchema,
 )
-export type InterpolatableRobotFileDecompressInstructions = z.input<
+export type InterpolatableRobotFileDecompressInstructions =
+  InterpolatableRobotFileDecompressInstructionsInput
+
+export type InterpolatableRobotFileDecompressInstructionsInput = z.input<
   typeof interpolatableRobotFileDecompressInstructionsSchema
 >
 
