@@ -17,10 +17,11 @@ Released: 2025-09-18.
 [Diff](https://github.com/transloadit/node-sdk/compare/v3.0.2...v4.0.0).
 
 - [x] **Breaking:** Package is now pure ESM, requires Node.js 20+, and exports `{ Transloadit }` instead of a default client.
-- [x] **Breaking:** Assembly inputs are validated against rich schemas; migrate to the new `AssemblyInstructionsInput` types and expect `listAssemblies()` to return `{ items, count }`.
-- [x] Added end-to-end TypeScript typings for robots, assemblies, templates, and responses, so assembly instructions now autocomplete every robot and its supported parameters.
-- [x] Introduced structured error classes (`ApiError`, `InconsistentResponseError`, `PollingTimeoutError`) that preserve assembly IDs and server metadata.
+- [x] **Breaking** `TransloaditError` removed in favor of a new, slightly different `ApiError`.
+- [x] Added end-to-end TypeScript typings for robots, assemblies, templates, and responses, so assembly instructions now autocomplete every robot and its supported parameters. Notably, Assembly instructions and statuses are validates against rich TypeScript types; migrate to the new `AssemblyInstructionsInput` types and `AssemblyStatus` in responses.
+- [x] New rich error stacktraces that aid in debugging issues.
 - [x] Added opt-in `validateResponses` safeguard and a `getSignedSmartCDNUrl` helper for generating signed Smart CDN URLs.
+- [x] Fix broken rate limiting #217
 - [x] Modernized tooling, tests, and examples (Vitest, Biome, TypeScript examples). See [MIGRATION.md](./MIGRATION.md) for a guided upgrade path.
 
 ## v3.0.2
