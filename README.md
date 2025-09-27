@@ -95,12 +95,12 @@ You can find [details about your executed Assemblies here](https://transloadit.c
 
 ## Examples
 
-- [Upload and resize image](https://github.com/transloadit/node-sdk/blob/main/examples/resize_an_image.js)
-- [Upload image and convert to WebP](https://github.com/transloadit/node-sdk/blob/main/examples/convert_to_webp.js)
-- [Crop a face out of an image and download the result](https://github.com/transloadit/node-sdk/blob/main/examples/face_detect_download.js)
-- [Retry example](https://github.com/transloadit/node-sdk/blob/main/examples/retry.js)
-- [Calculate total costs (GB usage)](https://github.com/transloadit/node-sdk/blob/main/examples/fetch_costs_of_all_assemblies_in_timeframe.js)
-- [Templates CRUD](https://github.com/transloadit/node-sdk/blob/main/examples/template_api.js)
+- [Upload and resize image](https://github.com/transloadit/node-sdk/blob/main/examples/resize_an_image.ts)
+- [Upload image and convert to WebP](https://github.com/transloadit/node-sdk/blob/main/examples/convert_to_webp.ts)
+- [Crop a face out of an image and download the result](https://github.com/transloadit/node-sdk/blob/main/examples/face_detect_download.ts)
+- [Retry example](https://github.com/transloadit/node-sdk/blob/main/examples/retry.ts)
+- [Calculate total costs (GB usage)](https://github.com/transloadit/node-sdk/blob/main/examples/fetch_costs_of_all_assemblies_in_timeframe.ts)
+- [Templates CRUD](https://github.com/transloadit/node-sdk/blob/main/examples/template_api.ts)
 
 For more fully working examples take a look at [`examples/`](https://github.com/transloadit/node-sdk/blob/main/examples/).
 
@@ -314,7 +314,7 @@ Replays the notification for the Assembly identified by the given `assemblyId` (
 
 ### Templates
 
-Templates are Steps that can be reused. [See example template code](examples/template_api.js).
+Templates are Steps that can be reused. [See example template code](examples/template_api.ts).
 
 #### async createTemplate(params)
 
@@ -465,7 +465,7 @@ As we have ported the JavaScript SDK to TypeScript in v4, we are now also valida
 
 #### Custom retry logic
 
-If you want to retry on other errors, please see the [retry example code](examples/retry.js).
+If you want to retry on other errors, please see the [retry example code](examples/retry.ts).
 
 - https://transloadit.com/docs/api/rate-limiting/
 - https://transloadit.com/blog/2012/04/introducing-rate-limiting/
