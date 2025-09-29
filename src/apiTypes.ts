@@ -2,6 +2,11 @@ import type { AssemblyInstructions, AssemblyInstructionsInput } from './alphalib
 
 export {
   type AssemblyIndexItem,
+  type AssemblyStatusMeta,
+  type AssemblyStatusResult,
+  type AssemblyStatusResults,
+  type AssemblyStatusUpload,
+  type AssemblyStatusUploads,
   assemblyIndexItemSchema,
   assemblyStatusSchema,
 } from './alphalib/types/assemblyStatus.ts'

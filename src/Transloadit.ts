@@ -64,7 +64,14 @@ export {
   UploadError,
 } from 'got'
 
-export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
+export type {
+  AssemblyStatus,
+  AssemblyStatusMeta,
+  AssemblyStatusResult,
+  AssemblyStatusResults,
+  AssemblyStatusUpload,
+  AssemblyStatusUploads,
+} from './alphalib/types/assemblyStatus.ts'
 export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }
 
