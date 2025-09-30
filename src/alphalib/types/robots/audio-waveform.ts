@@ -26,7 +26,8 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Generate a 400×200 waveform in \`#0099cc\` color from an uploaded audio file:`,
+  example_code_description:
+    'Generate a 400×200 waveform in `#0099cc` color from an uploaded audio file:',
   extended_description: `
 Here is an example waveform image:
 

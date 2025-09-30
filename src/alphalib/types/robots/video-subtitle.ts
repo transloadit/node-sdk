@@ -39,7 +39,8 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `If you have two file input fields in a form — one for a video and another for an SRT or VTT subtitle, named \`input_video\` and \`input_srt\` respectively (with the HTML \`name\` attribute), hereʼs how to embed the subtitles into the video with Transloadit:`,
+  example_code_description:
+    'If you have two file input fields in a form — one for a video and another for an SRT or VTT subtitle, named `input_video` and `input_srt` respectively (with the HTML `name` attribute), hereʼs how to embed the subtitles into the video with Transloadit:',
   minimum_charge: 0,
   output_factor: 0.6,
   override_lvl1: 'Video Encoding',

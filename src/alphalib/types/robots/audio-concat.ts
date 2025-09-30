@@ -44,7 +44,8 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `If you have a form with 3 file input fields and want to concatenate the uploaded audios in a specific order, instruct Transloadit using the \`name\` attribute of each input field. Use this attribute as the value for the \`fields\` key in the JSON, and set \`as\` to \`audio_[[index]]\`. Transloadit will concatenate the files based on the ascending index order:`,
+  example_code_description:
+    'If you have a form with 3 file input fields and want to concatenate the uploaded audios in a specific order, instruct Transloadit using the `name` attribute of each input field. Use this attribute as the value for the `fields` key in the JSON, and set `as` to `audio_[[index]]`. Transloadit will concatenate the files based on the ascending index order:',
   minimum_charge: 0,
   output_factor: 0.8,
   override_lvl1: 'Audio Encoding',
@@ -74,7 +75,7 @@ export const robotAudioConcatInstructionsSchema = robotBase
     result: z
       .boolean()
       .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+      .describe('Whether the results of this Step should be present in the Assembly Status JSON'),
     robot: z.literal('/audio/concat').describe(`
 This Robot can concatenate an almost infinite number of audio files.
 `),

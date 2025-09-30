@@ -23,7 +23,7 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Export uploaded files to \`my_target_folder\` on Rackspace Cloud Files:`,
+  example_code_description: 'Export uploaded files to `my_target_folder` on Rackspace Cloud Files:',
   extended_description: `
 <a id="export-to-rackspace-cloudfiles" aria-hidden="true"></a>
 

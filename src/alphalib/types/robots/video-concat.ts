@@ -39,7 +39,8 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `If you have a form with 3 file input fields and want to concatenate the uploaded videos in a specific order, instruct Transloadit using the \`name\` attribute of each input field. Use this attribute as the value for the \`fields\` key in the JSON, and set \`as\` to \`video_[[index]]\`. Transloadit will concatenate the files based on the ascending index order:`,
+  example_code_description:
+    'If you have a form with 3 file input fields and want to concatenate the uploaded videos in a specific order, instruct Transloadit using the `name` attribute of each input field. Use this attribute as the value for the `fields` key in the JSON, and set `as` to `video_[[index]]`. Transloadit will concatenate the files based on the ascending index order:',
   minimum_charge: 0,
   output_factor: 0.6,
   override_lvl1: 'Video Encoding',

@@ -83,7 +83,7 @@ You can also use an array of path strings here to import multiple paths in the s
     rendition: z
       .enum(['240p', '360p', '540p', '720p', '1080p', 'source'])
       .default('720p')
-      .describe(`The quality of the video to import.`),
+      .describe('The quality of the video to import.'),
   })
   .strict()
 
