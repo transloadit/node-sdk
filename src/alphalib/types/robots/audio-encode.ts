@@ -58,7 +58,7 @@ export const robotAudioEncodeInstructionsSchema = robotBase
     result: z
       .boolean()
       .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+      .describe('Whether the results of this Step should be present in the Assembly Status JSON'),
     robot: z.literal('/audio/encode'),
     bitrate: bitrateSchema.optional().describe(`
 Bit rate of the resulting audio file, in bits per second. If not specified will default to the bit rate of the input audio file.

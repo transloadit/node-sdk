@@ -23,7 +23,8 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Import files from the \`path/to/files\` directory and its subdirectories:`,
+  example_code_description:
+    'Import files from the `path/to/files` directory and its subdirectories:',
   minimum_charge: 0,
   output_factor: 1,
   override_lvl1: 'File Importing',

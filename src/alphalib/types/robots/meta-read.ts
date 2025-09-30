@@ -1,6 +1,6 @@
 import { z } from 'zod'
-
-import { interpolateRobot, type RobotMetaInput, robotBase } from './_instructions-primitives.ts'
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 
 // @ts-expect-error - MetaReadRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
@@ -15,7 +15,7 @@ export const meta: RobotMetaInput = {
 
 export const robotMetaReadInstructionsSchema = robotBase
   .extend({
-    robot: z.literal('/meta/read').describe(`Reads metadata from a file.`),
+    robot: z.literal('/meta/read').describe('Reads metadata from a file.'),
   })
   .strict()
 

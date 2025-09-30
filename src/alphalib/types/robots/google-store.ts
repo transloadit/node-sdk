@@ -18,7 +18,7 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Export uploaded files to \`my_target_folder\` on Google Storage:`,
+  example_code_description: 'Export uploaded files to `my_target_folder` on Google Storage:',
   has_small_icon: true,
   minimum_charge: 0,
   output_factor: 1,
@@ -51,7 +51,7 @@ The URL to the exported file in your Google bucket will be presented in the Tran
     result: z
       .boolean()
       .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+      .describe('Whether the results of this Step should be present in the Assembly Status JSON'),
     credentials: z.string().describe(`
 Create a new [Google service account](https://cloud.google.com/storage/docs/authentication). Set its role to "Storage Object Creator". Choose "JSON" for the key file format and download it to your computer. You will need to upload this file when creating your <dfn>Template Credentials</dfn>.
 

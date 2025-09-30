@@ -23,7 +23,7 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Export uploaded files to \`my_target_folder\` on cloudflare R2:`,
+  example_code_description: 'Export uploaded files to `my_target_folder` on cloudflare R2:',
   extended_description: `
 The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
 `,

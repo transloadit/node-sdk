@@ -18,7 +18,7 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Export uploaded files to \`my_target_folder\` on Tigris:`,
+  example_code_description: 'Export uploaded files to `my_target_folder` on Tigris:',
   has_small_icon: true,
   minimum_charge: 0,
   output_factor: 1,
@@ -81,7 +81,7 @@ If this parameter is not used, no URL signing is done.
     bucket_region: z
       .string()
       .optional()
-      .describe(`The region of your Tigris bucket. This is optional as it can often be derived.`),
+      .describe('The region of your Tigris bucket. This is optional as it can often be derived.'),
   })
   .strict()
 

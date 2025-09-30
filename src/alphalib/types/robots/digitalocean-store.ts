@@ -23,7 +23,7 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Export uploaded files to \`my_target_folder\` on DigitalOcean Spaces:`,
+  example_code_description: 'Export uploaded files to `my_target_folder` on DigitalOcean Spaces:',
   has_small_icon: true,
   minimum_charge: 0,
   output_factor: 1,

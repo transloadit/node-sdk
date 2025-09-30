@@ -18,7 +18,7 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Export uploaded files to \`my_target_folder\` on an FTP server:`,
+  example_code_description: 'Export uploaded files to `my_target_folder` on an FTP server:',
   minimum_charge: 0,
   output_factor: 1,
   override_lvl1: 'File Exporting',

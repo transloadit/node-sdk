@@ -28,7 +28,8 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Import files from the \`path/to/files\` directory and its subdirectories:`,
+  example_code_description:
+    'Import files from the `path/to/files` directory and its subdirectories:',
   has_small_icon: true,
   minimum_charge: 0,
   output_factor: 1,
@@ -85,7 +86,7 @@ The pagination page size. This only works when recursive is \`true\` for now, in
     bucket_region: z
       .string()
       .optional()
-      .describe(`The region of your Tigris bucket. This is optional as it can often be derived.`),
+      .describe('The region of your Tigris bucket. This is optional as it can often be derived.'),
   })
   .strict()
 

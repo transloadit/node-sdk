@@ -88,6 +88,15 @@ You might see an error when trying to extract metadata from the files inside you
 
 To keep backwards compatibility, setting this parameter to \`true\` will set it to \`["meta"]\` internally.
 `),
+    stack: z
+      .enum(['v1', 'v2'])
+      .default('v1')
+      .describe(`
+Temporary parameter for backwards compatibility while we roll out new underlying tooling for the robot.
+
+- \`v1\` uses the old decompression.
+- \`v2\` uses the new decompression with better support for unicode and nested archives.
+`),
   })
   .strict()
 

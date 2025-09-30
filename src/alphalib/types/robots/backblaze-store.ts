@@ -18,7 +18,7 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Export uploaded files to \`my_target_folder\` on Backblaze:`,
+  example_code_description: 'Export uploaded files to `my_target_folder` on Backblaze:',
   extended_description: `
 ## Access
 

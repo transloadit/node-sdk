@@ -28,7 +28,8 @@ export const meta: RobotMetaInput = {
       },
     },
   },
-  example_code_description: `Import files from the \`path/to/files\` directory and its subdirectories:`,
+  example_code_description:
+    'Import files from the `path/to/files` directory and its subdirectories:',
   has_small_icon: true,
   minimum_charge: 0,
   output_factor: 1,
@@ -59,7 +60,7 @@ export const robotWasabiImportInstructionsSchema = robotBase
     result: z
       .boolean()
       .optional()
-      .describe(`Whether the results of this Step should be present in the Assembly Status JSON`),
+      .describe('Whether the results of this Step should be present in the Assembly Status JSON'),
     robot: z.literal('/wasabi/import'),
     path: path.describe(`
 The path in your bucket to the specific file or directory. If the path points to a file, only this file will be imported. For example: \`images/avatar.jpg\`.

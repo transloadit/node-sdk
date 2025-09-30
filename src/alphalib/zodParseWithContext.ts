@@ -194,7 +194,11 @@ export function zodParseWithContext<T extends z.ZodType>(
           if (!badPaths.has(nestedPath)) {
             badPaths.set(nestedPath, [])
           }
-          const targetMessages = badPaths.get(nestedPath)!
+
+          const targetMessages = badPaths.get(nestedPath)
+          if (!targetMessages) {
+            continue
+          }
 
           // Prioritize more specific messages (like invalid type with details)
           const invalidTypeMessages = collectedMessages[nestedPath].filter((m) =>
@@ -231,7 +235,7 @@ export function zodParseWithContext<T extends z.ZodType>(
         switch (zodIssue.code) {
           case 'invalid_type': {
             received = zodIssue.received === 'undefined' ? 'missing' : zodIssue.received
-            const actualValue = getByPath(obj, path) as any
+            const actualValue = getByPath(obj, path)
             const actualValueStr =
               typeof actualValue === 'object' && actualValue !== null
                 ? JSON.stringify(actualValue)
