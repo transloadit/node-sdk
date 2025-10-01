@@ -170,7 +170,7 @@ async function createVirtualTestServer(handler: RequestListener): Promise<Virtua
   }
 }
 
-describe('API integration', { timeout: 60000 }, () => {
+describe('API integration', { timeout: 60000, retry: 1 }, () => {
   describe('assembly creation', () => {
     it('should create a retrievable assembly on the server', async () => {
       const client = createClient()
@@ -586,7 +586,7 @@ describe('API integration', { timeout: 60000 }, () => {
     })
   })
 
-  describe('assembly notification', { retry: 2 }, () => {
+  describe('assembly notification', () => {
     type OnNotification = (params: {
       path?: string
       client: Transloadit

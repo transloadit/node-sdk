@@ -123,7 +123,7 @@ export interface CreateTunnelResult {
 
 export async function createTunnel({ cloudFlaredPath = 'cloudflared', port }: CreateTunnelParams) {
   const { process, url } = await pRetry(async () => startTunnel({ cloudFlaredPath, port }), {
-    retries: 1,
+    retries: 2,
   })
 
   async function close() {
