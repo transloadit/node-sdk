@@ -42,12 +42,40 @@ While theoretically possible, you could use [🤖/file/serve](/docs/robots/file-
 
 Also consider configuring caching headers and cache-control directives to control how content is cached and invalidated on the CDN edge servers, balancing between freshness and efficiency.
 
-More information on:
+## Smart CDN Security with Signature Authentication
 
-- [Content Delivery](/services/content-delivery/).
-- [🤖/file/serve](/docs/robots/file-serve/) pricing.
-- [🤖/tlcdn/deliver](/docs/robots/tlcdn-deliver/) pricing.
-- [File Preview Feature](/blog/2024/06/file-preview-with-smart-cdn/) blog post.
+You can leverage [Signature Authentication](/docs/api/authentication/#smart-cdn) to avoid abuse of our encoding platform. Below is a quick Node.js example using our Node SDK, but there are [examples for other languages and SDKs](/docs/api/authentication/#example-code) as well.
+
+\`\`\`javascript
+// yarn add transloadit
+// or
+// npm install --save transloadit
+
+import { Transloadit } from 'transloadit'
+
+const transloadit = new Transloadit({
+  authKey: 'YOUR_TRANSLOADIT_KEY',
+  authSecret: 'YOUR_TRANSLOADIT_SECRET',
+})
+
+const url = transloadit.getSignedSmartCDNUrl({
+  workspace: 'YOUR_WORKSPACE',
+  template: 'YOUR_TEMPLATE',
+  input: 'image.png',
+  urlParams: { height: 100, width: 100 },
+})
+
+console.log(url)
+\`\`\`
+
+This will generate a signed Smart CDN URL that includes authentication parameters, preventing unauthorized access to your transformation endpoints.
+
+## More information
+
+- [Content Delivery](/services/content-delivery/)
+- [🤖/file/serve](/docs/robots/file-serve/) pricing
+- [🤖/tlcdn/deliver](/docs/robots/tlcdn-deliver/) pricing
+- [File Preview Feature](/blog/2024/06/file-preview-with-smart-cdn/) blog post
 `),
     headers: z
       .record(z.string())

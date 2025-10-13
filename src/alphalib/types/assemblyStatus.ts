@@ -680,6 +680,24 @@ export function hasError(
   return errorExists
 }
 
+export function hasSpecificError(
+  assembly: AssemblyStatus | null | undefined,
+  errorType: string,
+): boolean {
+  if (!assembly) return false
+
+  if (hasError(assembly) && assembly.error === errorType) {
+    return true
+  }
+
+  if (typeof assembly === 'object' && assembly !== null && errorType in assembly) {
+    const candidate = Reflect.get(assembly, errorType)
+    return Boolean(candidate)
+  }
+
+  return false
+}
+
 /**
  * Type guard to check if an assembly has an ok status
  */
