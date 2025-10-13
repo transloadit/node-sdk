@@ -113,7 +113,7 @@ export function zodParseWithContext<T extends z.ZodType>(
       else if ('unionErrors' in zodIssue && zodIssue.unionErrors) {
         // --- Moved initialization out of the loop ---
         const collectedLiterals: Record<string, (string | number | boolean)[]> = {}
-        const collectedMessages: Record<string, string[]> = {}
+        const collectedMessages: Record<string, Set<string>> = {}
 
         // Process nested issues within the union
         for (const unionError of zodIssue.unionErrors) {
@@ -123,8 +123,11 @@ export function zodParseWithContext<T extends z.ZodType>(
 
             // Ensure paths exist in collection maps
             if (!collectedLiterals[nestedPath]) collectedLiterals[nestedPath] = []
-            if (!collectedMessages[nestedPath]) collectedMessages[nestedPath] = []
+            if (!collectedMessages[nestedPath]) collectedMessages[nestedPath] = new Set()
 
+            if (issue.code === 'custom' && issue.message.includes('interpolation string')) {
+              continue
+            }
             if (issue.code === 'invalid_literal') {
               const { expected } = issue
               if (
@@ -137,7 +140,7 @@ export function zodParseWithContext<T extends z.ZodType>(
                 collectedLiterals[nestedPath].push(expected)
               }
               // Still add the raw message for fallback
-              collectedMessages[nestedPath].push(issue.message)
+              collectedMessages[nestedPath].add(issue.message)
             }
             // Keep existing enum handling if needed, but literal should cover most cases
             else if (issue.code === 'invalid_enum_value') {
@@ -145,7 +148,7 @@ export function zodParseWithContext<T extends z.ZodType>(
               if (options && options.length > 0) {
                 collectedLiterals[nestedPath].push(...options.map(String)) // Assuming options are compatible
               }
-              collectedMessages[nestedPath].push(issue.message)
+              collectedMessages[nestedPath].add(issue.message)
             }
             // Keep existing unrecognized keys handling
             else if (issue.code === 'unrecognized_keys') {
@@ -153,7 +156,7 @@ export function zodParseWithContext<T extends z.ZodType>(
               const { keys } = issue
               const truncatedKeys = keys.slice(0, maxKeysToShow)
               const ellipsis = keys.length > maxKeysToShow ? '...' : ''
-              collectedMessages[nestedPath].push(
+              collectedMessages[nestedPath].add(
                 `has unrecognized keys: ${truncatedKeys.map((k) => `\`${k}\``).join(', ')}${ellipsis}`,
               )
             }
@@ -177,13 +180,13 @@ export function zodParseWithContext<T extends z.ZodType>(
                 }
               }
 
-              collectedMessages[nestedPath].push(
+              collectedMessages[nestedPath].add(
                 `got invalid type: ${received} (value: \`${actualValueStr}\`, expected: ${expectedOutput})`,
               )
             }
             // <-- End added handling -->
             else {
-              collectedMessages[nestedPath].push(issue.message) // Handle other nested codes
+              collectedMessages[nestedPath].add(issue.message) // Handle other nested codes
             }
           }
         }
@@ -201,10 +204,10 @@ export function zodParseWithContext<T extends z.ZodType>(
           }
 
           // Prioritize more specific messages (like invalid type with details)
-          const invalidTypeMessages = collectedMessages[nestedPath].filter((m) =>
+          const invalidTypeMessages = Array.from(collectedMessages[nestedPath]).filter((m) =>
             m.startsWith('got invalid type:'),
           )
-          const unrecognizedKeyMessages = collectedMessages[nestedPath].filter((m) =>
+          const unrecognizedKeyMessages = Array.from(collectedMessages[nestedPath]).filter((m) =>
             m.startsWith('has unrecognized keys:'),
           )
           const literalMessages = collectedLiterals[nestedPath] ?? []
@@ -221,9 +224,6 @@ export function zodParseWithContext<T extends z.ZodType>(
             targetMessages.push(...collectedMessages[nestedPath])
           }
         }
-
-        // Prevent the main `messages` array from being populated further for this union issue
-        continue // Skip adding messages directly from the top-level union issue itself
       }
       // Handle other specific error codes (only if not handled above)
       else {

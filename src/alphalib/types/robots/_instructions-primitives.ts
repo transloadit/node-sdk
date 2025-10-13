@@ -211,12 +211,25 @@ export const robotMetaSchema = z.object({
 
 export type RobotMetaInput = z.input<typeof robotMetaSchema>
 
-export const interpolationSchemaFull = z
-  .string()
-  .regex(/^\${.+}$/, 'Must be a full interpolation string')
-export const interpolationSchemaPartial = z
-  .string()
-  .regex(/\${.+}/, 'Must be a partially interpolatable string')
+// These schemas can be reproduced with z.string().regex(). However, this causes some issues.
+// We use this in combination with unions. Internally Zod normalizes unions. A string schema and
+// enums merged in some way. Both are validated. Normally, if a Zod union has errors, all of them
+// are surfaced. However, if the regex isn’t match, and none of the enum values overlap, then the
+// regex error is raised instead of the union error. As a result, the best error we could give back
+// to the user, is that there’s a problem with the interpolation syntax. But really the other error
+// is more useful in pretty much every case. To work around this, we use z.custom() instead, as Zod
+// can’t normalize that.
+const interpolationRegexFull = /^\${.+}$/
+export const interpolationSchemaFull = z.custom<`\${${string}}`>(
+  (input) => typeof input === 'string' && interpolationRegexFull.test(input),
+  'Must be a full interpolation string',
+)
+const interpolationRegexPartial = /\${.+}/
+export const interpolationSchemaPartial = z.custom<string>(
+  (input) => typeof input === 'string' && interpolationRegexPartial.test(input),
+  'Must be a partially interpolatable string',
+)
+
 export const booleanStringSchema = z.enum(['true', 'false'])
 
 type InterpolatableTuple<Schemas extends readonly z.ZodTypeAny[]> = Schemas extends readonly [
@@ -277,9 +290,12 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
 
   switch (def.typeName) {
     case z.ZodFirstPartyTypeKind.ZodBoolean:
-      return z
-        .union([interpolationSchemaFull, schema, booleanStringSchema])
-        .transform((value) => value === true || value === false) as InterpolatableSchema<Schema>
+      return z.union([
+        interpolationSchemaFull,
+        z
+          .union([schema, booleanStringSchema])
+          .transform((value) => value === true || value === false),
+      ]) as InterpolatableSchema<Schema>
     case z.ZodFirstPartyTypeKind.ZodArray: {
       let replacement = z.array(interpolateRecursive(def.type), def)
 
@@ -631,7 +647,7 @@ export const robotFFmpeg = z.object({
       shortest: z.boolean().nullish(),
       filter_complex: z.union([z.string(), z.record(z.string())]).optional(),
       'level:v': z.union([z.string(), z.number()]).optional(),
-      'profile:v': z.union([z.number(), z.enum(['baseline', 'main', 'high'])]).optional(),
+      'profile:v': z.union([z.number(), z.enum(['baseline', 'main', 'high', 'main10'])]).optional(),
       'qscale:a': z.number().optional(),
       'qscale:v': z.number().optional(),
       'x264-params': z.string().optional(),

@@ -150,6 +150,12 @@ Set to \`true\` if you use a custom host and run into access denied errors.
       .describe(`
 This parameter provides signed URLs in the result JSON (in the \`signed_url\` and \`signed_ssl_url\` properties). The number that you set this parameter to is the URL expiry time in seconds. If this parameter is not used, no URL signing is done.
 `),
+    session_token: z
+      .string()
+      .optional()
+      .describe(`
+The session token to use for the S3 store. This is only used if the credentials are from an IAM user with the \`sts:AssumeRole\` permission.
+`),
   })
   .strict()
 
