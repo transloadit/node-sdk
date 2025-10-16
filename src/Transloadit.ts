@@ -708,9 +708,12 @@ export class Transloadit {
     })
   }
 
-  calcSignature(params: OptionalAuthParams): { signature: string; params: string } {
+  calcSignature(
+    params: OptionalAuthParams,
+    algorithm?: string,
+  ): { signature: string; params: string } {
     const jsonParams = this._prepareParams(params)
-    const signature = this._calcSignature(jsonParams)
+    const signature = this._calcSignature(jsonParams, algorithm)
 
     return { signature, params: jsonParams }
   }

@@ -396,6 +396,15 @@ TRANSLOADIT_KEY=... TRANSLOADIT_SECRET=... \
 
 You can also use `TRANSLOADIT_AUTH_KEY`/`TRANSLOADIT_AUTH_SECRET` as aliases for the environment variables.
 
+#### CLI sig
+
+Sign assembly params from the command line. The CLI reads a JSON object from stdin (or falls back to an empty object), injects credentials from `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET`, and prints the payload returned by `calcSignature()`. Use `--algorithm` to pick a specific hashing algorithm; it defaults to `sha384`.
+
+```sh
+TRANSLOADIT_KEY=... TRANSLOADIT_SECRET=... \
+  printf '{"auth":{"expires":"2025-01-02T00:00:00Z"}}' | npx transloadit sig --algorithm sha256
+```
+
 #### getSignedSmartCDNUrl(params)
 
 Constructs a signed Smart CDN URL, as defined in the [API documentation](https://transloadit.com/docs/topics/signature-authentication/#smart-cdn). `params` must be an object with the following properties:
