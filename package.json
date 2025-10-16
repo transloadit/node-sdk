@@ -76,5 +76,6 @@
   "files": [
     "dist",
     "src"
-  ]
+  ],
+  "bin": "./dist/cli.js"
 }

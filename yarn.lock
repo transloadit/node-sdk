@@ -5255,6 +5255,8 @@ __metadata:
     typescript: "npm:5.9.2"
     vitest: "npm:^3.2.4"
     zod: "npm:3.25.76"
+  bin:
+    transloadit: ./dist/cli.js
   languageName: unknown
   linkType: soft
 
