@@ -3,8 +3,10 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { main, runSmartSig, shouldRunCli } from '../../src/cli.ts'
+import * as cli from '../../src/cli.ts'
 import { Transloadit } from '../../src/Transloadit.ts'
+
+const { main, runSig, runSmartSig, shouldRunCli } = cli
 
 const resetExitCode = () => {
   process.exitCode = undefined
@@ -51,7 +53,7 @@ describe('cli smart_sig', () => {
       },
     }
 
-    await runSmartSig(JSON.stringify(params))
+    await runSmartSig({ providedInput: JSON.stringify(params) })
 
     expect(stderrSpy).not.toHaveBeenCalled()
     expect(stdoutSpy).toHaveBeenCalledTimes(1)
@@ -93,7 +95,7 @@ describe('cli smart_sig', () => {
       },
     }
 
-    await runSmartSig(JSON.stringify(params))
+    await runSmartSig({ providedInput: JSON.stringify(params) })
 
     const output = `${stdoutSpy.mock.calls[0]?.[0]}`.trim()
     const client = new Transloadit({ authKey: 'key', authSecret: 'secret' })
@@ -113,9 +115,13 @@ describe('cli smart_sig', () => {
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await runSmartSig(
-      JSON.stringify({ workspace: 'workspace', template: 'template', input: 'file.jpg' }),
-    )
+    await runSmartSig({
+      providedInput: JSON.stringify({
+        workspace: 'workspace',
+        template: 'template',
+        input: 'file.jpg',
+      }),
+    })
 
     expect(stdoutSpy).not.toHaveBeenCalled()
     expect(stderrSpy).toHaveBeenCalledWith(
@@ -131,7 +137,7 @@ describe('cli smart_sig', () => {
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await runSmartSig('   ')
+    await runSmartSig({ providedInput: '   ' })
 
     expect(stdoutSpy).not.toHaveBeenCalled()
     expect(stderrSpy).toHaveBeenCalledWith(
@@ -147,7 +153,7 @@ describe('cli smart_sig', () => {
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await runSmartSig('this is not json')
+    await runSmartSig({ providedInput: 'this is not json' })
 
     expect(stdoutSpy).not.toHaveBeenCalled()
     expect(stderrSpy).toHaveBeenCalled()
@@ -162,7 +168,7 @@ describe('cli smart_sig', () => {
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await runSmartSig('[]')
+    await runSmartSig({ providedInput: '[]' })
 
     expect(stdoutSpy).not.toHaveBeenCalled()
     expect(stderrSpy).toHaveBeenCalledWith(
@@ -178,7 +184,7 @@ describe('cli smart_sig', () => {
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await runSmartSig('{}')
+    await runSmartSig({ providedInput: '{}' })
 
     expect(stderrSpy).toHaveBeenCalled()
     const message = `${stderrSpy.mock.calls[0]?.[0]}`
@@ -195,19 +201,121 @@ describe('cli smart_sig', () => {
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await runSmartSig(
-      JSON.stringify({
+    await runSmartSig({
+      providedInput: JSON.stringify({
         workspace: 'workspace',
         template: 'template',
         input: 'file.jpg',
         expire_at_ms: 'not-a-number',
       }),
-    )
+    })
 
     expect(stderrSpy).toHaveBeenCalledWith('Invalid params: expire_at_ms must be a number.')
     expect(process.exitCode).toBe(1)
   })
+})
 
+describe('cli sig', () => {
+  it('overwrites auth key with env credentials', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const expires = '2025-01-03T00:00:00.000Z'
+    await runSig({ providedInput: JSON.stringify({ auth: { key: 'other', expires } }) })
+
+    expect(stderrSpy).not.toHaveBeenCalled()
+    const output = JSON.parse(`${stdoutSpy.mock.calls[0]?.[0]}`.trim())
+    const params = JSON.parse(output.params as string)
+    expect(params.auth?.key).toBe('key')
+    expect(params.auth?.expires).toBe(expires)
+    expect(output.signature).toMatch(/^sha384:/)
+  })
+
+  it('supports algorithm override', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runSig({
+      providedInput: JSON.stringify({ auth: { expires: '2025-01-02T00:00:00.000Z' } }),
+      algorithm: 'sha256',
+    })
+
+    const output = JSON.parse(`${stdoutSpy.mock.calls[0]?.[0]}`.trim())
+    const client = new Transloadit({ authKey: 'key', authSecret: 'secret' })
+    const expected = client.calcSignature(
+      { auth: { expires: '2025-01-02T00:00:00.000Z' } },
+      'sha256',
+    )
+    expect(output).toEqual(expected)
+  })
+
+  it('allows empty params object', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runSig({ providedInput: '   ' })
+
+    const output = JSON.parse(`${stdoutSpy.mock.calls[0]?.[0]}`.trim())
+    const params = JSON.parse(output.params as string)
+    expect(params.auth?.key).toBe('key')
+    expect(params.auth?.expires).toBeTypeOf('string')
+  })
+
+  it('fails when credentials are missing', async () => {
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runSig({ providedInput: '{}' })
+
+    expect(stdoutSpy).not.toHaveBeenCalled()
+    expect(stderrSpy).toHaveBeenCalledWith(
+      'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
+    )
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('fails when stdin is not valid JSON', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runSig({ providedInput: 'not json' })
+
+    expect(stdoutSpy).not.toHaveBeenCalled()
+    expect(stderrSpy).toHaveBeenCalled()
+    expect(stderrSpy.mock.calls[0]?.[0]).toContain('Failed to parse JSON from stdin')
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('fails when params are not an object', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runSig({ providedInput: '[]' })
+
+    expect(stdoutSpy).not.toHaveBeenCalled()
+    expect(stderrSpy).toHaveBeenCalledWith(
+      'Invalid params provided via stdin. Expected a JSON object.',
+    )
+    expect(process.exitCode).toBe(1)
+  })
+})
+
+describe('cli help', () => {
   it('prints usage when no command is provided', async () => {
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -217,8 +325,8 @@ describe('cli smart_sig', () => {
     expect(stderrSpy).not.toHaveBeenCalled()
     expect(stdoutSpy).toHaveBeenCalled()
     const message = `${stdoutSpy.mock.calls[0]?.[0]}`
-    expect(message).toContain('Usage:')
     expect(message).toContain('npx transloadit smart_sig')
+    expect(message).toContain('npx transloadit sig')
     expect(process.exitCode).toBe(1)
   })
 })
