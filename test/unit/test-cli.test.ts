@@ -87,6 +87,7 @@ describe('cli smart_sig', () => {
       workspace: 'workspace',
       template: 'template',
       input: 'file.jpg',
+      expire_at_ms: 1732550672867,
       url_params: {
         width: 100,
         skip: null,
@@ -103,6 +104,7 @@ describe('cli smart_sig', () => {
       workspace: 'workspace',
       template: 'template',
       input: 'file.jpg',
+      expiresAt: 1732550672867,
       urlParams: {
         width: 100,
         mixed: ['one', 2],
