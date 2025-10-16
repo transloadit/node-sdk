@@ -385,6 +385,17 @@ Calculates a signature for the given `params` JSON object. If the `params` objec
 
 This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
 
+#### CLI smart_sig
+
+Generate a signature from the command line without writing any JavaScript. The CLI reads a JSON object from stdin, injects credentials from `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET`, and prints the payload returned by `calcSignature()`.
+
+```sh
+TRANSLOADIT_KEY=... TRANSLOADIT_SECRET=... \
+  printf '{"assembly_id":"12345"}' | npx transloadit smart_sig
+```
+
+You can also use `TRANSLOADIT_AUTH_KEY`/`TRANSLOADIT_AUTH_SECRET` as aliases for the environment variables.
+
 #### getSignedSmartCDNUrl(params)
 
 Constructs a signed Smart CDN URL, as defined in the [API documentation](https://transloadit.com/docs/topics/signature-authentication/#smart-cdn). `params` must be an object with the following properties:
