@@ -9,6 +9,7 @@ Released: 2025-10-16.
 [Diff](https://github.com/transloadit/node-sdk/compare/v4.0.2...v4.0.3).
 
 - [x] Fix `smart_sig` CLI to always override embedded credentials with the env-provided auth key while preserving other auth fields.
+- [x] Switch `smart_sig` CLI to return Smart CDN URLs via `getSignedSmartCDNUrl`, making it suitable as the cross-SDK reference implementation.
 - [x] Ensure the CLI entrypoint executes when invoked through npm/yarn bin shims by resolving symlinks before bootstrapping.
 - [x] Harden validation and tests around CLI invocation paths.
 - [x] Add `smart_sig` CLI command (usable via `npx transloadit smart_sig`) for signing params fed through stdin.

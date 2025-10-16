@@ -4,13 +4,22 @@ import { realpathSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import type { ZodIssue } from 'zod'
-import {
-  assemblyAuthInstructionsSchema,
-  assemblyInstructionsSchema,
-} from './alphalib/types/template.ts'
-import type { OptionalAuthParams } from './apiTypes.ts'
+import { type ZodIssue, z } from 'zod'
 import { Transloadit } from './Transloadit.ts'
+
+type UrlParamPrimitive = string | number | boolean
+type UrlParamArray = UrlParamPrimitive[]
+type NormalizedUrlParams = Record<string, UrlParamPrimitive | UrlParamArray>
+
+const smartCdnParamsSchema = z
+  .object({
+    workspace: z.string().min(1, 'workspace is required'),
+    template: z.string().min(1, 'template is required'),
+    input: z.union([z.string(), z.number(), z.boolean()]),
+    url_params: z.record(z.unknown()).optional(),
+    expire_at_ms: z.union([z.number(), z.string()]).optional(),
+  })
+  .passthrough()
 
 export async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return ''
@@ -30,11 +39,6 @@ function fail(message: string): void {
   process.exitCode = 1
 }
 
-const cliParamsSchema = assemblyInstructionsSchema
-  .extend({ auth: assemblyAuthInstructionsSchema.partial().optional() })
-  .partial()
-  .passthrough()
-
 function formatIssues(issues: ZodIssue[]): string {
   return issues
     .map((issue) => {
@@ -42,6 +46,33 @@ function formatIssues(issues: ZodIssue[]): string {
       return `${path}: ${issue.message}`
     })
     .join('; ')
+}
+
+function normalizeUrlParam(value: unknown): UrlParamPrimitive | UrlParamArray | undefined {
+  if (value == null) return undefined
+  if (Array.isArray(value)) {
+    const normalized = value.filter(
+      (item): item is UrlParamPrimitive =>
+        typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean',
+    )
+    return normalized.length > 0 ? normalized : undefined
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value
+  }
+  return undefined
+}
+
+function normalizeUrlParams(params?: Record<string, unknown>): NormalizedUrlParams | undefined {
+  if (params == null) return undefined
+  let normalized: NormalizedUrlParams | undefined
+  for (const [key, value] of Object.entries(params)) {
+    const normalizedValue = normalizeUrlParam(value)
+    if (normalizedValue === undefined) continue
+    if (normalized == null) normalized = {}
+    normalized[key] = normalizedValue
+  }
+  return normalized
 }
 
 export async function runSmartSig(providedInput?: string): Promise<void> {
@@ -57,46 +88,59 @@ export async function runSmartSig(providedInput?: string): Promise<void> {
 
   const rawInput = providedInput ?? (await readStdin())
   const input = rawInput.trim()
-  let params: Record<string, unknown> = {}
-
-  if (input !== '') {
-    try {
-      const parsed = JSON.parse(input)
-      if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        fail('Invalid params provided via stdin. Expected a JSON object.')
-        return
-      }
-
-      const parsedResult = cliParamsSchema.safeParse(parsed)
-      if (!parsedResult.success) {
-        fail(`Invalid params: ${formatIssues(parsedResult.error.issues)}`)
-        return
-      }
-
-      const parsedParams = parsedResult.data as Record<string, unknown>
-      const existingAuth =
-        typeof parsedParams.auth === 'object' &&
-        parsedParams.auth != null &&
-        !Array.isArray(parsedParams.auth)
-          ? (parsedParams.auth as Record<string, unknown>)
-          : {}
-
-      params = {
-        ...parsedParams,
-        auth: {
-          ...existingAuth,
-          key: authKey,
-        },
-      }
-    } catch (error: unknown) {
-      fail(`Failed to parse JSON from stdin: ${(error as Error).message}`)
-      return
-    }
+  if (input === '') {
+    fail(
+      'Missing params provided via stdin. Expected a JSON object with workspace, template, input, and optional Smart CDN parameters.',
+    )
+    return
   }
 
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(input)
+  } catch (error) {
+    fail(`Failed to parse JSON from stdin: ${(error as Error).message}`)
+    return
+  }
+
+  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    fail('Invalid params provided via stdin. Expected a JSON object.')
+    return
+  }
+
+  const parsedResult = smartCdnParamsSchema.safeParse(parsed)
+  if (!parsedResult.success) {
+    fail(`Invalid params: ${formatIssues(parsedResult.error.issues)}`)
+    return
+  }
+
+  const { workspace, template, input: inputFieldRaw, url_params, expire_at_ms } = parsedResult.data
+
+  const urlParams = normalizeUrlParams(url_params as Record<string, unknown> | undefined)
+
+  let expiresAt: number | undefined
+  if (typeof expire_at_ms === 'string') {
+    const parsedNumber = Number.parseInt(expire_at_ms, 10)
+    if (Number.isNaN(parsedNumber)) {
+      fail('Invalid params: expire_at_ms must be a number.')
+      return
+    }
+    expiresAt = parsedNumber
+  } else {
+    expiresAt = expire_at_ms
+  }
+
+  const inputField = typeof inputFieldRaw === 'string' ? inputFieldRaw : String(inputFieldRaw)
+
   const client = new Transloadit({ authKey, authSecret })
-  const signature = client.calcSignature(params as OptionalAuthParams)
-  process.stdout.write(`${JSON.stringify(signature)}\n`)
+  const signedUrl = client.getSignedSmartCDNUrl({
+    workspace,
+    template,
+    input: inputField,
+    urlParams,
+    expiresAt,
+  })
+  process.stdout.write(`${signedUrl}\n`)
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
@@ -114,7 +158,12 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
       process.stdout.write(
         [
           'Usage:',
-          '  npx transloadit smart_sig    Read params JSON from stdin and output signed payload.',
+          '  npx transloadit smart_sig    Read Smart CDN params JSON from stdin and output a signed URL.',
+          '',
+          'Required JSON fields:',
+          '  workspace, template, input',
+          'Optional JSON fields:',
+          '  expire_at_ms, url_params',
           '',
           'Environment variables:',
           '  TRANSLOADIT_KEY, TRANSLOADIT_SECRET',

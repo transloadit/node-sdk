@@ -6,12 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { main, runSmartSig, shouldRunCli } from '../../src/cli.ts'
 import { Transloadit } from '../../src/Transloadit.ts'
 
-const mockedExpiresDate = '2025-01-01T00:00:00.000Z'
-const mockExpires = () =>
-  vi
-    .spyOn(Transloadit.prototype as unknown as { _getExpiresDate: () => string }, '_getExpiresDate')
-    .mockReturnValue(mockedExpiresDate)
-
 const resetExitCode = () => {
   process.exitCode = undefined
 }
@@ -37,75 +31,116 @@ describe('cli smart_sig', () => {
     }
   })
 
-  it('overwrites auth key with env credentials', async () => {
-    mockExpires()
+  it('outputs Smart CDN URL built from stdin params', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
 
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const expires = '2025-01-03T00:00:00.000Z'
-    await runSmartSig(JSON.stringify({ auth: { key: 'other', expires } }))
+    const params = {
+      workspace: 'workspace',
+      template: 'template',
+      input: 'file.jpg',
+      expire_at_ms: 1732550672867,
+      url_params: {
+        width: 100,
+        enabled: true,
+        tag: 'demo',
+        colors: ['red', 'blue'],
+      },
+    }
 
-    expect(stderrSpy).not.toHaveBeenCalled()
-    expect(stdoutSpy).toHaveBeenCalledTimes(1)
-    const output = JSON.parse(`${stdoutSpy.mock.calls[0]?.[0]}`.trim())
-    const params = JSON.parse(output.params)
-
-    expect(params.auth?.key).toBe('key')
-    expect(params.auth?.expires).toBe(expires)
-  })
-
-  it('prints signature JSON built from stdin params', async () => {
-    mockExpires()
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    const params = { auth: { expires: '2025-01-02T00:00:00.000Z' } }
     await runSmartSig(JSON.stringify(params))
 
     expect(stderrSpy).not.toHaveBeenCalled()
     expect(stdoutSpy).toHaveBeenCalledTimes(1)
-    const output = stdoutSpy.mock.calls[0]?.[0]
-    const parsed = JSON.parse(`${output}`.trim())
+    const output = `${stdoutSpy.mock.calls[0]?.[0]}`.trim()
 
     const client = new Transloadit({ authKey: 'key', authSecret: 'secret' })
-    const expected = client.calcSignature({ auth: { expires: '2025-01-02T00:00:00.000Z' } })
-    expect(parsed).toEqual(expected)
+    const expected = client.getSignedSmartCDNUrl({
+      workspace: 'workspace',
+      template: 'template',
+      input: 'file.jpg',
+      expiresAt: 1732550672867,
+      urlParams: {
+        width: 100,
+        enabled: true,
+        tag: 'demo',
+        colors: ['red', 'blue'],
+      },
+    })
+    expect(output).toBe(expected)
     expect(process.exitCode).toBeUndefined()
   })
 
+  it('filters unsupported url_params entries', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const params = {
+      workspace: 'workspace',
+      template: 'template',
+      input: 'file.jpg',
+      url_params: {
+        width: 100,
+        skip: null,
+        nested: { invalid: true },
+        mixed: ['one', null, 2],
+      },
+    }
+
+    await runSmartSig(JSON.stringify(params))
+
+    const output = `${stdoutSpy.mock.calls[0]?.[0]}`.trim()
+    const client = new Transloadit({ authKey: 'key', authSecret: 'secret' })
+    const expected = client.getSignedSmartCDNUrl({
+      workspace: 'workspace',
+      template: 'template',
+      input: 'file.jpg',
+      urlParams: {
+        width: 100,
+        mixed: ['one', 2],
+      },
+    })
+    expect(output).toBe(expected)
+  })
+
   it('fails when credentials are missing', async () => {
-    const originalKey = process.env.TRANSLOADIT_KEY
-    const originalSecret = process.env.TRANSLOADIT_SECRET
-    delete process.env.TRANSLOADIT_KEY
-    delete process.env.TRANSLOADIT_SECRET
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runSmartSig(
+      JSON.stringify({ workspace: 'workspace', template: 'template', input: 'file.jpg' }),
+    )
+
+    expect(stdoutSpy).not.toHaveBeenCalled()
+    expect(stderrSpy).toHaveBeenCalledWith(
+      'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
+    )
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('fails when stdin is empty', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
 
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    try {
-      await runSmartSig('{}')
+    await runSmartSig('   ')
 
-      expect(stdoutSpy).not.toHaveBeenCalled()
-      expect(stderrSpy).toHaveBeenCalledWith(
-        'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
-      )
-      expect(process.exitCode).toBe(1)
-    } finally {
-      if (originalKey != null) process.env.TRANSLOADIT_KEY = originalKey
-      else delete process.env.TRANSLOADIT_KEY
-      if (originalSecret != null) process.env.TRANSLOADIT_SECRET = originalSecret
-      else delete process.env.TRANSLOADIT_SECRET
-    }
+    expect(stdoutSpy).not.toHaveBeenCalled()
+    expect(stderrSpy).toHaveBeenCalledWith(
+      'Missing params provided via stdin. Expected a JSON object with workspace, template, input, and optional Smart CDN parameters.',
+    )
+    expect(process.exitCode).toBe(1)
   })
 
   it('fails when stdin is not valid JSON', async () => {
-    mockExpires()
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
 
@@ -121,7 +156,6 @@ describe('cli smart_sig', () => {
   })
 
   it('fails when params are not an object', async () => {
-    mockExpires()
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
 
@@ -134,6 +168,43 @@ describe('cli smart_sig', () => {
     expect(stderrSpy).toHaveBeenCalledWith(
       'Invalid params provided via stdin. Expected a JSON object.',
     )
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('fails when required fields are missing', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runSmartSig('{}')
+
+    expect(stderrSpy).toHaveBeenCalled()
+    const message = `${stderrSpy.mock.calls[0]?.[0]}`
+    expect(message).toContain('workspace:')
+    expect(message).toContain('template:')
+    expect(message).toContain('input:')
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('fails when expire_at_ms is not numeric', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await runSmartSig(
+      JSON.stringify({
+        workspace: 'workspace',
+        template: 'template',
+        input: 'file.jpg',
+        expire_at_ms: 'not-a-number',
+      }),
+    )
+
+    expect(stderrSpy).toHaveBeenCalledWith('Invalid params: expire_at_ms must be a number.')
     expect(process.exitCode).toBe(1)
   })
 
