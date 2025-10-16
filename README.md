@@ -387,11 +387,11 @@ This function returns an object with the key `signature` (containing the calcula
 
 #### CLI smart_sig
 
-Generate a signature from the command line without writing any JavaScript. The CLI reads a JSON object from stdin, injects credentials from `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET`, and prints the payload returned by `calcSignature()`.
+Generate a signed Smart CDN URL from the command line. The CLI reads a JSON object from stdin, injects credentials from `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET`, and prints the URL returned by `getSignedSmartCDNUrl()`.
 
 ```sh
 TRANSLOADIT_KEY=... TRANSLOADIT_SECRET=... \
-  printf '{"assembly_id":"12345"}' | npx transloadit smart_sig
+  printf '{"workspace":"demo","template":"resize","input":"image.jpg","url_params":{"width":320}}' | npx transloadit smart_sig
 ```
 
 You can also use `TRANSLOADIT_AUTH_KEY`/`TRANSLOADIT_AUTH_SECRET` as aliases for the environment variables.
