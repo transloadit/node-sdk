@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, symlinkSync } from 'node:fs'
-import path from 'node:path'
 import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { main, runSmartSig, shouldRunCli } from '../../src/cli.ts'
