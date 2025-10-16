@@ -3,8 +3,13 @@
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { Transloadit } from './Transloadit.ts'
+import type { ZodIssue } from 'zod'
+import {
+  assemblyAuthInstructionsSchema,
+  assemblyInstructionsSchema,
+} from './alphalib/types/template.ts'
 import type { OptionalAuthParams } from './apiTypes.ts'
+import { Transloadit } from './Transloadit.ts'
 
 export async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return ''
@@ -24,6 +29,20 @@ function fail(message: string): void {
   process.exitCode = 1
 }
 
+const cliParamsSchema = assemblyInstructionsSchema
+  .extend({ auth: assemblyAuthInstructionsSchema.partial().optional() })
+  .partial()
+  .passthrough()
+
+function formatIssues(issues: ZodIssue[]): string {
+  return issues
+    .map((issue) => {
+      const path = issue.path.join('.') || '(root)'
+      return `${path}: ${issue.message}`
+    })
+    .join('; ')
+}
+
 export async function runSmartSig(providedInput?: string): Promise<void> {
   const authKey = process.env.TRANSLOADIT_KEY || process.env.TRANSLOADIT_AUTH_KEY
   const authSecret = process.env.TRANSLOADIT_SECRET || process.env.TRANSLOADIT_AUTH_SECRET
@@ -37,7 +56,7 @@ export async function runSmartSig(providedInput?: string): Promise<void> {
 
   const rawInput = providedInput ?? (await readStdin())
   const input = rawInput.trim()
-  let params: OptionalAuthParams = {}
+  let params: Record<string, unknown> = {}
 
   if (input !== '') {
     try {
@@ -47,7 +66,27 @@ export async function runSmartSig(providedInput?: string): Promise<void> {
         return
       }
 
-      params = parsed as OptionalAuthParams
+      const parsedResult = cliParamsSchema.safeParse(parsed)
+      if (!parsedResult.success) {
+        fail(`Invalid params: ${formatIssues(parsedResult.error.issues)}`)
+        return
+      }
+
+      const parsedParams = parsedResult.data as Record<string, unknown>
+      const existingAuth =
+        typeof parsedParams.auth === 'object' &&
+        parsedParams.auth != null &&
+        !Array.isArray(parsedParams.auth)
+          ? (parsedParams.auth as Record<string, unknown>)
+          : {}
+
+      params = {
+        ...parsedParams,
+        auth: {
+          ...existingAuth,
+          key: authKey,
+        },
+      }
     } catch (error: unknown) {
       fail(`Failed to parse JSON from stdin: ${(error as Error).message}`)
       return
@@ -55,7 +94,7 @@ export async function runSmartSig(providedInput?: string): Promise<void> {
   }
 
   const client = new Transloadit({ authKey, authSecret })
-  const signature = client.calcSignature(params)
+  const signature = client.calcSignature(params as OptionalAuthParams)
   process.stdout.write(`${JSON.stringify(signature)}\n`)
 }
 
