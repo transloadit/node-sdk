@@ -80,16 +80,28 @@ describe('cli smart_sig', () => {
   })
 
   it('fails when credentials are missing', async () => {
+    const originalKey = process.env.TRANSLOADIT_KEY
+    const originalSecret = process.env.TRANSLOADIT_SECRET
+    delete process.env.TRANSLOADIT_KEY
+    delete process.env.TRANSLOADIT_SECRET
+
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await runSmartSig('{}')
+    try {
+      await runSmartSig('{}')
 
-    expect(stdoutSpy).not.toHaveBeenCalled()
-    expect(stderrSpy).toHaveBeenCalledWith(
-      'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
-    )
-    expect(process.exitCode).toBe(1)
+      expect(stdoutSpy).not.toHaveBeenCalled()
+      expect(stderrSpy).toHaveBeenCalledWith(
+        'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
+      )
+      expect(process.exitCode).toBe(1)
+    } finally {
+      if (originalKey != null) process.env.TRANSLOADIT_KEY = originalKey
+      else delete process.env.TRANSLOADIT_KEY
+      if (originalSecret != null) process.env.TRANSLOADIT_SECRET = originalSecret
+      else delete process.env.TRANSLOADIT_SECRET
+    }
   })
 
   it('fails when stdin is not valid JSON', async () => {
