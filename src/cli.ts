@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { realpathSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -129,11 +130,29 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   }
 }
 
-const currentFile = path.resolve(fileURLToPath(import.meta.url))
-const invokedFile = typeof process.argv[1] === 'string' ? path.resolve(process.argv[1]) : ''
+const currentFile = realpathSync(fileURLToPath(import.meta.url))
 
-if (currentFile === invokedFile) {
+function resolveInvokedPath(invoked?: string): string | null {
+  if (invoked == null) return null
+  try {
+    return realpathSync(invoked)
+  } catch {
+    return path.resolve(invoked)
+  }
+}
+
+export function shouldRunCli(invoked?: string): boolean {
+  const resolved = resolveInvokedPath(invoked)
+  if (resolved == null) return false
+  return resolved === currentFile
+}
+
+export function runCliWhenExecuted(): void {
+  if (!shouldRunCli(process.argv[1])) return
+
   void main().catch((error) => {
     fail((error as Error).message)
   })
 }
+
+runCliWhenExecuted()

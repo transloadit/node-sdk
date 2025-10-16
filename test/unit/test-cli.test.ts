@@ -1,5 +1,9 @@
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs'
+import path from 'node:path'
+import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { main, runSmartSig } from '../../src/cli.ts'
+import { main, runSmartSig, shouldRunCli } from '../../src/cli.ts'
 import { Transloadit } from '../../src/Transloadit.ts'
 
 const mockedExpiresDate = '2025-01-01T00:00:00.000Z'
@@ -19,6 +23,20 @@ afterEach(() => {
 })
 
 describe('cli smart_sig', () => {
+  it('recognizes symlinked invocation paths', () => {
+    const tmpDir = mkdtempSync(path.join(tmpdir(), 'transloadit-cli-'))
+    const symlinkTarget = fileURLToPath(new URL('../../src/cli.ts', import.meta.url))
+    const symlinkPath = path.join(tmpDir, 'transloadit')
+
+    symlinkSync(symlinkTarget, symlinkPath)
+    try {
+      expect(shouldRunCli(symlinkPath)).toBe(true)
+    } finally {
+      rmSync(symlinkPath)
+      rmSync(tmpDir, { recursive: true, force: true })
+    }
+  })
+
   it('overwrites auth key with env credentials', async () => {
     mockExpires()
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
