@@ -2,6 +2,14 @@
 
 You may also want to refer to [GitHub releases](https://github.com/transloadit/node-sdk/releases).
 
+## v4.0.6
+
+Released: 2025-11-04.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v4.0.5...v4.0.6).
+
+- [x] Re-export `AssemblyInstructions` and `AssemblyInstructionsInput` at the package entry to match the migration guide and TypeScript examples.
+
 ## v4.0.5
 
 Released: 2025-10-16.
