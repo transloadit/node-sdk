@@ -83,14 +83,15 @@ View the coverage report locally by opening `coverage/index.html` in your browse
 
 Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub actions. To make a release, perform the following steps:
 
-1. Update the version using npm, `npm version`. This will update the version in the `package.json` file and create a git tag. E.g.:
+1. Update `CHANGELOG.md` with a new entry describing the release.
+2. Update the version using npm, `npm version`. This will update the version in the `package.json` file and create a git tag. E.g.:
 
 - `npm version patch`
 - `npm version prerelease` (for pre-releases)
 
-2. Push the tag to GitHub: `git push origin main --tags`
-3. If the tests pass, GitHub actions will now publish the new version to npm.
-4. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
-5. If this was a pre-release, remember to run this to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
+3. Push the tag to GitHub: `git push origin main --tags`
+4. If the tests pass, GitHub actions will now publish the new version to npm.
+5. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
+6. If this was a pre-release, remember to run this to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
 
 - `npm dist-tag add transloadit@X.Y.Z latest`
