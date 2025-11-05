@@ -417,6 +417,14 @@ Increases or decreases the saturation of the image by using a multiplier. For ex
       .describe(`
 Changes the hue by rotating the color of the image. The value \`100\` would produce no change whereas \`0\` and \`200\` will negate the colors in the image.
 `),
+    contrast: z
+      .number()
+      .min(0)
+      .max(2)
+      .default(1)
+      .describe(`
+Adjusts the contrast of the image. A value of \`1\` produces no change. Values below \`1\` decrease contrast (with \`0\` being minimum contrast), and values above \`1\` increase contrast (with \`2\` being maximum contrast). This works like the \`brightness\` parameter.
+`),
     watermark_url: z
       .string()
       .optional()
