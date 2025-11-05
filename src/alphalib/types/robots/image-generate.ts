@@ -44,6 +44,13 @@ export const robotImageGenerateInstructionsSchema = robotBase
     height: z.number().optional().describe('Height of the generated image.'),
     width: z.number().optional().describe('Width of the generated image.'),
     style: z.string().optional().describe('Style of the generated image.'),
+    num_outputs: z
+      .number()
+      .int()
+      .min(1)
+      .max(10)
+      .optional()
+      .describe('Number of image variants to generate.'),
   })
   .strict()
 
