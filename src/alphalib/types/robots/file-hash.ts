@@ -36,6 +36,7 @@ export const meta: RobotMetaInput = {
   isAllowedForUrlTransform: false,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const robotFileHashInstructionsSchema = robotBase

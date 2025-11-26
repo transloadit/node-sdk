@@ -51,6 +51,7 @@ export const meta: RobotMetaInput = {
   importRanges: ['0-19999999', '-1000000'],
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'beta',
 }
 
 export const robotFilePreviewInstructionsSchema = robotBase

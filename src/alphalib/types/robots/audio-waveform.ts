@@ -56,6 +56,7 @@ Here is an example waveform image:
   trackOutputFileSize: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const robotAudioWaveformInstructionsSchema = robotBase

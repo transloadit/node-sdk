@@ -47,6 +47,7 @@ The URL to the result file will be returned in the <dfn>Assembly Status JSON</df
   trackOutputFileSize: false,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const robotCloudflareStoreInstructionsSchema = robotBase

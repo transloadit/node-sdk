@@ -29,3 +29,4 @@ Coding style:
 - Use descriptive names: PascalCase for components/types, camelCase for variables/methods/schemas
 - Alphabetize imports, group by source type (built-in/external/internal)
 - Favor US English over UK English, so `summarizeError` over `summarise Error`
+- Favor `.replaceAll('a', 'b)` over `.replace(/a/g, 'b')` or `.replace(new RegExp('a', 'g'), 'b')` when the only need for regeses was replacing all strings. That's usually both easier to read and more performant.

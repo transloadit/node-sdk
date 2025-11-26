@@ -19,6 +19,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.891.0",
     "@aws-sdk/s3-request-presigner": "^3.891.0",
+    "@transloadit/sev-logger": "^0.0.15",
     "debug": "^4.4.3",
     "form-data": "^4.0.4",
     "got": "14.4.9",

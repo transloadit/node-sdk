@@ -55,6 +55,7 @@ Input files are sorted alphanumerically unless you provide the as-syntax in the 
   trackOutputFileSize: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const robotDocumentMergeInstructionsSchema = robotBase

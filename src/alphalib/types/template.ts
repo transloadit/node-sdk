@@ -240,6 +240,22 @@ export const assemblyInstructionsWithHiddenSchema = assemblyInstructionsSchema.e
   mediainfo_stack: z.string().optional(),
   ffmpeg_stack: z.string().optional(),
   usage_tags: z.string().optional(),
+  response_headers: z
+    .object({
+      cors: z
+        .object({
+          'Access-Control-Allow-Methods': z.string(),
+          'Access-Control-Allow-Origin': z.string(),
+          'Access-Control-Allow-Headers': z.string(),
+          'Access-Control-Expose-Headers': z.string(),
+          'Access-Control-Allow-Credentials': z.boolean(),
+          'Access-Control-Max-Age': z.number(),
+          'Access-Control-Allow-Private-Network': z.boolean(),
+          'Access-Control-Allow-Public-Network': z.boolean(),
+        })
+        .optional(),
+    })
+    .optional(),
   randomize_watermarks: z.boolean().optional(),
   await: z
     .union([

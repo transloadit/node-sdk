@@ -46,6 +46,7 @@ export const meta: RobotMetaInput = {
   isAllowedForUrlTransform: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const robotImageMergeInstructionsSchema = robotBase

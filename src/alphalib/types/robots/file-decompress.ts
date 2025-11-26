@@ -37,6 +37,7 @@ export const meta: RobotMetaInput = {
   trackOutputFileSize: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
+  stage: 'ga',
 }
 
 export const robotFileDecompressInstructionsSchema = robotBase
@@ -76,9 +77,9 @@ This <dfn>Robot</dfn> also detects and handles any of the following before evalu
 For security reasons, archives that contain symlinks to outside the archived dir, will error out the <dfn>Assembly</dfn>. Decompressing password-protected archives (encrypted archives) is currently not fully supported but will not cause an <dfn>Assembly</dfn> to fail.
 `),
     ignore_errors: z
-      .union([z.boolean(), z.array(z.enum(['meta']))])
-      .transform((ignoreErrors): 'meta'[] =>
-        ignoreErrors === true ? ['meta'] : ignoreErrors === false ? [] : ignoreErrors,
+      .union([z.boolean(), z.array(z.enum(['meta', 'execute']))])
+      .transform((ignoreErrors): ('meta' | 'execute')[] =>
+        ignoreErrors === true ? ['meta', 'execute'] : ignoreErrors === false ? [] : ignoreErrors,
       )
       .default([])
       .describe(`
