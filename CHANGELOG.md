@@ -2,6 +2,14 @@
 
 You may also want to refer to [GitHub releases](https://github.com/transloadit/node-sdk/releases).
 
+## v4.0.7
+
+Released: 2025-11-26.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v4.0.6...v4.0.7).
+
+- [x] Update schemas to match the latest API changes.
+
 ## v4.0.6
 
 Released: 2025-11-04.
