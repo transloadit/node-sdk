@@ -1929,6 +1929,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@transloadit/sev-logger@npm:^0.0.15":
+  version: 0.0.15
+  resolution: "@transloadit/sev-logger@npm:0.0.15"
+  checksum: 10c0/1aa26ab5d6c8dab425ea85832f2094d59285963bc368b64990f23420ddc3a5bedea8ca70f91abb068d447479f4fca88cb1a9b2cd49ccc4093294daa7cf8e2ae1
+  languageName: node
+  linkType: hard
+
 "@types/chai@npm:^5.2.2":
   version: 5.2.2
   resolution: "@types/chai@npm:5.2.2"
@@ -5233,6 +5240,7 @@ __metadata:
     "@aws-sdk/client-s3": "npm:^3.891.0"
     "@aws-sdk/s3-request-presigner": "npm:^3.891.0"
     "@biomejs/biome": "npm:^2.2.4"
+    "@transloadit/sev-logger": "npm:^0.0.15"
     "@types/debug": "npm:^4.1.12"
     "@types/temp": "npm:^0.9.4"
     "@vitest/coverage-v8": "npm:^3.2.4"

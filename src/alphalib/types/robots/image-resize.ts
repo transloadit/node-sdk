@@ -53,6 +53,7 @@ export const meta: RobotMetaInput = {
   trackOutputFileSize: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const oneTextSchema = z.object({
@@ -479,6 +480,32 @@ For the \`"min_fit"\` resize strategy, the watermark is scaled so that the short
 For the \`"stretch"\` resize strategy, the watermark is stretched (meaning, it is resized without keeping its aspect ratio in mind) so that both sides take up 25% of the corresponding image side. Since our image is 800×800 pixels, for a watermark size of 25% the watermark would be resized to 200×200 pixels. Its height would appear stretched, because keeping the aspect ratio in mind it would be resized to 200×150 pixels instead.
 
 For the \`"area"\` resize strategy, the watermark is resized (keeping its aspect ratio in check) so that it covers \`"xx%"\` of the image's surface area. The value from \`watermark_size\` is used for the percentage area size.
+`),
+    watermark_opacity: z
+      .number()
+      .min(0)
+      .max(1)
+      .default(1.0)
+      .describe(`
+The opacity of the watermark, where \`0.0\` is fully transparent and \`1.0\` is fully opaque.
+
+For example, a value of \`0.5\` means the watermark will be 50% transparent, allowing the underlying image to show through. This is useful for subtle branding or when you want the watermark to be less obtrusive.
+`),
+    watermark_repeat_x: z
+      .boolean()
+      .default(false)
+      .describe(`
+When set to \`true\`, the watermark will be repeated horizontally across the entire width of the image.
+
+This is useful for creating tiled watermark patterns that cover the full image and make it more difficult to crop out the watermark.
+`),
+    watermark_repeat_y: z
+      .boolean()
+      .default(false)
+      .describe(`
+When set to \`true\`, the watermark will be repeated vertically across the entire height of the image.
+
+This is useful for creating tiled watermark patterns that cover the full image. Can be combined with \`watermark_repeat_x\` to tile in both directions.
 `),
     text: z
       .union([

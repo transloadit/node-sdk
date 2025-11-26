@@ -41,6 +41,7 @@ export const meta: RobotMetaInput = {
   trackOutputFileSize: false,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
+  stage: 'ga',
 }
 
 export const robotHttpImportInstructionsSchema = robotBase

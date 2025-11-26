@@ -44,6 +44,7 @@ Your Backblaze buckets need to have the \`listBuckets\` (to obtain a bucket ID f
   trackOutputFileSize: false,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const robotBackblazeStoreInstructionsSchema = robotBase

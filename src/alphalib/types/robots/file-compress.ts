@@ -76,6 +76,7 @@ Here is an example:
   trackOutputFileSize: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const robotFileCompressInstructionsSchema = robotBase

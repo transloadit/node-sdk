@@ -28,6 +28,7 @@ export const meta: RobotMetaInput = {
   isAllowedForUrlTransform: false,
   trackOutputFileSize: false,
   isInternal: true,
+  stage: 'ga',
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 

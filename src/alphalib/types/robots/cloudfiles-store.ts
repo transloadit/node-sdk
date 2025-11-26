@@ -53,6 +53,7 @@ The storage container URL for this file is always available via \`file.meta.stor
   trackOutputFileSize: false,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const robotCloudfilesStoreInstructionsSchema = robotBase

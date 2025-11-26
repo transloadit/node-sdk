@@ -42,6 +42,7 @@ export const meta: RobotMetaInput = {
   trackOutputFileSize: false,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const robotYoutubeStoreInstructionsSchema = robotBase

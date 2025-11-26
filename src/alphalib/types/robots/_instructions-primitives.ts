@@ -118,6 +118,7 @@ export const robotMetaSchema = z.object({
   trackOutputFileSize: z.boolean().optional(),
   isInternal: z.boolean(),
   numDaemons: z.number().optional(),
+  stage: z.enum(['alpha', 'beta', 'ga', 'deprecated', 'removed']),
   importRanges: z.array(z.string()).optional(),
   extraChargeForImageResize: z.number().optional(),
 
@@ -473,6 +474,20 @@ example, will happily ignore input images.
 
 With the \`force_accept\` parameter set to \`true\`, you can force Robots to accept all files thrown at them.
 This will typically lead to errors and should only be used for debugging or combatting edge cases.
+`),
+
+    ignore_errors: z
+      .union([z.boolean(), z.array(z.enum(['meta', 'execute']))])
+      .transform((value) => (value === true ? ['meta', 'execute'] : value === false ? [] : value))
+      .default([])
+      .describe(`
+Ignore errors during specific phases of processing.
+
+Setting this to \`["meta"]\` will cause the Robot to ignore errors during metadata extraction.
+
+Setting this to \`["execute"]\` will cause the Robot to ignore errors during the main execution phase.
+
+Setting this to \`true\` is equivalent to \`["meta", "execute"]\` and will ignore errors in both phases.
 `),
   })
   .strict()
@@ -1190,8 +1205,10 @@ export const robotImport = z
         'Custom name for the imported file(s). By default file names are derived from the source.',
       ),
     ignore_errors: z
-      .union([z.boolean(), z.array(z.enum(['meta', 'import']))])
-      .transform((value) => (value === true ? ['meta', 'import'] : value === false ? [] : value))
+      .union([z.boolean(), z.array(z.enum(['meta', 'import', 'execute']))])
+      .transform((value) =>
+        value === true ? ['meta', 'import', 'execute'] : value === false ? [] : value,
+      )
       .default([]),
   })
   .strict()

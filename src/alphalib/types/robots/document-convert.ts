@@ -91,6 +91,7 @@ The following file formats can be converted from:
   numDaemons: 8,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
+  stage: 'ga',
 }
 
 export const robotDocumentConvertInstructionsSchema = robotBase
