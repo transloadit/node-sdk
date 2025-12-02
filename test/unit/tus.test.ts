@@ -84,9 +84,9 @@ describe('sendTusRequest', () => {
       [secondPath]: 2048,
     }
 
-    statMock.mockImplementation(async (path: StatPathArg) => {
+    statMock.mockImplementation((path: StatPathArg) => {
       const key = typeof path === 'string' ? path : path.toString()
-      return createStatResult(sizesByPath[key] ?? 0)
+      return Promise.resolve(createStatResult(sizesByPath[key] ?? 0))
     })
 
     const onProgress = vi.fn()
@@ -155,9 +155,9 @@ describe('sendTusRequest', () => {
       [secondPath]: 100,
     }
 
-    statMock.mockImplementation(async (path: StatPathArg) => {
+    statMock.mockImplementation((path: StatPathArg) => {
       const key = typeof path === 'string' ? path : path.toString()
-      return createStatResult(sizesByPath[key] ?? 0)
+      return Promise.resolve(createStatResult(sizesByPath[key] ?? 0))
     })
 
     const onProgress = vi.fn()

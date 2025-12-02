@@ -6,7 +6,8 @@
 //
 //   yarn prepack
 //
-import { type TemplateContent, Transloadit } from 'transloadit'
+import type { TemplateContent } from 'transloadit'
+import { Transloadit } from 'transloadit'
 
 const { TRANSLOADIT_KEY, TRANSLOADIT_SECRET } = process.env
 if (TRANSLOADIT_KEY == null || TRANSLOADIT_SECRET == null) {

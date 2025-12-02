@@ -5,26 +5,20 @@ import { access } from 'node:fs/promises'
 import type { Readable } from 'node:stream'
 import debug from 'debug'
 import FormData from 'form-data'
-import got, {
-  type Delays,
-  type Headers,
-  HTTPError,
-  type OptionsOfJSONResponseBody,
-  RequestError,
-  type RetryOptions,
-} from 'got'
+import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
+import got, { HTTPError, RequestError } from 'got'
 import intoStream, { type Input as IntoStreamInput } from 'into-stream'
 import { isReadableStream, isStream } from 'is-stream'
 import pMap from 'p-map'
 import packageJson from '../package.json' with { type: 'json' }
-import { ApiError, type TransloaditErrorResponseBody } from './ApiError.ts'
-import {
-  type AssemblyIndex,
-  type AssemblyIndexItem,
-  type AssemblyStatus,
-  assemblyIndexSchema,
-  assemblyStatusSchema,
+import type { TransloaditErrorResponseBody } from './ApiError.ts'
+import { ApiError } from './ApiError.ts'
+import type {
+  AssemblyIndex,
+  AssemblyIndexItem,
+  AssemblyStatus,
 } from './alphalib/types/assemblyStatus.ts'
+import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/assemblyStatus.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import type {
   BaseResponse,
@@ -50,7 +44,8 @@ import type {
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
-import { type Stream, sendTusRequest } from './tus.ts'
+import type { Stream } from './tus.ts'
+import { sendTusRequest } from './tus.ts'
 
 // See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
 // Expose relevant errors
@@ -294,11 +289,14 @@ export class Transloadit {
       }
 
       // If any stream emits error, we want to handle this and exit with error
+      // Note: We add a no-op catch to prevent unhandled rejection when createAssemblyAndUpload
+      // completes first and this promise is orphaned (but streams may still error later)
       const streamErrorPromise = new Promise<AssemblyStatus>((_resolve, reject) => {
         for (const { stream } of allStreams) {
           stream.on('error', reject)
         }
       })
+      streamErrorPromise.catch(() => {})
 
       const createAssemblyAndUpload = async () => {
         const result: AssemblyStatus = await this._remoteJson({
@@ -460,7 +458,7 @@ export class Transloadit {
     assemblyId: string,
     params: ReplayAssemblyNotificationParams = {},
   ): Promise<ReplayAssemblyNotificationResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/assembly_notifications/${assemblyId}/replay`,
       method: 'post',
       ...(Object.keys(params).length > 0 && { params }),
@@ -545,7 +543,7 @@ export class Transloadit {
   async createTemplateCredential(
     params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: '/template_credentials',
       method: 'post',
       params: params || {},
@@ -563,7 +561,7 @@ export class Transloadit {
     credentialId: string,
     params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
       method: 'put',
       params: params || {},
@@ -577,7 +575,7 @@ export class Transloadit {
    * @returns when the Credential is deleted
    */
   async deleteTemplateCredential(credentialId: string): Promise<BaseResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
       method: 'delete',
     })
@@ -590,7 +588,7 @@ export class Transloadit {
    * @returns when the Credential is retrieved
    */
   async getTemplateCredential(credentialId: string): Promise<TemplateCredentialResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
       method: 'get',
     })
@@ -605,7 +603,7 @@ export class Transloadit {
   async listTemplateCredentials(
     params?: ListTemplateCredentialsParams,
   ): Promise<TemplateCredentialsResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: '/template_credentials',
       method: 'get',
       params: params || {},
@@ -625,7 +623,7 @@ export class Transloadit {
    * @returns when the template is created
    */
   async createTemplate(params: CreateTemplateParams): Promise<TemplateResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: '/templates',
       method: 'post',
       params: params || {},
@@ -640,7 +638,7 @@ export class Transloadit {
    * @returns when the template is edited
    */
   async editTemplate(templateId: string, params: EditTemplateParams): Promise<TemplateResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
       method: 'put',
       params: params || {},
@@ -654,7 +652,7 @@ export class Transloadit {
    * @returns when the template is deleted
    */
   async deleteTemplate(templateId: string): Promise<BaseResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
       method: 'delete',
     })
@@ -667,7 +665,7 @@ export class Transloadit {
    * @returns when the template is retrieved
    */
   async getTemplate(templateId: string): Promise<TemplateResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
       method: 'get',
     })
@@ -682,7 +680,7 @@ export class Transloadit {
   async listTemplates(
     params?: ListTemplatesParams,
   ): Promise<PaginationListWithCount<ListedTemplate>> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: '/templates',
       method: 'get',
       params: params || {},
@@ -702,7 +700,7 @@ export class Transloadit {
    */
   async getBill(month: string): Promise<BillResponse> {
     assert.ok(month, 'month is required')
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/bill/${month}`,
       method: 'get',
     })
@@ -799,14 +797,14 @@ export class Transloadit {
     if (params == null) {
       params = {}
     }
-    if (params['auth'] == null) {
-      params['auth'] = {}
+    if (params.auth == null) {
+      params.auth = {}
     }
-    if (params['auth'].key == null) {
-      params['auth'].key = this._authKey
+    if (params.auth.key == null) {
+      params.auth.key = this._authKey
     }
-    if (params['auth'].expires == null) {
-      params['auth'].expires = this._getExpiresDate()
+    if (params.auth.expires == null) {
+      params.auth.expires = this._getExpiresDate()
     }
 
     return JSON.stringify(params)

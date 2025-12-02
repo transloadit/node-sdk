@@ -2,7 +2,8 @@ import { Resolver } from 'node:dns/promises'
 import { createInterface } from 'node:readline'
 import * as timers from 'node:timers/promises'
 import debug from 'debug'
-import { ExecaError, execa, type ResultPromise } from 'execa'
+import type { ResultPromise } from 'execa'
+import { ExecaError, execa } from 'execa'
 import pRetry from 'p-retry'
 
 const log = debug('transloadit:cloudflared-tunnel')

@@ -136,6 +136,9 @@ function dirProvider(output: string): OutstreamProvider {
       mtime = new Date(0)
     }
     const outstream = fs.createWriteStream(outpath) as OutStream
+    // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
+    // before being consumed (e.g., due to output collision detection)
+    outstream.on('error', () => {})
     outstream.mtime = mtime
     return outstream
   }
@@ -155,6 +158,9 @@ function fileProvider(output: string): OutstreamProvider {
       mtime = new Date(0)
     }
     const outstream = fs.createWriteStream(output) as OutStream
+    // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
+    // before being consumed (e.g., due to output collision detection)
+    outstream.on('error', () => {})
     outstream.mtime = mtime
     return outstream
   }
@@ -258,7 +264,11 @@ class ReaddirJobEmitter extends MyEventEmitter {
       if (existing) existing.end()
       const outstream = await outstreamProvider(file, topdir)
       streamRegistry[file] = outstream ?? undefined
-      this.emit('job', { in: fs.createReadStream(file), out: outstream })
+      const instream = fs.createReadStream(file)
+      // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
+      // before being consumed (e.g., due to output collision detection)
+      instream.on('error', () => {})
+      this.emit('job', { in: instream, out: outstream })
     }
   }
 }
@@ -282,6 +292,9 @@ class SingleJobEmitter extends MyEventEmitter {
         }
       } else {
         instream = fs.createReadStream(normalizedFile)
+        // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
+        // before being consumed (e.g., due to output collision detection)
+        instream.on('error', () => {})
       }
 
       process.nextTick(() => {
@@ -366,6 +379,9 @@ class WatchJobEmitter extends MyEventEmitter {
     streamRegistry[normalizedFile] = outstream ?? undefined
 
     const instream = fs.createReadStream(normalizedFile)
+    // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
+    // before being consumed (e.g., due to output collision detection)
+    instream.on('error', () => {})
     this.emit('job', { in: instream, out: outstream })
   }
 }
@@ -639,7 +655,10 @@ export default async function run(
     })
 
     const jobsPromise = new JobsPromise()
+    const activeJobs: Set<Job> = new Set()
+
     emitter.on('job', (job: Job) => {
+      activeJobs.add(job)
       const inPath = job.in ? ((job.in as fs.ReadStream).path as string | undefined) : undefined
       const outPath = job.out?.path
       outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
@@ -720,6 +739,7 @@ export default async function run(
       jobsPromise.add(jobPromise)
 
       async function completeJob(): Promise<void> {
+        activeJobs.delete(job)
         const inPath = job.in ? ((job.in as fs.ReadStream).path as string | undefined) : undefined
         const outPath = job.out?.path
         outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outPath ?? 'null'}`)
@@ -735,6 +755,7 @@ export default async function run(
     })
 
     emitter.on('error', (err: Error) => {
+      activeJobs.clear()
       outputctl.error(err)
       reject(err)
     })

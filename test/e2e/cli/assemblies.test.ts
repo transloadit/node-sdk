@@ -329,8 +329,10 @@ describe('assemblies', () => {
             .to.have.nested.property('msg.message')
             .that.equals("Output collision between 'in/1.jpg' and '1.jpg'")
         }
-        // Allow time for any pending file streams to settle/error before test cleanup
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        // Allow time for any pending file streams and API calls to settle before test cleanup.
+        // The assembliesCreate function may have started createAssembly calls that are still
+        // in flight when the conflict error is thrown. These need time to be handled/cancelled.
+        await new Promise((resolve) => setTimeout(resolve, 500))
       }),
     )
 

@@ -1,12 +1,10 @@
 import { inspect } from 'node:util'
 import nock from 'nock'
-
+import type { AssemblyStatus, Options } from '../../src/Transloadit.ts'
 import {
   ApiError,
-  type AssemblyStatus,
   assemblyInstructionsSchema,
   InconsistentResponseError,
-  type Options,
   TimeoutError,
   Transloadit,
 } from '../../src/Transloadit.ts'
@@ -157,30 +155,30 @@ describe('Mocked API tests', () => {
     // console.log(inspect(errorString))
     expect(inspect(errorString).split('\n')).toEqual([
       expect.stringMatching(
-        `API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo`,
+        'API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo',
       ),
-      expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
+      expect.stringMatching('    at .+'),
+      expect.stringMatching('    at .+'),
       expect.stringMatching(
-        `    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)`,
+        '    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)',
       ),
-      expect.stringMatching(`    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+`),
-      expect.stringMatching(`    at .+`),
+      expect.stringMatching('    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+'),
+      expect.stringMatching('    at .+'),
       expect.stringMatching(`  code: 'INVALID_FILE_META_DATA',`),
       expect.stringMatching(`  rawMessage: 'Invalid file metadata',`),
-      expect.stringMatching(`  reason: undefined,`),
+      expect.stringMatching('  reason: undefined,'),
       expect.stringMatching(
         `  assemblySslUrl: 'https:\\/\\/api2-oltu\\.transloadit\\.com\\/assemblies\\/foo'`,
       ),
       expect.stringMatching(`  assemblyId: '123',`),
-      expect.stringMatching(`  cause: HTTPError: Response code 400 \\(Bad Request\\)`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`    input: undefined,`),
+      expect.stringMatching('  cause: HTTPError: Response code 400 \\(Bad Request\\)'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('    input: undefined,'),
       expect.stringMatching(`    code: 'ERR_NON_2XX_3XX_RESPONSE',`),
       expect.stringMatching('    \\[cause\\]: {}'),
       expect.stringMatching('  }'),

@@ -1,6 +1,7 @@
 import process from 'node:process'
 import { Command, Option } from 'clipanion'
-import { type ZodIssue, z } from 'zod'
+import type { ZodIssue } from 'zod'
+import { z } from 'zod'
 import {
   assemblyAuthInstructionsSchema,
   assemblyInstructionsSchema,
