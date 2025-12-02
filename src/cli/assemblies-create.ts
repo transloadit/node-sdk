@@ -8,7 +8,7 @@ import process from 'node:process'
 import type { Readable, Writable } from 'node:stream'
 import tty from 'node:tty'
 import { promisify } from 'node:util'
-import { stepsSchema, type Steps } from '../alphalib/types/template.ts'
+import type { StepsInput } from '../alphalib/types/template.ts'
 import type { CreateAssemblyParams } from '../apiTypes.ts'
 import type { AssemblyStatus, CreateAssemblyOptions, Transloadit } from '../Transloadit.ts'
 import JobsPromise from './JobsPromise.ts'
@@ -600,16 +600,27 @@ export default async function run(
   let resolvedOutput = output
   if (resolvedOutput === undefined && !process.stdout.isTTY) resolvedOutput = '-'
 
-  // Read and validate steps file async before entering the Promise constructor
-  let stepsData: Steps | undefined
+  // Read steps file async before entering the Promise constructor
+  // We use StepsInput (the input type) rather than Steps (the transformed output type)
+  // to avoid zod adding default values that the API may reject
+  let stepsData: StepsInput | undefined
   if (steps) {
     const stepsContent = await fsp.readFile(steps, 'utf8')
     const parsed: unknown = JSON.parse(stepsContent)
-    const validated = stepsSchema.safeParse(parsed)
-    if (!validated.success) {
-      throw new Error(`Invalid steps format: ${validated.error.message}`)
+    // Basic structural validation: must be an object with step names as keys
+    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Invalid steps format: expected an object with step names as keys')
     }
-    stepsData = validated.data
+    // Validate each step has a robot field
+    for (const [stepName, step] of Object.entries(parsed)) {
+      if (step == null || typeof step !== 'object' || Array.isArray(step)) {
+        throw new Error(`Invalid steps format: step '${stepName}' must be an object`)
+      }
+      if (!('robot' in step) || typeof (step as Record<string, unknown>).robot !== 'string') {
+        throw new Error(`Invalid steps format: step '${stepName}' must have a 'robot' string property`)
+      }
+    }
+    stepsData = parsed as StepsInput
   }
 
   // Determine output stat async before entering the Promise constructor
@@ -638,7 +649,9 @@ export default async function run(
 
   return new Promise((resolve, reject) => {
     const params: CreateAssemblyParams = (
-      stepsData ? { steps: stepsData } : { template_id: template }
+      stepsData
+        ? { steps: stepsData as CreateAssemblyParams['steps'] }
+        : { template_id: template }
     ) as CreateAssemblyParams
     if (fields) {
       params.fields = fields
