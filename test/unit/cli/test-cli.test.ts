@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { runSig, runSmartSig } from '../../src/cli/commands/auth.ts'
-import { main, shouldRunCli } from '../../src/cli.ts'
-import { Transloadit } from '../../src/Transloadit.ts'
+import { runSig, runSmartSig } from '../../../src/cli/commands/auth.ts'
+import { main, shouldRunCli } from '../../../src/cli.ts'
+import { Transloadit } from '../../../src/Transloadit.ts'
 
 const resetExitCode = () => {
   process.exitCode = undefined
@@ -20,7 +20,7 @@ afterEach(() => {
 describe('cli smart_sig', () => {
   it('recognizes symlinked invocation paths', () => {
     const tmpDir = mkdtempSync(path.join(tmpdir(), 'transloadit-cli-'))
-    const symlinkTarget = fileURLToPath(new URL('../../src/cli.ts', import.meta.url))
+    const symlinkTarget = fileURLToPath(new URL('../../../src/cli.ts', import.meta.url))
     const symlinkPath = path.join(tmpDir, 'transloadit')
 
     symlinkSync(symlinkTarget, symlinkPath)

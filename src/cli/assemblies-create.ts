@@ -449,7 +449,7 @@ function dismissStaleJobs(jobEmitter: EventEmitter): MyEventEmitter {
 
   const jobsPromise = new JobsPromise()
 
-  jobEmitter.on('end', () => jobsPromise.promise().then(() => emitter.emit('end')))
+  jobEmitter.on('end', () => jobsPromise.allSettled().then(() => emitter.emit('end')))
   jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
   jobEmitter.on('job', (job: Job) => {
     if (job.in == null || job.out == null) {
@@ -730,8 +730,8 @@ export default async function run(
       }
     })
 
-    jobsPromise.on('error', (err: Error) => {
-      outputctl.error(err)
+    jobsPromise.setErrorHandler((err: unknown) => {
+      outputctl.error(err as Error)
     })
 
     emitter.on('error', (err: Error) => {
@@ -740,7 +740,7 @@ export default async function run(
     })
 
     emitter.on('end', () => {
-      resolve(jobsPromise.promise())
+      resolve(jobsPromise.allSettled())
     })
   })
 }

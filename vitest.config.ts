@@ -18,6 +18,6 @@ export default defineConfig({
     },
     globals: true,
     testTimeout: 100000,
-    exclude: ['test/e2e/test-utils.ts', 'test/e2e/OutputCtl.ts'],
+    exclude: ['test/e2e/cli/test-utils.ts', 'test/e2e/cli/OutputCtl.ts'],
   },
 })

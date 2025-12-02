@@ -8,31 +8,12 @@ export function createReadStream(file: string): Readable {
   return fs.createReadStream(file)
 }
 
-export function stream2buf(stream: Readable, cb: (err: Error | null, buf?: Buffer) => void): void {
-  let size = 0
-  const bufs: Buffer[] = []
-
-  stream.on('error', cb)
-
-  stream.on('readable', () => {
-    const chunk = stream.read() as Buffer | null
-    if (chunk === null) return
-
-    size += chunk.length
-    bufs.push(chunk)
-  })
-
-  stream.on('end', () => {
-    const buf = Buffer.alloc(size)
-    let offset = 0
-
-    for (const b of bufs) {
-      b.copy(buf, offset)
-      offset += b.length
-    }
-
-    cb(null, buf)
-  })
+export async function streamToBuffer(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = []
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  }
+  return Buffer.concat(chunks)
 }
 
 export function formatAPIError(err: unknown): string {

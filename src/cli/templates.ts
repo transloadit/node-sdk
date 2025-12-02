@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { tryCatch } from '../alphalib/tryCatch.ts'
 import type { TemplateContent } from '../apiTypes.ts'
 import type { Transloadit } from '../Transloadit.ts'
-import { createReadStream, formatAPIError, stream2buf } from './helpers.ts'
+import { createReadStream, formatAPIError, streamToBuffer } from './helpers.ts'
 import type { IOutputCtl } from './OutputCtl.ts'
 import ModifiedLookup from './template-last-modified.ts'
 import type { TemplateFile } from './types.ts'
@@ -54,13 +54,7 @@ export async function create(
   { name, file }: TemplateCreateOptions,
 ): Promise<unknown> {
   try {
-    const buf = await new Promise<Buffer>((resolve, reject) => {
-      stream2buf(createReadStream(file), (err, buf) => {
-        if (err) reject(err)
-        else if (buf) resolve(buf)
-        else reject(new Error('No buffer received'))
-      })
-    })
+    const buf = await streamToBuffer(createReadStream(file))
 
     const parsed: unknown = JSON.parse(buf.toString())
     const validated = StepsSchema.safeParse(parsed)
@@ -105,13 +99,7 @@ export async function modify(
   { template, name, file }: TemplateModifyOptions,
 ): Promise<void> {
   try {
-    const buf = await new Promise<Buffer>((resolve, reject) => {
-      stream2buf(createReadStream(file), (err, buf) => {
-        if (err) reject(err)
-        else if (buf) resolve(buf)
-        else reject(new Error('No buffer received'))
-      })
-    })
+    const buf = await streamToBuffer(createReadStream(file))
 
     let json: Record<string, unknown> | null = null
     let newName = name

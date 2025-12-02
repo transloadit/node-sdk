@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { tryCatch } from '../alphalib/tryCatch.ts'
 import type { Transloadit } from '../Transloadit.ts'
 import assembliesCreate from './assemblies-create.ts'
-import { createReadStream, formatAPIError, stream2buf } from './helpers.ts'
+import { createReadStream, formatAPIError, streamToBuffer } from './helpers.ts'
 import type { IOutputCtl } from './OutputCtl.ts'
 import { ensureError } from './types.ts'
 
@@ -112,13 +112,7 @@ export async function replay(
 ): Promise<void> {
   if (steps) {
     try {
-      const buf = await new Promise<Buffer>((resolve, reject) => {
-        stream2buf(createReadStream(steps), (err, buf) => {
-          if (err) reject(err)
-          else if (buf) resolve(buf)
-          else reject(new Error('No buffer received'))
-        })
-      })
+      const buf = await streamToBuffer(createReadStream(steps))
       const parsed: unknown = JSON.parse(buf.toString())
       const validated = StepsSchema.safeParse(parsed)
       if (!validated.success) {

@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { rimraf } from 'rimraf'
 import 'dotenv/config'
-import { Transloadit as TransloaditClient } from '../../src/Transloadit.ts'
+import { Transloadit as TransloaditClient } from '../../../src/Transloadit.ts'
 
 export const execAsync = promisify(exec)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-export const cliPath = path.resolve(__dirname, '../../src/cli.ts')
+export const cliPath = path.resolve(__dirname, '../../../src/cli.ts')
 
 export const tmpDir = '/tmp'
 

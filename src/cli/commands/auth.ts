@@ -77,7 +77,7 @@ async function readStdin(): Promise<string> {
   return data
 }
 
-function ensureCredentials(): { authKey: string; authSecret: string } | null {
+function getCredentials(): { authKey: string; authSecret: string } | null {
   const authKey = process.env.TRANSLOADIT_KEY || process.env.TRANSLOADIT_AUTH_KEY
   const authSecret = process.env.TRANSLOADIT_SECRET || process.env.TRANSLOADIT_AUTH_SECRET
 
@@ -88,34 +88,16 @@ function ensureCredentials(): { authKey: string; authSecret: string } | null {
   return { authKey, authSecret }
 }
 
-// Testable helper functions exported for unit tests
-export interface RunSigOptions {
-  providedInput?: string
-  algorithm?: string
-}
+// Result type for signature operations
+type SigResult = { ok: true; output: string } | { ok: false; error: string }
 
-export interface RunSmartSigOptions {
-  providedInput?: string
-}
-
-function fail(message: string): void {
-  console.error(message)
-  process.exitCode = 1
-}
-
-export async function runSig(options: RunSigOptions = {}): Promise<void> {
-  const credentials = ensureCredentials()
-  if (credentials == null) {
-    fail(
-      'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
-    )
-    return
-  }
+// Core logic for signature generation
+function generateSignature(
+  input: string,
+  credentials: { authKey: string; authSecret: string },
+  algorithm?: string,
+): SigResult {
   const { authKey, authSecret } = credentials
-  const { providedInput, algorithm } = options
-
-  const rawInput = providedInput ?? (await readStdin())
-  const input = rawInput.trim()
   let params: Record<string, unknown>
 
   if (input === '') {
@@ -125,19 +107,16 @@ export async function runSig(options: RunSigOptions = {}): Promise<void> {
     try {
       parsed = JSON.parse(input)
     } catch (error) {
-      fail(`Failed to parse JSON from stdin: ${(error as Error).message}`)
-      return
+      return { ok: false, error: `Failed to parse JSON from stdin: ${(error as Error).message}` }
     }
 
     if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      fail('Invalid params provided via stdin. Expected a JSON object.')
-      return
+      return { ok: false, error: 'Invalid params provided via stdin. Expected a JSON object.' }
     }
 
     const parsedResult = cliSignatureParamsSchema.safeParse(parsed)
     if (!parsedResult.success) {
-      fail(`Invalid params: ${formatIssues(parsedResult.error.issues)}`)
-      return
+      return { ok: false, error: `Invalid params: ${formatIssues(parsedResult.error.issues)}` }
     }
 
     const parsedParams = parsedResult.data as Record<string, unknown>
@@ -160,48 +139,41 @@ export async function runSig(options: RunSigOptions = {}): Promise<void> {
   const client = new Transloadit({ authKey, authSecret })
   try {
     const signature = client.calcSignature(params as OptionalAuthParams, algorithm)
-    process.stdout.write(`${JSON.stringify(signature)}\n`)
+    return { ok: true, output: JSON.stringify(signature) }
   } catch (error) {
-    fail(`Failed to generate signature: ${(error as Error).message}`)
+    return { ok: false, error: `Failed to generate signature: ${(error as Error).message}` }
   }
 }
 
-export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<void> {
-  const credentials = ensureCredentials()
-  if (credentials == null) {
-    fail(
-      'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
-    )
-    return
-  }
+// Core logic for Smart CDN URL generation
+function generateSmartCdnUrl(
+  input: string,
+  credentials: { authKey: string; authSecret: string },
+): SigResult {
   const { authKey, authSecret } = credentials
 
-  const rawInput = options.providedInput ?? (await readStdin())
-  const input = rawInput.trim()
   if (input === '') {
-    fail(
-      'Missing params provided via stdin. Expected a JSON object with workspace, template, input, and optional Smart CDN parameters.',
-    )
-    return
+    return {
+      ok: false,
+      error:
+        'Missing params provided via stdin. Expected a JSON object with workspace, template, input, and optional Smart CDN parameters.',
+    }
   }
 
   let parsed: unknown
   try {
     parsed = JSON.parse(input)
   } catch (error) {
-    fail(`Failed to parse JSON from stdin: ${(error as Error).message}`)
-    return
+    return { ok: false, error: `Failed to parse JSON from stdin: ${(error as Error).message}` }
   }
 
   if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    fail('Invalid params provided via stdin. Expected a JSON object.')
-    return
+    return { ok: false, error: 'Invalid params provided via stdin. Expected a JSON object.' }
   }
 
   const parsedResult = smartCdnParamsSchema.safeParse(parsed)
   if (!parsedResult.success) {
-    fail(`Invalid params: ${formatIssues(parsedResult.error.issues)}`)
-    return
+    return { ok: false, error: `Invalid params: ${formatIssues(parsedResult.error.issues)}` }
   }
 
   const { workspace, template, input: inputFieldRaw, url_params, expire_at_ms } = parsedResult.data
@@ -211,8 +183,7 @@ export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<voi
   if (typeof expire_at_ms === 'string') {
     const parsedNumber = Number.parseInt(expire_at_ms, 10)
     if (Number.isNaN(parsedNumber)) {
-      fail('Invalid params: expire_at_ms must be a number.')
-      return
+      return { ok: false, error: 'Invalid params: expire_at_ms must be a number.' }
     }
     expiresAt = parsedNumber
   } else {
@@ -230,9 +201,61 @@ export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<voi
       urlParams,
       expiresAt,
     })
-    process.stdout.write(`${signedUrl}\n`)
+    return { ok: true, output: signedUrl }
   } catch (error) {
-    fail(`Failed to generate Smart CDN URL: ${(error as Error).message}`)
+    return { ok: false, error: `Failed to generate Smart CDN URL: ${(error as Error).message}` }
+  }
+}
+
+// Testable helper functions exported for unit tests
+export interface RunSigOptions {
+  providedInput?: string
+  algorithm?: string
+}
+
+export interface RunSmartSigOptions {
+  providedInput?: string
+}
+
+export async function runSig(options: RunSigOptions = {}): Promise<void> {
+  const credentials = getCredentials()
+  if (credentials == null) {
+    console.error(
+      'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
+    )
+    process.exitCode = 1
+    return
+  }
+
+  const rawInput = options.providedInput ?? (await readStdin())
+  const result = generateSignature(rawInput.trim(), credentials, options.algorithm)
+
+  if (result.ok) {
+    process.stdout.write(`${result.output}\n`)
+  } else {
+    console.error(result.error)
+    process.exitCode = 1
+  }
+}
+
+export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<void> {
+  const credentials = getCredentials()
+  if (credentials == null) {
+    console.error(
+      'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
+    )
+    process.exitCode = 1
+    return
+  }
+
+  const rawInput = options.providedInput ?? (await readStdin())
+  const result = generateSmartCdnUrl(rawInput.trim(), credentials)
+
+  if (result.ok) {
+    process.stdout.write(`${result.output}\n`)
+  } else {
+    console.error(result.error)
+    process.exitCode = 1
   }
 }
 
@@ -266,68 +289,24 @@ export class SignatureCommand extends UnauthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    const credentials = ensureCredentials()
+    const credentials = getCredentials()
     if (credentials == null) {
       this.output.error(
         'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
       )
       return 1
     }
-    const { authKey, authSecret } = credentials
 
     const rawInput = await readStdin()
-    const input = rawInput.trim()
-    let params: Record<string, unknown>
+    const result = generateSignature(rawInput.trim(), credentials, this.algorithm)
 
-    if (input === '') {
-      params = { auth: { key: authKey } }
-    } else {
-      let parsed: unknown
-      try {
-        parsed = JSON.parse(input)
-      } catch (error) {
-        this.output.error(`Failed to parse JSON from stdin: ${(error as Error).message}`)
-        return 1
-      }
-
-      if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        this.output.error('Invalid params provided via stdin. Expected a JSON object.')
-        return 1
-      }
-
-      const parsedResult = cliSignatureParamsSchema.safeParse(parsed)
-      if (!parsedResult.success) {
-        this.output.error(`Invalid params: ${formatIssues(parsedResult.error.issues)}`)
-        return 1
-      }
-
-      const parsedParams = parsedResult.data as Record<string, unknown>
-      const existingAuth =
-        typeof parsedParams.auth === 'object' &&
-        parsedParams.auth != null &&
-        !Array.isArray(parsedParams.auth)
-          ? (parsedParams.auth as Record<string, unknown>)
-          : {}
-
-      params = {
-        ...parsedParams,
-        auth: {
-          ...existingAuth,
-          key: authKey,
-        },
-      }
+    if (result.ok) {
+      process.stdout.write(`${result.output}\n`)
+      return undefined
     }
 
-    const client = new Transloadit({ authKey, authSecret })
-    try {
-      const signature = client.calcSignature(params as OptionalAuthParams, this.algorithm)
-      process.stdout.write(`${JSON.stringify(signature)}\n`)
-    } catch (error) {
-      this.output.error(`Failed to generate signature: ${(error as Error).message}`)
-      return 1
-    }
-
-    return undefined
+    this.output.error(result.error)
+    return 1
   }
 }
 
@@ -363,81 +342,23 @@ export class SmartCdnSignatureCommand extends UnauthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    const credentials = ensureCredentials()
+    const credentials = getCredentials()
     if (credentials == null) {
       this.output.error(
         'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
       )
       return 1
     }
-    const { authKey, authSecret } = credentials
 
     const rawInput = await readStdin()
-    const input = rawInput.trim()
-    if (input === '') {
-      this.output.error(
-        'Missing params provided via stdin. Expected a JSON object with workspace, template, input, and optional Smart CDN parameters.',
-      )
-      return 1
+    const result = generateSmartCdnUrl(rawInput.trim(), credentials)
+
+    if (result.ok) {
+      process.stdout.write(`${result.output}\n`)
+      return undefined
     }
 
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(input)
-    } catch (error) {
-      this.output.error(`Failed to parse JSON from stdin: ${(error as Error).message}`)
-      return 1
-    }
-
-    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      this.output.error('Invalid params provided via stdin. Expected a JSON object.')
-      return 1
-    }
-
-    const parsedResult = smartCdnParamsSchema.safeParse(parsed)
-    if (!parsedResult.success) {
-      this.output.error(`Invalid params: ${formatIssues(parsedResult.error.issues)}`)
-      return 1
-    }
-
-    const {
-      workspace,
-      template,
-      input: inputFieldRaw,
-      url_params,
-      expire_at_ms,
-    } = parsedResult.data
-    const urlParams = normalizeUrlParams(url_params as Record<string, unknown> | undefined)
-
-    let expiresAt: number | undefined
-    if (typeof expire_at_ms === 'string') {
-      const parsedNumber = Number.parseInt(expire_at_ms, 10)
-      if (Number.isNaN(parsedNumber)) {
-        this.output.error('Invalid params: expire_at_ms must be a number.')
-        return 1
-      }
-      expiresAt = parsedNumber
-    } else {
-      expiresAt = expire_at_ms
-    }
-
-    const inputField = typeof inputFieldRaw === 'string' ? inputFieldRaw : String(inputFieldRaw)
-
-    const client = new Transloadit({ authKey, authSecret })
-    try {
-      const signedUrl = client.getSignedSmartCDNUrl({
-        workspace,
-        template,
-        input: inputField,
-        urlParams,
-        expiresAt,
-      })
-      process.stdout.write(`${signedUrl}\n`)
-    } catch (error) {
-      this.output.error(`Failed to generate Smart CDN URL: ${(error as Error).message}`)
-      return 1
-    }
-
-    return undefined
+    this.output.error(result.error)
+    return 1
   }
 }
