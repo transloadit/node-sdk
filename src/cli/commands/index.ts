@@ -1,5 +1,7 @@
 import { Builtins, Cli } from 'clipanion'
 
+import packageJson from '../../../package.json' with { type: 'json' }
+
 import {
   AssembliesCreateCommand,
   AssembliesDeleteCommand,
@@ -27,7 +29,7 @@ export function createCli(): Cli {
   const cli = new Cli({
     binaryLabel: 'Transloadit CLI',
     binaryName: 'transloadit',
-    binaryVersion: '1.0.0',
+    binaryVersion: packageJson.version,
   })
 
   // Built-in commands
