@@ -2,6 +2,12 @@
 
 You may also want to refer to [GitHub releases](https://github.com/transloadit/node-sdk/releases).
 
+## Unreleased
+
+- Add `signal` option to `createAssembly()` for cancelling in-flight HTTP requests and TUS uploads via `AbortController`
+- Integrate transloadify CLI into the SDK, providing `assemblies`, `templates`, and `bills` commands
+- Apply stricter biome lint rules (noExplicitAny, useAwait, noForEach, noNonNullAssertion)
+
 ## v4.0.7
 
 Released: 2025-11-26.

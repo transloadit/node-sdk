@@ -55,6 +55,7 @@ async function startTunnel({ cloudFlaredPath, port }: CreateTunnelParams) {
         'failed to sufficiently increase receive buffer size',
         'update check failed error',
         'failed to parse quick Tunnel ID',
+        'failed to unmarshal quick Tunnel', // Transient Cloudflare API JSON parsing error
       ]
 
       rl.on('line', (line) => {

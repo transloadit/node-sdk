@@ -656,6 +656,8 @@ export default async function run(
 
     const jobsPromise = new JobsPromise()
     const activeJobs: Set<Job> = new Set()
+    // AbortController to cancel all in-flight createAssembly calls when an error occurs
+    const abortController = new AbortController()
 
     emitter.on('job', (job: Job) => {
       activeJobs.add(job)
@@ -669,7 +671,10 @@ export default async function run(
           superceded = true
         })
 
-      const createOptions: CreateAssemblyOptions = { params }
+      const createOptions: CreateAssemblyOptions = {
+        params,
+        signal: abortController.signal,
+      }
       if (job.in != null) {
         createOptions.uploads = { in: job.in }
       }
@@ -755,6 +760,8 @@ export default async function run(
     })
 
     emitter.on('error', (err: Error) => {
+      // Abort all in-flight createAssembly calls to ensure clean shutdown
+      abortController.abort()
       activeJobs.clear()
       outputctl.error(err)
       reject(err)

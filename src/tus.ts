@@ -21,6 +21,7 @@ interface SendTusRequestOptions {
   requestedChunkSize: number
   uploadConcurrency: number
   onProgress: (options: UploadProgress) => void
+  signal?: AbortSignal
 }
 
 export async function sendTusRequest({
@@ -29,6 +30,7 @@ export async function sendTusRequest({
   requestedChunkSize,
   uploadConcurrency,
   onProgress,
+  signal,
 }: SendTusRequestOptions) {
   const streamLabels = Object.keys(streamsMap)
 
@@ -43,6 +45,9 @@ export async function sendTusRequest({
   await pMap(
     streamLabels,
     async (label) => {
+      // Check if aborted before each operation
+      if (signal?.aborted) throw new Error('Upload aborted')
+
       const streamInfo = streamsMap[label]
       if (!streamInfo) {
         throw new Error(`Stream info not found for label: ${label}`)
@@ -55,7 +60,7 @@ export async function sendTusRequest({
         totalBytes += size
       }
     },
-    { concurrency: 5 },
+    { concurrency: 5, signal },
   )
 
   const uploadProgresses: Record<string, number> = {}
@@ -103,10 +108,27 @@ export async function sendTusRequest({
 
     const filename = path ? basename(path) : label
 
-    await new Promise<OnSuccessPayload>((resolve, reject) => {
+    await new Promise<OnSuccessPayload>((resolvePromise, rejectPromise) => {
       if (!assembly.assembly_ssl_url) {
-        reject(new Error('assembly_ssl_url is not present in the assembly status'))
+        rejectPromise(new Error('assembly_ssl_url is not present in the assembly status'))
         return
+      }
+
+      // Check if already aborted before starting
+      if (signal?.aborted) {
+        rejectPromise(new Error('Upload aborted'))
+        return
+      }
+
+      // Wrap resolve/reject to clean up abort listener
+      let abortHandler: (() => void) | undefined
+      const resolve = (payload: OnSuccessPayload) => {
+        if (abortHandler) signal?.removeEventListener('abort', abortHandler)
+        resolvePromise(payload)
+      }
+      const reject = (err: unknown) => {
+        if (abortHandler) signal?.removeEventListener('abort', abortHandler)
+        rejectPromise(err)
       }
 
       const tusOptions: UploadOptions = {
@@ -127,11 +149,20 @@ export async function sendTusRequest({
 
       const tusUpload = new Upload(stream, tusOptions)
 
+      // Handle abort signal
+      if (signal) {
+        abortHandler = () => {
+          tusUpload.abort()
+          reject(new Error('Upload aborted'))
+        }
+        signal.addEventListener('abort', abortHandler, { once: true })
+      }
+
       tusUpload.start()
     })
 
     log(label, 'upload done')
   }
 
-  await pMap(streamLabels, uploadSingleStream, { concurrency: uploadConcurrency })
+  await pMap(streamLabels, uploadSingleStream, { concurrency: uploadConcurrency, signal })
 }

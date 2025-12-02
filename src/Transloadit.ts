@@ -90,6 +90,11 @@ export interface CreateAssemblyOptions {
   onUploadProgress?: (uploadProgress: UploadProgress) => void
   onAssemblyProgress?: AssemblyProgress
   assemblyId?: string
+  /**
+   * Optional AbortSignal to cancel the assembly creation and upload.
+   * When aborted, any in-flight HTTP requests and TUS uploads will be cancelled.
+   */
+  signal?: AbortSignal
 }
 
 export interface AwaitAssemblyCompletionOptions {
@@ -231,6 +236,7 @@ export class Transloadit {
       files = {},
       uploads = {},
       assemblyId,
+      signal,
     } = opts
 
     // Keep track of how long the request took
@@ -307,6 +313,7 @@ export class Transloadit {
           fields: {
             tus_num_expected_upload_files: allStreams.length,
           },
+          signal,
         })
         checkResult(result)
 
@@ -317,6 +324,7 @@ export class Transloadit {
             onProgress: onUploadProgress,
             requestedChunkSize,
             uploadConcurrency,
+            signal,
           })
         }
 
@@ -828,6 +836,7 @@ export class Transloadit {
     params?: TParams
     fields?: Fields
     headers?: Headers
+    signal?: AbortSignal
   }): Promise<TRet> {
     const {
       urlSuffix,
@@ -837,6 +846,7 @@ export class Transloadit {
       params = {},
       fields,
       headers,
+      signal,
     } = opts
 
     // Allow providing either a `urlSuffix` or a full `url`
@@ -869,6 +879,7 @@ export class Transloadit {
           ...headers,
         },
         responseType: 'json',
+        signal,
       }
 
       try {
