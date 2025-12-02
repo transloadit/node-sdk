@@ -18,6 +18,11 @@ export default defineConfig({
     },
     globals: true,
     testTimeout: 100000,
-    exclude: ['test/e2e/cli/test-utils.ts', 'test/e2e/cli/OutputCtl.ts'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      'test/e2e/cli/test-utils.ts',
+      'test/e2e/cli/OutputCtl.ts',
+    ],
   },
 })

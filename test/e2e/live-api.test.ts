@@ -722,7 +722,10 @@ describe('API integration', { timeout: 60000, retry: 1 }, () => {
     })
 
     it('should allow creating a template', async () => {
-      const template = await client.createTemplate({ name: templName, template: genericParams })
+      const template = await client.createTemplate({
+        name: templName,
+        template: { steps: genericParams.steps },
+      })
       templId = template.id
     })
 
@@ -732,7 +735,7 @@ describe('API integration', { timeout: 60000, retry: 1 }, () => {
       const template = await client.getTemplate(nn(templId, 'templId'))
       const { name, content } = template
       expect(name).toBe(templName)
-      expect(content).toEqual(genericParams)
+      expect(content).toEqual({ steps: genericParams.steps })
     })
 
     it('should allow editing a template', async () => {

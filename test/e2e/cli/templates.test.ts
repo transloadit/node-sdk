@@ -87,11 +87,12 @@ describe('templates', () => {
 
   describe('modify', () => {
     let templateId: string
+    const originalName = `original-name-${Date.now()}`
 
     beforeAll(async () => {
       const client = new TransloaditClient({ authKey, authSecret })
       const response = await client.createTemplate({
-        name: 'original-name',
+        name: originalName,
         template: {
           steps: { dummy: { robot: '/html/convert', url: 'https://example.com' } },
         } as TemplateContent,
@@ -114,7 +115,7 @@ describe('templates', () => {
         expect(result).to.have.lengthOf(0)
         await delay(2000)
         const template = await client.getTemplate(templateId)
-        expect(template).to.have.property('name').that.equals('original-name')
+        expect(template).to.have.property('name').that.equals(originalName)
         expect(template).to.have.property('content').that.has.property('steps')
       }),
     )
