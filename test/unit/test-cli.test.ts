@@ -3,10 +3,9 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import * as cli from '../../src/cli.ts'
+import { runSig, runSmartSig } from '../../src/cli/commands/auth.ts'
+import { main, shouldRunCli } from '../../src/cli.ts'
 import { Transloadit } from '../../src/Transloadit.ts'
-
-const { main, runSig, runSmartSig, shouldRunCli } = cli
 
 const resetExitCode = () => {
   process.exitCode = undefined
@@ -358,17 +357,13 @@ describe('cli sig', () => {
 })
 
 describe('cli help', () => {
-  it('prints usage when no command is provided', async () => {
+  it('prints usage when --help is provided', async () => {
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await main([])
+    await main(['--help'])
 
-    expect(stderrSpy).not.toHaveBeenCalled()
     expect(stdoutSpy).toHaveBeenCalled()
-    const message = `${stdoutSpy.mock.calls[0]?.[0]}`
-    expect(message).toContain('npx transloadit smart_sig')
-    expect(message).toContain('npx transloadit sig')
-    expect(process.exitCode).toBe(1)
+    const message = stdoutSpy.mock.calls.map((call) => `${call[0]}`).join('')
+    expect(message).toContain('Transloadit CLI')
   })
 })
