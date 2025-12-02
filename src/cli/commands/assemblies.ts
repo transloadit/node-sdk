@@ -227,11 +227,19 @@ export class AssembliesReplayCommand extends AuthenticatedCommand {
   static override usage = Command.Usage({
     category: 'Assemblies',
     description: 'Replay assemblies',
+    details: `
+      Replay one or more assemblies. By default, replays use the original assembly instructions.
+      Use --steps to override the instructions, or --reparse-template to use the latest template version.
+    `,
     examples: [
-      ['Replay an assembly', 'transloadit assemblies replay ASSEMBLY_ID'],
+      ['Replay an assembly with original steps', 'transloadit assemblies replay ASSEMBLY_ID'],
       [
-        'Replay with new notify URL',
-        'transloadit assemblies replay --notify-url https://example.com/notify ASSEMBLY_ID',
+        'Replay with different steps',
+        'transloadit assemblies replay --steps new-steps.json ASSEMBLY_ID',
+      ],
+      [
+        'Replay with updated template',
+        'transloadit assemblies replay --reparse-template ASSEMBLY_ID',
       ],
     ],
   })
@@ -241,7 +249,7 @@ export class AssembliesReplayCommand extends AuthenticatedCommand {
   })
 
   steps = Option.String('--steps,-s', {
-    description: 'Override assembly instructions',
+    description: 'Optional JSON file to override assembly instructions',
   })
 
   notifyUrl = Option.String('--notify-url', {

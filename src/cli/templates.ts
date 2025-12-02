@@ -4,6 +4,7 @@ import { promisify } from 'node:util'
 import rreaddir from 'recursive-readdir'
 import { z } from 'zod'
 import { tryCatch } from '../alphalib/tryCatch.ts'
+import { stepsSchema, type Steps } from '../alphalib/types/template.ts'
 import type { TemplateContent } from '../apiTypes.ts'
 import type { Transloadit } from '../Transloadit.ts'
 import { createReadStream, formatAPIError, streamToBuffer } from './helpers.ts'
@@ -46,8 +47,6 @@ export interface TemplateSyncOptions {
   recursive?: boolean
 }
 
-const StepsSchema = z.record(z.string(), z.unknown())
-
 export async function create(
   output: IOutputCtl,
   client: Transloadit,
@@ -57,13 +56,14 @@ export async function create(
     const buf = await streamToBuffer(createReadStream(file))
 
     const parsed: unknown = JSON.parse(buf.toString())
-    const validated = StepsSchema.safeParse(parsed)
+    const validated = stepsSchema.safeParse(parsed)
     if (!validated.success) {
-      throw new Error('Invalid template steps format')
+      throw new Error(`Invalid template steps format: ${validated.error.message}`)
     }
 
     const result = await client.createTemplate({
       name,
+      // Steps (validated) is assignable to StepsInput at runtime; cast for TS
       template: { steps: validated.data } as TemplateContent,
     })
     output.print(result.id, result)
@@ -101,36 +101,34 @@ export async function modify(
   try {
     const buf = await streamToBuffer(createReadStream(file))
 
-    let json: Record<string, unknown> | null = null
+    let steps: Steps | null = null
     let newName = name
 
     if (buf.length > 0) {
       const parsed: unknown = JSON.parse(buf.toString())
-      const validated = StepsSchema.safeParse(parsed)
+      const validated = stepsSchema.safeParse(parsed)
       if (!validated.success) {
-        throw new Error('Invalid template steps format')
+        throw new Error(`Invalid template steps format: ${validated.error.message}`)
       }
-      json = validated.data
+      steps = validated.data
     }
 
     if (!name || buf.length === 0) {
       const tpl = await client.getTemplate(template)
       if (!name) newName = tpl.name
-      if (buf.length === 0) {
-        const stepsContent = tpl.content.steps
-        if (stepsContent && typeof stepsContent === 'object') {
-          json = stepsContent as Record<string, unknown>
-        }
+      if (buf.length === 0 && tpl.content.steps) {
+        steps = tpl.content.steps
       }
     }
 
-    if (json === null) {
+    if (steps === null) {
       throw new Error('No steps to update template with')
     }
 
     await client.editTemplate(template, {
       name: newName,
-      template: { steps: json } as TemplateContent,
+      // Steps (validated) is assignable to StepsInput at runtime; cast for TS
+      template: { steps } as TemplateContent,
     })
   } catch (err) {
     output.error(formatAPIError(err))
@@ -318,7 +316,7 @@ export async function sync(
 
     const result = await client.getTemplate(templateId)
 
-    template.data.steps = result.content as Record<string, unknown>
+    template.data.steps = result.content.steps
     const file = path.join(path.dirname(template.file), `${result.name}.json`)
 
     await fsp.writeFile(template.file, JSON.stringify(template.data))

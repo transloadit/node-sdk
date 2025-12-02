@@ -16,7 +16,8 @@ describe('templates', () => {
       testCase(async (client) => {
         const executions = [1, 2, 3, 4, 5].map(async (n) => {
           const output = new OutputCtl()
-          await fsp.writeFile(`${n}.json`, JSON.stringify({ testno: n }))
+          const steps = { import: { robot: '/http/import', url: `https://example.com/${n}` } }
+          await fsp.writeFile(`${n}.json`, JSON.stringify(steps))
           await templates.create(output, client, { name: `test-${n}`, file: `${n}.json` })
           return output.get() as OutputEntry[]
         })
@@ -103,7 +104,8 @@ describe('templates', () => {
     it(
       'should modify but not rename the template',
       testCase(async (client) => {
-        await fsp.writeFile('template.json', JSON.stringify({ stage: 1 }))
+        const steps = { import: { robot: '/http/import', url: 'https://example.com/modified' } }
+        await fsp.writeFile('template.json', JSON.stringify(steps))
 
         const output = new OutputCtl()
         await templates.modify(output, client, {
@@ -144,7 +146,8 @@ describe('templates', () => {
     it(
       'should modify and rename the template',
       testCase(async (client) => {
-        await fsp.writeFile('template.json', JSON.stringify({ stage: 2 }))
+        const steps = { import: { robot: '/http/import', url: 'https://example.com/renamed' } }
+        await fsp.writeFile('template.json', JSON.stringify(steps))
 
         const output = new OutputCtl()
         await templates.modify(output, client, {

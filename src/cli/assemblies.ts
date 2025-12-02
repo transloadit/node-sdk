@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { tryCatch } from '../alphalib/tryCatch.ts'
+import { stepsSchema, type Steps } from '../alphalib/types/template.ts'
+import type { ReplayAssemblyParams } from '../apiTypes.ts'
 import type { Transloadit } from '../Transloadit.ts'
 import assembliesCreate from './assemblies-create.ts'
 import { createReadStream, formatAPIError, streamToBuffer } from './helpers.ts'
@@ -103,8 +105,6 @@ async function _delete(
 
 export { _delete as delete }
 
-const StepsSchema = z.record(z.string(), z.unknown())
-
 export async function replay(
   output: IOutputCtl,
   client: Transloadit,
@@ -114,9 +114,9 @@ export async function replay(
     try {
       const buf = await streamToBuffer(createReadStream(steps))
       const parsed: unknown = JSON.parse(buf.toString())
-      const validated = StepsSchema.safeParse(parsed)
+      const validated = stepsSchema.safeParse(parsed)
       if (!validated.success) {
-        throw new Error('Invalid steps format')
+        throw new Error(`Invalid steps format: ${validated.error.message}`)
       }
       await apiCall(validated.data)
     } catch (err) {
@@ -127,13 +127,15 @@ export async function replay(
     await apiCall()
   }
 
-  async function apiCall(_steps?: Record<string, unknown>): Promise<void> {
+  async function apiCall(stepsOverride?: Steps): Promise<void> {
     const promises = assemblies.map(async (assembly) => {
       const [err] = await tryCatch(
         client.replayAssembly(assembly, {
           reparse_template: reparse ? 1 : 0,
           fields,
           notify_url,
+          // Steps (validated) is assignable to StepsInput at runtime; cast for TS
+          steps: stepsOverride as ReplayAssemblyParams['steps'],
         }),
       )
       if (err) {

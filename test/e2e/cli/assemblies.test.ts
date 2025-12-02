@@ -106,7 +106,7 @@ describe('assemblies', () => {
 
   describe('replay', () => {
     it(
-      'should replay assemblies',
+      'should replay assemblies without steps (uses original)',
       testCase(async (client) => {
         const assembly = await client.createAssembly({
           params: {
@@ -122,6 +122,52 @@ describe('assemblies', () => {
         })
         const logs = output.get() as OutputEntry[]
         expect(logs.filter((l) => l.type === 'error')).to.have.lengthOf(0)
+      }),
+    )
+
+    it(
+      'should replay assemblies with steps override',
+      testCase(async (client) => {
+        // Create an assembly with 100x100 resize
+        const assembly = await client.createAssembly({
+          params: {
+            steps: {
+              import: { robot: '/http/import', url: 'https://placehold.co/100.jpg' },
+              resize: {
+                robot: '/image/resize',
+                use: 'import',
+                result: true,
+                width: 50,
+                height: 50,
+              },
+            },
+          },
+        })
+
+        // Create steps file with different dimensions (80x80)
+        const overrideSteps = {
+          import: { robot: '/http/import', url: 'https://placehold.co/100.jpg' },
+          resize: {
+            robot: '/image/resize',
+            use: 'import',
+            result: true,
+            width: 80,
+            height: 80,
+          },
+        }
+        await fsp.writeFile('override-steps.json', JSON.stringify(overrideSteps))
+
+        const output = new OutputCtl()
+        const assemblyId = assembly.assembly_id as string
+        await assemblies.replay(output, client, {
+          assemblies: [assemblyId],
+          steps: 'override-steps.json',
+        })
+        const logs = output.get() as OutputEntry[]
+        expect(logs.filter((l) => l.type === 'error')).to.have.lengthOf(0)
+
+        // Note: We can't easily verify the output dimensions here without downloading,
+        // but the test verifies the steps file is parsed and sent without errors
       }),
     )
   })
