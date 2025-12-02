@@ -8,6 +8,7 @@ import process from 'node:process'
 import type { Readable, Writable } from 'node:stream'
 import tty from 'node:tty'
 import { promisify } from 'node:util'
+import { stepsSchema, type Steps } from '../alphalib/types/template.ts'
 import type { CreateAssemblyParams } from '../apiTypes.ts'
 import type { AssemblyStatus, CreateAssemblyOptions, Transloadit } from '../Transloadit.ts'
 import JobsPromise from './JobsPromise.ts'
@@ -599,11 +600,16 @@ export default async function run(
   let resolvedOutput = output
   if (resolvedOutput === undefined && !process.stdout.isTTY) resolvedOutput = '-'
 
-  // Read steps file async before entering the Promise constructor
-  let stepsData: CreateAssemblyParams['steps'] | undefined
+  // Read and validate steps file async before entering the Promise constructor
+  let stepsData: Steps | undefined
   if (steps) {
     const stepsContent = await fsp.readFile(steps, 'utf8')
-    stepsData = JSON.parse(stepsContent) as CreateAssemblyParams['steps']
+    const parsed: unknown = JSON.parse(stepsContent)
+    const validated = stepsSchema.safeParse(parsed)
+    if (!validated.success) {
+      throw new Error(`Invalid steps format: ${validated.error.message}`)
+    }
+    stepsData = validated.data
   }
 
   // Determine output stat async before entering the Promise constructor

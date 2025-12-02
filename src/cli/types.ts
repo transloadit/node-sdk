@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { optionalStepsSchema, type Steps } from '../alphalib/types/template.ts'
 import type { BillResponse, ListedTemplate, TemplateResponse } from '../apiTypes.ts'
 import type { AssemblyStatus, Transloadit } from '../Transloadit.ts'
 import type { IOutputCtl } from './OutputCtl.ts'
@@ -33,14 +34,19 @@ export const TransloaditAPIErrorSchema = z.object({
 })
 export type TransloaditAPIError = z.infer<typeof TransloaditAPIErrorSchema>
 
-// Template file data
-export const TemplateFileDataSchema = z
+// Template file data - explicit type to avoid TS inference limits
+export interface TemplateFileData {
+  transloadit_template_id?: string
+  steps?: Steps
+  [key: string]: unknown // passthrough
+}
+
+export const TemplateFileDataSchema: z.ZodType<TemplateFileData> = z
   .object({
     transloadit_template_id: z.string().optional(),
-    steps: z.record(z.string(), z.unknown()).optional(),
+    steps: optionalStepsSchema,
   })
-  .passthrough()
-export type TemplateFileData = z.infer<typeof TemplateFileDataSchema>
+  .passthrough() as z.ZodType<TemplateFileData>
 
 export interface TemplateFile {
   file: string

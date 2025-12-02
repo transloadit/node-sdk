@@ -29,6 +29,8 @@ const cliSignatureParamsSchema = assemblyInstructionsSchema
   .partial()
   .passthrough()
 
+type CliSignatureParams = z.infer<typeof cliSignatureParamsSchema>
+
 function formatIssues(issues: ZodIssue[]): string {
   return issues
     .map((issue) => {
@@ -99,7 +101,7 @@ function generateSignature(
   algorithm?: string,
 ): SigResult {
   const { authKey, authSecret } = credentials
-  let params: Record<string, unknown>
+  let params: CliSignatureParams
 
   if (input === '') {
     params = { auth: { key: authKey } }
@@ -120,13 +122,8 @@ function generateSignature(
       return { ok: false, error: `Invalid params: ${formatIssues(parsedResult.error.issues)}` }
     }
 
-    const parsedParams = parsedResult.data as Record<string, unknown>
-    const existingAuth =
-      typeof parsedParams.auth === 'object' &&
-      parsedParams.auth != null &&
-      !Array.isArray(parsedParams.auth)
-        ? (parsedParams.auth as Record<string, unknown>)
-        : {}
+    const parsedParams = parsedResult.data
+    const existingAuth = parsedParams.auth ?? {}
 
     params = {
       ...parsedParams,
@@ -178,7 +175,7 @@ function generateSmartCdnUrl(
   }
 
   const { workspace, template, input: inputFieldRaw, url_params, expire_at_ms } = parsedResult.data
-  const urlParams = normalizeUrlParams(url_params as Record<string, unknown> | undefined)
+  const urlParams = normalizeUrlParams(url_params)
 
   let expiresAt: number | undefined
   if (typeof expire_at_ms === 'string') {
