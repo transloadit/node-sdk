@@ -42,7 +42,136 @@ or
 npm install --save transloadit
 ```
 
-## Usage
+## Command Line Interface (CLI)
+
+This package includes a full-featured CLI for interacting with Transloadit from your terminal.
+
+### Quick Start
+
+```bash
+# Set your credentials
+export TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
+export TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
+
+# See all available commands
+npx transloadit --help
+```
+
+### Processing Media
+
+Create Assemblies to process files using Assembly Instructions (steps) or Templates:
+
+```bash
+# Process a file using a steps file
+npx transloadit assemblies create --steps steps.json --input image.jpg --output result.jpg
+
+# Process using a Template
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input image.jpg --output result.jpg
+
+# Process with custom fields
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --field size=100 --input image.jpg --output thumb.jpg
+
+# Process a directory of files
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/
+
+# Process recursively with file watching
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/ --recursive --watch
+```
+
+### Managing Assemblies
+
+```bash
+# List recent assemblies
+npx transloadit assemblies list
+
+# List assemblies with filters
+npx transloadit assemblies list --after 2024-01-01 --before 2024-12-31
+
+# Get assembly status
+npx transloadit assemblies get ASSEMBLY_ID
+
+# Cancel an assembly
+npx transloadit assemblies delete ASSEMBLY_ID
+
+# Replay an assembly (re-run with original instructions)
+npx transloadit assemblies replay ASSEMBLY_ID
+
+# Replay with different steps
+npx transloadit assemblies replay --steps new-steps.json ASSEMBLY_ID
+
+# Replay using latest template version
+npx transloadit assemblies replay --reparse-template ASSEMBLY_ID
+```
+
+### Managing Templates
+
+```bash
+# List all templates
+npx transloadit templates list
+
+# Get template content
+npx transloadit templates get TEMPLATE_ID
+
+# Create a template from a JSON file
+npx transloadit templates create my-template template.json
+
+# Modify a template
+npx transloadit templates modify TEMPLATE_ID template.json
+
+# Rename a template
+npx transloadit templates modify TEMPLATE_ID --name new-name
+
+# Delete a template
+npx transloadit templates delete TEMPLATE_ID
+
+# Sync local template files with Transloadit (bidirectional)
+npx transloadit templates sync templates/*.json
+npx transloadit templates sync --recursive templates/
+```
+
+### Billing
+
+```bash
+# Get bill for a month
+npx transloadit bills get 2024-01
+
+# Get detailed bill as JSON
+npx transloadit bills get 2024-01 --json
+```
+
+### Assembly Notifications
+
+```bash
+# List notifications for an assembly
+npx transloadit assembly-notifications list ASSEMBLY_ID
+
+# Replay a notification
+npx transloadit assembly-notifications replay ASSEMBLY_ID
+```
+
+### Signature Generation
+
+```bash
+# Generate a signature for assembly params
+echo '{"steps":{}}' | npx transloadit auth signature
+
+# Generate with specific algorithm
+echo '{"steps":{}}' | npx transloadit auth signature --algorithm sha256
+
+# Generate a signed Smart CDN URL
+echo '{"workspace":"my-workspace","template":"my-template","input":"image.jpg"}' | npx transloadit auth smart-cdn
+```
+
+### CLI Options
+
+All commands support these common options:
+
+- `--json, -j` - Output results as JSON
+- `--verbose, -v` - Verbose output
+- `--quiet, -q` - Suppress non-essential output
+- `--help, -h` - Show help for a command
+
+## SDK Usage
 
 The following code will upload an image and resize it to a thumbnail:
 
@@ -385,25 +514,7 @@ Calculates a signature for the given `params` JSON object. If the `params` objec
 
 This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
 
-#### CLI smart_sig
-
-Generate a signed Smart CDN URL from the command line. The CLI reads a JSON object from stdin, injects credentials from `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET`, and prints the URL returned by `getSignedSmartCDNUrl()`.
-
-```sh
-TRANSLOADIT_KEY=... TRANSLOADIT_SECRET=... \
-  printf '{"workspace":"demo","template":"resize","input":"image.jpg","url_params":{"width":320}}' | npx transloadit smart_sig
-```
-
-You can also use `TRANSLOADIT_AUTH_KEY`/`TRANSLOADIT_AUTH_SECRET` as aliases for the environment variables.
-
-#### CLI sig
-
-Sign assembly params from the command line. The CLI reads a JSON object from stdin (or falls back to an empty object), injects credentials from `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET`, and prints the payload returned by `calcSignature()`. Use `--algorithm` to pick a specific hashing algorithm; it defaults to `sha384`.
-
-```sh
-TRANSLOADIT_KEY=... TRANSLOADIT_SECRET=... \
-  printf '{"auth":{"expires":"2025-01-02T00:00:00Z"}}' | npx transloadit sig --algorithm sha256
-```
+See [Signature Generation](#signature-generation) in the CLI section for command-line usage.
 
 #### getSignedSmartCDNUrl(params)
 
