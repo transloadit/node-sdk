@@ -5,11 +5,17 @@ on:
   push:
     branches:
       - main
+  pull_request:
   schedule:
     - cron: '0 8 * * *'
 
 jobs:
   test:
+    # Run on push/schedule/dispatch, or on PRs only if from same repo (not forks)
+    # This protects secrets from being exposed to fork PRs
+    if: >
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     strategy:
       # e2e tests are not yet ready to run in parallel
