@@ -10,6 +10,9 @@ import type { OutputEntry } from './test-utils.ts'
 import { authKey, authSecret, delay, testCase } from './test-utils.ts'
 
 describe('templates', () => {
+  // Use unique prefix for all template names to avoid conflicts between test runs
+  const testId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
   describe('create', () => {
     it(
       'should create templates',
@@ -18,7 +21,7 @@ describe('templates', () => {
           const output = new OutputCtl()
           const steps = { import: { robot: '/http/import', url: `https://example.com/${n}` } }
           await fsp.writeFile(`${n}.json`, JSON.stringify(steps))
-          await templates.create(output, client, { name: `test-${n}`, file: `${n}.json` })
+          await templates.create(output, client, { name: `test-${testId}-${n}`, file: `${n}.json` })
           return output.get() as OutputEntry[]
         })
 
@@ -88,7 +91,7 @@ describe('templates', () => {
 
   describe('modify', () => {
     let templateId: string
-    const originalName = `original-name-${Date.now()}`
+    const originalName = `original-name-${testId}`
 
     beforeAll(async () => {
       const client = new TransloaditClient({ authKey, authSecret })
@@ -127,10 +130,11 @@ describe('templates', () => {
       testCase(async (client) => {
         await fsp.writeFile('template.json', '')
 
+        const newName = `new-name-${testId}`
         const output = new OutputCtl()
         await templates.modify(output, client, {
           template: templateId,
-          name: 'new-name',
+          name: newName,
           file: 'template.json',
         })
         const result = output.get()
@@ -138,7 +142,7 @@ describe('templates', () => {
         expect(result).to.have.lengthOf(0)
         await delay(2000)
         const template = await client.getTemplate(templateId)
-        expect(template).to.have.property('name').that.equals('new-name')
+        expect(template).to.have.property('name').that.equals(newName)
         expect(template).to.have.property('content').that.has.property('steps')
       }),
     )
@@ -149,10 +153,11 @@ describe('templates', () => {
         const steps = { import: { robot: '/http/import', url: 'https://example.com/renamed' } }
         await fsp.writeFile('template.json', JSON.stringify(steps))
 
+        const newerName = `newer-name-${testId}`
         const output = new OutputCtl()
         await templates.modify(output, client, {
           template: templateId,
-          name: 'newer-name',
+          name: newerName,
           file: 'template.json',
         })
         const result = output.get()
@@ -160,7 +165,7 @@ describe('templates', () => {
         expect(result).to.have.lengthOf(0)
         await delay(2000)
         const template = await client.getTemplate(templateId)
-        expect(template).to.have.property('name').that.equals('newer-name')
+        expect(template).to.have.property('name').that.equals(newerName)
         expect(template).to.have.property('content').that.has.property('steps')
       }),
     )
@@ -178,7 +183,7 @@ describe('templates', () => {
         const ids = await Promise.all(
           [1, 2, 3, 4, 5].map(async (n) => {
             const response = await client.createTemplate({
-              name: `delete-test-${n}`,
+              name: `delete-test-${testId}-${n}`,
               template: {
                 steps: { dummy: { robot: '/html/convert', url: `https://example.com/${n}` } },
               } as TemplateContent,
@@ -254,7 +259,7 @@ describe('templates', () => {
       'should update local files when outdated',
       testCase(async (client) => {
         const params = {
-          name: `test-local-update-${Date.now()}`,
+          name: `test-local-update-${testId}`,
           template: {
             steps: { dummy: { robot: '/html/convert', url: 'https://example.com/changed' } },
           } as TemplateContent,
@@ -292,7 +297,7 @@ describe('templates', () => {
       'should update remote template when outdated',
       testCase(async (client) => {
         const params = {
-          name: `test-remote-update-${Date.now()}`,
+          name: `test-remote-update-${testId}`,
           template: {
             steps: { dummy: { robot: '/html/convert', url: 'https://example.com/unchanged' } },
           } as TemplateContent,
