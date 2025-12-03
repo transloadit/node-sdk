@@ -102,6 +102,11 @@ export interface AwaitAssemblyCompletionOptions {
   timeout?: number
   interval?: number
   startTimeMs?: number
+  /**
+   * Optional AbortSignal to cancel polling.
+   * When aborted, the polling loop will stop and throw an AbortError.
+   */
+  signal?: AbortSignal
 }
 
 export interface SmartCDNUrlOptions {
@@ -339,6 +344,7 @@ export class Transloadit {
           timeout,
           onAssemblyProgress,
           startTimeMs,
+          signal,
         })
         checkResult(awaitResult)
         return awaitResult
@@ -358,12 +364,18 @@ export class Transloadit {
       timeout,
       startTimeMs = getHrTimeMs(),
       interval = 1000,
+      signal,
     }: AwaitAssemblyCompletionOptions = {},
   ): Promise<AssemblyStatus> {
     assert.ok(assemblyId)
 
     while (true) {
-      const result = await this.getAssembly(assemblyId)
+      // Check if aborted before making the request
+      if (signal?.aborted) {
+        throw signal.reason ?? new DOMException('Aborted', 'AbortError')
+      }
+
+      const result = await this.getAssembly(assemblyId, { signal })
 
       // If 'ok' is not in result, it implies a terminal state (e.g., error, completed, canceled).
       // If 'ok' is present, then we check if it's one of the non-terminal polling states.
@@ -391,7 +403,19 @@ export class Transloadit {
       if (timeout != null && nowMs - startTimeMs >= timeout) {
         throw new PollingTimeoutError('Polling timed out')
       }
-      await new Promise((resolve) => setTimeout(resolve, interval))
+
+      // Make the sleep abortable
+      await new Promise<void>((resolve, reject) => {
+        const timeoutId = setTimeout(resolve, interval)
+        signal?.addEventListener(
+          'abort',
+          () => {
+            clearTimeout(timeoutId)
+            reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
+          },
+          { once: true },
+        )
+      })
     }
   }
 
@@ -523,11 +547,16 @@ export class Transloadit {
    * Get an Assembly
    *
    * @param assemblyId the Assembly Id
+   * @param options optional request options
    * @returns the retrieved Assembly
    */
-  async getAssembly(assemblyId: string): Promise<AssemblyStatus> {
+  async getAssembly(
+    assemblyId: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<AssemblyStatus> {
     const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
       urlSuffix: `/assemblies/${assemblyId}`,
+      signal: options?.signal,
     })
 
     const parsedResult = zodParseWithContext(assemblyStatusSchema, rawResult)

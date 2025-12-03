@@ -54,6 +54,28 @@ describe('Mocked API tests', () => {
     scope.done()
   })
 
+  it('should honor abort signal during awaitAssemblyCompletion polling', async () => {
+    const client = getLocalClient()
+
+    // Set up a mock that keeps returning ASSEMBLY_EXECUTING (never completes)
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
+      .persist() // Keep responding with same status
+
+    const controller = new AbortController()
+
+    // Abort after 50ms
+    setTimeout(() => controller.abort(), 50)
+
+    await expect(
+      client.awaitAssemblyCompletion('1', { interval: 10, signal: controller.signal }),
+    ).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }))
+
+    scope.persist(false)
+  })
+
   it('should handle aborted correctly', async () => {
     const client = getLocalClient()
 
