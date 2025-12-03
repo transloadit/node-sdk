@@ -5,7 +5,9 @@ You may also want to refer to [GitHub releases](https://github.com/transloadit/n
 ## Unreleased
 
 - Add `signal` option to `createAssembly()` for cancelling in-flight HTTP requests and TUS uploads via `AbortController`
-- Integrate transloadify CLI into the SDK, providing `assemblies`, `templates`, and `bills` commands
+- Add `signal` and `onPoll` options to `awaitAssemblyCompletion()` for cancellation and custom polling control
+- Integrate transloadify CLI into the SDK, providing `assemblies`, `templates`, `bills`, and `assembly-notifications` commands
+- Add `--log-level (-l)` CLI option using syslog severity levels (err=3, warn=4, notice=5, info=6, debug=7, trace=8)
 - Apply stricter biome lint rules (noExplicitAny, useAwait, noForEach, noNonNullAssertion)
 
 ## v4.0.7

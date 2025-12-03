@@ -76,6 +76,32 @@ describe('Mocked API tests', () => {
     scope.persist(false)
   })
 
+  it('should stop polling early when onPoll returns false', async () => {
+    const client = getLocalClient()
+
+    let pollCount = 0
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
+      .persist()
+
+    const result = await client.awaitAssemblyCompletion('1', {
+      interval: 10,
+      onPoll: () => {
+        pollCount++
+        // Stop after 3 polls
+        return pollCount < 3
+      },
+    })
+
+    // Should have the last polled status (ASSEMBLY_EXECUTING), not completed
+    expect((result as { ok: string }).ok).toBe('ASSEMBLY_EXECUTING')
+    expect(pollCount).toBe(3)
+
+    scope.persist(false)
+  })
+
   it('should handle aborted correctly', async () => {
     const client = getLocalClient()
 

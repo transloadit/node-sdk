@@ -724,34 +724,21 @@ export default async function run(
         const assemblyId = result.assembly_id
         if (!assemblyId) throw new Error('No assembly_id in result')
 
-        let assembly: AssemblyStatus = await client.getAssembly(assemblyId, {
+        // Use SDK's awaitAssemblyCompletion with onPoll to check for superceded jobs
+        const assembly = await client.awaitAssemblyCompletion(assemblyId, {
           signal: abortController.signal,
+          onPoll: () => {
+            // Return false to stop polling if this job has been superceded (watch mode)
+            if (superceded) return false
+            return true
+          },
+          onAssemblyProgress: (status) => {
+            outputctl.debug(`Assembly status: ${status.ok}`)
+          },
         })
 
-        while (
-          assembly.ok !== 'ASSEMBLY_COMPLETED' &&
-          assembly.ok !== 'ASSEMBLY_CANCELED' &&
-          !assembly.error
-        ) {
-          if (superceded) return
-          if (abortController.signal.aborted) {
-            throw abortController.signal.reason || new Error('Aborted')
-          }
-
-          outputctl.debug(`Assembly status: ${assembly.ok}`)
-          await new Promise((resolve, reject) => {
-            const timer = setTimeout(resolve, 1000)
-            abortController.signal.addEventListener(
-              'abort',
-              () => {
-                clearTimeout(timer)
-                reject(abortController.signal.reason || new Error('Aborted'))
-              },
-              { once: true },
-            )
-          })
-          assembly = await client.getAssembly(assemblyId, { signal: abortController.signal })
-        }
+        // If superceded, exit early without processing results
+        if (superceded) return
 
         if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
           const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok})`

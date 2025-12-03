@@ -107,6 +107,12 @@ export interface AwaitAssemblyCompletionOptions {
    * When aborted, the polling loop will stop and throw an AbortError.
    */
   signal?: AbortSignal
+  /**
+   * Optional callback invoked before each poll iteration.
+   * Return `false` to stop polling early and return the current assembly status.
+   * Useful for watch mode where a newer job may supersede the current one.
+   */
+  onPoll?: () => boolean | void
 }
 
 export interface SmartCDNUrlOptions {
@@ -368,17 +374,26 @@ export class Transloadit {
       startTimeMs = getHrTimeMs(),
       interval = 1000,
       signal,
+      onPoll,
     }: AwaitAssemblyCompletionOptions = {},
   ): Promise<AssemblyStatus> {
     assert.ok(assemblyId)
 
+    let lastResult: AssemblyStatus | undefined
+
     while (true) {
+      // Check if caller wants to stop polling early
+      if (onPoll?.() === false && lastResult) {
+        return lastResult
+      }
+
       // Check if aborted before making the request
       if (signal?.aborted) {
         throw signal.reason ?? new DOMException('Aborted', 'AbortError')
       }
 
       const result = await this.getAssembly(assemblyId, { signal })
+      lastResult = result
 
       // If 'ok' is not in result, it implies a terminal state (e.g., error, completed, canceled).
       // If 'ok' is present, then we check if it's one of the non-terminal polling states.

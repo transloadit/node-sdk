@@ -457,6 +457,8 @@ This function will continously poll the specified Assembly `assemblyId` and reso
 - `onAssemblyProgress` - A progress function called on each poll. See `createAssembly`
 - `timeout` - How many milliseconds until polling times out (default: no timeout)
 - `interval` - Poll interval in milliseconds (default `1000`)
+- `signal` - An `AbortSignal` to cancel polling. When aborted, the promise rejects with an `AbortError`.
+- `onPoll` - A callback invoked at the start of each poll iteration. Return `false` to stop polling early and resolve with the last known status. Useful for implementing custom cancellation logic (e.g., superseding assemblies in watch mode).
 
 #### getLastUsedAssemblyUrl()
 
