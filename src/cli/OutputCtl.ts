@@ -20,13 +20,30 @@ export const LOG_LEVEL_NAMES = Object.keys(LOG_LEVEL).map((k) => k.toLowerCase()
   LogLevelName
 >[]
 
-/** Parse a log level string to its numeric value */
+/** Valid numeric log level values */
+const LOG_LEVEL_VALUES = new Set(Object.values(LOG_LEVEL))
+
+/** Parse a log level string (name or number) to its numeric value */
 export function parseLogLevel(level: string): LogLevelValue {
+  // Try parsing as number first
+  const num = Number(level)
+  if (!Number.isNaN(num)) {
+    if (LOG_LEVEL_VALUES.has(num as LogLevelValue)) {
+      return num as LogLevelValue
+    }
+    throw new Error(
+      `Invalid log level: ${level}. Valid values: ${[...LOG_LEVEL_VALUES].join(', ')} or ${LOG_LEVEL_NAMES.join(', ')}`,
+    )
+  }
+
+  // Try as level name
   const upper = level.toUpperCase() as LogLevelName
   if (upper in LOG_LEVEL) {
     return LOG_LEVEL[upper]
   }
-  throw new Error(`Invalid log level: ${level}. Valid levels: ${LOG_LEVEL_NAMES.join(', ')}`)
+  throw new Error(
+    `Invalid log level: ${level}. Valid levels: ${LOG_LEVEL_NAMES.join(', ')} or ${[...LOG_LEVEL_VALUES].join(', ')}`,
+  )
 }
 
 export interface OutputCtlOptions {

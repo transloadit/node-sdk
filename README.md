@@ -167,7 +167,7 @@ echo '{"workspace":"my-workspace","template":"my-template","input":"image.jpg"}'
 All commands support these common options:
 
 - `--json, -j` - Output results as JSON (useful for scripting)
-- `--log-level, -l` - Set log verbosity level (default: notice)
+- `--log-level, -l` - Set log verbosity level by name or number (default: notice)
 - `--help, -h` - Show help for a command
 
 #### Log Levels
@@ -182,14 +182,16 @@ The CLI uses [syslog severity levels](https://en.wikipedia.org/wiki/Syslog#Sever
 | `info`   | 6     | Informational messages                |
 | `debug`  | 7     | Debug-level messages                  |
 
-Examples:
+You can use either the level name or its numeric value:
 
 ```bash
 # Show only errors and warnings
 npx transloadit assemblies list -l warn
+npx transloadit assemblies list -l 4
 
 # Show debug output
 npx transloadit assemblies list -l debug
+npx transloadit assemblies list -l 7
 ```
 
 ## SDK Usage
