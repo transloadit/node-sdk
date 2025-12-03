@@ -73,26 +73,18 @@ jobs:
           path: coverage/
 
   e2e:
-    name: E2E tests (Node ${{ matrix.node }})
+    name: E2E tests
     # Run on push/schedule/dispatch, or on PRs only if from same repo (not forks)
     # This protects secrets from being exposed to fork PRs
     if: >
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    strategy:
-      # e2e tests are not yet ready to run in parallel
-      max-parallel: 1
-      matrix:
-        node:
-          - 20
-          - 22
-          - 24
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24
       - run: corepack yarn
       - name: Download cloudflared
         run: |
@@ -111,27 +103,23 @@ jobs:
           CLOUDFLARED_PATH: ./cloudflared-linux-amd64
           DEBUG: 'transloadit:*'
 
-      - if: matrix.node == 24
-        name: Generate the badge from the json-summary
+      - name: Generate the badge from the json-summary
         run: node --experimental-strip-types test/generate-coverage-badge.ts coverage/coverage-summary.json
-      - if: matrix.node == 24
-        name: Move HTML report and badge to the correct location
+      - name: Move HTML report and badge to the correct location
         run: |
           mv coverage/lcov-report static-build
           mv coverage-badge.svg static-build/
       # *** BEGIN PUBLISH STATIC SITE STEPS ***
       # Use the standard checkout action to check out the destination repo to a separate directory
       # See https://github.com/mifi/github-action-push-static
-      - if: matrix.node == 24
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ssh-key: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
           repository: transloadit/node-sdk-coverage
           path: static-files-destination
 
       # Push coverage data
-      - if: matrix.node == 24
-        run: |
+      - run: |
           git config --global user.name github-actions
           git config --global user.email github-actions@github.com
           # Remove existing files:
