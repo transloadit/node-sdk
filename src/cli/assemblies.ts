@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { tryCatch } from '../alphalib/tryCatch.ts'
-import { stepsSchema, type Steps } from '../alphalib/types/template.ts'
+import type { Steps } from '../alphalib/types/template.ts'
+import { stepsSchema } from '../alphalib/types/template.ts'
 import type { ReplayAssemblyParams } from '../apiTypes.ts'
 import type { Transloadit } from '../Transloadit.ts'
 import assembliesCreate from './assemblies-create.ts'

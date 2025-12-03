@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { optionalStepsSchema, type Steps } from '../alphalib/types/template.ts'
+import type { Steps } from '../alphalib/types/template.ts'
+import { optionalStepsSchema } from '../alphalib/types/template.ts'
 import type { BillResponse, ListedTemplate, TemplateResponse } from '../apiTypes.ts'
 import type { AssemblyStatus, Transloadit } from '../Transloadit.ts'
 import type { IOutputCtl } from './OutputCtl.ts'

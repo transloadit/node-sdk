@@ -617,7 +617,9 @@ export default async function run(
         throw new Error(`Invalid steps format: step '${stepName}' must be an object`)
       }
       if (!('robot' in step) || typeof (step as Record<string, unknown>).robot !== 'string') {
-        throw new Error(`Invalid steps format: step '${stepName}' must have a 'robot' string property`)
+        throw new Error(
+          `Invalid steps format: step '${stepName}' must have a 'robot' string property`,
+        )
       }
     }
     stepsData = parsed as StepsInput
@@ -649,9 +651,7 @@ export default async function run(
 
   return new Promise((resolve, reject) => {
     const params: CreateAssemblyParams = (
-      stepsData
-        ? { steps: stepsData as CreateAssemblyParams['steps'] }
-        : { template_id: template }
+      stepsData ? { steps: stepsData as CreateAssemblyParams['steps'] } : { template_id: template }
     ) as CreateAssemblyParams
     if (fields) {
       params.fields = fields
