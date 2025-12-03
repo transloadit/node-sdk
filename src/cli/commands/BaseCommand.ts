@@ -2,15 +2,16 @@ import process from 'node:process'
 import { Command, Option } from 'clipanion'
 import 'dotenv/config'
 import { Transloadit as TransloaditClient } from '../../Transloadit.ts'
-import OutputCtl, { type IOutputCtl } from '../OutputCtl.ts'
+import OutputCtl, {
+  type IOutputCtl,
+  LOG_LEVEL_DEFAULT,
+  LOG_LEVEL_NAMES,
+  parseLogLevel,
+} from '../OutputCtl.ts'
 
 export abstract class BaseCommand extends Command {
-  verbose = Option.Boolean('-v,--verbose', false, {
-    description: 'Enable debug output',
-  })
-
-  quiet = Option.Boolean('-q,--quiet', false, {
-    description: 'Disable warnings',
+  logLevelOption = Option.String('-l,--log-level', {
+    description: `Log level: ${LOG_LEVEL_NAMES.join(', ')} (default: notice)`,
   })
 
   json = Option.Boolean('-j,--json', false, {
@@ -20,15 +21,10 @@ export abstract class BaseCommand extends Command {
   protected output!: IOutputCtl
   protected client!: TransloaditClient
 
-  protected get logLevel(): number {
-    if (this.verbose) return 2
-    if (this.quiet) return 0
-    return 1
-  }
-
   protected setupOutput(): void {
+    const logLevel = this.logLevelOption ? parseLogLevel(this.logLevelOption) : LOG_LEVEL_DEFAULT
     this.output = new OutputCtl({
-      logLevel: this.logLevel,
+      logLevel,
       jsonMode: this.json,
     })
   }

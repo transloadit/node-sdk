@@ -1,7 +1,8 @@
-import type { OutputCtlOptions } from '../../../src/cli/OutputCtl.ts'
+import type { LogLevelValue, OutputCtlOptions } from '../../../src/cli/OutputCtl.ts'
+import { LOG_LEVEL_DEFAULT } from '../../../src/cli/OutputCtl.ts'
 
 interface OutputEntry {
-  type: 'error' | 'warn' | 'info' | 'debug' | 'print'
+  type: 'error' | 'warn' | 'notice' | 'info' | 'debug' | 'print'
   msg: unknown
   json?: unknown
 }
@@ -14,9 +15,9 @@ export default class OutputCtl {
   private output: OutputEntry[]
   // These properties are required by the src/cli/OutputCtl interface but not used in tests
   private json: boolean
-  private logLevel: number
+  private logLevel: LogLevelValue
 
-  constructor({ logLevel = 0, jsonMode = false }: OutputCtlOptions = {}) {
+  constructor({ logLevel = LOG_LEVEL_DEFAULT, jsonMode = false }: OutputCtlOptions = {}) {
     this.output = []
     this.json = jsonMode
     this.logLevel = logLevel
@@ -28,6 +29,10 @@ export default class OutputCtl {
 
   warn(msg: unknown): void {
     this.output.push({ type: 'warn', msg })
+  }
+
+  notice(msg: unknown): void {
+    this.output.push({ type: 'notice', msg })
   }
 
   info(msg: unknown): void {

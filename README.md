@@ -167,17 +167,30 @@ echo '{"workspace":"my-workspace","template":"my-template","input":"image.jpg"}'
 All commands support these common options:
 
 - `--json, -j` - Output results as JSON (useful for scripting)
-- `--verbose, -v` - Enable debug output (shows DEBUG messages in addition to INFO/WARNING/ERROR)
-- `--quiet, -q` - Suppress non-essential output (only shows ERROR messages, hides INFO and WARNING)
+- `--log-level, -l` - Set log verbosity level (default: notice)
 - `--help, -h` - Show help for a command
 
-Output levels:
+#### Log Levels
 
-| Flag        | ERROR | WARNING | INFO | DEBUG |
-| ----------- | ----- | ------- | ---- | ----- |
-| `--quiet`   | ✓     |         |      |       |
-| _(default)_ | ✓     | ✓       | ✓    |       |
-| `--verbose` | ✓     | ✓       | ✓    | ✓     |
+The CLI uses [syslog severity levels](https://en.wikipedia.org/wiki/Syslog#Severity_level). Lower = more severe, higher = more verbose:
+
+| Level    | Value | Description                           |
+| -------- | ----- | ------------------------------------- |
+| `err`    | 3     | Error conditions                      |
+| `warn`   | 4     | Warning conditions                    |
+| `notice` | 5     | Normal but significant **(default)**  |
+| `info`   | 6     | Informational messages                |
+| `debug`  | 7     | Debug-level messages                  |
+
+Examples:
+
+```bash
+# Show only errors and warnings
+npx transloadit assemblies list -l warn
+
+# Show debug output
+npx transloadit assemblies list -l debug
+```
 
 ## SDK Usage
 
