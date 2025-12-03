@@ -615,7 +615,7 @@ export default async function run(
     del,
     reprocessStale,
   }: AssembliesCreateOptions,
-): Promise<unknown[]> {
+): Promise<{ results: unknown[]; hasFailures: boolean }> {
   // Quick fix for https://github.com/transloadit/transloadify/issues/13
   // Only default to stdout when output is undefined (not provided), not when explicitly null
   let resolvedOutput = output
@@ -811,8 +811,9 @@ export default async function run(
       reject(err)
     })
 
-    emitter.on('end', () => {
-      resolve(jobsPromise.allSettled())
+    emitter.on('end', async () => {
+      const results = await jobsPromise.allSettled()
+      resolve({ results, hasFailures: jobsPromise.hasFailures })
     })
   })
 }

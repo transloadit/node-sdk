@@ -422,17 +422,19 @@ export class Transloadit {
         throw new PollingTimeoutError('Polling timed out')
       }
 
-      // Make the sleep abortable
+      // Make the sleep abortable, ensuring listener cleanup to prevent memory leaks
       await new Promise<void>((resolve, reject) => {
-        const timeoutId = setTimeout(resolve, interval)
-        signal?.addEventListener(
-          'abort',
-          () => {
-            clearTimeout(timeoutId)
-            reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
-          },
-          { once: true },
-        )
+        const timeoutId = setTimeout(() => {
+          signal?.removeEventListener('abort', onAbort)
+          resolve()
+        }, interval)
+
+        function onAbort() {
+          clearTimeout(timeoutId)
+          reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'))
+        }
+
+        signal?.addEventListener('abort', onAbort, { once: true })
       })
     }
   }

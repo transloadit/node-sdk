@@ -43,4 +43,30 @@ describe('JobsPromise', () => {
       'JobsPromise: error handler must be set before adding promises',
     )
   })
+
+  it('should track hasFailures when promise rejects', async () => {
+    const jobs = new JobsPromise()
+    jobs.setErrorHandler(() => {})
+
+    expect(jobs.hasFailures).toBe(false)
+
+    jobs.add(Promise.resolve('ok'))
+    jobs.add(Promise.reject(new Error('fail')))
+
+    await jobs.allSettled()
+
+    expect(jobs.hasFailures).toBe(true)
+  })
+
+  it('should have hasFailures false when all succeed', async () => {
+    const jobs = new JobsPromise()
+    jobs.setErrorHandler(() => {})
+
+    jobs.add(Promise.resolve('a'))
+    jobs.add(Promise.resolve('b'))
+
+    await jobs.allSettled()
+
+    expect(jobs.hasFailures).toBe(false)
+  })
 })

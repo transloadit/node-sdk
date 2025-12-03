@@ -3,10 +3,12 @@
  * Used to run multiple async operations in parallel while:
  * 1. Reporting errors as they happen (via onError callback)
  * 2. Waiting for all operations to complete at the end
+ * 3. Tracking whether any failures occurred
  */
 export default class JobsPromise {
   private promises: Set<Promise<unknown>> = new Set()
   private onError: ((err: unknown) => void) | null = null
+  private _hasFailures = false
 
   /**
    * Set the error handler for individual promise rejections.
@@ -29,11 +31,19 @@ export default class JobsPromise {
     const errorHandler = this.onError
     promise
       .catch((err: unknown) => {
+        this._hasFailures = true
         errorHandler(err)
       })
       .finally(() => {
         this.promises.delete(promise)
       })
+  }
+
+  /**
+   * Returns true if any tracked promise has rejected.
+   */
+  get hasFailures(): boolean {
+    return this._hasFailures
   }
 
   /**

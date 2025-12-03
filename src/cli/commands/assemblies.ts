@@ -104,7 +104,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       fieldsMap[key] = value
     }
 
-    await assembliesCreate(this.output, this.client, {
+    const { hasFailures } = await assembliesCreate(this.output, this.client, {
       steps: this.steps,
       template: this.template,
       fields: fieldsMap,
@@ -115,7 +115,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       del: this.deleteAfterProcessing,
       reprocessStale: this.reprocessStale,
     })
-    return undefined
+    return hasFailures ? 1 : undefined
   }
 }
 
