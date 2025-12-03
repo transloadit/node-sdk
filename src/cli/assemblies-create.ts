@@ -8,6 +8,7 @@ import process from 'node:process'
 import type { Readable, Writable } from 'node:stream'
 import tty from 'node:tty'
 import { promisify } from 'node:util'
+import { tryCatch } from '../alphalib/tryCatch.ts'
 import type { StepsInput } from '../alphalib/types/template.ts'
 import type { CreateAssemblyParams } from '../apiTypes.ts'
 import type { CreateAssemblyOptions, Transloadit } from '../Transloadit.ts'
@@ -130,13 +131,8 @@ function dirProvider(output: string): OutstreamProvider {
     const outdir = path.dirname(outpath)
 
     await ensureDir(outdir)
-    let mtime: Date
-    try {
-      const stats = await fsp.stat(outpath)
-      mtime = stats.mtime
-    } catch (_err) {
-      mtime = new Date(0)
-    }
+    const [, stats] = await tryCatch(fsp.stat(outpath))
+    const mtime = stats?.mtime ?? new Date(0)
     const outstream = fs.createWriteStream(outpath) as OutStream
     // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
     // before being consumed (e.g., due to output collision detection)
@@ -152,13 +148,8 @@ function fileProvider(output: string): OutstreamProvider {
     await dirExistsP
     if (output === '-') return process.stdout as OutStream
 
-    let mtime: Date
-    try {
-      const stats = await fsp.stat(output)
-      mtime = stats.mtime
-    } catch (_err) {
-      mtime = new Date(0)
-    }
+    const [, stats] = await tryCatch(fsp.stat(output))
+    const mtime = stats?.mtime ?? new Date(0)
     const outstream = fs.createWriteStream(output) as OutStream
     // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
     // before being consumed (e.g., due to output collision detection)
@@ -651,13 +642,9 @@ export default async function run(
   // Determine output stat async before entering the Promise constructor
   let outstat: StatLike | undefined
   if (resolvedOutput != null) {
-    try {
-      outstat = await myStat(process.stdout, resolvedOutput)
-    } catch (e) {
-      if (!isErrnoException(e)) throw e
-      if (e.code !== 'ENOENT') throw e
-      outstat = { isDirectory: () => false }
-    }
+    const [err, stat] = await tryCatch(myStat(process.stdout, resolvedOutput))
+    if (err && (!isErrnoException(err) || err.code !== 'ENOENT')) throw err
+    outstat = stat ?? { isDirectory: () => false }
 
     if (!outstat.isDirectory() && inputs.length !== 0) {
       const firstInput = inputs[0]
