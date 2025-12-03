@@ -57,6 +57,7 @@ jobs:
         node:
           - 20
           - 22
+          - 24
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -65,7 +66,7 @@ jobs:
       - run: corepack yarn
       - run: corepack yarn test:unit
       - name: Upload coverage reports artifact
-        if: matrix.node == 22
+        if: matrix.node == 24
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
@@ -86,6 +87,7 @@ jobs:
         node:
           - 20
           - 22
+          - 24
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -109,10 +111,10 @@ jobs:
           CLOUDFLARED_PATH: ./cloudflared-linux-amd64
           DEBUG: 'transloadit:*'
 
-      - if: matrix.node == 22
+      - if: matrix.node == 24
         name: Generate the badge from the json-summary
         run: node --experimental-strip-types test/generate-coverage-badge.ts coverage/coverage-summary.json
-      - if: matrix.node == 22
+      - if: matrix.node == 24
         name: Move HTML report and badge to the correct location
         run: |
           mv coverage/lcov-report static-build
@@ -120,7 +122,7 @@ jobs:
       # *** BEGIN PUBLISH STATIC SITE STEPS ***
       # Use the standard checkout action to check out the destination repo to a separate directory
       # See https://github.com/mifi/github-action-push-static
-      - if: matrix.node == 22
+      - if: matrix.node == 24
         uses: actions/checkout@v4
         with:
           ssh-key: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
@@ -128,7 +130,7 @@ jobs:
           path: static-files-destination
 
       # Push coverage data
-      - if: matrix.node == 22
+      - if: matrix.node == 24
         run: |
           git config --global user.name github-actions
           git config --global user.email github-actions@github.com
