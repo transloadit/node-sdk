@@ -705,7 +705,9 @@ export default async function run(
         const assemblyId = result.assembly_id
         if (!assemblyId) throw new Error('No assembly_id in result')
 
-        let assembly: AssemblyStatus = await client.getAssembly(assemblyId)
+        let assembly: AssemblyStatus = await client.getAssembly(assemblyId, {
+          signal: abortController.signal,
+        })
 
         while (
           assembly.ok !== 'ASSEMBLY_COMPLETED' &&
@@ -713,9 +715,23 @@ export default async function run(
           !assembly.error
         ) {
           if (superceded) return
+          if (abortController.signal.aborted) {
+            throw abortController.signal.reason || new Error('Aborted')
+          }
+
           outputctl.debug(`Assembly status: ${assembly.ok}`)
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-          assembly = await client.getAssembly(assemblyId)
+          await new Promise((resolve, reject) => {
+            const timer = setTimeout(resolve, 1000)
+            abortController.signal.addEventListener(
+              'abort',
+              () => {
+                clearTimeout(timer)
+                reject(abortController.signal.reason || new Error('Aborted'))
+              },
+              { once: true },
+            )
+          })
+          assembly = await client.getAssembly(assemblyId, { signal: abortController.signal })
         }
 
         if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
