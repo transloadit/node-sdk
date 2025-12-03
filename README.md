@@ -166,10 +166,18 @@ echo '{"workspace":"my-workspace","template":"my-template","input":"image.jpg"}'
 
 All commands support these common options:
 
-- `--json, -j` - Output results as JSON
-- `--verbose, -v` - Verbose output
-- `--quiet, -q` - Suppress non-essential output
+- `--json, -j` - Output results as JSON (useful for scripting)
+- `--verbose, -v` - Enable debug output (shows DEBUG messages in addition to INFO/WARNING/ERROR)
+- `--quiet, -q` - Suppress non-essential output (only shows ERROR messages, hides INFO and WARNING)
 - `--help, -h` - Show help for a command
+
+Output levels:
+
+| Flag        | ERROR | WARNING | INFO | DEBUG |
+| ----------- | ----- | ------- | ---- | ----- |
+| `--quiet`   | ✓     |         |      |       |
+| _(default)_ | ✓     | ✓       | ✓    |       |
+| `--verbose` | ✓     | ✓       | ✓    | ✓     |
 
 ## SDK Usage
 

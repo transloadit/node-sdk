@@ -299,9 +299,12 @@ export class Transloadit {
         stream.pause()
       }
 
-      // If any stream emits error, we want to handle this and exit with error
-      // Note: We add a no-op catch to prevent unhandled rejection when createAssemblyAndUpload
-      // completes first and this promise is orphaned (but streams may still error later)
+      // If any stream emits error, we want to handle this and exit with error.
+      // This promise races against createAssemblyAndUpload() below via Promise.race().
+      // When createAssemblyAndUpload wins the race, this promise becomes "orphaned" -
+      // it's no longer awaited, but stream error handlers remain attached.
+      // The no-op catch prevents Node's unhandled rejection warning if a stream
+      // errors after the race is already won.
       const streamErrorPromise = new Promise<AssemblyStatus>((_resolve, reject) => {
         for (const { stream } of allStreams) {
           stream.on('error', reject)

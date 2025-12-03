@@ -19,12 +19,17 @@ export default class JobsPromise {
   /**
    * Add a promise to track. If the promise rejects,
    * the error handler will be called.
+   * @throws Error if error handler has not been set via setErrorHandler()
    */
   add(promise: Promise<unknown>): void {
+    if (this.onError === null) {
+      throw new Error('JobsPromise: error handler must be set before adding promises')
+    }
     this.promises.add(promise)
+    const errorHandler = this.onError
     promise
       .catch((err: unknown) => {
-        this.onError?.(err)
+        errorHandler(err)
       })
       .finally(() => {
         this.promises.delete(promise)

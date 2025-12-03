@@ -20,6 +20,7 @@ interface NodeWatcher {
   on(event: 'close', listener: () => void): void
   on(event: 'change', listener: (evt: string, filename: string) => void): void
   on(event: string, listener: (...args: unknown[]) => void): void
+  close(): void
 }
 
 type NodeWatchFn = (path: string, options?: { recursive?: boolean }) => NodeWatcher
@@ -334,12 +335,27 @@ class NullJobEmitter extends MyEventEmitter {
 }
 
 class WatchJobEmitter extends MyEventEmitter {
+  private watcher: NodeWatcher | null = null
+
   constructor({ file, streamRegistry, recursive, outstreamProvider }: WatchJobEmitterOptions) {
     super()
 
     this.init({ file, streamRegistry, recursive, outstreamProvider }).catch((err) => {
       this.emit('error', err)
     })
+
+    // Clean up watcher on process exit signals
+    const cleanup = () => this.close()
+    process.once('SIGINT', cleanup)
+    process.once('SIGTERM', cleanup)
+  }
+
+  /** Close the file watcher and release resources */
+  close(): void {
+    if (this.watcher) {
+      this.watcher.close()
+      this.watcher = null
+    }
   }
 
   private async init({
@@ -352,11 +368,14 @@ class WatchJobEmitter extends MyEventEmitter {
     const topdir = stats.isDirectory() ? file : undefined
 
     const watchFn = await getNodeWatch()
-    const watcher = watchFn(file, { recursive })
+    this.watcher = watchFn(file, { recursive })
 
-    watcher.on('error', (err: Error) => this.emit('error', err))
-    watcher.on('close', () => this.emit('end'))
-    watcher.on('change', (_evt: string, filename: string) => {
+    this.watcher.on('error', (err: Error) => {
+      this.close()
+      this.emit('error', err)
+    })
+    this.watcher.on('close', () => this.emit('end'))
+    this.watcher.on('change', (_evt: string, filename: string) => {
       const normalizedFile = path.normalize(filename)
       this.handleChange(normalizedFile, topdir, streamRegistry, outstreamProvider).catch((err) => {
         this.emit('error', err)
