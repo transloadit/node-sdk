@@ -2,7 +2,7 @@ import type { LogLevelValue, OutputCtlOptions } from '../../../src/cli/OutputCtl
 import { LOG_LEVEL_DEFAULT } from '../../../src/cli/OutputCtl.ts'
 
 interface OutputEntry {
-  type: 'error' | 'warn' | 'notice' | 'info' | 'debug' | 'print'
+  type: 'error' | 'warn' | 'notice' | 'info' | 'debug' | 'trace' | 'print'
   msg: unknown
   json?: unknown
 }
@@ -41,6 +41,10 @@ export default class OutputCtl {
 
   debug(msg: unknown): void {
     this.output.push({ type: 'debug', msg })
+  }
+
+  trace(msg: unknown): void {
+    this.output.push({ type: 'trace', msg })
   }
 
   print(msg: unknown, json?: unknown): void {

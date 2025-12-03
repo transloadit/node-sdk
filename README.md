@@ -181,6 +181,7 @@ The CLI uses [syslog severity levels](https://en.wikipedia.org/wiki/Syslog#Sever
 | `notice` | 5     | Normal but significant **(default)**  |
 | `info`   | 6     | Informational messages                |
 | `debug`  | 7     | Debug-level messages                  |
+| `trace`  | 8     | Most verbose/detailed                 |
 
 You can use either the level name or its numeric value:
 

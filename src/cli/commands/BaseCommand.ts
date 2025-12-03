@@ -11,7 +11,7 @@ import OutputCtl, {
 
 export abstract class BaseCommand extends Command {
   logLevelOption = Option.String('-l,--log-level', {
-    description: `Log level: ${LOG_LEVEL_NAMES.join(', ')} or 3-7 (default: notice)`,
+    description: `Log level: ${LOG_LEVEL_NAMES.join(', ')} or 3-8 (default: notice)`,
   })
 
   json = Option.Boolean('-j,--json', false, {

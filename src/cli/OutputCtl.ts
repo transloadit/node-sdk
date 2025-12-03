@@ -8,6 +8,7 @@ export const LOG_LEVEL = {
   NOTICE: 5, // Normal but significant (default)
   INFO: 6, // Informational
   DEBUG: 7, // Debug-level messages
+  TRACE: 8, // Most verbose/detailed
 } as const
 
 export type LogLevelName = keyof typeof LOG_LEVEL
@@ -58,6 +59,7 @@ export interface IOutputCtl {
   notice(msg: unknown): void
   info(msg: unknown): void
   debug(msg: unknown): void
+  trace(msg: unknown): void
   print(simple: unknown, json: unknown): void
 }
 
@@ -99,6 +101,10 @@ export default class OutputCtl implements IOutputCtl {
 
   debug(msg: unknown): void {
     if (this.logLevel >= LOG_LEVEL.DEBUG) console.error('debug  ', msg)
+  }
+
+  trace(msg: unknown): void {
+    if (this.logLevel >= LOG_LEVEL.TRACE) console.error('trace  ', msg)
   }
 
   print(simple: unknown, json: unknown): void {
