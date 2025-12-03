@@ -599,6 +599,7 @@ export interface AssembliesCreateOptions {
   output?: string | null
   del?: boolean
   reprocessStale?: boolean
+  singleAssembly?: boolean
 }
 
 export default async function run(
@@ -614,6 +615,7 @@ export default async function run(
     output,
     del,
     reprocessStale,
+    singleAssembly,
   }: AssembliesCreateOptions,
 ): Promise<{ results: unknown[]; hasFailures: boolean }> {
   // Quick fix for https://github.com/transloadit/transloadify/issues/13
@@ -704,116 +706,237 @@ export default async function run(
       outputctl.error(err as Error)
     })
 
-    emitter.on('job', (job: Job) => {
-      activeJobs.add(job)
-      const inPath = job.in ? ((job.in as fs.ReadStream).path as string | undefined) : undefined
-      const outPath = job.out?.path
-      outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+    if (singleAssembly) {
+      // Single-assembly mode: collect all jobs, then create one assembly with all inputs
+      const collectedJobs: Job[] = []
 
-      let superceded = false
-      if (job.out != null)
-        job.out.on('finish', () => {
-          superceded = true
-        })
+      emitter.on('job', (job: Job) => {
+        const inPath = job.in ? ((job.in as fs.ReadStream).path as string | undefined) : undefined
+        outputctl.debug(`COLLECTING JOB ${inPath ?? 'null'}`)
+        collectedJobs.push(job)
+      })
 
-      const createOptions: CreateAssemblyOptions = {
-        params,
-        signal: abortController.signal,
-      }
-      if (job.in != null) {
-        createOptions.uploads = { in: job.in }
-      }
+      emitter.on('error', (err: Error) => {
+        abortController.abort()
+        outputctl.error(err)
+        reject(err)
+      })
 
-      const jobPromise = (async () => {
-        const result = await client.createAssembly(createOptions)
-        if (superceded) return
-
-        const assemblyId = result.assembly_id
-        if (!assemblyId) throw new Error('No assembly_id in result')
-
-        // Use SDK's awaitAssemblyCompletion with onPoll to check for superceded jobs
-        const assembly = await client.awaitAssemblyCompletion(assemblyId, {
-          signal: abortController.signal,
-          onPoll: () => {
-            // Return false to stop polling if this job has been superceded (watch mode)
-            if (superceded) return false
-            return true
-          },
-          onAssemblyProgress: (status) => {
-            outputctl.debug(`Assembly status: ${status.ok}`)
-          },
-        })
-
-        // If superceded, exit early without processing results
-        if (superceded) return
-
-        if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
-          const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok})`
-          outputctl.error(msg)
-          throw new Error(msg)
+      emitter.on('end', async () => {
+        if (collectedJobs.length === 0) {
+          resolve({ results: [], hasFailures: false })
+          return
         }
 
-        if (!assembly.results) throw new Error('No results in assembly')
-        const resultsKeys = Object.keys(assembly.results)
-        const firstKey = resultsKeys[0]
-        if (!firstKey) throw new Error('No results in assembly')
-        const firstResult = assembly.results[firstKey]
-        if (!firstResult || !firstResult[0]) throw new Error('No results in assembly')
-        const resulturl = firstResult[0].url
+        // Build uploads object with all input files
+        const uploads: Record<string, Readable> = {}
+        const inputPaths: string[] = []
+        for (const job of collectedJobs) {
+          if (job.in != null) {
+            const inPath = (job.in as fs.ReadStream).path as string
+            const basename = path.basename(inPath)
+            // Use a unique key if there are name collisions
+            let key = basename
+            let counter = 1
+            while (key in uploads) {
+              key = `${path.parse(basename).name}_${counter}${path.parse(basename).ext}`
+              counter++
+            }
+            uploads[key] = job.in
+            inputPaths.push(inPath)
+          }
+        }
 
-        if (job.out != null && resulturl) {
-          outputctl.debug('DOWNLOADING')
-          await new Promise<void>((resolve, reject) => {
-            const get = resulturl.startsWith('https') ? https.get : http.get
-            get(resulturl, (res) => {
-              if (res.statusCode !== 200) {
-                const msg = `Server returned http status ${res.statusCode}`
-                outputctl.error(msg)
-                return reject(new Error(msg))
-              }
+        outputctl.debug(`Creating single assembly with ${Object.keys(uploads).length} files`)
 
-              if (superceded) return resolve()
+        const singleAssemblyPromise = (async () => {
+          const createOptions: CreateAssemblyOptions = {
+            params,
+            signal: abortController.signal,
+          }
+          if (Object.keys(uploads).length > 0) {
+            createOptions.uploads = uploads
+          }
 
-              if (!job.out) {
-                return reject(new Error('Job output stream is undefined'))
-              }
-              res.pipe(job.out)
-              job.out.on('finish', () => res.unpipe())
-              res.on('end', () => resolve())
-            }).on('error', (err) => {
-              outputctl.error(err.message)
-              reject(err)
-            })
+          const result = await client.createAssembly(createOptions)
+          const assemblyId = result.assembly_id
+          if (!assemblyId) throw new Error('No assembly_id in result')
+
+          const assembly = await client.awaitAssemblyCompletion(assemblyId, {
+            signal: abortController.signal,
+            onAssemblyProgress: (status) => {
+              outputctl.debug(`Assembly status: ${status.ok}`)
+            },
           })
-        }
-        await completeJob()
-      })()
 
-      jobsPromise.add(jobPromise)
+          if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
+            const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok})`
+            outputctl.error(msg)
+            throw new Error(msg)
+          }
 
-      async function completeJob(): Promise<void> {
-        activeJobs.delete(job)
+          // Download all results
+          if (assembly.results && resolvedOutput != null) {
+            for (const [stepName, stepResults] of Object.entries(assembly.results)) {
+              for (const stepResult of stepResults) {
+                const resultUrl = stepResult.url
+                if (!resultUrl) continue
+
+                // Determine output path
+                let outPath: string
+                if (outstat?.isDirectory()) {
+                  outPath = path.join(resolvedOutput, stepResult.name || `${stepName}_result`)
+                } else {
+                  outPath = resolvedOutput
+                }
+
+                outputctl.debug(`DOWNLOADING ${stepResult.name} to ${outPath}`)
+                await new Promise<void>((dlResolve, dlReject) => {
+                  const get = resultUrl.startsWith('https') ? https.get : http.get
+                  get(resultUrl, (res) => {
+                    if (res.statusCode !== 200) {
+                      const msg = `Server returned http status ${res.statusCode}`
+                      outputctl.error(msg)
+                      return dlReject(new Error(msg))
+                    }
+                    const outStream = fs.createWriteStream(outPath)
+                    res.pipe(outStream)
+                    outStream.on('finish', () => dlResolve())
+                    outStream.on('error', dlReject)
+                  }).on('error', (err) => {
+                    outputctl.error(err.message)
+                    dlReject(err)
+                  })
+                })
+              }
+            }
+          }
+
+          // Delete input files if requested
+          if (del) {
+            for (const inPath of inputPaths) {
+              await fsp.unlink(inPath)
+            }
+          }
+        })()
+
+        jobsPromise.add(singleAssemblyPromise)
+        const results = await jobsPromise.allSettled()
+        resolve({ results, hasFailures: jobsPromise.hasFailures })
+      })
+    } else {
+      // Default mode: one assembly per file
+      emitter.on('job', (job: Job) => {
+        activeJobs.add(job)
         const inPath = job.in ? ((job.in as fs.ReadStream).path as string | undefined) : undefined
         const outPath = job.out?.path
-        outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+        outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
 
-        if (del && job.in != null && inPath) {
-          await fsp.unlink(inPath)
+        let superceded = false
+        if (job.out != null)
+          job.out.on('finish', () => {
+            superceded = true
+          })
+
+        const createOptions: CreateAssemblyOptions = {
+          params,
+          signal: abortController.signal,
         }
-      }
-    })
+        if (job.in != null) {
+          createOptions.uploads = { in: job.in }
+        }
 
-    emitter.on('error', (err: Error) => {
-      // Abort all in-flight createAssembly calls to ensure clean shutdown
-      abortController.abort()
-      activeJobs.clear()
-      outputctl.error(err)
-      reject(err)
-    })
+        const jobPromise = (async () => {
+          const result = await client.createAssembly(createOptions)
+          if (superceded) return
 
-    emitter.on('end', async () => {
-      const results = await jobsPromise.allSettled()
-      resolve({ results, hasFailures: jobsPromise.hasFailures })
-    })
+          const assemblyId = result.assembly_id
+          if (!assemblyId) throw new Error('No assembly_id in result')
+
+          // Use SDK's awaitAssemblyCompletion with onPoll to check for superceded jobs
+          const assembly = await client.awaitAssemblyCompletion(assemblyId, {
+            signal: abortController.signal,
+            onPoll: () => {
+              // Return false to stop polling if this job has been superceded (watch mode)
+              if (superceded) return false
+              return true
+            },
+            onAssemblyProgress: (status) => {
+              outputctl.debug(`Assembly status: ${status.ok}`)
+            },
+          })
+
+          // If superceded, exit early without processing results
+          if (superceded) return
+
+          if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
+            const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok})`
+            outputctl.error(msg)
+            throw new Error(msg)
+          }
+
+          if (!assembly.results) throw new Error('No results in assembly')
+          const resultsKeys = Object.keys(assembly.results)
+          const firstKey = resultsKeys[0]
+          if (!firstKey) throw new Error('No results in assembly')
+          const firstResult = assembly.results[firstKey]
+          if (!firstResult || !firstResult[0]) throw new Error('No results in assembly')
+          const resulturl = firstResult[0].url
+
+          if (job.out != null && resulturl) {
+            outputctl.debug('DOWNLOADING')
+            await new Promise<void>((resolve, reject) => {
+              const get = resulturl.startsWith('https') ? https.get : http.get
+              get(resulturl, (res) => {
+                if (res.statusCode !== 200) {
+                  const msg = `Server returned http status ${res.statusCode}`
+                  outputctl.error(msg)
+                  return reject(new Error(msg))
+                }
+
+                if (superceded) return resolve()
+
+                if (!job.out) {
+                  return reject(new Error('Job output stream is undefined'))
+                }
+                res.pipe(job.out)
+                job.out.on('finish', () => res.unpipe())
+                res.on('end', () => resolve())
+              }).on('error', (err) => {
+                outputctl.error(err.message)
+                reject(err)
+              })
+            })
+          }
+          await completeJob()
+        })()
+
+        jobsPromise.add(jobPromise)
+
+        async function completeJob(): Promise<void> {
+          activeJobs.delete(job)
+          const inPath = job.in ? ((job.in as fs.ReadStream).path as string | undefined) : undefined
+          const outPath = job.out?.path
+          outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+
+          if (del && job.in != null && inPath) {
+            await fsp.unlink(inPath)
+          }
+        }
+      })
+
+      emitter.on('error', (err: Error) => {
+        // Abort all in-flight createAssembly calls to ensure clean shutdown
+        abortController.abort()
+        activeJobs.clear()
+        outputctl.error(err)
+        reject(err)
+      })
+
+      emitter.on('end', async () => {
+        const results = await jobsPromise.allSettled()
+        resolve({ results, hasFailures: jobsPromise.hasFailures })
+      })
+    }
   })
 }

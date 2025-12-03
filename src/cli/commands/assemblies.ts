@@ -71,6 +71,10 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     description: 'Process inputs even if output is newer',
   })
 
+  singleAssembly = Option.Boolean('--single-assembly', false, {
+    description: 'Pass all input files to a single assembly instead of one assembly per file',
+  })
+
   protected async run(): Promise<number | undefined> {
     if (!this.steps && !this.template) {
       this.output.error('assemblies create requires exactly one of either --steps or --template')
@@ -104,6 +108,11 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       fieldsMap[key] = value
     }
 
+    if (this.singleAssembly && this.watch) {
+      this.output.error('--single-assembly cannot be used with --watch')
+      return 1
+    }
+
     const { hasFailures } = await assembliesCreate(this.output, this.client, {
       steps: this.steps,
       template: this.template,
@@ -114,6 +123,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       output: this.outputPath ?? null,
       del: this.deleteAfterProcessing,
       reprocessStale: this.reprocessStale,
+      singleAssembly: this.singleAssembly,
     })
     return hasFailures ? 1 : undefined
   }

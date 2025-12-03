@@ -14,6 +14,11 @@ export abstract class BaseCommand extends Command {
     description: 'Output in JSON format',
   })
 
+  endpoint = Option.String('--endpoint', {
+    description:
+      'API endpoint URL (default: https://api2.transloadit.com, or TRANSLOADIT_ENDPOINT env var)',
+  })
+
   protected output!: IOutputCtl
   protected client!: TransloaditClient
 
@@ -33,9 +38,12 @@ export abstract class BaseCommand extends Command {
       return false
     }
 
+    const endpoint = this.endpoint || process.env.TRANSLOADIT_ENDPOINT
+
     this.client = new TransloaditClient({
       authKey: process.env.TRANSLOADIT_KEY,
       authSecret: process.env.TRANSLOADIT_SECRET,
+      ...(endpoint && { endpoint }),
     })
     return true
   }
