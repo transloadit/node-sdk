@@ -317,7 +317,8 @@ export async function sync(
 
     const result = await client.getTemplate(templateId)
 
-    template.data.steps = result.content.steps
+    // Use empty object if template has no steps (undefined would be stripped by JSON.stringify)
+    template.data.steps = result.content.steps ?? {}
     const file = path.join(path.dirname(template.file), `${result.name}.json`)
 
     await fsp.writeFile(template.file, JSON.stringify(template.data))
