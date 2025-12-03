@@ -76,6 +76,9 @@ npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --
 
 # Process recursively with file watching
 npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/ --recursive --watch
+
+# Process multiple files in a single assembly
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input file1.jpg --input file2.jpg --output results/ --single-assembly
 ```
 
 ### Managing Assemblies
@@ -168,7 +171,12 @@ All commands support these common options:
 
 - `--json, -j` - Output results as JSON (useful for scripting)
 - `--log-level, -l` - Set log verbosity level by name or number (default: notice)
+- `--endpoint` - Custom API endpoint URL (or set `TRANSLOADIT_ENDPOINT` env var)
 - `--help, -h` - Show help for a command
+
+The `assemblies create` command additionally supports:
+
+- `--single-assembly` - Pass all input files to a single assembly instead of one assembly per file
 
 #### Log Levels
 
