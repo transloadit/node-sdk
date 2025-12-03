@@ -484,6 +484,8 @@ function dismissStaleJobs(jobEmitter: EventEmitter): MyEventEmitter {
   const emitter = new MyEventEmitter()
 
   const jobsPromise = new JobsPromise()
+  // Errors are already caught in the promises passed to add(), so use a no-op handler
+  jobsPromise.setErrorHandler(() => {})
 
   jobEmitter.on('end', () => jobsPromise.allSettled().then(() => emitter.emit('end')))
   jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
@@ -697,6 +699,11 @@ export default async function run(
     // AbortController to cancel all in-flight createAssembly calls when an error occurs
     const abortController = new AbortController()
 
+    // Set error handler before subscribing to events that might call add()
+    jobsPromise.setErrorHandler((err: unknown) => {
+      outputctl.error(err as Error)
+    })
+
     emitter.on('job', (job: Job) => {
       activeJobs.add(job)
       const inPath = job.in ? ((job.in as fs.ReadStream).path as string | undefined) : undefined
@@ -794,10 +801,6 @@ export default async function run(
           await fsp.unlink(inPath)
         }
       }
-    })
-
-    jobsPromise.setErrorHandler((err: unknown) => {
-      outputctl.error(err as Error)
     })
 
     emitter.on('error', (err: Error) => {
