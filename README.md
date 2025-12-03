@@ -226,10 +226,12 @@ You can find [details about your executed Assemblies here](https://transloadit.c
 
 - [Upload and resize image](https://github.com/transloadit/node-sdk/blob/main/examples/resize_an_image.ts)
 - [Upload image and convert to WebP](https://github.com/transloadit/node-sdk/blob/main/examples/convert_to_webp.ts)
+- [Rasterize SVG to PNG](https://github.com/transloadit/node-sdk/blob/main/examples/rasterize_svg_to_png.ts)
 - [Crop a face out of an image and download the result](https://github.com/transloadit/node-sdk/blob/main/examples/face_detect_download.ts)
 - [Retry example](https://github.com/transloadit/node-sdk/blob/main/examples/retry.ts)
 - [Calculate total costs (GB usage)](https://github.com/transloadit/node-sdk/blob/main/examples/fetch_costs_of_all_assemblies_in_timeframe.ts)
 - [Templates CRUD](https://github.com/transloadit/node-sdk/blob/main/examples/template_api.ts)
+- [Template Credentials CRUD](https://github.com/transloadit/node-sdk/blob/main/examples/credentials.ts)
 
 For more fully working examples take a look at [`examples/`](https://github.com/transloadit/node-sdk/blob/main/examples/).
 
@@ -245,6 +247,7 @@ Table of contents:
 - [Assemblies](#assemblies)
 - [Assembly notifications](#assembly-notifications)
 - [Templates](#templates)
+- [Template Credentials](#template-credentials)
 - [Errors](#errors)
 - [Rate limiting & auto retry](#rate-limiting--auto-retry)
 
@@ -498,6 +501,34 @@ The method returns an object containing these properties:
 
 Creates an `objectMode` `Readable` stream that automates handling of `listTemplates` pagination. Similar to `streamAssemblies`.
 
+### Template Credentials
+
+Template Credentials allow you to store third-party credentials (e.g., AWS S3, Google Cloud Storage, FTP) securely on Transloadit for use in your Assembly Instructions.
+
+#### async createTemplateCredential(params)
+
+Creates a new Template Credential. The `params` object should contain the credential configuration. See [API documentation](https://transloadit.com/docs/api/template-credentials-post/).
+
+#### async editTemplateCredential(credentialId, params)
+
+Updates an existing Template Credential identified by `credentialId`. See [API documentation](https://transloadit.com/docs/api/template-credentials-credential-id-put/).
+
+#### async deleteTemplateCredential(credentialId)
+
+Deletes the Template Credential identified by `credentialId`. See [API documentation](https://transloadit.com/docs/api/template-credentials-credential-id-delete/).
+
+#### async getTemplateCredential(credentialId)
+
+Retrieves the Template Credential identified by `credentialId`. See [API documentation](https://transloadit.com/docs/api/template-credentials-credential-id-get/).
+
+#### async listTemplateCredentials(params)
+
+Lists all Template Credentials. See [API documentation](https://transloadit.com/docs/api/template-credentials-get/).
+
+#### streamTemplateCredentials(params)
+
+Creates an `objectMode` `Readable` stream that automates handling of `listTemplateCredentials` pagination. Similar to `streamAssemblies`.
+
 ### Other
 
 #### setDefaultTimeout(timeout)
@@ -606,7 +637,7 @@ If you want to retry on other errors, please see the [retry example code](exampl
 This project uses [debug](https://github.com/visionmedia/debug) so you can run node with the `DEBUG=transloadit` evironment variable to enable verbose logging. Example:
 
 ```bash
-DEBUG=transloadit* node examples/template_api.js
+DEBUG=transloadit* npx tsx examples/template_api.ts
 ```
 
 ## Maintainers
