@@ -145,11 +145,11 @@ npx transloadit bills get 2024-01 --json
 ### Assembly Notifications
 
 ```bash
-# List notifications for an assembly
-npx transloadit assembly-notifications list ASSEMBLY_ID
-
 # Replay a notification
 npx transloadit assembly-notifications replay ASSEMBLY_ID
+
+# Replay to a different URL
+npx transloadit assembly-notifications replay --notify-url https://example.com/hook ASSEMBLY_ID
 ```
 
 ### Signature Generation

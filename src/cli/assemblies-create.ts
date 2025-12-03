@@ -780,7 +780,7 @@ export default async function run(
                 outputctl.debug(`DOWNLOADING ${stepResult.name} to ${outPath}`)
                 await new Promise<void>((dlResolve, dlReject) => {
                   const get = resultUrl.startsWith('https') ? https.get : http.get
-                  get(resultUrl, (res) => {
+                  const req = get(resultUrl, { signal: abortController.signal }, (res) => {
                     if (res.statusCode !== 200) {
                       const msg = `Server returned http status ${res.statusCode}`
                       outputctl.error(msg)
@@ -790,7 +790,9 @@ export default async function run(
                     res.pipe(outStream)
                     outStream.on('finish', () => dlResolve())
                     outStream.on('error', dlReject)
-                  }).on('error', (err) => {
+                  })
+                  req.on('error', (err) => {
+                    if (err.name === 'AbortError') return dlResolve()
                     outputctl.error(err.message)
                     dlReject(err)
                   })
@@ -874,7 +876,7 @@ export default async function run(
             outputctl.debug('DOWNLOADING')
             await new Promise<void>((resolve, reject) => {
               const get = resulturl.startsWith('https') ? https.get : http.get
-              get(resulturl, (res) => {
+              const req = get(resulturl, { signal: abortController.signal }, (res) => {
                 if (res.statusCode !== 200) {
                   const msg = `Server returned http status ${res.statusCode}`
                   outputctl.error(msg)
@@ -889,7 +891,9 @@ export default async function run(
                 res.pipe(job.out)
                 job.out.on('finish', () => res.unpipe())
                 res.on('end', () => resolve())
-              }).on('error', (err) => {
+              })
+              req.on('error', (err) => {
+                if (err.name === 'AbortError') return resolve()
                 outputctl.error(err.message)
                 reject(err)
               })

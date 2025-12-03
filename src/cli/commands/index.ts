@@ -14,7 +14,7 @@ import { SignatureCommand, SmartCdnSignatureCommand } from './auth.ts'
 
 import { BillsGetCommand } from './bills.ts'
 
-import { NotificationsListCommand, NotificationsReplayCommand } from './notifications.ts'
+import { NotificationsReplayCommand } from './notifications.ts'
 
 import {
   TemplatesCreateCommand,
@@ -60,7 +60,6 @@ export function createCli(): Cli {
 
   // Notifications commands
   cli.register(NotificationsReplayCommand)
-  cli.register(NotificationsListCommand)
 
   return cli
 }

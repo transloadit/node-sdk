@@ -8,12 +8,6 @@ export interface NotificationsReplayOptions {
   assemblies: string[]
 }
 
-export interface NotificationsListOptions {
-  type?: string
-  assembly_id?: string
-  pagesize?: number
-}
-
 export async function replay(
   output: IOutputCtl,
   client: Transloadit,
@@ -24,13 +18,4 @@ export async function replay(
   if (err) {
     output.error(ensureError(err).message)
   }
-}
-
-export function list(
-  output: IOutputCtl,
-  _client: Transloadit,
-  { type: _type, assembly_id: _assembly_id }: NotificationsListOptions,
-): Promise<void> {
-  output.error('List notifications is not supported in this version')
-  return Promise.resolve()
 }
