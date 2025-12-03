@@ -799,6 +799,7 @@ export default async function run(
               await fsp.unlink(inPath)
             }
           }
+          return assembly
         })()
 
         jobsPromise.add(singleAssemblyPromise)
@@ -877,6 +878,7 @@ export default async function run(
             }
           }
           await completeJob()
+          return assembly
         })()
 
         jobsPromise.add(jobPromise)
