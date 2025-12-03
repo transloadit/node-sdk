@@ -112,7 +112,7 @@ export interface AwaitAssemblyCompletionOptions {
    * Return `false` to stop polling early and return the current assembly status.
    * Useful for watch mode where a newer job may supersede the current one.
    */
-  onPoll?: () => boolean | void
+  onPoll?: () => boolean | undefined
 }
 
 export interface SmartCDNUrlOptions {

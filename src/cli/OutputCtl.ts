@@ -17,9 +17,9 @@ export type LogLevelValue = (typeof LOG_LEVEL)[LogLevelName]
 export const LOG_LEVEL_DEFAULT: LogLevelValue = LOG_LEVEL.NOTICE
 
 /** Valid log level names for CLI parsing */
-export const LOG_LEVEL_NAMES = Object.keys(LOG_LEVEL).map((k) => k.toLowerCase()) as Lowercase<
-  LogLevelName
->[]
+export const LOG_LEVEL_NAMES = Object.keys(LOG_LEVEL).map((k) =>
+  k.toLowerCase(),
+) as Lowercase<LogLevelName>[]
 
 /** Valid numeric log level values */
 const LOG_LEVEL_VALUES = new Set(Object.values(LOG_LEVEL))

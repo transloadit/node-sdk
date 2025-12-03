@@ -30,7 +30,7 @@ describe('JobsPromise', () => {
     expect(results).toHaveLength(2)
   })
 
-  it('should throw if error handler is not set and promise rejects', async () => {
+  it('should throw if error handler is not set and promise rejects', () => {
     const jobs = new JobsPromise()
     // Intentionally NOT setting error handler
 
@@ -40,7 +40,7 @@ describe('JobsPromise', () => {
 
     // This should throw because no error handler is set
     expect(() => jobs.add(rejectingPromise)).toThrow(
-      'JobsPromise: error handler must be set before adding promises'
+      'JobsPromise: error handler must be set before adding promises',
     )
   })
 })

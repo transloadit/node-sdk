@@ -2,12 +2,8 @@ import process from 'node:process'
 import { Command, Option } from 'clipanion'
 import 'dotenv/config'
 import { Transloadit as TransloaditClient } from '../../Transloadit.ts'
-import OutputCtl, {
-  type IOutputCtl,
-  LOG_LEVEL_DEFAULT,
-  LOG_LEVEL_NAMES,
-  parseLogLevel,
-} from '../OutputCtl.ts'
+import type { IOutputCtl } from '../OutputCtl.ts'
+import OutputCtl, { LOG_LEVEL_DEFAULT, LOG_LEVEL_NAMES, parseLogLevel } from '../OutputCtl.ts'
 
 export abstract class BaseCommand extends Command {
   logLevelOption = Option.String('-l,--log-level', {
