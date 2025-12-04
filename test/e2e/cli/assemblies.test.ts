@@ -479,5 +479,99 @@ describe('assemblies', () => {
         ).to.have.lengthOf(0)
       }),
     )
+
+    it(
+      'should process many files with concurrency limiting',
+      testCase(async (client) => {
+        // Create 6 input files
+        const fileCount = 6
+        const infiles = await Promise.all(
+          Array.from({ length: fileCount }, (_, i) => imgPromise(`in${i}.jpg`)),
+        )
+        const steps = await stepsPromise()
+        await fsp.mkdir('out')
+
+        const output = new OutputCtl()
+        await assembliesCreate(output, client, {
+          steps,
+          inputs: infiles,
+          output: 'out',
+          concurrency: 2, // Only process 2 at a time
+        })
+
+        // Verify all files were processed successfully
+        const outs = await fsp.readdir('out')
+        expect(outs).to.have.lengthOf(fileCount)
+
+        // Analyze debug output to verify concurrency limiting was applied.
+        // The fixed code emits "PROCESSING JOB" when jobs start (up to concurrency limit).
+        // The unfixed code has no such limiting - all jobs start at once with "GOT JOB".
+        const debugOutput = output.get(true) as OutputEntry[]
+        const messages = debugOutput.map((e) => String(e.msg))
+
+        // Check that "PROCESSING JOB" messages exist (added by the fix)
+        const processingMessages = messages.filter((m) => m.startsWith('PROCESSING JOB'))
+        expect(
+          processingMessages.length,
+          'Expected "PROCESSING JOB" debug messages from concurrency-limited processing',
+        ).to.be.greaterThan(0)
+
+        // Track max concurrent jobs by counting "PROCESSING JOB" vs "COMPLETED" messages
+        let activeJobs = 0
+        let maxActiveJobs = 0
+        for (const msg of messages) {
+          if (msg.startsWith('PROCESSING JOB')) {
+            activeJobs++
+            maxActiveJobs = Math.max(maxActiveJobs, activeJobs)
+          } else if (msg.startsWith('COMPLETED')) {
+            activeJobs--
+          }
+        }
+
+        // With concurrency=2, we should never have more than 2 jobs processing at once
+        expect(
+          maxActiveJobs,
+          'Max concurrent jobs should not exceed concurrency limit',
+        ).to.be.at.most(2)
+      }),
+    )
+
+    it(
+      'should close streams immediately in single-assembly mode',
+      testCase(async (client) => {
+        // Create multiple input files for single-assembly mode
+        const fileCount = 5
+        const infiles = await Promise.all(
+          Array.from({ length: fileCount }, (_, i) => imgPromise(`in${i}.jpg`)),
+        )
+        const steps = await stepsPromise()
+        await fsp.mkdir('out')
+
+        const output = new OutputCtl()
+        await assembliesCreate(output, client, {
+          steps,
+          inputs: infiles,
+          output: 'out',
+          singleAssembly: true, // All files in one assembly
+        })
+
+        // Verify files were processed
+        const outs = await fsp.readdir('out')
+        expect(outs.length).to.be.greaterThan(0)
+
+        // Analyze debug output to verify streams were handled properly.
+        // The fixed code emits "STREAM CLOSED" when closing streams during collection.
+        // The unfixed code keeps all streams open until upload, risking fd exhaustion.
+        const debugOutput = output.get(true) as OutputEntry[]
+        const messages = debugOutput.map((e) => String(e.msg))
+
+        // Check that streams were closed during collection (added by the fix)
+        const streamClosedMessages = messages.filter((m) => m.startsWith('STREAM CLOSED'))
+        expect(
+          streamClosedMessages.length,
+          'Expected "STREAM CLOSED" messages indicating proper fd management',
+        ).to.be.greaterThan(0)
+      }),
+    )
   })
 })

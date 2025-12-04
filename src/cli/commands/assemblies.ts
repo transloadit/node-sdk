@@ -1,5 +1,6 @@
 import process from 'node:process'
 import { Command, Option } from 'clipanion'
+import * as t from 'typanion'
 import * as assemblies from '../assemblies.ts'
 import assembliesCreate from '../assemblies-create.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
@@ -75,6 +76,11 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     description: 'Pass all input files to a single assembly instead of one assembly per file',
   })
 
+  concurrency = Option.String('--concurrency,-c', {
+    description: 'Maximum number of concurrent assemblies (default: 5)',
+    validator: t.isNumber(),
+  })
+
   protected async run(): Promise<number | undefined> {
     if (!this.steps && !this.template) {
       this.output.error('assemblies create requires exactly one of either --steps or --template')
@@ -124,6 +130,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       del: this.deleteAfterProcessing,
       reprocessStale: this.reprocessStale,
       singleAssembly: this.singleAssembly,
+      concurrency: this.concurrency,
     })
     return hasFailures ? 1 : undefined
   }

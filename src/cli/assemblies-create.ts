@@ -591,7 +591,10 @@ export interface AssembliesCreateOptions {
   del?: boolean
   reprocessStale?: boolean
   singleAssembly?: boolean
+  concurrency?: number
 }
+
+const DEFAULT_CONCURRENCY = 5
 
 export default async function run(
   outputctl: IOutputCtl,
@@ -607,6 +610,7 @@ export default async function run(
     del,
     reprocessStale,
     singleAssembly,
+    concurrency = DEFAULT_CONCURRENCY,
   }: AssembliesCreateOptions,
 ): Promise<{ results: unknown[]; hasFailures: boolean }> {
   // Quick fix for https://github.com/transloadit/transloadify/issues/13
@@ -694,13 +698,19 @@ export default async function run(
     })
 
     if (singleAssembly) {
-      // Single-assembly mode: collect all jobs, then create one assembly with all inputs
-      const collectedJobs: Job[] = []
+      // Single-assembly mode: collect file paths, then create one assembly with all inputs
+      // We close streams immediately to avoid exhausting file descriptors with many files
+      const collectedPaths: string[] = []
 
       emitter.on('job', (job: Job) => {
-        const inPath = job.in ? ((job.in as fs.ReadStream).path as string | undefined) : undefined
-        outputctl.debug(`COLLECTING JOB ${inPath ?? 'null'}`)
-        collectedJobs.push(job)
+        if (job.in != null) {
+          const inPath = (job.in as fs.ReadStream).path as string
+          outputctl.debug(`COLLECTING JOB ${inPath}`)
+          collectedPaths.push(inPath)
+          // Close the stream immediately to avoid file descriptor exhaustion
+          ;(job.in as fs.ReadStream).destroy()
+          outputctl.debug(`STREAM CLOSED ${inPath}`)
+        }
       })
 
       emitter.on('error', (err: Error) => {
@@ -710,28 +720,25 @@ export default async function run(
       })
 
       emitter.on('end', async () => {
-        if (collectedJobs.length === 0) {
+        if (collectedPaths.length === 0) {
           resolve({ results: [], hasFailures: false })
           return
         }
 
-        // Build uploads object with all input files
+        // Build uploads object, creating fresh streams for each file
         const uploads: Record<string, Readable> = {}
         const inputPaths: string[] = []
-        for (const job of collectedJobs) {
-          if (job.in != null) {
-            const inPath = (job.in as fs.ReadStream).path as string
-            const basename = path.basename(inPath)
-            // Use a unique key if there are name collisions
-            let key = basename
-            let counter = 1
-            while (key in uploads) {
-              key = `${path.parse(basename).name}_${counter}${path.parse(basename).ext}`
-              counter++
-            }
-            uploads[key] = job.in
-            inputPaths.push(inPath)
+        for (const inPath of collectedPaths) {
+          const basename = path.basename(inPath)
+          // Use a unique key if there are name collisions
+          let key = basename
+          let counter = 1
+          while (key in uploads) {
+            key = `${path.parse(basename).name}_${counter}${path.parse(basename).ext}`
+            counter++
           }
+          uploads[key] = fs.createReadStream(inPath)
+          inputPaths.push(inPath)
         }
 
         outputctl.debug(`Creating single assembly with ${Object.keys(uploads).length} files`)
@@ -814,16 +821,47 @@ export default async function run(
         resolve({ results, hasFailures: jobsPromise.hasFailures })
       })
     } else {
-      // Default mode: one assembly per file
-      emitter.on('job', (job: Job) => {
-        activeJobs.add(job)
-        const inPath = job.in ? ((job.in as fs.ReadStream).path as string | undefined) : undefined
-        const outPath = job.out?.path
-        outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+      // Default mode: one assembly per file with concurrency limiting
+      // Queue jobs and limit how many run in parallel to avoid file descriptor exhaustion
+      interface QueuedJob {
+        inPath: string | null
+        outPath: string | null
+        outMtime: Date | undefined
+      }
+      const jobQueue: QueuedJob[] = []
+      let activeCount = 0
+      let emitterEnded = false
+      let resolveWhenDone: (() => void) | null = null
+
+      function tryProcessNext(): void {
+        while (activeCount < concurrency && jobQueue.length > 0) {
+          const queuedJob = jobQueue.shift()
+          if (!queuedJob) break
+          activeCount++
+          processJob(queuedJob)
+        }
+        // Check if we're done (emitter ended, queue empty, no active jobs)
+        if (emitterEnded && jobQueue.length === 0 && activeCount === 0 && resolveWhenDone) {
+          resolveWhenDone()
+        }
+      }
+
+      function processJob(queuedJob: QueuedJob): void {
+        const { inPath, outPath, outMtime } = queuedJob
+        outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+
+        // Create fresh streams for this job
+        const inStream = inPath ? fs.createReadStream(inPath) : null
+        // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
+        inStream?.on('error', () => {})
+        const outStream = outPath ? (fs.createWriteStream(outPath) as OutStream) : null
+        // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
+        outStream?.on('error', () => {})
+        if (outStream) outStream.mtime = outMtime
 
         let superceded = false
-        if (job.out != null)
-          job.out.on('finish', () => {
+        if (outStream != null)
+          outStream.on('finish', () => {
             superceded = true
           })
 
@@ -831,8 +869,8 @@ export default async function run(
           params,
           signal: abortController.signal,
         }
-        if (job.in != null) {
-          createOptions.uploads = { in: job.in }
+        if (inStream != null) {
+          createOptions.uploads = { in: inStream }
         }
 
         const jobPromise = (async () => {
@@ -872,59 +910,85 @@ export default async function run(
           if (!firstResult || !firstResult[0]) throw new Error('No results in assembly')
           const resulturl = firstResult[0].url
 
-          if (job.out != null && resulturl) {
+          if (outStream != null && resulturl && !superceded) {
             outputctl.debug('DOWNLOADING')
-            await new Promise<void>((resolve, reject) => {
+            await new Promise<void>((dlResolve, dlReject) => {
               const get = resulturl.startsWith('https') ? https.get : http.get
               const req = get(resulturl, { signal: abortController.signal }, (res) => {
                 if (res.statusCode !== 200) {
                   const msg = `Server returned http status ${res.statusCode}`
                   outputctl.error(msg)
-                  return reject(new Error(msg))
+                  return dlReject(new Error(msg))
                 }
 
-                if (superceded) return resolve()
+                if (superceded) return dlResolve()
 
-                if (!job.out) {
-                  return reject(new Error('Job output stream is undefined'))
-                }
-                res.pipe(job.out)
-                job.out.on('finish', () => res.unpipe())
-                res.on('end', () => resolve())
+                res.pipe(outStream)
+                outStream.on('finish', () => res.unpipe())
+                res.on('end', () => dlResolve())
               })
               req.on('error', (err) => {
-                if (err.name === 'AbortError') return resolve()
+                if (err.name === 'AbortError') return dlResolve()
                 outputctl.error(err.message)
-                reject(err)
+                dlReject(err)
               })
             })
           }
-          await completeJob()
-        })()
 
-        jobsPromise.add(jobPromise)
-
-        async function completeJob(): Promise<void> {
-          activeJobs.delete(job)
-          const inPath = job.in ? ((job.in as fs.ReadStream).path as string | undefined) : undefined
-          const outPath = job.out?.path
           outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outPath ?? 'null'}`)
 
-          if (del && job.in != null && inPath) {
+          if (del && inPath) {
             await fsp.unlink(inPath)
           }
+          return assembly
+        })().finally(() => {
+          activeCount--
+          tryProcessNext()
+        })
+
+        jobsPromise.add(jobPromise)
+      }
+
+      emitter.on('job', (job: Job) => {
+        activeJobs.add(job)
+        const inPath = job.in
+          ? (((job.in as fs.ReadStream).path as string | undefined) ?? null)
+          : null
+        const outPath = job.out?.path ?? null
+        const outMtime = job.out?.mtime
+        outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+
+        // Close the original streams immediately - we'll create fresh ones when processing
+        if (job.in != null) {
+          ;(job.in as fs.ReadStream).destroy()
         }
+        if (job.out != null) {
+          job.out.destroy()
+        }
+        activeJobs.delete(job)
+
+        // Queue the job metadata for later processing
+        jobQueue.push({ inPath, outPath, outMtime })
+        tryProcessNext()
       })
 
       emitter.on('error', (err: Error) => {
         // Abort all in-flight createAssembly calls to ensure clean shutdown
         abortController.abort()
         activeJobs.clear()
+        jobQueue.length = 0 // Clear the queue
         outputctl.error(err)
         reject(err)
       })
 
       emitter.on('end', async () => {
+        emitterEnded = true
+        // If there are still jobs in queue or active, wait for them
+        if (jobQueue.length > 0 || activeCount > 0) {
+          await new Promise<void>((r) => {
+            resolveWhenDone = r
+          })
+        }
         const results = await jobsPromise.allSettled()
         resolve({ results, hasFailures: jobsPromise.hasFailures })
       })

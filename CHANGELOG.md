@@ -10,6 +10,8 @@ You may also want to refer to [GitHub releases](https://github.com/transloadit/n
 - Add `--log-level (-l)` CLI option using syslog severity levels (err=3, warn=4, notice=5, info=6, debug=7, trace=8)
 - Add `--endpoint` CLI option for custom API endpoint (also reads `TRANSLOADIT_ENDPOINT` env var)
 - Add `--single-assembly` flag to `assemblies create` for passing multiple input files to a single assembly
+- Add `--concurrency` option to `assemblies create` to limit parallel processing (default: 5)
+- Fix file descriptor exhaustion by closing streams immediately and creating fresh ones on demand
 - Apply stricter biome lint rules (noExplicitAny, useAwait, noForEach, noNonNullAssertion)
 
 ## v4.0.7

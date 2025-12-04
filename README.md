@@ -79,6 +79,9 @@ npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --
 
 # Process multiple files in a single assembly
 npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input file1.jpg --input file2.jpg --output results/ --single-assembly
+
+# Limit concurrent processing (default: 5)
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/ --concurrency 2
 ```
 
 ### Managing Assemblies
