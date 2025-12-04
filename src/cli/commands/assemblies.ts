@@ -23,7 +23,6 @@ import type { IOutputCtl } from '../OutputCtl.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
 
-
 // --- From assemblies.ts: Schemas and interfaces ---
 export interface AssemblyListOptions {
   before?: string
