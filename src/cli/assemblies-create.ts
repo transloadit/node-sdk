@@ -1,13 +1,13 @@
 import EventEmitter from 'node:events'
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
-import http from 'node:http'
-import https from 'node:https'
 import path from 'node:path'
 import process from 'node:process'
 import type { Readable, Writable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import tty from 'node:tty'
 import { promisify } from 'node:util'
+import got from 'got'
 import { tryCatch } from '../alphalib/tryCatch.ts'
 import type { StepsInput } from '../alphalib/types/template.ts'
 import type { CreateAssemblyParams } from '../apiTypes.ts'
@@ -785,25 +785,17 @@ export default async function run(
                 }
 
                 outputctl.debug(`DOWNLOADING ${stepResult.name} to ${outPath}`)
-                await new Promise<void>((dlResolve, dlReject) => {
-                  const get = resultUrl.startsWith('https') ? https.get : http.get
-                  const req = get(resultUrl, { signal: abortController.signal }, (res) => {
-                    if (res.statusCode !== 200) {
-                      const msg = `Server returned http status ${res.statusCode}`
-                      outputctl.error(msg)
-                      return dlReject(new Error(msg))
-                    }
-                    const outStream = fs.createWriteStream(outPath)
-                    res.pipe(outStream)
-                    outStream.on('finish', () => dlResolve())
-                    outStream.on('error', dlReject)
-                  })
-                  req.on('error', (err) => {
-                    if (err.name === 'AbortError') return dlResolve()
-                    outputctl.error(err.message)
-                    dlReject(err)
-                  })
-                })
+                const [dlErr] = await tryCatch(
+                  pipeline(
+                    got.stream(resultUrl, { signal: abortController.signal }),
+                    fs.createWriteStream(outPath),
+                  ),
+                )
+                if (dlErr) {
+                  if (dlErr.name === 'AbortError') continue
+                  outputctl.error(dlErr.message)
+                  throw dlErr
+                }
               }
             }
           }
@@ -814,6 +806,7 @@ export default async function run(
               await fsp.unlink(inPath)
             }
           }
+          return assembly
         })()
 
         jobsPromise.add(singleAssemblyPromise)
@@ -912,27 +905,15 @@ export default async function run(
 
           if (outStream != null && resulturl && !superceded) {
             outputctl.debug('DOWNLOADING')
-            await new Promise<void>((dlResolve, dlReject) => {
-              const get = resulturl.startsWith('https') ? https.get : http.get
-              const req = get(resulturl, { signal: abortController.signal }, (res) => {
-                if (res.statusCode !== 200) {
-                  const msg = `Server returned http status ${res.statusCode}`
-                  outputctl.error(msg)
-                  return dlReject(new Error(msg))
-                }
-
-                if (superceded) return dlResolve()
-
-                res.pipe(outStream)
-                outStream.on('finish', () => res.unpipe())
-                res.on('end', () => dlResolve())
-              })
-              req.on('error', (err) => {
-                if (err.name === 'AbortError') return dlResolve()
-                outputctl.error(err.message)
-                dlReject(err)
-              })
-            })
+            const [dlErr] = await tryCatch(
+              pipeline(got.stream(resulturl, { signal: abortController.signal }), outStream),
+            )
+            if (dlErr) {
+              if (dlErr.name !== 'AbortError') {
+                outputctl.error(dlErr.message)
+                throw dlErr
+              }
+            }
           }
 
           outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outPath ?? 'null'}`)

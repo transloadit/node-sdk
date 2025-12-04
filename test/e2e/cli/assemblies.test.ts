@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import fsp from 'node:fs/promises'
 import process from 'node:process'
 import { promisify } from 'node:util'
@@ -227,6 +228,39 @@ describe('assemblies', () => {
         const dim = imageSize(new Uint8Array(imgBuffer))
         expect(dim).to.have.property('width').that.equals(130)
         expect(dim).to.have.property('height').that.equals(130)
+      }),
+    )
+
+    it(
+      'should download file with correct md5 hash',
+      testCase(async (client) => {
+        const infile = await imgPromise()
+        const steps = await stepsPromise()
+
+        const output = new OutputCtl()
+        const { results } = await assembliesCreate(output, client, {
+          steps,
+          inputs: [infile],
+          output: 'out-md5.jpg',
+        })
+
+        // Get the assembly result to find the expected md5hash
+        // The results array contains assembly statuses
+        const assemblyResult = results[0] as {
+          results?: Record<string, Array<{ md5hash?: string }>>
+        }
+        expect(assemblyResult).to.have.property('results')
+        const resultSteps = Object.values(assemblyResult.results ?? {})
+        expect(resultSteps.length).to.be.greaterThan(0)
+        const firstResult = resultSteps[0]?.[0]
+        expect(firstResult).to.have.property('md5hash')
+        const expectedMd5 = firstResult?.md5hash
+
+        // Calculate md5 of downloaded file
+        const downloadedBuffer = await fsp.readFile('out-md5.jpg')
+        const actualMd5 = crypto.createHash('md5').update(downloadedBuffer).digest('hex')
+
+        expect(actualMd5).to.equal(expectedMd5)
       }),
     )
 
