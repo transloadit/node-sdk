@@ -3,6 +3,7 @@ import { createHmac, randomUUID } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
 import { access } from 'node:fs/promises'
 import type { Readable } from 'node:stream'
+import { setTimeout as delay } from 'node:timers/promises'
 import debug from 'debug'
 import FormData from 'form-data'
 import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
@@ -962,7 +963,7 @@ export class Transloadit {
             const { retryIn: retryInSec } = body.info
             logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
             const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
-            await new Promise((resolve) => setTimeout(resolve, retryInMs))
+            await delay(retryInMs)
             // Retry
           } else {
             throw new ApiError({

@@ -103,20 +103,7 @@ async function myStat(
 }
 
 async function ensureDir(dir: string): Promise<void> {
-  try {
-    await fsp.mkdir(dir)
-  } catch (err) {
-    if (!isErrnoException(err)) throw err
-    if (err.code === 'EEXIST') {
-      const stats = await fsp.stat(dir)
-      if (!stats.isDirectory()) throw err
-      return
-    }
-    if (err.code !== 'ENOENT') throw err
-
-    await ensureDir(path.dirname(dir))
-    await fsp.mkdir(dir)
-  }
+  await fsp.mkdir(dir, { recursive: true })
 }
 
 function dirProvider(output: string): OutstreamProvider {

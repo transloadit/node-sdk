@@ -1,3 +1,4 @@
+import { setTimeout as delay } from 'node:timers/promises'
 import { z } from 'zod'
 import { tryCatch } from '../alphalib/tryCatch.ts'
 import type { Steps } from '../alphalib/types/template.ts'
@@ -80,7 +81,7 @@ export async function get(
   { assemblies }: AssemblyGetOptions,
 ): Promise<void> {
   for (const assembly of assemblies) {
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await delay(1000)
     const [err, result] = await tryCatch(client.getAssembly(assembly))
     if (err) {
       output.error(formatAPIError(err))
