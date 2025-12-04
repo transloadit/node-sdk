@@ -102,10 +102,6 @@ async function myStat(
   return await fsp.stat(filepath)
 }
 
-async function ensureDir(dir: string): Promise<void> {
-  await fsp.mkdir(dir, { recursive: true })
-}
-
 function dirProvider(output: string): OutstreamProvider {
   return async (inpath, indir = process.cwd()) => {
     if (inpath == null || inpath === '-') {
@@ -117,7 +113,7 @@ function dirProvider(output: string): OutstreamProvider {
     const outpath = path.join(output, relpath)
     const outdir = path.dirname(outpath)
 
-    await ensureDir(outdir)
+    await fsp.mkdir(outdir, { recursive: true })
     const [, stats] = await tryCatch(fsp.stat(outpath))
     const mtime = stats?.mtime ?? new Date(0)
     const outstream = fs.createWriteStream(outpath) as OutStream
@@ -130,7 +126,7 @@ function dirProvider(output: string): OutstreamProvider {
 }
 
 function fileProvider(output: string): OutstreamProvider {
-  const dirExistsP = ensureDir(path.dirname(output))
+  const dirExistsP = fsp.mkdir(path.dirname(output), { recursive: true })
   return async (_inpath) => {
     await dirExistsP
     if (output === '-') return process.stdout as OutStream
