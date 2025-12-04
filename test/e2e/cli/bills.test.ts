@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import * as bills from '../../../src/cli/bills.ts'
+import * as bills from '../../../src/cli/commands/bills.ts'
 import OutputCtl from './OutputCtl.ts'
 import type { OutputEntry } from './test-utils.ts'
 import { testCase } from './test-utils.ts'

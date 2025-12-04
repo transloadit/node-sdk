@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import * as assemblies from '../../../src/cli/assemblies.ts'
+import * as assemblies from '../../../src/cli/commands/assemblies.ts'
 import OutputCtl from './OutputCtl.ts'
 import type { OutputEntry } from './test-utils.ts'
 import { testCase } from './test-utils.ts'

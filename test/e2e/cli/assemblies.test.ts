@@ -1,6 +1,6 @@
 import fsp from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
-import * as assemblies from '../../../src/cli/assemblies.ts'
+import * as assemblies from '../../../src/cli/commands/assemblies.ts'
 import { zip } from '../../../src/cli/helpers.ts'
 import OutputCtl from './OutputCtl.ts'
 import type { OutputEntry } from './test-utils.ts'

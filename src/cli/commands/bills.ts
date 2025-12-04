@@ -1,6 +1,45 @@
 import { Command, Option } from 'clipanion'
-import * as bills from '../bills.ts'
+import { z } from 'zod'
+import { tryCatch } from '../../alphalib/tryCatch.ts'
+import type { Transloadit } from '../../Transloadit.ts'
+import { formatAPIError } from '../helpers.ts'
+import type { IOutputCtl } from '../OutputCtl.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
+
+// --- Types and business logic ---
+
+export interface BillsGetOptions {
+  months: string[]
+}
+
+const BillResponseSchema = z.object({
+  total: z.number(),
+})
+
+export async function get(
+  output: IOutputCtl,
+  client: Transloadit,
+  { months }: BillsGetOptions,
+): Promise<void> {
+  const requests = months.map((month) => client.getBill(month))
+
+  const [err, results] = await tryCatch(Promise.all(requests))
+  if (err) {
+    output.error(formatAPIError(err))
+    return
+  }
+
+  for (const result of results) {
+    const parsed = BillResponseSchema.safeParse(result)
+    if (parsed.success) {
+      output.print(`$${parsed.data.total}`, result)
+    } else {
+      output.print('Unable to parse bill response', result)
+    }
+  }
+}
+
+// --- Command class ---
 
 export class BillsGetCommand extends AuthenticatedCommand {
   static override paths = [
@@ -44,7 +83,7 @@ export class BillsGetCommand extends AuthenticatedCommand {
       monthList.push(`${d.getUTCFullYear()}-${d.getUTCMonth() + 1}`)
     }
 
-    await bills.get(this.output, this.client, {
+    await get(this.output, this.client, {
       months: monthList,
     })
     return undefined
