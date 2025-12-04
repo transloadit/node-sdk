@@ -8,11 +8,11 @@ import { pipeline } from 'node:stream/promises'
 import tty from 'node:tty'
 import { promisify } from 'node:util'
 import got from 'got'
+import PQueue from 'p-queue'
 import { tryCatch } from '../alphalib/tryCatch.ts'
 import type { StepsInput } from '../alphalib/types/template.ts'
 import type { CreateAssemblyParams } from '../apiTypes.ts'
 import type { CreateAssemblyOptions, Transloadit } from '../Transloadit.ts'
-import JobsPromise from './JobsPromise.ts'
 import type { IOutputCtl } from './OutputCtl.ts'
 import { isErrnoException } from './types.ts'
 
@@ -473,12 +473,9 @@ function detectConflicts(jobEmitter: EventEmitter): MyEventEmitter {
 
 function dismissStaleJobs(jobEmitter: EventEmitter): MyEventEmitter {
   const emitter = new MyEventEmitter()
+  const pendingChecks: Promise<void>[] = []
 
-  const jobsPromise = new JobsPromise()
-  // Errors are already caught in the promises passed to add(), so use a no-op handler
-  jobsPromise.setErrorHandler(() => {})
-
-  jobEmitter.on('end', () => jobsPromise.allSettled().then(() => emitter.emit('end')))
+  jobEmitter.on('end', () => Promise.all(pendingChecks).then(() => emitter.emit('end')))
   jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
   jobEmitter.on('job', (job: Job) => {
     if (job.in == null || job.out == null) {
@@ -487,19 +484,18 @@ function dismissStaleJobs(jobEmitter: EventEmitter): MyEventEmitter {
     }
 
     const inPath = (job.in as fs.ReadStream).path as string
-    jobsPromise.add(
-      fsp
-        .stat(inPath)
-        .then((stats) => {
-          const inM = stats.mtime
-          const outM = job.out?.mtime ?? new Date(0)
+    const checkPromise = fsp
+      .stat(inPath)
+      .then((stats) => {
+        const inM = stats.mtime
+        const outM = job.out?.mtime ?? new Date(0)
 
-          if (outM <= inM) emitter.emit('job', job)
-        })
-        .catch(() => {
-          emitter.emit('job', job)
-        }),
-    )
+        if (outM <= inM) emitter.emit('job', job)
+      })
+      .catch(() => {
+        emitter.emit('job', job)
+      })
+    pendingChecks.push(checkPromise)
   })
 
   return emitter
@@ -687,15 +683,96 @@ export default async function run(
       reprocessStale,
     })
 
-    const jobsPromise = new JobsPromise()
-    const activeJobs: Set<Job> = new Set()
+    // Use p-queue for concurrency management
+    const queue = new PQueue({ concurrency })
+    const results: unknown[] = []
+    let hasFailures = false
     // AbortController to cancel all in-flight createAssembly calls when an error occurs
     const abortController = new AbortController()
 
-    // Set error handler before subscribing to events that might call add()
-    jobsPromise.setErrorHandler((err: unknown) => {
-      outputctl.error(err as Error)
-    })
+    // Helper to process a single assembly job
+    async function processAssemblyJob(
+      inPath: string | null,
+      outPath: string | null,
+      outMtime: Date | undefined,
+    ): Promise<unknown> {
+      outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+
+      // Create fresh streams for this job
+      const inStream = inPath ? fs.createReadStream(inPath) : null
+      inStream?.on('error', () => {})
+      const outStream = outPath ? (fs.createWriteStream(outPath) as OutStream) : null
+      outStream?.on('error', () => {})
+      if (outStream) outStream.mtime = outMtime
+
+      let superceded = false
+      if (outStream != null) {
+        outStream.on('finish', () => {
+          superceded = true
+        })
+      }
+
+      const createOptions: CreateAssemblyOptions = {
+        params,
+        signal: abortController.signal,
+      }
+      if (inStream != null) {
+        createOptions.uploads = { in: inStream }
+      }
+
+      const result = await client.createAssembly(createOptions)
+      if (superceded) return undefined
+
+      const assemblyId = result.assembly_id
+      if (!assemblyId) throw new Error('No assembly_id in result')
+
+      const assembly = await client.awaitAssemblyCompletion(assemblyId, {
+        signal: abortController.signal,
+        onPoll: () => {
+          if (superceded) return false
+          return true
+        },
+        onAssemblyProgress: (status) => {
+          outputctl.debug(`Assembly status: ${status.ok}`)
+        },
+      })
+
+      if (superceded) return undefined
+
+      if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
+        const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok})`
+        outputctl.error(msg)
+        throw new Error(msg)
+      }
+
+      if (!assembly.results) throw new Error('No results in assembly')
+      const resultsKeys = Object.keys(assembly.results)
+      const firstKey = resultsKeys[0]
+      if (!firstKey) throw new Error('No results in assembly')
+      const firstResult = assembly.results[firstKey]
+      if (!firstResult || !firstResult[0]) throw new Error('No results in assembly')
+      const resulturl = firstResult[0].url
+
+      if (outStream != null && resulturl && !superceded) {
+        outputctl.debug('DOWNLOADING')
+        const [dlErr] = await tryCatch(
+          pipeline(got.stream(resulturl, { signal: abortController.signal }), outStream),
+        )
+        if (dlErr) {
+          if (dlErr.name !== 'AbortError') {
+            outputctl.error(dlErr.message)
+            throw dlErr
+          }
+        }
+      }
+
+      outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+
+      if (del && inPath) {
+        await fsp.unlink(inPath)
+      }
+      return assembly
+    }
 
     if (singleAssembly) {
       // Single-assembly mode: collect file paths, then create one assembly with all inputs
@@ -715,6 +792,7 @@ export default async function run(
 
       emitter.on('error', (err: Error) => {
         abortController.abort()
+        queue.clear()
         outputctl.error(err)
         reject(err)
       })
@@ -730,7 +808,6 @@ export default async function run(
         const inputPaths: string[] = []
         for (const inPath of collectedPaths) {
           const basename = path.basename(inPath)
-          // Use a unique key if there are name collisions
           let key = basename
           let counter = 1
           while (key in uploads) {
@@ -743,195 +820,82 @@ export default async function run(
 
         outputctl.debug(`Creating single assembly with ${Object.keys(uploads).length} files`)
 
-        const singleAssemblyPromise = (async () => {
-          const createOptions: CreateAssemblyOptions = {
-            params,
-            signal: abortController.signal,
-          }
-          if (Object.keys(uploads).length > 0) {
-            createOptions.uploads = uploads
-          }
+        try {
+          const assembly = await queue.add(async () => {
+            const createOptions: CreateAssemblyOptions = {
+              params,
+              signal: abortController.signal,
+            }
+            if (Object.keys(uploads).length > 0) {
+              createOptions.uploads = uploads
+            }
 
-          const result = await client.createAssembly(createOptions)
-          const assemblyId = result.assembly_id
-          if (!assemblyId) throw new Error('No assembly_id in result')
+            const result = await client.createAssembly(createOptions)
+            const assemblyId = result.assembly_id
+            if (!assemblyId) throw new Error('No assembly_id in result')
 
-          const assembly = await client.awaitAssemblyCompletion(assemblyId, {
-            signal: abortController.signal,
-            onAssemblyProgress: (status) => {
-              outputctl.debug(`Assembly status: ${status.ok}`)
-            },
-          })
+            const asm = await client.awaitAssemblyCompletion(assemblyId, {
+              signal: abortController.signal,
+              onAssemblyProgress: (status) => {
+                outputctl.debug(`Assembly status: ${status.ok}`)
+              },
+            })
 
-          if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
-            const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok})`
-            outputctl.error(msg)
-            throw new Error(msg)
-          }
+            if (asm.error || (asm.ok && asm.ok !== 'ASSEMBLY_COMPLETED')) {
+              const msg = `Assembly failed: ${asm.error || asm.message} (Status: ${asm.ok})`
+              outputctl.error(msg)
+              throw new Error(msg)
+            }
 
-          // Download all results
-          if (assembly.results && resolvedOutput != null) {
-            for (const [stepName, stepResults] of Object.entries(assembly.results)) {
-              for (const stepResult of stepResults) {
-                const resultUrl = stepResult.url
-                if (!resultUrl) continue
+            // Download all results
+            if (asm.results && resolvedOutput != null) {
+              for (const [stepName, stepResults] of Object.entries(asm.results)) {
+                for (const stepResult of stepResults) {
+                  const resultUrl = stepResult.url
+                  if (!resultUrl) continue
 
-                // Determine output path
-                let outPath: string
-                if (outstat?.isDirectory()) {
-                  outPath = path.join(resolvedOutput, stepResult.name || `${stepName}_result`)
-                } else {
-                  outPath = resolvedOutput
-                }
+                  let outPath: string
+                  if (outstat?.isDirectory()) {
+                    outPath = path.join(resolvedOutput, stepResult.name || `${stepName}_result`)
+                  } else {
+                    outPath = resolvedOutput
+                  }
 
-                outputctl.debug(`DOWNLOADING ${stepResult.name} to ${outPath}`)
-                const [dlErr] = await tryCatch(
-                  pipeline(
-                    got.stream(resultUrl, { signal: abortController.signal }),
-                    fs.createWriteStream(outPath),
-                  ),
-                )
-                if (dlErr) {
-                  if (dlErr.name === 'AbortError') continue
-                  outputctl.error(dlErr.message)
-                  throw dlErr
+                  outputctl.debug(`DOWNLOADING ${stepResult.name} to ${outPath}`)
+                  const [dlErr] = await tryCatch(
+                    pipeline(
+                      got.stream(resultUrl, { signal: abortController.signal }),
+                      fs.createWriteStream(outPath),
+                    ),
+                  )
+                  if (dlErr) {
+                    if (dlErr.name === 'AbortError') continue
+                    outputctl.error(dlErr.message)
+                    throw dlErr
+                  }
                 }
               }
             }
-          }
 
-          // Delete input files if requested
-          if (del) {
-            for (const inPath of inputPaths) {
-              await fsp.unlink(inPath)
+            // Delete input files if requested
+            if (del) {
+              for (const inPath of inputPaths) {
+                await fsp.unlink(inPath)
+              }
             }
-          }
-          return assembly
-        })()
+            return asm
+          })
+          results.push(assembly)
+        } catch (err) {
+          hasFailures = true
+          outputctl.error(err as Error)
+        }
 
-        jobsPromise.add(singleAssemblyPromise)
-        const results = await jobsPromise.allSettled()
-        resolve({ results, hasFailures: jobsPromise.hasFailures })
+        resolve({ results, hasFailures })
       })
     } else {
-      // Default mode: one assembly per file with concurrency limiting
-      // Queue jobs and limit how many run in parallel to avoid file descriptor exhaustion
-      interface QueuedJob {
-        inPath: string | null
-        outPath: string | null
-        outMtime: Date | undefined
-      }
-      const jobQueue: QueuedJob[] = []
-      let activeCount = 0
-      let emitterEnded = false
-      let resolveWhenDone: (() => void) | null = null
-
-      function tryProcessNext(): void {
-        while (activeCount < concurrency && jobQueue.length > 0) {
-          const queuedJob = jobQueue.shift()
-          if (!queuedJob) break
-          activeCount++
-          processJob(queuedJob)
-        }
-        // Check if we're done (emitter ended, queue empty, no active jobs)
-        if (emitterEnded && jobQueue.length === 0 && activeCount === 0 && resolveWhenDone) {
-          resolveWhenDone()
-        }
-      }
-
-      function processJob(queuedJob: QueuedJob): void {
-        const { inPath, outPath, outMtime } = queuedJob
-        outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
-
-        // Create fresh streams for this job
-        const inStream = inPath ? fs.createReadStream(inPath) : null
-        // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-        inStream?.on('error', () => {})
-        const outStream = outPath ? (fs.createWriteStream(outPath) as OutStream) : null
-        // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-        outStream?.on('error', () => {})
-        if (outStream) outStream.mtime = outMtime
-
-        let superceded = false
-        if (outStream != null)
-          outStream.on('finish', () => {
-            superceded = true
-          })
-
-        const createOptions: CreateAssemblyOptions = {
-          params,
-          signal: abortController.signal,
-        }
-        if (inStream != null) {
-          createOptions.uploads = { in: inStream }
-        }
-
-        const jobPromise = (async () => {
-          const result = await client.createAssembly(createOptions)
-          if (superceded) return
-
-          const assemblyId = result.assembly_id
-          if (!assemblyId) throw new Error('No assembly_id in result')
-
-          // Use SDK's awaitAssemblyCompletion with onPoll to check for superceded jobs
-          const assembly = await client.awaitAssemblyCompletion(assemblyId, {
-            signal: abortController.signal,
-            onPoll: () => {
-              // Return false to stop polling if this job has been superceded (watch mode)
-              if (superceded) return false
-              return true
-            },
-            onAssemblyProgress: (status) => {
-              outputctl.debug(`Assembly status: ${status.ok}`)
-            },
-          })
-
-          // If superceded, exit early without processing results
-          if (superceded) return
-
-          if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
-            const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok})`
-            outputctl.error(msg)
-            throw new Error(msg)
-          }
-
-          if (!assembly.results) throw new Error('No results in assembly')
-          const resultsKeys = Object.keys(assembly.results)
-          const firstKey = resultsKeys[0]
-          if (!firstKey) throw new Error('No results in assembly')
-          const firstResult = assembly.results[firstKey]
-          if (!firstResult || !firstResult[0]) throw new Error('No results in assembly')
-          const resulturl = firstResult[0].url
-
-          if (outStream != null && resulturl && !superceded) {
-            outputctl.debug('DOWNLOADING')
-            const [dlErr] = await tryCatch(
-              pipeline(got.stream(resulturl, { signal: abortController.signal }), outStream),
-            )
-            if (dlErr) {
-              if (dlErr.name !== 'AbortError') {
-                outputctl.error(dlErr.message)
-                throw dlErr
-              }
-            }
-          }
-
-          outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outPath ?? 'null'}`)
-
-          if (del && inPath) {
-            await fsp.unlink(inPath)
-          }
-          return assembly
-        })().finally(() => {
-          activeCount--
-          tryProcessNext()
-        })
-
-        jobsPromise.add(jobPromise)
-      }
-
+      // Default mode: one assembly per file with p-queue concurrency limiting
       emitter.on('job', (job: Job) => {
-        activeJobs.add(job)
         const inPath = job.in
           ? (((job.in as fs.ReadStream).path as string | undefined) ?? null)
           : null
@@ -946,32 +910,32 @@ export default async function run(
         if (job.out != null) {
           job.out.destroy()
         }
-        activeJobs.delete(job)
 
-        // Queue the job metadata for later processing
-        jobQueue.push({ inPath, outPath, outMtime })
-        tryProcessNext()
+        // Add job to queue - p-queue handles concurrency automatically
+        queue
+          .add(async () => {
+            const result = await processAssemblyJob(inPath, outPath, outMtime)
+            if (result !== undefined) {
+              results.push(result)
+            }
+          })
+          .catch((err: unknown) => {
+            hasFailures = true
+            outputctl.error(err as Error)
+          })
       })
 
       emitter.on('error', (err: Error) => {
-        // Abort all in-flight createAssembly calls to ensure clean shutdown
         abortController.abort()
-        activeJobs.clear()
-        jobQueue.length = 0 // Clear the queue
+        queue.clear()
         outputctl.error(err)
         reject(err)
       })
 
       emitter.on('end', async () => {
-        emitterEnded = true
-        // If there are still jobs in queue or active, wait for them
-        if (jobQueue.length > 0 || activeCount > 0) {
-          await new Promise<void>((r) => {
-            resolveWhenDone = r
-          })
-        }
-        const results = await jobsPromise.allSettled()
-        resolve({ results, hasFailures: jobsPromise.hasFailures })
+        // Wait for all queued jobs to complete
+        await queue.onIdle()
+        resolve({ results, hasFailures })
       })
     }
   })
