@@ -6,6 +6,15 @@ You may also want to refer to [GitHub releases](https://github.com/transloadit/n
 
 - TBD
 
+## v4.1.2
+
+Released: 2025-12-08.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v4.1.1...v4.1.2).
+
+- CLI accepts `TRANSLOADIT_AUTH_KEY`/`TRANSLOADIT_AUTH_SECRET` as aliases for `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET` when authenticating commands.
+- Internal: fix lint import ordering to keep CI green.
+
 ## v4.1.1
 
 Released: 2025-12-08.
