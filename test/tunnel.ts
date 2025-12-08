@@ -2,7 +2,8 @@ import { Resolver } from 'node:dns/promises'
 import { createInterface } from 'node:readline'
 import * as timers from 'node:timers/promises'
 import debug from 'debug'
-import { ExecaError, execa, type ResultPromise } from 'execa'
+import type { ResultPromise } from 'execa'
+import { ExecaError, execa } from 'execa'
 import pRetry from 'p-retry'
 
 const log = debug('transloadit:cloudflared-tunnel')
@@ -54,6 +55,7 @@ async function startTunnel({ cloudFlaredPath, port }: CreateTunnelParams) {
         'failed to sufficiently increase receive buffer size',
         'update check failed error',
         'failed to parse quick Tunnel ID',
+        'failed to unmarshal quick Tunnel', // Transient Cloudflare API JSON parsing error
       ]
 
       rl.on('line', (line) => {

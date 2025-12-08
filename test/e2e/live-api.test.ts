@@ -12,13 +12,14 @@ import intoStream from 'into-stream'
 import * as temp from 'temp'
 import type { InterpolatableRobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter.ts'
 import type { InterpolatableRobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize.ts'
-import {
-  type CreateAssemblyOptions,
-  type CreateAssemblyParams,
-  Transloadit,
-  type UploadProgress,
+import type {
+  CreateAssemblyOptions,
+  CreateAssemblyParams,
+  UploadProgress,
 } from '../../src/Transloadit.ts'
-import { createTestServer, type TestServer } from '../testserver.ts'
+import { Transloadit } from '../../src/Transloadit.ts'
+import type { TestServer } from '../testserver.ts'
+import { createTestServer } from '../testserver.ts'
 import { createProxy } from '../util.ts'
 
 // Load environment variables from .env file
@@ -154,7 +155,7 @@ interface VirtualTestServer {
   url: string
 }
 
-async function createVirtualTestServer(handler: RequestListener): Promise<VirtualTestServer> {
+function createVirtualTestServer(handler: RequestListener): VirtualTestServer {
   const id = randomUUID()
   log('Adding virtual server handler', id)
   const url = `${testServer.url}/${id}`
@@ -644,7 +645,7 @@ describe('API integration', { timeout: 60000, retry: 1 }, () => {
 
     it('should send a notification upon assembly completion', async () => {
       await new Promise<void>((resolve, reject) => {
-        const onNotification: OnNotification = async ({ path }) => {
+        const onNotification: OnNotification = ({ path }) => {
           try {
             expect(path).toBe('/')
             resolve()
@@ -722,7 +723,10 @@ describe('API integration', { timeout: 60000, retry: 1 }, () => {
     })
 
     it('should allow creating a template', async () => {
-      const template = await client.createTemplate({ name: templName, template: genericParams })
+      const template = await client.createTemplate({
+        name: templName,
+        template: { steps: genericParams.steps },
+      })
       templId = template.id
     })
 
@@ -732,7 +736,7 @@ describe('API integration', { timeout: 60000, retry: 1 }, () => {
       const template = await client.getTemplate(nn(templId, 'templId'))
       const { name, content } = template
       expect(name).toBe(templName)
-      expect(content).toEqual(genericParams)
+      expect(content).toEqual({ steps: genericParams.steps })
     })
 
     it('should allow editing a template', async () => {

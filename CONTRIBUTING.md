@@ -50,9 +50,9 @@ yarn test:unit
 
 This will also generate a coverage report in the `coverage` directory.
 
-### Integration tests
+### e2e tests
 
-Integration tests are in the [`test/integration`](test/integration) folder. They require some extra setup.
+e2e tests are in the [`test/e2e`](test/e2e) folder. They require some extra setup.
 
 Firstly, these tests require the Cloudflare executable. You can download this with:
 
@@ -63,10 +63,10 @@ chmod +x cloudflared-linux-amd64
 
 They also require a Transloadit key and secret, which you can get from https://transloadit.com/c/credentials.
 
-You can run the integration tests with:
+You can run the e2e tests with:
 
 ```sh
-TRANSLOADIT_KEY='YOUR_TRANSLOADIT_KEY' TRANSLOADIT_SECRET='YOUR_TRANSLOADIT_SECRET' CLOUDFLARED_PATH='./cloudflared-linux-amd64' yarn test:integration
+TRANSLOADIT_KEY='YOUR_TRANSLOADIT_KEY' TRANSLOADIT_SECRET='YOUR_TRANSLOADIT_SECRET' CLOUDFLARED_PATH='./cloudflared-linux-amd64' yarn test:e2e
 ```
 
 ### Code Coverage

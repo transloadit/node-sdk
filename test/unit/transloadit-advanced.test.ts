@@ -151,22 +151,22 @@ describe('Transloadit advanced behaviors', () => {
   it('streams assemblies page by page until all items are read', async () => {
     type ListAssembliesReturn = Awaited<ReturnType<Transloadit['listAssemblies']>>
 
-    const listAssemblies = vi.spyOn(client, 'listAssemblies').mockImplementation(async (params) => {
+    const listAssemblies = vi.spyOn(client, 'listAssemblies').mockImplementation((params) => {
       const page = params?.page ?? 1
 
       if (page === 1) {
-        return {
+        return Promise.resolve({
           items: [{ id: 1 }, { id: 2 }],
           count: 3,
-        } as unknown as ListAssembliesReturn
+        } as unknown as ListAssembliesReturn)
       }
       if (page === 2) {
-        return {
+        return Promise.resolve({
           items: [{ id: 3 }],
           count: 3,
-        } as unknown as ListAssembliesReturn
+        } as unknown as ListAssembliesReturn)
       }
-      return { items: [], count: 3 } as unknown as ListAssembliesReturn
+      return Promise.resolve({ items: [], count: 3 } as unknown as ListAssembliesReturn)
     })
 
     const stream = client.streamAssemblies({ page: 1 } as never)

@@ -3,28 +3,23 @@ import { createHmac, randomUUID } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
 import { access } from 'node:fs/promises'
 import type { Readable } from 'node:stream'
+import { setTimeout as delay } from 'node:timers/promises'
 import debug from 'debug'
 import FormData from 'form-data'
-import got, {
-  type Delays,
-  type Headers,
-  HTTPError,
-  type OptionsOfJSONResponseBody,
-  RequestError,
-  type RetryOptions,
-} from 'got'
+import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
+import got, { HTTPError, RequestError } from 'got'
 import intoStream, { type Input as IntoStreamInput } from 'into-stream'
 import { isReadableStream, isStream } from 'is-stream'
 import pMap from 'p-map'
 import packageJson from '../package.json' with { type: 'json' }
-import { ApiError, type TransloaditErrorResponseBody } from './ApiError.ts'
-import {
-  type AssemblyIndex,
-  type AssemblyIndexItem,
-  type AssemblyStatus,
-  assemblyIndexSchema,
-  assemblyStatusSchema,
+import type { TransloaditErrorResponseBody } from './ApiError.ts'
+import { ApiError } from './ApiError.ts'
+import type {
+  AssemblyIndex,
+  AssemblyIndexItem,
+  AssemblyStatus,
 } from './alphalib/types/assemblyStatus.ts'
+import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/assemblyStatus.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import type {
   BaseResponse,
@@ -50,7 +45,8 @@ import type {
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
-import { type Stream, sendTusRequest } from './tus.ts'
+import type { Stream } from './tus.ts'
+import { sendTusRequest } from './tus.ts'
 
 // See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
 // Expose relevant errors
@@ -95,6 +91,11 @@ export interface CreateAssemblyOptions {
   onUploadProgress?: (uploadProgress: UploadProgress) => void
   onAssemblyProgress?: AssemblyProgress
   assemblyId?: string
+  /**
+   * Optional AbortSignal to cancel the assembly creation and upload.
+   * When aborted, any in-flight HTTP requests and TUS uploads will be cancelled.
+   */
+  signal?: AbortSignal
 }
 
 export interface AwaitAssemblyCompletionOptions {
@@ -102,6 +103,17 @@ export interface AwaitAssemblyCompletionOptions {
   timeout?: number
   interval?: number
   startTimeMs?: number
+  /**
+   * Optional AbortSignal to cancel polling.
+   * When aborted, the polling loop will stop and throw an AbortError.
+   */
+  signal?: AbortSignal
+  /**
+   * Optional callback invoked before each poll iteration.
+   * Return `false` to stop polling early and return the current assembly status.
+   * Useful for watch mode where a newer job may supersede the current one.
+   */
+  onPoll?: () => boolean | undefined
 }
 
 export interface SmartCDNUrlOptions {
@@ -236,6 +248,7 @@ export class Transloadit {
       files = {},
       uploads = {},
       assemblyId,
+      signal,
     } = opts
 
     // Keep track of how long the request took
@@ -293,12 +306,18 @@ export class Transloadit {
         stream.pause()
       }
 
-      // If any stream emits error, we want to handle this and exit with error
+      // If any stream emits error, we want to handle this and exit with error.
+      // This promise races against createAssemblyAndUpload() below via Promise.race().
+      // When createAssemblyAndUpload wins the race, this promise becomes "orphaned" -
+      // it's no longer awaited, but stream error handlers remain attached.
+      // The no-op catch prevents Node's unhandled rejection warning if a stream
+      // errors after the race is already won.
       const streamErrorPromise = new Promise<AssemblyStatus>((_resolve, reject) => {
         for (const { stream } of allStreams) {
           stream.on('error', reject)
         }
       })
+      streamErrorPromise.catch(() => {})
 
       const createAssemblyAndUpload = async () => {
         const result: AssemblyStatus = await this._remoteJson({
@@ -309,6 +328,7 @@ export class Transloadit {
           fields: {
             tus_num_expected_upload_files: allStreams.length,
           },
+          signal,
         })
         checkResult(result)
 
@@ -319,6 +339,7 @@ export class Transloadit {
             onProgress: onUploadProgress,
             requestedChunkSize,
             uploadConcurrency,
+            signal,
           })
         }
 
@@ -333,6 +354,7 @@ export class Transloadit {
           timeout,
           onAssemblyProgress,
           startTimeMs,
+          signal,
         })
         checkResult(awaitResult)
         return awaitResult
@@ -352,12 +374,27 @@ export class Transloadit {
       timeout,
       startTimeMs = getHrTimeMs(),
       interval = 1000,
+      signal,
+      onPoll,
     }: AwaitAssemblyCompletionOptions = {},
   ): Promise<AssemblyStatus> {
     assert.ok(assemblyId)
 
+    let lastResult: AssemblyStatus | undefined
+
     while (true) {
-      const result = await this.getAssembly(assemblyId)
+      // Check if caller wants to stop polling early
+      if (onPoll?.() === false && lastResult) {
+        return lastResult
+      }
+
+      // Check if aborted before making the request
+      if (signal?.aborted) {
+        throw signal.reason ?? new DOMException('Aborted', 'AbortError')
+      }
+
+      const result = await this.getAssembly(assemblyId, { signal })
+      lastResult = result
 
       // If 'ok' is not in result, it implies a terminal state (e.g., error, completed, canceled).
       // If 'ok' is present, then we check if it's one of the non-terminal polling states.
@@ -385,7 +422,21 @@ export class Transloadit {
       if (timeout != null && nowMs - startTimeMs >= timeout) {
         throw new PollingTimeoutError('Polling timed out')
       }
-      await new Promise((resolve) => setTimeout(resolve, interval))
+
+      // Make the sleep abortable, ensuring listener cleanup to prevent memory leaks
+      await new Promise<void>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          signal?.removeEventListener('abort', onAbort)
+          resolve()
+        }, interval)
+
+        function onAbort() {
+          clearTimeout(timeoutId)
+          reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'))
+        }
+
+        signal?.addEventListener('abort', onAbort, { once: true })
+      })
     }
   }
 
@@ -460,7 +511,7 @@ export class Transloadit {
     assemblyId: string,
     params: ReplayAssemblyNotificationParams = {},
   ): Promise<ReplayAssemblyNotificationResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/assembly_notifications/${assemblyId}/replay`,
       method: 'post',
       ...(Object.keys(params).length > 0 && { params }),
@@ -517,11 +568,16 @@ export class Transloadit {
    * Get an Assembly
    *
    * @param assemblyId the Assembly Id
+   * @param options optional request options
    * @returns the retrieved Assembly
    */
-  async getAssembly(assemblyId: string): Promise<AssemblyStatus> {
+  async getAssembly(
+    assemblyId: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<AssemblyStatus> {
     const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
       urlSuffix: `/assemblies/${assemblyId}`,
+      signal: options?.signal,
     })
 
     const parsedResult = zodParseWithContext(assemblyStatusSchema, rawResult)
@@ -545,7 +601,7 @@ export class Transloadit {
   async createTemplateCredential(
     params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: '/template_credentials',
       method: 'post',
       params: params || {},
@@ -563,7 +619,7 @@ export class Transloadit {
     credentialId: string,
     params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
       method: 'put',
       params: params || {},
@@ -577,7 +633,7 @@ export class Transloadit {
    * @returns when the Credential is deleted
    */
   async deleteTemplateCredential(credentialId: string): Promise<BaseResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
       method: 'delete',
     })
@@ -590,7 +646,7 @@ export class Transloadit {
    * @returns when the Credential is retrieved
    */
   async getTemplateCredential(credentialId: string): Promise<TemplateCredentialResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
       method: 'get',
     })
@@ -605,7 +661,7 @@ export class Transloadit {
   async listTemplateCredentials(
     params?: ListTemplateCredentialsParams,
   ): Promise<TemplateCredentialsResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: '/template_credentials',
       method: 'get',
       params: params || {},
@@ -625,7 +681,7 @@ export class Transloadit {
    * @returns when the template is created
    */
   async createTemplate(params: CreateTemplateParams): Promise<TemplateResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: '/templates',
       method: 'post',
       params: params || {},
@@ -640,7 +696,7 @@ export class Transloadit {
    * @returns when the template is edited
    */
   async editTemplate(templateId: string, params: EditTemplateParams): Promise<TemplateResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
       method: 'put',
       params: params || {},
@@ -654,7 +710,7 @@ export class Transloadit {
    * @returns when the template is deleted
    */
   async deleteTemplate(templateId: string): Promise<BaseResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
       method: 'delete',
     })
@@ -667,7 +723,7 @@ export class Transloadit {
    * @returns when the template is retrieved
    */
   async getTemplate(templateId: string): Promise<TemplateResponse> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
       method: 'get',
     })
@@ -682,7 +738,7 @@ export class Transloadit {
   async listTemplates(
     params?: ListTemplatesParams,
   ): Promise<PaginationListWithCount<ListedTemplate>> {
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: '/templates',
       method: 'get',
       params: params || {},
@@ -702,7 +758,7 @@ export class Transloadit {
    */
   async getBill(month: string): Promise<BillResponse> {
     assert.ok(month, 'month is required')
-    return this._remoteJson({
+    return await this._remoteJson({
       urlSuffix: `/bill/${month}`,
       method: 'get',
     })
@@ -799,14 +855,14 @@ export class Transloadit {
     if (params == null) {
       params = {}
     }
-    if (params['auth'] == null) {
-      params['auth'] = {}
+    if (params.auth == null) {
+      params.auth = {}
     }
-    if (params['auth'].key == null) {
-      params['auth'].key = this._authKey
+    if (params.auth.key == null) {
+      params.auth.key = this._authKey
     }
-    if (params['auth'].expires == null) {
-      params['auth'].expires = this._getExpiresDate()
+    if (params.auth.expires == null) {
+      params.auth.expires = this._getExpiresDate()
     }
 
     return JSON.stringify(params)
@@ -830,6 +886,7 @@ export class Transloadit {
     params?: TParams
     fields?: Fields
     headers?: Headers
+    signal?: AbortSignal
   }): Promise<TRet> {
     const {
       urlSuffix,
@@ -839,6 +896,7 @@ export class Transloadit {
       params = {},
       fields,
       headers,
+      signal,
     } = opts
 
     // Allow providing either a `urlSuffix` or a full `url`
@@ -871,6 +929,7 @@ export class Transloadit {
           ...headers,
         },
         responseType: 'json',
+        signal,
       }
 
       try {
@@ -904,7 +963,7 @@ export class Transloadit {
             const { retryIn: retryInSec } = body.info
             logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
             const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
-            await new Promise((resolve) => setTimeout(resolve, retryInMs))
+            await delay(retryInMs)
             // Retry
           } else {
             throw new ApiError({

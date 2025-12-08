@@ -1,9 +1,10 @@
-import { createServer, type RequestListener, type Server } from 'node:http'
+import type { RequestListener, Server } from 'node:http'
+import { createServer } from 'node:http'
 import { setTimeout } from 'node:timers/promises'
 import debug from 'debug'
 import got from 'got'
-
-import { type CreateTunnelResult, createTunnel } from './tunnel.ts'
+import type { CreateTunnelResult } from './tunnel.ts'
+import { createTunnel } from './tunnel.ts'
 
 const log = debug('transloadit:testserver')
 
@@ -12,7 +13,7 @@ interface HttpServer {
   port: number
 }
 
-async function createHttpServer(handler: RequestListener): Promise<HttpServer> {
+function createHttpServer(handler: RequestListener): Promise<HttpServer> {
   return new Promise((resolve, reject) => {
     const server = createServer(handler)
 

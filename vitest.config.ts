@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     coverage: {
       include: ['src/**/*.ts'],
-      exclude: ['**/*.d.ts', '**/*.test.ts', '**/test/**', '**/alphalib/**'],
+      exclude: ['**/*.d.ts', '**/*.test.ts', '**/test/**', '**/alphalib/**', '**/cli/**'],
       reporter: ['json', 'lcov', 'text', 'clover', 'json-summary', 'html'],
       provider: 'v8',
       thresholds: {
@@ -17,5 +17,12 @@ export default defineConfig({
       },
     },
     globals: true,
+    testTimeout: 100000,
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      'test/e2e/cli/test-utils.ts',
+      'test/e2e/cli/OutputCtl.ts',
+    ],
   },
 })

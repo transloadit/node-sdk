@@ -6,7 +6,8 @@
 //
 //   yarn prepack
 //
-import { type CreateTemplateCredentialParams, Transloadit } from 'transloadit'
+import type { CreateTemplateCredentialParams } from 'transloadit'
+import { Transloadit } from 'transloadit'
 
 const { TRANSLOADIT_KEY, TRANSLOADIT_SECRET } = process.env
 if (TRANSLOADIT_KEY == null || TRANSLOADIT_SECRET == null) {
@@ -31,7 +32,7 @@ const credentialParams: CreateTemplateCredentialParams = {
   },
 }
 
-console.log(`==> listTemplateCredentials`)
+console.log('==> listTemplateCredentials')
 const { credentials } = await transloadit.listTemplateCredentials({
   sort: 'created',
   order: 'asc',
@@ -50,7 +51,7 @@ for (const credential of credentials) {
   }
 }
 
-console.log(`==> createTemplateCredential`)
+console.log('==> createTemplateCredential')
 const createTemplateCredentialResult = await transloadit.createTemplateCredential(credentialParams)
 console.log('TemplateCredential created successfully:', createTemplateCredentialResult)
 // ^-- with   Templates, there is `ok`, `message`, `id`, `content`, `name`, `require_signature_auth`. Same is true for: created, updated, fetched

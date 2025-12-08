@@ -44,7 +44,7 @@ export type ListAssembliesParams = OptionalAuthParams & {
 
 export type ReplayAssemblyParams = Pick<
   CreateAssemblyParams,
-  'auth' | 'template_id' | 'notify_url' | 'fields'
+  'auth' | 'template_id' | 'notify_url' | 'fields' | 'steps'
 > & {
   reparse_template?: number
 }

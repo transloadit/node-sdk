@@ -1,11 +1,13 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
+    "ignoreUnknown": false,
     "includes": [
       "**",
+      "!package.json",
       "!coverage",
       "!dist",
-      "!node_modules",
       "!fixture",
       "!.vscode",
       "!src/alphalib"
@@ -18,30 +20,43 @@
     "indentWidth": 2,
     "lineEnding": "lf",
     "lineWidth": 100,
-    "attributePosition": "auto"
+    "attributePosition": "auto",
+    "bracketSameLine": false,
+    "bracketSpacing": true,
+    "expand": "auto",
+    "useEditorconfig": true,
+    "includes": ["**", "!**/lib/", "!**/node_modules/"]
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noExplicitAny": "warn",
+        "noExplicitAny": "error",
         "noImplicitAnyLet": "error",
-        "noConfusingVoidType": "warn",
-        "noAssignInExpressions": "off",
-        "noTemplateCurlyInString": "off"
+        "noConfusingVoidType": "error",
+        "noAssignInExpressions": "error",
+        "noArrayIndexKey": "error",
+        "noShadowRestrictedNames": "error",
+        "noExportsInTest": "error",
+        "noDuplicateTestHooks": "error",
+        "useIterableCallbackReturn": "error",
+        "noTemplateCurlyInString": "off",
+        "useAwait": "error"
       },
       "correctness": {
-        "noInvalidUseBeforeDeclaration": "warn"
+        "noInvalidUseBeforeDeclaration": "error",
+        "noVoidTypeReturn": "error"
       },
       "complexity": {
-        "useLiteralKeys": "off",
-        "noForEach": "warn"
+        "useLiteralKeys": "error",
+        "noForEach": "error"
       },
       "style": {
-        "noParameterAssign": "warn",
-        "noUnusedTemplateLiteral": "off",
+        "noNonNullAssertion": "error",
+        "noNamespace": "error",
+        "noParameterAssign": "error",
+        "noUnusedTemplateLiteral": "error",
         "useAsConstAssertion": "error",
         "useDefaultParameterLast": "error",
         "useEnumInitializers": "error",
@@ -49,7 +64,14 @@
         "useSingleVarDeclarator": "error",
         "useNumberNamespace": "error",
         "noInferrableTypes": "error",
-        "noUselessElse": "error"
+        "noUselessElse": "error",
+        "useImportType": {
+          "level": "error",
+          "options": {
+            "style": "separatedType"
+          }
+        },
+        "useNodejsImportProtocol": "error"
       }
     }
   },
@@ -60,10 +82,25 @@
       "trailingCommas": "all",
       "semicolons": "asNeeded",
       "arrowParentheses": "always",
-      "bracketSpacing": true,
       "bracketSameLine": false,
       "quoteStyle": "single",
-      "attributePosition": "auto"
+      "attributePosition": "auto",
+      "bracketSpacing": true
     }
-  }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": { "source": { "organizeImports": "on" } }
+  },
+  "overrides": [
+    {
+      "includes": ["*.html"],
+      "javascript": { "formatter": { "quoteStyle": "double" } }
+    },
+    {
+      "includes": ["*.scss", "*.css"],
+      "javascript": { "formatter": { "quoteStyle": "double" } },
+      "formatter": { "lineWidth": 80 }
+    }
+  ]
 }

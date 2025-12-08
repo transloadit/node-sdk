@@ -19,11 +19,11 @@ Version 4 focuses on type-safety, clearer errors, and modern Node support. Most 
 ```js
 // CommonJS import example
 async function getClient() {
-  const { Transloadit } = await import("transloadit");
+  const { Transloadit } = await import('transloadit')
   return new Transloadit({
-    authKey: process.env.TRANSLOADIT_KEY ?? "",
-    authSecret: process.env.TRANSLOADIT_SECRET ?? "",
-  });
+    authKey: process.env.TRANSLOADIT_KEY ?? '',
+    authSecret: process.env.TRANSLOADIT_SECRET ?? '',
+  })
 }
 ```
 
@@ -48,16 +48,16 @@ The package also exports `AssemblyInstructionsInput`, `AssemblyIndexItem`, `Asse
 const params: AssemblyInstructionsInput = {
   steps: {
     resize: {
-      use: ":original",
-      robot: "/image/resize",
+      use: ':original',
+      robot: '/image/resize',
       width: 320,
       height: 240,
       result: true,
     },
   },
-};
+}
 
-await transloadit.createAssembly({ params, waitForCompletion: true });
+await transloadit.createAssembly({ params, waitForCompletion: true })
 ```
 
 ## 3. Adjust API result handling
@@ -82,15 +82,15 @@ const createdAssembly = await transloadit.createAssembly(...);
 
 ```ts
 try {
-  await transloadit.createAssembly({ params });
+  await transloadit.createAssembly({ params })
 } catch (error) {
   if (error instanceof ApiError && error.response.assembly_id) {
     console.error(
-      "Troubleshoot at https://transloadit.com/c/assemblies/" +
+      'Troubleshoot at https://transloadit.com/c/assemblies/' +
         error.response.assembly_id
-    );
+    )
   }
-  throw error;
+  throw error
 }
 ```
 
@@ -103,18 +103,18 @@ try {
     authKey,
     authSecret,
     validateResponses: true,
-  });
+  })
   ```
 
 - `getSignedSmartCDNUrl` generates Smart CDN URLs with signatures that match the server-side implementation:
 
   ```ts
   const signedUrl = transloadit.getSignedSmartCDNUrl({
-    workspace: "my-team",
-    template: "hero-image",
-    input: "landing.jpg",
-    urlParams: { format: "webp" },
-  });
+    workspace: 'my-team',
+    template: 'hero-image',
+    input: 'landing.jpg',
+    urlParams: { format: 'webp' },
+  })
   ```
 
 ## 6. Removed `createAssembly` callback support
@@ -135,7 +135,7 @@ As a consequence of upgrading `got` to v14, the `gotRetry` option no longer acce
 
 ## Testing & troubleshooting
 
-- Run your existing integration tests on Node 20+. If you relied on CommonJS `require`, convert those modules or wrap calls in `import()` shims as shown above.
+- Run your existing e2e tests on Node 20+. If you relied on CommonJS `require`, convert those modules or wrap calls in `import()` shims as shown above.
 - If TypeScript raises errors about unfamiliar properties, import the respective types from `transloadit` instead of redefining them.
 - Schemas intentionally mirror the current public API. Some properties remain permissive while we tighten validation in the API itself; report gaps if the SDK raises or misses invalid data.
 

@@ -1,12 +1,10 @@
 import { inspect } from 'node:util'
 import nock from 'nock'
-
+import type { AssemblyStatus, Options } from '../../src/Transloadit.ts'
 import {
   ApiError,
-  type AssemblyStatus,
   assemblyInstructionsSchema,
   InconsistentResponseError,
-  type Options,
   TimeoutError,
   Transloadit,
 } from '../../src/Transloadit.ts'
@@ -54,6 +52,54 @@ describe('Mocked API tests', () => {
       expect.objectContaining({ code: 'POLLING_TIMED_OUT', message: 'Polling timed out' }),
     )
     scope.done()
+  })
+
+  it('should honor abort signal during awaitAssemblyCompletion polling', async () => {
+    const client = getLocalClient()
+
+    // Set up a mock that keeps returning ASSEMBLY_EXECUTING (never completes)
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
+      .persist() // Keep responding with same status
+
+    const controller = new AbortController()
+
+    // Abort after 50ms
+    setTimeout(() => controller.abort(), 50)
+
+    await expect(
+      client.awaitAssemblyCompletion('1', { interval: 10, signal: controller.signal }),
+    ).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }))
+
+    scope.persist(false)
+  })
+
+  it('should stop polling early when onPoll returns false', async () => {
+    const client = getLocalClient()
+
+    let pollCount = 0
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(() => true)
+      .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
+      .persist()
+
+    const result = await client.awaitAssemblyCompletion('1', {
+      interval: 10,
+      onPoll: () => {
+        pollCount++
+        // Stop after 3 polls
+        return pollCount < 3
+      },
+    })
+
+    // Should have the last polled status (ASSEMBLY_EXECUTING), not completed
+    expect((result as { ok: string }).ok).toBe('ASSEMBLY_EXECUTING')
+    expect(pollCount).toBe(3)
+
+    scope.persist(false)
   })
 
   it('should handle aborted correctly', async () => {
@@ -157,30 +203,30 @@ describe('Mocked API tests', () => {
     // console.log(inspect(errorString))
     expect(inspect(errorString).split('\n')).toEqual([
       expect.stringMatching(
-        `API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo`,
+        'API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo',
       ),
-      expect.stringMatching(`    at .+`),
-      expect.stringMatching(`    at .+`),
+      expect.stringMatching('    at .+'),
+      expect.stringMatching('    at .+'),
       expect.stringMatching(
-        `    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)`,
+        '    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)',
       ),
-      expect.stringMatching(`    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+`),
-      expect.stringMatching(`    at .+`),
+      expect.stringMatching('    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+'),
+      expect.stringMatching('    at .+'),
       expect.stringMatching(`  code: 'INVALID_FILE_META_DATA',`),
       expect.stringMatching(`  rawMessage: 'Invalid file metadata',`),
-      expect.stringMatching(`  reason: undefined,`),
+      expect.stringMatching('  reason: undefined,'),
       expect.stringMatching(
         `  assemblySslUrl: 'https:\\/\\/api2-oltu\\.transloadit\\.com\\/assemblies\\/foo'`,
       ),
       expect.stringMatching(`  assemblyId: '123',`),
-      expect.stringMatching(`  cause: HTTPError: Response code 400 \\(Bad Request\\)`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`      at .+`),
-      expect.stringMatching(`    input: undefined,`),
+      expect.stringMatching('  cause: HTTPError: Response code 400 \\(Bad Request\\)'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('      at .+'),
+      expect.stringMatching('    input: undefined,'),
       expect.stringMatching(`    code: 'ERR_NON_2XX_3XX_RESPONSE',`),
       expect.stringMatching('    \\[cause\\]: {}'),
       expect.stringMatching('  }'),

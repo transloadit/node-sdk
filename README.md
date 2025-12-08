@@ -42,7 +42,171 @@ or
 npm install --save transloadit
 ```
 
-## Usage
+## Command Line Interface (CLI)
+
+This package includes a full-featured CLI for interacting with Transloadit from your terminal.
+
+### Quick Start
+
+```bash
+# Set your credentials
+export TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
+export TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
+
+# See all available commands
+npx transloadit --help
+```
+
+### Processing Media
+
+Create Assemblies to process files using Assembly Instructions (steps) or Templates:
+
+```bash
+# Process a file using a steps file
+npx transloadit assemblies create --steps steps.json --input image.jpg --output result.jpg
+
+# Process using a Template
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input image.jpg --output result.jpg
+
+# Process with custom fields
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --field size=100 --input image.jpg --output thumb.jpg
+
+# Process a directory of files
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/
+
+# Process recursively with file watching
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/ --recursive --watch
+
+# Process multiple files in a single assembly
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input file1.jpg --input file2.jpg --output results/ --single-assembly
+
+# Limit concurrent processing (default: 5)
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/ --concurrency 2
+```
+
+### Managing Assemblies
+
+```bash
+# List recent assemblies
+npx transloadit assemblies list
+
+# List assemblies with filters
+npx transloadit assemblies list --after 2024-01-01 --before 2024-12-31
+
+# Get assembly status
+npx transloadit assemblies get ASSEMBLY_ID
+
+# Cancel an assembly
+npx transloadit assemblies delete ASSEMBLY_ID
+
+# Replay an assembly (re-run with original instructions)
+npx transloadit assemblies replay ASSEMBLY_ID
+
+# Replay with different steps
+npx transloadit assemblies replay --steps new-steps.json ASSEMBLY_ID
+
+# Replay using latest template version
+npx transloadit assemblies replay --reparse-template ASSEMBLY_ID
+```
+
+### Managing Templates
+
+```bash
+# List all templates
+npx transloadit templates list
+
+# Get template content
+npx transloadit templates get TEMPLATE_ID
+
+# Create a template from a JSON file
+npx transloadit templates create my-template template.json
+
+# Modify a template
+npx transloadit templates modify TEMPLATE_ID template.json
+
+# Rename a template
+npx transloadit templates modify TEMPLATE_ID --name new-name
+
+# Delete a template
+npx transloadit templates delete TEMPLATE_ID
+
+# Sync local template files with Transloadit (bidirectional)
+npx transloadit templates sync templates/*.json
+npx transloadit templates sync --recursive templates/
+```
+
+### Billing
+
+```bash
+# Get bill for a month
+npx transloadit bills get 2024-01
+
+# Get detailed bill as JSON
+npx transloadit bills get 2024-01 --json
+```
+
+### Assembly Notifications
+
+```bash
+# Replay a notification
+npx transloadit assembly-notifications replay ASSEMBLY_ID
+
+# Replay to a different URL
+npx transloadit assembly-notifications replay --notify-url https://example.com/hook ASSEMBLY_ID
+```
+
+### Signature Generation
+
+```bash
+# Generate a signature for assembly params
+echo '{"steps":{}}' | npx transloadit auth signature
+
+# Generate with specific algorithm
+echo '{"steps":{}}' | npx transloadit auth signature --algorithm sha256
+
+# Generate a signed Smart CDN URL
+echo '{"workspace":"my-workspace","template":"my-template","input":"image.jpg"}' | npx transloadit auth smart-cdn
+```
+
+### CLI Options
+
+All commands support these common options:
+
+- `--json, -j` - Output results as JSON (useful for scripting)
+- `--log-level, -l` - Set log verbosity level by name or number (default: notice)
+- `--endpoint` - Custom API endpoint URL (or set `TRANSLOADIT_ENDPOINT` env var)
+- `--help, -h` - Show help for a command
+
+The `assemblies create` command additionally supports:
+
+- `--single-assembly` - Pass all input files to a single assembly instead of one assembly per file
+
+#### Log Levels
+
+The CLI uses [syslog severity levels](https://en.wikipedia.org/wiki/Syslog#Severity_level). Lower = more severe, higher = more verbose:
+
+| Level    | Value | Description                           |
+| -------- | ----- | ------------------------------------- |
+| `err`    | 3     | Error conditions                      |
+| `warn`   | 4     | Warning conditions                    |
+| `notice` | 5     | Normal but significant **(default)**  |
+| `info`   | 6     | Informational messages                |
+| `debug`  | 7     | Debug-level messages                  |
+| `trace`  | 8     | Most verbose/detailed                 |
+
+You can use either the level name or its numeric value:
+
+```bash
+# Show only errors and warnings
+npx transloadit assemblies list -l warn
+npx transloadit assemblies list -l 4
+
+# Show debug output
+npx transloadit assemblies list -l debug
+npx transloadit assemblies list -l 7
+```
+
+## SDK Usage
 
 The following code will upload an image and resize it to a thumbnail:
 
@@ -97,10 +261,12 @@ You can find [details about your executed Assemblies here](https://transloadit.c
 
 - [Upload and resize image](https://github.com/transloadit/node-sdk/blob/main/examples/resize_an_image.ts)
 - [Upload image and convert to WebP](https://github.com/transloadit/node-sdk/blob/main/examples/convert_to_webp.ts)
+- [Rasterize SVG to PNG](https://github.com/transloadit/node-sdk/blob/main/examples/rasterize_svg_to_png.ts)
 - [Crop a face out of an image and download the result](https://github.com/transloadit/node-sdk/blob/main/examples/face_detect_download.ts)
 - [Retry example](https://github.com/transloadit/node-sdk/blob/main/examples/retry.ts)
 - [Calculate total costs (GB usage)](https://github.com/transloadit/node-sdk/blob/main/examples/fetch_costs_of_all_assemblies_in_timeframe.ts)
 - [Templates CRUD](https://github.com/transloadit/node-sdk/blob/main/examples/template_api.ts)
+- [Template Credentials CRUD](https://github.com/transloadit/node-sdk/blob/main/examples/credentials.ts)
 
 For more fully working examples take a look at [`examples/`](https://github.com/transloadit/node-sdk/blob/main/examples/).
 
@@ -116,6 +282,7 @@ Table of contents:
 - [Assemblies](#assemblies)
 - [Assembly notifications](#assembly-notifications)
 - [Templates](#templates)
+- [Template Credentials](#template-credentials)
 - [Errors](#errors)
 - [Rate limiting & auto retry](#rate-limiting--auto-retry)
 
@@ -301,6 +468,8 @@ This function will continously poll the specified Assembly `assemblyId` and reso
 - `onAssemblyProgress` - A progress function called on each poll. See `createAssembly`
 - `timeout` - How many milliseconds until polling times out (default: no timeout)
 - `interval` - Poll interval in milliseconds (default `1000`)
+- `signal` - An `AbortSignal` to cancel polling. When aborted, the promise rejects with an `AbortError`.
+- `onPoll` - A callback invoked at the start of each poll iteration. Return `false` to stop polling early and resolve with the last known status. Useful for implementing custom cancellation logic (e.g., superseding assemblies in watch mode).
 
 #### getLastUsedAssemblyUrl()
 
@@ -369,6 +538,34 @@ The method returns an object containing these properties:
 
 Creates an `objectMode` `Readable` stream that automates handling of `listTemplates` pagination. Similar to `streamAssemblies`.
 
+### Template Credentials
+
+Template Credentials allow you to store third-party credentials (e.g., AWS S3, Google Cloud Storage, FTP) securely on Transloadit for use in your Assembly Instructions.
+
+#### async createTemplateCredential(params)
+
+Creates a new Template Credential. The `params` object should contain the credential configuration. See [API documentation](https://transloadit.com/docs/api/template-credentials-post/).
+
+#### async editTemplateCredential(credentialId, params)
+
+Updates an existing Template Credential identified by `credentialId`. See [API documentation](https://transloadit.com/docs/api/template-credentials-credential-id-put/).
+
+#### async deleteTemplateCredential(credentialId)
+
+Deletes the Template Credential identified by `credentialId`. See [API documentation](https://transloadit.com/docs/api/template-credentials-credential-id-delete/).
+
+#### async getTemplateCredential(credentialId)
+
+Retrieves the Template Credential identified by `credentialId`. See [API documentation](https://transloadit.com/docs/api/template-credentials-credential-id-get/).
+
+#### async listTemplateCredentials(params)
+
+Lists all Template Credentials. See [API documentation](https://transloadit.com/docs/api/template-credentials-get/).
+
+#### streamTemplateCredentials(params)
+
+Creates an `objectMode` `Readable` stream that automates handling of `listTemplateCredentials` pagination. Similar to `streamAssemblies`.
+
 ### Other
 
 #### setDefaultTimeout(timeout)
@@ -385,25 +582,7 @@ Calculates a signature for the given `params` JSON object. If the `params` objec
 
 This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
 
-#### CLI smart_sig
-
-Generate a signed Smart CDN URL from the command line. The CLI reads a JSON object from stdin, injects credentials from `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET`, and prints the URL returned by `getSignedSmartCDNUrl()`.
-
-```sh
-TRANSLOADIT_KEY=... TRANSLOADIT_SECRET=... \
-  printf '{"workspace":"demo","template":"resize","input":"image.jpg","url_params":{"width":320}}' | npx transloadit smart_sig
-```
-
-You can also use `TRANSLOADIT_AUTH_KEY`/`TRANSLOADIT_AUTH_SECRET` as aliases for the environment variables.
-
-#### CLI sig
-
-Sign assembly params from the command line. The CLI reads a JSON object from stdin (or falls back to an empty object), injects credentials from `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET`, and prints the payload returned by `calcSignature()`. Use `--algorithm` to pick a specific hashing algorithm; it defaults to `sha384`.
-
-```sh
-TRANSLOADIT_KEY=... TRANSLOADIT_SECRET=... \
-  printf '{"auth":{"expires":"2025-01-02T00:00:00Z"}}' | npx transloadit sig --algorithm sha256
-```
+See [Signature Generation](#signature-generation) in the CLI section for command-line usage.
 
 #### getSignedSmartCDNUrl(params)
 
@@ -495,7 +674,7 @@ If you want to retry on other errors, please see the [retry example code](exampl
 This project uses [debug](https://github.com/visionmedia/debug) so you can run node with the `DEBUG=transloadit` evironment variable to enable verbose logging. Example:
 
 ```bash
-DEBUG=transloadit* node examples/template_api.js
+DEBUG=transloadit* npx tsx examples/template_api.ts
 ```
 
 ## Maintainers

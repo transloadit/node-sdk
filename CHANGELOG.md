@@ -2,6 +2,18 @@
 
 You may also want to refer to [GitHub releases](https://github.com/transloadit/node-sdk/releases).
 
+## Unreleased
+
+- Add `signal` option to `createAssembly()` for cancelling in-flight HTTP requests and TUS uploads via `AbortController`
+- Add `signal` and `onPoll` options to `awaitAssemblyCompletion()` for cancellation and early termination (useful for custom progress reporting or superseding assemblies in watch mode)
+- Integrate transloadify CLI into the SDK, providing `assemblies`, `templates`, `bills`, and `assembly-notifications` commands
+- Add `--log-level (-l)` CLI option using syslog severity levels (err=3, warn=4, notice=5, info=6, debug=7, trace=8)
+- Add `--endpoint` CLI option for custom API endpoint (also reads `TRANSLOADIT_ENDPOINT` env var)
+- Add `--single-assembly` flag to `assemblies create` for passing multiple input files to a single assembly
+- Add `--concurrency` option to `assemblies create` to limit parallel processing (default: 5)
+- Fix file descriptor exhaustion by closing streams immediately and creating fresh ones on demand
+- Apply stricter biome lint rules (noExplicitAny, useAwait, noForEach, noNonNullAssertion)
+
 ## v4.0.7
 
 Released: 2025-11-26.
