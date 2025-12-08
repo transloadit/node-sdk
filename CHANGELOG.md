@@ -6,6 +6,14 @@ You may also want to refer to [GitHub releases](https://github.com/transloadit/n
 
 - TBD
 
+## v4.1.1
+
+Released: 2025-12-08.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v4.1.0...v4.1.1).
+
+- CLI now accepts `TRANSLOADIT_AUTH_KEY`/`TRANSLOADIT_AUTH_SECRET` in addition to `TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET` when authenticating commands.
+
 ## v4.1.0
 
 Released: 2025-12-08.
