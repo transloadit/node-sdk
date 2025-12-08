@@ -8,6 +8,7 @@ import {
 } from '../../alphalib/types/template.ts'
 import type { OptionalAuthParams } from '../../apiTypes.ts'
 import { Transloadit } from '../../Transloadit.ts'
+import { getEnvCredentials } from '../helpers.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 type UrlParamPrimitive = string | number | boolean
@@ -80,16 +81,7 @@ async function readStdin(): Promise<string> {
   return data
 }
 
-function getCredentials(): { authKey: string; authSecret: string } | null {
-  const authKey = process.env.TRANSLOADIT_KEY || process.env.TRANSLOADIT_AUTH_KEY
-  const authSecret = process.env.TRANSLOADIT_SECRET || process.env.TRANSLOADIT_AUTH_SECRET
-
-  if (!authKey || !authSecret) {
-    return null
-  }
-
-  return { authKey, authSecret }
-}
+const getCredentials = getEnvCredentials
 
 // Result type for signature operations
 type SigResult = { ok: true; output: string } | { ok: false; error: string }

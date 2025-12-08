@@ -4,6 +4,7 @@ import 'dotenv/config'
 import { Transloadit as TransloaditClient } from '../../Transloadit.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 import OutputCtl, { LOG_LEVEL_DEFAULT, LOG_LEVEL_NAMES, parseLogLevel } from '../OutputCtl.ts'
+import { getEnvCredentials } from '../helpers.ts'
 
 export abstract class BaseCommand extends Command {
   logLevelOption = Option.String('-l,--log-level', {
@@ -31,7 +32,8 @@ export abstract class BaseCommand extends Command {
   }
 
   protected setupClient(): boolean {
-    if (!process.env.TRANSLOADIT_KEY || !process.env.TRANSLOADIT_SECRET) {
+    const creds = getEnvCredentials()
+    if (!creds) {
       this.output.error(
         'Please provide API authentication in the environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET',
       )
@@ -40,11 +42,7 @@ export abstract class BaseCommand extends Command {
 
     const endpoint = this.endpoint || process.env.TRANSLOADIT_ENDPOINT
 
-    this.client = new TransloaditClient({
-      authKey: process.env.TRANSLOADIT_KEY,
-      authSecret: process.env.TRANSLOADIT_SECRET,
-      ...(endpoint && { endpoint }),
-    })
+    this.client = new TransloaditClient({ ...creds, ...(endpoint && { endpoint }) })
     return true
   }
 

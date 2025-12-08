@@ -3,6 +3,15 @@ import type { Readable } from 'node:stream'
 import type { APIError } from './types.ts'
 import { isAPIError } from './types.ts'
 
+export function getEnvCredentials(): { authKey: string; authSecret: string } | null {
+  const authKey = process.env.TRANSLOADIT_KEY ?? process.env.TRANSLOADIT_AUTH_KEY
+  const authSecret = process.env.TRANSLOADIT_SECRET ?? process.env.TRANSLOADIT_AUTH_SECRET
+
+  if (!authKey || !authSecret) return null
+
+  return { authKey, authSecret }
+}
+
 export function createReadStream(file: string): Readable {
   if (file === '-') return process.stdin
   return fs.createReadStream(file)
