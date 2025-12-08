@@ -4,6 +4,14 @@ You may also want to refer to [GitHub releases](https://github.com/transloadit/n
 
 ## Unreleased
 
+- TBD
+
+## v4.1.0
+
+Released: 2025-12-08.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v4.0.7...v4.1.0).
+
 - Add `signal` option to `createAssembly()` for cancelling in-flight HTTP requests and TUS uploads via `AbortController`
 - Add `signal` and `onPoll` options to `awaitAssemblyCompletion()` for cancellation and early termination (useful for custom progress reporting or superseding assemblies in watch mode)
 - Integrate transloadify CLI into the SDK, providing `assemblies`, `templates`, `bills`, and `assembly-notifications` commands
