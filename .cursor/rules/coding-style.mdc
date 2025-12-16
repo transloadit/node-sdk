@@ -30,3 +30,6 @@ Coding style:
 - Alphabetize imports, group by source type (built-in/external/internal)
 - Favor US English over UK English, so `summarizeError` over `summarise Error`
 - Favor `.replaceAll('a', 'b)` over `.replace(/a/g, 'b')` or `.replace(new RegExp('a', 'g'), 'b')` when the only need for regeses was replacing all strings. That's usually both easier to read and more performant.
+- Use typographic characters: ellipsis (`…`) instead of `...`, curly quotes (`'` `"`) instead of straight quotes in user-facing text
+- Put API keys and secrets in `.env` files, not hardcoded in components
+- Check for existing hooks before creating new ones (e.g., `useUppy()` for Uppy functionality)

@@ -20,6 +20,7 @@ export const templateCredentialsSchema = z
       ),
     type: z
       .enum([
+        'ai',
         'azure',
         'backblaze',
         'cloudflare',
