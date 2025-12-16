@@ -5389,6 +5389,7 @@ __metadata:
     image-size: "npm:^2.0.2"
     into-stream: "npm:^9.0.0"
     is-stream: "npm:^4.0.1"
+    minimatch: "npm:^10.1.1"
     nock: "npm:^14.0.10"
     node-watch: "npm:^0.7.4"
     npm-run-all: "npm:^4.1.5"
