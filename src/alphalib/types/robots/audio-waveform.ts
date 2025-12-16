@@ -59,7 +59,8 @@ Here is an example waveform image:
   stage: 'ga',
 }
 
-export const robotAudioWaveformInstructionsSchema = robotBase
+// Base schema with common fields
+const robotAudioWaveformInstructionsBaseSchema = robotBase
   .merge(robotUse)
   .merge(robotFFmpeg)
   .extend({
@@ -90,12 +91,6 @@ The width of the resulting image if the format \`"image"\` was selected.
       .describe(`
 The height of the resulting image if the format \`"image"\` was selected.
 `),
-    style: z
-      .union([z.literal(0), z.literal(1)])
-      .default(0)
-      .describe(`
-Either a value of \`0\` or \`1\`, corresponding to using either the legacy waveform tool, or the new tool respectively, with the new tool offering an improved style. Other Robot parameters still function as described, with either tool.
-`),
     antialiasing: z
       .union([z.literal(0), z.literal(1), z.boolean()])
       .default(0)
@@ -110,6 +105,142 @@ The color used in the center of the gradient. The format is "rrggbbaa" (red, gre
 `),
     outer_color: color_with_alpha.default('000000ff').describe(`
 The color used in the outer parts of the gradient. The format is "rrggbbaa" (red, green, blue, alpha).
+`),
+  })
+
+const styleSchema = z.preprocess(
+  (val) => {
+    // Backwards compatibility: historically this robot used numeric styles 0/1/2.
+    // The new API is `style: "v0" | "v1"`. Old v2 values are mapped to v1.
+    if (val === 'v1' || val === 1 || val === '1') return 'v1'
+    if (val === 'v0' || val === 0 || val === '0') return 'v0'
+    return val
+  },
+  z.enum(['v0', 'v1']).default('v0'),
+)
+
+// Unified schema: all parameters exist for both styles, but v1-only parameters only apply when
+// `style` is `v1` (they are accepted for v0 but have no effect).
+export const robotAudioWaveformInstructionsSchema = robotAudioWaveformInstructionsBaseSchema
+  .extend({
+    style: styleSchema.describe(`
+Waveform style version.
+
+- \`"v0"\`: Legacy waveform generation (default).
+- \`"v1"\`: Advanced waveform generation with additional parameters.
+
+For backwards compatibility, numeric values \`0\`, \`1\`, \`2\` are also accepted and mapped to \`"v0"\` (0) and \`"v1"\` (1/2).
+`),
+
+    // v1-only parameters (accepted for v0 but have no effect)
+    split_channels: z
+      .boolean()
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. If set to \`true\`, outputs multi-channel waveform data or image files, one per channel.
+`),
+    zoom: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. Zoom level in samples per pixel. This parameter cannot be used together with \`pixels_per_second\`.
+`),
+    pixels_per_second: z
+      .number()
+      .positive()
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. Zoom level in pixels per second. This parameter cannot be used together with \`zoom\`.
+`),
+    bits: z
+      .union([z.literal(8), z.literal(16)])
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. Bit depth for waveform data. Can be 8 or 16.
+`),
+    start: z
+      .number()
+      .min(0)
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. Start time in seconds.
+`),
+    end: z
+      .number()
+      .min(0)
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. End time in seconds (0 means end of audio).
+`),
+    colors: z
+      .enum(['audition', 'audacity'])
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. Color scheme to use. Can be "audition" or "audacity".
+`),
+    border_color: color_with_alpha.optional().describe(`
+Available when style is \`"v1"\`. Border color in "rrggbbaa" format.
+`),
+    waveform_style: z
+      .enum(['normal', 'bars'])
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. Waveform style. Can be "normal" or "bars".
+`),
+    bar_width: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. Width of bars in pixels when waveform_style is "bars".
+`),
+    bar_gap: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. Gap between bars in pixels when waveform_style is "bars".
+`),
+    bar_style: z
+      .enum(['square', 'rounded'])
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. Bar style when waveform_style is "bars".
+`),
+    axis_label_color: color_with_alpha.optional().describe(`
+Available when style is \`"v1"\`. Color for axis labels in "rrggbbaa" format.
+`),
+    no_axis_labels: z
+      .boolean()
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. If set to \`true\`, renders waveform image without axis labels.
+`),
+    with_axis_labels: z
+      .boolean()
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. If set to \`true\`, renders waveform image with axis labels.
+`),
+    amplitude_scale: z
+      .number()
+      .positive()
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. Amplitude scale factor.
+`),
+    compression: z
+      .number()
+      .int()
+      .min(-1)
+      .max(9)
+      .optional()
+      .describe(`
+Available when style is \`"v1"\`. PNG compression level: 0 (none) to 9 (best), or -1 (default). Only applicable when format is "image".
 `),
   })
   .strict()
@@ -129,9 +260,10 @@ export type RobotAudioWaveformInstructionsWithHiddenFields = z.infer<
 export const interpolatableRobotAudioWaveformInstructionsSchema = interpolateRobot(
   robotAudioWaveformInstructionsSchema,
 )
-export type InterpolatableRobotAudioWaveformInstructions =
-  InterpolatableRobotAudioWaveformInstructionsInput
 
+export type InterpolatableRobotAudioWaveformInstructions = z.input<
+  typeof interpolatableRobotAudioWaveformInstructionsSchema
+>
 export type InterpolatableRobotAudioWaveformInstructionsInput = z.input<
   typeof interpolatableRobotAudioWaveformInstructionsSchema
 >
@@ -139,6 +271,7 @@ export type InterpolatableRobotAudioWaveformInstructionsInput = z.input<
 export const interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema = interpolateRobot(
   robotAudioWaveformInstructionsWithHiddenFieldsSchema,
 )
+
 export type InterpolatableRobotAudioWaveformInstructionsWithHiddenFields = z.infer<
   typeof interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema
 >

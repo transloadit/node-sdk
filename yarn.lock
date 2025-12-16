@@ -837,9 +837,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/aix-ppc64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/aix-ppc64@npm:0.27.1"
+  conditions: os=aix & cpu=ppc64
+  languageName: node
+  linkType: hard
+
 "@esbuild/android-arm64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/android-arm64@npm:0.25.6"
+  conditions: os=android & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@esbuild/android-arm64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/android-arm64@npm:0.27.1"
   conditions: os=android & cpu=arm64
   languageName: node
   linkType: hard
@@ -851,9 +865,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/android-arm@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/android-arm@npm:0.27.1"
+  conditions: os=android & cpu=arm
+  languageName: node
+  linkType: hard
+
 "@esbuild/android-x64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/android-x64@npm:0.25.6"
+  conditions: os=android & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@esbuild/android-x64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/android-x64@npm:0.27.1"
   conditions: os=android & cpu=x64
   languageName: node
   linkType: hard
@@ -865,9 +893,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/darwin-arm64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/darwin-arm64@npm:0.27.1"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
 "@esbuild/darwin-x64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/darwin-x64@npm:0.25.6"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@esbuild/darwin-x64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/darwin-x64@npm:0.27.1"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
@@ -879,9 +921,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/freebsd-arm64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/freebsd-arm64@npm:0.27.1"
+  conditions: os=freebsd & cpu=arm64
+  languageName: node
+  linkType: hard
+
 "@esbuild/freebsd-x64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/freebsd-x64@npm:0.25.6"
+  conditions: os=freebsd & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@esbuild/freebsd-x64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/freebsd-x64@npm:0.27.1"
   conditions: os=freebsd & cpu=x64
   languageName: node
   linkType: hard
@@ -893,9 +949,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/linux-arm64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/linux-arm64@npm:0.27.1"
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: hard
+
 "@esbuild/linux-arm@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/linux-arm@npm:0.25.6"
+  conditions: os=linux & cpu=arm
+  languageName: node
+  linkType: hard
+
+"@esbuild/linux-arm@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/linux-arm@npm:0.27.1"
   conditions: os=linux & cpu=arm
   languageName: node
   linkType: hard
@@ -907,9 +977,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/linux-ia32@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/linux-ia32@npm:0.27.1"
+  conditions: os=linux & cpu=ia32
+  languageName: node
+  linkType: hard
+
 "@esbuild/linux-loong64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/linux-loong64@npm:0.25.6"
+  conditions: os=linux & cpu=loong64
+  languageName: node
+  linkType: hard
+
+"@esbuild/linux-loong64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/linux-loong64@npm:0.27.1"
   conditions: os=linux & cpu=loong64
   languageName: node
   linkType: hard
@@ -921,9 +1005,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/linux-mips64el@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/linux-mips64el@npm:0.27.1"
+  conditions: os=linux & cpu=mips64el
+  languageName: node
+  linkType: hard
+
 "@esbuild/linux-ppc64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/linux-ppc64@npm:0.25.6"
+  conditions: os=linux & cpu=ppc64
+  languageName: node
+  linkType: hard
+
+"@esbuild/linux-ppc64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/linux-ppc64@npm:0.27.1"
   conditions: os=linux & cpu=ppc64
   languageName: node
   linkType: hard
@@ -935,9 +1033,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/linux-riscv64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/linux-riscv64@npm:0.27.1"
+  conditions: os=linux & cpu=riscv64
+  languageName: node
+  linkType: hard
+
 "@esbuild/linux-s390x@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/linux-s390x@npm:0.25.6"
+  conditions: os=linux & cpu=s390x
+  languageName: node
+  linkType: hard
+
+"@esbuild/linux-s390x@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/linux-s390x@npm:0.27.1"
   conditions: os=linux & cpu=s390x
   languageName: node
   linkType: hard
@@ -949,9 +1061,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/linux-x64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/linux-x64@npm:0.27.1"
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: hard
+
 "@esbuild/netbsd-arm64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/netbsd-arm64@npm:0.25.6"
+  conditions: os=netbsd & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@esbuild/netbsd-arm64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/netbsd-arm64@npm:0.27.1"
   conditions: os=netbsd & cpu=arm64
   languageName: node
   linkType: hard
@@ -963,9 +1089,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/netbsd-x64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/netbsd-x64@npm:0.27.1"
+  conditions: os=netbsd & cpu=x64
+  languageName: node
+  linkType: hard
+
 "@esbuild/openbsd-arm64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/openbsd-arm64@npm:0.25.6"
+  conditions: os=openbsd & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@esbuild/openbsd-arm64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/openbsd-arm64@npm:0.27.1"
   conditions: os=openbsd & cpu=arm64
   languageName: node
   linkType: hard
@@ -977,9 +1117,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/openbsd-x64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/openbsd-x64@npm:0.27.1"
+  conditions: os=openbsd & cpu=x64
+  languageName: node
+  linkType: hard
+
 "@esbuild/openharmony-arm64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/openharmony-arm64@npm:0.25.6"
+  conditions: os=openharmony & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@esbuild/openharmony-arm64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/openharmony-arm64@npm:0.27.1"
   conditions: os=openharmony & cpu=arm64
   languageName: node
   linkType: hard
@@ -991,9 +1145,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/sunos-x64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/sunos-x64@npm:0.27.1"
+  conditions: os=sunos & cpu=x64
+  languageName: node
+  linkType: hard
+
 "@esbuild/win32-arm64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/win32-arm64@npm:0.25.6"
+  conditions: os=win32 & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@esbuild/win32-arm64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/win32-arm64@npm:0.27.1"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
@@ -1005,9 +1173,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@esbuild/win32-ia32@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/win32-ia32@npm:0.27.1"
+  conditions: os=win32 & cpu=ia32
+  languageName: node
+  linkType: hard
+
 "@esbuild/win32-x64@npm:0.25.6":
   version: 0.25.6
   resolution: "@esbuild/win32-x64@npm:0.25.6"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@esbuild/win32-x64@npm:0.27.1":
+  version: 0.27.1
+  resolution: "@esbuild/win32-x64@npm:0.27.1"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -2862,7 +3044,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esbuild@npm:^0.25.0, esbuild@npm:~0.25.0":
+"esbuild@npm:^0.25.0":
   version: 0.25.6
   resolution: "esbuild@npm:0.25.6"
   dependencies:
@@ -2948,6 +3130,95 @@ __metadata:
   bin:
     esbuild: bin/esbuild
   checksum: 10c0/6c2ddc66d8789d75bfa940fddf51a6a98b0fcb474f090669b47091f587e8c3e8e7da57d769b770fd8133268dd5bfc7055318aea0bca6f7c725220d7550437b42
+  languageName: node
+  linkType: hard
+
+"esbuild@npm:~0.27.0":
+  version: 0.27.1
+  resolution: "esbuild@npm:0.27.1"
+  dependencies:
+    "@esbuild/aix-ppc64": "npm:0.27.1"
+    "@esbuild/android-arm": "npm:0.27.1"
+    "@esbuild/android-arm64": "npm:0.27.1"
+    "@esbuild/android-x64": "npm:0.27.1"
+    "@esbuild/darwin-arm64": "npm:0.27.1"
+    "@esbuild/darwin-x64": "npm:0.27.1"
+    "@esbuild/freebsd-arm64": "npm:0.27.1"
+    "@esbuild/freebsd-x64": "npm:0.27.1"
+    "@esbuild/linux-arm": "npm:0.27.1"
+    "@esbuild/linux-arm64": "npm:0.27.1"
+    "@esbuild/linux-ia32": "npm:0.27.1"
+    "@esbuild/linux-loong64": "npm:0.27.1"
+    "@esbuild/linux-mips64el": "npm:0.27.1"
+    "@esbuild/linux-ppc64": "npm:0.27.1"
+    "@esbuild/linux-riscv64": "npm:0.27.1"
+    "@esbuild/linux-s390x": "npm:0.27.1"
+    "@esbuild/linux-x64": "npm:0.27.1"
+    "@esbuild/netbsd-arm64": "npm:0.27.1"
+    "@esbuild/netbsd-x64": "npm:0.27.1"
+    "@esbuild/openbsd-arm64": "npm:0.27.1"
+    "@esbuild/openbsd-x64": "npm:0.27.1"
+    "@esbuild/openharmony-arm64": "npm:0.27.1"
+    "@esbuild/sunos-x64": "npm:0.27.1"
+    "@esbuild/win32-arm64": "npm:0.27.1"
+    "@esbuild/win32-ia32": "npm:0.27.1"
+    "@esbuild/win32-x64": "npm:0.27.1"
+  dependenciesMeta:
+    "@esbuild/aix-ppc64":
+      optional: true
+    "@esbuild/android-arm":
+      optional: true
+    "@esbuild/android-arm64":
+      optional: true
+    "@esbuild/android-x64":
+      optional: true
+    "@esbuild/darwin-arm64":
+      optional: true
+    "@esbuild/darwin-x64":
+      optional: true
+    "@esbuild/freebsd-arm64":
+      optional: true
+    "@esbuild/freebsd-x64":
+      optional: true
+    "@esbuild/linux-arm":
+      optional: true
+    "@esbuild/linux-arm64":
+      optional: true
+    "@esbuild/linux-ia32":
+      optional: true
+    "@esbuild/linux-loong64":
+      optional: true
+    "@esbuild/linux-mips64el":
+      optional: true
+    "@esbuild/linux-ppc64":
+      optional: true
+    "@esbuild/linux-riscv64":
+      optional: true
+    "@esbuild/linux-s390x":
+      optional: true
+    "@esbuild/linux-x64":
+      optional: true
+    "@esbuild/netbsd-arm64":
+      optional: true
+    "@esbuild/netbsd-x64":
+      optional: true
+    "@esbuild/openbsd-arm64":
+      optional: true
+    "@esbuild/openbsd-x64":
+      optional: true
+    "@esbuild/openharmony-arm64":
+      optional: true
+    "@esbuild/sunos-x64":
+      optional: true
+    "@esbuild/win32-arm64":
+      optional: true
+    "@esbuild/win32-ia32":
+      optional: true
+    "@esbuild/win32-x64":
+      optional: true
+  bin:
+    esbuild: bin/esbuild
+  checksum: 10c0/8bfcf13a499a9e7b7da4b68273e12b453c7d7a5e39c944c2e5a4c64a0594d6df1391fc168a5353c22bc94eeae38dd9897199ddbbc4973525b0aae18186e996bd
   languageName: node
   linkType: hard
 
@@ -5399,10 +5670,10 @@ __metadata:
     recursive-readdir: "npm:^2.2.3"
     rimraf: "npm:^6.1.2"
     temp: "npm:^0.9.4"
-    tsx: "npm:4.20.5"
+    tsx: "npm:4.21.0"
     tus-js-client: "npm:^4.3.1"
     type-fest: "npm:^4.41.0"
-    typescript: "npm:5.9.2"
+    typescript: "npm:5.9.3"
     vitest: "npm:^3.2.4"
     zod: "npm:3.25.76"
   bin:
@@ -5417,11 +5688,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tsx@npm:4.20.5":
-  version: 4.20.5
-  resolution: "tsx@npm:4.20.5"
+"tsx@npm:4.21.0":
+  version: 4.21.0
+  resolution: "tsx@npm:4.21.0"
   dependencies:
-    esbuild: "npm:~0.25.0"
+    esbuild: "npm:~0.27.0"
     fsevents: "npm:~2.3.3"
     get-tsconfig: "npm:^4.7.5"
   dependenciesMeta:
@@ -5429,7 +5700,7 @@ __metadata:
       optional: true
   bin:
     tsx: dist/cli.mjs
-  checksum: 10c0/70f9bf746be69281312a369c712902dbf9bcbdd9db9184a4859eb4859c36ef0c5a6d79b935c1ec429158ee73fd6584089400ae8790345dae34c5b0222bdb94f3
+  checksum: 10c0/f5072923cd8459a1f9a26df87823a2ab5754641739d69df2a20b415f61814322b751fa6be85db7c6ec73cf68ba8fac2fd1cfc76bdb0aa86ded984d84d5d2126b
   languageName: node
   linkType: hard
 
@@ -5515,23 +5786,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:5.9.2":
-  version: 5.9.2
-  resolution: "typescript@npm:5.9.2"
+"typescript@npm:5.9.3":
+  version: 5.9.3
+  resolution: "typescript@npm:5.9.3"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/cd635d50f02d6cf98ed42de2f76289701c1ec587a363369255f01ed15aaf22be0813226bff3c53e99d971f9b540e0b3cc7583dbe05faded49b1b0bed2f638a18
+  checksum: 10c0/6bd7552ce39f97e711db5aa048f6f9995b53f1c52f7d8667c1abdc1700c68a76a308f579cd309ce6b53646deb4e9a1be7c813a93baaf0a28ccd536a30270e1c5
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A5.9.2#optional!builtin<compat/typescript>":
-  version: 5.9.2
-  resolution: "typescript@patch:typescript@npm%3A5.9.2#optional!builtin<compat/typescript>::version=5.9.2&hash=5786d5"
+"typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>":
+  version: 5.9.3
+  resolution: "typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>::version=5.9.3&hash=5786d5"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/34d2a8e23eb8e0d1875072064d5e1d9c102e0bdce56a10a25c0b917b8aa9001a9cf5c225df12497e99da107dc379360bc138163c66b55b95f5b105b50578067e
+  checksum: 10c0/ad09fdf7a756814dce65bc60c1657b40d44451346858eea230e10f2e95a289d9183b6e32e5c11e95acc0ccc214b4f36289dcad4bf1886b0adb84d711d336a430
   languageName: node
   linkType: hard
 

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { stackVersions } from '../stackVersions.ts'
 
 export const robotNames = z.enum([
+  'AiChatRobot',
   'UploadHandleRobot',
   'FileServeRobot',
   'FileWatermarkRobot',
@@ -395,21 +396,18 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
  */
 const uninterpolatableKeys = ['robot', 'use'] as const
 
-type InterpolatableRobot<Schema extends z.ZodObject<z.ZodRawShape>> = Schema extends z.ZodObject<
-  infer T,
-  infer UnknownKeys,
-  infer Catchall
->
-  ? z.ZodObject<
-      {
-        [Key in keyof T]: Key extends (typeof uninterpolatableKeys)[number]
-          ? T[Key]
-          : InterpolatableSchema<T[Key]>
-      },
-      UnknownKeys,
-      Catchall
-    >
-  : never
+type InterpolatableRobot<Schema extends z.ZodObject<z.ZodRawShape>> =
+  Schema extends z.ZodObject<infer T, infer UnknownKeys, infer Catchall>
+    ? z.ZodObject<
+        {
+          [Key in keyof T]: Key extends (typeof uninterpolatableKeys)[number]
+            ? T[Key]
+            : InterpolatableSchema<T[Key]>
+        },
+        UnknownKeys,
+        Catchall
+      >
+    : never
 
 export function interpolateRobot<Schema extends z.ZodObject<z.ZodRawShape>>(
   schema: Schema,
@@ -1762,3 +1760,11 @@ Delta to apply to segment duration. This is optional and allows fine-tuning of s
 `),
   })
   .strict()
+
+/**
+ * Type for the normalized use parameter from AssemblyNormalizer
+ * The steps array can contain either strings or objects with name property
+ */
+export interface NormalizedUse {
+  steps: Array<{ name: string; as?: string; fields?: string }>
+}

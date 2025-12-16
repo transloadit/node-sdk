@@ -1,7 +1,7 @@
 import type { SevLogger } from '@transloadit/sev-logger'
 import type { Schema } from 'zod'
 
-export interface McacheOpts<T> {
+export interface McacheOpts {
   ttlMs?: number
   zodSchema?: Schema
   logger?: SevLogger
@@ -37,10 +37,10 @@ interface CacheEntry<T> {
  */
 export class Mcache<T> {
   #cache: Map<string, CacheEntry<T>>
-  #opts: Required<Omit<McacheOpts<T>, 'logger' | 'zodSchema' | 'keyFn'>> &
-    Pick<McacheOpts<T>, 'logger' | 'zodSchema' | 'keyFn'>
+  #opts: Required<Omit<McacheOpts, 'logger' | 'zodSchema' | 'keyFn'>> &
+    Pick<McacheOpts, 'logger' | 'zodSchema' | 'keyFn'>
 
-  constructor(opts: McacheOpts<T> = {}) {
+  constructor(opts: McacheOpts = {}) {
     this.#cache = new Map()
     this.#opts = {
       ttlMs: opts.ttlMs ?? Number.POSITIVE_INFINITY,

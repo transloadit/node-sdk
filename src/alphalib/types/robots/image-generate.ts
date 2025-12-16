@@ -34,10 +34,13 @@ export const robotImageGenerateInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/image/generate'),
-    model: z.string(),
+    model: z
+      .string()
+      .optional()
+      .describe('The AI model to use for image generation. Defaults to google/nano-banana.'),
     prompt: z.string().describe('The prompt describing the desired image content.'),
     format: z
-      .enum(['jpeg', 'png', 'gif', 'webp', 'svg'])
+      .enum(['jpeg', 'jpg', 'png', 'gif', 'webp', 'svg'])
       .optional()
       .describe('Format of the generated image.'),
     seed: z.number().optional().describe('Seed for the random number generator.'),
@@ -69,7 +72,7 @@ export type RobotImageGenerateInstructionsWithHiddenFields = z.infer<
 >
 
 export const interpolatableRobotImageGenerateInstructionsSchema = interpolateRobot(
-  robotImageGenerateInstructionsSchema,
+  robotImageGenerateInstructionsWithHiddenFieldsSchema,
 )
 export type InterpolatableRobotImageGenerateInstructions =
   InterpolatableRobotImageGenerateInstructionsInput

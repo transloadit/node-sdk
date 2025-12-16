@@ -53,6 +53,12 @@ export const robotImageBgremoveInstructionsSchema = robotBase
       .enum(['transloadit', 'replicate', 'fal'])
       .optional()
       .describe('Provider to use for removing the background.'),
+    model: z
+      .string()
+      .optional()
+      .describe(
+        'Provider-specific model to use for removing the background. Mostly intended for testing and evaluation.',
+      ),
   })
   .strict()
 

@@ -1,5 +1,9 @@
 import { z } from 'zod'
-
+import {
+  meta as aiChatMeta,
+  interpolatableRobotAiChatInstructionsSchema,
+  interpolatableRobotAiChatInstructionsWithHiddenFieldsSchema,
+} from './ai-chat.ts'
 import {
   meta as audioArtworkMeta,
   interpolatableRobotAudioArtworkInstructionsSchema,
@@ -474,6 +478,7 @@ const robotStepsInstructions = [
   interpolatableRobotSwiftStoreInstructionsSchema,
   interpolatableRobotTextSpeakInstructionsSchema,
   interpolatableRobotTextTranslateInstructionsSchema,
+  interpolatableRobotAiChatInstructionsSchema,
   interpolatableRobotTigrisImportInstructionsSchema,
   interpolatableRobotTigrisStoreInstructionsSchema,
   interpolatableRobotTlcdnDeliverInstructionsSchema,
@@ -558,6 +563,7 @@ const robotStepsInstructionsWithHiddenFields = [
   interpolatableRobotSwiftStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotTextSpeakInstructionsWithHiddenFieldsSchema,
   interpolatableRobotTextTranslateInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotAiChatInstructionsWithHiddenFieldsSchema,
   interpolatableRobotTigrisImportInstructionsWithHiddenFieldsSchema,
   interpolatableRobotTigrisStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotTlcdnDeliverInstructionsWithHiddenFieldsSchema,
@@ -605,6 +611,7 @@ export type RobotsWithHiddenBots = z.infer<typeof robotsWithHiddenBotsSchema>
 export type RobotsWithHiddenBotsAndFields = z.infer<typeof robotsWithHiddenBotsAndFieldsSchema>
 
 export const robotsMeta = {
+  aiChatMeta,
   audioArtworkMeta,
   audioConcatMeta,
   audioEncodeMeta,
@@ -687,6 +694,12 @@ export const robotsMeta = {
   youtubeStoreMeta,
 }
 
+export type {
+  InterpolatableRobotAiChatInstructions,
+  InterpolatableRobotAiChatInstructionsInput,
+  InterpolatableRobotAiChatInstructionsWithHiddenFields,
+  InterpolatableRobotAiChatInstructionsWithHiddenFieldsInput,
+} from './ai-chat.ts'
 export type {
   InterpolatableRobotAssemblySavejsonInstructions,
   InterpolatableRobotAssemblySavejsonInstructionsInput,
