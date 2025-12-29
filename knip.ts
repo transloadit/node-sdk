@@ -26,7 +26,15 @@ const config: KnipConfig = {
     'minimatch',
     'tsx',
   ],
+  ignoreExportsUsedInFile: {
+    type: true,
+    interface: true,
+  },
   rules: {
+    exports: 'warn',
+    types: 'warn',
+    nsExports: 'warn',
+    nsTypes: 'warn',
     duplicates: 'warn',
   },
 }
