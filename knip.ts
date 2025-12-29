@@ -4,12 +4,12 @@ import type { KnipConfig } from 'knip'
 // lint:ts and tests run immediately after - they'll fail if knip removes something needed.
 const config: KnipConfig = {
   entry: [
-    'src/**/*.{ts,tsx,js,jsx}',
+    'src/Transloadit.ts',
+    'src/cli.ts',
     'test/**/*.{ts,tsx,js,jsx}',
-    'scripts/**/*.{ts,tsx,js,jsx}',
     'vitest.config.ts',
   ],
-  project: ['{src,test,scripts}/**/*.{ts,tsx,js,jsx}'],
+  project: ['{src,test}/**/*.{ts,tsx,js,jsx}'],
   ignore: [
     'dist/**',
     'coverage/**',
