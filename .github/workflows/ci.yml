@@ -38,6 +38,17 @@ jobs:
       - run: corepack yarn
       - run: corepack yarn lint:js
 
+  knip:
+    name: Knip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack yarn
+      - run: corepack yarn knip
+
   typescript:
     name: Lint (TypeScript)
     runs-on: ubuntu-latest
