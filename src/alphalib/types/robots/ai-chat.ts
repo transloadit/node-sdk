@@ -33,7 +33,8 @@ const imagePartSchema = z.object({
     z.string(),
     z.instanceof(Uint8Array),
     z.instanceof(ArrayBuffer),
-    z.instanceof(Buffer),
+    // Note: Buffer is not included here since it's Node.js-only and this code runs in browsers.
+    // Node.js Buffer extends Uint8Array, so Uint8Array validation handles Buffer values too.
     z.instanceof(URL),
   ]),
   mimeType: z.string().optional(),
@@ -45,7 +46,8 @@ const filePartSchema = z.object({
     z.string(),
     z.instanceof(Uint8Array),
     z.instanceof(ArrayBuffer),
-    z.instanceof(Buffer),
+    // Note: Buffer is not included here since it's Node.js-only and this code runs in browsers.
+    // Node.js Buffer extends Uint8Array, so Uint8Array validation handles Buffer values too.
     z.instanceof(URL),
   ]),
   mediaType: z.string(),
@@ -136,7 +138,7 @@ export const meta: RobotMetaInput = {
   trackOutputFileSize: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
+  stage: 'alpha',
 }
 
 export const vendorModelSchema = z
