@@ -6,18 +6,18 @@ import type { AssemblyStatus, Transloadit } from '../Transloadit.ts'
 import type { IOutputCtl } from './OutputCtl.ts'
 
 // Re-export transloadit types for CLI use
-export type { AssemblyStatus, BillResponse, ListedTemplate, TemplateResponse }
-export type { Transloadit }
-export type { CreateAssemblyOptions } from '../Transloadit.ts'
+
+
+
 
 // Zod schemas for runtime validation
-export const APIErrorSchema = z.object({
+const APIErrorSchema = z.object({
   error: z.string(),
   message: z.string(),
 })
 export type APIError = z.infer<typeof APIErrorSchema>
 
-export const TransloaditAPIErrorSchema = z.object({
+const TransloaditAPIErrorSchema = z.object({
   error: z.string().optional(),
   message: z.string(),
   code: z.string().optional(),
@@ -55,14 +55,14 @@ export interface TemplateFile {
 }
 
 // Template list item (from API)
-export interface TemplateListItem {
+interface TemplateListItem {
   id: string
   modified: string
   name?: string
 }
 
 // CLI Invocation types
-export interface BaseInvocation {
+interface BaseInvocation {
   error?: boolean
   message?: string
   mode: string
@@ -71,7 +71,7 @@ export interface BaseInvocation {
   jsonMode?: boolean
 }
 
-export interface AssemblyInvocation extends BaseInvocation {
+interface AssemblyInvocation extends BaseInvocation {
   mode: 'assemblies'
   action?: 'create' | 'get' | 'list' | 'delete' | 'replay'
   inputs: string[]
@@ -91,7 +91,7 @@ export interface AssemblyInvocation extends BaseInvocation {
   reparse?: boolean
 }
 
-export interface TemplateInvocation extends BaseInvocation {
+interface TemplateInvocation extends BaseInvocation {
   mode: 'templates'
   action?: 'create' | 'get' | 'list' | 'delete' | 'modify' | 'sync'
   templates?: string[]
@@ -107,13 +107,13 @@ export interface TemplateInvocation extends BaseInvocation {
   recursive?: boolean
 }
 
-export interface BillInvocation extends BaseInvocation {
+interface BillInvocation extends BaseInvocation {
   mode: 'bills'
   action?: 'get'
   months: string[]
 }
 
-export interface NotificationInvocation extends BaseInvocation {
+interface NotificationInvocation extends BaseInvocation {
   mode: 'assembly-notifications'
   action?: 'list' | 'replay'
   assemblies?: string[]
@@ -123,11 +123,11 @@ export interface NotificationInvocation extends BaseInvocation {
   pagesize?: number
 }
 
-export interface HelpInvocation extends BaseInvocation {
+interface HelpInvocation extends BaseInvocation {
   mode: 'help' | 'version' | 'register'
 }
 
-export type Invocation =
+type Invocation =
   | AssemblyInvocation
   | TemplateInvocation
   | BillInvocation
@@ -135,14 +135,14 @@ export type Invocation =
   | HelpInvocation
 
 // Command handler type
-export type CommandHandler<T extends BaseInvocation = BaseInvocation> = (
+type CommandHandler<T extends BaseInvocation = BaseInvocation> = (
   output: IOutputCtl,
   client: Transloadit | undefined,
   invocation: T,
 ) => void | Promise<void>
 
 // Type guard for Error
-export function isError(value: unknown): value is Error {
+function isError(value: unknown): value is Error {
   return value instanceof Error
 }
 
@@ -170,12 +170,12 @@ export function isErrnoException(value: unknown): value is NodeJS.ErrnoException
 }
 
 // Safe array access helper
-export function safeGet<T>(arr: T[], index: number): T | undefined {
+function safeGet<T>(arr: T[], index: number): T | undefined {
   return arr[index]
 }
 
 // Assert defined helper
-export function assertDefined<T>(value: T | undefined | null, message: string): T {
+function assertDefined<T>(value: T | undefined | null, message: string): T {
   if (value === undefined || value === null) {
     throw new Error(message)
   }

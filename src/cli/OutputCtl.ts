@@ -2,7 +2,7 @@
  * Log levels following syslog severity (https://en.wikipedia.org/wiki/Syslog#Severity_level)
  * Lower numbers = more severe, higher numbers = more verbose
  */
-export const LOG_LEVEL = {
+const LOG_LEVEL = {
   ERR: 3, // Error conditions
   WARN: 4, // Warning conditions
   NOTICE: 5, // Normal but significant (default)

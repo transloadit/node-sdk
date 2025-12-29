@@ -36,7 +36,7 @@ export interface AssemblyGetOptions {
   assemblies: string[]
 }
 
-export interface AssemblyDeleteOptions {
+interface AssemblyDeleteOptions {
   assemblies: string[]
 }
 

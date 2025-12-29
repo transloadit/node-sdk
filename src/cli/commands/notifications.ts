@@ -12,7 +12,7 @@ export interface NotificationsReplayOptions {
   assemblies: string[]
 }
 
-export async function replay(
+async function replay(
   output: IOutputCtl,
   client: Transloadit,
   { notify_url, assemblies }: NotificationsReplayOptions,

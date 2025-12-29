@@ -36,7 +36,7 @@ export function formatAPIError(err: unknown): string {
 }
 
 // Re-export APIError type for convenience
-export type { APIError }
+
 
 export function zip<A, B>(listA: A[], listB: B[]): [A, B][]
 export function zip<T>(...lists: T[][]): T[][]
