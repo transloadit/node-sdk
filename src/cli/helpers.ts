@@ -1,6 +1,5 @@
 import fs from 'node:fs'
 import type { Readable } from 'node:stream'
-import type { APIError } from './types.ts'
 import { isAPIError } from './types.ts'
 
 export function getEnvCredentials(): { authKey: string; authSecret: string } | null {
@@ -34,9 +33,6 @@ export function formatAPIError(err: unknown): string {
   }
   return String(err)
 }
-
-// Re-export APIError type for convenience
-
 
 export function zip<A, B>(listA: A[], listB: B[]): [A, B][]
 export function zip<T>(...lists: T[][]): T[][]

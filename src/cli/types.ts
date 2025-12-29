@@ -1,14 +1,6 @@
 import { z } from 'zod'
 import type { Steps } from '../alphalib/types/template.ts'
 import { optionalStepsSchema } from '../alphalib/types/template.ts'
-import type { BillResponse, ListedTemplate, TemplateResponse } from '../apiTypes.ts'
-import type { AssemblyStatus, Transloadit } from '../Transloadit.ts'
-import type { IOutputCtl } from './OutputCtl.ts'
-
-// Re-export transloadit types for CLI use
-
-
-
 
 // Zod schemas for runtime validation
 const APIErrorSchema = z.object({
@@ -54,98 +46,6 @@ export interface TemplateFile {
   data: TemplateFileData
 }
 
-// Template list item (from API)
-interface TemplateListItem {
-  id: string
-  modified: string
-  name?: string
-}
-
-// CLI Invocation types
-interface BaseInvocation {
-  error?: boolean
-  message?: string
-  mode: string
-  action?: string
-  logLevel?: number
-  jsonMode?: boolean
-}
-
-interface AssemblyInvocation extends BaseInvocation {
-  mode: 'assemblies'
-  action?: 'create' | 'get' | 'list' | 'delete' | 'replay'
-  inputs: string[]
-  output?: string
-  recursive?: boolean
-  watch?: boolean
-  del?: boolean
-  reprocessStale?: boolean
-  steps?: string
-  template?: string
-  fields?: Record<string, string>
-  assemblies?: string[]
-  before?: string
-  after?: string
-  keywords?: string[]
-  notify_url?: string
-  reparse?: boolean
-}
-
-interface TemplateInvocation extends BaseInvocation {
-  mode: 'templates'
-  action?: 'create' | 'get' | 'list' | 'delete' | 'modify' | 'sync'
-  templates?: string[]
-  template?: string
-  name?: string
-  file?: string
-  files?: string[]
-  before?: string
-  after?: string
-  order?: 'asc' | 'desc'
-  sort?: string
-  fields?: string[]
-  recursive?: boolean
-}
-
-interface BillInvocation extends BaseInvocation {
-  mode: 'bills'
-  action?: 'get'
-  months: string[]
-}
-
-interface NotificationInvocation extends BaseInvocation {
-  mode: 'assembly-notifications'
-  action?: 'list' | 'replay'
-  assemblies?: string[]
-  notify_url?: string
-  type?: string
-  assembly_id?: string
-  pagesize?: number
-}
-
-interface HelpInvocation extends BaseInvocation {
-  mode: 'help' | 'version' | 'register'
-}
-
-type Invocation =
-  | AssemblyInvocation
-  | TemplateInvocation
-  | BillInvocation
-  | NotificationInvocation
-  | HelpInvocation
-
-// Command handler type
-type CommandHandler<T extends BaseInvocation = BaseInvocation> = (
-  output: IOutputCtl,
-  client: Transloadit | undefined,
-  invocation: T,
-) => void | Promise<void>
-
-// Type guard for Error
-function isError(value: unknown): value is Error {
-  return value instanceof Error
-}
-
 // Helper to ensure error is Error type
 export function ensureError(value: unknown): Error {
   if (value instanceof Error) {
@@ -167,17 +67,4 @@ export function isTransloaditAPIError(value: unknown): value is TransloaditAPIEr
 // Type guard for NodeJS.ErrnoException
 export function isErrnoException(value: unknown): value is NodeJS.ErrnoException {
   return value instanceof Error && 'code' in value
-}
-
-// Safe array access helper
-function safeGet<T>(arr: T[], index: number): T | undefined {
-  return arr[index]
-}
-
-// Assert defined helper
-function assertDefined<T>(value: T | undefined | null, message: string): T {
-  if (value === undefined || value === null) {
-    throw new Error(message)
-  }
-  return value
 }

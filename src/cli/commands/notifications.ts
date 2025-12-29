@@ -7,7 +7,7 @@ import { AuthenticatedCommand } from './BaseCommand.ts'
 
 // --- Types and business logic ---
 
-export interface NotificationsReplayOptions {
+interface NotificationsReplayOptions {
   notify_url?: string
   assemblies: string[]
 }

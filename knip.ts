@@ -3,12 +3,7 @@ import type { KnipConfig } from 'knip'
 // Note: `yarn check` runs knip with --fix --allow-remove-files. This is safe because
 // lint:ts and tests run immediately after - they'll fail if knip removes something needed.
 const config: KnipConfig = {
-  entry: [
-    'src/Transloadit.ts',
-    'src/cli.ts',
-    'test/**/*.{ts,tsx,js,jsx}',
-    'vitest.config.ts',
-  ],
+  entry: ['src/Transloadit.ts', 'src/cli.ts', 'test/**/*.{ts,tsx,js,jsx}', 'vitest.config.ts'],
   project: ['{src,test}/**/*.{ts,tsx,js,jsx}'],
   ignore: [
     'dist/**',

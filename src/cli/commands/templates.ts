@@ -37,7 +37,7 @@ interface TemplateDeleteOptions {
   templates: string[]
 }
 
-export interface TemplateListOptions {
+interface TemplateListOptions {
   before?: string
   after?: string
   order?: 'asc' | 'desc'
