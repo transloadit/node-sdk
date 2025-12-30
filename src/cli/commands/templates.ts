@@ -33,11 +33,11 @@ export interface TemplateModifyOptions {
   file: string
 }
 
-export interface TemplateDeleteOptions {
+interface TemplateDeleteOptions {
   templates: string[]
 }
 
-export interface TemplateListOptions {
+interface TemplateListOptions {
   before?: string
   after?: string
   order?: 'asc' | 'desc'
@@ -162,7 +162,7 @@ const TemplateIdSchema = z.object({
   id: z.string(),
 })
 
-export function list(
+function list(
   output: IOutputCtl,
   client: Transloadit,
   { before, after, order, sort, fields }: TemplateListOptions,

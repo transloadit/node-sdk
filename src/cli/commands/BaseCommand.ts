@@ -6,7 +6,7 @@ import { getEnvCredentials } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 import OutputCtl, { LOG_LEVEL_DEFAULT, LOG_LEVEL_NAMES, parseLogLevel } from '../OutputCtl.ts'
 
-export abstract class BaseCommand extends Command {
+abstract class BaseCommand extends Command {
   logLevelOption = Option.String('-l,--log-level', {
     description: `Log level: ${LOG_LEVEL_NAMES.join(', ')} or 3-8 (default: notice)`,
   })
