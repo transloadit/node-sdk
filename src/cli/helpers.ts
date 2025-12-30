@@ -34,6 +34,10 @@ export function formatAPIError(err: unknown): string {
   return String(err)
 }
 
+// Re-export APIError type for CLI consumers relying on deep imports.
+/** @public */
+export type { APIError } from './types.ts'
+
 export function zip<A, B>(listA: A[], listB: B[]): [A, B][]
 export function zip<T>(...lists: T[][]): T[][]
 export function zip<T>(...lists: T[][]): T[][] {
