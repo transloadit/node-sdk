@@ -1,0 +1,11 @@
+---
+description: Playwright e2e guidelines distilled from PR #4601 feedback
+globs: _src/tests/**/*.pwtest.ts,playwright.config.ts
+alwaysApply: false
+---
+- Prefer user-centric locators: `getByRole`/`getByText` with accessible names; avoid `page.locator('body')`, `innerText()`, or raw CSS unless there is no accessible alternative.
+- Make positive assertions on expected UI/text instead of looping over regexes to assert absence.
+- Keep tests simple: no control-flow loops or extra variables for straightforward assertions.
+- Navigate with relative URLs (`page.goto('/path')`) by setting `baseURL` in `playwright.config.ts`; avoid stringing environment URLs in tests.
+- Stub or mock external/third‑party requests (Intercom, Sentry, etc.) and any auth/login endpoints to keep tests deterministic; return minimal valid JSON when the app expects data.
+- Each unexpected error should surface and fail the test.

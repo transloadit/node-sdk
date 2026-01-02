@@ -1,0 +1,20 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+For Typescript:
+
+- Favor `contentGapItemSchema = z.object()` over `ContentGapItemSchema = z.object()`
+- Favor `from './PosterboyCommand.ts'` over `from './PosterboyCommand'`
+- Favor `return ideas.filter(isPresent)` over `ideas.filter((idea): idea is Idea => idea !== null)`
+- Favor using `.tsx` over `.jsx` file extensions.
+- Favor the `tsx` CLI over `ts-node` for running TypeScript files.
+- Favor `satisfies` over `as`, consider `as` a sin
+- Favor `unknown` over `any`, consider `any` a sin
+- Favor validating data with Zod over using `any` or custom type guards
+- We use the `rewriteRelativeImportExtensions` TS 5.7 compiler option, so for local TypeScript
+  files, import with the `.ts` / `.tsx` extension (not js, not extensionless)
+- Favor defining props as an interface over inline
+- Favor explicit return types over inferring them as it makes typescript a lot faster in the editor
+  on our scale

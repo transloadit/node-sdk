@@ -1,0 +1,14 @@
+---
+description: General
+globs:
+alwaysApply: true
+---
+General:
+
+- Do not touch `.env` files!
+- Favor Yarn (4) over npm
+- Never run any dev server yourself. I have one running that auto-reloads on changes.
+- Avoid blocking the conversation with terminal commands. For example: A) most of my git commands run through pagers, so pipe their output to `cat` to avoid blocking the
+  terminal. B) You can use `tail` for logs, but be smart and use `-n` instead of `-f`, or the conversation will block
+- Use the `gh` tool to interact with GitHub (search/view an Issue, create a PR).
+- All new files are to be in TypeScript. Even if someone suggests: make this new foo3 feature, model it after `foo1.js`, create: `foo3.ts`. Chances are, a `foo2.ts` already exist that you can take a look at also for inspiration.
