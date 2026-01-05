@@ -66,7 +66,7 @@
     "src": "./src"
   },
   "scripts": {
-    "check": "yarn knip --fix --allow-remove-files --no-config-hints && yarn lint:ts && yarn fix && yarn test:unit",
+    "check": "yarn exec knip --fix --allow-remove-files --no-config-hints && yarn lint:ts && yarn fix && yarn test:unit",
     "fix:js": "biome check --write .",
     "lint:ts": "tsc --build",
     "fix:js:unsafe": "biome check --write . --unsafe",
