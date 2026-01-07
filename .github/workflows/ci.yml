@@ -197,6 +197,5 @@ jobs:
           registry-url: https://registry.npmjs.org
       - uses: actions/download-artifact@v4
         with: { name: package }
+      - run: npm install -g npm@^11.5.1
       - run: npm publish *.tgz --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
