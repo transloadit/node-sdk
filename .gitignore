@@ -8,6 +8,7 @@ sample.js
 npm-debug.log
 env.sh
 /coverage
+packages/node/coverage
 
 .pnp.*
 .yarn/*
@@ -19,3 +20,5 @@ env.sh
 .aider*
 .DS_Store
 .env
+packages/types/src/generated
+packages/zod/src/v3

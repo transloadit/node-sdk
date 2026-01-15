@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "moduleResolution": "NodeNext",
+    "paths": {
+      "@transloadit/types": ["../types/src/index.ts"],
+      "@transloadit/types/*": ["../types/src/generated/*.ts"]
+    }
+  },
+  "include": ["test/type-equality.ts"]
+}

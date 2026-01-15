@@ -25,12 +25,17 @@ const config: KnipConfig = {
     '@types/minimist',
     'minimatch',
     'tsx',
+    // Tooling invoked via package.json scripts; knip's binary detection is disabled.
+    '@biomejs/biome',
+    'npm-run-all',
   ],
   ignoreExportsUsedInFile: {
     type: true,
     interface: true,
   },
   rules: {
+    // Binary resolution is unreliable with Yarn PnP; avoid false positives.
+    binaries: 'off',
     exports: 'warn',
     types: 'warn',
     nsExports: 'warn',

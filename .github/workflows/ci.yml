@@ -81,7 +81,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
-          path: coverage/
+          path: packages/node/coverage/
 
   e2e:
     name: E2E tests
@@ -111,14 +111,14 @@ jobs:
           TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
           TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
           NODE_OPTIONS: --trace-deprecation --trace-warnings
-          CLOUDFLARED_PATH: ./cloudflared-linux-amd64
+          CLOUDFLARED_PATH: ../cloudflared-linux-amd64
           DEBUG: 'transloadit:*'
 
       - name: Generate the badge from the json-summary
-        run: node --experimental-strip-types test/generate-coverage-badge.ts coverage/coverage-summary.json
+        run: node --experimental-strip-types packages/node/test/generate-coverage-badge.ts packages/node/coverage/coverage-summary.json
       - name: Move HTML report and badge to the correct location
         run: |
-          mv coverage/lcov-report static-build
+          mv packages/node/coverage/lcov-report static-build
           mv coverage-badge.svg static-build/
       # *** BEGIN PUBLISH STATIC SITE STEPS ***
       # Use the standard checkout action to check out the destination repo to a separate directory
@@ -158,7 +158,7 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
+          files: ./packages/node/coverage/lcov.info
           flags: unittests
           name: node-sdk
           fail_ci_if_error: true

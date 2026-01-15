@@ -1,0 +1,35 @@
+{
+  "name": "@transloadit/zod",
+  "version": "4.1.2",
+  "description": "Transloadit Zod schemas",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/v3/index.d.ts",
+      "default": "./dist/v3/index.js"
+    },
+    "./v3": {
+      "types": "./dist/v3/index.d.ts",
+      "default": "./dist/v3/index.js"
+    },
+    "./v3/*": {
+      "types": "./dist/v3/*.d.ts",
+      "default": "./dist/v3/*.js"
+    }
+  },
+  "scripts": {
+    "sync": "node scripts/sync-v3.js",
+    "build": "yarn sync && tsc --build tsconfig.build.json",
+    "check": "yarn sync && tsc --build tsconfig.build.json && tsc --noEmit --project tsconfig.test.json"
+  },
+  "dependencies": {
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

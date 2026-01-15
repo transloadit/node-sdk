@@ -1,8 +1,8 @@
-import { z } from 'zod'
-
-const exampleSchema = z.object({
-  // TODO: replace with a real schema export once @transloadit/zod/v3 exists.
-})
+import type { z } from 'zod'
+import type { AssemblyStatus } from '@transloadit/types/assemblyStatus'
+import type { AssemblyInstructions } from '@transloadit/types/template'
+import { assemblyStatusSchema } from '../src/v3/assemblyStatus.js'
+import { assemblyInstructionsSchema } from '../src/v3/template.js'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
   ? true
@@ -10,11 +10,9 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ?
 
 type Assert<T extends true> = T
 
-// TODO: replace GeneratedExample with a real type from @transloadit/types.
-// import type * as Types from '@transloadit/types'
-// type GeneratedExample = Types.Example
-type GeneratedExample = z.infer<typeof exampleSchema>
-
-export type _ExampleCheck = Assert<Equal<GeneratedExample, z.infer<typeof exampleSchema>>>
-
-export { exampleSchema }
+export type _AssemblyStatusCheck = Assert<
+  Equal<AssemblyStatus, z.infer<typeof assemblyStatusSchema>>
+>
+export type _AssemblyInstructionsCheck = Assert<
+  Equal<AssemblyInstructions, z.infer<typeof assemblyInstructionsSchema>>
+>

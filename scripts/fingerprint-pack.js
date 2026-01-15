@@ -1,89 +1,163 @@
-import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { execFile, spawn } from 'node:child_process'
+import { createReadStream } from 'node:fs'
+import { mkdir, rm, stat, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 
-const cwd = process.argv[2] ? resolve(process.argv[2]) : process.cwd()
+const usage = () => {
+  console.log(`Usage: node scripts/fingerprint-pack.js [path] [options]
 
-/** @param {Uint8Array} buffer */
-const sha256 = (buffer) => createHash('sha256').update(buffer).digest('hex')
+Options:
+  -o, --out <file>   Write JSON output to a file
+  --ignore-scripts   Pass --ignore-scripts to npm pack
+  --keep             Keep the generated tarball
+  -h, --help         Show help
+`)
+}
 
-const pack = async () => {
-  const { stdout } = await execFileAsync('npm', ['pack', '--json'], {
-    cwd,
-    encoding: 'utf8',
-    maxBuffer: 10 * 1024 * 1024,
-  })
+const parseArgs = () => {
+  const args = process.argv.slice(2)
+  let target = '.'
+  let out = null
+  let keep = false
+  let ignoreScripts = false
 
-  const parsed = JSON.parse(stdout)
-  if (!Array.isArray(parsed) || !parsed[0] || !parsed[0].filename) {
-    throw new Error('Unexpected npm pack output')
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i]
+    if (arg === '-h' || arg === '--help') {
+      usage()
+      process.exit(0)
+    }
+    if (arg === '-o' || arg === '--out') {
+      out = args[i + 1]
+      i += 1
+      continue
+    }
+    if (arg === '--keep') {
+      keep = true
+      continue
+    }
+    if (arg === '--ignore-scripts') {
+      ignoreScripts = true
+      continue
+    }
+    if (arg.startsWith('-')) {
+      throw new Error(`Unknown option: ${arg}`)
+    }
+    target = arg
   }
 
-  return parsed[0]
+  return { target, out, keep, ignoreScripts }
 }
 
-/** @param {string} tarballPath */
-const listTarFiles = async (tarballPath) => {
-  const { stdout } = await execFileAsync('tar', ['-tf', tarballPath], {
-    cwd,
-    encoding: 'utf8',
-    maxBuffer: 50 * 1024 * 1024,
+const hashFile = async (filePath) =>
+  new Promise((resolvePromise, reject) => {
+    const hash = createHash('sha256')
+    const stream = createReadStream(filePath)
+    stream.on('error', reject)
+    stream.on('data', (chunk) => hash.update(chunk))
+    stream.on('end', () => resolvePromise(hash.digest('hex')))
   })
 
-  return stdout
-    .split('\n')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .filter((entry) => !entry.endsWith('/'))
-}
-
-/**
- * @param {string} tarballPath
- * @param {string} entry
- * @returns {Promise<Buffer>}
- */
-const readTarFile = async (tarballPath, entry) => {
-  const { stdout } = await execFileAsync('tar', ['-xOf', tarballPath, entry], {
-    cwd,
-    encoding: 'buffer',
-    maxBuffer: 200 * 1024 * 1024,
+const hashTarEntry = async (tarballPath, entry) =>
+  new Promise((resolvePromise, reject) => {
+    const hash = createHash('sha256')
+    let sizeBytes = 0
+    const child = spawn('tar', ['-xOf', tarballPath, entry], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    child.stdout.on('data', (chunk) => {
+      sizeBytes += chunk.length
+      hash.update(chunk)
+    })
+    let stderr = ''
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString()
+    })
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`tar failed for ${entry}: ${stderr.trim()}`))
+        return
+      }
+      resolvePromise({ sha256: hash.digest('hex'), sizeBytes })
+    })
   })
 
+const readTarEntry = async (tarballPath, entry) => {
+  const { stdout } = await execFileAsync('tar', ['-xOf', tarballPath, entry])
   return stdout
 }
 
 const main = async () => {
-  const packInfo = await pack()
-  const tarballPath = resolve(cwd, packInfo.filename)
-  const tarballBuffer = await readFile(tarballPath)
+  const { target, out, keep, ignoreScripts } = parseArgs()
+  const cwd = resolve(process.cwd(), target)
 
-  const files = await listTarFiles(tarballPath)
-  /** @type {Record<string, { sha256: string, size: number }>} */
-  const fileFingerprints = {}
-
-  for (const entry of files) {
-    const contents = await readTarFile(tarballPath, entry)
-    const buffer = Buffer.isBuffer(contents) ? contents : Buffer.from(contents)
-    fileFingerprints[entry] = {
-      sha256: sha256(buffer),
-      size: buffer.length,
-    }
+  const packArgs = ['pack', '--json']
+  if (ignoreScripts) {
+    packArgs.push('--ignore-scripts')
+  }
+  const { stdout } = await execFileAsync('npm', packArgs, { cwd })
+  const packed = JSON.parse(stdout.trim())
+  const info = Array.isArray(packed) ? packed[0] : packed
+  if (!info?.filename) {
+    throw new Error('npm pack did not return a tarball filename')
   }
 
-  const fingerprint = {
+  const tarballPath = resolve(cwd, info.filename)
+  const tarballStat = await stat(tarballPath)
+  const tarballSha = await hashFile(tarballPath)
+
+  const { stdout: listStdout } = await execFileAsync('tar', ['-tf', tarballPath])
+  const entries = listStdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !line.endsWith('/'))
+
+  const files = []
+  for (const entry of entries) {
+    const { sha256, sizeBytes } = await hashTarEntry(tarballPath, entry)
+    const normalized = entry.startsWith('package/') ? entry.slice('package/'.length) : entry
+    files.push({ path: normalized, sizeBytes, sha256 })
+  }
+
+  const packageJsonRaw = await readTarEntry(tarballPath, 'package/package.json')
+  const packageJson = JSON.parse(packageJsonRaw)
+
+  const summary = {
+    packageDir: cwd,
     tarball: {
-      file: packInfo.filename,
-      sha256: sha256(tarballBuffer),
-      size: tarballBuffer.length,
+      filename: info.filename,
+      sizeBytes: tarballStat.size,
+      sha256: tarballSha,
     },
-    files: fileFingerprints,
+    packageJson: {
+      name: packageJson.name,
+      version: packageJson.version,
+      main: packageJson.main,
+      types: packageJson.types,
+      exports: packageJson.exports,
+      files: packageJson.files,
+    },
+    files,
   }
 
-  process.stdout.write(`${JSON.stringify(fingerprint, null, 2)}\n`)
+  const json = `${JSON.stringify(summary, null, 2)}\n`
+  if (out) {
+    const outPath = resolve(process.cwd(), out)
+    await mkdir(resolve(outPath, '..'), { recursive: true })
+    await writeFile(outPath, json)
+  }
+
+  process.stdout.write(json)
+
+  if (!keep) {
+    await rm(tarballPath, { force: true })
+  }
 }
 
 await main()
