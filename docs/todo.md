@@ -20,7 +20,7 @@
 
 ## Versioning and releases
 - [x] Add Changesets at workspace root
-- [ ] Use `yarn changeset` for changes
+- [x] Use `yarn changeset` for changes
 - [ ] Use `yarn changeset version` to bump versions
 - [ ] Use `yarn changeset publish` to publish packages
 - [x] Keep `transloadit` and `@transloadit/node` versions synchronized
