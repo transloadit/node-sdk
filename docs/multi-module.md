@@ -7,7 +7,7 @@ Split the current node-sdk repo into a Yarn 4 workspace monorepo that publishes:
 - `@transloadit/node` (canonical Node runtime, current source lives here)
 - `transloadit` (legacy wrapper, byte-for-byte compatible with current npm package)
 - `@transloadit/types` (shared types for assemblies, robots, API responses)
-- `@transloadit/zod3` (Zod v3 schemas, `zod` as a dependency)
+- `@transloadit/zod` (Zod schemas with versioned subpaths like `@transloadit/zod/v3`)
 
 This keeps backwards compatibility, adds a canonical types package for reuse across Convex, browser, and future SDKs, and sets the stage for a future repo rename to `typescript-sdk` with additional packages like `@transloadit/browser` and `@transloadit/deno`.
 
@@ -28,7 +28,7 @@ This reduces duplication and drift between SDKs, Convex integrations, and docs e
 Consumers like browser SDKs (uppy) and Convex components often need types but not Node runtime code. A types-only package keeps bundles smaller and avoids Node-only dependencies (fs, streams, crypto).
 
 ### 3) Future-proof for multi-platform SDKs
-If we eventually publish `@transloadit/browser`, `@transloadit/deno`, or a shared `@transloadit/core`, they can all depend on `@transloadit/types` for the contract while keeping platform-specific runtime. Zod schemas live in `@transloadit/zod3`, and we can later add `@transloadit/zod4` without breaking the v3 consumers.
+If we eventually publish `@transloadit/browser`, `@transloadit/deno`, or a shared `@transloadit/core`, they can all depend on `@transloadit/types` for the contract while keeping platform-specific runtime. Zod schemas live in `@transloadit/zod` with versioned subpaths (`/v3`, later `/v4`) so we can add a new major without breaking existing imports.
 
 ## Goals
 
@@ -61,9 +61,10 @@ node-sdk/
         templates/
         schemas/
       dist/
-    zod3/
-      package.json (name: "@transloadit/zod3")
-      src/ (zod schema export surface)
+    zod/
+      package.json (name: "@transloadit/zod")
+      src/v3/ (zod v3 schema export surface)
+      src/v4/ (future)
       dist/
   package.json (workspace root)
   tsconfig.base.json
@@ -75,7 +76,7 @@ node-sdk/
 - `packages/node` is the canonical source for the existing Node SDK runtime.
 - `packages/transloadit` is a wrapper package that publishes the same artifacts under the legacy name.
 - `packages/types` re-exports from `src/alphalib/types` so alphalib remains the single source of truth.
-- `packages/zod3` exports Zod schemas and depends on `zod` explicitly.
+- `packages/zod` exports Zod schemas and depends on `zod` explicitly, with `exports` for `./v3` (and later `./v4`).
 
 ## Alphalib strategy (synced source of truth)
 
@@ -84,7 +85,7 @@ source of truth for types and schemas, and avoid copying files into packages. Tw
 
 1) **Keep alphalib at repo root and re-export it**  
    - `packages/types` uses TS path mapping or barrel re-exports that point to `src/alphalib/types`.  
-   - `packages/schemas` and `packages/zod` import from `src/alphalib/types` or from generated schema
+   - `packages/zod` imports from `src/alphalib/types` or from generated schema
      artifacts stored alongside alphalib.  
    - This keeps the sync workflow intact and avoids duplication.
 
@@ -98,20 +99,58 @@ Given the current sync mechanism, option 1 is safer and lower risk.
 ## Single source of truth for types vs Zod schemas
 
 If we want Zod to be the canonical source, we should generate the types at build time and publish
-only plain `.d.ts` files in `@transloadit/types` that do **not** reference Zod. Two patterns:
+only plain `.d.ts` files in `@transloadit/types` that do **not** reference Zod.
 
-1) **Build-time type expansion (recommended)**  
-   - `@transloadit/zod3` owns the schemas.  
-   - A build step in `@transloadit/types` imports the schemas and emits `.d.ts` with concrete
-     structural types (no `z.infer<>` left in the output).  
-   - `zod` is a devDependency of `@transloadit/types` only, so consumers do not need it.
+### Recommended pipeline (guaranteed compatibility)
 
-2) **Type-only imports from Zod (not recommended)**  
-   - `@transloadit/types` would export `z.infer<typeof schema>` types.  
-   - This leaks a dependency on `zod` into downstream typechecking.  
+1) **Zod schemas live in `@transloadit/zod/v3`.**  
+2) **Generate structural types** into `@transloadit/types` (no `z.infer`, no `zod` imports).  
+3) **Enforce type equality in CI** between generated types and `z.infer` from the schemas.
 
-Recommendation: keep Zod as the source of truth, but generate `.d.ts` for `@transloadit/types`
-so consumers do not need `zod` at runtime or for typechecking.
+This gives a compile-time guarantee that the generated types are 100% compatible with Zod inference.
+
+### Build script sketch
+
+```
+packages/
+  zod/
+    src/v3/*.ts           # Zod schemas
+    test/type-equality.ts # Assert z.infer === generated types
+  types/
+    scripts/emit-types.ts # Generates .ts from zod schemas
+    src/index.ts          # Re-exports generated types
+```
+
+`emit-types.ts` can use the TS compiler API or ts-morph to:
+- import `@transloadit/zod/v3` schemas,
+- create `type Foo = z.infer<typeof fooSchema>` aliases,
+- emit a temporary `.ts`,
+- run `tsc --emitDeclarationOnly` to produce `.d.ts`,
+- then strip the intermediate `.ts` from the published package.
+
+`type-equality.ts` then asserts:
+
+```ts
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends
+  (<T>() => T extends B ? 1 : 2) ? true : false;
+type Assert<T extends true> = T;
+
+type _Check = Assert<Equal<Generated.Foo, z.infer<typeof fooSchema>>>;
+```
+
+If anything drifts, the build fails. This is the compatibility guarantee.
+
+### Why not export `z.infer` directly?
+
+That would force all `@transloadit/types` consumers to install `zod` just to typecheck. Generating
+`.d.ts` avoids runtime and typechecking dependencies downstream.
+
+### Future: JSON Schema from Zod v4
+
+When we move to Zod v4 (outside this scope), we can add `@transloadit/zod/v4` and use the native
+JSON Schema exporter to generate a separate `@transloadit/jsonschema` package (or subpath) without
+changing the `@transloadit/types` contract.
 
 ## Publishing strategy
 
@@ -129,10 +168,10 @@ Two options that both preserve compatibility:
 
 Option 2 is stricter for byte-for-byte output parity but requires packaging logic. Option 1 is easier but can drift if any build settings differ. I recommend option 2 and automated fingerprinting (see below).
 
-### @transloadit/types / @transloadit/zod3
+### @transloadit/types / @transloadit/zod
 
 - `@transloadit/types`: types only (`.d.ts`), no runtime dependencies.
-- `@transloadit/zod3`: Zod schemas derived from alphalib types (depends on `zod`).
+- `@transloadit/zod`: Zod schemas derived from alphalib types (depends on `zod`).
 - Export stable API surfaces:
 
 ```
@@ -141,14 +180,14 @@ Option 2 is stricter for byte-for-byte output parity but requires packaging logi
   /templates
   /robots
   /webhooks
-@transloadit/zod3
+@transloadit/zod/v3
   /assemblies
   /templates
   /robots
   /webhooks
 ```
 
-Zod schemas cannot be shipped without a runtime dependency; separating them avoids forcing Zod on all consumers. A dedicated `@transloadit/zod3` package also leaves room for a future `@transloadit/zod4`.
+Zod schemas cannot be shipped without a runtime dependency; separating them avoids forcing Zod on all consumers. A single `@transloadit/zod` package with `./v3` and `./v4` subpath exports keeps upgrade paths explicit.
 
 ## Compatibility verification plan (byte-for-byte)
 
@@ -208,8 +247,8 @@ We can keep versions synchronized across `transloadit` and `@transloadit/node`. 
 - In `packages/types`, re-export from `src/alphalib/types` via TS path mapping or barrel files.
 - Build `.d.ts` only, no runtime JS.
 
-### Phase 3: Add @transloadit/zod3
-- Generate Zod schemas in `packages/zod3` from alphalib types (requires `zod`).
+### Phase 3: Add @transloadit/zod
+- Generate Zod schemas in `packages/zod` from alphalib types (requires `zod`).
 
 ### Phase 4: Add transloadit wrapper
 - Package identical output to `@transloadit/node` (copy dist + package.json transform).
@@ -243,7 +282,7 @@ All can share `@transloadit/types` for schema and type fidelity, with platform-s
 
 ## Open questions
 
-- Should we make `@transloadit/zod3` a dedicated package or make Zod a peer dep of `@transloadit/types`? I recommend a dedicated package to keep types-only consumers clean.
+- Should we make `@transloadit/zod` a dedicated package or make Zod a peer dep of `@transloadit/types`? I recommend a dedicated package to keep types-only consumers clean.
 - Do we keep versions in lock-step across all packages or allow independent versioning?
 - Should the root package publish anything, or remain private-only?
 
