@@ -10,7 +10,8 @@
   "fixed": [
     [
       "@transloadit/node",
-      "transloadit"
+      "transloadit",
+      "@transloadit/types"
     ]
   ],
   "linked": [],
