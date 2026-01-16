@@ -60,7 +60,7 @@ export function runCli(
   args: string,
   env: Record<string, string> = {},
 ): Promise<{ stdout: string; stderr: string }> {
-  return execAsync(`npx tsx ${cliPath} ${args}`, {
+  return execAsync(`${process.execPath} --experimental-strip-types ${cliPath} ${args}`, {
     env: { ...process.env, ...env },
   })
 }

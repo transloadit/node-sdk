@@ -111,7 +111,7 @@ jobs:
           TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
           TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
           NODE_OPTIONS: --trace-deprecation --trace-warnings
-          CLOUDFLARED_PATH: ../cloudflared-linux-amd64
+          CLOUDFLARED_PATH: ${{ github.workspace }}/cloudflared-linux-amd64
           DEBUG: 'transloadit:*'
 
       - name: Generate the badge from the json-summary

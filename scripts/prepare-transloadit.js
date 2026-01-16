@@ -27,6 +27,25 @@ const writeJson = async (filePath, data) => {
   await writeFile(filePath, json)
 }
 
+const formatPackageJson = (data) => {
+  let json = JSON.stringify(data, null, 2)
+  const inlineArray = (key) => {
+    const pattern = new RegExp(`"${key}": \\[\\n([\\s\\S]*?)\\n\\s*\\]`, 'm')
+    return json.replace(pattern, (_match, inner) => {
+      const values = inner
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => line.replace(/,$/, ''))
+      return `"${key}": [${values.join(', ')}]`
+    })
+  }
+
+  json = inlineArray('keywords')
+  json = inlineArray('files')
+  return `${json}\n`
+}
+
 const writeLegacyPackageJson = async () => {
   const nodePackageJson = await readJson(resolve(nodePackage, 'package.json'))
   const scripts = { ...(nodePackageJson.scripts ?? {}) }
@@ -37,7 +56,8 @@ const writeLegacyPackageJson = async () => {
     scripts,
   }
 
-  await writeJson(resolve(legacyPackage, 'package.json'), legacyPackageJson)
+  const formatted = formatPackageJson(legacyPackageJson)
+  await writeFile(resolve(legacyPackage, 'package.json'), formatted)
 }
 
 const writeLegacyChangelog = async () => {
