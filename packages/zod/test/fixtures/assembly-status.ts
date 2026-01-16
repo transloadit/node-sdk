@@ -49,7 +49,12 @@ const assemblyStatusOk = {
   running_jobs: [],
   bytes_usage: 1048639,
   executing_jobs: [],
-  started_jobs: [':original:::original', 'converted:::original', 'exported:::original', 'exported::converted'],
+  started_jobs: [
+    ':original:::original',
+    'converted:::original',
+    'exported:::original',
+    'exported::converted',
+  ],
   parent_assembly_status: null,
   params:
     '{"steps":{":original":{"robot":"/upload/handle"},"converted":{"use":":original","robot":"/document/convert","result":true,"format":"vtt"},"exported":{"use":["converted",":original"],"robot":"/s3/store","credentials":"demo_s3_credentials","url_prefix":"https://demos.transloadit.com/"}}, "auth":{"key":"****","expires":"2023-12-21T16:36:26.972Z"}}',
@@ -66,7 +71,8 @@ const assemblyStatusOk = {
       size: 302,
       offset: 302,
       finished: true,
-      upload_url: 'https://api2-buchen.transloadit.com/resumable/files/ab9753a6f59d0ef51b881a56004d9f14',
+      upload_url:
+        'https://api2-buchen.transloadit.com/resumable/files/ab9753a6f59d0ef51b881a56004d9f14',
     },
   ],
   uploads: [
@@ -87,7 +93,8 @@ const assemblyStatusOk = {
       original_md5hash: '23664a1e4a8cad08d4ca6294d3d9bee3',
       from_batch_import: false,
       is_tus_file: true,
-      tus_upload_url: 'https://api2-buchen.transloadit.com/resumable/files/ab9753a6f59d0ef51b881a56004d9f14',
+      tus_upload_url:
+        'https://api2-buchen.transloadit.com/resumable/files/ab9753a6f59d0ef51b881a56004d9f14',
       url: 'https://demos.transloadit.com/7e/5ce0bb323044e7a9deeb7d6f6e312f/subtitle.srt',
       ssl_url: 'https://demos.transloadit.com/7e/5ce0bb323044e7a9deeb7d6f6e312f/subtitle.srt',
       meta: {},
@@ -160,7 +167,8 @@ const assemblyStatusOk = {
 const assemblyStatusUploading = {
   ok: 'ASSEMBLY_UPLOADING',
   assembly_id: 'b841ea401e1a11e7b37d7bda1b503cdd',
-  assembly_ssl_url: 'https://api2-freja.transloadit.com/assemblies/b841ea401e1a11e7b37d7bda1b503cdd',
+  assembly_ssl_url:
+    'https://api2-freja.transloadit.com/assemblies/b841ea401e1a11e7b37d7bda1b503cdd',
   websocket_url: 'https://api2-freja.transloadit.com/ws20277',
   tus_url: 'https://api2-freja.transloadit.com/resumable/files/',
   expected_tus_uploads: 2,

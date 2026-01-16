@@ -77,8 +77,10 @@ const isSymbolFromPath = (symbol: ts.Symbol | undefined, token: string): boolean
   return symbol.declarations.some((decl) => decl.getSourceFile().fileName.includes(token))
 }
 
-const isZodSymbol = (symbol: ts.Symbol | undefined): boolean => isSymbolFromPath(symbol, zodPathToken)
-const isLibSymbol = (symbol: ts.Symbol | undefined): boolean => isSymbolFromPath(symbol, libPathToken)
+const isZodSymbol = (symbol: ts.Symbol | undefined): boolean =>
+  isSymbolFromPath(symbol, zodPathToken)
+const isLibSymbol = (symbol: ts.Symbol | undefined): boolean =>
+  isSymbolFromPath(symbol, libPathToken)
 
 const isZodText = (value: string): boolean =>
   value.includes('Zod') || value.includes('objectOutputType') || value.includes('objectInputType')
@@ -91,11 +93,7 @@ const shouldUseTypeToString = (type: ts.Type, checker: ts.TypeChecker): boolean 
   return !isZodText(text)
 }
 
-const hasZodType = (
-  type: ts.Type,
-  checker: ts.TypeChecker,
-  seen: Set<ts.Type>,
-): boolean => {
+const hasZodType = (type: ts.Type, checker: ts.TypeChecker, seen: Set<ts.Type>): boolean => {
   if (seen.has(type)) return false
   seen.add(type)
 

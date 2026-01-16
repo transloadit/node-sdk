@@ -20,8 +20,8 @@ const cases = [
     expected: 'path\\\\name',
   },
   {
-    input: 'it\'s fine',
-    expected: 'it\\\'s fine',
+    input: "it's fine",
+    expected: "it\\'s fine",
   },
 ]
 

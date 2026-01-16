@@ -4,9 +4,7 @@
   "description": "Transloadit type definitions",
   "type": "module",
   "license": "MIT",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -27,6 +25,7 @@
   },
   "scripts": {
     "generate": "node --experimental-strip-types scripts/emit-types.ts",
+    "lint:ts": "yarn generate && tsc --build tsconfig.build.json",
     "test:unit": "node --experimental-strip-types scripts/emit-types.test.ts",
     "build": "yarn generate && tsc --build tsconfig.build.json",
     "check": "yarn generate && yarn test:unit && tsc --build tsconfig.build.json"

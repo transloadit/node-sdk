@@ -1,7 +1,7 @@
+import { execFile } from 'node:child_process'
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
@@ -20,11 +20,6 @@ const copyDir = async (from, to) => {
 const readJson = async (filePath) => {
   const raw = await readFile(filePath, 'utf8')
   return JSON.parse(raw)
-}
-
-const writeJson = async (filePath, data) => {
-  const json = `${JSON.stringify(data, null, 2)}\n`
-  await writeFile(filePath, json)
 }
 
 const formatPackageJson = (data) => {

@@ -30,7 +30,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.4",
+    "@biomejs/biome": "^2.3.11",
     "@types/debug": "^4.1.12",
     "@types/minimist": "^1.2.5",
     "@types/node": "^24.10.3",

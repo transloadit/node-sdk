@@ -4,9 +4,7 @@
   "description": "Transloadit Zod schemas",
   "type": "module",
   "license": "MIT",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "exports": {
     ".": {
       "types": "./dist/v3/index.d.ts",
@@ -33,6 +31,8 @@
     "sync:v3": "node scripts/sync-v3.ts",
     "sync:v4": "node scripts/sync-v4.ts",
     "sync": "yarn sync:v3 && yarn sync:v4",
+    "lint:ts": "yarn sync && tsc --build tsconfig.build.json",
+    "test:unit": "node test/exports-sync.test.ts && node test/runtime-parity.test.ts",
     "build": "yarn sync && tsc --build tsconfig.build.json",
     "check": "yarn sync && tsc --build tsconfig.build.json && tsc --noEmit --project tsconfig.test.json && node test/exports-sync.test.ts && node test/runtime-parity.test.ts"
   },

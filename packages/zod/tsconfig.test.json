@@ -8,9 +8,5 @@
       "@transloadit/types/*": ["../types/src/generated/*.ts"]
     }
   },
-  "include": [
-    "test/type-equality-v3.ts",
-    "test/type-equality-v4.ts",
-    "test/runtime-parity.test.ts"
-  ]
+  "include": ["test/type-equality-v3.ts", "test/type-equality-v4.ts", "test/runtime-parity.test.ts"]
 }
