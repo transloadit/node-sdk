@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict'
 
+import { assemblyStatusSchema as v3AssemblyStatus } from '../src/v3/assemblyStatus.ts'
 import { assemblyInstructionsSchema as v3AssemblyInstructions } from '../src/v3/template.ts'
+import { assemblyStatusSchema as v4AssemblyStatus } from '../src/v4/assemblyStatus.ts'
 import { assemblyInstructionsSchema as v4AssemblyInstructions } from '../src/v4/template.ts'
 import { robotBase as v3RobotBase, robotFFmpeg as v3RobotFFmpeg } from '../src/v3/robots/_instructions-primitives.ts'
 import { robotBase as v4RobotBase, robotFFmpeg as v4RobotFFmpeg } from '../src/v4/robots/_instructions-primitives.ts'
+import { assemblyStatusFixtures } from './fixtures/assembly-status.ts'
 import { assemblyInstructionFixtures } from './fixtures/assembly-instructions.ts'
 
 const schemas = [
+  {
+    name: 'assemblyStatus',
+    v3: v3AssemblyStatus,
+    v4: v4AssemblyStatus,
+    fixtures: assemblyStatusFixtures,
+  },
   {
     name: 'assemblyInstructions',
     v3: v3AssemblyInstructions,
