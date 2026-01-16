@@ -22,3 +22,4 @@ packages/node/coverage
 .env
 packages/types/src/generated
 packages/zod/src/v3
+packages/zod/src/v4

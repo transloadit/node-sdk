@@ -169,7 +169,7 @@ continue to sync alphalib in their existing environments.
 ```
 packages/zod/
   scripts/
-    sync-v3.js              # Copy alphalib into src/v3 and write index exports
+    sync-v3.ts              # Copy alphalib into src/v3 and write index exports
     sync-v4.ts              # Transform src/v3 -> src/v4 (import path + API rewrites)
   src/
     v3/                     # Zod v3 schemas (direct from alphalib)

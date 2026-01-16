@@ -1,4 +1,4 @@
-import type { z } from 'zod'
+import type { z } from 'zod/v3'
 import type { AssemblyStatus } from '@transloadit/types/assemblyStatus'
 import type { AssemblyInstructions } from '@transloadit/types/template'
 import { assemblyStatusSchema } from '../src/v3/assemblyStatus.js'
