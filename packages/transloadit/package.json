@@ -76,7 +76,7 @@
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
     "knip": "knip --no-config-hints --no-progress",
-    "prepack": "rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && tsc --build tsconfig.build.json",
+    "prepack": "node ../../scripts/prepare-transloadit.js",
     "test:unit": "vitest run --coverage ./test/unit",
     "test:e2e": "vitest run ./test/e2e",
     "test": "vitest run --coverage"

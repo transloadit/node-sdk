@@ -44,8 +44,8 @@
 - [x] Depend on `zod`
 
 ### Phase 4: transloadit wrapper
-- [ ] Publish identical output to `@transloadit/node`
-- [ ] Copy dist + transform `package.json`
+- [x] Publish identical output to `@transloadit/node`
+- [x] Copy dist + transform `package.json`
 - [ ] Confirm publish via Changesets
 
 ### Phase 5: compatibility validation

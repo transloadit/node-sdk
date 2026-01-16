@@ -1,4 +1,4 @@
-import { cp, mkdir, rm } from 'node:fs/promises'
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'
@@ -17,6 +17,35 @@ const copyDir = async (from, to) => {
   await cp(from, to, { recursive: true })
 }
 
+const readJson = async (filePath) => {
+  const raw = await readFile(filePath, 'utf8')
+  return JSON.parse(raw)
+}
+
+const writeJson = async (filePath, data) => {
+  const json = `${JSON.stringify(data, null, 2)}\n`
+  await writeFile(filePath, json)
+}
+
+const writeLegacyPackageJson = async () => {
+  const nodePackageJson = await readJson(resolve(nodePackage, 'package.json'))
+  const scripts = { ...(nodePackageJson.scripts ?? {}) }
+  scripts.prepack = 'node ../../scripts/prepare-transloadit.js'
+  const legacyPackageJson = {
+    ...nodePackageJson,
+    name: 'transloadit',
+    scripts,
+  }
+
+  await writeJson(resolve(legacyPackage, 'package.json'), legacyPackageJson)
+}
+
+const writeLegacyChangelog = async () => {
+  const changelog = await readFile(resolve(nodePackage, 'CHANGELOG.md'), 'utf8')
+  const updated = changelog.replace(/^# .+$/m, '# transloadit')
+  await writeFile(resolve(legacyPackage, 'CHANGELOG.md'), updated)
+}
+
 const main = async () => {
   await execFileAsync('yarn', ['workspace', '@transloadit/node', 'prepack'], {
     cwd: repoRoot,
@@ -26,6 +55,8 @@ const main = async () => {
   await copyDir(resolve(nodePackage, 'src'), resolve(legacyPackage, 'src'))
   await cp(resolve(repoRoot, 'README.md'), resolve(legacyPackage, 'README.md'))
   await cp(resolve(repoRoot, 'LICENSE'), resolve(legacyPackage, 'LICENSE'))
+  await writeLegacyPackageJson()
+  await writeLegacyChangelog()
 }
 
 await main()
