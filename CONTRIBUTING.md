@@ -81,7 +81,7 @@ View the coverage report locally by opening `coverage/index.html` in your browse
 
 ## Packaging the legacy `transloadit` package
 
-The `packages/transloadit` folder is a generated legacy wrapper. The `src` directory and top-level `README.md`, `CHANGELOG.md`, and `LICENSE` are produced during packing by `scripts/prepare-transloadit.js` and are not tracked in git. If you need to validate the legacy package contents, run:
+The `packages/transloadit` folder is a generated legacy wrapper. The `src` directory and top-level `README.md`, `CHANGELOG.md`, and `LICENSE` are produced during packing by `scripts/prepare-transloadit.ts` and are not tracked in git. If you need to validate the legacy package contents, run:
 
 ```sh
 yarn pack

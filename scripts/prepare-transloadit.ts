@@ -11,20 +11,20 @@ const repoRoot = resolve(dirname(filePath), '..')
 const nodePackage = resolve(repoRoot, 'packages/node')
 const legacyPackage = resolve(repoRoot, 'packages/transloadit')
 
-const copyDir = async (from, to) => {
+const copyDir = async (from: string, to: string): Promise<void> => {
   await rm(to, { recursive: true, force: true })
   await mkdir(to, { recursive: true })
   await cp(from, to, { recursive: true })
 }
 
-const readJson = async (filePath) => {
+const readJson = async <T>(filePath: string): Promise<T> => {
   const raw = await readFile(filePath, 'utf8')
   return JSON.parse(raw)
 }
 
-const formatPackageJson = (data) => {
+const formatPackageJson = (data: Record<string, unknown>): string => {
   let json = JSON.stringify(data, null, 2)
-  const inlineArray = (key) => {
+  const inlineArray = (key: string): string => {
     const pattern = new RegExp(`"${key}": \\[\\n([\\s\\S]*?)\\n\\s*\\]`, 'm')
     return json.replace(pattern, (_match, inner) => {
       const values = inner
@@ -41,10 +41,12 @@ const formatPackageJson = (data) => {
   return `${json}\n`
 }
 
-const writeLegacyPackageJson = async () => {
-  const nodePackageJson = await readJson(resolve(nodePackage, 'package.json'))
+type PackageJson = Record<string, unknown> & { scripts?: Record<string, string> }
+
+const writeLegacyPackageJson = async (): Promise<void> => {
+  const nodePackageJson = await readJson<PackageJson>(resolve(nodePackage, 'package.json'))
   const scripts = { ...(nodePackageJson.scripts ?? {}) }
-  scripts.prepack = 'node ../../scripts/prepare-transloadit.js'
+  scripts.prepack = 'node --experimental-strip-types ../../scripts/prepare-transloadit.ts'
   const legacyPackageJson = {
     ...nodePackageJson,
     name: 'transloadit',
@@ -55,13 +57,13 @@ const writeLegacyPackageJson = async () => {
   await writeFile(resolve(legacyPackage, 'package.json'), formatted)
 }
 
-const writeLegacyChangelog = async () => {
+const writeLegacyChangelog = async (): Promise<void> => {
   const changelog = await readFile(resolve(nodePackage, 'CHANGELOG.md'), 'utf8')
   const updated = changelog.replace(/^# .+$/m, '# transloadit')
   await writeFile(resolve(legacyPackage, 'CHANGELOG.md'), updated)
 }
 
-const main = async () => {
+const main = async (): Promise<void> => {
   await execFileAsync('yarn', ['workspace', '@transloadit/node', 'prepack'], {
     cwd: repoRoot,
   })

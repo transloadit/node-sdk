@@ -10,13 +10,13 @@
 - [x] Assert byte-for-byte identity
 
 ## Fingerprint script
-- [x] Add `scripts/fingerprint-pack.js`
+- [x] Add `scripts/fingerprint-pack.ts`
 - [x] Use `npm pack --json` to get tarball name
 - [x] Hash the tarball SHA256
 - [x] Hash each file via `tar -tf` + `tar -xOf`
 - [x] Output JSON artifact for comparison
-- [x] Support `node scripts/fingerprint-pack.js .`
-- [x] Support `node scripts/fingerprint-pack.js packages/transloadit`
+- [x] Support `node --experimental-strip-types scripts/fingerprint-pack.ts .`
+- [x] Support `node --experimental-strip-types scripts/fingerprint-pack.ts packages/transloadit`
 
 ## Versioning and releases
 - [x] Add Changesets at workspace root

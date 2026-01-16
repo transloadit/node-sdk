@@ -69,7 +69,7 @@
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
     "knip": "knip --no-config-hints --no-progress",
-    "prepack": "node ../../scripts/prepare-transloadit.js",
+    "prepack": "node --experimental-strip-types ../../scripts/prepare-transloadit.ts",
     "test:unit": "vitest run --coverage ./test/unit",
     "test:e2e": "vitest run ./test/e2e",
     "test": "vitest run --coverage"

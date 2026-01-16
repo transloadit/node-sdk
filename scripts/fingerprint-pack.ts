@@ -7,8 +7,8 @@ import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 
-const usage = () => {
-  console.log(`Usage: node scripts/fingerprint-pack.js [path] [options]
+const usage = (): void => {
+  console.log(`Usage: node --experimental-strip-types scripts/fingerprint-pack.ts [path] [options]
 
 Options:
   -o, --out <file>   Write JSON output to a file
@@ -18,7 +18,14 @@ Options:
 `)
 }
 
-const parseArgs = () => {
+interface ParsedArgs {
+  target: string
+  out: string | null
+  keep: boolean
+  ignoreScripts: boolean
+}
+
+const parseArgs = (): ParsedArgs => {
   const args = process.argv.slice(2)
   let target = '.'
   let out = null
@@ -53,7 +60,7 @@ const parseArgs = () => {
   return { target, out, keep, ignoreScripts }
 }
 
-const hashFile = async (filePath) =>
+const hashFile = async (filePath: string): Promise<string> =>
   new Promise((resolvePromise, reject) => {
     const hash = createHash('sha256')
     const stream = createReadStream(filePath)
@@ -62,7 +69,10 @@ const hashFile = async (filePath) =>
     stream.on('end', () => resolvePromise(hash.digest('hex')))
   })
 
-const hashTarEntry = async (tarballPath, entry) =>
+const hashTarEntry = async (
+  tarballPath: string,
+  entry: string,
+): Promise<{ sha256: string; sizeBytes: number }> =>
   new Promise((resolvePromise, reject) => {
     const hash = createHash('sha256')
     let sizeBytes = 0
@@ -87,12 +97,14 @@ const hashTarEntry = async (tarballPath, entry) =>
     })
   })
 
-const readTarEntry = async (tarballPath, entry) => {
-  const { stdout } = await execFileAsync('tar', ['-xOf', tarballPath, entry])
+const readTarEntry = async (tarballPath: string, entry: string): Promise<string> => {
+  const { stdout } = await execFileAsync('tar', ['-xOf', tarballPath, entry], {
+    encoding: 'utf8',
+  })
   return stdout
 }
 
-const main = async () => {
+const main = async (): Promise<void> => {
   const { target, out, keep, ignoreScripts } = parseArgs()
   const cwd = resolve(process.cwd(), target)
 
@@ -100,7 +112,7 @@ const main = async () => {
   if (ignoreScripts) {
     packArgs.push('--ignore-scripts')
   }
-  const { stdout } = await execFileAsync('npm', packArgs, { cwd })
+  const { stdout } = await execFileAsync('npm', packArgs, { cwd, encoding: 'utf8' })
   const packed = JSON.parse(stdout.trim())
   const info = Array.isArray(packed) ? packed[0] : packed
   if (!info?.filename) {

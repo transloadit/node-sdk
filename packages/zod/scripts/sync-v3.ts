@@ -24,7 +24,7 @@ const indexContents = [
   '',
 ].join('\n')
 
-const collectFiles = async (dir, acc = []) => {
+const collectFiles = async (dir: string, acc: string[] = []): Promise<string[]> => {
   const entries = await readdir(dir, { withFileTypes: true })
   for (const entry of entries) {
     const full = resolve(dir, entry.name)
