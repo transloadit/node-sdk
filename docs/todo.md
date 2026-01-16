@@ -49,8 +49,8 @@
 - [ ] Confirm publish via Changesets
 
 ### Phase 5: compatibility validation
-- [ ] Record baseline fingerprint from current `transloadit`
-- [ ] Validate refactor output matches baseline (except package name if applicable)
+- [x] Record baseline fingerprint from current `transloadit`
+- [x] Validate refactor output matches baseline (except package name if applicable)
 
 ## Cross-repo validation
-- [ ] Trial the updated robot schemas in alphalib within `~/code/content` and `~/code/api2`, then run `yarn check` in both repos
+- [x] Trial the updated robot schemas in alphalib within `~/code/content` and `~/code/api2`, then run `yarn check` in both repos
