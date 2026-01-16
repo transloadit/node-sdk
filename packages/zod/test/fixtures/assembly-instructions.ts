@@ -91,6 +91,39 @@ const basicImageResizeTemplate: AssemblyInstructionsInput = {
   },
 }
 
+const importResizeStoreTemplate: AssemblyInstructionsInput = {
+  steps: {
+    imported: {
+      robot: '/http/import',
+      url: 'https://demos.transloadit.com/${fields.input}',
+    },
+    resized: {
+      use: 'imported',
+      robot: '/image/resize',
+      width: 300,
+      height: 200,
+    },
+    stored: {
+      robot: '/s3/store',
+      use: ['resized'],
+      credentials: 'YOUR_S3_CREDENTIALS',
+    },
+  },
+}
+
+const importServeTemplate: AssemblyInstructionsInput = {
+  steps: {
+    imported: {
+      robot: '/http/import',
+      url: 'https://demos.transloadit.com/${fields.input}',
+    },
+    served: {
+      robot: '/file/serve',
+      use: 'imported',
+    },
+  },
+}
+
 export const assemblyInstructionFixtures: AssemblyInstructionFixture[] = [
   {
     name: 'ffmpeg-template',
@@ -105,6 +138,16 @@ export const assemblyInstructionFixtures: AssemblyInstructionFixture[] = [
   {
     name: 'basic-image-resize',
     value: basicImageResizeTemplate,
+    valid: true,
+  },
+  {
+    name: 'import-resize-store',
+    value: importResizeStoreTemplate,
+    valid: true,
+  },
+  {
+    name: 'import-serve',
+    value: importServeTemplate,
     valid: true,
   },
 ]
