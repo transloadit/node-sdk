@@ -66,4 +66,4 @@
 - [x] Add runtime parity fixtures by copying proven Assembly Instructions from `~/code/content` (stepParsing fixtures)
 - [x] Add a sync-v4 regression fixture to verify `.passthrough()` → `.catchall(z.unknown())` and `z.record(...)` key injection
 - [ ] Add runtime parity coverage for `assemblyStatus` (ok/error/busy) once stable samples are selected
-- [ ] Add a CI guard that `@transloadit/zod` exports list stays in sync with `packages/node/src/alphalib/types`
+- [x] Add a CI guard that `@transloadit/zod` exports list stays in sync with `packages/node/src/alphalib/types`

@@ -34,7 +34,7 @@
     "sync:v4": "node scripts/sync-v4.ts",
     "sync": "yarn sync:v3 && yarn sync:v4",
     "build": "yarn sync && tsc --build tsconfig.build.json",
-    "check": "yarn sync && tsc --build tsconfig.build.json && tsc --noEmit --project tsconfig.test.json && node test/runtime-parity.test.ts"
+    "check": "yarn sync && tsc --build tsconfig.build.json && tsc --noEmit --project tsconfig.test.json && node test/exports-sync.test.ts && node test/runtime-parity.test.ts"
   },
   "dependencies": {
     "zod": "^4.0.0"
