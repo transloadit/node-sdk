@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { escapeStringLiteral } from './emit-types.ts'
+import { escapeStringLiteral, normalizeExportPath } from './emit-types.ts'
 
 const cases = [
   {
@@ -30,3 +30,20 @@ for (const { input, expected } of cases) {
 }
 
 console.log('emit-types escapeStringLiteral: ok')
+
+const exportCases = [
+  {
+    input: 'robots\\image-resize.ts',
+    expected: 'robots/image-resize',
+  },
+  {
+    input: 'template.ts',
+    expected: 'template',
+  },
+]
+
+for (const { input, expected } of exportCases) {
+  assert.equal(normalizeExportPath(input), expected)
+}
+
+console.log('emit-types normalizeExportPath: ok')

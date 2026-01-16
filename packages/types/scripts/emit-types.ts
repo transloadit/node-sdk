@@ -386,6 +386,11 @@ const generateFile = (sourceFile: ts.SourceFile, checker: ts.TypeChecker): strin
   return `${lines.join('\n')}\n`
 }
 
+export const normalizeExportPath = (relPath: string): string => {
+  const trimmed = relPath.endsWith('.ts') ? relPath.slice(0, -3) : relPath
+  return trimmed.replace(/\\/g, '/')
+}
+
 const main = async () => {
   const schemaStats = await stat(schemaRoot).catch(() => null)
   if (!schemaStats?.isDirectory()) {
@@ -414,7 +419,7 @@ const main = async () => {
     const content = generateFile(sourceFile, checker)
     await writeFile(outFile, content, 'utf8')
 
-    const exportPath = rel.endsWith('.ts') ? rel.slice(0, -3) : rel
+    const exportPath = normalizeExportPath(rel)
     if (exportPath.endsWith('/index')) {
       continue
     }
