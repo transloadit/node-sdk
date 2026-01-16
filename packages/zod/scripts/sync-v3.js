@@ -8,15 +8,15 @@ const sourceRoot = resolve(zodRoot, '../node/src/alphalib/types')
 const destRoot = resolve(zodRoot, 'src/v3')
 
 const indexContents = [
-  "export * from './assembliesGet.js'",
-  "export * from './assemblyReplay.js'",
-  "export * from './assemblyReplayNotification.js'",
-  "export * from './assemblyStatus.js'",
-  "export * from './bill.js'",
-  "export * from './stackVersions.js'",
-  "export * from './template.js'",
-  "export * from './templateCredential.js'",
-  "export * from './robots/_index.js'",
+  "export * from './assembliesGet.ts'",
+  "export * from './assemblyReplay.ts'",
+  "export * from './assemblyReplayNotification.ts'",
+  "export * from './assemblyStatus.ts'",
+  "export * from './bill.ts'",
+  "export * from './stackVersions.ts'",
+  "export * from './template.ts'",
+  "export * from './templateCredential.ts'",
+  "export * from './robots/_index.ts'",
   '',
 ].join('\n')
 

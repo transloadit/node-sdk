@@ -37,7 +37,7 @@ export type StepsWithHiddenFieldsInput = z.input<typeof stepsSchemaWithHiddenFie
 const optionalStepsWithHiddenFieldsSchema = stepsSchemaWithHiddenFields.optional()
 
 export const fieldsSchema = z
-  .record(z.any())
+  .record(z.unknown())
   .optional()
   .describe(
     'An object of string keyed values (name -> value) that can be used as Assembly Variables, just like additional form fields can. You can use anything that is JSON stringifyable as a value',
