@@ -13,19 +13,20 @@
       "types": "./dist/index.d.ts"
     },
     "./robots": {
-      "types": "./dist/robots/_index.d.ts"
+      "types": "./dist/generated/robots/_index.d.ts"
     },
     "./robots/*": {
-      "types": "./dist/robots/*.d.ts"
+      "types": "./dist/generated/robots/*.d.ts"
     },
     "./*": {
-      "types": "./dist/*.d.ts"
+      "types": "./dist/generated/*.d.ts"
     }
   },
   "scripts": {
     "generate": "node --experimental-strip-types scripts/emit-types.ts",
+    "test:unit": "node --experimental-strip-types scripts/emit-types.test.ts",
     "build": "yarn generate && tsc --build tsconfig.build.json",
-    "check": "yarn generate && tsc --build tsconfig.build.json"
+    "check": "yarn generate && yarn test:unit && tsc --build tsconfig.build.json"
   },
   "devDependencies": {
     "typescript": "5.9.3",

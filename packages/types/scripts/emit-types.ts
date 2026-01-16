@@ -149,13 +149,13 @@ const hasZodType = (
   return false
 }
 
-const escapeStringLiteral = (value: string): string =>
+export const escapeStringLiteral = (value: string): string =>
   value
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")
-    .replace(/\\r/g, '\\\\r')
-    .replace(/\\n/g, '\\\\n')
-    .replace(/\\t/g, '\\\\t')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t')
 
 const formatPropertyName = (name: string): string => {
   if (ts.isIdentifierText(name, ts.ScriptTarget.ES2022)) {
