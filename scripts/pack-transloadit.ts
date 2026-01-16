@@ -15,8 +15,8 @@ const runPack = async () => {
     cwd: repoRoot,
   })
 
-  await execFileAsync('npm', ['pack', '--ignore-scripts', '--prefix', legacyPackage], {
-    cwd: repoRoot,
+  await execFileAsync('npm', ['pack', '--ignore-scripts'], {
+    cwd: legacyPackage,
   })
 
   const entries = await readdir(legacyPackage)
