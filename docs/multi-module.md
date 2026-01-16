@@ -152,6 +152,59 @@ When we move to Zod v4 (outside this scope), we can add `@transloadit/zod/v4` an
 JSON Schema exporter to generate a separate `@transloadit/jsonschema` package (or subpath) without
 changing the `@transloadit/types` contract.
 
+## Supporting Zod v3 and v4 from one source
+
+We can support both Zod v3 and v4 while keeping alphalib as the synced source of truth, but we must
+constrain the source to a shared subset and enforce equivalence in CI. The safest plan is:
+
+1) Keep alphalib schemas v3-compatible so all current repos can sync without upgrades.
+2) In node-sdk, generate the v3 artifacts directly from alphalib.
+3) Generate v4 artifacts via a codemod transform and then validate equivalence.
+
+This lets us ship `@transloadit/zod/v3` and `@transloadit/zod/v4` from one repo while other repos
+continue to sync alphalib in their existing environments.
+
+### Proposed generation pipeline
+
+```
+packages/zod/
+  scripts/
+    sync-v3.js              # Copy alphalib into src/v3 and write index exports
+    sync-v4.ts              # Transform src/v3 -> src/v4 (import path + API rewrites)
+  src/
+    v3/                     # Zod v3 schemas (direct from alphalib)
+    v4/                     # Zod v4 schemas (generated)
+  test/
+    type-equality-v3.ts     # z.infer(v3) === @transloadit/types
+    type-equality-v4.ts     # z.infer(v4) === @transloadit/types
+    runtime-fixtures.ts     # Shared validation fixtures
+```
+
+**sync-v4.ts responsibilities**
+- Rewrite Zod imports to `zod/v4`.
+- Apply a small codemod pass for known API differences.
+- Preserve descriptions/defaults/refinements (no semantic changes).
+
+### CI gates (no compatibility loss)
+
+1) **Type equivalence**: `z.infer` from v3 and v4 must match `@transloadit/types` using the existing
+   `Equal<A, B>` assertion pattern. This protects type-level compatibility.
+2) **Runtime equivalence**: Run a shared fixture set through both v3 and v4 schemas and compare
+   ok/error outcomes + error paths. This protects behavioral compatibility.
+3) **JSON Schema parity (optional)**: When v4 JSON Schema export is in scope, generate schema from
+   v4 and compare against a golden snapshot or a normalized hash.
+
+If any gate fails, we block release.
+
+### Should we upgrade all alphalib consumers to v4 first?
+
+Not initially. v4 should be treated as an output target, not the input source, until:
+- All alphalib-consuming repos can adopt v4 with minimal friction.
+- The generator + equivalence tests have proven stable across several releases.
+
+Once those conditions hold, we can decide whether to flip alphalib to v4 or keep it v3-safe and
+continue generating both versions indefinitely.
+
 ## Publishing strategy
 
 ### transloadit and @transloadit/node
