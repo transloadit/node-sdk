@@ -18,6 +18,9 @@
     "./robots/*": {
       "types": "./dist/generated/robots/*.d.ts"
     },
+    "./generated/*": {
+      "types": "./dist/generated/*.d.ts"
+    },
     "./*": {
       "types": "./dist/generated/*.d.ts"
     }

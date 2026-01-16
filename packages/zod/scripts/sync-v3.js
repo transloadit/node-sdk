@@ -7,16 +7,20 @@ const zodRoot = resolve(dirname(filePath), '..')
 const sourceRoot = resolve(zodRoot, '../node/src/alphalib/types')
 const destRoot = resolve(zodRoot, 'src/v3')
 
+const reexportExtension = 'ts'
+const indexModules = [
+  'assembliesGet',
+  'assemblyReplay',
+  'assemblyReplayNotification',
+  'assemblyStatus',
+  'bill',
+  'stackVersions',
+  'template',
+  'templateCredential',
+  'robots/_index',
+]
 const indexContents = [
-  "export * from './assembliesGet.ts'",
-  "export * from './assemblyReplay.ts'",
-  "export * from './assemblyReplayNotification.ts'",
-  "export * from './assemblyStatus.ts'",
-  "export * from './bill.ts'",
-  "export * from './stackVersions.ts'",
-  "export * from './template.ts'",
-  "export * from './templateCredential.ts'",
-  "export * from './robots/_index.ts'",
+  ...indexModules.map((module) => `export * from './${module}.${reexportExtension}'`),
   '',
 ].join('\n')
 

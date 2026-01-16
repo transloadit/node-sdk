@@ -54,3 +54,10 @@
 
 ## Cross-repo validation
 - [x] Trial the updated robot schemas in alphalib within `~/code/content` and `~/code/api2`, then run `yarn check` in both repos
+
+## Refactors
+- [x] Unify pack/build orchestration into a single script used by CI + local pack
+- [x] Align `@transloadit/types` export map with the generated layout (keep subpath imports stable)
+- [x] Centralize Zod sync export list/extension to avoid drift
+- [x] Document inline heavy-inference casts (helper wrappers trigger TS7056)
+- [x] Keep legacy `transloadit` metadata synced from `@transloadit/node` with one source of truth
