@@ -75,6 +75,8 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: corepack yarn
+      # Root unit tests execute TypeScript scripts via Node's strip-types support.
+      # Keep those on Node 24+; Node 20/22 only run @transloadit/node unit tests.
       - run: corepack yarn test:unit
         if: matrix.node == 24
       - run: corepack yarn workspace @transloadit/node test:unit
