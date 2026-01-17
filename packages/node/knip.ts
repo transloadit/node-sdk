@@ -25,9 +25,15 @@ const config: KnipConfig = {
     '@types/minimist',
     'minimatch',
     'tsx',
-    // Tooling invoked via package.json scripts; knip's binary detection is disabled.
+    // Tooling lives at the repo root in this monorepo; knip runs in this workspace.
     '@biomejs/biome',
+    '@vitest/coverage-v8',
+    'knip',
     'npm-run-all',
+    'tsx',
+    'typescript',
+    'vitest',
+    'vitest/config',
   ],
   ignoreExportsUsedInFile: {
     type: true,

@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "yarn lint:ts && yarn fix:js && yarn test:unit",
+    "check": "yarn workspace @transloadit/node run knip --fix --allow-remove-files && yarn lint:ts && yarn fix:js && yarn test:unit",
     "lint:js": "biome check .",
     "lint:ts": "yarn workspace @transloadit/node lint:ts && yarn workspace @transloadit/types lint:ts && yarn workspace @transloadit/zod lint:ts",
     "lint": "yarn lint:js",

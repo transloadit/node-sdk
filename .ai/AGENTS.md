@@ -4,9 +4,9 @@ This document serves as a quick reference for agentic coding assistants working 
 
 ## Check your work
 
-After making changes, always run `corepack yarn check`, this lints with typescript, formats code,
-and runs quick unit tests. Remember that this formats code and may make changes, that you are to
-commit if you were working on those files.
+After making changes, always run `corepack yarn check`, which runs Knip (with fixes/removals),
+lints TypeScript, formats code, and runs quick unit tests. Remember that Knip and formatting may
+make changes that you must review and commit when you touched the affected files.
 
 ## When running in GitHub Actions
 
