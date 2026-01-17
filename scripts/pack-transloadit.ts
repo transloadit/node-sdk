@@ -11,13 +11,9 @@ const repoRoot = resolve(dirname(filePath), '..')
 const legacyPackage = resolve(repoRoot, 'packages/transloadit')
 
 const runPack = async () => {
-  await execFileAsync(
-    'node',
-    [resolve(repoRoot, 'scripts/prepare-transloadit.ts')],
-    {
-      cwd: repoRoot,
-    },
-  )
+  await execFileAsync('node', [resolve(repoRoot, 'scripts/prepare-transloadit.ts')], {
+    cwd: repoRoot,
+  })
 
   await execFileAsync('npm', ['pack', '--ignore-scripts'], {
     cwd: legacyPackage,
