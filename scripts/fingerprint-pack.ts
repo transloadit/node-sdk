@@ -8,7 +8,7 @@ import { promisify } from 'node:util'
 const execFileAsync = promisify(execFile)
 
 const usage = (): void => {
-  console.log(`Usage: node --experimental-strip-types scripts/fingerprint-pack.ts [path] [options]
+  console.log(`Usage: node scripts/fingerprint-pack.ts [path] [options]
 
 Options:
   -o, --out <file>   Write JSON output to a file

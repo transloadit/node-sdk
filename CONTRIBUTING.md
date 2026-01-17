@@ -20,6 +20,10 @@ To check for updates, run:
 yarn upgrade-interactive
 ```
 
+## Tooling requirements
+
+Local tooling (the TypeScript scripts in `scripts/` and package tests) requires Node 22.18+ so `node file.ts` works without flags. The published packages still support Node 20+ at runtime.
+
 ## Linting
 
 This project is linted using Biome. You can lint the project by running:
@@ -89,7 +93,7 @@ yarn pack
 
 ## Releasing
 
-Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub actions. To make a release, perform the following steps:
+Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub actions and Changesets (including the legacy `transloadit` package). To make a release, perform the following steps:
 
 1. Create a changeset:
    - `yarn changeset`
@@ -101,5 +105,12 @@ Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are
 4. Publish (maintainers only; GitHub Actions handles the release):
    - `yarn changeset publish`
 5. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
-6. If this was a pre-release, remember to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
+6. Scoped packages publish with the `experimental` dist-tag by default. If you need to promote a scoped package to `latest`, update the tag manually.
+7. If this was a pre-release, remember to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
    - `npm dist-tag add transloadit@X.Y.Z latest`
+
+### Release FAQ
+
+- **Lockstep versions:** Changesets use a fixed group, so version bumps and releases are always in lock‑step across `transloadit`, `@transloadit/node`, `@transloadit/types`, and `@transloadit/zod`.
+- **Legacy parity:** `transloadit` is generated from `@transloadit/node` artifacts via `scripts/prepare-transloadit.ts`, then verified with `yarn parity:transloadit`. Only `package.json` metadata drift is allowed; any other drift fails.
+- **Experimental packages:** Scoped packages (`@transloadit/node`, `@transloadit/types`, `@transloadit/zod`) publish with the `experimental` dist-tag. The unscoped `transloadit` package remains stable.

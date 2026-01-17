@@ -23,34 +23,26 @@ const readJson = async <T>(filePath: string): Promise<T> => {
 }
 
 const formatPackageJson = (data: Record<string, unknown>): string => {
-  let json = JSON.stringify(data, null, 2)
-  const inlineArray = (key: string): string => {
-    const pattern = new RegExp(`"${key}": \\[\\n([\\s\\S]*?)\\n\\s*\\]`, 'm')
-    return json.replace(pattern, (_match, inner) => {
-      const values = inner
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => line.replace(/,$/, ''))
-      return `"${key}": [${values.join(', ')}]`
-    })
-  }
-
-  json = inlineArray('keywords')
-  json = inlineArray('files')
-  return `${json}\n`
+  return `${JSON.stringify(data, null, 2)}\n`
 }
 
 type PackageJson = Record<string, unknown> & { scripts?: Record<string, string> }
 
 const writeLegacyPackageJson = async (): Promise<void> => {
   const nodePackageJson = await readJson<PackageJson>(resolve(nodePackage, 'package.json'))
+  const legacyExisting = await readJson<PackageJson>(resolve(legacyPackage, 'package.json')).catch(
+    () => null,
+  )
   const scripts = { ...(nodePackageJson.scripts ?? {}) }
-  scripts.prepack = 'node --experimental-strip-types ../../scripts/prepare-transloadit.ts'
-  const legacyPackageJson = {
+  scripts.prepack = 'node ../../scripts/prepare-transloadit.ts'
+  const legacyPackageJson: PackageJson = {
     ...nodePackageJson,
     name: 'transloadit',
     scripts,
+    devDependencies: legacyExisting?.devDependencies ?? nodePackageJson.devDependencies,
+  }
+  if ('publishConfig' in legacyPackageJson) {
+    delete legacyPackageJson.publishConfig
   }
 
   const formatted = formatPackageJson(legacyPackageJson)

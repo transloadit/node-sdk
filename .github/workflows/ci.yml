@@ -196,11 +196,12 @@ jobs:
       - uses: softprops/action-gh-release@v1
         with:
           draft: true
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      - uses: actions/download-artifact@v4
-        with: { name: package }
-      - run: npm install -g npm@^11.5.1
-      - run: npm publish *.tgz --provenance
+      - run: corepack yarn
+      - run: corepack yarn changeset publish
+        env:
+          NPM_CONFIG_PROVENANCE: "true"

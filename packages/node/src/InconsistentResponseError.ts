@@ -1,3 +1,3 @@
-export class InconsistentResponseError extends Error {
+export default class InconsistentResponseError extends Error {
   override name = 'InconsistentResponseError'
 }

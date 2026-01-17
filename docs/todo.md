@@ -15,8 +15,8 @@
 - [x] Hash the tarball SHA256
 - [x] Hash each file via `tar -tf` + `tar -xOf`
 - [x] Output JSON artifact for comparison
-- [x] Support `node --experimental-strip-types scripts/fingerprint-pack.ts .`
-- [x] Support `node --experimental-strip-types scripts/fingerprint-pack.ts packages/transloadit`
+- [x] Support `node scripts/fingerprint-pack.ts .`
+- [x] Support `node scripts/fingerprint-pack.ts packages/transloadit`
 
 ## Versioning and releases
 - [x] Add Changesets at workspace root

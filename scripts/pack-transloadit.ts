@@ -13,7 +13,7 @@ const legacyPackage = resolve(repoRoot, 'packages/transloadit')
 const runPack = async () => {
   await execFileAsync(
     'node',
-    ['--experimental-strip-types', resolve(repoRoot, 'scripts/prepare-transloadit.ts')],
+    [resolve(repoRoot, 'scripts/prepare-transloadit.ts')],
     {
       cwd: repoRoot,
     },

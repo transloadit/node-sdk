@@ -38,6 +38,7 @@ node-sdk/
 - Publishes the legacy package name.
 - Built from the same runtime artifacts as `@transloadit/node`.
 - Compatibility is verified via tarball fingerprinting.
+- Allowed drift is limited to `package.json` metadata and is reported explicitly.
 
 ### @transloadit/types
 - Pure type package; no Zod runtime dependency.
@@ -84,13 +85,24 @@ The `@transloadit/zod` `check` script runs `sync`, `tsc`, and runtime parity.
 
 ## Node & TypeScript execution
 
-All internal scripts are TypeScript and run via Node 24’s erasable syntax support (no `--experimental-strip-types` in the zod package). Other packages may still use the flag where needed.
+All internal scripts are TypeScript and rely on Node’s built-in type stripping. Tooling expects Node 22.18+ (or newer) so scripts can run directly via `node script.ts` without flags.
 
 ## Publishing strategy
 
 - `@transloadit/node` is canonical.
 - `transloadit` is generated from the same artifacts and fingerprinted.
 - `@transloadit/types` and `@transloadit/zod` are versioned in lock‑step (changesets).
+
+### Parity verification
+
+The `transloadit` tarball is compared against a recorded baseline:
+
+- `scripts/fingerprint-pack.ts` creates a tarball fingerprint.
+- `scripts/verify-fingerprint.ts` compares fingerprints and reports drift.
+- `docs/fingerprint/transloadit-baseline.json` is the baseline fingerprint.
+- `docs/fingerprint/transloadit-baseline.package.json` is used to diff `package.json`.
+
+Only `package.json` metadata drift is currently allowed; any other file difference fails the check.
 
 ## Future extensions
 

@@ -1,10 +1,10 @@
 {
   "name": "@transloadit/types",
-  "version": "4.1.3",
+  "version": "4.1.2",
   "description": "Transloadit type definitions",
   "type": "module",
   "license": "MIT",
-  "files": ["dist"],
+  "files": ["dist", "README.md"],
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -24,14 +24,17 @@
     }
   },
   "scripts": {
-    "generate": "node --experimental-strip-types scripts/emit-types.ts",
+    "generate": "node scripts/emit-types.ts",
     "lint:ts": "yarn generate && tsc --build tsconfig.build.json",
-    "test:unit": "node --experimental-strip-types scripts/emit-types.test.ts",
+    "test:unit": "node scripts/emit-types.test.ts",
     "build": "yarn generate && tsc --build tsconfig.build.json",
     "check": "yarn generate && yarn test:unit && tsc --build tsconfig.build.json"
   },
   "devDependencies": {
     "typescript": "5.9.3",
     "zod": "3.25.76"
+  },
+  "publishConfig": {
+    "tag": "experimental"
   }
 }

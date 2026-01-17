@@ -42,7 +42,7 @@ import type {
   TemplateCredentialsResponse,
   TemplateResponse,
 } from './apiTypes.ts'
-import { InconsistentResponseError } from './InconsistentResponseError.ts'
+import InconsistentResponseError from './InconsistentResponseError.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
 import type { Stream } from './tus.ts'

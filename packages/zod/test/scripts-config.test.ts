@@ -11,15 +11,18 @@ const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8')) as {
 }
 
 const scripts = packageJson.scripts ?? {}
-const requiredFlag = '--experimental-strip-types'
 const requiredScripts = ['sync:v3', 'sync:v4', 'test:unit']
 
 for (const scriptName of requiredScripts) {
   const script = scripts[scriptName]
   assert.ok(script, `Missing ${scriptName} script in package.json`)
   assert.ok(
-    script.includes(requiredFlag),
-    `${scriptName} should include ${requiredFlag} so Node can run TypeScript`,
+    script.includes('node '),
+    `${scriptName} should invoke node directly for TypeScript scripts`,
+  )
+  assert.ok(
+    !script.includes('--experimental-strip-types'),
+    `${scriptName} should not use --experimental-strip-types (Node 22.18+ runs .ts directly)`,
   )
 }
 

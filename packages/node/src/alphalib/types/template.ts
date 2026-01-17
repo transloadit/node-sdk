@@ -37,7 +37,7 @@ export type StepsWithHiddenFieldsInput = z.input<typeof stepsSchemaWithHiddenFie
 const optionalStepsWithHiddenFieldsSchema = stepsSchemaWithHiddenFields.optional()
 
 export const fieldsSchema = z
-  .record(z.unknown())
+  .record(z.any())
   .optional()
   .describe(
     'An object of string keyed values (name -> value) that can be used as Assembly Variables, just like additional form fields can. You can use anything that is JSON stringifyable as a value',
@@ -121,7 +121,7 @@ const assemblyInstructionsSharedShape = {
     .describe(
       'Set this to true to reduce the response from an Assembly POST request to only the necessary fields. This prevents any potentially confidential information being leaked to the end user who is making the Assembly request. A successful Assembly will only include the ok and assembly_id fields. An erroneous Assembly will only include the error, http_code, message and assembly_id fields. The full Assembly Status will then still be sent to the notify_url if one was specified.',
     ),
-  // Keep the inline cast; helper wrappers trigger TS7056 (type serialization limit).
+  // This is done to avoid heavy inference cost
   steps: optionalStepsSchema as typeof optionalStepsSchema,
   template_id: templateIdSchema,
 } as const
