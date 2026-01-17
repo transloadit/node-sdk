@@ -97,6 +97,10 @@
   },
   "overrides": [
     {
+      "includes": ["**/package.json"],
+      "formatter": { "expand": "always" }
+    },
+    {
       "includes": ["*.html"],
       "javascript": { "formatter": { "quoteStyle": "double" } }
     },

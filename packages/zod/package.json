@@ -4,7 +4,10 @@
   "description": "Transloadit Zod schemas",
   "type": "module",
   "license": "MIT",
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "types": "./dist/v3/index.d.ts",

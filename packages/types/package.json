@@ -4,7 +4,10 @@
   "description": "Transloadit type definitions",
   "type": "module",
   "license": "MIT",
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
