@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs'
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -325,10 +326,34 @@ const patchInterpolatableRobot = (contents: string): string => {
   return `${contents.slice(0, start)}${replacement}${contents.slice(end)}`
 }
 
-const patchAiChatSchema = (contents: string): string =>
-  contents
-    .replace('const jsonValueSchema: z.ZodType =', 'const jsonValueSchema: z.ZodType<any> =')
-    .replace('result: z.unknown(),', 'result: z.unknown().optional(),')
+export const patchAiChatSchema = (contents: string): string => {
+  const jsonValueToken = 'const jsonValueSchema: z.ZodType ='
+  const jsonValuePatched = 'const jsonValueSchema: z.ZodType<any> ='
+  const resultToken = 'result: z.unknown(),'
+  const resultPatched = 'result: z.unknown().optional(),'
+
+  let next = contents
+  if (next.includes(jsonValueToken)) {
+    next = next.replace(jsonValueToken, jsonValuePatched)
+  }
+  if (next.includes(resultToken)) {
+    next = next.replace(resultToken, resultPatched)
+  }
+
+  const hasJsonValue = next.includes(jsonValuePatched)
+  const hasResult = next.includes(resultPatched)
+  if (!hasJsonValue || !hasResult) {
+    const missing = [
+      !hasJsonValue ? 'jsonValueSchema' : null,
+      !hasResult ? 'result optional' : null,
+    ]
+      .filter(Boolean)
+      .join(', ')
+    throw new Error(`ai-chat schema patch failed (${missing})`)
+  }
+
+  return next
+}
 
 const patchFile = (filePath: string, contents: string): string => {
   let next = contents
@@ -360,4 +385,17 @@ const main = async () => {
   }
 }
 
-await main()
+const shouldRun = (): boolean => {
+  if (!process.argv[1]) return false
+  try {
+    const current = realpathSync(fileURLToPath(import.meta.url))
+    const invoked = realpathSync(process.argv[1])
+    return current === invoked
+  } catch {
+    return false
+  }
+}
+
+if (shouldRun()) {
+  await main()
+}

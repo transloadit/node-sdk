@@ -76,6 +76,9 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: corepack yarn
       - run: corepack yarn test:unit
+        if: matrix.node == 24
+      - run: corepack yarn workspace @transloadit/node test:unit
+        if: matrix.node != 24
       - name: Upload coverage reports artifact
         if: matrix.node == 24
         uses: actions/upload-artifact@v4
