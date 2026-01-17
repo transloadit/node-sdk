@@ -61,9 +61,9 @@
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
     "prepack": "node ../../scripts/prepare-transloadit.ts",
-    "test:unit": "vitest run --coverage ./test/unit",
-    "test:e2e": "vitest run ./test/e2e",
-    "test": "vitest run --coverage"
+    "test:unit": "../../node_modules/.bin/vitest run --coverage ./test/unit",
+    "test:e2e": "../../node_modules/.bin/vitest run ./test/e2e",
+    "test": "../../node_modules/.bin/vitest run --coverage"
   },
   "license": "MIT",
   "main": "./dist/Transloadit.js",

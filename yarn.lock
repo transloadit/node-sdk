@@ -2653,7 +2653,7 @@ __metadata:
     type-fest: "npm:^4.41.0"
     zod: "npm:3.25.76"
   bin:
-    node: ./dist/cli.js
+    transloadit: ./dist/cli.js
   languageName: unknown
   linkType: soft
 

@@ -20,13 +20,13 @@
     "fix:deps": "yarn run --binaries-only knip --include dependencies,unlisted,unresolved,catalog --no-progress --fix --no-config-hints",
     "knip": "yarn run --binaries-only knip --exclude binaries --no-config-hints --no-progress",
     "pack": "node scripts/pack-transloadit.ts",
-    "parity:transloadit": "node scripts/fingerprint-pack.ts packages/transloadit --ignore-scripts --out /tmp/transloadit-after.json && node scripts/verify-fingerprint.ts --current /tmp/transloadit-after.json --baseline docs/fingerprint/transloadit-baseline.json --allow package.json --baseline-package-json docs/fingerprint/transloadit-baseline.package.json --current-package-json packages/transloadit/package.json",
+    "parity:transloadit": "node scripts/prepare-transloadit.ts && node scripts/fingerprint-pack.ts packages/transloadit --ignore-scripts --out /tmp/transloadit-after.json && node scripts/verify-fingerprint.ts --current /tmp/transloadit-after.json --baseline docs/fingerprint/transloadit-baseline.json --allow package.json --baseline-package-json docs/fingerprint/transloadit-baseline.package.json --current-package-json packages/transloadit/package.json",
     "test:unit": "yarn workspace @transloadit/node test:unit && yarn workspace @transloadit/types test:unit && yarn workspace @transloadit/zod test:unit",
     "test:types": "yarn workspace @transloadit/zod test:types",
     "test:e2e": "yarn workspace @transloadit/node test:e2e",
     "test": "yarn workspace @transloadit/node test",
     "tsc:node": "node ./node_modules/typescript/bin/tsc -b packages/node/tsconfig.build.json",
-    "tsc:types": "node ./node_modules/typescript/bin/tsc -b packages/types/tsconfig.build.json",
+    "tsc:types": "yarn workspace @transloadit/types generate && node ./node_modules/typescript/bin/tsc -b packages/types/tsconfig.build.json",
     "tsc:zod": "node ./node_modules/typescript/bin/tsc -b packages/zod/tsconfig.build.json"
   },
   "devDependencies": {
