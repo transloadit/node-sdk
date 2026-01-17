@@ -27,7 +27,7 @@
     "test": "yarn workspace @transloadit/node test",
     "tsc:node": "node ./node_modules/typescript/bin/tsc -b packages/node/tsconfig.build.json",
     "tsc:types": "yarn workspace @transloadit/types generate && node ./node_modules/typescript/bin/tsc -b packages/types/tsconfig.build.json",
-    "tsc:zod": "node ./node_modules/typescript/bin/tsc -b packages/zod/tsconfig.build.json"
+    "tsc:zod": "yarn workspace @transloadit/zod sync && node ./node_modules/typescript/bin/tsc -b packages/zod/tsconfig.build.json"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
