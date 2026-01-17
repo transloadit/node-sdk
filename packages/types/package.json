@@ -34,7 +34,6 @@
     "check": "yarn generate && yarn test:unit && tsc --build tsconfig.build.json"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
     "zod": "3.25.76"
   },
   "publishConfig": {
