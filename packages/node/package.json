@@ -64,14 +64,14 @@
   "scripts": {
     "check": "yarn lint:ts && yarn fix && yarn test:unit",
     "fix:js": "biome check --write .",
-    "lint:ts": "tsc --build",
+    "lint:ts": "yarn --cwd ../.. tsc:node",
     "fix:js:unsafe": "biome check --write . --unsafe",
     "lint:js": "biome check .",
     "lint": "npm-run-all --parallel 'lint:js'",
     "fix": "npm-run-all --serial 'fix:js'",
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
-    "prepack": "rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && tsc --build tsconfig.build.json",
+    "prepack": "rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && yarn --cwd ../.. tsc:node",
     "test:unit": "vitest run --coverage ./test/unit",
     "test:e2e": "vitest run ./test/e2e",
     "test": "vitest run --coverage"

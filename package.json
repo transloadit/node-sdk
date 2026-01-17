@@ -9,7 +9,7 @@
   "scripts": {
     "check": "yarn run --binaries-only knip --fix --allow-remove-files --no-config-hints && yarn lint:ts && yarn fix:js && yarn lint:js && yarn test:unit",
     "lint:js": "biome check .",
-    "lint:ts": "yarn workspace @transloadit/node lint:ts && yarn workspace @transloadit/types lint:ts && yarn workspace @transloadit/zod lint:ts",
+    "lint:ts": "yarn tsc:node && yarn tsc:types && yarn tsc:zod",
     "lint": "yarn lint:js",
     "fix": "yarn fix:js",
     "fix:js": "biome check --write .",
@@ -21,7 +21,10 @@
     "parity:transloadit": "node scripts/fingerprint-pack.ts packages/transloadit --ignore-scripts --out /tmp/transloadit-after.json && node scripts/verify-fingerprint.ts --current /tmp/transloadit-after.json --baseline docs/fingerprint/transloadit-baseline.json --allow package.json --baseline-package-json docs/fingerprint/transloadit-baseline.package.json --current-package-json packages/transloadit/package.json",
     "test:unit": "yarn workspace @transloadit/node test:unit && yarn workspace @transloadit/types test:unit && yarn workspace @transloadit/zod test:unit",
     "test:e2e": "yarn workspace @transloadit/node test:e2e",
-    "test": "yarn workspace @transloadit/node test"
+    "test": "yarn workspace @transloadit/node test",
+    "tsc:node": "node ./node_modules/typescript/bin/tsc -b packages/node/tsconfig.build.json",
+    "tsc:types": "node ./node_modules/typescript/bin/tsc -b packages/types/tsconfig.build.json",
+    "tsc:zod": "node ./node_modules/typescript/bin/tsc -b packages/zod/tsconfig.build.json"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",

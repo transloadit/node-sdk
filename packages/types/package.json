@@ -28,10 +28,10 @@
   },
   "scripts": {
     "generate": "node scripts/emit-types.ts",
-    "lint:ts": "yarn generate && tsc --build tsconfig.build.json",
+    "lint:ts": "yarn generate && ../../node_modules/.bin/tsc --build tsconfig.build.json",
     "test:unit": "node scripts/emit-types.test.ts",
-    "build": "yarn generate && tsc --build tsconfig.build.json",
-    "check": "yarn generate && yarn test:unit && tsc --build tsconfig.build.json"
+    "build": "yarn generate && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "check": "yarn generate && yarn test:unit && ../../node_modules/.bin/tsc --build tsconfig.build.json"
   },
   "devDependencies": {
     "zod": "3.25.76"
