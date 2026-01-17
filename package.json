@@ -7,13 +7,15 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "yarn run --binaries-only knip --fix --allow-remove-files --no-config-hints && yarn lint:ts && yarn fix:js && yarn test:unit",
+    "check": "yarn run --binaries-only knip --fix --allow-remove-files --no-config-hints && yarn lint:ts && yarn fix:js && yarn lint:js && yarn test:unit",
     "lint:js": "biome check .",
     "lint:ts": "yarn workspace @transloadit/node lint:ts && yarn workspace @transloadit/types lint:ts && yarn workspace @transloadit/zod lint:ts",
     "lint": "yarn lint:js",
     "fix": "yarn fix:js",
     "fix:js": "biome check --write .",
     "fix:js:unsafe": "biome check --write . --unsafe",
+    "lint:deps": "yarn run --binaries-only knip --dependencies --no-progress --no-config-hints",
+    "fix:deps": "yarn run --binaries-only knip --dependencies --no-progress --fix --no-config-hints",
     "knip": "yarn run --binaries-only knip --no-config-hints --no-progress",
     "pack": "node scripts/pack-transloadit.ts",
     "parity:transloadit": "node scripts/fingerprint-pack.ts packages/transloadit --ignore-scripts --out /tmp/transloadit-after.json && node scripts/verify-fingerprint.ts --current /tmp/transloadit-after.json --baseline docs/fingerprint/transloadit-baseline.json --allow package.json --baseline-package-json docs/fingerprint/transloadit-baseline.package.json --current-package-json packages/transloadit/package.json",
