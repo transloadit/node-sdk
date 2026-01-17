@@ -20,6 +20,10 @@ To check for updates, run:
 yarn upgrade-interactive
 ```
 
+## Tooling requirements
+
+Local tooling (the TypeScript scripts in `scripts/` and package tests) requires Node 22.18+ so `node file.ts` works without flags. The published packages still support Node 20+ at runtime.
+
 ## Linting
 
 This project is linted using Biome. You can lint the project by running:
@@ -79,19 +83,34 @@ Coverage reports are:
 
 View the coverage report locally by opening `coverage/index.html` in your browser.
 
+## Packaging the legacy `transloadit` package
+
+The `packages/transloadit` folder is a generated legacy wrapper. The `src` directory and top-level `README.md`, `CHANGELOG.md`, and `LICENSE` are produced during packing by `scripts/prepare-transloadit.ts` and are not tracked in git. If you need to validate the legacy package contents, run:
+
+```sh
+yarn pack
+```
+
 ## Releasing
 
-Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub actions. To make a release, perform the following steps:
+Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub actions and Changesets (including the legacy `transloadit` package). To make a release, perform the following steps:
 
-1. Update `CHANGELOG.md` with a new entry describing the release. And `git add CHANGELOG.md && git commit -m "Update CHANGELOG.md"`.
-2. Update the version using npm. This will update the version in the `package.json` file and create a git tag. E.g.:
-
-- `npm version patch`
-- OR, for pre-releases: `npm version prerelease`
-
-3. Push the tag to GitHub: `git push origin main --tags`
-4. If the tests pass, GitHub actions will now publish the new version to npm.
+1. Create a changeset:
+   - `yarn changeset`
+2. Version packages (updates `CHANGELOG.md` + workspace `package.json` files):
+   - `yarn changeset version`
+   - `git add -A && git commit -m "chore: version packages"`
+3. Push the version commit and tags:
+   - `git push origin main`
+4. Publish (maintainers only; GitHub Actions handles the release):
+   - `yarn changeset publish`
 5. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
-6. If this was a pre-release, remember to run this to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
+6. Scoped packages publish with the `experimental` dist-tag by default. If you need to promote a scoped package to `latest`, update the tag manually.
+7. If this was a pre-release, remember to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
+   - `npm dist-tag add transloadit@X.Y.Z latest`
 
-- `npm dist-tag add transloadit@X.Y.Z latest`
+### Release FAQ
+
+- **Lockstep versions:** Changesets use a fixed group, so version bumps and releases are always in lock‑step across `transloadit`, `@transloadit/node`, `@transloadit/types`, and `@transloadit/zod`.
+- **Legacy parity:** `transloadit` is generated from `@transloadit/node` artifacts via `scripts/prepare-transloadit.ts`, then verified with `yarn parity:transloadit`. Only `package.json` metadata drift is allowed; any other drift fails.
+- **Experimental packages:** Scoped packages (`@transloadit/node`, `@transloadit/types`, `@transloadit/zod`) publish with the `experimental` dist-tag. The unscoped `transloadit` package remains stable.

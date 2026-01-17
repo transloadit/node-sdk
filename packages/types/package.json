@@ -1,0 +1,42 @@
+{
+  "name": "@transloadit/types",
+  "version": "4.1.3",
+  "description": "Transloadit type definitions",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts"
+    },
+    "./robots": {
+      "types": "./dist/generated/robots/_index.d.ts"
+    },
+    "./robots/*": {
+      "types": "./dist/generated/robots/*.d.ts"
+    },
+    "./generated/*": {
+      "types": "./dist/generated/*.d.ts"
+    },
+    "./*": {
+      "types": "./dist/generated/*.d.ts"
+    }
+  },
+  "scripts": {
+    "generate": "node scripts/emit-types.ts",
+    "lint:ts": "yarn generate && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "test:unit": "node scripts/emit-types.test.ts",
+    "build": "yarn generate && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "check": "yarn generate && yarn test:unit && ../../node_modules/.bin/tsc --build tsconfig.build.json"
+  },
+  "devDependencies": {
+    "zod": "3.25.76"
+  },
+  "publishConfig": {
+    "tag": "experimental"
+  }
+}

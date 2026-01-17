@@ -53,8 +53,7 @@ export const robotMetaWriteInstructionsSchema = robotBase
 **Note:** This <dfn>Robot</dfn> currently accepts images, videos and audio files.
 `),
     data_to_write: z
-      .object({})
-      .passthrough()
+      .record(z.unknown())
       .default({})
       .describe(`
 A key/value map defining the metadata to write into the file.

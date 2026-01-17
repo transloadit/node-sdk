@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "ignoreUnknown": false,
@@ -7,10 +7,13 @@
       "**",
       "!package.json",
       "!coverage",
+      "!**/coverage",
       "!dist",
       "!fixture",
       "!.vscode",
-      "!src/alphalib"
+      "!packages/**/dist",
+      "!packages/**/node_modules",
+      "!packages/node/src/alphalib"
     ]
   },
   "formatter": {
@@ -93,6 +96,10 @@
     "actions": { "source": { "organizeImports": "on" } }
   },
   "overrides": [
+    {
+      "includes": ["**/package.json"],
+      "formatter": { "expand": "always" }
+    },
     {
       "includes": ["*.html"],
       "javascript": { "formatter": { "quoteStyle": "double" } }

@@ -1,95 +1,43 @@
 {
-  "name": "transloadit",
-  "version": "4.1.2",
-  "description": "Node.js SDK for Transloadit",
+  "name": "transloadit-node-sdk",
+  "private": true,
   "type": "module",
-  "keywords": [
-    "transloadit",
-    "encoding",
-    "transcoding",
-    "video",
-    "audio",
-    "mp3"
-  ],
-  "author": "Tim Koschuetzki <tim@transloadit.com>",
   "packageManager": "yarn@4.12.0",
-  "engines": {
-    "node": ">= 20"
-  },
-  "dependencies": {
-    "@aws-sdk/client-s3": "^3.891.0",
-    "@aws-sdk/s3-request-presigner": "^3.891.0",
-    "@transloadit/sev-logger": "^0.0.15",
-    "clipanion": "^4.0.0-rc.4",
-    "debug": "^4.4.3",
-    "dotenv": "^17.2.3",
-    "form-data": "^4.0.4",
-    "got": "14.4.9",
-    "into-stream": "^9.0.0",
-    "is-stream": "^4.0.1",
-    "node-watch": "^0.7.4",
-    "p-map": "^7.0.3",
-    "p-queue": "^9.0.1",
-    "recursive-readdir": "^2.2.3",
-    "tus-js-client": "^4.3.1",
-    "typanion": "^3.14.0",
-    "type-fest": "^4.41.0",
-    "zod": "3.25.76"
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "check": "yarn fix:deps && yarn fix:js && yarn lint:ts && yarn test:unit",
+    "verify": "yarn lint:deps && yarn lint:js && yarn lint:ts && yarn test:unit",
+    "verify:full": "yarn verify && yarn knip && yarn parity:transloadit && yarn test:types",
+    "lint:js": "biome check .",
+    "lint:ts": "yarn tsc:node && yarn tsc:types && yarn tsc:zod",
+    "lint": "yarn lint:js",
+    "fix": "yarn fix:js",
+    "fix:js": "biome check --write .",
+    "fix:js:unsafe": "biome check --write . --unsafe",
+    "lint:deps": "yarn run --binaries-only knip --include dependencies,unlisted,unresolved,catalog --no-progress --no-config-hints",
+    "fix:deps": "yarn run --binaries-only knip --include dependencies,unlisted,unresolved,catalog --no-progress --fix --no-config-hints",
+    "knip": "yarn run --binaries-only knip --exclude binaries --no-config-hints --no-progress",
+    "pack": "node scripts/pack-transloadit.ts",
+    "parity:transloadit": "node scripts/prepare-transloadit.ts && node scripts/fingerprint-pack.ts packages/transloadit --ignore-scripts --out /tmp/transloadit-after.json && node scripts/verify-fingerprint.ts --current /tmp/transloadit-after.json --baseline docs/fingerprint/transloadit-baseline.json --allow package.json --baseline-package-json docs/fingerprint/transloadit-baseline.package.json --current-package-json packages/transloadit/package.json",
+    "test:unit": "yarn workspace @transloadit/node test:unit && yarn workspace @transloadit/types test:unit && yarn workspace @transloadit/zod test:unit",
+    "test:types": "yarn workspace @transloadit/zod test:types",
+    "test:e2e": "yarn workspace @transloadit/node test:e2e",
+    "test": "yarn workspace @transloadit/node test",
+    "tsc:node": "node ./node_modules/typescript/bin/tsc -b packages/node/tsconfig.build.json",
+    "tsc:types": "yarn workspace @transloadit/types generate && node ./node_modules/typescript/bin/tsc -b packages/types/tsconfig.build.json",
+    "tsc:zod": "yarn workspace @transloadit/zod sync && node ./node_modules/typescript/bin/tsc -b packages/zod/tsconfig.build.json"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.4",
-    "@types/debug": "^4.1.12",
-    "@types/minimist": "^1.2.5",
+    "@biomejs/biome": "^2.3.11",
+    "@changesets/cli": "^2.29.7",
     "@types/node": "^24.10.3",
-    "@types/recursive-readdir": "^2.2.4",
-    "@types/temp": "^0.9.4",
     "@vitest/coverage-v8": "^3.2.4",
-    "badge-maker": "^5.0.2",
-    "execa": "9.6.0",
-    "image-size": "^2.0.2",
     "knip": "^5.73.3",
-    "minimatch": "^10.1.1",
-    "nock": "^14.0.10",
     "npm-run-all": "^4.1.5",
-    "p-retry": "^7.0.0",
-    "rimraf": "^6.1.2",
-    "temp": "^0.9.4",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
     "vitest": "^3.2.4"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/transloadit/node-sdk.git"
-  },
-  "directories": {
-    "src": "./src"
-  },
-  "scripts": {
-    "check": "yarn exec knip --fix --allow-remove-files --no-config-hints && yarn lint:ts && yarn fix && yarn test:unit",
-    "fix:js": "biome check --write .",
-    "lint:ts": "tsc --build",
-    "fix:js:unsafe": "biome check --write . --unsafe",
-    "lint:js": "biome check .",
-    "lint": "npm-run-all --parallel 'lint:js'",
-    "fix": "npm-run-all --serial 'fix:js'",
-    "lint:deps": "knip --dependencies --no-progress",
-    "fix:deps": "knip --dependencies --no-progress --fix",
-    "knip": "knip --no-config-hints --no-progress",
-    "prepack": "rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && tsc --build tsconfig.build.json",
-    "test:unit": "vitest run --coverage ./test/unit",
-    "test:e2e": "vitest run ./test/e2e",
-    "test": "vitest run --coverage"
-  },
-  "license": "MIT",
-  "main": "./dist/Transloadit.js",
-  "exports": {
-    ".": "./dist/Transloadit.js",
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "dist",
-    "src"
-  ],
-  "bin": "./dist/cli.js"
+  }
 }

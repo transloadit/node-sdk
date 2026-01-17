@@ -1,0 +1,53 @@
+{
+  "name": "@transloadit/zod",
+  "version": "4.1.3",
+  "description": "Transloadit Zod schemas",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/v3/index.d.ts",
+      "default": "./dist/v3/index.js"
+    },
+    "./v3": {
+      "types": "./dist/v3/index.d.ts",
+      "default": "./dist/v3/index.js"
+    },
+    "./v3/*": {
+      "types": "./dist/v3/*.d.ts",
+      "default": "./dist/v3/*.js"
+    },
+    "./v4": {
+      "types": "./dist/v4/index.d.ts",
+      "default": "./dist/v4/index.js"
+    },
+    "./v4/*": {
+      "types": "./dist/v4/*.d.ts",
+      "default": "./dist/v4/*.js"
+    }
+  },
+  "scripts": {
+    "sync:v3": "node scripts/sync-v3.ts",
+    "sync:v4": "node scripts/sync-v4.ts",
+    "sync": "yarn sync:v3 && yarn sync:v4",
+    "lint:ts": "yarn sync && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "test:types": "yarn sync && ../../node_modules/.bin/tsc --noEmit --project tsconfig.test.json",
+    "test:unit": "yarn sync && node test/scripts-config.test.ts && node test/patch-ai-chat-schema.test.ts && node test/exports-sync.test.ts && node test/runtime-parity.test.ts",
+    "build": "yarn sync && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "check": "yarn sync && ../../node_modules/.bin/tsc --build tsconfig.build.json && ../../node_modules/.bin/tsc --noEmit --project tsconfig.test.json && yarn test:unit"
+  },
+  "dependencies": {
+    "type-fest": "^4.41.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@transloadit/types": "workspace:*"
+  },
+  "publishConfig": {
+    "tag": "experimental"
+  }
+}
