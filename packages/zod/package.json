@@ -32,7 +32,7 @@
     "sync:v4": "node scripts/sync-v4.ts",
     "sync": "yarn sync:v3 && yarn sync:v4",
     "lint:ts": "yarn sync && tsc --build tsconfig.build.json",
-    "test:unit": "node test/scripts-config.test.ts && node test/patch-ai-chat-schema.test.ts && node test/exports-sync.test.ts && node test/runtime-parity.test.ts",
+    "test:unit": "yarn sync && node test/scripts-config.test.ts && node test/patch-ai-chat-schema.test.ts && node test/exports-sync.test.ts && node test/runtime-parity.test.ts",
     "build": "yarn sync && tsc --build tsconfig.build.json",
     "check": "yarn sync && tsc --build tsconfig.build.json && tsc --noEmit --project tsconfig.test.json && yarn test:unit"
   },
