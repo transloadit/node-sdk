@@ -41,15 +41,7 @@
     "@types/minimist": "^1.2.5",
     "@types/node": "^24.10.3",
     "@types/recursive-readdir": "^2.2.4",
-    "@types/temp": "^0.9.4",
-    "badge-maker": "^5.0.2",
-    "execa": "9.6.0",
-    "image-size": "^2.0.2",
-    "minimatch": "^10.1.1",
-    "nock": "^14.0.10",
-    "p-retry": "^7.0.0",
-    "rimraf": "^6.1.2",
-    "temp": "^0.9.4"
+    "minimatch": "^10.1.1"
   },
   "repository": {
     "type": "git",
@@ -59,7 +51,7 @@
     "src": "./src"
   },
   "scripts": {
-    "check": "yarn exec knip --fix --allow-remove-files --no-config-hints && yarn lint:ts && yarn fix && yarn test:unit",
+    "check": "yarn lint:ts && yarn fix && yarn test:unit",
     "fix:js": "biome check --write .",
     "lint:ts": "tsc --build",
     "fix:js:unsafe": "biome check --write . --unsafe",
@@ -68,7 +60,6 @@
     "fix": "npm-run-all --serial 'fix:js'",
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
-    "knip": "knip --no-config-hints --no-progress",
     "prepack": "node ../../scripts/prepare-transloadit.ts",
     "test:unit": "vitest run --coverage ./test/unit",
     "test:e2e": "vitest run ./test/e2e",

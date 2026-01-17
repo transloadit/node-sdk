@@ -62,7 +62,7 @@
     "src": "./src"
   },
   "scripts": {
-    "check": "yarn exec knip --fix --allow-remove-files --no-config-hints && yarn lint:ts && yarn fix && yarn test:unit",
+    "check": "yarn lint:ts && yarn fix && yarn test:unit",
     "fix:js": "biome check --write .",
     "lint:ts": "tsc --build",
     "fix:js:unsafe": "biome check --write . --unsafe",
@@ -71,7 +71,6 @@
     "fix": "npm-run-all --serial 'fix:js'",
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
-    "knip": "knip --no-config-hints --no-progress",
     "prepack": "rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && tsc --build tsconfig.build.json",
     "test:unit": "vitest run --coverage ./test/unit",
     "test:e2e": "vitest run ./test/e2e",

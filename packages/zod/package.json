@@ -40,7 +40,11 @@
     "check": "yarn sync && tsc --build tsconfig.build.json && tsc --noEmit --project tsconfig.test.json && yarn test:unit"
   },
   "dependencies": {
+    "type-fest": "^4.41.0",
     "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@transloadit/types": "workspace:*"
   },
   "publishConfig": {
     "tag": "experimental"

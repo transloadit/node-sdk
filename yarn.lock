@@ -2664,7 +2664,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@transloadit/types@workspace:packages/types":
+"@transloadit/types@workspace:*, @transloadit/types@workspace:packages/types":
   version: 0.0.0-use.local
   resolution: "@transloadit/types@workspace:packages/types"
   dependencies:
@@ -2676,6 +2676,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@transloadit/zod@workspace:packages/zod"
   dependencies:
+    "@transloadit/types": "workspace:*"
+    type-fest: "npm:^4.41.0"
     zod: "npm:^4.0.0"
   languageName: unknown
   linkType: soft
@@ -6894,26 +6896,18 @@ __metadata:
     "@types/minimist": "npm:^1.2.5"
     "@types/node": "npm:^24.10.3"
     "@types/recursive-readdir": "npm:^2.2.4"
-    "@types/temp": "npm:^0.9.4"
-    badge-maker: "npm:^5.0.2"
     clipanion: "npm:^4.0.0-rc.4"
     debug: "npm:^4.4.3"
     dotenv: "npm:^17.2.3"
-    execa: "npm:9.6.0"
     form-data: "npm:^4.0.4"
     got: "npm:14.4.9"
-    image-size: "npm:^2.0.2"
     into-stream: "npm:^9.0.0"
     is-stream: "npm:^4.0.1"
     minimatch: "npm:^10.1.1"
-    nock: "npm:^14.0.10"
     node-watch: "npm:^0.7.4"
     p-map: "npm:^7.0.3"
     p-queue: "npm:^9.0.1"
-    p-retry: "npm:^7.0.0"
     recursive-readdir: "npm:^2.2.3"
-    rimraf: "npm:^6.1.2"
-    temp: "npm:^0.9.4"
     tus-js-client: "npm:^4.3.1"
     typanion: "npm:^3.14.0"
     type-fest: "npm:^4.41.0"
