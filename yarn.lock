@@ -6971,6 +6971,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "transloadit-node-sdk@workspace:."
   dependencies:
+    "@biomejs/biome": "npm:^2.3.11"
     "@changesets/cli": "npm:^2.29.7"
   languageName: unknown
   linkType: soft
