@@ -1,5 +1,11 @@
 # @transloadit/zod
 
+## 4.1.4
+
+### Patch Changes
+
+- Sync alphalib schema updates (ai-chat robot, new file-filter operators, updated assembly status codes).
+
 ## 4.1.3
 
 ### Patch Changes

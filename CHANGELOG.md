@@ -13,6 +13,22 @@ You may also want to refer to [GitHub releases](https://github.com/transloadit/n
 
 - TBD
 
+## v4.1.4
+
+Released: 2026-01-19.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v4.1.3...v4.1.4).
+
+- Sync alphalib schema updates (ai-chat robot, new file-filter operators, updated assembly status codes).
+
+## v4.1.3
+
+Released: 2026-01-17.
+
+[Diff](https://github.com/transloadit/node-sdk/compare/v4.1.2...v4.1.3).
+
+- Publish initial patch releases for the split packages and legacy wrapper.
+
 ## v4.1.2
 
 Released: 2025-12-08.
