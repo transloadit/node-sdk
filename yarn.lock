@@ -2774,12 +2774,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*":
-  version: 22.15.21
-  resolution: "@types/node@npm:22.15.21"
+"@types/node@npm:*, @types/node@npm:^24.10.3":
+  version: 24.10.4
+  resolution: "@types/node@npm:24.10.4"
   dependencies:
-    undici-types: "npm:~6.21.0"
-  checksum: 10c0/f092bbccda2131c2b2c8f720338080aa0ef1d928f5f1062c03954a4f7dafa7ee3ed29bc3e51bd4e2584473b3d943c637a2b39ad7174898970818270187cf10c1
+    undici-types: "npm:~7.16.0"
+  checksum: 10c0/069639cb7233ee747df1897b5e784f6b6c5da765c96c94773c580aac888fa1a585048d2a6e95eb8302d89c7a9df75801c8b5a0b7d0221d4249059cf09a5f4228
   languageName: node
   linkType: hard
 
@@ -2787,15 +2787,6 @@ __metadata:
   version: 12.20.55
   resolution: "@types/node@npm:12.20.55"
   checksum: 10c0/3b190bb0410047d489c49bbaab592d2e6630de6a50f00ba3d7d513d59401d279972a8f5a598b5bb8ddc1702f8a2f4ec57a65d93852f9c329639738e7053637d1
-  languageName: node
-  linkType: hard
-
-"@types/node@npm:^24.10.3":
-  version: 24.10.4
-  resolution: "@types/node@npm:24.10.4"
-  dependencies:
-    undici-types: "npm:~7.16.0"
-  checksum: 10c0/069639cb7233ee747df1897b5e784f6b6c5da765c96c94773c580aac888fa1a585048d2a6e95eb8302d89c7a9df75801c8b5a0b7d0221d4249059cf09a5f4228
   languageName: node
   linkType: hard
 
@@ -7132,13 +7123,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici-types@npm:~6.21.0":
-  version: 6.21.0
-  resolution: "undici-types@npm:6.21.0"
-  checksum: 10c0/c01ed51829b10aa72fc3ce64b747f8e74ae9b60eafa19a7b46ef624403508a54c526ffab06a14a26b3120d055e1104d7abe7c9017e83ced038ea5cf52f8d5e04
-  languageName: node
-  linkType: hard
-
 "undici-types@npm:~7.16.0":
   version: 7.16.0
   resolution: "undici-types@npm:7.16.0"
@@ -7503,16 +7487,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^4.0.0":
+"zod@npm:^4.0.0, zod@npm:^4.1.11":
   version: 4.3.5
   resolution: "zod@npm:4.3.5"
   checksum: 10c0/5a2db7e59177a3d7e202543f5136cb87b97b047b77c8a3d824098d3fa8b80d3aa40a0a5f296965c3b82dfdccdd05dbbfacce91347f16a39c675680fd7b1ab109
-  languageName: node
-  linkType: hard
-
-"zod@npm:^4.1.11":
-  version: 4.2.1
-  resolution: "zod@npm:4.2.1"
-  checksum: 10c0/ecb5219bddf76a42d092a843fb98ad4cb78f1e1077082772b03ef032ee5cbc80790a4051836b962d26fb4af854323bc784d628bd1b8d9898149eba7af21c5560
   languageName: node
   linkType: hard
