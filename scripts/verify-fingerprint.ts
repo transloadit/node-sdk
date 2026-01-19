@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { extname, resolve } from 'node:path'
 
 interface FingerprintEntry {
   path: string
@@ -99,6 +99,50 @@ const indexByPath = (entries: FingerprintEntry[]): Map<string, FingerprintEntry>
   return map
 }
 
+const countBy = <T>(items: T[], mapper: (item: T) => string): Map<string, number> => {
+  const counts = new Map<string, number>()
+  for (const item of items) {
+    const key = mapper(item)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  return counts
+}
+
+const formatCounts = (counts: Map<string, number>, limit = 6): string => {
+  const entries = Array.from(counts.entries()).sort((a, b) => {
+    if (a[1] !== b[1]) return b[1] - a[1]
+    return a[0] < b[0] ? -1 : 1
+  })
+  return entries
+    .slice(0, limit)
+    .map(([key, count]) => `${key}: ${count}`)
+    .join(', ')
+}
+
+const summarizePaths = (paths: string[]): string[] => {
+  const total = paths.length
+  const roots = countBy(paths, (path) => path.split('/')[0] ?? path)
+  const extensions = countBy(paths, (path) => extname(path) || '(no ext)')
+  const hasSrc = paths.some((path) => path.startsWith('src/'))
+  const hasDist = paths.some((path) => path.startsWith('dist/'))
+
+  const lines = [
+    `Summary: ${total} changed file(s)`,
+    `  Top-level: ${formatCounts(roots)}`,
+    `  Extensions: ${formatCounts(extensions)}`,
+  ]
+
+  if (hasSrc && hasDist) {
+    lines.push('  Hint: both src/ and dist/ changed; baseline may be out of date.')
+  } else if (hasDist) {
+    lines.push('  Hint: only dist/ changed; toolchain drift is likely.')
+  } else if (hasSrc) {
+    lines.push('  Hint: only src/ changed; ensure build/prepack outputs are fresh.')
+  }
+
+  return lines
+}
+
 const printDiff = (baselinePath: string, currentPath: string): void => {
   const result = spawnSync('diff', ['-u', baselinePath, currentPath], { encoding: 'utf8' })
   if (result.error) {
@@ -141,6 +185,7 @@ const main = async (): Promise<void> => {
   const extra = Array.from(currentMap.keys()).filter((key) => !baselineMap.has(key))
 
   const changed: string[] = []
+  const changedErrors: string[] = []
   for (const [path, entry] of baselineMap.entries()) {
     const currentEntry = currentMap.get(path)
     if (!currentEntry) {
@@ -173,6 +218,7 @@ const main = async (): Promise<void> => {
       continue
     }
     errors.push(`Unexpected drift: ${details}`)
+    changedErrors.push(path)
   }
 
   if (notices.length > 0) {
@@ -192,6 +238,11 @@ const main = async (): Promise<void> => {
 
   if (errors.length > 0) {
     console.error(`ERROR: parity check failed with ${errors.length} issue(s)`)
+    if (changedErrors.length > 0) {
+      for (const line of summarizePaths(changedErrors)) {
+        console.error(line)
+      }
+    }
     for (const item of errors) {
       console.error(`- ${item}`)
     }
