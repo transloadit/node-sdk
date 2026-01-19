@@ -67,7 +67,7 @@ Passing JavaScript allows you to implement logic as complex as you wish, however
 The \`accepts\` and \`declines\` parameters can each be set to an array of arrays with three members:
 
 1. A value or job variable, such as \`\${file.mime}\`
-2. One of the following operators: \`==\`, \`===\`, \`<\`, \`>\`, \`<=\`, \`>=\`, \`!=\`, \`!==\`, \`regex\`, \`!regex\`
+2. One of the following operators: \`==\`, \`===\`, \`<\`, \`>\`, \`<=\`, \`>=\`, \`!=\`, \`!==\`, \`regex\`, \`!regex\`, \`includes\`, \`!includes\`
 3. A value or job variable, such as \`50\` or \`"foo"\`
 
 Examples:
@@ -76,6 +76,8 @@ Examples:
 - \`[["\${file.size}", "<=", "720"]]\`
 - \`[["720", ">=", "\${file.size}"]]\`
 - \`[["\${file.mime}", "regex", "image"]]\`
+
+The \`includes\` and \`!includes\` operators work with arrays or strings (strings use substring checks).
 
 > [!Warning]
 > If you would like to match against a \`null\` value or a value that is not present (like an audio file does not have a \`video_codec\` property in its metadata), match against \`""\` (an empty string) instead. We’ll support proper matching against \`null\` in the future, but we cannot easily do so right now without breaking backwards compatibility.
