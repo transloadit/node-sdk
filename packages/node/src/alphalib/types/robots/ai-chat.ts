@@ -141,39 +141,6 @@ export const meta: RobotMetaInput = {
   stage: 'alpha',
 }
 
-export const vendorModelSchema = z
-  .string()
-  .regex(/^[a-z]+\/[a-z0-9.-]+$/, 'Must be in format "vendor/model"')
-  .refine(
-    (val) => {
-      const [vendor, model] = val.split('/')
-      if (vendor === 'anthropic') {
-        return model === 'claude-4-sonnet-20250514' || model === 'claude-4-opus-20250514'
-      }
-      if (vendor === 'openai') {
-        return (
-          model === 'gpt-4.1-2025-04-14' ||
-          model === 'chatgpt-4o-latest' ||
-          model === 'o3-2025-04-16' ||
-          model === 'gpt-4o-audio-preview'
-        )
-      }
-      if (vendor === 'google') {
-        return model === 'gemini-2.5-pro'
-      }
-      if (vendor === 'moonshot') {
-        return model === 'kimi-k2'
-      }
-      return false
-    },
-    {
-      message:
-        'Invalid vendor/model combination. Supported: anthropic/claude-4-sonnet-20250514, anthropic/claude-4-opus-20250514, openai/gpt-4.1-2025-04-14, openai/chatgpt-4o-latest, openai/o3-2025-04-16, openai/gpt-4o-audio-preview, google/gemini-2.5-pro, moonshot/kimi-k2',
-    },
-  )
-
-export type VendorModel = z.infer<typeof vendorModelSchema>
-
 /**
  * Model capabilities for /ai/chat. This centralizes which models support which input types.
  * Key format: 'vendor/model'
@@ -181,13 +148,30 @@ export type VendorModel = z.infer<typeof vendorModelSchema>
 export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }> = {
   'anthropic/claude-4-sonnet-20250514': { pdf: true, image: true },
   'anthropic/claude-4-opus-20250514': { pdf: true, image: true },
-  'google/gemini-2.5-pro': { pdf: true, image: true },
+  'anthropic/claude-sonnet-4-5': { pdf: true, image: true },
+  'anthropic/claude-opus-4-5': { pdf: true, image: true },
   'openai/gpt-4.1-2025-04-14': { pdf: false, image: true },
   'openai/chatgpt-4o-latest': { pdf: false, image: true },
   'openai/o3-2025-04-16': { pdf: false, image: true },
   'openai/gpt-4o-audio-preview': { pdf: false, image: false },
+  'openai/gpt-5.2': { pdf: false, image: true },
+  'openai/gpt-5.2-2025-12-11': { pdf: false, image: true },
+  'openai/gpt-5.2-chat-latest': { pdf: false, image: true },
+  'openai/gpt-5.2-pro': { pdf: false, image: true },
+  'google/gemini-2.5-pro': { pdf: true, image: true },
   'moonshot/kimi-k2': { pdf: false, image: false },
 }
+
+const supportedModelsList = Object.keys(MODEL_CAPABILITIES)
+
+export const vendorModelSchema = z
+  .string()
+  .regex(/^[a-z]+\/[a-z0-9.-]+$/, 'Must be in format "vendor/model"')
+  .refine((val) => Object.hasOwn(MODEL_CAPABILITIES, val), {
+    message: `Invalid vendor/model combination. Supported: ${supportedModelsList.join(', ')}`,
+  })
+
+export type VendorModel = z.infer<typeof vendorModelSchema>
 
 export const robotAiChatInstructionsSchema = robotBase
   .merge(robotUse)
@@ -214,6 +198,10 @@ export const robotAiChatInstructionsSchema = robotBase
       .union([z.string(), z.array(z.string())])
       .optional()
       .describe('Names of template credentials to make available to the robot.'),
+    test_credentials: z
+      .boolean()
+      .optional()
+      .describe('Use Transloadit-provided credentials for testing.'),
     mcp_servers: z
       .array(
         z.object({

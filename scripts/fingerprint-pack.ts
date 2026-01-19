@@ -1,7 +1,8 @@
-import { execFile, spawn } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { mkdir, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { promisify } from 'node:util'
 
@@ -14,6 +15,7 @@ Options:
   -o, --out <file>   Write JSON output to a file
   --ignore-scripts   Pass --ignore-scripts to npm pack
   --keep             Keep the generated tarball
+  -q, --quiet        Suppress JSON output to stdout
   -h, --help         Show help
 `)
 }
@@ -23,6 +25,7 @@ interface ParsedArgs {
   out: string | null
   keep: boolean
   ignoreScripts: boolean
+  quiet: boolean
 }
 
 const parseArgs = (): ParsedArgs => {
@@ -31,6 +34,7 @@ const parseArgs = (): ParsedArgs => {
   let out = null
   let keep = false
   let ignoreScripts = false
+  let quiet = false
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i]
@@ -51,13 +55,17 @@ const parseArgs = (): ParsedArgs => {
       ignoreScripts = true
       continue
     }
+    if (arg === '--quiet' || arg === '-q') {
+      quiet = true
+      continue
+    }
     if (arg.startsWith('-')) {
       throw new Error(`Unknown option: ${arg}`)
     }
     target = arg
   }
 
-  return { target, out, keep, ignoreScripts }
+  return { target, out, keep, ignoreScripts, quiet }
 }
 
 const hashFile = async (filePath: string): Promise<string> =>
@@ -69,43 +77,43 @@ const hashFile = async (filePath: string): Promise<string> =>
     stream.on('end', () => resolvePromise(hash.digest('hex')))
   })
 
-const hashTarEntry = async (
-  tarballPath: string,
-  entry: string,
-): Promise<{ sha256: string; sizeBytes: number }> =>
+const hashFileWithSize = async (filePath: string): Promise<{ sha256: string; sizeBytes: number }> =>
   new Promise((resolvePromise, reject) => {
     const hash = createHash('sha256')
     let sizeBytes = 0
-    const child = spawn('tar', ['-xOf', tarballPath, entry], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    child.stdout.on('data', (chunk) => {
+    const stream = createReadStream(filePath)
+    stream.on('error', reject)
+    stream.on('data', (chunk) => {
       sizeBytes += chunk.length
       hash.update(chunk)
     })
-    let stderr = ''
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk.toString()
-    })
-    child.on('error', reject)
-    child.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(`tar failed for ${entry}: ${stderr.trim()}`))
-        return
-      }
-      resolvePromise({ sha256: hash.digest('hex'), sizeBytes })
-    })
+    stream.on('end', () => resolvePromise({ sha256: hash.digest('hex'), sizeBytes }))
   })
 
-const readTarEntry = async (tarballPath: string, entry: string): Promise<string> => {
-  const { stdout } = await execFileAsync('tar', ['-xOf', tarballPath, entry], {
-    encoding: 'utf8',
+const runWithConcurrency = async <T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> => {
+  if (items.length === 0) return []
+  const results = new Array<R>(items.length)
+  let index = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const current = index
+      index += 1
+      if (current >= items.length) {
+        break
+      }
+      results[current] = await worker(items[current])
+    }
   })
-  return stdout
+  await Promise.all(workers)
+  return results
 }
 
 const main = async (): Promise<void> => {
-  const { target, out, keep, ignoreScripts } = parseArgs()
+  const { target, out, keep, ignoreScripts, quiet } = parseArgs()
   const cwd = resolve(process.cwd(), target)
 
   const packArgs = ['pack', '--json']
@@ -130,42 +138,51 @@ const main = async (): Promise<void> => {
     .filter((line) => line.length > 0)
     .filter((line) => !line.endsWith('/'))
 
-  const files = []
-  for (const entry of entries) {
-    const { sha256, sizeBytes } = await hashTarEntry(tarballPath, entry)
-    const normalized = entry.startsWith('package/') ? entry.slice('package/'.length) : entry
-    files.push({ path: normalized, sizeBytes, sha256 })
+  const extractDir = await mkdtemp(resolve(tmpdir(), 'transloadit-pack-'))
+  let files: { path: string; sizeBytes: number; sha256: string }[] = []
+  try {
+    await execFileAsync('tar', ['-xf', tarballPath, '-C', extractDir])
+    const concurrency = 8
+    files = await runWithConcurrency(entries, concurrency, async (entry) => {
+      const { sha256, sizeBytes } = await hashFileWithSize(resolve(extractDir, entry))
+      const normalized = entry.startsWith('package/') ? entry.slice('package/'.length) : entry
+      return { path: normalized, sizeBytes, sha256 }
+    })
+    const packageJsonPath = resolve(extractDir, 'package', 'package.json')
+    const packageJsonRaw = await readFile(packageJsonPath, 'utf8')
+    const packageJson = JSON.parse(packageJsonRaw)
+
+    const summary = {
+      packageDir: cwd,
+      tarball: {
+        filename: info.filename,
+        sizeBytes: tarballStat.size,
+        sha256: tarballSha,
+      },
+      packageJson: {
+        name: packageJson.name,
+        version: packageJson.version,
+        main: packageJson.main,
+        types: packageJson.types,
+        exports: packageJson.exports,
+        files: packageJson.files,
+      },
+      files,
+    }
+
+    const json = `${JSON.stringify(summary, null, 2)}\n`
+    if (out) {
+      const outPath = resolve(process.cwd(), out)
+      await mkdir(resolve(outPath, '..'), { recursive: true })
+      await writeFile(outPath, json)
+    }
+
+    if (!quiet) {
+      process.stdout.write(json)
+    }
+  } finally {
+    await rm(extractDir, { recursive: true, force: true })
   }
-
-  const packageJsonRaw = await readTarEntry(tarballPath, 'package/package.json')
-  const packageJson = JSON.parse(packageJsonRaw)
-
-  const summary = {
-    packageDir: cwd,
-    tarball: {
-      filename: info.filename,
-      sizeBytes: tarballStat.size,
-      sha256: tarballSha,
-    },
-    packageJson: {
-      name: packageJson.name,
-      version: packageJson.version,
-      main: packageJson.main,
-      types: packageJson.types,
-      exports: packageJson.exports,
-      files: packageJson.files,
-    },
-    files,
-  }
-
-  const json = `${JSON.stringify(summary, null, 2)}\n`
-  if (out) {
-    const outPath = resolve(process.cwd(), out)
-    await mkdir(resolve(outPath, '..'), { recursive: true })
-    await writeFile(outPath, json)
-  }
-
-  process.stdout.write(json)
 
   if (!keep) {
     await rm(tarballPath, { force: true })
