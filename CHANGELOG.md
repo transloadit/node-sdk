@@ -2,6 +2,13 @@
 
 You may also want to refer to [GitHub releases](https://github.com/transloadit/node-sdk/releases).
 
+## Roadmap
+
+- Support more platforms than Node.js https://github.com/transloadit/node-sdk/issues/153
+- Other improvements, see https://github.com/transloadit/node-sdk/issues/89
+- Add JSON Schema export for v4 (`@transloadit/jsonschema` or subpath) once zod v4 tooling is stable.
+- Consider promoting alphalib into its own workspace package if/when all consuming repos are v4‑ready.
+
 ## Unreleased
 
 - TBD

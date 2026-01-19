@@ -193,8 +193,3 @@ Only `package.json` metadata drift is currently allowed; any other file differen
 - [x] Add a sync-v4 regression fixture to verify `.passthrough()` → `.catchall(z.unknown())` and `z.record(...)` key injection
 - [x] Add runtime parity coverage for `assemblyStatus` (ok/error/busy) once stable samples are selected
 - [x] Add a CI guard that `@transloadit/zod` exports list stays in sync with `packages/node/src/alphalib/types`
-
-## Future extensions
-
-- Add JSON Schema export for v4 (`@transloadit/jsonschema` or subpath) once v4 tooling is stable.
-- Consider promoting alphalib into its own workspace package if/when all consuming repos are v4‑ready.
