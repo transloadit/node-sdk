@@ -8,10 +8,12 @@ description: Create or update a concise handover doc for the current repo/sessio
 Create or update a handover doc for the current repo.
 
 ## Location
+
 - If `repodocs/prompts/` exists -> use it.
 - Else use `docs/prompts/`.
 
 ## Filename
+
 - `YYYY-MM-DD-handover-<topic>.md`
 - `<topic>` is auto-slugged on creation, using best available context:
   - Prefer PR title (if PR exists for current branch).
@@ -21,6 +23,7 @@ Create or update a handover doc for the current repo.
 - On update: do not rename; update existing file unless the user requests a new file.
 
 ## Data sources
+
 - Date: `date +%Y-%m-%d`
 - Updated: `date -u +%Y-%m-%dT%H:%M:%SZ`
 - Host: `hostname`
@@ -31,6 +34,7 @@ Create or update a handover doc for the current repo.
 - PR (if available): `gh pr view --json number,title,url`
 
 ## Format (bullets only)
+
 - Date: …
 - Updated: …
 - Host: …
