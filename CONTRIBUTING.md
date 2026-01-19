@@ -93,21 +93,27 @@ yarn pack
 
 ## Releasing
 
-Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub actions and Changesets (including the legacy `transloadit` package). To make a release, perform the following steps:
+Only maintainers can make releases. Releases to [npm](https://www.npmjs.com) are automated using GitHub Actions and Changesets (including the legacy `transloadit` package).
 
-1. Create a changeset:
+Release flow:
+
+1. Add a changeset in your PR:
    - `yarn changeset`
-2. Version packages (updates `CHANGELOG.md` + workspace `package.json` files):
-   - `yarn changeset version`
-   - `git add -A && git commit -m "chore: version packages"`
-3. Push the version commit and tags:
-   - `git push origin main`
-4. Publish (maintainers only; GitHub Actions handles the release):
-   - `yarn changeset publish`
-5. When successful add [release notes](https://github.com/transloadit/node-sdk/releases).
-6. Scoped packages publish with the `experimental` dist-tag by default. If you need to promote a scoped package to `latest`, update the tag manually.
-7. If this was a pre-release, remember to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
-   - `npm dist-tag add transloadit@X.Y.Z latest`
+2. Merge the PR to `main`.
+3. The `release` workflow opens a “Version Packages” PR with changelog + version bumps.
+4. Review and merge the version PR. CI publishes automatically via npm trusted publishing (OIDC).
+5. Add [release notes](https://github.com/transloadit/node-sdk/releases) once the publish succeeds.
+
+Manual fallback (maintainers only):
+
+- `corepack yarn changeset publish`
+
+Notes:
+
+- CI publishing requires npm trusted publishing (OIDC) configured for this repo.
+- Scoped packages publish with the `experimental` dist-tag by default. If you need to promote a scoped package to `latest`, update the tag manually.
+- If this was a pre-release, remember to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
+  - `npm dist-tag add transloadit@X.Y.Z latest`
 
 ### Release FAQ
 
