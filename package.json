@@ -20,7 +20,7 @@
     "fix:deps": "yarn run --binaries-only knip --include dependencies,unlisted,unresolved,catalog --no-progress --fix --no-config-hints",
     "knip": "yarn run --binaries-only knip --exclude binaries --no-config-hints --no-progress",
     "pack": "node scripts/pack-transloadit.ts",
-    "parity:transloadit": "node scripts/prepare-transloadit.ts && node scripts/fingerprint-pack.ts packages/transloadit --ignore-scripts --quiet --out /tmp/transloadit-after.json && node scripts/verify-fingerprint.ts --current /tmp/transloadit-after.json",
+    "parity:transloadit": "node scripts/prepare-transloadit.ts && node scripts/fingerprint-pack.ts packages/transloadit --ignore-scripts --quiet --out /tmp/transloadit-after.json && node scripts/verify-fingerprint.ts --current /tmp/transloadit-after.json --diff",
     "test:unit": "yarn workspace @transloadit/node test:unit && yarn workspace @transloadit/types test:unit && yarn workspace @transloadit/zod test:unit",
     "test:types": "yarn workspace @transloadit/zod test:types",
     "test:e2e": "yarn workspace @transloadit/node test:e2e",
