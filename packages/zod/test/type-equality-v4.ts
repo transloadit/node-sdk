@@ -1,8 +1,8 @@
 import type { AssemblyStatus } from '@transloadit/types/assemblyStatus'
 import type { AssemblyInstructions } from '@transloadit/types/template'
 import type { z } from 'zod/v4'
-import type { assemblyStatusSchema } from '../src/v4/assemblyStatus.js'
-import type { assemblyInstructionsSchema } from '../src/v4/template.js'
+import type { assemblyStatusSchema } from '../src/v4/assemblyStatus.ts'
+import type { assemblyInstructionsSchema } from '../src/v4/template.ts'
 
 type Equal<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 
