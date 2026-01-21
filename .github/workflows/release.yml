@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@11.5.1
       - run: corepack yarn
       - uses: changesets/action@v1
         with:
@@ -29,4 +30,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
-          NODE_AUTH_TOKEN: ""
