@@ -1,6 +1,6 @@
 {
   "name": "@transloadit/types",
-  "version": "4.1.7",
+  "version": "4.1.8",
   "description": "Transloadit type definitions",
   "type": "module",
   "license": "MIT",

@@ -1,5 +1,11 @@
 # @transloadit/types
 
+## 4.1.8
+
+### Patch Changes
+
+- 10ac3f2: Add assembly URL parsing + stage helpers to the shared schema exports.
+
 ## 4.1.7
 
 ## 4.1.6

@@ -1,6 +1,6 @@
 {
   "name": "@transloadit/zod",
-  "version": "4.1.7",
+  "version": "4.1.8",
   "description": "Transloadit Zod schemas",
   "type": "module",
   "license": "MIT",
