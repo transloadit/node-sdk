@@ -1,6 +1,8 @@
 import crypto from 'node:crypto'
 import fsp from 'node:fs/promises'
+import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { imageSize } from 'image-size'
 import rreaddir from 'recursive-readdir'
@@ -14,15 +16,14 @@ const rreaddirAsync = promisify(rreaddir)
 
 describe('assemblies', () => {
   describe('create', () => {
-    const genericImg = 'https://placehold.co/100.jpg'
+    const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
+    const fixtureImg = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../fixtures/1x1.jpg',
+    )
 
     async function imgPromise(fname = 'in.jpg'): Promise<string> {
-      const response = await fetch(genericImg)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.status}`)
-      }
-      const buffer = Buffer.from(await response.arrayBuffer())
-      await fsp.writeFile(fname, buffer)
+      await fsp.copyFile(fixtureImg, fname)
       return fname
     }
 
