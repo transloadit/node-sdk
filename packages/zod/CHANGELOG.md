@@ -1,5 +1,11 @@
 # @transloadit/zod
 
+## 4.1.5
+
+### Patch Changes
+
+- 0318b97: Add assembly status helpers and expand busy status codes for consistent terminal checks.
+
 ## 4.1.4
 
 ### Patch Changes
