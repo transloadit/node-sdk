@@ -13,6 +13,7 @@ const indexModules = [
   'assemblyReplay',
   'assemblyReplayNotification',
   'assemblyStatus',
+  'assemblyUrls',
   'bill',
   'stackVersions',
   'template',
