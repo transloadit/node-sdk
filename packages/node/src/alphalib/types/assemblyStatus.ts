@@ -765,6 +765,15 @@ export function isAssemblyErrorStatus(
 }
 
 /**
+ * Type guard to check if an assembly matches the system error shape.
+ */
+export function isAssemblySysError(
+  assembly: AssemblyStatus | undefined | null,
+): assembly is z.infer<typeof assemblyStatusSysErrSchema> {
+  return Boolean(assembly) && assemblyStatusSysErrSchema.safeParse(assembly).success
+}
+
+/**
  * Type guard to check if a status string is terminal (ok, but not busy).
  */
 export function isAssemblyTerminalOkStatus(
@@ -791,7 +800,7 @@ export function isAssemblyTerminalOk(assembly: AssemblyStatus | undefined | null
  * Returns true if the assembly has a terminal error state.
  */
 export function isAssemblyTerminalError(assembly: AssemblyStatus | undefined | null): boolean {
-  return isAssemblyErrorStatus(getError(assembly))
+  return isAssemblyErrorStatus(getError(assembly)) || isAssemblySysError(assembly)
 }
 
 /**
