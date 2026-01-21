@@ -1,5 +1,11 @@
 # @transloadit/zod
 
+## 4.1.6
+
+### Patch Changes
+
+- 0f24238: Ensure packages build dist assets during publish.
+
 ## 4.1.5
 
 ### Patch Changes
