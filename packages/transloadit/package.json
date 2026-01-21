@@ -20,6 +20,7 @@
     "@aws-sdk/client-s3": "^3.891.0",
     "@aws-sdk/s3-request-presigner": "^3.891.0",
     "@transloadit/sev-logger": "^0.0.15",
+    "@transloadit/utils": "workspace:*",
     "clipanion": "^4.0.0-rc.4",
     "debug": "^4.4.3",
     "dotenv": "^17.2.3",
@@ -46,7 +47,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/transloadit/node-sdk",
-    "directory": "packages/transloadit"
+    "directory": "packages/node"
   },
   "directories": {
     "src": "./src"

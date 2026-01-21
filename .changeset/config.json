@@ -7,7 +7,15 @@
     }
   ],
   "commit": false,
-  "fixed": [["@transloadit/node", "transloadit", "@transloadit/types", "@transloadit/zod"]],
+  "fixed": [
+    [
+      "@transloadit/node",
+      "transloadit",
+      "@transloadit/types",
+      "@transloadit/utils",
+      "@transloadit/zod"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",

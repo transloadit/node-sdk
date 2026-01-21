@@ -1,0 +1,38 @@
+{
+  "name": "@transloadit/utils",
+  "version": "4.1.5",
+  "description": "Transloadit shared utilities",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/transloadit/node-sdk",
+    "directory": "packages/utils"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "lint:ts": "../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "build": "../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "check": "yarn lint:ts",
+    "prepack": "yarn build"
+  },
+  "publishConfig": {
+    "tag": "experimental"
+  }
+}

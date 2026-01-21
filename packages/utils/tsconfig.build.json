@@ -1,7 +1,6 @@
 {
   "include": ["src"],
-  "exclude": ["test", "coverage", "dist", "examples"],
-  "references": [{ "path": "../utils/tsconfig.build.json" }],
+  "exclude": ["dist", "test"],
   "compilerOptions": {
     "composite": true,
     "declaration": true,
@@ -14,9 +13,8 @@
     "noImplicitOverride": true,
     "rewriteRelativeImportExtensions": true,
     "outDir": "dist",
-    "resolveJsonModule": true,
     "rootDir": "src",
-    "sourceMap": true,
+    "resolveJsonModule": true,
     "strict": true
   }
 }

@@ -1,13 +1,13 @@
 {
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.1.4.tgz",
-    "sizeBytes": 1112173,
-    "sha256": "58d8c372fb4be8b14c7fcd2ba528846837b6d536ed80f2d55d36de6384f89684"
+    "filename": "transloadit-4.1.5.tgz",
+    "sizeBytes": 1110724,
+    "sha256": "b53bb14e80d27d4a682221c8fed137a19bd541dc65a71ab7758cf91485cb1a59"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.1.4",
+    "version": "4.1.5",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -518,8 +518,8 @@
     },
     {
       "path": "dist/Transloadit.js",
-      "sizeBytes": 28131,
-      "sha256": "8a9f68704b6dfaef019f10a79fbcc967034e6be6787e3f112c2ee480ae1ba5d3"
+      "sizeBytes": 26372,
+      "sha256": "70bcf0b8cd39e29468acde3013b4819246a75ff017793b973b8c8463d3fa9e47"
     },
     {
       "path": "dist/alphalib/tryCatch.js",
@@ -613,8 +613,8 @@
     },
     {
       "path": "package.json",
-      "sizeBytes": 2201,
-      "sha256": "e0d0a327efa47840315ea7e37947e10feda0280754250302000ba016b388fa75"
+      "sizeBytes": 2274,
+      "sha256": "5a3b088f22c257b6c88425205c33cce5625af9c252fe63cd06263cae9ed92a7e"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
@@ -1608,13 +1608,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts.map",
-      "sizeBytes": 4955,
-      "sha256": "3933904963537b1d3c1a33218f154e2c0620fb7e6048135b5291fe6d4affcb84"
+      "sizeBytes": 4954,
+      "sha256": "203f82001462740de8809d02a255847291d65727476b4b63be60075887b61bd7"
     },
     {
       "path": "dist/Transloadit.js.map",
-      "sizeBytes": 19217,
-      "sha256": "b07b0ec19dff6764da41b0dfe6978243370f2d7af425844ff79c95c439f5b1c7"
+      "sizeBytes": 17714,
+      "sha256": "ac205f99044135de4aacb005ddb42a61d48ab8eb24c220694d5d4e335a3e3b79"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts.map",
@@ -2798,8 +2798,8 @@
     },
     {
       "path": "src/Transloadit.ts",
-      "sizeBytes": 31079,
-      "sha256": "0e431a0e5454816551e3980adde72035b32b0be00b464e626288477356822842"
+      "sizeBytes": 29500,
+      "sha256": "1b433ef7023391bea362fdaef728506e4017d2d5f4d974cfe1320353d96ebcf9"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts",

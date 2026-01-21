@@ -1,9 +1,10 @@
 import * as assert from 'node:assert'
-import { createHmac, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
 import { access } from 'node:fs/promises'
 import type { Readable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
+import { getSignedSmartCdnUrl, signParamsSync } from '@transloadit/utils/node'
 import debug from 'debug'
 import FormData from 'form-data'
 import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
@@ -778,47 +779,15 @@ export class Transloadit {
    * Construct a signed Smart CDN URL. See https://transloadit.com/docs/topics/signature-authentication/#smart-cdn.
    */
   getSignedSmartCDNUrl(opts: SmartCDNUrlOptions): string {
-    if (opts.workspace == null || opts.workspace === '')
-      throw new TypeError('workspace is required')
-    if (opts.template == null || opts.template === '') throw new TypeError('template is required')
-    if (opts.input == null) throw new TypeError('input is required') // `input` can be an empty string.
-
-    const workspaceSlug = encodeURIComponent(opts.workspace)
-    const templateSlug = encodeURIComponent(opts.template)
-    const inputField = encodeURIComponent(opts.input)
-    const expiresAt = opts.expiresAt || Date.now() + 60 * 60 * 1000 // 1 hour
-
-    const queryParams = new URLSearchParams()
-    for (const [key, value] of Object.entries(opts.urlParams || {})) {
-      if (Array.isArray(value)) {
-        for (const val of value) {
-          queryParams.append(key, `${val}`)
-        }
-      } else {
-        queryParams.append(key, `${value}`)
-      }
-    }
-
-    queryParams.set('auth_key', this._authKey)
-    queryParams.set('exp', `${expiresAt}`)
-    // The signature changes depending on the order of the query parameters. We therefore sort them on the client-
-    // and server-side to ensure that we do not get mismatching signatures if a proxy changes the order of query
-    // parameters or implementations handle query parameters ordering differently.
-    queryParams.sort()
-
-    const stringToSign = `${workspaceSlug}/${templateSlug}/${inputField}?${queryParams}`
-    const algorithm = 'sha256'
-    const signature = createHmac(algorithm, this._authSecret).update(stringToSign).digest('hex')
-
-    queryParams.set('sig', `sha256:${signature}`)
-    const signedUrl = `https://${workspaceSlug}.tlcdn.com/${templateSlug}/${inputField}?${queryParams}`
-    return signedUrl
+    return getSignedSmartCdnUrl({
+      ...opts,
+      authKey: this._authKey,
+      authSecret: this._authSecret,
+    })
   }
 
   private _calcSignature(toSign: string, algorithm = 'sha384'): string {
-    return `${algorithm}:${createHmac(algorithm, this._authSecret)
-      .update(Buffer.from(toSign, 'utf-8'))
-      .digest('hex')}`
+    return signParamsSync(toSign, this._authSecret, algorithm)
   }
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including

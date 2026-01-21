@@ -2654,6 +2654,7 @@ __metadata:
     "@aws-sdk/client-s3": "npm:^3.891.0"
     "@aws-sdk/s3-request-presigner": "npm:^3.891.0"
     "@transloadit/sev-logger": "npm:^0.0.15"
+    "@transloadit/utils": "workspace:*"
     "@types/debug": "npm:^4.1.12"
     "@types/minimist": "npm:^1.2.5"
     "@types/node": "npm:^24.10.3"
@@ -2699,6 +2700,12 @@ __metadata:
   resolution: "@transloadit/types@workspace:packages/types"
   dependencies:
     zod: "npm:3.25.76"
+  languageName: unknown
+  linkType: soft
+
+"@transloadit/utils@workspace:*, @transloadit/utils@workspace:packages/utils":
+  version: 0.0.0-use.local
+  resolution: "@transloadit/utils@workspace:packages/utils"
   languageName: unknown
   linkType: soft
 

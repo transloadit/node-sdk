@@ -1,6 +1,6 @@
 {
   "name": "transloadit",
-  "version": "4.1.4",
+  "version": "4.1.5",
   "description": "Node.js SDK for Transloadit",
   "type": "module",
   "keywords": ["transloadit", "encoding", "transcoding", "video", "audio", "mp3"],
@@ -13,6 +13,7 @@
     "@aws-sdk/client-s3": "^3.891.0",
     "@aws-sdk/s3-request-presigner": "^3.891.0",
     "@transloadit/sev-logger": "^0.0.15",
+    "@transloadit/utils": "workspace:*",
     "clipanion": "^4.0.0-rc.4",
     "debug": "^4.4.3",
     "dotenv": "^17.2.3",
@@ -38,7 +39,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/transloadit/node-sdk.git"
+    "url": "https://github.com/transloadit/node-sdk",
+    "directory": "packages/node"
   },
   "directories": {
     "src": "./src"

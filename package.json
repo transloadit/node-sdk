@@ -11,7 +11,7 @@
     "verify": "yarn lint:deps && yarn lint:js && yarn lint:ts && yarn test:unit",
     "verify:full": "yarn verify && yarn knip && yarn parity:transloadit && yarn test:types",
     "lint:js": "biome check .",
-    "lint:ts": "yarn tsc:node && yarn tsc:types && yarn tsc:zod",
+    "lint:ts": "yarn tsc:types && yarn tsc:node && yarn tsc:zod",
     "lint": "yarn lint:js",
     "fix": "yarn fix:js",
     "fix:js": "biome check --write .",
@@ -25,8 +25,9 @@
     "test:types": "yarn workspace @transloadit/zod test:types",
     "test:e2e": "yarn workspace @transloadit/node test:e2e",
     "test": "yarn workspace @transloadit/node test",
-    "tsc:node": "node ./node_modules/typescript/bin/tsc -b packages/node/tsconfig.build.json",
+    "tsc:node": "yarn tsc:utils && node ./node_modules/typescript/bin/tsc -b packages/node/tsconfig.build.json",
     "tsc:types": "yarn workspace @transloadit/types generate && node ./node_modules/typescript/bin/tsc -b packages/types/tsconfig.build.json",
+    "tsc:utils": "node ./node_modules/typescript/bin/tsc -b packages/utils/tsconfig.build.json",
     "tsc:zod": "yarn workspace @transloadit/zod sync && node ./node_modules/typescript/bin/tsc -b packages/zod/tsconfig.build.json"
   },
   "devDependencies": {

@@ -85,6 +85,11 @@ const config: KnipConfig = {
         'zod',
       ],
     },
+    'packages/utils': {
+      entry: ['src/**/*.{ts,tsx,js,jsx}'],
+      project: ['src/**/*.{ts,tsx,js,jsx}'],
+      ignore: ['dist/**', 'node_modules/**'],
+    },
     'packages/zod': {
       entry: ['src/**/*.{ts,tsx,js,jsx}', 'scripts/**/*.ts', 'test/**/*.ts'],
       project: ['{src,scripts,test}/**/*.ts'],
