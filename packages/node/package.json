@@ -56,7 +56,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/transloadit/node-sdk.git"
+    "url": "https://github.com/transloadit/node-sdk",
+    "directory": "packages/node"
   },
   "directories": {
     "src": "./src"

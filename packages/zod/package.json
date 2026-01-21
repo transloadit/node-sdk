@@ -4,6 +4,11 @@
   "description": "Transloadit Zod schemas",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/transloadit/node-sdk",
+    "directory": "packages/zod"
+  },
   "files": [
     "dist",
     "README.md"

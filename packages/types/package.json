@@ -4,6 +4,11 @@
   "description": "Transloadit type definitions",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/transloadit/node-sdk",
+    "directory": "packages/types"
+  },
   "files": [
     "dist",
     "README.md"
