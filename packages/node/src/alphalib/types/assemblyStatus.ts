@@ -802,13 +802,6 @@ export function isAssemblyTerminal(assembly: AssemblyStatus | undefined | null):
 }
 
 /**
- * Returns true if the assembly finished successfully.
- */
-export function isAssemblyCompleted(assembly: AssemblyStatus | undefined | null): boolean {
-  return getOk(assembly) === 'ASSEMBLY_COMPLETED'
-}
-
-/**
  * This type and these functions below are compatibility helpers for
  * working with partial assembly status objects during the transition
  * from the old types to the new Zod-based schema.
