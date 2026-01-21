@@ -6968,6 +6968,7 @@ __metadata:
     "@aws-sdk/client-s3": "npm:^3.891.0"
     "@aws-sdk/s3-request-presigner": "npm:^3.891.0"
     "@transloadit/sev-logger": "npm:^0.0.15"
+    "@transloadit/utils": "workspace:*"
     "@types/debug": "npm:^4.1.12"
     "@types/minimist": "npm:^1.2.5"
     "@types/node": "npm:^24.10.3"
