@@ -120,3 +120,4 @@ Notes:
 - **Lockstep versions:** Changesets use a fixed group, so version bumps and releases are always in lock‑step across `transloadit`, `@transloadit/node`, `@transloadit/types`, and `@transloadit/zod`.
 - **Legacy parity:** `transloadit` is generated from `@transloadit/node` artifacts via `scripts/prepare-transloadit.ts`, then verified with `yarn parity:transloadit`. Only `package.json` metadata drift is allowed; any other drift fails.
 - **Experimental packages:** Scoped packages (`@transloadit/node`, `@transloadit/types`, `@transloadit/zod`) publish with the `experimental` dist-tag. The unscoped `transloadit` package remains stable.
+- **Changelog visibility:** Because versions are locked, a changeset that only lists scoped packages will still bump `transloadit` but may leave its changelog empty. If a change affects `transloadit` users, include `transloadit` in the changeset so the changelog entry is visible.
