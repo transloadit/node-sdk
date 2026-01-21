@@ -1,5 +1,13 @@
 # @transloadit/node
 
+## 4.1.7
+
+### Patch Changes
+
+- d443386: Add shared signature helpers in @transloadit/utils and reuse them in the Node SDK.
+- Updated dependencies [d443386]
+  - @transloadit/utils@4.1.7
+
 ## 4.1.6
 
 ## 4.1.5
