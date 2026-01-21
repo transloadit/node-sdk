@@ -1,13 +1,13 @@
 {
-  "packageDir": "/Users/kvz/code/node-sdk/packages/transloadit",
+  "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.1.3.tgz",
-    "sizeBytes": 1112110,
-    "sha256": "973f2846fe89338a05f6416d54722726d4ad7334181d02fd09b0838b30ab739e"
+    "filename": "transloadit-4.1.4.tgz",
+    "sizeBytes": 1112173,
+    "sha256": "58d8c372fb4be8b14c7fcd2ba528846837b6d536ed80f2d55d36de6384f89684"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.1.3",
+    "version": "4.1.4",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -73,8 +73,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js",
-      "sizeBytes": 28422,
-      "sha256": "aa59b5ea94ac88ab533233a76cd394f9d81d1631f3620cbe51e54261a96a07cb"
+      "sizeBytes": 30275,
+      "sha256": "965681e5d34df579fa11b8903c8fdf2823636be5830e97ab751fe5a531cad608"
     },
     {
       "path": "dist/alphalib/types/robots/audio-artwork.js",
@@ -614,7 +614,7 @@
     {
       "path": "package.json",
       "sizeBytes": 2201,
-      "sha256": "4836303837df371e1cae0c1eab22c353d6efef46695047ddb428fc544df416a5"
+      "sha256": "e0d0a327efa47840315ea7e37947e10feda0280754250302000ba016b388fa75"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
@@ -718,13 +718,13 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts.map",
-      "sizeBytes": 73453,
-      "sha256": "ba4ef1d696b4e2206f1f653816b4482e9c7d828e67932d3dc65c34901b8645ce"
+      "sizeBytes": 74444,
+      "sha256": "2a863f4791a4963c77806332af2a6353d158457b4c6a59ba5f7b6f271849643d"
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js.map",
-      "sizeBytes": 31752,
-      "sha256": "a34d73de1bfacf8481c2113ba52dca1c9323c0b72d2c85d1eedda9a5b04121d5"
+      "sizeBytes": 32930,
+      "sha256": "12d13cf45eaffea8afb16faaf9eac3bb9b0385e11a63606cfcddcc7a5c89c090"
     },
     {
       "path": "dist/alphalib/types/robots/audio-artwork.d.ts.map",
@@ -1903,13 +1903,13 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts",
-      "sizeBytes": 4247223,
-      "sha256": "a73d095037fd45c143b9f2f11f0b95ba5d0eb788e566d2ece74752b6b84feec9"
+      "sizeBytes": 4249145,
+      "sha256": "85f796b227939cd5546c2ea92f2ae0b5929b6b3eabbb9b563df4079c61ea0463"
     },
     {
       "path": "src/alphalib/types/assemblyStatus.ts",
-      "sizeBytes": 29509,
-      "sha256": "05e6b21ec4d572b95e0a6731633402a775de0aeb77b95c4cac87ac8cbcdab656"
+      "sizeBytes": 31951,
+      "sha256": "64f22e7547af8f406a7b4de333074bbbbe61ad4f2c3bb46ed076e682c466d5fa"
     },
     {
       "path": "dist/alphalib/types/robots/audio-artwork.d.ts",
