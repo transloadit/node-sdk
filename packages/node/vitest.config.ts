@@ -1,6 +1,16 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
+const utilsIndexPath = fileURLToPath(new URL('../utils/src/index.ts', import.meta.url))
+const utilsNodePath = fileURLToPath(new URL('../utils/src/node.ts', import.meta.url))
+
 export default defineConfig({
+  resolve: {
+    alias: [
+      { find: /^@transloadit\/utils\/node$/, replacement: utilsNodePath },
+      { find: /^@transloadit\/utils$/, replacement: utilsIndexPath },
+    ],
+  },
   test: {
     coverage: {
       include: ['src/**/*.ts'],

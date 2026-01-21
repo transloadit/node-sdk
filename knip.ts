@@ -69,6 +69,7 @@ const config: KnipConfig = {
         'typanion',
         'type-fest',
         'zod',
+        '@transloadit/utils',
         // Repo-specific ignores
         '@types/debug',
         '@types/minimist',

@@ -73,13 +73,10 @@
     "fix": "npm-run-all --serial 'fix:js'",
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
-    "pretest": "yarn --cwd ../.. tsc:utils",
-    "pretest:unit": "yarn --cwd ../.. tsc:utils",
-    "pretest:e2e": "yarn --cwd ../.. tsc:utils",
     "prepack": "rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && yarn --cwd ../.. tsc:node",
-    "test:unit": "../../node_modules/.bin/vitest run --coverage ./test/unit",
-    "test:e2e": "../../node_modules/.bin/vitest run ./test/e2e",
-    "test": "../../node_modules/.bin/vitest run --coverage"
+    "test:unit": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage ./test/unit",
+    "test:e2e": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run ./test/e2e",
+    "test": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage"
   },
   "license": "MIT",
   "main": "./dist/Transloadit.js",
