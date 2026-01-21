@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
-export const assemblyBusyCodeSchema = z.enum(['ASSEMBLY_UPLOADING'])
+export const assemblyBusyCodeSchema = z.enum([
+  'ASSEMBLY_UPLOADING',
+  'ASSEMBLY_EXECUTING',
+  'ASSEMBLY_REPLAYING',
+])
 
 export const assemblyStatusOkCodeSchema = z.enum([
   'ASSEMBLY_CANCELED',
@@ -731,6 +735,79 @@ export function getOk(assembly: AssemblyStatus | undefined | null): string | und
   return assembly && assembly != null && typeof assembly === 'object' && 'ok' in assembly
     ? String(assembly.ok)
     : undefined
+}
+
+/**
+ * Type guard to check if a status string is a busy (in-progress) state.
+ */
+export function isAssemblyBusyStatus(
+  status: string | undefined | null,
+): status is z.infer<typeof assemblyBusyCodeSchema> {
+  return Boolean(status) && assemblyBusyCodeSchema.safeParse(status).success
+}
+
+/**
+ * Type guard to check if a status string is an ok (non-error) state.
+ */
+export function isAssemblyOkStatus(
+  status: string | undefined | null,
+): status is z.infer<typeof assemblyStatusOkCodeSchema> {
+  return Boolean(status) && assemblyStatusOkCodeSchema.safeParse(status).success
+}
+
+/**
+ * Type guard to check if a status string is an error state.
+ */
+export function isAssemblyErrorStatus(
+  status: string | undefined | null,
+): status is z.infer<typeof assemblyStatusErrCodeSchema> {
+  return Boolean(status) && assemblyStatusErrCodeSchema.safeParse(status).success
+}
+
+/**
+ * Type guard to check if an assembly matches the system error shape.
+ */
+export function isAssemblySysError(
+  assembly: AssemblyStatus | undefined | null,
+): assembly is z.infer<typeof assemblyStatusSysErrSchema> {
+  return Boolean(assembly) && assemblyStatusSysErrSchema.safeParse(assembly).success
+}
+
+/**
+ * Type guard to check if a status string is terminal (ok, but not busy).
+ */
+export function isAssemblyTerminalOkStatus(
+  status: string | undefined | null,
+): status is z.infer<typeof assemblyStatusOkCodeSchema> {
+  return isAssemblyOkStatus(status) && !isAssemblyBusyStatus(status)
+}
+
+/**
+ * Returns true if the assembly is in a busy (in-progress) state.
+ */
+export function isAssemblyBusy(assembly: AssemblyStatus | undefined | null): boolean {
+  return isAssemblyBusyStatus(getOk(assembly))
+}
+
+/**
+ * Returns true if the assembly is in a terminal ok state.
+ */
+export function isAssemblyTerminalOk(assembly: AssemblyStatus | undefined | null): boolean {
+  return isAssemblyTerminalOkStatus(getOk(assembly))
+}
+
+/**
+ * Returns true if the assembly has a terminal error state.
+ */
+export function isAssemblyTerminalError(assembly: AssemblyStatus | undefined | null): boolean {
+  return isAssemblyErrorStatus(getError(assembly)) || isAssemblySysError(assembly)
+}
+
+/**
+ * Returns true if the assembly is terminal (ok or error).
+ */
+export function isAssemblyTerminal(assembly: AssemblyStatus | undefined | null): boolean {
+  return isAssemblyTerminalOk(assembly) || isAssemblyTerminalError(assembly)
 }
 
 /**
