@@ -1,9 +1,16 @@
 {
   "name": "transloadit",
-  "version": "4.1.5",
+  "version": "4.1.8",
   "description": "Node.js SDK for Transloadit",
   "type": "module",
-  "keywords": ["transloadit", "encoding", "transcoding", "video", "audio", "mp3"],
+  "keywords": [
+    "transloadit",
+    "encoding",
+    "transcoding",
+    "video",
+    "audio",
+    "mp3"
+  ],
   "author": "Tim Koschuetzki <tim@transloadit.com>",
   "packageManager": "yarn@4.12.0",
   "engines": {
@@ -56,9 +63,9 @@
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
     "prepack": "node ../../scripts/prepare-transloadit.ts",
-    "test:unit": "../../node_modules/.bin/vitest run --coverage ./test/unit",
-    "test:e2e": "../../node_modules/.bin/vitest run ./test/e2e",
-    "test": "../../node_modules/.bin/vitest run --coverage"
+    "test:unit": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage ./test/unit",
+    "test:e2e": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run ./test/e2e",
+    "test": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage"
   },
   "license": "MIT",
   "main": "./dist/Transloadit.js",
@@ -66,7 +73,10 @@
     ".": "./dist/Transloadit.js",
     "./package.json": "./package.json"
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "bin": {
     "transloadit": "./dist/cli.js"
   }
