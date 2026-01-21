@@ -43,6 +43,7 @@
     "test:types": "yarn sync && ../../node_modules/.bin/tsc --noEmit --project tsconfig.test.json",
     "test:unit": "yarn sync && node test/scripts-config.test.ts && node test/patch-ai-chat-schema.test.ts && node test/exports-sync.test.ts && node test/runtime-parity.test.ts",
     "build": "yarn sync && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "prepack": "yarn build",
     "check": "yarn sync && ../../node_modules/.bin/tsc --build tsconfig.build.json && ../../node_modules/.bin/tsc --noEmit --project tsconfig.test.json && yarn test:unit"
   },
   "dependencies": {

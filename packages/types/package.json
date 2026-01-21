@@ -36,6 +36,7 @@
     "lint:ts": "yarn generate && ../../node_modules/.bin/tsc --build tsconfig.build.json",
     "test:unit": "node scripts/emit-types.test.ts",
     "build": "yarn generate && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "prepack": "yarn build",
     "check": "yarn generate && yarn test:unit && ../../node_modules/.bin/tsc --build tsconfig.build.json"
   },
   "devDependencies": {
