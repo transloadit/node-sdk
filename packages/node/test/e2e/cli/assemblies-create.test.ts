@@ -16,10 +16,11 @@ const rreaddirAsync = promisify(rreaddir)
 
 describe('assemblies', () => {
   describe('create', () => {
-    const genericImg = 'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
+    const genericImg =
+      'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
     const fixtureImg = path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
-      '../fixtures/1x1.jpg',
+      '../fixtures/sample.jpg',
     )
 
     async function imgPromise(fname = 'in.jpg'): Promise<string> {

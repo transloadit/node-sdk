@@ -883,7 +883,8 @@ export async function create(
       if (!firstKey) throw new Error('No results in assembly')
       const firstResult = assembly.results[firstKey]
       if (!firstResult || !firstResult[0]) throw new Error('No results in assembly')
-      const resulturl = firstResult[0].url
+      const resulturl =
+        (firstResult[0] as { ssl_url?: string; url?: string }).ssl_url ?? firstResult[0].url
 
       if (outStream != null && resulturl && !superceded) {
         outputctl.debug('DOWNLOADING')
@@ -983,7 +984,8 @@ export async function create(
             if (asm.results && resolvedOutput != null) {
               for (const [stepName, stepResults] of Object.entries(asm.results)) {
                 for (const stepResult of stepResults) {
-                  const resultUrl = stepResult.url
+                  const resultUrl =
+                    (stepResult as { ssl_url?: string; url?: string }).ssl_url ?? stepResult.url
                   if (!resultUrl) continue
 
                   let outPath: string
