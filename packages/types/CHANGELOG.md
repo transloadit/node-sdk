@@ -1,5 +1,7 @@
 # @transloadit/types
 
+## 4.1.9
+
 ## 4.1.8
 
 ### Patch Changes
