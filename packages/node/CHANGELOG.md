@@ -1,5 +1,12 @@
 # @transloadit/node
 
+## 4.1.9
+
+### Patch Changes
+
+- 35fdb58: Avoid publishing workspace protocol dependency versions to npm.
+  - @transloadit/utils@4.1.9
+
 ## 4.1.8
 
 ### Patch Changes

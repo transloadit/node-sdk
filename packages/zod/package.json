@@ -1,6 +1,6 @@
 {
   "name": "@transloadit/zod",
-  "version": "4.1.8",
+  "version": "4.1.9",
   "description": "Transloadit Zod schemas",
   "type": "module",
   "license": "MIT",
@@ -51,7 +51,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@transloadit/types": "^4.1.8"
+    "@transloadit/types": "^4.1.9"
   },
   "publishConfig": {
     "tag": "experimental"
