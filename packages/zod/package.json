@@ -51,7 +51,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@transloadit/types": "workspace:*"
+    "@transloadit/types": "^4.1.8"
   },
   "publishConfig": {
     "tag": "experimental"

@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "check": "yarn fix:deps && yarn fix:js && yarn lint:ts && yarn test:unit",
-    "verify": "yarn lint:deps && yarn lint:js && yarn lint:ts && yarn test:unit",
+    "verify": "yarn lint:publish && yarn lint:deps && yarn lint:js && yarn lint:ts && yarn test:unit",
     "verify:full": "yarn verify && yarn knip && yarn parity:transloadit && yarn test:types",
     "lint:js": "biome check .",
     "lint:ts": "yarn tsc:types && yarn tsc:node && yarn tsc:zod",
@@ -17,6 +17,7 @@
     "fix:js": "biome check --write .",
     "fix:js:unsafe": "biome check --write . --unsafe",
     "lint:deps": "yarn run --binaries-only knip --include dependencies,unlisted,unresolved,catalog --no-progress --no-config-hints",
+    "lint:publish": "node scripts/check-workspace-protocol.ts",
     "fix:deps": "yarn run --binaries-only knip --include dependencies,unlisted,unresolved,catalog --no-progress --fix --no-config-hints",
     "knip": "yarn run --binaries-only knip --exclude binaries --no-config-hints --no-progress",
     "pack": "node scripts/pack-transloadit.ts",
