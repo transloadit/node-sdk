@@ -85,23 +85,22 @@ export class Mcache<T> {
 
     this.#opts.logger?.debug(`Cache miss for key ${key}, computing value`)
 
-    const promise = (async () => {
-      try {
-        const value = await producer()
+    const promise = Promise.resolve().then(async () => {
+      const value = await producer()
 
-        // Validate if schema provided
-        if (this.#opts.zodSchema) {
-          this.#opts.zodSchema.parse(value)
-        }
-
-        this.#set(key, value)
-        return value
-      } finally {
-        this.#pending.delete(key)
+      // Validate if schema provided
+      if (this.#opts.zodSchema) {
+        this.#opts.zodSchema.parse(value)
       }
-    })()
+
+      this.#set(key, value)
+      return value
+    })
 
     this.#pending.set(key, promise)
+    void promise.finally(() => {
+      this.#pending.delete(key)
+    })
     return promise
   }
 
