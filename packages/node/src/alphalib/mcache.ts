@@ -37,11 +37,13 @@ interface CacheEntry<T> {
  */
 export class Mcache<T> {
   #cache: Map<string, CacheEntry<T>>
+  #pending: Map<string, Promise<T>>
   #opts: Required<Omit<McacheOpts, 'logger' | 'zodSchema' | 'keyFn'>> &
     Pick<McacheOpts, 'logger' | 'zodSchema' | 'keyFn'>
 
   constructor(opts: McacheOpts = {}) {
     this.#cache = new Map()
+    this.#pending = new Map()
     this.#opts = {
       ttlMs: opts.ttlMs ?? Number.POSITIVE_INFINITY,
       maxSize: opts.maxSize ?? 10_000,
@@ -56,6 +58,8 @@ export class Mcache<T> {
    * The cache key is generated from the args using JSON.stringify by default,
    * or using the custom keyFn if provided.
    */
+
+  // biome-ignore lint/suspicious/useAwait: @TODO check this out later
   async get(producer: () => Promise<T> | T, ...args: unknown[]): Promise<T> {
     const key = this.#opts.keyFn ? this.#opts.keyFn(...args) : JSON.stringify(args)
     const cached = this.#cache.get(key)
@@ -73,16 +77,31 @@ export class Mcache<T> {
       this.#cache.delete(key)
     }
 
-    this.#opts.logger?.debug(`Cache miss for key ${key}, computing value`)
-    const value = await producer()
-
-    // Validate if schema provided
-    if (this.#opts.zodSchema) {
-      this.#opts.zodSchema.parse(value)
+    const pending = this.#pending.get(key)
+    if (pending) {
+      this.#opts.logger?.debug(`Cache miss for key ${key}, waiting for pending request`)
+      return pending
     }
 
-    this.#set(key, value)
-    return value
+    this.#opts.logger?.debug(`Cache miss for key ${key}, computing value`)
+
+    const promise = Promise.resolve().then(async () => {
+      const value = await producer()
+
+      // Validate if schema provided
+      if (this.#opts.zodSchema) {
+        this.#opts.zodSchema.parse(value)
+      }
+
+      this.#set(key, value)
+      return value
+    })
+
+    this.#pending.set(key, promise)
+    void promise.finally(() => {
+      this.#pending.delete(key)
+    })
+    return promise
   }
 
   /**

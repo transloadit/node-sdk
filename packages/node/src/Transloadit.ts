@@ -915,23 +915,40 @@ export class Transloadit {
 
           // check whether we should retry
           // https://transloadit.com/blog/2012/04/introducing-rate-limiting/
-          if (
+          const retryAfterHeader = err.response?.headers?.['retry-after']
+          const retryAfterSeconds =
+            typeof retryAfterHeader === 'string' ? Number(retryAfterHeader) : undefined
+          const retryInFromInfo =
             typeof body === 'object' &&
             body != null &&
-            'error' in body &&
             'info' in body &&
             typeof body.info === 'object' &&
             body.info != null &&
             'retryIn' in body.info &&
             typeof body.info.retryIn === 'number' &&
-            Boolean(body.info.retryIn) &&
+            body.info.retryIn > 0
+              ? body.info.retryIn
+              : undefined
+          const retryInSec =
+            retryInFromInfo ??
+            (typeof retryAfterSeconds === 'number' && retryAfterSeconds > 0
+              ? retryAfterSeconds
+              : undefined)
+          const shouldRetry =
             retryCount < this._maxRetries && // 413 taken from https://transloadit.com/blog/2012/04/introducing-rate-limiting/
             // todo can 413 be removed?
-            ((statusCode === 413 && body.error === 'RATE_LIMIT_REACHED') || statusCode === 429)
-          ) {
-            const { retryIn: retryInSec } = body.info
-            logWarn(`Rate limit reached, retrying request in approximately ${retryInSec} seconds.`)
-            const retryInMs = 1000 * (retryInSec * (1 + 0.1 * Math.random()))
+            ((statusCode === 413 &&
+              body &&
+              typeof body === 'object' &&
+              body.error === 'RATE_LIMIT_REACHED') ||
+              statusCode === 429)
+
+          if (shouldRetry) {
+            const retryDelaySec = retryInSec ?? 1
+            logWarn(
+              `Rate limit reached, retrying request in approximately ${retryDelaySec} seconds.`,
+            )
+            const retryInMs = 1000 * (retryDelaySec * (1 + 0.1 * Math.random()))
             await delay(retryInMs)
             // Retry
           } else {

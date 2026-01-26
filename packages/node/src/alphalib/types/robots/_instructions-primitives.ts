@@ -40,6 +40,7 @@ export const robotNames = z.enum([
   'DocumentConvertRobot',
   'DocumentMergeRobot',
   'DocumentSplitRobot',
+  'DocumentOptimizeRobot',
   'DocumentAutorotateRobot',
   'HtmlConvertRobot',
   'ImageResizeRobot',

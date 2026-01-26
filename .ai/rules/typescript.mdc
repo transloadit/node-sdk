@@ -9,7 +9,7 @@ For Typescript:
 - Favor `from './PosterboyCommand.ts'` over `from './PosterboyCommand'`
 - Favor `return ideas.filter(isPresent)` over `ideas.filter((idea): idea is Idea => idea !== null)`
 - Favor using `.tsx` over `.jsx` file extensions.
-- Favor the `tsx` CLI over `ts-node` for running TypeScript files.
+- Use Node v24's native typestripping vs `tsx` or `ts-node`. These days we do not even need to pass `--experimental-strip-types`, `node app.ts` will just work.
 - Favor `satisfies` over `as`, consider `as` a sin
 - Favor `unknown` over `any`, consider `any` a sin
 - Favor validating data with Zod over using `any` or custom type guards

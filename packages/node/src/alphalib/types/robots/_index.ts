@@ -105,6 +105,11 @@ import {
   interpolatableRobotDocumentOcrInstructionsWithHiddenFieldsSchema,
 } from './document-ocr.ts'
 import {
+  meta as documentOptimizeMeta,
+  interpolatableRobotDocumentOptimizeInstructionsSchema,
+  interpolatableRobotDocumentOptimizeInstructionsWithHiddenFieldsSchema,
+} from './document-optimize.ts'
+import {
   meta as documentSplitMeta,
   interpolatableRobotDocumentSplitInstructionsSchema,
   interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema,
@@ -435,6 +440,7 @@ const robotStepsInstructions = [
   interpolatableRobotDocumentConvertInstructionsSchema,
   interpolatableRobotDocumentMergeInstructionsSchema,
   interpolatableRobotDocumentOcrInstructionsSchema,
+  interpolatableRobotDocumentOptimizeInstructionsSchema,
   interpolatableRobotFileReadInstructionsSchema,
   interpolatableRobotDocumentSplitInstructionsSchema,
   interpolatableRobotDocumentThumbsInstructionsSchema,
@@ -519,6 +525,7 @@ const robotStepsInstructionsWithHiddenFields = [
   interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema,
   interpolatableRobotDocumentMergeInstructionsWithHiddenFieldsSchema,
   interpolatableRobotDocumentOcrInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotDocumentOptimizeInstructionsWithHiddenFieldsSchema,
   interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema,
   interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema,
   interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema,
@@ -632,6 +639,7 @@ export const robotsMeta = {
   documentConvertMeta,
   documentMergeMeta,
   documentOcrMeta,
+  documentOptimizeMeta,
   documentSplitMeta,
   documentThumbsMeta,
   dropboxImportMeta,
@@ -824,6 +832,12 @@ export type {
   InterpolatableRobotDocumentOcrInstructionsWithHiddenFields,
   InterpolatableRobotDocumentOcrInstructionsWithHiddenFieldsInput,
 } from './document-ocr.ts'
+export type {
+  InterpolatableRobotDocumentOptimizeInstructions,
+  InterpolatableRobotDocumentOptimizeInstructionsInput,
+  InterpolatableRobotDocumentOptimizeInstructionsWithHiddenFields,
+  InterpolatableRobotDocumentOptimizeInstructionsWithHiddenFieldsInput,
+} from './document-optimize.ts'
 export type {
   InterpolatableRobotDocumentSplitInstructions,
   InterpolatableRobotDocumentSplitInstructionsInput,

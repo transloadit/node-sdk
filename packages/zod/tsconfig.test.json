@@ -3,6 +3,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "moduleResolution": "NodeNext",
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true,
     "paths": {
       "@transloadit/types": ["../types/src/index.ts"],
       "@transloadit/types/*": ["../types/src/generated/*.ts"]

@@ -1,9 +1,16 @@
 {
   "name": "transloadit",
-  "version": "4.1.8",
+  "version": "4.1.9",
   "description": "Node.js SDK for Transloadit",
   "type": "module",
-  "keywords": ["transloadit", "encoding", "transcoding", "video", "audio", "mp3"],
+  "keywords": [
+    "transloadit",
+    "encoding",
+    "transcoding",
+    "video",
+    "audio",
+    "mp3"
+  ],
   "author": "Tim Koschuetzki <tim@transloadit.com>",
   "packageManager": "yarn@4.12.0",
   "engines": {
@@ -13,7 +20,7 @@
     "@aws-sdk/client-s3": "^3.891.0",
     "@aws-sdk/s3-request-presigner": "^3.891.0",
     "@transloadit/sev-logger": "^0.0.15",
-    "@transloadit/utils": "workspace:*",
+    "@transloadit/utils": "^4.1.9",
     "clipanion": "^4.0.0-rc.4",
     "debug": "^4.4.3",
     "dotenv": "^17.2.3",
@@ -66,7 +73,10 @@
     ".": "./dist/Transloadit.js",
     "./package.json": "./package.json"
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "bin": {
     "transloadit": "./dist/cli.js"
   }

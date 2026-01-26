@@ -1,6 +1,6 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy yarn tsx examples/template_api.ts
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/template_api.ts
 //
 // You may need to build the project first using:
 //

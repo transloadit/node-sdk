@@ -1,6 +1,6 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy yarn tsx examples/fetch_costs_of_all_assemblies_in_timeframe.ts
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/fetch_costs_of_all_assemblies_in_timeframe.ts
 //
 // You may need to build the project first using:
 //
