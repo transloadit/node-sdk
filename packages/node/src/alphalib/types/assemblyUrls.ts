@@ -1,5 +1,5 @@
+import type { AssemblyStatus } from './assemblyStatus.ts'
 import {
-  type AssemblyStatus,
   isAssemblyBusyStatus,
   isAssemblyTerminalError,
   isAssemblyTerminalOk,
@@ -56,10 +56,7 @@ const assemblyUrlKeys = ['assembly_ssl_url', 'assembly_url', 'assemblyUrl'] as c
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
-const pickString = (
-  record: Record<string, unknown>,
-  keys: readonly string[],
-): string | null => {
+const pickString = (record: Record<string, unknown>, keys: readonly string[]): string | null => {
   for (const key of keys) {
     const value = record[key]
     if (typeof value === 'string' && value.length > 0) return value

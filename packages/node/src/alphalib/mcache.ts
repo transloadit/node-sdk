@@ -58,6 +58,8 @@ export class Mcache<T> {
    * The cache key is generated from the args using JSON.stringify by default,
    * or using the custom keyFn if provided.
    */
+
+  // biome-ignore lint/suspicious/useAwait: @TODO check this out later
   async get(producer: () => Promise<T> | T, ...args: unknown[]): Promise<T> {
     const key = this.#opts.keyFn ? this.#opts.keyFn(...args) : JSON.stringify(args)
     const cached = this.#cache.get(key)
