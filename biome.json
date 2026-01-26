@@ -102,6 +102,10 @@
       "formatter": { "expand": "always" }
     },
     {
+      "includes": ["docs/fingerprint/*.package.json"],
+      "formatter": { "expand": "always" }
+    },
+    {
       "includes": ["*.html"],
       "javascript": { "formatter": { "quoteStyle": "double" } }
     },

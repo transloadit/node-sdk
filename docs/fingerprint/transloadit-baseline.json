@@ -2,8 +2,8 @@
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.1.9.tgz",
-    "sizeBytes": 1112896,
-    "sha256": "7219c078a6f006b2755630657f82fd12d29a995b46fa8e225b8d77318e22c48d"
+    "sizeBytes": 1123674,
+    "sha256": "489449c0b042c84813b9d8b429a6fd9ebc07c0f28a7f39a780899618616db598"
   },
   "packageJson": {
     "name": "transloadit",
@@ -23,13 +23,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/_index.js",
-      "sizeBytes": 27976,
-      "sha256": "a78ae27fbae9d86e5b49d218a3685fac031cf2f6a6ccae372176f74e73d4af93"
+      "sizeBytes": 28334,
+      "sha256": "068909c0eaa0a511961c16a6659bf62cc074eae27a21f09d8c8569b24893a3a0"
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.js",
-      "sizeBytes": 59552,
-      "sha256": "a9cb9b01c80fdb77fe5e8874ff58ade6447a725f2012c825ca87d2aaef5a339f"
+      "sizeBytes": 59581,
+      "sha256": "d5be7e2c0e57462869e61dae8e01935d0294454244576f69217cb53b0c716948"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.js",
@@ -73,8 +73,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js",
-      "sizeBytes": 30275,
-      "sha256": "965681e5d34df579fa11b8903c8fdf2823636be5830e97ab751fe5a531cad608"
+      "sizeBytes": 30554,
+      "sha256": "6b4b85c153a4402c81f1514bde63b5d37215d375398611ec68fa8c252872fcba"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.js",
@@ -205,6 +205,11 @@
       "path": "dist/alphalib/types/robots/document-ocr.js",
       "sizeBytes": 4580,
       "sha256": "b9210e80eeebdcec9637eabe101d0bf60705b52c62241ad5b8363fd270ace5a3"
+    },
+    {
+      "path": "dist/alphalib/types/robots/document-optimize.js",
+      "sizeBytes": 6109,
+      "sha256": "4ee5479dfd7f9b98019dc3af7d84da22471723710ad96d5401a49f4cda0d62a1"
     },
     {
       "path": "dist/alphalib/types/robots/document-split.js",
@@ -368,8 +373,8 @@
     },
     {
       "path": "dist/alphalib/mcache.js",
-      "sizeBytes": 4515,
-      "sha256": "abcc5fb21d05f7c04bb7c454bdbce15c25f7d4fec03b901291bc8b2925e95d16"
+      "sizeBytes": 5096,
+      "sha256": "d025e6fd64f04ebff17841dd7f47c199f29bb8a4c2e25492944927410d25bb30"
     },
     {
       "path": "dist/alphalib/types/robots/meta-read.js",
@@ -523,8 +528,8 @@
     },
     {
       "path": "dist/Transloadit.js",
-      "sizeBytes": 26372,
-      "sha256": "70bcf0b8cd39e29468acde3013b4819246a75ff017793b973b8c8463d3fa9e47"
+      "sizeBytes": 27069,
+      "sha256": "787bf845124babc8a0ec58fad4ba74161226b6a13bad29b2a8ae3f444e46d7da"
     },
     {
       "path": "dist/alphalib/tryCatch.js",
@@ -618,28 +623,28 @@
     },
     {
       "path": "package.json",
-      "sizeBytes": 2334,
-      "sha256": "ee2892035dbb2440d1e36cb498ce77dd55751d546da86f0881f9a0c7be206922"
+      "sizeBytes": 2359,
+      "sha256": "3c5f50e2092745bdc3af67394db697a618132cbe23c4dafd62ef062b47317be2"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
-      "sizeBytes": 83937,
-      "sha256": "4d057eff50614c7ab2ddfc6577acc997431e824ae34871ab3151a5d015e9d8c5"
+      "sizeBytes": 84548,
+      "sha256": "15359982efb993bdee53dfe04bc5e6898876f7e2657ecddc8d1d29e0826442d7"
     },
     {
       "path": "dist/alphalib/types/robots/_index.js.map",
-      "sizeBytes": 10505,
-      "sha256": "0a08c1185a523b944b5beed2f8d4148ead599a31bae1233e7a4fe38f9678fc84"
+      "sizeBytes": 10626,
+      "sha256": "9ae7f695cc9699d9f71bd637fdac9a1c79a3ce7280be40470830d01776962f25"
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.d.ts.map",
       "sizeBytes": 10500,
-      "sha256": "ca5baf2a027f31493bb771f8bbdd9e7986ef3b5ad28013316c2fa0fedcce1eca"
+      "sha256": "a625da61a3ebfb31453fc691f183c6170e0b9e191fa6409bd1f088ab63e67104"
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.js.map",
-      "sizeBytes": 36172,
-      "sha256": "3436569bb5194b67b6f7606f4c7225aae7abf35285d4beab3196ed2ff7e30790"
+      "sizeBytes": 36185,
+      "sha256": "18a192ed43491b90faa7473999b304adc6436bf8e05b42fac556ea3b7c23e7eb"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts.map",
@@ -703,8 +708,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.d.ts.map",
-      "sizeBytes": 8131,
-      "sha256": "9423d41f705851664346f972196d0404b8702a2e7115c864516b05249ed247bf"
+      "sizeBytes": 8187,
+      "sha256": "a062d7ce7cefe716b449fe5816a40bd14101af441e715d5e8a14d25b96f0d8e4"
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.js.map",
@@ -713,8 +718,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplayNotification.d.ts.map",
-      "sizeBytes": 8146,
-      "sha256": "688abd02a795208dc55f042110ea52b47d0cfa21b2d1a9a5b597c9585a96605d"
+      "sizeBytes": 8202,
+      "sha256": "dc0ca30103b3f3f319194158aaaa7d24be28cf52573c32fd2c067bbcf77ee3cc"
     },
     {
       "path": "dist/alphalib/types/assemblyReplayNotification.js.map",
@@ -723,23 +728,23 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts.map",
-      "sizeBytes": 74444,
-      "sha256": "2a863f4791a4963c77806332af2a6353d158457b4c6a59ba5f7b6f271849643d"
+      "sizeBytes": 74450,
+      "sha256": "55c39d3b033a9710c783e47a7448e407470c019c19a3fe60de225f1971dac1bf"
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js.map",
-      "sizeBytes": 32930,
-      "sha256": "12d13cf45eaffea8afb16faaf9eac3bb9b0385e11a63606cfcddcc7a5c89c090"
+      "sizeBytes": 33125,
+      "sha256": "4440f52f9d320f4aa139421d1c55602749844ee6e6c728d2a1742ede16486e61"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.d.ts.map",
-      "sizeBytes": 1172,
-      "sha256": "9bbc04a4b7c608b255f36d915cfea5cb703bd043a665d0a37866951e41ec999f"
+      "sizeBytes": 1171,
+      "sha256": "065ee4ed124c0ee77cc7fcccba2291fb1c10b897ffa81204727afe2bbf72facc"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.js.map",
-      "sizeBytes": 2043,
-      "sha256": "18ae21f0dd2e12dc59afa51dd7c3f04a0ed6a855aab2d24c55fd5e2b1078dfc2"
+      "sizeBytes": 2042,
+      "sha256": "63edc5618f252f6d69af9946907cf1518b651c9cb2605bfe2301ec80f50f6b70"
     },
     {
       "path": "dist/alphalib/types/robots/audio-artwork.d.ts.map",
@@ -990,6 +995,16 @@
       "path": "dist/alphalib/types/robots/document-ocr.js.map",
       "sizeBytes": 1829,
       "sha256": "a7b6169af7fb9b26d919cdab1b4b557f0134c5e6a15c53065e8168fd9dfd37e3"
+    },
+    {
+      "path": "dist/alphalib/types/robots/document-optimize.d.ts.map",
+      "sizeBytes": 1284,
+      "sha256": "b1f979c83af3221ef495c54d4a7413b9ffe7584cb206a0dcdac12df62f17f0c9"
+    },
+    {
+      "path": "dist/alphalib/types/robots/document-optimize.js.map",
+      "sizeBytes": 2352,
+      "sha256": "b411f6a03e290ff5f8a00a4f68403f4b85d172e7e3e7ac82608ba69c2e05481d"
     },
     {
       "path": "dist/alphalib/types/robots/document-split.d.ts.map",
@@ -1314,12 +1329,12 @@
     {
       "path": "dist/alphalib/mcache.d.ts.map",
       "sizeBytes": 968,
-      "sha256": "7e45e93e39d2031b2a197c7f145f7a535b83af9435129b21cdbc6577da7fa6f8"
+      "sha256": "6ef44b2c5f0860b332995bcd302574aa86ce4f23e96b4d7029c69205646eac8e"
     },
     {
       "path": "dist/alphalib/mcache.js.map",
-      "sizeBytes": 4326,
-      "sha256": "718daef94e4679b5326fda25a3d6060a0bbcf86895e3b6d4865a310767584aa3"
+      "sizeBytes": 4885,
+      "sha256": "4747b263aae67bb171e4496c6667621575bdbdea16b074563a7443dc3b4d7242"
     },
     {
       "path": "dist/alphalib/types/robots/meta-read.d.ts.map",
@@ -1543,8 +1558,8 @@
     },
     {
       "path": "dist/alphalib/types/template.d.ts.map",
-      "sizeBytes": 133514,
-      "sha256": "14dcba5c633a49c532c9efdfbe79b27df7f111142af9c59dc2d9141b7b570ca2"
+      "sizeBytes": 134390,
+      "sha256": "c4439855a4362ba609cbecd295be500fa7985f39b41d4aff23ec58f6a77af853"
     },
     {
       "path": "dist/alphalib/types/template.js.map",
@@ -1624,12 +1639,12 @@
     {
       "path": "dist/Transloadit.d.ts.map",
       "sizeBytes": 4954,
-      "sha256": "203f82001462740de8809d02a255847291d65727476b4b63be60075887b61bd7"
+      "sha256": "77799483c43a4f1bc528eb6c8d9959a6e24a615e32eb4082d82e006c84b0725b"
     },
     {
       "path": "dist/Transloadit.js.map",
-      "sizeBytes": 17714,
-      "sha256": "ac205f99044135de4aacb005ddb42a61d48ab8eb24c220694d5d4e335a3e3b79"
+      "sizeBytes": 18147,
+      "sha256": "45f566b5e907dfab378bb7de404e681847df03bbd896daa80ac4a2ab48770209"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts.map",
@@ -1813,28 +1828,28 @@
     },
     {
       "path": "README.md",
-      "sizeBytes": 30169,
-      "sha256": "47d191fb87e0add731c826a7553a26e2572f34ad6c8506e00b025a21ff322580"
+      "sizeBytes": 30166,
+      "sha256": "162bbe8f1599105764ac465664be781d60f7c4cdd6631e9733abe1e99fc862f8"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts",
-      "sizeBytes": 4681706,
-      "sha256": "d5efe770b28653cd44864a28a9c7c3e9b8f03ca9f8c9ea3cffd86aa7145dcc6f"
+      "sizeBytes": 4709535,
+      "sha256": "5a20fc6a1745d2490d58bb908484c035d246b962724a54a7465b9ddf15540bd5"
     },
     {
       "path": "src/alphalib/types/robots/_index.ts",
-      "sizeBytes": 50795,
-      "sha256": "ae25dd93eac765b3a4f5a3d8a28e49c8e2b88b122f6d1534e5d2779d1186a302"
+      "sizeBytes": 51444,
+      "sha256": "e64df0100f945034a47586f19a9a3e17495d9ab7af172f381d40e14bcb55ca1c"
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.d.ts",
-      "sizeBytes": 207294,
-      "sha256": "ec04807c7f1ee31c94b2242f05936ccac7a6f4791353fd29f43a0e8860499d3b"
+      "sizeBytes": 207396,
+      "sha256": "91b488ffaedbc18dd8de9e49c3bd4234c5d5962bb38768b0b5367ecd8ba41f34"
     },
     {
       "path": "src/alphalib/types/robots/_instructions-primitives.ts",
-      "sizeBytes": 63648,
-      "sha256": "3bf5225f4881aff338cbdd430f5eb22e58b5ef793392bcc8c0b6f52507f6b7b3"
+      "sizeBytes": 63675,
+      "sha256": "bb61dcd5ba1ed0a71fd786cd6a1ef5d5130c4bb3963c3307246ab401564c6d2c"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts",
@@ -1898,8 +1913,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.d.ts",
-      "sizeBytes": 414718,
-      "sha256": "15fd61c7d3d2cf76c4cf2414bb45d19cfdd0ae968fc486de64d3414c98c78072"
+      "sizeBytes": 416979,
+      "sha256": "e5b90d36d8066fcf915046789e972d0b9936b90a8fab9dc16db0938dcdef837b"
     },
     {
       "path": "src/alphalib/types/assemblyReplay.ts",
@@ -1908,8 +1923,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplayNotification.d.ts",
-      "sizeBytes": 414280,
-      "sha256": "f687256bb4f7ed8b56742a0b806235e7d0a028b36ec78008fba82356d0feff15"
+      "sizeBytes": 416541,
+      "sha256": "460b33b8fe680c1dde2d524007fcc7f7327ee9350457e6a7d42ca00633f39d61"
     },
     {
       "path": "src/alphalib/types/assemblyReplayNotification.ts",
@@ -1918,23 +1933,23 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts",
-      "sizeBytes": 4249145,
-      "sha256": "85f796b227939cd5546c2ea92f2ae0b5929b6b3eabbb9b563df4079c61ea0463"
+      "sizeBytes": 4251858,
+      "sha256": "78b04ee9a44631eb56ec3fa9f1b47abc0a2623c43cdc85d7100795f321ae2abc"
     },
     {
       "path": "src/alphalib/types/assemblyStatus.ts",
-      "sizeBytes": 31951,
-      "sha256": "64f22e7547af8f406a7b4de333074bbbbe61ad4f2c3bb46ed076e682c466d5fa"
+      "sizeBytes": 32218,
+      "sha256": "81ad5055786b09e51aa7f7fffba7101a0b5cd7045a30dc6695be0400f6afcc7a"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.d.ts",
       "sizeBytes": 1250,
-      "sha256": "07691dc7bb7f914725783f4184a12dadd152effc384a83a31d53220cee86e837"
+      "sha256": "12c4b79c1b35e51507c26554009dc39e979787568e2ccb6293cf647b1622fa7b"
     },
     {
       "path": "src/alphalib/types/assemblyUrls.ts",
-      "sizeBytes": 2529,
-      "sha256": "f38573194d757413d689a427bd113033a620150b44f972d214ba194fa2399915"
+      "sizeBytes": 2557,
+      "sha256": "ba76e3e92b0655e7913f90ea30369892f98c719acd824e5566e8193ebcb70201"
     },
     {
       "path": "dist/alphalib/types/robots/audio-artwork.d.ts",
@@ -2185,6 +2200,16 @@
       "path": "src/alphalib/types/robots/document-ocr.ts",
       "sizeBytes": 5306,
       "sha256": "3b47017593ee1014cbb6c320a9ef5b04a6962958cb0006d269144972cb89f9ed"
+    },
+    {
+      "path": "dist/alphalib/types/robots/document-optimize.d.ts",
+      "sizeBytes": 21185,
+      "sha256": "a7f9b7a8e9d2b5861d63b937006e4b826ca21a3408221903e6639b2f0c7fa3ec"
+    },
+    {
+      "path": "src/alphalib/types/robots/document-optimize.ts",
+      "sizeBytes": 6849,
+      "sha256": "b70a3cee26eec1c6f0c0826e7d16d42ca1528d4a34bf95d908f0c994b23b8837"
     },
     {
       "path": "dist/alphalib/types/robots/document-split.d.ts",
@@ -2513,8 +2538,8 @@
     },
     {
       "path": "src/alphalib/mcache.ts",
-      "sizeBytes": 4861,
-      "sha256": "6481c39114c8a5d6a514e2cdb0c40ee56f6f8ab56bb0a83ce91ed4f69a58184f"
+      "sizeBytes": 5385,
+      "sha256": "8abc0f67398573836f71b76a516182c033e3de1f7917912a1f0d91e630894030"
     },
     {
       "path": "dist/alphalib/types/robots/meta-read.d.ts",
@@ -2738,8 +2763,8 @@
     },
     {
       "path": "dist/alphalib/types/template.d.ts",
-      "sizeBytes": 7681424,
-      "sha256": "00e3f5fa66ab5b83650cc69fa8161e88453bd6ab74579293ab17c977c2714c4d"
+      "sizeBytes": 7719315,
+      "sha256": "88f190be7d011f2666ca1441a9e97a4d035799547ce42691383467a2f06cbdbc"
     },
     {
       "path": "src/alphalib/types/template.ts",
@@ -2823,8 +2848,8 @@
     },
     {
       "path": "src/Transloadit.ts",
-      "sizeBytes": 29500,
-      "sha256": "1b433ef7023391bea362fdaef728506e4017d2d5f4d974cfe1320353d96ebcf9"
+      "sizeBytes": 30104,
+      "sha256": "7701673b7973b66327c9269c77060496c8b5c0ba4e16102a6e5aaf801894cd8e"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts",
