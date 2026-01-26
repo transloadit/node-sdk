@@ -1,6 +1,6 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy yarn tsx examples/face_detect_download.ts ./examples/fixtures/berkley.jpg
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/face_detect_download.ts ./examples/fixtures/berkley.jpg
 //
 // You may need to build the project first using:
 //

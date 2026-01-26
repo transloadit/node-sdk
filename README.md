@@ -674,7 +674,7 @@ If you want to retry on other errors, please see the [retry example code](exampl
 This project uses [debug](https://github.com/visionmedia/debug) so you can run node with the `DEBUG=transloadit` evironment variable to enable verbose logging. Example:
 
 ```bash
-DEBUG=transloadit* npx tsx examples/template_api.ts
+DEBUG=transloadit* node examples/template_api.ts
 ```
 
 ## Maintainers

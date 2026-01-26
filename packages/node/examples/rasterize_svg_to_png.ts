@@ -1,6 +1,6 @@
 // Run this file as:
 //
-//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy yarn tsx examples/rasterize_svg_to_png.ts ./examples/fixtures/circle.svg
+//   env TRANSLOADIT_KEY=xxx TRANSLOADIT_SECRET=yyy node examples/rasterize_svg_to_png.ts ./examples/fixtures/circle.svg
 //
 // You may need to build the project first using:
 //

@@ -1,5 +1,9 @@
 {
   "files": [],
+  "compilerOptions": {
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true
+  },
   "references": [
     { "path": "./packages/node" },
     { "path": "./packages/types" },
