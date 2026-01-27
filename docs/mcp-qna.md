@@ -4,71 +4,72 @@ Here are the clarifications I’d want before turning this into a concrete todo 
 
 > Versioning policy: Are we actually switching the monorepo to independent versioning, or do we want a different way to ship > @transloadit/mcp- server@0.0.1 without changing the overall versioning strategy?
 
-foo
+I'd like to separate mcp-server, and keep the rest versioned in lockstep if possible.
 
 > Package split: Do we want a single package that includes both server and CLI, or separate @transloadit/mcp- server and > @transloadit/mcp-server-cli packages as implied?
 
-foo
+It should be one package, that also offers a cli, just like @transloadit/node does these days.
 
 > MVP scope: Is “MVP this week” still the timeline, and which items are truly must‑have vs nice‑to‑have (e.g., legacy SSE, wait tool)?
 
-foo
+We can add an extra week or two to do it right
 
 > Hosted auth source of truth: Do we already have a real “MCP token” issuance/validation endpoint, or does this spec require > new API2 work that isn’t defined yet?
 
-foo
+It will require api2 work also in ~/code/api2. If we want to support Claude Web, it likely also requires CRM/webapi work.
 
 > Self‑hosted HTTP auth: Should local HTTP mode require auth at all, or is it allowed to run without auth on localhost?
 
-foo
+On localhost it's allowed to run without auth
 
 > SDK version pin: Which exact version of the MCP TS SDK should we lock to (v1.x minor/patch), and do we need a compatibility strategy for v2?
 
-foo
+Let's only support latest majors at the time of writing to keep things focussed. People can write wrappers if they must.
 
 ## Tool Contracts & Error Semantics
 
 > Input schema format: Do we want JSON Schema (MCP tool schema) or zod‑to‑schema generated at runtime, and where will those live?
 
-foo
+zod-to-schema. mcp-server specific zod schemas can live in @transloadit/mcp-server. Hopefully we can re-use a lot of the specifics however from @transloadit/zod/v3 (all in ~/code/node-sdk)
 
 > Standard error shape: Should tools return { ok:false, errors:[...] } or throw MCP errors? Right now outputs mix ok, status, > and errors without a consistent contract.
 
-foo
+Come up with a single consistent elgant contract that all adheres to. what about status: 'ok' | 'error', errors: [...]?
 
 > “results” size: If results can be large, do we cap, truncate, or replace with a results_url/summary to avoid huge responses?
 
-foo
+We'll clean up Assembly Result json to via helpers in @transloadit/zod/v3 and @transloadit/utils. But otherwise we do not truncate. Agents these days will do their own summarization in order ot not drown in context. Let's rely on them making the right calls. The good things about that is that they can also come back to the original payload and pick another thing if they determine they summarized wrongly in hindsight.
 
 > run_custom_assembly wait behavior: wait_for_completion + wait_timeout_ms is defined, but should it call wait_for_assembly > internally and include waited_ms? Need a single pattern.
 
-foo
+by default it should not wait, and offer the assembly_url so that the agent can decide to wait or poll or check some time later. waiting/blocking is opt in.
 
 > get_assembly_status inputs: If both assembly_id and assembly_url are provided, which wins? If neither, do we return a typed error?
 
-foo
+make assembly_url leading
 
 > next_steps content: Is it fixed canned text, or should it be structured data (e.g., next_tool + params) for agents?
 
-foo
+Take the wisest most elegant approach
 
 ## Uploads & File Handling
 
 > InputFile needs a field name: How do we map multiple files to Transloadit form fields (e.g., file, file_2)? The type has no field/name.
 
-foo
+One-index suffext, `file_1` .... `file_199`
 
 > URL ingestion path: Are we fetching URLs server‑side (needs SSRF protection) or passing URL ingestion to Transloadit > directly (different security posture)?
 
-foo
+We'll let Transloadit fetch the URL with the /http/import Robot.
 
 > Base64 limits: What are concrete limits and error messages (hosted and self‑hosted)? The spec gives “10–25MB” but no final number.
 
-foo
+10MB for now, the error should encourage
+
+- letting Transloadit get the file with one of its import Robots, instead.
+- creating an assembly, provisioning tus upload slots, and uploading to those endpoints.
 
 > prepare_upload input: assemblyPlan is undefined — should it be instructions, template, or a named “golden template” reference?
-
-foo
 
 > Local path allowlist: How should allowlisted roots be defined and validated (glob support? case‑sensitivity? Windows > paths?) and what’s the error if outside roots?
 
