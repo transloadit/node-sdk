@@ -64,7 +64,7 @@ We'll let Transloadit fetch the URL with the /http/import Robot.
 
 > Base64 limits: What are concrete limits and error messages (hosted and self‑hosted)? The spec gives “10–25MB” but no final number.
 
-10MB for now, the error should encourage
+10MB for now, the error should encourage:
 
 - letting Transloadit get the file with one of its import Robots, instead.
 - creating an assembly, provisioning tus upload slots, and uploading to those endpoints.
