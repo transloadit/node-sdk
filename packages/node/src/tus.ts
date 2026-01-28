@@ -22,6 +22,7 @@ interface SendTusRequestOptions {
   uploadConcurrency: number
   onProgress: (options: UploadProgress) => void
   signal?: AbortSignal
+  uploadUrls?: Record<string, string>
 }
 
 export async function sendTusRequest({
@@ -31,6 +32,7 @@ export async function sendTusRequest({
   uploadConcurrency,
   onProgress,
   signal,
+  uploadUrls,
 }: SendTusRequestOptions) {
   const streamLabels = Object.keys(streamsMap)
 
@@ -133,6 +135,7 @@ export async function sendTusRequest({
 
       const tusOptions: UploadOptions = {
         endpoint: assembly.tus_url,
+        uploadUrl: uploadUrls?.[label],
         metadata: {
           assembly_url: assembly.assembly_ssl_url,
           fieldname: label,
