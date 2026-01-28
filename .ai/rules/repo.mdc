@@ -1,0 +1,9 @@
+---
+description: Repo
+globs:
+alwaysApply: true
+---
+
+Repo:
+
+- This repo is still called node-sdk, but is probably better named typescript-sdk. It harbors different Transloadit npms such as: `@transloadit/node` (and its dist clone `transloadit`), `@transloadit/zod/v3`, `@transloadit/zod/v4`, `@transloadit/types`, `@transloadit/utils`.
