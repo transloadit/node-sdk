@@ -83,60 +83,60 @@ I think we should delegate this to the agent harness, and not concern ourselves 
 
 > Robot catalog source: Where do list_robots and get_robot_help pull from (existing zod defs, docs scraper, or a new curated list)?
 
-foo
+From zod/v3 defs
 
 > Robot naming and mapping: Confirm exact robot IDs and parameters for the 10 “golden templates” (some names in the doc are high‑level).
 
-foo
+You can look them up when building as you'll have access to the node-sdk repo which includes the @transloadit/zod/v3 schemas which is our single source of truth for Robots
 
 > Account feature gating: How should tools behave when an account doesn’t have access to a robot (e.g., AI features)?
 
-foo
+The API will error out and the @transloadit/node will bubble this up and the @transloadit/mcp-server will just bubble any error up to the consuming agent.
 
 > list_golden_templates payload: Do we include example snippets or just metadata? Is the list static, or versioned/configurable?
 
-foo
+Ultimately i think this should live in the api2. Instead of passing your own template slug or ID, you refer to a golden template and version, and the api2 will use the associated instructions from that. As with regular Templates, the user can still supply their own overrides via the steps property (or skip using (golden) Templates and inline all instructions there).
 
 > Help size limits: What happens when maxRobotHelpBytes is exceeded (truncate, error, or reduce detail level)?
 
-foo
+We should probably not implement a maxRobotHelpBytes at all. Just return token efficient help but leave it to modern agents to summarize too large inputs, so that they can also determine they summarized wrongly and redo that.
 
 ## Transport & Server Architecture
 
 > Express dependency: Are we ok adding Express as a runtime dependency for createTransloaditMcpExpressRouter, or should we avoid framework deps?
 
-foo
+Yes. let's focus on standalone and make express the dependency
 
 > SSE support: Do we truly need legacy / sse + /messages, and do we have a client list driving that requirement?
 
-foo
+We will not support legacy systems and build a modern tool that only supports the latest majors of everything to keep things focussed.
 
 > Origin validation policy: What exact allowlist behavior do we want (hardcoded list, config‑driven, allow missing Origin)?
 
-foo
+config-driven, for the transloadit-hosted version we'll allow any origin. for self hosted it should be recommended/advertised in getting started sections to pass a (list of) allowed origin strings/regexes.
 
 > DNS rebinding protection: Are we relying on the SDK’s implementation or implementing our own host allowlist?
 
-foo
+We'll rely on the SDK
 
 > Host/port defaults: For CLI http mode, do we force 127.0.0.1 unless --host is set?
 
-foo
+Yes
 
 ## Testing & Quality
 
 > Test harness: Do we have existing test utilities for MCP in this repo, or do we need to bring in MCP inspector tooling?
 
-foo
+We have no existing tooling. We'll start with an e2e test with beautiful design and great DX, tie that into our workflow and CI, and then work towards an implementation that supports it.
 
 > Mocking Transloadit: Should integration tests hit real API2 in a staging account or use mocks?
 
-foo
+Unit tests should mock the api2, e2e tests should hit the real thing.
 
 > Security tests: What are the concrete scenarios we must cover (Origin missing, private IP URL, oversized base64)?
 
-foo
+All of the above
 
 > Knip/format expectations: Any known exclusions or fixtures that need to be updated when adding a new package?
 
-foo
+We'll follow the code quality enforcing tools set by the node-sdk monorepo (knip, biome, etc.).
