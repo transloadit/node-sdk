@@ -1,7 +1,8 @@
 import * as assert from 'node:assert'
 import { randomUUID } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
-import { access } from 'node:fs/promises'
+import { access, stat } from 'node:fs/promises'
+import { basename } from 'node:path'
 import type { Readable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
 import { getSignedSmartCdnUrl, signParamsSync } from '@transloadit/utils/node'
@@ -99,6 +100,24 @@ export interface CreateAssemblyOptions {
   signal?: AbortSignal
 }
 
+export interface ResumeAssemblyUploadsOptions {
+  assemblyUrl: string
+  files?: {
+    [name: string]: string
+  }
+  uploads?: {
+    [name: string]: Readable | IntoStreamInput
+  }
+  chunkSize?: number
+  uploadConcurrency?: number
+  onUploadProgress?: (uploadProgress: UploadProgress) => void
+  /**
+   * Optional AbortSignal to cancel the upload resumption.
+   * When aborted, any in-flight HTTP requests and TUS uploads will be cancelled.
+   */
+  signal?: AbortSignal
+}
+
 export interface AwaitAssemblyCompletionOptions {
   onAssemblyProgress?: AssemblyProgress
   timeout?: number
@@ -157,6 +176,14 @@ function checkAssemblyUrls(result: AssemblyStatus) {
 
 function getHrTimeMs(): number {
   return Number(process.hrtime.bigint() / 1000000n)
+}
+
+function getAssemblyIdFromUrl(assemblyUrl: string): string {
+  const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
+  if (!match) {
+    throw new Error(`Invalid assembly URL: ${assemblyUrl}`)
+  }
+  return match[1] ?? ''
 }
 
 function checkResult<T>(result: T | { error: string }): asserts result is T {
@@ -366,6 +393,154 @@ export class Transloadit {
 
     // This allows the user to use or log the assemblyId even before it has been created for easier debugging
     return Object.assign(promise, { assemblyId: effectiveAssemblyId })
+  }
+
+  async resumeAssemblyUploads(opts: ResumeAssemblyUploadsOptions): Promise<AssemblyStatus> {
+    const {
+      assemblyUrl,
+      files = {},
+      uploads = {},
+      chunkSize: requestedChunkSize = Number.POSITIVE_INFINITY,
+      uploadConcurrency = 10,
+      onUploadProgress = () => {},
+      signal,
+    } = opts
+
+    const assemblyId = getAssemblyIdFromUrl(assemblyUrl)
+    const assembly = await this.getAssembly(assemblyId, { signal })
+
+    const getUploadKey = (
+      fieldname: string | null | undefined,
+      filename: string | null | undefined,
+      size: number | null | undefined,
+    ): string | null => {
+      if (!fieldname || !filename || size == null) return null
+      return JSON.stringify([fieldname, filename, size])
+    }
+
+    const finishedKeys = new Set<string>()
+    for (const upload of assembly.uploads ?? []) {
+      const key = getUploadKey(upload.field ?? null, upload.basename ?? null, upload.size)
+      if (key) finishedKeys.add(key)
+    }
+    for (const upload of assembly.tus_uploads ?? []) {
+      if (!upload.finished) continue
+      const key = getUploadKey(upload.fieldname, upload.filename, upload.size)
+      if (key) finishedKeys.add(key)
+    }
+
+    const resumeUrls = new Map<string, string>()
+    for (const upload of assembly.tus_uploads ?? []) {
+      if (upload.finished) continue
+      if (!upload.upload_url) continue
+      const key = getUploadKey(upload.fieldname, upload.filename, upload.size)
+      if (key) resumeUrls.set(key, upload.upload_url)
+    }
+
+    const descriptors: Array<{
+      label: string
+      filename: string
+      size?: number
+      path?: string
+      value?: Readable | IntoStreamInput
+    }> = []
+
+    const getSizeFromValue = (value: Readable | IntoStreamInput): number | undefined => {
+      if (typeof value === 'string') return Buffer.byteLength(value)
+      if (Buffer.isBuffer(value)) return value.length
+      if (value instanceof ArrayBuffer) return value.byteLength
+      if (ArrayBuffer.isView(value)) return value.byteLength
+      return undefined
+    }
+
+    await pMap(
+      Object.entries(files),
+      async ([label, path]) => {
+        await access(path, constants.F_OK | constants.R_OK)
+        const info = await stat(path)
+        descriptors.push({
+          label,
+          path,
+          filename: basename(path),
+          size: info.size,
+        })
+      },
+      { concurrency: 5 },
+    )
+
+    for (const [label, value] of Object.entries(uploads)) {
+      const isReadable = isReadableStream(value)
+      if (!isReadable && isStream(value)) {
+        throw new Error(`Upload named "${label}" is not a Readable stream`)
+      }
+      descriptors.push({
+        label,
+        filename: label,
+        size: isReadableStream(value) ? undefined : getSizeFromValue(value),
+        value,
+      })
+    }
+
+    const descriptorsToUpload = descriptors.filter((descriptor) => {
+      const key = getUploadKey(descriptor.label, descriptor.filename, descriptor.size ?? null)
+      return key ? !finishedKeys.has(key) : true
+    })
+
+    const uploadUrlsByLabel: Record<string, string> = {}
+    for (const descriptor of descriptorsToUpload) {
+      if (!descriptor.path) continue
+      const key = getUploadKey(descriptor.label, descriptor.filename, descriptor.size ?? null)
+      if (!key) continue
+      const uploadUrl = resumeUrls.get(key)
+      if (uploadUrl) uploadUrlsByLabel[descriptor.label] = uploadUrl
+    }
+
+    const streamsMap = Object.fromEntries<Stream>(
+      descriptorsToUpload.map((descriptor) => {
+        if (descriptor.path) {
+          const stream = createReadStream(descriptor.path)
+          return [descriptor.label, { stream, path: descriptor.path }]
+        }
+
+        const value = descriptor.value
+        if (!value) {
+          throw new Error(`Upload named "${descriptor.label}" has no data`)
+        }
+        const isReadable = isReadableStream(value)
+        if (!isReadable && isStream(value)) {
+          throw new Error(`Upload named "${descriptor.label}" is not a Readable stream`)
+        }
+        const stream = isReadable ? value : intoStream(value)
+        return [descriptor.label, { stream }]
+      }),
+    )
+
+    for (const { stream } of Object.values(streamsMap)) {
+      stream.pause()
+    }
+
+    if (Object.keys(streamsMap).length > 0) {
+      const streamErrorPromise = new Promise<never>((_resolve, reject) => {
+        for (const { stream } of Object.values(streamsMap)) {
+          stream.on('error', reject)
+        }
+      })
+      streamErrorPromise.catch(() => {})
+
+      const uploadPromise = sendTusRequest({
+        streamsMap,
+        assembly,
+        requestedChunkSize,
+        uploadConcurrency,
+        onProgress: onUploadProgress,
+        signal,
+        uploadUrls: uploadUrlsByLabel,
+      })
+
+      await Promise.race([uploadPromise, streamErrorPromise])
+    }
+
+    return await this.getAssembly(assemblyId, { signal })
   }
 
   async awaitAssemblyCompletion(
