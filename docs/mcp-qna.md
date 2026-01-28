@@ -71,9 +71,13 @@ We'll let Transloadit fetch the URL with the /http/import Robot.
 
 > prepare_upload input: assemblyPlan is undefined — should it be instructions, template, or a named “golden template” reference?
 
+I don't think there should be a prepare_upload actually. There could be a create_assembly, it does that, depending on the instructions we can infer if `:original` or `/upload/handle` is used, and in that case look at the input, if those are filepaths, or base64 bodies, and create the assembly with that many `expected_uploads`. It should then return the tus endpoints to upload the contents too. Much of this could be handled by the @transloadit/node SDK. Potentially we should first ensure it can do the heavy lifting there, so the @transloadit/mcp-server becomes a thin wrapper.
+
+The sdk also has a stepParsing.ts that will help us determine if we actually do not need uploads at all, but for instance a /http/import step is used and we're passing a URL as an input. Or perhaps a /html/convert step is used to create a screenshot from a webpage url, or perhaps /image/generate or /text/speak is used to generate media from a prompt/text/meta.
+
 > Local path allowlist: How should allowlisted roots be defined and validated (glob support? case‑sensitivity? Windows > paths?) and what’s the error if outside roots?
 
-foo
+I think we should delegate this to the agent harness, and not concern ourselves with allowed roots, until this feature request comes in.
 
 ## Robots, Templates, and Data Sources
 
