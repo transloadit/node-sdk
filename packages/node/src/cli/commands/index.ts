@@ -6,6 +6,7 @@ import {
   AssembliesCreateCommand,
   AssembliesDeleteCommand,
   AssembliesGetCommand,
+  AssembliesLintCommand,
   AssembliesListCommand,
   AssembliesReplayCommand,
 } from './assemblies.ts'
@@ -46,6 +47,7 @@ export function createCli(): Cli {
   cli.register(AssembliesGetCommand)
   cli.register(AssembliesDeleteCommand)
   cli.register(AssembliesReplayCommand)
+  cli.register(AssembliesLintCommand)
 
   // Templates commands
   cli.register(TemplatesCreateCommand)

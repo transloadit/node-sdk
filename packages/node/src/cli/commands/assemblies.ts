@@ -13,15 +13,23 @@ import got from 'got'
 import PQueue from 'p-queue'
 import * as t from 'typanion'
 import { z } from 'zod'
+import type { AssemblyLinterResult } from '../../alphalib/assembly-linter.ts'
 import { tryCatch } from '../../alphalib/tryCatch.ts'
 import type { Steps, StepsInput } from '../../alphalib/types/template.ts'
 import { stepsSchema } from '../../alphalib/types/template.ts'
-import type { CreateAssemblyParams, ReplayAssemblyParams } from '../../apiTypes.ts'
+import type {
+  CreateAssemblyParams,
+  ReplayAssemblyParams,
+  ResponseTemplateContent,
+  TemplateContent,
+} from '../../apiTypes.ts'
+import type { LintFatalLevel } from '../../lintAssemblyInstructions.ts'
+import { lintAssemblyInstructions } from '../../lintAssemblyInstructions.ts'
 import type { CreateAssemblyOptions, Transloadit } from '../../Transloadit.ts'
 import { createReadStream, formatAPIError, streamToBuffer } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 import { ensureError, isErrnoException } from '../types.ts'
-import { AuthenticatedCommand } from './BaseCommand.ts'
+import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
 // --- From assemblies.ts: Schemas and interfaces ---
 export interface AssemblyListOptions {
@@ -48,9 +56,74 @@ export interface AssemblyReplayOptions {
   assemblies: string[]
 }
 
+export interface AssemblyLintOptions {
+  steps?: string
+  template?: string
+  fatal?: LintFatalLevel
+  fix?: boolean
+  providedInput?: string
+  json?: boolean
+}
+
 const AssemblySchema = z.object({
   id: z.string(),
 })
+
+async function readStdin(): Promise<string> {
+  if (process.stdin.isTTY) return ''
+
+  process.stdin.setEncoding('utf8')
+  let data = ''
+
+  for await (const chunk of process.stdin) {
+    data += chunk
+  }
+
+  return data
+}
+
+async function readLintInput(
+  steps?: string,
+  providedInput?: string,
+): Promise<{ content: string | null; isStdin: boolean; path?: string }> {
+  const canUseProvided = providedInput != null && (steps == null || steps === '-')
+  if (canUseProvided) {
+    return { content: providedInput, isStdin: steps === '-' || steps == null }
+  }
+
+  if (steps === '-') {
+    return { content: await readStdin(), isStdin: true }
+  }
+
+  if (steps != null) {
+    const content = await fsp.readFile(steps, 'utf8')
+    return { content, isStdin: false, path: steps }
+  }
+
+  if (!process.stdin.isTTY) {
+    return { content: await readStdin(), isStdin: true }
+  }
+
+  return { content: null, isStdin: false }
+}
+
+const formatIssueSummary = (issue: AssemblyLinterResult): string => {
+  if (issue.message) return issue.message
+  if (issue.desc) {
+    const firstLine = issue.desc
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length > 0)
+    if (firstLine) return firstLine
+  }
+  return issue.code
+}
+
+const formatIssueLine = (issue: AssemblyLinterResult): string => {
+  const summary = formatIssueSummary(issue)
+  const stepInfo = issue.stepName ? ` ${issue.stepName}` : ''
+  return `[${issue.type}] ${issue.code} (${issue.row}:${issue.column})${stepInfo} ${summary}`
+}
 
 // --- Business logic functions (from assemblies.ts) ---
 
@@ -161,6 +234,90 @@ export async function replay(
     })
     await Promise.all(promises)
   }
+}
+
+export async function lint(
+  output: IOutputCtl,
+  client: Transloadit | null,
+  { steps, template, fatal, fix, providedInput, json }: AssemblyLintOptions,
+): Promise<number> {
+  let content: string | null
+  let isStdin: boolean
+  let inputPath: string | undefined
+  try {
+    ;({ content, isStdin, path: inputPath } = await readLintInput(steps, providedInput))
+  } catch (error) {
+    output.error(ensureError(error).message)
+    return 1
+  }
+
+  if (content == null && template == null) {
+    output.error('assemblies lint requires --steps or stdin input unless --template is provided')
+    return 1
+  }
+
+  if (fix && content == null && template != null) {
+    output.error('assemblies lint --fix requires local instructions (stdin or --steps)')
+    return 1
+  }
+
+  let templateContent: TemplateContent | ResponseTemplateContent | undefined
+  if (template != null) {
+    if (!client) {
+      output.error('Missing client for template lookup')
+      return 1
+    }
+
+    const [templateError, templateResult] = await tryCatch(client.getTemplate(template))
+    if (templateError) {
+      output.error(formatAPIError(templateError))
+      return 1
+    }
+    templateContent = templateResult.content
+  }
+
+  let result: Awaited<ReturnType<typeof lintAssemblyInstructions>>
+  try {
+    result = await lintAssemblyInstructions({
+      assemblyInstructions: content ?? undefined,
+      template: templateContent,
+      fatal,
+      fix,
+    })
+  } catch (error) {
+    output.error(ensureError(error).message)
+    return 1
+  }
+
+  if (fix && isStdin) {
+    if (result.fixedInstructions == null) {
+      output.error('No fixed output available.')
+      return 1
+    }
+    process.stdout.write(`${result.fixedInstructions}\n`)
+    for (const issue of result.issues) {
+      const line = formatIssueLine(issue)
+      if (issue.type === 'warning') output.warn(line)
+      else output.error(line)
+    }
+    return result.success ? 0 : 1
+  }
+
+  if (fix && inputPath && result.fixedInstructions != null) {
+    await fsp.writeFile(inputPath, result.fixedInstructions)
+  }
+
+  if (json) {
+    output.print(result, result)
+  } else if (result.issues.length === 0) {
+    output.print('No issues found', result)
+  } else {
+    for (const issue of result.issues) {
+      output.print(formatIssueLine(issue), issue)
+    }
+  }
+
+  return result.success ? 0 : 1
 }
 
 // --- From assemblies-create.ts: Helper classes and functions ---
@@ -1371,5 +1528,68 @@ export class AssembliesReplayCommand extends AuthenticatedCommand {
       assemblies: this.assemblyIds,
     })
     return undefined
+  }
+}
+
+export class AssembliesLintCommand extends UnauthenticatedCommand {
+  static override paths = [
+    ['assemblies', 'lint'],
+    ['assembly', 'lint'],
+    ['a', 'lint'],
+  ]
+
+  static override usage = Command.Usage({
+    category: 'Assemblies',
+    description: 'Lint Assembly Instructions',
+    details: `
+      Lint Assembly Instructions locally using Transloadit's linter.
+      Provide instructions via --steps or stdin (steps-only JSON is accepted).
+      Optionally pass --template to
+      merge template content with steps before linting (same merge behavior as the API).
+    `,
+    examples: [
+      ['Lint a steps file', 'transloadit assemblies lint --steps steps.json'],
+      ['Lint from stdin', 'cat steps.json | transloadit assemblies lint --steps -'],
+      [
+        'Lint with template merge',
+        'transloadit assemblies lint --template TEMPLATE_ID --steps steps.json',
+      ],
+      ['Auto-fix in place', 'transloadit assemblies lint --steps steps.json --fix'],
+    ],
+  })
+
+  steps = Option.String('--steps,-s', {
+    description: 'JSON file with Assembly Instructions (use "-" for stdin)',
+  })
+
+  template = Option.String('--template,-t', {
+    description:
+      'Template ID to merge before linting. If the template forbids step overrides, linting will fail when steps are provided.',
+  })
+
+  fatal = Option.String('--fatal', {
+    description: 'Treat issues at this level as fatal (error or warning)',
+    validator: t.isEnum(['error', 'warning']),
+  })
+
+  fix = Option.Boolean('--fix', false, {
+    description:
+      'Apply auto-fixes. For files, overwrites in place. For stdin, writes fixed JSON to stdout.',
+  })
+
+  protected async run(): Promise<number | undefined> {
+    let client: Transloadit | null = null
+    if (this.template) {
+      if (!this.setupClient()) return 1
+      client = this.client
+    }
+
+    return await lint(this.output, client, {
+      steps: this.steps,
+      template: this.template,
+      fatal: this.fatal as LintFatalLevel | undefined,
+      fix: this.fix,
+      json: this.json,
+    })
   }
 }

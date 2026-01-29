@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { lint as lintAssemblies } from '../../../src/cli/commands/assemblies.ts'
 import { runSig, runSmartSig } from '../../../src/cli/commands/auth.ts'
+import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main, shouldRunCli } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
 
@@ -353,6 +355,30 @@ describe('cli sig', () => {
       'Invalid params provided via stdin. Expected a JSON object.',
     )
     expect(process.exitCode).toBe(1)
+  })
+})
+
+describe('cli assemblies lint', () => {
+  it('prints fixed JSON to stdout when reading from stdin', async () => {
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const output = new OutputCtl()
+    const exitCode = await lintAssemblies(output, null, {
+      steps: '-',
+      fix: true,
+      providedInput: '{}',
+      json: false,
+    })
+
+    expect(exitCode).toBe(0)
+    expect(stdoutSpy).toHaveBeenCalledTimes(1)
+    const written = `${stdoutSpy.mock.calls[0]?.[0]}`.trim()
+    expect(JSON.parse(written)).toEqual({
+      ':original': {
+        robot: '/upload/handle',
+      },
+    })
   })
 })
 
