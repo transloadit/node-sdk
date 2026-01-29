@@ -20,6 +20,10 @@ To check for updates, run:
 yarn upgrade-interactive
 ```
 
+If you bump internal `@transloadit/*` versions (for example in `packages/node/package.json`),
+run `corepack yarn install` and commit the updated `yarn.lock`. CI uses immutable installs and
+release workflows will fail if the lockfile is out of date.
+
 ## Tooling requirements
 
 Local tooling (the TypeScript scripts in `scripts/` and package tests) requires Node 22.18+ so `node file.ts` works without flags. The published packages still support Node 20+ at runtime.
