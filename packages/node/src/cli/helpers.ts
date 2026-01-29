@@ -25,7 +25,7 @@ export async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return Buffer.concat(chunks)
 }
 
-export async function readStdin(): Promise<string> {
+async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return ''
 
   process.stdin.setEncoding('utf8')
