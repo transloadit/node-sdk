@@ -298,6 +298,7 @@ function lintStackParameter(
 ) {
   const paramName = `${stackName}_stack` as 'ffmpeg_stack' | 'imagemagick_stack'
 
+  // Stack parameters are optional; when omitted, Transloadit defaults apply.
   if (has(step, paramName)) {
     const stackVersionValue = step[paramName]
     if (typeof stackVersionValue === 'string') {
@@ -392,6 +393,7 @@ function lintHttpImportUrl(
   }
 
   // Check if the URL contains a field variable without a protocol or domain
+  // Only warn when the URL is exactly an interpolation to avoid false positives.
   const fieldVariableRegex = /^\$\{fields\.[^}]+\}$/
   const protocolDomainRegex = /^(https?:\/\/|\/\/)[^/]+/i
 
@@ -754,6 +756,15 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
   // storage robot, so we should not warn them about it.
   if (!hasFileServe) {
     const hasStorageRobot = hasRobot(JSON.stringify(assembly), /\/store$/, true)
+
+    if (!hasStorageRobot) {
+      result.push({
+        code: 'no-storage',
+        type: 'warning',
+        row: assembly.__line?.steps ?? 0,
+        column: assembly.__column?.steps ?? 0,
+      })
+    }
 
     if (usesOriginalFiles && !storesOriginalFiles && hasStorageRobot) {
       // Keep only the missing-original-storage warning

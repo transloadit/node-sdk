@@ -135,6 +135,7 @@ export async function lintAssemblyInstructions(
   if (fix) {
     for (const issue of issues) {
       if (!issue.fixId) continue
+      // applyFix validates fixData against the fix schema for the fixId.
       fixedContent = applyFix(fixedContent, issue.fixId, issue.fixData as never)
     }
     issues = await parseAndLint(fixedContent)

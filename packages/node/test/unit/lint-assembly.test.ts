@@ -40,4 +40,16 @@ describe('lintAssemblyInstructions', () => {
       }),
     ).rejects.toThrow('TEMPLATE_DENIES_STEPS_OVERRIDE')
   })
+
+  it('warns when no storage robot is used', async () => {
+    const result = await lintAssemblyInstructions({
+      assemblyInstructions: {
+        ':original': { robot: '/upload/handle' },
+        resize: { robot: '/image/resize', use: ':original', width: 100, height: 100 },
+      },
+    })
+
+    const codes = result.issues.map((issue) => issue.code)
+    expect(codes).toContain('no-storage')
+  })
 })
