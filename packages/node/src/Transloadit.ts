@@ -179,6 +179,11 @@ export interface AwaitAssemblyCompletionOptions {
   interval?: number
   startTimeMs?: number
   /**
+   * Optional assembly URL to poll instead of the configured client endpoint.
+   * Useful when resuming an Assembly created on a different host/region.
+   */
+  assemblyUrl?: string
+  /**
    * Optional AbortSignal to cancel polling.
    * When aborted, the polling loop will stop and throw an AbortError.
    */
@@ -450,8 +455,9 @@ export class Transloadit {
 
     const startTimeMs = getHrTimeMs()
 
-    const assemblyId = getAssemblyIdFromUrl(assemblyUrl)
-    const assembly = await this.getAssembly(assemblyId, { signal })
+    getAssemblyIdFromUrl(assemblyUrl)
+    const assembly = await this._fetchAssemblyStatus({ url: assemblyUrl, signal })
+    const statusUrl = assembly.assembly_ssl_url ?? assembly.assembly_url ?? assemblyUrl
 
     const finishedKeys = new Set<string>()
     for (const upload of assembly.uploads ?? []) {
@@ -531,7 +537,7 @@ export class Transloadit {
       await Promise.race([uploadPromise, streamErrorPromise])
     }
 
-    const latestAssembly = await this.getAssembly(assemblyId, { signal })
+    const latestAssembly = await this._fetchAssemblyStatus({ url: statusUrl, signal })
     if (!waitForCompletion) return latestAssembly
 
     if (latestAssembly.assembly_id == null) {
@@ -544,6 +550,7 @@ export class Transloadit {
       timeout,
       onAssemblyProgress,
       startTimeMs,
+      assemblyUrl: statusUrl,
       signal,
     })
     checkResult(awaitResult)
@@ -557,6 +564,7 @@ export class Transloadit {
       timeout,
       startTimeMs = getHrTimeMs(),
       interval = 1000,
+      assemblyUrl,
       signal,
       onPoll,
     }: AwaitAssemblyCompletionOptions = {},
@@ -564,6 +572,12 @@ export class Transloadit {
     assert.ok(assemblyId)
 
     let lastResult: AssemblyStatus | undefined
+
+    const fetchAssemblyStatus = (): Promise<AssemblyStatus> => {
+      return assemblyUrl
+        ? this._fetchAssemblyStatus({ url: assemblyUrl, signal })
+        : this.getAssembly(assemblyId, { signal })
+    }
 
     while (true) {
       // Check if caller wants to stop polling early
@@ -576,7 +590,7 @@ export class Transloadit {
         throw signal.reason ?? new DOMException('Aborted', 'AbortError')
       }
 
-      const result = await this.getAssembly(assemblyId, { signal })
+      const result = await fetchAssemblyStatus()
       lastResult = result
 
       // If 'ok' is not in result, it implies a terminal state (e.g., error, completed, canceled).
@@ -758,16 +772,33 @@ export class Transloadit {
     assemblyId: string,
     options?: { signal?: AbortSignal },
   ): Promise<AssemblyStatus> {
-    const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
-      urlSuffix: `/assemblies/${assemblyId}`,
+    return await this._fetchAssemblyStatus({
+      assemblyId,
       signal: options?.signal,
+    })
+  }
+
+  private async _fetchAssemblyStatus({
+    assemblyId,
+    url,
+    signal,
+  }: {
+    assemblyId?: string
+    url?: string
+    signal?: AbortSignal
+  }): Promise<AssemblyStatus> {
+    const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
+      url,
+      urlSuffix: url ? undefined : `/assemblies/${assemblyId}`,
+      signal,
     })
 
     const parsedResult = zodParseWithContext(assemblyStatusSchema, rawResult)
 
     if (!parsedResult.success) {
+      const label = assemblyId ?? url ?? 'unknown'
       this.maybeThrowInconsistentResponseError(
-        `The API responded with data that does not match the expected schema while getting Assembly: ${assemblyId}.\n${parsedResult.humanReadable}`,
+        `The API responded with data that does not match the expected schema while getting Assembly: ${label}.\n${parsedResult.humanReadable}`,
       )
     }
 

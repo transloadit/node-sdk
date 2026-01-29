@@ -54,8 +54,11 @@ describe('resumeAssemblyUploads', () => {
     const initial = buildAssembly()
     const updated = buildAssembly({ ok: 'ASSEMBLY_COMPLETED' })
 
-    const getAssemblySpy = vi
-      .spyOn(client, 'getAssembly')
+    const fetchAssemblySpy = vi
+      .spyOn(
+        client as unknown as { _fetchAssemblyStatus: () => Promise<AssemblyStatus> },
+        '_fetchAssemblyStatus',
+      )
       .mockResolvedValueOnce(initial)
       .mockResolvedValueOnce(updated)
 
@@ -71,8 +74,43 @@ describe('resumeAssemblyUploads', () => {
       files: {},
     })
 
-    expect(getAssemblySpy).toHaveBeenCalledTimes(2)
+    expect(fetchAssemblySpy).toHaveBeenCalledTimes(2)
     expect(result).toBe(updated)
+  })
+
+  it('uses the assemblyUrl host when fetching status', async () => {
+    const client = new Transloadit({
+      authKey: 'key',
+      authSecret: 'secret',
+      endpoint: 'http://wrong.example',
+    })
+
+    const assemblyUrl = 'http://right.example/assemblies/assembly-id'
+    const assembly = buildAssembly({
+      assembly_url: assemblyUrl,
+      assembly_ssl_url: assemblyUrl,
+    })
+
+    const remoteJsonSpy = vi
+      .spyOn(client as unknown as { _remoteJson: (typeof client)['_remoteJson'] }, '_remoteJson')
+      .mockResolvedValueOnce(assembly)
+      .mockResolvedValueOnce(assembly)
+
+    await client.resumeAssemblyUploads({
+      assemblyUrl,
+      files: {},
+    })
+
+    expect(remoteJsonSpy.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        url: assemblyUrl,
+      }),
+    )
+    expect(remoteJsonSpy.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        url: assemblyUrl,
+      }),
+    )
   })
 
   it('waits for assembly completion when requested', async () => {
@@ -86,8 +124,11 @@ describe('resumeAssemblyUploads', () => {
     const latest = buildAssembly({ ok: 'ASSEMBLY_UPLOADING' })
     const completed = buildAssembly({ ok: 'ASSEMBLY_COMPLETED' })
 
-    const getAssemblySpy = vi
-      .spyOn(client, 'getAssembly')
+    const fetchAssemblySpy = vi
+      .spyOn(
+        client as unknown as { _fetchAssemblyStatus: () => Promise<AssemblyStatus> },
+        '_fetchAssemblyStatus',
+      )
       .mockResolvedValueOnce(initial)
       .mockResolvedValueOnce(latest)
 
@@ -102,7 +143,7 @@ describe('resumeAssemblyUploads', () => {
       onAssemblyProgress,
     })
 
-    expect(getAssemblySpy).toHaveBeenCalledTimes(2)
+    expect(fetchAssemblySpy).toHaveBeenCalledTimes(2)
     expect(awaitSpy).toHaveBeenCalledWith(
       initial.assembly_id,
       expect.objectContaining({
@@ -151,7 +192,10 @@ describe('resumeAssemblyUploads', () => {
       ],
     })
 
-    vi.spyOn(client, 'getAssembly').mockResolvedValue(assembly)
+    vi.spyOn(
+      client as unknown as { _fetchAssemblyStatus: () => Promise<AssemblyStatus> },
+      '_fetchAssemblyStatus',
+    ).mockResolvedValue(assembly)
 
     sendTusRequestMock.mockResolvedValue(undefined)
 
@@ -202,7 +246,10 @@ describe('resumeAssemblyUploads', () => {
       ],
     })
 
-    vi.spyOn(client, 'getAssembly').mockResolvedValue(assembly)
+    vi.spyOn(
+      client as unknown as { _fetchAssemblyStatus: () => Promise<AssemblyStatus> },
+      '_fetchAssemblyStatus',
+    ).mockResolvedValue(assembly)
 
     const capturedUploads: Record<string, string> = {}
     sendTusRequestMock.mockImplementation((opts) => {
@@ -247,7 +294,10 @@ describe('resumeAssemblyUploads', () => {
       ],
     })
 
-    vi.spyOn(client, 'getAssembly').mockResolvedValue(assembly)
+    vi.spyOn(
+      client as unknown as { _fetchAssemblyStatus: () => Promise<AssemblyStatus> },
+      '_fetchAssemblyStatus',
+    ).mockResolvedValue(assembly)
 
     const capturedUploads: Record<string, string> = {}
     sendTusRequestMock.mockImplementation((opts) => {
@@ -280,7 +330,10 @@ describe('resumeAssemblyUploads', () => {
 
     const failure = new Error('stream failed')
 
-    vi.spyOn(client, 'getAssembly').mockResolvedValue(buildAssembly())
+    vi.spyOn(
+      client as unknown as { _fetchAssemblyStatus: () => Promise<AssemblyStatus> },
+      '_fetchAssemblyStatus',
+    ).mockResolvedValue(buildAssembly())
     sendTusRequestMock.mockImplementation(async (opts) => {
       const stream = Object.values(opts.streamsMap)[0]?.stream
       process.nextTick(() => {
