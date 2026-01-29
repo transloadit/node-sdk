@@ -2472,7 +2472,7 @@ __metadata:
     "@aws-sdk/client-s3": "npm:^3.891.0"
     "@aws-sdk/s3-request-presigner": "npm:^3.891.0"
     "@transloadit/sev-logger": "npm:^0.0.15"
-    "@transloadit/utils": "npm:^4.1.9"
+    "@transloadit/utils": "npm:^4.2.0"
     "@types/debug": "npm:^4.1.12"
     "@types/minimist": "npm:^1.2.5"
     "@types/node": "npm:^24.10.3"
@@ -2513,7 +2513,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@transloadit/types@npm:^4.1.9, @transloadit/types@workspace:packages/types":
+"@transloadit/types@npm:^4.2.0, @transloadit/types@workspace:packages/types":
   version: 0.0.0-use.local
   resolution: "@transloadit/types@workspace:packages/types"
   dependencies:
@@ -2521,7 +2521,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@transloadit/utils@npm:^4.1.9, @transloadit/utils@workspace:packages/utils":
+"@transloadit/utils@npm:^4.2.0, @transloadit/utils@workspace:packages/utils":
   version: 0.0.0-use.local
   resolution: "@transloadit/utils@workspace:packages/utils"
   languageName: unknown
@@ -2531,7 +2531,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@transloadit/zod@workspace:packages/zod"
   dependencies:
-    "@transloadit/types": "npm:^4.1.9"
+    "@transloadit/types": "npm:^4.2.0"
     type-fest: "npm:^4.41.0"
     zod: "npm:^4.0.0"
   languageName: unknown
@@ -6680,7 +6680,7 @@ __metadata:
     "@aws-sdk/client-s3": "npm:^3.891.0"
     "@aws-sdk/s3-request-presigner": "npm:^3.891.0"
     "@transloadit/sev-logger": "npm:^0.0.15"
-    "@transloadit/utils": "npm:^4.1.9"
+    "@transloadit/utils": "npm:^4.2.0"
     "@types/debug": "npm:^4.1.12"
     "@types/minimist": "npm:^1.2.5"
     "@types/node": "npm:^24.10.3"
