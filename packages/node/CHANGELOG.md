@@ -1,5 +1,16 @@
 # @transloadit/node
 
+## 4.2.0
+
+### Minor Changes
+
+- f1e21d8: Add `resumeAssemblyUploads` for resuming tus uploads from Assembly status and improve upload
+  mapping/resume behavior.
+
+### Patch Changes
+
+- @transloadit/utils@4.2.0
+
 ## 4.1.9
 
 ### Patch Changes
