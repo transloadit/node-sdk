@@ -267,6 +267,10 @@ same input mapping. Resume relies on matching `fieldname`, `filename`, and `size
 names stable and pass the same files. Only path-based inputs resume; Buffer/string/stream uploads
 start a new tus upload automatically.
 
+You can pass the same upload and progress options as `createAssembly` (such as `chunkSize`,
+`uploadConcurrency`, `waitForCompletion`, `timeout`, `onUploadProgress`, and `onAssemblyProgress`).
+When `waitForCompletion` is `true`, the SDK will poll and resolve once the Assembly is finished.
+
 ```javascript
 const status = await transloadit.resumeAssemblyUploads({
   assemblyUrl: 'https://api2.transloadit.com/assemblies/ASSEMBLY_ID',
