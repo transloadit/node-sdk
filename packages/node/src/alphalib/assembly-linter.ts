@@ -408,36 +408,6 @@ function lintHttpImportUrl(
   }
 }
 
-// Add this new function after the existing lint function
-function lintStepsStructure(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
-  const result: AssemblyLinterResult[] = []
-
-  if (!('steps' in assembly)) {
-    result.push({
-      code: 'missing-steps',
-      type: 'error',
-      row: 0,
-      column: 0,
-      message: "The 'steps' property is missing",
-      fixId: 'fix-missing-steps',
-      fixData: {},
-    })
-  } else if (!isObject(assembly.steps)) {
-    result.push({
-      code: 'invalid-steps-type',
-      type: 'error',
-      row: assembly.__line?.steps ?? 0,
-      column: assembly.__column?.steps ?? 0,
-      message: "The 'steps' property must be an object",
-      fixId: 'fix-invalid-steps-type',
-      fixData: {},
-    })
-  }
-
-  return result
-}
-
-// Update the lint function to include the new lintStepsStructure check
 export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
   const result: AssemblyLinterResult[] = []
 
@@ -479,8 +449,6 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
     })
     return result // Return here to avoid additional checks for empty steps
   }
-
-  result.push(...lintStepsStructure(assembly))
 
   if (!isObject(assembly.steps)) {
     return result
@@ -524,7 +492,7 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
     }
 
     // Check if we use ${fields.input} in any import step
-    if (isImportRobot(typedStep.robot) || typedStep.robot === '/http/import') {
+    if (isImportRobot(typedStep.robot)) {
       importStepName = stepName
       const stepStr = JSON.stringify(step)
       if (stepStr.includes('${fields.input}')) {
@@ -565,9 +533,17 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
       continue
     }
 
-    // Ensure 'step' is actually a StepWithMetadata-like object, not just Record<string, number>
+    const stepKeys = Object.keys(step).filter((key) => key !== '__line' && key !== '__column')
     if (!('robot' in step || 'use' in step)) {
-      // This object doesn't look like a step, skip or handle as an error.
+      if (stepKeys.length > 0) {
+        result.push({
+          code: 'missing-robot',
+          stepName,
+          type: 'error',
+          row: assembly.steps.__line?.[stepName] ?? 0,
+          column: assembly.steps.__column?.[stepName] ?? 0,
+        })
+      }
       continue
     }
 
@@ -581,6 +557,7 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
         row: assembly.steps.__line?.[stepName] ?? 0,
         column: assembly.steps.__column?.[stepName] ?? 0,
       })
+      continue
     } else if (!isRobot(typedStep.robot)) {
       result.push({
         code: 'undefined-robot',
@@ -1036,8 +1013,22 @@ function findDuplicateKeysInAST(
 /**
  * Checks if an assembly is a Smart CDN Assembly by looking for the `/file/serve` robot
  */
-export function isSmartCdnAssembly(assemblyJson: string): boolean {
-  return assemblyJson.includes('"/file/serve"') || assemblyJson.includes("'/file/serve'")
+export function isSmartCdnAssembly(assembly: TemplateWithMetadata): boolean {
+  if (!isObject(assembly) || !isObject(assembly.steps)) {
+    return false
+  }
+
+  for (const [stepName, step] of Object.entries(assembly.steps)) {
+    if (stepName === '__line' || stepName === '__column') continue
+    if (!isObject(step)) continue
+
+    const typedStep = step as StepWithMetadata
+    if (typedStep.robot === '/file/serve') {
+      return true
+    }
+  }
+
+  return false
 }
 
 // This function counts the steps in an assembly
@@ -1154,13 +1145,13 @@ export async function parseAndLint(json: string): Promise<AssemblyLinterResult[]
   const annotations = lint(templateMeta)
 
   // Additional checks for Smart CDN assemblies
-  if (isSmartCdnAssembly(json)) {
+  if (isSmartCdnAssembly(templateMeta)) {
     annotations.push(...lintSmartCdn(templateMeta))
   }
 
   findDuplicateKeysInAST(ast, undefined, annotations)
 
-  const [isInfinite, positionalInfo] = await isInfiniteAssembly(templateMeta)
+  const [isInfinite, positionalInfo] = isInfiniteAssembly(templateMeta)
   if (isInfinite && positionalInfo) {
     annotations.push({
       code: 'infinite-assembly',
