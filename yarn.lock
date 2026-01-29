@@ -6742,6 +6742,8 @@ __metadata:
     got: "npm:14.4.9"
     into-stream: "npm:^9.0.0"
     is-stream: "npm:^4.0.1"
+    json-to-ast: "npm:^2.1.0"
+    lodash-es: "npm:^4.17.21"
     minimatch: "npm:^10.1.1"
     node-watch: "npm:^0.7.4"
     p-map: "npm:^7.0.3"
