@@ -1,5 +1,15 @@
 # @transloadit/node
 
+## 4.3.0
+
+### Minor Changes
+
+- 9f6dfa7: Add local Assembly Instructions linting with CLI support, template merging, and optional auto-fixes.
+
+### Patch Changes
+
+- @transloadit/utils@4.3.0
+
 ## 4.2.0
 
 ### Minor Changes
