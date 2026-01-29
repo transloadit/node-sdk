@@ -1,3 +1,4 @@
+import type { AssemblyLinterResult } from './assembly-linter.ts'
 import { stackVersions } from './types/stackVersions.ts'
 
 interface LintMessage {
@@ -345,4 +346,27 @@ This is typically used to fetch the correct file from your storage bucket, befor
   "url": "s3://my-bucket\${fields.input}"
 }`,
   }),
+}
+
+const firstNonEmptyLine = (text: string): string | undefined =>
+  text
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.length > 0)
+
+export const getLintIssueDescription = (issue: AssemblyLinterResult): string => {
+  const message = linterMessages[issue.code](issue)
+  return message.desc.trim()
+}
+
+export const getLintIssueSummary = (issue: AssemblyLinterResult): string => {
+  if (issue.message) return issue.message
+  const fromDesc = issue.desc ?? getLintIssueDescription(issue)
+  return firstNonEmptyLine(fromDesc) ?? issue.code
+}
+
+export const formatLintIssue = (issue: AssemblyLinterResult): string => {
+  const summary = getLintIssueSummary(issue)
+  const stepInfo = issue.stepName ? ` ${issue.stepName}` : ''
+  return `[${issue.type}] ${issue.code} (${issue.row}:${issue.column})${stepInfo} ${summary}`
 }

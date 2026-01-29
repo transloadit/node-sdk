@@ -24,6 +24,19 @@ export async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return Buffer.concat(chunks)
 }
 
+export async function readStdin(): Promise<string> {
+  if (process.stdin.isTTY) return ''
+
+  process.stdin.setEncoding('utf8')
+  let data = ''
+
+  for await (const chunk of process.stdin) {
+    data += chunk
+  }
+
+  return data
+}
+
 export function formatAPIError(err: unknown): string {
   if (isAPIError(err)) {
     return `${err.error}: ${err.message}`

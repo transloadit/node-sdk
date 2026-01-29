@@ -13,7 +13,7 @@ import got from 'got'
 import PQueue from 'p-queue'
 import * as t from 'typanion'
 import { z } from 'zod'
-import type { AssemblyLinterResult } from '../../alphalib/assembly-linter.ts'
+import { formatLintIssue } from '../../alphalib/assembly-linter.lang.en.ts'
 import { tryCatch } from '../../alphalib/tryCatch.ts'
 import type { Steps, StepsInput } from '../../alphalib/types/template.ts'
 import { stepsSchema } from '../../alphalib/types/template.ts'
@@ -26,7 +26,7 @@ import type {
 import type { LintFatalLevel } from '../../lintAssemblyInstructions.ts'
 import { lintAssemblyInstructions } from '../../lintAssemblyInstructions.ts'
 import type { CreateAssemblyOptions, Transloadit } from '../../Transloadit.ts'
-import { createReadStream, formatAPIError, streamToBuffer } from '../helpers.ts'
+import { createReadStream, formatAPIError, readStdin, streamToBuffer } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
@@ -69,19 +69,6 @@ const AssemblySchema = z.object({
   id: z.string(),
 })
 
-async function readStdin(): Promise<string> {
-  if (process.stdin.isTTY) return ''
-
-  process.stdin.setEncoding('utf8')
-  let data = ''
-
-  for await (const chunk of process.stdin) {
-    data += chunk
-  }
-
-  return data
-}
-
 async function readLintInput(
   steps?: string,
   providedInput?: string,
@@ -105,24 +92,6 @@ async function readLintInput(
   }
 
   return { content: null, isStdin: false }
-}
-
-const formatIssueSummary = (issue: AssemblyLinterResult): string => {
-  if (issue.message) return issue.message
-  if (issue.desc) {
-    const firstLine = issue.desc
-      .split('\n')
-      .map((line) => line.trim())
-      .find((line) => line.length > 0)
-    if (firstLine) return firstLine
-  }
-  return issue.code
-}
-
-const formatIssueLine = (issue: AssemblyLinterResult): string => {
-  const summary = formatIssueSummary(issue)
-  const stepInfo = issue.stepName ? ` ${issue.stepName}` : ''
-  return `[${issue.type}] ${issue.code} (${issue.row}:${issue.column})${stepInfo} ${summary}`
 }
 
 // --- Business logic functions (from assemblies.ts) ---
@@ -296,7 +265,7 @@ export async function lint(
     }
     process.stdout.write(`${result.fixedInstructions}\n`)
     for (const issue of result.issues) {
-      const line = formatIssueLine(issue)
+      const line = formatLintIssue(issue)
       if (issue.type === 'warning') output.warn(line)
       else output.error(line)
     }
@@ -313,7 +282,7 @@ export async function lint(
     output.print('No issues found', result)
   } else {
     for (const issue of result.issues) {
-      output.print(formatIssueLine(issue), issue)
+      output.print(formatLintIssue(issue), issue)
     }
   }
 

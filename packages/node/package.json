@@ -29,7 +29,7 @@
     "into-stream": "^9.0.0",
     "is-stream": "^4.0.1",
     "json-to-ast": "^2.1.0",
-    "lodash.merge": "^4.6.2",
+    "lodash-es": "^4.17.21",
     "node-watch": "^0.7.4",
     "p-map": "^7.0.3",
     "p-queue": "^9.0.1",
@@ -44,7 +44,7 @@
   },
   "devDependencies": {
     "@types/debug": "^4.1.12",
-    "@types/lodash.merge": "^4.6.9",
+    "@types/lodash-es": "^4.17.12",
     "@types/minimist": "^1.2.5",
     "@types/node": "^24.10.3",
     "@types/recursive-readdir": "^2.2.4",

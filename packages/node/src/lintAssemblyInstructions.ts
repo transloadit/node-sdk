@@ -1,8 +1,8 @@
-import merge from 'lodash.merge'
-import { linterMessages } from './alphalib/assembly-linter.lang.en.ts'
+import { getLintIssueDescription } from './alphalib/assembly-linter.lang.en.ts'
 import type { AssemblyLinterResult } from './alphalib/assembly-linter.ts'
 import { applyFix, parseAndLint } from './alphalib/assembly-linter.ts'
 import { getIndentation } from './alphalib/stepParsing.ts'
+import { mergeTemplateContent } from './alphalib/templateMerge.ts'
 import type { AssemblyInstructionsInput, StepsInput } from './alphalib/types/template.ts'
 import type { ResponseTemplateContent, TemplateContent } from './apiTypes.ts'
 
@@ -38,13 +38,11 @@ const DEFAULT_INDENT = '  '
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const getIssueDescription = (issue: AssemblyLinterResult): string => {
-  const message = linterMessages[issue.code](issue)
-  return message.desc.trim()
-}
-
 const addDescriptions = (issues: AssemblyLinterResult[]): AssemblyLinterResult[] =>
-  issues.map((issue) => ({ ...issue, desc: getIssueDescription(issue) }))
+  issues.map((issue) => ({
+    ...issue,
+    desc: issue.desc ?? getLintIssueDescription(issue),
+  }))
 
 const unwrapStepsOnly = (content: string, indent: string): string => {
   try {
@@ -101,28 +99,9 @@ export async function lintAssemblyInstructions(
     }
   }
 
-  const templateContent = template ? structuredClone(template) : undefined
-  if (templateContent && !parseFailed) {
-    const templateRecord = templateContent as Record<string, unknown>
-    if (templateContent.allow_steps_override == null) {
-      templateContent.allow_steps_override = true
-    }
-
-    if (instructions?.steps != null && templateContent.allow_steps_override === false) {
-      throw new Error('TEMPLATE_DENIES_STEPS_OVERRIDE')
-    }
-
-    if (instructions == null) {
-      instructions = templateContent as AssemblyInstructionsInput
-    } else {
-      const params = { ...instructions } as Record<string, unknown>
-      for (const key of Object.keys(templateRecord)) {
-        if (params[key] === null && templateRecord[key] !== null) {
-          params[key] = templateRecord[key]
-        }
-      }
-      instructions = merge({}, templateRecord, params) as AssemblyInstructionsInput
-    }
+  const shouldMergeTemplate = template != null && !parseFailed
+  if (shouldMergeTemplate) {
+    instructions = mergeTemplateContent(template, instructions)
   }
 
   let lintContent = ''
@@ -131,7 +110,7 @@ export async function lintAssemblyInstructions(
       typeof assemblyInstructions === 'string' &&
       !wasStepsOnly &&
       !parseFailed &&
-      templateContent == null
+      !shouldMergeTemplate
     ) {
       lintContent = assemblyInstructions
     } else {

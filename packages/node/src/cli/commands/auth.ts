@@ -8,7 +8,7 @@ import {
 } from '../../alphalib/types/template.ts'
 import type { OptionalAuthParams } from '../../apiTypes.ts'
 import { Transloadit } from '../../Transloadit.ts'
-import { getEnvCredentials } from '../helpers.ts'
+import { getEnvCredentials, readStdin } from '../helpers.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 type UrlParamPrimitive = string | number | boolean
@@ -66,19 +66,6 @@ function normalizeUrlParams(params?: Record<string, unknown>): NormalizedUrlPara
     normalized[key] = normalizedValue
   }
   return normalized
-}
-
-async function readStdin(): Promise<string> {
-  if (process.stdin.isTTY) return ''
-
-  process.stdin.setEncoding('utf8')
-  let data = ''
-
-  for await (const chunk of process.stdin) {
-    data += chunk
-  }
-
-  return data
 }
 
 const getCredentials = getEnvCredentials
