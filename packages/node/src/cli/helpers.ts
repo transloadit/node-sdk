@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import fsp from 'node:fs/promises'
 import type { Readable } from 'node:stream'
 import { isAPIError } from './types.ts'
 
@@ -35,6 +36,42 @@ export async function readStdin(): Promise<string> {
   }
 
   return data
+}
+
+export interface CliInputResult {
+  content: string | null
+  isStdin: boolean
+  path?: string
+}
+
+export interface ReadCliInputOptions {
+  inputPath?: string
+  providedInput?: string
+  allowStdinWhenNoPath?: boolean
+}
+
+export async function readCliInput(options: ReadCliInputOptions): Promise<CliInputResult> {
+  const { inputPath, providedInput, allowStdinWhenNoPath = false } = options
+  const canUseProvided = providedInput != null && (inputPath == null || inputPath === '-')
+
+  if (canUseProvided) {
+    return { content: providedInput, isStdin: inputPath === '-' || inputPath == null }
+  }
+
+  if (inputPath === '-') {
+    return { content: await readStdin(), isStdin: true }
+  }
+
+  if (inputPath != null) {
+    const content = await fsp.readFile(inputPath, 'utf8')
+    return { content, isStdin: false, path: inputPath }
+  }
+
+  if (allowStdinWhenNoPath && !process.stdin.isTTY) {
+    return { content: await readStdin(), isStdin: true }
+  }
+
+  return { content: null, isStdin: false }
 }
 
 export function formatAPIError(err: unknown): string {

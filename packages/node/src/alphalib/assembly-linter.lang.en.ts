@@ -365,8 +365,25 @@ export const getLintIssueSummary = (issue: AssemblyLinterResult): string => {
   return firstNonEmptyLine(fromDesc) ?? issue.code
 }
 
+export type HydratedLintIssue = AssemblyLinterResult & {
+  desc: string
+  summary: string
+}
+
+export const hydrateLintIssue = (issue: AssemblyLinterResult): HydratedLintIssue => {
+  const desc = issue.desc ?? getLintIssueDescription(issue)
+  const summary = getLintIssueSummary({ ...issue, desc })
+  return { ...issue, desc, summary }
+}
+
+export const hydrateLintIssues = (issues: AssemblyLinterResult[]): HydratedLintIssue[] =>
+  issues.map((issue) => hydrateLintIssue(issue))
+
 export const formatLintIssue = (issue: AssemblyLinterResult): string => {
-  const summary = getLintIssueSummary(issue)
+  const summary =
+    'summary' in issue && typeof issue.summary === 'string'
+      ? issue.summary
+      : getLintIssueSummary(issue)
   const stepInfo = issue.stepName ? ` ${issue.stepName}` : ''
   return `[${issue.type}] ${issue.code} (${issue.row}:${issue.column})${stepInfo} ${summary}`
 }

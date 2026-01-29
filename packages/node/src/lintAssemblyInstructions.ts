@@ -1,5 +1,5 @@
-import { getLintIssueDescription } from './alphalib/assembly-linter.lang.en.ts'
-import type { AssemblyLinterResult } from './alphalib/assembly-linter.ts'
+import type { HydratedLintIssue } from './alphalib/assembly-linter.lang.en.ts'
+import { hydrateLintIssues } from './alphalib/assembly-linter.lang.en.ts'
 import { applyFix, parseAndLint } from './alphalib/assembly-linter.ts'
 import { getIndentation } from './alphalib/stepParsing.ts'
 import { mergeTemplateContent } from './alphalib/templateMerge.ts'
@@ -29,7 +29,7 @@ export interface LintAssemblyInstructionsInput {
 
 export interface LintAssemblyInstructionsResult {
   success: boolean
-  issues: AssemblyLinterResult[]
+  issues: HydratedLintIssue[]
   fixedInstructions?: string
 }
 
@@ -37,12 +37,6 @@ const DEFAULT_INDENT = '  '
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const addDescriptions = (issues: AssemblyLinterResult[]): AssemblyLinterResult[] =>
-  issues.map((issue) => ({
-    ...issue,
-    desc: issue.desc ?? getLintIssueDescription(issue),
-  }))
 
 const unwrapStepsOnly = (content: string, indent: string): string => {
   try {
@@ -56,15 +50,16 @@ const unwrapStepsOnly = (content: string, indent: string): string => {
   return content
 }
 
-export async function lintAssemblyInstructions(
-  options: LintAssemblyInstructionsInput,
-): Promise<LintAssemblyInstructionsResult> {
-  const { assemblyInstructions, template, fix = false, fatal = 'error' } = options
+interface BuildLintInputResult {
+  lintContent: string
+  wasStepsOnly: boolean
+  indent: string
+}
 
-  if (assemblyInstructions == null && template == null) {
-    throw new Error('Provide assemblyInstructions or template content to lint.')
-  }
-
+const buildLintInput = (
+  assemblyInstructions: LintAssemblyInstructionsInput['assemblyInstructions'],
+  template?: LintAssemblyInstructionsInput['template'],
+): BuildLintInputResult => {
   let inputString: string | undefined
   let parsedInput: unknown | undefined
   let parseFailed = false
@@ -120,6 +115,20 @@ export async function lintAssemblyInstructions(
     lintContent = inputString
   }
 
+  return { lintContent, wasStepsOnly, indent }
+}
+
+export async function lintAssemblyInstructions(
+  options: LintAssemblyInstructionsInput,
+): Promise<LintAssemblyInstructionsResult> {
+  const { assemblyInstructions, template, fix = false, fatal = 'error' } = options
+
+  if (assemblyInstructions == null && template == null) {
+    throw new Error('Provide assemblyInstructions or template content to lint.')
+  }
+
+  const { lintContent, wasStepsOnly, indent } = buildLintInput(assemblyInstructions, template)
+
   let issues = await parseAndLint(lintContent)
   let fixedContent = lintContent
 
@@ -131,7 +140,7 @@ export async function lintAssemblyInstructions(
     issues = await parseAndLint(fixedContent)
   }
 
-  const describedIssues = addDescriptions(issues)
+  const describedIssues = hydrateLintIssues(issues)
   const fatalTypes = fatal === 'warning' ? new Set(['warning', 'error']) : new Set(['error'])
   const success = !describedIssues.some((issue) => fatalTypes.has(issue.type))
 
