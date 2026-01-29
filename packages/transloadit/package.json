@@ -79,5 +79,7 @@
     "dist",
     "src"
   ],
-  "bin": "./dist/cli.js"
+  "bin": {
+    "transloadit": "./dist/cli.js"
+  }
 }
