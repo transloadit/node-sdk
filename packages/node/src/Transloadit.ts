@@ -1,7 +1,8 @@
 import * as assert from 'node:assert'
 import { randomUUID } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
-import { access } from 'node:fs/promises'
+import { access, stat } from 'node:fs/promises'
+import { basename } from 'node:path'
 import type { Readable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
 import { getSignedSmartCdnUrl, signParamsSync } from '@transloadit/utils/node'
@@ -77,8 +78,73 @@ const { version } = packageJson
 
 export type AssemblyProgress = (assembly: AssemblyStatus) => void
 
-export interface CreateAssemblyOptions {
-  params?: CreateAssemblyParams
+type UploadDescriptor = {
+  label: string
+  filename: string
+  size?: number
+  path?: string
+  value?: Readable | IntoStreamInput
+}
+
+const getUploadKey = (
+  fieldname: string | null | undefined,
+  filename: string | null | undefined,
+  size: number | null | undefined,
+): string | null => {
+  if (!fieldname || !filename || size == null) return null
+  return JSON.stringify([fieldname, filename, size])
+}
+
+const getSizeFromValue = (value: Readable | IntoStreamInput): number | undefined => {
+  if (typeof value === 'string') return Buffer.byteLength(value)
+  if (Buffer.isBuffer(value)) return value.length
+  if (value instanceof ArrayBuffer) return value.byteLength
+  if (ArrayBuffer.isView(value)) return value.byteLength
+  return undefined
+}
+
+const toReadableUpload = (label: string, value: Readable | IntoStreamInput): Readable => {
+  const readable = isReadableStream(value)
+  if (!readable && isStream(value)) {
+    throw new Error(`Upload named "${label}" is not a Readable stream`)
+  }
+  return readable ? value : intoStream(value)
+}
+
+const buildStreamsMap = (descriptors: UploadDescriptor[]): Record<string, Stream> =>
+  Object.fromEntries(
+    descriptors.map((descriptor) => {
+      if (descriptor.path) {
+        const stream = createReadStream(descriptor.path)
+        return [descriptor.label, { stream, path: descriptor.path }]
+      }
+
+      const value = descriptor.value
+      if (value == null) {
+        throw new Error(`Upload named "${descriptor.label}" has no data`)
+      }
+      const stream = toReadableUpload(descriptor.label, value)
+      return [descriptor.label, { stream }]
+    }),
+  )
+
+const pauseStreams = (streamsMap: Record<string, Stream>): void => {
+  for (const { stream } of Object.values(streamsMap)) {
+    stream.pause()
+  }
+}
+
+const createStreamErrorPromise = (streamsMap: Record<string, Stream>): Promise<never> => {
+  const promise = new Promise<never>((_resolve, reject) => {
+    for (const { stream } of Object.values(streamsMap)) {
+      stream.on('error', reject)
+    }
+  })
+  promise.catch(() => {})
+  return promise
+}
+
+interface AssemblyUploadOptions {
   files?: {
     [name: string]: string
   }
@@ -91,12 +157,20 @@ export interface CreateAssemblyOptions {
   timeout?: number
   onUploadProgress?: (uploadProgress: UploadProgress) => void
   onAssemblyProgress?: AssemblyProgress
-  assemblyId?: string
   /**
-   * Optional AbortSignal to cancel the assembly creation and upload.
+   * Optional AbortSignal to cancel the upload and any follow-up polling.
    * When aborted, any in-flight HTTP requests and TUS uploads will be cancelled.
    */
   signal?: AbortSignal
+}
+
+export interface CreateAssemblyOptions extends AssemblyUploadOptions {
+  params?: CreateAssemblyParams
+  assemblyId?: string
+}
+
+export interface ResumeAssemblyUploadsOptions extends AssemblyUploadOptions {
+  assemblyUrl: string
 }
 
 export interface AwaitAssemblyCompletionOptions {
@@ -104,6 +178,11 @@ export interface AwaitAssemblyCompletionOptions {
   timeout?: number
   interval?: number
   startTimeMs?: number
+  /**
+   * Optional assembly URL to poll instead of the configured client endpoint.
+   * Useful when resuming an Assembly created on a different host/region.
+   */
+  assemblyUrl?: string
   /**
    * Optional AbortSignal to cancel polling.
    * When aborted, the polling loop will stop and throw an AbortError.
@@ -157,6 +236,14 @@ function checkAssemblyUrls(result: AssemblyStatus) {
 
 function getHrTimeMs(): number {
   return Number(process.hrtime.bigint() / 1000000n)
+}
+
+function getAssemblyIdFromUrl(assemblyUrl: string): string {
+  const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
+  if (!match) {
+    throw new Error(`Invalid assembly URL: ${assemblyUrl}`)
+  }
+  return match[1] ?? ''
 }
 
 function checkResult<T>(result: T | { error: string }): asserts result is T {
@@ -276,36 +363,25 @@ export class Transloadit {
         { concurrency: 5 },
       )
 
-      // Convert uploads to streams
-      const streamsMap = Object.fromEntries(
-        Object.entries(uploads).map(([label, value]) => {
-          const isReadable = isReadableStream(value)
-          if (!isReadable && isStream(value)) {
-            // https://github.com/transloadit/node-sdk/issues/92
-            throw new Error(`Upload named "${label}" is not a Readable stream`)
-          }
+      const descriptors: UploadDescriptor[] = [
+        ...Object.entries(files).map(([label, path]) => ({
+          label,
+          path,
+          filename: basename(path),
+        })),
+        ...Object.entries(uploads).map(([label, value]) => ({
+          label,
+          filename: label,
+          value,
+        })),
+      ]
 
-          return [label, isReadableStream(value) ? value : intoStream(value)]
-        }),
-      )
-
-      // Wrap in object structure (so we can store whether it's a pathless stream or not)
-      const allStreamsMap = Object.fromEntries<Stream>(
-        Object.entries(streamsMap).map(([label, stream]) => [label, { stream }]),
-      )
-
-      // Create streams from files too
-      for (const [label, path] of Object.entries(files)) {
-        const stream = createReadStream(path)
-        allStreamsMap[label] = { stream, path } // File streams have path
-      }
+      const allStreamsMap = buildStreamsMap(descriptors)
 
       const allStreams = Object.values(allStreamsMap)
 
       // Pause all streams
-      for (const { stream } of allStreams) {
-        stream.pause()
-      }
+      pauseStreams(allStreamsMap)
 
       // If any stream emits error, we want to handle this and exit with error.
       // This promise races against createAssemblyAndUpload() below via Promise.race().
@@ -313,12 +389,7 @@ export class Transloadit {
       // it's no longer awaited, but stream error handlers remain attached.
       // The no-op catch prevents Node's unhandled rejection warning if a stream
       // errors after the race is already won.
-      const streamErrorPromise = new Promise<AssemblyStatus>((_resolve, reject) => {
-        for (const { stream } of allStreams) {
-          stream.on('error', reject)
-        }
-      })
-      streamErrorPromise.catch(() => {})
+      const streamErrorPromise = createStreamErrorPromise(allStreamsMap)
 
       const createAssemblyAndUpload = async () => {
         const result: AssemblyStatus = await this._remoteJson({
@@ -368,6 +439,124 @@ export class Transloadit {
     return Object.assign(promise, { assemblyId: effectiveAssemblyId })
   }
 
+  async resumeAssemblyUploads(opts: ResumeAssemblyUploadsOptions): Promise<AssemblyStatus> {
+    const {
+      assemblyUrl,
+      files = {},
+      uploads = {},
+      chunkSize: requestedChunkSize = Number.POSITIVE_INFINITY,
+      uploadConcurrency = 10,
+      timeout = 24 * 60 * 60 * 1000, // 1 day
+      waitForCompletion = false,
+      onUploadProgress = () => {},
+      onAssemblyProgress = () => {},
+      signal,
+    } = opts
+
+    const startTimeMs = getHrTimeMs()
+
+    getAssemblyIdFromUrl(assemblyUrl)
+    const assembly = await this._fetchAssemblyStatus({ url: assemblyUrl, signal })
+    const statusUrl = assembly.assembly_ssl_url ?? assembly.assembly_url ?? assemblyUrl
+
+    const finishedKeys = new Set<string>()
+    for (const upload of assembly.uploads ?? []) {
+      const key = getUploadKey(upload.field ?? null, upload.basename ?? null, upload.size)
+      if (key) finishedKeys.add(key)
+    }
+    for (const upload of assembly.tus_uploads ?? []) {
+      if (!upload.finished) continue
+      const key = getUploadKey(upload.fieldname, upload.filename, upload.size)
+      if (key) finishedKeys.add(key)
+    }
+
+    const resumeUrls = new Map<string, string>()
+    for (const upload of assembly.tus_uploads ?? []) {
+      if (upload.finished) continue
+      if (!upload.upload_url) continue
+      const key = getUploadKey(upload.fieldname, upload.filename, upload.size)
+      if (key) resumeUrls.set(key, upload.upload_url)
+    }
+
+    const descriptors: UploadDescriptor[] = []
+
+    await pMap(
+      Object.entries(files),
+      async ([label, path]) => {
+        await access(path, constants.F_OK | constants.R_OK)
+        const info = await stat(path)
+        descriptors.push({
+          label,
+          path,
+          filename: basename(path),
+          size: info.size,
+        })
+      },
+      { concurrency: 5 },
+    )
+
+    for (const [label, value] of Object.entries(uploads)) {
+      descriptors.push({
+        label,
+        filename: label,
+        size: isReadableStream(value) ? undefined : getSizeFromValue(value),
+        value,
+      })
+    }
+
+    const descriptorsToUpload = descriptors.filter((descriptor) => {
+      const key = getUploadKey(descriptor.label, descriptor.filename, descriptor.size ?? null)
+      return key ? !finishedKeys.has(key) : true
+    })
+
+    const uploadUrlsByLabel: Record<string, string> = {}
+    for (const descriptor of descriptorsToUpload) {
+      if (!descriptor.path) continue
+      const key = getUploadKey(descriptor.label, descriptor.filename, descriptor.size ?? null)
+      if (!key) continue
+      const uploadUrl = resumeUrls.get(key)
+      if (uploadUrl) uploadUrlsByLabel[descriptor.label] = uploadUrl
+    }
+
+    const streamsMap = buildStreamsMap(descriptorsToUpload)
+    pauseStreams(streamsMap)
+
+    if (Object.keys(streamsMap).length > 0) {
+      const streamErrorPromise = createStreamErrorPromise(streamsMap)
+
+      const uploadPromise = sendTusRequest({
+        streamsMap,
+        assembly,
+        requestedChunkSize,
+        uploadConcurrency,
+        onProgress: onUploadProgress,
+        signal,
+        uploadUrls: uploadUrlsByLabel,
+      })
+
+      await Promise.race([uploadPromise, streamErrorPromise])
+    }
+
+    const latestAssembly = await this._fetchAssemblyStatus({ url: statusUrl, signal })
+    if (!waitForCompletion) return latestAssembly
+
+    if (latestAssembly.assembly_id == null) {
+      throw new InconsistentResponseError(
+        'Server returned an assembly response without an assembly_id after resuming uploads',
+      )
+    }
+
+    const awaitResult = await this.awaitAssemblyCompletion(latestAssembly.assembly_id, {
+      timeout,
+      onAssemblyProgress,
+      startTimeMs,
+      assemblyUrl: statusUrl,
+      signal,
+    })
+    checkResult(awaitResult)
+    return awaitResult
+  }
+
   async awaitAssemblyCompletion(
     assemblyId: string,
     {
@@ -375,6 +564,7 @@ export class Transloadit {
       timeout,
       startTimeMs = getHrTimeMs(),
       interval = 1000,
+      assemblyUrl,
       signal,
       onPoll,
     }: AwaitAssemblyCompletionOptions = {},
@@ -382,6 +572,12 @@ export class Transloadit {
     assert.ok(assemblyId)
 
     let lastResult: AssemblyStatus | undefined
+
+    const fetchAssemblyStatus = (): Promise<AssemblyStatus> => {
+      return assemblyUrl
+        ? this._fetchAssemblyStatus({ url: assemblyUrl, signal })
+        : this.getAssembly(assemblyId, { signal })
+    }
 
     while (true) {
       // Check if caller wants to stop polling early
@@ -394,7 +590,7 @@ export class Transloadit {
         throw signal.reason ?? new DOMException('Aborted', 'AbortError')
       }
 
-      const result = await this.getAssembly(assemblyId, { signal })
+      const result = await fetchAssemblyStatus()
       lastResult = result
 
       // If 'ok' is not in result, it implies a terminal state (e.g., error, completed, canceled).
@@ -576,16 +772,33 @@ export class Transloadit {
     assemblyId: string,
     options?: { signal?: AbortSignal },
   ): Promise<AssemblyStatus> {
-    const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
-      urlSuffix: `/assemblies/${assemblyId}`,
+    return await this._fetchAssemblyStatus({
+      assemblyId,
       signal: options?.signal,
+    })
+  }
+
+  private async _fetchAssemblyStatus({
+    assemblyId,
+    url,
+    signal,
+  }: {
+    assemblyId?: string
+    url?: string
+    signal?: AbortSignal
+  }): Promise<AssemblyStatus> {
+    const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
+      url,
+      urlSuffix: url ? undefined : `/assemblies/${assemblyId}`,
+      signal,
     })
 
     const parsedResult = zodParseWithContext(assemblyStatusSchema, rawResult)
 
     if (!parsedResult.success) {
+      const label = assemblyId ?? url ?? 'unknown'
       this.maybeThrowInconsistentResponseError(
-        `The API responded with data that does not match the expected schema while getting Assembly: ${assemblyId}.\n${parsedResult.humanReadable}`,
+        `The API responded with data that does not match the expected schema while getting Assembly: ${label}.\n${parsedResult.humanReadable}`,
       )
     }
 
