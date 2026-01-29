@@ -73,6 +73,23 @@ describe('lintAssemblyInstructions', () => {
     expect(codes).toContain('no-storage')
   })
 
+  it('flags undefined steps in use object string form', async () => {
+    const result = await lintAssemblyInstructions({
+      assemblyInstructions: {
+        ':original': { robot: '/upload/handle' },
+        resize: {
+          robot: '/image/resize',
+          use: { steps: 'missing' },
+          width: 100,
+          height: 100,
+        },
+      },
+    })
+
+    const codes = result.issues.map((issue) => issue.code)
+    expect(codes).toContain('undefined-step')
+  })
+
   it('hydrates smart-cdn robot errors with the robot name', async () => {
     const result = await lintAssemblyInstructions({
       assemblyInstructions: {

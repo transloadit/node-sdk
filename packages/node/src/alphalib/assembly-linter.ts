@@ -680,6 +680,11 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
         const useObject = typedStep.use // No immediate cast
 
         if ('steps' in useObject) {
+          // Access metadata for the 'steps' key within the useObject, if available.
+          // The useObject itself, being a product of getASTValue for an object, should have __line/__column.
+          const useStepsLine = (useObject as WithASTMetadata<typeof useObject>)?.__line?.steps
+          const useStepsColumn = (useObject as WithASTMetadata<typeof useObject>)?.__column?.steps
+
           if (Array.isArray(useObject.steps)) {
             // Now useObject.steps is known to be an array.
             // We still need to ensure elements match StepUseArrayItemSchema if processing them.
@@ -700,11 +705,6 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
               hasInputStep = true
             }
 
-            // Access metadata for the 'steps' key within the useObject, if available.
-            // The useObject itself, being a product of getASTValue for an object, should have __line/__column.
-            const useStepsLine = (useObject as WithASTMetadata<typeof useObject>)?.__line?.steps
-            const useStepsColumn = (useObject as WithASTMetadata<typeof useObject>)?.__column?.steps
-
             lintUseArray(
               useObject.steps,
               stepName,
@@ -712,6 +712,19 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
               result,
               useStepsLine ?? typedStep.__line.use, // Fallback to the line of the 'use' key itself
               useStepsColumn ?? typedStep.__column.use, // Fallback to the column of the 'use' key itself
+            )
+          } else if (typeof useObject.steps === 'string') {
+            if (useObject.steps === ':original') {
+              hasInputStep = true
+            }
+
+            lintUseArray(
+              [useObject.steps],
+              stepName,
+              stepNames,
+              result,
+              useStepsLine ?? typedStep.__line.use,
+              useStepsColumn ?? typedStep.__column.use,
             )
           } else if (typeof useObject.steps !== 'string') {
             // If 'steps' is not an array or not present, it's an invalid use object structure.

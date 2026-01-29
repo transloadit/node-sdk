@@ -305,7 +305,7 @@ If you are unsure, we recommend using \`${stackVersions.imagemagick.recommendedV
     desc: `
 When using the /http/import Robot, it's important to prefix any path variable with a full URL including the protocol, domain/bucket name, and optionally folder, in the \`url\` or \`path\` parameter. This ensures that Transloadit only imports files from intended sources and attackers can't just import from any source.
 
-Signature Authentication can also help prevent this, but it's recommended to have layers of protection against thisif you can.
+Signature Authentication can also help prevent this, but it's recommended to have layers of protection against this if you can.
 
 Instead of using a relative URL or just a field variable like \`\${'{fields.input}'}\`, you should provide a complete URL. For example:
 
