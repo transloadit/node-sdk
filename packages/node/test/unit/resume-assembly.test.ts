@@ -91,9 +91,7 @@ describe('resumeAssemblyUploads', () => {
       .mockResolvedValueOnce(initial)
       .mockResolvedValueOnce(latest)
 
-    const awaitSpy = vi
-      .spyOn(client, 'awaitAssemblyCompletion')
-      .mockResolvedValue(completed)
+    const awaitSpy = vi.spyOn(client, 'awaitAssemblyCompletion').mockResolvedValue(completed)
 
     const onAssemblyProgress = vi.fn()
 
