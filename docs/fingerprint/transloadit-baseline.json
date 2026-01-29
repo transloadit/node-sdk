@@ -2,8 +2,8 @@
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.1.9.tgz",
-    "sizeBytes": 1127142,
-    "sha256": "f216e9f06c2e1d2398bad549de246512790d0044e7e52591e7fa1be2807acbf0"
+    "sizeBytes": 1127327,
+    "sha256": "b14ab4686290aea3f4be0ca40092b5cc18d1f80d2f61d18cecd3f67cce13e84f"
   },
   "packageJson": {
     "name": "transloadit",
@@ -1828,8 +1828,8 @@
     },
     {
       "path": "README.md",
-      "sizeBytes": 30166,
-      "sha256": "162bbe8f1599105764ac465664be781d60f7c4cdd6631e9733abe1e99fc862f8"
+      "sizeBytes": 30784,
+      "sha256": "7ce002a4ae8226de56a05892b0b63a3c4e7a0ee83a97d0e7cc637685b05a8ca0"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts",
