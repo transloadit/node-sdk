@@ -1323,7 +1323,8 @@ function fixMissingInput(content: string): string {
     if (stepName !== ':original' && isObject(step) && !('use' in step) && 'robot' in step) {
       // Use addUseReference instead of direct assignment
       // @ts-expect-error: robot should be good here
-      addUseReference({ ...step, use: [] }, ':original')
+      const updatedStep = addUseReference(step, ':original')
+      stepsRecord[stepName] = updatedStep
     }
   }
 
