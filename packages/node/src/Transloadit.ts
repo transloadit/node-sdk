@@ -78,6 +78,72 @@ const { version } = packageJson
 
 export type AssemblyProgress = (assembly: AssemblyStatus) => void
 
+type UploadDescriptor = {
+  label: string
+  filename: string
+  size?: number
+  path?: string
+  value?: Readable | IntoStreamInput
+}
+
+const getUploadKey = (
+  fieldname: string | null | undefined,
+  filename: string | null | undefined,
+  size: number | null | undefined,
+): string | null => {
+  if (!fieldname || !filename || size == null) return null
+  return JSON.stringify([fieldname, filename, size])
+}
+
+const getSizeFromValue = (value: Readable | IntoStreamInput): number | undefined => {
+  if (typeof value === 'string') return Buffer.byteLength(value)
+  if (Buffer.isBuffer(value)) return value.length
+  if (value instanceof ArrayBuffer) return value.byteLength
+  if (ArrayBuffer.isView(value)) return value.byteLength
+  return undefined
+}
+
+const toReadableUpload = (label: string, value: Readable | IntoStreamInput): Readable => {
+  const readable = isReadableStream(value)
+  if (!readable && isStream(value)) {
+    throw new Error(`Upload named "${label}" is not a Readable stream`)
+  }
+  return readable ? value : intoStream(value)
+}
+
+const buildStreamsMap = (descriptors: UploadDescriptor[]): Record<string, Stream> =>
+  Object.fromEntries(
+    descriptors.map((descriptor) => {
+      if (descriptor.path) {
+        const stream = createReadStream(descriptor.path)
+        return [descriptor.label, { stream, path: descriptor.path }]
+      }
+
+      const value = descriptor.value
+      if (value == null) {
+        throw new Error(`Upload named "${descriptor.label}" has no data`)
+      }
+      const stream = toReadableUpload(descriptor.label, value)
+      return [descriptor.label, { stream }]
+    }),
+  )
+
+const pauseStreams = (streamsMap: Record<string, Stream>): void => {
+  for (const { stream } of Object.values(streamsMap)) {
+    stream.pause()
+  }
+}
+
+const createStreamErrorPromise = (streamsMap: Record<string, Stream>): Promise<never> => {
+  const promise = new Promise<never>((_resolve, reject) => {
+    for (const { stream } of Object.values(streamsMap)) {
+      stream.on('error', reject)
+    }
+  })
+  promise.catch(() => {})
+  return promise
+}
+
 export interface CreateAssemblyOptions {
   params?: CreateAssemblyParams
   files?: {
@@ -303,36 +369,25 @@ export class Transloadit {
         { concurrency: 5 },
       )
 
-      // Convert uploads to streams
-      const streamsMap = Object.fromEntries(
-        Object.entries(uploads).map(([label, value]) => {
-          const isReadable = isReadableStream(value)
-          if (!isReadable && isStream(value)) {
-            // https://github.com/transloadit/node-sdk/issues/92
-            throw new Error(`Upload named "${label}" is not a Readable stream`)
-          }
+      const descriptors: UploadDescriptor[] = [
+        ...Object.entries(files).map(([label, path]) => ({
+          label,
+          path,
+          filename: basename(path),
+        })),
+        ...Object.entries(uploads).map(([label, value]) => ({
+          label,
+          filename: label,
+          value,
+        })),
+      ]
 
-          return [label, isReadableStream(value) ? value : intoStream(value)]
-        }),
-      )
-
-      // Wrap in object structure (so we can store whether it's a pathless stream or not)
-      const allStreamsMap = Object.fromEntries<Stream>(
-        Object.entries(streamsMap).map(([label, stream]) => [label, { stream }]),
-      )
-
-      // Create streams from files too
-      for (const [label, path] of Object.entries(files)) {
-        const stream = createReadStream(path)
-        allStreamsMap[label] = { stream, path } // File streams have path
-      }
+      const allStreamsMap = buildStreamsMap(descriptors)
 
       const allStreams = Object.values(allStreamsMap)
 
       // Pause all streams
-      for (const { stream } of allStreams) {
-        stream.pause()
-      }
+      pauseStreams(allStreamsMap)
 
       // If any stream emits error, we want to handle this and exit with error.
       // This promise races against createAssemblyAndUpload() below via Promise.race().
@@ -340,12 +395,7 @@ export class Transloadit {
       // it's no longer awaited, but stream error handlers remain attached.
       // The no-op catch prevents Node's unhandled rejection warning if a stream
       // errors after the race is already won.
-      const streamErrorPromise = new Promise<AssemblyStatus>((_resolve, reject) => {
-        for (const { stream } of allStreams) {
-          stream.on('error', reject)
-        }
-      })
-      streamErrorPromise.catch(() => {})
+      const streamErrorPromise = createStreamErrorPromise(allStreamsMap)
 
       const createAssemblyAndUpload = async () => {
         const result: AssemblyStatus = await this._remoteJson({
@@ -409,15 +459,6 @@ export class Transloadit {
     const assemblyId = getAssemblyIdFromUrl(assemblyUrl)
     const assembly = await this.getAssembly(assemblyId, { signal })
 
-    const getUploadKey = (
-      fieldname: string | null | undefined,
-      filename: string | null | undefined,
-      size: number | null | undefined,
-    ): string | null => {
-      if (!fieldname || !filename || size == null) return null
-      return JSON.stringify([fieldname, filename, size])
-    }
-
     const finishedKeys = new Set<string>()
     for (const upload of assembly.uploads ?? []) {
       const key = getUploadKey(upload.field ?? null, upload.basename ?? null, upload.size)
@@ -437,21 +478,7 @@ export class Transloadit {
       if (key) resumeUrls.set(key, upload.upload_url)
     }
 
-    const descriptors: Array<{
-      label: string
-      filename: string
-      size?: number
-      path?: string
-      value?: Readable | IntoStreamInput
-    }> = []
-
-    const getSizeFromValue = (value: Readable | IntoStreamInput): number | undefined => {
-      if (typeof value === 'string') return Buffer.byteLength(value)
-      if (Buffer.isBuffer(value)) return value.length
-      if (value instanceof ArrayBuffer) return value.byteLength
-      if (ArrayBuffer.isView(value)) return value.byteLength
-      return undefined
-    }
+    const descriptors: UploadDescriptor[] = []
 
     await pMap(
       Object.entries(files),
@@ -469,10 +496,6 @@ export class Transloadit {
     )
 
     for (const [label, value] of Object.entries(uploads)) {
-      const isReadable = isReadableStream(value)
-      if (!isReadable && isStream(value)) {
-        throw new Error(`Upload named "${label}" is not a Readable stream`)
-      }
       descriptors.push({
         label,
         filename: label,
@@ -495,37 +518,11 @@ export class Transloadit {
       if (uploadUrl) uploadUrlsByLabel[descriptor.label] = uploadUrl
     }
 
-    const streamsMap = Object.fromEntries<Stream>(
-      descriptorsToUpload.map((descriptor) => {
-        if (descriptor.path) {
-          const stream = createReadStream(descriptor.path)
-          return [descriptor.label, { stream, path: descriptor.path }]
-        }
-
-        const value = descriptor.value
-        if (!value) {
-          throw new Error(`Upload named "${descriptor.label}" has no data`)
-        }
-        const isReadable = isReadableStream(value)
-        if (!isReadable && isStream(value)) {
-          throw new Error(`Upload named "${descriptor.label}" is not a Readable stream`)
-        }
-        const stream = isReadable ? value : intoStream(value)
-        return [descriptor.label, { stream }]
-      }),
-    )
-
-    for (const { stream } of Object.values(streamsMap)) {
-      stream.pause()
-    }
+    const streamsMap = buildStreamsMap(descriptorsToUpload)
+    pauseStreams(streamsMap)
 
     if (Object.keys(streamsMap).length > 0) {
-      const streamErrorPromise = new Promise<never>((_resolve, reject) => {
-        for (const { stream } of Object.values(streamsMap)) {
-          stream.on('error', reject)
-        }
-      })
-      streamErrorPromise.catch(() => {})
+      const streamErrorPromise = createStreamErrorPromise(streamsMap)
 
       const uploadPromise = sendTusRequest({
         streamsMap,

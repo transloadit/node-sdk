@@ -5,7 +5,7 @@ import type { IncomingMessage } from 'node:http'
 import { createServer } from 'node:http'
 import { basename } from 'node:path'
 import temp from 'temp'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { Transloadit } from '../../src/Transloadit.ts'
 
 type TusUpload = {
@@ -15,6 +15,7 @@ type TusUpload = {
   size: number
   offset: number
   finished: boolean
+  upload_url?: string
 }
 
 const tusResumable = '1.0.0'
@@ -51,6 +52,11 @@ describe('assembly resume', () => {
   let baseUrl = ''
   let server: ReturnType<typeof createServer>
 
+  beforeEach(() => {
+    uploads.clear()
+    postCounts.clear()
+  })
+
   beforeAll(async () => {
     server = createServer(async (req, res) => {
       if (!req.url) {
@@ -76,7 +82,8 @@ describe('assembly resume', () => {
           size: upload.size,
           offset: upload.offset,
           finished: upload.finished,
-          upload_url: `${baseUrl}/tus/${upload.id}`,
+          upload_url:
+            upload.upload_url === undefined ? `${baseUrl}/tus/${upload.id}` : upload.upload_url,
         }))
 
         const result = {
@@ -237,5 +244,93 @@ describe('assembly resume', () => {
     const completed = [...uploads.values()].filter((upload) => upload.finished)
     const completedFields = completed.map((upload) => upload.fieldname).sort()
     expect(completedFields).toEqual(['file1', 'file2'])
+  })
+
+  it('creates a new upload when resume url is missing', async () => {
+    const filePath = await createTmpFile('abc')
+
+    const fileId = randomUUID()
+    uploads.set(fileId, {
+      id: fileId,
+      fieldname: 'file1',
+      filename: basename(filePath),
+      size: 3,
+      offset: 1,
+      finished: false,
+      upload_url: '',
+    })
+
+    const client = new Transloadit({
+      authKey: 'key',
+      authSecret: 'secret',
+      endpoint: baseUrl,
+    })
+
+    await client.resumeAssemblyUploads({
+      assemblyUrl: `${baseUrl}/assemblies/${assemblyId}`,
+      files: {
+        file1: filePath,
+      },
+    })
+
+    expect(postCounts.get('file1') ?? 0).toBe(1)
+  })
+
+  it('creates a new upload when file size changes', async () => {
+    const filePath = await createTmpFile('abcde')
+
+    const fileId = randomUUID()
+    uploads.set(fileId, {
+      id: fileId,
+      fieldname: 'file1',
+      filename: basename(filePath),
+      size: 3,
+      offset: 1,
+      finished: false,
+    })
+
+    const client = new Transloadit({
+      authKey: 'key',
+      authSecret: 'secret',
+      endpoint: baseUrl,
+    })
+
+    await client.resumeAssemblyUploads({
+      assemblyUrl: `${baseUrl}/assemblies/${assemblyId}`,
+      files: {
+        file1: filePath,
+      },
+    })
+
+    expect(postCounts.get('file1') ?? 0).toBe(1)
+  })
+
+  it('skips finished uploads from being re-sent', async () => {
+    const filePath = await createTmpFile('done')
+
+    const fileId = randomUUID()
+    uploads.set(fileId, {
+      id: fileId,
+      fieldname: 'file1',
+      filename: basename(filePath),
+      size: 4,
+      offset: 4,
+      finished: true,
+    })
+
+    const client = new Transloadit({
+      authKey: 'key',
+      authSecret: 'secret',
+      endpoint: baseUrl,
+    })
+
+    await client.resumeAssemblyUploads({
+      assemblyUrl: `${baseUrl}/assemblies/${assemblyId}`,
+      files: {
+        file1: filePath,
+      },
+    })
+
+    expect(postCounts.get('file1') ?? 0).toBe(0)
   })
 })
