@@ -7,11 +7,11 @@ This list is ordered. The top section is intentionally focused on other packages
 
 ### 1.1 `@transloadit/node`
 
-- Add assembly linting support:
+- ✅ Add assembly linting support:
   - New `lintAssemblyInstructions()` that returns `linting_issues` using the existing
     `assemblyLinter` schema (or create a new one if missing).
   - Export the linting issue schema for MCP usage.
-- Add upload resume support:
+- ✅ Add upload resume support:
   - Expose `resumeUploads()` that uses Assembly status (`tus_uploads` + `uploads`) to find
     unfinished uploads.
   - Resume only for path-based inputs; non-file inputs always start a new tus upload.
