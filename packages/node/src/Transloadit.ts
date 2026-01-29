@@ -45,6 +45,11 @@ import type {
   TemplateResponse,
 } from './apiTypes.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
+import type {
+  LintAssemblyInstructionsInput,
+  LintAssemblyInstructionsResult,
+} from './lintAssemblyInstructions.ts'
+import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
 import type { Stream } from './tus.ts'
@@ -65,6 +70,7 @@ export {
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }
+export type { LintAssemblyInstructionsResult, LintFatalLevel } from './lintAssemblyInstructions.ts'
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
@@ -194,6 +200,14 @@ export interface AwaitAssemblyCompletionOptions {
    * Useful for watch mode where a newer job may supersede the current one.
    */
   onPoll?: () => boolean | undefined
+}
+
+export interface LintAssemblyInstructionsOptions
+  extends Omit<LintAssemblyInstructionsInput, 'template'> {
+  /**
+   * Template ID to merge with the provided instructions before linting.
+   */
+  templateId?: string
 }
 
 export interface SmartCDNUrlOptions {
@@ -437,6 +451,31 @@ export class Transloadit {
 
     // This allows the user to use or log the assemblyId even before it has been created for easier debugging
     return Object.assign(promise, { assemblyId: effectiveAssemblyId })
+  }
+
+  /**
+   * Lint Assembly Instructions locally.
+   *
+   * If a templateId is provided, the template content is merged with the instructions,
+   * just like the API. When a template sets `allow_steps_override=false`, providing
+   * `steps` will throw a TEMPLATE_DENIES_STEPS_OVERRIDE error.
+   *
+   * The `assemblyInstructions` input may be a JSON string, a full instructions object,
+   * or a steps-only object (missing the `steps` property).
+   */
+  async lintAssemblyInstructions(
+    options: LintAssemblyInstructionsOptions,
+  ): Promise<LintAssemblyInstructionsResult> {
+    const { templateId, ...rest } = options
+    if (!templateId) {
+      return await lintAssemblyInstructionsInternal(rest)
+    }
+
+    const template = await this.getTemplate(templateId)
+    return await lintAssemblyInstructionsInternal({
+      ...rest,
+      template: template.content,
+    })
   }
 
   async resumeAssemblyUploads(opts: ResumeAssemblyUploadsOptions): Promise<AssemblyStatus> {

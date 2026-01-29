@@ -28,6 +28,8 @@
     "got": "14.4.9",
     "into-stream": "^9.0.0",
     "is-stream": "^4.0.1",
+    "json-to-ast": "^2.1.0",
+    "lodash-es": "^4.17.21",
     "node-watch": "^0.7.4",
     "p-map": "^7.0.3",
     "p-queue": "^9.0.1",

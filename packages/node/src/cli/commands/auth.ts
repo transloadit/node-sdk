@@ -8,7 +8,7 @@ import {
 } from '../../alphalib/types/template.ts'
 import type { OptionalAuthParams } from '../../apiTypes.ts'
 import { Transloadit } from '../../Transloadit.ts'
-import { getEnvCredentials } from '../helpers.ts'
+import { getEnvCredentials, readCliInput } from '../helpers.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 type UrlParamPrimitive = string | number | boolean
@@ -66,19 +66,6 @@ function normalizeUrlParams(params?: Record<string, unknown>): NormalizedUrlPara
     normalized[key] = normalizedValue
   }
   return normalized
-}
-
-async function readStdin(): Promise<string> {
-  if (process.stdin.isTTY) return ''
-
-  process.stdin.setEncoding('utf8')
-  let data = ''
-
-  for await (const chunk of process.stdin) {
-    data += chunk
-  }
-
-  return data
 }
 
 const getCredentials = getEnvCredentials
@@ -217,8 +204,12 @@ export async function runSig(options: RunSigOptions = {}): Promise<void> {
     return
   }
 
-  const rawInput = options.providedInput ?? (await readStdin())
-  const result = generateSignature(rawInput.trim(), credentials, options.algorithm)
+  const { content } = await readCliInput({
+    providedInput: options.providedInput,
+    allowStdinWhenNoPath: true,
+  })
+  const rawInput = (content ?? '').trim()
+  const result = generateSignature(rawInput, credentials, options.algorithm)
 
   if (result.ok) {
     process.stdout.write(`${result.output}\n`)
@@ -238,8 +229,12 @@ export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<voi
     return
   }
 
-  const rawInput = options.providedInput ?? (await readStdin())
-  const result = generateSmartCdnUrl(rawInput.trim(), credentials)
+  const { content } = await readCliInput({
+    providedInput: options.providedInput,
+    allowStdinWhenNoPath: true,
+  })
+  const rawInput = (content ?? '').trim()
+  const result = generateSmartCdnUrl(rawInput, credentials)
 
   if (result.ok) {
     process.stdout.write(`${result.output}\n`)
@@ -287,8 +282,9 @@ export class SignatureCommand extends UnauthenticatedCommand {
       return 1
     }
 
-    const rawInput = await readStdin()
-    const result = generateSignature(rawInput.trim(), credentials, this.algorithm)
+    const { content } = await readCliInput({ allowStdinWhenNoPath: true })
+    const rawInput = (content ?? '').trim()
+    const result = generateSignature(rawInput, credentials, this.algorithm)
 
     if (result.ok) {
       process.stdout.write(`${result.output}\n`)
@@ -340,8 +336,9 @@ export class SmartCdnSignatureCommand extends UnauthenticatedCommand {
       return 1
     }
 
-    const rawInput = await readStdin()
-    const result = generateSmartCdnUrl(rawInput.trim(), credentials)
+    const { content } = await readCliInput({ allowStdinWhenNoPath: true })
+    const rawInput = (content ?? '').trim()
+    const result = generateSmartCdnUrl(rawInput, credentials)
 
     if (result.ok) {
       process.stdout.write(`${result.output}\n`)
