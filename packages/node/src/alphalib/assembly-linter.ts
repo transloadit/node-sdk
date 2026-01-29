@@ -79,6 +79,14 @@ interface TemplateWithMetadata extends Record<string, unknown> {
   __column?: Record<string, number>
 }
 
+const getStepLocation = (
+  steps: StepsWithMetadata,
+  stepName: string,
+): { row: number; column: number } => ({
+  row: steps.__line?.[stepName] ?? 0,
+  column: steps.__column?.[stepName] ?? 0,
+})
+
 const fixWrongStackVersionSchema = z.object({
   stepName: z.string(),
   paramName: z.string(),
@@ -456,7 +464,8 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
     return result
   }
 
-  const stepNames = Object.keys(assembly.steps).filter(
+  const steps = assembly.steps as StepsWithMetadata
+  const stepNames = Object.keys(steps).filter(
     (key) => key !== '__line' && key !== '__column',
   )
   if (!stepNames.includes(':original')) {
@@ -469,7 +478,7 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
   let importStepName = ''
 
   // First pass - check for /file/serve and ${fields.input}
-  for (const [stepName, step] of Object.entries(assembly.steps)) {
+  for (const [stepName, step] of Object.entries(steps)) {
     if (stepName === '__line' || stepName === '__column') continue
     if (!isObject(step)) continue
 
@@ -505,11 +514,12 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
 
   // If we have /file/serve but don't use ${fields.input} in the import step, add warning
   if (hasFileServe && !hasFieldsInput && importStepName) {
+    const { row, column } = getStepLocation(steps, importStepName)
     result.push({
       code: 'smart-cdn-input-field-missing',
       type: 'warning',
-      row: assembly.steps.__line?.[importStepName] ?? 0,
-      column: assembly.steps.__column?.[importStepName] ?? 0,
+      row,
+      column,
       message: 'Smart CDN path component available as `${fields.input}`',
       stepName: importStepName,
       fixId: 'fix-smart-cdn-input-field',
@@ -521,16 +531,17 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
   let storesOriginalFiles = false
   let hasInputStep = false
 
-  for (const [stepName, step] of Object.entries(assembly.steps)) {
+  for (const [stepName, step] of Object.entries(steps)) {
     if (stepName === '__line' || stepName === '__column') continue
+    const { row, column } = getStepLocation(steps, stepName)
 
     if (!step || typeof step !== 'object' || Array.isArray(step)) {
       result.push({
         code: 'step-is-not-an-object',
         stepName,
         type: 'error',
-        row: assembly.steps.__line?.[stepName] ?? 0,
-        column: assembly.steps.__column?.[stepName] ?? 0,
+        row,
+        column,
       })
       continue
     }
@@ -542,8 +553,8 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
           code: 'missing-robot',
           stepName,
           type: 'error',
-          row: assembly.steps.__line?.[stepName] ?? 0,
-          column: assembly.steps.__column?.[stepName] ?? 0,
+          row,
+          column,
         })
       }
       continue
@@ -556,8 +567,8 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
         code: 'missing-robot',
         stepName,
         type: 'error',
-        row: assembly.steps.__line?.[stepName] ?? 0,
-        column: assembly.steps.__column?.[stepName] ?? 0,
+        row,
+        column,
       })
       continue
     } else if (!isRobot(typedStep.robot)) {
@@ -577,24 +588,24 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
           result.push({
             code: 'smart-cdn-input-field-missing',
             type: 'warning',
-            row: assembly.steps.__line?.[stepName] ?? 0,
-            column: assembly.steps.__column?.[stepName] ?? 0,
+            row,
+            column,
             message: 'Smart CDN path component available as `${fields.input}`',
             stepName,
           })
         }
       }
     } else if (isFfmpegRobot(typedStep.robot)) {
-      lintStackParameter(typedStep, stepName, assembly.steps, 'ffmpeg', result)
+      lintStackParameter(typedStep, stepName, steps, 'ffmpeg', result)
     } else if (isImagickRobot(typedStep.robot)) {
-      lintStackParameter(typedStep, stepName, assembly.steps, 'imagemagick', result)
+      lintStackParameter(typedStep, stepName, steps, 'imagemagick', result)
     } else if (typedStep.robot === '/upload/handle') {
       if (stepName !== ':original') {
         result.push({
           code: 'wrong-step-name',
           type: 'error',
-          row: assembly.steps.__line?.[stepName] ?? 0,
-          column: assembly.steps.__column?.[stepName] ?? 0,
+          row,
+          column,
         })
       }
     } else if (isHttpImportRobot(typedStep.robot)) {
@@ -614,8 +625,8 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
             code: 'missing-url',
             stepName,
             type: 'warning',
-            row: assembly.steps.__line?.[stepName] ?? 0,
-            column: assembly.steps.__column?.[stepName] ?? 0,
+            row,
+            column,
           })
         }
       } else if (
@@ -631,8 +642,8 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
           code: 'missing-use',
           stepName,
           type: 'warning',
-          row: assembly.steps.__line?.[stepName] ?? 0,
-          column: assembly.steps.__column?.[stepName] ?? 0,
+          row,
+          column,
           fixId: 'fix-missing-use',
           fixData: { stepName },
         })
@@ -1107,11 +1118,12 @@ function lintSmartCdn(assembly: Record<string, unknown>): AssemblyLinterResult[]
     const robotNameValue = typedStep.robot
 
     if (robotNameValue && !isRobotAllowedForSmartCdn(robotNameValue)) {
+      const { row, column } = getStepLocation(steps as StepsWithMetadata, stepName)
       results.push({
         code: 'smart-cdn-robot-not-allowed',
         type: 'error',
-        row: steps.__line?.[stepName] ?? 0,
-        column: steps.__column?.[stepName] ?? 0,
+        row,
+        column,
         message: `Robot "${robotNameValue}" is not allowed in Smart CDN Assemblies`,
         stepName,
         robot: robotNameValue,

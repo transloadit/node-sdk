@@ -2,25 +2,7 @@
 
 ## CLI
 
-```bash
-# Lint a steps file
-npx transloadit assemblies lint --steps steps.json
-
-# Lint from stdin
-cat steps.json | npx transloadit assemblies lint --steps -
-
-# Lint with template merge
-npx transloadit assemblies lint --template TEMPLATE_ID --steps steps.json
-
-# Treat warnings as fatal
-npx transloadit assemblies lint --steps steps.json --fatal warning
-
-# Auto-fix in place
-npx transloadit assemblies lint --steps steps.json --fix
-
-# Auto-fix from stdin (writes fixed JSON to stdout)
-cat steps.json | npx transloadit assemblies lint --fix > fixed.json
-```
+See `npx transloadit assemblies lint --help` for the canonical CLI examples.
 
 When both `--template` and `--steps` are provided, Transloadit merges the template content with
 the provided steps before linting, matching the API's runtime behavior. If the template sets

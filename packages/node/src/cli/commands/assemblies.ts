@@ -13,7 +13,7 @@ import got from 'got'
 import PQueue from 'p-queue'
 import * as t from 'typanion'
 import { z } from 'zod'
-import { formatLintIssue, hydrateLintIssues } from '../../alphalib/assembly-linter.lang.en.ts'
+import { formatLintIssue } from '../../alphalib/assembly-linter.lang.en.ts'
 import { tryCatch } from '../../alphalib/tryCatch.ts'
 import type { Steps, StepsInput } from '../../alphalib/types/template.ts'
 import { stepsSchema } from '../../alphalib/types/template.ts'
@@ -234,7 +234,7 @@ export async function lint(
     return 1
   }
 
-  const hydratedIssues = hydrateLintIssues(result.issues)
+  const issues = result.issues
 
   if (fix && isStdin) {
     if (result.fixedInstructions == null) {
@@ -242,7 +242,7 @@ export async function lint(
       return 1
     }
     process.stdout.write(`${result.fixedInstructions}\n`)
-    for (const issue of hydratedIssues) {
+    for (const issue of issues) {
       const line = formatLintIssue(issue)
       if (issue.type === 'warning') output.warn(line)
       else output.error(line)
@@ -255,11 +255,11 @@ export async function lint(
   }
 
   if (json) {
-    output.print({ ...result, issues: hydratedIssues }, result)
-  } else if (hydratedIssues.length === 0) {
+    output.print({ ...result, issues }, result)
+  } else if (issues.length === 0) {
     output.print('No issues found', result)
   } else {
-    for (const issue of hydratedIssues) {
+    for (const issue of issues) {
       output.print(formatLintIssue(issue), issue)
     }
   }
