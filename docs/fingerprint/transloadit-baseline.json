@@ -1,13 +1,13 @@
 {
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.1.9.tgz",
-    "sizeBytes": 1127957,
-    "sha256": "7e8cb1124ed8b8d6677bb58d81112c4f9b9d5273f58b71d42dcd7407b26e790a"
+    "filename": "transloadit-4.2.0.tgz",
+    "sizeBytes": 1207745,
+    "sha256": "e7ae28c4c460ae41472c8a711caa734983452d79e878d9ae128836d17bd0cf4a"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.1.9",
+    "version": "4.2.0",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -48,8 +48,8 @@
     },
     {
       "path": "dist/cli/commands/assemblies.js",
-      "sizeBytes": 41430,
-      "sha256": "6fb814873e01f968bdab9f59dc543ae7183b8013fe55fdc572ba95df7311a3ce"
+      "sizeBytes": 46054,
+      "sha256": "4db029f8885866b6acf8cd25f41063987a90ed8d585f10fb60f7bcd5b31d4387"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.js",
@@ -57,9 +57,24 @@
       "sha256": "9e597e5a7b157453d64e4076d5eaa3e14af04e0a527faa7fee82e66252524d57"
     },
     {
+      "path": "dist/alphalib/assembly-linter.js",
+      "sizeBytes": 45248,
+      "sha256": "815761e08906c441ebfc963a312f4d0b78eab03d0df9b8847caa3046774448d5"
+    },
+    {
+      "path": "dist/alphalib/assembly-linter.lang.en.js",
+      "sizeBytes": 19472,
+      "sha256": "9b82b3812454f486dec1b0950ebc4bd986a8cb53e05209e52465c01b4a258d2c"
+    },
+    {
       "path": "dist/alphalib/types/robots/assembly-savejson.js",
       "sizeBytes": 829,
       "sha256": "d5c6fae674126937d25d9f52ec84045c6a90c7c6f33a5b6a0adc96dfa8c94f83"
+    },
+    {
+      "path": "dist/cli/docs/assemblyLintingExamples.js",
+      "sizeBytes": 460,
+      "sha256": "994cbedf7df9e41006134553dfadca997901439ff10a50dbc12f3faeb0eaab1d"
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.js",
@@ -113,8 +128,8 @@
     },
     {
       "path": "dist/cli/commands/auth.js",
-      "sizeBytes": 10038,
-      "sha256": "58f10fbe648d8a655ececd76da07bfed67b9d737e879ca412f167988a1c164f2"
+      "sizeBytes": 10190,
+      "sha256": "882912a557268b70fba276804fecab686e259bb78c167c175c3e1e67cceea3b6"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.js",
@@ -308,8 +323,8 @@
     },
     {
       "path": "dist/cli/helpers.js",
-      "sizeBytes": 1239,
-      "sha256": "3d5c40d5c39207a606a545b1492ab53ebdfbe1592cb66e0b1493de870bbdb6af"
+      "sizeBytes": 2277,
+      "sha256": "f503e1fa45e284955f3e10316ceebe417de30abba13d9cde3e5047be89b77bcc"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.js",
@@ -368,8 +383,13 @@
     },
     {
       "path": "dist/cli/commands/index.js",
-      "sizeBytes": 1730,
-      "sha256": "f9b0afff030bd07795df879b5bf78d75ede571973a6a671803c7551b6c3e87c9"
+      "sizeBytes": 1794,
+      "sha256": "cea0e51dbb809beef425325c681fc3ce087a082f02ff66b6474001a11b2fbd37"
+    },
+    {
+      "path": "dist/lintAssemblyInstructions.js",
+      "sizeBytes": 3748,
+      "sha256": "b4367ab74f01455f04442f238428774ddd32946a44c44636030be67239f40cc4"
     },
     {
       "path": "dist/alphalib/mcache.js",
@@ -405,6 +425,11 @@
       "path": "dist/cli/commands/notifications.js",
       "sizeBytes": 1640,
       "sha256": "5a419d28577d2952f32282ff0227ffa2cfbec6f4c3a48a6974b5485453297e44"
+    },
+    {
+      "path": "dist/alphalib/object.js",
+      "sizeBytes": 576,
+      "sha256": "6e88ab419c42d9a08bab16d8ada0a60021b768c066bd6a425ce8df14e32b1d4a"
     },
     {
       "path": "dist/cli/OutputCtl.js",
@@ -462,6 +487,11 @@
       "sha256": "44173300fc46f06c80f670d5a3a72e403cfcaddd7eb60703bc057ece42292ece"
     },
     {
+      "path": "dist/alphalib/stepParsing.js",
+      "sizeBytes": 43744,
+      "sha256": "f7132f0384bd0f88787ca452f9145736ffbecf5a0975ee7bd1bd811aa4dde7f6"
+    },
+    {
       "path": "dist/alphalib/types/robots/supabase-import.js",
       "sizeBytes": 4131,
       "sha256": "774aacd11972e02c5f07217c43dc5a5c553c28191c36ea35e1f276019cbe395b"
@@ -497,6 +527,11 @@
       "sha256": "02c74c8b94d3514c65c86af727ccf69acf6f3ef1cac184eea35aab75bd0b554f"
     },
     {
+      "path": "dist/alphalib/templateMerge.js",
+      "sizeBytes": 854,
+      "sha256": "749e3f9f97826b8901b4a39fd8fde79198388a914d60f13666d9d0c212f594d9"
+    },
+    {
       "path": "dist/cli/commands/templates.js",
       "sizeBytes": 15694,
       "sha256": "fc2e8b636bf2f3d6c61bca5d11cf54acdf9f2e23d57d608cf282c94e2f9ea984"
@@ -528,8 +563,8 @@
     },
     {
       "path": "dist/Transloadit.js",
-      "sizeBytes": 32938,
-      "sha256": "756c5a593a179ea4e2a68969f25fece69ddc442d9008c5eb2052a54d9071ef7a"
+      "sizeBytes": 33909,
+      "sha256": "81ebf8c22c7b0afee5b7a739f839d780efbf71565168c03c8a37656cc166ebc7"
     },
     {
       "path": "dist/alphalib/tryCatch.js",
@@ -623,8 +658,8 @@
     },
     {
       "path": "package.json",
-      "sizeBytes": 2359,
-      "sha256": "3c5f50e2092745bdc3af67394db697a618132cbe23c4dafd62ef062b47317be2"
+      "sizeBytes": 2417,
+      "sha256": "9cfc939025a8db2222783e71ca16dd152e1e8b0c47bbb0a0f7a0fdac6b072649"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
@@ -678,13 +713,13 @@
     },
     {
       "path": "dist/cli/commands/assemblies.d.ts.map",
-      "sizeBytes": 3081,
-      "sha256": "8c7e33250aeade70a46c06740c410dc02412eab1d5534376e4e25fa5d2053abc"
+      "sizeBytes": 3727,
+      "sha256": "b2badb1662472faa705a603370d7980edf5c7ae54ef6cbbaca22ac2e3817a6f6"
     },
     {
       "path": "dist/cli/commands/assemblies.js.map",
-      "sizeBytes": 37270,
-      "sha256": "5741ca704ed1cd40bfc78d5d748458e3d1b45749e2e70573244f7cc9e2f1a270"
+      "sizeBytes": 41116,
+      "sha256": "36015592b8cf6e2a991bea112af27c5c1f723817ee1f7d464296695f874f4002"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.d.ts.map",
@@ -697,6 +732,26 @@
       "sha256": "5295095d35108254c8b002333cf3d4d82d7d64d19be93fad049358ab1e78f217"
     },
     {
+      "path": "dist/alphalib/assembly-linter.d.ts.map",
+      "sizeBytes": 3584,
+      "sha256": "e30f0fd775351bde3e8254e9d25c048f1121c7173758dc750593f25b5a0a545f"
+    },
+    {
+      "path": "dist/alphalib/assembly-linter.js.map",
+      "sizeBytes": 36125,
+      "sha256": "ded17a1bdacae5ea9ece0f93468704525c50f8a386f823585dfb7c50132fe575"
+    },
+    {
+      "path": "dist/alphalib/assembly-linter.lang.en.d.ts.map",
+      "sizeBytes": 2078,
+      "sha256": "56f9ff21c32a4f9e5b940af04a4dd604252c6f7118ce08a00bca77b6584a0dc6"
+    },
+    {
+      "path": "dist/alphalib/assembly-linter.lang.en.js.map",
+      "sizeBytes": 6999,
+      "sha256": "7f104b05678e93a28e8d9b4bfc24260cb524f953b94b3ffdb8221dc2b8aebcab"
+    },
+    {
       "path": "dist/alphalib/types/robots/assembly-savejson.d.ts.map",
       "sizeBytes": 573,
       "sha256": "11ae78232682c6feb764982cb9c5166dd9660bad8f1fbfa26e9884a54daa2a66"
@@ -705,6 +760,16 @@
       "path": "dist/alphalib/types/robots/assembly-savejson.js.map",
       "sizeBytes": 701,
       "sha256": "1410553d8a5f26d188bb58de38ce04123e63f2d5d749bbfd0fe6495d84dd0078"
+    },
+    {
+      "path": "dist/cli/docs/assemblyLintingExamples.d.ts.map",
+      "sizeBytes": 225,
+      "sha256": "3214eb75b0099a12814ba506a7192f8f1021f22563c225d4abaaee09d39a347e"
+    },
+    {
+      "path": "dist/cli/docs/assemblyLintingExamples.js.map",
+      "sizeBytes": 335,
+      "sha256": "6a10a841a450b1f851e0b2100a587c9a8d45cc9cd7852a844f93357ef6ecb256"
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.d.ts.map",
@@ -809,12 +874,12 @@
     {
       "path": "dist/cli/commands/auth.d.ts.map",
       "sizeBytes": 749,
-      "sha256": "a8fc5875ca97a6dbdb65b7830479c4c4cd9f5949fe4a8c95106700705439e966"
+      "sha256": "f31c0a86129f7fa44aed415e85e46a04935801f03140c8d73c57897d2ee609f7"
     },
     {
       "path": "dist/cli/commands/auth.js.map",
-      "sizeBytes": 9049,
-      "sha256": "2b239bbfbe26870ca1fb542220842283a0b391267cedbecf298fff39bc8e0da1"
+      "sizeBytes": 9151,
+      "sha256": "92fb82422a8e746658deb008d95d656a2cb87e86a761ff5dc0776cbda96c7cca"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts.map",
@@ -1198,13 +1263,13 @@
     },
     {
       "path": "dist/cli/helpers.d.ts.map",
-      "sizeBytes": 697,
-      "sha256": "7741da5e1fdb8a1fac23517391b55ef32185134622a06f5b044a31f87424de46"
+      "sizeBytes": 1009,
+      "sha256": "82e3c44365f968ff76a7424812b2e21fc82a69205c50611242c9fb97990e90f3"
     },
     {
       "path": "dist/cli/helpers.js.map",
-      "sizeBytes": 1656,
-      "sha256": "061d1985ffefb16813c96520199edb566e65fe0b2113dd8c83fe36116a80a9d0"
+      "sizeBytes": 2826,
+      "sha256": "6729657286fe0467eab3544fda8f702a9e06a9da8cbedf0083276608ff805c52"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.d.ts.map",
@@ -1319,12 +1384,22 @@
     {
       "path": "dist/cli/commands/index.d.ts.map",
       "sizeBytes": 198,
-      "sha256": "02d46596bc9ebce98e9668a9ec4fd017aa2e553b828dfc47dcbcff96bff71f3e"
+      "sha256": "391845fbe56809711ea35e1667befbf872dd9072875c6983b0990b247d5496cc"
     },
     {
       "path": "dist/cli/commands/index.js.map",
-      "sizeBytes": 1584,
-      "sha256": "d44b8dc7479c999f6f694cdb90628b32087b5a7a13758f727b5174fdf291fea6"
+      "sizeBytes": 1640,
+      "sha256": "52cc8c7351fa5905ce7541db198cef4fc55f504a868ca673e843ee8dcb988d16"
+    },
+    {
+      "path": "dist/lintAssemblyInstructions.d.ts.map",
+      "sizeBytes": 784,
+      "sha256": "da860180e26c8a4813d031acd2e91631365673e75ebc270e9fb60ebed584a373"
+    },
+    {
+      "path": "dist/lintAssemblyInstructions.js.map",
+      "sizeBytes": 3610,
+      "sha256": "66b090fda8a15d29fabd51019c497f1353011ddab5df4983fd76ec4c31aea01b"
     },
     {
       "path": "dist/alphalib/mcache.d.ts.map",
@@ -1395,6 +1470,16 @@
       "path": "dist/cli/commands/notifications.js.map",
       "sizeBytes": 1500,
       "sha256": "ba8bc70ab727c78e8641b541d992bb5487b9f8c6af9a329ed527a21d38cf3f45"
+    },
+    {
+      "path": "dist/alphalib/object.d.ts.map",
+      "sizeBytes": 537,
+      "sha256": "7d8028b3f84fef25f3b8ec3cd6f05b0daf7f0460eac1ef85a4f47110e03ce745"
+    },
+    {
+      "path": "dist/alphalib/object.js.map",
+      "sizeBytes": 425,
+      "sha256": "2e57b39c4c8d9fc486d330024dc24b33a217d8d0e2b69a3d325d208407a2a7db"
     },
     {
       "path": "dist/cli/OutputCtl.d.ts.map",
@@ -1507,6 +1592,16 @@
       "sha256": "b502d17102001adede09a03d6bc1b8d21c857709ca59699c5771eba6ff187768"
     },
     {
+      "path": "dist/alphalib/stepParsing.d.ts.map",
+      "sizeBytes": 4289,
+      "sha256": "7c92b057bd2490793cae0071618894b27c4cfeaacb7b6e58104ed593b01bc689"
+    },
+    {
+      "path": "dist/alphalib/stepParsing.js.map",
+      "sizeBytes": 41144,
+      "sha256": "dc79c2623b6a27419f28023555ee9895ceeb0a387d0ac641f774090dcbc2c6fb"
+    },
+    {
       "path": "dist/alphalib/types/robots/supabase-import.d.ts.map",
       "sizeBytes": 1036,
       "sha256": "591b8a2e1f9a882c9a800101271bc944ac6a7720022d634a9f6a52b273d09b12"
@@ -1577,6 +1672,16 @@
       "sha256": "125372bf800fcb2b436edf9b7ac47aeea00a7ae8bc6cd0592b5a1fc4419e1cd1"
     },
     {
+      "path": "dist/alphalib/templateMerge.d.ts.map",
+      "sizeBytes": 341,
+      "sha256": "e597a322c0ea007dbaa6ace70f923012523c01b7cacebafdaf8eb3dd5474f5a2"
+    },
+    {
+      "path": "dist/alphalib/templateMerge.js.map",
+      "sizeBytes": 925,
+      "sha256": "08e6953629064525f7ed08aab8bfc9082204baa2411b4a803b055f6632101b0d"
+    },
+    {
       "path": "dist/cli/commands/templates.d.ts.map",
       "sizeBytes": 2355,
       "sha256": "dde861e027753cac8ae7255ac4cc9b31d40e86b341ac52d467696294df1b32b3"
@@ -1638,13 +1743,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts.map",
-      "sizeBytes": 5182,
-      "sha256": "834aa7d98d7a7d93077b774e2f1437499f394377d178d74ab5a76d83cedbe66f"
+      "sizeBytes": 5489,
+      "sha256": "b7868cdad601dae6744c0430f32d51dbbf43da547f8eae92878c909e59fbc77a"
     },
     {
       "path": "dist/Transloadit.js.map",
-      "sizeBytes": 23948,
-      "sha256": "26327b8bbab6a30861c2663b8cd567cb189a13d08ea7ba9589395fca079999af"
+      "sizeBytes": 24358,
+      "sha256": "6126b3624bd35033aaac508ccd1dcc572fdacc6a5298a43d6274ea23325349f0"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts.map",
@@ -1828,8 +1933,8 @@
     },
     {
       "path": "README.md",
-      "sizeBytes": 31074,
-      "sha256": "b4d476aede3f375d7b97a6a8e4eae6858a0c0160f5790a277fe58e405baceb46"
+      "sizeBytes": 31310,
+      "sha256": "f5cdf1f465790159d221443638361f3b01b40380761a6d719d8d692ba83e1a5a"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts",
@@ -1883,13 +1988,13 @@
     },
     {
       "path": "dist/cli/commands/assemblies.d.ts",
-      "sizeBytes": 3569,
-      "sha256": "cac7dbbcb9f413eb9b391eec586b905675793ab2497beb361d04a1f6f64a89e6"
+      "sizeBytes": 4332,
+      "sha256": "7bc2c0b4f0b707f5dda02e4240c483296f99e6085d4d80c177aa2457e75dc45d"
     },
     {
       "path": "src/cli/commands/assemblies.ts",
-      "sizeBytes": 41781,
-      "sha256": "48abaa8712308384c85b34abfea84e11e4058d71129719514a577ad6b675a077"
+      "sizeBytes": 46362,
+      "sha256": "9318d3fd517fb3f14bae0f94210c03ff9f0ebce88f753720d6ee86761806c6ca"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.d.ts",
@@ -1902,6 +2007,26 @@
       "sha256": "acf47bb92b25c5552a8b19419be3c14323f158726b7ee16e462a248ff190a347"
     },
     {
+      "path": "dist/alphalib/assembly-linter.d.ts",
+      "sizeBytes": 4937,
+      "sha256": "6c03b0721df140732376371907a1e0bb679e22a3c785444f4f3aa93307c14e49"
+    },
+    {
+      "path": "dist/alphalib/assembly-linter.lang.en.d.ts",
+      "sizeBytes": 3310,
+      "sha256": "5296fb815b99f2660bf944d54a4307adee0b78f7888fcfb170fdedb592103c16"
+    },
+    {
+      "path": "src/alphalib/assembly-linter.lang.en.ts",
+      "sizeBytes": 20877,
+      "sha256": "43dc70f54fa9165d6a5b6badb79ce6aaa80142bd42c2b3490b17db730abc0a9a"
+    },
+    {
+      "path": "src/alphalib/assembly-linter.ts",
+      "sizeBytes": 46255,
+      "sha256": "7740f0c878176c77667487e273ece235dd4a8e6d1a98014a96354b3b07eacb08"
+    },
+    {
       "path": "dist/alphalib/types/robots/assembly-savejson.d.ts",
       "sizeBytes": 3053,
       "sha256": "8c30087c4cebb948e6373c79e83e5df104c2dc7b669e862f5ffc2ffd2b07c2ed"
@@ -1910,6 +2035,16 @@
       "path": "src/alphalib/types/robots/assembly-savejson.ts",
       "sizeBytes": 1221,
       "sha256": "05973f206156273ed5fb7f26a24e34479844fef3012f7086e3ab2fb8e12eee50"
+    },
+    {
+      "path": "dist/cli/docs/assemblyLintingExamples.d.ts",
+      "sizeBytes": 116,
+      "sha256": "7ed70734fab589053efc6134ae539fb5630888e77df3f20c54972a6cc77f6cd9"
+    },
+    {
+      "path": "src/cli/docs/assemblyLintingExamples.ts",
+      "sizeBytes": 415,
+      "sha256": "32d1f48d52c6f2d028bcd3d9676a9f906e42c655d1794573b00441fe6824e6f0"
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.d.ts",
@@ -2018,8 +2153,8 @@
     },
     {
       "path": "src/cli/commands/auth.ts",
-      "sizeBytes": 10502,
-      "sha256": "0dea0295f4f5798dd619860d01fe6f50f59efd99a83c36c1e35803d584f158aa"
+      "sizeBytes": 10626,
+      "sha256": "b5f4d2404f455ad2e3354cd963a3468bb2d57a1808ce715f715cea1ad87b2245"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts",
@@ -2403,13 +2538,13 @@
     },
     {
       "path": "dist/cli/helpers.d.ts",
-      "sizeBytes": 571,
-      "sha256": "f42d526e9b8270d53f94c8759ea94396515f3280f04ef47abab1cfb8445827ba"
+      "sizeBytes": 898,
+      "sha256": "d225c538d7cd4d73e88045729fc6f59b66de8af9304b039cdd496e1487860eb6"
     },
     {
       "path": "src/cli/helpers.ts",
-      "sizeBytes": 1550,
-      "sha256": "2a78e29a2c099f330e65db968da8a42cf25614c95374744a96e04e7341b64aab"
+      "sizeBytes": 2799,
+      "sha256": "0d43593eb6e5d985287d67fec8e758d8fcc903fd1ce86cc2a9b8152b66998059"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.d.ts",
@@ -2528,8 +2663,23 @@
     },
     {
       "path": "src/cli/commands/index.ts",
-      "sizeBytes": 1648,
-      "sha256": "96dcf864fd177c933434cc0e43ca8fe58aa153332ed5013af6d1012d4fde9d8f"
+      "sizeBytes": 1711,
+      "sha256": "a4646e7d078b97e32d7a3c0c0f61aeb32898d1b25bda89ba20703a23b302f6f2"
+    },
+    {
+      "path": "src/alphalib/typings/json-to-ast.d.ts",
+      "sizeBytes": 760,
+      "sha256": "0ba5ba432bba2e68cb3bd629a0985e375be05611784b824800118f3eb6b5b344"
+    },
+    {
+      "path": "dist/lintAssemblyInstructions.d.ts",
+      "sizeBytes": 1233,
+      "sha256": "3fd41b0a5a0fa37ef59a6bf73743e9c296d15b969f91039dda856044c9c5425a"
+    },
+    {
+      "path": "src/lintAssemblyInstructions.ts",
+      "sizeBytes": 4894,
+      "sha256": "8ffa2437224065ac70eed3095697f73179ba65592e04cecf6803a3b3d74760b7"
     },
     {
       "path": "dist/alphalib/mcache.d.ts",
@@ -2600,6 +2750,16 @@
       "path": "src/cli/commands/notifications.ts",
       "sizeBytes": 1829,
       "sha256": "2cf790e6076b7983c6b88fb6aee38069765e2997b86b897bd0a4878ed5e3f966"
+    },
+    {
+      "path": "dist/alphalib/object.d.ts",
+      "sizeBytes": 659,
+      "sha256": "5ee6423134a34984106862b4724399938c8268d4bcb92168cd1f831ea568b44a"
+    },
+    {
+      "path": "src/alphalib/object.ts",
+      "sizeBytes": 727,
+      "sha256": "b9e1d6a7321ea441f86ec69124432185d3ce759007552bd6533ca0e696b0bf85"
     },
     {
       "path": "dist/cli/OutputCtl.d.ts",
@@ -2712,6 +2872,16 @@
       "sha256": "2905f2af4f9dc9989eb957552b6a7212015f9ccc3830f5c1b47b3fe493ae23cb"
     },
     {
+      "path": "dist/alphalib/stepParsing.d.ts",
+      "sizeBytes": 5005,
+      "sha256": "6e9fd0e98c1a740fc0810cebd575ad8d52d11ad775e9e34762fbf1a0e00dfe10"
+    },
+    {
+      "path": "src/alphalib/stepParsing.ts",
+      "sizeBytes": 43731,
+      "sha256": "c4f7bf2fcc33a453676b2bc96d6f6ff509be46b70fbf772de597cb8e3c40de21"
+    },
+    {
       "path": "dist/alphalib/types/robots/supabase-import.d.ts",
       "sizeBytes": 12627,
       "sha256": "90adca5e04dcfa03b5b36bac2754cc117599d1b35b15641296a7f67077e7c5b6"
@@ -2782,6 +2952,16 @@
       "sha256": "2d0a63c819e86f0eee3bb4811d32033ede8be5692ff9ba02c30147db42a41520"
     },
     {
+      "path": "dist/alphalib/templateMerge.d.ts",
+      "sizeBytes": 355,
+      "sha256": "60155a6b7134a89f2a87657b98f2a35ca7aa356fbfd7633ae2423089d359184f"
+    },
+    {
+      "path": "src/alphalib/templateMerge.ts",
+      "sizeBytes": 1170,
+      "sha256": "458a0b9c7b678f268440029df12fbe06d6f42cac886fbfb1d2c5da02eff71323"
+    },
+    {
       "path": "dist/cli/commands/templates.d.ts",
       "sizeBytes": 2875,
       "sha256": "62c3ab8980473a08a6ebfb662d56b517ad8cbc1f8d82988aa7f181e07d010bf0"
@@ -2843,13 +3023,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts",
-      "sizeBytes": 9702,
-      "sha256": "345a081c79944b45d650c351a6903c2008699dfec604d1c79062aa2ec3fbdd73"
+      "sizeBytes": 10725,
+      "sha256": "17ef13b3851676c7b028a4822f496fa6c275b9e33bf9e52dc4f392af3ff659e6"
     },
     {
       "path": "src/Transloadit.ts",
-      "sizeBytes": 36395,
-      "sha256": "7344b3b1a4f3bddfa065b1558ea7a001db54cfabd7c3286fada2320423cd73b9"
+      "sizeBytes": 37819,
+      "sha256": "f359a6d1054a0d727225c8c13437ede5da105e0d56bf9efec026c7be4a856da8"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts",

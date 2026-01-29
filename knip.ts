@@ -29,6 +29,8 @@ const config: KnipConfig = {
         '@aws-sdk/client-s3',
         '@aws-sdk/s3-request-presigner',
         '@transloadit/sev-logger',
+        'json-to-ast',
+        'lodash-es',
         'type-fest',
         'zod',
         // Repo-specific ignores
@@ -70,6 +72,8 @@ const config: KnipConfig = {
         'type-fest',
         'zod',
         '@transloadit/utils',
+        'json-to-ast',
+        'lodash-es',
         // Repo-specific ignores
         '@types/debug',
         '@types/minimist',
