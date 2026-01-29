@@ -75,6 +75,46 @@ describe('resumeAssemblyUploads', () => {
     expect(result).toBe(updated)
   })
 
+  it('waits for assembly completion when requested', async () => {
+    const client = new Transloadit({
+      authKey: 'key',
+      authSecret: 'secret',
+      endpoint: 'http://example.com',
+    })
+
+    const initial = buildAssembly()
+    const latest = buildAssembly({ ok: 'ASSEMBLY_UPLOADING' })
+    const completed = buildAssembly({ ok: 'ASSEMBLY_COMPLETED' })
+
+    const getAssemblySpy = vi
+      .spyOn(client, 'getAssembly')
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(latest)
+
+    const awaitSpy = vi
+      .spyOn(client, 'awaitAssemblyCompletion')
+      .mockResolvedValue(completed)
+
+    const onAssemblyProgress = vi.fn()
+
+    const result = await client.resumeAssemblyUploads({
+      assemblyUrl: initial.assembly_url,
+      waitForCompletion: true,
+      timeout: 1234,
+      onAssemblyProgress,
+    })
+
+    expect(getAssemblySpy).toHaveBeenCalledTimes(2)
+    expect(awaitSpy).toHaveBeenCalledWith(
+      initial.assembly_id,
+      expect.objectContaining({
+        timeout: 1234,
+        onAssemblyProgress,
+      }),
+    )
+    expect(result).toBe(completed)
+  })
+
   it('does not open streams for finished uploads', async () => {
     const client = new Transloadit({
       authKey: 'key',

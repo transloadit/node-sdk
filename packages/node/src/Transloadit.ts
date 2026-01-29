@@ -144,8 +144,7 @@ const createStreamErrorPromise = (streamsMap: Record<string, Stream>): Promise<n
   return promise
 }
 
-export interface CreateAssemblyOptions {
-  params?: CreateAssemblyParams
+interface AssemblyUploadOptions {
   files?: {
     [name: string]: string
   }
@@ -158,30 +157,20 @@ export interface CreateAssemblyOptions {
   timeout?: number
   onUploadProgress?: (uploadProgress: UploadProgress) => void
   onAssemblyProgress?: AssemblyProgress
-  assemblyId?: string
   /**
-   * Optional AbortSignal to cancel the assembly creation and upload.
+   * Optional AbortSignal to cancel the upload and any follow-up polling.
    * When aborted, any in-flight HTTP requests and TUS uploads will be cancelled.
    */
   signal?: AbortSignal
 }
 
-export interface ResumeAssemblyUploadsOptions {
+export interface CreateAssemblyOptions extends AssemblyUploadOptions {
+  params?: CreateAssemblyParams
+  assemblyId?: string
+}
+
+export interface ResumeAssemblyUploadsOptions extends AssemblyUploadOptions {
   assemblyUrl: string
-  files?: {
-    [name: string]: string
-  }
-  uploads?: {
-    [name: string]: Readable | IntoStreamInput
-  }
-  chunkSize?: number
-  uploadConcurrency?: number
-  onUploadProgress?: (uploadProgress: UploadProgress) => void
-  /**
-   * Optional AbortSignal to cancel the upload resumption.
-   * When aborted, any in-flight HTTP requests and TUS uploads will be cancelled.
-   */
-  signal?: AbortSignal
 }
 
 export interface AwaitAssemblyCompletionOptions {
@@ -452,9 +441,14 @@ export class Transloadit {
       uploads = {},
       chunkSize: requestedChunkSize = Number.POSITIVE_INFINITY,
       uploadConcurrency = 10,
+      timeout = 24 * 60 * 60 * 1000, // 1 day
+      waitForCompletion = false,
       onUploadProgress = () => {},
+      onAssemblyProgress = () => {},
       signal,
     } = opts
+
+    const startTimeMs = getHrTimeMs()
 
     const assemblyId = getAssemblyIdFromUrl(assemblyUrl)
     const assembly = await this.getAssembly(assemblyId, { signal })
@@ -537,7 +531,23 @@ export class Transloadit {
       await Promise.race([uploadPromise, streamErrorPromise])
     }
 
-    return await this.getAssembly(assemblyId, { signal })
+    const latestAssembly = await this.getAssembly(assemblyId, { signal })
+    if (!waitForCompletion) return latestAssembly
+
+    if (latestAssembly.assembly_id == null) {
+      throw new InconsistentResponseError(
+        'Server returned an assembly response without an assembly_id after resuming uploads',
+      )
+    }
+
+    const awaitResult = await this.awaitAssemblyCompletion(latestAssembly.assembly_id, {
+      timeout,
+      onAssemblyProgress,
+      startTimeMs,
+      signal,
+    })
+    checkResult(awaitResult)
+    return awaitResult
   }
 
   async awaitAssemblyCompletion(
