@@ -15,6 +15,7 @@ interface SmartCdnMaxStepsResult {
 }
 interface SmartCdnRobotNotAllowedResult {
   robotName?: string
+  robot?: string
 }
 interface StepNameResult {
   stepName?: string
@@ -59,15 +60,18 @@ export const linterMessages = {
     `,
   }),
 
-  'smart-cdn-robot-not-allowed': (result: SmartCdnRobotNotAllowedResult): LintMessage => ({
-    simple: `Robot "${result.robotName}" is not allowed in Smart CDN Assemblies`,
-    text: `Robot \`${result.robotName}\` is not allowed in Smart CDN Assemblies`,
-    desc: `
-    Smart CDN Assemblies, which use the /file/serve Robot, only support certain robots for security and performance reasons. The Robot "${result.robotName}" is not compatible with Smart CDN.
+  'smart-cdn-robot-not-allowed': (result: SmartCdnRobotNotAllowedResult): LintMessage => {
+    const robotName = result.robotName ?? result.robot ?? 'unknown'
+    return {
+      simple: `Robot "${robotName}" is not allowed in Smart CDN Assemblies`,
+      text: `Robot \`${robotName}\` is not allowed in Smart CDN Assemblies`,
+      desc: `
+    Smart CDN Assemblies, which use the /file/serve Robot, only support certain robots for security and performance reasons. The Robot "${robotName}" is not compatible with Smart CDN.
 
     Please check the [Content Delivery documentation](/services/content-delivery/) for more information about which robots are allowed in Smart CDN Assemblies.
     `,
-  }),
+    }
+  },
   'empty-steps': (): LintMessage => ({
     simple: `The "steps" property is empty`,
     text: 'The `steps` property is empty',

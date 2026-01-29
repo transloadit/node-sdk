@@ -41,6 +41,26 @@ describe('lintAssemblyInstructions', () => {
     ).rejects.toThrow('TEMPLATE_DENIES_STEPS_OVERRIDE')
   })
 
+  it('keeps top-level fields when fixing invalid steps type', async () => {
+    const result = await lintAssemblyInstructions({
+      assemblyInstructions: {
+        steps: [],
+        fields: {
+          user_id: '123',
+        },
+      },
+      fix: true,
+    })
+
+    const fixed = JSON.parse(result.fixedInstructions ?? '{}') as {
+      fields?: { user_id?: string }
+      steps?: unknown
+    }
+
+    expect(fixed.fields?.user_id).toBe('123')
+    expect(fixed.steps).toEqual({})
+  })
+
   it('warns when no storage robot is used', async () => {
     const result = await lintAssemblyInstructions({
       assemblyInstructions: {
@@ -51,5 +71,25 @@ describe('lintAssemblyInstructions', () => {
 
     const codes = result.issues.map((issue) => issue.code)
     expect(codes).toContain('no-storage')
+  })
+
+  it('hydrates smart-cdn robot errors with the robot name', async () => {
+    const result = await lintAssemblyInstructions({
+      assemblyInstructions: {
+        steps: {
+          ':original': { robot: '/upload/handle' },
+          serve: { robot: '/file/serve', use: ':original' },
+          hash: { robot: '/file/hash', use: ':original' },
+        },
+      },
+    })
+
+    const issues = result.issues.filter((item) => item.code === 'smart-cdn-robot-not-allowed')
+    expect(issues.length).toBeGreaterThan(0)
+    for (const issue of issues) {
+      if (issue.robot) {
+        expect(issue.desc).toContain(issue.robot)
+      }
+    }
   })
 })

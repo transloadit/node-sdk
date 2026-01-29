@@ -1336,17 +1336,25 @@ function fixMissingInput(content: string): string {
 }
 
 function fixInvalidStepsType(content: string): string {
-  const [templateError, template, indent] = parseSafeTemplate(content)
-  if (templateError) {
-    return JSON.stringify({ steps: {} }, null, indent)
+  let parsed: unknown
+  let indent = '  '
+  try {
+    parsed = JSON.parse(content)
+    indent = getIndentation(content)
+  } catch (_err) {
+    return content
   }
 
-  // Ensure that steps is always an object, even if it's empty
-  if (typeof template.steps !== 'object' || Object.keys(template.steps).length === 0) {
-    template.steps = {}
+  if (!isObject(parsed)) {
+    return content
   }
 
-  return JSON.stringify(template, null, indent)
+  const parsedRecord = parsed as Record<string, unknown>
+  if (!isObject(parsedRecord.steps)) {
+    parsedRecord.steps = {}
+  }
+
+  return JSON.stringify(parsedRecord, null, indent)
 }
 
 function fixEmptySteps(content: string): string {
