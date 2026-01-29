@@ -12,6 +12,80 @@ on:
     - cron: '0 8 * * *'
 
 jobs:
+  lockfile:
+    name: Lockfile guard
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Ensure yarn.lock matches dependency changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          base="${BASE_SHA:-}"
+          head="${HEAD_SHA:-}"
+
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "No base sha available; skipping lockfile guard."
+            exit 0
+          fi
+
+          node <<'NODE'
+          const { execSync } = require('node:child_process')
+
+          const base = process.env.BASE_SHA
+          const head = process.env.HEAD_SHA
+          const depKeys = [
+            'dependencies',
+            'devDependencies',
+            'peerDependencies',
+            'optionalDependencies',
+          ]
+
+          const diffNames = execSync(`git diff --name-only ${base} ${head}`, {
+            encoding: 'utf8',
+          })
+            .trim()
+            .split('\n')
+            .filter(Boolean)
+
+          const packageFiles = diffNames.filter((file) => file.endsWith('package.json'))
+          const lockfileChanged = diffNames.includes('yarn.lock')
+
+          if (packageFiles.length === 0) {
+            process.exit(0)
+          }
+
+          const hasDependencyChanges = packageFiles.some((file) => {
+            let before = {}
+            let after = {}
+            try {
+              before = JSON.parse(execSync(`git show ${base}:${file}`, { encoding: 'utf8' }))
+            } catch {
+              return true
+            }
+            try {
+              after = JSON.parse(execSync(`git show ${head}:${file}`, { encoding: 'utf8' }))
+            } catch {
+              return true
+            }
+            return depKeys.some((key) => {
+              const lhs = before[key] ?? {}
+              const rhs = after[key] ?? {}
+              return JSON.stringify(lhs) !== JSON.stringify(rhs)
+            })
+          })
+
+          if (hasDependencyChanges && !lockfileChanged) {
+            console.error('yarn.lock must be updated when dependency ranges change in package.json.')
+            process.exit(1)
+          }
+          NODE
+
   pack:
     name: Build package
     runs-on: ubuntu-latest

@@ -25,7 +25,7 @@ jobs:
       - run: corepack yarn
       - uses: changesets/action@v1
         with:
-          version: corepack yarn changeset version
+          version: corepack yarn changeset version && corepack yarn
           publish: corepack yarn changeset publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
