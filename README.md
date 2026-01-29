@@ -257,6 +257,24 @@ try {
 
 You can find [details about your executed Assemblies here](https://transloadit.com/assemblies).
 
+### Resuming interrupted uploads
+
+If an upload was interrupted, you can resume it by providing the original `assemblyUrl` and the
+same input mapping. Resume relies on matching `fieldname`, `filename`, and `size`, so keep input
+names stable and pass the same files. Only path-based inputs resume; Buffer/string/stream uploads
+start a new tus upload automatically.
+
+```javascript
+const status = await transloadit.resumeAssemblyUploads({
+  assemblyUrl: 'https://api2.transloadit.com/assemblies/ASSEMBLY_ID',
+  files: {
+    file1: '/PATH/TO/FILE.jpg',
+    file2: '/PATH/TO/FILE2.jpg',
+  },
+  uploadConcurrency: 2,
+})
+```
+
 ## Examples
 
 - [Upload and resize image](https://github.com/transloadit/node-sdk/blob/main/examples/resize_an_image.ts)
