@@ -99,7 +99,8 @@ All internal scripts are TypeScript and rely on Node’s built-in type stripping
 
 - `@transloadit/node` is canonical.
 - `transloadit` is generated from the same artifacts and fingerprinted.
-- `@transloadit/types` and `@transloadit/zod` are versioned in lock‑step (changesets).
+- When `@transloadit/node` changes, include `transloadit` in the same Changeset to keep parity.
+- Packages are versioned independently via Changesets (no fixed version group).
 
 ### Parity verification
 
@@ -140,8 +141,7 @@ Only `package.json` metadata drift is currently allowed; any other file differen
 - [x] Use `yarn changeset` for changes
 - [x] Use `yarn changeset version` to bump versions
 - [ ] Use `yarn changeset publish` to publish packages
-- [x] Keep `transloadit` and `@transloadit/node` versions synchronized
-- [x] Decide whether `@transloadit/types` tracks same version or diverges
+- [x] Use independent versioning across packages
 
 ### Implementation phases
 

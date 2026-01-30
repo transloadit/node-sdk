@@ -53,7 +53,12 @@ jobs:
             .split('\n')
             .filter(Boolean)
 
-          const packageFiles = diffNames.filter((file) => file.endsWith('package.json'))
+          const packageFiles = diffNames.filter((file) => {
+            if (!file.endsWith('package.json')) {
+              return false
+            }
+            return !file.startsWith('docs/fingerprint/')
+          })
           const lockfileChanged = diffNames.includes('yarn.lock')
 
           if (packageFiles.length === 0) {

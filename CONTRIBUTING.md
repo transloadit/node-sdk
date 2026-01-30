@@ -121,8 +121,8 @@ Notes:
 
 ### Release FAQ
 
-- **Lockstep versions:** Changesets use a fixed group, so version bumps and releases are always in lock‑step across `transloadit`, `@transloadit/node`, `@transloadit/types`, and `@transloadit/zod`.
+- **Independent versions:** Changesets are not fixed to a single version. Only packages listed in a changeset bump; internal dependency changes auto-bump dependents (patch) via `updateInternalDependencies`.
 - **Legacy parity:** `transloadit` is generated from `@transloadit/node` artifacts via `scripts/prepare-transloadit.ts`, then verified with `yarn parity:transloadit`. Only `package.json` metadata drift is allowed; any other drift fails.
 - **Accepting intentional drift:** run `node scripts/prepare-transloadit.ts` before updating the parity baseline, then follow the parity tool instructions to regenerate `docs/fingerprint/*` so the baseline reflects the latest build.
 - **Experimental packages:** Scoped packages (`@transloadit/node`, `@transloadit/types`, `@transloadit/zod`) publish with the `experimental` dist-tag. The unscoped `transloadit` package remains stable.
-- **Changelog visibility:** Because versions are locked, a changeset that only lists scoped packages will still bump `transloadit` but may leave its changelog empty. If a change affects `transloadit` users (which happens because it is just a generated clone of `@transloadit/node`, so if it is affected, `transloadit` is too automatically), include `transloadit` in the changeset so the changelog entry is visible.
+- **Changelog visibility:** `transloadit` is generated from `@transloadit/node` artifacts. If a change affects `@transloadit/node`, include `transloadit` in the same changeset so its changelog stays in sync.
