@@ -62,7 +62,7 @@ const main = async (): Promise<void> => {
 
   await copyDir(resolve(nodePackage, 'dist'), resolve(legacyPackage, 'dist'))
   await copyDir(resolve(nodePackage, 'src'), resolve(legacyPackage, 'src'))
-  await cp(resolve(repoRoot, 'README.md'), resolve(legacyPackage, 'README.md'))
+  await cp(resolve(nodePackage, 'README.md'), resolve(legacyPackage, 'README.md'))
   await cp(resolve(repoRoot, 'LICENSE'), resolve(legacyPackage, 'LICENSE'))
   await writeLegacyPackageJson()
   await writeLegacyChangelog()
