@@ -37,7 +37,7 @@ Build a delightful, agent-native interface to Transloadit Assemblies. The MCP se
 The MCP server should delegate as much work as possible to existing packages:
 
 - `@transloadit/node` for API calls, tus uploads, polling, and future resume support.
-- `@transloadit/zod/v3` for schemas and robot metadata.
+- `@transloadit/zod/v4` for schemas and robot metadata.
 - Shared alphalib for golden templates.
 
 This means we should add missing functionality to `@transloadit/node` first (see todo list).
@@ -407,23 +407,37 @@ Defaults:
 
 - Host: `127.0.0.1`
 - Port: `5723`
-- Warn and require explicit `--host` when binding to non-localhost.
+- Bind to localhost by default (no MCP auth required).
+- When binding to a non-localhost host, require `TRANSLOADIT_MCP_TOKEN`.
+
+Example `mcp.json`:
+
+```json
+{
+  "authKey": "your_key",
+  "authSecret": "your_secret",
+  "mcpToken": "local-dev-token",
+  "path": "/mcp",
+  "allowedOrigins": ["https://example.com"],
+  "allowedHosts": ["127.0.0.1:5723"],
+  "enableDnsRebindingProtection": true
+}
+```
 
 ## 11. Implementation notes
 
 - Use the official MCP TypeScript SDK (latest stable major at implementation time).
-- Zod schemas live in `@transloadit/zod/v3` and are reused for tool schemas.
+- Zod schemas live in `@transloadit/zod/v4` and are reused for tool schemas.
 - Prefer named exports everywhere.
 - Keep tool responses short; avoid dumping massive schemas into MCP responses.
 
-## 12. Error codes (standardized)
+## 12. Error codes (current)
 
-- `BAD_REQUEST`
-- `AUTH_REQUIRED`
-- `AUTH_INVALID`
-- `TRANSLOADIT_ERROR`
-- `VALIDATION_ERROR`
-- `BASE64_TOO_LARGE`
-- `INTERNAL_ERROR`
+These are the `code` values currently used inside `errors`/`warnings` arrays:
 
-These are the `code` values used inside `errors`/`warnings` arrays.
+- `mcp_invalid_args`
+- `mcp_missing_args`
+- `mcp_missing_auth`
+- `mcp_duplicate_field`
+- `mcp_base64_too_large`
+- `mcp_unknown_template`

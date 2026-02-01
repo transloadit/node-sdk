@@ -37,7 +37,7 @@ This list is ordered. The top section is intentionally focused on other packages
   - `~transloadit/encode-hls-video@0.0.1`
   - Export as a plain object map for SDK + MCP server.
 
-### 1.3 `@transloadit/zod/v3`
+### 1.3 `@transloadit/zod/v4`
 
 - Export a minimal robot metadata registry (name, summary, category, param schema).
 - Ensure `AssemblyStatus` schema and `AssemblyInstructionsInput` are publicly exported.
