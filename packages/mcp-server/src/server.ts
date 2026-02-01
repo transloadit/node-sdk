@@ -14,6 +14,7 @@ import packageJson from '../package.json' with { type: 'json' }
 export type TransloaditMcpServerOptions = {
   authKey?: string
   authSecret?: string
+  mcpToken?: string
   serverName?: string
   serverVersion?: string
 }
@@ -30,6 +31,14 @@ type UploadSummary = {
   total_files: number
   resumed?: boolean
   upload_urls?: Record<string, string>
+}
+
+type HeaderMap = Record<string, string | string[] | undefined>
+
+type ToolExtra = {
+  requestInfo?: {
+    headers?: HeaderMap
+  }
 }
 
 const maxBase64Bytes = 512_000
@@ -273,6 +282,62 @@ const createLintClient = (options: TransloaditMcpServerOptions): Transloadit =>
     authSecret: options.authSecret ?? 'mcp',
   })
 
+const getHeaderValue = (headers: HeaderMap | undefined, name: string): string | undefined => {
+  if (!headers) return undefined
+  const normalized = name.toLowerCase()
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== normalized) continue
+    if (Array.isArray(value)) return value[0]
+    return value
+  }
+  return undefined
+}
+
+const getBearerToken = (headers: HeaderMap | undefined): string | undefined => {
+  const raw = getHeaderValue(headers, 'authorization')
+  if (!raw) return undefined
+  const match = raw.match(/^Bearer\s+(.+)$/i)
+  if (!match) return undefined
+  const token = match[1]?.trim()
+  return token ? token : undefined
+}
+
+type LiveClientResult = { client: Transloadit } | { error: ReturnType<typeof buildToolError> }
+
+const createLiveClient = (
+  options: TransloaditMcpServerOptions,
+  extra: ToolExtra,
+): LiveClientResult => {
+  const token = getBearerToken(extra.requestInfo?.headers)
+  const authToken = token && token !== options.mcpToken ? token : undefined
+
+  if (authToken) {
+    return {
+      client: new Transloadit({
+        authToken,
+        authKey: options.authKey,
+        authSecret: options.authSecret,
+      }),
+    }
+  }
+
+  if (!options.authKey || !options.authSecret) {
+    return {
+      error: buildToolError(
+        'mcp_missing_auth',
+        'Missing TRANSLOADIT_KEY/TRANSLOADIT_SECRET or Authorization: Bearer token for live API calls.',
+      ),
+    }
+  }
+
+  return {
+    client: new Transloadit({
+      authKey: options.authKey,
+      authSecret: options.authSecret,
+    }),
+  }
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
@@ -364,18 +429,21 @@ export const createTransloaditMcpServer = (
       inputSchema: createAssemblyInputSchema,
       outputSchema: createAssemblyOutputSchema,
     },
-    async ({
-      instructions,
-      golden_template,
-      files,
-      fields,
-      wait_for_completion,
-      wait_timeout_ms,
-      upload_concurrency,
-      upload_chunk_size,
-      upload_behavior,
-      assembly_url,
-    }) => {
+    async (
+      {
+        instructions,
+        golden_template,
+        files,
+        fields,
+        wait_for_completion,
+        wait_timeout_ms,
+        upload_concurrency,
+        upload_chunk_size,
+        upload_behavior,
+        assembly_url,
+      },
+      extra,
+    ) => {
       if (instructions && golden_template) {
         return buildToolError(
           'mcp_invalid_args',
@@ -384,17 +452,9 @@ export const createTransloaditMcpServer = (
         )
       }
 
-      if (!options.authKey || !options.authSecret) {
-        return buildToolError(
-          'mcp_missing_auth',
-          'Missing TRANSLOADIT_KEY or TRANSLOADIT_SECRET for live API calls.',
-        )
-      }
-
-      const client = new Transloadit({
-        authKey: options.authKey,
-        authSecret: options.authSecret,
-      })
+      const liveClient = createLiveClient(options, extra)
+      if ('error' in liveClient) return liveClient.error
+      const { client } = liveClient
 
       const tempCleanups: Array<() => Promise<void>> = []
 
@@ -523,22 +583,14 @@ export const createTransloaditMcpServer = (
       inputSchema: getAssemblyStatusInputSchema,
       outputSchema: getAssemblyStatusOutputSchema,
     },
-    async ({ assembly_url, assembly_id }) => {
-      if (!options.authKey || !options.authSecret) {
-        return buildToolError(
-          'mcp_missing_auth',
-          'Missing TRANSLOADIT_KEY or TRANSLOADIT_SECRET for live API calls.',
-        )
-      }
+    async ({ assembly_url, assembly_id }, extra) => {
+      const liveClient = createLiveClient(options, extra)
+      if ('error' in liveClient) return liveClient.error
+      const { client } = liveClient
 
       if (!assembly_url && !assembly_id) {
         return buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.')
       }
-
-      const client = new Transloadit({
-        authKey: options.authKey,
-        authSecret: options.authSecret,
-      })
 
       const id = assembly_url ? getAssemblyIdFromUrl(assembly_url) : (assembly_id as string)
       const assembly = await client.getAssembly(id)
@@ -558,22 +610,14 @@ export const createTransloaditMcpServer = (
       inputSchema: waitForAssemblyInputSchema,
       outputSchema: waitForAssemblyOutputSchema,
     },
-    async ({ assembly_url, assembly_id, timeout_ms, poll_interval_ms }) => {
-      if (!options.authKey || !options.authSecret) {
-        return buildToolError(
-          'mcp_missing_auth',
-          'Missing TRANSLOADIT_KEY or TRANSLOADIT_SECRET for live API calls.',
-        )
-      }
+    async ({ assembly_url, assembly_id, timeout_ms, poll_interval_ms }, extra) => {
+      const liveClient = createLiveClient(options, extra)
+      if ('error' in liveClient) return liveClient.error
+      const { client } = liveClient
 
       if (!assembly_url && !assembly_id) {
         return buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.')
       }
-
-      const client = new Transloadit({
-        authKey: options.authKey,
-        authSecret: options.authSecret,
-      })
 
       const id = assembly_url ? getAssemblyIdFromUrl(assembly_url) : (assembly_id as string)
       const start = Date.now()

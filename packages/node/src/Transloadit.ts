@@ -299,9 +299,19 @@ function checkResult<T>(result: T | { error: string }): asserts result is T {
   }
 }
 
-export interface Options {
+type AuthKeySecret = {
   authKey: string
   authSecret: string
+  authToken?: undefined
+}
+
+type AuthToken = {
+  authToken: string
+  authKey?: string
+  authSecret?: string
+}
+
+type BaseOptions = {
   endpoint?: string
   maxRetries?: number
   timeout?: number
@@ -309,10 +319,14 @@ export interface Options {
   validateResponses?: boolean
 }
 
+export type Options = BaseOptions & (AuthKeySecret | AuthToken)
+
 export class Transloadit {
   private _authKey: string
 
   private _authSecret: string
+
+  private _authToken: string | null
 
   private _endpoint: string
 
@@ -327,20 +341,26 @@ export class Transloadit {
   private _validateResponses = false
 
   constructor(opts: Options) {
-    if (opts?.authKey == null) {
-      throw new Error('Please provide an authKey')
-    }
-
-    if (opts.authSecret == null) {
-      throw new Error('Please provide an authSecret')
-    }
+    const rawToken = typeof opts?.authToken === 'string' ? opts.authToken.trim() : ''
+    const hasToken = rawToken.length > 0
 
     if (opts.endpoint?.endsWith('/')) {
       throw new Error('Trailing slash in endpoint is not allowed')
     }
 
-    this._authKey = opts.authKey
-    this._authSecret = opts.authSecret
+    if (!hasToken) {
+      if (opts?.authKey == null) {
+        throw new Error('Please provide an authKey')
+      }
+
+      if (opts.authSecret == null) {
+        throw new Error('Please provide an authSecret')
+      }
+    }
+
+    this._authKey = opts.authKey ?? ''
+    this._authSecret = opts.authSecret ?? ''
+    this._authToken = hasToken ? rawToken : null
     this._endpoint = opts.endpoint || 'https://api2.transloadit.com'
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
@@ -1071,6 +1091,9 @@ export class Transloadit {
     params: OptionalAuthParams,
     algorithm?: string,
   ): { signature: string; params: string } {
+    if (!this._authKey || !this._authSecret) {
+      throw new Error('Cannot sign params without authKey and authSecret.')
+    }
     const jsonParams = this._prepareParams(params)
     const signature = this._calcSignature(jsonParams, algorithm)
 
@@ -1081,6 +1104,9 @@ export class Transloadit {
    * Construct a signed Smart CDN URL. See https://transloadit.com/docs/topics/signature-authentication/#smart-cdn.
    */
   getSignedSmartCDNUrl(opts: SmartCDNUrlOptions): string {
+    if (!this._authKey || !this._authSecret) {
+      throw new Error('authKey and authSecret are required to sign Smart CDN URLs.')
+    }
     return getSignedSmartCdnUrl({
       ...opts,
       authKey: this._authKey,
@@ -1089,15 +1115,24 @@ export class Transloadit {
   }
 
   private _calcSignature(toSign: string, algorithm = 'sha384'): string {
+    if (!this._authSecret) {
+      throw new Error('Cannot sign params without authSecret.')
+    }
     return signParamsSync(toSign, this._authSecret, algorithm)
   }
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including
   // the streams, the signed params, and any additional fields.
   private _appendForm(form: FormData, params: OptionalAuthParams, fields?: Fields): void {
-    const sigData = this.calcSignature(params)
-    const jsonParams = sigData.params
-    const { signature } = sigData
+    const shouldSign = Boolean(this._authKey && this._authSecret)
+    let jsonParams = JSON.stringify(params ?? {})
+    let signature: string | undefined
+
+    if (shouldSign) {
+      const sigData = this.calcSignature(params)
+      jsonParams = sigData.params
+      signature = sigData.signature
+    }
 
     form.append('params', jsonParams)
 
@@ -1107,15 +1142,23 @@ export class Transloadit {
       }
     }
 
-    form.append('signature', signature)
+    if (signature) {
+      form.append('signature', signature)
+    }
   }
 
   // Implements HTTP GET query params, handling the case where the url already
   // has params.
   private _appendParamsToUrl(url: string, params: OptionalAuthParams): string {
-    const { signature, params: jsonParams } = this.calcSignature(params)
-
     const prefix = url.indexOf('?') === -1 ? '?' : '&'
+
+    const shouldSign = Boolean(this._authKey && this._authSecret)
+    if (!shouldSign) {
+      const jsonParams = JSON.stringify(params ?? {})
+      return `${url}${prefix}params=${encodeURIComponent(jsonParams)}`
+    }
+
+    const { signature, params: jsonParams } = this.calcSignature(params)
 
     return `${url}${prefix}signature=${signature}&params=${encodeURIComponent(jsonParams)}`
   }
@@ -1197,6 +1240,7 @@ export class Transloadit {
         headers: {
           'Transloadit-Client': `node-sdk:${version}`,
           'User-Agent': undefined, // Remove got's user-agent
+          ...(this._authToken ? { Authorization: `Bearer ${this._authToken}` } : {}),
           ...headers,
         },
         responseType: 'json',
