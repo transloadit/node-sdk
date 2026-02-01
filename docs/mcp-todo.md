@@ -58,13 +58,13 @@ This list is ordered. The top section is intentionally focused on other packages
 - ✅ Add `packages/mcp-server` with ESM-only build, Node ≥ 22.
 - Provide exports:
   - ✅ `createTransloaditMcpServer()`
-  - `createTransloaditMcpHttpHandler()`
-  - `createTransloaditMcpExpressRouter()`
+  - ✅ `createTransloaditMcpHttpHandler()`
+  - ✅ `createTransloaditMcpExpressRouter()`
 - ✅ Add CLI entrypoint `transloadit-mcp`.
 
 ### 3.2 Transports
 
-- Streamable HTTP handler at `/mcp`.
+- ✅ Streamable HTTP handler at `/mcp`.
 - ✅ stdio transport for local execution.
 - No SSE.
 
@@ -84,16 +84,16 @@ This list is ordered. The top section is intentionally focused on other packages
 ### 3.4 Auth & security
 
 - Hosted bearer token validation (pass-through to API2).
-- Self-hosted auth:
-  - No auth on localhost.
-  - Required static bearer token on non-localhost.
-- Configurable CORS allowlist with 403 on disallowed origins.
+- ✅ Self-hosted auth:
+  - ✅ No auth on localhost.
+  - ✅ Required static bearer token on non-localhost.
+- ✅ Configurable CORS allowlist with 403 on disallowed origins.
 
 ### 3.5 Config surface
 
-- Env support: `TRANSLOADIT_KEY`, `TRANSLOADIT_SECRET`, `TRANSLOADIT_MCP_TOKEN`.
-- CLI flags: `--host`, `--port`, `--config`.
-- Defaults: host `127.0.0.1`, port `5723`.
+- ✅ Env support: `TRANSLOADIT_KEY`, `TRANSLOADIT_SECRET`, `TRANSLOADIT_MCP_TOKEN`.
+- ✅ CLI flags: `--host`, `--port`, `--config`.
+- ✅ Defaults: host `127.0.0.1`, port `5723`.
 
 ## 4. Tests
 

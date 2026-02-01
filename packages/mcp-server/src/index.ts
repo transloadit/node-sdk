@@ -1,10 +1,6 @@
 export type { TransloaditMcpServerOptions } from './server.ts'
 export { createTransloaditMcpServer } from './server.ts'
-
-export const createTransloaditMcpHttpHandler = (): never => {
-  throw new Error('createTransloaditMcpHttpHandler is not implemented yet.')
-}
-
-export const createTransloaditMcpExpressRouter = (): never => {
-  throw new Error('createTransloaditMcpExpressRouter is not implemented yet.')
-}
+export type { TransloaditMcpHttpHandler, TransloaditMcpHttpOptions } from './http.ts'
+export { createTransloaditMcpHttpHandler } from './http.ts'
+export type { TransloaditMcpExpressOptions } from './express.ts'
+export { createTransloaditMcpExpressRouter } from './express.ts'
