@@ -771,6 +771,7 @@ export class Transloadit {
     const { assembly_ssl_url: url } = await this.getAssembly(assemblyId)
     const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
       url,
+      isTrustedUrl: true,
       method: 'delete',
     })
 
