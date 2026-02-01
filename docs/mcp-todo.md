@@ -33,7 +33,7 @@ This list is ordered. The top section is intentionally focused on other packages
 
 ### 1.2 Shared alphalib
 
-- Add golden template definitions under alphalib:
+- ✅ Add golden template definitions under alphalib:
   - `~transloadit/encode-hls-video@0.0.1`
   - Export as a plain object map for SDK + MCP server.
 
@@ -79,7 +79,7 @@ This list is ordered. The top section is intentionally focused on other packages
 - ✅ `transloadit_validate_assembly`
 - ✅ `transloadit_list_robots`
 - ✅ `transloadit_get_robot_help`
-- `transloadit_list_golden_templates`
+- ✅ `transloadit_list_golden_templates`
 
 ### 3.4 Auth & security
 
@@ -109,6 +109,7 @@ This list is ordered. The top section is intentionally focused on other packages
 - ✅ Stdio smoke test (official MCP client).
 - ✅ Robot list + help smoke test.
 - ✅ Full flow: create → upload → wait → results.
+- ✅ Golden templates list smoke test.
 - Resume flow: interrupt upload, resume using Assembly status and the same input files.
 - Gate live tests behind env vars (e.g., `TRANSLOADIT_E2E=1`).
 

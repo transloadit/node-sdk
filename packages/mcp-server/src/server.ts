@@ -1,5 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { Transloadit } from '@transloadit/node'
+import { Transloadit, goldenTemplates } from '@transloadit/node'
 import type { LintAssemblyInstructionsResult } from '@transloadit/node'
 import { robotsMeta, robotsSchema } from '@transloadit/zod/v4'
 import { z } from 'zod'
@@ -236,6 +236,20 @@ const waitForAssemblyOutputSchema = z.object({
     .optional(),
 })
 
+const listGoldenTemplatesInputSchema = z.object({})
+
+const listGoldenTemplatesOutputSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  templates: z.array(
+    z.object({
+      slug: z.string(),
+      version: z.string(),
+      description: z.string(),
+      steps: z.record(z.string(), z.unknown()),
+    }),
+  ),
+})
+
 const validateAssemblyInputSchema = z.object({
   instructions: z.unknown(),
   strict: z.boolean().optional(),
@@ -459,6 +473,24 @@ const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
   return match[1] ?? ''
 }
 
+const resolveGoldenTemplate = (
+  slug: string,
+  version?: string,
+): (typeof goldenTemplates)[string] | undefined => {
+  if (slug.includes('@')) {
+    return goldenTemplates[slug]
+  }
+
+  if (version) {
+    return goldenTemplates[`${slug}@${version}`]
+  }
+
+  const matches = Object.keys(goldenTemplates).filter((key) => key.startsWith(`${slug}@`))
+  if (matches.length === 0) return undefined
+  const latest = matches.sort().at(-1)
+  return latest ? goldenTemplates[latest] : undefined
+}
+
 const parseInstructions = (input: unknown): Record<string, unknown> | undefined => {
   if (input == null) return undefined
   if (typeof input === 'string') {
@@ -583,14 +615,6 @@ export const createTransloaditMcpServer = (
         )
       }
 
-      if (golden_template) {
-        return buildToolError(
-          'mcp_unavailable',
-          'Golden templates are not available yet.',
-          { path: 'golden_template' },
-        )
-      }
-
       const client = new Transloadit({
         authKey: options.authKey,
         authSecret: options.authSecret,
@@ -632,6 +656,33 @@ export const createTransloaditMcpServer = (
         }
 
         let params = parseInstructions(instructions) ?? {}
+
+        if (golden_template) {
+          const template = resolveGoldenTemplate(
+            golden_template.slug,
+            golden_template.version,
+          )
+
+          if (!template) {
+            return buildToolError(
+              'mcp_unknown_template',
+              `Unknown golden template: ${golden_template.slug}`,
+              { path: 'golden_template.slug' },
+            )
+          }
+
+          const overrides = golden_template.overrides
+          const overrideSteps =
+            overrides && isRecord(overrides.steps) ? overrides.steps : {}
+
+          params = {
+            steps: {
+              ...template.steps,
+              ...overrideSteps,
+            },
+            ...(overrides && isRecord(overrides) ? overrides : {}),
+          }
+        }
 
         if (fields && Object.keys(fields).length > 0) {
           params = {
@@ -879,6 +930,22 @@ export const createTransloaditMcpServer = (
       return buildToolResponse({
         status: 'ok',
         robot,
+      })
+    },
+  )
+
+  server.registerTool(
+    'transloadit_list_golden_templates',
+    {
+      title: 'List golden templates',
+      description: 'Returns curated starter templates with ready-to-run steps.',
+      inputSchema: listGoldenTemplatesInputSchema,
+      outputSchema: listGoldenTemplatesOutputSchema,
+    },
+    async () => {
+      return buildToolResponse({
+        status: 'ok',
+        templates: Object.values(goldenTemplates),
       })
     },
   )

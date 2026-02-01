@@ -68,6 +68,7 @@ export {
 } from 'got'
 
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
+export { goldenTemplates } from './alphalib/goldenTemplates.ts'
 export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }
 export type { LintAssemblyInstructionsResult, LintFatalLevel } from './lintAssemblyInstructions.ts'

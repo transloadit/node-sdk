@@ -29,10 +29,10 @@
     "transloadit-mcp": "./dist/cli.js"
   },
   "scripts": {
-    "lint:ts": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "lint:ts": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && ../../node_modules/.bin/tsc --build tsconfig.build.json",
     "build": "yarn lint:ts",
-    "test:unit": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run ./test/unit",
-    "test:e2e": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run ./test/e2e",
+    "test:unit": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && ../../node_modules/.bin/vitest run ./test/unit",
+    "test:e2e": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && ../../node_modules/.bin/vitest run ./test/e2e",
     "check": "yarn lint:ts && yarn test:unit",
     "prepack": "yarn build"
   },
