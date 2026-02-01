@@ -27,9 +27,9 @@ This list is ordered. The top section is intentionally focused on other packages
   - `uploads` streams (base64)
   - `files` paths
   - `/http/import` step injections (URL files)
-- Export robot catalog helpers:
-  - `listRobots()`
-  - `getRobotHelp()`
+- ✅ Export robot catalog helpers:
+  - ✅ `listRobots()`
+  - ✅ `getRobotHelp()`
 
 ### 1.2 Shared alphalib
 
@@ -37,7 +37,7 @@ This list is ordered. The top section is intentionally focused on other packages
   - `~transloadit/encode-hls-video@0.0.1`
   - Export as a plain object map for SDK + MCP server.
 
-### 1.3 `@transloadit/zod/v4`
+### 1.3 `@transloadit/zod/v3`
 
 - Export a minimal robot metadata registry (name, summary, category, param schema).
 - Ensure `AssemblyStatus` schema and `AssemblyInstructionsInput` are publicly exported.

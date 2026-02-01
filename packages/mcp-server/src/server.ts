@@ -1,7 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { Transloadit, goldenTemplates } from '@transloadit/node'
+import { Transloadit, getRobotHelp, goldenTemplates, listRobots } from '@transloadit/node'
 import type { LintAssemblyInstructionsResult } from '@transloadit/node'
-import { robotsMeta, robotsSchema } from '@transloadit/zod/v4'
 import { z } from 'zod'
 import packageJson from '../package.json' with { type: 'json' }
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -20,27 +19,6 @@ type LintIssueOutput = {
   message: string
   severity: 'error' | 'warning'
   hint?: string
-}
-
-type RobotListItem = {
-  name: string
-  title?: string
-  summary: string
-  category?: string
-}
-
-type RobotParamHelp = {
-  name: string
-  type: string
-  description?: string
-}
-
-type RobotHelp = {
-  name: string
-  summary: string
-  required_params: RobotParamHelp[]
-  optional_params: RobotParamHelp[]
-  examples?: Array<{ description: string; snippet: Record<string, unknown> }>
 }
 
 type InputFile =
@@ -315,155 +293,6 @@ const createLintClient = (options: TransloaditMcpServerOptions): Transloadit =>
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
-
-const robotNameToPath = (name: string): string => {
-  const base = name.replace(/Robot$/, '')
-  const spaced = base
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/([A-Z]+)([A-Z][a-z0-9])/g, '$1 $2')
-  const parts = spaced.split(/\s+/).filter(Boolean)
-  return `/${parts.map((part) => part.toLowerCase()).join('/')}`
-}
-
-type RobotsMetaMap = typeof robotsMeta
-type RobotMeta = RobotsMetaMap[keyof RobotsMetaMap]
-
-const getRobotsMetaIndex = (): {
-  byName: Map<string, RobotMeta>
-  byPath: Map<string, RobotMeta>
-} => {
-  const byName = new Map<string, RobotMeta>()
-  const byPath = new Map<string, RobotMeta>()
-
-  for (const meta of Object.values(robotsMeta)) {
-    byName.set(meta.name, meta)
-    byPath.set(robotNameToPath(meta.name), meta)
-  }
-
-  return { byName, byPath }
-}
-
-const getRobotSchemaIndex = (): Map<string, z.ZodTypeAny> => {
-  const index = new Map<string, z.ZodTypeAny>()
-  for (const option of robotsSchema.options) {
-    const shape = option.def.shape
-    const robotSchema = shape?.robot
-    const robotLiteral = robotSchema?.def?.values?.[0]
-    if (typeof robotLiteral === 'string') {
-      index.set(robotLiteral, option)
-    }
-  }
-  return index
-}
-
-const unwrapSchema = (
-  schema: z.ZodTypeAny,
-): { base: z.ZodTypeAny; optional: boolean } => {
-  let base = schema
-  let optional = typeof base.isOptional === 'function' ? base.isOptional() : false
-
-  while (true) {
-    const def = base.def
-    if (
-      def.type === 'optional' ||
-      def.type === 'default' ||
-      def.type === 'nullable' ||
-      def.type === 'catch'
-    ) {
-      if ('innerType' in def && def.innerType) {
-        base = def.innerType
-        if (def.type !== 'nullable') {
-          optional = true
-        }
-        continue
-      }
-    }
-    break
-  }
-
-  return { base, optional }
-}
-
-const describeSchemaType = (schema: z.ZodTypeAny): string => {
-  const { base } = unwrapSchema(schema)
-  const def = base.def
-
-  switch (def.type) {
-    case 'string':
-    case 'number':
-    case 'boolean':
-    case 'bigint':
-      return def.type
-    case 'literal': {
-      const value = def.values?.[0]
-      return value === undefined ? 'literal' : JSON.stringify(value)
-    }
-    case 'enum': {
-      const values = Array.isArray(def.values) ? def.values : []
-      return values.length ? `enum(${values.join(' | ')})` : 'enum'
-    }
-    case 'array': {
-      const element = def.element
-      const inner = element ? describeSchemaType(element) : 'unknown'
-      return `array<${inner}>`
-    }
-    case 'object':
-      return 'object'
-    case 'record':
-      return 'record'
-    case 'union': {
-      const options = Array.isArray(def.options) ? def.options : []
-      const rendered = options.map((option) => describeSchemaType(option)).join(' | ')
-      return rendered ? `union<${rendered}>` : 'union'
-    }
-    default:
-      return def.type ?? 'unknown'
-  }
-}
-
-const getParamDescription = (schema: z.ZodTypeAny): string | undefined => {
-  if (schema.description && schema.description.trim()) {
-    return schema.description.trim()
-  }
-  const inner = unwrapSchema(schema).base
-  return inner.description?.trim()
-}
-
-const getRobotParams = (
-  schema: z.ZodTypeAny,
-): { required: RobotParamHelp[]; optional: RobotParamHelp[] } => {
-  const shape = schema.def.shape
-  const required: RobotParamHelp[] = []
-  const optional: RobotParamHelp[] = []
-
-  for (const [key, value] of Object.entries(shape)) {
-    if (key === 'robot') continue
-    const { optional: isOptional } = unwrapSchema(value)
-    const param: RobotParamHelp = {
-      name: key,
-      type: describeSchemaType(value),
-      description: getParamDescription(value),
-    }
-
-    if (isOptional) {
-      optional.push(param)
-    } else {
-      required.push(param)
-    }
-  }
-
-  return { required, optional }
-}
-
-const selectSummary = (meta: RobotMeta): string =>
-  meta.purpose_sentence ??
-  meta.purpose_words ??
-  meta.purpose_word ??
-  meta.title ??
-  meta.name
-
-const resolveRobotPath = (robotName: string): string =>
-  robotName.startsWith('/') ? robotName : robotNameToPath(robotName)
 
 const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
   const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
@@ -844,9 +673,6 @@ export const createTransloaditMcpServer = (
     },
   )
 
-  const robotMetaIndex = getRobotsMetaIndex()
-  const robotSchemaIndex = getRobotSchemaIndex()
-
   server.registerTool(
     'transloadit_list_robots',
     {
@@ -856,40 +682,12 @@ export const createTransloaditMcpServer = (
       outputSchema: listRobotsOutputSchema,
     },
     async ({ category, search, limit, cursor }) => {
-      const normalizedSearch = search?.toLowerCase()
-      const normalizedCategory = category?.toLowerCase()
-
-      const allRobots: RobotListItem[] = Array.from(robotMetaIndex.byPath.entries()).map(
-        ([path, meta]) => ({
-          name: path,
-          title: meta.title,
-          summary: selectSummary(meta),
-          category: meta.service_slug,
-        }),
-      )
-
-      const filtered = allRobots
-        .filter((robot) => {
-          if (normalizedCategory && robot.category?.toLowerCase() !== normalizedCategory) {
-            return false
-          }
-          if (!normalizedSearch) return true
-          const haystack = `${robot.name} ${robot.title ?? ''} ${robot.summary}`.toLowerCase()
-          return haystack.includes(normalizedSearch)
-        })
-        .sort((a, b) => a.name.localeCompare(b.name))
-
-      const start = cursor ? Number.parseInt(cursor, 10) : 0
-      const safeStart = Number.isFinite(start) && start > 0 ? start : 0
-      const safeLimit = limit && limit > 0 ? limit : 20
-      const page = filtered.slice(safeStart, safeStart + safeLimit)
-      const nextCursor =
-        safeStart + safeLimit < filtered.length ? String(safeStart + safeLimit) : undefined
+      const result = listRobots({ category, search, limit, cursor })
 
       return buildToolResponse({
         status: 'ok',
-        robots: page,
-        next_cursor: nextCursor,
+        robots: result.robots,
+        next_cursor: result.nextCursor,
       })
     },
   )
@@ -903,33 +701,20 @@ export const createTransloaditMcpServer = (
       outputSchema: getRobotHelpOutputSchema,
     },
     async ({ robot_name, detail_level }) => {
-      const path = resolveRobotPath(robot_name)
-      const meta =
-        robotMetaIndex.byPath.get(path) ?? robotMetaIndex.byName.get(robot_name) ?? null
-      const summary = meta ? selectSummary(meta) : `Robot ${path}`
-      const schema = robotSchemaIndex.get(path)
-      const params = schema ? getRobotParams(schema) : { required: [], optional: [] }
-
-      const robot: RobotHelp = {
-        name: path,
-        summary,
-        required_params: detail_level === 'params' ? params.required : [],
-        optional_params: detail_level === 'params' ? params.optional : [],
-      }
-
-      if (detail_level === 'examples' && meta?.example_code) {
-        const snippet = isRecord(meta.example_code) ? meta.example_code : {}
-        robot.examples = [
-          {
-            description: meta.example_code_description ?? 'Example',
-            snippet,
-          },
-        ]
-      }
+      const help = getRobotHelp({
+        robotName: robot_name,
+        detailLevel: detail_level ?? 'summary',
+      })
 
       return buildToolResponse({
         status: 'ok',
-        robot,
+        robot: {
+          name: help.name,
+          summary: help.summary,
+          required_params: help.requiredParams,
+          optional_params: help.optionalParams,
+          examples: help.examples,
+        },
       })
     },
   )

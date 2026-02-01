@@ -37,7 +37,7 @@ Build a delightful, agent-native interface to Transloadit Assemblies. The MCP se
 The MCP server should delegate as much work as possible to existing packages:
 
 - `@transloadit/node` for API calls, tus uploads, polling, and future resume support.
-- `@transloadit/zod/v4` for schemas and robot metadata.
+- `@transloadit/zod/v3` for schemas and robot metadata (single source of truth).
 - Shared alphalib for golden templates.
 
 This means we should add missing functionality to `@transloadit/node` first (see todo list).
@@ -427,7 +427,7 @@ Example `mcp.json`:
 ## 11. Implementation notes
 
 - Use the official MCP TypeScript SDK (latest stable major at implementation time).
-- Zod schemas live in `@transloadit/zod/v4` and are reused for tool schemas.
+- Zod schemas live in `@transloadit/zod/v3` and are reused for tool schemas.
 - Prefer named exports everywhere.
 - Keep tool responses short; avoid dumping massive schemas into MCP responses.
 

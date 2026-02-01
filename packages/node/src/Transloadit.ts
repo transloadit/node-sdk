@@ -72,6 +72,15 @@ export { goldenTemplates } from './alphalib/goldenTemplates.ts'
 export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }
 export type { LintAssemblyInstructionsResult, LintFatalLevel } from './lintAssemblyInstructions.ts'
+export type {
+  RobotHelp,
+  RobotHelpOptions,
+  RobotListItem,
+  RobotListOptions,
+  RobotListResult,
+  RobotParamHelp,
+} from './robots.ts'
+export { getRobotHelp, listRobots } from './robots.ts'
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
