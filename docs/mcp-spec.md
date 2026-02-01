@@ -53,7 +53,7 @@ This means we should add missing functionality to `@transloadit/node` first (see
 ### Hosted (`api2.transloadit.com/mcp`)
 
 - Auth: `Authorization: Bearer <mcp_token>`
-- Token minting endpoint: `POST https://api2.transloadit.com/tokens/mcp`
+- Token minting endpoint: `POST https://api2.transloadit.com/token`
 - Token format: opaque, 6-hour TTL.
 - Scopes (MVP):
   - `assemblies:write`

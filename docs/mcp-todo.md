@@ -44,7 +44,7 @@ This list is ordered. The top section is intentionally focused on other packages
 
 ## 2. API2 groundwork
 
-- Implement `POST /tokens/mcp`:
+- Implement `POST /token`:
   - Accept key/secret auth.
   - Return opaque bearer token (TTL 6 hours) with scopes.
 - Accept MCP bearer tokens for Assembly endpoints used by the MCP server
