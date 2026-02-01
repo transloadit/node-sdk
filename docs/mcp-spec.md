@@ -72,6 +72,10 @@ preferred path is to accept MCP tokens directly as `Authorization: Bearer`.
 - stdio and localhost HTTP: no MCP auth required by default.
 - non-localhost HTTP: must be configured with a static bearer token, otherwise refuse to start.
 - Transloadit API calls use `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET`.
+- **Signature auth note:** if the account enforces mandatory signature auth, bearer tokens do **not**
+  bypass it. The MCP server must be able to sign requests, so provide `TRANSLOADIT_KEY` +
+  `TRANSLOADIT_SECRET` alongside bearer tokens or expect API2 to reject requests with
+  `NO_SIGNATURE_FIELD` / `NO_AUTH_EXPIRES_PARAMETER`.
 
 ## 5. CORS and network safety
 
@@ -450,3 +454,4 @@ These are the `code` values currently used inside `errors`/`warnings` arrays:
 - `mcp_duplicate_field`
 - `mcp_base64_too_large`
 - `mcp_unknown_template`
+- `mcp_signature_auth_required`

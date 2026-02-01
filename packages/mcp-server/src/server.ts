@@ -26,6 +26,13 @@ type LintIssueOutput = {
   hint?: string
 }
 
+type ToolMessage = {
+  code: string
+  message: string
+  hint?: string
+  path?: string
+}
+
 type UploadSummary = {
   status: 'none' | 'uploading' | 'complete'
   total_files: number
@@ -48,6 +55,13 @@ const lintIssueSchema = z.object({
   message: z.string(),
   severity: z.enum(['error', 'warning']),
   hint: z.string().optional(),
+})
+
+const toolMessageSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+  hint: z.string().optional(),
+  path: z.string().optional(),
 })
 
 const listRobotsInputSchema = z.object({
@@ -152,16 +166,8 @@ const createAssemblyOutputSchema = z.object({
     })
     .optional(),
   next_steps: z.array(z.string()).optional(),
-  errors: z
-    .array(
-      z.object({
-        code: z.string(),
-        message: z.string(),
-        hint: z.string().optional(),
-        path: z.string().optional(),
-      }),
-    )
-    .optional(),
+  errors: z.array(toolMessageSchema).optional(),
+  warnings: z.array(toolMessageSchema).optional(),
 })
 
 const getAssemblyStatusInputSchema = z.object({
@@ -172,16 +178,8 @@ const getAssemblyStatusInputSchema = z.object({
 const getAssemblyStatusOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   assembly: z.unknown().optional(),
-  errors: z
-    .array(
-      z.object({
-        code: z.string(),
-        message: z.string(),
-        hint: z.string().optional(),
-        path: z.string().optional(),
-      }),
-    )
-    .optional(),
+  errors: z.array(toolMessageSchema).optional(),
+  warnings: z.array(toolMessageSchema).optional(),
 })
 
 const waitForAssemblyInputSchema = z.object({
@@ -195,16 +193,8 @@ const waitForAssemblyOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   assembly: z.unknown().optional(),
   waited_ms: z.number().int().nonnegative().optional(),
-  errors: z
-    .array(
-      z.object({
-        code: z.string(),
-        message: z.string(),
-        hint: z.string().optional(),
-        path: z.string().optional(),
-      }),
-    )
-    .optional(),
+  errors: z.array(toolMessageSchema).optional(),
+  warnings: z.array(toolMessageSchema).optional(),
 })
 
 const listGoldenTemplatesInputSchema = z.object({})
@@ -276,6 +266,13 @@ const buildToolError = (
     ],
   })
 
+const signatureAuthWarning: ToolMessage = {
+  code: 'mcp_signature_auth_required',
+  message:
+    'Bearer tokens still require signature auth if your account enforces it. Configure TRANSLOADIT_KEY/TRANSLOADIT_SECRET so MCP can sign requests.',
+  hint: 'If you see NO_SIGNATURE_FIELD or NO_AUTH_EXPIRES_PARAMETER, provide key+secret or disable signature auth for the account.',
+}
+
 const createLintClient = (options: TransloaditMcpServerOptions): Transloadit =>
   new Transloadit({
     authKey: options.authKey ?? 'mcp',
@@ -300,6 +297,17 @@ const getBearerToken = (headers: HeaderMap | undefined): string | undefined => {
   if (!match) return undefined
   const token = match[1]?.trim()
   return token ? token : undefined
+}
+
+const getSignatureAuthWarnings = (
+  options: TransloaditMcpServerOptions,
+  extra: ToolExtra,
+): ToolMessage[] => {
+  const token = getBearerToken(extra.requestInfo?.headers)
+  if (!token) return []
+  if (token === options.mcpToken) return []
+  if (options.authKey && options.authSecret) return []
+  return [signatureAuthWarning]
 }
 
 type LiveClientResult = { client: Transloadit } | { error: ReturnType<typeof buildToolError> }
@@ -455,6 +463,7 @@ export const createTransloaditMcpServer = (
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
       const { client } = liveClient
+      const warnings = getSignatureAuthWarnings(options, extra)
 
       const tempCleanups: Array<() => Promise<void>> = []
 
@@ -568,6 +577,7 @@ export const createTransloaditMcpServer = (
           assembly,
           upload: uploadSummary,
           next_steps: nextSteps,
+          ...(warnings.length > 0 ? { warnings } : {}),
         })
       } finally {
         await Promise.all(tempCleanups.map((cleanup) => cleanup()))
@@ -587,6 +597,7 @@ export const createTransloaditMcpServer = (
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
       const { client } = liveClient
+      const warnings = getSignatureAuthWarnings(options, extra)
 
       if (!assembly_url && !assembly_id) {
         return buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.')
@@ -598,6 +609,7 @@ export const createTransloaditMcpServer = (
       return buildToolResponse({
         status: 'ok',
         assembly,
+        ...(warnings.length > 0 ? { warnings } : {}),
       })
     },
   )
@@ -614,6 +626,7 @@ export const createTransloaditMcpServer = (
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
       const { client } = liveClient
+      const warnings = getSignatureAuthWarnings(options, extra)
 
       if (!assembly_url && !assembly_id) {
         return buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.')
@@ -632,6 +645,7 @@ export const createTransloaditMcpServer = (
         status: 'ok',
         assembly,
         waited_ms,
+        ...(warnings.length > 0 ? { warnings } : {}),
       })
     },
   )
