@@ -1,4 +1,4 @@
-import { Client } from '@modelcontextprotocol/sdk/client'
+import type { Client } from '@modelcontextprotocol/sdk/client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createMcpClient, parseToolPayload } from './mcp-client.ts'
 

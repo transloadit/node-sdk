@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import type { z } from 'zod'
 import { robotsMeta, robotsSchema } from './alphalib/types/robots/_index.ts'
 
 export type RobotListOptions = {
@@ -63,18 +63,12 @@ const robotNameToPath = (name: string): string => {
 }
 
 const selectSummary = (meta: RobotMeta): string =>
-  meta.purpose_sentence ??
-  meta.purpose_words ??
-  meta.purpose_word ??
-  meta.title ??
-  meta.name
+  meta.purpose_sentence ?? meta.purpose_words ?? meta.purpose_word ?? meta.title ?? meta.name
 
 const resolveRobotPath = (robotName: string): string =>
   robotName.startsWith('/') ? robotName : robotNameToPath(robotName)
 
-const unwrapSchema = (
-  schema: z.ZodTypeAny,
-): { base: z.ZodTypeAny; optional: boolean } => {
+const unwrapSchema = (schema: z.ZodTypeAny): { base: z.ZodTypeAny; optional: boolean } => {
   let base = schema
   let optional = typeof base.isOptional === 'function' ? base.isOptional() : false
 
@@ -149,7 +143,9 @@ const describeSchemaType = (schema: z.ZodTypeAny): string => {
     case 'union':
     case 'ZodUnion': {
       const options = Array.isArray(def.options) ? def.options : []
-      const rendered = options.map((option) => describeSchemaType(option as z.ZodTypeAny)).join(' | ')
+      const rendered = options
+        .map((option) => describeSchemaType(option as z.ZodTypeAny))
+        .join(' | ')
       return rendered ? `union<${rendered}>` : 'union'
     }
     case 'ZodDiscriminatedUnion':
@@ -160,7 +156,7 @@ const describeSchemaType = (schema: z.ZodTypeAny): string => {
 }
 
 const getParamDescription = (schema: z.ZodTypeAny): string | undefined => {
-  if (schema.description && schema.description.trim()) {
+  if (schema.description?.trim()) {
     return schema.description.trim()
   }
   const inner = unwrapSchema(schema).base

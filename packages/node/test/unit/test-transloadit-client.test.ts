@@ -209,15 +209,13 @@ describe('Transloadit', () => {
         tus_url: 'https://localhost/tus',
       }
 
-      vi.spyOn(client as unknown as Record<string, (...args: unknown[]) => unknown>, '_remoteJson')
-        .mockResolvedValue(assembly)
+      vi.spyOn(
+        client as unknown as Record<string, (...args: unknown[]) => unknown>,
+        '_remoteJson',
+      ).mockResolvedValue(assembly)
       const uploadUrls = { file: 'https://localhost/tus/1' }
-      const sendTusSpy = vi
-        .spyOn(tus, 'sendTusRequest')
-        .mockResolvedValue({ uploadUrls })
-      const awaitSpy = vi
-        .spyOn(client, 'awaitAssemblyCompletion')
-        .mockResolvedValue(assembly)
+      const sendTusSpy = vi.spyOn(tus, 'sendTusRequest').mockResolvedValue({ uploadUrls })
+      const awaitSpy = vi.spyOn(client, 'awaitAssemblyCompletion').mockResolvedValue(assembly)
 
       const result = await client.createAssembly({
         uploads: { file: Buffer.from('hi') },
@@ -241,12 +239,12 @@ describe('Transloadit', () => {
         tus_url: 'https://localhost/tus',
       }
 
-      vi.spyOn(client as unknown as Record<string, (...args: unknown[]) => unknown>, '_remoteJson')
-        .mockResolvedValue(assembly)
+      vi.spyOn(
+        client as unknown as Record<string, (...args: unknown[]) => unknown>,
+        '_remoteJson',
+      ).mockResolvedValue(assembly)
       const uploadUrls = { file: 'https://localhost/tus/2' }
-      const sendTusSpy = vi
-        .spyOn(tus, 'sendTusRequest')
-        .mockResolvedValue({ uploadUrls })
+      const sendTusSpy = vi.spyOn(tus, 'sendTusRequest').mockResolvedValue({ uploadUrls })
 
       const result = await client.createAssembly({
         uploads: { file: Buffer.from('hi') },

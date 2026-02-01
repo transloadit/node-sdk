@@ -1,9 +1,8 @@
-import { Client } from '@modelcontextprotocol/sdk/client'
+import type { Client } from '@modelcontextprotocol/sdk/client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createMcpClient, isRecord, parseToolPayload } from './mcp-client.ts'
 
-const shouldRun =
-  process.env.TRANSLOADIT_KEY != null && process.env.TRANSLOADIT_SECRET != null
+const shouldRun = process.env.TRANSLOADIT_KEY != null && process.env.TRANSLOADIT_SECRET != null
 const maybeDescribe = shouldRun ? describe : describe.skip
 
 maybeDescribe('mcp-server wait for assembly (stdio)', { timeout: 30000 }, () => {

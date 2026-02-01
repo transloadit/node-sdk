@@ -1,12 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { LintAssemblyInstructionsResult } from '@transloadit/node'
 import {
-  Transloadit,
   getRobotHelp,
   goldenTemplates,
   listRobots,
   prepareInputFiles,
+  Transloadit,
 } from '@transloadit/node'
-import type { LintAssemblyInstructionsResult } from '@transloadit/node'
 import { z } from 'zod'
 import packageJson from '../package.json' with { type: 'json' }
 
@@ -223,9 +223,7 @@ const validateAssemblyOutputSchema = z.object({
   normalized_instructions: z.unknown().optional(),
 })
 
-const toLintIssues = (
-  issues: LintAssemblyInstructionsResult['issues'],
-): LintIssueOutput[] =>
+const toLintIssues = (issues: LintAssemblyInstructionsResult['issues']): LintIssueOutput[] =>
   issues.map((issue) => ({
     path: issue.stepName ? `steps.${issue.stepName}` : 'instructions',
     message: issue.summary,
@@ -404,10 +402,7 @@ export const createTransloaditMcpServer = (
         let params = parseInstructions(instructions) ?? {}
 
         if (golden_template) {
-          const template = resolveGoldenTemplate(
-            golden_template.slug,
-            golden_template.version,
-          )
+          const template = resolveGoldenTemplate(golden_template.slug, golden_template.version)
 
           if (!template) {
             return buildToolError(
@@ -418,8 +413,7 @@ export const createTransloaditMcpServer = (
           }
 
           const overrides = golden_template.overrides
-          const overrideSteps =
-            overrides && isRecord(overrides.steps) ? overrides.steps : {}
+          const overrideSteps = overrides && isRecord(overrides.steps) ? overrides.steps : {}
 
           params = {
             steps: {
@@ -441,11 +435,9 @@ export const createTransloaditMcpServer = (
             return buildToolError('mcp_duplicate_field', message, { path: 'files' })
           }
           if (message.startsWith('Base64 payload exceeds')) {
-            return buildToolError(
-              'mcp_base64_too_large',
-              message,
-              { hint: 'Use a URL import or path upload instead.' },
-            )
+            return buildToolError('mcp_base64_too_large', message, {
+              hint: 'Use a URL import or path upload instead.',
+            })
           }
           return buildToolError('mcp_invalid_args', message)
         })
@@ -465,8 +457,7 @@ export const createTransloaditMcpServer = (
 
         const timeout = wait_timeout_ms
         const waitForCompletion = wait_for_completion ?? false
-        const uploadBehavior =
-          upload_behavior ?? (waitForCompletion ? 'await' : 'background')
+        const uploadBehavior = upload_behavior ?? (waitForCompletion ? 'await' : 'background')
         const uploadConcurrency = upload_concurrency
         const chunkSize = upload_chunk_size
 
@@ -541,10 +532,7 @@ export const createTransloaditMcpServer = (
       }
 
       if (!assembly_url && !assembly_id) {
-        return buildToolError(
-          'mcp_missing_args',
-          'Provide assembly_url or assembly_id.',
-        )
+        return buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.')
       }
 
       const client = new Transloadit({
@@ -579,10 +567,7 @@ export const createTransloaditMcpServer = (
       }
 
       if (!assembly_url && !assembly_id) {
-        return buildToolError(
-          'mcp_missing_args',
-          'Provide assembly_url or assembly_id.',
-        )
+        return buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.')
       }
 
       const client = new Transloadit({
@@ -615,7 +600,7 @@ export const createTransloaditMcpServer = (
       inputSchema: listRobotsInputSchema,
       outputSchema: listRobotsOutputSchema,
     },
-    async ({ category, search, limit, cursor }) => {
+    ({ category, search, limit, cursor }) => {
       const result = listRobots({ category, search, limit, cursor })
 
       return buildToolResponse({
@@ -634,7 +619,7 @@ export const createTransloaditMcpServer = (
       inputSchema: getRobotHelpInputSchema,
       outputSchema: getRobotHelpOutputSchema,
     },
-    async ({ robot_name, detail_level }) => {
+    ({ robot_name, detail_level }) => {
       const help = getRobotHelp({
         robotName: robot_name,
         detailLevel: detail_level ?? 'summary',
@@ -661,7 +646,7 @@ export const createTransloaditMcpServer = (
       inputSchema: listGoldenTemplatesInputSchema,
       outputSchema: listGoldenTemplatesOutputSchema,
     },
-    async () => {
+    () => {
       return buildToolResponse({
         status: 'ok',
         templates: Object.values(goldenTemplates),

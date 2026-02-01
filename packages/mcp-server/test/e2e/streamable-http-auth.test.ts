@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { startHttpServer, createHttpClient } from './http-server.ts'
+import { createHttpClient, startHttpServer } from './http-server.ts'
 import { parseToolPayload } from './mcp-client.ts'
 
 test('streamable http: requires bearer token when configured', async () => {

@@ -1,10 +1,10 @@
-import express from 'express'
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage } from 'node:http'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { createTransloaditMcpServer } from './server.ts'
+import express from 'express'
 import type { TransloaditMcpHttpOptions } from './http.ts'
 import { applyCorsHeaders, isAuthorized, normalizePath, parsePathname } from './http-helpers.ts'
+import { createTransloaditMcpServer } from './server.ts'
 
 export type TransloaditMcpExpressOptions = TransloaditMcpHttpOptions & {
   path?: string

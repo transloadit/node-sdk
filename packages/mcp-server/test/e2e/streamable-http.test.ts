@@ -6,7 +6,7 @@ test('streamable http: lists robots and provides param help', async () => {
   const server = await startHttpServer()
 
   try {
-      const { client, transport } = await createHttpClient(server.url)
+    const { client, transport } = await createHttpClient(server.url)
 
     try {
       const robots = await client.callTool({

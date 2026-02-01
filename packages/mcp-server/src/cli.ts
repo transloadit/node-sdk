@@ -1,5 +1,5 @@
-import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
+import { createServer } from 'node:http'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { createTransloaditMcpHttpHandler, createTransloaditMcpServer } from './index.ts'
 
@@ -56,7 +56,6 @@ const parseArgs = (args: string[]): { command: string; config: CliConfig } => {
     }
     if (arg.startsWith('--config=')) {
       config.configPath = arg.slice('--config='.length)
-      continue
     }
   }
 

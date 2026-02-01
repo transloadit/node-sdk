@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { createTransloaditMcpServer } from './server.ts'
-import type { TransloaditMcpServerOptions } from './server.ts'
 import { applyCorsHeaders, isAuthorized, normalizePath, parsePathname } from './http-helpers.ts'
+import type { TransloaditMcpServerOptions } from './server.ts'
+import { createTransloaditMcpServer } from './server.ts'
 
 export type TransloaditMcpHttpOptions = TransloaditMcpServerOptions & {
   allowedOrigins?: string[]
