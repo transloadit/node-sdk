@@ -1,11 +1,14 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { Transloadit, getRobotHelp, goldenTemplates, listRobots } from '@transloadit/node'
+import {
+  Transloadit,
+  getRobotHelp,
+  goldenTemplates,
+  listRobots,
+  prepareInputFiles,
+} from '@transloadit/node'
 import type { LintAssemblyInstructionsResult } from '@transloadit/node'
 import { z } from 'zod'
 import packageJson from '../package.json' with { type: 'json' }
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
 
 export type TransloaditMcpServerOptions = {
   authKey?: string
@@ -20,27 +23,6 @@ type LintIssueOutput = {
   severity: 'error' | 'warning'
   hint?: string
 }
-
-type InputFile =
-  | {
-      kind: 'path'
-      field: string
-      path: string
-    }
-  | {
-      kind: 'base64'
-      field: string
-      base64: string
-      filename: string
-      contentType?: string
-    }
-  | {
-      kind: 'url'
-      field: string
-      url: string
-      filename?: string
-      contentType?: string
-    }
 
 type UploadSummary = {
   status: 'none' | 'uploading' | 'complete'
@@ -336,42 +318,6 @@ const parseInstructions = (input: unknown): Record<string, unknown> | undefined 
   return undefined
 }
 
-const ensureUniqueField = (field: string, used: Set<string>): string | null => {
-  if (used.has(field)) return null
-  used.add(field)
-  return field
-}
-
-const ensureUniqueStepName = (baseName: string, used: Set<string>): string => {
-  let name = baseName
-  let counter = 1
-  while (used.has(name)) {
-    name = `${baseName}_${counter}`
-    counter += 1
-  }
-  used.add(name)
-  return name
-}
-
-const decodeBase64 = (value: string): Buffer => Buffer.from(value, 'base64')
-
-const withTempFile = async (
-  filename: string,
-  content: Buffer,
-): Promise<{ path: string; cleanup: () => Promise<void> }> => {
-  const safeName = basename(filename)
-  const folder = await mkdtemp(join(tmpdir(), 'transloadit-mcp-'))
-  const filePath = join(folder, safeName)
-  await writeFile(filePath, content)
-  return {
-    path: filePath,
-    cleanup: async () => {
-      await rm(filePath, { force: true, recursive: true })
-      await rm(folder, { force: true, recursive: true })
-    },
-  }
-}
-
 export const createTransloaditMcpServer = (
   options: TransloaditMcpServerOptions = {},
 ): McpServer => {
@@ -455,37 +401,6 @@ export const createTransloaditMcpServer = (
 
       try {
         const fileInputs = files ?? []
-        const usedFields = new Set<string>()
-        const filesMap: Record<string, string> = {}
-        const urlFiles: InputFile[] = []
-
-        for (const file of fileInputs) {
-          const field = ensureUniqueField(file.field, usedFields)
-          if (!field) {
-            return buildToolError('mcp_duplicate_field', `Duplicate file field: ${file.field}`, {
-              path: 'files',
-            })
-          }
-
-          if (file.kind === 'path') {
-            filesMap[field] = file.path
-          } else if (file.kind === 'base64') {
-            const buffer = decodeBase64(file.base64)
-            if (buffer.length > maxBase64Bytes) {
-              return buildToolError(
-                'mcp_base64_too_large',
-                `Base64 payload exceeds ${maxBase64Bytes} bytes.`,
-                { hint: 'Use a URL import or path upload instead.' },
-              )
-            }
-            const tempFile = await withTempFile(file.filename, buffer)
-            filesMap[field] = tempFile.path
-            tempCleanups.push(tempFile.cleanup)
-          } else if (file.kind === 'url') {
-            urlFiles.push(file)
-          }
-        }
-
         let params = parseInstructions(instructions) ?? {}
 
         if (golden_template) {
@@ -514,34 +429,33 @@ export const createTransloaditMcpServer = (
             ...(overrides && isRecord(overrides) ? overrides : {}),
           }
         }
-
-        if (fields && Object.keys(fields).length > 0) {
-          params = {
-            ...params,
-            fields: {
-              ...(isRecord(params.fields) ? params.fields : {}),
-              ...fields,
-            },
+        const prep = await prepareInputFiles({
+          inputFiles: fileInputs,
+          params,
+          fields,
+          base64Strategy: 'tempfile',
+          maxBase64Bytes,
+        }).catch((error) => {
+          const message = error instanceof Error ? error.message : 'Invalid file input.'
+          if (message.startsWith('Duplicate file field')) {
+            return buildToolError('mcp_duplicate_field', message, { path: 'files' })
           }
+          if (message.startsWith('Base64 payload exceeds')) {
+            return buildToolError(
+              'mcp_base64_too_large',
+              message,
+              { hint: 'Use a URL import or path upload instead.' },
+            )
+          }
+          return buildToolError('mcp_invalid_args', message)
+        })
+        if ('content' in prep) {
+          return prep
         }
-
-        if (urlFiles.length > 0) {
-          const steps = isRecord(params.steps) ? { ...params.steps } : {}
-          const usedSteps = new Set(Object.keys(steps))
-
-          for (const file of urlFiles) {
-            const stepName = ensureUniqueStepName(file.field, usedSteps)
-            steps[stepName] = {
-              robot: '/http/import',
-              url: file.url,
-            }
-          }
-
-          params = {
-            ...params,
-            steps,
-          }
-        }
+        params = prep.params
+        const filesMap = prep.files
+        const uploadsMap = prep.uploads
+        tempCleanups.push(...prep.cleanup)
 
         const totalFiles = fileInputs.filter((file) => file.kind !== 'url').length
         const uploadSummary: UploadSummary = {
@@ -560,6 +474,7 @@ export const createTransloaditMcpServer = (
           ? await client.resumeAssemblyUploads({
               assemblyUrl: assembly_url,
               files: filesMap,
+              uploads: uploadsMap,
               waitForCompletion,
               timeout,
               uploadConcurrency,
@@ -569,6 +484,7 @@ export const createTransloaditMcpServer = (
           : await client.createAssembly({
               params,
               files: filesMap,
+              uploads: uploadsMap,
               waitForCompletion,
               timeout,
               uploadConcurrency,

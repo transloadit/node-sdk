@@ -2512,7 +2512,6 @@ __metadata:
   dependencies:
     "@modelcontextprotocol/sdk": "npm:^1.25.3"
     "@transloadit/node": "npm:^4.3.0"
-    "@transloadit/zod": "npm:^4.3.0"
     "@types/express": "npm:^4.17.23"
     "@types/node": "npm:^24.10.3"
     express: "npm:^4.21.2"
@@ -2587,7 +2586,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@transloadit/zod@npm:^4.3.0, @transloadit/zod@workspace:packages/zod":
+"@transloadit/zod@workspace:packages/zod":
   version: 0.0.0-use.local
   resolution: "@transloadit/zod@workspace:packages/zod"
   dependencies:

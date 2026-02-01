@@ -23,10 +23,10 @@ This list is ordered. The top section is intentionally focused on other packages
     - ✅ `background` (return immediately after starting uploads)
     - ✅ `none` (return assembly + upload URLs without starting uploads)
   - ✅ Return `upload_urls` for each file field when `background`/`none` is selected.
-- Add a small helper that converts `InputFile[]` to:
-  - `uploads` streams (base64)
-  - `files` paths
-  - `/http/import` step injections (URL files)
+- ✅ Add a small helper that converts `InputFile[]` to:
+  - ✅ `uploads` streams (base64)
+  - ✅ `files` paths
+  - ✅ `/http/import` step injections (URL files)
 - ✅ Export robot catalog helpers:
   - ✅ `listRobots()`
   - ✅ `getRobotHelp()`

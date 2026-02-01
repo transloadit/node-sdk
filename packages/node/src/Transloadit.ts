@@ -73,6 +73,14 @@ export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }
 export type { LintAssemblyInstructionsResult, LintFatalLevel } from './lintAssemblyInstructions.ts'
 export type {
+  Base64Strategy,
+  InputFile,
+  PrepareInputFilesOptions,
+  PrepareInputFilesResult,
+  UploadInput,
+} from './inputFiles.ts'
+export { prepareInputFiles } from './inputFiles.ts'
+export type {
   RobotHelp,
   RobotHelpOptions,
   RobotListItem,
