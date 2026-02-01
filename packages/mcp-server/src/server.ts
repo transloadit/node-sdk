@@ -4,6 +4,7 @@ import {
   getRobotHelp,
   goldenTemplates,
   listRobots,
+  mergeTemplateContent,
   prepareInputFiles,
   Transloadit,
 } from '@transloadit/node'
@@ -413,21 +414,20 @@ export const createTransloaditMcpServer = (
           }
 
           const overrides = golden_template.overrides
-          const overrideSteps = overrides && isRecord(overrides.steps) ? overrides.steps : {}
-
-          params = {
-            steps: {
-              ...template.steps,
-              ...overrideSteps,
-            },
-            ...(overrides && isRecord(overrides) ? overrides : {}),
+          const templateContent = {
+            steps: template.steps,
           }
+          params = mergeTemplateContent(
+            templateContent,
+            overrides && isRecord(overrides) ? (overrides as Record<string, unknown>) : undefined,
+          ) as Record<string, unknown>
         }
         const prep = await prepareInputFiles({
           inputFiles: fileInputs,
           params,
           fields,
           base64Strategy: 'tempfile',
+          urlStrategy: 'import-if-present',
           maxBase64Bytes,
         }).catch((error) => {
           const message = error instanceof Error ? error.message : 'Invalid file input.'
@@ -449,7 +449,7 @@ export const createTransloaditMcpServer = (
         const uploadsMap = prep.uploads
         tempCleanups.push(...prep.cleanup)
 
-        const totalFiles = fileInputs.filter((file) => file.kind !== 'url').length
+        const totalFiles = Object.keys(filesMap).length + Object.keys(uploadsMap).length
         const uploadSummary: UploadSummary = {
           status: totalFiles > 0 ? 'complete' : 'none',
           total_files: totalFiles,

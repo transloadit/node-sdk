@@ -70,12 +70,14 @@ export { goldenTemplates } from './alphalib/goldenTemplates.ts'
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }
+export { mergeTemplateContent } from './alphalib/templateMerge.ts'
 export type {
   Base64Strategy,
   InputFile,
   PrepareInputFilesOptions,
   PrepareInputFilesResult,
   UploadInput,
+  UrlStrategy,
 } from './inputFiles.ts'
 export { prepareInputFiles } from './inputFiles.ts'
 export type { LintAssemblyInstructionsResult, LintFatalLevel } from './lintAssemblyInstructions.ts'

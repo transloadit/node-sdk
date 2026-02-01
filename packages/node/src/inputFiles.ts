@@ -1,7 +1,10 @@
+import { createWriteStream } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import type { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+import got from 'got'
 import type { Input as IntoStreamInput } from 'into-stream'
 import type { CreateAssemblyParams } from './apiTypes.ts'
 
@@ -29,12 +32,14 @@ export type InputFile =
 export type UploadInput = Readable | IntoStreamInput
 
 export type Base64Strategy = 'buffer' | 'tempfile'
+export type UrlStrategy = 'import' | 'download' | 'import-if-present'
 
 export type PrepareInputFilesOptions = {
   inputFiles?: InputFile[]
   params?: CreateAssemblyParams
   fields?: Record<string, unknown>
   base64Strategy?: Base64Strategy
+  urlStrategy?: UrlStrategy
   maxBase64Bytes?: number
   tempDir?: string
 }
@@ -69,6 +74,31 @@ const ensureUniqueStepName = (baseName: string, used: Set<string>): string => {
 
 const decodeBase64 = (value: string): Buffer => Buffer.from(value, 'base64')
 
+const getFilenameFromUrl = (value: string): string | null => {
+  try {
+    const pathname = new URL(value).pathname
+    const base = basename(pathname)
+    if (base && base !== '/' && base !== '.') return base
+  } catch {
+    return null
+  }
+  return null
+}
+
+const isHttpImportStep = (value: unknown): value is Record<string, unknown> =>
+  isRecord(value) && value.robot === '/http/import'
+
+const findImportStepName = (field: string, steps: Record<string, unknown>): string | null => {
+  if (isHttpImportStep(steps[field])) return field
+  const matches = Object.entries(steps).filter(([, step]) => isHttpImportStep(step))
+  if (matches.length === 1) return matches[0]?.[0] ?? null
+  return null
+}
+
+const downloadUrlToFile = async (url: string, filePath: string): Promise<void> => {
+  await pipeline(got.stream(url), createWriteStream(filePath))
+}
+
 export const prepareInputFiles = async (
   options: PrepareInputFilesOptions = {},
 ): Promise<PrepareInputFilesResult> => {
@@ -77,6 +107,7 @@ export const prepareInputFiles = async (
     params = {},
     fields,
     base64Strategy = 'buffer',
+    urlStrategy = 'import',
     maxBase64Bytes,
     tempDir,
   } = options
@@ -99,6 +130,7 @@ export const prepareInputFiles = async (
   const steps = isRecord(nextParams.steps) ? { ...nextParams.steps } : {}
   const usedSteps = new Set(Object.keys(steps))
   const usedFields = new Set<string>()
+  const usedImportSteps = new Set<string>()
 
   let tempRoot: string | null = null
   const ensureTempRoot = async (): Promise<string> => {
@@ -134,11 +166,31 @@ export const prepareInputFiles = async (
         continue
       }
       if (file.kind === 'url') {
-        const stepName = ensureUniqueStepName(file.field, usedSteps)
-        steps[stepName] = {
-          robot: '/http/import',
-          url: file.url,
+        const matchedStep = findImportStepName(file.field, steps)
+        const availableStep = matchedStep && !usedImportSteps.has(matchedStep) ? matchedStep : null
+        const shouldImport =
+          urlStrategy === 'import' || (urlStrategy === 'import-if-present' && availableStep)
+
+        if (shouldImport) {
+          const stepName = availableStep ?? ensureUniqueStepName(file.field, usedSteps)
+          const existing = isRecord(steps[stepName]) ? steps[stepName] : {}
+          steps[stepName] = {
+            ...existing,
+            robot: '/http/import',
+            url: file.url,
+          }
+          usedImportSteps.add(stepName)
+          continue
         }
+
+        const root = await ensureTempRoot()
+        const filename =
+          (file.filename ? basename(file.filename) : null) ??
+          getFilenameFromUrl(file.url) ??
+          `${file.field}.bin`
+        const filePath = join(root, filename)
+        await downloadUrlToFile(file.url, filePath)
+        files[file.field] = filePath
       }
     }
   } catch (error) {

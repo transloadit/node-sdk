@@ -183,8 +183,11 @@ Create or resume an Assembly, optionally uploading files.
 - Resume is driven by Assembly status (`tus_uploads` + `uploads`) and the provided files.
 - This requires stable, **unique** `field` names and file metadata (`filename` + `size`) to match
   local files to remote uploads.
-- URL files are imported via `/http/import` steps injected into the instructions (derived from
-  `field` names if those steps are not already present).
+- URL files are **downloaded and uploaded via tus** by default (no instruction mutation).
+- If instructions (including template + overrides) already contain an `/http/import` step, the
+  server sets/overrides its `url` instead of downloading:
+  - It first looks for a step named after the file `field`.
+  - If none match and there is exactly one `/http/import` step, it uses that.
 - `wait_for_completion` is opt-in. Default is non-blocking.
 - `upload_behavior` controls how uploads run:
   - `await`: block until uploads finish (default when `wait_for_completion=true`)
