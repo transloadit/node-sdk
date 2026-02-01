@@ -70,7 +70,7 @@ This list is ordered. The top section is intentionally focused on other packages
 
 ### 3.3 Tool implementations
 
-- `transloadit_create_assembly`:
+- ✅ `transloadit_create_assembly`:
   - New Assembly creation and resume logic.
   - Optional background uploads via `@transloadit/node`.
   - URL imports via injected `/http/import` steps.

@@ -4,6 +4,9 @@ import type { LintAssemblyInstructionsResult } from '@transloadit/node'
 import { robotsMeta, robotsSchema } from '@transloadit/zod/v4'
 import { z } from 'zod'
 import packageJson from '../package.json' with { type: 'json' }
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { basename, join } from 'node:path'
 
 export type TransloaditMcpServerOptions = {
   authKey?: string
@@ -39,6 +42,36 @@ type RobotHelp = {
   optional_params: RobotParamHelp[]
   examples?: Array<{ description: string; snippet: Record<string, unknown> }>
 }
+
+type InputFile =
+  | {
+      kind: 'path'
+      field: string
+      path: string
+    }
+  | {
+      kind: 'base64'
+      field: string
+      base64: string
+      filename: string
+      contentType?: string
+    }
+  | {
+      kind: 'url'
+      field: string
+      url: string
+      filename?: string
+      contentType?: string
+    }
+
+type UploadSummary = {
+  status: 'none' | 'uploading' | 'complete'
+  total_files: number
+  resumed?: boolean
+  upload_urls?: Record<string, string>
+}
+
+const maxBase64Bytes = 512_000
 
 const lintIssueSchema = z.object({
   path: z.string(),
@@ -96,6 +129,70 @@ const getRobotHelpOutputSchema = z.object({
   }),
 })
 
+const inputFileSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('path'),
+    field: z.string(),
+    path: z.string(),
+  }),
+  z.object({
+    kind: z.literal('base64'),
+    field: z.string(),
+    base64: z.string(),
+    filename: z.string(),
+    contentType: z.string().optional(),
+  }),
+  z.object({
+    kind: z.literal('url'),
+    field: z.string(),
+    url: z.string(),
+    filename: z.string().optional(),
+    contentType: z.string().optional(),
+  }),
+])
+
+const createAssemblyInputSchema = z.object({
+  instructions: z.unknown().optional(),
+  golden_template: z
+    .object({
+      slug: z.string(),
+      version: z.string().optional(),
+      overrides: z.record(z.string(), z.unknown()).optional(),
+    })
+    .optional(),
+  files: z.array(inputFileSchema).optional(),
+  fields: z.record(z.string(), z.unknown()).optional(),
+  wait_for_completion: z.boolean().optional(),
+  wait_timeout_ms: z.number().int().positive().optional(),
+  upload_concurrency: z.number().int().positive().optional(),
+  upload_chunk_size: z.number().int().positive().optional(),
+  assembly_url: z.string().optional(),
+})
+
+const createAssemblyOutputSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  assembly: z.unknown().optional(),
+  upload: z
+    .object({
+      status: z.enum(['none', 'uploading', 'complete']),
+      total_files: z.number().int().nonnegative(),
+      resumed: z.boolean().optional(),
+      upload_urls: z.record(z.string(), z.string()).optional(),
+    })
+    .optional(),
+  next_steps: z.array(z.string()).optional(),
+  errors: z
+    .array(
+      z.object({
+        code: z.string(),
+        message: z.string(),
+        hint: z.string().optional(),
+        path: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
+
 const validateAssemblyInputSchema = z.object({
   instructions: z.unknown(),
   strict: z.boolean().optional(),
@@ -135,6 +232,23 @@ const buildToolResponse = (payload: Record<string, unknown>) => ({
   ],
   structuredContent: payload,
 })
+
+const buildToolError = (
+  code: string,
+  message: string,
+  options: { hint?: string; path?: string } = {},
+) =>
+  buildToolResponse({
+    status: 'error',
+    errors: [
+      {
+        code,
+        message,
+        hint: options.hint,
+        path: options.path,
+      },
+    ],
+  })
 
 const createLintClient = (options: TransloaditMcpServerOptions): Transloadit =>
   new Transloadit({
@@ -294,6 +408,57 @@ const selectSummary = (meta: RobotMeta): string =>
 const resolveRobotPath = (robotName: string): string =>
   robotName.startsWith('/') ? robotName : robotNameToPath(robotName)
 
+const parseInstructions = (input: unknown): Record<string, unknown> | undefined => {
+  if (input == null) return undefined
+  if (typeof input === 'string') {
+    const parsed = safeJsonParse(input)
+    return isRecord(parsed) ? parsed : undefined
+  }
+  if (isRecord(input)) {
+    if ('steps' in input) {
+      return input as Record<string, unknown>
+    }
+    return { steps: input }
+  }
+  return undefined
+}
+
+const ensureUniqueField = (field: string, used: Set<string>): string | null => {
+  if (used.has(field)) return null
+  used.add(field)
+  return field
+}
+
+const ensureUniqueStepName = (baseName: string, used: Set<string>): string => {
+  let name = baseName
+  let counter = 1
+  while (used.has(name)) {
+    name = `${baseName}_${counter}`
+    counter += 1
+  }
+  used.add(name)
+  return name
+}
+
+const decodeBase64 = (value: string): Buffer => Buffer.from(value, 'base64')
+
+const withTempFile = async (
+  filename: string,
+  content: Buffer,
+): Promise<{ path: string; cleanup: () => Promise<void> }> => {
+  const safeName = basename(filename)
+  const folder = await mkdtemp(join(tmpdir(), 'transloadit-mcp-'))
+  const filePath = join(folder, safeName)
+  await writeFile(filePath, content)
+  return {
+    path: filePath,
+    cleanup: async () => {
+      await rm(filePath, { force: true, recursive: true })
+      await rm(folder, { force: true, recursive: true })
+    },
+  }
+}
+
 export const createTransloaditMcpServer = (
   options: TransloaditMcpServerOptions = {},
 ): McpServer => {
@@ -329,6 +494,168 @@ export const createTransloaditMcpServer = (
       }
 
       return buildToolResponse(payload)
+    },
+  )
+
+  server.registerTool(
+    'transloadit_create_assembly',
+    {
+      title: 'Create or resume an Assembly',
+      description:
+        'Create or resume an Assembly, optionally uploading files and waiting for completion.',
+      inputSchema: createAssemblyInputSchema,
+      outputSchema: createAssemblyOutputSchema,
+    },
+    async ({
+      instructions,
+      golden_template,
+      files,
+      fields,
+      wait_for_completion,
+      wait_timeout_ms,
+      upload_concurrency,
+      upload_chunk_size,
+      assembly_url,
+    }) => {
+      if (instructions && golden_template) {
+        return buildToolError(
+          'mcp_invalid_args',
+          'Provide either instructions or golden_template, not both.',
+          { path: 'instructions' },
+        )
+      }
+
+      if (!options.authKey || !options.authSecret) {
+        return buildToolError(
+          'mcp_missing_auth',
+          'Missing TRANSLOADIT_KEY or TRANSLOADIT_SECRET for live API calls.',
+        )
+      }
+
+      if (golden_template) {
+        return buildToolError(
+          'mcp_unavailable',
+          'Golden templates are not available yet.',
+          { path: 'golden_template' },
+        )
+      }
+
+      const client = new Transloadit({
+        authKey: options.authKey,
+        authSecret: options.authSecret,
+      })
+
+      const tempCleanups: Array<() => Promise<void>> = []
+
+      try {
+        const fileInputs = files ?? []
+        const usedFields = new Set<string>()
+        const filesMap: Record<string, string> = {}
+        const urlFiles: InputFile[] = []
+
+        for (const file of fileInputs) {
+          const field = ensureUniqueField(file.field, usedFields)
+          if (!field) {
+            return buildToolError('mcp_duplicate_field', `Duplicate file field: ${file.field}`, {
+              path: 'files',
+            })
+          }
+
+          if (file.kind === 'path') {
+            filesMap[field] = file.path
+          } else if (file.kind === 'base64') {
+            const buffer = decodeBase64(file.base64)
+            if (buffer.length > maxBase64Bytes) {
+              return buildToolError(
+                'mcp_base64_too_large',
+                `Base64 payload exceeds ${maxBase64Bytes} bytes.`,
+                { hint: 'Use a URL import or path upload instead.' },
+              )
+            }
+            const tempFile = await withTempFile(file.filename, buffer)
+            filesMap[field] = tempFile.path
+            tempCleanups.push(tempFile.cleanup)
+          } else if (file.kind === 'url') {
+            urlFiles.push(file)
+          }
+        }
+
+        let params = parseInstructions(instructions) ?? {}
+
+        if (fields && Object.keys(fields).length > 0) {
+          params = {
+            ...params,
+            fields: {
+              ...(isRecord(params.fields) ? params.fields : {}),
+              ...fields,
+            },
+          }
+        }
+
+        if (urlFiles.length > 0) {
+          const steps = isRecord(params.steps) ? { ...params.steps } : {}
+          const usedSteps = new Set(Object.keys(steps))
+
+          for (const file of urlFiles) {
+            const stepName = ensureUniqueStepName(file.field, usedSteps)
+            steps[stepName] = {
+              robot: '/http/import',
+              url: file.url,
+            }
+          }
+
+          params = {
+            ...params,
+            steps,
+          }
+        }
+
+        const totalFiles = fileInputs.filter((file) => file.kind !== 'url').length
+        const uploadSummary: UploadSummary = {
+          status: totalFiles > 0 ? 'complete' : 'none',
+          total_files: totalFiles,
+        }
+
+        const timeout = wait_timeout_ms
+        const waitForCompletion = wait_for_completion ?? false
+        const uploadConcurrency = upload_concurrency
+        const chunkSize = upload_chunk_size
+
+        const assembly = assembly_url
+          ? await client.resumeAssemblyUploads({
+              assemblyUrl: assembly_url,
+              files: filesMap,
+              waitForCompletion,
+              timeout,
+              uploadConcurrency,
+              chunkSize,
+            })
+          : await client.createAssembly({
+              params,
+              files: filesMap,
+              waitForCompletion,
+              timeout,
+              uploadConcurrency,
+              chunkSize,
+            })
+
+        if (assembly_url) {
+          uploadSummary.resumed = true
+        }
+
+        const nextSteps = waitForCompletion
+          ? []
+          : ['transloadit_wait_for_assembly', 'transloadit_get_assembly_status']
+
+        return buildToolResponse({
+          status: 'ok',
+          assembly,
+          upload: uploadSummary,
+          next_steps: nextSteps,
+        })
+      } finally {
+        await Promise.all(tempCleanups.map((cleanup) => cleanup()))
+      }
     },
   )
 
