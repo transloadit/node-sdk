@@ -131,6 +131,54 @@ When both `--template` and steps input are provided, Transloadit merges the temp
 the provided steps before linting, matching the API's runtime behavior. If the template sets
 `allow_steps_override=false`, providing steps will fail with `TEMPLATE_DENIES_STEPS_OVERRIDE`.
 
+## SDK Helpers
+
+### prepareInputFiles
+
+`prepareInputFiles()` converts mixed file inputs into `files`, `uploads`, and optional
+`/http/import` steps so you can pass them directly into `createAssembly()` or
+`resumeAssemblyUploads()`.
+
+```ts
+import { prepareInputFiles } from '@transloadit/node'
+
+const prepared = await prepareInputFiles({
+  inputFiles: [
+    { kind: 'path', field: 'video', path: '/tmp/video.mp4' },
+    { kind: 'base64', field: 'logo', filename: 'logo.png', base64: '...' },
+    { kind: 'url', field: 'remote', url: 'https://example.com/file.jpg' },
+  ],
+  params: {
+    steps: {
+      ':original': { robot: '/upload/handle' },
+      encode: { robot: '/video/encode', use: ':original' },
+    },
+  },
+  base64Strategy: 'tempfile',
+  urlStrategy: 'import-if-present',
+  maxBase64Bytes: 512_000,
+  allowPrivateUrls: true,
+})
+
+await client.createAssembly({
+  params: prepared.params,
+  files: prepared.files,
+  uploads: prepared.uploads,
+})
+```
+
+Options:
+
+- `inputFiles` – Array of `{ kind, field, ... }` entries for `path`, `base64`, or `url` inputs.
+- `params` – Assembly instructions; steps will be extended when URL imports are injected.
+- `fields` – Extra form fields to merge into `params.fields`.
+- `base64Strategy` – `'buffer'` (default) or `'tempfile'` for base64 inputs.
+- `urlStrategy` – `'import'`, `'download'`, or `'import-if-present'` (default `'import'`).
+- `maxBase64Bytes` – Optional size cap (decoded bytes). Overages throw before decoding.
+- `allowPrivateUrls` – Allow downloading private/loopback URLs when using `urlStrategy: 'download'`
+  (default `true`). Hosted deployments should disable this.
+- `tempDir` – Optional temp directory base when `base64Strategy: 'tempfile'`.
+
 ### Managing Templates
 
 ```bash
