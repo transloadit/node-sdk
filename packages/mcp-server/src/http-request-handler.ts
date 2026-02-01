@@ -48,9 +48,9 @@ export const createMcpRequestHandler = (
     try {
       const parsedBody = (req as { body?: unknown }).body
       await transport.handleRequest(req, res, parsedBody)
-    } catch (error) {
+    } catch {
       res.statusCode = 500
-      res.end((error as Error).message)
+      res.end('Internal Server Error')
     }
   }
 }

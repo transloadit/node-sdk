@@ -1,5 +1,6 @@
 import { createWriteStream } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { isIP } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { Readable } from 'node:stream'
@@ -74,6 +75,15 @@ const ensureUniqueStepName = (baseName: string, used: Set<string>): string => {
 
 const decodeBase64 = (value: string): Buffer => Buffer.from(value, 'base64')
 
+const estimateBase64DecodedBytes = (value: string): number => {
+  const trimmed = value.trim()
+  if (!trimmed) return 0
+  let padding = 0
+  if (trimmed.endsWith('==')) padding = 2
+  else if (trimmed.endsWith('=')) padding = 1
+  return Math.floor((trimmed.length * 3) / 4) - padding
+}
+
 const getFilenameFromUrl = (value: string): string | null => {
   try {
     const pathname = new URL(value).pathname
@@ -97,6 +107,40 @@ const findImportStepName = (field: string, steps: Record<string, unknown>): stri
 
 const downloadUrlToFile = async (url: string, filePath: string): Promise<void> => {
   await pipeline(got.stream(url), createWriteStream(filePath))
+}
+
+const isPrivateIp = (address: string): boolean => {
+  if (address === 'localhost') return true
+  const family = isIP(address)
+  if (family === 4) {
+    const parts = address.split('.').map((chunk) => Number(chunk))
+    const [a, b] = parts
+    if (a === 10) return true
+    if (a === 127) return true
+    if (a === 0) return true
+    if (a === 169 && b === 254) return true
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+    return false
+  }
+  if (family === 6) {
+    const normalized = address.toLowerCase()
+    if (normalized === '::1') return true
+    if (normalized.startsWith('fe80:')) return true
+    if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true
+    return false
+  }
+  return false
+}
+
+const assertPublicDownloadUrl = (value: string): void => {
+  const parsed = new URL(value)
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`URL downloads are limited to http/https: ${value}`)
+  }
+  if (isPrivateIp(parsed.hostname)) {
+    throw new Error(`URL downloads are limited to public hosts: ${value}`)
+  }
 }
 
 export const prepareInputFiles = async (
@@ -152,13 +196,19 @@ export const prepareInputFiles = async (
         continue
       }
       if (file.kind === 'base64') {
+        if (maxBase64Bytes) {
+          const estimated = estimateBase64DecodedBytes(file.base64)
+          if (estimated > maxBase64Bytes) {
+            throw new Error(`Base64 payload exceeds ${maxBase64Bytes} bytes.`)
+          }
+        }
         const buffer = decodeBase64(file.base64)
         if (maxBase64Bytes && buffer.length > maxBase64Bytes) {
           throw new Error(`Base64 payload exceeds ${maxBase64Bytes} bytes.`)
         }
         if (base64Strategy === 'tempfile') {
           const root = await ensureTempRoot()
-          const filename = file.filename || `${file.field}.bin`
+          const filename = file.filename ? basename(file.filename) : `${file.field}.bin`
           const filePath = join(root, filename)
           await writeFile(filePath, buffer)
           files[file.field] = filePath
@@ -187,6 +237,7 @@ export const prepareInputFiles = async (
           getFilenameFromUrl(file.url) ??
           `${file.field}.bin`
         const filePath = join(root, filename)
+        assertPublicDownloadUrl(file.url)
         await downloadUrlToFile(file.url, filePath)
         files[file.field] = filePath
       }

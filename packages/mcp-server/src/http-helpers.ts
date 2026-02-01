@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 export const parsePathname = (url: string | undefined, fallback: string): string => {
@@ -18,8 +19,14 @@ export const extractBearerToken = (header: string | undefined): string | undefin
   return token ? token : undefined
 }
 
-export const isAuthorized = (req: IncomingMessage, token: string): boolean =>
-  extractBearerToken(req.headers.authorization) === token
+export const isAuthorized = (req: IncomingMessage, token: string): boolean => {
+  const provided = extractBearerToken(req.headers.authorization)
+  if (!provided) return false
+  const a = Buffer.from(provided)
+  const b = Buffer.from(token)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
+}
 
 export const applyCorsHeaders = (
   req: IncomingMessage,

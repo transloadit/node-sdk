@@ -899,6 +899,7 @@ export class Transloadit {
     const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
       url,
       urlSuffix: url ? undefined : `/assemblies/${assemblyId}`,
+      isTrustedUrl: Boolean(url),
       signal,
     })
 
@@ -1195,6 +1196,7 @@ export class Transloadit {
   private async _remoteJson<TRet, TParams extends OptionalAuthParams>(opts: {
     urlSuffix?: string
     url?: string
+    isTrustedUrl?: boolean
     timeout?: Delays
     method?: 'delete' | 'get' | 'post' | 'put'
     params?: TParams
@@ -1205,6 +1207,7 @@ export class Transloadit {
     const {
       urlSuffix,
       url: urlInput,
+      isTrustedUrl = false,
       timeout = { request: this._defaultTimeout },
       method = 'get',
       params = {},
@@ -1216,6 +1219,13 @@ export class Transloadit {
     // Allow providing either a `urlSuffix` or a full `url`
     if (!urlSuffix && !urlInput) throw new Error('No URL provided')
     let url = urlInput || `${this._endpoint}${urlSuffix}`
+    if (urlInput && !isTrustedUrl) {
+      const allowed = new URL(this._endpoint)
+      const candidate = new URL(urlInput)
+      if (allowed.origin !== candidate.origin) {
+        throw new Error(`Untrusted URL: ${candidate.origin}`)
+      }
+    }
 
     if (method === 'get') {
       url = this._appendParamsToUrl(url, params)

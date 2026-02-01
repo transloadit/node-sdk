@@ -381,7 +381,7 @@ describe('Transloadit', () => {
 
       const url = '/some-url'
       // @ts-expect-error This tests private internals
-      await client._remoteJson({ url, method: 'get' })
+      await client._remoteJson({ url, method: 'get', isTrustedUrl: true })
 
       expect(get).toHaveBeenCalledWith(
         expect.any(String),
