@@ -44,12 +44,12 @@ This list is ordered. The top section is intentionally focused on other packages
 
 ## 2. API2 groundwork
 
-- Implement `POST /token`:
-  - Accept key/secret auth.
-  - Return opaque bearer token (TTL 6 hours) with scopes.
-- Accept MCP bearer tokens for Assembly endpoints used by the MCP server
+- ✅ Implement `POST /token`:
+  - ✅ Accept key/secret auth.
+  - ✅ Return opaque bearer token (TTL 6 hours) with scopes.
+- ✅ Accept MCP bearer tokens for Assembly endpoints used by the MCP server
   (create assembly, get assembly status, replay notification, etc.).
-- Scope enforcement and audit logging for MCP tokens.
+- ✅ Scope enforcement and audit logging for MCP tokens.
 
 ## 3. `@transloadit/mcp-server` package
 
@@ -83,7 +83,7 @@ This list is ordered. The top section is intentionally focused on other packages
 
 ### 3.4 Auth & security
 
-- Hosted bearer token validation (pass-through to API2).
+- ✅ Hosted bearer token validation (pass-through to API2).
 - ✅ Self-hosted auth:
   - ✅ No auth on localhost.
   - ✅ Required static bearer token on non-localhost.
@@ -111,10 +111,16 @@ This list is ordered. The top section is intentionally focused on other packages
 - ✅ Full flow: create → upload → wait → results.
 - ✅ Golden templates list smoke test.
 - ✅ Resume flow: interrupt upload, resume using Assembly status and the same input files.
-- Gate live tests behind env vars (e.g., `TRANSLOADIT_E2E=1`).
+- ✅ Gate live tests behind env vars (credentials present).
 
 ## 5. Docs
 
 - `docs/mcp-spec.md` (this design doc).
 - `docs/mcp-todo.md` (this task list).
-- README snippet for local usage (CLI + Claude Desktop example).
+- ✅ README overview + local usage snippet.
+
+## 6. Claude Web integration (Next.js)
+
+- Build a Next.js UI flow to mint and pass bearer tokens for Claude Web.
+- Add MCP client connection steps and UX guidance for the token handoff.
+- Document the Claude Web flow in the MCP spec and repo README once implemented.
