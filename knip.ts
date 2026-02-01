@@ -41,6 +41,12 @@ const config: KnipConfig = {
         'vitest/config',
       ],
     },
+    'packages/mcp-server': {
+      entry: ['src/**/*.ts', 'test/**/*.{ts,tsx,js,jsx}'],
+      project: ['{src,test}/**/*.{ts,tsx,js,jsx}'],
+      ignore: [...sharedIgnore],
+      ignoreDependencies: ['@types/express', '@types/node', 'vitest', 'vitest/config'],
+    },
     'packages/transloadit': {
       entry: [
         'src/Transloadit.ts',
