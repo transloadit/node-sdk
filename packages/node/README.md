@@ -287,7 +287,8 @@ names stable and pass the same files. Only path-based inputs resume; Buffer/stri
 start a new tus upload automatically.
 
 You can pass the same upload and progress options as `createAssembly` (such as `chunkSize`,
-`uploadConcurrency`, `waitForCompletion`, `timeout`, `onUploadProgress`, and `onAssemblyProgress`).
+`uploadConcurrency`, `uploadBehavior`, `waitForCompletion`, `timeout`, `onUploadProgress`, and
+`onAssemblyProgress`).
 When `waitForCompletion` is `true`, the SDK will poll and resolve once the Assembly is finished.
 
 ```javascript
@@ -373,8 +374,16 @@ You can provide the following keys inside the `options` object:
 - `onAssemblyProgress` - Once the Assembly has started processing this will be periodically called with the _Assembly Execution Status_ (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
 - `chunkSize` - (for uploads) a number indicating the maximum size of a tus `PATCH` request body in bytes. Default to `Infinity` for file uploads and 50MB for streams of unknown length. See [tus-js-client](https://github.com/tus/tus-js-client/blob/master/docs/api.md#chunksize).
 - `uploadConcurrency` - Maximum number of concurrent tus file uploads to occur at any given time (default 10.)
+- `uploadBehavior` - Controls how uploads are handled:
+  - `await` (default) waits for all uploads to finish.
+  - `background` starts uploads and returns once upload URLs are created.
+  - `none` returns upload URLs without uploading any bytes.
+  - When `uploadBehavior` is not `await`, `waitForCompletion` is ignored.
 
 **NOTE**: Make sure the key in `files` and `uploads` is not one of `signature`, `params` or `max_size`.
+
+When `uploadBehavior` is `background` or `none`, the resolved Assembly object includes
+`upload_urls` with a map of field names to tus upload URLs.
 
 Example code showing all options:
 

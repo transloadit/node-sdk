@@ -52,7 +52,7 @@ import type {
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
-import type { Stream } from './tus.ts'
+import type { Stream, UploadBehavior } from './tus.ts'
 import { sendTusRequest } from './tus.ts'
 
 // See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
@@ -88,6 +88,12 @@ const logWarn = debug('transloadit:warn')
 export interface UploadProgress {
   uploadedBytes?: number | undefined
   totalBytes?: number | undefined
+}
+
+export type { UploadBehavior }
+
+export type AssemblyStatusWithUploadUrls = AssemblyStatus & {
+  upload_urls?: Record<string, string>
 }
 
 const { version } = packageJson
@@ -167,6 +173,7 @@ interface AssemblyUploadOptions {
   uploads?: {
     [name: string]: Readable | IntoStreamInput
   }
+  uploadBehavior?: UploadBehavior
   waitForCompletion?: boolean
   chunkSize?: number
   uploadConcurrency?: number
@@ -247,7 +254,7 @@ export interface SmartCDNUrlOptions {
 export type Fields = Record<string, string | number>
 
 // A special promise that lets the user immediately get the assembly ID (synchronously before the request is sent)
-interface CreateAssemblyPromise extends Promise<AssemblyStatus> {
+interface CreateAssemblyPromise extends Promise<AssemblyStatusWithUploadUrls> {
   assemblyId: string
 }
 
@@ -361,6 +368,7 @@ export class Transloadit {
       uploads = {},
       assemblyId,
       signal,
+      uploadBehavior = 'await',
     } = opts
 
     // Keep track of how long the request took
@@ -416,7 +424,7 @@ export class Transloadit {
       const streamErrorPromise = createStreamErrorPromise(allStreamsMap)
 
       const createAssemblyAndUpload = async () => {
-        const result: AssemblyStatus = await this._remoteJson({
+        const result: AssemblyStatusWithUploadUrls = await this._remoteJson({
           urlSuffix,
           method: 'post',
           timeout: { request: timeout },
@@ -429,17 +437,22 @@ export class Transloadit {
         checkResult(result)
 
         if (Object.keys(allStreamsMap).length > 0) {
-          await sendTusRequest({
+          const { uploadUrls } = await sendTusRequest({
             streamsMap: allStreamsMap,
             assembly: result,
             onProgress: onUploadProgress,
             requestedChunkSize,
             uploadConcurrency,
             signal,
+            uploadBehavior,
           })
+          if (uploadBehavior !== 'await' && Object.keys(uploadUrls).length > 0) {
+            result.upload_urls = uploadUrls
+          }
         }
 
-        if (!waitForCompletion) return result
+        const shouldWaitForCompletion = waitForCompletion && uploadBehavior === 'await'
+        if (!shouldWaitForCompletion) return result
 
         if (result.assembly_id == null) {
           throw new InconsistentResponseError(
@@ -488,7 +501,9 @@ export class Transloadit {
     })
   }
 
-  async resumeAssemblyUploads(opts: ResumeAssemblyUploadsOptions): Promise<AssemblyStatus> {
+  async resumeAssemblyUploads(
+    opts: ResumeAssemblyUploadsOptions,
+  ): Promise<AssemblyStatusWithUploadUrls> {
     const {
       assemblyUrl,
       files = {},
@@ -500,12 +515,16 @@ export class Transloadit {
       onUploadProgress = () => {},
       onAssemblyProgress = () => {},
       signal,
+      uploadBehavior = 'await',
     } = opts
 
     const startTimeMs = getHrTimeMs()
 
     getAssemblyIdFromUrl(assemblyUrl)
-    const assembly = await this._fetchAssemblyStatus({ url: assemblyUrl, signal })
+    const assembly: AssemblyStatusWithUploadUrls = await this._fetchAssemblyStatus({
+      url: assemblyUrl,
+      signal,
+    })
     const statusUrl = assembly.assembly_ssl_url ?? assembly.assembly_url ?? assemblyUrl
 
     const finishedKeys = new Set<string>()
@@ -581,13 +600,25 @@ export class Transloadit {
         onProgress: onUploadProgress,
         signal,
         uploadUrls: uploadUrlsByLabel,
+        uploadBehavior,
       })
 
       await Promise.race([uploadPromise, streamErrorPromise])
+      const { uploadUrls } = await uploadPromise
+      if (uploadBehavior !== 'await' && Object.keys(uploadUrls).length > 0) {
+        assembly.upload_urls = uploadUrls
+      }
     }
 
-    const latestAssembly = await this._fetchAssemblyStatus({ url: statusUrl, signal })
-    if (!waitForCompletion) return latestAssembly
+    const latestAssembly: AssemblyStatusWithUploadUrls = await this._fetchAssemblyStatus({
+      url: statusUrl,
+      signal,
+    })
+    if (uploadBehavior !== 'await' && assembly.upload_urls) {
+      latestAssembly.upload_urls = assembly.upload_urls
+    }
+    const shouldWaitForCompletion = waitForCompletion && uploadBehavior === 'await'
+    if (!shouldWaitForCompletion) return latestAssembly
 
     if (latestAssembly.assembly_id == null) {
       throw new InconsistentResponseError(

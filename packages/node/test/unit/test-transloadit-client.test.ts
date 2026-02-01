@@ -132,7 +132,7 @@ describe('Transloadit', () => {
 
   describe('add stream', () => {
     it('should pause streams', async () => {
-      vi.spyOn(tus, 'sendTusRequest').mockImplementation(() => Promise.resolve())
+      vi.spyOn(tus, 'sendTusRequest').mockResolvedValue({ uploadUrls: {} })
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
       const name = 'foo_name'
@@ -196,6 +196,65 @@ describe('Transloadit', () => {
 
       const expected = `${url}&signature=${signature}&params=${encodeURIComponent(jsonParams)}`
       return expect(fullUrl).toBe(expected)
+    })
+  })
+
+  describe('upload behavior', () => {
+    it('returns upload urls without waiting for completion (background)', async () => {
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const assembly = {
+        assembly_id: 'assembly',
+        assembly_url: 'http://localhost/assemblies/assembly',
+        assembly_ssl_url: 'https://localhost/assemblies/assembly',
+        tus_url: 'https://localhost/tus',
+      }
+
+      vi.spyOn(client as unknown as Record<string, (...args: unknown[]) => unknown>, '_remoteJson')
+        .mockResolvedValue(assembly)
+      const uploadUrls = { file: 'https://localhost/tus/1' }
+      const sendTusSpy = vi
+        .spyOn(tus, 'sendTusRequest')
+        .mockResolvedValue({ uploadUrls })
+      const awaitSpy = vi
+        .spyOn(client, 'awaitAssemblyCompletion')
+        .mockResolvedValue(assembly)
+
+      const result = await client.createAssembly({
+        uploads: { file: Buffer.from('hi') },
+        waitForCompletion: true,
+        uploadBehavior: 'background',
+      })
+
+      expect(sendTusSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ uploadBehavior: 'background' }),
+      )
+      expect(awaitSpy).not.toHaveBeenCalled()
+      expect(result.upload_urls).toEqual(uploadUrls)
+    })
+
+    it('returns upload urls without uploading (none)', async () => {
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      const assembly = {
+        assembly_id: 'assembly',
+        assembly_url: 'http://localhost/assemblies/assembly',
+        assembly_ssl_url: 'https://localhost/assemblies/assembly',
+        tus_url: 'https://localhost/tus',
+      }
+
+      vi.spyOn(client as unknown as Record<string, (...args: unknown[]) => unknown>, '_remoteJson')
+        .mockResolvedValue(assembly)
+      const uploadUrls = { file: 'https://localhost/tus/2' }
+      const sendTusSpy = vi
+        .spyOn(tus, 'sendTusRequest')
+        .mockResolvedValue({ uploadUrls })
+
+      const result = await client.createAssembly({
+        uploads: { file: Buffer.from('hi') },
+        uploadBehavior: 'none',
+      })
+
+      expect(sendTusSpy).toHaveBeenCalledWith(expect.objectContaining({ uploadBehavior: 'none' }))
+      expect(result.upload_urls).toEqual(uploadUrls)
     })
   })
 

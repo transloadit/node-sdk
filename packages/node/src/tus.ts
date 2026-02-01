@@ -9,6 +9,9 @@ import type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 import type { UploadProgress } from './Transloadit.ts'
 
 const log = debug('transloadit')
+const logWarn = debug('transloadit:warn')
+
+export type UploadBehavior = 'await' | 'background' | 'none'
 
 export interface Stream {
   path?: string
@@ -23,6 +26,7 @@ interface SendTusRequestOptions {
   onProgress: (options: UploadProgress) => void
   signal?: AbortSignal
   uploadUrls?: Record<string, string>
+  uploadBehavior?: UploadBehavior
 }
 
 export async function sendTusRequest({
@@ -33,6 +37,7 @@ export async function sendTusRequest({
   onProgress,
   signal,
   uploadUrls,
+  uploadBehavior = 'await',
 }: SendTusRequestOptions) {
   const streamLabels = Object.keys(streamsMap)
 
@@ -40,6 +45,7 @@ export async function sendTusRequest({
   let lastEmittedProgress = 0
 
   const sizes: Record<string, number> = {}
+  const uploadUrlsResult: Record<string, string> = { ...(uploadUrls ?? {}) }
 
   const haveUnknownLengthStreams = streamLabels.some((label) => !streamsMap[label]?.path)
 
@@ -66,6 +72,9 @@ export async function sendTusRequest({
   )
 
   const uploadProgresses: Record<string, number> = {}
+
+  const completionPromises: Array<Promise<void>> = []
+  const uploadUrlPromises: Array<Promise<void>> = []
 
   async function uploadSingleStream(label: string) {
     uploadProgresses[label] = 0
@@ -110,6 +119,44 @@ export async function sendTusRequest({
 
     const filename = path ? basename(path) : label
 
+    if (uploadBehavior === 'none' && uploadUrls?.[label]) {
+      uploadUrlsResult[label] = uploadUrls[label]
+      uploadUrlPromises.push(Promise.resolve())
+      completionPromises.push(Promise.resolve())
+      return
+    }
+
+    let urlResolved = false
+    let resolveUrl: () => void = () => {}
+    let rejectUrl: (err: Error) => void = () => {}
+    const uploadUrlPromise = new Promise<void>((resolve, reject) => {
+      resolveUrl = () => {
+        if (urlResolved) return
+        urlResolved = true
+        resolve()
+      }
+      rejectUrl = (err) => {
+        if (urlResolved) return
+        urlResolved = true
+        reject(err)
+      }
+    })
+
+    let resolveCompletion: () => void = () => {}
+    let rejectCompletion: (err: Error) => void = () => {}
+    const completionPromise = new Promise<void>((resolve, reject) => {
+      resolveCompletion = resolve
+      rejectCompletion = reject
+    })
+
+    uploadUrlPromises.push(uploadUrlPromise)
+    completionPromises.push(completionPromise)
+
+    if (uploadUrls?.[label]) {
+      uploadUrlsResult[label] = uploadUrls[label]
+      resolveUrl()
+    }
+
     await new Promise<OnSuccessPayload>((resolvePromise, rejectPromise) => {
       if (!assembly.assembly_ssl_url) {
         rejectPromise(new Error('assembly_ssl_url is not present in the assembly status'))
@@ -126,13 +173,18 @@ export async function sendTusRequest({
       let abortHandler: (() => void) | undefined
       const resolve = (payload: OnSuccessPayload) => {
         if (abortHandler) signal?.removeEventListener('abort', abortHandler)
+        resolveCompletion()
+        resolveUrl()
         resolvePromise(payload)
       }
       const reject = (err: unknown) => {
         if (abortHandler) signal?.removeEventListener('abort', abortHandler)
+        rejectCompletion(err as Error)
+        rejectUrl(err as Error)
         rejectPromise(err)
       }
 
+      let tusUpload: Upload
       const tusOptions: UploadOptions = {
         endpoint: assembly.tus_url,
         uploadUrl: uploadUrls?.[label],
@@ -144,13 +196,24 @@ export async function sendTusRequest({
         onError: reject,
         onProgress: onTusProgress,
         onSuccess: resolve,
+        onUploadUrlAvailable: () => {
+          const url = tusUpload?.url
+          if (url) {
+            uploadUrlsResult[label] = url
+          }
+          resolveUrl()
+          if (uploadBehavior === 'none') {
+            tusUpload.abort()
+            resolveCompletion()
+          }
+        },
       }
       // tus-js-client doesn't like undefined/null
       if (size != null) tusOptions.uploadSize = size
       if (chunkSize) tusOptions.chunkSize = chunkSize
       if (uploadLengthDeferred) tusOptions.uploadLengthDeferred = uploadLengthDeferred
 
-      const tusUpload = new Upload(stream, tusOptions)
+      tusUpload = new Upload(stream, tusOptions)
 
       // Handle abort signal
       if (signal) {
@@ -168,4 +231,16 @@ export async function sendTusRequest({
   }
 
   await pMap(streamLabels, uploadSingleStream, { concurrency: uploadConcurrency, signal })
+
+  await Promise.all(uploadUrlPromises)
+
+  if (uploadBehavior === 'await') {
+    await Promise.all(completionPromises)
+  } else {
+    Promise.allSettled(completionPromises).catch((err) => {
+      logWarn('Background upload failed', err)
+    })
+  }
+
+  return { uploadUrls: uploadUrlsResult }
 }

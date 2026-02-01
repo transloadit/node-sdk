@@ -17,12 +17,12 @@ This list is ordered. The top section is intentionally focused on other packages
   - Resume only for path-based inputs; non-file inputs always start a new tus upload.
   - Ensure `createAssembly()` can return `upload_urls` for best UX (optional, not required
     for resume).
-- Allow non-blocking uploads:
-  - Add `uploadBehavior` option to `createAssembly()`:
-    - `await` (current behavior)
-    - `background` (return immediately after starting uploads)
-    - `none` (return assembly + upload URLs without starting uploads)
-  - Return `upload_urls` for each file field when `background`/`none` is selected.
+- ✅ Allow non-blocking uploads:
+  - ✅ Add `uploadBehavior` option to `createAssembly()`:
+    - ✅ `await` (current behavior)
+    - ✅ `background` (return immediately after starting uploads)
+    - ✅ `none` (return assembly + upload URLs without starting uploads)
+  - ✅ Return `upload_urls` for each file field when `background`/`none` is selected.
 - Add a small helper that converts `InputFile[]` to:
   - `uploads` streams (base64)
   - `files` paths

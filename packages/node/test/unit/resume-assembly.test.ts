@@ -64,8 +64,8 @@ describe('resumeAssemblyUploads', () => {
 
     sendTusRequestMock.mockImplementation(
       () =>
-        new Promise<void>((resolve) => {
-          setTimeout(resolve, 50)
+        new Promise<{ uploadUrls: Record<string, string> }>((resolve) => {
+          setTimeout(() => resolve({ uploadUrls: {} }), 50)
         }),
     )
 
@@ -197,7 +197,7 @@ describe('resumeAssemblyUploads', () => {
       '_fetchAssemblyStatus',
     ).mockResolvedValue(assembly)
 
-    sendTusRequestMock.mockResolvedValue(undefined)
+    sendTusRequestMock.mockResolvedValue({ uploadUrls: {} })
 
     await client.resumeAssemblyUploads({
       assemblyUrl: assembly.assembly_url,
@@ -257,6 +257,7 @@ describe('resumeAssemblyUploads', () => {
       for (const stream of Object.values(opts.streamsMap)) {
         stream.stream.destroy()
       }
+      return Promise.resolve({ uploadUrls: {} })
     })
 
     await client.resumeAssemblyUploads({
@@ -305,6 +306,7 @@ describe('resumeAssemblyUploads', () => {
       for (const stream of Object.values(opts.streamsMap)) {
         stream.stream.destroy()
       }
+      return Promise.resolve({ uploadUrls: {} })
     })
 
     await client.resumeAssemblyUploads({
@@ -342,6 +344,7 @@ describe('resumeAssemblyUploads', () => {
       await new Promise<void>((resolve) => {
         setTimeout(resolve, 50)
       })
+      return { uploadUrls: {} }
     })
 
     await expect(

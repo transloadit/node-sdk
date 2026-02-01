@@ -144,6 +144,7 @@ const createAssemblyInputSchema = z.object({
   wait_timeout_ms: z.number().int().positive().optional(),
   upload_concurrency: z.number().int().positive().optional(),
   upload_chunk_size: z.number().int().positive().optional(),
+  upload_behavior: z.enum(['await', 'background', 'none']).optional(),
   assembly_url: z.string().optional(),
 })
 
@@ -427,6 +428,7 @@ export const createTransloaditMcpServer = (
       wait_timeout_ms,
       upload_concurrency,
       upload_chunk_size,
+      upload_behavior,
       assembly_url,
     }) => {
       if (instructions && golden_template) {
@@ -549,6 +551,8 @@ export const createTransloaditMcpServer = (
 
         const timeout = wait_timeout_ms
         const waitForCompletion = wait_for_completion ?? false
+        const uploadBehavior =
+          upload_behavior ?? (waitForCompletion ? 'await' : 'background')
         const uploadConcurrency = upload_concurrency
         const chunkSize = upload_chunk_size
 
@@ -560,6 +564,7 @@ export const createTransloaditMcpServer = (
               timeout,
               uploadConcurrency,
               chunkSize,
+              uploadBehavior,
             })
           : await client.createAssembly({
               params,
@@ -568,10 +573,23 @@ export const createTransloaditMcpServer = (
               timeout,
               uploadConcurrency,
               chunkSize,
+              uploadBehavior,
             })
 
         if (assembly_url) {
           uploadSummary.resumed = true
+        }
+
+        if (totalFiles === 0) {
+          uploadSummary.status = 'none'
+        } else if (uploadBehavior === 'none') {
+          uploadSummary.status = 'none'
+        } else if (uploadBehavior === 'background') {
+          uploadSummary.status = 'uploading'
+        }
+
+        if (isRecord(assembly.upload_urls)) {
+          uploadSummary.upload_urls = assembly.upload_urls as Record<string, string>
         }
 
         const nextSteps = waitForCompletion

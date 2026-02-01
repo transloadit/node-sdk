@@ -171,6 +171,7 @@ Create or resume an Assembly, optionally uploading files.
   wait_timeout_ms?: number
   upload_concurrency?: number
   upload_chunk_size?: number
+  upload_behavior?: 'await' | 'background' | 'none'
   assembly_url?: string
 }
 ```
@@ -185,6 +186,10 @@ Create or resume an Assembly, optionally uploading files.
 - URL files are imported via `/http/import` steps injected into the instructions (derived from
   `field` names if those steps are not already present).
 - `wait_for_completion` is opt-in. Default is non-blocking.
+- `upload_behavior` controls how uploads run:
+  - `await`: block until uploads finish (default when `wait_for_completion=true`)
+  - `background`: start uploads and return once upload URLs exist (default)
+  - `none`: create upload URLs only; no bytes uploaded
 
 **Resume mapping rules**
 
