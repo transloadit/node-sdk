@@ -39,8 +39,8 @@ This list is ordered. The top section is intentionally focused on other packages
 
 ### 1.3 `@transloadit/zod/v3`
 
-- Export a minimal robot metadata registry (name, summary, category, param schema).
-- Ensure `AssemblyStatus` schema and `AssemblyInstructionsInput` are publicly exported.
+- ✅ Export a minimal robot metadata registry (name, summary, category, param schema).
+- ✅ Ensure `AssemblyStatus` schema and `AssemblyInstructionsInput` are publicly exported.
 
 ## 2. API2 groundwork
 
