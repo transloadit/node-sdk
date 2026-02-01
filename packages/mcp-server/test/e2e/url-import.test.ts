@@ -79,7 +79,12 @@ maybeDescribe('mcp-server URL inputs (stdio)', { timeout: 60000 }, () => {
         files: [
           {
             kind: 'url',
-            field: 'remote',
+            field: 'remote_1',
+            url: demoImage,
+          },
+          {
+            kind: 'url',
+            field: 'remote_2',
             url: demoImage,
           },
         ],
@@ -96,5 +101,6 @@ maybeDescribe('mcp-server URL inputs (stdio)', { timeout: 60000 }, () => {
     const results = isRecord(assembly.results) ? assembly.results : {}
     const resized = (results as Record<string, unknown>).resize
     expect(Array.isArray(resized)).toBe(true)
+    expect(resized).toHaveLength(2)
   })
 })

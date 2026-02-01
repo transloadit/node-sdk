@@ -130,7 +130,9 @@ export const prepareInputFiles = async (
   const steps = isRecord(nextParams.steps) ? { ...nextParams.steps } : {}
   const usedSteps = new Set(Object.keys(steps))
   const usedFields = new Set<string>()
-  const usedImportSteps = new Set<string>()
+  const importUrlsByStep = new Map<string, string[]>()
+  const importStepNames = Object.keys(steps).filter((name) => isHttpImportStep(steps[name]))
+  const sharedImportStep = importStepNames.length === 1 ? importStepNames[0] : null
 
   let tempRoot: string | null = null
   const ensureTempRoot = async (): Promise<string> => {
@@ -167,19 +169,15 @@ export const prepareInputFiles = async (
       }
       if (file.kind === 'url') {
         const matchedStep = findImportStepName(file.field, steps)
-        const availableStep = matchedStep && !usedImportSteps.has(matchedStep) ? matchedStep : null
+        const targetStep = matchedStep ?? sharedImportStep
         const shouldImport =
-          urlStrategy === 'import' || (urlStrategy === 'import-if-present' && availableStep)
+          urlStrategy === 'import' || (urlStrategy === 'import-if-present' && targetStep)
 
         if (shouldImport) {
-          const stepName = availableStep ?? ensureUniqueStepName(file.field, usedSteps)
-          const existing = isRecord(steps[stepName]) ? steps[stepName] : {}
-          steps[stepName] = {
-            ...existing,
-            robot: '/http/import',
-            url: file.url,
-          }
-          usedImportSteps.add(stepName)
+          const stepName = targetStep ?? ensureUniqueStepName(file.field, usedSteps)
+          const urls = importUrlsByStep.get(stepName) ?? []
+          urls.push(file.url)
+          importUrlsByStep.set(stepName, urls)
           continue
         }
 
@@ -198,7 +196,18 @@ export const prepareInputFiles = async (
     throw error
   }
 
-  if (Object.keys(steps).length > 0) {
+  if (Object.keys(steps).length > 0 || importUrlsByStep.size > 0) {
+    if (importUrlsByStep.size > 0) {
+      for (const [stepName, urls] of importUrlsByStep.entries()) {
+        const existing = isRecord(steps[stepName]) ? steps[stepName] : {}
+        steps[stepName] = {
+          ...existing,
+          robot: '/http/import',
+          url: urls.length === 1 ? urls[0] : urls,
+        }
+      }
+    }
+
     nextParams = {
       ...nextParams,
       steps,

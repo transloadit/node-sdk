@@ -187,7 +187,8 @@ Create or resume an Assembly, optionally uploading files.
 - If instructions (including template + overrides) already contain an `/http/import` step, the
   server sets/overrides its `url` instead of downloading:
   - It first looks for a step named after the file `field`.
-  - If none match and there is exactly one `/http/import` step, it uses that.
+  - If none match and there is exactly one `/http/import` step, it uses that and supplies a
+    `url` array when multiple URL inputs are provided.
 - `wait_for_completion` is opt-in. Default is non-blocking.
 - `upload_behavior` controls how uploads run:
   - `await`: block until uploads finish (default when `wait_for_completion=true`)
