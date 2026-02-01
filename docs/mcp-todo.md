@@ -100,7 +100,7 @@ This list is ordered. The top section is intentionally focused on other packages
 ### 4.1 Unit tests
 
 - ✅ Linting output formatting and error mapping.
-- URL import injection logic.
+- ✅ URL import injection logic.
 - ✅ Base64 size limit enforcement.
 - Robot catalog and help utilities.
 
