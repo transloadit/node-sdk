@@ -55,17 +55,17 @@ This list is ordered. The top section is intentionally focused on other packages
 
 ### 3.1 Package scaffold
 
-- Add `packages/mcp-server` with ESM-only build, Node ≥ 22.
+- ✅ Add `packages/mcp-server` with ESM-only build, Node ≥ 22.
 - Provide exports:
-  - `createTransloaditMcpServer()`
+  - ✅ `createTransloaditMcpServer()`
   - `createTransloaditMcpHttpHandler()`
   - `createTransloaditMcpExpressRouter()`
-- Add CLI entrypoint `transloadit-mcp`.
+- ✅ Add CLI entrypoint `transloadit-mcp`.
 
 ### 3.2 Transports
 
 - Streamable HTTP handler at `/mcp`.
-- stdio transport for local execution.
+- ✅ stdio transport for local execution.
 - No SSE.
 
 ### 3.3 Tool implementations
@@ -76,9 +76,9 @@ This list is ordered. The top section is intentionally focused on other packages
   - URL imports via injected `/http/import` steps.
 - `transloadit_get_assembly_status`
 - `transloadit_wait_for_assembly`
-- `transloadit_validate_assembly`
-- `transloadit_list_robots`
-- `transloadit_get_robot_help`
+- ✅ `transloadit_validate_assembly`
+- ✅ `transloadit_list_robots`
+- ✅ `transloadit_get_robot_help`
 - `transloadit_list_golden_templates`
 
 ### 3.4 Auth & security
@@ -106,6 +106,8 @@ This list is ordered. The top section is intentionally focused on other packages
 
 ### 4.2 E2E tests
 
+- ✅ Stdio smoke test (official MCP client).
+- ✅ Robot list + help smoke test.
 - Full flow: create → upload → wait → results.
 - Resume flow: interrupt upload, resume using Assembly status and the same input files.
 - Gate live tests behind env vars (e.g., `TRANSLOADIT_E2E=1`).

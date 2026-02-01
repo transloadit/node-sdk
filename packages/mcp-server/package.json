@@ -1,0 +1,51 @@
+{
+  "name": "@transloadit/mcp-server",
+  "version": "0.1.0",
+  "description": "Transloadit MCP server",
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "yarn@4.12.0",
+  "engines": {
+    "node": ">= 22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/transloadit/node-sdk",
+    "directory": "packages/mcp-server"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "transloadit-mcp": "./dist/cli.js"
+  },
+  "scripts": {
+    "lint:ts": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "build": "yarn lint:ts",
+    "test:unit": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run ./test/unit",
+    "test:e2e": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run ./test/e2e",
+    "check": "yarn lint:ts && yarn test:unit",
+    "prepack": "yarn build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "@transloadit/node": "^4.3.0",
+    "@transloadit/zod": "^4.3.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.3"
+  },
+  "publishConfig": {
+    "tag": "experimental"
+  }
+}
