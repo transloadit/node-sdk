@@ -10,6 +10,7 @@ import {
 } from '@transloadit/node'
 import { z } from 'zod'
 import packageJson from '../package.json' with { type: 'json' }
+import { extractBearerToken } from './http-helpers.ts'
 
 export type TransloaditMcpServerOptions = {
   authKey?: string
@@ -290,14 +291,8 @@ const getHeaderValue = (headers: HeaderMap | undefined, name: string): string | 
   return undefined
 }
 
-const getBearerToken = (headers: HeaderMap | undefined): string | undefined => {
-  const raw = getHeaderValue(headers, 'authorization')
-  if (!raw) return undefined
-  const match = raw.match(/^Bearer\s+(.+)$/i)
-  if (!match) return undefined
-  const token = match[1]?.trim()
-  return token ? token : undefined
-}
+const getBearerToken = (headers: HeaderMap | undefined): string | undefined =>
+  extractBearerToken(getHeaderValue(headers, 'authorization'))
 
 const getSignatureAuthWarnings = (
   options: TransloaditMcpServerOptions,
@@ -355,6 +350,39 @@ const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
     throw new Error(`Invalid assembly URL: ${assemblyUrl}`)
   }
   return match[1] ?? ''
+}
+
+type AssemblyAccessResult =
+  | {
+      client: Transloadit
+      warnings: ToolMessage[]
+      assemblyId: string
+      assemblyUrl?: string
+    }
+  | { error: ReturnType<typeof buildToolError> }
+
+const resolveAssemblyAccess = (
+  options: TransloaditMcpServerOptions,
+  extra: ToolExtra,
+  args: { assembly_url?: string; assembly_id?: string },
+): AssemblyAccessResult => {
+  const liveClient = createLiveClient(options, extra)
+  if ('error' in liveClient) return liveClient
+
+  if (!args.assembly_url && !args.assembly_id) {
+    return { error: buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.') }
+  }
+
+  const assemblyId = args.assembly_url
+    ? getAssemblyIdFromUrl(args.assembly_url)
+    : (args.assembly_id as string)
+
+  return {
+    client: liveClient.client,
+    warnings: getSignatureAuthWarnings(options, extra),
+    assemblyId,
+    assemblyUrl: args.assembly_url,
+  }
 }
 
 const resolveGoldenTemplate = (
@@ -594,22 +622,15 @@ export const createTransloaditMcpServer = (
       outputSchema: getAssemblyStatusOutputSchema,
     },
     async ({ assembly_url, assembly_id }, extra) => {
-      const liveClient = createLiveClient(options, extra)
-      if ('error' in liveClient) return liveClient.error
-      const { client } = liveClient
-      const warnings = getSignatureAuthWarnings(options, extra)
+      const access = resolveAssemblyAccess(options, extra, { assembly_url, assembly_id })
+      if ('error' in access) return access.error
 
-      if (!assembly_url && !assembly_id) {
-        return buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.')
-      }
-
-      const id = assembly_url ? getAssemblyIdFromUrl(assembly_url) : (assembly_id as string)
-      const assembly = await client.getAssembly(id)
+      const assembly = await access.client.getAssembly(access.assemblyId)
 
       return buildToolResponse({
         status: 'ok',
         assembly,
-        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(access.warnings.length > 0 ? { warnings: access.warnings } : {}),
       })
     },
   )
@@ -623,21 +644,14 @@ export const createTransloaditMcpServer = (
       outputSchema: waitForAssemblyOutputSchema,
     },
     async ({ assembly_url, assembly_id, timeout_ms, poll_interval_ms }, extra) => {
-      const liveClient = createLiveClient(options, extra)
-      if ('error' in liveClient) return liveClient.error
-      const { client } = liveClient
-      const warnings = getSignatureAuthWarnings(options, extra)
+      const access = resolveAssemblyAccess(options, extra, { assembly_url, assembly_id })
+      if ('error' in access) return access.error
 
-      if (!assembly_url && !assembly_id) {
-        return buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.')
-      }
-
-      const id = assembly_url ? getAssemblyIdFromUrl(assembly_url) : (assembly_id as string)
       const start = Date.now()
-      const assembly = await client.awaitAssemblyCompletion(id, {
+      const assembly = await access.client.awaitAssemblyCompletion(access.assemblyId, {
         timeout: timeout_ms,
         interval: poll_interval_ms,
-        assemblyUrl: assembly_url,
+        assemblyUrl: access.assemblyUrl,
       })
       const waited_ms = Date.now() - start
 
@@ -645,7 +659,7 @@ export const createTransloaditMcpServer = (
         status: 'ok',
         assembly,
         waited_ms,
-        ...(warnings.length > 0 ? { warnings } : {}),
+        ...(access.warnings.length > 0 ? { warnings: access.warnings } : {}),
       })
     },
   )

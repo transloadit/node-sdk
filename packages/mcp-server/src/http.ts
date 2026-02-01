@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { applyCorsHeaders, isAuthorized, normalizePath, parsePathname } from './http-helpers.ts'
+import { createMcpRequestHandler } from './http-request-handler.ts'
 import type { TransloaditMcpServerOptions } from './server.ts'
 import { createTransloaditMcpServer } from './server.ts'
 
@@ -36,39 +36,10 @@ export const createTransloaditMcpHttpHandler = async (
 
   await server.connect(transport)
 
-  const handler = (async (req: IncomingMessage, res: ServerResponse) => {
-    const pathname = normalizePath(parsePathname(req.url, defaultPath))
-    const expectedPath = normalizePath(options.path ?? defaultPath)
-    if (pathname !== expectedPath) {
-      res.statusCode = 404
-      res.end('Not Found')
-      return
-    }
-
-    if (!applyCorsHeaders(req, res, options.allowedOrigins)) {
-      return
-    }
-
-    if (req.method === 'OPTIONS') {
-      res.statusCode = 204
-      res.end()
-      return
-    }
-
-    if (options.mcpToken && !isAuthorized(req, options.mcpToken)) {
-      res.statusCode = 401
-      res.setHeader('WWW-Authenticate', 'Bearer')
-      res.end('Unauthorized')
-      return
-    }
-
-    try {
-      const parsedBody = (req as { body?: unknown }).body
-      await transport.handleRequest(req, res, parsedBody)
-    } catch (error) {
-      res.statusCode = 500
-      res.end((error as Error).message)
-    }
+  const handler = createMcpRequestHandler(transport, {
+    allowedOrigins: options.allowedOrigins,
+    mcpToken: options.mcpToken,
+    path: { expectedPath: options.path ?? defaultPath },
   }) as TransloaditMcpHttpHandler
 
   handler.close = async () => {

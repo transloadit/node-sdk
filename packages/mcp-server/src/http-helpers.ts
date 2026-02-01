@@ -11,14 +11,15 @@ export const parsePathname = (url: string | undefined, fallback: string): string
 export const normalizePath = (path: string): string =>
   path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
 
-export const isAuthorized = (req: IncomingMessage, token: string): boolean => {
-  const header = req.headers.authorization
-  if (!header) {
-    return false
-  }
-  const [type, value] = header.split(' ')
-  return type?.toLowerCase() === 'bearer' && value === token
+export const extractBearerToken = (header: string | undefined): string | undefined => {
+  if (!header) return undefined
+  const match = header.trim().match(/^Bearer\s+(.+)$/i)
+  const token = match?.[1]?.trim()
+  return token ? token : undefined
 }
+
+export const isAuthorized = (req: IncomingMessage, token: string): boolean =>
+  extractBearerToken(req.headers.authorization) === token
 
 export const applyCorsHeaders = (
   req: IncomingMessage,
