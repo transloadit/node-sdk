@@ -157,7 +157,7 @@ export async function sendTusRequest({
       resolveUrl()
     }
 
-    await new Promise<OnSuccessPayload>((resolvePromise, rejectPromise) => {
+    const startPromise = new Promise<void>((resolvePromise, rejectPromise) => {
       if (!assembly.assembly_ssl_url) {
         rejectPromise(new Error('assembly_ssl_url is not present in the assembly status'))
         return
@@ -171,11 +171,11 @@ export async function sendTusRequest({
 
       // Wrap resolve/reject to clean up abort listener
       let abortHandler: (() => void) | undefined
-      const resolve = (payload: OnSuccessPayload) => {
+      const resolve = (_payload: OnSuccessPayload) => {
         if (abortHandler) signal?.removeEventListener('abort', abortHandler)
         resolveCompletion()
         resolveUrl()
-        resolvePromise(payload)
+        resolvePromise()
       }
       const reject = (err: unknown) => {
         if (abortHandler) signal?.removeEventListener('abort', abortHandler)
@@ -227,7 +227,18 @@ export async function sendTusRequest({
       tusUpload.start()
     })
 
-    log(label, 'upload done')
+    if (uploadBehavior === 'await') {
+      await startPromise
+      log(label, 'upload done')
+      return
+    }
+
+    startPromise.catch((err) => {
+      logWarn('Background upload failed', err)
+    })
+
+    await uploadUrlPromise
+    log(label, 'upload started')
   }
 
   await pMap(streamLabels, uploadSingleStream, { concurrency: uploadConcurrency, signal })

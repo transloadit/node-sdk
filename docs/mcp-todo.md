@@ -110,7 +110,7 @@ This list is ordered. The top section is intentionally focused on other packages
 - ✅ Robot list + help smoke test.
 - ✅ Full flow: create → upload → wait → results.
 - ✅ Golden templates list smoke test.
-- Resume flow: interrupt upload, resume using Assembly status and the same input files.
+- ✅ Resume flow: interrupt upload, resume using Assembly status and the same input files.
 - Gate live tests behind env vars (e.g., `TRANSLOADIT_E2E=1`).
 
 ## 5. Docs
