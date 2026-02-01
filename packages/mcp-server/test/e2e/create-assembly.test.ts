@@ -1,61 +1,16 @@
-import { fileURLToPath } from 'node:url'
 import { Client } from '@modelcontextprotocol/sdk/client'
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { createMcpClient, isRecord, parseToolPayload } from './mcp-client.ts'
 
-const cliPath = fileURLToPath(new URL('../../src/cli.ts', import.meta.url))
 const shouldRun =
   process.env.TRANSLOADIT_KEY != null && process.env.TRANSLOADIT_SECRET != null
 const maybeDescribe = shouldRun ? describe : describe.skip
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
-
-const isTextContent = (value: unknown): value is { type: 'text'; text: string } =>
-  isRecord(value) && value.type === 'text' && typeof value.text === 'string'
-
-const parseToolPayload = (result: {
-  structuredContent?: Record<string, unknown>
-  content?: Array<unknown>
-}): Record<string, unknown> => {
-  if (isRecord(result.structuredContent)) {
-    return result.structuredContent
-  }
-
-  const content = result.content?.[0]
-  if (!isTextContent(content)) {
-    throw new Error('Expected tool response content to be text JSON.')
-  }
-
-  const parsed = JSON.parse(content.text)
-  if (!isRecord(parsed)) {
-    throw new Error('Expected tool response to be a JSON object.')
-  }
-
-  return parsed
-}
 
 maybeDescribe('mcp-server create assembly (stdio)', { timeout: 30000 }, () => {
   let client: Client
 
   beforeAll(async () => {
-    const transport = new StdioClientTransport({
-      command: process.execPath,
-      args: [cliPath, 'stdio'],
-      env: process.env,
-    })
-
-    client = new Client(
-      {
-        name: 'transloadit-mcp-e2e',
-        version: '0.1.0',
-      },
-      {
-        capabilities: {},
-      },
-    )
-
-    await client.connect(transport)
+    client = await createMcpClient()
   })
 
   afterAll(async () => {

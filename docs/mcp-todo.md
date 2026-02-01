@@ -74,8 +74,8 @@ This list is ordered. The top section is intentionally focused on other packages
   - New Assembly creation and resume logic.
   - Optional background uploads via `@transloadit/node`.
   - URL imports via injected `/http/import` steps.
-- `transloadit_get_assembly_status`
-- `transloadit_wait_for_assembly`
+- ✅ `transloadit_get_assembly_status`
+- ✅ `transloadit_wait_for_assembly`
 - ✅ `transloadit_validate_assembly`
 - ✅ `transloadit_list_robots`
 - ✅ `transloadit_get_robot_help`
@@ -108,7 +108,7 @@ This list is ordered. The top section is intentionally focused on other packages
 
 - ✅ Stdio smoke test (official MCP client).
 - ✅ Robot list + help smoke test.
-- Full flow: create → upload → wait → results.
+- ✅ Full flow: create → upload → wait → results.
 - Resume flow: interrupt upload, resume using Assembly status and the same input files.
 - Gate live tests behind env vars (e.g., `TRANSLOADIT_E2E=1`).
 

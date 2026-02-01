@@ -193,6 +193,49 @@ const createAssemblyOutputSchema = z.object({
     .optional(),
 })
 
+const getAssemblyStatusInputSchema = z.object({
+  assembly_url: z.string().optional(),
+  assembly_id: z.string().optional(),
+})
+
+const getAssemblyStatusOutputSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  assembly: z.unknown().optional(),
+  errors: z
+    .array(
+      z.object({
+        code: z.string(),
+        message: z.string(),
+        hint: z.string().optional(),
+        path: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
+
+const waitForAssemblyInputSchema = z.object({
+  assembly_url: z.string().optional(),
+  assembly_id: z.string().optional(),
+  timeout_ms: z.number().int().positive().optional(),
+  poll_interval_ms: z.number().int().positive().optional(),
+})
+
+const waitForAssemblyOutputSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  assembly: z.unknown().optional(),
+  waited_ms: z.number().int().nonnegative().optional(),
+  errors: z
+    .array(
+      z.object({
+        code: z.string(),
+        message: z.string(),
+        hint: z.string().optional(),
+        path: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
+
 const validateAssemblyInputSchema = z.object({
   instructions: z.unknown(),
   strict: z.boolean().optional(),
@@ -407,6 +450,14 @@ const selectSummary = (meta: RobotMeta): string =>
 
 const resolveRobotPath = (robotName: string): string =>
   robotName.startsWith('/') ? robotName : robotNameToPath(robotName)
+
+const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
+  const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
+  if (!match) {
+    throw new Error(`Invalid assembly URL: ${assemblyUrl}`)
+  }
+  return match[1] ?? ''
+}
 
 const parseInstructions = (input: unknown): Record<string, unknown> | undefined => {
   if (input == null) return undefined
@@ -656,6 +707,89 @@ export const createTransloaditMcpServer = (
       } finally {
         await Promise.all(tempCleanups.map((cleanup) => cleanup()))
       }
+    },
+  )
+
+  server.registerTool(
+    'transloadit_get_assembly_status',
+    {
+      title: 'Get Assembly status',
+      description: 'Fetch the latest Assembly status by URL or ID.',
+      inputSchema: getAssemblyStatusInputSchema,
+      outputSchema: getAssemblyStatusOutputSchema,
+    },
+    async ({ assembly_url, assembly_id }) => {
+      if (!options.authKey || !options.authSecret) {
+        return buildToolError(
+          'mcp_missing_auth',
+          'Missing TRANSLOADIT_KEY or TRANSLOADIT_SECRET for live API calls.',
+        )
+      }
+
+      if (!assembly_url && !assembly_id) {
+        return buildToolError(
+          'mcp_missing_args',
+          'Provide assembly_url or assembly_id.',
+        )
+      }
+
+      const client = new Transloadit({
+        authKey: options.authKey,
+        authSecret: options.authSecret,
+      })
+
+      const id = assembly_url ? getAssemblyIdFromUrl(assembly_url) : (assembly_id as string)
+      const assembly = await client.getAssembly(id)
+
+      return buildToolResponse({
+        status: 'ok',
+        assembly,
+      })
+    },
+  )
+
+  server.registerTool(
+    'transloadit_wait_for_assembly',
+    {
+      title: 'Wait for Assembly completion',
+      description: 'Polls until the Assembly completes or timeout is reached.',
+      inputSchema: waitForAssemblyInputSchema,
+      outputSchema: waitForAssemblyOutputSchema,
+    },
+    async ({ assembly_url, assembly_id, timeout_ms, poll_interval_ms }) => {
+      if (!options.authKey || !options.authSecret) {
+        return buildToolError(
+          'mcp_missing_auth',
+          'Missing TRANSLOADIT_KEY or TRANSLOADIT_SECRET for live API calls.',
+        )
+      }
+
+      if (!assembly_url && !assembly_id) {
+        return buildToolError(
+          'mcp_missing_args',
+          'Provide assembly_url or assembly_id.',
+        )
+      }
+
+      const client = new Transloadit({
+        authKey: options.authKey,
+        authSecret: options.authSecret,
+      })
+
+      const id = assembly_url ? getAssemblyIdFromUrl(assembly_url) : (assembly_id as string)
+      const start = Date.now()
+      const assembly = await client.awaitAssemblyCompletion(id, {
+        timeout: timeout_ms,
+        interval: poll_interval_ms,
+        assemblyUrl: assembly_url,
+      })
+      const waited_ms = Date.now() - start
+
+      return buildToolResponse({
+        status: 'ok',
+        assembly,
+        waited_ms,
+      })
     },
   )
 
