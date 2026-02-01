@@ -42,6 +42,7 @@ export type PrepareInputFilesOptions = {
   base64Strategy?: Base64Strategy
   urlStrategy?: UrlStrategy
   maxBase64Bytes?: number
+  allowPrivateUrls?: boolean
   tempDir?: string
 }
 
@@ -153,6 +154,7 @@ export const prepareInputFiles = async (
     base64Strategy = 'buffer',
     urlStrategy = 'import',
     maxBase64Bytes,
+    allowPrivateUrls = true,
     tempDir,
   } = options
 
@@ -237,7 +239,9 @@ export const prepareInputFiles = async (
           getFilenameFromUrl(file.url) ??
           `${file.field}.bin`
         const filePath = join(root, filename)
-        assertPublicDownloadUrl(file.url)
+        if (!allowPrivateUrls) {
+          assertPublicDownloadUrl(file.url)
+        }
         await downloadUrlToFile(file.url, filePath)
         files[file.field] = filePath
       }

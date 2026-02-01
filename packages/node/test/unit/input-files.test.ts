@@ -89,6 +89,7 @@ describe('prepareInputFiles', () => {
           },
         ],
         urlStrategy: 'download',
+        allowPrivateUrls: false,
       }),
     ).rejects.toThrow('URL downloads are limited')
   })
