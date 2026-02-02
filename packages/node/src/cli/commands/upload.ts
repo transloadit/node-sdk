@@ -7,15 +7,36 @@ import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 export interface UploadOptions {
   file: string
-  tusEndpoint: string
+  createUploadEndpoint?: string
+  resumeUploadEndpoint?: string
   assemblyUrl: string
   field?: string
 }
 
+const deriveEndpointFromUploadUrl = (uploadUrl: string): string => {
+  const url = new URL(uploadUrl)
+  url.pathname = url.pathname.replace(/\/[^/]*$/, '/')
+  return url.toString()
+}
+
 export async function upload(
   output: IOutputCtl,
-  { file, tusEndpoint, assemblyUrl, field = ':original' }: UploadOptions,
+  {
+    file,
+    createUploadEndpoint,
+    resumeUploadEndpoint,
+    assemblyUrl,
+    field = ':original',
+  }: UploadOptions,
 ): Promise<void> {
+  const tusEndpoint =
+    createUploadEndpoint ??
+    (resumeUploadEndpoint ? deriveEndpointFromUploadUrl(resumeUploadEndpoint) : undefined)
+
+  if (!tusEndpoint) {
+    throw new Error('Provide --create-upload-endpoint or --resume-upload-endpoint.')
+  }
+
   const stream = fs.createReadStream(file)
   const streamsMap = {
     [field]: { path: file, stream },
@@ -32,6 +53,7 @@ export async function upload(
     requestedChunkSize: Number.POSITIVE_INFINITY,
     uploadConcurrency: 1,
     onProgress: () => {},
+    uploadUrls: resumeUploadEndpoint ? { [field]: resumeUploadEndpoint } : undefined,
   })
 
   const uploadUrl = uploadUrls[field]
@@ -42,6 +64,7 @@ export async function upload(
     field,
     assembly_url: assemblyUrl,
     tus_endpoint: tusEndpoint,
+    resume_upload_endpoint: resumeUploadEndpoint,
     upload_url: uploadUrl,
   })
 }
@@ -54,21 +77,34 @@ export class UploadCommand extends UnauthenticatedCommand {
     description: 'Upload a local file to a tus endpoint for an Assembly',
     details: `
       Upload a local file to a tus endpoint and attach it to an existing Assembly.
+      Use --create-upload-endpoint for new uploads or --resume-upload-endpoint to resume.
     `,
     examples: [
       [
         'Upload a file to an Assembly',
-        'transloadit upload ./video.mp4 https://api2.transloadit.com/resumable --assembly https://api2.transloadit.com/assemblies/ASSEMBLY_ID',
+        'transloadit upload ./video.mp4 --create-upload-endpoint https://api2.transloadit.com/resumable/files/ --assembly https://api2.transloadit.com/assemblies/ASSEMBLY_ID',
+      ],
+      [
+        'Resume a file upload',
+        'transloadit upload ./video.mp4 --resume-upload-endpoint https://api2.transloadit.com/resumable/files/UPLOAD_ID --assembly https://api2.transloadit.com/assemblies/ASSEMBLY_ID',
       ],
     ],
   })
 
   file = Option.String({ required: true })
-  tusEndpoint = Option.String({ required: true })
+  tusEndpoint = Option.String({ required: false })
 
   assemblyUrl = Option.String('--assembly', {
     description: 'Assembly URL to attach this upload to',
     required: true,
+  })
+
+  createUploadEndpoint = Option.String('--create-upload-endpoint', {
+    description: 'Tus create endpoint (e.g. https://api2.transloadit.com/resumable/files/)',
+  })
+
+  resumeUploadEndpoint = Option.String('--resume-upload-endpoint', {
+    description: 'Tus upload URL to resume (e.g. https://.../resumable/files/<id>)',
   })
 
   field = Option.String('--field', {
@@ -79,7 +115,8 @@ export class UploadCommand extends UnauthenticatedCommand {
     try {
       await upload(this.output, {
         file: this.file,
-        tusEndpoint: this.tusEndpoint,
+        createUploadEndpoint: this.createUploadEndpoint ?? this.tusEndpoint,
+        resumeUploadEndpoint: this.resumeUploadEndpoint,
         assemblyUrl: this.assemblyUrl,
         field: this.field,
       })

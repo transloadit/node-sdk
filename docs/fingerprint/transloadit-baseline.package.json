@@ -1,6 +1,6 @@
 {
   "name": "transloadit",
-  "version": "4.3.0",
+  "version": "4.3.1",
   "description": "Node.js SDK for Transloadit",
   "type": "module",
   "keywords": [
@@ -19,7 +19,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.891.0",
     "@aws-sdk/s3-request-presigner": "^3.891.0",
-    "@transloadit/sev-logger": "^0.0.15",
+    "@transloadit/sev-logger": "^0.1.9",
     "@transloadit/utils": "^4.3.0",
     "clipanion": "^4.0.0-rc.4",
     "debug": "^4.4.3",

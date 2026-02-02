@@ -91,7 +91,7 @@ the request body stays small and no extra MCP/LLM token budget is consumed.
 
 - `path` inputs only work when the MCP server can read the same filesystem (local/stdio).
 - Hosted MCP cannot access your disk. Use `url`/`base64` for small files, or upload locally with:
-  `npx @transloadit/node upload ./file.ext <tus_url> --assembly <assembly_url> --field :original`
+  `npx -y @transloadit/node upload ./file.ext --create-upload-endpoint <tus_url> --assembly <assembly_url> --field :original`
 - For remote flows, create the Assembly with `expected_uploads` so it stays open for out‑of‑band
   tus uploads.
 
