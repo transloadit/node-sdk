@@ -223,7 +223,7 @@ const listGoldenTemplatesOutputSchema = z.object({
 })
 
 const lintAssemblyInputSchema = z.object({
-  assembly: z.unknown(),
+  instructions: z.unknown(),
   strict: z.boolean().optional(),
   return_fixed: z.boolean().optional(),
 })
@@ -427,9 +427,10 @@ export const createTransloaditMcpServer = (
       inputSchema: lintAssemblyInputSchema,
       outputSchema: lintAssemblyOutputSchema,
     },
-    async ({ assembly, strict, return_fixed }) => {
+    async ({ instructions, strict, return_fixed }) => {
       const client = createLintClient(options)
-      const assemblyInstructions = assembly as LintAssemblyInstructionsInput['assemblyInstructions']
+      const assemblyInstructions =
+        instructions as LintAssemblyInstructionsInput['assemblyInstructions']
       const result = await client.lintAssemblyInstructions({
         assemblyInstructions,
         fix: return_fixed ?? false,

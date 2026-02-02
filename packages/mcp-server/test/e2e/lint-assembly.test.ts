@@ -52,7 +52,7 @@ maybeDescribe('mcp-server lint assembly instructions (stdio)', { timeout: 30000 
     const result = await client.callTool({
       name: 'transloadit_lint_assembly_instructions',
       arguments: {
-        assembly: instructions,
+        instructions,
       },
     })
 
@@ -69,7 +69,7 @@ maybeDescribe('mcp-server lint assembly instructions (stdio)', { timeout: 30000 
     const result = await client.callTool({
       name: 'transloadit_lint_assembly_instructions',
       arguments: {
-        assembly: {
+        instructions: {
           steps: {
             ':original': {
               robot: '/upload/handle',
