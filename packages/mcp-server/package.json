@@ -31,7 +31,7 @@
   },
   "scripts": {
     "lint:ts": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && ../../node_modules/.bin/tsc --build tsconfig.build.json",
-    "build": "yarn lint:ts",
+    "build": "yarn lint:ts && chmod +x dist/cli.js",
     "test:unit": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && ../../node_modules/.bin/vitest run ./test/unit",
     "test:e2e": "yarn --cwd ../.. tsc:utils && yarn --cwd ../.. tsc:node && ../../node_modules/.bin/vitest run ./test/e2e",
     "check": "yarn lint:ts && yarn test:unit",
