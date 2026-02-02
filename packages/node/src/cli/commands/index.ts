@@ -25,6 +25,7 @@ import {
   TemplatesModifyCommand,
   TemplatesSyncCommand,
 } from './templates.ts'
+import { UploadCommand } from './upload.ts'
 
 export function createCli(): Cli {
   const cli = new Cli({
@@ -62,6 +63,9 @@ export function createCli(): Cli {
 
   // Notifications commands
   cli.register(NotificationsReplayCommand)
+
+  // Uploads commands
+  cli.register(UploadCommand)
 
   return cli
 }

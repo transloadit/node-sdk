@@ -161,6 +161,7 @@ const createAssemblyInputSchema = z.object({
   upload_concurrency: z.number().int().positive().optional(),
   upload_chunk_size: z.number().int().positive().optional(),
   upload_behavior: z.enum(['await', 'background', 'none']).optional(),
+  expected_uploads: z.number().int().positive().optional(),
   assembly_url: z.string().optional(),
 })
 
@@ -222,7 +223,7 @@ const listGoldenTemplatesOutputSchema = z.object({
 })
 
 const lintAssemblyInputSchema = z.object({
-  instructions: z.unknown(),
+  assembly: z.unknown(),
   strict: z.boolean().optional(),
   return_fixed: z.boolean().optional(),
 })
@@ -426,10 +427,9 @@ export const createTransloaditMcpServer = (
       inputSchema: lintAssemblyInputSchema,
       outputSchema: lintAssemblyOutputSchema,
     },
-    async ({ instructions, strict, return_fixed }) => {
+    async ({ assembly, strict, return_fixed }) => {
       const client = createLintClient(options)
-      const assemblyInstructions =
-        instructions as LintAssemblyInstructionsInput['assemblyInstructions']
+      const assemblyInstructions = assembly as LintAssemblyInstructionsInput['assemblyInstructions']
       const result = await client.lintAssemblyInstructions({
         assemblyInstructions,
         fix: return_fixed ?? false,
@@ -469,6 +469,7 @@ export const createTransloaditMcpServer = (
         upload_concurrency,
         upload_chunk_size,
         upload_behavior,
+        expected_uploads,
         assembly_url,
       },
       extra,
@@ -569,6 +570,7 @@ export const createTransloaditMcpServer = (
               uploadConcurrency,
               chunkSize,
               uploadBehavior,
+              expectedUploads: expected_uploads,
             })
 
         if (assembly_url) {

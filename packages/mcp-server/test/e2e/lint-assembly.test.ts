@@ -18,7 +18,7 @@ const toExpectedLintIssue = (issue: {
   hint: issue.desc && issue.desc !== issue.summary ? issue.desc : undefined,
 })
 
-maybeDescribe('mcp-server validate assembly (stdio)', { timeout: 30000 }, () => {
+maybeDescribe('mcp-server lint assembly instructions (stdio)', { timeout: 30000 }, () => {
   let client: Client
 
   beforeAll(async () => {
@@ -52,7 +52,7 @@ maybeDescribe('mcp-server validate assembly (stdio)', { timeout: 30000 }, () => 
     const result = await client.callTool({
       name: 'transloadit_lint_assembly_instructions',
       arguments: {
-        instructions,
+        assembly: instructions,
       },
     })
 
@@ -69,7 +69,7 @@ maybeDescribe('mcp-server validate assembly (stdio)', { timeout: 30000 }, () => 
     const result = await client.callTool({
       name: 'transloadit_lint_assembly_instructions',
       arguments: {
-        instructions: {
+        assembly: {
           steps: {
             ':original': {
               robot: '/upload/handle',

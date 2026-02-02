@@ -199,6 +199,10 @@ interface AssemblyUploadOptions {
 export interface CreateAssemblyOptions extends AssemblyUploadOptions {
   params?: CreateAssemblyParams
   assemblyId?: string
+  /**
+   * Expected number of tus uploads when files will be uploaded separately.
+   */
+  expectedUploads?: number
 }
 
 export interface ResumeAssemblyUploadsOptions extends AssemblyUploadOptions {
@@ -396,6 +400,7 @@ export class Transloadit {
       files = {},
       uploads = {},
       assemblyId,
+      expectedUploads,
       signal,
       uploadBehavior = 'await',
     } = opts
@@ -453,13 +458,16 @@ export class Transloadit {
       const streamErrorPromise = createStreamErrorPromise(allStreamsMap)
 
       const createAssemblyAndUpload = async () => {
+        const totalExpectedUploads =
+          expectedUploads == null ? allStreams.length : Math.max(expectedUploads, allStreams.length)
+
         const result: AssemblyStatusWithUploadUrls = await this._remoteJson({
           urlSuffix,
           method: 'post',
           timeout: { request: timeout },
           params,
           fields: {
-            tus_num_expected_upload_files: allStreams.length,
+            tus_num_expected_upload_files: totalExpectedUploads,
           },
           signal,
         })
