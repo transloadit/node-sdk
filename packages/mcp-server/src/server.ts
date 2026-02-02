@@ -21,6 +21,7 @@ export type TransloaditMcpServerOptions = {
   authKey?: string
   authSecret?: string
   mcpToken?: string
+  endpoint?: string
   serverName?: string
   serverVersion?: string
 }
@@ -30,13 +31,6 @@ type LintIssueOutput = {
   message: string
   severity: 'error' | 'warning'
   hint?: string
-}
-
-type ToolMessage = {
-  code: string
-  message: string
-  hint?: string
-  path?: string
 }
 
 type UploadSummary = {
@@ -284,17 +278,11 @@ const buildToolError = (
     ],
   })
 
-const signatureAuthWarning: ToolMessage = {
-  code: 'mcp_signature_auth_required',
-  message:
-    'Bearer tokens still require signature auth if your account enforces it. Configure TRANSLOADIT_KEY/TRANSLOADIT_SECRET so MCP can sign requests.',
-  hint: 'If you see NO_SIGNATURE_FIELD or NO_AUTH_EXPIRES_PARAMETER, provide key+secret or disable signature auth for the account.',
-}
-
 const createLintClient = (options: TransloaditMcpServerOptions): Transloadit =>
   new Transloadit({
     authKey: options.authKey ?? 'mcp',
     authSecret: options.authSecret ?? 'mcp',
+    endpoint: options.endpoint,
   })
 
 const getHeaderValue = (headers: HeaderMap | undefined, name: string): string | undefined => {
@@ -311,17 +299,6 @@ const getHeaderValue = (headers: HeaderMap | undefined, name: string): string | 
 const getBearerToken = (headers: HeaderMap | undefined): string | undefined =>
   extractBearerToken(getHeaderValue(headers, 'authorization'))
 
-const getSignatureAuthWarnings = (
-  options: TransloaditMcpServerOptions,
-  extra: ToolExtra,
-): ToolMessage[] => {
-  const token = getBearerToken(extra.requestInfo?.headers)
-  if (!token) return []
-  if (token === options.mcpToken) return []
-  if (options.authKey && options.authSecret) return []
-  return [signatureAuthWarning]
-}
-
 type LiveClientResult = { client: Transloadit } | { error: ReturnType<typeof buildToolError> }
 
 const createLiveClient = (
@@ -337,6 +314,7 @@ const createLiveClient = (
         authToken,
         authKey: options.authKey,
         authSecret: options.authSecret,
+        endpoint: options.endpoint,
       }),
     }
   }
@@ -354,6 +332,7 @@ const createLiveClient = (
     client: new Transloadit({
       authKey: options.authKey,
       authSecret: options.authSecret,
+      endpoint: options.endpoint,
     }),
   }
 }
@@ -372,7 +351,6 @@ const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
 type AssemblyAccessResult =
   | {
       client: Transloadit
-      warnings: ToolMessage[]
       assemblyId: string
       assemblyUrl?: string
     }
@@ -396,7 +374,6 @@ const resolveAssemblyAccess = (
 
   return {
     client: liveClient.client,
-    warnings: getSignatureAuthWarnings(options, extra),
     assemblyId,
     assemblyUrl: args.assembly_url,
   }
@@ -507,8 +484,6 @@ export const createTransloaditMcpServer = (
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
       const { client } = liveClient
-      const warnings = getSignatureAuthWarnings(options, extra)
-
       const tempCleanups: Array<() => Promise<void>> = []
 
       try {
@@ -621,7 +596,6 @@ export const createTransloaditMcpServer = (
           assembly,
           upload: uploadSummary,
           next_steps: nextSteps,
-          ...(warnings.length > 0 ? { warnings } : {}),
         })
       } finally {
         await Promise.all(tempCleanups.map((cleanup) => cleanup()))
@@ -646,7 +620,6 @@ export const createTransloaditMcpServer = (
       return buildToolResponse({
         status: 'ok',
         assembly,
-        ...(access.warnings.length > 0 ? { warnings: access.warnings } : {}),
       })
     },
   )
@@ -675,7 +648,6 @@ export const createTransloaditMcpServer = (
         status: 'ok',
         assembly,
         waited_ms,
-        ...(access.warnings.length > 0 ? { warnings: access.warnings } : {}),
       })
     },
   )

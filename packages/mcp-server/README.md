@@ -25,21 +25,16 @@ transloadit-mcp stdio
 
 ## Environment
 
-- `TRANSLOADIT_KEY` / `TRANSLOADIT_SECRET` (required for API requests, and for accounts enforcing
-  signature auth)
+- `TRANSLOADIT_KEY` / `TRANSLOADIT_SECRET` (required for API requests)
 - `TRANSLOADIT_MCP_TOKEN` (optional for static bearer auth on non-localhost HTTP)
-- `TRANSLOADIT_API` (optional, defaults to api2.transloadit.com)
+- `TRANSLOADIT_ENDPOINT` (optional, defaults to `https://api2.transloadit.com`)
 
 ## Tool surface
 
-See the design spec for all tools, inputs, and outputs:
-
-- `docs/mcp-spec.md`
-- `docs/mcp-todo.md`
+See the MCP section in the repo README for the full tool list, auth model, and input formats.
 
 ## Notes
 
-- Hosted MCP calls use bearer tokens. If the account enforces signature auth, you must still provide
-  `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET`.
+- Hosted MCP calls use bearer tokens minted via `/token`.
+- Bearer tokens satisfy signature auth; signature checks apply only to key/secret requests.
 - URL inputs default to safe handling; base64 inputs have explicit limits to keep requests small.
-

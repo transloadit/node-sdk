@@ -9,12 +9,13 @@ const printHelp = (): void => {
 
 Usage:
   transloadit-mcp stdio
-  transloadit-mcp http [--host 127.0.0.1] [--port 5723] [--config path]
+  transloadit-mcp http [--host 127.0.0.1] [--port 5723] [--endpoint URL] [--config path]
 
 Environment:
   TRANSLOADIT_KEY
   TRANSLOADIT_SECRET
   TRANSLOADIT_MCP_TOKEN
+  TRANSLOADIT_ENDPOINT
 `)
 }
 
@@ -22,6 +23,7 @@ type CliConfig = {
   host?: string
   port?: number
   configPath?: string
+  endpoint?: string
 }
 
 const parseArgs = (args: string[]): { command: string; config: CliConfig } => {
@@ -57,6 +59,15 @@ const parseArgs = (args: string[]): { command: string; config: CliConfig } => {
     }
     if (arg.startsWith('--config=')) {
       config.configPath = arg.slice('--config='.length)
+      continue
+    }
+    if (arg === '--endpoint') {
+      config.endpoint = args[i + 1]
+      i += 1
+      continue
+    }
+    if (arg.startsWith('--endpoint=')) {
+      config.endpoint = arg.slice('--endpoint='.length)
     }
   }
 
@@ -93,6 +104,9 @@ const main = async (): Promise<void> => {
     const host = (config.host ?? fileConfig.host ?? '127.0.0.1') as string
     const port = Number(config.port ?? fileConfig.port ?? 5723)
     const path = (fileConfig.path as string | undefined) ?? '/mcp'
+    const endpoint = (config.endpoint ?? fileConfig.endpoint ?? process.env.TRANSLOADIT_ENDPOINT) as
+      | string
+      | undefined
     const mcpToken = (fileConfig.mcpToken ?? process.env.TRANSLOADIT_MCP_TOKEN) as
       | string
       | undefined
@@ -104,6 +118,7 @@ const main = async (): Promise<void> => {
     const handler = await createTransloaditMcpHttpHandler({
       authKey: (fileConfig.authKey ?? process.env.TRANSLOADIT_KEY) as string | undefined,
       authSecret: (fileConfig.authSecret ?? process.env.TRANSLOADIT_SECRET) as string | undefined,
+      endpoint,
       mcpToken,
       allowedOrigins: fileConfig.allowedOrigins as string[] | undefined,
       allowedHosts: fileConfig.allowedHosts as string[] | undefined,
@@ -133,6 +148,7 @@ const main = async (): Promise<void> => {
   const server = createTransloaditMcpServer({
     authKey: process.env.TRANSLOADIT_KEY,
     authSecret: process.env.TRANSLOADIT_SECRET,
+    endpoint: process.env.TRANSLOADIT_ENDPOINT,
   })
   const transport = new StdioServerTransport()
   await server.connect(transport)

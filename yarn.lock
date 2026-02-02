@@ -2506,11 +2506,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@transloadit/abbr@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "@transloadit/abbr@npm:1.0.0"
+  checksum: 10c0/4394a4c144cd6426676e0755394f04e18ddacd32d58866e4a3862aaf149f95a60e6809861aede7fb11a146b4a760c81e57eb423dafde7bd7c92f9a7406ab8cd3
+  languageName: node
+  linkType: hard
+
 "@transloadit/mcp-server@workspace:packages/mcp-server":
   version: 0.0.0-use.local
   resolution: "@transloadit/mcp-server@workspace:packages/mcp-server"
   dependencies:
     "@modelcontextprotocol/sdk": "npm:^1.25.3"
+    "@transloadit/abbr": "npm:^1.0.0"
     "@transloadit/node": "npm:^4.3.1"
     "@transloadit/sev-logger": "npm:^0.0.15"
     "@types/express": "npm:^4.17.23"
