@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.0.3
+
+### Patch Changes
+
+- 51661f7: Add TRANSLOADIT_ENDPOINT support, make the CLI binary executable, and refresh MCP auth docs.
+
 ## 0.0.2
 
 ### Patch Changes
