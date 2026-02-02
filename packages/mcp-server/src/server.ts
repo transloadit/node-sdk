@@ -341,6 +341,9 @@ const createLiveClient = (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
+const isErrnoException = (value: unknown): value is NodeJS.ErrnoException =>
+  isRecord(value) && typeof value.code === 'string'
+
 const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
   const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
   if (!match) {
@@ -551,28 +554,38 @@ export const createTransloaditMcpServer = (
         const uploadConcurrency = upload_concurrency
         const chunkSize = upload_chunk_size
 
-        const assembly = assembly_url
-          ? await client.resumeAssemblyUploads({
-              assemblyUrl: assembly_url,
-              files: filesMap,
-              uploads: uploadsMap,
-              waitForCompletion,
-              timeout,
-              uploadConcurrency,
-              chunkSize,
-              uploadBehavior,
+        let assembly: Awaited<ReturnType<typeof client.createAssembly>>
+        try {
+          assembly = assembly_url
+            ? await client.resumeAssemblyUploads({
+                assemblyUrl: assembly_url,
+                files: filesMap,
+                uploads: uploadsMap,
+                waitForCompletion,
+                timeout,
+                uploadConcurrency,
+                chunkSize,
+                uploadBehavior,
+              })
+            : await client.createAssembly({
+                params,
+                files: filesMap,
+                uploads: uploadsMap,
+                waitForCompletion,
+                timeout,
+                uploadConcurrency,
+                chunkSize,
+                uploadBehavior,
+                expectedUploads: expected_uploads,
+              })
+        } catch (error) {
+          if (isErrnoException(error) && error.code === 'ENOENT') {
+            return buildToolError('mcp_file_not_found', error.message, {
+              hint: 'Path inputs only work when the MCP server can read local files. For hosted MCP, use url/base64 or upload via `npx @transloadit/node upload`.',
             })
-          : await client.createAssembly({
-              params,
-              files: filesMap,
-              uploads: uploadsMap,
-              waitForCompletion,
-              timeout,
-              uploadConcurrency,
-              chunkSize,
-              uploadBehavior,
-              expectedUploads: expected_uploads,
-            })
+          }
+          throw error
+        }
 
         if (assembly_url) {
           uploadSummary.resumed = true
