@@ -14,7 +14,8 @@
     "directory": "packages/mcp-server"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
