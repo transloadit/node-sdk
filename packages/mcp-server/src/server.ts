@@ -581,7 +581,7 @@ export const createTransloaditMcpServer = (
         } catch (error) {
           if (isErrnoException(error) && error.code === 'ENOENT') {
             return buildToolError('mcp_file_not_found', error.message, {
-              hint: 'Path inputs only work when the MCP server can read local files. For hosted MCP, use url/base64 or upload via `npx @transloadit/node upload`.',
+              hint: 'Path inputs only work when the MCP server can read local files. For hosted MCP, use url/base64 or upload via `npx -y @transloadit/node upload`.',
             })
           }
           throw error

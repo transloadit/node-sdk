@@ -26,7 +26,7 @@ describe('CLI upload', () => {
       await writeFile(filePath, 'hello from CLI upload', 'utf8')
 
       const { stdout, stderr } = await runCli(
-        `upload ${filePath} ${tusEndpoint} --assembly ${assemblyUrl} --field :original --json`,
+        `upload ${filePath} --create-upload-endpoint ${tusEndpoint} --assembly ${assemblyUrl} --field :original --json`,
       )
 
       expect(stderr).toEqual('')
