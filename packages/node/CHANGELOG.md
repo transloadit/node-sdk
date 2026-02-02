@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.3.1
+
+### Patch Changes
+
+- 065df19: Add sev-logger based logging with redaction for MCP server, and improve input handling with trusted assembly URLs and configurable URL download restrictions.
+
 ## 4.3.0
 
 ### Minor Changes
