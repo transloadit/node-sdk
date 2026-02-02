@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.4.0
+
+### Minor Changes
+
+- 6e3a3f4: Add upload CLI flags for create/resume tus endpoints and support expected uploads for out-of-band tus flows.
+
 ## 4.3.1
 
 ### Patch Changes
