@@ -50,7 +50,7 @@ maybeDescribe('mcp-server validate assembly (stdio)', { timeout: 30000 }, () => 
     const expectedIssues = lintResult.issues.map(toExpectedLintIssue)
 
     const result = await client.callTool({
-      name: 'transloadit_validate_assembly',
+      name: 'transloadit_lint_assembly_instructions',
       arguments: {
         instructions,
       },
@@ -67,7 +67,7 @@ maybeDescribe('mcp-server validate assembly (stdio)', { timeout: 30000 }, () => 
 
   it('treats warnings as fatal in strict mode', async () => {
     const result = await client.callTool({
-      name: 'transloadit_validate_assembly',
+      name: 'transloadit_lint_assembly_instructions',
       arguments: {
         instructions: {
           steps: {

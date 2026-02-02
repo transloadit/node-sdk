@@ -17,10 +17,10 @@ describe('mcp-server stdio', { timeout: 20000 }, () => {
     const toolsResult = await client.listTools()
     const toolNames = toolsResult.tools.map((tool) => tool.name)
 
-    expect(toolNames).toContain('transloadit_validate_assembly')
+    expect(toolNames).toContain('transloadit_lint_assembly_instructions')
 
     const result = await client.callTool({
-      name: 'transloadit_validate_assembly',
+      name: 'transloadit_lint_assembly_instructions',
       arguments: {
         instructions: {
           steps: {

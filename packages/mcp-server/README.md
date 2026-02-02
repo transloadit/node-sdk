@@ -98,7 +98,7 @@ If `assembly_url` is provided, the MCP server resumes uploads using Assembly sta
 - `transloadit_create_assembly`
 - `transloadit_get_assembly_status`
 - `transloadit_wait_for_assembly`
-- `transloadit_validate_assembly`
+- `transloadit_lint_assembly_instructions`
 - `transloadit_list_robots`
 - `transloadit_get_robot_help`
 - `transloadit_list_golden_templates`

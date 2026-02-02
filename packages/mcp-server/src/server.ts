@@ -221,13 +221,13 @@ const listGoldenTemplatesOutputSchema = z.object({
   ),
 })
 
-const validateAssemblyInputSchema = z.object({
+const lintAssemblyInputSchema = z.object({
   instructions: z.unknown(),
   strict: z.boolean().optional(),
   return_fixed: z.boolean().optional(),
 })
 
-const validateAssemblyOutputSchema = z.object({
+const lintAssemblyOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   linting_issues: z.array(lintIssueSchema),
   normalized_instructions: z.unknown().optional(),
@@ -418,13 +418,13 @@ export const createTransloaditMcpServer = (
   })
 
   server.registerTool(
-    'transloadit_validate_assembly',
+    'transloadit_lint_assembly_instructions',
     {
-      title: 'Validate Assembly Instructions',
+      title: 'Lint Assembly Instructions',
       description:
         'Lint Assembly Instructions without creating an Assembly. Returns structured issues.',
-      inputSchema: validateAssemblyInputSchema,
-      outputSchema: validateAssemblyOutputSchema,
+      inputSchema: lintAssemblyInputSchema,
+      outputSchema: lintAssemblyOutputSchema,
     },
     async ({ instructions, strict, return_fixed }) => {
       const client = createLintClient(options)
