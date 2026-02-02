@@ -1,6 +1,6 @@
 {
   "name": "@transloadit/node",
-  "version": "4.3.1",
+  "version": "4.4.0",
   "description": "Node.js SDK for Transloadit",
   "type": "module",
   "keywords": [
