@@ -45,13 +45,7 @@ const config: KnipConfig = {
       entry: ['src/**/*.ts', 'test/**/*.{ts,tsx,js,jsx}'],
       project: ['{src,test}/**/*.{ts,tsx,js,jsx}'],
       ignore: [...sharedIgnore],
-      ignoreDependencies: [
-        '@transloadit/abbr',
-        '@types/express',
-        '@types/node',
-        'vitest',
-        'vitest/config',
-      ],
+      ignoreDependencies: ['@types/express', '@types/node', 'vitest', 'vitest/config'],
     },
     'packages/transloadit': {
       entry: [

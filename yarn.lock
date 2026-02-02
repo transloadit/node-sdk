@@ -2518,9 +2518,8 @@ __metadata:
   resolution: "@transloadit/mcp-server@workspace:packages/mcp-server"
   dependencies:
     "@modelcontextprotocol/sdk": "npm:^1.25.3"
-    "@transloadit/abbr": "npm:^1.0.0"
     "@transloadit/node": "npm:^4.3.1"
-    "@transloadit/sev-logger": "npm:^0.0.15"
+    "@transloadit/sev-logger": "npm:^0.1.9"
     "@types/express": "npm:^4.17.23"
     "@types/node": "npm:^24.10.3"
     express: "npm:^4.21.2"
@@ -2536,7 +2535,7 @@ __metadata:
   dependencies:
     "@aws-sdk/client-s3": "npm:^3.891.0"
     "@aws-sdk/s3-request-presigner": "npm:^3.891.0"
-    "@transloadit/sev-logger": "npm:^0.0.15"
+    "@transloadit/sev-logger": "npm:^0.1.9"
     "@transloadit/utils": "npm:^4.3.0"
     "@types/debug": "npm:^4.1.12"
     "@types/lodash-es": "npm:^4.17.12"
@@ -2574,10 +2573,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@transloadit/sev-logger@npm:^0.0.15":
-  version: 0.0.15
-  resolution: "@transloadit/sev-logger@npm:0.0.15"
-  checksum: 10c0/1aa26ab5d6c8dab425ea85832f2094d59285963bc368b64990f23420ddc3a5bedea8ca70f91abb068d447479f4fca88cb1a9b2cd49ccc4093294daa7cf8e2ae1
+"@transloadit/sev-logger@npm:^0.1.9":
+  version: 0.1.9
+  resolution: "@transloadit/sev-logger@npm:0.1.9"
+  dependencies:
+    "@transloadit/abbr": "npm:^1.0.0"
+  checksum: 10c0/704e4fcafcdf93da5d4fc7ecdef13407ea0f291b23b269c2b815c6ac20410503223b662a5b1637bf95f6a62955e8b8676ad5ff3ececb17a4fabbeb9ba22e4ca6
   languageName: node
   linkType: hard
 
@@ -7598,7 +7599,7 @@ __metadata:
   dependencies:
     "@aws-sdk/client-s3": "npm:^3.891.0"
     "@aws-sdk/s3-request-presigner": "npm:^3.891.0"
-    "@transloadit/sev-logger": "npm:^0.0.15"
+    "@transloadit/sev-logger": "npm:^0.1.9"
     "@transloadit/utils": "npm:^4.3.0"
     "@types/debug": "npm:^4.1.12"
     "@types/minimist": "npm:^1.2.5"
