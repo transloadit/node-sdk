@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import type { SevLogger } from '@transloadit/sev-logger'
+import { normalizePath, parsePathname } from './http-helpers.ts'
 import { createMcpRequestHandler } from './http-request-handler.ts'
+import { getMetrics, getMetricsContentType } from './metrics.ts'
 import type { TransloaditMcpServerOptions } from './server.ts'
 import { createTransloaditMcpServer } from './server.ts'
 
@@ -12,6 +14,7 @@ export type TransloaditMcpHttpOptions = TransloaditMcpServerOptions & {
   enableDnsRebindingProtection?: boolean
   mcpToken?: string
   path?: string
+  metricsPath?: string | false
   sessionIdGenerator?: (() => string) | undefined
   logger?: SevLogger
 }
@@ -38,12 +41,40 @@ export const createTransloaditMcpHttpHandler = async (
 
   await server.connect(transport)
 
-  const handler = createMcpRequestHandler(transport, {
+  const expectedPath = options.path ?? defaultPath
+  const metricsPath =
+    options.metricsPath === false ? undefined : normalizePath(options.metricsPath ?? '/metrics')
+
+  const mcpHandler = createMcpRequestHandler(transport, {
     allowedOrigins: options.allowedOrigins,
     mcpToken: options.mcpToken,
-    path: { expectedPath: options.path ?? defaultPath },
+    path: { expectedPath },
     logger: options.logger,
     redactSecrets: [options.mcpToken, options.authKey, options.authSecret],
+  })
+
+  const handler = (async (req, res) => {
+    if (metricsPath) {
+      const pathname = normalizePath(parsePathname(req.url, expectedPath))
+      if (pathname === metricsPath) {
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+
+        res.statusCode = 200
+        res.setHeader('Content-Type', getMetricsContentType())
+        if (req.method === 'HEAD') {
+          res.end()
+          return
+        }
+        res.end(await getMetrics())
+        return
+      }
+    }
+
+    await mcpHandler(req, res)
   }) as TransloaditMcpHttpHandler
 
   handler.close = async () => {

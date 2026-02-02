@@ -18,6 +18,7 @@ Environment:
   TRANSLOADIT_SECRET
   TRANSLOADIT_MCP_TOKEN
   TRANSLOADIT_ENDPOINT
+  TRANSLOADIT_MCP_METRICS_PATH
 `)
 }
 
@@ -106,6 +107,8 @@ const main = async (): Promise<void> => {
     const host = (config.host ?? fileConfig.host ?? '127.0.0.1') as string
     const port = Number(config.port ?? fileConfig.port ?? 5723)
     const path = (fileConfig.path as string | undefined) ?? '/mcp'
+    const metricsPath =
+      (fileConfig.metricsPath as string | undefined) ?? process.env.TRANSLOADIT_MCP_METRICS_PATH
     const endpoint = (config.endpoint ?? fileConfig.endpoint ?? process.env.TRANSLOADIT_ENDPOINT) as
       | string
       | undefined
@@ -126,6 +129,7 @@ const main = async (): Promise<void> => {
       allowedHosts: fileConfig.allowedHosts as string[] | undefined,
       enableDnsRebindingProtection: fileConfig.enableDnsRebindingProtection as boolean | undefined,
       path,
+      metricsPath,
       logger,
     })
 
