@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.0.2
+
+### Patch Changes
+
+- 7128db8: Add a package README so npm shows MCP usage details.
+
 ## 0.0.1
 
 ### Patch Changes
