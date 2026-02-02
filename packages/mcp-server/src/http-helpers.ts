@@ -19,13 +19,49 @@ export const extractBearerToken = (header: string | undefined): string | undefin
   return token ? token : undefined
 }
 
+export const extractBasicAuth = (
+  header: string | undefined,
+): { username: string; password: string } | undefined => {
+  if (!header) return undefined
+  const match = header.trim().match(/^Basic\s+(.+)$/i)
+  const token = match?.[1]?.trim()
+  if (!token) return undefined
+  try {
+    const decoded = Buffer.from(token, 'base64').toString('utf8')
+    const separatorIndex = decoded.indexOf(':')
+    if (separatorIndex === -1) return undefined
+    const username = decoded.slice(0, separatorIndex)
+    const password = decoded.slice(separatorIndex + 1)
+    if (!username || !password) return undefined
+    return { username, password }
+  } catch {
+    return undefined
+  }
+}
+
+const timingSafeEqualString = (a: string, b: string): boolean => {
+  const bufferA = Buffer.from(a)
+  const bufferB = Buffer.from(b)
+  if (bufferA.length !== bufferB.length) return false
+  return timingSafeEqual(bufferA, bufferB)
+}
+
 export const isAuthorized = (req: IncomingMessage, token: string): boolean => {
   const provided = extractBearerToken(req.headers.authorization)
   if (!provided) return false
-  const a = Buffer.from(provided)
-  const b = Buffer.from(token)
-  if (a.length !== b.length) return false
-  return timingSafeEqual(a, b)
+  return timingSafeEqualString(provided, token)
+}
+
+export const isBasicAuthorized = (
+  req: IncomingMessage,
+  expected: { username: string; password: string },
+): boolean => {
+  const provided = extractBasicAuth(req.headers.authorization)
+  if (!provided) return false
+  return (
+    timingSafeEqualString(provided.username, expected.username) &&
+    timingSafeEqualString(provided.password, expected.password)
+  )
 }
 
 export const applyCorsHeaders = (

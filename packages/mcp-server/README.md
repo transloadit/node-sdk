@@ -55,6 +55,8 @@ CLI:
 - Prometheus-compatible metrics are exposed at `GET /metrics` by default.
 - Customize the path via `TRANSLOADIT_MCP_METRICS_PATH` or config `metricsPath`.
 - Disable by setting `metricsPath: false` in the config or when creating the server/router.
+- Optional basic auth via `TRANSLOADIT_MCP_METRICS_USER` +
+  `TRANSLOADIT_MCP_METRICS_PASSWORD` or config `metricsAuth`.
 
 ## Input files
 

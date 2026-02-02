@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import type { SevLogger } from '@transloadit/sev-logger'
-import { normalizePath, parsePathname } from './http-helpers.ts'
+import { isBasicAuthorized, normalizePath, parsePathname } from './http-helpers.ts'
 import { createMcpRequestHandler } from './http-request-handler.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
 import type { TransloaditMcpServerOptions } from './server.ts'
@@ -15,6 +15,7 @@ export type TransloaditMcpHttpOptions = TransloaditMcpServerOptions & {
   mcpToken?: string
   path?: string
   metricsPath?: string | false
+  metricsAuth?: { username: string; password: string }
   sessionIdGenerator?: (() => string) | undefined
   logger?: SevLogger
 }
@@ -44,6 +45,7 @@ export const createTransloaditMcpHttpHandler = async (
   const expectedPath = options.path ?? defaultPath
   const metricsPath =
     options.metricsPath === false ? undefined : normalizePath(options.metricsPath ?? '/metrics')
+  const metricsAuth = options.metricsAuth
 
   const mcpHandler = createMcpRequestHandler(transport, {
     allowedOrigins: options.allowedOrigins,
@@ -57,6 +59,12 @@ export const createTransloaditMcpHttpHandler = async (
     if (metricsPath) {
       const pathname = normalizePath(parsePathname(req.url, expectedPath))
       if (pathname === metricsPath) {
+        if (metricsAuth && !isBasicAuthorized(req, metricsAuth)) {
+          res.statusCode = 401
+          res.setHeader('WWW-Authenticate', 'Basic realm="metrics"')
+          res.end('Unauthorized')
+          return
+        }
         if (req.method !== 'GET' && req.method !== 'HEAD') {
           res.statusCode = 405
           res.end('Method Not Allowed')

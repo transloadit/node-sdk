@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import express from 'express'
 import type { TransloaditMcpHttpOptions } from './http.ts'
+import { isBasicAuthorized } from './http-helpers.ts'
 import { createMcpRequestHandler } from './http-request-handler.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
 import { createTransloaditMcpServer } from './server.ts'
@@ -27,6 +28,7 @@ export const createTransloaditMcpExpressRouter = async (
   const routePath = options.path ?? '/mcp'
   const metricsPath =
     options.metricsPath === false ? undefined : (options.metricsPath ?? '/metrics')
+  const metricsAuth = options.metricsAuth
   const handler = createMcpRequestHandler(transport, {
     allowedOrigins: options.allowedOrigins,
     mcpToken: options.mcpToken,
@@ -40,11 +42,19 @@ export const createTransloaditMcpExpressRouter = async (
   })
 
   if (metricsPath) {
-    router.get(metricsPath, async (_req, res) => {
+    router.get(metricsPath, async (req, res) => {
+      if (metricsAuth && !isBasicAuthorized(req, metricsAuth)) {
+        res.status(401).setHeader('WWW-Authenticate', 'Basic realm="metrics"').send('Unauthorized')
+        return
+      }
       res.setHeader('Content-Type', getMetricsContentType())
       res.status(200).send(await getMetrics())
     })
-    router.head(metricsPath, (_req, res) => {
+    router.head(metricsPath, (req, res) => {
+      if (metricsAuth && !isBasicAuthorized(req, metricsAuth)) {
+        res.status(401).setHeader('WWW-Authenticate', 'Basic realm="metrics"').end('Unauthorized')
+        return
+      }
       res.setHeader('Content-Type', getMetricsContentType())
       res.status(200).end()
     })
