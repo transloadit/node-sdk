@@ -1,5 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { LintAssemblyInstructionsResult } from '@transloadit/node'
+import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js'
+import type {
+  CreateAssemblyParams,
+  LintAssemblyInstructionsResult,
+  TemplateContent,
+} from '@transloadit/node'
 import {
   getRobotHelp,
   goldenTemplates,
@@ -50,6 +55,16 @@ type ToolExtra = {
 }
 
 const maxBase64Bytes = 512_000
+type GoldenTemplate = {
+  slug: string
+  version: string
+  description: string
+  steps: Record<string, unknown>
+}
+
+type LintAssemblyInstructionsInput = Parameters<Transloadit['lintAssemblyInstructions']>[0]
+
+const goldenTemplatesMap = goldenTemplates as Record<string, GoldenTemplate>
 
 const lintIssueSchema = z.object({
   path: z.string(),
@@ -240,15 +255,17 @@ const safeJsonParse = (value: string): unknown => {
   }
 }
 
-const buildToolResponse = (payload: Record<string, unknown>) => ({
-  content: [
-    {
-      type: 'text',
-      text: JSON.stringify(payload),
-    },
-  ],
-  structuredContent: payload,
-})
+const buildToolResponse = (payload: Record<string, unknown>): CallToolResult => {
+  const content: TextContent = {
+    type: 'text',
+    text: JSON.stringify(payload),
+  }
+
+  return {
+    content: [content],
+    structuredContent: payload,
+  }
+}
 
 const buildToolError = (
   code: string,
@@ -385,35 +402,32 @@ const resolveAssemblyAccess = (
   }
 }
 
-const resolveGoldenTemplate = (
-  slug: string,
-  version?: string,
-): (typeof goldenTemplates)[string] | undefined => {
+const resolveGoldenTemplate = (slug: string, version?: string): GoldenTemplate | undefined => {
   if (slug.includes('@')) {
-    return goldenTemplates[slug]
+    return goldenTemplatesMap[slug]
   }
 
   if (version) {
-    return goldenTemplates[`${slug}@${version}`]
+    return goldenTemplatesMap[`${slug}@${version}`]
   }
 
-  const matches = Object.keys(goldenTemplates).filter((key) => key.startsWith(`${slug}@`))
+  const matches = Object.keys(goldenTemplatesMap).filter((key) => key.startsWith(`${slug}@`))
   if (matches.length === 0) return undefined
   const latest = matches.sort().at(-1)
-  return latest ? goldenTemplates[latest] : undefined
+  return latest ? goldenTemplatesMap[latest] : undefined
 }
 
-const parseInstructions = (input: unknown): Record<string, unknown> | undefined => {
+const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => {
   if (input == null) return undefined
   if (typeof input === 'string') {
     const parsed = safeJsonParse(input)
-    return isRecord(parsed) ? parsed : undefined
+    return isRecord(parsed) ? (parsed as CreateAssemblyParams) : undefined
   }
   if (isRecord(input)) {
     if ('steps' in input) {
-      return input as Record<string, unknown>
+      return input as CreateAssemblyParams
     }
-    return { steps: input }
+    return { steps: input } as CreateAssemblyParams
   }
   return undefined
 }
@@ -437,8 +451,10 @@ export const createTransloaditMcpServer = (
     },
     async ({ instructions, strict, return_fixed }) => {
       const client = createLintClient(options)
+      const assemblyInstructions =
+        instructions as LintAssemblyInstructionsInput['assemblyInstructions']
       const result = await client.lintAssemblyInstructions({
-        assemblyInstructions: instructions,
+        assemblyInstructions,
         fix: return_fixed ?? false,
         fatal: strict ? 'warning' : 'error',
       })
@@ -497,7 +513,7 @@ export const createTransloaditMcpServer = (
 
       try {
         const fileInputs = files ?? []
-        let params = parseInstructions(instructions) ?? {}
+        let params = parseInstructions(instructions) ?? ({} as CreateAssemblyParams)
 
         if (golden_template) {
           const template = resolveGoldenTemplate(golden_template.slug, golden_template.version)
@@ -513,7 +529,7 @@ export const createTransloaditMcpServer = (
           const overrides = golden_template.overrides
           const templateContent = {
             steps: template.steps,
-          }
+          } as TemplateContent
           params = mergeTemplateContent(
             templateContent,
             overrides && isRecord(overrides) ? (overrides as Record<string, unknown>) : undefined,
@@ -721,7 +737,7 @@ export const createTransloaditMcpServer = (
     () => {
       return buildToolResponse({
         status: 'ok',
-        templates: Object.values(goldenTemplates),
+        templates: Object.values(goldenTemplatesMap),
       })
     },
   )
