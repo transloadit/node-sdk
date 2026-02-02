@@ -72,13 +72,18 @@ export type InputFile =
 
 ## Limits
 
+These limits apply only to inline JSON/base64 payloads. Small files can be sent inline, but large
+files should be passed as `path` or `url`. The MCP server uploads those via tus (the default), so
+the request body stays small and no extra MCP/LLM token budget is consumed.
+
 - Hosted default request body limit: **1 MB** (JSON).
 - Hosted default `maxBase64Bytes`: **512_000** (decoded bytes).
 - Self-hosted default request body limit: **10 MB** (configurable).
 
 ## URL inputs
 
-- By default URL files are **downloaded and uploaded via tus** (no instruction mutation).
+- By default URL files are **downloaded and uploaded via tus**. This keeps instructions unchanged
+  and avoids large inline payloads (the transfer happens out-of-band).
 - If instructions already contain an `/http/import` step, the MCP server sets/overrides its `url`.
   - If multiple URLs and a single `/http/import` step exists, it supplies a `url` array.
 
