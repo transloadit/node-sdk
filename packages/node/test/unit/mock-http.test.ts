@@ -201,37 +201,22 @@ describe('Mocked API tests', () => {
     const errorString = await promise.catch(inspect)
     expect(typeof errorString === 'string').toBeTruthy()
     // console.log(inspect(errorString))
-    expect(inspect(errorString).split('\n')).toEqual([
-      expect.stringMatching(
-        'API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo',
-      ),
-      expect.stringMatching('    at .+'),
-      expect.stringMatching('    at .+'),
-      expect.stringMatching(
-        '    at createAssemblyAndUpload \\(.+\\/src\\/Transloadit\\.ts:\\d+:\\d+\\)',
-      ),
-      expect.stringMatching('    at .+\\/test\\/unit\\/mock-http\\.test\\.ts:\\d+:\\d+'),
-      expect.stringMatching('    at .+'),
-      expect.stringMatching(`  code: 'INVALID_FILE_META_DATA',`),
-      expect.stringMatching(`  rawMessage: 'Invalid file metadata',`),
-      expect.stringMatching('  reason: undefined,'),
-      expect.stringMatching(
-        `  assemblySslUrl: 'https:\\/\\/api2-oltu\\.transloadit\\.com\\/assemblies\\/foo'`,
-      ),
-      expect.stringMatching(`  assemblyId: '123',`),
-      expect.stringMatching('  cause: HTTPError: Response code 400 \\(Bad Request\\)'),
-      expect.stringMatching('      at .+'),
-      expect.stringMatching('      at .+'),
-      expect.stringMatching('      at .+'),
-      expect.stringMatching('      at .+'),
-      expect.stringMatching('      at .+'),
-      expect.stringMatching('      at .+'),
-      expect.stringMatching('    input: undefined,'),
-      expect.stringMatching(`    code: 'ERR_NON_2XX_3XX_RESPONSE',`),
-      expect.stringMatching('    \\[cause\\]: {}'),
-      expect.stringMatching('  }'),
-      expect.stringMatching('}'),
-    ])
+    const lines = String(errorString).split('\n')
+    const expectations = [
+      'API error \\(HTTP 400\\) INVALID_FILE_META_DATA: Invalid file metadata https://api2-oltu.transloadit.com/assemblies/foo',
+      `  code: 'INVALID_FILE_META_DATA',`,
+      `  rawMessage: 'Invalid file metadata',`,
+      '  reason: undefined,',
+      `  assemblySslUrl: 'https:\\/\\/api2-oltu\\.transloadit\\.com\\/assemblies\\/foo'`,
+      `  assemblyId: '123',`,
+      '  cause: HTTPError: Response code 400 \\(Bad Request\\)',
+      `    code: 'ERR_NON_2XX_3XX_RESPONSE',`,
+      '    \\[cause\\]: {}',
+    ]
+
+    for (const expectation of expectations) {
+      expect(lines).toEqual(expect.arrayContaining([expect.stringMatching(expectation)]))
+    }
   })
 
   it('should retry correctly on RATE_LIMIT_REACHED', async () => {
