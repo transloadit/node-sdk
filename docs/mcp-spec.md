@@ -37,7 +37,7 @@ Build a delightful, agent-native interface to Transloadit Assemblies. The MCP se
 The MCP server should delegate as much work as possible to existing packages:
 
 - `@transloadit/node` for API calls, tus uploads, polling, and future resume support.
-- `@transloadit/zod/v3` for schemas and robot metadata.
+- `@transloadit/zod/v3` for schemas and robot metadata (single source of truth).
 - Shared alphalib for golden templates.
 
 This means we should add missing functionality to `@transloadit/node` first (see todo list).
@@ -72,6 +72,10 @@ preferred path is to accept MCP tokens directly as `Authorization: Bearer`.
 - stdio and localhost HTTP: no MCP auth required by default.
 - non-localhost HTTP: must be configured with a static bearer token, otherwise refuse to start.
 - Transloadit API calls use `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET`.
+- **Signature auth note:** if the account enforces mandatory signature auth, bearer tokens do **not**
+  bypass it. The MCP server must be able to sign requests, so provide `TRANSLOADIT_KEY` +
+  `TRANSLOADIT_SECRET` alongside bearer tokens or expect API2 to reject requests with
+  `NO_SIGNATURE_FIELD` / `NO_AUTH_EXPIRES_PARAMETER`.
 
 ## 5. CORS and network safety
 
@@ -171,6 +175,7 @@ Create or resume an Assembly, optionally uploading files.
   wait_timeout_ms?: number
   upload_concurrency?: number
   upload_chunk_size?: number
+  upload_behavior?: 'await' | 'background' | 'none'
   assembly_url?: string
 }
 ```
@@ -182,9 +187,17 @@ Create or resume an Assembly, optionally uploading files.
 - Resume is driven by Assembly status (`tus_uploads` + `uploads`) and the provided files.
 - This requires stable, **unique** `field` names and file metadata (`filename` + `size`) to match
   local files to remote uploads.
-- URL files are imported via `/http/import` steps injected into the instructions (derived from
-  `field` names if those steps are not already present).
+- URL files are **downloaded and uploaded via tus** by default (no instruction mutation).
+- If instructions (including template + overrides) already contain an `/http/import` step, the
+  server sets/overrides its `url` instead of downloading:
+  - It first looks for a step named after the file `field`.
+  - If none match and there is exactly one `/http/import` step, it uses that and supplies a
+    `url` array when multiple URL inputs are provided.
 - `wait_for_completion` is opt-in. Default is non-blocking.
+- `upload_behavior` controls how uploads run:
+  - `await`: block until uploads finish (default when `wait_for_completion=true`)
+  - `background`: start uploads and return once upload URLs exist (default)
+  - `none`: create upload URLs only; no bytes uploaded
 
 **Resume mapping rules**
 
@@ -407,7 +420,22 @@ Defaults:
 
 - Host: `127.0.0.1`
 - Port: `5723`
-- Warn and require explicit `--host` when binding to non-localhost.
+- Bind to localhost by default (no MCP auth required).
+- When binding to a non-localhost host, require `TRANSLOADIT_MCP_TOKEN`.
+
+Example `mcp.json`:
+
+```json
+{
+  "authKey": "your_key",
+  "authSecret": "your_secret",
+  "mcpToken": "local-dev-token",
+  "path": "/mcp",
+  "allowedOrigins": ["https://example.com"],
+  "allowedHosts": ["127.0.0.1:5723"],
+  "enableDnsRebindingProtection": true
+}
+```
 
 ## 11. Implementation notes
 
@@ -416,14 +444,14 @@ Defaults:
 - Prefer named exports everywhere.
 - Keep tool responses short; avoid dumping massive schemas into MCP responses.
 
-## 12. Error codes (standardized)
+## 12. Error codes (current)
 
-- `BAD_REQUEST`
-- `AUTH_REQUIRED`
-- `AUTH_INVALID`
-- `TRANSLOADIT_ERROR`
-- `VALIDATION_ERROR`
-- `BASE64_TOO_LARGE`
-- `INTERNAL_ERROR`
+These are the `code` values currently used inside `errors`/`warnings` arrays:
 
-These are the `code` values used inside `errors`/`warnings` arrays.
+- `mcp_invalid_args`
+- `mcp_missing_args`
+- `mcp_missing_auth`
+- `mcp_duplicate_field`
+- `mcp_base64_too_large`
+- `mcp_unknown_template`
+- `mcp_signature_auth_required`

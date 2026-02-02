@@ -52,7 +52,7 @@ import type {
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
-import type { Stream } from './tus.ts'
+import type { Stream, UploadBehavior } from './tus.ts'
 import { sendTusRequest } from './tus.ts'
 
 // See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
@@ -66,11 +66,30 @@ export {
   TimeoutError,
   UploadError,
 } from 'got'
-
+export { goldenTemplates } from './alphalib/goldenTemplates.ts'
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }
+export { mergeTemplateContent } from './alphalib/templateMerge.ts'
+export type {
+  Base64Strategy,
+  InputFile,
+  PrepareInputFilesOptions,
+  PrepareInputFilesResult,
+  UploadInput,
+  UrlStrategy,
+} from './inputFiles.ts'
+export { prepareInputFiles } from './inputFiles.ts'
 export type { LintAssemblyInstructionsResult, LintFatalLevel } from './lintAssemblyInstructions.ts'
+export type {
+  RobotHelp,
+  RobotHelpOptions,
+  RobotListItem,
+  RobotListOptions,
+  RobotListResult,
+  RobotParamHelp,
+} from './robots.ts'
+export { getRobotHelp, listRobots } from './robots.ts'
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
@@ -78,6 +97,12 @@ const logWarn = debug('transloadit:warn')
 export interface UploadProgress {
   uploadedBytes?: number | undefined
   totalBytes?: number | undefined
+}
+
+export type { UploadBehavior }
+
+export type AssemblyStatusWithUploadUrls = AssemblyStatus & {
+  upload_urls?: Record<string, string>
 }
 
 const { version } = packageJson
@@ -157,6 +182,7 @@ interface AssemblyUploadOptions {
   uploads?: {
     [name: string]: Readable | IntoStreamInput
   }
+  uploadBehavior?: UploadBehavior
   waitForCompletion?: boolean
   chunkSize?: number
   uploadConcurrency?: number
@@ -237,7 +263,7 @@ export interface SmartCDNUrlOptions {
 export type Fields = Record<string, string | number>
 
 // A special promise that lets the user immediately get the assembly ID (synchronously before the request is sent)
-interface CreateAssemblyPromise extends Promise<AssemblyStatus> {
+interface CreateAssemblyPromise extends Promise<AssemblyStatusWithUploadUrls> {
   assemblyId: string
 }
 
@@ -273,9 +299,19 @@ function checkResult<T>(result: T | { error: string }): asserts result is T {
   }
 }
 
-export interface Options {
+type AuthKeySecret = {
   authKey: string
   authSecret: string
+  authToken?: undefined
+}
+
+type AuthToken = {
+  authToken: string
+  authKey?: string
+  authSecret?: string
+}
+
+type BaseOptions = {
   endpoint?: string
   maxRetries?: number
   timeout?: number
@@ -283,10 +319,14 @@ export interface Options {
   validateResponses?: boolean
 }
 
+export type Options = BaseOptions & (AuthKeySecret | AuthToken)
+
 export class Transloadit {
   private _authKey: string
 
   private _authSecret: string
+
+  private _authToken: string | null
 
   private _endpoint: string
 
@@ -301,20 +341,26 @@ export class Transloadit {
   private _validateResponses = false
 
   constructor(opts: Options) {
-    if (opts?.authKey == null) {
-      throw new Error('Please provide an authKey')
-    }
-
-    if (opts.authSecret == null) {
-      throw new Error('Please provide an authSecret')
-    }
+    const rawToken = typeof opts?.authToken === 'string' ? opts.authToken.trim() : ''
+    const hasToken = rawToken.length > 0
 
     if (opts.endpoint?.endsWith('/')) {
       throw new Error('Trailing slash in endpoint is not allowed')
     }
 
-    this._authKey = opts.authKey
-    this._authSecret = opts.authSecret
+    if (!hasToken) {
+      if (opts?.authKey == null) {
+        throw new Error('Please provide an authKey')
+      }
+
+      if (opts.authSecret == null) {
+        throw new Error('Please provide an authSecret')
+      }
+    }
+
+    this._authKey = opts.authKey ?? ''
+    this._authSecret = opts.authSecret ?? ''
+    this._authToken = hasToken ? rawToken : null
     this._endpoint = opts.endpoint || 'https://api2.transloadit.com'
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
@@ -351,6 +397,7 @@ export class Transloadit {
       uploads = {},
       assemblyId,
       signal,
+      uploadBehavior = 'await',
     } = opts
 
     // Keep track of how long the request took
@@ -406,7 +453,7 @@ export class Transloadit {
       const streamErrorPromise = createStreamErrorPromise(allStreamsMap)
 
       const createAssemblyAndUpload = async () => {
-        const result: AssemblyStatus = await this._remoteJson({
+        const result: AssemblyStatusWithUploadUrls = await this._remoteJson({
           urlSuffix,
           method: 'post',
           timeout: { request: timeout },
@@ -419,17 +466,22 @@ export class Transloadit {
         checkResult(result)
 
         if (Object.keys(allStreamsMap).length > 0) {
-          await sendTusRequest({
+          const { uploadUrls } = await sendTusRequest({
             streamsMap: allStreamsMap,
             assembly: result,
             onProgress: onUploadProgress,
             requestedChunkSize,
             uploadConcurrency,
             signal,
+            uploadBehavior,
           })
+          if (uploadBehavior !== 'await' && Object.keys(uploadUrls).length > 0) {
+            result.upload_urls = uploadUrls
+          }
         }
 
-        if (!waitForCompletion) return result
+        const shouldWaitForCompletion = waitForCompletion && uploadBehavior === 'await'
+        if (!shouldWaitForCompletion) return result
 
         if (result.assembly_id == null) {
           throw new InconsistentResponseError(
@@ -478,7 +530,9 @@ export class Transloadit {
     })
   }
 
-  async resumeAssemblyUploads(opts: ResumeAssemblyUploadsOptions): Promise<AssemblyStatus> {
+  async resumeAssemblyUploads(
+    opts: ResumeAssemblyUploadsOptions,
+  ): Promise<AssemblyStatusWithUploadUrls> {
     const {
       assemblyUrl,
       files = {},
@@ -490,12 +544,16 @@ export class Transloadit {
       onUploadProgress = () => {},
       onAssemblyProgress = () => {},
       signal,
+      uploadBehavior = 'await',
     } = opts
 
     const startTimeMs = getHrTimeMs()
 
     getAssemblyIdFromUrl(assemblyUrl)
-    const assembly = await this._fetchAssemblyStatus({ url: assemblyUrl, signal })
+    const assembly: AssemblyStatusWithUploadUrls = await this._fetchAssemblyStatus({
+      url: assemblyUrl,
+      signal,
+    })
     const statusUrl = assembly.assembly_ssl_url ?? assembly.assembly_url ?? assemblyUrl
 
     const finishedKeys = new Set<string>()
@@ -571,13 +629,25 @@ export class Transloadit {
         onProgress: onUploadProgress,
         signal,
         uploadUrls: uploadUrlsByLabel,
+        uploadBehavior,
       })
 
       await Promise.race([uploadPromise, streamErrorPromise])
+      const { uploadUrls } = await uploadPromise
+      if (uploadBehavior !== 'await' && Object.keys(uploadUrls).length > 0) {
+        assembly.upload_urls = uploadUrls
+      }
     }
 
-    const latestAssembly = await this._fetchAssemblyStatus({ url: statusUrl, signal })
-    if (!waitForCompletion) return latestAssembly
+    const latestAssembly: AssemblyStatusWithUploadUrls = await this._fetchAssemblyStatus({
+      url: statusUrl,
+      signal,
+    })
+    if (uploadBehavior !== 'await' && assembly.upload_urls) {
+      latestAssembly.upload_urls = assembly.upload_urls
+    }
+    const shouldWaitForCompletion = waitForCompletion && uploadBehavior === 'await'
+    if (!shouldWaitForCompletion) return latestAssembly
 
     if (latestAssembly.assembly_id == null) {
       throw new InconsistentResponseError(
@@ -701,6 +771,7 @@ export class Transloadit {
     const { assembly_ssl_url: url } = await this.getAssembly(assemblyId)
     const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
       url,
+      isTrustedUrl: true,
       method: 'delete',
     })
 
@@ -829,6 +900,7 @@ export class Transloadit {
     const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
       url,
       urlSuffix: url ? undefined : `/assemblies/${assemblyId}`,
+      isTrustedUrl: Boolean(url),
       signal,
     })
 
@@ -1021,6 +1093,9 @@ export class Transloadit {
     params: OptionalAuthParams,
     algorithm?: string,
   ): { signature: string; params: string } {
+    if (!this._authKey || !this._authSecret) {
+      throw new Error('Cannot sign params without authKey and authSecret.')
+    }
     const jsonParams = this._prepareParams(params)
     const signature = this._calcSignature(jsonParams, algorithm)
 
@@ -1031,6 +1106,9 @@ export class Transloadit {
    * Construct a signed Smart CDN URL. See https://transloadit.com/docs/topics/signature-authentication/#smart-cdn.
    */
   getSignedSmartCDNUrl(opts: SmartCDNUrlOptions): string {
+    if (!this._authKey || !this._authSecret) {
+      throw new Error('authKey and authSecret are required to sign Smart CDN URLs.')
+    }
     return getSignedSmartCdnUrl({
       ...opts,
       authKey: this._authKey,
@@ -1039,15 +1117,24 @@ export class Transloadit {
   }
 
   private _calcSignature(toSign: string, algorithm = 'sha384'): string {
+    if (!this._authSecret) {
+      throw new Error('Cannot sign params without authSecret.')
+    }
     return signParamsSync(toSign, this._authSecret, algorithm)
   }
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including
   // the streams, the signed params, and any additional fields.
   private _appendForm(form: FormData, params: OptionalAuthParams, fields?: Fields): void {
-    const sigData = this.calcSignature(params)
-    const jsonParams = sigData.params
-    const { signature } = sigData
+    const shouldSign = Boolean(this._authKey && this._authSecret)
+    let jsonParams = JSON.stringify(params ?? {})
+    let signature: string | undefined
+
+    if (shouldSign) {
+      const sigData = this.calcSignature(params)
+      jsonParams = sigData.params
+      signature = sigData.signature
+    }
 
     form.append('params', jsonParams)
 
@@ -1057,15 +1144,23 @@ export class Transloadit {
       }
     }
 
-    form.append('signature', signature)
+    if (signature) {
+      form.append('signature', signature)
+    }
   }
 
   // Implements HTTP GET query params, handling the case where the url already
   // has params.
   private _appendParamsToUrl(url: string, params: OptionalAuthParams): string {
-    const { signature, params: jsonParams } = this.calcSignature(params)
-
     const prefix = url.indexOf('?') === -1 ? '?' : '&'
+
+    const shouldSign = Boolean(this._authKey && this._authSecret)
+    if (!shouldSign) {
+      const jsonParams = JSON.stringify(params ?? {})
+      return `${url}${prefix}params=${encodeURIComponent(jsonParams)}`
+    }
+
+    const { signature, params: jsonParams } = this.calcSignature(params)
 
     return `${url}${prefix}signature=${signature}&params=${encodeURIComponent(jsonParams)}`
   }
@@ -1102,6 +1197,7 @@ export class Transloadit {
   private async _remoteJson<TRet, TParams extends OptionalAuthParams>(opts: {
     urlSuffix?: string
     url?: string
+    isTrustedUrl?: boolean
     timeout?: Delays
     method?: 'delete' | 'get' | 'post' | 'put'
     params?: TParams
@@ -1112,6 +1208,7 @@ export class Transloadit {
     const {
       urlSuffix,
       url: urlInput,
+      isTrustedUrl = false,
       timeout = { request: this._defaultTimeout },
       method = 'get',
       params = {},
@@ -1123,6 +1220,13 @@ export class Transloadit {
     // Allow providing either a `urlSuffix` or a full `url`
     if (!urlSuffix && !urlInput) throw new Error('No URL provided')
     let url = urlInput || `${this._endpoint}${urlSuffix}`
+    if (urlInput && !isTrustedUrl) {
+      const allowed = new URL(this._endpoint)
+      const candidate = new URL(urlInput)
+      if (allowed.origin !== candidate.origin) {
+        throw new Error(`Untrusted URL: ${candidate.origin}`)
+      }
+    }
 
     if (method === 'get') {
       url = this._appendParamsToUrl(url, params)
@@ -1147,6 +1251,7 @@ export class Transloadit {
         headers: {
           'Transloadit-Client': `node-sdk:${version}`,
           'User-Agent': undefined, // Remove got's user-agent
+          ...(this._authToken ? { Authorization: `Bearer ${this._authToken}` } : {}),
           ...headers,
         },
         responseType: 'json',

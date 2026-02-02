@@ -11,17 +11,50 @@
 
 # Transloadit JavaScript/TypeScript SDKs
 
-Monorepo for Transloadit SDKs and shared packages.
+Monorepo for Transloadit SDKs, shared packages, and the MCP server.
 
-For SDK usage docs, see `packages/node/README.md`.
+For full SDK usage docs, see `packages/node/README.md`.
 
 ## Packages
 
-- `@transloadit/node` — Node.js SDK + CLI (experimental). See `packages/node/README.md`.
+- `@transloadit/node` — Node.js SDK + CLI. See `packages/node/README.md`.
 - `transloadit` — Stable unscoped package (built from `@transloadit/node`).
+- `@transloadit/mcp-server` — MCP server (Streamable HTTP + stdio).
 - `@transloadit/types` — Shared TypeScript types.
 - `@transloadit/utils` — Shared utilities.
 - `@transloadit/zod` — Zod schemas for Transloadit APIs.
+
+## Quick start
+
+### Node SDK
+
+```ts
+import { Transloadit } from '@transloadit/node'
+
+const client = new Transloadit({
+  authKey: process.env.TRANSLOADIT_KEY as string,
+  authSecret: process.env.TRANSLOADIT_SECRET as string,
+})
+
+const result = await client.createAssembly({
+  params: {
+    steps: {
+      ':original': { robot: '/upload/handle' },
+    },
+  },
+  files: { file: '/path/to/file.jpg' },
+  waitForCompletion: true,
+})
+```
+
+### MCP server (local)
+
+```bash
+corepack yarn workspace @transloadit/mcp-server build
+node packages/mcp-server/dist/cli.js http --host 127.0.0.1 --port 5723
+```
+
+See `docs/mcp-spec.md` for the MCP design and `docs/mcp-todo.md` for the remaining work.
 
 ## Development
 
@@ -35,4 +68,3 @@ See `CONTRIBUTING.md` for full guidelines.
 
 - Docs live under `docs/`.
 - The `transloadit` package is prepared via `scripts/prepare-transloadit.ts`.
-

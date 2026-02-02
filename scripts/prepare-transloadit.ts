@@ -44,6 +44,16 @@ const writeLegacyPackageJson = async (): Promise<void> => {
   if ('publishConfig' in legacyPackageJson) {
     delete legacyPackageJson.publishConfig
   }
+  // Normalize bin shape the same way npm does to avoid churn.
+  const legacyBin = legacyPackageJson.bin
+  if (
+    legacyBin &&
+    typeof legacyBin === 'object' &&
+    'transloadit' in legacyBin &&
+    Object.keys(legacyBin).length === 1
+  ) {
+    legacyPackageJson.bin = legacyBin.transloadit as string
+  }
 
   const formatted = formatPackageJson(legacyPackageJson)
   await writeFile(resolve(legacyPackage, 'package.json'), formatted)
