@@ -3,7 +3,7 @@
   "tarball": {
     "filename": "transloadit-4.3.0.tgz",
     "sizeBytes": 1229255,
-    "sha256": "0b1adb20b160254719eedb2dbcd6f28c7561b2258840643f20867fa664090531"
+    "sha256": "74e3fc20bfe6e9f4d483ef7b753d4739bb75c28523124e12176562cf222d997d"
   },
   "packageJson": {
     "name": "transloadit",
@@ -13,7 +13,10 @@
       ".": "./dist/Transloadit.js",
       "./package.json": "./package.json"
     },
-    "files": ["dist", "src"]
+    "files": [
+      "dist",
+      "src"
+    ]
   },
   "files": [
     {
@@ -678,8 +681,8 @@
     },
     {
       "path": "package.json",
-      "sizeBytes": 2392,
-      "sha256": "da426af5fcb55e65975b94d1e31b01b3e046ee561db0742e0e2a621d6a837b8b"
+      "sizeBytes": 2391,
+      "sha256": "2b4873c0c78ff09cd5c0787991b51e25fa947db35c3b9c0c36e6dd9a5c2003bd"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
