@@ -1,13 +1,13 @@
 {
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.3.0.tgz",
-    "sizeBytes": 1229255,
-    "sha256": "74e3fc20bfe6e9f4d483ef7b753d4739bb75c28523124e12176562cf222d997d"
+    "filename": "transloadit-4.3.1.tgz",
+    "sizeBytes": 1232790,
+    "sha256": "089e952a8e6665659675b0647fed80d99d3f4252a0f0845863a9ed218ee9d166"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.3.0",
+    "version": "4.3.1",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -388,8 +388,8 @@
     },
     {
       "path": "dist/cli/commands/index.js",
-      "sizeBytes": 1794,
-      "sha256": "cea0e51dbb809beef425325c681fc3ce087a082f02ff66b6474001a11b2fbd37"
+      "sizeBytes": 1896,
+      "sha256": "64bc6458f6f1cd1db339646519dcbab942ccabe965b44d50b1e74dac9ded060a"
     },
     {
       "path": "dist/inputFiles.js",
@@ -583,8 +583,8 @@
     },
     {
       "path": "dist/Transloadit.js",
-      "sizeBytes": 36726,
-      "sha256": "1b3ded5575fb9e02032831df6f5ca10b6c33b0181b59cf44a195248f78bd68ef"
+      "sizeBytes": 36883,
+      "sha256": "ef4717bcc8930b750f5d8466097eec96b5f636eeeffe314cb5bde141562ae4d5"
     },
     {
       "path": "dist/alphalib/tryCatch.js",
@@ -610,6 +610,11 @@
       "path": "dist/alphalib/types/robots/upload-handle.js",
       "sizeBytes": 2710,
       "sha256": "0da0cf7c28a54af82ac125af0129f885b111b9e48cd64c477865d5438e29974d"
+    },
+    {
+      "path": "dist/cli/commands/upload.js",
+      "sizeBytes": 3831,
+      "sha256": "c9267bff59d4b62ed455773ff56ee915a8c196b46c095ef4e9f2ee9542077a9a"
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.js",
@@ -679,7 +684,7 @@
     {
       "path": "package.json",
       "sizeBytes": 2391,
-      "sha256": "2b4873c0c78ff09cd5c0787991b51e25fa947db35c3b9c0c36e6dd9a5c2003bd"
+      "sha256": "156ee2b53de31d01d43e3a9d5e8299c6e512d63d6ef63ced6428a0685b51effe"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
@@ -1414,12 +1419,12 @@
     {
       "path": "dist/cli/commands/index.d.ts.map",
       "sizeBytes": 198,
-      "sha256": "391845fbe56809711ea35e1667befbf872dd9072875c6983b0990b247d5496cc"
+      "sha256": "d9bef1f3fe0f9ff442cdd7e4929e0ec89c711911bc732d337bc557c880a5a6cd"
     },
     {
       "path": "dist/cli/commands/index.js.map",
-      "sizeBytes": 1640,
-      "sha256": "52cc8c7351fa5905ce7541db198cef4fc55f504a868ca673e843ee8dcb988d16"
+      "sizeBytes": 1735,
+      "sha256": "d57ecf1ffc0409c294f83829b8deef9e7e369987439d0f6d089db41ddcf8e901"
     },
     {
       "path": "dist/inputFiles.d.ts.map",
@@ -1803,13 +1808,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts.map",
-      "sizeBytes": 6364,
-      "sha256": "d04fe4e23e6f9c46f828838b60d0e3999a0d3f33f7e7ff0e193d280e5d6e8da5"
+      "sizeBytes": 6406,
+      "sha256": "51f9faaa4e12826a77c2ab0818cbb850a044e6d27d686c02578b8ff14c414313"
     },
     {
       "path": "dist/Transloadit.js.map",
-      "sizeBytes": 26804,
-      "sha256": "42b0aada7680ba8686ce130b06b70fff5a0c75f2f81aa28f834eaea49fd58a4a"
+      "sizeBytes": 26946,
+      "sha256": "33b7676224bfd7d0b2a6c6e448cce67d0929eda5fefc05beb70f57550e6a93d5"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts.map",
@@ -1860,6 +1865,16 @@
       "path": "dist/alphalib/types/robots/upload-handle.js.map",
       "sizeBytes": 1547,
       "sha256": "5565507cacaccfbae0ed8af22fa55d0f2e1764db6d5b512ca275d2dc0baa52c7"
+    },
+    {
+      "path": "dist/cli/commands/upload.d.ts.map",
+      "sizeBytes": 768,
+      "sha256": "787cbbb01c715dc37945cf86faa3429f220a6bdf4fdbd9b7a0d37b9413eb1406"
+    },
+    {
+      "path": "dist/cli/commands/upload.js.map",
+      "sizeBytes": 2896,
+      "sha256": "ddf7dac4f6d709cd551705e61fb68626d2c54752ca8289dea58831ca0da615c7"
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.d.ts.map",
@@ -2733,8 +2748,8 @@
     },
     {
       "path": "src/cli/commands/index.ts",
-      "sizeBytes": 1711,
-      "sha256": "a4646e7d078b97e32d7a3c0c0f61aeb32898d1b25bda89ba20703a23b302f6f2"
+      "sizeBytes": 1808,
+      "sha256": "f0ab91c3da3ee8de42cc005ef25d4f6972746606082b4030e596d4c946f4963e"
     },
     {
       "path": "dist/inputFiles.d.ts",
@@ -3123,13 +3138,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts",
-      "sizeBytes": 11723,
-      "sha256": "dee5f012aaf6faef6ca2154f3566c97aeaaf95ff07433e2573628e215dbbf9d3"
+      "sizeBytes": 11847,
+      "sha256": "5a280d61733d751cb2c9137fb19557dab9e4b2cc8e48c89bfad7474ce0bc0e06"
     },
     {
       "path": "src/Transloadit.ts",
-      "sizeBytes": 41153,
-      "sha256": "198560ba943a5c33862e8b735b66a2bb7483d76d29e43efdc7354283217202f1"
+      "sizeBytes": 41433,
+      "sha256": "02d6ca96421b0ec39e31c4fb40a06537f2a61ba87787f9e904907f6463f854ea"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts",
@@ -3180,6 +3195,16 @@
       "path": "src/alphalib/types/robots/upload-handle.ts",
       "sizeBytes": 3439,
       "sha256": "4bf3de4456a3aa53d370f4568a0ab1c5423ac8f251d83c62b593fe7d8f814a9d"
+    },
+    {
+      "path": "dist/cli/commands/upload.d.ts",
+      "sizeBytes": 869,
+      "sha256": "6078873d1b89afa675ea4aa6bd6b87b7ae14147d7b1982b8d89f2d5ef55376aa"
+    },
+    {
+      "path": "src/cli/commands/upload.ts",
+      "sizeBytes": 3927,
+      "sha256": "19ba88a9bccab46628a9c1c0e909ab7cf5a2605b5a08c85ec320d2ff46a4da9f"
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.d.ts",
