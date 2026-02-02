@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import type { SevLogger } from '@transloadit/sev-logger'
 import { applyCorsHeaders, isAuthorized, normalizePath, parsePathname } from './http-helpers.ts'
+import { buildRedactor, getLogger } from './logger.ts'
 
 type PathPolicy = {
   expectedPath: string
@@ -11,6 +13,8 @@ type RequestHandlerOptions = {
   allowedOrigins?: string[]
   mcpToken?: string
   path: PathPolicy
+  logger?: SevLogger
+  redactSecrets?: Array<string | undefined>
 }
 
 export const createMcpRequestHandler = (
@@ -19,6 +23,8 @@ export const createMcpRequestHandler = (
 ) => {
   const expectedPath = normalizePath(options.path.expectedPath)
   const allowRoot = options.path.allowRoot ?? false
+  const logger = options.logger ?? getLogger().nest('http')
+  const redact = buildRedactor(options.redactSecrets ?? [])
 
   return async (req: IncomingMessage, res: ServerResponse) => {
     const pathname = normalizePath(parsePathname(req.url, expectedPath))
@@ -48,7 +54,8 @@ export const createMcpRequestHandler = (
     try {
       const parsedBody = (req as { body?: unknown }).body
       await transport.handleRequest(req, res, parsedBody)
-    } catch {
+    } catch (error) {
+      logger.err('Request failed: %s', redact({ url: req.url, method: req.method, error }))
       res.statusCode = 500
       res.end('Internal Server Error')
     }

@@ -28,6 +28,8 @@ export const createTransloaditMcpExpressRouter = async (
     allowedOrigins: options.allowedOrigins,
     mcpToken: options.mcpToken,
     path: { expectedPath: routePath, allowRoot: true },
+    logger: options.logger,
+    redactSecrets: [options.mcpToken, options.authKey, options.authSecret],
   })
 
   router.all(routePath, (req, res) => {

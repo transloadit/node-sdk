@@ -2512,6 +2512,7 @@ __metadata:
   dependencies:
     "@modelcontextprotocol/sdk": "npm:^1.25.3"
     "@transloadit/node": "npm:^4.3.0"
+    "@transloadit/sev-logger": "npm:^0.0.15"
     "@types/express": "npm:^4.17.23"
     "@types/node": "npm:^24.10.3"
     express: "npm:^4.21.2"

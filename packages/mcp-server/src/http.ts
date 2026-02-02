@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import type { SevLogger } from '@transloadit/sev-logger'
 import { createMcpRequestHandler } from './http-request-handler.ts'
 import type { TransloaditMcpServerOptions } from './server.ts'
 import { createTransloaditMcpServer } from './server.ts'
@@ -12,6 +13,7 @@ export type TransloaditMcpHttpOptions = TransloaditMcpServerOptions & {
   mcpToken?: string
   path?: string
   sessionIdGenerator?: (() => string) | undefined
+  logger?: SevLogger
 }
 
 export type TransloaditMcpHttpHandler = ((
@@ -40,6 +42,8 @@ export const createTransloaditMcpHttpHandler = async (
     allowedOrigins: options.allowedOrigins,
     mcpToken: options.mcpToken,
     path: { expectedPath: options.path ?? defaultPath },
+    logger: options.logger,
+    redactSecrets: [options.mcpToken, options.authKey, options.authSecret],
   }) as TransloaditMcpHttpHandler
 
   handler.close = async () => {

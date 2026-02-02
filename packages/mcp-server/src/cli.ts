@@ -2,9 +2,10 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { createTransloaditMcpHttpHandler, createTransloaditMcpServer } from './index.ts'
+import { buildRedactor, getLogger } from './logger.ts'
 
 const printHelp = (): void => {
-  console.log(`transloadit-mcp
+  process.stdout.write(`transloadit-mcp
 
 Usage:
   transloadit-mcp stdio
@@ -74,6 +75,7 @@ const loadConfig = async (configPath?: string): Promise<Record<string, unknown>>
 }
 
 const main = async (): Promise<void> => {
+  const logger = getLogger().nest('cli')
   const args = process.argv.slice(2)
   const { command, config } = parseArgs(args)
 
@@ -107,6 +109,7 @@ const main = async (): Promise<void> => {
       allowedHosts: fileConfig.allowedHosts as string[] | undefined,
       enableDnsRebindingProtection: fileConfig.enableDnsRebindingProtection as boolean | undefined,
       path,
+      logger,
     })
 
     const server = createServer(handler)
@@ -115,7 +118,7 @@ const main = async (): Promise<void> => {
       server.listen(port, host, resolve)
     })
 
-    console.log(`Transloadit MCP server listening on http://${host}:${port}${path}`)
+    logger.notice(`Transloadit MCP server listening on http://${host}:${port}${path}`)
 
     const shutdown = async () => {
       await handler.close()
@@ -136,6 +139,12 @@ const main = async (): Promise<void> => {
 }
 
 main().catch((err) => {
-  console.error(err)
+  const logger = getLogger().nest('cli')
+  const redact = buildRedactor([
+    process.env.TRANSLOADIT_KEY,
+    process.env.TRANSLOADIT_SECRET,
+    process.env.TRANSLOADIT_MCP_TOKEN,
+  ])
+  logger.err('MCP server failed: %s', redact(err))
   process.exit(1)
 })

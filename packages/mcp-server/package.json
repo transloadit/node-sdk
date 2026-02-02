@@ -39,6 +39,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.3",
     "@transloadit/node": "^4.3.0",
+    "@transloadit/sev-logger": "^0.0.15",
     "express": "^4.21.2",
     "zod": "^4.0.0"
   },
