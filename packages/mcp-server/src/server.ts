@@ -1,17 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js'
-import type {
-  CreateAssemblyParams,
-  LintAssemblyInstructionsResult,
-  TemplateContent,
-} from '@transloadit/node'
-import {
-  getRobotHelp,
-  listRobots,
-  mergeTemplateContent,
-  prepareInputFiles,
-  Transloadit,
-} from '@transloadit/node'
+import type { CreateAssemblyParams, LintAssemblyInstructionsResult } from '@transloadit/node'
+import { getRobotHelp, listRobots, prepareInputFiles, Transloadit } from '@transloadit/node'
 import { z } from 'zod'
 import packageJson from '../package.json' with { type: 'json' }
 import { extractBearerToken } from './http-helpers.ts'
@@ -444,19 +434,6 @@ const fetchBuiltinTemplates = async (client: Transloadit): Promise<BuiltinTempla
     .filter((template): template is BuiltinTemplate => Boolean(template))
 }
 
-const fetchBuiltinTemplateContent = async (
-  client: Transloadit,
-  slug: string,
-  version?: string,
-): Promise<TemplateContent | undefined> => {
-  const templateId = buildBuiltinTemplateId(slug, version)
-  const template = (await client.getTemplate(templateId)) as {
-    content?: unknown
-  }
-  if (!template?.content || !isRecord(template.content)) return undefined
-  return template.content as TemplateContent
-}
-
 const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => {
   if (input == null) return undefined
   if (typeof input === 'string') {
@@ -555,25 +532,10 @@ export const createTransloaditMcpServer = (
         let params = parseInstructions(instructions) ?? ({} as CreateAssemblyParams)
 
         if (builtin_template) {
-          const templateContent = await fetchBuiltinTemplateContent(
-            client,
-            builtin_template.slug,
-            builtin_template.version,
-          )
-
-          if (!templateContent) {
-            return buildToolError(
-              'mcp_unknown_template',
-              `Unknown builtin template: ${builtin_template.slug}`,
-              { path: 'builtin_template.slug' },
-            )
-          }
-
+          const templateId = buildBuiltinTemplateId(builtin_template.slug, builtin_template.version)
           const overrides = builtin_template.overrides
-          params = mergeTemplateContent(
-            templateContent,
-            overrides && isRecord(overrides) ? (overrides as Record<string, unknown>) : undefined,
-          ) as Record<string, unknown>
+          params = (overrides && isRecord(overrides) ? overrides : {}) as CreateAssemblyParams
+          params.template_id = templateId
         }
         const prep = await prepareInputFiles({
           inputFiles: fileInputs,
