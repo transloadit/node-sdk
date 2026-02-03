@@ -78,9 +78,9 @@ maybeDescribe('mcp-server template URL handling', { timeout: 60000 }, () => {
       name: `mcp-fields-${suffix}`,
       template: {
         steps: {
-          convert: {
-            robot: '/html/convert',
-            url: '${fields.prompt}',
+          generate: {
+            robot: '/image/generate',
+            prompt: '${fields.prompt}',
             result: true,
           },
         },
