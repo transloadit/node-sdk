@@ -32,7 +32,9 @@ claude mcp add --transport stdio transloadit \
   -- npx -y @transloadit/mcp-server stdio
 ```
 
-For non-interactive runs (e.g. `claude -p`), explicitly allow MCP tools:
+For non-interactive runs (e.g. `claude -p`), explicitly allow MCP tools. Claude MCP
+tools are named `mcp__<server>__<tool>`, so `mcp__transloadit__*` allows all tools
+from this server.
 
 ```bash
 claude -p "List templates" \
