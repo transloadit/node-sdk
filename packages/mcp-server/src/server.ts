@@ -141,13 +141,6 @@ const inputFileSchema = z.discriminatedUnion('kind', [
 
 const createAssemblyInputSchema = z.object({
   instructions: z.unknown().optional(),
-  builtin_template: z
-    .object({
-      slug: z.string(),
-      version: z.string().optional(),
-      overrides: z.record(z.string(), z.unknown()).optional(),
-    })
-    .optional(),
   files: z.array(inputFileSchema).optional(),
   fields: z.record(z.string(), z.unknown()).optional(),
   wait_for_completion: z.boolean().optional(),
@@ -484,12 +477,6 @@ const listTemplatesResponseSchema = z
 
 type ApiTemplateRecord = z.infer<typeof apiTemplateSchema>
 
-const buildBuiltinTemplateId = (slug: string, version?: string): string => {
-  if (slug.includes('@')) return slug
-  if (version) return `${slug}@${version}`
-  return slug
-}
-
 const extractTemplateSteps = (content: unknown): Record<string, unknown> | undefined => {
   if (!isRecord(content)) return undefined
   const steps = content.steps
@@ -618,7 +605,6 @@ export const createTransloaditMcpServer = (
     async (
       {
         instructions,
-        builtin_template,
         files,
         fields,
         wait_for_completion,
@@ -631,14 +617,6 @@ export const createTransloaditMcpServer = (
       },
       extra,
     ) => {
-      if (instructions && builtin_template) {
-        return buildToolError(
-          'mcp_invalid_args',
-          'Provide either instructions or builtin_template, not both.',
-          { path: 'instructions' },
-        )
-      }
-
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
       const { client } = liveClient
@@ -656,18 +634,6 @@ export const createTransloaditMcpServer = (
         let mergedInstructions: CreateAssemblyParams | undefined
         let mergedSteps: Record<string, unknown> | undefined
         let mergedFields: Record<string, unknown> | undefined
-
-        if (builtin_template) {
-          const templateId = buildBuiltinTemplateId(builtin_template.slug, builtin_template.version)
-          const overrides = builtin_template.overrides
-          const baseParams = (
-            overrides && isRecord(overrides) ? { ...overrides } : {}
-          ) as CreateAssemblyParams
-
-          templatePathHint = 'builtin_template.slug'
-          params = baseParams
-          params.template_id = templateId
-        }
 
         let analysis = analyzeSteps(isRecord(params.steps) ? params.steps : {})
 

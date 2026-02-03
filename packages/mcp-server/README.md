@@ -95,7 +95,7 @@ the request body stays small and no extra MCP/LLM token budget is consumed.
   and avoids large inline payloads (the transfer happens out-of-band).
 - If instructions already contain an `/http/import` step, the MCP server sets/overrides its `url`.
   - If multiple URLs and a single `/http/import` step exists, it supplies a `url` array.
-- When `template_id` (or `builtin_template`) is used, the MCP server fetches the template and
+- When `template_id` is used, the MCP server fetches the template and
   chooses the safest URL path:
   - If the merged template contains a `/http/import` step, it overrides that step’s `url`.
   - If the template expects uploads (`:original` / `/upload/handle`), it downloads and uploads via
