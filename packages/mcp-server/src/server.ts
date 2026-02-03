@@ -7,7 +7,6 @@ import type {
 } from '@transloadit/node'
 import {
   getRobotHelp,
-  goldenTemplates,
   listRobots,
   mergeTemplateContent,
   prepareInputFiles,
@@ -57,8 +56,6 @@ type GoldenTemplate = {
 }
 
 type LintAssemblyInstructionsInput = Parameters<Transloadit['lintAssemblyInstructions']>[0]
-
-const goldenTemplatesMap = goldenTemplates as Record<string, GoldenTemplate>
 
 const lintIssueSchema = z.object({
   path: z.string(),
@@ -341,6 +338,9 @@ const createLiveClient = (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0
+
 const isErrnoException = (value: unknown): value is NodeJS.ErrnoException =>
   isRecord(value) && typeof value.code === 'string'
 
@@ -383,19 +383,78 @@ const resolveAssemblyAccess = (
   }
 }
 
-const resolveGoldenTemplate = (slug: string, version?: string): GoldenTemplate | undefined => {
-  if (slug.includes('@')) {
-    return goldenTemplatesMap[slug]
+type ApiTemplateRecord = {
+  id?: unknown
+  name?: unknown
+  description?: unknown
+  golden_version?: unknown
+  content?: unknown
+}
+
+const buildGoldenTemplateId = (slug: string, version?: string): string => {
+  if (slug.includes('@')) return slug
+  if (version) return `${slug}@${version}`
+  return slug
+}
+
+const extractTemplateSteps = (content: unknown): Record<string, unknown> | undefined => {
+  if (!isRecord(content)) return undefined
+  const steps = content.steps
+  return isRecord(steps) ? (steps as Record<string, unknown>) : undefined
+}
+
+const mapGoldenTemplate = (template: ApiTemplateRecord): GoldenTemplate | undefined => {
+  const slug = isNonEmptyString(template.name)
+    ? template.name
+    : isNonEmptyString(template.id)
+      ? template.id
+      : undefined
+
+  if (!slug || !slug.startsWith('~')) return undefined
+
+  const steps = extractTemplateSteps(template.content)
+  if (!steps) return undefined
+
+  const version = isNonEmptyString(template.golden_version)
+    ? template.golden_version
+    : slug.includes('@')
+      ? (slug.split('@')[1] ?? '')
+      : ''
+
+  return {
+    slug,
+    version,
+    description: isNonEmptyString(template.description) ? template.description : '',
+    steps,
+  }
+}
+
+const fetchGoldenTemplates = async (client: Transloadit): Promise<GoldenTemplate[]> => {
+  const response = (await client.listTemplates({
+    include_golden: 'latest',
+    page: 1,
+    pagesize: 100,
+  })) as {
+    items?: ApiTemplateRecord[]
   }
 
-  if (version) {
-    return goldenTemplatesMap[`${slug}@${version}`]
-  }
+  const items = Array.isArray(response.items) ? response.items : []
+  return items
+    .map((template) => mapGoldenTemplate(template))
+    .filter((template): template is GoldenTemplate => Boolean(template))
+}
 
-  const matches = Object.keys(goldenTemplatesMap).filter((key) => key.startsWith(`${slug}@`))
-  if (matches.length === 0) return undefined
-  const latest = matches.sort().at(-1)
-  return latest ? goldenTemplatesMap[latest] : undefined
+const fetchGoldenTemplateContent = async (
+  client: Transloadit,
+  slug: string,
+  version?: string,
+): Promise<TemplateContent | undefined> => {
+  const templateId = buildGoldenTemplateId(slug, version)
+  const template = (await client.getTemplate(templateId)) as {
+    content?: unknown
+  }
+  if (!template?.content || !isRecord(template.content)) return undefined
+  return template.content as TemplateContent
 }
 
 const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => {
@@ -496,9 +555,13 @@ export const createTransloaditMcpServer = (
         let params = parseInstructions(instructions) ?? ({} as CreateAssemblyParams)
 
         if (golden_template) {
-          const template = resolveGoldenTemplate(golden_template.slug, golden_template.version)
+          const templateContent = await fetchGoldenTemplateContent(
+            client,
+            golden_template.slug,
+            golden_template.version,
+          )
 
-          if (!template) {
+          if (!templateContent) {
             return buildToolError(
               'mcp_unknown_template',
               `Unknown golden template: ${golden_template.slug}`,
@@ -507,9 +570,6 @@ export const createTransloaditMcpServer = (
           }
 
           const overrides = golden_template.overrides
-          const templateContent = {
-            steps: template.steps,
-          } as TemplateContent
           params = mergeTemplateContent(
             templateContent,
             overrides && isRecord(overrides) ? (overrides as Record<string, unknown>) : undefined,
@@ -722,11 +782,41 @@ export const createTransloaditMcpServer = (
       inputSchema: listGoldenTemplatesInputSchema,
       outputSchema: listGoldenTemplatesOutputSchema,
     },
-    () => {
-      return buildToolResponse({
-        status: 'ok',
-        templates: Object.values(goldenTemplatesMap),
-      })
+    async (_args, extra) => {
+      const liveClient = createLiveClient(options, extra)
+      if ('error' in liveClient) {
+        return buildToolResponse({
+          status: 'error',
+          templates: [],
+          errors: [
+            {
+              code: 'mcp_missing_auth',
+              message:
+                'Missing TRANSLOADIT_KEY/TRANSLOADIT_SECRET or Authorization: Bearer token for live API calls.',
+            },
+          ],
+        })
+      }
+
+      try {
+        const templates = await fetchGoldenTemplates(liveClient.client)
+        return buildToolResponse({
+          status: 'ok',
+          templates,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to fetch golden templates.'
+        return buildToolResponse({
+          status: 'error',
+          templates: [],
+          errors: [
+            {
+              code: 'mcp_golden_templates_failed',
+              message,
+            },
+          ],
+        })
+      }
     },
   )
 

@@ -66,7 +66,6 @@ export {
   TimeoutError,
   UploadError,
 } from 'got'
-export { goldenTemplates } from './alphalib/goldenTemplates/index.ts'
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }

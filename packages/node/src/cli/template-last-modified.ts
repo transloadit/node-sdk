@@ -69,7 +69,8 @@ export default class ModifiedLookup {
           for (let i = 0; i < result.items.length; i++) {
             const item = result.items[i]
             if (item) {
-              items[i] = { id: item.id, modified: item.modified }
+              const modified = typeof item.modified === 'string' ? item.modified : ''
+              items[i] = { id: item.id, modified }
             }
           }
           cb(null, items)

@@ -98,6 +98,7 @@ export type ListTemplatesParams = OptionalAuthParams & {
   fromdate?: string
   todate?: string
   keywords?: string[]
+  include_golden?: 'none' | 'latest' | 'all'
 }
 
 interface TemplateResponseBase {
@@ -108,10 +109,12 @@ interface TemplateResponseBase {
 }
 
 export interface ListedTemplate extends TemplateResponseBase {
-  encryption_version: number
-  last_used?: string
-  created: string
-  modified: string
+  encryption_version?: number | null
+  last_used?: string | null
+  created?: string | null
+  modified?: string | null
+  description?: string
+  golden_version?: string
 }
 
 export interface TemplateResponse extends TemplateResponseBase, BaseResponse {}
