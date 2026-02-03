@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.2.1
+
+### Patch Changes
+
+- 56ada34: Document MCP client tool allowlists and keep verification tooling aligned.
+
 ## 0.2.0
 
 ### Minor Changes
