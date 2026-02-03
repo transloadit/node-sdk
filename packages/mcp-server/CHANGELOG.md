@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.1.0
+
+### Minor Changes
+
+- b7795dd: Add Prometheus-compatible metrics endpoint support.
+
 ## 0.0.3
 
 ### Patch Changes
