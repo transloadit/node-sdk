@@ -25,6 +25,7 @@ export type TransloaditMcpServerOptions = {
   serverName?: string
   serverVersion?: string
   clientName?: string
+  clientSuffix?: string
 }
 
 type LintIssueOutput = {
@@ -279,8 +280,14 @@ const buildToolError = (
     ],
   })
 
-const getClientName = (options: TransloaditMcpServerOptions): string =>
-  options.clientName ?? `mcp-server:${packageJson.version}`
+const getClientName = (options: TransloaditMcpServerOptions): string => {
+  const base = options.clientName ?? `mcp-server:${packageJson.version}`
+  const suffix = options.clientSuffix
+  if (suffix && suffix.trim() !== '') {
+    return `${base}${suffix}`
+  }
+  return base
+}
 
 const createLintClient = (options: TransloaditMcpServerOptions): Transloadit =>
   new Transloadit({
