@@ -95,6 +95,9 @@ the request body stays small and no extra MCP/LLM token budget is consumed.
   and avoids large inline payloads (the transfer happens out-of-band).
 - If instructions already contain an `/http/import` step, the MCP server sets/overrides its `url`.
   - If multiple URLs and a single `/http/import` step exists, it supplies a `url` array.
+- Templates (builtin or custom) should expose an `imported` step that the template uses as input.
+  When you pass `template_id` (or `builtin_template`) and URL inputs, the MCP server injects an
+  `/http/import` step named `imported` and fills its `url` value(s).
 
 ## Local vs hosted file access
 

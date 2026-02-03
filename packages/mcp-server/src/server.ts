@@ -334,6 +334,12 @@ const isNonEmptyString = (value: unknown): value is string =>
 const isErrnoException = (value: unknown): value is NodeJS.ErrnoException =>
   isRecord(value) && typeof value.code === 'string'
 
+const isHttpImportStep = (value: unknown): value is Record<string, unknown> =>
+  isRecord(value) && value.robot === '/http/import'
+
+const hasHttpImportStep = (steps: Record<string, unknown>): boolean =>
+  Object.values(steps).some((step) => isHttpImportStep(step))
+
 const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
   const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
   if (!match) {
@@ -526,16 +532,44 @@ export const createTransloaditMcpServer = (
       if ('error' in liveClient) return liveClient.error
       const { client } = liveClient
       const tempCleanups: Array<() => Promise<void>> = []
+      const warnings: Array<{ code: string; message: string; hint?: string; path?: string }> = []
+      let templatePathHint: string | undefined
 
       try {
         const fileInputs = files ?? []
+        const hasUrlInputs = fileInputs.some((file) => file.kind === 'url')
         let params = parseInstructions(instructions) ?? ({} as CreateAssemblyParams)
 
         if (builtin_template) {
           const templateId = buildBuiltinTemplateId(builtin_template.slug, builtin_template.version)
           const overrides = builtin_template.overrides
-          params = (overrides && isRecord(overrides) ? overrides : {}) as CreateAssemblyParams
+          const baseParams = (
+            overrides && isRecord(overrides) ? { ...overrides } : {}
+          ) as CreateAssemblyParams
+
+          templatePathHint = 'builtin_template.slug'
+          params = baseParams
           params.template_id = templateId
+        }
+
+        if (hasUrlInputs && params.template_id) {
+          const steps = isRecord(params.steps) ? { ...params.steps } : {}
+          if (!hasHttpImportStep(steps)) {
+            const imported = isRecord(steps.imported)
+              ? (steps.imported as Record<string, unknown>)
+              : {}
+            steps.imported = {
+              ...imported,
+              robot: '/http/import',
+            }
+            params.steps = steps
+            warnings.push({
+              code: 'mcp_imported_step',
+              message:
+                'URL inputs with template_id require a step named "imported" that the template uses as input. The MCP server injected /http/import into that step.',
+              path: templatePathHint ?? 'instructions.template_id',
+            })
+          }
         }
         const prep = await prepareInputFiles({
           inputFiles: fileInputs,
@@ -634,6 +668,7 @@ export const createTransloaditMcpServer = (
           assembly,
           upload: uploadSummary,
           next_steps: nextSteps,
+          warnings: warnings.length > 0 ? warnings : undefined,
         })
       } finally {
         await Promise.all(tempCleanups.map((cleanup) => cleanup()))
