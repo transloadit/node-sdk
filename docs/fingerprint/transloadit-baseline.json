@@ -2,8 +2,8 @@
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.4.0.tgz",
-    "sizeBytes": 1231816,
-    "sha256": "bab11df48642ec20e79804c470a73d785c72a519d91ed8ead025d3708e2515e1"
+    "sizeBytes": 1231819,
+    "sha256": "102ba99495314297dd66ad979eb74831eac5976b0db8a5a6a987352f435be9cf"
   },
   "packageJson": {
     "name": "transloadit",
@@ -723,8 +723,8 @@
     },
     {
       "path": "dist/apiTypes.d.ts.map",
-      "sizeBytes": 3662,
-      "sha256": "7d5e9a1bf88584d78708c3b37e9ae68f692fec251fc5487969dbdc561ad35946"
+      "sizeBytes": 3682,
+      "sha256": "405141f11d048b505ebca713a71ddad25946a83be7b258c23f589182d41cdc41"
     },
     {
       "path": "dist/apiTypes.js.map",
@@ -2038,13 +2038,13 @@
     },
     {
       "path": "dist/apiTypes.d.ts",
-      "sizeBytes": 3881,
-      "sha256": "2069dce5782d8371b6b697336b340d71d0914de9418654155078d27297dc01bf"
+      "sizeBytes": 3900,
+      "sha256": "3406f62428e272a87079cdb1a5aa60bb2f27fdc91b6e9814f82516f356137058"
     },
     {
       "path": "src/apiTypes.ts",
-      "sizeBytes": 4266,
-      "sha256": "03bdbcfeff7d9ba339ef388715f4efc43cd476c0527b7f6a1565077491429ce6"
+      "sizeBytes": 4285,
+      "sha256": "f99b906f66bd0729b3d20f8eb37de4579e94539fd7d994507ce13d99bc4eefd5"
     },
     {
       "path": "dist/cli/commands/assemblies.d.ts",
