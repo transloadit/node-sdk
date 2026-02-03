@@ -69,6 +69,7 @@ export {
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }
+// Builtin templates replace the legacy golden template helpers.
 export { mergeTemplateContent } from './alphalib/templateMerge.ts'
 export type {
   Base64Strategy,

@@ -412,13 +412,11 @@ const extractTemplateSteps = (content: unknown): Record<string, unknown> | undef
 }
 
 const mapBuiltinTemplate = (template: ApiTemplateRecord): BuiltinTemplate | undefined => {
-  const slug = isNonEmptyString(template.name)
-    ? template.name
-    : isNonEmptyString(template.id)
-      ? template.id
-      : undefined
+  const name = isNonEmptyString(template.name) ? template.name : undefined
+  const id = isNonEmptyString(template.id) ? template.id : undefined
+  const slug = name?.startsWith('builtin/') ? name : id?.startsWith('builtin/') ? id : undefined
 
-  if (!slug || !slug.startsWith('builtin/')) return undefined
+  if (!slug) return undefined
 
   const steps = extractTemplateSteps(template.content)
   if (!steps) return undefined
@@ -438,6 +436,7 @@ const mapBuiltinTemplate = (template: ApiTemplateRecord): BuiltinTemplate | unde
 }
 
 const fetchBuiltinTemplates = async (client: Transloadit): Promise<BuiltinTemplate[]> => {
+  // NOTE: Builtin templates are curated; we intentionally fetch the first page only for now.
   const response = await client.listTemplates({
     include_builtin: 'exclusively-latest',
     page: 1,
@@ -478,6 +477,7 @@ export const createTransloaditMcpServer = (
     version: options.serverVersion ?? packageJson.version,
   })
 
+  // Builtin templates supersede the old golden template tool; no legacy alias by design.
   server.registerTool(
     'transloadit_lint_assembly_instructions',
     {
@@ -834,4 +834,9 @@ export const createTransloaditMcpServer = (
   )
 
   return server
+}
+
+// Expose tiny internals for unit tests only.
+export const __test__ = {
+  mapBuiltinTemplate,
 }

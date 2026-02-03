@@ -109,6 +109,7 @@ interface TemplateResponseBase {
 }
 
 export interface ListedTemplate extends TemplateResponseBase {
+  // API responses may omit or null these fields for builtin or legacy templates.
   encryption_version?: number | null
   last_used?: string | null
   created?: string | null
