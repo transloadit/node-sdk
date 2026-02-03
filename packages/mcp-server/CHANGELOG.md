@@ -1,5 +1,14 @@
 # @transloadit/mcp-server
 
+## 0.2.2
+
+### Patch Changes
+
+- 2631623: Allow overriding the Transloadit-Client header and set MCP server requests to its own client name.
+- 2631623: Allow appending a client header suffix via TRANSLOADIT_CLIENT_SUFFIX.
+- Updated dependencies [2631623]
+  - @transloadit/node@4.5.1
+
 ## 0.2.1
 
 ### Patch Changes

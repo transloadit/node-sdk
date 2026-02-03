@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.5.1
+
+### Patch Changes
+
+- 2631623: Allow overriding the Transloadit-Client header and set MCP server requests to its own client name.
+
 ## 4.5.0
 
 ### Minor Changes
