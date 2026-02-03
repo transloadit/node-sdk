@@ -126,6 +126,7 @@ const main = async (): Promise<void> => {
     const mcpToken = (fileConfig.mcpToken ?? process.env.TRANSLOADIT_MCP_TOKEN) as
       | string
       | undefined
+    const clientSuffix = process.env.TRANSLOADIT_CLIENT_SUFFIX as string | undefined
 
     if (!isLocalHost(host) && !mcpToken) {
       throw new Error('TRANSLOADIT_MCP_TOKEN is required when binding to non-localhost host.')
@@ -135,6 +136,7 @@ const main = async (): Promise<void> => {
       authKey: (fileConfig.authKey ?? process.env.TRANSLOADIT_KEY) as string | undefined,
       authSecret: (fileConfig.authSecret ?? process.env.TRANSLOADIT_SECRET) as string | undefined,
       endpoint,
+      clientSuffix,
       mcpToken,
       allowedOrigins: fileConfig.allowedOrigins as string[] | undefined,
       allowedHosts: fileConfig.allowedHosts as string[] | undefined,
@@ -170,6 +172,7 @@ const main = async (): Promise<void> => {
     authKey: process.env.TRANSLOADIT_KEY,
     authSecret: process.env.TRANSLOADIT_SECRET,
     endpoint: process.env.TRANSLOADIT_ENDPOINT,
+    clientSuffix: process.env.TRANSLOADIT_CLIENT_SUFFIX,
   })
   const transport = new StdioServerTransport()
   await server.connect(transport)

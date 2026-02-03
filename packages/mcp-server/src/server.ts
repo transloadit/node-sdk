@@ -24,6 +24,8 @@ export type TransloaditMcpServerOptions = {
   endpoint?: string
   serverName?: string
   serverVersion?: string
+  clientName?: string
+  clientSuffix?: string
 }
 
 type LintIssueOutput = {
@@ -278,11 +280,21 @@ const buildToolError = (
     ],
   })
 
+const getClientName = (options: TransloaditMcpServerOptions): string => {
+  const base = options.clientName ?? `mcp-server:${packageJson.version}`
+  const suffix = options.clientSuffix
+  if (suffix && suffix.trim() !== '') {
+    return `${base}${suffix}`
+  }
+  return base
+}
+
 const createLintClient = (options: TransloaditMcpServerOptions): Transloadit =>
   new Transloadit({
     authKey: options.authKey ?? 'mcp',
     authSecret: options.authSecret ?? 'mcp',
     endpoint: options.endpoint,
+    clientName: getClientName(options),
   })
 
 const getHeaderValue = (headers: HeaderMap | undefined, name: string): string | undefined => {
@@ -315,6 +327,7 @@ const createLiveClient = (
         authKey: options.authKey,
         authSecret: options.authSecret,
         endpoint: options.endpoint,
+        clientName: getClientName(options),
       }),
     }
   }
@@ -333,6 +346,7 @@ const createLiveClient = (
       authKey: options.authKey,
       authSecret: options.authSecret,
       endpoint: options.endpoint,
+      clientName: getClientName(options),
     }),
   }
 }

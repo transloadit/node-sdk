@@ -322,6 +322,7 @@ type BaseOptions = {
   timeout?: number
   gotRetry?: Partial<RetryOptions>
   validateResponses?: boolean
+  clientName?: string
 }
 
 export type Options = BaseOptions & (AuthKeySecret | AuthToken)
@@ -340,6 +341,8 @@ export class Transloadit {
   private _defaultTimeout: number
 
   private _gotRetry: Partial<RetryOptions>
+
+  private _clientName: string
 
   private _lastUsedAssemblyUrl = ''
 
@@ -369,6 +372,7 @@ export class Transloadit {
     this._endpoint = opts.endpoint || 'https://api2.transloadit.com'
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
+    this._clientName = opts.clientName?.trim() || `node-sdk:${version}`
 
     // Passed on to got https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md
     this._gotRetry = opts.gotRetry != null ? opts.gotRetry : { limit: 0 }
@@ -1258,7 +1262,7 @@ export class Transloadit {
         body: form,
         timeout,
         headers: {
-          'Transloadit-Client': `node-sdk:${version}`,
+          'Transloadit-Client': this._clientName,
           'User-Agent': undefined, // Remove got's user-agent
           ...(this._authToken ? { Authorization: `Bearer ${this._authToken}` } : {}),
           ...headers,
