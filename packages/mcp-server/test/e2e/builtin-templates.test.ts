@@ -18,8 +18,12 @@ maybeDescribe('mcp-server builtin templates', { timeout: 20000 }, () => {
 
   it('lists builtin templates with steps', async () => {
     const result = await client.callTool({
-      name: 'transloadit_list_builtin_templates',
-      arguments: {},
+      name: 'transloadit_list_templates',
+      arguments: {
+        include_builtin: 'exclusively-latest',
+        include_content: true,
+        page_size: 100,
+      },
     })
 
     const payload = parseToolPayload(result)
@@ -29,7 +33,7 @@ maybeDescribe('mcp-server builtin templates', { timeout: 20000 }, () => {
 
     const templates = payload.templates as Array<Record<string, unknown>>
     const builtins = templates.filter((template) =>
-      typeof template.slug === 'string' ? template.slug.startsWith('builtin/') : false,
+      typeof template.name === 'string' ? template.name.startsWith('builtin/') : false,
     )
 
     const endpoint = process.env.TRANSLOADIT_ENDPOINT ?? ''
@@ -52,7 +56,7 @@ maybeDescribe('mcp-server builtin templates', { timeout: 20000 }, () => {
     }
 
     const hls = builtins.find((template) =>
-      typeof template.slug === 'string' ? template.slug.includes('encode-hls-video') : false,
+      typeof template.name === 'string' ? template.name.includes('encode-hls-video') : false,
     )
 
     expect(isRecord(hls)).toBe(true)

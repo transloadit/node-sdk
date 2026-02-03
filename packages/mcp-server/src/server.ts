@@ -45,12 +45,6 @@ type ToolExtra = {
 }
 
 const maxBase64Bytes = 512_000
-type BuiltinTemplate = {
-  slug: string
-  version: string
-  description: string
-  steps: Record<string, unknown>
-}
 
 type LintAssemblyInstructionsInput = Parameters<Transloadit['lintAssemblyInstructions']>[0]
 
@@ -195,18 +189,30 @@ const waitForAssemblyOutputSchema = z.object({
   warnings: z.array(toolMessageSchema).optional(),
 })
 
-const listBuiltinTemplatesInputSchema = z.object({})
+const listTemplatesInputSchema = z.object({
+  page: z.number().int().positive().optional(),
+  page_size: z.number().int().positive().optional(),
+  sort: z.enum(['id', 'name', 'created', 'modified']).optional(),
+  order: z.enum(['asc', 'desc']).optional(),
+  keywords: z.array(z.string()).optional(),
+  include_builtin: z.enum(['all', 'latest', 'exclusively-all', 'exclusively-latest']).optional(),
+  include_content: z.boolean().optional(),
+})
 
-const listBuiltinTemplatesOutputSchema = z.object({
+const listTemplatesOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   templates: z.array(
     z.object({
-      slug: z.string(),
-      version: z.string(),
-      description: z.string(),
-      steps: z.record(z.string(), z.unknown()),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      description: z.string().optional(),
+      builtin_version: z.string().optional(),
+      steps: z.record(z.string(), z.unknown()).optional(),
     }),
   ),
+  page: z.number().int().positive().optional(),
+  page_size: z.number().int().positive().optional(),
+  total: z.number().int().nonnegative().optional(),
   errors: z.array(toolMessageSchema).optional(),
   warnings: z.array(toolMessageSchema).optional(),
 })
@@ -472,6 +478,7 @@ const apiTemplateSchema = z
 const listTemplatesResponseSchema = z
   .object({
     items: z.array(apiTemplateSchema).optional(),
+    count: z.number().optional(),
   })
   .passthrough()
 
@@ -483,47 +490,29 @@ const extractTemplateSteps = (content: unknown): Record<string, unknown> | undef
   return isRecord(steps) ? (steps as Record<string, unknown>) : undefined
 }
 
-const mapBuiltinTemplate = (template: ApiTemplateRecord): BuiltinTemplate | undefined => {
-  const name = isNonEmptyString(template.name) ? template.name : undefined
-  const id = isNonEmptyString(template.id) ? template.id : undefined
-  const slug = name?.startsWith('builtin/') ? name : id?.startsWith('builtin/') ? id : undefined
-
-  if (!slug) return undefined
-
-  const steps = extractTemplateSteps(template.content)
-  if (!steps) return undefined
-
-  const version = isNonEmptyString(template.builtin_version)
-    ? template.builtin_version
-    : slug.includes('@')
-      ? (slug.split('@')[1] ?? '')
-      : ''
-
-  return {
-    slug,
-    version,
-    description: isNonEmptyString(template.description) ? template.description : '',
-    steps,
-  }
+const resolveTemplateId = (template: ApiTemplateRecord): string | undefined => {
+  if (isNonEmptyString(template.id)) return template.id
+  if (isNonEmptyString(template.name)) return template.name
+  return undefined
 }
 
-const fetchBuiltinTemplates = async (client: Transloadit): Promise<BuiltinTemplate[]> => {
-  // NOTE: Builtin templates are curated; we intentionally fetch the first page only for now.
-  const response = await client.listTemplates({
-    include_builtin: 'exclusively-latest',
-    page: 1,
-    pagesize: 100,
-  })
+const mapTemplateListItem = (template: ApiTemplateRecord) => ({
+  id: template.id,
+  name: template.name,
+  description: template.description,
+  builtin_version: template.builtin_version,
+})
 
-  const parsed = listTemplatesResponseSchema.safeParse(response)
-  if (!parsed.success) {
-    throw new Error('Unexpected listTemplates response shape.')
-  }
-
-  const items = parsed.data.items ?? []
-  return items
-    .map((template) => mapBuiltinTemplate(template))
-    .filter((template): template is BuiltinTemplate => Boolean(template))
+const loadTemplateSteps = async (
+  client: Transloadit,
+  template: ApiTemplateRecord,
+): Promise<Record<string, unknown> | undefined> => {
+  const direct = extractTemplateSteps(template.content)
+  if (direct) return direct
+  const templateId = resolveTemplateId(template)
+  if (!templateId) return undefined
+  const full = await client.getTemplate(templateId)
+  return extractTemplateSteps(full.content)
 }
 
 const looksLikeAssemblyParams = (input: Record<string, unknown>): boolean => {
@@ -922,14 +911,14 @@ export const createTransloaditMcpServer = (
   )
 
   server.registerTool(
-    'transloadit_list_builtin_templates',
+    'transloadit_list_templates',
     {
-      title: 'List builtin templates',
-      description: 'Returns curated starter templates with ready-to-run steps.',
-      inputSchema: listBuiltinTemplatesInputSchema,
-      outputSchema: listBuiltinTemplatesOutputSchema,
+      title: 'List templates',
+      description: 'List Assembly Templates (owned and/or builtin).',
+      inputSchema: listTemplatesInputSchema,
+      outputSchema: listTemplatesOutputSchema,
     },
-    async (_args, extra) => {
+    async ({ page, page_size, sort, order, keywords, include_builtin, include_content }, extra) => {
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) {
         return buildToolResponse({
@@ -946,20 +935,46 @@ export const createTransloaditMcpServer = (
       }
 
       try {
-        const templates = await fetchBuiltinTemplates(liveClient.client)
+        const response = await liveClient.client.listTemplates({
+          page,
+          pagesize: page_size,
+          sort,
+          order,
+          keywords,
+          include_builtin,
+        })
+
+        const parsed = listTemplatesResponseSchema.safeParse(response)
+        if (!parsed.success) {
+          throw new Error('Unexpected listTemplates response shape.')
+        }
+
+        const items = parsed.data.items ?? []
+        const includeContent = include_content ?? false
+        const templates = await Promise.all(
+          items.map(async (item) => {
+            const base = mapTemplateListItem(item)
+            if (!includeContent) return base
+            const steps = await loadTemplateSteps(liveClient.client, item)
+            return steps ? { ...base, steps } : base
+          }),
+        )
+
         return buildToolResponse({
           status: 'ok',
           templates,
+          page,
+          page_size: page_size,
+          total: parsed.data.count ?? items.length,
         })
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Failed to fetch builtin templates.'
+        const message = error instanceof Error ? error.message : 'Failed to list templates.'
         return buildToolResponse({
           status: 'error',
           templates: [],
           errors: [
             {
-              code: 'mcp_builtin_templates_failed',
+              code: 'mcp_list_templates_failed',
               message,
             },
           ],
@@ -969,9 +984,4 @@ export const createTransloaditMcpServer = (
   )
 
   return server
-}
-
-// Expose tiny internals for unit tests only.
-export const __test__ = {
-  mapBuiltinTemplate,
 }

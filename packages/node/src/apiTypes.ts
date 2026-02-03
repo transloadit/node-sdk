@@ -98,7 +98,7 @@ export type ListTemplatesParams = OptionalAuthParams & {
   fromdate?: string
   todate?: string
   keywords?: string[]
-  include_builtin?: 'exclusively-all' | 'exclusively-latest'
+  include_builtin?: 'all' | 'latest' | 'exclusively-all' | 'exclusively-latest'
 }
 
 interface TemplateResponseBase {
