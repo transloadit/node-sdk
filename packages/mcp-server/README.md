@@ -32,9 +32,13 @@ claude mcp add --transport stdio transloadit \
   -- npx -y @transloadit/mcp-server stdio
 ```
 
-For non-interactive runs (e.g. `claude -p`), Claude requires explicit permission for MCP tools.
-Pass an allowlist like `--allowedTools mcp__transloadit__*` (or use a permissive
-`--permission-mode`) to avoid a permission prompt.
+For non-interactive runs (e.g. `claude -p`), explicitly allow MCP tools:
+
+```bash
+claude -p "List templates" \
+  --allowedTools mcp__transloadit__* \
+  --output-format json
+```
 
 Codex CLI:
 
@@ -45,6 +49,15 @@ codex mcp add transloadit \
   -- npx -y @transloadit/mcp-server stdio
 ```
 
+To allowlist tools, add `enabled_tools` for the server in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.transloadit]
+command = "npx"
+args = ["-y", "@transloadit/mcp-server", "stdio"]
+enabled_tools = ["transloadit_list_templates"]
+```
+
 Gemini CLI:
 
 ```bash
@@ -53,8 +66,23 @@ gemini mcp add --scope user transloadit npx -y @transloadit/mcp-server stdio \
   --env TRANSLOADIT_SECRET=...
 ```
 
-Gemini CLI can auto-approve tool calls with `--approval-mode yolo`, so no
-separate allowlist is required unless you want tighter restrictions.
+To allowlist tools, set `includeTools` for the server in `~/.gemini/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "transloadit": {
+      "command": "npx",
+      "args": ["-y", "@transloadit/mcp-server", "stdio"],
+      "env": {
+        "TRANSLOADIT_KEY": "...",
+        "TRANSLOADIT_SECRET": "..."
+      },
+      "includeTools": ["transloadit_list_templates"]
+    }
+  }
+}
+```
 
 Cursor (`~/.cursor/mcp.json`):
 

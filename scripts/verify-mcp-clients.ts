@@ -22,6 +22,7 @@ if (envMissing.length > 0) {
 const endpoint = process.env.TRANSLOADIT_ENDPOINT ?? 'https://api2.transloadit.com'
 const commandTimeoutMs = Number(process.env.MCP_VERIFY_TIMEOUT_MS ?? 60_000)
 const serverName = process.env.MCP_SERVER_NAME ?? 'transloadit'
+const allowlistedTools = ['transloadit_list_templates']
 const serverCommand = [
   'npm',
   'exec',
@@ -147,6 +148,7 @@ const runCodex = (prompt: string, expectedTemplateId: string): CliCheck => ({
     if (result.status !== 0) {
       throw new Error(`codex mcp add failed: ${result.stderr || result.stdout}`)
     }
+    updateCodexEnabledTools()
   },
   cleanup: () => {
     runCommand('codex', ['mcp', 'remove', serverName])
@@ -188,6 +190,7 @@ const ensureGeminiSettings = (): void => {
       TRANSLOADIT_SECRET: process.env.TRANSLOADIT_SECRET ?? '',
       TRANSLOADIT_ENDPOINT: endpoint,
     },
+    includeTools: allowlistedTools,
   }
 
   settings.mcpServers = mcpServers
@@ -217,6 +220,44 @@ const cleanupGeminiSettings = (): void => {
   delete mcpServers[serverName]
   settings.mcpServers = mcpServers
   writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`)
+}
+
+const updateCodexEnabledTools = (): void => {
+  const configPath = join(homedir(), '.codex', 'config.toml')
+  if (!existsSync(configPath)) {
+    return
+  }
+  const content = readFileSync(configPath, 'utf8')
+  const header = `[mcp_servers.${serverName}]`
+  const lines = content.split('\n')
+  const headerIndex = lines.findIndex((line) => line.trim() === header)
+  if (headerIndex === -1) {
+    return
+  }
+  let endIndex = lines.length
+  for (let i = headerIndex + 1; i < lines.length; i += 1) {
+    if (lines[i].startsWith('[')) {
+      endIndex = i
+      break
+    }
+  }
+
+  const enabledLine = `enabled_tools = [${allowlistedTools
+    .map((tool) => `"${tool}"`)
+    .join(', ')}]`
+  let replaced = false
+  for (let i = headerIndex + 1; i < endIndex; i += 1) {
+    if (lines[i].trim().startsWith('enabled_tools')) {
+      lines[i] = enabledLine
+      replaced = true
+      break
+    }
+  }
+  if (!replaced) {
+    lines.splice(headerIndex + 1, 0, enabledLine)
+  }
+
+  writeFileSync(configPath, `${lines.join('\n')}\n`)
 }
 
 const runGemini = (prompt: string, expectedTemplateId: string): CliCheck => ({
