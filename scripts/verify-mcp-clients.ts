@@ -242,9 +242,7 @@ const updateCodexEnabledTools = (): void => {
     }
   }
 
-  const enabledLine = `enabled_tools = [${allowlistedTools
-    .map((tool) => `"${tool}"`)
-    .join(', ')}]`
+  const enabledLine = `enabled_tools = [${allowlistedTools.map((tool) => `"${tool}"`).join(', ')}]`
   let replaced = false
   for (let i = headerIndex + 1; i < endIndex; i += 1) {
     if (lines[i].trim().startsWith('enabled_tools')) {
