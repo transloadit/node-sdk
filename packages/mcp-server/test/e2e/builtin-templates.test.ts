@@ -29,7 +29,11 @@ describe('mcp-server builtin templates', { timeout: 20000 }, () => {
       typeof template.slug === 'string' ? template.slug.startsWith('builtin/') : false,
     )
 
-    if (process.env.TRANSLOADIT_ENDPOINT?.includes('devdock')) {
+    const endpoint = process.env.TRANSLOADIT_ENDPOINT ?? ''
+    const isLocalEndpoint =
+      endpoint.includes('localhost') || endpoint.includes('127.0.0.1') || endpoint.includes('::1')
+
+    if (isLocalEndpoint) {
       expect(builtins.length).toBe(2)
     } else {
       expect(builtins.length).toBeGreaterThan(0)
