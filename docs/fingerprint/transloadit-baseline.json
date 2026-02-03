@@ -2,8 +2,8 @@
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.4.0.tgz",
-    "sizeBytes": 1231694,
-    "sha256": "80d6b260663a7dbec0157560788fb2aaa9902b051d07004ba46746815cb404ca"
+    "sizeBytes": 1231816,
+    "sha256": "bab11df48642ec20e79804c470a73d785c72a519d91ed8ead025d3708e2515e1"
   },
   "packageJson": {
     "name": "transloadit",
@@ -578,8 +578,8 @@
     },
     {
       "path": "dist/Transloadit.js",
-      "sizeBytes": 36818,
-      "sha256": "087f9df70023ddf5dc82fe14831dcf7bd974967d036dbfde164faf7bea480db1"
+      "sizeBytes": 36958,
+      "sha256": "2e5576936e50d9a82f881523ce5412849fd37b5822af7f45161cf125f6f0b6f8"
     },
     {
       "path": "dist/alphalib/tryCatch.js",
@@ -608,8 +608,8 @@
     },
     {
       "path": "dist/cli/commands/upload.js",
-      "sizeBytes": 3831,
-      "sha256": "c9267bff59d4b62ed455773ff56ee915a8c196b46c095ef4e9f2ee9542077a9a"
+      "sizeBytes": 3824,
+      "sha256": "c7d3a55f1c1e75b704ef38bfea7ec676768e45c997d869c4d87bc578d8fb070d"
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.js",
@@ -724,7 +724,7 @@
     {
       "path": "dist/apiTypes.d.ts.map",
       "sizeBytes": 3662,
-      "sha256": "0b54ad2511e77feebc1831ff78dbe9c74d7198ac91ad24f8d44f3fd2b19a71dc"
+      "sha256": "7d5e9a1bf88584d78708c3b37e9ae68f692fec251fc5487969dbdc561ad35946"
     },
     {
       "path": "dist/apiTypes.js.map",
@@ -1793,13 +1793,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts.map",
-      "sizeBytes": 6363,
-      "sha256": "fcec91b2f7b7319de1a04d5d113502ce8ac62b9033e67ce511e3a9c5b8b84386"
+      "sizeBytes": 6408,
+      "sha256": "a9b98cae57c602c418ae9dfc5cfa58fd77939f08405025f57f699275c30a8a24"
     },
     {
       "path": "dist/Transloadit.js.map",
-      "sizeBytes": 26903,
-      "sha256": "55c8cf1fbb2565b1acbd81217512c6e27f85a2e126e1bf549a357b258f8cf9f3"
+      "sizeBytes": 26961,
+      "sha256": "320415c206db61d9671db650be09d4b1660595b9bd62d3de1d00fb3a24c4be89"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts.map",
@@ -1853,13 +1853,13 @@
     },
     {
       "path": "dist/cli/commands/upload.d.ts.map",
-      "sizeBytes": 768,
-      "sha256": "787cbbb01c715dc37945cf86faa3429f220a6bdf4fdbd9b7a0d37b9413eb1406"
+      "sizeBytes": 573,
+      "sha256": "ff74513065f72cc0b107a89986dff02cf9a4f132c99de0edc55ffcd89c27187d"
     },
     {
       "path": "dist/cli/commands/upload.js.map",
-      "sizeBytes": 2896,
-      "sha256": "ddf7dac4f6d709cd551705e61fb68626d2c54752ca8289dea58831ca0da615c7"
+      "sizeBytes": 2886,
+      "sha256": "2079c8c14032395bdf7a0c988769901f97b65bb940bfe6dd16ad8120ce8f5910"
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.d.ts.map",
@@ -2043,8 +2043,8 @@
     },
     {
       "path": "src/apiTypes.ts",
-      "sizeBytes": 4184,
-      "sha256": "06d958942ffd07d5d63a7f49d50dd492af3fac2f2df32545f7c5b36743d27548"
+      "sizeBytes": 4266,
+      "sha256": "03bdbcfeff7d9ba339ef388715f4efc43cd476c0527b7f6a1565077491429ce6"
     },
     {
       "path": "dist/cli/commands/assemblies.d.ts",
@@ -3113,13 +3113,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts",
-      "sizeBytes": 11782,
-      "sha256": "47f99188709da4e2ca9b1f83f0e97eb6de3e17474c3d25d25274000b3b5a6337"
+      "sizeBytes": 11857,
+      "sha256": "e9aaa44ff7d26d3e78164e8205973ce71711579ca4a73644a6e66c8c7aa7baae"
     },
     {
       "path": "src/Transloadit.ts",
-      "sizeBytes": 41369,
-      "sha256": "c566e266a55bf0ea280b44e1d0ff63c863be1296d5577e1dcb9266631577aea0"
+      "sizeBytes": 41508,
+      "sha256": "5488003aefec2aa534a2b00bda60dbb287f02987bbb399e92ab63f913a267679"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts",
@@ -3173,13 +3173,13 @@
     },
     {
       "path": "dist/cli/commands/upload.d.ts",
-      "sizeBytes": 869,
-      "sha256": "6078873d1b89afa675ea4aa6bd6b87b7ae14147d7b1982b8d89f2d5ef55376aa"
+      "sizeBytes": 661,
+      "sha256": "5d7e415655cb28832c77a311249a9060442b14ed2b2e688007fe1637340f14ec"
     },
     {
       "path": "src/cli/commands/upload.ts",
-      "sizeBytes": 3927,
-      "sha256": "19ba88a9bccab46628a9c1c0e909ab7cf5a2605b5a08c85ec320d2ff46a4da9f"
+      "sizeBytes": 3920,
+      "sha256": "2417f36e1325219d78d2310f015d2b1107592b14ee7a45b5c798ed1a56ebd26b"
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.d.ts",
