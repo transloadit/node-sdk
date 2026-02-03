@@ -66,10 +66,11 @@ export {
   TimeoutError,
   UploadError,
 } from 'got'
-export { goldenTemplates } from './alphalib/goldenTemplates/index.ts'
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 export * from './apiTypes.ts'
 export { InconsistentResponseError, ApiError }
+export { extractFieldNamesFromTemplate } from './alphalib/stepParsing.ts'
+// Builtin templates replace the legacy golden template helpers.
 export { mergeTemplateContent } from './alphalib/templateMerge.ts'
 export type {
   Base64Strategy,

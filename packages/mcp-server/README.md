@@ -21,6 +21,68 @@ transloadit-mcp http --host 127.0.0.1 --port 5723
 transloadit-mcp stdio
 ```
 
+## Add to MCP clients
+
+Claude Code:
+
+```bash
+claude mcp add --transport stdio transloadit \
+  --env TRANSLOADIT_KEY=... \
+  --env TRANSLOADIT_SECRET=... \
+  -- npx -y @transloadit/mcp-server stdio
+```
+
+Codex CLI:
+
+```bash
+codex mcp add transloadit \
+  --env TRANSLOADIT_KEY=... \
+  --env TRANSLOADIT_SECRET=... \
+  -- npx -y @transloadit/mcp-server stdio
+```
+
+Gemini CLI:
+
+```bash
+gemini mcp add --scope user transloadit npx -y @transloadit/mcp-server stdio \
+  --env TRANSLOADIT_KEY=... \
+  --env TRANSLOADIT_SECRET=...
+```
+
+Cursor (`~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "transloadit": {
+      "command": "npx",
+      "args": ["-y", "@transloadit/mcp-server", "stdio"],
+      "env": {
+        "TRANSLOADIT_KEY": "...",
+        "TRANSLOADIT_SECRET": "..."
+      }
+    }
+  }
+}
+```
+
+OpenCode (`~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "transloadit": {
+      "command": "npx",
+      "args": ["-y", "@transloadit/mcp-server", "stdio"],
+      "env": {
+        "TRANSLOADIT_KEY": "...",
+        "TRANSLOADIT_SECRET": "..."
+      }
+    }
+  }
+}
+```
+
 ## Auth model
 
 **Hosted (api2.transloadit.com/mcp)**
@@ -95,6 +157,15 @@ the request body stays small and no extra MCP/LLM token budget is consumed.
   and avoids large inline payloads (the transfer happens out-of-band).
 - If instructions already contain an `/http/import` step, the MCP server sets/overrides its `url`.
   - If multiple URLs and a single `/http/import` step exists, it supplies a `url` array.
+- When `template_id` is used, the MCP server fetches the template and
+  chooses the safest URL path:
+  - If the merged template contains a `/http/import` step, it overrides that step’s `url`.
+  - If the template expects uploads (`:original` / `/upload/handle`), it downloads and uploads via
+    tus.
+  - If the template doesn’t take inputs (for example `/html/convert` with a `url`), URL inputs are
+    ignored and a warning is returned.
+  - If `allow_steps_override=false` and the template only supports `/http/import`, URL inputs are
+    rejected (no safe override path).
 
 ## Local vs hosted file access
 
@@ -118,7 +189,19 @@ If `assembly_url` is provided, the MCP server resumes uploads using Assembly sta
 - `transloadit_lint_assembly_instructions`
 - `transloadit_list_robots`
 - `transloadit_get_robot_help`
-- `transloadit_list_golden_templates`
+- `transloadit_list_templates`
+
+## Verify MCP clients
+
+Run a local smoke test that uses the latest published MCP server and your installed CLIs
+(Claude Code, Codex CLI, Gemini CLI). Requires `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET` and
+active CLI auth. The script fetches a template id directly, then asks each client to return that
+id via `transloadit_list_templates` (so it can’t pass without MCP). Missing CLIs are skipped.
+Override the per-command timeout with `MCP_VERIFY_TIMEOUT_MS`.
+
+```bash
+node scripts/verify-mcp-clients.ts
+```
 
 ## Roadmap
 

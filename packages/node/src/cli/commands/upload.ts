@@ -19,7 +19,7 @@ const deriveEndpointFromUploadUrl = (uploadUrl: string): string => {
   return url.toString()
 }
 
-export async function upload(
+async function upload(
   output: IOutputCtl,
   {
     file,

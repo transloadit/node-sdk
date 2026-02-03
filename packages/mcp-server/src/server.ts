@@ -1,13 +1,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js'
-import type {
-  CreateAssemblyParams,
-  LintAssemblyInstructionsResult,
-  TemplateContent,
-} from '@transloadit/node'
+import type { CreateAssemblyParams, LintAssemblyInstructionsResult } from '@transloadit/node'
 import {
+  extractFieldNamesFromTemplate,
   getRobotHelp,
-  goldenTemplates,
   listRobots,
   mergeTemplateContent,
   prepareInputFiles,
@@ -49,16 +45,8 @@ type ToolExtra = {
 }
 
 const maxBase64Bytes = 512_000
-type GoldenTemplate = {
-  slug: string
-  version: string
-  description: string
-  steps: Record<string, unknown>
-}
 
 type LintAssemblyInstructionsInput = Parameters<Transloadit['lintAssemblyInstructions']>[0]
-
-const goldenTemplatesMap = goldenTemplates as Record<string, GoldenTemplate>
 
 const lintIssueSchema = z.object({
   path: z.string(),
@@ -147,13 +135,6 @@ const inputFileSchema = z.discriminatedUnion('kind', [
 
 const createAssemblyInputSchema = z.object({
   instructions: z.unknown().optional(),
-  golden_template: z
-    .object({
-      slug: z.string(),
-      version: z.string().optional(),
-      overrides: z.record(z.string(), z.unknown()).optional(),
-    })
-    .optional(),
   files: z.array(inputFileSchema).optional(),
   fields: z.record(z.string(), z.unknown()).optional(),
   wait_for_completion: z.boolean().optional(),
@@ -208,18 +189,32 @@ const waitForAssemblyOutputSchema = z.object({
   warnings: z.array(toolMessageSchema).optional(),
 })
 
-const listGoldenTemplatesInputSchema = z.object({})
+const listTemplatesInputSchema = z.object({
+  page: z.number().int().positive().optional(),
+  page_size: z.number().int().positive().optional(),
+  sort: z.enum(['id', 'name', 'created', 'modified']).optional(),
+  order: z.enum(['asc', 'desc']).optional(),
+  keywords: z.array(z.string()).optional(),
+  include_builtin: z.enum(['all', 'latest', 'exclusively-all', 'exclusively-latest']).optional(),
+  include_content: z.boolean().optional(),
+})
 
-const listGoldenTemplatesOutputSchema = z.object({
+const listTemplatesOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   templates: z.array(
     z.object({
-      slug: z.string(),
-      version: z.string(),
-      description: z.string(),
-      steps: z.record(z.string(), z.unknown()),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      description: z.string().optional(),
+      builtin_version: z.string().optional(),
+      steps: z.record(z.string(), z.unknown()).optional(),
     }),
   ),
+  page: z.number().int().positive().optional(),
+  page_size: z.number().int().positive().optional(),
+  total: z.number().int().nonnegative().optional(),
+  errors: z.array(toolMessageSchema).optional(),
+  warnings: z.array(toolMessageSchema).optional(),
 })
 
 const lintAssemblyInputSchema = z.object({
@@ -341,8 +336,95 @@ const createLiveClient = (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0
+
 const isErrnoException = (value: unknown): value is NodeJS.ErrnoException =>
   isRecord(value) && typeof value.code === 'string'
+
+const isHttpImportStep = (value: unknown): value is Record<string, unknown> =>
+  isRecord(value) && value.robot === '/http/import'
+
+const listHttpImportStepNames = (steps: Record<string, unknown>): string[] =>
+  Object.entries(steps)
+    .filter(([, step]) => isHttpImportStep(step))
+    .map(([name]) => name)
+
+const usesOriginalReference = (value: unknown): boolean => {
+  if (value === ':original') return true
+  if (Array.isArray(value)) {
+    return value.some((item) => usesOriginalReference(item))
+  }
+  if (isRecord(value)) {
+    return Object.values(value).some((item) => usesOriginalReference(item))
+  }
+  return false
+}
+
+type StepAnalysis = {
+  importStepNames: string[]
+  hasHttpImport: boolean
+  requiresUpload: boolean
+}
+
+const analyzeSteps = (steps: Record<string, unknown>): StepAnalysis => {
+  let hasUploadHandle = false
+  let hasOriginalStep = false
+  let usesOriginal = false
+  const importStepNames = listHttpImportStepNames(steps)
+
+  for (const [name, step] of Object.entries(steps)) {
+    if (name === ':original') {
+      hasOriginalStep = true
+    }
+    if (!isRecord(step)) continue
+    if (step.robot === '/upload/handle') {
+      hasUploadHandle = true
+    }
+    if (!usesOriginal && 'use' in step) {
+      usesOriginal = usesOriginalReference(step.use)
+    }
+  }
+
+  return {
+    importStepNames,
+    hasHttpImport: importStepNames.length > 0,
+    requiresUpload: hasUploadHandle || hasOriginalStep || usesOriginal,
+  }
+}
+
+const mergeImportOverrides = (
+  templateSteps: Record<string, unknown>,
+  existingOverrides: Record<string, unknown> | undefined,
+  importStepNames: string[],
+): Record<string, unknown> => {
+  const nextOverrides = isRecord(existingOverrides) ? { ...existingOverrides } : {}
+  for (const stepName of importStepNames) {
+    const templateStep = isRecord(templateSteps[stepName]) ? templateSteps[stepName] : {}
+    const overrideStep = isRecord(nextOverrides[stepName]) ? nextOverrides[stepName] : {}
+    nextOverrides[stepName] = {
+      ...templateStep,
+      ...overrideStep,
+      robot: '/http/import',
+    }
+  }
+  return nextOverrides
+}
+
+const collectFieldNames = (templateContent: string): string[] => {
+  const names = extractFieldNamesFromTemplate(templateContent).map((field) => field.fieldName)
+  return Array.from(new Set(names))
+}
+
+const mergeFieldValues = (
+  templateFields: Record<string, unknown> | undefined,
+  argFields: Record<string, unknown> | undefined,
+): Record<string, unknown> => {
+  return {
+    ...(templateFields ?? {}),
+    ...(argFields ?? {}),
+  }
+}
 
 const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
   const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
@@ -383,19 +465,65 @@ const resolveAssemblyAccess = (
   }
 }
 
-const resolveGoldenTemplate = (slug: string, version?: string): GoldenTemplate | undefined => {
-  if (slug.includes('@')) {
-    return goldenTemplatesMap[slug]
-  }
+const apiTemplateSchema = z
+  .object({
+    id: z.string().optional(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    builtin_version: z.string().optional(),
+    content: z.unknown().optional(),
+  })
+  .passthrough()
 
-  if (version) {
-    return goldenTemplatesMap[`${slug}@${version}`]
-  }
+const listTemplatesResponseSchema = z
+  .object({
+    items: z.array(apiTemplateSchema).optional(),
+    count: z.number().optional(),
+  })
+  .passthrough()
 
-  const matches = Object.keys(goldenTemplatesMap).filter((key) => key.startsWith(`${slug}@`))
-  if (matches.length === 0) return undefined
-  const latest = matches.sort().at(-1)
-  return latest ? goldenTemplatesMap[latest] : undefined
+type ApiTemplateRecord = z.infer<typeof apiTemplateSchema>
+
+const extractTemplateSteps = (content: unknown): Record<string, unknown> | undefined => {
+  if (!isRecord(content)) return undefined
+  const steps = content.steps
+  return isRecord(steps) ? (steps as Record<string, unknown>) : undefined
+}
+
+const resolveTemplateId = (template: ApiTemplateRecord): string | undefined => {
+  if (isNonEmptyString(template.id)) return template.id
+  if (isNonEmptyString(template.name)) return template.name
+  return undefined
+}
+
+const mapTemplateListItem = (template: ApiTemplateRecord) => ({
+  id: template.id,
+  name: template.name,
+  description: template.description,
+  builtin_version: template.builtin_version,
+})
+
+const loadTemplateSteps = async (
+  client: Transloadit,
+  template: ApiTemplateRecord,
+): Promise<Record<string, unknown> | undefined> => {
+  const direct = extractTemplateSteps(template.content)
+  if (direct) return direct
+  const templateId = resolveTemplateId(template)
+  if (!templateId) return undefined
+  const full = await client.getTemplate(templateId)
+  return extractTemplateSteps(full.content)
+}
+
+const looksLikeAssemblyParams = (input: Record<string, unknown>): boolean => {
+  return (
+    'steps' in input ||
+    'template_id' in input ||
+    'auth' in input ||
+    'fields' in input ||
+    'notify_url' in input ||
+    'redirect_url' in input
+  )
 }
 
 const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => {
@@ -405,7 +533,7 @@ const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => 
     return isRecord(parsed) ? (parsed as CreateAssemblyParams) : undefined
   }
   if (isRecord(input)) {
-    if ('steps' in input) {
+    if (looksLikeAssemblyParams(input)) {
       return input as CreateAssemblyParams
     }
     return { steps: input } as CreateAssemblyParams
@@ -421,6 +549,7 @@ export const createTransloaditMcpServer = (
     version: options.serverVersion ?? packageJson.version,
   })
 
+  // Builtin templates supersede the old golden template tool; no legacy alias by design.
   server.registerTool(
     'transloadit_lint_assembly_instructions',
     {
@@ -465,7 +594,6 @@ export const createTransloaditMcpServer = (
     async (
       {
         instructions,
-        golden_template,
         files,
         fields,
         wait_for_completion,
@@ -478,45 +606,112 @@ export const createTransloaditMcpServer = (
       },
       extra,
     ) => {
-      if (instructions && golden_template) {
-        return buildToolError(
-          'mcp_invalid_args',
-          'Provide either instructions or golden_template, not both.',
-          { path: 'instructions' },
-        )
-      }
-
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
       const { client } = liveClient
       const tempCleanups: Array<() => Promise<void>> = []
+      const warnings: Array<{ code: string; message: string; hint?: string; path?: string }> = []
+      let templatePathHint: string | undefined
 
       try {
         const fileInputs = files ?? []
+        const urlInputs = fileInputs.filter((file) => file.kind === 'url')
+        const hasUrlInputs = urlInputs.length > 0
+        let inputFilesForPrep = fileInputs
         let params = parseInstructions(instructions) ?? ({} as CreateAssemblyParams)
+        let allowStepsOverride = true
+        let mergedInstructions: CreateAssemblyParams | undefined
+        let mergedSteps: Record<string, unknown> | undefined
+        let mergedFields: Record<string, unknown> | undefined
 
-        if (golden_template) {
-          const template = resolveGoldenTemplate(golden_template.slug, golden_template.version)
+        let analysis = analyzeSteps(isRecord(params.steps) ? params.steps : {})
 
-          if (!template) {
+        if (params.template_id) {
+          templatePathHint = templatePathHint ?? 'instructions.template_id'
+          const template = await client.getTemplate(params.template_id)
+          allowStepsOverride = template.content.allow_steps_override !== false
+          try {
+            const merged = mergeTemplateContent(template.content, params)
+            mergedInstructions = merged as CreateAssemblyParams
+            mergedSteps = isRecord(merged.steps) ? (merged.steps as Record<string, unknown>) : {}
+            mergedFields = isRecord(merged.fields) ? (merged.fields as Record<string, unknown>) : {}
+            analysis = analyzeSteps(mergedSteps)
+          } catch (error) {
+            if (error instanceof Error && error.message === 'TEMPLATE_DENIES_STEPS_OVERRIDE') {
+              return buildToolError(
+                'mcp_template_override_denied',
+                'Template forbids step overrides; remove steps overrides or choose a different template.',
+                { path: templatePathHint },
+              )
+            }
+            throw error
+          }
+        } else {
+          mergedInstructions = params
+          mergedSteps = isRecord(params.steps) ? (params.steps as Record<string, unknown>) : {}
+          mergedFields = isRecord(params.fields) ? (params.fields as Record<string, unknown>) : {}
+        }
+
+        if (hasUrlInputs) {
+          if (!analysis.hasHttpImport && !analysis.requiresUpload) {
+            inputFilesForPrep = fileInputs.filter((file) => file.kind !== 'url')
+            warnings.push({
+              code: 'mcp_url_inputs_ignored',
+              message: 'URL inputs were ignored because the template does not require input files.',
+              path: templatePathHint ?? 'instructions',
+            })
+          } else if (analysis.hasHttpImport) {
+            if (!allowStepsOverride) {
+              if (analysis.requiresUpload) {
+                warnings.push({
+                  code: 'mcp_template_import_override_denied',
+                  message:
+                    'Template forbids step overrides; URL inputs will be downloaded and uploaded via tus instead of /http/import.',
+                  path: templatePathHint ?? 'instructions.template_id',
+                })
+              } else {
+                return buildToolError(
+                  'mcp_template_override_denied',
+                  'Template forbids step overrides; URL inputs cannot be mapped to /http/import.',
+                  { path: templatePathHint ?? 'instructions.template_id' },
+                )
+              }
+            } else if (mergedSteps) {
+              params.steps = mergeImportOverrides(
+                mergedSteps,
+                isRecord(params.steps) ? params.steps : undefined,
+                analysis.importStepNames,
+              )
+            }
+          }
+        }
+
+        if (mergedInstructions) {
+          const fieldTemplateContent = JSON.stringify(mergedInstructions)
+          const requiredFields = collectFieldNames(fieldTemplateContent)
+          const providedFields = mergeFieldValues(
+            mergedFields,
+            isRecord(fields) ? (fields as Record<string, unknown>) : undefined,
+          )
+          const missingFields = requiredFields.filter((fieldName) => !(fieldName in providedFields))
+          const effectiveMissing =
+            hasUrlInputs && analysis.hasHttpImport
+              ? missingFields.filter((fieldName) => fieldName !== 'input')
+              : missingFields
+
+          if (effectiveMissing.length > 0) {
             return buildToolError(
-              'mcp_unknown_template',
-              `Unknown golden template: ${golden_template.slug}`,
-              { path: 'golden_template.slug' },
+              'mcp_missing_fields',
+              `Missing required fields: ${effectiveMissing.join(', ')}`,
+              {
+                path: 'fields',
+                hint: 'Provide these field names under the fields argument.',
+              },
             )
           }
-
-          const overrides = golden_template.overrides
-          const templateContent = {
-            steps: template.steps,
-          } as TemplateContent
-          params = mergeTemplateContent(
-            templateContent,
-            overrides && isRecord(overrides) ? (overrides as Record<string, unknown>) : undefined,
-          ) as Record<string, unknown>
         }
         const prep = await prepareInputFiles({
-          inputFiles: fileInputs,
+          inputFiles: inputFilesForPrep,
           params,
           fields,
           base64Strategy: 'tempfile',
@@ -612,6 +807,7 @@ export const createTransloaditMcpServer = (
           assembly,
           upload: uploadSummary,
           next_steps: nextSteps,
+          warnings: warnings.length > 0 ? warnings : undefined,
         })
       } finally {
         await Promise.all(tempCleanups.map((cleanup) => cleanup()))
@@ -715,18 +911,75 @@ export const createTransloaditMcpServer = (
   )
 
   server.registerTool(
-    'transloadit_list_golden_templates',
+    'transloadit_list_templates',
     {
-      title: 'List golden templates',
-      description: 'Returns curated starter templates with ready-to-run steps.',
-      inputSchema: listGoldenTemplatesInputSchema,
-      outputSchema: listGoldenTemplatesOutputSchema,
+      title: 'List templates',
+      description: 'List Assembly Templates (owned and/or builtin).',
+      inputSchema: listTemplatesInputSchema,
+      outputSchema: listTemplatesOutputSchema,
     },
-    () => {
-      return buildToolResponse({
-        status: 'ok',
-        templates: Object.values(goldenTemplatesMap),
-      })
+    async ({ page, page_size, sort, order, keywords, include_builtin, include_content }, extra) => {
+      const liveClient = createLiveClient(options, extra)
+      if ('error' in liveClient) {
+        return buildToolResponse({
+          status: 'error',
+          templates: [],
+          errors: [
+            {
+              code: 'mcp_missing_auth',
+              message:
+                'Missing TRANSLOADIT_KEY/TRANSLOADIT_SECRET or Authorization: Bearer token for live API calls.',
+            },
+          ],
+        })
+      }
+
+      try {
+        const response = await liveClient.client.listTemplates({
+          page,
+          pagesize: page_size,
+          sort,
+          order,
+          keywords,
+          include_builtin,
+        })
+
+        const parsed = listTemplatesResponseSchema.safeParse(response)
+        if (!parsed.success) {
+          throw new Error('Unexpected listTemplates response shape.')
+        }
+
+        const items = parsed.data.items ?? []
+        const includeContent = include_content ?? false
+        const templates = await Promise.all(
+          items.map(async (item) => {
+            const base = mapTemplateListItem(item)
+            if (!includeContent) return base
+            const steps = await loadTemplateSteps(liveClient.client, item)
+            return steps ? { ...base, steps } : base
+          }),
+        )
+
+        return buildToolResponse({
+          status: 'ok',
+          templates,
+          page,
+          page_size: page_size,
+          total: parsed.data.count ?? items.length,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to list templates.'
+        return buildToolResponse({
+          status: 'error',
+          templates: [],
+          errors: [
+            {
+              code: 'mcp_list_templates_failed',
+              message,
+            },
+          ],
+        })
+      }
     },
   )
 
