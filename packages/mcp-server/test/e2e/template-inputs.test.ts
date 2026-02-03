@@ -80,7 +80,7 @@ maybeDescribe('mcp-server template URL handling', { timeout: 60000 }, () => {
         steps: {
           generate: {
             robot: '/image/generate',
-            model: 'google/nano-banana',
+            model: 'google/nano-banana-pro',
             prompt: '${fields.prompt}',
             result: true,
           },
