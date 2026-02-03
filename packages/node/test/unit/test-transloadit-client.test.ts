@@ -388,6 +388,25 @@ describe('Transloadit', () => {
         expect.objectContaining({ headers: { 'Transloadit-Client': `node-sdk:${version}` } }),
       )
     })
+
+    it('should allow overriding the "Transloadit-Client" header', async () => {
+      const client = new Transloadit({
+        authKey: 'foo_key',
+        authSecret: 'foo_secret',
+        clientName: 'mcp-server:1.2.3',
+      })
+
+      const get = mockGot('get')
+
+      const url = '/some-url'
+      // @ts-expect-error This tests private internals
+      await client._remoteJson({ url, method: 'get', isTrustedUrl: true })
+
+      expect(get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ headers: { 'Transloadit-Client': 'mcp-server:1.2.3' } }),
+      )
+    })
   })
 
   describe('getSignedSmartCDNUrl', () => {
