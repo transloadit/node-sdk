@@ -207,6 +207,8 @@ const listBuiltinTemplatesOutputSchema = z.object({
       steps: z.record(z.string(), z.unknown()),
     }),
   ),
+  errors: z.array(toolMessageSchema).optional(),
+  warnings: z.array(toolMessageSchema).optional(),
 })
 
 const lintAssemblyInputSchema = z.object({
@@ -379,13 +381,23 @@ const resolveAssemblyAccess = (
   }
 }
 
-type ApiTemplateRecord = {
-  id?: unknown
-  name?: unknown
-  description?: unknown
-  builtin_version?: unknown
-  content?: unknown
-}
+const apiTemplateSchema = z
+  .object({
+    id: z.string().optional(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    builtin_version: z.string().optional(),
+    content: z.unknown().optional(),
+  })
+  .passthrough()
+
+const listTemplatesResponseSchema = z
+  .object({
+    items: z.array(apiTemplateSchema).optional(),
+  })
+  .passthrough()
+
+type ApiTemplateRecord = z.infer<typeof apiTemplateSchema>
 
 const buildBuiltinTemplateId = (slug: string, version?: string): string => {
   if (slug.includes('@')) return slug
@@ -426,15 +438,18 @@ const mapBuiltinTemplate = (template: ApiTemplateRecord): BuiltinTemplate | unde
 }
 
 const fetchBuiltinTemplates = async (client: Transloadit): Promise<BuiltinTemplate[]> => {
-  const response = (await client.listTemplates({
+  const response = await client.listTemplates({
     include_builtin: 'exclusively-latest',
     page: 1,
     pagesize: 100,
-  })) as {
-    items?: ApiTemplateRecord[]
+  })
+
+  const parsed = listTemplatesResponseSchema.safeParse(response)
+  if (!parsed.success) {
+    throw new Error('Unexpected listTemplates response shape.')
   }
 
-  const items = Array.isArray(response.items) ? response.items : []
+  const items = parsed.data.items ?? []
   return items
     .map((template) => mapBuiltinTemplate(template))
     .filter((template): template is BuiltinTemplate => Boolean(template))
