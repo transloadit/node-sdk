@@ -1,6 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js'
-import type { CreateAssemblyParams, LintAssemblyInstructionsResult } from '@transloadit/node'
+import type {
+  AssemblyInstructionsInput,
+  CreateAssemblyParams,
+  LintAssemblyInstructionsResult,
+} from '@transloadit/node'
 import {
   extractFieldNamesFromTemplate,
   getRobotHelp,
@@ -541,6 +545,14 @@ const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => 
   return undefined
 }
 
+const toAssemblyInstructionsInput = (params: CreateAssemblyParams): AssemblyInstructionsInput => {
+  if (!params.auth || params.auth.key) {
+    return params as AssemblyInstructionsInput
+  }
+  const { auth: _auth, ...rest } = params
+  return rest as AssemblyInstructionsInput
+}
+
 export const createTransloaditMcpServer = (
   options: TransloaditMcpServerOptions = {},
 ): McpServer => {
@@ -631,7 +643,10 @@ export const createTransloaditMcpServer = (
           const template = await client.getTemplate(params.template_id)
           allowStepsOverride = template.content.allow_steps_override !== false
           try {
-            const merged = mergeTemplateContent(template.content, params)
+            const merged = mergeTemplateContent(
+              template.content,
+              toAssemblyInstructionsInput(params),
+            )
             mergedInstructions = merged as CreateAssemblyParams
             mergedSteps = isRecord(merged.steps) ? (merged.steps as Record<string, unknown>) : {}
             mergedFields = isRecord(merged.fields) ? (merged.fields as Record<string, unknown>) : {}
@@ -681,7 +696,7 @@ export const createTransloaditMcpServer = (
                 mergedSteps,
                 isRecord(params.steps) ? params.steps : undefined,
                 analysis.importStepNames,
-              )
+              ) as CreateAssemblyParams['steps']
             }
           }
         }
