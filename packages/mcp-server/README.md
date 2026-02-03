@@ -43,11 +43,20 @@ Environment:
 - `TRANSLOADIT_SECRET`
 - `TRANSLOADIT_MCP_TOKEN`
 - `TRANSLOADIT_ENDPOINT` (optional, default `https://api2.transloadit.com`)
+- `TRANSLOADIT_MCP_METRICS_PATH` (optional, default `/metrics`)
 
 CLI:
 
 - `transloadit-mcp http --host 127.0.0.1 --port 5723 --endpoint https://api2.transloadit.com`
 - `transloadit-mcp http --config path/to/config.json`
+
+## Metrics
+
+- Prometheus-compatible metrics are exposed at `GET /metrics` by default.
+- Customize the path via `TRANSLOADIT_MCP_METRICS_PATH` or config `metricsPath`.
+- Disable by setting `metricsPath: false` in the config or when creating the server/router.
+- Optional basic auth via `TRANSLOADIT_MCP_METRICS_USER` +
+  `TRANSLOADIT_MCP_METRICS_PASSWORD` or config `metricsAuth`.
 
 ## Input files
 

@@ -18,6 +18,9 @@ Environment:
   TRANSLOADIT_SECRET
   TRANSLOADIT_MCP_TOKEN
   TRANSLOADIT_ENDPOINT
+  TRANSLOADIT_MCP_METRICS_PATH
+  TRANSLOADIT_MCP_METRICS_USER
+  TRANSLOADIT_MCP_METRICS_PASSWORD
 `)
 }
 
@@ -106,6 +109,17 @@ const main = async (): Promise<void> => {
     const host = (config.host ?? fileConfig.host ?? '127.0.0.1') as string
     const port = Number(config.port ?? fileConfig.port ?? 5723)
     const path = (fileConfig.path as string | undefined) ?? '/mcp'
+    const metricsPath =
+      (fileConfig.metricsPath as string | undefined) ?? process.env.TRANSLOADIT_MCP_METRICS_PATH
+    const metricsAuthConfig = fileConfig.metricsAuth as
+      | { username?: string; password?: string }
+      | undefined
+    const metricsUser = (fileConfig.metricsUser ??
+      metricsAuthConfig?.username ??
+      process.env.TRANSLOADIT_MCP_METRICS_USER) as string | undefined
+    const metricsPassword = (fileConfig.metricsPassword ??
+      metricsAuthConfig?.password ??
+      process.env.TRANSLOADIT_MCP_METRICS_PASSWORD) as string | undefined
     const endpoint = (config.endpoint ?? fileConfig.endpoint ?? process.env.TRANSLOADIT_ENDPOINT) as
       | string
       | undefined
@@ -126,6 +140,11 @@ const main = async (): Promise<void> => {
       allowedHosts: fileConfig.allowedHosts as string[] | undefined,
       enableDnsRebindingProtection: fileConfig.enableDnsRebindingProtection as boolean | undefined,
       path,
+      metricsPath,
+      metricsAuth:
+        metricsUser && metricsPassword
+          ? { username: metricsUser, password: metricsPassword }
+          : undefined,
       logger,
     })
 
