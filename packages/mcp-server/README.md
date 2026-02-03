@@ -95,9 +95,15 @@ the request body stays small and no extra MCP/LLM token budget is consumed.
   and avoids large inline payloads (the transfer happens out-of-band).
 - If instructions already contain an `/http/import` step, the MCP server sets/overrides its `url`.
   - If multiple URLs and a single `/http/import` step exists, it supplies a `url` array.
-- Templates (builtin or custom) should expose an `imported` step that the template uses as input.
-  When you pass `template_id` (or `builtin_template`) and URL inputs, the MCP server injects an
-  `/http/import` step named `imported` and fills its `url` value(s).
+- When `template_id` (or `builtin_template`) is used, the MCP server fetches the template and
+  chooses the safest URL path:
+  - If the merged template contains a `/http/import` step, it overrides that step’s `url`.
+  - If the template expects uploads (`:original` / `/upload/handle`), it downloads and uploads via
+    tus.
+  - If the template doesn’t take inputs (for example `/html/convert` with a `url`), URL inputs are
+    ignored and a warning is returned.
+  - If `allow_steps_override=false` and the template only supports `/http/import`, URL inputs are
+    rejected (no safe override path).
 
 ## Local vs hosted file access
 

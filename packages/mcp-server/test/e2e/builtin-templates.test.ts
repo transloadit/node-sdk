@@ -2,7 +2,10 @@ import type { Client } from '@modelcontextprotocol/sdk/client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createMcpClient, isRecord, parseToolPayload } from './mcp-client.ts'
 
-describe('mcp-server builtin templates', { timeout: 20000 }, () => {
+const shouldRun = process.env.TRANSLOADIT_KEY != null && process.env.TRANSLOADIT_SECRET != null
+const maybeDescribe = shouldRun ? describe : describe.skip
+
+maybeDescribe('mcp-server builtin templates', { timeout: 20000 }, () => {
   let client: Client
 
   beforeAll(async () => {

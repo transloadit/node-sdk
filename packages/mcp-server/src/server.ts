@@ -1,7 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js'
 import type { CreateAssemblyParams, LintAssemblyInstructionsResult } from '@transloadit/node'
-import { getRobotHelp, listRobots, prepareInputFiles, Transloadit } from '@transloadit/node'
+import {
+  getRobotHelp,
+  listRobots,
+  mergeTemplateContent,
+  prepareInputFiles,
+  Transloadit,
+} from '@transloadit/node'
 import { z } from 'zod'
 import packageJson from '../package.json' with { type: 'json' }
 import { extractBearerToken } from './http-helpers.ts'
@@ -339,8 +345,71 @@ const isErrnoException = (value: unknown): value is NodeJS.ErrnoException =>
 const isHttpImportStep = (value: unknown): value is Record<string, unknown> =>
   isRecord(value) && value.robot === '/http/import'
 
-const hasHttpImportStep = (steps: Record<string, unknown>): boolean =>
-  Object.values(steps).some((step) => isHttpImportStep(step))
+const listHttpImportStepNames = (steps: Record<string, unknown>): string[] =>
+  Object.entries(steps)
+    .filter(([, step]) => isHttpImportStep(step))
+    .map(([name]) => name)
+
+const usesOriginalReference = (value: unknown): boolean => {
+  if (value === ':original') return true
+  if (Array.isArray(value)) {
+    return value.some((item) => usesOriginalReference(item))
+  }
+  if (isRecord(value)) {
+    return Object.values(value).some((item) => usesOriginalReference(item))
+  }
+  return false
+}
+
+type StepAnalysis = {
+  importStepNames: string[]
+  hasHttpImport: boolean
+  requiresUpload: boolean
+}
+
+const analyzeSteps = (steps: Record<string, unknown>): StepAnalysis => {
+  let hasUploadHandle = false
+  let hasOriginalStep = false
+  let usesOriginal = false
+  const importStepNames = listHttpImportStepNames(steps)
+
+  for (const [name, step] of Object.entries(steps)) {
+    if (name === ':original') {
+      hasOriginalStep = true
+    }
+    if (!isRecord(step)) continue
+    if (step.robot === '/upload/handle') {
+      hasUploadHandle = true
+    }
+    if (!usesOriginal && 'use' in step) {
+      usesOriginal = usesOriginalReference(step.use)
+    }
+  }
+
+  return {
+    importStepNames,
+    hasHttpImport: importStepNames.length > 0,
+    requiresUpload: hasUploadHandle || hasOriginalStep || usesOriginal,
+  }
+}
+
+const mergeImportOverrides = (
+  templateSteps: Record<string, unknown>,
+  existingOverrides: Record<string, unknown> | undefined,
+  importStepNames: string[],
+): Record<string, unknown> => {
+  const nextOverrides = isRecord(existingOverrides) ? { ...existingOverrides } : {}
+  for (const stepName of importStepNames) {
+    const templateStep = isRecord(templateSteps[stepName]) ? templateSteps[stepName] : {}
+    const overrideStep = isRecord(nextOverrides[stepName]) ? nextOverrides[stepName] : {}
+    nextOverrides[stepName] = {
+      ...templateStep,
+      ...overrideStep,
+      robot: '/http/import',
+    }
+  }
+  return nextOverrides
+}
 
 const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
   const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
@@ -454,6 +523,17 @@ const fetchBuiltinTemplates = async (client: Transloadit): Promise<BuiltinTempla
     .filter((template): template is BuiltinTemplate => Boolean(template))
 }
 
+const looksLikeAssemblyParams = (input: Record<string, unknown>): boolean => {
+  return (
+    'steps' in input ||
+    'template_id' in input ||
+    'auth' in input ||
+    'fields' in input ||
+    'notify_url' in input ||
+    'redirect_url' in input
+  )
+}
+
 const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => {
   if (input == null) return undefined
   if (typeof input === 'string') {
@@ -461,7 +541,7 @@ const parseInstructions = (input: unknown): CreateAssemblyParams | undefined => 
     return isRecord(parsed) ? (parsed as CreateAssemblyParams) : undefined
   }
   if (isRecord(input)) {
-    if ('steps' in input) {
+    if (looksLikeAssemblyParams(input)) {
       return input as CreateAssemblyParams
     }
     return { steps: input } as CreateAssemblyParams
@@ -552,8 +632,12 @@ export const createTransloaditMcpServer = (
 
       try {
         const fileInputs = files ?? []
-        const hasUrlInputs = fileInputs.some((file) => file.kind === 'url')
+        const urlInputs = fileInputs.filter((file) => file.kind === 'url')
+        const hasUrlInputs = urlInputs.length > 0
+        let inputFilesForPrep = fileInputs
         let params = parseInstructions(instructions) ?? ({} as CreateAssemblyParams)
+        let allowStepsOverride = true
+        let mergedSteps: Record<string, unknown> | undefined
 
         if (builtin_template) {
           const templateId = buildBuiltinTemplateId(builtin_template.slug, builtin_template.version)
@@ -567,27 +651,63 @@ export const createTransloaditMcpServer = (
           params.template_id = templateId
         }
 
-        if (hasUrlInputs && params.template_id) {
-          const steps = isRecord(params.steps) ? { ...params.steps } : {}
-          if (!hasHttpImportStep(steps)) {
-            const imported = isRecord(steps.imported)
-              ? (steps.imported as Record<string, unknown>)
-              : {}
-            steps.imported = {
-              ...imported,
-              robot: '/http/import',
+        if (hasUrlInputs) {
+          let analysis = analyzeSteps(isRecord(params.steps) ? params.steps : {})
+
+          if (params.template_id) {
+            templatePathHint = templatePathHint ?? 'instructions.template_id'
+            const template = await client.getTemplate(params.template_id)
+            allowStepsOverride = template.content.allow_steps_override !== false
+            try {
+              const merged = mergeTemplateContent(template.content, params)
+              mergedSteps = isRecord(merged.steps) ? (merged.steps as Record<string, unknown>) : {}
+              analysis = analyzeSteps(mergedSteps)
+            } catch (error) {
+              if (error instanceof Error && error.message === 'TEMPLATE_DENIES_STEPS_OVERRIDE') {
+                return buildToolError(
+                  'mcp_template_override_denied',
+                  'Template forbids step overrides; remove steps overrides or choose a different template.',
+                  { path: templatePathHint },
+                )
+              }
+              throw error
             }
-            params.steps = steps
+          }
+
+          if (!analysis.hasHttpImport && !analysis.requiresUpload) {
+            inputFilesForPrep = fileInputs.filter((file) => file.kind !== 'url')
             warnings.push({
-              code: 'mcp_imported_step',
-              message:
-                'URL inputs with template_id require a step named "imported" that the template uses as input. The MCP server injected /http/import into that step.',
-              path: templatePathHint ?? 'instructions.template_id',
+              code: 'mcp_url_inputs_ignored',
+              message: 'URL inputs were ignored because the template does not require input files.',
+              path: templatePathHint ?? 'instructions',
             })
+          } else if (analysis.hasHttpImport) {
+            if (!allowStepsOverride) {
+              if (analysis.requiresUpload) {
+                warnings.push({
+                  code: 'mcp_template_import_override_denied',
+                  message:
+                    'Template forbids step overrides; URL inputs will be downloaded and uploaded via tus instead of /http/import.',
+                  path: templatePathHint ?? 'instructions.template_id',
+                })
+              } else {
+                return buildToolError(
+                  'mcp_template_override_denied',
+                  'Template forbids step overrides; URL inputs cannot be mapped to /http/import.',
+                  { path: templatePathHint ?? 'instructions.template_id' },
+                )
+              }
+            } else if (mergedSteps) {
+              params.steps = mergeImportOverrides(
+                mergedSteps,
+                isRecord(params.steps) ? params.steps : undefined,
+                analysis.importStepNames,
+              )
+            }
           }
         }
         const prep = await prepareInputFiles({
-          inputFiles: fileInputs,
+          inputFiles: inputFilesForPrep,
           params,
           fields,
           base64Strategy: 'tempfile',
