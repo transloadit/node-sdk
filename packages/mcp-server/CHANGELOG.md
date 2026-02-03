@@ -1,5 +1,17 @@
 # @transloadit/mcp-server
 
+## 0.2.0
+
+### Minor Changes
+
+- a5548db: Fetch builtin templates from the API and remove bundled builtin template data.
+
+### Patch Changes
+
+- a5548db: Add MCP client setup docs and a local verification script.
+- Updated dependencies [a5548db]
+  - @transloadit/node@4.5.0
+
 ## 0.1.0
 
 ### Minor Changes
