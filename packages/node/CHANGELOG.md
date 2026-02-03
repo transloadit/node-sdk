@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.5.0
+
+### Minor Changes
+
+- a5548db: Fetch builtin templates from the API and remove bundled builtin template data.
+
 ## 4.4.0
 
 ### Minor Changes
