@@ -8,6 +8,7 @@ type CliCheck = {
   command: string
   add: () => void
   run: () => { ok: boolean; output: string }
+  cleanup?: () => void
 }
 
 const requiredEnv = ['TRANSLOADIT_KEY', 'TRANSLOADIT_SECRET']
@@ -21,6 +22,7 @@ if (envMissing.length > 0) {
 const endpoint = process.env.TRANSLOADIT_ENDPOINT ?? 'https://api2.transloadit.com'
 const commandTimeoutMs = Number(process.env.MCP_VERIFY_TIMEOUT_MS ?? 60_000)
 const serverName = process.env.MCP_SERVER_NAME ?? 'transloadit'
+const allowlistedTools = ['transloadit_list_templates']
 const serverCommand = [
   'npm',
   'exec',
@@ -105,6 +107,9 @@ const runClaude = (prompt: string, expectedTemplateId: string): CliCheck => ({
       throw new Error(`claude mcp add failed: ${result.stderr || result.stdout}`)
     }
   },
+  cleanup: () => {
+    runCommand('claude', ['mcp', 'remove', serverName])
+  },
   run: () => {
     const result = runCommand('claude', [
       '-p',
@@ -112,7 +117,7 @@ const runClaude = (prompt: string, expectedTemplateId: string): CliCheck => ({
       '--output-format',
       'json',
       '--allowedTools',
-      'transloadit_list_templates',
+      `mcp__${serverName}`,
       '--permission-mode',
       'acceptEdits',
     ])
@@ -143,6 +148,10 @@ const runCodex = (prompt: string, expectedTemplateId: string): CliCheck => ({
     if (result.status !== 0) {
       throw new Error(`codex mcp add failed: ${result.stderr || result.stdout}`)
     }
+    updateCodexEnabledTools()
+  },
+  cleanup: () => {
+    runCommand('codex', ['mcp', 'remove', serverName])
   },
   run: () => {
     const result = runCommand('codex', ['exec', '--full-auto', '--json', prompt])
@@ -181,11 +190,72 @@ const ensureGeminiSettings = (): void => {
       TRANSLOADIT_SECRET: process.env.TRANSLOADIT_SECRET ?? '',
       TRANSLOADIT_ENDPOINT: endpoint,
     },
+    includeTools: allowlistedTools,
   }
 
   settings.mcpServers = mcpServers
   console.log(`Writing Gemini MCP config to ${settingsPath} using current env credentials.`)
   writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`)
+}
+
+const cleanupGeminiSettings = (): void => {
+  const cwd = process.cwd()
+  const settingsPath = join(homedir(), '.gemini', 'settings.json')
+  if (settingsPath.startsWith(`${cwd}/`)) {
+    return
+  }
+  if (!existsSync(settingsPath)) {
+    return
+  }
+  let settings: Record<string, unknown> = {}
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as Record<string, unknown>
+  } catch {
+    return
+  }
+  const mcpServers = (settings.mcpServers as Record<string, unknown>) ?? {}
+  if (!(serverName in mcpServers)) {
+    return
+  }
+  delete mcpServers[serverName]
+  settings.mcpServers = mcpServers
+  writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`)
+}
+
+const updateCodexEnabledTools = (): void => {
+  const configPath = join(homedir(), '.codex', 'config.toml')
+  if (!existsSync(configPath)) {
+    return
+  }
+  const content = readFileSync(configPath, 'utf8')
+  const header = `[mcp_servers.${serverName}]`
+  const lines = content.split('\n')
+  const headerIndex = lines.findIndex((line) => line.trim() === header)
+  if (headerIndex === -1) {
+    return
+  }
+  let endIndex = lines.length
+  for (let i = headerIndex + 1; i < lines.length; i += 1) {
+    if (lines[i].startsWith('[')) {
+      endIndex = i
+      break
+    }
+  }
+
+  const enabledLine = `enabled_tools = [${allowlistedTools.map((tool) => `"${tool}"`).join(', ')}]`
+  let replaced = false
+  for (let i = headerIndex + 1; i < endIndex; i += 1) {
+    if (lines[i].trim().startsWith('enabled_tools')) {
+      lines[i] = enabledLine
+      replaced = true
+      break
+    }
+  }
+  if (!replaced) {
+    lines.splice(headerIndex + 1, 0, enabledLine)
+  }
+
+  writeFileSync(configPath, `${lines.join('\n')}\n`)
 }
 
 const runGemini = (prompt: string, expectedTemplateId: string): CliCheck => ({
@@ -216,6 +286,10 @@ const runGemini = (prompt: string, expectedTemplateId: string): CliCheck => ({
       ensureGeminiSettings()
       return
     }
+  },
+  cleanup: () => {
+    runCommand('gemini', ['mcp', 'remove', serverName])
+    cleanupGeminiSettings()
   },
   run: () => {
     const result = runCommand('gemini', [
@@ -261,6 +335,8 @@ const main = async (): Promise<void> => {
         ok: false,
         output: error instanceof Error ? error.message : String(error),
       })
+    } finally {
+      check.cleanup?.()
     }
   }
 

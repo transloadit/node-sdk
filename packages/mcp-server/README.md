@@ -32,6 +32,16 @@ claude mcp add --transport stdio transloadit \
   -- npx -y @transloadit/mcp-server stdio
 ```
 
+For non-interactive runs (e.g. `claude -p`), explicitly allow MCP tools. Claude MCP
+tools are named `mcp__<server>__<tool>`, so `mcp__transloadit__*` allows all tools
+from this server.
+
+```bash
+claude -p "List templates" \
+  --allowedTools mcp__transloadit__* \
+  --output-format json
+```
+
 Codex CLI:
 
 ```bash
@@ -41,12 +51,39 @@ codex mcp add transloadit \
   -- npx -y @transloadit/mcp-server stdio
 ```
 
+To allowlist tools, add `enabled_tools` for the server in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.transloadit]
+command = "npx"
+args = ["-y", "@transloadit/mcp-server", "stdio"]
+enabled_tools = ["transloadit_list_templates"]
+```
+
 Gemini CLI:
 
 ```bash
 gemini mcp add --scope user transloadit npx -y @transloadit/mcp-server stdio \
   --env TRANSLOADIT_KEY=... \
   --env TRANSLOADIT_SECRET=...
+```
+
+To allowlist tools, set `includeTools` for the server in `~/.gemini/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "transloadit": {
+      "command": "npx",
+      "args": ["-y", "@transloadit/mcp-server", "stdio"],
+      "env": {
+        "TRANSLOADIT_KEY": "...",
+        "TRANSLOADIT_SECRET": "..."
+      },
+      "includeTools": ["transloadit_list_templates"]
+    }
+  }
+}
 ```
 
 Cursor (`~/.cursor/mcp.json`):
