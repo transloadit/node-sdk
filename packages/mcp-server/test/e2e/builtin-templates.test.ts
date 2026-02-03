@@ -2,7 +2,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createMcpClient, isRecord, parseToolPayload } from './mcp-client.ts'
 
-describe('mcp-server golden templates', { timeout: 20000 }, () => {
+describe('mcp-server builtin templates', { timeout: 20000 }, () => {
   let client: Client
 
   beforeAll(async () => {
@@ -13,9 +13,9 @@ describe('mcp-server golden templates', { timeout: 20000 }, () => {
     await client?.close()
   })
 
-  it('lists golden templates with steps', async () => {
+  it('lists builtin templates with steps', async () => {
     const result = await client.callTool({
-      name: 'transloadit_list_golden_templates',
+      name: 'transloadit_list_builtin_templates',
       arguments: {},
     })
 
@@ -25,8 +25,18 @@ describe('mcp-server golden templates', { timeout: 20000 }, () => {
     expect(Array.isArray(payload.templates)).toBe(true)
 
     const templates = payload.templates as Array<Record<string, unknown>>
-    const hls = templates.find(
-      (template) => template.slug === '~transloadit/encode-hls-video@0.0.1',
+    const builtins = templates.filter((template) =>
+      typeof template.slug === 'string' ? template.slug.startsWith('builtin/') : false,
+    )
+
+    if (process.env.TRANSLOADIT_ENDPOINT?.includes('devdock')) {
+      expect(builtins.length).toBe(2)
+    } else {
+      expect(builtins.length).toBeGreaterThan(0)
+    }
+
+    const hls = builtins.find((template) =>
+      typeof template.slug === 'string' ? template.slug.includes('encode-hls-video') : false,
     )
 
     expect(isRecord(hls)).toBe(true)

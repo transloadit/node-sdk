@@ -48,7 +48,7 @@ type ToolExtra = {
 }
 
 const maxBase64Bytes = 512_000
-type GoldenTemplate = {
+type BuiltinTemplate = {
   slug: string
   version: string
   description: string
@@ -144,7 +144,7 @@ const inputFileSchema = z.discriminatedUnion('kind', [
 
 const createAssemblyInputSchema = z.object({
   instructions: z.unknown().optional(),
-  golden_template: z
+  builtin_template: z
     .object({
       slug: z.string(),
       version: z.string().optional(),
@@ -205,9 +205,9 @@ const waitForAssemblyOutputSchema = z.object({
   warnings: z.array(toolMessageSchema).optional(),
 })
 
-const listGoldenTemplatesInputSchema = z.object({})
+const listBuiltinTemplatesInputSchema = z.object({})
 
-const listGoldenTemplatesOutputSchema = z.object({
+const listBuiltinTemplatesOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
   templates: z.array(
     z.object({
@@ -387,11 +387,11 @@ type ApiTemplateRecord = {
   id?: unknown
   name?: unknown
   description?: unknown
-  golden_version?: unknown
+  builtin_version?: unknown
   content?: unknown
 }
 
-const buildGoldenTemplateId = (slug: string, version?: string): string => {
+const buildBuiltinTemplateId = (slug: string, version?: string): string => {
   if (slug.includes('@')) return slug
   if (version) return `${slug}@${version}`
   return slug
@@ -403,20 +403,20 @@ const extractTemplateSteps = (content: unknown): Record<string, unknown> | undef
   return isRecord(steps) ? (steps as Record<string, unknown>) : undefined
 }
 
-const mapGoldenTemplate = (template: ApiTemplateRecord): GoldenTemplate | undefined => {
+const mapBuiltinTemplate = (template: ApiTemplateRecord): BuiltinTemplate | undefined => {
   const slug = isNonEmptyString(template.name)
     ? template.name
     : isNonEmptyString(template.id)
       ? template.id
       : undefined
 
-  if (!slug || !slug.startsWith('~')) return undefined
+  if (!slug || !slug.startsWith('builtin/')) return undefined
 
   const steps = extractTemplateSteps(template.content)
   if (!steps) return undefined
 
-  const version = isNonEmptyString(template.golden_version)
-    ? template.golden_version
+  const version = isNonEmptyString(template.builtin_version)
+    ? template.builtin_version
     : slug.includes('@')
       ? (slug.split('@')[1] ?? '')
       : ''
@@ -429,9 +429,9 @@ const mapGoldenTemplate = (template: ApiTemplateRecord): GoldenTemplate | undefi
   }
 }
 
-const fetchGoldenTemplates = async (client: Transloadit): Promise<GoldenTemplate[]> => {
+const fetchBuiltinTemplates = async (client: Transloadit): Promise<BuiltinTemplate[]> => {
   const response = (await client.listTemplates({
-    include_golden: 'latest',
+    include_builtin: 'exclusively-latest',
     page: 1,
     pagesize: 100,
   })) as {
@@ -440,16 +440,16 @@ const fetchGoldenTemplates = async (client: Transloadit): Promise<GoldenTemplate
 
   const items = Array.isArray(response.items) ? response.items : []
   return items
-    .map((template) => mapGoldenTemplate(template))
-    .filter((template): template is GoldenTemplate => Boolean(template))
+    .map((template) => mapBuiltinTemplate(template))
+    .filter((template): template is BuiltinTemplate => Boolean(template))
 }
 
-const fetchGoldenTemplateContent = async (
+const fetchBuiltinTemplateContent = async (
   client: Transloadit,
   slug: string,
   version?: string,
 ): Promise<TemplateContent | undefined> => {
-  const templateId = buildGoldenTemplateId(slug, version)
+  const templateId = buildBuiltinTemplateId(slug, version)
   const template = (await client.getTemplate(templateId)) as {
     content?: unknown
   }
@@ -524,7 +524,7 @@ export const createTransloaditMcpServer = (
     async (
       {
         instructions,
-        golden_template,
+        builtin_template,
         files,
         fields,
         wait_for_completion,
@@ -537,10 +537,10 @@ export const createTransloaditMcpServer = (
       },
       extra,
     ) => {
-      if (instructions && golden_template) {
+      if (instructions && builtin_template) {
         return buildToolError(
           'mcp_invalid_args',
-          'Provide either instructions or golden_template, not both.',
+          'Provide either instructions or builtin_template, not both.',
           { path: 'instructions' },
         )
       }
@@ -554,22 +554,22 @@ export const createTransloaditMcpServer = (
         const fileInputs = files ?? []
         let params = parseInstructions(instructions) ?? ({} as CreateAssemblyParams)
 
-        if (golden_template) {
-          const templateContent = await fetchGoldenTemplateContent(
+        if (builtin_template) {
+          const templateContent = await fetchBuiltinTemplateContent(
             client,
-            golden_template.slug,
-            golden_template.version,
+            builtin_template.slug,
+            builtin_template.version,
           )
 
           if (!templateContent) {
             return buildToolError(
               'mcp_unknown_template',
-              `Unknown golden template: ${golden_template.slug}`,
-              { path: 'golden_template.slug' },
+              `Unknown builtin template: ${builtin_template.slug}`,
+              { path: 'builtin_template.slug' },
             )
           }
 
-          const overrides = golden_template.overrides
+          const overrides = builtin_template.overrides
           params = mergeTemplateContent(
             templateContent,
             overrides && isRecord(overrides) ? (overrides as Record<string, unknown>) : undefined,
@@ -775,12 +775,12 @@ export const createTransloaditMcpServer = (
   )
 
   server.registerTool(
-    'transloadit_list_golden_templates',
+    'transloadit_list_builtin_templates',
     {
-      title: 'List golden templates',
+      title: 'List builtin templates',
       description: 'Returns curated starter templates with ready-to-run steps.',
-      inputSchema: listGoldenTemplatesInputSchema,
-      outputSchema: listGoldenTemplatesOutputSchema,
+      inputSchema: listBuiltinTemplatesInputSchema,
+      outputSchema: listBuiltinTemplatesOutputSchema,
     },
     async (_args, extra) => {
       const liveClient = createLiveClient(options, extra)
@@ -799,19 +799,20 @@ export const createTransloaditMcpServer = (
       }
 
       try {
-        const templates = await fetchGoldenTemplates(liveClient.client)
+        const templates = await fetchBuiltinTemplates(liveClient.client)
         return buildToolResponse({
           status: 'ok',
           templates,
         })
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to fetch golden templates.'
+        const message =
+          error instanceof Error ? error.message : 'Failed to fetch builtin templates.'
         return buildToolResponse({
           status: 'error',
           templates: [],
           errors: [
             {
-              code: 'mcp_golden_templates_failed',
+              code: 'mcp_builtin_templates_failed',
               message,
             },
           ],
