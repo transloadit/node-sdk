@@ -74,10 +74,24 @@ maybeDescribe('mcp-server template URL handling', { timeout: 60000 }, () => {
       },
     })
 
+    const fieldTemplate = await api.createTemplate({
+      name: `mcp-fields-${suffix}`,
+      template: {
+        steps: {
+          convert: {
+            robot: '/html/convert',
+            url: '${fields.prompt}',
+            result: true,
+          },
+        },
+      },
+    })
+
     templates.push(
       { id: importTemplate.id, name: importTemplate.name },
       { id: uploadTemplate.id, name: uploadTemplate.name },
       { id: noInputTemplate.id, name: noInputTemplate.name },
+      { id: fieldTemplate.id, name: fieldTemplate.name },
     )
   })
 
@@ -165,5 +179,42 @@ maybeDescribe('mcp-server template URL handling', { timeout: 60000 }, () => {
     expect(upload.status).toBe('none')
     const warnings = Array.isArray(payload.warnings) ? payload.warnings : []
     expect(warnings.some((warning) => warning.code === 'mcp_url_inputs_ignored')).toBe(true)
+  })
+
+  it('errors when required fields are missing', async () => {
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: {
+          template_id: templates[3]?.id,
+        },
+        fields: {
+          wrong: 'https://example.com',
+        },
+      },
+    })
+
+    const payload = parseToolPayload(result)
+    expect(payload.status).toBe('error')
+    const errors = Array.isArray(payload.errors) ? payload.errors : []
+    expect(errors.some((error) => error.code === 'mcp_missing_fields')).toBe(true)
+  })
+
+  it('accepts required fields referenced by the template', async () => {
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {
+        instructions: {
+          template_id: templates[3]?.id,
+        },
+        fields: {
+          prompt: 'https://example.com',
+        },
+        wait_for_completion: false,
+      },
+    })
+
+    const payload = parseToolPayload(result)
+    expect(payload.status).toBe('ok')
   })
 })

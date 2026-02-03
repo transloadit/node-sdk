@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js'
 import type { CreateAssemblyParams, LintAssemblyInstructionsResult } from '@transloadit/node'
 import {
+  extractFieldNamesFromTemplate,
   getRobotHelp,
   listRobots,
   mergeTemplateContent,
@@ -411,6 +412,21 @@ const mergeImportOverrides = (
   return nextOverrides
 }
 
+const collectFieldNames = (templateContent: string): string[] => {
+  const names = extractFieldNamesFromTemplate(templateContent).map((field) => field.fieldName)
+  return Array.from(new Set(names))
+}
+
+const mergeFieldValues = (
+  templateFields: Record<string, unknown> | undefined,
+  argFields: Record<string, unknown> | undefined,
+): Record<string, unknown> => {
+  return {
+    ...(templateFields ?? {}),
+    ...(argFields ?? {}),
+  }
+}
+
 const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
   const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
   if (!match) {
@@ -637,7 +653,9 @@ export const createTransloaditMcpServer = (
         let inputFilesForPrep = fileInputs
         let params = parseInstructions(instructions) ?? ({} as CreateAssemblyParams)
         let allowStepsOverride = true
+        let mergedInstructions: CreateAssemblyParams | undefined
         let mergedSteps: Record<string, unknown> | undefined
+        let mergedFields: Record<string, unknown> | undefined
 
         if (builtin_template) {
           const templateId = buildBuiltinTemplateId(builtin_template.slug, builtin_template.version)
@@ -651,29 +669,35 @@ export const createTransloaditMcpServer = (
           params.template_id = templateId
         }
 
-        if (hasUrlInputs) {
-          let analysis = analyzeSteps(isRecord(params.steps) ? params.steps : {})
+        let analysis = analyzeSteps(isRecord(params.steps) ? params.steps : {})
 
-          if (params.template_id) {
-            templatePathHint = templatePathHint ?? 'instructions.template_id'
-            const template = await client.getTemplate(params.template_id)
-            allowStepsOverride = template.content.allow_steps_override !== false
-            try {
-              const merged = mergeTemplateContent(template.content, params)
-              mergedSteps = isRecord(merged.steps) ? (merged.steps as Record<string, unknown>) : {}
-              analysis = analyzeSteps(mergedSteps)
-            } catch (error) {
-              if (error instanceof Error && error.message === 'TEMPLATE_DENIES_STEPS_OVERRIDE') {
-                return buildToolError(
-                  'mcp_template_override_denied',
-                  'Template forbids step overrides; remove steps overrides or choose a different template.',
-                  { path: templatePathHint },
-                )
-              }
-              throw error
+        if (params.template_id) {
+          templatePathHint = templatePathHint ?? 'instructions.template_id'
+          const template = await client.getTemplate(params.template_id)
+          allowStepsOverride = template.content.allow_steps_override !== false
+          try {
+            const merged = mergeTemplateContent(template.content, params)
+            mergedInstructions = merged as CreateAssemblyParams
+            mergedSteps = isRecord(merged.steps) ? (merged.steps as Record<string, unknown>) : {}
+            mergedFields = isRecord(merged.fields) ? (merged.fields as Record<string, unknown>) : {}
+            analysis = analyzeSteps(mergedSteps)
+          } catch (error) {
+            if (error instanceof Error && error.message === 'TEMPLATE_DENIES_STEPS_OVERRIDE') {
+              return buildToolError(
+                'mcp_template_override_denied',
+                'Template forbids step overrides; remove steps overrides or choose a different template.',
+                { path: templatePathHint },
+              )
             }
+            throw error
           }
+        } else {
+          mergedInstructions = params
+          mergedSteps = isRecord(params.steps) ? (params.steps as Record<string, unknown>) : {}
+          mergedFields = isRecord(params.fields) ? (params.fields as Record<string, unknown>) : {}
+        }
 
+        if (hasUrlInputs) {
           if (!analysis.hasHttpImport && !analysis.requiresUpload) {
             inputFilesForPrep = fileInputs.filter((file) => file.kind !== 'url')
             warnings.push({
@@ -704,6 +728,31 @@ export const createTransloaditMcpServer = (
                 analysis.importStepNames,
               )
             }
+          }
+        }
+
+        if (mergedInstructions) {
+          const fieldTemplateContent = JSON.stringify(mergedInstructions)
+          const requiredFields = collectFieldNames(fieldTemplateContent)
+          const providedFields = mergeFieldValues(
+            mergedFields,
+            isRecord(fields) ? (fields as Record<string, unknown>) : undefined,
+          )
+          const missingFields = requiredFields.filter((fieldName) => !(fieldName in providedFields))
+          const effectiveMissing =
+            hasUrlInputs && analysis.hasHttpImport
+              ? missingFields.filter((fieldName) => fieldName !== 'input')
+              : missingFields
+
+          if (effectiveMissing.length > 0) {
+            return buildToolError(
+              'mcp_missing_fields',
+              `Missing required fields: ${effectiveMissing.join(', ')}`,
+              {
+                path: 'fields',
+                hint: 'Provide these field names under the fields argument.',
+              },
+            )
           }
         }
         const prep = await prepareInputFiles({
