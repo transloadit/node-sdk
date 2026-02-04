@@ -131,15 +131,17 @@ transloadit-mcp stdio
 
 ## MCP vs skills/CLI
 
-MCP shines when an agent needs **interactive, structured tool calls** and fast feedback
-inside a conversation (e.g. “upload this file, run a template, then fetch results”).
+MCP is best for **embedded runtime** use: long‑lived or autonomous agent pipelines where
+Transloadit runs repeatedly (uploads → assemblies → polling → results).
 
-Skills/CLI shine when you want **prepackaged, deterministic flows** (e.g. “scaffold an
-Uppy + Transloadit integration” or “generate a production‑ready encoding template”).
+Skills/CLI are best for **human‑directed, one‑off work**: setting up integrations,
+generating templates, scaffolding code, or running a single processing task locally with
+full repo/tool access.
 
-There is overlap — a skill can call MCP tools — but if you want a single high‑level
-action with predictable outputs, skills/CLI are often the better fit. We’re preparing
-a Transloadit skills repo and will share it soon.
+These are guidelines, not hard rules. Some systems (for example Open Claw) can work
+beautifully with skills, and MCP can also be great for interactive, human‑in‑the‑loop
+flows. The right choice depends on your environment and preferences — and we’ll keep
+supporting both.
 
 ## Auth model
 
