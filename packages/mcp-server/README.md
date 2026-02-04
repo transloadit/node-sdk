@@ -9,19 +9,10 @@ Transloadit MCP server (Streamable HTTP + stdio). This package is thin glue over
 npm install @transloadit/mcp-server
 ```
 
-## Quick start (HTTP)
+## Quick start (agents)
 
-```bash
-transloadit-mcp http --host 127.0.0.1 --port 5723
-```
-
-## Quick start (stdio)
-
-```bash
-transloadit-mcp stdio
-```
-
-## Add to MCP clients
+Most users add the MCP server to their agent client. The client starts the server
+automatically (via `npx -y @transloadit/mcp-server stdio`).
 
 Claude Code:
 
@@ -119,6 +110,36 @@ OpenCode (`~/.config/opencode/opencode.json`):
   }
 }
 ```
+
+If you cannot install packages where the agent runs (locked‑down or hosted environments),
+use the hosted MCP endpoint (`https://api2.transloadit.com/mcp`) with bearer tokens. This
+is a fallback — self‑hosted MCP is the default recommendation.
+
+## Run the server manually
+
+HTTP:
+
+```bash
+transloadit-mcp http --host 127.0.0.1 --port 5723
+```
+
+Stdio:
+
+```bash
+transloadit-mcp stdio
+```
+
+## MCP vs skills/CLI
+
+MCP shines when an agent needs **interactive, structured tool calls** and fast feedback
+inside a conversation (e.g. “upload this file, run a template, then fetch results”).
+
+Skills/CLI shine when you want **prepackaged, deterministic flows** (e.g. “scaffold an
+Uppy + Transloadit integration” or “generate a production‑ready encoding template”).
+
+There is overlap — a skill can call MCP tools — but if you want a single high‑level
+action with predictable outputs, skills/CLI are often the better fit. We’re preparing
+a Transloadit skills repo and will share it soon.
 
 ## Auth model
 
