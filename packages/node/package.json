@@ -76,7 +76,7 @@
     "fix": "npm-run-all --serial 'fix:js'",
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
-    "prepack": "rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && yarn --cwd ../.. tsc:node",
+    "prepack": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && yarn --cwd ../.. tsc:node",
     "test:unit": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage ./test/unit",
     "test:e2e": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run ./test/e2e",
     "test": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage"
