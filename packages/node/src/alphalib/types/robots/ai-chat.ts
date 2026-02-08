@@ -150,6 +150,7 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'anthropic/claude-4-opus-20250514': { pdf: true, image: true },
   'anthropic/claude-sonnet-4-5': { pdf: true, image: true },
   'anthropic/claude-opus-4-5': { pdf: true, image: true },
+  'anthropic/claude-opus-4-6': { pdf: true, image: true },
   'openai/gpt-4.1-2025-04-14': { pdf: false, image: true },
   'openai/chatgpt-4o-latest': { pdf: false, image: true },
   'openai/o3-2025-04-16': { pdf: false, image: true },
@@ -197,21 +198,28 @@ export const robotAiChatInstructionsSchema = robotBase
     credentials: z
       .union([z.string(), z.array(z.string())])
       .optional()
-      .describe('Names of template credentials to make available to the robot.'),
+      .describe(
+        'Names of template credentials to make available to the robot. When using your own AI provider keys, Transloadit charges a 10% markup (minimum $0.0005 per request).',
+      ),
     test_credentials: z
       .boolean()
       .optional()
-      .describe('Use Transloadit-provided credentials for testing.'),
+      .describe(
+        'Use Transloadit-provided credentials for testing. Usage is billed at provider cost plus a 10% markup (minimum $0.0005 per request).',
+      ),
     mcp_servers: z
       .array(
         z.object({
           type: z.enum(['sse', 'http']),
           url: z.string(),
           headers: z.record(z.string()).optional(),
+          auth: z.enum(['transloadit']).optional(),
         }),
       )
       .optional()
-      .describe('The MCP servers to use. This is used to call tools from the LLM.'),
+      .describe(
+        'The MCP servers to use. This is used to call tools from the LLM. Use `headers` to pass `Authorization: Bearer <token>` when needed. You can use any MCP server reachable from your environment. For Transloadit\'s own MCP server, you can set `auth: "transloadit"` to let API2 auto-auth and inject an Authorization header for you (only for Transloadit-hosted MCP servers).',
+      ),
   })
   .strict()
 

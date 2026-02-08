@@ -98,9 +98,11 @@ export class Mcache<T> {
     })
 
     this.#pending.set(key, promise)
-    void promise.finally(() => {
-      this.#pending.delete(key)
-    })
+    void promise
+      .finally(() => {
+        this.#pending.delete(key)
+      })
+      .catch(() => undefined)
     return promise
   }
 
