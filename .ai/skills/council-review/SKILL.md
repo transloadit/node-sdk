@@ -43,7 +43,7 @@ For each item:
 
 ### 5) Final validation
 
-- Run repo-required checks (for this repo: `yarn check`).
+- Run repo-required checks (often `corepack yarn check` if available).
 - Note any warnings but avoid unrelated changes unless required.
 
 ## Notes
