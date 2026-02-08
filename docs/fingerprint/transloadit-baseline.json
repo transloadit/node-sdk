@@ -2,8 +2,8 @@
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.5.1.tgz",
-    "sizeBytes": 1232726,
-    "sha256": "2e65468cbd32f1dadc16e66472b9cfb213cb5cf788742d5b3cd0234a48c89cf0"
+    "sizeBytes": 1233431,
+    "sha256": "17e2958fc87054f3063ec2faa1b60c84fbc778051f5ccc6d1f623a6278085443"
   },
   "packageJson": {
     "name": "transloadit",
@@ -33,8 +33,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.js",
-      "sizeBytes": 8999,
-      "sha256": "719ef2796404bfe190b00faadcffeccf4589b6fca1708da3ab7703420057c028"
+      "sizeBytes": 9598,
+      "sha256": "450227323009921c8c436c4ca3d325846d4ccab7e47a5a29b94ebefd93170492"
     },
     {
       "path": "dist/ApiError.js",
@@ -683,8 +683,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
-      "sizeBytes": 84548,
-      "sha256": "15359982efb993bdee53dfe04bc5e6898876f7e2657ecddc8d1d29e0826442d7"
+      "sizeBytes": 84568,
+      "sha256": "4d9e3573a911c1fb824f1e40be1644c44192cd5e632ee63f92bf9342425fd2ad"
     },
     {
       "path": "dist/alphalib/types/robots/_index.js.map",
@@ -703,13 +703,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts.map",
-      "sizeBytes": 3201,
-      "sha256": "7bb9cda496eca52c029148345d7888dc674ac17c863488f3ea6f725150220c04"
+      "sizeBytes": 3222,
+      "sha256": "349f27bcb874de663e0f67dc560546968ca50da02aab01eea7c8225400bca5f6"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.js.map",
-      "sizeBytes": 7516,
-      "sha256": "7cf2d3705a557fec2b381de77461d94e4e67b2232978afc7ec012169ad323d8c"
+      "sizeBytes": 7650,
+      "sha256": "6c31c017e41a533499a0146d9ff4bd692a91d629ca2ee60e2c7d2ff88194f43b"
     },
     {
       "path": "dist/ApiError.d.ts.map",
@@ -793,8 +793,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.d.ts.map",
-      "sizeBytes": 8187,
-      "sha256": "a062d7ce7cefe716b449fe5816a40bd14101af441e715d5e8a14d25b96f0d8e4"
+      "sizeBytes": 8189,
+      "sha256": "e76e1ab44b84878a3dc753d8e36e57a11547e3c281b4359b9fa693c66b685553"
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.js.map",
@@ -803,8 +803,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplayNotification.d.ts.map",
-      "sizeBytes": 8202,
-      "sha256": "dc0ca30103b3f3f319194158aaaa7d24be28cf52573c32fd2c067bbcf77ee3cc"
+      "sizeBytes": 8204,
+      "sha256": "4b5267d560245ecc7a60dbe045fb16feb88b433030b1f74b65a617207ba1505b"
     },
     {
       "path": "dist/alphalib/types/assemblyReplayNotification.js.map",
@@ -1703,8 +1703,8 @@
     },
     {
       "path": "dist/alphalib/types/template.d.ts.map",
-      "sizeBytes": 134390,
-      "sha256": "c4439855a4362ba609cbecd295be500fa7985f39b41d4aff23ec58f6a77af853"
+      "sizeBytes": 134426,
+      "sha256": "73aedc14d95de2fe06f515872b36f65bbfcb6fb72975037d80c55aab8e2537ff"
     },
     {
       "path": "dist/alphalib/types/template.js.map",
@@ -1998,8 +1998,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts",
-      "sizeBytes": 4709535,
-      "sha256": "5a20fc6a1745d2490d58bb908484c035d246b962724a54a7465b9ddf15540bd5"
+      "sizeBytes": 4710431,
+      "sha256": "b713000057fd0591ff366e1bfcabcd35f2f1ea5cc16d5672a6685ad1f85b61d9"
     },
     {
       "path": "src/alphalib/types/robots/_index.ts",
@@ -2018,13 +2018,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts",
-      "sizeBytes": 90949,
-      "sha256": "4a7e88b643ab4a9aea7e62e150221d1b5b2e3a9cefeb022c00a825ac0a67defe"
+      "sizeBytes": 91847,
+      "sha256": "472ca68aaadaf27a4bde5302254571ec82828a009020924b3610e4c91340bdaa"
     },
     {
       "path": "src/alphalib/types/robots/ai-chat.ts",
-      "sizeBytes": 9798,
-      "sha256": "4de4d901cc8fb694df6c402363edc4405e7b86fccab019b1bb94dc3b532fc87b"
+      "sizeBytes": 10448,
+      "sha256": "4140d851971693e1aebdc675e71ffcdc98e7f9b31fcfa3c86f1ef8a6a5a8142b"
     },
     {
       "path": "dist/ApiError.d.ts",
@@ -2108,8 +2108,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.d.ts",
-      "sizeBytes": 416979,
-      "sha256": "e5b90d36d8066fcf915046789e972d0b9936b90a8fab9dc16db0938dcdef837b"
+      "sizeBytes": 417057,
+      "sha256": "c9075355284f9c11981b0de0d7e4890cf97da9487f8b5bec297a33ad20dc3ef9"
     },
     {
       "path": "src/alphalib/types/assemblyReplay.ts",
@@ -2118,8 +2118,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplayNotification.d.ts",
-      "sizeBytes": 416541,
-      "sha256": "460b33b8fe680c1dde2d524007fcc7f7327ee9350457e6a7d42ca00633f39d61"
+      "sizeBytes": 416619,
+      "sha256": "7f30e55b769fc351b5766fbe1bf29e06e7791ce2b8747b81ab6cbc48e167bbb0"
     },
     {
       "path": "src/alphalib/types/assemblyReplayNotification.ts",
@@ -3023,8 +3023,8 @@
     },
     {
       "path": "dist/alphalib/types/template.d.ts",
-      "sizeBytes": 7719315,
-      "sha256": "88f190be7d011f2666ca1441a9e97a4d035799547ce42691383467a2f06cbdbc"
+      "sizeBytes": 7720893,
+      "sha256": "49fc04dc876673bef62e46aa6e8c61d74b75aa96bb1d6a5e6d151be18fbbd8db"
     },
     {
       "path": "src/alphalib/types/template.ts",
