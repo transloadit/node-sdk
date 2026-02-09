@@ -2,8 +2,8 @@
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.7.2.tgz",
-    "sizeBytes": 1242656,
-    "sha256": "54683dafed771d169c80a6a341116efbfd7efbdf9cdf1d8156576d02c81c2c5b"
+    "sizeBytes": 1242674,
+    "sha256": "92b0820e3f9530383dd643bebc4011cd5d00a189513bbadcec15f6b1692d3a4a"
   },
   "packageJson": {
     "name": "transloadit",
@@ -128,8 +128,8 @@
     },
     {
       "path": "dist/cli/commands/auth.js",
-      "sizeBytes": 13272,
-      "sha256": "daaa034b612a50ca9c8264aa96052b172d54f815da012bb8959ea646ca2d3719"
+      "sizeBytes": 13279,
+      "sha256": "0f0a6d757b46e721bbfa3f4cd5177f9e8dad9002d011d7d44bc4e05d93eefc1c"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.js",
@@ -899,12 +899,12 @@
     {
       "path": "dist/cli/commands/auth.d.ts.map",
       "sizeBytes": 1063,
-      "sha256": "b64ae9e741e8387d272a4aca4c38440bd4218b2f25f2d1380c38b23aa4be586f"
+      "sha256": "d7866dca1ec5df7d744776b19101a0c2dac7c49246c8b15cc9a6610b98301e1b"
     },
     {
       "path": "dist/cli/commands/auth.js.map",
-      "sizeBytes": 11963,
-      "sha256": "c831cd3dd10385485029fbfab8771cbaa0441cc295d3a225137eee494e82a87f"
+      "sizeBytes": 11964,
+      "sha256": "63c43f34a75a2a3441f1675072a9ee53c116ba6c57804a28cb3793f508973c95"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts.map",
@@ -2228,8 +2228,8 @@
     },
     {
       "path": "src/cli/commands/auth.ts",
-      "sizeBytes": 13798,
-      "sha256": "8d2db174cf5839eac27718e707541674b57cebfdf2dafa657b04ccecd27fdbb6"
+      "sizeBytes": 13809,
+      "sha256": "1984ab072952fb0d990b09b0f655d12a40e036a718c79c2e36535076314950b7"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts",
