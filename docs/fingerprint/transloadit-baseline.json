@@ -2,8 +2,8 @@
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.6.0.tgz",
-    "sizeBytes": 1238000,
-    "sha256": "ede75d42657a5d89e8d2331e84be3dbfb5d93eba0722ba3fe11cba74f1c1c62a"
+    "sizeBytes": 1239126,
+    "sha256": "47ec577cddbae32bffa31913be655e21d834814a391a27283467fa4329f83ab6"
   },
   "packageJson": {
     "name": "transloadit",
@@ -553,8 +553,8 @@
     },
     {
       "path": "dist/cli/commands/templates.js",
-      "sizeBytes": 15694,
-      "sha256": "fc2e8b636bf2f3d6c61bca5d11cf54acdf9f2e23d57d608cf282c94e2f9ea984"
+      "sizeBytes": 17507,
+      "sha256": "632108b45ea9db0807be32316f73e71425134754a0657e83675287eefc777de8"
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.js",
@@ -1748,13 +1748,13 @@
     },
     {
       "path": "dist/cli/commands/templates.d.ts.map",
-      "sizeBytes": 2355,
-      "sha256": "dde861e027753cac8ae7255ac4cc9b31d40e86b341ac52d467696294df1b32b3"
+      "sizeBytes": 2386,
+      "sha256": "7561c84233a0db5dd6e75d2a49d434e6455e8964a96d997bfc712f089551b041"
     },
     {
       "path": "dist/cli/commands/templates.js.map",
-      "sizeBytes": 14657,
-      "sha256": "d8af75491dfa21dd4c3f6587ef199a28f14450a1533bf78f8437e8581a358fd6"
+      "sizeBytes": 15860,
+      "sha256": "0c5b3ad523af04aec5a57deb83c7681c5f3ddd8d241664ce6f43c71e10769e04"
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.d.ts.map",
@@ -3078,13 +3078,13 @@
     },
     {
       "path": "dist/cli/commands/templates.d.ts",
-      "sizeBytes": 2875,
-      "sha256": "62c3ab8980473a08a6ebfb662d56b517ad8cbc1f8d82988aa7f181e07d010bf0"
+      "sizeBytes": 2944,
+      "sha256": "98135baf203b49143551b83b10b8b4a000d86d5e068dc5114575d200518799fb"
     },
     {
       "path": "src/cli/commands/templates.ts",
-      "sizeBytes": 16146,
-      "sha256": "12037ee25c27331aaa630d519c52e6c81520f002f79a74782b4d647d66025b15"
+      "sizeBytes": 17942,
+      "sha256": "c592539b044992c343abc91ef53fc9a2b5acbe0f8720ef525c424961df4e1975"
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.d.ts",
