@@ -102,26 +102,32 @@ const getRobotHelpInputSchema = z.object({
   detail_level: z.enum(['summary', 'params', 'examples']).optional(),
 })
 
-const getRobotHelpOutputSchema = z.object({
-  status: z.enum(['ok', 'error']),
-  robots: z.array(
-    z.object({
-      name: z.string(),
-      summary: z.string(),
-      required_params: z.array(robotParamSchema),
-      optional_params: z.array(robotParamSchema),
-      examples: z
-        .array(
-          z.object({
-            description: z.string(),
-            snippet: z.record(z.string(), z.unknown()),
-          }),
-        )
-        .optional(),
-    }),
-  ),
-  not_found: z.array(z.string()).optional(),
+const robotHelpOutputSchema = z.object({
+  name: z.string(),
+  summary: z.string(),
+  required_params: z.array(robotParamSchema),
+  optional_params: z.array(robotParamSchema),
+  examples: z
+    .array(
+      z.object({
+        description: z.string(),
+        snippet: z.record(z.string(), z.unknown()),
+      }),
+    )
+    .optional(),
 })
+
+const getRobotHelpOutputSchema = z
+  .object({
+    status: z.enum(['ok', 'error']),
+    // For backward compatibility, we still return `robot` for single-robot requests via `robot_name`.
+    robot: robotHelpOutputSchema.optional(),
+    robots: z.array(robotHelpOutputSchema).optional(),
+    not_found: z.array(z.string()).optional(),
+  })
+  .refine((value) => value.status !== 'ok' || value.robot || value.robots, {
+    message: 'Expected robot or robots for ok status.',
+  })
 
 const inputFileSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -933,6 +939,9 @@ export const createTransloaditMcpServer = (
           .map((part) => part.trim())
           .filter(Boolean)
 
+      const prefersSingle =
+        typeof robot_name === 'string' && robot_name.trim() !== '' && !robot_name.includes(',')
+
       const requested =
         robot_names && robot_names.length > 0
           ? robot_names
@@ -944,7 +953,13 @@ export const createTransloaditMcpServer = (
         return buildToolError('mcp_missing_args', 'Provide robot_name or robot_names.')
       }
 
-      const robots = []
+      const robots: Array<{
+        name: string
+        summary: string
+        required_params: unknown[]
+        optional_params: unknown[]
+        examples?: unknown[]
+      }> = []
       const notFound: string[] = []
 
       for (const name of requested) {
@@ -963,6 +978,14 @@ export const createTransloaditMcpServer = (
           required_params: help.requiredParams,
           optional_params: help.optionalParams,
           examples: help.examples,
+        })
+      }
+
+      if (prefersSingle) {
+        return buildToolResponse({
+          status: 'ok',
+          robot: robots[0],
+          not_found: notFound.length > 0 ? notFound : undefined,
         })
       }
 
