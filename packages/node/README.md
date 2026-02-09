@@ -57,6 +57,16 @@ export TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
 npx transloadit --help
 ```
 
+### Minting Bearer Tokens (Hosted MCP)
+
+If you want to connect an agent to the Transloadit-hosted MCP endpoint, mint a short-lived bearer
+token via `POST /token`:
+
+```bash
+# Prints JSON to stdout (no extra output)
+npx -y transloadit auth token --aud mcp
+```
+
 ### Processing Media
 
 Create Assemblies to process files using Assembly Instructions (steps) or Templates:

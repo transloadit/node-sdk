@@ -194,6 +194,82 @@ export interface RunSmartSigOptions {
   providedInput?: string
 }
 
+export interface RunTokenOptions {
+  endpoint?: string
+  aud?: string
+}
+
+const resolveTokenEndpoint = (endpoint?: string): string => {
+  const base = (
+    endpoint ||
+    process.env.TRANSLOADIT_ENDPOINT ||
+    'https://api2.transloadit.com'
+  ).trim()
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`
+  return new URL('token', normalizedBase).toString()
+}
+
+const buildBasicAuthHeaderValue = (credentials: { authKey: string; authSecret: string }): string =>
+  `Basic ${Buffer.from(`${credentials.authKey}:${credentials.authSecret}`, 'utf8').toString('base64')}`
+
+const parseJsonOrNull = (raw: string): unknown | null => {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+export async function runToken(options: RunTokenOptions = {}): Promise<void> {
+  const credentials = getCredentials()
+  if (credentials == null) {
+    console.error(
+      'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
+    )
+    process.exitCode = 1
+    return
+  }
+
+  const url = resolveTokenEndpoint(options.endpoint)
+  const aud = (options.aud ?? 'mcp').trim() || 'mcp'
+
+  const body = new URLSearchParams({ grant_type: 'client_credentials', aud }).toString()
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: buildBasicAuthHeaderValue(credentials),
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    })
+  } catch (err) {
+    console.error(`Failed to mint bearer token: ${(err as Error).message}`)
+    process.exitCode = 1
+    return
+  }
+
+  const text = await res.text()
+  if (res.ok) {
+    // Keep stdout clean JSON for scripting/agents.
+    process.stdout.write(`${text.trim()}\n`)
+    return
+  }
+
+  const parsed = parseJsonOrNull(text)
+  if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+    const error = (parsed as { error?: unknown }).error
+    const message = (parsed as { message?: unknown }).message
+    console.error(message ? `${error}: ${message}` : String(error))
+  } else {
+    console.error(`Token request failed (${res.status}): ${text || res.statusText}`)
+  }
+  process.exitCode = 1
+}
+
 export async function runSig(options: RunSigOptions = {}): Promise<void> {
   const credentials = getCredentials()
   if (credentials == null) {
@@ -347,5 +423,36 @@ export class SmartCdnSignatureCommand extends UnauthenticatedCommand {
 
     this.output.error(result.error)
     return 1
+  }
+}
+
+/**
+ * Mint a short-lived bearer token via POST /token (HTTP Basic Auth).
+ *
+ * This is intentionally stdout-clean JSON so it can be used by agents and scripts.
+ */
+export class TokenCommand extends UnauthenticatedCommand {
+  static override paths = [['auth', 'token']]
+
+  static override usage = Command.Usage({
+    category: 'Auth',
+    description: 'Mint a short-lived bearer token',
+    details: `
+      Calls POST /token using HTTP Basic Auth (TRANSLOADIT_KEY + TRANSLOADIT_SECRET) and prints the
+      JSON response to stdout.
+    `,
+    examples: [
+      ['Mint an MCP token (default aud)', 'transloadit auth token'],
+      ['Override audience', 'transloadit auth token --aud api2'],
+    ],
+  })
+
+  aud = Option.String('--aud', {
+    description: 'Token audience (default: mcp).',
+  })
+
+  protected override async run(): Promise<number | undefined> {
+    await runToken({ endpoint: this.endpoint, aud: this.aud })
+    return process.exitCode ? 1 : 0
   }
 }

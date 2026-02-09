@@ -1,13 +1,13 @@
 {
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.7.1.tgz",
-    "sizeBytes": 1239686,
-    "sha256": "e0e4926af34a37737feb90f3536be69f1111e38e4525b056e2c72ec4456d0a6b"
+    "filename": "transloadit-4.7.2.tgz",
+    "sizeBytes": 1242656,
+    "sha256": "54683dafed771d169c80a6a341116efbfd7efbdf9cdf1d8156576d02c81c2c5b"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.7.1",
+    "version": "4.7.2",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -128,8 +128,8 @@
     },
     {
       "path": "dist/cli/commands/auth.js",
-      "sizeBytes": 10190,
-      "sha256": "882912a557268b70fba276804fecab686e259bb78c167c175c3e1e67cceea3b6"
+      "sizeBytes": 13272,
+      "sha256": "daaa034b612a50ca9c8264aa96052b172d54f815da012bb8959ea646ca2d3719"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.js",
@@ -388,8 +388,8 @@
     },
     {
       "path": "dist/cli/commands/index.js",
-      "sizeBytes": 2099,
-      "sha256": "26ffd3f1d1bf5f9e6ea350cebcb6593fa748bcbc814ee60dcfc7313a97fe54f0"
+      "sizeBytes": 2145,
+      "sha256": "b44764be9d6a803669bbc1a937f553566ce91993ed283c7f6d5ef65cbff6b263"
     },
     {
       "path": "dist/inputFiles.js",
@@ -684,7 +684,7 @@
     {
       "path": "package.json",
       "sizeBytes": 2730,
-      "sha256": "061fbd4b1e3fbbc7ded678f2d27b9ac3e0dbcc903b5e70c31c61166a6a24764e"
+      "sha256": "818a4a0e1e9d5020e29d5cafcbc584a380fbb264508518835bab2e017f5fd101"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
@@ -898,13 +898,13 @@
     },
     {
       "path": "dist/cli/commands/auth.d.ts.map",
-      "sizeBytes": 749,
-      "sha256": "f31c0a86129f7fa44aed415e85e46a04935801f03140c8d73c57897d2ee609f7"
+      "sizeBytes": 1063,
+      "sha256": "b64ae9e741e8387d272a4aca4c38440bd4218b2f25f2d1380c38b23aa4be586f"
     },
     {
       "path": "dist/cli/commands/auth.js.map",
-      "sizeBytes": 9151,
-      "sha256": "92fb82422a8e746658deb008d95d656a2cb87e86a761ff5dc0776cbda96c7cca"
+      "sizeBytes": 11963,
+      "sha256": "c831cd3dd10385485029fbfab8771cbaa0441cc295d3a225137eee494e82a87f"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts.map",
@@ -1419,12 +1419,12 @@
     {
       "path": "dist/cli/commands/index.d.ts.map",
       "sizeBytes": 198,
-      "sha256": "7f72c6762c95dac3b7e6cd256abab44c210c471e40a0558ad20020cf15fdd983"
+      "sha256": "3f955192e7d7832d6fd0c8ee0244b153e42c947686425750c7c8c58d6657f2a7"
     },
     {
       "path": "dist/cli/commands/index.js.map",
-      "sizeBytes": 1889,
-      "sha256": "47f1867c39793eebbafb7229433aff4b573e408690ffdeb11457533a71dd54aa"
+      "sizeBytes": 1940,
+      "sha256": "1cad8333ee5fd6c34071a6d8528a7b55399be0626baf1754e28453d714836868"
     },
     {
       "path": "dist/inputFiles.d.ts.map",
@@ -2008,8 +2008,8 @@
     },
     {
       "path": "README.md",
-      "sizeBytes": 35551,
-      "sha256": "442743aa79f063ee5da4e50601debb28b492377b3359aa4c2596f4adefbd372a"
+      "sizeBytes": 35810,
+      "sha256": "48d6f9477a9db2bcbc0e36822cba458fd082feaa6aaca43640fda344aa74396a"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts",
@@ -2223,13 +2223,13 @@
     },
     {
       "path": "dist/cli/commands/auth.d.ts",
-      "sizeBytes": 936,
-      "sha256": "20a1d35fb55fad8af33fb6decede3cbf2cd621007fe443d2866e9975bbe23b20"
+      "sizeBytes": 1478,
+      "sha256": "106489e6767e5b7ab863b6bc6c57067981e4386a8be5aa003e799317067bf5ea"
     },
     {
       "path": "src/cli/commands/auth.ts",
-      "sizeBytes": 10626,
-      "sha256": "b5f4d2404f455ad2e3354cd963a3468bb2d57a1808ce715f715cea1ad87b2245"
+      "sizeBytes": 13798,
+      "sha256": "8d2db174cf5839eac27718e707541674b57cebfdf2dafa657b04ccecd27fdbb6"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts",
@@ -2748,8 +2748,8 @@
     },
     {
       "path": "src/cli/commands/index.ts",
-      "sizeBytes": 2001,
-      "sha256": "762f6b157cbb43839b496850ec5918c4e0efb94e88be3c45e06171e3771a7e8f"
+      "sizeBytes": 2044,
+      "sha256": "b6752fa800c6a91e662b75a0c0973f0ba513f263d4a96d5e46a0d3e1f1a9f828"
     },
     {
       "path": "dist/inputFiles.d.ts",

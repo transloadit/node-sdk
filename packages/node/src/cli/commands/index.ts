@@ -11,7 +11,7 @@ import {
   AssembliesReplayCommand,
 } from './assemblies.ts'
 
-import { SignatureCommand, SmartCdnSignatureCommand } from './auth.ts'
+import { SignatureCommand, SmartCdnSignatureCommand, TokenCommand } from './auth.ts'
 
 import { BillsGetCommand } from './bills.ts'
 import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
@@ -40,6 +40,7 @@ export function createCli(): Cli {
   // Auth commands (signature generation)
   cli.register(SignatureCommand)
   cli.register(SmartCdnSignatureCommand)
+  cli.register(TokenCommand)
 
   // Assemblies commands
   cli.register(AssembliesCreateCommand)
