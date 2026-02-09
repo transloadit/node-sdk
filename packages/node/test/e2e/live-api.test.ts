@@ -26,7 +26,6 @@ import { createProxy } from '../util.ts'
 loadRepoRootDotenv()
 const hasCloudflared =
   typeof process.env.CLOUDFLARED_PATH === 'string' && existsSync(process.env.CLOUDFLARED_PATH)
-const describeLive = hasLiveCredentials() && hasCloudflared ? describe : describe.skip
 
 const log = debug('transloadit:live-api')
 
@@ -125,29 +124,39 @@ const genericOptions = {
 
 const handlers = new Map()
 
-let testServer: TestServer
+let testServer: TestServer | undefined
+let canRunLive = hasLiveCredentials() && hasCloudflared
 
-beforeAll(async () => {
-  // cloudflared tunnels are a bit unstable, so we share one cloudflared tunnel between all tests
-  // we do this by prefixing each "virtual" server under a uuid subpath
-  testServer = await createTestServer((req, res) => {
-    const regex = /^\/([^/]+)/
-    const match = req.url?.match(regex)
-    if (match) {
-      const [, id] = match
-      const handler = handlers.get(id)
-      if (handler) {
-        req.url = req.url?.replace(regex, '')
-        if (req.url === '') req.url = '/'
-        handler(req, res)
+if (canRunLive) {
+  try {
+    // cloudflared tunnels are unstable, so we share one tunnel between all tests by prefixing each
+    // "virtual" server under a uuid subpath.
+    testServer = await createTestServer((req, res) => {
+      const regex = /^\/([^/]+)/
+      const match = req.url?.match(regex)
+      if (match) {
+        const [, id] = match
+        const handler = handlers.get(id)
+        if (handler) {
+          req.url = req.url?.replace(regex, '')
+          if (req.url === '') req.url = '/'
+          handler(req, res)
+        } else {
+          log('request handler for UUID not found', id)
+        }
       } else {
-        log('request handler for UUID not found', id)
+        log('Invalid path match', req.url)
       }
-    } else {
-      log('Invalid path match', req.url)
-    }
-  })
-}, 100000)
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    // Avoid failing CI when Cloudflare's "quick tunnel" endpoint is flaky.
+    console.warn(`Skipping live API e2e: cloudflared tunnel unavailable (${message})`)
+    canRunLive = false
+  }
+}
+
+const describeLive = canRunLive ? describe : describe.skip
 
 afterAll(async () => {
   await testServer?.close()
@@ -161,7 +170,7 @@ interface VirtualTestServer {
 function createVirtualTestServer(handler: RequestListener): VirtualTestServer {
   const id = randomUUID()
   log('Adding virtual server handler', id)
-  const url = `${testServer.url}/${id}`
+  const url = `${nn(testServer, 'testServer').url}/${id}`
   handlers.set(id, handler)
 
   function close() {

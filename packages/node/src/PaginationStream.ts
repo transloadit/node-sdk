@@ -43,6 +43,13 @@ export default class PaginationStream<T> extends Readable {
         this._nitems = rest.count
       }
 
+      // Some endpoints can return a non-zero `count` even when the current query/page yields no
+      // items (e.g. filtering by date range). An empty page is a reliable signal that we are done.
+      if (items.length === 0) {
+        process.nextTick(() => this.push(null))
+        return
+      }
+
       this._items = Array.from(items)
       this._items.reverse()
 

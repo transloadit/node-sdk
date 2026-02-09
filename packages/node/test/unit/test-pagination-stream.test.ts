@@ -88,4 +88,26 @@ describe('PaginationStream', () => {
       stream.resume()
     })
   })
+
+  it('ends on an empty page even if count is non-zero', async () => {
+    const pages = [{ count: 999, items: [] as number[] }]
+    let calls = 0
+
+    const stream = new PaginationStream<number>((pageno) => {
+      calls += 1
+      return pages[pageno - 1]
+    })
+
+    await new Promise<void>((resolve) => {
+      stream.pipe(
+        toArray((array) => {
+          expect(array).toEqual([])
+          expect(calls).toBe(1)
+          resolve()
+        }),
+      )
+
+      stream.resume()
+    })
+  })
 })
