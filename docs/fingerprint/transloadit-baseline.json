@@ -1,13 +1,13 @@
 {
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.7.0.tgz",
-    "sizeBytes": 1239602,
-    "sha256": "53c864320cc7c1cf61ddbbc7561859efef634e4d607e990a604d7098c2b7747d"
+    "filename": "transloadit-4.7.1.tgz",
+    "sizeBytes": 1239686,
+    "sha256": "e0e4926af34a37737feb90f3536be69f1111e38e4525b056e2c72ec4456d0a6b"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.7.0",
+    "version": "4.7.1",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -683,8 +683,8 @@
     },
     {
       "path": "package.json",
-      "sizeBytes": 2391,
-      "sha256": "2502292ced0cd319458a74fcd4ec65569f5022428aecefcff40a5a1c64ebf3db"
+      "sizeBytes": 2730,
+      "sha256": "061fbd4b1e3fbbc7ded678f2d27b9ac3e0dbcc903b5e70c31c61166a6a24764e"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",

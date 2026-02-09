@@ -2,14 +2,29 @@
   "name": "transloadit",
   "version": "4.7.1",
   "description": "Node.js SDK for Transloadit",
+  "homepage": "https://github.com/transloadit/node-sdk/tree/main/packages/node",
+  "bugs": {
+    "url": "https://github.com/transloadit/node-sdk/issues"
+  },
   "type": "module",
   "keywords": [
     "transloadit",
+    "tus",
+    "resumable-upload",
+    "upload",
+    "file-processing",
+    "assembly",
+    "assemblies",
+    "template",
+    "templates",
     "encoding",
     "transcoding",
     "video",
+    "image",
     "audio",
-    "mp3"
+    "mp3",
+    "cli",
+    "typescript"
   ],
   "author": "Tim Koschuetzki <tim@transloadit.com>",
   "packageManager": "yarn@4.12.0",
