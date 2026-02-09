@@ -1,5 +1,20 @@
 # @transloadit/mcp-server
 
+## 0.3.0
+
+### Minor Changes
+
+- d045c39: Add token-efficient robot documentation helpers:
+
+  - `transloadit docs robots list|get` CLI commands for offline robot discovery and full docs.
+  - `getRobotHelp()` supports `detailLevel: "full"` and exports `isKnownRobot()`.
+  - MCP tool `transloadit_get_robot_help` returns full docs and supports requesting multiple robots.
+
+### Patch Changes
+
+- Updated dependencies [d045c39]
+  - @transloadit/node@4.6.0
+
 ## 0.2.2
 
 ### Patch Changes
