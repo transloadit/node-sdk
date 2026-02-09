@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.7.2
+
+### Patch Changes
+
+- 744f531: Expand npm metadata (keywords/homepage/bugs) for better discoverability.
+
 ## 4.7.1
 
 ### Patch Changes
