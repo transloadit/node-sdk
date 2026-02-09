@@ -63,7 +63,7 @@ If you want to connect an agent to the Transloadit-hosted MCP endpoint, mint a s
 token via `POST /token`:
 
 ```bash
-# Prints JSON to stdout (no extra output)
+# Prints JSON to stdout (stderr may include npx/npm noise)
 npx -y transloadit auth token --aud mcp
 ```
 

@@ -35,7 +35,7 @@ abstract class BaseCommand extends Command {
     const creds = getEnvCredentials()
     if (!creds) {
       this.output.error(
-        'Please provide API authentication in the environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET',
+        'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
       )
       return false
     }
