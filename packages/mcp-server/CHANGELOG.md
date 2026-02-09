@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.3.2
+
+### Patch Changes
+
+- 7b41cb1: Add npm keywords for discoverability.
+
 ## 0.3.1
 
 ### Patch Changes
