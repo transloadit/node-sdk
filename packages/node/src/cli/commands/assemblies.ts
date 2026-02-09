@@ -70,31 +70,37 @@ const AssemblySchema = z.object({
 export function list(
   output: IOutputCtl,
   client: Transloadit,
-  { before, after, fields, keywords }: AssemblyListOptions,
+  { before, after, fields, keywords, pagesize }: AssemblyListOptions,
 ): Promise<void> {
   const assemblies = client.streamAssemblies({
     fromdate: after,
     todate: before,
     keywords,
+    pagesize,
   })
 
   assemblies.on('readable', () => {
-    const assembly: unknown = assemblies.read()
-    if (assembly == null) return
+    // Drain the stream, otherwise `end` may never fire.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const assembly: unknown = assemblies.read()
+      if (assembly == null) return
 
-    const parsed = AssemblySchema.safeParse(assembly)
-    if (!parsed.success) return
+      const parsed = AssemblySchema.safeParse(assembly)
+      if (!parsed.success) continue
 
-    if (fields == null) {
-      output.print(parsed.data.id, assembly)
-    } else {
-      const assemblyRecord = assembly as Record<string, unknown>
-      output.print(fields.map((field) => assemblyRecord[field]).join(' '), assembly)
+      if (fields == null) {
+        output.print(parsed.data.id, assembly)
+      } else {
+        const assemblyRecord = assembly as Record<string, unknown>
+        output.print(fields.map((field) => assemblyRecord[field]).join(' '), assembly)
+      }
     }
   })
 
   return new Promise<void>((resolve) => {
     assemblies.on('end', resolve)
+    assemblies.on('close', resolve)
     assemblies.on('error', (err: unknown) => {
       output.error(formatAPIError(err))
       resolve()
