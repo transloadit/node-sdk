@@ -179,7 +179,10 @@ maybeDescribe('mcp-server template URL handling', { timeout: 60000 }, () => {
     const upload = isRecord(payload.upload) ? (payload.upload as Record<string, unknown>) : {}
     expect(upload.status).toBe('none')
     const warnings = Array.isArray(payload.warnings) ? payload.warnings : []
-    expect(warnings.some((warning) => warning.code === 'mcp_url_inputs_ignored')).toBe(true)
+    const ignored = warnings.find((warning) => warning.code === 'mcp_url_inputs_ignored')
+    expect(ignored).toBeDefined()
+    expect(typeof ignored?.hint).toBe('string')
+    expect(String(ignored?.hint)).toContain('transloadit_list_templates')
   })
 
   it('errors when required fields are missing', async () => {

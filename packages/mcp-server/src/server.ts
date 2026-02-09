@@ -6,6 +6,7 @@ import type {
   LintAssemblyInstructionsResult,
 } from '@transloadit/node'
 import {
+  ApiError,
   extractFieldNamesFromTemplate,
   getRobotHelp,
   isKnownRobot,
@@ -369,6 +370,31 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0
 
+const builtinTemplatePrefix = 'builtin/'
+
+const isBuiltinTemplateId = (value: string): boolean => value.startsWith(builtinTemplatePrefix)
+
+const getHttpStatusCode = (error: unknown): number | undefined => {
+  if (error instanceof ApiError) {
+    const status = (error.cause as unknown as { response?: { statusCode?: unknown } } | undefined)
+      ?.response?.statusCode
+    if (typeof status === 'number') return status
+  }
+
+  if (isRecord(error)) {
+    const directStatus = (error as { response?: { statusCode?: unknown } }).response?.statusCode
+    if (typeof directStatus === 'number') return directStatus
+
+    const cause = (error as { cause?: unknown }).cause
+    if (isRecord(cause)) {
+      const status = (cause as { response?: { statusCode?: unknown } }).response?.statusCode
+      if (typeof status === 'number') return status
+    }
+  }
+
+  return undefined
+}
+
 const isErrnoException = (value: unknown): value is NodeJS.ErrnoException =>
   isRecord(value) && typeof value.code === 'string'
 
@@ -666,7 +692,22 @@ export const createTransloaditMcpServer = (
 
         if (params.template_id) {
           templatePathHint = templatePathHint ?? 'instructions.template_id'
-          const template = await client.getTemplate(params.template_id)
+          let template: Awaited<ReturnType<typeof client.getTemplate>>
+          try {
+            template = await client.getTemplate(params.template_id)
+          } catch (error) {
+            if (getHttpStatusCode(error) === 404) {
+              const templateId = params.template_id
+              const hint = isBuiltinTemplateId(templateId)
+                ? 'Builtin template not found. Call transloadit_list_templates with include_builtin: "exclusively-latest" to discover builtins.'
+                : 'Template not found. Call transloadit_list_templates to discover available templates.'
+              return buildToolError('mcp_template_not_found', `Template not found: ${templateId}`, {
+                path: templatePathHint,
+                hint,
+              })
+            }
+            throw error
+          }
           allowStepsOverride = template.content.allow_steps_override !== false
           try {
             const merged = mergeTemplateContent(
@@ -699,6 +740,7 @@ export const createTransloaditMcpServer = (
             warnings.push({
               code: 'mcp_url_inputs_ignored',
               message: 'URL inputs were ignored because the template does not require input files.',
+              hint: 'If you meant to process a URL, use a template that imports URLs (e.g. builtin/serve-preview@0.0.1), or call transloadit_list_templates with include_builtin: "exclusively-latest" to discover builtins.',
               path: templatePathHint ?? 'instructions',
             })
           } else if (analysis.hasHttpImport) {
@@ -1001,7 +1043,8 @@ export const createTransloaditMcpServer = (
     'transloadit_list_templates',
     {
       title: 'List templates',
-      description: 'List Assembly Templates (owned and/or builtin).',
+      description:
+        'List Assembly Templates (owned and/or builtin). Tip: pass include_builtin: "exclusively-latest" to list builtins only.',
       inputSchema: listTemplatesInputSchema,
       outputSchema: listTemplatesOutputSchema,
     },
