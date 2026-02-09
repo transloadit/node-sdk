@@ -2,8 +2,8 @@
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.5.1.tgz",
-    "sizeBytes": 1236102,
-    "sha256": "e035a6dcb8986bcc5d9f36136abb4c454129e1fd480824079f0f8303bbb54172"
+    "sizeBytes": 1238000,
+    "sha256": "b2a067719981807bfb9509d6f146a82b225be933ea29c34241b03f40a44fc1b1"
   },
   "packageJson": {
     "name": "transloadit",
@@ -48,8 +48,8 @@
     },
     {
       "path": "dist/cli/commands/assemblies.js",
-      "sizeBytes": 45968,
-      "sha256": "3ee5d25332c5f37a1aecf5079cc182cb9558790d3833003e65c0bad24140781d"
+      "sizeBytes": 50942,
+      "sha256": "e747690d5b7f1de6f8ee9f3958b6e7056ec71797e31924c561af7a2e876a45c0"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.js",
@@ -739,12 +739,12 @@
     {
       "path": "dist/cli/commands/assemblies.d.ts.map",
       "sizeBytes": 3727,
-      "sha256": "b2badb1662472faa705a603370d7980edf5c7ae54ef6cbbaca22ac2e3817a6f6"
+      "sha256": "92df2d4796d69cdc0c8449c365d73da3e982433f9c183d86a28b9ab087cc43a8"
     },
     {
       "path": "dist/cli/commands/assemblies.js.map",
-      "sizeBytes": 41077,
-      "sha256": "4d07c285617ecd3729eaae9f0f909226455231958297f325813cd5c6bdc5d185"
+      "sizeBytes": 44728,
+      "sha256": "cb89f7b1fca911a9e3bcb7057f570a109c6040cf6f7709f180af432f2dc292f6"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.d.ts.map",
@@ -2068,8 +2068,8 @@
     },
     {
       "path": "src/cli/commands/assemblies.ts",
-      "sizeBytes": 46276,
-      "sha256": "a55768d91f46aff577d676f16d8e9e2394907d257e7913c3c153290508ba574f"
+      "sizeBytes": 50730,
+      "sha256": "4d1c30f21b981d5d40d4973bb92b1d50c89f086ade55b6b1c68dbe1a56f3e97b"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.d.ts",
