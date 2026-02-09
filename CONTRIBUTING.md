@@ -108,6 +108,12 @@ Release flow:
 4. Review and merge the version PR. CI publishes automatically via npm trusted publishing (OIDC).
 5. Add [release notes](https://github.com/transloadit/node-sdk/releases) once the publish succeeds.
 
+Changelog guidance:
+
+- Treat changesets as the changelog source. Write them as release notes (short, user-facing, and accurate).
+- Per-package `packages/*/CHANGELOG.md` files are generated/updated by Changesets during the “Version Packages” PR. Avoid editing them by hand.
+- The top-level `CHANGELOG.md` is historical (the old `v4.x.y` tag series). Prefer GitHub releases and the package changelogs.
+
 Manual fallback (maintainers only):
 
 - `corepack yarn changeset publish`
@@ -125,4 +131,4 @@ Notes:
 - **Legacy parity:** `transloadit` is generated from `@transloadit/node` artifacts via `scripts/prepare-transloadit.ts`, then verified with `yarn parity:transloadit`. Only `package.json` metadata drift is allowed; any other drift fails.
 - **Accepting intentional drift:** run `node scripts/prepare-transloadit.ts` before updating the parity baseline, then follow the parity tool instructions to regenerate `docs/fingerprint/*` so the baseline reflects the latest build.
 - **Experimental packages:** Scoped packages (`@transloadit/node`, `@transloadit/types`, `@transloadit/zod`) publish with the `experimental` dist-tag. The unscoped `transloadit` package remains stable.
-- **Changelog visibility:** `transloadit` is generated from `@transloadit/node` artifacts. If a change affects `@transloadit/node`, include `transloadit` in the same changeset so its changelog stays in sync.
+- **Changelog visibility:** the “Version Packages” PR is the single source of truth for what gets published. If something was published to npm without a corresponding GitHub release/tag, add the missing release/tag so users can discover the change history from GitHub.

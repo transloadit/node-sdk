@@ -2,6 +2,10 @@
 
 You may also want to refer to [GitHub releases](https://github.com/transloadit/node-sdk/releases).
 
+Note: This top-level changelog is maintained for the historical single-package `v4.x.y` tag series.
+Since the monorepo split and independent package versioning, release notes live in per-package
+changelogs under `packages/*/CHANGELOG.md` and in GitHub releases.
+
 ## Roadmap
 
 - Support more platforms than Node.js https://github.com/transloadit/node-sdk/issues/153
