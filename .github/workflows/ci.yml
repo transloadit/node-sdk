@@ -187,6 +187,13 @@ jobs:
           CLOUDFLARED_PATH: ${{ github.workspace }}/cloudflared-linux-amd64
           DEBUG: 'transloadit:*'
 
+      - name: Run MCP server e2e tests
+        run: corepack yarn workspace @transloadit/mcp-server test:e2e
+        env:
+          TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
+          TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
+          NODE_OPTIONS: --trace-deprecation --trace-warnings
+
       - name: Generate the badge from the json-summary
         run: node --experimental-strip-types packages/node/test/generate-coverage-badge.ts packages/node/coverage/coverage-summary.json
       - name: Move HTML report and badge to the correct location
