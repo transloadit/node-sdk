@@ -172,7 +172,7 @@ jobs:
       - run: corepack yarn
       - name: Download cloudflared
         run: |
-          curl -fsSLo cloudflared-linux-amd64 https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 -o cloudflared-linux-amd64 https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
           chmod +x cloudflared-linux-amd64
 
       # can be used for debugging:
