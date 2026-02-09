@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.7.0
+
+### Minor Changes
+
+- 65095fa: feat(cli): add `templates list --include-builtin` and `--include-content`
+
 ## 4.6.0
 
 ### Minor Changes
