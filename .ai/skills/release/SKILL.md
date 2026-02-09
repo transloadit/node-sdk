@@ -12,10 +12,17 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
 2. Prepare a code PR (feature/fix changes):
    1. Create branch from `main`
    2. Make changes
-   3. `corepack yarn check`
-   4. Commit + push branch
-   5. Open PR, wait for CI green
-   6. Squash-merge the PR
+   3. If you touched `packages/node` (or anything that affects the legacy `transloadit` clone):
+      1. Run `corepack yarn parity:transloadit`
+      2. If it updates `docs/fingerprint/transloadit-baseline*.json`, commit those changes in the PR
+   4. `corepack yarn check`
+   5. Commit + push branch
+   6. Open PR, wait for CI green
+   7. Squash-merge the PR
+
+   Notes:
+   1. When creating PRs with `gh pr create` from a shell, avoid unescaped backticks in the `--body` string.
+      Prefer `--body-file` to prevent accidental command substitution.
 
 3. Merge the "Version Packages" PR (changesets action):
    1. Wait for the `Version Packages` PR to appear (or update)
@@ -25,8 +32,12 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
    3. Ensure `yarn.lock` is up to date (CI will fail otherwise):
       1. `corepack yarn`
       2. If `yarn.lock` changed: `git add yarn.lock && git commit -m "chore: update yarn.lock for release" && git push`
-   4. Ensure CI is green for the PR
-   5. Squash-merge the PR
+   4. Verify the Version Packages PR includes all expected linked/versioned packages:
+      1. Read the `# Releases` section (this is the authoritative "what will publish")
+      2. If you expect a linked package to bump (e.g. `@transloadit/node` and `transloadit`), ensure the PR updates both.
+         If it doesn't, fix before merging (otherwise tags/releases can drift).
+   5. Ensure CI is green for the PR
+   6. Squash-merge the PR
 
 4. Immediately after merging the Version Packages PR:
    1. `git checkout main && git pull`
@@ -62,4 +73,3 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
       1. `npm view <pkg> version` (should match)
       2. `git tag -l '<pkg>@<version>'` (tag should exist)
    2. If npm versions look stale, wait ~60s and retry (registry propagation)
-
