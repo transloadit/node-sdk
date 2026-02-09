@@ -2,7 +2,7 @@ import 'dotenv/config'
 import process from 'node:process'
 import { Command, Option } from 'clipanion'
 import { Transloadit as TransloaditClient } from '../../Transloadit.ts'
-import { getEnvCredentials } from '../helpers.ts'
+import { requireEnvCredentials } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 import OutputCtl, { LOG_LEVEL_DEFAULT, LOG_LEVEL_NAMES, parseLogLevel } from '../OutputCtl.ts'
 
@@ -32,17 +32,18 @@ abstract class BaseCommand extends Command {
   }
 
   protected setupClient(): boolean {
-    const creds = getEnvCredentials()
-    if (!creds) {
-      this.output.error(
-        'Please provide API authentication in the environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET',
-      )
+    const credsResult = requireEnvCredentials()
+    if (!credsResult.ok) {
+      this.output.error(credsResult.error)
       return false
     }
 
     const endpoint = this.endpoint || process.env.TRANSLOADIT_ENDPOINT
 
-    this.client = new TransloaditClient({ ...creds, ...(endpoint && { endpoint }) })
+    this.client = new TransloaditClient({
+      ...credsResult.credentials,
+      ...(endpoint && { endpoint }),
+    })
     return true
   }
 

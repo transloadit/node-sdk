@@ -8,7 +8,7 @@ import {
 } from '../../alphalib/types/template.ts'
 import type { OptionalAuthParams } from '../../apiTypes.ts'
 import { Transloadit } from '../../Transloadit.ts'
-import { getEnvCredentials, readCliInput } from '../helpers.ts'
+import { readCliInput, requireEnvCredentials } from '../helpers.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 type UrlParamPrimitive = string | number | boolean
@@ -68,40 +68,51 @@ function normalizeUrlParams(params?: Record<string, unknown>): NormalizedUrlPara
   return normalized
 }
 
-const getCredentials = getEnvCredentials
+type OutputResult = { ok: true; output: string } | { ok: false; error: string }
 
-// Result type for signature operations
-type SigResult = { ok: true; output: string } | { ok: false; error: string }
+type Result<T> = { ok: true; value: T } | { ok: false; error: string }
+
+function parseJsonObject<TSchema extends z.ZodTypeAny>(
+  input: string,
+  schema: TSchema,
+): Result<z.infer<TSchema>> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(input)
+  } catch (error) {
+    return { ok: false, error: `Failed to parse JSON from stdin: ${(error as Error).message}` }
+  }
+
+  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'Invalid params provided via stdin. Expected a JSON object.' }
+  }
+
+  const parsedResult = schema.safeParse(parsed)
+  if (!parsedResult.success) {
+    return { ok: false, error: `Invalid params: ${formatIssues(parsedResult.error.issues)}` }
+  }
+
+  return { ok: true, value: parsedResult.data }
+}
 
 // Core logic for signature generation
 function generateSignature(
   input: string,
   credentials: { authKey: string; authSecret: string },
   algorithm?: string,
-): SigResult {
+): OutputResult {
   const { authKey, authSecret } = credentials
   let params: CliSignatureParams
 
   if (input === '') {
     params = { auth: { key: authKey } }
   } else {
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(input)
-    } catch (error) {
-      return { ok: false, error: `Failed to parse JSON from stdin: ${(error as Error).message}` }
+    const parsedResult = parseJsonObject(input, cliSignatureParamsSchema)
+    if (!parsedResult.ok) {
+      return { ok: false, error: parsedResult.error }
     }
 
-    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { ok: false, error: 'Invalid params provided via stdin. Expected a JSON object.' }
-    }
-
-    const parsedResult = cliSignatureParamsSchema.safeParse(parsed)
-    if (!parsedResult.success) {
-      return { ok: false, error: `Invalid params: ${formatIssues(parsedResult.error.issues)}` }
-    }
-
-    const parsedParams = parsedResult.data
+    const parsedParams = parsedResult.value
     const existingAuth = parsedParams.auth ?? {}
 
     params = {
@@ -126,7 +137,7 @@ function generateSignature(
 function generateSmartCdnUrl(
   input: string,
   credentials: { authKey: string; authSecret: string },
-): SigResult {
+): OutputResult {
   const { authKey, authSecret } = credentials
 
   if (input === '') {
@@ -137,23 +148,12 @@ function generateSmartCdnUrl(
     }
   }
 
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(input)
-  } catch (error) {
-    return { ok: false, error: `Failed to parse JSON from stdin: ${(error as Error).message}` }
+  const parsedResult = parseJsonObject(input, smartCdnParamsSchema)
+  if (!parsedResult.ok) {
+    return { ok: false, error: parsedResult.error }
   }
 
-  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { ok: false, error: 'Invalid params provided via stdin. Expected a JSON object.' }
-  }
-
-  const parsedResult = smartCdnParamsSchema.safeParse(parsed)
-  if (!parsedResult.success) {
-    return { ok: false, error: `Invalid params: ${formatIssues(parsedResult.error.issues)}` }
-  }
-
-  const { workspace, template, input: inputFieldRaw, url_params, expire_at_ms } = parsedResult.data
+  const { workspace, template, input: inputFieldRaw, url_params, expire_at_ms } = parsedResult.value
   const urlParams = normalizeUrlParams(url_params)
 
   let expiresAt: number | undefined
@@ -194,15 +194,163 @@ export interface RunSmartSigOptions {
   providedInput?: string
 }
 
+export interface RequestTokenOptions {
+  endpoint?: string
+  aud?: string
+}
+
+const tokenErrorSchema = z
+  .object({
+    error: z.string(),
+    message: z.string().optional(),
+  })
+  .passthrough()
+
+const tokenSuccessSchema = z
+  .object({
+    access_token: z.string().min(1),
+  })
+  .passthrough()
+
+const buildBasicAuthHeaderValue = (credentials: { authKey: string; authSecret: string }): string =>
+  `Basic ${Buffer.from(`${credentials.authKey}:${credentials.authSecret}`, 'utf8').toString('base64')}`
+
+const isLoopbackHost = (hostname: string): boolean =>
+  hostname === 'localhost' || hostname === '::1' || hostname.startsWith('127.')
+
+type TokenBaseResult = { ok: true; baseUrl: URL } | { ok: false; error: string }
+
+const normalizeTokenBaseEndpoint = (raw?: string): TokenBaseResult => {
+  const baseRaw = (raw || process.env.TRANSLOADIT_ENDPOINT || 'https://api2.transloadit.com').trim()
+
+  let url: URL
+  try {
+    url = new URL(baseRaw)
+  } catch {
+    return {
+      ok: false,
+      error:
+        'Invalid endpoint URL. Use --endpoint https://api2.transloadit.com (or set TRANSLOADIT_ENDPOINT).',
+    }
+  }
+
+  if (url.username || url.password) {
+    return { ok: false, error: 'Endpoint must not include username/password.' }
+  }
+  if (url.search || url.hash) {
+    return { ok: false, error: 'Endpoint must not include query string or hash.' }
+  }
+
+  if (url.protocol !== 'https:') {
+    if (url.protocol === 'http:' && isLoopbackHost(url.hostname)) {
+      // Allowed for local development only.
+    } else {
+      return {
+        ok: false,
+        error:
+          'Refusing to send credentials to a non-HTTPS endpoint. Use https://... (or http://localhost for local development).',
+      }
+    }
+  }
+
+  // If someone pasted the token URL, normalize it back to the API base to avoid /token/token.
+  const pathLower = url.pathname.toLowerCase()
+  if (pathLower === '/token' || pathLower === '/token/') {
+    url.pathname = '/'
+  }
+
+  if (!url.pathname.endsWith('/')) {
+    url.pathname = `${url.pathname}/`
+  }
+
+  return { ok: true, baseUrl: url }
+}
+
+async function requestTokenWithCredentials(
+  credentials: { authKey: string; authSecret: string },
+  options: RequestTokenOptions = {},
+): Promise<OutputResult> {
+  const endpointResult = normalizeTokenBaseEndpoint(options.endpoint)
+  if (!endpointResult.ok) {
+    return { ok: false, error: endpointResult.error }
+  }
+
+  const url = new URL('token', endpointResult.baseUrl).toString()
+  const aud = (options.aud ?? 'mcp').trim() || 'mcp'
+
+  const body = new URLSearchParams({ grant_type: 'client_credentials', aud }).toString()
+
+  let res: Response
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15_000)
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      // Never follow redirects with Basic Auth credentials.
+      redirect: 'error',
+      signal: controller.signal,
+      headers: {
+        Authorization: buildBasicAuthHeaderValue(credentials),
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    })
+  } catch (err) {
+    clearTimeout(timeout)
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { ok: false, error: 'Failed to mint bearer token: request timed out after 15s.' }
+    }
+    const message = err instanceof Error ? err.message : String(err)
+    return { ok: false, error: `Failed to mint bearer token: ${message}` }
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  const text = await res.text()
+  const trimmed = text.trim()
+  let parsedJson: unknown = null
+  try {
+    parsedJson = trimmed ? JSON.parse(trimmed) : null
+  } catch {
+    parsedJson = null
+  }
+
+  if (res.ok) {
+    if (parsedJson == null) {
+      return { ok: false, error: 'Token response was not valid JSON.' }
+    }
+    const parsed = tokenSuccessSchema.safeParse(parsedJson)
+    if (!parsed.success) {
+      return { ok: false, error: 'Token response did not include an access_token.' }
+    }
+    return { ok: true, output: trimmed }
+  }
+
+  const parsedError = tokenErrorSchema.safeParse(parsedJson)
+  if (parsedError.success) {
+    return {
+      ok: false,
+      error: parsedError.data.message
+        ? `${parsedError.data.error}: ${parsedError.data.message}`
+        : parsedError.data.error,
+    }
+  }
+
+  return {
+    ok: false,
+    error: `Token request failed (${res.status}): ${trimmed || res.statusText}`,
+  }
+}
+
 export async function runSig(options: RunSigOptions = {}): Promise<void> {
-  const credentials = getCredentials()
-  if (credentials == null) {
-    console.error(
-      'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
-    )
+  const credentialsResult = requireEnvCredentials()
+  if (!credentialsResult.ok) {
+    console.error(credentialsResult.error)
     process.exitCode = 1
     return
   }
+  const credentials = credentialsResult.credentials
 
   const { content } = await readCliInput({
     providedInput: options.providedInput,
@@ -220,14 +368,13 @@ export async function runSig(options: RunSigOptions = {}): Promise<void> {
 }
 
 export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<void> {
-  const credentials = getCredentials()
-  if (credentials == null) {
-    console.error(
-      'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
-    )
+  const credentialsResult = requireEnvCredentials()
+  if (!credentialsResult.ok) {
+    console.error(credentialsResult.error)
     process.exitCode = 1
     return
   }
+  const credentials = credentialsResult.credentials
 
   const { content } = await readCliInput({
     providedInput: options.providedInput,
@@ -274,13 +421,12 @@ export class SignatureCommand extends UnauthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    const credentials = getCredentials()
-    if (credentials == null) {
-      this.output.error(
-        'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
-      )
+    const credentialsResult = requireEnvCredentials()
+    if (!credentialsResult.ok) {
+      this.output.error(credentialsResult.error)
       return 1
     }
+    const credentials = credentialsResult.credentials
 
     const { content } = await readCliInput({ allowStdinWhenNoPath: true })
     const rawInput = (content ?? '').trim()
@@ -328,17 +474,63 @@ export class SmartCdnSignatureCommand extends UnauthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    const credentials = getCredentials()
-    if (credentials == null) {
-      this.output.error(
-        'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
-      )
+    const credentialsResult = requireEnvCredentials()
+    if (!credentialsResult.ok) {
+      this.output.error(credentialsResult.error)
       return 1
     }
+    const credentials = credentialsResult.credentials
 
     const { content } = await readCliInput({ allowStdinWhenNoPath: true })
     const rawInput = (content ?? '').trim()
     const result = generateSmartCdnUrl(rawInput, credentials)
+
+    if (result.ok) {
+      process.stdout.write(`${result.output}\n`)
+      return undefined
+    }
+
+    this.output.error(result.error)
+    return 1
+  }
+}
+
+/**
+ * Mint a short-lived bearer token via POST /token (HTTP Basic Auth).
+ *
+ * This is intentionally stdout-clean JSON so it can be used by agents and scripts.
+ */
+export class TokenCommand extends UnauthenticatedCommand {
+  static override paths = [['auth', 'token']]
+
+  static override usage = Command.Usage({
+    category: 'Auth',
+    description: 'Mint a short-lived bearer token',
+    details: `
+      Calls POST /token using HTTP Basic Auth (TRANSLOADIT_KEY + TRANSLOADIT_SECRET) and prints the
+      JSON response to stdout.
+    `,
+    examples: [
+      ['Mint an MCP token (default aud)', 'transloadit auth token'],
+      ['Override audience', 'transloadit auth token --aud api2'],
+    ],
+  })
+
+  aud = Option.String('--aud', {
+    description: 'Token audience (default: mcp).',
+  })
+
+  protected override async run(): Promise<number | undefined> {
+    const credentialsResult = requireEnvCredentials()
+    if (!credentialsResult.ok) {
+      this.output.error(credentialsResult.error)
+      return 1
+    }
+
+    const result = await requestTokenWithCredentials(credentialsResult.credentials, {
+      endpoint: this.endpoint,
+      aud: this.aud,
+    })
 
     if (result.ok) {
       process.stdout.write(`${result.output}\n`)
