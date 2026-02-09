@@ -13,16 +13,27 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
    1. Create branch from `main`
    2. Make changes
    3. If you touched `packages/node` (or anything that affects the legacy `transloadit` clone):
-      1. Run `corepack yarn parity:transloadit`
-      2. If it updates `docs/fingerprint/transloadit-baseline*.json`, commit those changes in the PR
-   4. `corepack yarn check`
-   5. Commit + push branch
-   6. Open PR, wait for CI green
-   7. Squash-merge the PR
+      1. Run `corepack yarn check` (this may reformat files and/or auto-fix Knip findings)
+      2. Run `corepack yarn verify:full` locally once before pushing.
+         - This is the fastest way to catch the common CI-only failure: transloadit parity drift in `Verify (full)`.
+      3. If `verify:full` (or CI `Verify (full)`) fails with transloadit parity drift, apply the “Parity drift playbook” below, then re-run `corepack yarn verify:full`.
+   4. Commit + push branch
+   5. Open PR, wait for CI green
+   6. Squash-merge the PR
 
    Notes:
    1. When creating PRs with `gh pr create` from a shell, avoid unescaped backticks in the `--body` string.
       Prefer `--body-file` to prevent accidental command substitution.
+   2. If you use `gh run watch` heavily, GitHub may throttle with HTTP 429.
+      Prefer `gh pr checks <PR_NUMBER>` with occasional polling (or use the web UI) if you hit throttling.
+
+   Parity drift playbook (when `Verify (full)` fails):
+   1. Update the parity baseline:
+      1. `node scripts/fingerprint-pack.ts ./packages/transloadit --ignore-scripts --quiet --out ./docs/fingerprint/transloadit-baseline.json`
+      2. `cp ./packages/transloadit/package.json ./docs/fingerprint/transloadit-baseline.package.json`
+   2. Run `corepack yarn check` (it may reformat the baseline json)
+   3. Run `corepack yarn parity:transloadit`
+   4. Commit + push, then re-run `corepack yarn verify:full`
 
 3. Merge the "Version Packages" PR (changesets action):
    1. Wait for the `Version Packages` PR to appear (or update)
@@ -38,6 +49,10 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
          If it doesn't, fix before merging (otherwise tags/releases can drift).
    5. Ensure CI is green for the PR
    6. Squash-merge the PR
+
+   Notes:
+   1. The Version Packages PR may show no required checks in the PR UI in some setups; verify by checking recent runs:
+      1. `gh run list --branch changeset-release/main --limit 3`
 
 4. Immediately after merging the Version Packages PR:
    1. `git checkout main && git pull`
