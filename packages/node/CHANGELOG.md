@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.7.3
+
+### Patch Changes
+
+- d7ae6ad: feat(cli): add `transloadit auth token` to mint bearer tokens for hosted MCP (with HTTPS/redirect safety guards)
+
 ## 4.7.2
 
 ### Patch Changes
