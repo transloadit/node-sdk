@@ -2,8 +2,8 @@
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.7.2.tgz",
-    "sizeBytes": 1244344,
-    "sha256": "d76c9cd40979025845a13413d16ca71d65b648c5f6ea8a4cfb9a0b7328716340"
+    "sizeBytes": 1244207,
+    "sha256": "7b93b0e3c536df56d3f979624ef5de40b4b13c91d7a073fd8f0a8db985c8c83e"
   },
   "packageJson": {
     "name": "transloadit",
@@ -128,8 +128,8 @@
     },
     {
       "path": "dist/cli/commands/auth.js",
-      "sizeBytes": 15688,
-      "sha256": "a9a2122af4c48dd56c2c31a58438f34c518c3ab630f51ba387f78a448ea55065"
+      "sizeBytes": 15713,
+      "sha256": "0d0f820bc775593902721ab5aec4a52cc579f5d01a46f4ce47d6d972ae05c311"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.js",
@@ -898,13 +898,13 @@
     },
     {
       "path": "dist/cli/commands/auth.d.ts.map",
-      "sizeBytes": 1284,
-      "sha256": "db2dd95a905e8123fdcceb740e119f6e8eae19b9cf8b83a6d190e3a748d14ee1"
+      "sizeBytes": 996,
+      "sha256": "2b8e8eb6850685a5cb55e96a78b9447e3557efe27859192ba7a314a4963e2321"
     },
     {
       "path": "dist/cli/commands/auth.js.map",
-      "sizeBytes": 14480,
-      "sha256": "176ef47dfe76dcbff537e2c3c2ef0fdfb63288b8091e08a033264921df25143b"
+      "sizeBytes": 14474,
+      "sha256": "6d4bdc8e84e95486a479a181361a82a35d1e2fe31b923e49260ac28a74f46de2"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts.map",
@@ -2223,13 +2223,13 @@
     },
     {
       "path": "dist/cli/commands/auth.d.ts",
-      "sizeBytes": 1680,
-      "sha256": "c12c6e89c3cb977710b3c6ea082be7a14ee84a7850659d73636749944bac4c0c"
+      "sizeBytes": 1406,
+      "sha256": "885d57814cc0ac4f6554576811748beee3902a8ef63b70746a76c22aff2b0acc"
     },
     {
       "path": "src/cli/commands/auth.ts",
-      "sizeBytes": 16125,
-      "sha256": "47c115741e2036b48379492468cd0c5d66b31cf695db78f74ebc306f5edc683b"
+      "sizeBytes": 16134,
+      "sha256": "6419a1996ff3ab94caa7200b8f034ce38466df6657cf415a3c2c1d8fa757dad6"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts",

@@ -269,7 +269,7 @@ const buildTokenEndpointUrl = (baseUrl: URL): string => {
   return new URL('token', normalizedBase).toString()
 }
 
-export async function requestTokenWithCredentials(
+async function requestTokenWithCredentials(
   credentials: { authKey: string; authSecret: string },
   options: RequestTokenOptions = {},
 ): Promise<SigResult> {
