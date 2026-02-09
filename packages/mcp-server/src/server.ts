@@ -8,6 +8,7 @@ import type {
 import {
   extractFieldNamesFromTemplate,
   getRobotHelp,
+  isKnownRobot,
   listRobots,
   mergeTemplateContent,
   prepareInputFiles,
@@ -95,26 +96,31 @@ const robotParamSchema = z.object({
 })
 
 const getRobotHelpInputSchema = z.object({
-  robot_name: z.string(),
+  robot_name: z.string().optional(),
+  robot_names: z.array(z.string()).optional(),
+  // Backward compatible input; ignored on purpose (we always return full docs).
   detail_level: z.enum(['summary', 'params', 'examples']).optional(),
 })
 
 const getRobotHelpOutputSchema = z.object({
   status: z.enum(['ok', 'error']),
-  robot: z.object({
-    name: z.string(),
-    summary: z.string(),
-    required_params: z.array(robotParamSchema),
-    optional_params: z.array(robotParamSchema),
-    examples: z
-      .array(
-        z.object({
-          description: z.string(),
-          snippet: z.record(z.string(), z.unknown()),
-        }),
-      )
-      .optional(),
-  }),
+  robots: z.array(
+    z.object({
+      name: z.string(),
+      summary: z.string(),
+      required_params: z.array(robotParamSchema),
+      optional_params: z.array(robotParamSchema),
+      examples: z
+        .array(
+          z.object({
+            description: z.string(),
+            snippet: z.record(z.string(), z.unknown()),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+  not_found: z.array(z.string()).optional(),
 })
 
 const inputFileSchema = z.discriminatedUnion('kind', [
@@ -920,21 +926,50 @@ export const createTransloaditMcpServer = (
       inputSchema: getRobotHelpInputSchema,
       outputSchema: getRobotHelpOutputSchema,
     },
-    ({ robot_name, detail_level }) => {
-      const help = getRobotHelp({
-        robotName: robot_name,
-        detailLevel: detail_level ?? 'summary',
-      })
+    ({ robot_name, robot_names }) => {
+      const splitComma = (value: string): string[] =>
+        value
+          .split(',')
+          .map((part) => part.trim())
+          .filter(Boolean)
 
-      return buildToolResponse({
-        status: 'ok',
-        robot: {
+      const requested =
+        robot_names && robot_names.length > 0
+          ? robot_names
+          : robot_name
+            ? splitComma(robot_name)
+            : []
+
+      if (requested.length === 0) {
+        return buildToolError('mcp_missing_args', 'Provide robot_name or robot_names.')
+      }
+
+      const robots = []
+      const notFound: string[] = []
+
+      for (const name of requested) {
+        if (!isKnownRobot(name)) {
+          notFound.push(name)
+          continue
+        }
+        const help = getRobotHelp({
+          robotName: name,
+          detailLevel: 'full',
+        })
+
+        robots.push({
           name: help.name,
           summary: help.summary,
           required_params: help.requiredParams,
           optional_params: help.optionalParams,
           examples: help.examples,
-        },
+        })
+      }
+
+      return buildToolResponse({
+        status: 'ok',
+        robots,
+        not_found: notFound.length > 0 ? notFound : undefined,
       })
     },
   )

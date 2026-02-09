@@ -393,3 +393,30 @@ describe('cli help', () => {
     expect(message).toContain('Transloadit CLI')
   })
 })
+
+describe('cli docs robots', () => {
+  it('lists robots as JSON', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await main(['docs', 'robots', 'list', '--search', 'import', '--limit', '2', '-j'])
+
+    expect(logSpy).toHaveBeenCalled()
+    const output = `${logSpy.mock.calls[0]?.[0]}`.trim()
+    const payload = JSON.parse(output) as { robots?: unknown }
+    expect(Array.isArray(payload.robots)).toBe(true)
+  })
+
+  it('gets full docs for multiple robots', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await main(['docs', 'robots', 'get', '/http/import,/image/resize', '-j'])
+
+    expect(logSpy).toHaveBeenCalled()
+    const output = `${logSpy.mock.calls[0]?.[0]}`.trim()
+    const payload = JSON.parse(output) as { robots?: unknown; notFound?: unknown }
+    expect(Array.isArray(payload.robots)).toBe(true)
+    expect(Array.isArray(payload.notFound)).toBe(true)
+  })
+})

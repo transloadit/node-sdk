@@ -90,7 +90,7 @@ export type {
   RobotListResult,
   RobotParamHelp,
 } from './robots.ts'
-export { getRobotHelp, listRobots } from './robots.ts'
+export { getRobotHelp, isKnownRobot, listRobots } from './robots.ts'
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
