@@ -1,13 +1,13 @@
 {
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.6.0.tgz",
-    "sizeBytes": 1239126,
-    "sha256": "47ec577cddbae32bffa31913be655e21d834814a391a27283467fa4329f83ab6"
+    "filename": "transloadit-4.7.0.tgz",
+    "sizeBytes": 1239602,
+    "sha256": "53c864320cc7c1cf61ddbbc7561859efef634e4d607e990a604d7098c2b7747d"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.6.0",
+    "version": "4.7.0",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -48,8 +48,8 @@
     },
     {
       "path": "dist/cli/commands/assemblies.js",
-      "sizeBytes": 50942,
-      "sha256": "e747690d5b7f1de6f8ee9f3958b6e7056ec71797e31924c561af7a2e876a45c0"
+      "sizeBytes": 51217,
+      "sha256": "c368505ba2086dfbcc6148c5ac656a9ac228093cf8cebe95ba650f4dfe21592d"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.js",
@@ -453,8 +453,8 @@
     },
     {
       "path": "dist/PaginationStream.js",
-      "sizeBytes": 1049,
-      "sha256": "955003e8e346cb275a55989da117fc99d7fb17ad2f2282e02b1940c6b3fceb85"
+      "sizeBytes": 1391,
+      "sha256": "7a9f0562b680fef9312a59b5ac88d61e9c8abeee903a4a42ffca3b39d1a59b06"
     },
     {
       "path": "dist/PollingTimeoutError.js",
@@ -684,7 +684,7 @@
     {
       "path": "package.json",
       "sizeBytes": 2391,
-      "sha256": "b40a22070140e40424c9117eac1800cb23a6743515c1836a81faa8353bf09aba"
+      "sha256": "2502292ced0cd319458a74fcd4ec65569f5022428aecefcff40a5a1c64ebf3db"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
@@ -738,13 +738,13 @@
     },
     {
       "path": "dist/cli/commands/assemblies.d.ts.map",
-      "sizeBytes": 3727,
-      "sha256": "92df2d4796d69cdc0c8449c365d73da3e982433f9c183d86a28b9ab087cc43a8"
+      "sizeBytes": 3737,
+      "sha256": "e659be90cee8252d9fa4a5db72cf3d48d2548d0f5a716368cc024f7ed1e4b222"
     },
     {
       "path": "dist/cli/commands/assemblies.js.map",
-      "sizeBytes": 44728,
-      "sha256": "cb89f7b1fca911a9e3bcb7057f570a109c6040cf6f7709f180af432f2dc292f6"
+      "sizeBytes": 44866,
+      "sha256": "8bc2496707790b60dfde07065b6df6adc7152d04e999ed4c84f1993eaeadc28f"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.d.ts.map",
@@ -1549,12 +1549,12 @@
     {
       "path": "dist/PaginationStream.d.ts.map",
       "sizeBytes": 664,
-      "sha256": "9bdfee8e9abe338b8b6deb1b484e54b8c1b20134dc2721ceddd42ad512b70d3c"
+      "sha256": "42a2e832eb9bf091f4088a1f5599e7b93a987258fe9967a5623a86211b73dcde"
     },
     {
       "path": "dist/PaginationStream.js.map",
-      "sizeBytes": 1303,
-      "sha256": "861ba3671e06da0092b9f5d41d687441c16f98fb34c69332bbe4005f993ee12f"
+      "sizeBytes": 1478,
+      "sha256": "e8f211d2956724af6936dfa9eb715a813925e43646136adf0e3da9a185594361"
     },
     {
       "path": "dist/PollingTimeoutError.d.ts.map",
@@ -2063,13 +2063,13 @@
     },
     {
       "path": "dist/cli/commands/assemblies.d.ts",
-      "sizeBytes": 4332,
-      "sha256": "7bc2c0b4f0b707f5dda02e4240c483296f99e6085d4d80c177aa2457e75dc45d"
+      "sizeBytes": 4342,
+      "sha256": "df6486047bbd89862b7cb433d05f63a128c1fad4520df978842adcecd4f17503"
     },
     {
       "path": "src/cli/commands/assemblies.ts",
-      "sizeBytes": 50730,
-      "sha256": "4d1c30f21b981d5d40d4973bb92b1d50c89f086ade55b6b1c68dbe1a56f3e97b"
+      "sizeBytes": 50948,
+      "sha256": "d2a9de8dbd22233785a9880537ece31c0123b1959a24048b50b87c8a759db10e"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.d.ts",
@@ -2883,8 +2883,8 @@
     },
     {
       "path": "src/PaginationStream.ts",
-      "sizeBytes": 1204,
-      "sha256": "ac24517761007d62f9f895cd69f89947cb98c1f79bb7c1038972648464c39260"
+      "sizeBytes": 1505,
+      "sha256": "43cc950855aa6e24d9a4105a3b9e2afcbeac8477797ff5d46bb9e9a6c8adacf1"
     },
     {
       "path": "dist/PollingTimeoutError.d.ts",
