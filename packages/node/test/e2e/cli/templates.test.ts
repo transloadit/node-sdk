@@ -7,9 +7,11 @@ import { zip } from '../../../src/cli/helpers.ts'
 import { Transloadit as TransloaditClient } from '../../../src/Transloadit.ts'
 import OutputCtl from './OutputCtl.ts'
 import type { OutputEntry } from './test-utils.ts'
-import { authKey, authSecret, delay, testCase } from './test-utils.ts'
+import { authKey, authSecret, delay, hasTransloaditCredentials, testCase } from './test-utils.ts'
 
-describe('templates', () => {
+const describeLive = hasTransloaditCredentials ? describe : describe.skip
+
+describeLive('templates', () => {
   // Use unique prefix for all template names to avoid conflicts between test runs
   const testId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 

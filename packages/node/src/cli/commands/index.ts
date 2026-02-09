@@ -14,9 +14,8 @@ import {
 import { SignatureCommand, SmartCdnSignatureCommand } from './auth.ts'
 
 import { BillsGetCommand } from './bills.ts'
-
+import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
-
 import {
   TemplatesCreateCommand,
   TemplatesDeleteCommand,
@@ -66,6 +65,10 @@ export function createCli(): Cli {
 
   // Uploads commands
   cli.register(UploadCommand)
+
+  // Documentation commands (offline metadata)
+  cli.register(DocsRobotsListCommand)
+  cli.register(DocsRobotsGetCommand)
 
   return cli
 }

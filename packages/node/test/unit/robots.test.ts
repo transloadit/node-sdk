@@ -18,10 +18,20 @@ describe('robot catalog helpers', () => {
   })
 
   it('returns robot help and resolves class names', () => {
-    const help = getRobotHelp({ robotName: 'ImageResizeRobot', detailLevel: 'params' })
+    const help = getRobotHelp({ robotName: 'ImageResizeRobot', detailLevel: 'full' })
 
     expect(help.name).toBe('/image/resize')
     expect(help.summary.length).toBeGreaterThan(0)
     expect(help.requiredParams.length + help.optionalParams.length).toBeGreaterThan(0)
+  })
+
+  it('returns full help including examples when available', () => {
+    const help = getRobotHelp({ robotName: '/http/import', detailLevel: 'full' })
+
+    expect(help.name).toBe('/http/import')
+    expect(help.summary.length).toBeGreaterThan(0)
+    expect(help.requiredParams.length + help.optionalParams.length).toBeGreaterThan(0)
+    expect(Array.isArray(help.examples)).toBe(true)
+    expect(help.examples?.length).toBeGreaterThan(0)
   })
 })

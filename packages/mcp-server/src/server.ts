@@ -8,6 +8,7 @@ import type {
 import {
   extractFieldNamesFromTemplate,
   getRobotHelp,
+  isKnownRobot,
   listRobots,
   mergeTemplateContent,
   prepareInputFiles,
@@ -95,27 +96,38 @@ const robotParamSchema = z.object({
 })
 
 const getRobotHelpInputSchema = z.object({
-  robot_name: z.string(),
+  robot_name: z.string().optional(),
+  robot_names: z.array(z.string()).optional(),
+  // Backward compatible input; ignored on purpose (we always return full docs).
   detail_level: z.enum(['summary', 'params', 'examples']).optional(),
 })
 
-const getRobotHelpOutputSchema = z.object({
-  status: z.enum(['ok', 'error']),
-  robot: z.object({
-    name: z.string(),
-    summary: z.string(),
-    required_params: z.array(robotParamSchema),
-    optional_params: z.array(robotParamSchema),
-    examples: z
-      .array(
-        z.object({
-          description: z.string(),
-          snippet: z.record(z.string(), z.unknown()),
-        }),
-      )
-      .optional(),
-  }),
+const robotHelpOutputSchema = z.object({
+  name: z.string(),
+  summary: z.string(),
+  required_params: z.array(robotParamSchema),
+  optional_params: z.array(robotParamSchema),
+  examples: z
+    .array(
+      z.object({
+        description: z.string(),
+        snippet: z.record(z.string(), z.unknown()),
+      }),
+    )
+    .optional(),
 })
+
+const getRobotHelpOutputSchema = z
+  .object({
+    status: z.enum(['ok', 'error']),
+    // For backward compatibility, we still return `robot` for single-robot requests via `robot_name`.
+    robot: robotHelpOutputSchema.optional(),
+    robots: z.array(robotHelpOutputSchema).optional(),
+    not_found: z.array(z.string()).optional(),
+  })
+  .refine((value) => value.status !== 'ok' || value.robot || value.robots, {
+    message: 'Expected robot or robots for ok status.',
+  })
 
 const inputFileSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -920,21 +932,67 @@ export const createTransloaditMcpServer = (
       inputSchema: getRobotHelpInputSchema,
       outputSchema: getRobotHelpOutputSchema,
     },
-    ({ robot_name, detail_level }) => {
-      const help = getRobotHelp({
-        robotName: robot_name,
-        detailLevel: detail_level ?? 'summary',
-      })
+    ({ robot_name, robot_names }) => {
+      const splitComma = (value: string): string[] =>
+        value
+          .split(',')
+          .map((part) => part.trim())
+          .filter(Boolean)
 
-      return buildToolResponse({
-        status: 'ok',
-        robot: {
+      const prefersSingle =
+        typeof robot_name === 'string' && robot_name.trim() !== '' && !robot_name.includes(',')
+
+      const requested =
+        robot_names && robot_names.length > 0
+          ? robot_names
+          : robot_name
+            ? splitComma(robot_name)
+            : []
+
+      if (requested.length === 0) {
+        return buildToolError('mcp_missing_args', 'Provide robot_name or robot_names.')
+      }
+
+      const robots: Array<{
+        name: string
+        summary: string
+        required_params: unknown[]
+        optional_params: unknown[]
+        examples?: unknown[]
+      }> = []
+      const notFound: string[] = []
+
+      for (const name of requested) {
+        if (!isKnownRobot(name)) {
+          notFound.push(name)
+          continue
+        }
+        const help = getRobotHelp({
+          robotName: name,
+          detailLevel: 'full',
+        })
+
+        robots.push({
           name: help.name,
           summary: help.summary,
           required_params: help.requiredParams,
           optional_params: help.optionalParams,
           examples: help.examples,
-        },
+        })
+      }
+
+      if (prefersSingle) {
+        return buildToolResponse({
+          status: 'ok',
+          robot: robots[0],
+          not_found: notFound.length > 0 ? notFound : undefined,
+        })
+      }
+
+      return buildToolResponse({
+        status: 'ok',
+        robots,
+        not_found: notFound.length > 0 ? notFound : undefined,
       })
     },
   )

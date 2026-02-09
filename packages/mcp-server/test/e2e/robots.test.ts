@@ -25,30 +25,34 @@ describe('mcp-server robots (stdio)', { timeout: 20000 }, () => {
 
     const listPayload = parseToolPayload(listResult)
     expect(listPayload.status).toBe('ok')
-    const robots = Array.isArray(listPayload.robots) ? listPayload.robots : []
-    expect(robots.length).toBeGreaterThan(0)
+    const listedRobots = Array.isArray(listPayload.robots) ? listPayload.robots : []
+    expect(listedRobots.length).toBeGreaterThan(0)
 
-    const importRobot = (robots as Array<{ name: string }>).find(
+    const importRobot = (listedRobots as Array<{ name: string }>).find(
       (robot) => robot.name === '/http/import',
     )
 
     const helpResult = await client.callTool({
       name: 'transloadit_get_robot_help',
       arguments: {
-        robot_name: importRobot?.name ?? '/http/import',
-        detail_level: 'examples',
+        robot_names: [importRobot?.name ?? '/http/import'],
       },
     })
 
     const helpPayload = parseToolPayload(helpResult)
     expect(helpPayload.status).toBe('ok')
 
-    const robot = isRecord(helpPayload.robot) ? helpPayload.robot : {}
-    expect(robot.name).toBe('/http/import')
-    expect(typeof robot.summary).toBe('string')
-    expect(Array.isArray(robot.examples)).toBe(true)
+    const helpRobots = Array.isArray(helpPayload.robots) ? helpPayload.robots : []
+    expect(helpRobots.length).toBeGreaterThan(0)
 
-    const example = (robot.examples as Array<{ snippet?: unknown }>)[0]
+    const robot = (helpRobots as Array<Record<string, unknown>>).find(
+      (item) => isRecord(item) && item.name === '/http/import',
+    )
+    expect(robot).toBeDefined()
+    expect(typeof robot?.summary).toBe('string')
+    expect(Array.isArray(robot?.examples)).toBe(true)
+
+    const example = ((robot?.examples as Array<{ snippet?: unknown }> | undefined) ?? [])[0]
     expect(isRecord(example?.snippet)).toBe(true)
   })
 })

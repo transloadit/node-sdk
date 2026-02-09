@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import * as bills from '../../../src/cli/commands/bills.ts'
 import OutputCtl from './OutputCtl.ts'
 import type { OutputEntry } from './test-utils.ts'
-import { testCase } from './test-utils.ts'
+import { hasTransloaditCredentials, testCase } from './test-utils.ts'
 
-describe('bills', () => {
+const describeLive = hasTransloaditCredentials ? describe : describe.skip
+
+describeLive('bills', () => {
   describe('get', () => {
     it(
       'should get bills',

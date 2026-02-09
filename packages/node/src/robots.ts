@@ -36,7 +36,7 @@ export type RobotHelp = {
 
 export type RobotHelpOptions = {
   robotName: string
-  detailLevel?: 'summary' | 'params' | 'examples'
+  detailLevel?: 'summary' | 'params' | 'examples' | 'full'
 }
 
 type RobotsMetaMap = typeof robotsMeta
@@ -299,11 +299,11 @@ export const getRobotHelp = (options: RobotHelpOptions): RobotHelp => {
   const help: RobotHelp = {
     name: path,
     summary,
-    requiredParams: detailLevel === 'params' ? params.required : [],
-    optionalParams: detailLevel === 'params' ? params.optional : [],
+    requiredParams: detailLevel === 'params' || detailLevel === 'full' ? params.required : [],
+    optionalParams: detailLevel === 'params' || detailLevel === 'full' ? params.optional : [],
   }
 
-  if (detailLevel === 'examples' && meta?.example_code) {
+  if ((detailLevel === 'examples' || detailLevel === 'full') && meta?.example_code) {
     const snippet = isRecord(meta.example_code) ? meta.example_code : {}
     help.examples = [
       {
@@ -314,4 +314,12 @@ export const getRobotHelp = (options: RobotHelpOptions): RobotHelp => {
   }
 
   return help
+}
+
+export const isKnownRobot = (robotName: string): boolean => {
+  const { byPath, byName } = getMetaIndex()
+  const schemaIndex = getSchemaIndex()
+
+  const path = resolveRobotPath(robotName)
+  return byPath.has(path) || byName.has(robotName) || schemaIndex.has(path)
 }
