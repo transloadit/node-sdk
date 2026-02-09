@@ -696,7 +696,11 @@ export const createTransloaditMcpServer = (
           try {
             template = await client.getTemplate(params.template_id)
           } catch (error) {
-            if (getHttpStatusCode(error) === 404) {
+            const isTemplateNotFound =
+              (error instanceof ApiError && error.code === 'TEMPLATE_NOT_FOUND') ||
+              getHttpStatusCode(error) === 404
+
+            if (isTemplateNotFound) {
               const templateId = params.template_id
               const hint = isBuiltinTemplateId(templateId)
                 ? 'Builtin template not found. Call transloadit_list_templates with include_builtin: "exclusively-latest" to discover builtins.'
