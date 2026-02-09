@@ -43,6 +43,8 @@ interface TemplateListOptions {
   order?: 'asc' | 'desc'
   sort?: string
   fields?: string[]
+  includeBuiltin?: 'all' | 'latest' | 'exclusively-all' | 'exclusively-latest'
+  includeContent?: boolean
 }
 
 export interface TemplateSyncOptions {
@@ -162,36 +164,61 @@ const TemplateIdSchema = z.object({
   id: z.string(),
 })
 
-function list(
+const INCLUDE_BUILTIN_VALUES = ['all', 'latest', 'exclusively-all', 'exclusively-latest'] as const
+
+const isIncludeBuiltinValue = (value: string): value is (typeof INCLUDE_BUILTIN_VALUES)[number] => {
+  return (INCLUDE_BUILTIN_VALUES as readonly string[]).includes(value)
+}
+
+async function list(
   output: IOutputCtl,
   client: Transloadit,
-  { before, after, order, sort, fields }: TemplateListOptions,
-): void {
-  const stream = client.streamTemplates({
-    todate: before,
-    fromdate: after,
-    order,
-    sort: sort as 'id' | 'name' | 'created' | 'modified' | undefined,
-  })
+  { before, after, order, sort, fields, includeBuiltin, includeContent }: TemplateListOptions,
+): Promise<void> {
+  // The CLI lists "all templates". Using listTemplates with pagination keeps this
+  // compatible with include_builtin and with "include content" (optional N+1 fetch).
+  const pagesize = 50
+  let page = 1
 
-  stream.on('readable', () => {
-    const template: unknown = stream.read()
-    if (template == null) return
+  while (true) {
+    const response = await client.listTemplates({
+      page,
+      pagesize,
+      todate: before,
+      fromdate: after,
+      order,
+      sort: sort as 'id' | 'name' | 'created' | 'modified' | undefined,
+      include_builtin: includeBuiltin,
+    })
 
-    const parsed = TemplateIdSchema.safeParse(template)
-    if (!parsed.success) return
+    const items = response.items ?? []
+    if (items.length === 0) break
 
-    if (fields == null) {
-      output.print(parsed.data.id, template)
-    } else {
-      const templateRecord = template as Record<string, unknown>
-      output.print(fields.map((field) => templateRecord[field]).join(' '), template)
+    for (const item of items) {
+      const parsed = TemplateIdSchema.safeParse(item)
+      if (!parsed.success) continue
+
+      let template: unknown = item
+      if (includeContent) {
+        try {
+          const full = await client.getTemplate(parsed.data.id)
+          template = { ...item, content: full.content }
+        } catch (err) {
+          output.error(formatAPIError(err))
+        }
+      }
+
+      if (fields == null) {
+        output.print(parsed.data.id, template)
+      } else {
+        const templateRecord = template as Record<string, unknown>
+        output.print(fields.map((field) => templateRecord[field]).join(' '), template)
+      }
     }
-  })
 
-  stream.on('error', (err: unknown) => {
-    output.error(formatAPIError(err))
-  })
+    if (items.length < pagesize) break
+    page += 1
+  }
 }
 
 export async function sync(
@@ -490,6 +517,17 @@ export class TemplatesListCommand extends AuthenticatedCommand {
     description: 'Comma-separated list of fields to return for each template',
   })
 
+  includeBuiltin = Option.String('--include-builtin', {
+    description:
+      `Include builtin templates: ${INCLUDE_BUILTIN_VALUES.join(', ')}. ` +
+      'Omit to list only owned templates.',
+  })
+
+  includeContent = Option.Boolean('--include-content', false, {
+    description:
+      'Include template steps/content in the list output (may make extra API requests per template).',
+  })
+
   protected async run(): Promise<number | undefined> {
     if (this.sort && !['id', 'name', 'created', 'modified'].includes(this.sort)) {
       this.output.error('invalid argument for --sort')
@@ -501,6 +539,16 @@ export class TemplatesListCommand extends AuthenticatedCommand {
       return 1
     }
 
+    const includeBuiltinRaw = this.includeBuiltin
+    let includeBuiltin: TemplateListOptions['includeBuiltin']
+    if (includeBuiltinRaw) {
+      if (!isIncludeBuiltinValue(includeBuiltinRaw)) {
+        this.output.error('invalid argument for --include-builtin')
+        return 1
+      }
+      includeBuiltin = includeBuiltinRaw
+    }
+
     const fieldList = this.fields ? this.fields.split(',') : undefined
 
     await list(this.output, this.client, {
@@ -509,6 +557,8 @@ export class TemplatesListCommand extends AuthenticatedCommand {
       sort: this.sort,
       order: this.order as 'asc' | 'desc' | undefined,
       fields: fieldList,
+      includeBuiltin,
+      includeContent: this.includeContent,
     })
     return undefined
   }
