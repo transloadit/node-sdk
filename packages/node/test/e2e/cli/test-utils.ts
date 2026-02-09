@@ -5,8 +5,8 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { rimraf } from 'rimraf'
-import 'dotenv/config'
 import { Transloadit as TransloaditClient } from '../../../src/Transloadit.ts'
+import { hasLiveCredentials, loadRepoRootDotenv } from '../../test-env.ts'
 
 export const execAsync = promisify(exec)
 
@@ -15,12 +15,8 @@ export const cliPath = path.resolve(__dirname, '../../../src/cli.ts')
 
 export const tmpDir = '/tmp'
 
-if (!process.env.TRANSLOADIT_KEY || !process.env.TRANSLOADIT_SECRET) {
-  console.error(
-    'Please provide environment variables TRANSLOADIT_KEY and TRANSLOADIT_SECRET to run tests',
-  )
-  process.exit(1)
-}
+loadRepoRootDotenv()
+export const hasTransloaditCredentials = hasLiveCredentials()
 
 export const authKey = process.env.TRANSLOADIT_KEY
 export const authSecret = process.env.TRANSLOADIT_SECRET
@@ -40,6 +36,11 @@ export interface OutputEntry {
 export function testCase<T>(cb: (client: TransloaditClient) => Promise<T>): () => Promise<T> {
   const cwd = process.cwd()
   return async () => {
+    if (!hasTransloaditCredentials || !authKey || !authSecret) {
+      throw new Error(
+        'Missing TRANSLOADIT_KEY/TRANSLOADIT_SECRET. These e2e tests require live credentials.',
+      )
+    }
     const dirname = path.join(
       tmpDir,
       `transloadit_test-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -66,5 +67,10 @@ export function runCli(
 }
 
 export function createClient(): TransloaditClient {
+  if (!hasTransloaditCredentials || !authKey || !authSecret) {
+    throw new Error(
+      'Missing TRANSLOADIT_KEY/TRANSLOADIT_SECRET. These e2e tests require live credentials.',
+    )
+  }
   return new TransloaditClient({ authKey, authSecret })
 }

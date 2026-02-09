@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, existsSync } from 'node:fs'
 import type { IncomingMessage, RequestListener } from 'node:http'
 import { join } from 'node:path'
 import { parse } from 'node:querystring'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout } from 'node:timers/promises'
 import debug from 'debug'
-import { config } from 'dotenv'
 import got, { type RetryOptions } from 'got'
 import intoStream from 'into-stream'
 import * as temp from 'temp'
+import { describe } from 'vitest'
 import type { InterpolatableRobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter.ts'
 import type { InterpolatableRobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize.ts'
 import type {
@@ -18,12 +18,15 @@ import type {
   UploadProgress,
 } from '../../src/Transloadit.ts'
 import { Transloadit } from '../../src/Transloadit.ts'
+import { hasLiveCredentials, loadRepoRootDotenv } from '../test-env.ts'
 import type { TestServer } from '../testserver.ts'
 import { createTestServer } from '../testserver.ts'
 import { createProxy } from '../util.ts'
 
-// Load environment variables from .env file
-config()
+loadRepoRootDotenv()
+const hasCloudflared =
+  typeof process.env.CLOUDFLARED_PATH === 'string' && existsSync(process.env.CLOUDFLARED_PATH)
+const describeLive = hasLiveCredentials() && hasCloudflared ? describe : describe.skip
 
 const log = debug('transloadit:live-api')
 
@@ -171,7 +174,7 @@ function createVirtualTestServer(handler: RequestListener): VirtualTestServer {
   }
 }
 
-describe('API integration', { timeout: 60000, retry: 1 }, () => {
+describeLive('API integration', { timeout: 60000, retry: 1 }, () => {
   describe('assembly creation', () => {
     it('should create a retrievable assembly on the server', async () => {
       const client = createClient()

@@ -4,9 +4,11 @@ import * as assemblies from '../../../src/cli/commands/assemblies.ts'
 import { zip } from '../../../src/cli/helpers.ts'
 import OutputCtl from './OutputCtl.ts'
 import type { OutputEntry } from './test-utils.ts'
-import { testCase } from './test-utils.ts'
+import { hasTransloaditCredentials, testCase } from './test-utils.ts'
 
-describe('assemblies', () => {
+const describeLive = hasTransloaditCredentials ? describe : describe.skip
+
+describeLive('assemblies', () => {
   describe('get', () => {
     it(
       'should get assemblies',

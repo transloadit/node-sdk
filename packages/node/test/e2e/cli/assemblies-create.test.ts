@@ -10,11 +10,13 @@ import { describe, expect, it } from 'vitest'
 import { create as assembliesCreate } from '../../../src/cli/commands/assemblies.ts'
 import OutputCtl from './OutputCtl.ts'
 import type { OutputEntry } from './test-utils.ts'
-import { testCase } from './test-utils.ts'
+import { hasTransloaditCredentials, testCase } from './test-utils.ts'
 
 const rreaddirAsync = promisify(rreaddir)
 
-describe('assemblies', () => {
+const describeLive = hasTransloaditCredentials ? describe : describe.skip
+
+describeLive('assemblies', () => {
   describe('create', () => {
     const genericImg =
       'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'

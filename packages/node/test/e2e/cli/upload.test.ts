@@ -1,9 +1,11 @@
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { runCli, testCase } from './test-utils.ts'
+import { hasTransloaditCredentials, runCli, testCase } from './test-utils.ts'
 
-describe('CLI upload', () => {
+const describeLive = hasTransloaditCredentials ? describe : describe.skip
+
+describeLive('CLI upload', () => {
   it(
     'uploads a local file to a provided tus endpoint',
     testCase(async (client) => {
