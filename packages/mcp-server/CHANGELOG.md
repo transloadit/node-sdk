@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.1
+
+### Patch Changes
+
+- ee1edb7: Improve builtin template discoverability by adding actionable hints to MCP errors and warnings.
+- Updated dependencies [ee1edb7]
+  - @transloadit/node@4.7.1
+
 ## 0.3.0
 
 ### Minor Changes

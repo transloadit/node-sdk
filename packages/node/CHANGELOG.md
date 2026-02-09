@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.7.1
+
+### Patch Changes
+
+- ee1edb7: Fix PaginationStream to end on empty pages, preventing hangs in assembly listing.
+
 ## 4.7.0
 
 ### Minor Changes
