@@ -2,8 +2,8 @@
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.7.2.tgz",
-    "sizeBytes": 1244207,
-    "sha256": "7b93b0e3c536df56d3f979624ef5de40b4b13c91d7a073fd8f0a8db985c8c83e"
+    "sizeBytes": 1244695,
+    "sha256": "42d5f0f20b27a3c3a761b43f68b61b4acf5b0c800f723928803f3949246ebfe9"
   },
   "packageJson": {
     "name": "transloadit",
@@ -128,8 +128,8 @@
     },
     {
       "path": "dist/cli/commands/auth.js",
-      "sizeBytes": 15713,
-      "sha256": "0d0f820bc775593902721ab5aec4a52cc579f5d01a46f4ce47d6d972ae05c311"
+      "sizeBytes": 15785,
+      "sha256": "3fcef85fa789d41e4620eec82555eb94ca52ae70367d519272103fd6019a7661"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.js",
@@ -153,8 +153,8 @@
     },
     {
       "path": "dist/cli/commands/BaseCommand.js",
-      "sizeBytes": 1887,
-      "sha256": "428a3cdb53c591c3d423d14921017d36f97a2988e79063db8c24eee915e8c67d"
+      "sizeBytes": 1883,
+      "sha256": "af4d62f394df456f5137627e8c4f241344fbe7c7796e427bc6ec493de5984762"
     },
     {
       "path": "dist/alphalib/types/bill.js",
@@ -328,8 +328,8 @@
     },
     {
       "path": "dist/cli/helpers.js",
-      "sizeBytes": 2277,
-      "sha256": "f503e1fa45e284955f3e10316ceebe417de30abba13d9cde3e5047be89b77bcc"
+      "sizeBytes": 2625,
+      "sha256": "8555420c31526195f54151c481bd00d2a1fcf67dacbad3f988a4c6538fa67f21"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.js",
@@ -899,12 +899,12 @@
     {
       "path": "dist/cli/commands/auth.d.ts.map",
       "sizeBytes": 996,
-      "sha256": "2b8e8eb6850685a5cb55e96a78b9447e3557efe27859192ba7a314a4963e2321"
+      "sha256": "478ac46eb7ddbe624235a21c0a0a059cdefa91381281198ad51f7bd21c8f1b09"
     },
     {
       "path": "dist/cli/commands/auth.js.map",
-      "sizeBytes": 14474,
-      "sha256": "6d4bdc8e84e95486a479a181361a82a35d1e2fe31b923e49260ac28a74f46de2"
+      "sizeBytes": 14501,
+      "sha256": "891418720d6f855eea37a07ca197c55a9d8d010c905f6c7bdda9ee7f4f9d6332"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts.map",
@@ -948,13 +948,13 @@
     },
     {
       "path": "dist/cli/commands/BaseCommand.d.ts.map",
-      "sizeBytes": 853,
-      "sha256": "22f956bf0d909d109be49926c456031c783bafccc688056d1911b7440cdf77c3"
+      "sizeBytes": 854,
+      "sha256": "7795327eb88bff243fbadaa473286c7d6c4bb24e4d0b11d7d7ff314dc9460112"
     },
     {
       "path": "dist/cli/commands/BaseCommand.js.map",
-      "sizeBytes": 1740,
-      "sha256": "0c33bfa578330e579232684a3bc12f1b8bb443d10426d7d7dea35c7eb01df593"
+      "sizeBytes": 1771,
+      "sha256": "ea85d352f6620d0688afa1bb3c82f2c9c09b3bec6c06bfcc29d6d9f14f12578a"
     },
     {
       "path": "dist/alphalib/types/bill.d.ts.map",
@@ -1298,13 +1298,13 @@
     },
     {
       "path": "dist/cli/helpers.d.ts.map",
-      "sizeBytes": 1009,
-      "sha256": "82e3c44365f968ff76a7424812b2e21fc82a69205c50611242c9fb97990e90f3"
+      "sizeBytes": 1177,
+      "sha256": "0f65f407f35fe35bc23481feaf7146d051d3946557ae80008228844d563e41d5"
     },
     {
       "path": "dist/cli/helpers.js.map",
-      "sizeBytes": 2826,
-      "sha256": "6729657286fe0467eab3544fda8f702a9e06a9da8cbedf0083276608ff805c52"
+      "sizeBytes": 3067,
+      "sha256": "d644704a139a2ac26a8c7a2ba27b7eee939aecd8506d437ed616cc764eabe8c2"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.d.ts.map",
@@ -2228,8 +2228,8 @@
     },
     {
       "path": "src/cli/commands/auth.ts",
-      "sizeBytes": 16134,
-      "sha256": "6419a1996ff3ab94caa7200b8f034ce38466df6657cf415a3c2c1d8fa757dad6"
+      "sizeBytes": 16193,
+      "sha256": "42ebd9ee94e5a21001f456c47d9f722f73df6b7b06f5ce82fab857e93b77f70c"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts",
@@ -2278,8 +2278,8 @@
     },
     {
       "path": "src/cli/commands/BaseCommand.ts",
-      "sizeBytes": 2138,
-      "sha256": "9143f03fd06e0c9391f148de8404422b1f3bb29522c3fbf3b58301b7794721f8"
+      "sizeBytes": 2101,
+      "sha256": "8716f8a22898d35c025986a31a9234b43a8eaed09f7120b8f6424ff8d045fd50"
     },
     {
       "path": "dist/alphalib/types/bill.d.ts",
@@ -2623,13 +2623,13 @@
     },
     {
       "path": "dist/cli/helpers.d.ts",
-      "sizeBytes": 898,
-      "sha256": "d225c538d7cd4d73e88045729fc6f59b66de8af9304b039cdd496e1487860eb6"
+      "sizeBytes": 1073,
+      "sha256": "aeed9d1c1186c561cd846c905bac2d9738e88c80e5527c125f47ad6b332d10ee"
     },
     {
       "path": "src/cli/helpers.ts",
-      "sizeBytes": 2799,
-      "sha256": "0d43593eb6e5d985287d67fec8e758d8fcc903fd1ce86cc2a9b8152b66998059"
+      "sizeBytes": 3340,
+      "sha256": "9741aa20b83f837889d248d5b095e6ec2336186bc5ab2b6caa23174950562919"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.d.ts",

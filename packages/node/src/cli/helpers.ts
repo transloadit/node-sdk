@@ -3,13 +3,28 @@ import fsp from 'node:fs/promises'
 import type { Readable } from 'node:stream'
 import { isAPIError } from './types.ts'
 
-export function getEnvCredentials(): { authKey: string; authSecret: string } | null {
+const MISSING_CREDENTIALS_MESSAGE =
+  'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.'
+
+type EnvCredentials = { authKey: string; authSecret: string }
+
+function getEnvCredentials(): { authKey: string; authSecret: string } | null {
   const authKey = process.env.TRANSLOADIT_KEY ?? process.env.TRANSLOADIT_AUTH_KEY
   const authSecret = process.env.TRANSLOADIT_SECRET ?? process.env.TRANSLOADIT_AUTH_SECRET
 
   if (!authKey || !authSecret) return null
 
   return { authKey, authSecret }
+}
+
+type RequireEnvCredentialsResult =
+  | { ok: true; credentials: EnvCredentials }
+  | { ok: false; error: string }
+
+export function requireEnvCredentials(): RequireEnvCredentialsResult {
+  const credentials = getEnvCredentials()
+  if (credentials == null) return { ok: false, error: MISSING_CREDENTIALS_MESSAGE }
+  return { ok: true, credentials }
 }
 
 export function createReadStream(file: string): Readable {

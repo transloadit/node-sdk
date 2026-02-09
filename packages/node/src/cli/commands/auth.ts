@@ -8,15 +8,12 @@ import {
 } from '../../alphalib/types/template.ts'
 import type { OptionalAuthParams } from '../../apiTypes.ts'
 import { Transloadit } from '../../Transloadit.ts'
-import { getEnvCredentials, readCliInput } from '../helpers.ts'
+import { readCliInput, requireEnvCredentials } from '../helpers.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 type UrlParamPrimitive = string | number | boolean
 type UrlParamArray = UrlParamPrimitive[]
 type NormalizedUrlParams = Record<string, UrlParamPrimitive | UrlParamArray>
-
-const MISSING_CREDENTIALS_MESSAGE =
-  'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.'
 
 const smartCdnParamsSchema = z
   .object({
@@ -71,17 +68,31 @@ function normalizeUrlParams(params?: Record<string, unknown>): NormalizedUrlPara
   return normalized
 }
 
-const getCredentials = getEnvCredentials
+type OutputResult = { ok: true; output: string } | { ok: false; error: string }
 
-// Result type for signature operations
-type SigResult = { ok: true; output: string } | { ok: false; error: string }
+type Result<T> = { ok: true; value: T } | { ok: false; error: string }
 
-const requireCredentials = ():
-  | { ok: true; credentials: { authKey: string; authSecret: string } }
-  | { ok: false; error: string } => {
-  const credentials = getCredentials()
-  if (credentials == null) return { ok: false, error: MISSING_CREDENTIALS_MESSAGE }
-  return { ok: true, credentials }
+function parseJsonObject<TSchema extends z.ZodTypeAny>(
+  input: string,
+  schema: TSchema,
+): Result<z.infer<TSchema>> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(input)
+  } catch (error) {
+    return { ok: false, error: `Failed to parse JSON from stdin: ${(error as Error).message}` }
+  }
+
+  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'Invalid params provided via stdin. Expected a JSON object.' }
+  }
+
+  const parsedResult = schema.safeParse(parsed)
+  if (!parsedResult.success) {
+    return { ok: false, error: `Invalid params: ${formatIssues(parsedResult.error.issues)}` }
+  }
+
+  return { ok: true, value: parsedResult.data }
 }
 
 // Core logic for signature generation
@@ -89,30 +100,19 @@ function generateSignature(
   input: string,
   credentials: { authKey: string; authSecret: string },
   algorithm?: string,
-): SigResult {
+): OutputResult {
   const { authKey, authSecret } = credentials
   let params: CliSignatureParams
 
   if (input === '') {
     params = { auth: { key: authKey } }
   } else {
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(input)
-    } catch (error) {
-      return { ok: false, error: `Failed to parse JSON from stdin: ${(error as Error).message}` }
+    const parsedResult = parseJsonObject(input, cliSignatureParamsSchema)
+    if (!parsedResult.ok) {
+      return { ok: false, error: parsedResult.error }
     }
 
-    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { ok: false, error: 'Invalid params provided via stdin. Expected a JSON object.' }
-    }
-
-    const parsedResult = cliSignatureParamsSchema.safeParse(parsed)
-    if (!parsedResult.success) {
-      return { ok: false, error: `Invalid params: ${formatIssues(parsedResult.error.issues)}` }
-    }
-
-    const parsedParams = parsedResult.data
+    const parsedParams = parsedResult.value
     const existingAuth = parsedParams.auth ?? {}
 
     params = {
@@ -137,7 +137,7 @@ function generateSignature(
 function generateSmartCdnUrl(
   input: string,
   credentials: { authKey: string; authSecret: string },
-): SigResult {
+): OutputResult {
   const { authKey, authSecret } = credentials
 
   if (input === '') {
@@ -148,23 +148,12 @@ function generateSmartCdnUrl(
     }
   }
 
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(input)
-  } catch (error) {
-    return { ok: false, error: `Failed to parse JSON from stdin: ${(error as Error).message}` }
+  const parsedResult = parseJsonObject(input, smartCdnParamsSchema)
+  if (!parsedResult.ok) {
+    return { ok: false, error: parsedResult.error }
   }
 
-  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { ok: false, error: 'Invalid params provided via stdin. Expected a JSON object.' }
-  }
-
-  const parsedResult = smartCdnParamsSchema.safeParse(parsed)
-  if (!parsedResult.success) {
-    return { ok: false, error: `Invalid params: ${formatIssues(parsedResult.error.issues)}` }
-  }
-
-  const { workspace, template, input: inputFieldRaw, url_params, expire_at_ms } = parsedResult.data
+  const { workspace, template, input: inputFieldRaw, url_params, expire_at_ms } = parsedResult.value
   const urlParams = normalizeUrlParams(url_params)
 
   let expiresAt: number | undefined
@@ -217,11 +206,17 @@ const tokenErrorSchema = z
   })
   .passthrough()
 
+const tokenSuccessSchema = z
+  .object({
+    access_token: z.string().min(1),
+  })
+  .passthrough()
+
 const buildBasicAuthHeaderValue = (credentials: { authKey: string; authSecret: string }): string =>
   `Basic ${Buffer.from(`${credentials.authKey}:${credentials.authSecret}`, 'utf8').toString('base64')}`
 
-const isLocalhost = (hostname: string): boolean =>
-  hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+const isLoopbackHost = (hostname: string): boolean =>
+  hostname === 'localhost' || hostname === '::1' || hostname.startsWith('127.')
 
 type TokenBaseResult = { ok: true; baseUrl: URL } | { ok: false; error: string }
 
@@ -232,7 +227,11 @@ const normalizeTokenBaseEndpoint = (raw?: string): TokenBaseResult => {
   try {
     url = new URL(baseRaw)
   } catch {
-    return { ok: false, error: `Invalid endpoint URL: ${baseRaw}` }
+    return {
+      ok: false,
+      error:
+        'Invalid endpoint URL. Use --endpoint https://api2.transloadit.com (or set TRANSLOADIT_ENDPOINT).',
+    }
   }
 
   if (url.username || url.password) {
@@ -243,7 +242,7 @@ const normalizeTokenBaseEndpoint = (raw?: string): TokenBaseResult => {
   }
 
   if (url.protocol !== 'https:') {
-    if (url.protocol === 'http:' && isLocalhost(url.hostname)) {
+    if (url.protocol === 'http:' && isLoopbackHost(url.hostname)) {
       // Allowed for local development only.
     } else {
       return {
@@ -260,35 +259,36 @@ const normalizeTokenBaseEndpoint = (raw?: string): TokenBaseResult => {
     url.pathname = '/'
   }
 
-  return { ok: true, baseUrl: url }
-}
+  if (!url.pathname.endsWith('/')) {
+    url.pathname = `${url.pathname}/`
+  }
 
-const buildTokenEndpointUrl = (baseUrl: URL): string => {
-  const base = baseUrl.toString()
-  const normalizedBase = base.endsWith('/') ? base : `${base}/`
-  return new URL('token', normalizedBase).toString()
+  return { ok: true, baseUrl: url }
 }
 
 async function requestTokenWithCredentials(
   credentials: { authKey: string; authSecret: string },
   options: RequestTokenOptions = {},
-): Promise<SigResult> {
+): Promise<OutputResult> {
   const endpointResult = normalizeTokenBaseEndpoint(options.endpoint)
   if (!endpointResult.ok) {
     return { ok: false, error: endpointResult.error }
   }
 
-  const url = buildTokenEndpointUrl(endpointResult.baseUrl)
+  const url = new URL('token', endpointResult.baseUrl).toString()
   const aud = (options.aud ?? 'mcp').trim() || 'mcp'
 
   const body = new URLSearchParams({ grant_type: 'client_credentials', aud }).toString()
 
   let res: Response
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15_000)
   try {
     res = await fetch(url, {
       method: 'POST',
       // Never follow redirects with Basic Auth credentials.
       redirect: 'error',
+      signal: controller.signal,
       headers: {
         Authorization: buildBasicAuthHeaderValue(credentials),
         Accept: 'application/json',
@@ -297,43 +297,54 @@ async function requestTokenWithCredentials(
       body,
     })
   } catch (err) {
+    clearTimeout(timeout)
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { ok: false, error: 'Failed to mint bearer token: request timed out after 15s.' }
+    }
     const message = err instanceof Error ? err.message : String(err)
     return { ok: false, error: `Failed to mint bearer token: ${message}` }
+  } finally {
+    clearTimeout(timeout)
   }
 
   const text = await res.text()
+  const trimmed = text.trim()
+  let parsedJson: unknown = null
+  try {
+    parsedJson = trimmed ? JSON.parse(trimmed) : null
+  } catch {
+    parsedJson = null
+  }
+
   if (res.ok) {
-    const trimmed = text.trim()
-    try {
-      JSON.parse(trimmed)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      return { ok: false, error: `Token response was not valid JSON: ${message}` }
+    if (parsedJson == null) {
+      return { ok: false, error: 'Token response was not valid JSON.' }
+    }
+    const parsed = tokenSuccessSchema.safeParse(parsedJson)
+    if (!parsed.success) {
+      return { ok: false, error: 'Token response did not include an access_token.' }
     }
     return { ok: true, output: trimmed }
   }
 
-  let parsedJson: unknown = null
-  try {
-    parsedJson = JSON.parse(text)
-  } catch {
-    parsedJson = null
-  }
-  const parsed = tokenErrorSchema.safeParse(parsedJson)
-  if (parsed.success) {
+  const parsedError = tokenErrorSchema.safeParse(parsedJson)
+  if (parsedError.success) {
     return {
       ok: false,
-      error: parsed.data.message
-        ? `${parsed.data.error}: ${parsed.data.message}`
-        : parsed.data.error,
+      error: parsedError.data.message
+        ? `${parsedError.data.error}: ${parsedError.data.message}`
+        : parsedError.data.error,
     }
   }
 
-  return { ok: false, error: `Token request failed (${res.status}): ${text || res.statusText}` }
+  return {
+    ok: false,
+    error: `Token request failed (${res.status}): ${trimmed || res.statusText}`,
+  }
 }
 
 export async function runSig(options: RunSigOptions = {}): Promise<void> {
-  const credentialsResult = requireCredentials()
+  const credentialsResult = requireEnvCredentials()
   if (!credentialsResult.ok) {
     console.error(credentialsResult.error)
     process.exitCode = 1
@@ -357,7 +368,7 @@ export async function runSig(options: RunSigOptions = {}): Promise<void> {
 }
 
 export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<void> {
-  const credentialsResult = requireCredentials()
+  const credentialsResult = requireEnvCredentials()
   if (!credentialsResult.ok) {
     console.error(credentialsResult.error)
     process.exitCode = 1
@@ -410,7 +421,7 @@ export class SignatureCommand extends UnauthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    const credentialsResult = requireCredentials()
+    const credentialsResult = requireEnvCredentials()
     if (!credentialsResult.ok) {
       this.output.error(credentialsResult.error)
       return 1
@@ -463,7 +474,7 @@ export class SmartCdnSignatureCommand extends UnauthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    const credentialsResult = requireCredentials()
+    const credentialsResult = requireEnvCredentials()
     if (!credentialsResult.ok) {
       this.output.error(credentialsResult.error)
       return 1
@@ -510,7 +521,7 @@ export class TokenCommand extends UnauthenticatedCommand {
   })
 
   protected override async run(): Promise<number | undefined> {
-    const credentialsResult = requireCredentials()
+    const credentialsResult = requireEnvCredentials()
     if (!credentialsResult.ok) {
       this.output.error(credentialsResult.error)
       return 1
@@ -523,7 +534,7 @@ export class TokenCommand extends UnauthenticatedCommand {
 
     if (result.ok) {
       process.stdout.write(`${result.output}\n`)
-      return 0
+      return undefined
     }
 
     this.output.error(result.error)
