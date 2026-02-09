@@ -356,7 +356,12 @@ async function myStat(
 
 function dirProvider(output: string): OutstreamProvider {
   return async (inpath, indir = process.cwd()) => {
-    if (inpath == null || inpath === '-') {
+    // Inputless assemblies can still write into a directory, but output paths are derived from
+    // assembly results rather than an input file path (handled later).
+    if (inpath == null) {
+      return null
+    }
+    if (inpath === '-') {
       throw new Error('You must provide an input to output to a directory')
     }
 
@@ -937,13 +942,12 @@ export async function create(
       // Create fresh streams for this job
       const inStream = inPath ? fs.createReadStream(inPath) : null
       inStream?.on('error', () => {})
-      const outStream = outPath ? (fs.createWriteStream(outPath) as OutStream) : null
-      outStream?.on('error', () => {})
-      if (outStream) outStream.mtime = outMtime
 
       let superceded = false
-      if (outStream != null) {
-        outStream.on('finish', () => {
+      // When writing to a file path (non-directory output), we treat finish as a supersede signal.
+      // Directory-output multi-download mode does not use a single shared outstream.
+      const markSupersededOnFinish = (stream: OutStream) => {
+        stream.on('finish', () => {
           superceded = true
         })
       }
@@ -982,23 +986,124 @@ export async function create(
       }
 
       if (!assembly.results) throw new Error('No results in assembly')
-      const resultsKeys = Object.keys(assembly.results)
-      const firstKey = resultsKeys[0]
-      if (!firstKey) throw new Error('No results in assembly')
-      const firstResult = assembly.results[firstKey]
-      if (!firstResult || !firstResult[0]) throw new Error('No results in assembly')
-      const resulturl =
-        (firstResult[0] as { ssl_url?: string; url?: string }).ssl_url ?? firstResult[0].url
 
-      if (outStream != null && resulturl && !superceded) {
-        outputctl.debug('DOWNLOADING')
-        const [dlErr] = await tryCatch(
-          pipeline(got.stream(resulturl, { signal: abortController.signal }), outStream),
-        )
-        if (dlErr) {
-          if (dlErr.name !== 'AbortError') {
-            outputctl.error(dlErr.message)
-            throw dlErr
+      const outIsDirectory = Boolean(resolvedOutput != null && outstat?.isDirectory())
+      const entries = Object.entries(assembly.results)
+      const allFiles: Array<{
+        stepName: string
+        file: { name?: string; basename?: string; ext?: string; ssl_url?: string; url?: string }
+      }> = []
+      for (const [stepName, stepResults] of entries) {
+        for (const file of stepResults as Array<{
+          name?: string
+          basename?: string
+          ext?: string
+          ssl_url?: string
+          url?: string
+        }>) {
+          allFiles.push({ stepName, file })
+        }
+      }
+
+      const getFileUrl = (file: { ssl_url?: string; url?: string }): string | null =>
+        file.ssl_url ?? file.url ?? null
+
+      const sanitizeName = (value: string): string => {
+        const base = path.basename(value)
+        return base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
+      }
+
+      const ensureUniquePath = async (targetPath: string): Promise<string> => {
+        const parsed = path.parse(targetPath)
+        let candidate = targetPath
+        let counter = 1
+        while (true) {
+          const [statErr] = await tryCatch(fsp.stat(candidate))
+          if (statErr) return candidate
+          candidate = path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`)
+          counter += 1
+        }
+      }
+
+      if (resolvedOutput != null && !superceded) {
+        // Directory output:
+        // - For single-result, input-backed jobs, preserve existing behavior (write to mapped file path).
+        // - Otherwise (multi-result or inputless), download all results into a directory structure.
+        if (outIsDirectory && (inPath == null || allFiles.length !== 1 || outPath == null)) {
+          let baseDir = resolvedOutput
+          if (inPath != null) {
+            let relpath = path.relative(process.cwd(), inPath)
+            relpath = relpath.replace(/^(\.\.\/)+/, '')
+            baseDir = path.join(resolvedOutput, path.dirname(relpath), path.parse(relpath).name)
+          }
+          await fsp.mkdir(baseDir, { recursive: true })
+
+          for (const { stepName, file } of allFiles) {
+            const resultUrl = getFileUrl(file)
+            if (!resultUrl) continue
+
+            const stepDir = path.join(baseDir, stepName)
+            await fsp.mkdir(stepDir, { recursive: true })
+
+            const rawName =
+              file.name ??
+              (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
+              `${stepName}_result`
+            const safeName = sanitizeName(rawName)
+            const targetPath = await ensureUniquePath(path.join(stepDir, safeName))
+
+            outputctl.debug('DOWNLOADING')
+            const outStream = fs.createWriteStream(targetPath) as OutStream
+            outStream.on('error', () => {})
+            const [dlErr] = await tryCatch(
+              pipeline(got.stream(resultUrl, { signal: abortController.signal }), outStream),
+            )
+            if (dlErr) {
+              if (dlErr.name === 'AbortError') continue
+              outputctl.error(dlErr.message)
+              throw dlErr
+            }
+          }
+        } else if (!outIsDirectory && outPath != null) {
+          const first = allFiles[0]
+          const resultUrl = first ? getFileUrl(first.file) : null
+          if (resultUrl) {
+            outputctl.debug('DOWNLOADING')
+            const outStream = fs.createWriteStream(outPath) as OutStream
+            outStream.on('error', () => {})
+            outStream.mtime = outMtime
+            markSupersededOnFinish(outStream)
+
+            const [dlErr] = await tryCatch(
+              pipeline(got.stream(resultUrl, { signal: abortController.signal }), outStream),
+            )
+            if (dlErr) {
+              if (dlErr.name !== 'AbortError') {
+                outputctl.error(dlErr.message)
+                throw dlErr
+              }
+            }
+          }
+        } else if (outIsDirectory && outPath != null) {
+          // Single-result, input-backed job: preserve existing file mapping in outdir.
+          const first = allFiles[0]
+          const resultUrl = first ? getFileUrl(first.file) : null
+          if (resultUrl) {
+            outputctl.debug('DOWNLOADING')
+            const outStream = fs.createWriteStream(outPath) as OutStream
+            outStream.on('error', () => {})
+            outStream.mtime = outMtime
+            markSupersededOnFinish(outStream)
+
+            const [dlErr] = await tryCatch(
+              pipeline(got.stream(resultUrl, { signal: abortController.signal }), outStream),
+            )
+            if (dlErr) {
+              if (dlErr.name !== 'AbortError') {
+                outputctl.error(dlErr.message)
+                throw dlErr
+              }
+            }
           }
         }
       }
@@ -1272,8 +1377,9 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       return 1
     }
 
-    // Default to stdin if no inputs and not a TTY
-    if (inputList.length === 0 && !process.stdin.isTTY) {
+    // Default to stdin only for `--steps` mode (common "pipe a file into a one-off assembly" use case).
+    // For `--template` mode, templates may be inputless or use /http/import, so stdin should be explicit (`--input -`).
+    if (this.steps && inputList.length === 0 && !process.stdin.isTTY) {
       inputList.push('-')
     }
 

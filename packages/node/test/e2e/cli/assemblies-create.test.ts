@@ -308,6 +308,62 @@ describeLive('assemblies', () => {
     )
 
     it(
+      'should allow output directory for no-input templates (downloads into directory)',
+      testCase(async (client) => {
+        await fsp.mkdir('out')
+
+        const output = new OutputCtl()
+        await assembliesCreate(output, client, {
+          template: 'builtin/serve-preview@0.0.1',
+          fields: {
+            input: genericImg,
+            w: '256',
+            h: '256',
+            f: 'png',
+          },
+          inputs: [],
+          output: 'out',
+        })
+
+        const files = await rreaddirAsync('out')
+        expect(files.length).to.be.greaterThan(0)
+
+        // Ensure at least one output file is a valid image.
+        const first = files[0]
+        expect(first).to.be.a('string')
+        const buf = await fsp.readFile(first)
+        const dim = imageSize(new Uint8Array(buf))
+        expect(dim.width).to.be.greaterThan(0)
+        expect(dim.height).to.be.greaterThan(0)
+      }),
+    )
+
+    it(
+      'should download all results for multi-output templates into a directory',
+      testCase(async (client) => {
+        const fixtureMp4 = path.resolve(
+          path.dirname(fileURLToPath(import.meta.url)),
+          '../fixtures/testsrc.mp4',
+        )
+        await fsp.copyFile(fixtureMp4, 'in.mp4')
+        await fsp.mkdir('out')
+
+        const output = new OutputCtl()
+        await assembliesCreate(output, client, {
+          template: 'builtin/encode-hls-video@0.0.1',
+          inputs: ['in.mp4'],
+          output: 'out',
+        })
+
+        const files = await rreaddirAsync('out')
+        const hasM3u8 = files.some((p) => p.endsWith('.m3u8'))
+        const hasTs = files.some((p) => p.endsWith('.ts'))
+        expect(hasM3u8).to.equal(true)
+        expect(hasTs).to.equal(true)
+      }),
+    )
+
+    it(
       'should allow deleting inputs after processing',
       testCase(async (client) => {
         const infile = await imgPromise()
