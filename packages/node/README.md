@@ -67,6 +67,15 @@ token via `POST /token`:
 npx -y transloadit auth token --aud mcp
 ```
 
+To reduce blast radius, you can request a narrower set of scopes. The server will only grant scopes
+that your Auth Key already has (it applies an intersection), and will error if you request scopes
+you are not allowed to use.
+
+```bash
+# Request a narrower token (comma-separated scopes)
+npx -y transloadit auth token --aud mcp --scope assemblies:write,templates:read
+```
+
 ### Processing Media
 
 Create Assemblies to process files using Assembly Instructions (steps) or Templates:

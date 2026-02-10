@@ -30,6 +30,11 @@ describe('cli auth token', () => {
     return fetchSpy
   }
 
+  const parseFormBody = (body: unknown): URLSearchParams => {
+    expect(typeof body).toBe('string')
+    return new URLSearchParams(body as string)
+  }
+
   it('prints the token JSON to stdout and nothing else', async () => {
     stubCreds()
 
@@ -77,7 +82,10 @@ describe('cli auth token', () => {
     const auth = (init.headers as Record<string, string>).Authorization
     expect(auth).toMatch(/^Basic /)
 
-    expect(init.body).toBe('grant_type=client_credentials&aud=mcp')
+    const params = parseFormBody(init.body)
+    expect(params.get('grant_type')).toBe('client_credentials')
+    expect(params.get('aud')).toBe('mcp')
+    expect(params.get('scope')).toBeNull()
   })
 
   it('treats whitespace-only --aud as mcp', async () => {
@@ -91,7 +99,30 @@ describe('cli auth token', () => {
     await main(['auth', 'token', '--aud', '   ', '--endpoint', 'https://api2.transloadit.com'])
 
     const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
-    expect(init.body).toBe('grant_type=client_credentials&aud=mcp')
+    const params = parseFormBody(init.body)
+    expect(params.get('aud')).toBe('mcp')
+  })
+
+  it('sends scope when provided (comma-separated)', async () => {
+    stubCreds()
+
+    const fetchSpy = stubFetchJson({ access_token: 'abc', token_type: 'Bearer', expires_in: 1 })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await main([
+      'auth',
+      'token',
+      '--endpoint',
+      'https://api2.transloadit.com',
+      '--scope',
+      'assemblies:write,templates:read',
+    ])
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const params = parseFormBody(init.body)
+    expect(params.get('scope')).toBe('assemblies:write templates:read')
   })
 
   it('normalizes endpoints that already include /token', async () => {
