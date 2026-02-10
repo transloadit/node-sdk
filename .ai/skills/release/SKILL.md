@@ -17,9 +17,12 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
       2. Run `corepack yarn verify:full` locally once before pushing.
          - This is the fastest way to catch the common CI-only failure: transloadit parity drift in `Verify (full)`.
       3. If `verify:full` (or CI `Verify (full)`) fails with transloadit parity drift, apply the “Parity drift playbook” below, then re-run `corepack yarn verify:full`.
-   4. Commit + push branch
-   5. Open PR, wait for CI green
-   6. Squash-merge the PR
+   4. If you add a changeset for `@transloadit/node`, also add a patch changeset for `@transloadit/mcp-server`.
+      - This repo enforces a one-way coupling: node releases should also publish a new mcp-server version (but mcp-server releases do not require node releases).
+      - `yarn check`/`yarn verify` will fail fast if you forget.
+   5. Commit + push branch
+   6. Open PR, wait for CI green
+   7. Squash-merge the PR
 
    Notes:
    1. When creating PRs with `gh pr create` from a shell, avoid unescaped backticks in the `--body` string.
