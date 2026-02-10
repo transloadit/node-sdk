@@ -5,8 +5,8 @@ import type { TransloaditMcpHttpOptions } from './http.ts'
 import { isBasicAuthorized } from './http-helpers.ts'
 import { createMcpRequestHandler } from './http-request-handler.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
-import { buildServerCard, serverCardPath } from './server-card.ts'
 import { createTransloaditMcpServer } from './server.ts'
+import { buildServerCard, serverCardPath } from './server-card.ts'
 
 export type TransloaditMcpExpressOptions = TransloaditMcpHttpOptions & {
   path?: string
@@ -38,13 +38,43 @@ export const createTransloaditMcpExpressRouter = async (
     redactSecrets: [options.mcpToken, options.authKey, options.authSecret],
   })
 
-  const serverCardJson = JSON.stringify(buildServerCard(routePath))
+  const serverCardJson = JSON.stringify(
+    buildServerCard(routePath, { authKey: options.authKey, authSecret: options.authSecret }),
+  )
 
-  router.get(serverCardPath, (_req, res) => {
+  const sendServerCard = (res: express.Response, includeBody: boolean) => {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
-    res.setHeader('Content-Type', 'application/json')
-    res.status(200).send(serverCardJson)
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Authorization,Content-Type,Mcp-Session-Id,Last-Event-ID',
+    )
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Cache-Control', 'public, max-age=3600')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    if (includeBody) {
+      res.status(200).send(serverCardJson)
+      return
+    }
+    res.status(200).end()
+  }
+
+  router.options(serverCardPath, (_req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Authorization,Content-Type,Mcp-Session-Id,Last-Event-ID',
+    )
+    res.status(204).end()
+  })
+
+  router.get(serverCardPath, (_req, res) => {
+    sendServerCard(res, true)
+  })
+
+  router.head(serverCardPath, (_req, res) => {
+    sendServerCard(res, false)
   })
 
   router.all(routePath, (req, res) => {
