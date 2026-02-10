@@ -61,7 +61,11 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
 
 4. Immediately after merging the Version Packages PR:
    1. `git checkout main && git pull`
-   2. Run `corepack yarn check` (catches formatting/knip/ts/unit drift early)
+   2. Update the lockfile (required for the Release workflow):
+      1. `corepack yarn`
+      2. If `yarn.lock` changed: `git add yarn.lock && git commit -m "chore: update yarn.lock for release" && git push`
+      3. Reason: the Release workflow runs `corepack yarn` with immutable installs and will fail if it would modify `yarn.lock`.
+   3. Run `corepack yarn check` (catches formatting/knip/ts/unit drift early)
 
 5. Prevent the `packages/transloadit` clone from drifting (special case):
    1. If the `transloadit` package exists in this repo, keep it in sync with `@transloadit/node` by running:
