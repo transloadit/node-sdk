@@ -44,6 +44,8 @@ import type {
   TemplateCredentialsResponse,
   TemplateResponse,
 } from './apiTypes.ts'
+import type { BearerTokenResponse, MintBearerTokenOptions } from './bearerToken.ts'
+import { mintBearerTokenWithCredentials } from './bearerToken.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import type {
   LintAssemblyInstructionsInput,
@@ -541,6 +543,36 @@ export class Transloadit {
       ...rest,
       template: template.content,
     })
+  }
+
+  /**
+   * Mint a short-lived bearer token via POST /token.
+   *
+   * This uses HTTP Basic Auth (authKey + authSecret) and can optionally request a narrowed scope.
+   * If `scope` is omitted, the token inherits the auth key's scope.
+   */
+  async mintBearerToken(
+    options: Omit<MintBearerTokenOptions, 'endpoint'> & { endpoint?: string } = {},
+  ): Promise<BearerTokenResponse> {
+    if (this._authToken) {
+      throw new Error(
+        'Cannot mint bearer tokens when using authToken authentication. Provide authKey + authSecret instead.',
+      )
+    }
+
+    const result = await mintBearerTokenWithCredentials(
+      { authKey: this._authKey, authSecret: this._authSecret },
+      {
+        ...options,
+        endpoint: options.endpoint ?? this._endpoint,
+      },
+    )
+
+    if (!result.ok) {
+      throw new Error(result.error)
+    }
+
+    return result.data
   }
 
   async resumeAssemblyUploads(
