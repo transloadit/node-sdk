@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.3
+
+### Patch Changes
+
+- 753f76d: Release @transloadit/mcp-server in lockstep when @transloadit/node is updated.
+- Updated dependencies [753f76d]
+  - @transloadit/node@4.7.4
+
 ## 0.3.2
 
 ### Patch Changes

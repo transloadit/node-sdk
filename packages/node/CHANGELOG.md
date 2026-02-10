@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.7.4
+
+### Patch Changes
+
+- 753f76d: Add `--scope` support to `transloadit auth token` and expose `mintBearerToken()` to request narrower bearer token scopes.
+
 ## 4.7.3
 
 ### Patch Changes
