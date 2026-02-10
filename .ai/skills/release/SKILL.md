@@ -34,7 +34,9 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
    1. Update the parity baseline:
       1. `node scripts/fingerprint-pack.ts ./packages/transloadit --ignore-scripts --quiet --out ./docs/fingerprint/transloadit-baseline.json`
       2. `cp ./packages/transloadit/package.json ./docs/fingerprint/transloadit-baseline.package.json`
-   2. Run `corepack yarn check` (it may reformat the baseline json)
+   2. Immediately reformat the baseline (required for CI `Verify (fast)` / `yarn verify`, which does not auto-fix formatting):
+      1. `corepack yarn fix:js`
+      2. (or `corepack yarn check`, but only if you run it after generating the baseline files)
    3. Run `corepack yarn parity:transloadit`
    4. Commit + push, then re-run `corepack yarn verify:full`
 
