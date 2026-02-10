@@ -2,12 +2,17 @@ import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import type { SevLogger } from '@transloadit/sev-logger'
-import { isBasicAuthorized, normalizePath, parsePathname } from './http-helpers.ts'
+import {
+  applyCorsHeaders,
+  isBasicAuthorized,
+  normalizePath,
+  parsePathname,
+} from './http-helpers.ts'
 import { createMcpRequestHandler } from './http-request-handler.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
-import { buildServerCard, serverCardPath } from './server-card.ts'
 import type { TransloaditMcpServerOptions } from './server.ts'
 import { createTransloaditMcpServer } from './server.ts'
+import { buildServerCard, serverCardPath } from './server-card.ts'
 
 export type TransloaditMcpHttpOptions = TransloaditMcpServerOptions & {
   allowedOrigins?: string[]
@@ -56,13 +61,18 @@ export const createTransloaditMcpHttpHandler = async (
     redactSecrets: [options.mcpToken, options.authKey, options.authSecret],
   })
 
-  const serverCardJson = JSON.stringify(buildServerCard(expectedPath))
+  const serverCardJson = JSON.stringify(
+    buildServerCard(expectedPath, { authKey: options.authKey, authSecret: options.authSecret }),
+  )
 
   const handler = (async (req, res) => {
     const pathname = normalizePath(parsePathname(req.url, expectedPath))
 
     if (pathname === serverCardPath) {
-      res.setHeader('Access-Control-Allow-Origin', '*')
+      // Public discovery endpoint for registries; always allow CORS (optionally restricted by allowedOrigins).
+      if (!applyCorsHeaders(req, res, options.allowedOrigins)) {
+        return
+      }
       res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
       if (req.method === 'OPTIONS') {
         res.statusCode = 204
@@ -75,7 +85,9 @@ export const createTransloaditMcpHttpHandler = async (
         return
       }
       res.statusCode = 200
-      res.setHeader('Content-Type', 'application/json')
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Cache-Control', 'public, max-age=3600')
+      res.setHeader('X-Content-Type-Options', 'nosniff')
       res.end(req.method === 'HEAD' ? undefined : serverCardJson)
       return
     }
