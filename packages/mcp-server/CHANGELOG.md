@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.3.4
+
+### Patch Changes
+
+- e11f29f: Fix MCP server card schema and add coverage for `/.well-known/mcp/server-card.json`.
+
 ## 0.3.3
 
 ### Patch Changes
