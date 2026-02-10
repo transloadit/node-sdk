@@ -5,6 +5,7 @@ import type { SevLogger } from '@transloadit/sev-logger'
 import { isBasicAuthorized, normalizePath, parsePathname } from './http-helpers.ts'
 import { createMcpRequestHandler } from './http-request-handler.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
+import { buildServerCard, serverCardPath } from './server-card.ts'
 import type { TransloaditMcpServerOptions } from './server.ts'
 import { createTransloaditMcpServer } from './server.ts'
 
@@ -55,31 +56,51 @@ export const createTransloaditMcpHttpHandler = async (
     redactSecrets: [options.mcpToken, options.authKey, options.authSecret],
   })
 
-  const handler = (async (req, res) => {
-    if (metricsPath) {
-      const pathname = normalizePath(parsePathname(req.url, expectedPath))
-      if (pathname === metricsPath) {
-        if (metricsAuth && !isBasicAuthorized(req, metricsAuth)) {
-          res.statusCode = 401
-          res.setHeader('WWW-Authenticate', 'Basic realm="metrics"')
-          res.end('Unauthorized')
-          return
-        }
-        if (req.method !== 'GET' && req.method !== 'HEAD') {
-          res.statusCode = 405
-          res.end('Method Not Allowed')
-          return
-        }
+  const serverCardJson = JSON.stringify(buildServerCard(expectedPath))
 
-        res.statusCode = 200
-        res.setHeader('Content-Type', getMetricsContentType())
-        if (req.method === 'HEAD') {
-          res.end()
-          return
-        }
-        res.end(await getMetrics())
+  const handler = (async (req, res) => {
+    const pathname = normalizePath(parsePathname(req.url, expectedPath))
+
+    if (pathname === serverCardPath) {
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 204
+        res.end()
         return
       }
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+        return
+      }
+      res.statusCode = 200
+      res.setHeader('Content-Type', 'application/json')
+      res.end(req.method === 'HEAD' ? undefined : serverCardJson)
+      return
+    }
+
+    if (metricsPath && pathname === metricsPath) {
+      if (metricsAuth && !isBasicAuthorized(req, metricsAuth)) {
+        res.statusCode = 401
+        res.setHeader('WWW-Authenticate', 'Basic realm="metrics"')
+        res.end('Unauthorized')
+        return
+      }
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+        return
+      }
+
+      res.statusCode = 200
+      res.setHeader('Content-Type', getMetricsContentType())
+      if (req.method === 'HEAD') {
+        res.end()
+        return
+      }
+      res.end(await getMetrics())
+      return
     }
 
     await mcpHandler(req, res)

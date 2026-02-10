@@ -5,6 +5,7 @@ import type { TransloaditMcpHttpOptions } from './http.ts'
 import { isBasicAuthorized } from './http-helpers.ts'
 import { createMcpRequestHandler } from './http-request-handler.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
+import { buildServerCard, serverCardPath } from './server-card.ts'
 import { createTransloaditMcpServer } from './server.ts'
 
 export type TransloaditMcpExpressOptions = TransloaditMcpHttpOptions & {
@@ -35,6 +36,15 @@ export const createTransloaditMcpExpressRouter = async (
     path: { expectedPath: routePath, allowRoot: true },
     logger: options.logger,
     redactSecrets: [options.mcpToken, options.authKey, options.authSecret],
+  })
+
+  const serverCardJson = JSON.stringify(buildServerCard(routePath))
+
+  router.get(serverCardPath, (_req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
+    res.setHeader('Content-Type', 'application/json')
+    res.status(200).send(serverCardJson)
   })
 
   router.all(routePath, (req, res) => {
