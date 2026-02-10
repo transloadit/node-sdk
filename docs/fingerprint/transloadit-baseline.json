@@ -1,19 +1,22 @@
 {
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.7.2.tgz",
-    "sizeBytes": 1244695,
-    "sha256": "42d5f0f20b27a3c3a761b43f68b61b4acf5b0c800f723928803f3949246ebfe9"
+    "filename": "transloadit-4.7.3.tgz",
+    "sizeBytes": 1247549,
+    "sha256": "5dd2ebbef6a32cb1244d15a26a1619bbdc8f9ac31e57068ba3573f8fd9e060bf"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.7.2",
+    "version": "4.7.3",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
       "./package.json": "./package.json"
     },
-    "files": ["dist", "src"]
+    "files": [
+      "dist",
+      "src"
+    ]
   },
   "files": [
     {
@@ -128,8 +131,8 @@
     },
     {
       "path": "dist/cli/commands/auth.js",
-      "sizeBytes": 15785,
-      "sha256": "3fcef85fa789d41e4620eec82555eb94ca52ae70367d519272103fd6019a7661"
+      "sizeBytes": 11611,
+      "sha256": "f97edb26a829382471ba905d5004ac41caa7c0bca2a3a65b6adf6ff969803063"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.js",
@@ -155,6 +158,11 @@
       "path": "dist/cli/commands/BaseCommand.js",
       "sizeBytes": 1883,
       "sha256": "af4d62f394df456f5137627e8c4f241344fbe7c7796e427bc6ec493de5984762"
+    },
+    {
+      "path": "dist/bearerToken.js",
+      "sizeBytes": 5587,
+      "sha256": "bc4721aef6564fd8ffd8d7f7f74528ec2194a514c14bb382855215d0b9baa102"
     },
     {
       "path": "dist/alphalib/types/bill.js",
@@ -583,8 +591,8 @@
     },
     {
       "path": "dist/Transloadit.js",
-      "sizeBytes": 37061,
-      "sha256": "65cb500187b59054afcc0d0d8a3dcf056195b7374449e710d2efeb1a8185940b"
+      "sizeBytes": 37922,
+      "sha256": "500d82f5b654da175e301294540522718b2a81e15d87c3cd365f074fe961a769"
     },
     {
       "path": "dist/alphalib/tryCatch.js",
@@ -684,7 +692,7 @@
     {
       "path": "package.json",
       "sizeBytes": 2730,
-      "sha256": "818a4a0e1e9d5020e29d5cafcbc584a380fbb264508518835bab2e017f5fd101"
+      "sha256": "6b25f14eb1fff3ea994f7509bd31747b69dd22ae4af17e851c4d740c54e784a3"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
@@ -898,13 +906,13 @@
     },
     {
       "path": "dist/cli/commands/auth.d.ts.map",
-      "sizeBytes": 996,
-      "sha256": "478ac46eb7ddbe624235a21c0a0a059cdefa91381281198ad51f7bd21c8f1b09"
+      "sizeBytes": 922,
+      "sha256": "5723d078eacd9e3aa713aa28aa0b284f4c6a5f5b50203f39967a196542cf333f"
     },
     {
       "path": "dist/cli/commands/auth.js.map",
-      "sizeBytes": 14501,
-      "sha256": "891418720d6f855eea37a07ca197c55a9d8d010c905f6c7bdda9ee7f4f9d6332"
+      "sizeBytes": 10384,
+      "sha256": "3ea5009e5c9989b33694c725a9d11aa44f32b9b6c6dd73dc6b145d2318c8ce30"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts.map",
@@ -955,6 +963,16 @@
       "path": "dist/cli/commands/BaseCommand.js.map",
       "sizeBytes": 1771,
       "sha256": "ea85d352f6620d0688afa1bb3c82f2c9c09b3bec6c06bfcc29d6d9f14f12578a"
+    },
+    {
+      "path": "dist/bearerToken.d.ts.map",
+      "sizeBytes": 867,
+      "sha256": "bf66bc5231caabe6dea8993dacce769dbd5ebf6884d921d133dd461ab161a0ae"
+    },
+    {
+      "path": "dist/bearerToken.js.map",
+      "sizeBytes": 5767,
+      "sha256": "0bf3817570b3aad5e23f507898ba8bce442d99355f94a0f9ffb7a4650bdd87b6"
     },
     {
       "path": "dist/alphalib/types/bill.d.ts.map",
@@ -1808,13 +1826,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts.map",
-      "sizeBytes": 6475,
-      "sha256": "aa9b6449d63d71b994e15d319c5e7901a70c6f42fc864f86578d80979f9ee16c"
+      "sizeBytes": 6679,
+      "sha256": "ee51b85a546a35f49fd8512705d9bd090d704edd94757ed6f457b882e9bc2396"
     },
     {
       "path": "dist/Transloadit.js.map",
-      "sizeBytes": 27068,
-      "sha256": "25625d846230be42e9f75973767f939974603de5de79f4a140c73db8233db8b1"
+      "sizeBytes": 27586,
+      "sha256": "9fd1ee82626e9e2452ec799d3a8ae775f4a7c1fd9b99d9703f7e3e2bd0b3d191"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts.map",
@@ -2008,8 +2026,8 @@
     },
     {
       "path": "README.md",
-      "sizeBytes": 35827,
-      "sha256": "4eeaaee318cb9336246280c4f3247c27de0df83d6738863123f5c9eac9429908"
+      "sizeBytes": 36199,
+      "sha256": "de776352798bc01658b19563cc31fc5a80267d60690c4d3351449767ec2b736d"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts",
@@ -2223,13 +2241,13 @@
     },
     {
       "path": "dist/cli/commands/auth.d.ts",
-      "sizeBytes": 1406,
-      "sha256": "885d57814cc0ac4f6554576811748beee3902a8ef63b70746a76c22aff2b0acc"
+      "sizeBytes": 1355,
+      "sha256": "ba09b4a6f5548fa61b2131ec6d67e7c5795157abd5c370861c21e928eda8e78f"
     },
     {
       "path": "src/cli/commands/auth.ts",
-      "sizeBytes": 16193,
-      "sha256": "42ebd9ee94e5a21001f456c47d9f722f73df6b7b06f5ce82fab857e93b77f70c"
+      "sizeBytes": 12042,
+      "sha256": "c2d57b7a2b0cff9a4bcecf8ed8b8c52af664b9764d8a8248630c822f121f9a90"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts",
@@ -2280,6 +2298,16 @@
       "path": "src/cli/commands/BaseCommand.ts",
       "sizeBytes": 2101,
       "sha256": "8716f8a22898d35c025986a31a9234b43a8eaed09f7120b8f6424ff8d045fd50"
+    },
+    {
+      "path": "dist/bearerToken.d.ts",
+      "sizeBytes": 880,
+      "sha256": "9e4a6e4dff6fc60004e9d6d5d5637c0257345ca97b48ffd6225417a4eda94c80"
+    },
+    {
+      "path": "src/bearerToken.ts",
+      "sizeBytes": 5998,
+      "sha256": "528a38e470b6730ab073de1e845ec964855ffabfe862a4bca65af021732c4f1f"
     },
     {
       "path": "dist/alphalib/types/bill.d.ts",
@@ -3138,13 +3166,13 @@
     },
     {
       "path": "dist/Transloadit.d.ts",
-      "sizeBytes": 11921,
-      "sha256": "90201df261e3927bc3741bd1dad77cd36d20dbb0199a11716b973a72379991be"
+      "sizeBytes": 12397,
+      "sha256": "b1e9233014c13c47832c7fb8b2c82bc75e1b3519f259b3ce71f9bd6d8150f36d"
     },
     {
       "path": "src/Transloadit.ts",
-      "sizeBytes": 41642,
-      "sha256": "64c743d7745c26124beb2bfdc6d2a92e265edde432c19272cc1a9702dbad8967"
+      "sizeBytes": 42665,
+      "sha256": "d8a3d50a5f245e79258bada7ca39cc9aaedbe430b521145c819b0d46d3fcb1bf"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts",
