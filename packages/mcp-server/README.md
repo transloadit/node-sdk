@@ -1,7 +1,6 @@
 # @transloadit/mcp-server
 
-Transloadit MCP server (Streamable HTTP + stdio). This package is thin glue over
-`@transloadit/node` and shared libraries.
+Transloadit MCP Server (Streamable HTTP + stdio), built on top of `@transloadit/node`.
 
 ## Install
 
@@ -9,12 +8,73 @@ Transloadit MCP server (Streamable HTTP + stdio). This package is thin glue over
 npm install @transloadit/mcp-server
 ```
 
-## Quick start (agents)
+## Quick start (self-hosted, recommended)
 
-Most users add the MCP server to their agent client. The client starts the server
-automatically (via `npx -y @transloadit/mcp-server stdio`).
+For most teams, self-hosted MCP is the simplest happy path: run the server where your agent runs,
+set `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET`, and the server handles API auth automatically.
 
-Claude Code:
+### Stdio (recommended)
+
+```bash
+TRANSLOADIT_KEY=MY_AUTH_KEY TRANSLOADIT_SECRET=MY_SECRET_KEY npx -y @transloadit/mcp-server stdio
+```
+
+### HTTP
+
+```bash
+TRANSLOADIT_KEY=MY_AUTH_KEY TRANSLOADIT_SECRET=MY_SECRET_KEY \
+npx -y @transloadit/mcp-server http --host 127.0.0.1 --port 5723
+```
+
+When binding HTTP mode to non-localhost hosts, `TRANSLOADIT_MCP_TOKEN` is required.
+
+### `TRANSLOADIT_MCP_TOKEN` explained
+
+`TRANSLOADIT_MCP_TOKEN` is a self-hosted MCP transport token. It protects your own HTTP MCP endpoint
+(`npx -y @transloadit/mcp-server http`), not API2.
+
+- Set it yourself to any high-entropy secret.
+- Send it from your MCP client as `Authorization: Bearer <TRANSLOADIT_MCP_TOKEN>`.
+- It is **not** minted via `/token`.
+- It is separate from API2 Bearer tokens used for `https://api2.transloadit.com/mcp`.
+
+Generate one, then start HTTP mode:
+
+```bash
+export TRANSLOADIT_MCP_TOKEN="$(openssl rand -hex 32)"
+npx -y @transloadit/mcp-server http --host 0.0.0.0 --port 5723
+```
+
+## Hosted endpoint
+
+If you cannot run `npx` where the agent runs, use the hosted endpoint:
+
+```text
+https://api2.transloadit.com/mcp
+```
+
+Use `Authorization: Bearer <token>`. Mint a token with:
+
+```bash
+npx -y @transloadit/node auth token --aud mcp
+```
+
+Generate this token in a trusted environment (backend, CI, or local shell), then hand it to the
+agent runtime. You can mint it via:
+
+- CLI: `npx -y @transloadit/node auth token --aud mcp`
+- API: `POST https://api2.transloadit.com/token` (HTTP Basic Auth with key/secret)
+- Node SDK: instantiate `Transloadit` with `authKey` + `authSecret`, then call
+  `client.mintBearerToken({ aud: 'mcp' })`
+
+Bearer tokens satisfy signature auth on API2 requests; signature checks apply to key/secret
+requests.
+
+## Agent client setup
+
+Most users add the server to their MCP client and let the client start it automatically via stdio.
+
+### Claude Code
 
 ```bash
 claude mcp add --transport stdio transloadit \
@@ -23,9 +83,7 @@ claude mcp add --transport stdio transloadit \
   -- npx -y @transloadit/mcp-server stdio
 ```
 
-For non-interactive runs (e.g. `claude -p`), explicitly allow MCP tools. Claude MCP
-tools are named `mcp__<server>__<tool>`, so `mcp__transloadit__*` allows all tools
-from this server.
+For non-interactive runs (for example `claude -p`), explicitly allow MCP tools:
 
 ```bash
 claude -p "List templates" \
@@ -33,7 +91,7 @@ claude -p "List templates" \
   --output-format json
 ```
 
-Codex CLI:
+### Codex CLI
 
 ```bash
 codex mcp add transloadit \
@@ -42,7 +100,7 @@ codex mcp add transloadit \
   -- npx -y @transloadit/mcp-server stdio
 ```
 
-To allowlist tools, add `enabled_tools` for the server in `~/.codex/config.toml`:
+Allowlist tools in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.transloadit]
@@ -51,7 +109,7 @@ args = ["-y", "@transloadit/mcp-server", "stdio"]
 enabled_tools = ["transloadit_list_templates"]
 ```
 
-Gemini CLI:
+### Gemini CLI
 
 ```bash
 gemini mcp add --scope user transloadit npx -y @transloadit/mcp-server stdio \
@@ -59,7 +117,7 @@ gemini mcp add --scope user transloadit npx -y @transloadit/mcp-server stdio \
   --env TRANSLOADIT_SECRET=...
 ```
 
-To allowlist tools, set `includeTools` for the server in `~/.gemini/settings.json`:
+Allowlist tools in `~/.gemini/settings.json`:
 
 ```json
 {
@@ -77,7 +135,9 @@ To allowlist tools, set `includeTools` for the server in `~/.gemini/settings.jso
 }
 ```
 
-Cursor (`~/.cursor/mcp.json`):
+### Cursor
+
+`~/.cursor/mcp.json`:
 
 ```json
 {
@@ -94,7 +154,9 @@ Cursor (`~/.cursor/mcp.json`):
 }
 ```
 
-OpenCode (`~/.config/opencode/opencode.json`):
+### OpenCode
+
+`~/.config/opencode/opencode.json`:
 
 ```json
 {
@@ -111,74 +173,68 @@ OpenCode (`~/.config/opencode/opencode.json`):
 }
 ```
 
-If you cannot install packages where the agent runs (locked‑down or hosted environments),
-use the hosted MCP endpoint (`https://api2.transloadit.com/mcp`) with bearer tokens. This
-is a fallback — self‑hosted MCP is the default recommendation.
-
 ## Run the server manually
 
 HTTP:
 
 ```bash
-transloadit-mcp http --host 127.0.0.1 --port 5723
+npx -y @transloadit/mcp-server http --host 127.0.0.1 --port 5723
 ```
 
 Stdio:
 
 ```bash
-transloadit-mcp stdio
+npx -y @transloadit/mcp-server stdio
 ```
-
-## MCP vs skills/CLI
-
-MCP is best for **embedded runtime** use: long‑lived or autonomous agent pipelines where
-Transloadit runs repeatedly (uploads → assemblies → polling → results).
-
-Skills/CLI are best for **human‑directed, one‑off work**: setting up integrations,
-generating templates, scaffolding code, or running a single processing task locally with
-full repo/tool access.
-
-These are guidelines, not hard rules. Some systems (for example Open Claw) can work
-beautifully with skills, and MCP can also be great for interactive, human‑in‑the‑loop
-flows. The right choice depends on your environment and preferences — and we’ll keep
-supporting both.
 
 ## Auth model
 
-**Hosted (api2.transloadit.com/mcp)**
+### Hosted (`https://api2.transloadit.com/mcp`)
 
-- Mint a token via `POST https://api2.transloadit.com/token` (HTTP Basic Auth with key+secret).
-- Use `Authorization: Bearer <access_token>` on API2 requests.
-- Bearer tokens **satisfy signature auth**; signature checks apply only to key/secret requests.
+- Mint token via `POST https://api2.transloadit.com/token`.
+- Send `Authorization: Bearer <access_token>`.
+- Bearer auth satisfies signature auth; signature checks apply to key/secret requests.
 
-**Self-hosted**
+### Self-hosted
 
-- stdio and localhost HTTP require no MCP auth by default.
-- Non-localhost HTTP requires `TRANSLOADIT_MCP_TOKEN`.
-- API calls use `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET`, or bearer tokens if provided.
+- Stdio and localhost HTTP need no MCP auth by default.
+- Non-localhost HTTP requires `TRANSLOADIT_MCP_TOKEN` (a static secret you define).
+- Live Transloadit API calls use:
+  - incoming Bearer token from MCP request headers, or
+  - `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET`.
 
 ## Configuration
 
-Environment:
+### Environment variables
 
 - `TRANSLOADIT_KEY`
 - `TRANSLOADIT_SECRET`
 - `TRANSLOADIT_MCP_TOKEN`
 - `TRANSLOADIT_ENDPOINT` (optional, default `https://api2.transloadit.com`)
 - `TRANSLOADIT_MCP_METRICS_PATH` (optional, default `/metrics`)
+- `TRANSLOADIT_MCP_METRICS_USER` (optional)
+- `TRANSLOADIT_MCP_METRICS_PASSWORD` (optional)
 
-CLI:
+### CLI flags
 
-- `transloadit-mcp http --host 127.0.0.1 --port 5723 --endpoint https://api2.transloadit.com`
-- `transloadit-mcp http --config path/to/config.json`
+- `npx -y @transloadit/mcp-server http --host 127.0.0.1 --port 5723`
+- `npx -y @transloadit/mcp-server http --endpoint https://api2.transloadit.com`
+- `npx -y @transloadit/mcp-server http --config path/to/config.json`
 
-## Metrics
+## Tool surface
 
-- Prometheus-compatible metrics are exposed at `GET /metrics` by default.
-- Customize the path via `TRANSLOADIT_MCP_METRICS_PATH` or config `metricsPath`.
-- Disable by setting `metricsPath: false` in the config or when creating the server/router.
-- Optional basic auth via `TRANSLOADIT_MCP_METRICS_USER` +
-  `TRANSLOADIT_MCP_METRICS_PASSWORD` or config `metricsAuth`.
+- `transloadit_lint_assembly_instructions`
+- `transloadit_create_assembly`
+- `transloadit_get_assembly_status`
+- `transloadit_wait_for_assembly`
+- `transloadit_list_robots`
+- `transloadit_get_robot_help`
+- `transloadit_list_templates`
+
+`transloadit_list_templates` supports:
+
+- `include_builtin`: `all`, `latest`, `exclusively-all`, `exclusively-latest`
+- `include_content`: include parsed `steps` in each template item
 
 ## Input files
 
@@ -203,66 +259,103 @@ export type InputFile =
 
 ## Limits
 
-These limits apply only to inline JSON/base64 payloads. Small files can be sent inline, but large
-files should be passed as `path` or `url`. The MCP server uploads those via tus (the default), so
-the request body stays small and no extra MCP/LLM token budget is consumed.
+These limits apply to inline JSON/base64 payloads. For larger files, prefer `path` or `url`.
 
-- Hosted default request body limit: **1 MB** (JSON).
-- Hosted default `maxBase64Bytes`: **512_000** (decoded bytes).
-- Self-hosted default request body limit: **10 MB** (configurable).
+- Hosted default request body limit: **1 MB**
+- Hosted `maxBase64Bytes`: **512,000** decoded bytes
+- Self-hosted default request body limit: **10 MB** (configurable)
 
-## URL inputs
+## URL inputs and template behavior
 
-- By default URL files are **downloaded and uploaded via tus**. This keeps instructions unchanged
-  and avoids large inline payloads (the transfer happens out-of-band).
-- If instructions already contain an `/http/import` step, the MCP server sets/overrides its `url`.
-  - If multiple URLs and a single `/http/import` step exists, it supplies a `url` array.
-- When `template_id` is used, the MCP server fetches the template and
-  chooses the safest URL path:
-  - If the merged template contains a `/http/import` step, it overrides that step’s `url`.
-  - If the template expects uploads (`:original` / `/upload/handle`), it downloads and uploads via
-    tus.
-  - If the template doesn’t take inputs (for example `/html/convert` with a `url`), URL inputs are
-    ignored and a warning is returned.
-  - If `allow_steps_override=false` and the template only supports `/http/import`, URL inputs are
-    rejected (no safe override path).
+For URL inputs, behavior depends on the template/instructions:
+
+- If an `/http/import` Step exists, MCP sets/overrides that Step's `url`.
+- If the template expects uploads (`:original` or `/upload/handle`), MCP downloads then uploads via
+  tus.
+- If the template does not take input files, URL inputs are ignored and a warning is returned.
+- If `allow_steps_override=false` and only `/http/import` would work, URL inputs are rejected.
 
 ## Local vs hosted file access
 
-- `path` inputs only work when the MCP server can read the same filesystem (local/stdio).
-- Hosted MCP cannot access your disk. Use `url`/`base64` for small files, or upload locally with:
-  `npx -y @transloadit/node upload ./file.ext --create-upload-endpoint <tus_url> --assembly <assembly_url> --field :original`
-- For remote flows, create the Assembly with `expected_uploads` so it stays open for out‑of‑band
-  tus uploads.
+- `path` inputs require filesystem access from the MCP process (local/self-hosted).
+- Hosted MCP cannot read local disk.
+- For remote workflows, use `url`, small `base64`, or upload locally with
+  `npx -y @transloadit/node upload`.
+- Use `expected_uploads` to keep an Assembly open for out-of-band tus uploads.
 
 ## Resume behavior
 
-If `assembly_url` is provided, the MCP server resumes uploads using Assembly status
-(`tus_uploads` + `uploads`). This requires stable, unique `field` names and file metadata
-(`filename` + `size`). Only **path-based** inputs resume; non-file inputs start fresh uploads.
+If `assembly_url` is provided, MCP resumes uploads using Assembly status (`tus_uploads` +
+`uploads`). This requires stable field names and file metadata (`filename` + `size`).
+Path-based file inputs can be resumed.
 
-## Tool surface
+## Metrics and server card
 
-- `transloadit_create_assembly`
-- `transloadit_get_assembly_status`
-- `transloadit_wait_for_assembly`
-- `transloadit_lint_assembly_instructions`
-- `transloadit_list_robots`
-- `transloadit_get_robot_help`
-- `transloadit_list_templates`
+- Prometheus metrics at `GET /metrics` by default.
+- Configure via `TRANSLOADIT_MCP_METRICS_PATH` or `metricsPath`.
+- Disable via `metricsPath: false`.
+- Optional metrics basic auth via `TRANSLOADIT_MCP_METRICS_USER` +
+  `TRANSLOADIT_MCP_METRICS_PASSWORD` or `metricsAuth`.
+- Public discovery endpoint at `/.well-known/mcp/server-card.json`.
+
+## MCP vs skills/CLI
+
+- Use MCP for embedded runtime execution (uploads, Assemblies, polling, results).
+- Use skills/CLI for human-directed and one-off workflows (setup, scaffolding, local automation).
+
+These are guidelines, not strict rules. Many teams use both.
 
 ## Verify MCP clients
 
-Run a local smoke test that uses the latest published MCP server and your installed CLIs
-(Claude Code, Codex CLI, Gemini CLI). Requires `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET` and
-active CLI auth. The script fetches a template id directly, then asks each client to return that
-id via `transloadit_list_templates` (so it can’t pass without MCP). Missing CLIs are skipped.
-Override the per-command timeout with `MCP_VERIFY_TIMEOUT_MS`.
+Run a local smoke test with published MCP server and installed CLIs (Claude Code, Codex CLI,
+Gemini CLI). Requires `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET` and active CLI auth.
 
 ```bash
 node scripts/verify-mcp-clients.ts
 ```
 
-## Roadmap
+Set `MCP_VERIFY_TIMEOUT_MS` to override command timeout.
+
+## Docs
+
+- Website docs: https://transloadit.com/docs/sdks/mcp-server/
+- API token docs: https://transloadit.com/docs/api/token-post/
+
+## Contributing
+
+### Prerequisites
+
+- Node.js 22+
+- Corepack-enabled Yarn 4
+
+### Install dependencies
+
+From repo root:
+
+```bash
+corepack yarn install
+```
+
+### Validate changes
+
+```bash
+corepack yarn --cwd packages/mcp-server check
+```
+
+### Run e2e tests
+
+`test:e2e` requires valid Transloadit credentials in your environment.
+
+```bash
+corepack yarn --cwd packages/mcp-server test:e2e
+```
+
+### Submit a change
+
+- Add or update tests with behavior changes.
+- Keep README and website docs aligned for user-facing behavior.
+- Open a PR in `transloadit/node-sdk`.
+
+### Roadmap
 
 - Next.js Claude Web flow to mint and hand off bearer tokens for MCP.
