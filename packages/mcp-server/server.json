@@ -1,0 +1,59 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.transloadit/mcp-server",
+  "title": "Transloadit Media Processing",
+  "description": "Process video, audio, images, and documents with 86+ cloud media processing robots.",
+  "version": "0.3.6",
+  "websiteUrl": "https://transloadit.com/docs/topics/ai-agents/",
+  "repository": {
+    "url": "https://github.com/transloadit/node-sdk",
+    "source": "github",
+    "subfolder": "packages/mcp-server"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@transloadit/mcp-server",
+      "version": "0.3.6",
+      "runtimeHint": "npx",
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "stdio",
+          "description": "Transport mode for the MCP server"
+        }
+      ],
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "TRANSLOADIT_KEY",
+          "description": "Your Transloadit Auth Key from https://transloadit.com/c/-/api-credentials",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "TRANSLOADIT_SECRET",
+          "description": "Your Transloadit Auth Secret from https://transloadit.com/c/-/api-credentials",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api2.transloadit.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer token obtained via the authenticate tool, or set TRANSLOADIT_KEY and TRANSLOADIT_SECRET env vars with the self-hosted package instead",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

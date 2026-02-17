@@ -1,6 +1,6 @@
 {
   "name": "@transloadit/mcp-server",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Transloadit MCP server",
   "keywords": [
     "mcp",
@@ -72,6 +72,7 @@
     "@types/express": "^4.17.23",
     "@types/node": "^24.10.3"
   },
+  "mcpName": "io.github.transloadit/mcp-server",
   "publishConfig": {
     "tag": "experimental"
   }
