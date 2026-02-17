@@ -165,7 +165,7 @@ export const buildServerCard = (
     },
     description:
       'Agent-native media processing: video encoding, image manipulation, document conversion, and more via 86+ Robots.',
-    documentationUrl: 'https://transloadit.com/docs/topics/ai-agents/',
+    documentationUrl: 'https://transloadit.com/docs/sdks/mcp-server/',
     iconUrl: 'https://transloadit.com/favicon.ico',
     transport: {
       type: 'streamable-http',
