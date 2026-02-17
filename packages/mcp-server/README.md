@@ -349,3 +349,7 @@ corepack yarn --cwd packages/mcp-server test:e2e
 - Add or update tests with behavior changes.
 - Keep README and website docs aligned for user-facing behavior.
 - Open a PR in `transloadit/node-sdk`.
+
+### Roadmap
+
+- Next.js Claude Web flow to mint and hand off bearer tokens for MCP.
