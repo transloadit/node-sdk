@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.3.5
+
+### Patch Changes
+
+- ddf13ec: Export `./server-card` subpath so consumers can cleanly import `buildServerCard`
+
 ## 0.3.4
 
 ### Patch Changes
