@@ -23,7 +23,7 @@ TRANSLOADIT_KEY=MY_AUTH_KEY TRANSLOADIT_SECRET=MY_SECRET_KEY npx -y @transloadit
 
 ```bash
 TRANSLOADIT_KEY=MY_AUTH_KEY TRANSLOADIT_SECRET=MY_SECRET_KEY \
-transloadit-mcp http --host 127.0.0.1 --port 5723
+npx -y @transloadit/mcp-server http --host 127.0.0.1 --port 5723
 ```
 
 When binding HTTP mode to non-localhost hosts, `TRANSLOADIT_MCP_TOKEN` is required.
@@ -31,7 +31,7 @@ When binding HTTP mode to non-localhost hosts, `TRANSLOADIT_MCP_TOKEN` is requir
 ### `TRANSLOADIT_MCP_TOKEN` explained
 
 `TRANSLOADIT_MCP_TOKEN` is a self-hosted MCP transport token. It protects your own HTTP MCP endpoint
-(`transloadit-mcp http`), not API2.
+(`npx -y @transloadit/mcp-server http`), not API2.
 
 - Set it yourself to any high-entropy secret.
 - Send it from your MCP client as `Authorization: Bearer <TRANSLOADIT_MCP_TOKEN>`.
@@ -41,8 +41,8 @@ When binding HTTP mode to non-localhost hosts, `TRANSLOADIT_MCP_TOKEN` is requir
 Generate one, then start HTTP mode:
 
 ```bash
-export TRANSLOADIT_MCP_TOKEN=\"$(openssl rand -hex 32)\"
-transloadit-mcp http --host 0.0.0.0 --port 5723
+export TRANSLOADIT_MCP_TOKEN="$(openssl rand -hex 32)"
+npx -y @transloadit/mcp-server http --host 0.0.0.0 --port 5723
 ```
 
 ## Hosted endpoint
@@ -172,13 +172,13 @@ Allowlist tools in `~/.gemini/settings.json`:
 HTTP:
 
 ```bash
-transloadit-mcp http --host 127.0.0.1 --port 5723
+npx -y @transloadit/mcp-server http --host 127.0.0.1 --port 5723
 ```
 
 Stdio:
 
 ```bash
-transloadit-mcp stdio
+npx -y @transloadit/mcp-server stdio
 ```
 
 ## Auth model
@@ -211,9 +211,9 @@ transloadit-mcp stdio
 
 ### CLI flags
 
-- `transloadit-mcp http --host 127.0.0.1 --port 5723`
-- `transloadit-mcp http --endpoint https://api2.transloadit.com`
-- `transloadit-mcp http --config path/to/config.json`
+- `npx -y @transloadit/mcp-server http --host 127.0.0.1 --port 5723`
+- `npx -y @transloadit/mcp-server http --endpoint https://api2.transloadit.com`
+- `npx -y @transloadit/mcp-server http --config path/to/config.json`
 
 ## Tool surface
 
