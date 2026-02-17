@@ -3,8 +3,8 @@
   "name": "io.github.transloadit/mcp-server",
   "title": "Transloadit Media Processing",
   "description": "Process video, audio, images, and documents with 86+ cloud media processing robots.",
-  "version": "0.3.6",
-  "websiteUrl": "https://transloadit.com/docs/topics/ai-agents/",
+  "version": "0.3.7",
+  "websiteUrl": "https://transloadit.com/docs/sdks/mcp-server/",
   "repository": {
     "url": "https://github.com/transloadit/node-sdk",
     "source": "github",
