@@ -28,6 +28,23 @@ transloadit-mcp http --host 127.0.0.1 --port 5723
 
 When binding HTTP mode to non-localhost hosts, `TRANSLOADIT_MCP_TOKEN` is required.
 
+### `TRANSLOADIT_MCP_TOKEN` explained
+
+`TRANSLOADIT_MCP_TOKEN` is a self-hosted MCP transport token. It protects your own HTTP MCP endpoint
+(`transloadit-mcp http`), not API2.
+
+- Set it yourself to any high-entropy secret.
+- Send it from your MCP client as `Authorization: Bearer <TRANSLOADIT_MCP_TOKEN>`.
+- It is **not** minted via `/token`.
+- It is separate from API2 Bearer tokens used for `https://api2.transloadit.com/mcp`.
+
+Generate one, then start HTTP mode:
+
+```bash
+export TRANSLOADIT_MCP_TOKEN=\"$(openssl rand -hex 32)\"
+transloadit-mcp http --host 0.0.0.0 --port 5723
+```
+
 ## Hosted endpoint
 
 If you cannot run `npx` where the agent runs, use the hosted endpoint:
@@ -175,7 +192,7 @@ transloadit-mcp stdio
 ### Self-hosted
 
 - Stdio and localhost HTTP need no MCP auth by default.
-- Non-localhost HTTP requires `TRANSLOADIT_MCP_TOKEN`.
+- Non-localhost HTTP requires `TRANSLOADIT_MCP_TOKEN` (a static secret you define).
 - Live Transloadit API calls use:
   - incoming Bearer token from MCP request headers, or
   - `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET`.
