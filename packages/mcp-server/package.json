@@ -43,6 +43,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./server-card": {
+      "types": "./dist/server-card.d.ts",
+      "default": "./dist/server-card.js"
+    },
     "./package.json": "./package.json"
   },
   "bin": {
