@@ -59,7 +59,13 @@ Use `Authorization: Bearer <token>`. Mint a token with:
 npx -y @transloadit/node auth token --aud mcp
 ```
 
-or `POST https://api2.transloadit.com/token` (HTTP Basic Auth with key/secret).
+Generate this token in a trusted environment (backend, CI, or local shell), then hand it to the
+agent runtime. You can mint it via:
+
+- CLI: `npx -y @transloadit/node auth token --aud mcp`
+- API: `POST https://api2.transloadit.com/token` (HTTP Basic Auth with key/secret)
+- Node SDK: instantiate `Transloadit` with `authKey` + `authSecret`, then call
+  `client.mintBearerToken({ aud: 'mcp' })`
 
 Bearer tokens satisfy signature auth on API2 requests; signature checks apply to key/secret
 requests.
