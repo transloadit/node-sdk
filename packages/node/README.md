@@ -33,14 +33,17 @@ This is a **Node.js** SDK to make it easy to talk to the
 Inside your project, type:
 
 ```bash
-yarn add transloadit
+yarn add @transloadit/node
 ```
 
 or
 
 ```bash
-npm install --save transloadit
+npm install --save @transloadit/node
 ```
+
+The legacy npm package name `transloadit` is kept as an alias for backward compatibility, but
+`@transloadit/node` is the canonical package name.
 
 ## Command Line Interface (CLI)
 
@@ -54,8 +57,11 @@ export TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
 export TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
 
 # See all available commands
-npx transloadit --help
+npx -y @transloadit/node --help
 ```
+
+The CLI binary is still called `transloadit`, so command examples below may use
+`npx transloadit ...`.
 
 ### Minting Bearer Tokens (Hosted MCP)
 
@@ -300,7 +306,7 @@ npx transloadit assemblies list -l 7
 The following code will upload an image and resize it to a thumbnail:
 
 ```javascript
-import { Transloadit } from 'transloadit'
+import { Transloadit } from '@transloadit/node'
 
 const transloadit = new Transloadit({
   authKey: 'YOUR_TRANSLOADIT_KEY',
