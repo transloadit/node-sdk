@@ -45,6 +45,42 @@ test('streamable http: allows authenticated client', async () => {
   }
 })
 
+test('streamable http: returns friendly JSON for bare GET health probes', async () => {
+  const server = await startHttpServer()
+
+  try {
+    // Bare GET without Accept: text/event-stream (like Glama, uptime monitors)
+    const response = await fetch(server.url, { method: 'GET' })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('application/json')
+
+    const body = await response.json()
+    expect(body).toMatchObject({
+      name: 'Transloadit MCP Server',
+      status: 'ok',
+    })
+    expect(body.docs).toContain('transloadit.com')
+  } finally {
+    await server.close()
+  }
+})
+
+test('streamable http: passes through GET with SSE Accept header', async () => {
+  const server = await startHttpServer()
+
+  try {
+    // GET with Accept: text/event-stream should reach the MCP transport
+    // (which will reject it for missing session-id, proving it passed through)
+    const response = await fetch(server.url, {
+      method: 'GET',
+      headers: { Accept: 'text/event-stream' },
+    })
+    expect(response.status).not.toBe(200)
+  } finally {
+    await server.close()
+  }
+})
+
 test('streamable http: rejects disallowed origins', async () => {
   const server = await startHttpServer({
     allowedOrigins: ['https://allowed.example'],
