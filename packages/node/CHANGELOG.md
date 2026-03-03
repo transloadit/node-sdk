@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.7.5
+
+### Patch Changes
+
+- 377bf31: Raise default listRobots limit from 20 to 200 so agents see all robots in one call
+
 ## 4.7.4
 
 ### Patch Changes
