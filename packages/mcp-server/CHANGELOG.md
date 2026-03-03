@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.3.8
+
+### Patch Changes
+
+- 997b917: Add Dockerfile and GHCR publishing workflow
+
 ## 0.3.7
 
 ### Patch Changes
