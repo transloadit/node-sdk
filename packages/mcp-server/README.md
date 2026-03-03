@@ -28,6 +28,26 @@ npx -y @transloadit/mcp-server http --host 127.0.0.1 --port 5723
 
 When binding HTTP mode to non-localhost hosts, `TRANSLOADIT_MCP_TOKEN` is required.
 
+### Docker
+
+```bash
+docker run -i --rm \
+  -e TRANSLOADIT_KEY=MY_AUTH_KEY \
+  -e TRANSLOADIT_SECRET=MY_SECRET_KEY \
+  ghcr.io/transloadit/mcp-server:latest
+```
+
+For HTTP mode via Docker, expose the port:
+
+```bash
+docker run --rm \
+  -e TRANSLOADIT_KEY=MY_AUTH_KEY \
+  -e TRANSLOADIT_SECRET=MY_SECRET_KEY \
+  -p 5723:5723 \
+  ghcr.io/transloadit/mcp-server:latest \
+  transloadit-mcp http --host 0.0.0.0 --port 5723
+```
+
 ### `TRANSLOADIT_MCP_TOKEN` explained
 
 `TRANSLOADIT_MCP_TOKEN` is a self-hosted MCP transport token. It protects your own HTTP MCP endpoint

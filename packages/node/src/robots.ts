@@ -274,7 +274,7 @@ export const listRobots = (options: RobotListOptions = {}): RobotListResult => {
 
   const start = options.cursor ? Number.parseInt(options.cursor, 10) : 0
   const safeStart = Number.isFinite(start) && start > 0 ? start : 0
-  const safeLimit = options.limit && options.limit > 0 ? options.limit : 20
+  const safeLimit = options.limit && options.limit > 0 ? options.limit : 200
   const page = filtered.slice(safeStart, safeStart + safeLimit)
   const nextCursor =
     safeStart + safeLimit < filtered.length ? String(safeStart + safeLimit) : undefined
