@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.9
+
+### Patch Changes
+
+- 377bf31: Raise default listRobots limit from 20 to 200 so agents see all robots in one call
+- Updated dependencies [377bf31]
+  - @transloadit/node@4.7.5
+
 ## 0.3.8
 
 ### Patch Changes
