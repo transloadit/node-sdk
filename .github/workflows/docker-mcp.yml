@@ -45,6 +45,8 @@ jobs:
         with:
           context: packages/mcp-server
           file: packages/mcp-server/Dockerfile
+          build-args: |
+            MCP_VERSION=${{ steps.version.outputs.version }}
           push: true
           tags: |
             ghcr.io/transloadit/mcp-server:${{ steps.version.outputs.version }}
