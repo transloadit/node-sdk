@@ -1,7 +1,7 @@
 {
-  "name": "@transloadit/notify-url-proxy",
+  "name": "@transloadit/notify-url-relay",
   "version": "0.1.0",
-  "description": "Local notify_url proxy for Transloadit assemblies.",
+  "description": "Local notify_url relay for Transloadit assemblies.",
   "type": "module",
   "license": "MIT",
   "packageManager": "yarn@4.12.0",
@@ -11,7 +11,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/transloadit/node-sdk",
-    "directory": "packages/notify-url-proxy"
+    "directory": "packages/notify-url-relay"
   },
   "files": [
     "dist",

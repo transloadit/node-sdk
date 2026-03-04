@@ -32,6 +32,8 @@ const HOP_BY_HOP_HEADERS = new Set([
   'upgrade',
 ])
 
+const DECODED_BODY_HEADERS = new Set(['content-encoding', 'content-length'])
+
 const MAX_CAPTURED_RESPONSE_BYTES = 512 * 1024
 
 export type ProxyErrorCode =
@@ -310,7 +312,7 @@ export default class TransloaditNotifyUrlProxy {
     this.logger =
       runtimeOptions.logger ??
       new SevLogger({
-        breadcrumbs: ['notify-url-proxy'],
+        breadcrumbs: ['notify-url-relay'],
         level: runtimeOptions.logLevel ?? DEFAULT_LOG_LEVEL,
       })
 
@@ -508,7 +510,11 @@ export default class TransloaditNotifyUrlProxy {
 
     for (const [name, value] of Object.entries(request.headers)) {
       const headerName = name.toLowerCase()
-      if (HOP_BY_HOP_HEADERS.has(headerName) || headerName === 'host') {
+      if (
+        HOP_BY_HOP_HEADERS.has(headerName) ||
+        headerName === 'host' ||
+        headerName === 'accept-encoding'
+      ) {
         continue
       }
       if (value === undefined) {
@@ -530,6 +536,7 @@ export default class TransloaditNotifyUrlProxy {
     if (typeof request.headers.host === 'string') {
       headers.set('x-forwarded-host', request.headers.host)
     }
+    headers.set('accept-encoding', 'identity')
 
     return headers
   }
@@ -543,7 +550,11 @@ export default class TransloaditNotifyUrlProxy {
 
     for (const [name, value] of upstreamResponse.headers) {
       const headerName = name.toLowerCase()
-      if (HOP_BY_HOP_HEADERS.has(headerName) || headerName === 'set-cookie') {
+      if (
+        HOP_BY_HOP_HEADERS.has(headerName) ||
+        headerName === 'set-cookie' ||
+        DECODED_BODY_HEADERS.has(headerName)
+      ) {
         continue
       }
       response.setHeader(name, value)

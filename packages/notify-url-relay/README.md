@@ -1,6 +1,6 @@
-# @transloadit/notify-url-proxy
+# @transloadit/notify-url-relay
 
-Local `notify_url` proxy for Transloadit assemblies.
+Local `notify_url` relay for Transloadit assemblies.
 
 This version is modernized for:
 
@@ -17,7 +17,7 @@ Metrics hooks are available for counters, gauges, and timings.
 ## Install
 
 ```bash
-npm install @transloadit/notify-url-proxy
+npm install @transloadit/notify-url-relay
 ```
 
 ## CLI usage
@@ -25,14 +25,14 @@ npm install @transloadit/notify-url-proxy
 ```bash
 export TRANSLOADIT_SECRET="your-secret"
 
-notify-url-proxy \
+notify-url-relay \
   --notifyUrl "http://127.0.0.1:3000/transloadit" \
   --port 8888 \
   --notifyOnTerminalError \
   --log-level info
 ```
 
-Run `notify-url-proxy --help` for all options.
+Run `notify-url-relay --help` for all options.
 
 Log level accepts `0-8` or names:
 `emerg`, `alert`, `crit`, `err`, `warn`, `notice`, `info`, `debug`, `trace`.
@@ -41,7 +41,7 @@ You can also set `TRANSLOADIT_LOG_LEVEL`.
 ### Reactive TUI Mode
 
 ```bash
-notify-url-proxy --ui --log-level info
+notify-url-relay --ui --log-level info
 ```
 
 This opens a live terminal dashboard with:
@@ -54,7 +54,7 @@ This opens a live terminal dashboard with:
 ## Programmatic usage
 
 ```ts
-import TransloaditNotifyUrlProxy from '@transloadit/notify-url-proxy'
+import TransloaditNotifyUrlProxy from '@transloadit/notify-url-relay'
 
 const proxy = new TransloaditNotifyUrlProxy(
   process.env.TRANSLOADIT_SECRET ?? '',
@@ -84,8 +84,8 @@ proxy.run({
 
 ```bash
 corepack yarn
-corepack yarn workspace @transloadit/notify-url-proxy check
-corepack yarn workspace @transloadit/notify-url-proxy test:real
+corepack yarn workspace @transloadit/notify-url-relay check
+corepack yarn workspace @transloadit/notify-url-relay test:real
 ```
 
 ## Real API E2E
@@ -99,7 +99,7 @@ export TRANSLOADIT_SECRET="your-secret"
 # optional
 export TRANSLOADIT_ENDPOINT="https://api2.transloadit.com"
 
-corepack yarn workspace @transloadit/notify-url-proxy test:real
+corepack yarn workspace @transloadit/notify-url-relay test:real
 ```
 
 For CI, configure repository secrets:

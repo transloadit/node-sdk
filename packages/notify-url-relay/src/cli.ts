@@ -209,7 +209,7 @@ function createTuiMode(logLevel: number | undefined): {
 
     const lines: string[] = []
     lines.push('\x1b[2J\x1b[H')
-    lines.push('\x1b[38;5;117mNotify URL Proxy // Reactive TUI\x1b[0m')
+    lines.push('\x1b[38;5;117mNotify URL Relay // Reactive TUI\x1b[0m')
     lines.push(`Uptime: ${uptime}  |  Press Ctrl+C to exit`)
     lines.push('')
 
@@ -292,7 +292,7 @@ const { values } = parseArgs({
 })
 
 if (values.help) {
-  console.log(`Usage: notify-url-proxy [options]
+  console.log(`Usage: notify-url-relay [options]
 
 Options:
   --notifyUrl <url>              URL to send notifications to (http://localhost allowed, otherwise https)

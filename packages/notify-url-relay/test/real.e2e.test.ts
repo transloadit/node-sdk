@@ -108,7 +108,7 @@ describeReal('real api e2e', () => {
     try {
       const createPromise = client.createAssembly({
         uploads: {
-          probe: Buffer.from(`notify-url-proxy-real-e2e-${Date.now()}`, 'utf-8'),
+          probe: Buffer.from(`notify-url-relay-real-e2e-${Date.now()}`, 'utf-8'),
         },
         params: {
           steps: {

@@ -2581,9 +2581,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@transloadit/notify-url-proxy@workspace:packages/notify-url-proxy":
+"@transloadit/notify-url-relay@workspace:packages/notify-url-relay":
   version: 0.0.0-use.local
-  resolution: "@transloadit/notify-url-proxy@workspace:packages/notify-url-proxy"
+  resolution: "@transloadit/notify-url-relay@workspace:packages/notify-url-relay"
   dependencies:
     "@transloadit/sev-logger": "npm:^0.1.9"
     "@transloadit/utils": "npm:^4.3.0"
@@ -2592,7 +2592,7 @@ __metadata:
     dotenv: "npm:^17.2.3"
     p-retry: "npm:^7.1.1"
   bin:
-    notify-url-proxy: ./dist/cli.js
+    notify-url-relay: ./dist/cli.js
   languageName: unknown
   linkType: soft
 

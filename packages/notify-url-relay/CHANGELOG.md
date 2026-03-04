@@ -1,4 +1,4 @@
-# @transloadit/notify-url-proxy
+# @transloadit/notify-url-relay
 
 ## 0.1.0
 

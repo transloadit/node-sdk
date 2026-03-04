@@ -6,7 +6,7 @@
   },
   "references": [
     { "path": "./packages/node" },
-    { "path": "./packages/notify-url-proxy" },
+    { "path": "./packages/notify-url-relay" },
     { "path": "./packages/types" },
     { "path": "./packages/utils" },
     { "path": "./packages/zod" }

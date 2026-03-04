@@ -47,7 +47,7 @@ const config: KnipConfig = {
       ignore: [...sharedIgnore],
       ignoreDependencies: ['@types/express', '@types/node', 'vitest', 'vitest/config'],
     },
-    'packages/notify-url-proxy': {
+    'packages/notify-url-relay': {
       entry: ['src/**/*.ts', 'test/**/*.ts', 'vitest.config.ts'],
       project: ['{src,test}/**/*.ts'],
       ignore: [...sharedIgnore],
