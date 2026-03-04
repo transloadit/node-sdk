@@ -30,8 +30,8 @@
   "scripts": {
     "lint:ts": "../../node_modules/.bin/tsc --build tsconfig.build.json",
     "build": "yarn lint:ts && chmod +x dist/cli.js",
-    "test:unit": "../../node_modules/.bin/vitest run",
-    "test:real": "RUN_REAL_E2E=1 ../../node_modules/.bin/vitest run test/real.e2e.test.ts",
+    "test:unit": "yarn --cwd ../.. tsc:zod && ../../node_modules/.bin/vitest run",
+    "test:real": "yarn --cwd ../.. tsc:zod && RUN_REAL_E2E=1 ../../node_modules/.bin/vitest run test/real.e2e.test.ts",
     "check": "yarn lint:ts && yarn test:unit",
     "prepack": "yarn build"
   },
@@ -43,8 +43,7 @@
     "p-retry": "^7.1.1"
   },
   "devDependencies": {
-    "@types/node": "^24.10.3",
-    "transloadit": "^4.7.4"
+    "@types/node": "^24.10.3"
   },
   "publishConfig": {
     "tag": "experimental"

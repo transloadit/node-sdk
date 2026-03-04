@@ -2591,7 +2591,6 @@ __metadata:
     "@types/node": "npm:^24.10.3"
     dotenv: "npm:^17.2.3"
     p-retry: "npm:^7.1.1"
-    transloadit: "npm:^4.7.4"
   bin:
     notify-url-proxy: ./dist/cli.js
   languageName: unknown
@@ -7652,7 +7651,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"transloadit@npm:^4.7.4, transloadit@workspace:packages/transloadit":
+"transloadit@workspace:packages/transloadit":
   version: 0.0.0-use.local
   resolution: "transloadit@workspace:packages/transloadit"
   dependencies:

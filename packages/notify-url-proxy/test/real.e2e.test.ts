@@ -3,8 +3,8 @@ import { existsSync } from 'node:fs'
 import type { IncomingMessage, Server } from 'node:http'
 import { createServer } from 'node:http'
 import { setTimeout as delay } from 'node:timers/promises'
-import { Transloadit } from 'transloadit'
 import { describe, expect, it } from 'vitest'
+import { Transloadit } from '../../node/src/Transloadit.ts'
 
 import TransloaditNotifyUrlProxy, { getSignature } from '../src/index.ts'
 
