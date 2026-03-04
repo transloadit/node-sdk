@@ -2581,6 +2581,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@transloadit/notify-url-proxy@workspace:packages/notify-url-proxy":
+  version: 0.0.0-use.local
+  resolution: "@transloadit/notify-url-proxy@workspace:packages/notify-url-proxy"
+  dependencies:
+    "@transloadit/sev-logger": "npm:^0.1.9"
+    "@transloadit/utils": "npm:^4.3.0"
+    "@transloadit/zod": "npm:^4.3.0"
+    "@types/node": "npm:^24.10.3"
+    dotenv: "npm:^17.2.3"
+    p-retry: "npm:^7.1.1"
+    transloadit: "npm:^4.7.4"
+  bin:
+    notify-url-proxy: ./dist/cli.js
+  languageName: unknown
+  linkType: soft
+
 "@transloadit/sev-logger@npm:^0.1.9":
   version: 0.1.9
   resolution: "@transloadit/sev-logger@npm:0.1.9"
@@ -2604,7 +2620,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@transloadit/zod@workspace:packages/zod":
+"@transloadit/zod@npm:^4.3.0, @transloadit/zod@workspace:packages/zod":
   version: 0.0.0-use.local
   resolution: "@transloadit/zod@workspace:packages/zod"
   dependencies:
@@ -6271,6 +6287,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"p-retry@npm:^7.1.1":
+  version: 7.1.1
+  resolution: "p-retry@npm:7.1.1"
+  dependencies:
+    is-network-error: "npm:^1.1.0"
+  checksum: 10c0/d72fb15dace25b8bf72c97a13c8a630ad1deb4667e708955e8806ee38f1d70e9611598ebe57bd9677349256e024a5599292f99aabb203143e0e13f1735e30818
+  languageName: node
+  linkType: hard
+
 "p-timeout@npm:^7.0.0":
   version: 7.0.1
   resolution: "p-timeout@npm:7.0.1"
@@ -7627,7 +7652,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"transloadit@workspace:packages/transloadit":
+"transloadit@npm:^4.7.4, transloadit@workspace:packages/transloadit":
   version: 0.0.0-use.local
   resolution: "transloadit@workspace:packages/transloadit"
   dependencies:

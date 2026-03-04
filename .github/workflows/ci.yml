@@ -194,6 +194,14 @@ jobs:
           TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
           NODE_OPTIONS: --trace-deprecation --trace-warnings
 
+      - name: Run notify-url-proxy real e2e test
+        run: corepack yarn workspace @transloadit/notify-url-proxy test:real
+        env:
+          TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
+          TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
+          TRANSLOADIT_ENDPOINT: ${{ secrets.TRANSLOADIT_ENDPOINT }}
+          NODE_OPTIONS: --trace-deprecation --trace-warnings
+
       - name: Generate the badge from the json-summary
         run: node --experimental-strip-types packages/node/test/generate-coverage-badge.ts packages/node/coverage/coverage-summary.json
       - name: Move HTML report and badge to the correct location
