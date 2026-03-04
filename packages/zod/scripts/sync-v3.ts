@@ -15,6 +15,8 @@ const indexModules = [
   'assemblyStatus',
   'assemblyUrls',
   'bill',
+  'builtinTemplates',
+  'skillFrontmatter',
   'stackVersions',
   'template',
   'templateCredential',
