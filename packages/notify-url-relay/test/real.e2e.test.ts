@@ -4,8 +4,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { Transloadit } from 'transloadit'
 import { describe, expect, it } from 'vitest'
 
-import TransloaditNotifyUrlProxy, { getSignature } from '../src/index.ts'
-import { closeServer, getFreePort, listen, readBody } from './helpers.ts'
+import { getSignature, TransloaditNotifyUrlProxy } from '../src/index.ts'
+import { closeServer, listen, parseJsonRecord, readBody, startRelay } from './helpers.ts'
 
 if (typeof process.loadEnvFile === 'function' && existsSync('.env')) {
   process.loadEnvFile('.env')
@@ -20,10 +20,19 @@ const runReal =
 
 const describeReal = runReal ? describe : describe.skip
 
+function requireEnv(name: 'TRANSLOADIT_SECRET' | 'TRANSLOADIT_KEY'): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Missing required environment variable ${name}.`)
+  }
+
+  return value
+}
+
 describeReal('real api e2e', () => {
   it('creates a real assembly through the proxy and receives signed notify callback', async () => {
-    const secret = process.env.TRANSLOADIT_SECRET as string
-    const authKey = process.env.TRANSLOADIT_KEY as string
+    const secret = requireEnv('TRANSLOADIT_SECRET')
+    const authKey = requireEnv('TRANSLOADIT_KEY')
     const endpoint = (process.env.TRANSLOADIT_ENDPOINT || 'https://api2.transloadit.com').replace(
       /\/$/,
       '',
@@ -53,15 +62,13 @@ describeReal('real api e2e', () => {
     })
 
     const notifyPort = await listen(notifyServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy(
       secret,
       `http://127.0.0.1:${notifyPort}/transloadit`,
     )
-    proxy.run({
+    const proxyPort = await startRelay(proxy, {
       target: endpoint,
-      port: proxyPort,
       pollIntervalMs: 1_000,
       maxPollAttempts: 120,
     })
@@ -105,7 +112,7 @@ describeReal('real api e2e', () => {
 
       expect(notifySignature).toBe(getSignature(secret, notifyTransloadit))
 
-      const payload = JSON.parse(notifyTransloadit) as { assembly_id?: string; ok?: string }
+      const payload = parseJsonRecord(notifyTransloadit)
       expect(payload.assembly_id).toBe(createdAssemblyId)
       expect(payload.ok).toBe('ASSEMBLY_COMPLETED')
     } finally {

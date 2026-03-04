@@ -8,3 +8,10 @@ Tracking refactors requested after council ideas. Items are completed in order a
 - [x] 4. Remove redundant null guard in `observeTiming`.
 - [x] 5. Simplify timeout signal plumbing using Node native Abort APIs while preserving timeout error semantics.
 - [x] 6. Deduplicate repeated E2E workflow environment variables at job-level.
+
+## Council Refactor Run #2 (2026-03-04)
+
+- [x] 1. Stabilize and DRY test harness setup; remove `getFreePort()` TOCTOU race by binding proxy to port `0`.
+- [x] 2. Deduplicate `observeTiming` emission path to a single payload construction.
+- [x] 3. Use named export for the relay class (align with repo style guidance).
+- [x] 4. Replace avoidable `as` casts with stronger typing/narrowing where practical.

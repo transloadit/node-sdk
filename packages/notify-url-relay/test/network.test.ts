@@ -4,8 +4,15 @@ import { gzipSync } from 'node:zlib'
 
 import { describe, expect, it } from 'vitest'
 
-import TransloaditNotifyUrlProxy from '../src/index.ts'
-import { closeServer, getFreePort, json, listen } from './helpers.ts'
+import { TransloaditNotifyUrlProxy } from '../src/index.ts'
+import {
+  closeServer,
+  getSetCookieHeaders,
+  json,
+  listen,
+  readJsonRecord,
+  startRelay,
+} from './helpers.ts'
 
 describe('proxy network behavior', () => {
   it('streams large upstream response bodies', async () => {
@@ -25,10 +32,9 @@ describe('proxy network behavior', () => {
     })
 
     const upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy('secret', undefined, { logLevel: 0 })
-    proxy.run({ target: `http://127.0.0.1:${upstreamPort}`, port: proxyPort })
+    const proxyPort = await startRelay(proxy, { target: `http://127.0.0.1:${upstreamPort}` })
 
     try {
       const response = await fetch(`http://127.0.0.1:${proxyPort}/large`)
@@ -57,10 +63,9 @@ describe('proxy network behavior', () => {
     })
 
     const upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy('secret', undefined, { logLevel: 0 })
-    proxy.run({ target: `http://127.0.0.1:${upstreamPort}`, port: proxyPort })
+    const proxyPort = await startRelay(proxy, { target: `http://127.0.0.1:${upstreamPort}` })
 
     try {
       const response = await fetch(`http://127.0.0.1:${proxyPort}/redirect`, { redirect: 'manual' })
@@ -69,6 +74,42 @@ describe('proxy network behavior', () => {
     } finally {
       proxy.close()
       await closeServer(upstreamServer)
+    }
+  })
+
+  it('rejects protocol-relative request URLs that would override target host', async () => {
+    let attackerHit = false
+
+    const targetServer = createServer((request, response) => {
+      response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' })
+      response.end(`target:${request.url ?? '/'}`)
+    })
+    const attackerServer = createServer((_, response) => {
+      attackerHit = true
+      response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' })
+      response.end('attacker')
+    })
+
+    const targetPort = await listen(targetServer)
+    const attackerPort = await listen(attackerServer)
+
+    const proxy = new TransloaditNotifyUrlProxy('secret', undefined, { logLevel: 0 })
+    const proxyPort = await startRelay(proxy, { target: `http://127.0.0.1:${targetPort}` })
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:${proxyPort}//127.0.0.1:${attackerPort}/escaped-host`,
+      )
+      const payload = await readJsonRecord(response)
+
+      expect(response.status).toBe(502)
+      expect(response.headers.get('x-notify-proxy-error-code')).toBe('FORWARD_UPSTREAM_ERROR')
+      expect(payload.error).toBe('FORWARD_UPSTREAM_ERROR')
+      expect(attackerHit).toBe(false)
+    } finally {
+      proxy.close()
+      await closeServer(targetServer)
+      await closeServer(attackerServer)
     }
   })
 
@@ -88,20 +129,15 @@ describe('proxy network behavior', () => {
     })
 
     const upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy('secret', undefined, { logLevel: 0 })
-    proxy.run({ target: `http://127.0.0.1:${upstreamPort}`, port: proxyPort })
+    const proxyPort = await startRelay(proxy, { target: `http://127.0.0.1:${upstreamPort}` })
 
     try {
       const response = await fetch(`http://127.0.0.1:${proxyPort}/cookies`)
       expect(response.status).toBe(200)
 
-      const headersWithSetCookie = response.headers as Headers & { getSetCookie?: () => string[] }
-      const cookies =
-        typeof headersWithSetCookie.getSetCookie === 'function'
-          ? headersWithSetCookie.getSetCookie()
-          : []
+      const cookies = getSetCookieHeaders(response.headers)
 
       expect(cookies).toEqual(['a=1; Path=/', 'b=2; Path=/'])
     } finally {
@@ -138,10 +174,9 @@ describe('proxy network behavior', () => {
     })
 
     const upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy('secret', undefined, { logLevel: 0 })
-    proxy.run({ target: `http://127.0.0.1:${upstreamPort}`, port: proxyPort })
+    const proxyPort = await startRelay(proxy, { target: `http://127.0.0.1:${upstreamPort}` })
 
     try {
       const response = await fetch(`http://127.0.0.1:${proxyPort}/compressed`)
@@ -171,18 +206,16 @@ describe('proxy network behavior', () => {
     })
 
     const upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy('secret', undefined, { logLevel: 0 })
-    proxy.run({
+    const proxyPort = await startRelay(proxy, {
       target: `http://127.0.0.1:${upstreamPort}`,
-      port: proxyPort,
       forwardTimeoutMs: 30,
     })
 
     try {
       const response = await fetch(`http://127.0.0.1:${proxyPort}/slow`)
-      const payload = (await response.json()) as { error?: string }
+      const payload = await readJsonRecord(response)
 
       expect(response.status).toBe(504)
       expect(response.headers.get('x-notify-proxy-error-code')).toBe('FORWARD_TIMEOUT')
@@ -194,18 +227,15 @@ describe('proxy network behavior', () => {
   })
 
   it('returns upstream-error code when target cannot be reached', async () => {
-    const proxyPort = await getFreePort()
-
     const proxy = new TransloaditNotifyUrlProxy('secret', undefined, { logLevel: 0 })
-    proxy.run({
+    const proxyPort = await startRelay(proxy, {
       target: 'http://127.0.0.1:1',
-      port: proxyPort,
       forwardTimeoutMs: 200,
     })
 
     try {
       const response = await fetch(`http://127.0.0.1:${proxyPort}/unreachable`)
-      const payload = (await response.json()) as { error?: string }
+      const payload = await readJsonRecord(response)
 
       expect(response.status).toBe(502)
       expect(response.headers.get('x-notify-proxy-error-code')).toBe('FORWARD_UPSTREAM_ERROR')

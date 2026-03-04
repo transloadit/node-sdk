@@ -2,9 +2,9 @@ import { createServer } from 'node:http'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import { describe, expect, it } from 'vitest'
-
-import TransloaditNotifyUrlProxy, { type CounterMetricEvent } from '../src/index.ts'
-import { closeServer, getFreePort, json, listen, readBody, waitFor } from './helpers.ts'
+import type { CounterMetricEvent } from '../src/index.ts'
+import { TransloaditNotifyUrlProxy } from '../src/index.ts'
+import { closeServer, json, listen, readBody, startRelay, waitFor } from './helpers.ts'
 
 describe('proxy chaos retries', () => {
   it('handles flaky polling upstream and still notifies', async () => {
@@ -64,7 +64,6 @@ describe('proxy chaos retries', () => {
 
     const notifyPort = await listen(notifyServer)
     upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy(
       'secret',
@@ -74,9 +73,8 @@ describe('proxy chaos retries', () => {
         metricsHooks: { onCounter },
       },
     )
-    proxy.run({
+    const proxyPort = await startRelay(proxy, {
       target: `http://127.0.0.1:${upstreamPort}`,
-      port: proxyPort,
       pollIntervalMs: 10,
       pollMaxIntervalMs: 50,
       maxPollAttempts: 8,
@@ -167,7 +165,6 @@ describe('proxy chaos retries', () => {
 
     const notifyPort = await listen(notifyServer)
     upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy(
       'secret',
@@ -177,9 +174,8 @@ describe('proxy chaos retries', () => {
         metricsHooks: { onCounter },
       },
     )
-    proxy.run({
+    const proxyPort = await startRelay(proxy, {
       target: `http://127.0.0.1:${upstreamPort}`,
-      port: proxyPort,
       pollIntervalMs: 5,
       pollMaxIntervalMs: 20,
       notifyIntervalMs: 10,

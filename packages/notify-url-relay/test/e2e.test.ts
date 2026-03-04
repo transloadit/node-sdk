@@ -3,8 +3,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 import { describe, expect, it } from 'vitest'
 
-import TransloaditNotifyUrlProxy, { getSignature } from '../src/index.ts'
-import { closeServer, getFreePort, json, listen, readBody } from './helpers.ts'
+import { getSignature, TransloaditNotifyUrlProxy } from '../src/index.ts'
+import { closeServer, json, listen, parseJsonRecord, readBody, startRelay } from './helpers.ts'
 
 describe('proxy e2e', () => {
   it('proxies assembly creation, polls assembly status, and notifies target', async () => {
@@ -59,15 +59,13 @@ describe('proxy e2e', () => {
 
     const notifyPort = await listen(notifyServer)
     upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy(
       secret,
       `http://127.0.0.1:${notifyPort}/transloadit`,
     )
-    proxy.run({
+    const proxyPort = await startRelay(proxy, {
       target: `http://127.0.0.1:${upstreamPort}`,
-      port: proxyPort,
       pollIntervalMs: 5,
       maxPollAttempts: 5,
     })
@@ -96,7 +94,7 @@ describe('proxy e2e', () => {
 
       expect(notifySignature).toBe(getSignature(secret, notifyTransloadit))
 
-      const body = JSON.parse(notifyTransloadit) as { ok?: string }
+      const body = parseJsonRecord(notifyTransloadit)
       expect(body.ok).toBe('ASSEMBLY_COMPLETED')
     } finally {
       proxy.close()

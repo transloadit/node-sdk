@@ -1,3 +1,4 @@
+import { once } from 'node:events'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { createServer } from 'node:http'
 import { Readable } from 'node:stream'
@@ -187,9 +188,12 @@ function getHeaderValues(name: string, headers: Headers): string[] {
     return []
   }
 
-  const withGetSetCookie = headers as Headers & { getSetCookie?: () => string[] }
-  if (typeof withGetSetCookie.getSetCookie === 'function') {
-    return withGetSetCookie.getSetCookie()
+  const maybeGetSetCookie = Reflect.get(headers, 'getSetCookie')
+  if (typeof maybeGetSetCookie === 'function') {
+    const values = maybeGetSetCookie.call(headers)
+    if (Array.isArray(values)) {
+      return values.filter((value): value is string => typeof value === 'string')
+    }
   }
 
   const fallback = headers.get('set-cookie')
@@ -213,9 +217,18 @@ function createTimeoutSignal(
   return { signal, timeoutSignal }
 }
 
+function getListeningPort(server: Server): number {
+  const address = server.address()
+  if (address === null || typeof address === 'string') {
+    throw new Error('Could not resolve server address')
+  }
+
+  return address.port
+}
+
 export function extractAssemblyUrl(body: string): string | null {
   try {
-    const payload = JSON.parse(body) as unknown
+    const payload: unknown = JSON.parse(body)
     return parseAssemblyUrls(payload).assemblyUrl
   } catch {
     return null
@@ -248,7 +261,7 @@ export function parseAssemblyResponse(payload: unknown): AssemblyResponse {
   return parsed.data
 }
 
-export default class TransloaditNotifyUrlProxy {
+export class TransloaditNotifyUrlProxy {
   private server: Server | null = null
   private isClosing = false
 
@@ -308,11 +321,25 @@ export default class TransloaditNotifyUrlProxy {
       void this.handleForward(request, response)
     })
 
-    this.server.listen(this.settings.port)
-    this.log(
-      'notice',
-      `Listening on http://localhost:${this.settings.port}, forwarding to ${this.settings.target}, notifying ${this.notifyUrl}`,
-    )
+    const listeningServer = this.server
+    listeningServer.listen(this.settings.port, () => {
+      this.log(
+        'notice',
+        `Listening on http://localhost:${getListeningPort(listeningServer)}, forwarding to ${this.settings.target}, notifying ${this.notifyUrl}`,
+      )
+    })
+  }
+
+  async waitForListenPort(): Promise<number> {
+    if (this.server === null) {
+      throw new Error('Proxy server is not running.')
+    }
+
+    if (!this.server.listening) {
+      await once(this.server, 'listening')
+    }
+
+    return getListeningPort(this.server)
   }
 
   close(): void {
@@ -380,37 +407,23 @@ export default class TransloaditNotifyUrlProxy {
   }
 
   private observeTiming(name: string, durationMs: number, tags?: Record<string, string>): void {
-    const stats = this.timings.get(name)
+    let stats = this.timings.get(name)
     if (!stats) {
-      const created: TimingAggregate = {
+      stats = {
         count: 1,
         totalMs: durationMs,
         minMs: durationMs,
         maxMs: durationMs,
         lastMs: durationMs,
       }
-      this.timings.set(name, created)
-
-      this.metricsHooks?.onTiming?.({
-        kind: 'timing',
-        name,
-        at: new Date().toISOString(),
-        durationMs,
-        count: created.count,
-        minMs: created.minMs,
-        maxMs: created.maxMs,
-        avgMs: created.totalMs / created.count,
-        ...(tags ? { tags } : {}),
-      })
-
-      return
+      this.timings.set(name, stats)
+    } else {
+      stats.count += 1
+      stats.totalMs += durationMs
+      stats.minMs = Math.min(stats.minMs, durationMs)
+      stats.maxMs = Math.max(stats.maxMs, durationMs)
+      stats.lastMs = durationMs
     }
-
-    stats.count += 1
-    stats.totalMs += durationMs
-    stats.minMs = Math.min(stats.minMs, durationMs)
-    stats.maxMs = Math.max(stats.maxMs, durationMs)
-    stats.lastMs = durationMs
 
     this.metricsHooks?.onTiming?.({
       kind: 'timing',
@@ -440,7 +453,7 @@ export default class TransloaditNotifyUrlProxy {
         ? (Readable.toWeb(request) as unknown as ReadableStream)
         : undefined
 
-      const fetchInit: RequestInit = {
+      const fetchInit: RequestInit & { duplex?: 'half' } = {
         method: request.method ?? 'GET',
         headers: this.createForwardHeaders(request),
         redirect: 'manual',
@@ -449,7 +462,7 @@ export default class TransloaditNotifyUrlProxy {
 
       if (requestBody) {
         fetchInit.body = requestBody
-        ;(fetchInit as RequestInit & { duplex: 'half' }).duplex = 'half'
+        fetchInit.duplex = 'half'
       }
 
       const upstreamResponse = await this.fetchWithTimeout(
@@ -482,6 +495,12 @@ export default class TransloaditNotifyUrlProxy {
     const path = requestUrl ?? '/'
     if (/^https?:\/\//i.test(path)) {
       throw new Error(`Absolute request URL is not supported: ${path}`)
+    }
+    if (path.startsWith('//')) {
+      throw new Error(`Protocol-relative request URL is not supported: ${path}`)
+    }
+    if (/^(?:\[[^\]]+\]|[a-z0-9.-]+):\d+$/i.test(path)) {
+      throw new Error(`Authority-form request URL is not supported: ${path}`)
     }
 
     return new URL(path, this.settings.target).toString()
@@ -644,10 +663,11 @@ export default class TransloaditNotifyUrlProxy {
     }
 
     while (this.activePollCount < this.settings.maxInFlightPolls) {
-      const next = this.pendingAssemblyUrls.values().next().value as string | undefined
-      if (!next) {
+      const nextEntry = this.pendingAssemblyUrls.values().next()
+      if (nextEntry.done) {
         break
       }
+      const next = nextEntry.value
 
       this.pendingAssemblyUrls.delete(next)
       this.setGauge('poll.pending', this.pendingAssemblyUrls.size)
@@ -741,7 +761,7 @@ export default class TransloaditNotifyUrlProxy {
       throw new Error(`Assembly poll returned HTTP ${response.status}`)
     }
 
-    const assembly = parseAssemblyResponse((await response.json()) as unknown)
+    const assembly = parseAssemblyResponse(await response.json())
 
     if (isAssemblyTerminalError(assembly)) {
       const errorCode = getError(assembly) ?? 'UNKNOWN_ERROR'

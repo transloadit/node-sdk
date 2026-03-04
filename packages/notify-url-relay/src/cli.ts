@@ -3,14 +3,15 @@
 import { parseArgs } from 'node:util'
 import { SevLogger } from '@transloadit/sev-logger'
 import { config as loadDotEnv } from 'dotenv'
-import TransloaditNotifyUrlProxy, {
-  type CounterMetricEvent,
-  type GaugeMetricEvent,
-  type ProxyLogEvent,
-  type ProxyRuntimeOptions,
-  type ProxySettings,
-  type TimingMetricEvent,
+import type {
+  CounterMetricEvent,
+  GaugeMetricEvent,
+  ProxyLogEvent,
+  ProxyRuntimeOptions,
+  ProxySettings,
+  TimingMetricEvent,
 } from './index.ts'
+import { TransloaditNotifyUrlProxy } from './index.ts'
 
 loadDotEnv({ quiet: true })
 
@@ -29,6 +30,10 @@ const LOG_LEVEL_BY_NAME = {
   debug: SevLogger.LEVEL.DEBUG,
   trace: SevLogger.LEVEL.TRACE,
 } as const
+
+function isLogLevelName(value: string): value is keyof typeof LOG_LEVEL_BY_NAME {
+  return Object.hasOwn(LOG_LEVEL_BY_NAME, value)
+}
 
 function fail(message: string): never {
   console.error(message)
@@ -72,9 +77,8 @@ function parseLogLevelOption(value: string): number {
     return parsedNumeric
   }
 
-  const parsedNamed = LOG_LEVEL_BY_NAME[normalized as keyof typeof LOG_LEVEL_BY_NAME]
-  if (typeof parsedNamed === 'number') {
-    return parsedNamed
+  if (isLogLevelName(normalized)) {
+    return LOG_LEVEL_BY_NAME[normalized]
   }
 
   fail(
@@ -103,7 +107,8 @@ function parseHttpUrlOption(name: string, value: string): URL {
 
 function parseNotifyUrlOption(value: string): string {
   const parsed = parseHttpUrlOption('notifyUrl', value)
-  if (parsed.protocol === 'http:' && !LOCAL_HOSTS.has(parsed.hostname.toLowerCase())) {
+  const normalizedHost = parsed.hostname.replace(/^\[(.*)\]$/, '$1').toLowerCase()
+  if (parsed.protocol === 'http:' && !LOCAL_HOSTS.has(normalizedHost)) {
     fail('Insecure notifyUrl over HTTP is only allowed for localhost/127.0.0.1/::1.')
   }
 
@@ -548,6 +553,20 @@ function parseCliState(values: Record<string, string | boolean | undefined>): Cl
   return state
 }
 
+function normalizeCliValues(
+  values: Record<string, unknown>,
+): Record<string, string | boolean | undefined> {
+  const normalized: Record<string, string | boolean | undefined> = {}
+
+  for (const [key, value] of Object.entries(values)) {
+    if (typeof value === 'string' || typeof value === 'boolean' || value === undefined) {
+      normalized[key] = value
+    }
+  }
+
+  return normalized
+}
+
 function printHelp(): void {
   const usageWidth = Math.max(...CLI_OPTIONS.map((option) => option.usage.length))
   const optionLines = CLI_OPTIONS.map(
@@ -568,7 +587,7 @@ const { values } = parseArgs({
   options: buildParseOptions(CLI_OPTIONS),
 })
 
-const cliState = parseCliState(values as Record<string, string | boolean | undefined>)
+const cliState = parseCliState(normalizeCliValues(values))
 
 if (cliState.help) {
   printHelp()

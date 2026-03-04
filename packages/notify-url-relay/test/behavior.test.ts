@@ -3,8 +3,16 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 import { describe, expect, it } from 'vitest'
 
-import TransloaditNotifyUrlProxy, { getSignature } from '../src/index.ts'
-import { closeServer, getFreePort, json, listen, readBody, waitFor } from './helpers.ts'
+import { getSignature, TransloaditNotifyUrlProxy } from '../src/index.ts'
+import {
+  closeServer,
+  json,
+  listen,
+  parseJsonRecord,
+  readBody,
+  startRelay,
+  waitFor,
+} from './helpers.ts'
 
 describe('proxy behavior guards', () => {
   it('dedupes duplicate assembly URLs and avoids duplicate poll loops', async () => {
@@ -56,16 +64,14 @@ describe('proxy behavior guards', () => {
 
     const notifyPort = await listen(notifyServer)
     upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy(
       secret,
       `http://127.0.0.1:${notifyPort}/transloadit`,
       { logLevel: 0 },
     )
-    proxy.run({
+    const proxyPort = await startRelay(proxy, {
       target: `http://127.0.0.1:${upstreamPort}`,
-      port: proxyPort,
       pollIntervalMs: 10,
       pollMaxIntervalMs: 100,
       maxPollAttempts: 5,
@@ -134,16 +140,14 @@ describe('proxy behavior guards', () => {
 
     const notifyPort = await listen(notifyServer)
     upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy(
       secret,
       `http://127.0.0.1:${notifyPort}/transloadit`,
       { logLevel: 0 },
     )
-    proxy.run({
+    const proxyPort = await startRelay(proxy, {
       target: `http://127.0.0.1:${upstreamPort}`,
-      port: proxyPort,
       pollIntervalMs: 20,
       pollMaxIntervalMs: 40,
       maxPollAttempts: 100,
@@ -204,16 +208,14 @@ describe('proxy behavior guards', () => {
 
     const notifyPort = await listen(notifyServer)
     upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy(
       secret,
       `http://127.0.0.1:${notifyPort}/transloadit`,
       { logLevel: 0 },
     )
-    proxy.run({
+    const proxyPort = await startRelay(proxy, {
       target: `http://127.0.0.1:${upstreamPort}`,
-      port: proxyPort,
       pollIntervalMs: 10,
       pollMaxIntervalMs: 100,
       maxPollAttempts: 5,
@@ -281,16 +283,14 @@ describe('proxy behavior guards', () => {
 
     const notifyPort = await listen(notifyServer)
     upstreamPort = await listen(upstreamServer)
-    const proxyPort = await getFreePort()
 
     const proxy = new TransloaditNotifyUrlProxy(
       secret,
       `http://127.0.0.1:${notifyPort}/transloadit`,
       { logLevel: 0 },
     )
-    proxy.run({
+    const proxyPort = await startRelay(proxy, {
       target: `http://127.0.0.1:${upstreamPort}`,
-      port: proxyPort,
       pollIntervalMs: 10,
       pollMaxIntervalMs: 100,
       maxPollAttempts: 5,
@@ -319,7 +319,7 @@ describe('proxy behavior guards', () => {
       }
 
       expect(notifySignature).toBe(getSignature(secret, notifyTransloadit))
-      const payload = JSON.parse(notifyTransloadit) as { error?: string }
+      const payload = parseJsonRecord(notifyTransloadit)
       expect(payload.error).toBe('ASSEMBLY_CRASHED')
     } finally {
       proxy.close()

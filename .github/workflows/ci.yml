@@ -165,8 +165,6 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
-      TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
-      TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
       NODE_OPTIONS: --trace-deprecation --trace-warnings
     steps:
       - uses: actions/checkout@v4
@@ -187,6 +185,8 @@ jobs:
         env:
           CLOUDFLARED_PATH: ${{ github.workspace }}/cloudflared-linux-amd64
           DEBUG: 'transloadit:*'
+          TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
+          TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
 
       - name: Run MCP server e2e tests
         run: corepack yarn workspace @transloadit/mcp-server test:e2e
@@ -194,6 +194,8 @@ jobs:
       - name: Run notify-url-relay real e2e test
         run: corepack yarn workspace @transloadit/notify-url-relay test:real
         env:
+          TRANSLOADIT_KEY: ${{ secrets.TRANSLOADIT_KEY }}
+          TRANSLOADIT_SECRET: ${{ secrets.TRANSLOADIT_SECRET }}
           TRANSLOADIT_ENDPOINT: ${{ secrets.TRANSLOADIT_ENDPOINT }}
 
       - name: Generate the badge from the json-summary

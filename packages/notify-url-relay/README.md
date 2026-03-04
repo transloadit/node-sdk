@@ -56,7 +56,7 @@ This opens a live terminal dashboard with:
 ## Programmatic usage
 
 ```ts
-import TransloaditNotifyUrlProxy from '@transloadit/notify-url-relay'
+import { TransloaditNotifyUrlProxy } from '@transloadit/notify-url-relay'
 
 const proxy = new TransloaditNotifyUrlProxy(
   process.env.TRANSLOADIT_SECRET ?? '',
