@@ -1,5 +1,3 @@
-import { once } from 'node:events'
-import type { Server, ServerResponse } from 'node:http'
 import { createServer } from 'node:http'
 import { setTimeout as delay } from 'node:timers/promises'
 import { gzipSync } from 'node:zlib'
@@ -7,34 +5,7 @@ import { gzipSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 
 import TransloaditNotifyUrlProxy from '../src/index.ts'
-
-async function listen(server: Server): Promise<number> {
-  server.listen(0, '127.0.0.1')
-  await once(server, 'listening')
-  const address = server.address()
-  if (address === null || typeof address === 'string') {
-    throw new Error('Could not resolve server address')
-  }
-  return address.port
-}
-
-async function closeServer(server: Server): Promise<void> {
-  await new Promise<void>((resolve) => {
-    server.close(() => resolve())
-  })
-}
-
-async function getFreePort(): Promise<number> {
-  const server = createServer()
-  const port = await listen(server)
-  await closeServer(server)
-  return port
-}
-
-function json(response: ServerResponse, statusCode: number, payload: unknown): void {
-  response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' })
-  response.end(JSON.stringify(payload))
-}
+import { closeServer, getFreePort, json, listen } from './helpers.ts'
 
 describe('proxy network behavior', () => {
   it('streams large upstream response bodies', async () => {

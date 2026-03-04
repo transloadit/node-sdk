@@ -207,38 +207,10 @@ function isJsonResponse(contentType: string | null): boolean {
 function createTimeoutSignal(
   parentSignal: AbortSignal | null | undefined,
   timeoutMs: number,
-  timeoutError: ProxyTimeoutError,
-): { signal: AbortSignal; didTimeout: () => boolean; cleanup: () => void } {
-  const controller = new AbortController()
-  let timedOut = false
-
-  const onParentAbort = () => {
-    controller.abort(parentSignal?.reason)
-  }
-
-  if (parentSignal) {
-    if (parentSignal.aborted) {
-      onParentAbort()
-    } else {
-      parentSignal.addEventListener('abort', onParentAbort, { once: true })
-    }
-  }
-
-  const timer = setTimeout(() => {
-    timedOut = true
-    controller.abort(timeoutError)
-  }, timeoutMs)
-
-  return {
-    signal: controller.signal,
-    didTimeout: () => timedOut,
-    cleanup: () => {
-      clearTimeout(timer)
-      if (parentSignal) {
-        parentSignal.removeEventListener('abort', onParentAbort)
-      }
-    },
-  }
+): { signal: AbortSignal; timeoutSignal: AbortSignal } {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs)
+  const signal = parentSignal ? AbortSignal.any([parentSignal, timeoutSignal]) : timeoutSignal
+  return { signal, timeoutSignal }
 }
 
 export function extractAssemblyUrl(body: string): string | null {
@@ -408,27 +380,37 @@ export default class TransloaditNotifyUrlProxy {
   }
 
   private observeTiming(name: string, durationMs: number, tags?: Record<string, string>): void {
-    const existing = this.timings.get(name)
-    if (!existing) {
-      this.timings.set(name, {
+    const stats = this.timings.get(name)
+    if (!stats) {
+      const created: TimingAggregate = {
         count: 1,
         totalMs: durationMs,
         minMs: durationMs,
         maxMs: durationMs,
         lastMs: durationMs,
-      })
-    } else {
-      existing.count += 1
-      existing.totalMs += durationMs
-      existing.minMs = Math.min(existing.minMs, durationMs)
-      existing.maxMs = Math.max(existing.maxMs, durationMs)
-      existing.lastMs = durationMs
-    }
+      }
+      this.timings.set(name, created)
 
-    const stats = this.timings.get(name)
-    if (!stats) {
+      this.metricsHooks?.onTiming?.({
+        kind: 'timing',
+        name,
+        at: new Date().toISOString(),
+        durationMs,
+        count: created.count,
+        minMs: created.minMs,
+        maxMs: created.maxMs,
+        avgMs: created.totalMs / created.count,
+        ...(tags ? { tags } : {}),
+      })
+
       return
     }
+
+    stats.count += 1
+    stats.totalMs += durationMs
+    stats.minMs = Math.min(stats.minMs, durationMs)
+    stats.maxMs = Math.max(stats.maxMs, durationMs)
+    stats.lastMs = durationMs
 
     this.metricsHooks?.onTiming?.({
       kind: 'timing',
@@ -874,11 +856,7 @@ export default class TransloaditNotifyUrlProxy {
     timeoutMs: number,
     timeoutCode: ProxyErrorCode,
   ): Promise<Response> {
-    const timeoutSignal = createTimeoutSignal(
-      init.signal,
-      timeoutMs,
-      new ProxyTimeoutError(timeoutCode, `${timeoutCode} after ${timeoutMs}ms`),
-    )
+    const timeoutSignal = createTimeoutSignal(init.signal, timeoutMs)
 
     const fetchInit: RequestInit = {
       ...init,
@@ -888,7 +866,7 @@ export default class TransloaditNotifyUrlProxy {
     try {
       return await fetch(url, fetchInit)
     } catch (error) {
-      if (timeoutSignal.didTimeout()) {
+      if (timeoutSignal.timeoutSignal.aborted) {
         throw new ProxyTimeoutError(timeoutCode, `${timeoutCode} after ${timeoutMs}ms`)
       }
 
@@ -897,8 +875,6 @@ export default class TransloaditNotifyUrlProxy {
       }
 
       throw error
-    } finally {
-      timeoutSignal.cleanup()
     }
   }
 }

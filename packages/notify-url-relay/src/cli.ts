@@ -265,59 +265,313 @@ function createTuiMode(logLevel: number | undefined): {
   return { runtimeOptions, start, stop }
 }
 
-const { values } = parseArgs({
-  options: {
-    notifyUrl: { type: 'string' },
-    target: { type: 'string' },
-    port: { type: 'string' },
-    forwardTimeoutMs: { type: 'string' },
-    pollIntervalMs: { type: 'string' },
-    pollMaxIntervalMs: { type: 'string' },
-    pollBackoffFactor: { type: 'string' },
-    pollRequestTimeoutMs: { type: 'string' },
-    maxPollAttempts: { type: 'string' },
-    maxInFlightPolls: { type: 'string' },
-    notifyOnTerminalError: { type: 'boolean' },
-    'notify-on-terminal-error': { type: 'boolean' },
-    notifyTimeoutMs: { type: 'string' },
-    notifyMaxAttempts: { type: 'string' },
-    notifyIntervalMs: { type: 'string' },
-    notifyMaxIntervalMs: { type: 'string' },
-    notifyBackoffFactor: { type: 'string' },
-    ui: { type: 'boolean' },
-    logLevel: { type: 'string', short: 'l' },
-    'log-level': { type: 'string' },
-    help: { type: 'boolean', short: 'h' },
-  },
-})
+type CliState = {
+  help: boolean
+  logLevelRaw: string | undefined
+  notifyUrlRaw: string | undefined
+  settings: Partial<ProxySettings>
+  ui: boolean
+}
 
-if (values.help) {
+type CliOptionDefinitionBase = {
+  aliases?: string[]
+  description: string
+  key: string
+  short?: string
+  usage: string
+}
+
+type CliOptionDefinitionString = CliOptionDefinitionBase & {
+  apply: (value: string, state: CliState) => void
+  type: 'string'
+}
+
+type CliOptionDefinitionBoolean = CliOptionDefinitionBase & {
+  apply: (value: boolean, state: CliState) => void
+  type: 'boolean'
+}
+
+type CliOptionDefinition = CliOptionDefinitionString | CliOptionDefinitionBoolean
+
+const CLI_OPTIONS: CliOptionDefinition[] = [
+  {
+    key: 'notifyUrl',
+    type: 'string',
+    usage: '--notifyUrl <url>',
+    description: 'URL to send notifications to (http://localhost allowed, otherwise https)',
+    apply: (value, state) => {
+      state.notifyUrlRaw = parseNotifyUrlOption(value)
+    },
+  },
+  {
+    key: 'target',
+    type: 'string',
+    usage: '--target <url>',
+    description: 'Transloadit endpoint base URL',
+    apply: (value, state) => {
+      state.settings.target = parseHttpUrlOption('target', value).toString()
+    },
+  },
+  {
+    key: 'port',
+    type: 'string',
+    usage: '--port <number>',
+    description: 'Local listen port',
+    apply: (value, state) => {
+      state.settings.port = parsePositiveIntOption('port', value, 65_535)
+    },
+  },
+  {
+    key: 'forwardTimeoutMs',
+    type: 'string',
+    usage: '--forwardTimeoutMs <number>',
+    description: 'Forward request timeout in milliseconds',
+    apply: (value, state) => {
+      state.settings.forwardTimeoutMs = parsePositiveIntOption('forwardTimeoutMs', value)
+    },
+  },
+  {
+    key: 'pollIntervalMs',
+    type: 'string',
+    usage: '--pollIntervalMs <number>',
+    description: 'Base poll retry interval in milliseconds',
+    apply: (value, state) => {
+      state.settings.pollIntervalMs = parsePositiveIntOption('pollIntervalMs', value)
+    },
+  },
+  {
+    key: 'pollMaxIntervalMs',
+    type: 'string',
+    usage: '--pollMaxIntervalMs <number>',
+    description: 'Max poll retry interval in milliseconds',
+    apply: (value, state) => {
+      state.settings.pollMaxIntervalMs = parsePositiveIntOption('pollMaxIntervalMs', value)
+    },
+  },
+  {
+    key: 'pollBackoffFactor',
+    type: 'string',
+    usage: '--pollBackoffFactor <number>',
+    description: 'Poll retry backoff factor (>= 1)',
+    apply: (value, state) => {
+      state.settings.pollBackoffFactor = parsePositiveFloatOption('pollBackoffFactor', value, 1)
+    },
+  },
+  {
+    key: 'pollRequestTimeoutMs',
+    type: 'string',
+    usage: '--pollRequestTimeoutMs <num>',
+    description: 'Per poll request timeout in milliseconds',
+    apply: (value, state) => {
+      state.settings.pollRequestTimeoutMs = parsePositiveIntOption('pollRequestTimeoutMs', value)
+    },
+  },
+  {
+    key: 'maxPollAttempts',
+    type: 'string',
+    usage: '--maxPollAttempts <number>',
+    description: 'Max number of poll attempts',
+    apply: (value, state) => {
+      state.settings.maxPollAttempts = parsePositiveIntOption('maxPollAttempts', value)
+    },
+  },
+  {
+    key: 'maxInFlightPolls',
+    type: 'string',
+    usage: '--maxInFlightPolls <number>',
+    description: 'Max number of active assembly pollers',
+    apply: (value, state) => {
+      state.settings.maxInFlightPolls = parsePositiveIntOption('maxInFlightPolls', value)
+    },
+  },
+  {
+    key: 'notifyOnTerminalError',
+    aliases: ['notify-on-terminal-error'],
+    type: 'boolean',
+    usage: '--notifyOnTerminalError',
+    description: 'Send notify payload when terminal error is reached',
+    apply: (value, state) => {
+      if (value) {
+        state.settings.notifyOnTerminalError = true
+      }
+    },
+  },
+  {
+    key: 'notifyTimeoutMs',
+    type: 'string',
+    usage: '--notifyTimeoutMs <number>',
+    description: 'Per notify request timeout in milliseconds',
+    apply: (value, state) => {
+      state.settings.notifyTimeoutMs = parsePositiveIntOption('notifyTimeoutMs', value)
+    },
+  },
+  {
+    key: 'notifyMaxAttempts',
+    type: 'string',
+    usage: '--notifyMaxAttempts <number>',
+    description: 'Max number of notify attempts',
+    apply: (value, state) => {
+      state.settings.notifyMaxAttempts = parsePositiveIntOption('notifyMaxAttempts', value)
+    },
+  },
+  {
+    key: 'notifyIntervalMs',
+    type: 'string',
+    usage: '--notifyIntervalMs <number>',
+    description: 'Base notify retry interval in milliseconds',
+    apply: (value, state) => {
+      state.settings.notifyIntervalMs = parsePositiveIntOption('notifyIntervalMs', value)
+    },
+  },
+  {
+    key: 'notifyMaxIntervalMs',
+    type: 'string',
+    usage: '--notifyMaxIntervalMs <number>',
+    description: 'Max notify retry interval in milliseconds',
+    apply: (value, state) => {
+      state.settings.notifyMaxIntervalMs = parsePositiveIntOption('notifyMaxIntervalMs', value)
+    },
+  },
+  {
+    key: 'notifyBackoffFactor',
+    type: 'string',
+    usage: '--notifyBackoffFactor <number>',
+    description: 'Notify retry backoff factor (>= 1)',
+    apply: (value, state) => {
+      state.settings.notifyBackoffFactor = parsePositiveFloatOption('notifyBackoffFactor', value, 1)
+    },
+  },
+  {
+    key: 'ui',
+    type: 'boolean',
+    usage: '--ui',
+    description: 'Enable reactive terminal dashboard (TUI)',
+    apply: (value, state) => {
+      state.ui = value
+    },
+  },
+  {
+    key: 'log-level',
+    aliases: ['logLevel'],
+    short: 'l',
+    type: 'string',
+    usage: '-l, --log-level <level>',
+    description: 'Log level (0-8 or emerg/alert/crit/err/warn/notice/info/debug/trace)',
+    apply: (value, state) => {
+      state.logLevelRaw = value
+    },
+  },
+  {
+    key: 'help',
+    short: 'h',
+    type: 'boolean',
+    usage: '-h, --help',
+    description: 'Show this help',
+    apply: (value, state) => {
+      state.help = value
+    },
+  },
+]
+
+function getOptionNames(definition: CliOptionDefinition): string[] {
+  return [definition.key, ...(definition.aliases ?? [])]
+}
+
+function buildParseOptions(
+  definitions: CliOptionDefinition[],
+): Record<string, { short?: string; type: 'boolean' | 'string' }> {
+  const options: Record<string, { short?: string; type: 'boolean' | 'string' }> = {}
+
+  for (const definition of definitions) {
+    for (const name of getOptionNames(definition)) {
+      options[name] = {
+        type: definition.type,
+        ...(name === definition.key && definition.short ? { short: definition.short } : {}),
+      }
+    }
+  }
+
+  return options
+}
+
+function readStringOption(
+  values: Record<string, string | boolean | undefined>,
+  definition: CliOptionDefinitionString,
+): string | undefined {
+  for (const name of getOptionNames(definition)) {
+    const value = values[name]
+    if (typeof value === 'string') {
+      return value
+    }
+  }
+
+  return undefined
+}
+
+function readBooleanOption(
+  values: Record<string, string | boolean | undefined>,
+  definition: CliOptionDefinitionBoolean,
+): boolean {
+  for (const name of getOptionNames(definition)) {
+    if (values[name] === true) {
+      return true
+    }
+  }
+
+  return false
+}
+
+function parseCliState(values: Record<string, string | boolean | undefined>): CliState {
+  const state: CliState = {
+    help: false,
+    logLevelRaw: undefined,
+    notifyUrlRaw: undefined,
+    settings: {},
+    ui: false,
+  }
+
+  for (const definition of CLI_OPTIONS) {
+    if (definition.type === 'string') {
+      const value = readStringOption(values, definition)
+      if (value !== undefined) {
+        definition.apply(value, state)
+      }
+      continue
+    }
+
+    const value = readBooleanOption(values, definition)
+    if (value) {
+      definition.apply(value, state)
+    }
+  }
+
+  return state
+}
+
+function printHelp(): void {
+  const usageWidth = Math.max(...CLI_OPTIONS.map((option) => option.usage.length))
+  const optionLines = CLI_OPTIONS.map(
+    (option) => `  ${option.usage.padEnd(usageWidth + 2)}${option.description}`,
+  )
+
   console.log(`Usage: notify-url-relay [options]
 
 Options:
-  --notifyUrl <url>              URL to send notifications to (http://localhost allowed, otherwise https)
-  --target <url>                 Transloadit endpoint base URL
-  --port <number>                Local listen port
-  --forwardTimeoutMs <number>    Forward request timeout in milliseconds
-  --pollIntervalMs <number>      Base poll retry interval in milliseconds
-  --pollMaxIntervalMs <number>   Max poll retry interval in milliseconds
-  --pollBackoffFactor <number>   Poll retry backoff factor (>= 1)
-  --pollRequestTimeoutMs <num>   Per poll request timeout in milliseconds
-  --maxPollAttempts <number>     Max number of poll attempts
-  --maxInFlightPolls <number>    Max number of active assembly pollers
-  --notifyOnTerminalError        Send notify payload when terminal error is reached
-  --notifyTimeoutMs <number>     Per notify request timeout in milliseconds
-  --notifyMaxAttempts <number>   Max number of notify attempts
-  --notifyIntervalMs <number>    Base notify retry interval in milliseconds
-  --notifyMaxIntervalMs <number> Max notify retry interval in milliseconds
-  --notifyBackoffFactor <number> Notify retry backoff factor (>= 1)
-  --ui                           Enable reactive terminal dashboard (TUI)
-  -l, --log-level <level>        Log level (0-8 or emerg/alert/crit/err/warn/notice/info/debug/trace)
-  -h, --help                     Show this help
+${optionLines.join('\n')}
 
 Environment fallback:
   TRANSLOADIT_SECRET, TRANSLOADIT_NOTIFY_URL, TRANSLOADIT_LOG_LEVEL
 `)
+}
+
+const { values } = parseArgs({
+  options: buildParseOptions(CLI_OPTIONS),
+})
+
+const cliState = parseCliState(values as Record<string, string | boolean | undefined>)
+
+if (cliState.help) {
+  printHelp()
   process.exit(0)
 }
 
@@ -326,83 +580,19 @@ if (!secret) {
   fail('Missing secret. Set TRANSLOADIT_SECRET.')
 }
 
-const settings: Partial<ProxySettings> = {}
+const settings = cliState.settings
 
-if (values.target) {
-  settings.target = parseHttpUrlOption('target', values.target).toString()
-}
-if (values.port) {
-  settings.port = parsePositiveIntOption('port', values.port, 65_535)
-}
-if (values.forwardTimeoutMs) {
-  settings.forwardTimeoutMs = parsePositiveIntOption('forwardTimeoutMs', values.forwardTimeoutMs)
-}
-if (values.pollIntervalMs) {
-  settings.pollIntervalMs = parsePositiveIntOption('pollIntervalMs', values.pollIntervalMs)
-}
-if (values.pollMaxIntervalMs) {
-  settings.pollMaxIntervalMs = parsePositiveIntOption('pollMaxIntervalMs', values.pollMaxIntervalMs)
-}
-if (values.pollBackoffFactor) {
-  settings.pollBackoffFactor = parsePositiveFloatOption(
-    'pollBackoffFactor',
-    values.pollBackoffFactor,
-    1,
-  )
-}
-if (values.pollRequestTimeoutMs) {
-  settings.pollRequestTimeoutMs = parsePositiveIntOption(
-    'pollRequestTimeoutMs',
-    values.pollRequestTimeoutMs,
-  )
-}
-if (values.maxPollAttempts) {
-  settings.maxPollAttempts = parsePositiveIntOption('maxPollAttempts', values.maxPollAttempts)
-}
-if (values.maxInFlightPolls) {
-  settings.maxInFlightPolls = parsePositiveIntOption('maxInFlightPolls', values.maxInFlightPolls)
-}
-
-const notifyOnTerminalError =
-  values.notifyOnTerminalError === true || values['notify-on-terminal-error'] === true
-if (notifyOnTerminalError) {
-  settings.notifyOnTerminalError = true
-}
-
-if (values.notifyTimeoutMs) {
-  settings.notifyTimeoutMs = parsePositiveIntOption('notifyTimeoutMs', values.notifyTimeoutMs)
-}
-if (values.notifyMaxAttempts) {
-  settings.notifyMaxAttempts = parsePositiveIntOption('notifyMaxAttempts', values.notifyMaxAttempts)
-}
-if (values.notifyIntervalMs) {
-  settings.notifyIntervalMs = parsePositiveIntOption('notifyIntervalMs', values.notifyIntervalMs)
-}
-if (values.notifyMaxIntervalMs) {
-  settings.notifyMaxIntervalMs = parsePositiveIntOption(
-    'notifyMaxIntervalMs',
-    values.notifyMaxIntervalMs,
-  )
-}
-if (values.notifyBackoffFactor) {
-  settings.notifyBackoffFactor = parsePositiveFloatOption(
-    'notifyBackoffFactor',
-    values.notifyBackoffFactor,
-    1,
-  )
-}
-
-const rawLogLevel = values['log-level'] ?? values.logLevel ?? process.env.TRANSLOADIT_LOG_LEVEL
+const rawLogLevel = cliState.logLevelRaw ?? process.env.TRANSLOADIT_LOG_LEVEL
 const logLevel = rawLogLevel ? parseLogLevelOption(rawLogLevel) : undefined
 
-const tui = values.ui === true ? createTuiMode(logLevel) : null
+const tui = cliState.ui ? createTuiMode(logLevel) : null
 const runtimeOptions: ProxyRuntimeOptions = tui
   ? tui.runtimeOptions
   : {
       ...(typeof logLevel === 'number' ? { logLevel } : {}),
     }
 
-const notifyUrlRaw = values.notifyUrl ?? process.env.TRANSLOADIT_NOTIFY_URL
+const notifyUrlRaw = cliState.notifyUrlRaw ?? process.env.TRANSLOADIT_NOTIFY_URL
 const notifyUrl = notifyUrlRaw ? parseNotifyUrlOption(notifyUrlRaw) : undefined
 
 const proxy = new TransloaditNotifyUrlProxy(secret, notifyUrl, runtimeOptions)
