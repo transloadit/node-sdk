@@ -22,6 +22,15 @@ Metrics hooks are available for counters, gauges, and timings.
 npm install @transloadit/notify-url-relay
 ```
 
+## Run Without Install
+
+```bash
+TRANSLOADIT_SECRET="your-secret" \
+  npx -y @transloadit/notify-url-relay \
+  --notifyUrl "http://127.0.0.1:3000/transloadit" \
+  --log-level info
+```
+
 ## CLI usage
 
 ```bash
