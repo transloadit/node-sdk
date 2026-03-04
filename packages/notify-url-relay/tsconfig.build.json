@@ -1,0 +1,21 @@
+{
+  "include": ["src"],
+  "exclude": ["test", "coverage", "dist"],
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+    "module": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "target": "ES2022",
+    "noImplicitOverride": true,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "dist",
+    "resolveJsonModule": true,
+    "rootDir": "src",
+    "sourceMap": true,
+    "strict": true
+  }
+}

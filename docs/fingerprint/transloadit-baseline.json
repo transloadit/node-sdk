@@ -1,13 +1,13 @@
 {
   "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.7.4.tgz",
-    "sizeBytes": 1247606,
-    "sha256": "48a0c23cb4652d91594b7ff5a7e16af1397e8da663245f241de49f1057c4330e"
+    "filename": "transloadit-4.7.5.tgz",
+    "sizeBytes": 1247607,
+    "sha256": "8ece4cbf0df04422d189035abb22a80c0565f95e5b10488d0e9226277702e363"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.7.4",
+    "version": "4.7.5",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -473,8 +473,8 @@
     },
     {
       "path": "dist/robots.js",
-      "sizeBytes": 8373,
-      "sha256": "de7fd519fcf36cbae2d1a3a316dadf331a61e933bcb666a92358502fb3e90433"
+      "sizeBytes": 8374,
+      "sha256": "740d92236f9b0319b73f38c9827074747b80f36694906df916039bec8cd421d2"
     },
     {
       "path": "dist/alphalib/types/robots/s3-import.js",
@@ -689,7 +689,7 @@
     {
       "path": "package.json",
       "sizeBytes": 2730,
-      "sha256": "0cf46ccf180fd122bfa412623700b21b34b3cd962aad90102ca8ab14256de1c6"
+      "sha256": "313dd2ac13d3e4857b71bd889b2c9fa7f2458cf2bf5be2dd5a1996eb3d23199d"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
@@ -1599,7 +1599,7 @@
     {
       "path": "dist/robots.js.map",
       "sizeBytes": 9412,
-      "sha256": "79c6c465ced5d07c7d7a3b5124c4486584d43aa86468caafe886f3b291304b13"
+      "sha256": "72d51dbe2ba7017ec5700bd72f5247142fa2f4cc3cda60c822a92fef0becf841"
     },
     {
       "path": "dist/alphalib/types/robots/s3-import.d.ts.map",
@@ -2938,8 +2938,8 @@
     },
     {
       "path": "src/robots.ts",
-      "sizeBytes": 9642,
-      "sha256": "fa774b4f6f8b30eb18a94bf2a117bae924d0b80f05e9bb16d7e85a8298e19543"
+      "sizeBytes": 9643,
+      "sha256": "7afa1b895f1b28c6eb63b496450e3236e5e20fc649484ba878fd0f6179899499"
     },
     {
       "path": "dist/alphalib/types/robots/s3-import.d.ts",
