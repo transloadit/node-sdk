@@ -24,6 +24,8 @@ jobs:
       - run: npm install -g npm@11.5.1
       - run: corepack yarn
       - run: corepack yarn
+      - run: corepack yarn tsc:utils
+      - run: corepack yarn tsc:zod
       - uses: changesets/action@v1
         with:
           version: corepack yarn changeset version
