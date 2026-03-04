@@ -1,6 +1,8 @@
 # @transloadit/notify-url-relay
 
-Local `notify_url` relay for Transloadit assemblies.
+Local `notify_url` relay for Transloadit Assemblies. This tool polls the status of Assemblies until they complete, then pushes the status to a pingback URL of your choosing. This is useful while on a development machine, which is inaccessible from the public internet and hence can't be notified by Transloadit. 
+
+You can alternatively use a tunnel like ngrok or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/) for this, this is just one more way.
 
 This version is modernized for:
 
