@@ -2,7 +2,26 @@
 
 Local `notify_url` relay for Transloadit Assemblies. This tool polls the status of Assemblies until they complete, then pushes the status to a pingback URL of your choosing. This is useful while on a development machine, which is inaccessible from the public internet and hence can't be notified by Transloadit. 
 
-You can alternatively use a tunnel like ngrok or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/) for this, this is just one more way.
+For local development, you can choose one of:
+
+- [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/)
+- [ngrok](https://ngrok.com/)
+- [@transloadit/notify-url-relay](https://www.npmjs.com/package/@transloadit/notify-url-relay)
+
+Tunnels expose an inbound public URL to your machine. The relay works differently: it runs locally,
+polls Assembly Status from Transloadit, and forwards terminal notifications to your local `notifyUrl`
+handler.
+
+## How It Works
+
+1. Start the relay locally (for example on `http://127.0.0.1:8888`).
+2. Configure your app in development to use the relay as its Transloadit endpoint.
+3. Your app creates Assemblies through the relay; the relay forwards those requests to Transloadit.
+4. The relay extracts each returned `assembly_url`, polls it until terminal state, and POSTs the
+   final payload to your local `notifyUrl`.
+
+Your app still uses its regular Transloadit credentials to create Assemblies; the relay needs
+`TRANSLOADIT_SECRET` to sign forwarded notifications.
 
 This version is modernized for:
 
@@ -25,6 +44,7 @@ npm install @transloadit/notify-url-relay
 ## Run Without Install
 
 ```bash
+# In development, point your app's Transloadit endpoint to http://127.0.0.1:8888
 TRANSLOADIT_SECRET="your-secret" \
   npx -y @transloadit/notify-url-relay \
   --notifyUrl "http://127.0.0.1:3000/transloadit" \
