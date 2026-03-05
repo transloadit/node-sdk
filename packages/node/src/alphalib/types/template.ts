@@ -67,6 +67,14 @@ export const assemblyAuthInstructionsSchema = z
       .optional()
       .describe('ISO 8601 expiration timestamp for signature authentication'),
     max_size: z.number().optional().describe('Maximum allowed upload size in bytes'),
+    max_number_of_files: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe(
+        'Maximum number of input files allowed per Assembly. If the number of uploaded or imported files exceeds this limit, the Assembly will be stopped with an error. This is useful for preventing abuse when Signature Authentication credentials are exposed.',
+      ),
     nonce: z.string().optional().describe('Unique, random nonce for this request'),
     referer: z
       .string()
@@ -222,6 +230,12 @@ export const templateListParamsSchema = z
       .default([])
       .describe(
         'Specifies keywords to be matched in the Assembly Status. The Assembly fields checked include the `id`, `redirect_url`, `fields`, and `notify_url`, as well as error messages and files used.',
+      ),
+    include_builtin: z
+      .enum(['none', 'latest', 'all', 'exclusively-latest', 'exclusively-all'])
+      .optional()
+      .describe(
+        'Include Builtin Templates in the results. Use `latest` (recommended) or `all`. Prefix with `exclusively-` to return only Builtin Templates.',
       ),
   })
   .strict()
