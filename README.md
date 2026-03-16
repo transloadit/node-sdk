@@ -13,6 +13,8 @@
 
 Monorepo for Transloadit SDKs, shared packages, and the MCP server.
 
+[![Transloadit Server MCP server](https://glama.ai/mcp/servers/transloadit/node-sdk/badges/card.svg)](https://glama.ai/mcp/servers/transloadit/node-sdk)
+
 ## Packages
 
 - `@transloadit/node` — Node.js SDK + CLI. See `packages/node/README.md`.
