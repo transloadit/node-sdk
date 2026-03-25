@@ -416,7 +416,10 @@ async function downloadResultToFile(
 ): Promise<void> {
   await fsp.mkdir(path.dirname(outPath), { recursive: true })
 
-  const tempPath = path.join(path.dirname(outPath), `.${path.basename(outPath)}.${randomUUID()}.tmp`)
+  const tempPath = path.join(
+    path.dirname(outPath),
+    `.${path.basename(outPath)}.${randomUUID()}.tmp`,
+  )
   const outStream = fs.createWriteStream(tempPath) as OutStream
   outStream.on('error', () => {})
 
@@ -999,7 +1002,7 @@ export async function create(
     async function processAssemblyJob(
       inPath: string | null,
       outPath: string | null,
-      outMtime: Date | undefined,
+      _outMtime: Date | undefined,
     ): Promise<unknown> {
       outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
 
@@ -1007,7 +1010,7 @@ export async function create(
       const inStream = inPath ? fs.createReadStream(inPath) : null
       inStream?.on('error', () => {})
 
-      let superceded = false
+      const superceded = false
 
       const createOptions: CreateAssemblyOptions = {
         params,
@@ -1093,11 +1096,7 @@ export async function create(
           const mappedRelative = path.relative(resolvedOutput as string, outPath)
           const mappedDir = path.dirname(mappedRelative)
           const mappedStem = path.parse(mappedRelative).name
-          return path.join(
-            resolvedOutput as string,
-            mappedDir === '.' ? '' : mappedDir,
-            mappedStem,
-          )
+          return path.join(resolvedOutput as string, mappedDir === '.' ? '' : mappedDir, mappedStem)
         }
 
         return path.join(resolvedOutput as string, path.parse(path.basename(inPath)).name)

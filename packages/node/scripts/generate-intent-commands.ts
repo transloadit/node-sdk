@@ -304,8 +304,12 @@ function inferDetails(
   return `Runs \`${definition.robot}\` on each input file and writes the result to \`--out\`.`
 }
 
-function inferLocalFilesInput(entry: RobotIntentCatalogEntry): ResolvedIntentLocalFilesInput {
-  if (entry.defaultSingleAssembly) {
+function inferLocalFilesInput({
+  defaultSingleAssembly = false,
+}: {
+  defaultSingleAssembly?: boolean
+}): ResolvedIntentLocalFilesInput {
+  if (defaultSingleAssembly) {
     return {
       kind: 'local-files',
       description: 'Provide one or more input files or directories',
@@ -337,7 +341,7 @@ function inferInputSpec(
     return { kind: 'none' }
   }
 
-  return inferLocalFilesInput(entry)
+  return inferLocalFilesInput({ defaultSingleAssembly: entry.defaultSingleAssembly })
 }
 
 function inferFixedValues(
@@ -527,7 +531,7 @@ function resolveTemplateIntentSpec(
   entry: IntentCatalogEntry & { kind: 'template' },
 ): ResolvedIntentCommandSpec {
   const outputMode = inferOutputMode(entry)
-  const input = inferLocalFilesInput({ kind: 'robot', robot: '/file/decompress', outputMode })
+  const input = inferLocalFilesInput({})
 
   return {
     className: inferClassName(entry.paths),
@@ -780,11 +784,11 @@ function formatLocalValidation(spec: ResolvedIntentCommandSpec, commandLabel: st
   return lines.join('\n')
 }
 
-function formatRunBody(spec: ResolvedIntentCommandSpec): string {
+function formatRunBody(
+  spec: ResolvedIntentCommandSpec,
+  fieldSpecs: GeneratedSchemaField[],
+): string {
   const schemaSpec = spec.schemaSpec
-  const fieldSpecs =
-    schemaSpec == null ? [] : collectSchemaFields(schemaSpec, resolveFixedValues(spec), spec.input)
-
   if (spec.execution.kind === 'single-step') {
     const parseStep = `    const step = parseIntentStep({
       schema: ${schemaSpec?.importName},
@@ -890,13 +894,12 @@ function generateImports(specs: ResolvedIntentCommandSpec[]): string {
 }
 
 function generateClass(spec: ResolvedIntentCommandSpec): string {
+  const fixedValues = resolveFixedValues(spec)
   const fieldSpecs =
-    spec.schemaSpec == null
-      ? []
-      : collectSchemaFields(spec.schemaSpec, resolveFixedValues(spec), spec.input)
+    spec.schemaSpec == null ? [] : collectSchemaFields(spec.schemaSpec, fixedValues, spec.input)
   const schemaFields = formatSchemaFields(fieldSpecs)
   const inputOptions = formatInputOptions(spec)
-  const runBody = formatRunBody(spec)
+  const runBody = formatRunBody(spec, fieldSpecs)
 
   return `
 export class ${spec.className} extends AuthenticatedCommand {
