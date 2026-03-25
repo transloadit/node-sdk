@@ -47,6 +47,22 @@ export function parseIntentStep<TSchema extends z.AnyZodObject>({
     input[fieldSpec.name] = coerceIntentFieldValue(fieldSpec.kind, rawValue)
   }
 
-  const parsed = schema.parse(input)
-  return parsed as z.input<TSchema>
+  schema.parse(input)
+
+  const normalizedInput: Record<string, unknown> = { ...fixedValues }
+  const shape = schema.shape as Record<string, z.ZodTypeAny>
+
+  for (const fieldSpec of fieldSpecs) {
+    const rawValue = rawValues[fieldSpec.name]
+    if (rawValue == null) continue
+
+    const fieldSchema = shape[fieldSpec.name]
+    if (fieldSchema == null) {
+      throw new Error(`Missing schema definition for intent field "${fieldSpec.name}"`)
+    }
+
+    normalizedInput[fieldSpec.name] = fieldSchema.parse(input[fieldSpec.name])
+  }
+
+  return normalizedInput as z.input<TSchema>
 }

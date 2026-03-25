@@ -185,7 +185,7 @@ describe('intent commands', () => {
     )
   })
 
-  it('allows audio waveform to use the schema default style', async () => {
+  it('omits schema defaults from generated intent steps', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
 
@@ -206,12 +206,11 @@ describe('intent commands', () => {
         inputs: ['podcast.mp3'],
         output: 'waveform.png',
         stepsData: {
-          waveformed: expect.objectContaining({
+          waveformed: {
             robot: '/audio/waveform',
             result: true,
             use: ':original',
-            style: 'v0',
-          }),
+          },
         },
       }),
     )
@@ -354,6 +353,68 @@ describe('intent commands', () => {
               bundle_steps: true,
             },
           }),
+        },
+      }),
+    )
+  })
+
+  it('omits nullable defaults like file compress password when not provided', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main(['file', 'compress', '--input', 'assets', '--format', 'zip', '--out', 'assets.zip'])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          compressed: {
+            robot: '/file/compress',
+            result: true,
+            format: 'zip',
+            use: {
+              steps: [':original'],
+              bundle_steps: true,
+            },
+          },
+        },
+      }),
+    )
+  })
+
+  it('omits numeric defaults like video thumbs rotate when not provided', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main(['video', 'thumbs', '--input', 'demo.mp4', '--out', 'thumbs'])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          thumbnailed: {
+            robot: '/video/thumbs',
+            result: true,
+            use: ':original',
+          },
         },
       }),
     )

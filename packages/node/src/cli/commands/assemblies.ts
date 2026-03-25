@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto'
 import EventEmitter from 'node:events'
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import type { Readable, Writable } from 'node:stream'
+import type { Readable } from 'node:stream'
+import { Writable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 import tty from 'node:tty'
@@ -361,6 +363,18 @@ async function myStat(
   return await fsp.stat(filepath)
 }
 
+function createPlaceholderOutStream(outpath: string, mtime: Date): OutStream {
+  const outstream = new Writable({
+    write(_chunk, _encoding, callback) {
+      callback()
+    },
+  }) as OutStream
+  outstream.path = outpath
+  outstream.mtime = mtime
+  outstream.on('error', () => {})
+  return outstream
+}
+
 function dirProvider(output: string): OutstreamProvider {
   return async (inpath, indir = process.cwd()) => {
     // Inputless assemblies can still write into a directory, but output paths are derived from
@@ -375,39 +389,44 @@ function dirProvider(output: string): OutstreamProvider {
     let relpath = path.relative(indir, inpath)
     relpath = relpath.replace(/^(\.\.\/)+/, '')
     const outpath = path.join(output, relpath)
-    const outdir = path.dirname(outpath)
-
-    await fsp.mkdir(outdir, { recursive: true })
     const [, stats] = await tryCatch(fsp.stat(outpath))
     const mtime = stats?.mtime ?? new Date(0)
-    const outstream = fs.createWriteStream(outpath) as OutStream
-    // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-    // before being consumed (e.g., due to output collision detection)
-    outstream.on('error', () => {})
-    outstream.mtime = mtime
-    return outstream
+    return createPlaceholderOutStream(outpath, mtime)
   }
 }
 
 function fileProvider(output: string): OutstreamProvider {
-  const dirExistsP = fsp.mkdir(path.dirname(output), { recursive: true })
   return async (_inpath) => {
-    await dirExistsP
     if (output === '-') return process.stdout as OutStream
 
     const [, stats] = await tryCatch(fsp.stat(output))
     const mtime = stats?.mtime ?? new Date(0)
-    const outstream = fs.createWriteStream(output) as OutStream
-    // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-    // before being consumed (e.g., due to output collision detection)
-    outstream.on('error', () => {})
-    outstream.mtime = mtime
-    return outstream
+    return createPlaceholderOutStream(output, mtime)
   }
 }
 
 function nullProvider(): OutstreamProvider {
   return async (_inpath) => null
+}
+
+async function downloadResultToFile(
+  resultUrl: string,
+  outPath: string,
+  signal: AbortSignal,
+): Promise<void> {
+  await fsp.mkdir(path.dirname(outPath), { recursive: true })
+
+  const tempPath = path.join(path.dirname(outPath), `.${path.basename(outPath)}.${randomUUID()}.tmp`)
+  const outStream = fs.createWriteStream(tempPath) as OutStream
+  outStream.on('error', () => {})
+
+  const [dlErr] = await tryCatch(pipeline(got.stream(resultUrl, { signal }), outStream))
+  if (dlErr) {
+    await fsp.rm(tempPath, { force: true })
+    throw dlErr
+  }
+
+  await fsp.rename(tempPath, outPath)
 }
 
 class MyEventEmitter extends EventEmitter {
@@ -934,6 +953,14 @@ export async function create(
     }
   }
 
+  const inputStats = await Promise.all(
+    inputs.map(async (input) => {
+      if (input === '-') return null
+      return await myStat(process.stdin, input)
+    }),
+  )
+  const hasDirectoryInput = inputStats.some((stat) => stat?.isDirectory() === true)
+
   return new Promise((resolve, reject) => {
     const params: CreateAssemblyParams = (
       effectiveStepsData
@@ -981,13 +1008,6 @@ export async function create(
       inStream?.on('error', () => {})
 
       let superceded = false
-      // When writing to a file path (non-directory output), we treat finish as a supersede signal.
-      // Directory-output multi-download mode does not use a single shared outstream.
-      const markSupersededOnFinish = (stream: OutStream) => {
-        stream.on('finish', () => {
-          superceded = true
-        })
-      }
 
       const createOptions: CreateAssemblyOptions = {
         params,
@@ -1062,38 +1082,53 @@ export async function create(
         }
       }
 
+      const shouldGroupByInput = inPath != null && (hasDirectoryInput || inputs.length > 1)
+
+      const resolveDirectoryBaseDir = (): string => {
+        if (!shouldGroupByInput || inPath == null) {
+          return resolvedOutput as string
+        }
+
+        if (hasDirectoryInput && outPath != null) {
+          const mappedRelative = path.relative(resolvedOutput as string, outPath)
+          const mappedDir = path.dirname(mappedRelative)
+          const mappedStem = path.parse(mappedRelative).name
+          return path.join(
+            resolvedOutput as string,
+            mappedDir === '.' ? '' : mappedDir,
+            mappedStem,
+          )
+        }
+
+        return path.join(resolvedOutput as string, path.parse(path.basename(inPath)).name)
+      }
+
       if (resolvedOutput != null && !superceded) {
         // Directory output:
-        // - For single-result, input-backed jobs, preserve existing behavior (write to mapped file path).
-        // - Otherwise (multi-result or inputless), download all results into a directory structure.
-        if (outIsDirectory && (inPath == null || allFiles.length !== 1 || outPath == null)) {
-          let baseDir = resolvedOutput
-          if (inPath != null) {
-            let relpath = path.relative(process.cwd(), inPath)
-            relpath = relpath.replace(/^(\.\.\/)+/, '')
-            baseDir = path.join(resolvedOutput, path.dirname(relpath), path.parse(relpath).name)
-          }
+        // - Single-step results write directly into the output directory when possible.
+        // - Multiple steps use per-step subdirectories to avoid collisions and expose structure.
+        if (outIsDirectory) {
+          const baseDir = resolveDirectoryBaseDir()
           await fsp.mkdir(baseDir, { recursive: true })
+          const shouldUseStepDirectories = entries.length > 1
 
           for (const { stepName, file } of allFiles) {
             const resultUrl = getFileUrl(file)
             if (!resultUrl) continue
 
-            const stepDir = path.join(baseDir, stepName)
-            await fsp.mkdir(stepDir, { recursive: true })
+            const targetDir = shouldUseStepDirectories ? path.join(baseDir, stepName) : baseDir
+            await fsp.mkdir(targetDir, { recursive: true })
 
             const rawName =
               file.name ??
               (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
               `${stepName}_result`
             const safeName = sanitizeName(rawName)
-            const targetPath = await ensureUniquePath(path.join(stepDir, safeName))
+            const targetPath = await ensureUniquePath(path.join(targetDir, safeName))
 
             outputctl.debug('DOWNLOADING')
-            const outStream = fs.createWriteStream(targetPath) as OutStream
-            outStream.on('error', () => {})
             const [dlErr] = await tryCatch(
-              pipeline(got.stream(resultUrl, { signal: abortController.signal }), outStream),
+              downloadResultToFile(resultUrl, targetPath, abortController.signal),
             )
             if (dlErr) {
               if (dlErr.name === 'AbortError') continue
@@ -1101,39 +1136,13 @@ export async function create(
               throw dlErr
             }
           }
-        } else if (!outIsDirectory && outPath != null) {
+        } else if (outPath != null) {
           const first = allFiles[0]
           const resultUrl = first ? getFileUrl(first.file) : null
           if (resultUrl) {
             outputctl.debug('DOWNLOADING')
-            const outStream = fs.createWriteStream(outPath) as OutStream
-            outStream.on('error', () => {})
-            outStream.mtime = outMtime
-            markSupersededOnFinish(outStream)
-
             const [dlErr] = await tryCatch(
-              pipeline(got.stream(resultUrl, { signal: abortController.signal }), outStream),
-            )
-            if (dlErr) {
-              if (dlErr.name !== 'AbortError') {
-                outputctl.error(dlErr.message)
-                throw dlErr
-              }
-            }
-          }
-        } else if (outIsDirectory && outPath != null) {
-          // Single-result, input-backed job: preserve existing file mapping in outdir.
-          const first = allFiles[0]
-          const resultUrl = first ? getFileUrl(first.file) : null
-          if (resultUrl) {
-            outputctl.debug('DOWNLOADING')
-            const outStream = fs.createWriteStream(outPath) as OutStream
-            outStream.on('error', () => {})
-            outStream.mtime = outMtime
-            markSupersededOnFinish(outStream)
-
-            const [dlErr] = await tryCatch(
-              pipeline(got.stream(resultUrl, { signal: abortController.signal }), outStream),
+              downloadResultToFile(resultUrl, outPath, abortController.signal),
             )
             if (dlErr) {
               if (dlErr.name !== 'AbortError') {
@@ -1243,10 +1252,7 @@ export async function create(
 
                   outputctl.debug(`DOWNLOADING ${stepResult.name} to ${outPath}`)
                   const [dlErr] = await tryCatch(
-                    pipeline(
-                      got.stream(resultUrl, { signal: abortController.signal }),
-                      fs.createWriteStream(outPath),
-                    ),
+                    downloadResultToFile(resultUrl, outPath, abortController.signal),
                   )
                   if (dlErr) {
                     if (dlErr.name === 'AbortError') continue

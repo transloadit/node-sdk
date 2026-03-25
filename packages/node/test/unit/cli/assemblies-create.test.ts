@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import nock from 'nock'
@@ -76,7 +76,7 @@ describe('assemblies create', () => {
     expect(await readFile(outputPath, 'utf8')).toBe('bundle-contents')
   })
 
-  it('treats explicit directory outputs as directories even when the path does not exist yet', async () => {
+  it('writes single-input directory outputs using result filenames', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const tempDir = await createTempDir('transloadit-outdir-')
@@ -125,16 +125,89 @@ describe('assemblies create', () => {
       }),
     )
 
-    let relpath = path.relative(process.cwd(), inputPath)
-    relpath = relpath.replace(/^(\.\.\/)+/, '')
-    const resultsDir = path.join(
-      outputDir,
-      path.dirname(relpath),
-      path.parse(relpath).name,
-      'thumbs',
+    expect(await readFile(path.join(outputDir, 'one.jpg'), 'utf8')).toBe('one')
+    expect(await readFile(path.join(outputDir, 'two.jpg'), 'utf8')).toBe('two')
+  })
+
+  it('uses the actual result filename for single-result directory outputs', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-single-result-outdir-')
+    const inputPath = path.join(tempDir, 'archive.zip')
+    const outputDir = path.join(tempDir, 'extracted')
+
+    await writeFile(inputPath, 'zip-data')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-3' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          decompressed: [{ url: 'http://downloads.test/input.txt', name: 'input.txt' }],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/input.txt').reply(200, 'hello')
+
+    await expect(
+      create(output, client as never, {
+        inputs: [inputPath],
+        output: outputDir,
+        stepsData: {
+          decompressed: {
+            robot: '/file/decompress',
+            result: true,
+            use: ':original',
+          },
+        },
+        outputMode: 'directory',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: false,
+      }),
     )
 
-    expect(await readFile(path.join(resultsDir, 'one.jpg'), 'utf8')).toBe('one')
-    expect(await readFile(path.join(resultsDir, 'two.jpg'), 'utf8')).toBe('two')
+    expect(await readFile(path.join(outputDir, 'input.txt'), 'utf8')).toBe('hello')
+  })
+
+  it('does not create an empty output file when assembly creation fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-failed-create-')
+    const inputPath = path.join(tempDir, 'image.jpg')
+    const outputPath = path.join(tempDir, 'resized.jpg')
+
+    await writeFile(inputPath, 'image-data')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockRejectedValue(new Error('boom')),
+    }
+
+    await expect(
+      create(output, client as never, {
+        inputs: [inputPath],
+        output: outputPath,
+        stepsData: {
+          resized: {
+            robot: '/image/resize',
+            result: true,
+            use: ':original',
+            width: 200,
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: true,
+      }),
+    )
+
+    await expect(stat(outputPath)).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
   })
 })
