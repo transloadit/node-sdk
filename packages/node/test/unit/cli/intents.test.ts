@@ -185,6 +185,38 @@ describe('intent commands', () => {
     )
   })
 
+  it('allows audio waveform to use the schema default style', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main(['audio', 'waveform', '--input', 'podcast.mp3', '--out', 'waveform.png'])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['podcast.mp3'],
+        output: 'waveform.png',
+        stepsData: {
+          waveformed: expect.objectContaining({
+            robot: '/audio/waveform',
+            result: true,
+            use: ':original',
+            style: 'v0',
+          }),
+        },
+      }),
+    )
+  })
+
   it('applies schema normalization before submitting generated steps', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
@@ -220,6 +252,59 @@ describe('intent commands', () => {
             result: true,
             use: ':original',
             style: 'v1',
+          }),
+        },
+      }),
+    )
+  })
+
+  it('passes directory output intent for multi-file commands', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main(['video', 'thumbs', '--input', 'demo.mp4', '--out', 'thumbs'])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['demo.mp4'],
+        output: 'thumbs',
+        outputMode: 'directory',
+      }),
+    )
+  })
+
+  it('coerces numeric literal union options like video thumbs --rotate', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main(['video', 'thumbs', '--input', 'demo.mp4', '--rotate', '90', '--out', 'thumbs'])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          thumbnailed: expect.objectContaining({
+            robot: '/video/thumbs',
+            rotate: 90,
           }),
         },
       }),

@@ -79,6 +79,7 @@ export interface IntentCommandSpec {
   examples: Array<[string, string]>
   execution: IntentExecutionSpec
   input: IntentInputSpec
+  outputMode?: 'directory' | 'file'
   outputDescription: string
   outputRequired: boolean
   paths: string[][]
@@ -397,6 +398,7 @@ export const intentCommandSpecs = [
       'Runs `/document/thumbs` on each input document and writes the extracted pages or animated GIF to `--out`.',
     paths: [['document', 'thumbs']],
     input: localFileInput,
+    outputMode: 'directory',
     outputDescription: 'Write the extracted document thumbnails to this path or directory',
     outputRequired: true,
     examples: [
@@ -521,6 +523,7 @@ export const intentCommandSpecs = [
     details: 'Runs `/video/thumbs` on each input video and writes the extracted images to `--out`.',
     paths: [['video', 'thumbs']],
     input: localFileInput,
+    outputMode: 'directory',
     outputDescription: 'Write the extracted video thumbnails to this path or directory',
     outputRequired: true,
     examples: [
@@ -557,6 +560,7 @@ export const intentCommandSpecs = [
       'Runs the `builtin/encode-hls-video@latest` builtin template and downloads the HLS outputs into `--out`.',
     paths: [['video', 'encode-hls']],
     input: localFileInput,
+    outputMode: 'directory',
     outputDescription: 'Write the HLS outputs into this directory',
     outputRequired: true,
     examples: [
@@ -625,6 +629,7 @@ export const intentCommandSpecs = [
       'Runs `/file/decompress` on each input archive and writes the extracted files to `--out`.',
     paths: [['file', 'decompress']],
     input: localFileInput,
+    outputMode: 'directory',
     outputDescription: 'Write the extracted files to this directory',
     outputRequired: true,
     examples: [

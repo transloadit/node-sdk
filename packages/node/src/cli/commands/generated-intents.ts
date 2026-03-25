@@ -1086,6 +1086,7 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'directory',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,
@@ -1134,7 +1135,6 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
   style = Option.String('--style', {
     description:
       'Waveform style version.\n\n- `"v0"`: Legacy waveform generation (default).\n- `"v1"`: Advanced waveform generation with additional parameters.\n\nFor backwards compatibility, numeric values `0`, `1`, `2` are also accepted and mapped to `"v0"` (0) and `"v1"` (1/2).',
-    required: true,
   })
 
   backgroundColor = Option.String('--background-color', {
@@ -1440,7 +1440,7 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
         { name: 'height', kind: 'number' },
         { name: 'resize_strategy', kind: 'string' },
         { name: 'background', kind: 'string' },
-        { name: 'rotate', kind: 'string' },
+        { name: 'rotate', kind: 'number' },
       ],
       rawValues: {
         count: this.count,
@@ -1459,6 +1459,7 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'directory',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,
@@ -1537,6 +1538,7 @@ export class VideoEncodeHlsCommand extends AuthenticatedCommand {
       template: 'builtin/encode-hls-video@latest',
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'directory',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,
@@ -1747,6 +1749,7 @@ export class FileDecompressCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'directory',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,

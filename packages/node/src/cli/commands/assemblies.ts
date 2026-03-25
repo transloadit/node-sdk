@@ -315,6 +315,7 @@ interface StreamRegistry {
 }
 
 interface JobEmitterOptions {
+  allowOutputCollisions?: boolean
   recursive?: boolean
   outstreamProvider: OutstreamProvider
   streamRegistry: StreamRegistry
@@ -747,9 +748,20 @@ function dismissStaleJobs(jobEmitter: EventEmitter): MyEventEmitter {
   return emitter
 }
 
+function passthroughJobs(jobEmitter: EventEmitter): MyEventEmitter {
+  const emitter = new MyEventEmitter()
+
+  jobEmitter.on('end', () => emitter.emit('end'))
+  jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
+  jobEmitter.on('job', (job: Job) => emitter.emit('job', job))
+
+  return emitter
+}
+
 function makeJobEmitter(
   inputs: string[],
   {
+    allowOutputCollisions,
     recursive,
     outstreamProvider,
     streamRegistry,
@@ -818,8 +830,10 @@ function makeJobEmitter(
     emitter.emit('error', err)
   })
 
-  const stalefilter = reprocessStale ? (x: EventEmitter) => x as MyEventEmitter : dismissStaleJobs
-  return stalefilter(detectConflicts(emitter))
+  const conflictFilter = allowOutputCollisions ? passthroughJobs : detectConflicts
+  const staleFilter = reprocessStale ? passthroughJobs : dismissStaleJobs
+
+  return staleFilter(conflictFilter(emitter))
 }
 
 export interface AssembliesCreateOptions {
@@ -827,6 +841,7 @@ export interface AssembliesCreateOptions {
   stepsData?: StepsInput
   template?: string
   fields?: Record<string, string>
+  outputMode?: 'directory' | 'file'
   watch?: boolean
   recursive?: boolean
   inputs: string[]
@@ -848,6 +863,7 @@ export async function create(
     stepsData,
     template,
     fields,
+    outputMode,
     watch: watchOption,
     recursive,
     inputs,
@@ -893,9 +909,19 @@ export async function create(
   if (resolvedOutput != null) {
     const [err, stat] = await tryCatch(myStat(process.stdout, resolvedOutput))
     if (err && (!isErrnoException(err) || err.code !== 'ENOENT')) throw err
-    outstat = stat ?? { isDirectory: () => false }
+    outstat =
+      stat ??
+      ({
+        isDirectory: () => outputMode === 'directory',
+      } satisfies StatLike)
 
-    if (!outstat.isDirectory() && inputs.length !== 0) {
+    if (outputMode === 'directory' && stat != null && !stat.isDirectory()) {
+      const msg = 'Output must be a directory for this command'
+      outputctl.error(msg)
+      throw new Error(msg)
+    }
+
+    if (!outstat.isDirectory() && inputs.length !== 0 && !singleAssembly) {
       const firstInput = inputs[0]
       if (firstInput) {
         const firstInputStat = await myStat(process.stdin, firstInput)
@@ -927,6 +953,7 @@ export async function create(
     const streamRegistry: StreamRegistry = {}
 
     const emitter = makeJobEmitter(inputs, {
+      allowOutputCollisions: singleAssembly,
       recursive,
       watch: watchOption,
       outstreamProvider,

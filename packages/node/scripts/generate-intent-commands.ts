@@ -51,6 +51,11 @@ function unwrapSchema(input: unknown): { required: boolean; schema: unknown } {
   let required = true
 
   while (true) {
+    if (schema instanceof ZodEffects) {
+      schema = schema._def.schema
+      continue
+    }
+
     if (schema instanceof ZodOptional) {
       required = false
       schema = schema.unwrap()
@@ -73,6 +78,41 @@ function unwrapSchema(input: unknown): { required: boolean; schema: unknown } {
   }
 }
 
+function getFieldKind(schema: unknown): GeneratedFieldKind {
+  if (schema instanceof ZodEffects) {
+    return getFieldKind(schema._def.schema)
+  }
+
+  if (schema instanceof ZodString || schema instanceof ZodEnum) {
+    return 'string'
+  }
+
+  if (schema instanceof ZodNumber) {
+    return 'number'
+  }
+
+  if (schema instanceof ZodBoolean) {
+    return 'boolean'
+  }
+
+  if (schema instanceof ZodLiteral) {
+    if (typeof schema.value === 'number') return 'number'
+    if (typeof schema.value === 'boolean') return 'boolean'
+    return 'string'
+  }
+
+  if (schema instanceof ZodUnion) {
+    const optionKinds = new Set(schema._def.options.map((option) => getFieldKind(option)))
+    if (optionKinds.size === 1) {
+      const [kind] = optionKinds
+      if (kind != null) return kind
+    }
+    return 'string'
+  }
+
+  throw new Error('Unsupported schema type')
+}
+
 function collectSchemaFields(schemaOptions: IntentSchemaOptionSpec): GeneratedSchemaField[] {
   const shape = (schemaOptions.schema as ZodObject<Record<string, unknown>>).shape
   const requiredKeys = new Set(schemaOptions.requiredKeys ?? [])
@@ -89,33 +129,14 @@ function collectSchemaFields(schemaOptions: IntentSchemaOptionSpec): GeneratedSc
     const description = fieldSchema.description
     const required = requiredKeys.has(key) || schemaRequired
 
-    if (unwrappedSchema instanceof ZodString || unwrappedSchema instanceof ZodEnum) {
-      return { name: key, propertyName, optionFlags, required, description, kind: 'string' }
+    return {
+      name: key,
+      propertyName,
+      optionFlags,
+      required,
+      description,
+      kind: getFieldKind(unwrappedSchema),
     }
-
-    if (unwrappedSchema instanceof ZodNumber) {
-      return { name: key, propertyName, optionFlags, required, description, kind: 'number' }
-    }
-
-    if (unwrappedSchema instanceof ZodBoolean) {
-      return { name: key, propertyName, optionFlags, required, description, kind: 'boolean' }
-    }
-
-    if (unwrappedSchema instanceof ZodEffects) {
-      const effectInnerSchema = unwrappedSchema._def.schema
-      const kind: GeneratedFieldKind = effectInnerSchema instanceof ZodNumber ? 'number' : 'string'
-      return { name: key, propertyName, optionFlags, required, description, kind }
-    }
-
-    if (unwrappedSchema instanceof ZodLiteral) {
-      return { name: key, propertyName, optionFlags, required, description, kind: 'string' }
-    }
-
-    if (unwrappedSchema instanceof ZodUnion) {
-      return { name: key, propertyName, optionFlags, required, description, kind: 'string' }
-    }
-
-    throw new Error(`Unsupported schema type for "${key}"`)
   })
 }
 
@@ -225,8 +246,15 @@ function formatInputOptions(spec: IntentCommandSpec): string {
   return ''
 }
 
-function formatLocalCreateOptions(input: IntentInputLocalFilesSpec): string {
+function formatLocalCreateOptions(
+  spec: IntentCommandSpec,
+  input: IntentInputLocalFilesSpec,
+): string {
   const entries = ['      inputs: this.inputs ?? [],', '      output: this.outputPath,']
+
+  if (spec.outputMode != null) {
+    entries.push(`      outputMode: ${JSON.stringify(spec.outputMode)},`)
+  }
 
   if (input.recursive !== false) {
     entries.push('      recursive: this.recursive,')
@@ -308,7 +336,7 @@ ${parseStep}
       stepsData: {
         ${JSON.stringify(spec.execution.resultStepName)}: step,
       },
-${formatLocalCreateOptions(spec.input)}
+${formatLocalCreateOptions(spec, spec.input)}
     })
 
     return hasFailures ? 1 : undefined`
@@ -361,7 +389,7 @@ ${formatLocalCreateOptions(spec.input)}
 
     const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
       template: ${JSON.stringify(spec.execution.templateId)},
-${formatLocalCreateOptions(spec.input)}
+${formatLocalCreateOptions(spec, spec.input)}
     })
 
     return hasFailures ? 1 : undefined`
