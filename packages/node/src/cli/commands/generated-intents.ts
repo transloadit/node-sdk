@@ -27,28 +27,23 @@ export class ImageGenerateCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Generate an image from a prompt',
-    details:
-      'Creates a one-off assembly around `/image/generate` and downloads the result to `--out`.',
+    description: 'Generate images from text prompts',
+    details: 'Runs `/image/generate` and writes the result to `--out`.',
     examples: [
       [
-        'Generate a PNG image',
-        'transloadit image generate --prompt "A red bicycle in a studio" --out bicycle.png',
-      ],
-      [
-        'Pick a model and aspect ratio',
-        'transloadit image generate --prompt "An astronaut riding a horse" --model flux-schnell --aspect-ratio 2:3 --out horse.png',
+        'Run the command',
+        'transloadit image generate --prompt "A red bicycle in a studio" --out output.png',
       ],
     ],
+  })
+
+  model = Option.String('--model', {
+    description: 'The AI model to use for image generation. Defaults to google/nano-banana.',
   })
 
   prompt = Option.String('--prompt', {
     description: 'The prompt describing the desired image content.',
     required: true,
-  })
-
-  model = Option.String('--model', {
-    description: 'The AI model to use for image generation. Defaults to google/nano-banana.',
   })
 
   format = Option.String('--format', {
@@ -75,8 +70,12 @@ export class ImageGenerateCommand extends AuthenticatedCommand {
     description: 'Style of the generated image.',
   })
 
+  numOutputs = Option.String('--num-outputs', {
+    description: 'Number of image variants to generate.',
+  })
+
   outputPath = Option.String('--out,-o', {
-    description: 'Write the generated image to this path',
+    description: 'Write the result to this path',
     required: true,
   })
 
@@ -88,24 +87,26 @@ export class ImageGenerateCommand extends AuthenticatedCommand {
         result: true,
       },
       fieldSpecs: [
-        { name: 'prompt', kind: 'string' },
         { name: 'model', kind: 'string' },
+        { name: 'prompt', kind: 'string' },
         { name: 'format', kind: 'string' },
         { name: 'seed', kind: 'number' },
         { name: 'aspect_ratio', kind: 'string' },
         { name: 'height', kind: 'number' },
         { name: 'width', kind: 'number' },
         { name: 'style', kind: 'string' },
+        { name: 'num_outputs', kind: 'number' },
       ],
       rawValues: {
-        prompt: this.prompt,
         model: this.model,
+        prompt: this.prompt,
         format: this.format,
         seed: this.seed,
         aspect_ratio: this.aspectRatio,
         height: this.height,
         width: this.width,
         style: this.style,
+        num_outputs: this.numOutputs,
       },
     })
 
@@ -134,10 +135,6 @@ export class PreviewGenerateCommand extends AuthenticatedCommand {
         'Preview a remote PDF',
         'transloadit preview generate --input https://example.com/file.pdf --width 300 --height 200 --out preview.png',
       ],
-      [
-        'Pick a format and resize strategy',
-        'transloadit preview generate --input https://example.com/file.mp4 --width 640 --height 360 --format jpg --resize-strategy fillcrop --out preview.jpg',
-      ],
     ],
   })
 
@@ -157,6 +154,99 @@ export class PreviewGenerateCommand extends AuthenticatedCommand {
   resizeStrategy = Option.String('--resize-strategy', {
     description:
       'To achieve the desired dimensions of the preview thumbnail, the <dfn>Robot</dfn> might have to resize the generated image. This happens, for example, when the dimensions of a frame extracted from a video do not match the chosen `width` and `height` parameters.\n\nSee the list of available [resize strategies](/docs/topics/resize-strategies/) for more details.',
+  })
+
+  background = Option.String('--background', {
+    description:
+      'The hexadecimal code of the color used to fill the background (only used for the pad resize strategy). The format is `#rrggbb[aa]` (red, green, blue, alpha). Use `#00000000` for a transparent padding.',
+  })
+
+  artworkOuterColor = Option.String('--artwork-outer-color', {
+    description: "The color used in the outer parts of the artwork's gradient.",
+  })
+
+  artworkCenterColor = Option.String('--artwork-center-color', {
+    description: "The color used in the center of the artwork's gradient.",
+  })
+
+  waveformCenterColor = Option.String('--waveform-center-color', {
+    description:
+      "The color used in the center of the waveform's gradient. The format is `#rrggbb[aa]` (red, green, blue, alpha). Only used if the `waveform` strategy for audio files is applied.",
+  })
+
+  waveformOuterColor = Option.String('--waveform-outer-color', {
+    description:
+      "The color used in the outer parts of the waveform's gradient. The format is `#rrggbb[aa]` (red, green, blue, alpha). Only used if the `waveform` strategy for audio files is applied.",
+  })
+
+  waveformHeight = Option.String('--waveform-height', {
+    description:
+      'Height of the waveform, in pixels. Only used if the `waveform` strategy for audio files is applied. It can be utilized to ensure that the waveform only takes up a section of the preview thumbnail.',
+  })
+
+  waveformWidth = Option.String('--waveform-width', {
+    description:
+      'Width of the waveform, in pixels. Only used if the `waveform` strategy for audio files is applied. It can be utilized to ensure that the waveform only takes up a section of the preview thumbnail.',
+  })
+
+  iconStyle = Option.String('--icon-style', {
+    description:
+      'The style of the icon generated if the `icon` strategy is applied. The default style, `with-text`, includes an icon showing the file type and a text box below it, whose content can be controlled by the `icon_text_content` parameter and defaults to the file extension (e.g. MP4, JPEG). The `square` style only includes a square variant of the icon showing the file type. Below are exemplary previews generated for a text file utilizing the different styles:\n\n<br><br> <strong>`with-text` style:</strong> <br>\n![Image with text style]({{site.asset_cdn}}/assets/images/file-preview/icon-with-text.png)\n<br><br> <strong>`square` style:</strong> <br>\n![Image with square style]({{site.asset_cdn}}/assets/images/file-preview/icon-square.png)',
+  })
+
+  iconTextColor = Option.String('--icon-text-color', {
+    description:
+      'The color of the text used in the icon. The format is `#rrggbb[aa]`. Only used if the `icon` strategy is applied.',
+  })
+
+  iconTextFont = Option.String('--icon-text-font', {
+    description:
+      'The font family of the text used in the icon. Only used if the `icon` strategy is applied. [Here](/docs/supported-formats/fonts/) is a list of all supported fonts.',
+  })
+
+  iconTextContent = Option.String('--icon-text-content', {
+    description:
+      'The content of the text box in generated icons. Only used if the `icon_style` parameter is set to `with-text`. The default value, `extension`, adds the file extension (e.g. MP4, JPEG) to the icon. The value `none` can be used to render an empty text box, which is useful if no text should not be included in the raster image, but some place should be reserved in the image for later overlaying custom text over the image using HTML etc.',
+  })
+
+  optimize = Option.String('--optimize', {
+    description:
+      "Specifies whether the generated preview image should be optimized to reduce the image's file size while keeping their quaility. If enabled, the images will be optimized using [🤖/image/optimize](/docs/robots/image-optimize/).",
+  })
+
+  optimizePriority = Option.String('--optimize-priority', {
+    description:
+      'Specifies whether conversion speed or compression ratio is prioritized when optimizing images. Only used if `optimize` is enabled. Please see the [🤖/image/optimize documentation](/docs/robots/image-optimize/#param-priority) for more details.',
+  })
+
+  optimizeProgressive = Option.String('--optimize-progressive', {
+    description:
+      'Specifies whether images should be interlaced, which makes the result image load progressively in browsers. Only used if `optimize` is enabled. Please see the [🤖/image/optimize documentation](/docs/robots/image-optimize/#param-progressive) for more details.',
+  })
+
+  clipFormat = Option.String('--clip-format', {
+    description:
+      'The animated image format for the generated video clip. Only used if the `clip` strategy for video files is applied.\n\nPlease consult the [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/Media/Formats/Image_types) for detailed information about the image formats and their characteristics. GIF enjoys the broadest support in software, but only supports a limit color palette. APNG supports a variety of color depths, but its lossless compression produces large images for videos. AVIF is a modern image format that offers great compression, but proper support for animations is still lacking in some browsers. WebP on the other hand, enjoys broad support while offering a great balance between small file sizes and good visual quality, making it the default clip format.',
+  })
+
+  clipOffset = Option.String('--clip-offset', {
+    description:
+      'The start position in seconds of where the clip is cut. Only used if the `clip` strategy for video files is applied. Be aware that for larger video only the first few MBs of the file may be imported to improve speed. Larger offsets may seek to a position outside of the imported part and thus fail to generate a clip.',
+  })
+
+  clipDuration = Option.String('--clip-duration', {
+    description:
+      'The duration in seconds of the generated video clip. Only used if the `clip` strategy for video files is applied. Be aware that a longer clip duration also results in a larger file size, which might be undesirable for previews.',
+  })
+
+  clipFramerate = Option.String('--clip-framerate', {
+    description:
+      'The framerate of the generated video clip. Only used if the `clip` strategy for video files is applied. Be aware that a higher framerate appears smoother but also results in a larger file size, which might be undesirable for previews.',
+  })
+
+  clipLoop = Option.String('--clip-loop', {
+    description:
+      'Specifies whether the generated animated image should loop forever (`true`) or stop after playing the animation once (`false`). Only used if the `clip` strategy for video files is applied.',
   })
 
   input = Option.String('--input,-i', {
@@ -181,12 +271,50 @@ export class PreviewGenerateCommand extends AuthenticatedCommand {
         { name: 'width', kind: 'number' },
         { name: 'height', kind: 'number' },
         { name: 'resize_strategy', kind: 'string' },
+        { name: 'background', kind: 'string' },
+        { name: 'artwork_outer_color', kind: 'string' },
+        { name: 'artwork_center_color', kind: 'string' },
+        { name: 'waveform_center_color', kind: 'string' },
+        { name: 'waveform_outer_color', kind: 'string' },
+        { name: 'waveform_height', kind: 'number' },
+        { name: 'waveform_width', kind: 'number' },
+        { name: 'icon_style', kind: 'string' },
+        { name: 'icon_text_color', kind: 'string' },
+        { name: 'icon_text_font', kind: 'string' },
+        { name: 'icon_text_content', kind: 'string' },
+        { name: 'optimize', kind: 'boolean' },
+        { name: 'optimize_priority', kind: 'string' },
+        { name: 'optimize_progressive', kind: 'boolean' },
+        { name: 'clip_format', kind: 'string' },
+        { name: 'clip_offset', kind: 'number' },
+        { name: 'clip_duration', kind: 'number' },
+        { name: 'clip_framerate', kind: 'number' },
+        { name: 'clip_loop', kind: 'boolean' },
       ],
       rawValues: {
         format: this.format,
         width: this.width,
         height: this.height,
         resize_strategy: this.resizeStrategy,
+        background: this.background,
+        artwork_outer_color: this.artworkOuterColor,
+        artwork_center_color: this.artworkCenterColor,
+        waveform_center_color: this.waveformCenterColor,
+        waveform_outer_color: this.waveformOuterColor,
+        waveform_height: this.waveformHeight,
+        waveform_width: this.waveformWidth,
+        icon_style: this.iconStyle,
+        icon_text_color: this.iconTextColor,
+        icon_text_font: this.iconTextFont,
+        icon_text_content: this.iconTextContent,
+        optimize: this.optimize,
+        optimize_priority: this.optimizePriority,
+        optimize_progressive: this.optimizeProgressive,
+        clip_format: this.clipFormat,
+        clip_offset: this.clipOffset,
+        clip_duration: this.clipDuration,
+        clip_framerate: this.clipFramerate,
+        clip_loop: this.clipLoop,
       },
     })
 
@@ -214,17 +342,10 @@ export class ImageRemoveBackgroundCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Remove the background from an image',
-    details: 'Runs `/image/bgremove` on each input image and downloads the result to `--out`.',
+    description: 'Remove the background from images',
+    details: 'Runs `/image/bgremove` on each input file and writes the result to `--out`.',
     examples: [
-      [
-        'Remove the background from one image',
-        'transloadit image remove-background --input portrait.png --out portrait-cutout.png',
-      ],
-      [
-        'Choose the output format',
-        'transloadit image remove-background --input portrait.png --format webp --out portrait-cutout.webp',
-      ],
+      ['Run the command', 'transloadit image remove-background --input input.png --out output.png'],
     ],
   })
 
@@ -275,7 +396,7 @@ export class ImageRemoveBackgroundCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the background-removed image to this path or directory',
+    description: 'Write the result to this path or directory',
     required: true,
   })
 
@@ -317,6 +438,7 @@ export class ImageRemoveBackgroundCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'file',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,
@@ -334,17 +456,10 @@ export class ImageOptimizeCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Optimize image file size',
-    details: 'Runs `/image/optimize` on each input image and downloads the result to `--out`.',
+    description: 'Optimize images without quality loss',
+    details: 'Runs `/image/optimize` on each input file and writes the result to `--out`.',
     examples: [
-      [
-        'Optimize a single image',
-        'transloadit image optimize --input hero.jpg --out hero-optimized.jpg',
-      ],
-      [
-        'Prioritize compression ratio',
-        'transloadit image optimize --input hero.jpg --priority compression-ratio --out hero-optimized.jpg',
-      ],
+      ['Run the command', 'transloadit image optimize --input input.png --out output.png'],
     ],
   })
 
@@ -398,7 +513,7 @@ export class ImageOptimizeCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the optimized image to this path or directory',
+    description: 'Write the result to this path or directory',
     required: true,
   })
 
@@ -440,6 +555,7 @@ export class ImageOptimizeCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'file',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,
@@ -457,18 +573,9 @@ export class ImageResizeCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Resize an image',
-    details: 'Runs `/image/resize` on each input image and downloads the result to `--out`.',
-    examples: [
-      [
-        'Resize an image to 800×600',
-        'transloadit image resize --input photo.jpg --width 800 --height 600 --out photo-resized.jpg',
-      ],
-      [
-        'Pad with a transparent background',
-        'transloadit image resize --input logo.png --width 512 --height 512 --resize-strategy pad --background none --out logo-square.png',
-      ],
-    ],
+    description: 'Convert, resize, or watermark images',
+    details: 'Runs `/image/resize` on each input file and writes the result to `--out`.',
+    examples: [['Run the command', 'transloadit image resize --input input.png --out output.png']],
   })
 
   format = Option.String('--format', {
@@ -490,14 +597,186 @@ export class ImageResizeCommand extends AuthenticatedCommand {
     description: 'See the list of available [resize strategies](/docs/topics/resize-strategies/).',
   })
 
+  zoom = Option.String('--zoom', {
+    description:
+      'If this is set to `false`, smaller images will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/topics/resize-strategies/).',
+  })
+
+  gravity = Option.String('--gravity', {
+    description:
+      'The direction from which the image is to be cropped, when `"resize_strategy"` is set to `"crop"`, but no crop coordinates are defined.',
+  })
+
   strip = Option.String('--strip', {
     description:
       'Strips all metadata from the image. This is useful to keep thumbnails as small as possible.',
   })
 
+  alpha = Option.String('--alpha', {
+    description: 'Gives control of the alpha/matte channel of an image.',
+  })
+
+  preclipAlpha = Option.String('--preclip-alpha', {
+    description:
+      'Gives control of the alpha/matte channel of an image before applying the clipping path via `clip: true`.',
+  })
+
+  flatten = Option.String('--flatten', {
+    description:
+      'Flattens all layers onto the specified background to achieve better results from transparent formats to non-transparent formats, as explained in the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#layers).\n\nTo preserve animations, GIF files are not flattened when this is set to `true`. To flatten GIF animations, use the `frame` parameter.',
+  })
+
+  correctGamma = Option.String('--correct-gamma', {
+    description:
+      'Prevents gamma errors [common in many image scaling algorithms](https://www.4p8.com/eric.brasseur/gamma.html).',
+  })
+
+  quality = Option.String('--quality', {
+    description:
+      'Controls the image compression for JPG and PNG images. Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).',
+  })
+
+  adaptiveFiltering = Option.String('--adaptive-filtering', {
+    description:
+      'Controls the image compression for PNG images. Setting to `true` results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled.',
+  })
+
   background = Option.String('--background', {
     description:
       'Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (used for the `pad` resize strategy).\n\n**Note:** By default, the background of transparent images is changed to white. To preserve transparency, set `"background"` to `"none"`.',
+  })
+
+  frame = Option.String('--frame', {
+    description:
+      'Use this parameter when dealing with animated GIF files to specify which frame of the GIF is used for the operation. Specify `1` to use the first frame, `2` to use the second, and so on. `null` means all frames.',
+  })
+
+  colorspace = Option.String('--colorspace', {
+    description:
+      'Sets the image colorspace. For details about the available values, see the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#colorspace). Please note that if you were using `"RGB"`, we recommend using `"sRGB"` instead as of 2014-02-04. ImageMagick might try to find the most efficient `colorspace` based on the color of an image, and default to e.g. `"Gray"`. To force colors, you might have to use this parameter in combination with `type: "TrueColor"`.',
+  })
+
+  type = Option.String('--type', {
+    description:
+      'Sets the image color type. For details about the available values, see the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#type). If you\'re using `colorspace`, ImageMagick might try to find the most efficient based on the color of an image, and default to e.g. `"Gray"`. To force colors, you could e.g. set this parameter to `"TrueColor"`',
+  })
+
+  sepia = Option.String('--sepia', {
+    description: 'Applies a sepia tone effect in percent.',
+  })
+
+  rotation = Option.String('--rotation', {
+    description:
+      'Determines whether the image should be rotated. Use any number to specify the rotation angle in degrees (e.g., `90`, `180`, `270`, `360`, or precise values like `2.9`). Use the value `true` or `"auto"` to auto-rotate images that are rotated incorrectly or depend on EXIF rotation settings. Otherwise, use `false` to disable auto-fixing altogether.',
+  })
+
+  compress = Option.String('--compress', {
+    description:
+      'Specifies pixel compression for when the image is written. Compression is disabled by default.\n\nPlease also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).',
+  })
+
+  blur = Option.String('--blur', {
+    description:
+      'Specifies gaussian blur, using a value with the form `{radius}x{sigma}`. The radius value specifies the size of area the operator should look at when spreading pixels, and should typically be either `"0"` or at least two times the sigma value. The sigma value is an approximation of how many pixels the image is "spread"; think of it as the size of the brush used to blur the image. This number is a floating point value, enabling small values like `"0.5"` to be used.',
+  })
+
+  brightness = Option.String('--brightness', {
+    description:
+      'Increases or decreases the brightness of the image by using a multiplier. For example `1.5` would increase the brightness by 50%, and `0.75` would decrease the brightness by 25%.',
+  })
+
+  saturation = Option.String('--saturation', {
+    description:
+      'Increases or decreases the saturation of the image by using a multiplier. For example `1.5` would increase the saturation by 50%, and `0.75` would decrease the saturation by 25%.',
+  })
+
+  hue = Option.String('--hue', {
+    description:
+      'Changes the hue by rotating the color of the image. The value `100` would produce no change whereas `0` and `200` will negate the colors in the image.',
+  })
+
+  contrast = Option.String('--contrast', {
+    description:
+      'Adjusts the contrast of the image. A value of `1` produces no change. Values below `1` decrease contrast (with `0` being minimum contrast), and values above `1` increase contrast (with `2` being maximum contrast). This works like the `brightness` parameter.',
+  })
+
+  watermarkUrl = Option.String('--watermark-url', {
+    description:
+      'A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.',
+  })
+
+  watermarkXOffset = Option.String('--watermark-x-offset', {
+    description:
+      "The x-offset in number of pixels at which the watermark will be placed in relation to the position it has due to `watermark_position`.\n\nValues can be both positive and negative and yield different results depending on the `watermark_position` parameter. Positive values move the watermark closer to the image's center point, whereas negative values move the watermark further away from the image's center point.",
+  })
+
+  watermarkYOffset = Option.String('--watermark-y-offset', {
+    description:
+      "The y-offset in number of pixels at which the watermark will be placed in relation to the position it has due to `watermark_position`.\n\nValues can be both positive and negative and yield different results depending on the `watermark_position` parameter. Positive values move the watermark closer to the image's center point, whereas negative values move the watermark further away from the image's center point.",
+  })
+
+  watermarkSize = Option.String('--watermark-size', {
+    description:
+      'The size of the watermark, as a percentage.\n\nFor example, a value of `"50%"` means that size of the watermark will be 50% of the size of image on which it is placed. The exact sizing depends on `watermark_resize_strategy`, too.',
+  })
+
+  watermarkResizeStrategy = Option.String('--watermark-resize-strategy', {
+    description:
+      'Available values are `"fit"`, `"min_fit"`, `"stretch"` and `"area"`.\n\nTo explain how the resize strategies work, let\'s assume our target image size is 800×800 pixels and our watermark image is 400×300 pixels. Let\'s also assume, the `watermark_size` parameter is set to `"25%"`.\n\nFor the `"fit"` resize strategy, the watermark is scaled so that the longer side of the watermark takes up 25% of the corresponding image side. And the other side is scaled according to the aspect ratio of the watermark image. So with our watermark, the width is the longer side, and 25% of the image size would be 200px. Hence, the watermark would be resized to 200×150 pixels. If the `watermark_size` was set to `"50%"`, it would be resized to 400×300 pixels (so just left at its original size).\n\nFor the `"min_fit"` resize strategy, the watermark is scaled so that the shorter side of the watermark takes up 25% of the corresponding image side. And the other side is scaled according to the aspect ratio of the watermark image. So with our watermark, the height is the shorter side, and 25% of the image size would be 200px. Hence, the watermark would be resized to 267×200 pixels. If the `watermark_size` was set to `"50%"`, it would be resized to 533×400 pixels (so larger than its original size).\n\nFor the `"stretch"` resize strategy, the watermark is stretched (meaning, it is resized without keeping its aspect ratio in mind) so that both sides take up 25% of the corresponding image side. Since our image is 800×800 pixels, for a watermark size of 25% the watermark would be resized to 200×200 pixels. Its height would appear stretched, because keeping the aspect ratio in mind it would be resized to 200×150 pixels instead.\n\nFor the `"area"` resize strategy, the watermark is resized (keeping its aspect ratio in check) so that it covers `"xx%"` of the image\'s surface area. The value from `watermark_size` is used for the percentage area size.',
+  })
+
+  watermarkOpacity = Option.String('--watermark-opacity', {
+    description:
+      'The opacity of the watermark, where `0.0` is fully transparent and `1.0` is fully opaque.\n\nFor example, a value of `0.5` means the watermark will be 50% transparent, allowing the underlying image to show through. This is useful for subtle branding or when you want the watermark to be less obtrusive.',
+  })
+
+  watermarkRepeatX = Option.String('--watermark-repeat-x', {
+    description:
+      'When set to `true`, the watermark will be repeated horizontally across the entire width of the image.\n\nThis is useful for creating tiled watermark patterns that cover the full image and make it more difficult to crop out the watermark.',
+  })
+
+  watermarkRepeatY = Option.String('--watermark-repeat-y', {
+    description:
+      'When set to `true`, the watermark will be repeated vertically across the entire height of the image.\n\nThis is useful for creating tiled watermark patterns that cover the full image. Can be combined with `watermark_repeat_x` to tile in both directions.',
+  })
+
+  progressive = Option.String('--progressive', {
+    description:
+      'Interlaces the image if set to `true`, which makes the image load progressively in browsers. Instead of rendering the image from top to bottom, the browser will first show a low-res blurry version of the images which is then quickly replaced with the actual image as the data arrives. This greatly increases the user experience, but comes at a cost of a file size increase by around 10%.',
+  })
+
+  transparent = Option.String('--transparent', {
+    description: 'Make this color transparent within the image. Example: `"255,255,255"`.',
+  })
+
+  trimWhitespace = Option.String('--trim-whitespace', {
+    description:
+      'This determines if additional whitespace around the image should first be trimmed away. If you set this to `true` this parameter removes any edges that are exactly the same color as the corner pixels.',
+  })
+
+  clip = Option.String('--clip', {
+    description:
+      'Apply the clipping path to other operations in the resize job, if one is present. If set to `true`, it will automatically take the first clipping path. If set to a String it finds a clipping path by that name.',
+  })
+
+  negate = Option.String('--negate', {
+    description:
+      'Replace each pixel with its complementary color, effectively negating the image. Especially useful when testing clipping.',
+  })
+
+  density = Option.String('--density', {
+    description:
+      'While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. That is the density (in pixels per inch) of an image and defines how far apart (or how big) the individual pixels are. It defines the size of the image in real world terms when displayed on devices or printed.\n\nYou can set this value to a specific `width` or in the format `width`x`height`.\n\nIf your converted image is unsharp, please try increasing density.',
+  })
+
+  monochrome = Option.String('--monochrome', {
+    description:
+      'Transform the image to black and white. This is a shortcut for setting the colorspace to Gray and type to Bilevel.',
+  })
+
+  shave = Option.String('--shave', {
+    description:
+      'Shave pixels from the image edges. The value should be in the format `width` or `width`x`height` to specify the number of pixels to remove from each side.',
   })
 
   inputs = Option.Array('--input,-i', {
@@ -530,7 +809,7 @@ export class ImageResizeCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the resized image to this path or directory',
+    description: 'Write the result to this path or directory',
     required: true,
   })
 
@@ -557,16 +836,86 @@ export class ImageResizeCommand extends AuthenticatedCommand {
         { name: 'width', kind: 'number' },
         { name: 'height', kind: 'number' },
         { name: 'resize_strategy', kind: 'string' },
+        { name: 'zoom', kind: 'boolean' },
+        { name: 'gravity', kind: 'string' },
         { name: 'strip', kind: 'boolean' },
+        { name: 'alpha', kind: 'string' },
+        { name: 'preclip_alpha', kind: 'string' },
+        { name: 'flatten', kind: 'boolean' },
+        { name: 'correct_gamma', kind: 'boolean' },
+        { name: 'quality', kind: 'number' },
+        { name: 'adaptive_filtering', kind: 'boolean' },
         { name: 'background', kind: 'string' },
+        { name: 'frame', kind: 'number' },
+        { name: 'colorspace', kind: 'string' },
+        { name: 'type', kind: 'string' },
+        { name: 'sepia', kind: 'number' },
+        { name: 'rotation', kind: 'string' },
+        { name: 'compress', kind: 'string' },
+        { name: 'blur', kind: 'string' },
+        { name: 'brightness', kind: 'number' },
+        { name: 'saturation', kind: 'number' },
+        { name: 'hue', kind: 'number' },
+        { name: 'contrast', kind: 'number' },
+        { name: 'watermark_url', kind: 'string' },
+        { name: 'watermark_x_offset', kind: 'number' },
+        { name: 'watermark_y_offset', kind: 'number' },
+        { name: 'watermark_size', kind: 'string' },
+        { name: 'watermark_resize_strategy', kind: 'string' },
+        { name: 'watermark_opacity', kind: 'number' },
+        { name: 'watermark_repeat_x', kind: 'boolean' },
+        { name: 'watermark_repeat_y', kind: 'boolean' },
+        { name: 'progressive', kind: 'boolean' },
+        { name: 'transparent', kind: 'string' },
+        { name: 'trim_whitespace', kind: 'boolean' },
+        { name: 'clip', kind: 'string' },
+        { name: 'negate', kind: 'boolean' },
+        { name: 'density', kind: 'string' },
+        { name: 'monochrome', kind: 'boolean' },
+        { name: 'shave', kind: 'string' },
       ],
       rawValues: {
         format: this.format,
         width: this.width,
         height: this.height,
         resize_strategy: this.resizeStrategy,
+        zoom: this.zoom,
+        gravity: this.gravity,
         strip: this.strip,
+        alpha: this.alpha,
+        preclip_alpha: this.preclipAlpha,
+        flatten: this.flatten,
+        correct_gamma: this.correctGamma,
+        quality: this.quality,
+        adaptive_filtering: this.adaptiveFiltering,
         background: this.background,
+        frame: this.frame,
+        colorspace: this.colorspace,
+        type: this.type,
+        sepia: this.sepia,
+        rotation: this.rotation,
+        compress: this.compress,
+        blur: this.blur,
+        brightness: this.brightness,
+        saturation: this.saturation,
+        hue: this.hue,
+        contrast: this.contrast,
+        watermark_url: this.watermarkUrl,
+        watermark_x_offset: this.watermarkXOffset,
+        watermark_y_offset: this.watermarkYOffset,
+        watermark_size: this.watermarkSize,
+        watermark_resize_strategy: this.watermarkResizeStrategy,
+        watermark_opacity: this.watermarkOpacity,
+        watermark_repeat_x: this.watermarkRepeatX,
+        watermark_repeat_y: this.watermarkRepeatY,
+        progressive: this.progressive,
+        transparent: this.transparent,
+        trim_whitespace: this.trimWhitespace,
+        clip: this.clip,
+        negate: this.negate,
+        density: this.density,
+        monochrome: this.monochrome,
+        shave: this.shave,
       },
     })
 
@@ -576,6 +925,7 @@ export class ImageResizeCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'file',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,
@@ -593,18 +943,10 @@ export class DocumentConvertCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Convert a document into another format',
-    details:
-      'Runs `/document/convert` on each input file and downloads the converted result to `--out`.',
+    description: 'Convert documents into different formats',
+    details: 'Runs `/document/convert` on each input file and writes the result to `--out`.',
     examples: [
-      [
-        'Convert a document to PDF',
-        'transloadit document convert --input proposal.docx --format pdf --out proposal.pdf',
-      ],
-      [
-        'Convert markdown using GitHub-flavored markdown',
-        'transloadit document convert --input notes.md --format html --markdown-format gfm --out notes.html',
-      ],
+      ['Run the command', 'transloadit document convert --input input.pdf --out output.pdf'],
     ],
   })
 
@@ -621,6 +963,36 @@ export class DocumentConvertCommand extends AuthenticatedCommand {
   markdownTheme = Option.String('--markdown-theme', {
     description:
       'This parameter overhauls your Markdown files styling based on several canned presets.',
+  })
+
+  pdfMargin = Option.String('--pdf-margin', {
+    description:
+      'PDF Paper margins, separated by `,` and with units.\n\nWe support the following unit values: `px`, `in`, `cm`, `mm`.\n\nCurrently this parameter is only supported when converting from `html`.',
+  })
+
+  pdfPrintBackground = Option.String('--pdf-print-background', {
+    description:
+      'Print PDF background graphics.\n\nCurrently this parameter is only supported when converting from `html`.',
+  })
+
+  pdfFormat = Option.String('--pdf-format', {
+    description:
+      'PDF paper format.\n\nCurrently this parameter is only supported when converting from `html`.',
+  })
+
+  pdfDisplayHeaderFooter = Option.String('--pdf-display-header-footer', {
+    description:
+      'Display PDF header and footer.\n\nCurrently this parameter is only supported when converting from `html`.',
+  })
+
+  pdfHeaderTemplate = Option.String('--pdf-header-template', {
+    description:
+      'HTML template for the PDF print header.\n\nShould be valid HTML markup with following classes used to inject printing values into them:\n- `date` formatted print date\n- `title` document title\n- `url` document location\n- `pageNumber` current page number\n- `totalPages` total pages in the document\n\nCurrently this parameter is only supported when converting from `html`, and requires `pdf_display_header_footer` to be enabled.\n\nTo change the formatting of the HTML element, the `font-size` must be specified in a wrapper. For example, to center the page number at the top of a page you\'d use the following HTML for the header template:\n\n```html\n<div style="font-size: 15px; width: 100%; text-align: center;"><span class="pageNumber"></span></div>\n```',
+  })
+
+  pdfFooterTemplate = Option.String('--pdf-footer-template', {
+    description:
+      'HTML template for the PDF print footer.\n\nShould use the same format as the `pdf_header_template`.\n\nCurrently this parameter is only supported when converting from `html`, and requires `pdf_display_header_footer` to be enabled.\n\nTo change the formatting of the HTML element, the `font-size` must be specified in a wrapper. For example, to center the page number in the footer you\'d use the following HTML for the footer template:\n\n```html\n<div style="font-size: 15px; width: 100%; text-align: center;"><span class="pageNumber"></span></div>\n```',
   })
 
   inputs = Option.Array('--input,-i', {
@@ -653,7 +1025,7 @@ export class DocumentConvertCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the converted document to this path or directory',
+    description: 'Write the result to this path or directory',
     required: true,
   })
 
@@ -679,11 +1051,23 @@ export class DocumentConvertCommand extends AuthenticatedCommand {
         { name: 'format', kind: 'string' },
         { name: 'markdown_format', kind: 'string' },
         { name: 'markdown_theme', kind: 'string' },
+        { name: 'pdf_margin', kind: 'string' },
+        { name: 'pdf_print_background', kind: 'boolean' },
+        { name: 'pdf_format', kind: 'string' },
+        { name: 'pdf_display_header_footer', kind: 'boolean' },
+        { name: 'pdf_header_template', kind: 'string' },
+        { name: 'pdf_footer_template', kind: 'string' },
       ],
       rawValues: {
         format: this.format,
         markdown_format: this.markdownFormat,
         markdown_theme: this.markdownTheme,
+        pdf_margin: this.pdfMargin,
+        pdf_print_background: this.pdfPrintBackground,
+        pdf_format: this.pdfFormat,
+        pdf_display_header_footer: this.pdfDisplayHeaderFooter,
+        pdf_header_template: this.pdfHeaderTemplate,
+        pdf_footer_template: this.pdfFooterTemplate,
       },
     })
 
@@ -693,6 +1077,7 @@ export class DocumentConvertCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'file',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,
@@ -711,17 +1096,9 @@ export class DocumentOptimizeCommand extends AuthenticatedCommand {
   static override usage = Command.Usage({
     category: 'Intent Commands',
     description: 'Reduce PDF file size',
-    details:
-      'Runs `/document/optimize` on each input PDF and downloads the optimized result to `--out`.',
+    details: 'Runs `/document/optimize` on each input file and writes the result to `--out`.',
     examples: [
-      [
-        'Optimize a PDF with the ebook preset',
-        'transloadit document optimize --input report.pdf --preset ebook --out report-optimized.pdf',
-      ],
-      [
-        'Override image DPI',
-        'transloadit document optimize --input report.pdf --image-dpi 150 --out report-optimized.pdf',
-      ],
+      ['Run the command', 'transloadit document optimize --input input.pdf --out output.pdf'],
     ],
   })
 
@@ -790,7 +1167,7 @@ export class DocumentOptimizeCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the optimized PDF to this path or directory',
+    description: 'Write the result to this path or directory',
     required: true,
   })
 
@@ -838,6 +1215,7 @@ export class DocumentOptimizeCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'file',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,
@@ -855,14 +1233,10 @@ export class DocumentAutoRotateCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Correct document page orientation',
-    details:
-      'Runs `/document/autorotate` on each input file and downloads the corrected document to `--out`.',
+    description: 'Auto-rotate documents to the correct orientation',
+    details: 'Runs `/document/autorotate` on each input file and writes the result to `--out`.',
     examples: [
-      [
-        'Auto-rotate a scanned PDF',
-        'transloadit document auto-rotate --input scans.pdf --out scans-corrected.pdf',
-      ],
+      ['Run the command', 'transloadit document auto-rotate --input input.pdf --out output.pdf'],
     ],
   })
 
@@ -896,7 +1270,7 @@ export class DocumentAutoRotateCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the auto-rotated document to this path or directory',
+    description: 'Write the result to this path or directory',
     required: true,
   })
 
@@ -928,6 +1302,7 @@ export class DocumentAutoRotateCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'file',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,
@@ -945,19 +1320,9 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Render thumbnails from a document',
-    details:
-      'Runs `/document/thumbs` on each input document and writes the extracted pages or animated GIF to `--out`.',
-    examples: [
-      [
-        'Extract PNG thumbnails from every page',
-        'transloadit document thumbs --input brochure.pdf --width 240 --out thumbs/',
-      ],
-      [
-        'Generate an animated GIF preview',
-        'transloadit document thumbs --input brochure.pdf --format gif --delay 50 --out brochure.gif',
-      ],
-    ],
+    description: 'Extract thumbnail images from documents',
+    details: 'Runs `/document/thumbs` on each input file and writes the results to `--out`.',
+    examples: [['Run the command', 'transloadit document thumbs --input input.pdf --out output/']],
   })
 
   page = Option.String('--page', {
@@ -994,6 +1359,26 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
       'Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (only used for the pad resize strategy).\n\nBy default, the background of transparent images is changed to white. For details about how to preserve transparency across all image types, see [this demo](/demos/image-manipulation/properly-preserve-transparency-across-all-image-types/).',
   })
 
+  alpha = Option.String('--alpha', {
+    description:
+      'Change how the alpha channel of the resulting image should work. Valid values are `"Set"` to enable transparency and `"Remove"` to remove transparency.\n\nFor a list of all valid values please check the ImageMagick documentation [here](http://www.imagemagick.org/script/command-line-options.php#alpha).',
+  })
+
+  density = Option.String('--density', {
+    description:
+      'While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. That is the density (in pixels per inch) of an image and defines how far apart (or how big) the individual pixels are. It defines the size of the image in real world terms when displayed on devices or printed.\n\nYou can set this value to a specific `width` or in the format `width`x`height`.\n\nIf your converted image has a low resolution, please try using the density parameter to resolve that.',
+  })
+
+  antialiasing = Option.String('--antialiasing', {
+    description:
+      'Controls whether or not antialiasing is used to remove jagged edges from text or images in a document.',
+  })
+
+  colorspace = Option.String('--colorspace', {
+    description:
+      'Sets the image colorspace. For details about the available values, see the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#colorspace).\n\nPlease note that if you were using `"RGB"`, we recommend using `"sRGB"`. ImageMagick might try to find the most efficient `colorspace` based on the color of an image, and default to e.g. `"Gray"`. To force colors, you might then have to use this parameter.',
+  })
+
   trimWhitespace = Option.String('--trim-whitespace', {
     description:
       "This determines if additional whitespace around the PDF should first be trimmed away before it is converted to an image. If you set this to `true` only the real PDF page contents will be shown in the image.\n\nIf you need to reflect the PDF's dimensions in your image, it is generally a good idea to set this to `false`.",
@@ -1002,6 +1387,11 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
   pdfUseCropbox = Option.String('--pdf-use-cropbox', {
     description:
       "Some PDF documents lie about their dimensions. For instance they'll say they are landscape, but when opened in decent Desktop readers, it's really in portrait mode. This can happen if the document has a cropbox defined. When this option is enabled (by default), the cropbox is leading in determining the dimensions of the resulting thumbnails.",
+  })
+
+  turbo = Option.String('--turbo', {
+    description:
+      "If you set this to `false`, the robot will not emit files as they become available. This is useful if you are only interested in the final result and not in the intermediate steps.\n\nAlso, extracted pages will be resized a lot faster as they are sent off to other machines for the resizing. This is especially useful for large documents with many pages to get up to 20 times faster processing.\n\nTurbo Mode increases pricing, though, in that the input document's file size is added for every extracted page. There are no performance benefits nor increased charges for single-page documents.",
   })
 
   inputs = Option.Array('--input,-i', {
@@ -1034,7 +1424,7 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the extracted document thumbnails to this path or directory',
+    description: 'Write the results to this directory',
     required: true,
   })
 
@@ -1064,8 +1454,13 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
         { name: 'height', kind: 'number' },
         { name: 'resize_strategy', kind: 'string' },
         { name: 'background', kind: 'string' },
+        { name: 'alpha', kind: 'string' },
+        { name: 'density', kind: 'string' },
+        { name: 'antialiasing', kind: 'boolean' },
+        { name: 'colorspace', kind: 'string' },
         { name: 'trim_whitespace', kind: 'boolean' },
         { name: 'pdf_use_cropbox', kind: 'boolean' },
+        { name: 'turbo', kind: 'boolean' },
       ],
       rawValues: {
         page: this.page,
@@ -1075,8 +1470,13 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
         height: this.height,
         resize_strategy: this.resizeStrategy,
         background: this.background,
+        alpha: this.alpha,
+        density: this.density,
+        antialiasing: this.antialiasing,
+        colorspace: this.colorspace,
         trim_whitespace: this.trimWhitespace,
         pdf_use_cropbox: this.pdfUseCropbox,
+        turbo: this.turbo,
       },
     })
 
@@ -1104,18 +1504,10 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Generate a waveform image from audio',
-    details:
-      'Runs `/audio/waveform` on each input audio file and downloads the waveform to `--out`.',
+    description: 'Generate waveform images from audio',
+    details: 'Runs `/audio/waveform` on each input file and writes the result to `--out`.',
     examples: [
-      [
-        'Generate a waveform PNG',
-        'transloadit audio waveform --input podcast.mp3 --width 1200 --height 300 --out waveform.png',
-      ],
-      [
-        'Generate waveform JSON',
-        'transloadit audio waveform --input podcast.mp3 --format json --out waveform.json',
-      ],
+      ['Run the command', 'transloadit audio waveform --input input.mp3 --out output.png'],
     ],
   })
 
@@ -1132,9 +1524,9 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
     description: 'The height of the resulting image if the format `"image"` was selected.',
   })
 
-  style = Option.String('--style', {
+  antialiasing = Option.String('--antialiasing', {
     description:
-      'Waveform style version.\n\n- `"v0"`: Legacy waveform generation (default).\n- `"v1"`: Advanced waveform generation with additional parameters.\n\nFor backwards compatibility, numeric values `0`, `1`, `2` are also accepted and mapped to `"v0"` (0) and `"v1"` (1/2).',
+      'Either a value of `0` or `1`, or `true`/`false`, corresponding to if you want to enable antialiasing to achieve smoother edges in the waveform graph or not.',
   })
 
   backgroundColor = Option.String('--background-color', {
@@ -1150,6 +1542,88 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
   outerColor = Option.String('--outer-color', {
     description:
       'The color used in the outer parts of the gradient. The format is "rrggbbaa" (red, green, blue, alpha).',
+  })
+
+  style = Option.String('--style', {
+    description:
+      'Waveform style version.\n\n- `"v0"`: Legacy waveform generation (default).\n- `"v1"`: Advanced waveform generation with additional parameters.\n\nFor backwards compatibility, numeric values `0`, `1`, `2` are also accepted and mapped to `"v0"` (0) and `"v1"` (1/2).',
+  })
+
+  splitChannels = Option.String('--split-channels', {
+    description:
+      'Available when style is `"v1"`. If set to `true`, outputs multi-channel waveform data or image files, one per channel.',
+  })
+
+  zoom = Option.String('--zoom', {
+    description:
+      'Available when style is `"v1"`. Zoom level in samples per pixel. This parameter cannot be used together with `pixels_per_second`.',
+  })
+
+  pixelsPerSecond = Option.String('--pixels-per-second', {
+    description:
+      'Available when style is `"v1"`. Zoom level in pixels per second. This parameter cannot be used together with `zoom`.',
+  })
+
+  bits = Option.String('--bits', {
+    description: 'Available when style is `"v1"`. Bit depth for waveform data. Can be 8 or 16.',
+  })
+
+  start = Option.String('--start', {
+    description: 'Available when style is `"v1"`. Start time in seconds.',
+  })
+
+  end = Option.String('--end', {
+    description: 'Available when style is `"v1"`. End time in seconds (0 means end of audio).',
+  })
+
+  colors = Option.String('--colors', {
+    description:
+      'Available when style is `"v1"`. Color scheme to use. Can be "audition" or "audacity".',
+  })
+
+  borderColor = Option.String('--border-color', {
+    description: 'Available when style is `"v1"`. Border color in "rrggbbaa" format.',
+  })
+
+  waveformStyle = Option.String('--waveform-style', {
+    description: 'Available when style is `"v1"`. Waveform style. Can be "normal" or "bars".',
+  })
+
+  barWidth = Option.String('--bar-width', {
+    description:
+      'Available when style is `"v1"`. Width of bars in pixels when waveform_style is "bars".',
+  })
+
+  barGap = Option.String('--bar-gap', {
+    description:
+      'Available when style is `"v1"`. Gap between bars in pixels when waveform_style is "bars".',
+  })
+
+  barStyle = Option.String('--bar-style', {
+    description: 'Available when style is `"v1"`. Bar style when waveform_style is "bars".',
+  })
+
+  axisLabelColor = Option.String('--axis-label-color', {
+    description: 'Available when style is `"v1"`. Color for axis labels in "rrggbbaa" format.',
+  })
+
+  noAxisLabels = Option.String('--no-axis-labels', {
+    description:
+      'Available when style is `"v1"`. If set to `true`, renders waveform image without axis labels.',
+  })
+
+  withAxisLabels = Option.String('--with-axis-labels', {
+    description:
+      'Available when style is `"v1"`. If set to `true`, renders waveform image with axis labels.',
+  })
+
+  amplitudeScale = Option.String('--amplitude-scale', {
+    description: 'Available when style is `"v1"`. Amplitude scale factor.',
+  })
+
+  compression = Option.String('--compression', {
+    description:
+      'Available when style is `"v1"`. PNG compression level: 0 (none) to 9 (best), or -1 (default). Only applicable when format is "image".',
   })
 
   inputs = Option.Array('--input,-i', {
@@ -1182,7 +1656,7 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the waveform image or JSON data to this path or directory',
+    description: 'Write the result to this path or directory',
     required: true,
   })
 
@@ -1208,19 +1682,55 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
         { name: 'format', kind: 'string' },
         { name: 'width', kind: 'number' },
         { name: 'height', kind: 'number' },
-        { name: 'style', kind: 'string' },
+        { name: 'antialiasing', kind: 'string' },
         { name: 'background_color', kind: 'string' },
         { name: 'center_color', kind: 'string' },
         { name: 'outer_color', kind: 'string' },
+        { name: 'style', kind: 'string' },
+        { name: 'split_channels', kind: 'boolean' },
+        { name: 'zoom', kind: 'number' },
+        { name: 'pixels_per_second', kind: 'number' },
+        { name: 'bits', kind: 'number' },
+        { name: 'start', kind: 'number' },
+        { name: 'end', kind: 'number' },
+        { name: 'colors', kind: 'string' },
+        { name: 'border_color', kind: 'string' },
+        { name: 'waveform_style', kind: 'string' },
+        { name: 'bar_width', kind: 'number' },
+        { name: 'bar_gap', kind: 'number' },
+        { name: 'bar_style', kind: 'string' },
+        { name: 'axis_label_color', kind: 'string' },
+        { name: 'no_axis_labels', kind: 'boolean' },
+        { name: 'with_axis_labels', kind: 'boolean' },
+        { name: 'amplitude_scale', kind: 'number' },
+        { name: 'compression', kind: 'number' },
       ],
       rawValues: {
         format: this.format,
         width: this.width,
         height: this.height,
-        style: this.style,
+        antialiasing: this.antialiasing,
         background_color: this.backgroundColor,
         center_color: this.centerColor,
         outer_color: this.outerColor,
+        style: this.style,
+        split_channels: this.splitChannels,
+        zoom: this.zoom,
+        pixels_per_second: this.pixelsPerSecond,
+        bits: this.bits,
+        start: this.start,
+        end: this.end,
+        colors: this.colors,
+        border_color: this.borderColor,
+        waveform_style: this.waveformStyle,
+        bar_width: this.barWidth,
+        bar_gap: this.barGap,
+        bar_style: this.barStyle,
+        axis_label_color: this.axisLabelColor,
+        no_axis_labels: this.noAxisLabels,
+        with_axis_labels: this.withAxisLabels,
+        amplitude_scale: this.amplitudeScale,
+        compression: this.compression,
       },
     })
 
@@ -1230,6 +1740,7 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'file',
       recursive: this.recursive,
       watch: this.watch,
       del: this.deleteAfterProcessing,
@@ -1247,17 +1758,10 @@ export class TextSpeakCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Turn a text prompt into spoken audio',
-    details: 'Runs `/text/speak` with a prompt and downloads the synthesized audio to `--out`.',
+    description: 'Speak text',
+    details: 'Runs `/text/speak` and writes the result to `--out`.',
     examples: [
-      [
-        'Speak a sentence in American English',
-        'transloadit text speak --prompt "Hello world" --provider aws --target-language en-US --out hello.mp3',
-      ],
-      [
-        'Use a different voice',
-        'transloadit text speak --prompt "Bonjour tout le monde" --provider aws --target-language fr-FR --voice female-2 --out bonjour.mp3',
-      ],
+      ['Run the command', 'transloadit text speak --prompt "Hello world" --out output.mp3'],
     ],
   })
 
@@ -1289,7 +1793,7 @@ export class TextSpeakCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the synthesized audio to this path',
+    description: 'Write the result to this path',
     required: true,
   })
 
@@ -1333,18 +1837,9 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Extract thumbnails from a video',
-    details: 'Runs `/video/thumbs` on each input video and writes the extracted images to `--out`.',
-    examples: [
-      [
-        'Extract eight thumbnails',
-        'transloadit video thumbs --input demo.mp4 --count 8 --out thumbs/',
-      ],
-      [
-        'Resize thumbnails to PNG',
-        'transloadit video thumbs --input demo.mp4 --count 5 --format png --width 640 --out thumbs/',
-      ],
-    ],
+    description: 'Extract thumbnails from videos',
+    details: 'Runs `/video/thumbs` on each input file and writes the results to `--out`.',
+    examples: [['Run the command', 'transloadit video thumbs --input input.mp4 --out output/']],
   })
 
   count = Option.String('--count', {
@@ -1381,6 +1876,11 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
       'Forces the video to be rotated by the specified degree integer. Currently, only multiples of 90 are supported. We automatically correct the orientation of many videos when the orientation is provided by the camera. This option is only useful for videos requiring rotation because it was not detected by the camera.',
   })
 
+  inputCodec = Option.String('--input-codec', {
+    description:
+      'Specifies the input codec to use when decoding the video. This is useful for videos with special codecs that require specific decoders.',
+  })
+
   inputs = Option.Array('--input,-i', {
     description: 'Provide an input file or a directory',
   })
@@ -1411,7 +1911,7 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the extracted video thumbnails to this path or directory',
+    description: 'Write the results to this directory',
     required: true,
   })
 
@@ -1441,6 +1941,7 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
         { name: 'resize_strategy', kind: 'string' },
         { name: 'background', kind: 'string' },
         { name: 'rotate', kind: 'number' },
+        { name: 'input_codec', kind: 'string' },
       ],
       rawValues: {
         count: this.count,
@@ -1450,6 +1951,7 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
         resize_strategy: this.resizeStrategy,
         background: this.background,
         rotate: this.rotate,
+        input_codec: this.inputCodec,
       },
     })
 
@@ -1477,16 +1979,10 @@ export class VideoEncodeHlsCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Encode a video into an HLS package',
+    description: 'Run builtin/encode-hls-video@latest',
     details:
-      'Runs the `builtin/encode-hls-video@latest` builtin template and downloads the HLS outputs into `--out`.',
-    examples: [
-      ['Encode a single video', 'transloadit video encode-hls --input input.mp4 --out dist/hls'],
-      [
-        'Process a directory recursively',
-        'transloadit video encode-hls --input videos/ --out dist/hls --recursive',
-      ],
-    ],
+      'Runs the `builtin/encode-hls-video@latest` template and writes the outputs to `--out`.',
+    examples: [['Run the command', 'transloadit video encode-hls --input input.mp4 --out output/']],
   })
 
   inputs = Option.Array('--input,-i', {
@@ -1519,7 +2015,7 @@ export class VideoEncodeHlsCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the HLS outputs into this directory',
+    description: 'Write the results to this directory',
     required: true,
   })
 
@@ -1556,18 +2052,10 @@ export class FileCompressCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Create an archive from one or more files',
-    details:
-      'Runs `/file/compress` and writes the resulting archive to `--out`. Multiple inputs are bundled into one archive by default.',
+    description: 'Compress files',
+    details: 'Runs `/file/compress` for the provided inputs and writes the result to `--out`.',
     examples: [
-      [
-        'Create a ZIP archive',
-        'transloadit file compress --input assets/ --format zip --out assets.zip',
-      ],
-      [
-        'Create a gzipped tarball',
-        'transloadit file compress --input assets/ --format tar --gzip true --out assets.tar.gz',
-      ],
+      ['Run the command', 'transloadit file compress --input input.file --out archive.zip'],
     ],
   })
 
@@ -1617,7 +2105,7 @@ export class FileCompressCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the generated archive to this path',
+    description: 'Write the result to this path or directory',
     required: true,
   })
 
@@ -1661,6 +2149,7 @@ export class FileCompressCommand extends AuthenticatedCommand {
       },
       inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'file',
       recursive: this.recursive,
       del: this.deleteAfterProcessing,
       reprocessStale: this.reprocessStale,
@@ -1676,15 +2165,9 @@ export class FileDecompressCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Decompress an archive',
-    details:
-      'Runs `/file/decompress` on each input archive and writes the extracted files to `--out`.',
-    examples: [
-      [
-        'Decompress a ZIP archive',
-        'transloadit file decompress --input assets.zip --out extracted/',
-      ],
-    ],
+    description: 'Decompress archives',
+    details: 'Runs `/file/decompress` on each input file and writes the results to `--out`.',
+    examples: [['Run the command', 'transloadit file decompress --input input.file --out output/']],
   })
 
   inputs = Option.Array('--input,-i', {
@@ -1717,7 +2200,7 @@ export class FileDecompressCommand extends AuthenticatedCommand {
   })
 
   outputPath = Option.String('--out,-o', {
-    description: 'Write the extracted files to this directory',
+    description: 'Write the results to this directory',
     required: true,
   })
 
