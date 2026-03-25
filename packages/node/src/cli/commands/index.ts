@@ -15,6 +15,7 @@ import { SignatureCommand, SmartCdnSignatureCommand, TokenCommand } from './auth
 
 import { BillsGetCommand } from './bills.ts'
 import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
+import { intentCommands } from './generated-intents.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
 import {
   TemplatesCreateCommand,
@@ -70,6 +71,11 @@ export function createCli(): Cli {
   // Documentation commands (offline metadata)
   cli.register(DocsRobotsListCommand)
   cli.register(DocsRobotsGetCommand)
+
+  // Intent-first commands
+  for (const command of intentCommands) {
+    cli.register(command)
+  }
 
   return cli
 }

@@ -824,6 +824,7 @@ function makeJobEmitter(
 
 export interface AssembliesCreateOptions {
   steps?: string
+  stepsData?: StepsInput
   template?: string
   fields?: Record<string, string>
   watch?: boolean
@@ -844,6 +845,7 @@ export async function create(
   client: Transloadit,
   {
     steps,
+    stepsData,
     template,
     fields,
     watch: watchOption,
@@ -864,7 +866,7 @@ export async function create(
   // Read steps file async before entering the Promise constructor
   // We use StepsInput (the input type) rather than Steps (the transformed output type)
   // to avoid zod adding default values that the API may reject
-  let stepsData: StepsInput | undefined
+  let effectiveStepsData = stepsData
   if (steps) {
     const stepsContent = await fsp.readFile(steps, 'utf8')
     const parsed: unknown = JSON.parse(stepsContent)
@@ -883,7 +885,7 @@ export async function create(
         )
       }
     }
-    stepsData = parsed as StepsInput
+    effectiveStepsData = parsed as StepsInput
   }
 
   // Determine output stat async before entering the Promise constructor
@@ -908,7 +910,9 @@ export async function create(
 
   return new Promise((resolve, reject) => {
     const params: CreateAssemblyParams = (
-      stepsData ? { steps: stepsData as CreateAssemblyParams['steps'] } : { template_id: template }
+      effectiveStepsData
+        ? { steps: effectiveStepsData as CreateAssemblyParams['steps'] }
+        : { template_id: template }
     ) as CreateAssemblyParams
     if (fields) {
       params.fields = fields
