@@ -185,6 +185,47 @@ describe('intent commands', () => {
     )
   })
 
+  it('applies schema normalization before submitting generated steps', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'audio',
+      'waveform',
+      '--input',
+      'song.mp3',
+      '--style',
+      '1',
+      '--out',
+      'waveform.png',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['song.mp3'],
+        output: 'waveform.png',
+        stepsData: {
+          waveformed: expect.objectContaining({
+            robot: '/audio/waveform',
+            result: true,
+            use: ':original',
+            style: 'v1',
+          }),
+        },
+      }),
+    )
+  })
+
   it('maps file compress to a bundled single assembly by default', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')

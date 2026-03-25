@@ -47,6 +47,6 @@ export function parseIntentStep<TSchema extends z.AnyZodObject>({
     input[fieldSpec.name] = coerceIntentFieldValue(fieldSpec.kind, rawValue)
   }
 
-  schema.parse(input)
-  return input as z.input<TSchema>
+  const parsed = schema.parse(input)
+  return parsed as z.input<TSchema>
 }
