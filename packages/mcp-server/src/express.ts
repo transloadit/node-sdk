@@ -12,9 +12,7 @@ export type TransloaditMcpExpressOptions = TransloaditMcpHttpOptions & {
   path?: string
 }
 
-export const createTransloaditMcpExpressRouter = async (
-  options: TransloaditMcpExpressOptions = {},
-) => {
+export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpressOptions = {}) {
   const sessionIdGenerator = options.sessionIdGenerator ?? (() => randomUUID())
 
   // Per-session transport map: each MCP client gets its own transport + server pair.
@@ -81,25 +79,26 @@ export const createTransloaditMcpExpressRouter = async (
       }
     } else if (req.method === 'POST' && isInitializeRequest(req.body)) {
       // New initialization request — create a new transport + server pair.
-      transport = new StreamableHTTPServerTransport({
+      const newTransport = new StreamableHTTPServerTransport({
         sessionIdGenerator,
         allowedOrigins: options.allowedOrigins,
         allowedHosts: options.allowedHosts,
         enableDnsRebindingProtection: options.enableDnsRebindingProtection,
         onsessioninitialized: (sid) => {
-          transports.set(sid, transport!)
+          transports.set(sid, newTransport)
         },
       })
 
-      transport.onclose = () => {
-        const sid = transport!.sessionId
+      newTransport.onclose = () => {
+        const sid = newTransport.sessionId
         if (sid) {
           transports.delete(sid)
         }
       }
 
       const server = createTransloaditMcpServer(options)
-      await server.connect(transport)
+      await server.connect(newTransport)
+      transport = newTransport
     } else if (req.method === 'POST') {
       res.status(400).json({
         jsonrpc: '2.0',

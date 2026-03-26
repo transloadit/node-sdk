@@ -37,7 +37,7 @@ export type TransloaditMcpHttpHandler = ((
 const defaultPath = '/mcp'
 
 /** Read the full request body and JSON-parse it so `isInitializeRequest` can inspect the payload. */
-async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+function readJsonBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     req.on('data', (chunk: Buffer) => chunks.push(chunk))
@@ -57,9 +57,9 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   })
 }
 
-export const createTransloaditMcpHttpHandler = async (
+export function createTransloaditMcpHttpHandler(
   options: TransloaditMcpHttpOptions = {},
-): Promise<TransloaditMcpHttpHandler> => {
+): TransloaditMcpHttpHandler {
   const expectedPath = options.path ?? defaultPath
   const metricsPath =
     options.metricsPath === false ? undefined : normalizePath(options.metricsPath ?? '/metrics')
@@ -187,25 +187,26 @@ export const createTransloaditMcpHttpHandler = async (
     if (req.method === 'POST' && !transport) {
       parsedBody = await readJsonBody(req)
       if (isInitializeRequest(parsedBody)) {
-        transport = new StreamableHTTPServerTransport({
+        const newTransport = new StreamableHTTPServerTransport({
           sessionIdGenerator,
           allowedOrigins: options.allowedOrigins,
           allowedHosts: options.allowedHosts,
           enableDnsRebindingProtection: options.enableDnsRebindingProtection,
           onsessioninitialized: (sid) => {
-            transports.set(sid, transport!)
+            transports.set(sid, newTransport)
           },
         })
 
-        transport.onclose = () => {
-          const sid = transport!.sessionId
+        newTransport.onclose = () => {
+          const sid = newTransport.sessionId
           if (sid) {
             transports.delete(sid)
           }
         }
 
         const server = createTransloaditMcpServer(options)
-        await server.connect(transport)
+        await server.connect(newTransport)
+        transport = newTransport
       } else {
         res.statusCode = 400
         res.setHeader('Content-Type', 'application/json')
@@ -235,7 +236,7 @@ export const createTransloaditMcpHttpHandler = async (
 
     try {
       await transport.handleRequest(req, res, parsedBody)
-    } catch (error) {
+    } catch {
       if (!res.headersSent) {
         res.statusCode = 500
         res.end('Internal Server Error')
