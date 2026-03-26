@@ -1005,15 +1005,12 @@ export async function create(
     async function processAssemblyJob(
       inPath: string | null,
       outPath: string | null,
-      _outMtime: Date | undefined,
     ): Promise<unknown> {
       outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
 
       // Create fresh streams for this job
       const inStream = inPath ? fs.createReadStream(inPath) : null
       inStream?.on('error', () => {})
-
-      const superceded = false
 
       const createOptions: CreateAssemblyOptions = {
         params,
@@ -1024,23 +1021,17 @@ export async function create(
       }
 
       const result = await client.createAssembly(createOptions)
-      if (superceded) return undefined
 
       const assemblyId = result.assembly_id
       if (!assemblyId) throw new Error('No assembly_id in result')
 
       const assembly = await client.awaitAssemblyCompletion(assemblyId, {
         signal: abortController.signal,
-        onPoll: () => {
-          if (superceded) return false
-          return true
-        },
+        onPoll: () => true,
         onAssemblyProgress: (status) => {
           outputctl.debug(`Assembly status: ${status.ok}`)
         },
       })
-
-      if (superceded) return undefined
 
       if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
         const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok})`
@@ -1118,7 +1109,7 @@ export async function create(
         }
       }
 
-      if (resolvedOutput != null && !superceded) {
+      if (resolvedOutput != null) {
         if (outIsDirectory) {
           if (useIntentDirectoryLayout || outPath == null) {
             const baseDir = resolveDirectoryBaseDir()
@@ -1308,7 +1299,6 @@ export async function create(
           ? (((job.in as fs.ReadStream).path as string | undefined) ?? null)
           : null
         const outPath = job.out?.path ?? null
-        const outMtime = job.out?.mtime
         outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
 
         // Close the original streams immediately - we'll create fresh ones when processing
@@ -1322,7 +1312,7 @@ export async function create(
         // Add job to queue - p-queue handles concurrency automatically
         queue
           .add(async () => {
-            const result = await processAssemblyJob(inPath, outPath, outMtime)
+            const result = await processAssemblyJob(inPath, outPath)
             if (result !== undefined) {
               results.push(result)
             }
