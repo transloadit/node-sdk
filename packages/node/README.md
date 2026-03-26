@@ -90,8 +90,11 @@ For common one-off tasks, prefer the intent-first commands:
 # Generate an image from a text prompt
 npx transloadit image generate --prompt "A red bicycle in a studio" --out bicycle.png
 
-# Generate a preview for a remote file URL
+# Generate a preview for any input path or URL
 npx transloadit preview generate --input https://example.com/file.pdf --out preview.png
+
+# Paste base64 input directly into an intent command
+npx transloadit document convert --input-base64 "$(base64 -i input.txt)" --format pdf --out output.pdf
 
 # Encode a video into an HLS package
 npx transloadit video encode-hls --input input.mp4 --out dist/hls

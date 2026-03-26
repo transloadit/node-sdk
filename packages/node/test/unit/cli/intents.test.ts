@@ -1,3 +1,4 @@
+import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import * as assembliesCommands from '../../../src/cli/commands/assemblies.ts'
@@ -17,6 +18,7 @@ const resetExitCode = () => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllEnvs()
+  nock.cleanAll()
   resetExitCode()
 })
 
@@ -65,7 +67,7 @@ describe('intent commands', () => {
     )
   })
 
-  it('maps preview generate flags to /http/import + /file/preview steps', async () => {
+  it('maps preview generate flags to /file/preview step parameters', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
 
@@ -80,7 +82,7 @@ describe('intent commands', () => {
       'preview',
       'generate',
       '--input',
-      'https://example.com/file.pdf',
+      'document.pdf',
       '--width',
       '320',
       '--height',
@@ -96,20 +98,92 @@ describe('intent commands', () => {
       expect.any(OutputCtl),
       expect.anything(),
       expect.objectContaining({
-        inputs: [],
+        inputs: ['document.pdf'],
         output: 'preview.jpg',
         stepsData: {
-          imported: {
-            robot: '/http/import',
-            url: 'https://example.com/file.pdf',
-          },
           preview: expect.objectContaining({
             robot: '/file/preview',
             result: true,
-            use: 'imported',
+            use: ':original',
             width: 320,
             height: 200,
             format: 'jpg',
+          }),
+        },
+      }),
+    )
+  })
+
+  it('downloads URL inputs for preview generate before calling assemblies create', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    nock('https://example.com').get('/file.pdf').reply(200, 'pdf-data')
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'preview',
+      'generate',
+      '--input',
+      'https://example.com/file.pdf',
+      '--out',
+      'preview.png',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [expect.stringContaining('transloadit-input-')],
+        stepsData: {
+          preview: expect.objectContaining({
+            robot: '/file/preview',
+            use: ':original',
+          }),
+        },
+      }),
+    )
+  })
+
+  it('supports base64 inputs for intent commands', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'document',
+      'convert',
+      '--input-base64',
+      Buffer.from('hello world').toString('base64'),
+      '--format',
+      'pdf',
+      '--out',
+      'output.pdf',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [expect.stringContaining('transloadit-input-')],
+        stepsData: {
+          converted: expect.objectContaining({
+            robot: '/document/convert',
+            use: ':original',
+            format: 'pdf',
           }),
         },
       }),

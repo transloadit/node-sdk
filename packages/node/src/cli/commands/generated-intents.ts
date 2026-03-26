@@ -18,7 +18,7 @@ import { robotImageOptimizeInstructionsSchema } from '../../alphalib/types/robot
 import { robotImageResizeInstructionsSchema } from '../../alphalib/types/robots/image-resize.ts'
 import { robotTextSpeakInstructionsSchema } from '../../alphalib/types/robots/text-speak.ts'
 import { robotVideoThumbsInstructionsSchema } from '../../alphalib/types/robots/video-thumbs.ts'
-import { parseIntentStep } from '../intentRuntime.ts'
+import { parseIntentStep, prepareIntentInputs } from '../intentRuntime.ts'
 import * as assembliesCommands from './assemblies.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
 
@@ -127,14 +127,10 @@ export class PreviewGenerateCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
-    description: 'Generate a preview image for a remote file URL',
-    details:
-      'Imports a remote file with `/http/import`, then runs `/file/preview` and downloads the preview to `--out`.',
+    description: 'Generate a preview thumbnail',
+    details: 'Runs `/file/preview` on each input file and writes the result to `--out`.',
     examples: [
-      [
-        'Preview a remote PDF',
-        'transloadit preview generate --input https://example.com/file.pdf --width 300 --height 200 --out preview.png',
-      ],
+      ['Run the command', 'transloadit preview generate --input input.file --out output.file'],
     ],
   })
 
@@ -249,125 +245,12 @@ export class PreviewGenerateCommand extends AuthenticatedCommand {
       'Specifies whether the generated animated image should loop forever (`true`) or stop after playing the animation once (`false`). Only used if the `clip` strategy for video files is applied.',
   })
 
-  input = Option.String('--input,-i', {
-    description: 'Remote URL to preview',
-    required: true,
-  })
-
-  outputPath = Option.String('--out,-o', {
-    description: 'Write the generated preview image to this path',
-    required: true,
-  })
-
-  protected async run(): Promise<number | undefined> {
-    const previewStep = parseIntentStep({
-      schema: robotFilePreviewInstructionsSchema,
-      fixedValues: {
-        robot: '/file/preview',
-        result: true,
-      },
-      fieldSpecs: [
-        { name: 'format', kind: 'string' },
-        { name: 'width', kind: 'number' },
-        { name: 'height', kind: 'number' },
-        { name: 'resize_strategy', kind: 'string' },
-        { name: 'background', kind: 'string' },
-        { name: 'artwork_outer_color', kind: 'string' },
-        { name: 'artwork_center_color', kind: 'string' },
-        { name: 'waveform_center_color', kind: 'string' },
-        { name: 'waveform_outer_color', kind: 'string' },
-        { name: 'waveform_height', kind: 'number' },
-        { name: 'waveform_width', kind: 'number' },
-        { name: 'icon_style', kind: 'string' },
-        { name: 'icon_text_color', kind: 'string' },
-        { name: 'icon_text_font', kind: 'string' },
-        { name: 'icon_text_content', kind: 'string' },
-        { name: 'optimize', kind: 'boolean' },
-        { name: 'optimize_priority', kind: 'string' },
-        { name: 'optimize_progressive', kind: 'boolean' },
-        { name: 'clip_format', kind: 'string' },
-        { name: 'clip_offset', kind: 'number' },
-        { name: 'clip_duration', kind: 'number' },
-        { name: 'clip_framerate', kind: 'number' },
-        { name: 'clip_loop', kind: 'boolean' },
-      ],
-      rawValues: {
-        format: this.format,
-        width: this.width,
-        height: this.height,
-        resize_strategy: this.resizeStrategy,
-        background: this.background,
-        artwork_outer_color: this.artworkOuterColor,
-        artwork_center_color: this.artworkCenterColor,
-        waveform_center_color: this.waveformCenterColor,
-        waveform_outer_color: this.waveformOuterColor,
-        waveform_height: this.waveformHeight,
-        waveform_width: this.waveformWidth,
-        icon_style: this.iconStyle,
-        icon_text_color: this.iconTextColor,
-        icon_text_font: this.iconTextFont,
-        icon_text_content: this.iconTextContent,
-        optimize: this.optimize,
-        optimize_priority: this.optimizePriority,
-        optimize_progressive: this.optimizeProgressive,
-        clip_format: this.clipFormat,
-        clip_offset: this.clipOffset,
-        clip_duration: this.clipDuration,
-        clip_framerate: this.clipFramerate,
-        clip_loop: this.clipLoop,
-      },
-    })
-
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        imported: {
-          robot: '/http/import',
-          url: this.input,
-        },
-        preview: {
-          ...previewStep,
-          use: 'imported',
-        },
-      },
-      inputs: [],
-      output: this.outputPath,
-    })
-
-    return hasFailures ? 1 : undefined
-  }
-}
-
-export class ImageRemoveBackgroundCommand extends AuthenticatedCommand {
-  static override paths = [['image', 'remove-background']]
-
-  static override usage = Command.Usage({
-    category: 'Intent Commands',
-    description: 'Remove the background from images',
-    details: 'Runs `/image/bgremove` on each input file and writes the result to `--out`.',
-    examples: [
-      ['Run the command', 'transloadit image remove-background --input input.png --out output.png'],
-    ],
-  })
-
-  select = Option.String('--select', {
-    description: 'Region to select and keep in the image. The other region is removed.',
-  })
-
-  format = Option.String('--format', {
-    description: 'Format of the generated image.',
-  })
-
-  provider = Option.String('--provider', {
-    description: 'Provider to use for removing the background.',
-  })
-
-  model = Option.String('--model', {
-    description:
-      'Provider-specific model to use for removing the background. Mostly intended for testing and evaluation.',
-  })
-
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -401,8 +284,8 @@ export class ImageRemoveBackgroundCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('image remove-background requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('preview generate requires --input or --input-base64')
       return 1
     }
 
@@ -411,43 +294,227 @@ export class ImageRemoveBackgroundCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotImageBgremoveInstructionsSchema,
-      fixedValues: {
-        robot: '/image/bgremove',
-        result: true,
-        use: ':original',
-      },
-      fieldSpecs: [
-        { name: 'select', kind: 'string' },
-        { name: 'format', kind: 'string' },
-        { name: 'provider', kind: 'string' },
-        { name: 'model', kind: 'string' },
-      ],
-      rawValues: {
-        select: this.select,
-        format: this.format,
-        provider: this.provider,
-        model: this.model,
-      },
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        removed_background: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'file',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
+
+    try {
+      const step = parseIntentStep({
+        schema: robotFilePreviewInstructionsSchema,
+        fixedValues: {
+          robot: '/file/preview',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [
+          { name: 'format', kind: 'string' },
+          { name: 'width', kind: 'number' },
+          { name: 'height', kind: 'number' },
+          { name: 'resize_strategy', kind: 'string' },
+          { name: 'background', kind: 'string' },
+          { name: 'artwork_outer_color', kind: 'string' },
+          { name: 'artwork_center_color', kind: 'string' },
+          { name: 'waveform_center_color', kind: 'string' },
+          { name: 'waveform_outer_color', kind: 'string' },
+          { name: 'waveform_height', kind: 'number' },
+          { name: 'waveform_width', kind: 'number' },
+          { name: 'icon_style', kind: 'string' },
+          { name: 'icon_text_color', kind: 'string' },
+          { name: 'icon_text_font', kind: 'string' },
+          { name: 'icon_text_content', kind: 'string' },
+          { name: 'optimize', kind: 'boolean' },
+          { name: 'optimize_priority', kind: 'string' },
+          { name: 'optimize_progressive', kind: 'boolean' },
+          { name: 'clip_format', kind: 'string' },
+          { name: 'clip_offset', kind: 'number' },
+          { name: 'clip_duration', kind: 'number' },
+          { name: 'clip_framerate', kind: 'number' },
+          { name: 'clip_loop', kind: 'boolean' },
+        ],
+        rawValues: {
+          format: this.format,
+          width: this.width,
+          height: this.height,
+          resize_strategy: this.resizeStrategy,
+          background: this.background,
+          artwork_outer_color: this.artworkOuterColor,
+          artwork_center_color: this.artworkCenterColor,
+          waveform_center_color: this.waveformCenterColor,
+          waveform_outer_color: this.waveformOuterColor,
+          waveform_height: this.waveformHeight,
+          waveform_width: this.waveformWidth,
+          icon_style: this.iconStyle,
+          icon_text_color: this.iconTextColor,
+          icon_text_font: this.iconTextFont,
+          icon_text_content: this.iconTextContent,
+          optimize: this.optimize,
+          optimize_priority: this.optimizePriority,
+          optimize_progressive: this.optimizeProgressive,
+          clip_format: this.clipFormat,
+          clip_offset: this.clipOffset,
+          clip_duration: this.clipDuration,
+          clip_framerate: this.clipFramerate,
+          clip_loop: this.clipLoop,
+        },
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          preview: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'file',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
+  }
+}
+
+export class ImageRemoveBackgroundCommand extends AuthenticatedCommand {
+  static override paths = [['image', 'remove-background']]
+
+  static override usage = Command.Usage({
+    category: 'Intent Commands',
+    description: 'Remove the background from images',
+    details: 'Runs `/image/bgremove` on each input file and writes the result to `--out`.',
+    examples: [
+      ['Run the command', 'transloadit image remove-background --input input.png --out output.png'],
+    ],
+  })
+
+  select = Option.String('--select', {
+    description: 'Region to select and keep in the image. The other region is removed.',
+  })
+
+  format = Option.String('--format', {
+    description: 'Format of the generated image.',
+  })
+
+  provider = Option.String('--provider', {
+    description: 'Provider to use for removing the background.',
+  })
+
+  model = Option.String('--model', {
+    description:
+      'Provider-specific model to use for removing the background. Mostly intended for testing and evaluation.',
+  })
+
+  inputs = Option.Array('--input,-i', {
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
+  })
+
+  recursive = Option.Boolean('--recursive,-r', false, {
+    description: 'Enumerate input directories recursively',
+  })
+
+  watch = Option.Boolean('--watch,-w', false, {
+    description: 'Watch inputs for changes',
+  })
+
+  deleteAfterProcessing = Option.Boolean('--delete-after-processing,-d', false, {
+    description: 'Delete input files after they are processed',
+  })
+
+  reprocessStale = Option.Boolean('--reprocess-stale', false, {
+    description: 'Process inputs even if output is newer',
+  })
+
+  singleAssembly = Option.Boolean('--single-assembly', false, {
+    description: 'Pass all input files to a single assembly instead of one assembly per file',
+  })
+
+  concurrency = Option.String('--concurrency,-c', {
+    description: 'Maximum number of concurrent assemblies (default: 5)',
+    validator: t.isNumber(),
+  })
+
+  outputPath = Option.String('--out,-o', {
+    description: 'Write the result to this path or directory',
+    required: true,
+  })
+
+  protected async run(): Promise<number | undefined> {
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('image remove-background requires --input or --input-base64')
+      return 1
+    }
+
+    if (this.singleAssembly && this.watch) {
+      this.output.error('--single-assembly cannot be used with --watch')
+      return 1
+    }
+
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    return hasFailures ? 1 : undefined
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
+
+    try {
+      const step = parseIntentStep({
+        schema: robotImageBgremoveInstructionsSchema,
+        fixedValues: {
+          robot: '/image/bgremove',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [
+          { name: 'select', kind: 'string' },
+          { name: 'format', kind: 'string' },
+          { name: 'provider', kind: 'string' },
+          { name: 'model', kind: 'string' },
+        ],
+        rawValues: {
+          select: this.select,
+          format: this.format,
+          provider: this.provider,
+          model: this.model,
+        },
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          removed_background: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'file',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -484,7 +551,11 @@ export class ImageOptimizeCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -518,8 +589,8 @@ export class ImageOptimizeCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('image optimize requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('image optimize requires --input or --input-base64')
       return 1
     }
 
@@ -528,43 +599,57 @@ export class ImageOptimizeCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotImageOptimizeInstructionsSchema,
-      fixedValues: {
-        robot: '/image/optimize',
-        result: true,
-        use: ':original',
-      },
-      fieldSpecs: [
-        { name: 'priority', kind: 'string' },
-        { name: 'progressive', kind: 'boolean' },
-        { name: 'preserve_meta_data', kind: 'boolean' },
-        { name: 'fix_breaking_images', kind: 'boolean' },
-      ],
-      rawValues: {
-        priority: this.priority,
-        progressive: this.progressive,
-        preserve_meta_data: this.preserveMetaData,
-        fix_breaking_images: this.fixBreakingImages,
-      },
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        optimized: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'file',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-    })
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
 
-    return hasFailures ? 1 : undefined
+    try {
+      const step = parseIntentStep({
+        schema: robotImageOptimizeInstructionsSchema,
+        fixedValues: {
+          robot: '/image/optimize',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [
+          { name: 'priority', kind: 'string' },
+          { name: 'progressive', kind: 'boolean' },
+          { name: 'preserve_meta_data', kind: 'boolean' },
+          { name: 'fix_breaking_images', kind: 'boolean' },
+        ],
+        rawValues: {
+          priority: this.priority,
+          progressive: this.progressive,
+          preserve_meta_data: this.preserveMetaData,
+          fix_breaking_images: this.fixBreakingImages,
+        },
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          optimized: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'file',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -780,7 +865,11 @@ export class ImageResizeCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -814,8 +903,8 @@ export class ImageResizeCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('image resize requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('image resize requires --input or --input-base64')
       return 1
     }
 
@@ -824,117 +913,131 @@ export class ImageResizeCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotImageResizeInstructionsSchema,
-      fixedValues: {
-        robot: '/image/resize',
-        result: true,
-        use: ':original',
-      },
-      fieldSpecs: [
-        { name: 'format', kind: 'string' },
-        { name: 'width', kind: 'number' },
-        { name: 'height', kind: 'number' },
-        { name: 'resize_strategy', kind: 'string' },
-        { name: 'zoom', kind: 'boolean' },
-        { name: 'gravity', kind: 'string' },
-        { name: 'strip', kind: 'boolean' },
-        { name: 'alpha', kind: 'string' },
-        { name: 'preclip_alpha', kind: 'string' },
-        { name: 'flatten', kind: 'boolean' },
-        { name: 'correct_gamma', kind: 'boolean' },
-        { name: 'quality', kind: 'number' },
-        { name: 'adaptive_filtering', kind: 'boolean' },
-        { name: 'background', kind: 'string' },
-        { name: 'frame', kind: 'number' },
-        { name: 'colorspace', kind: 'string' },
-        { name: 'type', kind: 'string' },
-        { name: 'sepia', kind: 'number' },
-        { name: 'rotation', kind: 'auto' },
-        { name: 'compress', kind: 'string' },
-        { name: 'blur', kind: 'string' },
-        { name: 'brightness', kind: 'number' },
-        { name: 'saturation', kind: 'number' },
-        { name: 'hue', kind: 'number' },
-        { name: 'contrast', kind: 'number' },
-        { name: 'watermark_url', kind: 'string' },
-        { name: 'watermark_x_offset', kind: 'number' },
-        { name: 'watermark_y_offset', kind: 'number' },
-        { name: 'watermark_size', kind: 'string' },
-        { name: 'watermark_resize_strategy', kind: 'string' },
-        { name: 'watermark_opacity', kind: 'number' },
-        { name: 'watermark_repeat_x', kind: 'boolean' },
-        { name: 'watermark_repeat_y', kind: 'boolean' },
-        { name: 'progressive', kind: 'boolean' },
-        { name: 'transparent', kind: 'string' },
-        { name: 'trim_whitespace', kind: 'boolean' },
-        { name: 'clip', kind: 'auto' },
-        { name: 'negate', kind: 'boolean' },
-        { name: 'density', kind: 'string' },
-        { name: 'monochrome', kind: 'boolean' },
-        { name: 'shave', kind: 'auto' },
-      ],
-      rawValues: {
-        format: this.format,
-        width: this.width,
-        height: this.height,
-        resize_strategy: this.resizeStrategy,
-        zoom: this.zoom,
-        gravity: this.gravity,
-        strip: this.strip,
-        alpha: this.alpha,
-        preclip_alpha: this.preclipAlpha,
-        flatten: this.flatten,
-        correct_gamma: this.correctGamma,
-        quality: this.quality,
-        adaptive_filtering: this.adaptiveFiltering,
-        background: this.background,
-        frame: this.frame,
-        colorspace: this.colorspace,
-        type: this.type,
-        sepia: this.sepia,
-        rotation: this.rotation,
-        compress: this.compress,
-        blur: this.blur,
-        brightness: this.brightness,
-        saturation: this.saturation,
-        hue: this.hue,
-        contrast: this.contrast,
-        watermark_url: this.watermarkUrl,
-        watermark_x_offset: this.watermarkXOffset,
-        watermark_y_offset: this.watermarkYOffset,
-        watermark_size: this.watermarkSize,
-        watermark_resize_strategy: this.watermarkResizeStrategy,
-        watermark_opacity: this.watermarkOpacity,
-        watermark_repeat_x: this.watermarkRepeatX,
-        watermark_repeat_y: this.watermarkRepeatY,
-        progressive: this.progressive,
-        transparent: this.transparent,
-        trim_whitespace: this.trimWhitespace,
-        clip: this.clip,
-        negate: this.negate,
-        density: this.density,
-        monochrome: this.monochrome,
-        shave: this.shave,
-      },
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        resized: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'file',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-    })
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
 
-    return hasFailures ? 1 : undefined
+    try {
+      const step = parseIntentStep({
+        schema: robotImageResizeInstructionsSchema,
+        fixedValues: {
+          robot: '/image/resize',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [
+          { name: 'format', kind: 'string' },
+          { name: 'width', kind: 'number' },
+          { name: 'height', kind: 'number' },
+          { name: 'resize_strategy', kind: 'string' },
+          { name: 'zoom', kind: 'boolean' },
+          { name: 'gravity', kind: 'string' },
+          { name: 'strip', kind: 'boolean' },
+          { name: 'alpha', kind: 'string' },
+          { name: 'preclip_alpha', kind: 'string' },
+          { name: 'flatten', kind: 'boolean' },
+          { name: 'correct_gamma', kind: 'boolean' },
+          { name: 'quality', kind: 'number' },
+          { name: 'adaptive_filtering', kind: 'boolean' },
+          { name: 'background', kind: 'string' },
+          { name: 'frame', kind: 'number' },
+          { name: 'colorspace', kind: 'string' },
+          { name: 'type', kind: 'string' },
+          { name: 'sepia', kind: 'number' },
+          { name: 'rotation', kind: 'auto' },
+          { name: 'compress', kind: 'string' },
+          { name: 'blur', kind: 'string' },
+          { name: 'brightness', kind: 'number' },
+          { name: 'saturation', kind: 'number' },
+          { name: 'hue', kind: 'number' },
+          { name: 'contrast', kind: 'number' },
+          { name: 'watermark_url', kind: 'string' },
+          { name: 'watermark_x_offset', kind: 'number' },
+          { name: 'watermark_y_offset', kind: 'number' },
+          { name: 'watermark_size', kind: 'string' },
+          { name: 'watermark_resize_strategy', kind: 'string' },
+          { name: 'watermark_opacity', kind: 'number' },
+          { name: 'watermark_repeat_x', kind: 'boolean' },
+          { name: 'watermark_repeat_y', kind: 'boolean' },
+          { name: 'progressive', kind: 'boolean' },
+          { name: 'transparent', kind: 'string' },
+          { name: 'trim_whitespace', kind: 'boolean' },
+          { name: 'clip', kind: 'auto' },
+          { name: 'negate', kind: 'boolean' },
+          { name: 'density', kind: 'string' },
+          { name: 'monochrome', kind: 'boolean' },
+          { name: 'shave', kind: 'auto' },
+        ],
+        rawValues: {
+          format: this.format,
+          width: this.width,
+          height: this.height,
+          resize_strategy: this.resizeStrategy,
+          zoom: this.zoom,
+          gravity: this.gravity,
+          strip: this.strip,
+          alpha: this.alpha,
+          preclip_alpha: this.preclipAlpha,
+          flatten: this.flatten,
+          correct_gamma: this.correctGamma,
+          quality: this.quality,
+          adaptive_filtering: this.adaptiveFiltering,
+          background: this.background,
+          frame: this.frame,
+          colorspace: this.colorspace,
+          type: this.type,
+          sepia: this.sepia,
+          rotation: this.rotation,
+          compress: this.compress,
+          blur: this.blur,
+          brightness: this.brightness,
+          saturation: this.saturation,
+          hue: this.hue,
+          contrast: this.contrast,
+          watermark_url: this.watermarkUrl,
+          watermark_x_offset: this.watermarkXOffset,
+          watermark_y_offset: this.watermarkYOffset,
+          watermark_size: this.watermarkSize,
+          watermark_resize_strategy: this.watermarkResizeStrategy,
+          watermark_opacity: this.watermarkOpacity,
+          watermark_repeat_x: this.watermarkRepeatX,
+          watermark_repeat_y: this.watermarkRepeatY,
+          progressive: this.progressive,
+          transparent: this.transparent,
+          trim_whitespace: this.trimWhitespace,
+          clip: this.clip,
+          negate: this.negate,
+          density: this.density,
+          monochrome: this.monochrome,
+          shave: this.shave,
+        },
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          resized: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'file',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -999,7 +1102,11 @@ export class DocumentConvertCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -1033,8 +1140,8 @@ export class DocumentConvertCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('document convert requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('document convert requires --input or --input-base64')
       return 1
     }
 
@@ -1043,53 +1150,67 @@ export class DocumentConvertCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotDocumentConvertInstructionsSchema,
-      fixedValues: {
-        robot: '/document/convert',
-        result: true,
-        use: ':original',
-      },
-      fieldSpecs: [
-        { name: 'format', kind: 'string' },
-        { name: 'markdown_format', kind: 'string' },
-        { name: 'markdown_theme', kind: 'string' },
-        { name: 'pdf_margin', kind: 'string' },
-        { name: 'pdf_print_background', kind: 'boolean' },
-        { name: 'pdf_format', kind: 'string' },
-        { name: 'pdf_display_header_footer', kind: 'boolean' },
-        { name: 'pdf_header_template', kind: 'string' },
-        { name: 'pdf_footer_template', kind: 'string' },
-      ],
-      rawValues: {
-        format: this.format,
-        markdown_format: this.markdownFormat,
-        markdown_theme: this.markdownTheme,
-        pdf_margin: this.pdfMargin,
-        pdf_print_background: this.pdfPrintBackground,
-        pdf_format: this.pdfFormat,
-        pdf_display_header_footer: this.pdfDisplayHeaderFooter,
-        pdf_header_template: this.pdfHeaderTemplate,
-        pdf_footer_template: this.pdfFooterTemplate,
-      },
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        converted: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'file',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-    })
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
 
-    return hasFailures ? 1 : undefined
+    try {
+      const step = parseIntentStep({
+        schema: robotDocumentConvertInstructionsSchema,
+        fixedValues: {
+          robot: '/document/convert',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [
+          { name: 'format', kind: 'string' },
+          { name: 'markdown_format', kind: 'string' },
+          { name: 'markdown_theme', kind: 'string' },
+          { name: 'pdf_margin', kind: 'string' },
+          { name: 'pdf_print_background', kind: 'boolean' },
+          { name: 'pdf_format', kind: 'string' },
+          { name: 'pdf_display_header_footer', kind: 'boolean' },
+          { name: 'pdf_header_template', kind: 'string' },
+          { name: 'pdf_footer_template', kind: 'string' },
+        ],
+        rawValues: {
+          format: this.format,
+          markdown_format: this.markdownFormat,
+          markdown_theme: this.markdownTheme,
+          pdf_margin: this.pdfMargin,
+          pdf_print_background: this.pdfPrintBackground,
+          pdf_format: this.pdfFormat,
+          pdf_display_header_footer: this.pdfDisplayHeaderFooter,
+          pdf_header_template: this.pdfHeaderTemplate,
+          pdf_footer_template: this.pdfFooterTemplate,
+        },
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          converted: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'file',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -1141,7 +1262,11 @@ export class DocumentOptimizeCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -1175,8 +1300,8 @@ export class DocumentOptimizeCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('document optimize requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('document optimize requires --input or --input-base64')
       return 1
     }
 
@@ -1185,49 +1310,63 @@ export class DocumentOptimizeCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotDocumentOptimizeInstructionsSchema,
-      fixedValues: {
-        robot: '/document/optimize',
-        result: true,
-        use: ':original',
-      },
-      fieldSpecs: [
-        { name: 'preset', kind: 'string' },
-        { name: 'image_dpi', kind: 'number' },
-        { name: 'compress_fonts', kind: 'boolean' },
-        { name: 'subset_fonts', kind: 'boolean' },
-        { name: 'remove_metadata', kind: 'boolean' },
-        { name: 'linearize', kind: 'boolean' },
-        { name: 'compatibility', kind: 'string' },
-      ],
-      rawValues: {
-        preset: this.preset,
-        image_dpi: this.imageDpi,
-        compress_fonts: this.compressFonts,
-        subset_fonts: this.subsetFonts,
-        remove_metadata: this.removeMetadata,
-        linearize: this.linearize,
-        compatibility: this.compatibility,
-      },
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        optimized: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'file',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-    })
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
 
-    return hasFailures ? 1 : undefined
+    try {
+      const step = parseIntentStep({
+        schema: robotDocumentOptimizeInstructionsSchema,
+        fixedValues: {
+          robot: '/document/optimize',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [
+          { name: 'preset', kind: 'string' },
+          { name: 'image_dpi', kind: 'number' },
+          { name: 'compress_fonts', kind: 'boolean' },
+          { name: 'subset_fonts', kind: 'boolean' },
+          { name: 'remove_metadata', kind: 'boolean' },
+          { name: 'linearize', kind: 'boolean' },
+          { name: 'compatibility', kind: 'string' },
+        ],
+        rawValues: {
+          preset: this.preset,
+          image_dpi: this.imageDpi,
+          compress_fonts: this.compressFonts,
+          subset_fonts: this.subsetFonts,
+          remove_metadata: this.removeMetadata,
+          linearize: this.linearize,
+          compatibility: this.compatibility,
+        },
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          optimized: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'file',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -1244,7 +1383,11 @@ export class DocumentAutoRotateCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -1278,8 +1421,8 @@ export class DocumentAutoRotateCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('document auto-rotate requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('document auto-rotate requires --input or --input-base64')
       return 1
     }
 
@@ -1288,33 +1431,47 @@ export class DocumentAutoRotateCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotDocumentAutorotateInstructionsSchema,
-      fixedValues: {
-        robot: '/document/autorotate',
-        result: true,
-        use: ':original',
-      },
-      fieldSpecs: [],
-      rawValues: {},
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        autorotated: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'file',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-    })
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
 
-    return hasFailures ? 1 : undefined
+    try {
+      const step = parseIntentStep({
+        schema: robotDocumentAutorotateInstructionsSchema,
+        fixedValues: {
+          robot: '/document/autorotate',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [],
+        rawValues: {},
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          autorotated: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'file',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -1398,7 +1555,11 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -1432,8 +1593,8 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('document thumbs requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('document thumbs requires --input or --input-base64')
       return 1
     }
 
@@ -1442,63 +1603,77 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotDocumentThumbsInstructionsSchema,
-      fixedValues: {
-        robot: '/document/thumbs',
-        result: true,
-        use: ':original',
-      },
-      fieldSpecs: [
-        { name: 'page', kind: 'number' },
-        { name: 'format', kind: 'string' },
-        { name: 'delay', kind: 'number' },
-        { name: 'width', kind: 'number' },
-        { name: 'height', kind: 'number' },
-        { name: 'resize_strategy', kind: 'string' },
-        { name: 'background', kind: 'string' },
-        { name: 'alpha', kind: 'string' },
-        { name: 'density', kind: 'string' },
-        { name: 'antialiasing', kind: 'boolean' },
-        { name: 'colorspace', kind: 'string' },
-        { name: 'trim_whitespace', kind: 'boolean' },
-        { name: 'pdf_use_cropbox', kind: 'boolean' },
-        { name: 'turbo', kind: 'boolean' },
-      ],
-      rawValues: {
-        page: this.page,
-        format: this.format,
-        delay: this.delay,
-        width: this.width,
-        height: this.height,
-        resize_strategy: this.resizeStrategy,
-        background: this.background,
-        alpha: this.alpha,
-        density: this.density,
-        antialiasing: this.antialiasing,
-        colorspace: this.colorspace,
-        trim_whitespace: this.trimWhitespace,
-        pdf_use_cropbox: this.pdfUseCropbox,
-        turbo: this.turbo,
-      },
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        thumbnailed: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'directory',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-    })
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
 
-    return hasFailures ? 1 : undefined
+    try {
+      const step = parseIntentStep({
+        schema: robotDocumentThumbsInstructionsSchema,
+        fixedValues: {
+          robot: '/document/thumbs',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [
+          { name: 'page', kind: 'number' },
+          { name: 'format', kind: 'string' },
+          { name: 'delay', kind: 'number' },
+          { name: 'width', kind: 'number' },
+          { name: 'height', kind: 'number' },
+          { name: 'resize_strategy', kind: 'string' },
+          { name: 'background', kind: 'string' },
+          { name: 'alpha', kind: 'string' },
+          { name: 'density', kind: 'string' },
+          { name: 'antialiasing', kind: 'boolean' },
+          { name: 'colorspace', kind: 'string' },
+          { name: 'trim_whitespace', kind: 'boolean' },
+          { name: 'pdf_use_cropbox', kind: 'boolean' },
+          { name: 'turbo', kind: 'boolean' },
+        ],
+        rawValues: {
+          page: this.page,
+          format: this.format,
+          delay: this.delay,
+          width: this.width,
+          height: this.height,
+          resize_strategy: this.resizeStrategy,
+          background: this.background,
+          alpha: this.alpha,
+          density: this.density,
+          antialiasing: this.antialiasing,
+          colorspace: this.colorspace,
+          trim_whitespace: this.trimWhitespace,
+          pdf_use_cropbox: this.pdfUseCropbox,
+          turbo: this.turbo,
+        },
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          thumbnailed: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'directory',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -1630,7 +1805,11 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -1664,8 +1843,8 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('audio waveform requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('audio waveform requires --input or --input-base64')
       return 1
     }
 
@@ -1674,85 +1853,99 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotAudioWaveformInstructionsSchema,
-      fixedValues: {
-        robot: '/audio/waveform',
-        result: true,
-        use: ':original',
-      },
-      fieldSpecs: [
-        { name: 'format', kind: 'string' },
-        { name: 'width', kind: 'number' },
-        { name: 'height', kind: 'number' },
-        { name: 'antialiasing', kind: 'auto' },
-        { name: 'background_color', kind: 'string' },
-        { name: 'center_color', kind: 'string' },
-        { name: 'outer_color', kind: 'string' },
-        { name: 'style', kind: 'string' },
-        { name: 'split_channels', kind: 'boolean' },
-        { name: 'zoom', kind: 'number' },
-        { name: 'pixels_per_second', kind: 'number' },
-        { name: 'bits', kind: 'number' },
-        { name: 'start', kind: 'number' },
-        { name: 'end', kind: 'number' },
-        { name: 'colors', kind: 'string' },
-        { name: 'border_color', kind: 'string' },
-        { name: 'waveform_style', kind: 'string' },
-        { name: 'bar_width', kind: 'number' },
-        { name: 'bar_gap', kind: 'number' },
-        { name: 'bar_style', kind: 'string' },
-        { name: 'axis_label_color', kind: 'string' },
-        { name: 'no_axis_labels', kind: 'boolean' },
-        { name: 'with_axis_labels', kind: 'boolean' },
-        { name: 'amplitude_scale', kind: 'number' },
-        { name: 'compression', kind: 'number' },
-      ],
-      rawValues: {
-        format: this.format,
-        width: this.width,
-        height: this.height,
-        antialiasing: this.antialiasing,
-        background_color: this.backgroundColor,
-        center_color: this.centerColor,
-        outer_color: this.outerColor,
-        style: this.style,
-        split_channels: this.splitChannels,
-        zoom: this.zoom,
-        pixels_per_second: this.pixelsPerSecond,
-        bits: this.bits,
-        start: this.start,
-        end: this.end,
-        colors: this.colors,
-        border_color: this.borderColor,
-        waveform_style: this.waveformStyle,
-        bar_width: this.barWidth,
-        bar_gap: this.barGap,
-        bar_style: this.barStyle,
-        axis_label_color: this.axisLabelColor,
-        no_axis_labels: this.noAxisLabels,
-        with_axis_labels: this.withAxisLabels,
-        amplitude_scale: this.amplitudeScale,
-        compression: this.compression,
-      },
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        waveformed: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'file',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-    })
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
 
-    return hasFailures ? 1 : undefined
+    try {
+      const step = parseIntentStep({
+        schema: robotAudioWaveformInstructionsSchema,
+        fixedValues: {
+          robot: '/audio/waveform',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [
+          { name: 'format', kind: 'string' },
+          { name: 'width', kind: 'number' },
+          { name: 'height', kind: 'number' },
+          { name: 'antialiasing', kind: 'auto' },
+          { name: 'background_color', kind: 'string' },
+          { name: 'center_color', kind: 'string' },
+          { name: 'outer_color', kind: 'string' },
+          { name: 'style', kind: 'string' },
+          { name: 'split_channels', kind: 'boolean' },
+          { name: 'zoom', kind: 'number' },
+          { name: 'pixels_per_second', kind: 'number' },
+          { name: 'bits', kind: 'number' },
+          { name: 'start', kind: 'number' },
+          { name: 'end', kind: 'number' },
+          { name: 'colors', kind: 'string' },
+          { name: 'border_color', kind: 'string' },
+          { name: 'waveform_style', kind: 'string' },
+          { name: 'bar_width', kind: 'number' },
+          { name: 'bar_gap', kind: 'number' },
+          { name: 'bar_style', kind: 'string' },
+          { name: 'axis_label_color', kind: 'string' },
+          { name: 'no_axis_labels', kind: 'boolean' },
+          { name: 'with_axis_labels', kind: 'boolean' },
+          { name: 'amplitude_scale', kind: 'number' },
+          { name: 'compression', kind: 'number' },
+        ],
+        rawValues: {
+          format: this.format,
+          width: this.width,
+          height: this.height,
+          antialiasing: this.antialiasing,
+          background_color: this.backgroundColor,
+          center_color: this.centerColor,
+          outer_color: this.outerColor,
+          style: this.style,
+          split_channels: this.splitChannels,
+          zoom: this.zoom,
+          pixels_per_second: this.pixelsPerSecond,
+          bits: this.bits,
+          start: this.start,
+          end: this.end,
+          colors: this.colors,
+          border_color: this.borderColor,
+          waveform_style: this.waveformStyle,
+          bar_width: this.barWidth,
+          bar_gap: this.barGap,
+          bar_style: this.barStyle,
+          axis_label_color: this.axisLabelColor,
+          no_axis_labels: this.noAxisLabels,
+          with_axis_labels: this.withAxisLabels,
+          amplitude_scale: this.amplitudeScale,
+          compression: this.compression,
+        },
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          waveformed: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'file',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -1798,7 +1991,11 @@ export class TextSpeakCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -1832,7 +2029,11 @@ export class TextSpeakCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0 && this.prompt == null) {
+    if (
+      (this.inputs ?? []).length === 0 &&
+      (this.inputBase64 ?? []).length === 0 &&
+      this.prompt == null
+    ) {
       this.output.error('text speak requires --input or --prompt')
       return 1
     }
@@ -1842,53 +2043,67 @@ export class TextSpeakCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotTextSpeakInstructionsSchema,
-      fixedValues:
-        (this.inputs ?? []).length > 0
-          ? {
-              ...{
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
+    })
+
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
+
+    try {
+      const step = parseIntentStep({
+        schema: robotTextSpeakInstructionsSchema,
+        fixedValues:
+          (this.inputs ?? []).length > 0
+            ? {
+                ...{
+                  robot: '/text/speak',
+                  result: true,
+                },
+                use: ':original',
+              }
+            : {
                 robot: '/text/speak',
                 result: true,
               },
-              use: ':original',
-            }
-          : {
-              robot: '/text/speak',
-              result: true,
-            },
-      fieldSpecs: [
-        { name: 'prompt', kind: 'string' },
-        { name: 'provider', kind: 'string' },
-        { name: 'target_language', kind: 'string' },
-        { name: 'voice', kind: 'string' },
-        { name: 'ssml', kind: 'boolean' },
-      ],
-      rawValues: {
-        prompt: this.prompt,
-        provider: this.provider,
-        target_language: this.targetLanguage,
-        voice: this.voice,
-        ssml: this.ssml,
-      },
-    })
+        fieldSpecs: [
+          { name: 'prompt', kind: 'string' },
+          { name: 'provider', kind: 'string' },
+          { name: 'target_language', kind: 'string' },
+          { name: 'voice', kind: 'string' },
+          { name: 'ssml', kind: 'boolean' },
+        ],
+        rawValues: {
+          prompt: this.prompt,
+          provider: this.provider,
+          target_language: this.targetLanguage,
+          voice: this.voice,
+          ssml: this.ssml,
+        },
+      })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        synthesized: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'file',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-    })
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          synthesized: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'file',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
 
-    return hasFailures ? 1 : undefined
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -1942,7 +2157,11 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -1976,8 +2195,8 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('video thumbs requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('video thumbs requires --input or --input-base64')
       return 1
     }
 
@@ -1986,51 +2205,65 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotVideoThumbsInstructionsSchema,
-      fixedValues: {
-        robot: '/video/thumbs',
-        result: true,
-        use: ':original',
-      },
-      fieldSpecs: [
-        { name: 'count', kind: 'number' },
-        { name: 'format', kind: 'string' },
-        { name: 'width', kind: 'number' },
-        { name: 'height', kind: 'number' },
-        { name: 'resize_strategy', kind: 'string' },
-        { name: 'background', kind: 'string' },
-        { name: 'rotate', kind: 'number' },
-        { name: 'input_codec', kind: 'string' },
-      ],
-      rawValues: {
-        count: this.count,
-        format: this.format,
-        width: this.width,
-        height: this.height,
-        resize_strategy: this.resizeStrategy,
-        background: this.background,
-        rotate: this.rotate,
-        input_codec: this.inputCodec,
-      },
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        thumbnailed: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'directory',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-    })
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
 
-    return hasFailures ? 1 : undefined
+    try {
+      const step = parseIntentStep({
+        schema: robotVideoThumbsInstructionsSchema,
+        fixedValues: {
+          robot: '/video/thumbs',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [
+          { name: 'count', kind: 'number' },
+          { name: 'format', kind: 'string' },
+          { name: 'width', kind: 'number' },
+          { name: 'height', kind: 'number' },
+          { name: 'resize_strategy', kind: 'string' },
+          { name: 'background', kind: 'string' },
+          { name: 'rotate', kind: 'number' },
+          { name: 'input_codec', kind: 'string' },
+        ],
+        rawValues: {
+          count: this.count,
+          format: this.format,
+          width: this.width,
+          height: this.height,
+          resize_strategy: this.resizeStrategy,
+          background: this.background,
+          rotate: this.rotate,
+          input_codec: this.inputCodec,
+        },
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          thumbnailed: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'directory',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -2046,7 +2279,11 @@ export class VideoEncodeHlsCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -2080,8 +2317,8 @@ export class VideoEncodeHlsCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('video encode-hls requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('video encode-hls requires --input or --input-base64')
       return 1
     }
 
@@ -2090,20 +2327,34 @@ export class VideoEncodeHlsCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      template: 'builtin/encode-hls-video@latest',
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'directory',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    return hasFailures ? 1 : undefined
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
+
+    try {
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        template: 'builtin/encode-hls-video@latest',
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'directory',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -2149,7 +2400,11 @@ export class FileCompressCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide one or more input files or directories',
+    description: 'Provide one or more input paths, directories, URLs, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -2170,53 +2425,62 @@ export class FileCompressCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('file compress requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('file compress requires --input or --input-base64')
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotFileCompressInstructionsSchema,
-      fixedValues: {
-        robot: '/file/compress',
-        result: true,
-        use: {
-          steps: [':original'],
-          bundle_steps: true,
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
+    })
+
+    try {
+      const step = parseIntentStep({
+        schema: robotFileCompressInstructionsSchema,
+        fixedValues: {
+          robot: '/file/compress',
+          result: true,
+          use: {
+            steps: [':original'],
+            bundle_steps: true,
+          },
         },
-      },
-      fieldSpecs: [
-        { name: 'format', kind: 'string' },
-        { name: 'gzip', kind: 'boolean' },
-        { name: 'password', kind: 'string' },
-        { name: 'compression_level', kind: 'number' },
-        { name: 'file_layout', kind: 'string' },
-        { name: 'archive_name', kind: 'string' },
-      ],
-      rawValues: {
-        format: this.format,
-        gzip: this.gzip,
-        password: this.password,
-        compression_level: this.compressionLevel,
-        file_layout: this.fileLayout,
-        archive_name: this.archiveName,
-      },
-    })
+        fieldSpecs: [
+          { name: 'format', kind: 'string' },
+          { name: 'gzip', kind: 'boolean' },
+          { name: 'password', kind: 'string' },
+          { name: 'compression_level', kind: 'number' },
+          { name: 'file_layout', kind: 'string' },
+          { name: 'archive_name', kind: 'string' },
+        ],
+        rawValues: {
+          format: this.format,
+          gzip: this.gzip,
+          password: this.password,
+          compression_level: this.compressionLevel,
+          file_layout: this.fileLayout,
+          archive_name: this.archiveName,
+        },
+      })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        compressed: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'file',
-      recursive: this.recursive,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: true,
-    })
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          compressed: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'file',
+        recursive: this.recursive,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: true,
+      })
 
-    return hasFailures ? 1 : undefined
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 
@@ -2231,7 +2495,11 @@ export class FileDecompressCommand extends AuthenticatedCommand {
   })
 
   inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  })
+
+  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
   })
 
   recursive = Option.Boolean('--recursive,-r', false, {
@@ -2265,8 +2533,8 @@ export class FileDecompressCommand extends AuthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    if ((this.inputs ?? []).length === 0) {
-      this.output.error('file decompress requires at least one --input')
+    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {
+      this.output.error('file decompress requires --input or --input-base64')
       return 1
     }
 
@@ -2275,33 +2543,47 @@ export class FileDecompressCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const step = parseIntentStep({
-      schema: robotFileDecompressInstructionsSchema,
-      fixedValues: {
-        robot: '/file/decompress',
-        result: true,
-        use: ':original',
-      },
-      fieldSpecs: [],
-      rawValues: {},
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
     })
 
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        decompressed: step,
-      },
-      inputs: this.inputs ?? [],
-      output: this.outputPath,
-      outputMode: 'directory',
-      recursive: this.recursive,
-      watch: this.watch,
-      del: this.deleteAfterProcessing,
-      reprocessStale: this.reprocessStale,
-      singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-    })
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
 
-    return hasFailures ? 1 : undefined
+    try {
+      const step = parseIntentStep({
+        schema: robotFileDecompressInstructionsSchema,
+        fixedValues: {
+          robot: '/file/decompress',
+          result: true,
+          use: ':original',
+        },
+        fieldSpecs: [],
+        rawValues: {},
+      })
+
+      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+        stepsData: {
+          decompressed: step,
+        },
+        inputs: preparedInputs.inputs,
+        output: this.outputPath,
+        outputMode: 'directory',
+        recursive: this.recursive,
+        watch: this.watch,
+        del: this.deleteAfterProcessing,
+        reprocessStale: this.reprocessStale,
+        singleAssembly: this.singleAssembly,
+        concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      })
+
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }
   }
 }
 

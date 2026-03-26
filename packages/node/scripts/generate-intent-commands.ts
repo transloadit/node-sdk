@@ -317,7 +317,7 @@ function inferLocalFilesInput({
   if (defaultSingleAssembly) {
     return {
       kind: 'local-files',
-      description: 'Provide one or more input files or directories',
+      description: 'Provide one or more input paths, directories, URLs, or - for stdin',
       recursive: true,
       deleteAfterProcessing: true,
       reprocessStale: true,
@@ -328,7 +328,7 @@ function inferLocalFilesInput({
 
   return {
     kind: 'local-files',
-    description: 'Provide an input file or a directory',
+    description: 'Provide an input path, directory, URL, or - for stdin',
     recursive: true,
     allowWatch: true,
     deleteAfterProcessing: true,
@@ -558,7 +558,7 @@ function resolveRobotIntentSpec(entry: RobotIntentCatalogEntry): ResolvedIntentC
     throw new Error(`No robot intent definition found for "${entry.robot}"`)
   }
 
-  const paths = inferCommandPathsFromRobot(definition.robot)
+  const paths = entry.paths ?? inferCommandPathsFromRobot(definition.robot)
   const inputMode = inferInputMode(entry, definition)
   const outputMode = inferOutputMode(entry)
   const input = inferInputSpec(entry, definition)
@@ -712,6 +712,9 @@ function formatLocalInputOptions(input: ResolvedIntentLocalFilesInput): string {
     `  inputs = Option.Array('--input,-i', {
     description: ${JSON.stringify(input.description)},
   })`,
+    `  inputBase64 = Option.Array('--input-base64', {
+    description: 'Provide base64-encoded input content directly',
+  })`,
   ]
 
   if (input.recursive !== false) {
@@ -774,7 +777,7 @@ function formatLocalCreateOptions(spec: ResolvedIntentCommandSpec): string {
     throw new Error('Expected a local-files input spec')
   }
 
-  const entries = ['      inputs: this.inputs ?? [],', '      output: this.outputPath,']
+  const entries = ['      inputs: preparedInputs.inputs,', '      output: this.outputPath,']
 
   if (spec.outputMode != null) {
     entries.push(`      outputMode: ${JSON.stringify(spec.outputMode)},`)
@@ -819,13 +822,13 @@ function formatLocalValidation(spec: ResolvedIntentCommandSpec, commandLabel: st
   const lines =
     spec.input.requiredFieldForInputless == null
       ? [
-          '    if ((this.inputs ?? []).length === 0) {',
-          `      this.output.error('${commandLabel} requires at least one --input')`,
+          '    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {',
+          `      this.output.error('${commandLabel} requires --input or --input-base64')`,
           '      return 1',
           '    }',
         ]
       : [
-          `    if ((this.inputs ?? []).length === 0 && this.${toCamelCase(spec.input.requiredFieldForInputless)} == null) {`,
+          `    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0 && this.${toCamelCase(spec.input.requiredFieldForInputless)} == null) {`,
           `      this.output.error('${commandLabel} requires --input or --${toKebabCase(spec.input.requiredFieldForInputless)}')`,
           '      return 1',
           '    }',
@@ -881,6 +884,16 @@ function formatRunBody(
   fieldSpecs: GeneratedSchemaField[],
 ): string {
   const schemaSpec = spec.schemaSpec
+  const transientWatchGuard =
+    spec.input.kind === 'local-files' && spec.input.allowWatch
+      ? `
+
+    if (this.watch && preparedInputs.hasTransientInputs) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }`
+      : ''
+
   if (spec.execution.kind === 'single-step') {
     const parseStep = `    const step = parseIntentStep({
       schema: ${schemaSpec?.importName},
@@ -892,6 +905,12 @@ function formatRunBody(
     if (spec.input.kind === 'local-files') {
       return `${formatLocalValidation(spec, spec.paths.join(' '))}
 
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
+    })${transientWatchGuard}
+
+    try {
 ${parseStep}
 
     const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
@@ -901,7 +920,10 @@ ${parseStep}
 ${formatLocalCreateOptions(spec)}
     })
 
-    return hasFailures ? 1 : undefined`
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }`
     }
 
     return `${parseStep}
@@ -951,12 +973,21 @@ ${formatLocalCreateOptions(spec)}
 
   return `${formatLocalValidation(spec, spec.paths.join(' '))}
 
+    const preparedInputs = await prepareIntentInputs({
+      inputValues: this.inputs ?? [],
+      inputBase64Values: this.inputBase64 ?? [],
+    })${transientWatchGuard}
+
+    try {
     const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
       template: ${JSON.stringify(spec.execution.templateId)},
 ${formatLocalCreateOptions(spec)}
     })
 
-    return hasFailures ? 1 : undefined`
+      return hasFailures ? 1 : undefined
+    } finally {
+      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
+    }`
 }
 
 function resolveFixedValues(spec: ResolvedIntentCommandSpec): Record<string, unknown> {
@@ -1031,7 +1062,7 @@ import { Command, Option } from 'clipanion'
 import * as t from 'typanion'
 
 ${generateImports(specs)}
-import { parseIntentStep } from '../intentRuntime.ts'
+import { parseIntentStep, prepareIntentInputs } from '../intentRuntime.ts'
 import * as assembliesCommands from './assemblies.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
 ${commandClasses.join('\n')}

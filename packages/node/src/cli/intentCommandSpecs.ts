@@ -29,7 +29,10 @@ import {
   robotFileDecompressInstructionsSchema,
   meta as robotFileDecompressMeta,
 } from '../alphalib/types/robots/file-decompress.ts'
-import { robotFilePreviewInstructionsSchema } from '../alphalib/types/robots/file-preview.ts'
+import {
+  robotFilePreviewInstructionsSchema,
+  meta as robotFilePreviewMeta,
+} from '../alphalib/types/robots/file-preview.ts'
 import {
   robotImageBgremoveInstructionsSchema,
   meta as robotImageBgremoveMeta,
@@ -71,6 +74,7 @@ export interface RobotIntentCatalogEntry {
   defaultSingleAssembly?: boolean
   inputMode?: Exclude<IntentInputMode, 'remote-url'>
   outputMode?: IntentOutputMode
+  paths?: string[]
   robot: keyof typeof robotIntentDefinitions
 }
 
@@ -156,6 +160,13 @@ export const robotIntentDefinitions = {
     schemaImportName: 'robotFileDecompressInstructionsSchema',
     schemaImportPath: '../../alphalib/types/robots/file-decompress.ts',
   },
+  '/file/preview': {
+    robot: '/file/preview',
+    meta: robotFilePreviewMeta,
+    schema: robotFilePreviewInstructionsSchema,
+    schemaImportName: 'robotFilePreviewInstructionsSchema',
+    schemaImportPath: '../../alphalib/types/robots/file-preview.ts',
+  },
   '/image/bgremove': {
     robot: '/image/bgremove',
     meta: robotImageBgremoveMeta,
@@ -200,32 +211,11 @@ export const robotIntentDefinitions = {
   },
 } satisfies Record<string, RobotIntentDefinition>
 
-export const intentRecipeDefinitions = {
-  'preview-generate': {
-    summary: 'Generate preview images for remote file URLs',
-    description: 'Generate a preview image for a remote file URL',
-    details:
-      'Imports a remote file with `/http/import`, then runs `/file/preview` and downloads the preview to `--out`.',
-    paths: ['preview', 'generate'],
-    inputMode: 'remote-url',
-    outputDescription: 'Write the generated preview image to this path',
-    outputRequired: true,
-    examples: [
-      [
-        'Preview a remote PDF',
-        'transloadit preview generate --input https://example.com/file.pdf --width 300 --height 200 --out preview.png',
-      ],
-    ],
-    schema: robotFilePreviewInstructionsSchema,
-    schemaImportName: 'robotFilePreviewInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/file-preview.ts',
-    resultStepName: 'preview',
-  },
-} satisfies Record<string, IntentRecipeDefinition>
+export const intentRecipeDefinitions = {} satisfies Record<string, IntentRecipeDefinition>
 
 export const intentCatalog = [
   { kind: 'robot', robot: '/image/generate' },
-  { kind: 'recipe', recipe: 'preview-generate' },
+  { kind: 'robot', robot: '/file/preview', paths: ['preview', 'generate'] },
   { kind: 'robot', robot: '/image/bgremove' },
   { kind: 'robot', robot: '/image/optimize' },
   { kind: 'robot', robot: '/image/resize' },
