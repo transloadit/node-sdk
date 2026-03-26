@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.3.10
+
+### Patch Changes
+
+- 0702871: Fix "Server already initialized" error when multiple MCP clients connect concurrently. The HTTP and Express handlers now create a new transport + server pair per session instead of sharing a single transport instance.
+
 ## 0.3.9
 
 ### Patch Changes
