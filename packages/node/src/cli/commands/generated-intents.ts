@@ -850,7 +850,7 @@ export class ImageResizeCommand extends AuthenticatedCommand {
         { name: 'colorspace', kind: 'string' },
         { name: 'type', kind: 'string' },
         { name: 'sepia', kind: 'number' },
-        { name: 'rotation', kind: 'string' },
+        { name: 'rotation', kind: 'auto' },
         { name: 'compress', kind: 'string' },
         { name: 'blur', kind: 'string' },
         { name: 'brightness', kind: 'number' },
@@ -868,11 +868,11 @@ export class ImageResizeCommand extends AuthenticatedCommand {
         { name: 'progressive', kind: 'boolean' },
         { name: 'transparent', kind: 'string' },
         { name: 'trim_whitespace', kind: 'boolean' },
-        { name: 'clip', kind: 'string' },
+        { name: 'clip', kind: 'auto' },
         { name: 'negate', kind: 'boolean' },
         { name: 'density', kind: 'string' },
         { name: 'monochrome', kind: 'boolean' },
-        { name: 'shave', kind: 'string' },
+        { name: 'shave', kind: 'auto' },
       ],
       rawValues: {
         format: this.format,
@@ -946,7 +946,10 @@ export class DocumentConvertCommand extends AuthenticatedCommand {
     description: 'Convert documents into different formats',
     details: 'Runs `/document/convert` on each input file and writes the result to `--out`.',
     examples: [
-      ['Run the command', 'transloadit document convert --input input.pdf --out output.pdf'],
+      [
+        'Run the command',
+        'transloadit document convert --input input.pdf --format pdf --out output.pdf',
+      ],
     ],
   })
 
@@ -1682,7 +1685,7 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
         { name: 'format', kind: 'string' },
         { name: 'width', kind: 'number' },
         { name: 'height', kind: 'number' },
-        { name: 'antialiasing', kind: 'string' },
+        { name: 'antialiasing', kind: 'auto' },
         { name: 'background_color', kind: 'string' },
         { name: 'center_color', kind: 'string' },
         { name: 'outer_color', kind: 'string' },
@@ -1759,16 +1762,18 @@ export class TextSpeakCommand extends AuthenticatedCommand {
   static override usage = Command.Usage({
     category: 'Intent Commands',
     description: 'Speak text',
-    details: 'Runs `/text/speak` and writes the result to `--out`.',
+    details: 'Runs `/text/speak` on each input file and writes the result to `--out`.',
     examples: [
-      ['Run the command', 'transloadit text speak --prompt "Hello world" --out output.mp3'],
+      [
+        'Run the command',
+        'transloadit text speak --input input.pdf --provider aws --out output.mp3',
+      ],
     ],
   })
 
   prompt = Option.String('--prompt', {
     description:
       'Which text to speak. You can also set this to `null` and supply an input text file.',
-    required: true,
   })
 
   provider = Option.String('--provider', {
@@ -1792,18 +1797,66 @@ export class TextSpeakCommand extends AuthenticatedCommand {
       'Supply [Speech Synthesis Markup Language](https://en.wikipedia.org/wiki/Speech_Synthesis_Markup_Language) instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations.\n\nPlease see the supported syntaxes for [AWS](https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html) and [GCP](https://cloud.google.com/text-to-speech/docs/ssml).',
   })
 
+  inputs = Option.Array('--input,-i', {
+    description: 'Provide an input file or a directory',
+  })
+
+  recursive = Option.Boolean('--recursive,-r', false, {
+    description: 'Enumerate input directories recursively',
+  })
+
+  watch = Option.Boolean('--watch,-w', false, {
+    description: 'Watch inputs for changes',
+  })
+
+  deleteAfterProcessing = Option.Boolean('--delete-after-processing,-d', false, {
+    description: 'Delete input files after they are processed',
+  })
+
+  reprocessStale = Option.Boolean('--reprocess-stale', false, {
+    description: 'Process inputs even if output is newer',
+  })
+
+  singleAssembly = Option.Boolean('--single-assembly', false, {
+    description: 'Pass all input files to a single assembly instead of one assembly per file',
+  })
+
+  concurrency = Option.String('--concurrency,-c', {
+    description: 'Maximum number of concurrent assemblies (default: 5)',
+    validator: t.isNumber(),
+  })
+
   outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path',
+    description: 'Write the result to this path or directory',
     required: true,
   })
 
   protected async run(): Promise<number | undefined> {
+    if ((this.inputs ?? []).length === 0 && this.prompt == null) {
+      this.output.error('text speak requires --input or --prompt')
+      return 1
+    }
+
+    if (this.singleAssembly && this.watch) {
+      this.output.error('--single-assembly cannot be used with --watch')
+      return 1
+    }
+
     const step = parseIntentStep({
       schema: robotTextSpeakInstructionsSchema,
-      fixedValues: {
-        robot: '/text/speak',
-        result: true,
-      },
+      fixedValues:
+        (this.inputs ?? []).length > 0
+          ? {
+              ...{
+                robot: '/text/speak',
+                result: true,
+              },
+              use: ':original',
+            }
+          : {
+              robot: '/text/speak',
+              result: true,
+            },
       fieldSpecs: [
         { name: 'prompt', kind: 'string' },
         { name: 'provider', kind: 'string' },
@@ -1824,8 +1877,15 @@ export class TextSpeakCommand extends AuthenticatedCommand {
       stepsData: {
         synthesized: step,
       },
-      inputs: [],
+      inputs: this.inputs ?? [],
       output: this.outputPath,
+      outputMode: 'file',
+      recursive: this.recursive,
+      watch: this.watch,
+      del: this.deleteAfterProcessing,
+      reprocessStale: this.reprocessStale,
+      singleAssembly: this.singleAssembly,
+      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
     })
 
     return hasFailures ? 1 : undefined

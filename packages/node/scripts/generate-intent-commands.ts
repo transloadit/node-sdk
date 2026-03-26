@@ -29,7 +29,7 @@ import {
   robotIntentDefinitions,
 } from '../src/cli/intentCommandSpecs.ts'
 
-type GeneratedFieldKind = 'boolean' | 'number' | 'string'
+type GeneratedFieldKind = 'auto' | 'boolean' | 'number' | 'string'
 
 interface GeneratedSchemaField {
   description?: string
@@ -48,6 +48,7 @@ interface ResolvedIntentLocalFilesInput {
   deleteAfterProcessing?: boolean
   description: string
   kind: 'local-files'
+  requiredFieldForInputless?: string
   recursive?: boolean
   reprocessStale?: boolean
 }
@@ -227,7 +228,7 @@ function getFieldKind(schema: unknown): GeneratedFieldKind {
       const [kind] = optionKinds
       if (kind != null) return kind
     }
-    return 'string'
+    return 'auto'
   }
 
   throw new Error('Unsupported schema type')
@@ -257,7 +258,9 @@ function inferInputMode(
 
   const shape = (definition.schema as ZodObject<Record<string, unknown>>).shape
   if ('prompt' in shape) {
-    return 'none'
+    const promptSchema = shape.prompt
+    const { required } = unwrapSchema(promptSchema)
+    return required ? 'none' : 'local-files'
   }
 
   return 'local-files'
@@ -306,8 +309,10 @@ function inferDetails(
 
 function inferLocalFilesInput({
   defaultSingleAssembly = false,
+  requiredFieldForInputless,
 }: {
   defaultSingleAssembly?: boolean
+  requiredFieldForInputless?: string
 }): ResolvedIntentLocalFilesInput {
   if (defaultSingleAssembly) {
     return {
@@ -317,6 +322,7 @@ function inferLocalFilesInput({
       deleteAfterProcessing: true,
       reprocessStale: true,
       defaultSingleAssembly: true,
+      requiredFieldForInputless,
     }
   }
 
@@ -329,6 +335,7 @@ function inferLocalFilesInput({
     reprocessStale: true,
     allowSingleAssembly: true,
     allowConcurrency: true,
+    requiredFieldForInputless,
   }
 }
 
@@ -341,7 +348,14 @@ function inferInputSpec(
     return { kind: 'none' }
   }
 
-  return inferLocalFilesInput({ defaultSingleAssembly: entry.defaultSingleAssembly })
+  const shape = (definition.schema as ZodObject<Record<string, unknown>>).shape
+  const requiredFieldForInputless =
+    'prompt' in shape && !unwrapSchema(shape.prompt).required ? 'prompt' : undefined
+
+  return inferLocalFilesInput({
+    defaultSingleAssembly: entry.defaultSingleAssembly,
+    requiredFieldForInputless,
+  })
 }
 
 function inferFixedValues(
@@ -349,6 +363,9 @@ function inferFixedValues(
   definition: RobotIntentDefinition,
   inputMode: Exclude<IntentInputMode, 'remote-url'>,
 ): Record<string, unknown> {
+  const shape = (definition.schema as ZodObject<Record<string, unknown>>).shape
+  const promptIsOptional = 'prompt' in shape && !unwrapSchema(shape.prompt).required
+
   if (entry.defaultSingleAssembly) {
     return {
       robot: definition.robot,
@@ -361,6 +378,13 @@ function inferFixedValues(
   }
 
   if (inputMode === 'local-files') {
+    if (promptIsOptional) {
+      return {
+        robot: definition.robot,
+        result: true,
+      }
+    }
+
     return {
       robot: definition.robot,
       result: true,
@@ -439,6 +463,7 @@ function inferExamples(
   paths: string[],
   inputMode: IntentInputMode,
   outputMode: IntentOutputMode,
+  fieldSpecs: GeneratedSchemaField[],
 ): Array<[string, string]> {
   const parts = ['transloadit', ...paths]
 
@@ -454,9 +479,43 @@ function inferExamples(
     parts.push('--input', 'https://example.com/file.pdf')
   }
 
+  if (definition != null) {
+    for (const fieldSpec of fieldSpecs) {
+      if (!fieldSpec.required) continue
+      if (fieldSpec.name === 'prompt' && inputMode === 'none') continue
+
+      const exampleValue = inferExampleValue(definition, fieldSpec)
+      if (exampleValue == null) continue
+      parts.push(fieldSpec.optionFlags, exampleValue)
+    }
+  }
+
   parts.push('--out', guessOutputPath(definition, paths, outputMode))
 
   return [['Run the command', parts.join(' ')]]
+}
+
+function inferExampleValue(
+  definition: RobotIntentDefinition,
+  fieldSpec: GeneratedSchemaField,
+): string | null {
+  if (fieldSpec.name === 'aspect_ratio') return '1:1'
+  if (fieldSpec.name === 'format') {
+    if (definition.robot === '/document/convert') return 'pdf'
+    if (definition.robot === '/file/compress') return 'zip'
+    if (definition.robot === '/video/thumbs') return 'jpg'
+    return 'png'
+  }
+  if (fieldSpec.name === 'model') return 'flux-schnell'
+  if (fieldSpec.name === 'prompt') return JSON.stringify(guessPromptExample(definition.robot))
+  if (fieldSpec.name === 'provider') return 'aws'
+  if (fieldSpec.name === 'target_language') return 'en-US'
+  if (fieldSpec.name === 'voice') return 'female-1'
+
+  if (fieldSpec.kind === 'boolean') return 'true'
+  if (fieldSpec.kind === 'number') return '1'
+
+  return 'value'
 }
 
 function collectSchemaFields(
@@ -503,27 +562,30 @@ function resolveRobotIntentSpec(entry: RobotIntentCatalogEntry): ResolvedIntentC
   const inputMode = inferInputMode(entry, definition)
   const outputMode = inferOutputMode(entry)
   const input = inferInputSpec(entry, definition)
+  const schemaSpec = {
+    importName: definition.schemaImportName,
+    importPath: definition.schemaImportPath,
+    schema: definition.schema as ZodObject<Record<string, unknown>>,
+  } satisfies ResolvedIntentSchemaSpec
+  const execution = {
+    kind: 'single-step',
+    resultStepName: inferResultStepName(definition.robot),
+    fixedValues: inferFixedValues(entry, definition, inputMode),
+  } satisfies ResolvedIntentSingleStepExecution
+  const fieldSpecs = collectSchemaFields(schemaSpec, execution.fixedValues, input)
 
   return {
     className: inferClassName(paths),
     description: inferDescription(definition),
     details: inferDetails(definition, inputMode, outputMode, entry.defaultSingleAssembly === true),
-    examples: inferExamples(definition, paths, inputMode, outputMode),
+    examples: inferExamples(definition, paths, inputMode, outputMode, fieldSpecs),
     input,
     outputDescription: inferOutputDescription(inputMode, outputMode),
     outputMode,
     outputRequired: true,
     paths,
-    schemaSpec: {
-      importName: definition.schemaImportName,
-      importPath: definition.schemaImportPath,
-      schema: definition.schema as ZodObject<Record<string, unknown>>,
-    },
-    execution: {
-      kind: 'single-step',
-      resultStepName: inferResultStepName(definition.robot),
-      fixedValues: inferFixedValues(entry, definition, inputMode),
-    },
+    schemaSpec,
+    execution,
   }
 }
 
@@ -754,12 +816,20 @@ function formatLocalValidation(spec: ResolvedIntentCommandSpec, commandLabel: st
     throw new Error('Expected a local-files input spec')
   }
 
-  const lines = [
-    '    if ((this.inputs ?? []).length === 0) {',
-    `      this.output.error('${commandLabel} requires at least one --input')`,
-    '      return 1',
-    '    }',
-  ]
+  const lines =
+    spec.input.requiredFieldForInputless == null
+      ? [
+          '    if ((this.inputs ?? []).length === 0) {',
+          `      this.output.error('${commandLabel} requires at least one --input')`,
+          '      return 1',
+          '    }',
+        ]
+      : [
+          `    if ((this.inputs ?? []).length === 0 && this.${toCamelCase(spec.input.requiredFieldForInputless)} == null) {`,
+          `      this.output.error('${commandLabel} requires --input or --${toKebabCase(spec.input.requiredFieldForInputless)}')`,
+          '      return 1',
+          '    }',
+        ]
 
   if (spec.input.allowWatch && spec.input.allowSingleAssembly) {
     lines.push(
@@ -784,6 +854,28 @@ function formatLocalValidation(spec: ResolvedIntentCommandSpec, commandLabel: st
   return lines.join('\n')
 }
 
+function formatSingleStepFixedValues(spec: ResolvedIntentCommandSpec): string {
+  if (spec.execution.kind !== 'single-step') {
+    throw new Error('Expected a single-step execution spec')
+  }
+
+  if (spec.input.kind === 'local-files' && spec.input.requiredFieldForInputless != null) {
+    const baseFixedValues = JSON.stringify(spec.execution.fixedValues, null, 6).replace(
+      /\n/g,
+      '\n      ',
+    )
+
+    return `(this.inputs ?? []).length > 0
+      ? {
+          ...${baseFixedValues},
+          use: ':original',
+        }
+      : ${baseFixedValues}`
+  }
+
+  return JSON.stringify(spec.execution.fixedValues, null, 6).replace(/\n/g, '\n      ')
+}
+
 function formatRunBody(
   spec: ResolvedIntentCommandSpec,
   fieldSpecs: GeneratedSchemaField[],
@@ -792,7 +884,7 @@ function formatRunBody(
   if (spec.execution.kind === 'single-step') {
     const parseStep = `    const step = parseIntentStep({
       schema: ${schemaSpec?.importName},
-      fixedValues: ${JSON.stringify(spec.execution.fixedValues, null, 6).replace(/\n/g, '\n      ')},
+      fixedValues: ${formatSingleStepFixedValues(spec)},
       fieldSpecs: ${formatFieldSpecsLiteral(fieldSpecs)},
       rawValues: ${formatRawValues(fieldSpecs)},
     })`

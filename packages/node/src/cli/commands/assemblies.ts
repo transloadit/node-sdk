@@ -320,6 +320,7 @@ interface JobEmitterOptions {
   allowOutputCollisions?: boolean
   recursive?: boolean
   outstreamProvider: OutstreamProvider
+  singleAssembly?: boolean
   streamRegistry: StreamRegistry
   watch?: boolean
   reprocessStale?: boolean
@@ -786,6 +787,7 @@ function makeJobEmitter(
     allowOutputCollisions,
     recursive,
     outstreamProvider,
+    singleAssembly,
     streamRegistry,
     watch: watchOption,
     reprocessStale,
@@ -853,7 +855,7 @@ function makeJobEmitter(
   })
 
   const conflictFilter = allowOutputCollisions ? passthroughJobs : detectConflicts
-  const staleFilter = reprocessStale ? passthroughJobs : dismissStaleJobs
+  const staleFilter = reprocessStale || singleAssembly ? passthroughJobs : dismissStaleJobs
 
   return staleFilter(conflictFilter(emitter))
 }
@@ -987,6 +989,7 @@ export async function create(
       recursive,
       watch: watchOption,
       outstreamProvider,
+      singleAssembly,
       streamRegistry,
       reprocessStale,
     })
@@ -1086,6 +1089,7 @@ export async function create(
       }
 
       const shouldGroupByInput = inPath != null && (hasDirectoryInput || inputs.length > 1)
+      const useIntentDirectoryLayout = outputMode === 'directory'
 
       const resolveDirectoryBaseDir = (): string => {
         if (!shouldGroupByInput || inPath == null) {
@@ -1102,53 +1106,72 @@ export async function create(
         return path.join(resolvedOutput as string, path.parse(path.basename(inPath)).name)
       }
 
+      const downloadResultFile = async (resultUrl: string, targetPath: string): Promise<void> => {
+        outputctl.debug('DOWNLOADING')
+        const [dlErr] = await tryCatch(
+          downloadResultToFile(resultUrl, targetPath, abortController.signal),
+        )
+        if (dlErr) {
+          if (dlErr.name === 'AbortError') return
+          outputctl.error(dlErr.message)
+          throw dlErr
+        }
+      }
+
       if (resolvedOutput != null && !superceded) {
-        // Directory output:
-        // - Single-step results write directly into the output directory when possible.
-        // - Multiple steps use per-step subdirectories to avoid collisions and expose structure.
         if (outIsDirectory) {
-          const baseDir = resolveDirectoryBaseDir()
-          await fsp.mkdir(baseDir, { recursive: true })
-          const shouldUseStepDirectories = entries.length > 1
+          if (useIntentDirectoryLayout || outPath == null) {
+            const baseDir = resolveDirectoryBaseDir()
+            await fsp.mkdir(baseDir, { recursive: true })
+            const shouldUseStepDirectories = entries.length > 1
 
-          for (const { stepName, file } of allFiles) {
-            const resultUrl = getFileUrl(file)
-            if (!resultUrl) continue
+            for (const { stepName, file } of allFiles) {
+              const resultUrl = getFileUrl(file)
+              if (!resultUrl) continue
 
-            const targetDir = shouldUseStepDirectories ? path.join(baseDir, stepName) : baseDir
-            await fsp.mkdir(targetDir, { recursive: true })
+              const targetDir = shouldUseStepDirectories ? path.join(baseDir, stepName) : baseDir
+              await fsp.mkdir(targetDir, { recursive: true })
 
-            const rawName =
-              file.name ??
-              (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
-              `${stepName}_result`
-            const safeName = sanitizeName(rawName)
-            const targetPath = await ensureUniquePath(path.join(targetDir, safeName))
+              const rawName =
+                file.name ??
+                (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
+                `${stepName}_result`
+              const safeName = sanitizeName(rawName)
+              const targetPath = await ensureUniquePath(path.join(targetDir, safeName))
 
-            outputctl.debug('DOWNLOADING')
-            const [dlErr] = await tryCatch(
-              downloadResultToFile(resultUrl, targetPath, abortController.signal),
-            )
-            if (dlErr) {
-              if (dlErr.name === 'AbortError') continue
-              outputctl.error(dlErr.message)
-              throw dlErr
+              await downloadResultFile(resultUrl, targetPath)
+            }
+          } else if (allFiles.length === 1) {
+            const first = allFiles[0]
+            const resultUrl = first ? getFileUrl(first.file) : null
+            if (resultUrl) {
+              await downloadResultFile(resultUrl, outPath)
+            }
+          } else {
+            const legacyBaseDir = path.join(path.dirname(outPath), path.parse(outPath).name)
+
+            for (const { stepName, file } of allFiles) {
+              const resultUrl = getFileUrl(file)
+              if (!resultUrl) continue
+
+              const targetDir = path.join(legacyBaseDir, stepName)
+              await fsp.mkdir(targetDir, { recursive: true })
+
+              const rawName =
+                file.name ??
+                (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
+                `${stepName}_result`
+              const safeName = sanitizeName(rawName)
+              const targetPath = await ensureUniquePath(path.join(targetDir, safeName))
+
+              await downloadResultFile(resultUrl, targetPath)
             }
           }
         } else if (outPath != null) {
           const first = allFiles[0]
           const resultUrl = first ? getFileUrl(first.file) : null
           if (resultUrl) {
-            outputctl.debug('DOWNLOADING')
-            const [dlErr] = await tryCatch(
-              downloadResultToFile(resultUrl, outPath, abortController.signal),
-            )
-            if (dlErr) {
-              if (dlErr.name !== 'AbortError') {
-                outputctl.error(dlErr.message)
-                throw dlErr
-              }
-            }
+            await downloadResultFile(resultUrl, outPath)
           }
         }
       }

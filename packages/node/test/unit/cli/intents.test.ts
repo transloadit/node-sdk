@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import * as assembliesCommands from '../../../src/cli/commands/assemblies.ts'
+import {
+  DocumentConvertCommand,
+  TextSpeakCommand,
+} from '../../../src/cli/commands/generated-intents.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 
@@ -185,6 +189,88 @@ describe('intent commands', () => {
     )
   })
 
+  it('supports prompt-only text speak runs without an input file', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'text',
+      'speak',
+      '--prompt',
+      'Hello from a prompt',
+      '--provider',
+      'aws',
+      '--out',
+      'hello.mp3',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [],
+        output: 'hello.mp3',
+        stepsData: {
+          synthesized: {
+            robot: '/text/speak',
+            result: true,
+            prompt: 'Hello from a prompt',
+            provider: 'aws',
+          },
+        },
+      }),
+    )
+  })
+
+  it('supports file-backed text speak runs without a prompt', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'text',
+      'speak',
+      '--input',
+      'article.txt',
+      '--provider',
+      'aws',
+      '--out',
+      'hello.mp3',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['article.txt'],
+        output: 'hello.mp3',
+        stepsData: {
+          synthesized: {
+            robot: '/text/speak',
+            result: true,
+            use: ':original',
+            provider: 'aws',
+          },
+        },
+      }),
+    )
+  })
+
   it('omits schema defaults from generated intent steps', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
@@ -310,6 +396,80 @@ describe('intent commands', () => {
     )
   })
 
+  it('coerces mixed rotation flags like image resize --rotation 90', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'image',
+      'resize',
+      '--input',
+      'demo.jpg',
+      '--rotation',
+      '90',
+      '--out',
+      'resized.jpg',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          resized: expect.objectContaining({
+            robot: '/image/resize',
+            rotation: 90,
+          }),
+        },
+      }),
+    )
+  })
+
+  it('coerces mixed boolean-or-number flags like audio waveform --antialiasing 1', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'audio',
+      'waveform',
+      '--input',
+      'song.mp3',
+      '--antialiasing',
+      '1',
+      '--out',
+      'waveform.png',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          waveformed: expect.objectContaining({
+            robot: '/audio/waveform',
+            antialiasing: 1,
+          }),
+        },
+      }),
+    )
+  })
+
   it('maps file compress to a bundled single assembly by default', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
@@ -418,5 +578,14 @@ describe('intent commands', () => {
         },
       }),
     )
+  })
+
+  it('includes required schema flags in generated usage examples', () => {
+    expect(DocumentConvertCommand.usage.examples).toEqual([
+      ['Run the command', expect.stringContaining('--format')],
+    ])
+    expect(TextSpeakCommand.usage.examples).toEqual([
+      ['Run the command', expect.stringContaining('--provider')],
+    ])
   })
 })

@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 
-export type IntentFieldKind = 'boolean' | 'number' | 'string'
+export type IntentFieldKind = 'auto' | 'boolean' | 'number' | 'string'
 
 export interface IntentFieldSpec {
   kind: IntentFieldKind
@@ -10,7 +10,34 @@ export interface IntentFieldSpec {
 export function coerceIntentFieldValue(
   kind: IntentFieldKind,
   raw: string,
+  fieldSchema?: z.ZodTypeAny,
 ): boolean | number | string {
+  if (kind === 'auto') {
+    if (fieldSchema == null) {
+      return raw
+    }
+
+    const candidates: unknown[] = [raw]
+
+    if (raw === 'true' || raw === 'false') {
+      candidates.push(raw === 'true')
+    }
+
+    const numericValue = Number(raw)
+    if (raw.trim() !== '' && !Number.isNaN(numericValue)) {
+      candidates.push(numericValue)
+    }
+
+    for (const candidate of candidates) {
+      const parsed = fieldSchema.safeParse(candidate)
+      if (parsed.success) {
+        return parsed.data as boolean | number | string
+      }
+    }
+
+    return raw
+  }
+
   if (kind === 'number') {
     const value = Number(raw)
     if (Number.isNaN(value)) {
@@ -44,7 +71,8 @@ export function parseIntentStep<TSchema extends z.AnyZodObject>({
   for (const fieldSpec of fieldSpecs) {
     const rawValue = rawValues[fieldSpec.name]
     if (rawValue == null) continue
-    input[fieldSpec.name] = coerceIntentFieldValue(fieldSpec.kind, rawValue)
+    const fieldSchema = schema.shape[fieldSpec.name]
+    input[fieldSpec.name] = coerceIntentFieldValue(fieldSpec.kind, rawValue, fieldSchema)
   }
 
   const parsed = schema.parse(input) as Record<string, unknown>
