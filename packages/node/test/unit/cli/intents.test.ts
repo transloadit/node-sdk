@@ -2,10 +2,7 @@ import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import * as assembliesCommands from '../../../src/cli/commands/assemblies.ts'
-import {
-  DocumentConvertCommand,
-  TextSpeakCommand,
-} from '../../../src/cli/commands/generated-intents.ts'
+import { intentCommands } from '../../../src/cli/commands/generated-intents.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 
@@ -13,6 +10,19 @@ const noopWrite = () => true
 
 const resetExitCode = () => {
   process.exitCode = undefined
+}
+
+function getIntentCommand(paths: string[]): (typeof intentCommands)[number] {
+  const command = intentCommands.find((candidate) => {
+    const candidatePaths = candidate.paths[0]
+    return candidatePaths != null && candidatePaths.join(' ') === paths.join(' ')
+  })
+
+  if (command == null) {
+    throw new Error(`No intent command found for ${paths.join(' ')}`)
+  }
+
+  return command
 }
 
 afterEach(() => {
@@ -655,10 +665,10 @@ describe('intent commands', () => {
   })
 
   it('includes required schema flags in generated usage examples', () => {
-    expect(DocumentConvertCommand.usage.examples).toEqual([
+    expect(getIntentCommand(['document', 'convert']).usage.examples).toEqual([
       ['Run the command', expect.stringContaining('--format')],
     ])
-    expect(TextSpeakCommand.usage.examples).toEqual([
+    expect(getIntentCommand(['text', 'speak']).usage.examples).toEqual([
       ['Run the command', expect.stringContaining('--provider')],
     ])
   })

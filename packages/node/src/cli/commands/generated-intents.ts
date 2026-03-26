@@ -22,7 +22,7 @@ import { parseIntentStep, prepareIntentInputs } from '../intentRuntime.ts'
 import * as assembliesCommands from './assemblies.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
 
-export class ImageGenerateCommand extends AuthenticatedCommand {
+class ImageGenerateCommand extends AuthenticatedCommand {
   static override paths = [['image', 'generate']]
 
   static override usage = Command.Usage({
@@ -122,7 +122,7 @@ export class ImageGenerateCommand extends AuthenticatedCommand {
   }
 }
 
-export class PreviewGenerateCommand extends AuthenticatedCommand {
+class PreviewGenerateCommand extends AuthenticatedCommand {
   static override paths = [['preview', 'generate']]
 
   static override usage = Command.Usage({
@@ -386,7 +386,7 @@ export class PreviewGenerateCommand extends AuthenticatedCommand {
   }
 }
 
-export class ImageRemoveBackgroundCommand extends AuthenticatedCommand {
+class ImageRemoveBackgroundCommand extends AuthenticatedCommand {
   static override paths = [['image', 'remove-background']]
 
   static override usage = Command.Usage({
@@ -518,7 +518,7 @@ export class ImageRemoveBackgroundCommand extends AuthenticatedCommand {
   }
 }
 
-export class ImageOptimizeCommand extends AuthenticatedCommand {
+class ImageOptimizeCommand extends AuthenticatedCommand {
   static override paths = [['image', 'optimize']]
 
   static override usage = Command.Usage({
@@ -653,7 +653,7 @@ export class ImageOptimizeCommand extends AuthenticatedCommand {
   }
 }
 
-export class ImageResizeCommand extends AuthenticatedCommand {
+class ImageResizeCommand extends AuthenticatedCommand {
   static override paths = [['image', 'resize']]
 
   static override usage = Command.Usage({
@@ -1041,7 +1041,7 @@ export class ImageResizeCommand extends AuthenticatedCommand {
   }
 }
 
-export class DocumentConvertCommand extends AuthenticatedCommand {
+class DocumentConvertCommand extends AuthenticatedCommand {
   static override paths = [['document', 'convert']]
 
   static override usage = Command.Usage({
@@ -1214,7 +1214,7 @@ export class DocumentConvertCommand extends AuthenticatedCommand {
   }
 }
 
-export class DocumentOptimizeCommand extends AuthenticatedCommand {
+class DocumentOptimizeCommand extends AuthenticatedCommand {
   static override paths = [['document', 'optimize']]
 
   static override usage = Command.Usage({
@@ -1370,7 +1370,7 @@ export class DocumentOptimizeCommand extends AuthenticatedCommand {
   }
 }
 
-export class DocumentAutoRotateCommand extends AuthenticatedCommand {
+class DocumentAutoRotateCommand extends AuthenticatedCommand {
   static override paths = [['document', 'auto-rotate']]
 
   static override usage = Command.Usage({
@@ -1475,7 +1475,7 @@ export class DocumentAutoRotateCommand extends AuthenticatedCommand {
   }
 }
 
-export class DocumentThumbsCommand extends AuthenticatedCommand {
+class DocumentThumbsCommand extends AuthenticatedCommand {
   static override paths = [['document', 'thumbs']]
 
   static override usage = Command.Usage({
@@ -1677,7 +1677,7 @@ export class DocumentThumbsCommand extends AuthenticatedCommand {
   }
 }
 
-export class AudioWaveformCommand extends AuthenticatedCommand {
+class AudioWaveformCommand extends AuthenticatedCommand {
   static override paths = [['audio', 'waveform']]
 
   static override usage = Command.Usage({
@@ -1949,7 +1949,7 @@ export class AudioWaveformCommand extends AuthenticatedCommand {
   }
 }
 
-export class TextSpeakCommand extends AuthenticatedCommand {
+class TextSpeakCommand extends AuthenticatedCommand {
   static override paths = [['text', 'speak']]
 
   static override usage = Command.Usage({
@@ -2107,7 +2107,7 @@ export class TextSpeakCommand extends AuthenticatedCommand {
   }
 }
 
-export class VideoThumbsCommand extends AuthenticatedCommand {
+class VideoThumbsCommand extends AuthenticatedCommand {
   static override paths = [['video', 'thumbs']]
 
   static override usage = Command.Usage({
@@ -2267,7 +2267,7 @@ export class VideoThumbsCommand extends AuthenticatedCommand {
   }
 }
 
-export class VideoEncodeHlsCommand extends AuthenticatedCommand {
+class VideoEncodeHlsCommand extends AuthenticatedCommand {
   static override paths = [['video', 'encode-hls']]
 
   static override usage = Command.Usage({
@@ -2358,7 +2358,7 @@ export class VideoEncodeHlsCommand extends AuthenticatedCommand {
   }
 }
 
-export class FileCompressCommand extends AuthenticatedCommand {
+class FileCompressCommand extends AuthenticatedCommand {
   static override paths = [['file', 'compress']]
 
   static override usage = Command.Usage({
@@ -2484,7 +2484,7 @@ export class FileCompressCommand extends AuthenticatedCommand {
   }
 }
 
-export class FileDecompressCommand extends AuthenticatedCommand {
+class FileDecompressCommand extends AuthenticatedCommand {
   static override paths = [['file', 'decompress']]
 
   static override usage = Command.Usage({

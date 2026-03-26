@@ -124,7 +124,7 @@ export async function prepareIntentInputs({
   }
 }
 
-export function coerceIntentFieldValue(
+function coerceIntentFieldValue(
   kind: IntentFieldKind,
   raw: string,
   fieldSchema?: z.ZodTypeAny,

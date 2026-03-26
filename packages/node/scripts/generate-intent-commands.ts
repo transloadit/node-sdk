@@ -1025,7 +1025,7 @@ function generateClass(spec: ResolvedIntentCommandSpec): string {
   const runBody = formatRunBody(spec, fieldSpecs)
 
   return `
-export class ${spec.className} extends AuthenticatedCommand {
+class ${spec.className} extends AuthenticatedCommand {
   static override paths = ${JSON.stringify([spec.paths])}
 
   static override usage = Command.Usage({

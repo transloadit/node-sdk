@@ -148,7 +148,7 @@ describe('assemblies create', () => {
 
     expect(client.createAssembly).toHaveBeenCalledTimes(1)
     const uploads = client.createAssembly.mock.calls[0]?.[0]?.uploads
-    expect(Object.keys(uploads ?? {})).toEqual(['a.txt', 'b.txt'])
+    expect(Object.keys(uploads ?? {}).sort()).toEqual(['a.txt', 'b.txt'])
   })
 
   it('writes single-input directory outputs using result filenames', async () => {
