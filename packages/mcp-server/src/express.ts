@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import express from 'express'
 import type { TransloaditMcpHttpOptions } from './http.ts'
 import { isBasicAuthorized } from './http-helpers.ts'
-import { createMcpRequestHandler } from './http-request-handler.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
 import { createTransloaditMcpServer } from './server.ts'
 import { buildServerCard, serverCardPath } from './server-card.ts'
@@ -15,28 +15,16 @@ export type TransloaditMcpExpressOptions = TransloaditMcpHttpOptions & {
 export const createTransloaditMcpExpressRouter = async (
   options: TransloaditMcpExpressOptions = {},
 ) => {
-  const server = createTransloaditMcpServer(options)
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: options.sessionIdGenerator ?? (() => randomUUID()),
-    allowedOrigins: options.allowedOrigins,
-    allowedHosts: options.allowedHosts,
-    enableDnsRebindingProtection: options.enableDnsRebindingProtection,
-  })
+  const sessionIdGenerator = options.sessionIdGenerator ?? (() => randomUUID())
 
-  await server.connect(transport)
+  // Per-session transport map: each MCP client gets its own transport + server pair.
+  const transports = new Map<string, StreamableHTTPServerTransport>()
 
   const router = express.Router()
   const routePath = options.path ?? '/mcp'
   const metricsPath =
     options.metricsPath === false ? undefined : (options.metricsPath ?? '/metrics')
   const metricsAuth = options.metricsAuth
-  const handler = createMcpRequestHandler(transport, {
-    allowedOrigins: options.allowedOrigins,
-    mcpToken: options.mcpToken,
-    path: { expectedPath: routePath, allowRoot: true },
-    logger: options.logger,
-    redactSecrets: [options.mcpToken, options.authKey, options.authSecret],
-  })
 
   const serverCardJson = JSON.stringify(
     buildServerCard(routePath, { authKey: options.authKey, authSecret: options.authSecret }),
@@ -77,8 +65,60 @@ export const createTransloaditMcpExpressRouter = async (
     sendServerCard(res, false)
   })
 
-  router.all(routePath, (req, res) => {
-    void handler(req, res)
+  router.all(routePath, async (req: express.Request, res: express.Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined
+    let transport: StreamableHTTPServerTransport | undefined
+
+    if (sessionId) {
+      transport = transports.get(sessionId)
+      if (!transport) {
+        res.status(404).json({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Session not found' },
+          id: null,
+        })
+        return
+      }
+    } else if (req.method === 'POST' && isInitializeRequest(req.body)) {
+      // New initialization request — create a new transport + server pair.
+      transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator,
+        allowedOrigins: options.allowedOrigins,
+        allowedHosts: options.allowedHosts,
+        enableDnsRebindingProtection: options.enableDnsRebindingProtection,
+        onsessioninitialized: (sid) => {
+          transports.set(sid, transport!)
+        },
+      })
+
+      transport.onclose = () => {
+        const sid = transport!.sessionId
+        if (sid) {
+          transports.delete(sid)
+        }
+      }
+
+      const server = createTransloaditMcpServer(options)
+      await server.connect(transport)
+    } else if (req.method === 'POST') {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        error: { code: -32600, message: 'Bad Request: No valid session ID provided' },
+        id: null,
+      })
+      return
+    }
+
+    if (!transport) {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        error: { code: -32600, message: 'Bad Request: No valid session ID provided' },
+        id: null,
+      })
+      return
+    }
+
+    await transport.handleRequest(req, res, req.body)
   })
 
   if (metricsPath) {
