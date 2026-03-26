@@ -28,3 +28,5 @@ packages/transloadit/README.md
 packages/transloadit/CHANGELOG.md
 packages/transloadit/LICENSE
 package.tgz
+packages/mcp-server/.mcpregistry_github_token
+packages/mcp-server/.mcpregistry_registry_token
