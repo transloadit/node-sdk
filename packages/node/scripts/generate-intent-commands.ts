@@ -17,16 +17,15 @@ import {
 } from 'zod'
 
 import type {
-  IntentCatalogEntry,
+  IntentDefinition,
   IntentInputMode,
   IntentOutputMode,
-  RobotIntentCatalogEntry,
   RobotIntentDefinition,
 } from '../src/cli/intentCommandSpecs.ts'
 import {
+  getIntentPaths,
+  getIntentResultStepName,
   intentCatalog,
-  intentRecipeDefinitions,
-  robotIntentDefinitions,
 } from '../src/cli/intentCommandSpecs.ts'
 
 type GeneratedFieldKind = 'auto' | 'boolean' | 'number' | 'string'
@@ -57,15 +56,7 @@ interface ResolvedIntentNoneInput {
   kind: 'none'
 }
 
-interface ResolvedIntentRemoteUrlInput {
-  description: string
-  kind: 'remote-url'
-}
-
-type ResolvedIntentInput =
-  | ResolvedIntentLocalFilesInput
-  | ResolvedIntentNoneInput
-  | ResolvedIntentRemoteUrlInput
+type ResolvedIntentInput = ResolvedIntentLocalFilesInput | ResolvedIntentNoneInput
 
 interface ResolvedIntentSchemaSpec {
   importName: string
@@ -84,17 +75,7 @@ interface ResolvedIntentTemplateExecution {
   templateId: string
 }
 
-interface ResolvedIntentRemotePreviewExecution {
-  fixedValues: Record<string, unknown>
-  importStepName: string
-  kind: 'remote-preview'
-  previewStepName: string
-}
-
-type ResolvedIntentExecution =
-  | ResolvedIntentRemotePreviewExecution
-  | ResolvedIntentSingleStepExecution
-  | ResolvedIntentTemplateExecution
+type ResolvedIntentExecution = ResolvedIntentSingleStepExecution | ResolvedIntentTemplateExecution
 
 interface ResolvedIntentCommandSpec {
   className: string
@@ -121,27 +102,6 @@ const hiddenFieldNames = new Set([
   'robot',
   'stack',
   'use',
-])
-
-const pathAliases = new Map([
-  ['autorotate', 'auto-rotate'],
-  ['bgremove', 'remove-background'],
-])
-
-const resultStepNameAliases = new Map([
-  ['/audio/waveform', 'waveformed'],
-  ['/document/autorotate', 'autorotated'],
-  ['/document/convert', 'converted'],
-  ['/document/optimize', 'optimized'],
-  ['/document/thumbs', 'thumbnailed'],
-  ['/file/compress', 'compressed'],
-  ['/file/decompress', 'decompressed'],
-  ['/image/bgremove', 'removed_background'],
-  ['/image/generate', 'generated_image'],
-  ['/image/optimize', 'optimized'],
-  ['/image/resize', 'resized'],
-  ['/text/speak', 'synthesized'],
-  ['/video/thumbs', 'thumbnailed'],
 ])
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -234,26 +194,13 @@ function getFieldKind(schema: unknown): GeneratedFieldKind {
   throw new Error('Unsupported schema type')
 }
 
-function inferCommandPathsFromRobot(robot: string): string[] {
-  const segments = robot.split('/').filter(Boolean)
-  const [group, action] = segments
-  if (group == null || action == null) {
-    throw new Error(`Could not infer command path from robot "${robot}"`)
-  }
-
-  return [group, pathAliases.get(action) ?? action]
-}
-
 function inferClassName(paths: string[]): string {
   return `${toPascalCase(paths)}Command`
 }
 
-function inferInputMode(
-  entry: RobotIntentCatalogEntry,
-  definition: RobotIntentDefinition,
-): Exclude<IntentInputMode, 'remote-url'> {
-  if (entry.inputMode != null) {
-    return entry.inputMode
+function inferInputMode(definition: RobotIntentDefinition): IntentInputMode {
+  if (definition.inputMode != null) {
+    return definition.inputMode
   }
 
   const shape = (definition.schema as ZodObject<Record<string, unknown>>).shape
@@ -266,8 +213,8 @@ function inferInputMode(
   return 'local-files'
 }
 
-function inferOutputMode(entry: IntentCatalogEntry): IntentOutputMode {
-  return entry.outputMode ?? 'file'
+function inferOutputMode(definition: IntentDefinition): IntentOutputMode {
+  return definition.outputMode ?? 'file'
 }
 
 function inferDescription(definition: RobotIntentDefinition): string {
@@ -339,11 +286,8 @@ function inferLocalFilesInput({
   }
 }
 
-function inferInputSpec(
-  entry: RobotIntentCatalogEntry,
-  definition: RobotIntentDefinition,
-): ResolvedIntentInput {
-  const inputMode = inferInputMode(entry, definition)
+function inferInputSpec(definition: RobotIntentDefinition): ResolvedIntentInput {
+  const inputMode = inferInputMode(definition)
   if (inputMode === 'none') {
     return { kind: 'none' }
   }
@@ -353,20 +297,19 @@ function inferInputSpec(
     'prompt' in shape && !unwrapSchema(shape.prompt).required ? 'prompt' : undefined
 
   return inferLocalFilesInput({
-    defaultSingleAssembly: entry.defaultSingleAssembly,
+    defaultSingleAssembly: definition.defaultSingleAssembly,
     requiredFieldForInputless,
   })
 }
 
 function inferFixedValues(
-  entry: RobotIntentCatalogEntry,
   definition: RobotIntentDefinition,
-  inputMode: Exclude<IntentInputMode, 'remote-url'>,
+  inputMode: IntentInputMode,
 ): Record<string, unknown> {
   const shape = (definition.schema as ZodObject<Record<string, unknown>>).shape
   const promptIsOptional = 'prompt' in shape && !unwrapSchema(shape.prompt).required
 
-  if (entry.defaultSingleAssembly) {
+  if (definition.defaultSingleAssembly) {
     return {
       robot: definition.robot,
       result: true,
@@ -399,7 +342,19 @@ function inferFixedValues(
 }
 
 function inferResultStepName(robot: string): string {
-  return resultStepNameAliases.get(robot) ?? inferCommandPathsFromRobot(robot)[1]
+  const definition = intentCatalog.find(
+    (intent): intent is RobotIntentDefinition => intent.kind === 'robot' && intent.robot === robot,
+  )
+  if (definition == null) {
+    throw new Error(`No intent definition found for "${robot}"`)
+  }
+
+  const stepName = getIntentResultStepName(definition)
+  if (stepName == null) {
+    throw new Error(`Could not infer result step name for "${robot}"`)
+  }
+
+  return stepName
 }
 
 function guessInputFile(meta: RobotMetaInput): string {
@@ -475,10 +430,6 @@ function inferExamples(
     parts.push('--prompt', JSON.stringify(guessPromptExample(definition.robot)))
   }
 
-  if (inputMode === 'remote-url') {
-    parts.push('--input', 'https://example.com/file.pdf')
-  }
-
   if (definition != null) {
     for (const fieldSpec of fieldSpecs) {
       if (!fieldSpec.required) continue
@@ -552,16 +503,11 @@ function collectSchemaFields(
     })
 }
 
-function resolveRobotIntentSpec(entry: RobotIntentCatalogEntry): ResolvedIntentCommandSpec {
-  const definition = robotIntentDefinitions[entry.robot]
-  if (definition == null) {
-    throw new Error(`No robot intent definition found for "${entry.robot}"`)
-  }
-
-  const paths = entry.paths ?? inferCommandPathsFromRobot(definition.robot)
-  const inputMode = inferInputMode(entry, definition)
-  const outputMode = inferOutputMode(entry)
-  const input = inferInputSpec(entry, definition)
+function resolveRobotIntentSpec(definition: RobotIntentDefinition): ResolvedIntentCommandSpec {
+  const paths = getIntentPaths(definition)
+  const inputMode = inferInputMode(definition)
+  const outputMode = inferOutputMode(definition)
+  const input = inferInputSpec(definition)
   const schemaSpec = {
     importName: definition.schemaImportName,
     importPath: definition.schemaImportPath,
@@ -570,14 +516,19 @@ function resolveRobotIntentSpec(entry: RobotIntentCatalogEntry): ResolvedIntentC
   const execution = {
     kind: 'single-step',
     resultStepName: inferResultStepName(definition.robot),
-    fixedValues: inferFixedValues(entry, definition, inputMode),
+    fixedValues: inferFixedValues(definition, inputMode),
   } satisfies ResolvedIntentSingleStepExecution
   const fieldSpecs = collectSchemaFields(schemaSpec, execution.fixedValues, input)
 
   return {
     className: inferClassName(paths),
     description: inferDescription(definition),
-    details: inferDetails(definition, inputMode, outputMode, entry.defaultSingleAssembly === true),
+    details: inferDetails(
+      definition,
+      inputMode,
+      outputMode,
+      definition.defaultSingleAssembly === true,
+    ),
     examples: inferExamples(definition, paths, inputMode, outputMode, fieldSpecs),
     input,
     outputDescription: inferOutputDescription(inputMode, outputMode),
@@ -590,77 +541,37 @@ function resolveRobotIntentSpec(entry: RobotIntentCatalogEntry): ResolvedIntentC
 }
 
 function resolveTemplateIntentSpec(
-  entry: IntentCatalogEntry & { kind: 'template' },
+  definition: IntentDefinition & { kind: 'template' },
 ): ResolvedIntentCommandSpec {
-  const outputMode = inferOutputMode(entry)
+  const outputMode = inferOutputMode(definition)
   const input = inferLocalFilesInput({})
+  const paths = getIntentPaths(definition)
 
   return {
-    className: inferClassName(entry.paths),
-    description: `Run ${stripTrailingPunctuation(entry.templateId)}`,
-    details: `Runs the \`${entry.templateId}\` template and writes the outputs to \`--out\`.`,
+    className: inferClassName(paths),
+    description: `Run ${stripTrailingPunctuation(definition.templateId)}`,
+    details: `Runs the \`${definition.templateId}\` template and writes the outputs to \`--out\`.`,
     examples: [
-      ['Run the command', `transloadit ${entry.paths.join(' ')} --input input.mp4 --out output/`],
+      ['Run the command', `transloadit ${paths.join(' ')} --input input.mp4 --out output/`],
     ],
     execution: {
       kind: 'template',
-      templateId: entry.templateId,
+      templateId: definition.templateId,
     },
     input,
     outputDescription: inferOutputDescription('local-files', outputMode),
     outputMode,
     outputRequired: true,
-    paths: entry.paths,
+    paths,
   }
 }
 
-function resolveRecipeIntentSpec(
-  entry: IntentCatalogEntry & { kind: 'recipe' },
-): ResolvedIntentCommandSpec {
-  const definition = intentRecipeDefinitions[entry.recipe]
-  if (definition == null) {
-    throw new Error(`No intent recipe definition found for "${entry.recipe}"`)
+function resolveIntentCommandSpec(definition: IntentDefinition): ResolvedIntentCommandSpec {
+  if (definition.kind === 'robot') {
+    return resolveRobotIntentSpec(definition)
   }
 
-  return {
-    className: inferClassName(definition.paths),
-    description: definition.description,
-    details: definition.details,
-    examples: definition.examples,
-    execution: {
-      kind: 'remote-preview',
-      importStepName: 'imported',
-      previewStepName: definition.resultStepName,
-      fixedValues: {
-        robot: '/file/preview',
-        result: true,
-      },
-    },
-    input: {
-      kind: 'remote-url',
-      description: 'Remote URL to preview',
-    },
-    outputDescription: definition.outputDescription,
-    outputRequired: definition.outputRequired,
-    paths: definition.paths,
-    schemaSpec: {
-      importName: definition.schemaImportName,
-      importPath: definition.schemaImportPath,
-      schema: definition.schema as ZodObject<Record<string, unknown>>,
-    },
-  }
-}
-
-function resolveIntentCommandSpec(entry: IntentCatalogEntry): ResolvedIntentCommandSpec {
-  if (entry.kind === 'robot') {
-    return resolveRobotIntentSpec(entry)
-  }
-
-  if (entry.kind === 'template') {
-    return resolveTemplateIntentSpec(entry)
-  }
-
-  return resolveRecipeIntentSpec(entry)
+  return resolveTemplateIntentSpec(definition)
 }
 
 function formatDescription(description: string | undefined): string {
@@ -707,295 +618,8 @@ ${fieldSpecs
       ]`
 }
 
-function formatLocalInputOptions(input: ResolvedIntentLocalFilesInput): string {
-  const blocks = [
-    `  inputs = Option.Array('--input,-i', {
-    description: ${JSON.stringify(input.description)},
-  })`,
-    `  inputBase64 = Option.Array('--input-base64', {
-    description: 'Provide base64-encoded input content directly',
-  })`,
-  ]
-
-  if (input.recursive !== false) {
-    blocks.push(`  recursive = Option.Boolean('--recursive,-r', false, {
-    description: 'Enumerate input directories recursively',
-  })`)
-  }
-
-  if (input.allowWatch) {
-    blocks.push(`  watch = Option.Boolean('--watch,-w', false, {
-    description: 'Watch inputs for changes',
-  })`)
-  }
-
-  if (input.deleteAfterProcessing !== false) {
-    blocks.push(`  deleteAfterProcessing = Option.Boolean('--delete-after-processing,-d', false, {
-    description: 'Delete input files after they are processed',
-  })`)
-  }
-
-  if (input.reprocessStale !== false) {
-    blocks.push(`  reprocessStale = Option.Boolean('--reprocess-stale', false, {
-    description: 'Process inputs even if output is newer',
-  })`)
-  }
-
-  if (input.allowSingleAssembly) {
-    blocks.push(`  singleAssembly = Option.Boolean('--single-assembly', false, {
-    description: 'Pass all input files to a single assembly instead of one assembly per file',
-  })`)
-  }
-
-  if (input.allowConcurrency) {
-    blocks.push(`  concurrency = Option.String('--concurrency,-c', {
-    description: 'Maximum number of concurrent assemblies (default: 5)',
-    validator: t.isNumber(),
-  })`)
-  }
-
-  return blocks.join('\n\n')
-}
-
-function formatInputOptions(spec: ResolvedIntentCommandSpec): string {
-  if (spec.input.kind === 'local-files') {
-    return formatLocalInputOptions(spec.input)
-  }
-
-  if (spec.input.kind === 'remote-url') {
-    return `  input = Option.String('--input,-i', {
-    description: ${JSON.stringify(spec.input.description)},
-    required: true,
-  })`
-  }
-
-  return ''
-}
-
-function formatLocalCreateOptions(spec: ResolvedIntentCommandSpec): string {
-  if (spec.input.kind !== 'local-files') {
-    throw new Error('Expected a local-files input spec')
-  }
-
-  const entries = ['      inputs: preparedInputs.inputs,', '      output: this.outputPath,']
-
-  if (spec.outputMode != null) {
-    entries.push(`      outputMode: ${JSON.stringify(spec.outputMode)},`)
-  }
-
-  if (spec.input.recursive !== false) {
-    entries.push('      recursive: this.recursive,')
-  }
-
-  if (spec.input.allowWatch) {
-    entries.push('      watch: this.watch,')
-  }
-
-  if (spec.input.deleteAfterProcessing !== false) {
-    entries.push('      del: this.deleteAfterProcessing,')
-  }
-
-  if (spec.input.reprocessStale !== false) {
-    entries.push('      reprocessStale: this.reprocessStale,')
-  }
-
-  if (spec.input.allowSingleAssembly) {
-    entries.push('      singleAssembly: this.singleAssembly,')
-  } else if (spec.input.defaultSingleAssembly) {
-    entries.push('      singleAssembly: true,')
-  }
-
-  if (spec.input.allowConcurrency) {
-    entries.push(
-      '      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),',
-    )
-  }
-
-  return entries.join('\n')
-}
-
-function formatLocalValidation(spec: ResolvedIntentCommandSpec, commandLabel: string): string {
-  if (spec.input.kind !== 'local-files') {
-    throw new Error('Expected a local-files input spec')
-  }
-
-  const lines =
-    spec.input.requiredFieldForInputless == null
-      ? [
-          '    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0) {',
-          `      this.output.error('${commandLabel} requires --input or --input-base64')`,
-          '      return 1',
-          '    }',
-        ]
-      : [
-          `    if ((this.inputs ?? []).length === 0 && (this.inputBase64 ?? []).length === 0 && this.${toCamelCase(spec.input.requiredFieldForInputless)} == null) {`,
-          `      this.output.error('${commandLabel} requires --input or --${toKebabCase(spec.input.requiredFieldForInputless)}')`,
-          '      return 1',
-          '    }',
-        ]
-
-  if (spec.input.allowWatch && spec.input.allowSingleAssembly) {
-    lines.push(
-      '',
-      '    if (this.singleAssembly && this.watch) {',
-      "      this.output.error('--single-assembly cannot be used with --watch')",
-      '      return 1',
-      '    }',
-    )
-  }
-
-  if (spec.input.allowWatch && spec.input.defaultSingleAssembly) {
-    lines.push(
-      '',
-      '    if (this.watch) {',
-      "      this.output.error('--watch is not supported for this command')",
-      '      return 1',
-      '    }',
-    )
-  }
-
-  return lines.join('\n')
-}
-
-function formatSingleStepFixedValues(spec: ResolvedIntentCommandSpec): string {
-  if (spec.execution.kind !== 'single-step') {
-    throw new Error('Expected a single-step execution spec')
-  }
-
-  if (spec.input.kind === 'local-files' && spec.input.requiredFieldForInputless != null) {
-    const baseFixedValues = JSON.stringify(spec.execution.fixedValues, null, 6).replace(
-      /\n/g,
-      '\n      ',
-    )
-
-    return `(this.inputs ?? []).length > 0
-      ? {
-          ...${baseFixedValues},
-          use: ':original',
-        }
-      : ${baseFixedValues}`
-  }
-
-  return JSON.stringify(spec.execution.fixedValues, null, 6).replace(/\n/g, '\n      ')
-}
-
-function formatRunBody(
-  spec: ResolvedIntentCommandSpec,
-  fieldSpecs: GeneratedSchemaField[],
-): string {
-  const schemaSpec = spec.schemaSpec
-  const transientWatchGuard =
-    spec.input.kind === 'local-files' && spec.input.allowWatch
-      ? `
-
-    if (this.watch && preparedInputs.hasTransientInputs) {
-      this.output.error('--watch is only supported for filesystem inputs')
-      return 1
-    }`
-      : ''
-
-  if (spec.execution.kind === 'single-step') {
-    const parseStep = `    const step = parseIntentStep({
-      schema: ${schemaSpec?.importName},
-      fixedValues: ${formatSingleStepFixedValues(spec)},
-      fieldSpecs: ${formatFieldSpecsLiteral(fieldSpecs)},
-      rawValues: ${formatRawValues(fieldSpecs)},
-    })`
-
-    if (spec.input.kind === 'local-files') {
-      return `${formatLocalValidation(spec, spec.paths.join(' '))}
-
-    const preparedInputs = await prepareIntentInputs({
-      inputValues: this.inputs ?? [],
-      inputBase64Values: this.inputBase64 ?? [],
-    })${transientWatchGuard}
-
-    try {
-${parseStep}
-
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        ${JSON.stringify(spec.execution.resultStepName)}: step,
-      },
-${formatLocalCreateOptions(spec)}
-    })
-
-      return hasFailures ? 1 : undefined
-    } finally {
-      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
-    }`
-    }
-
-    return `${parseStep}
-
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        ${JSON.stringify(spec.execution.resultStepName)}: step,
-      },
-      inputs: [],
-      output: this.outputPath,
-    })
-
-    return hasFailures ? 1 : undefined`
-  }
-
-  if (spec.execution.kind === 'remote-preview') {
-    const parseStep = `    const previewStep = parseIntentStep({
-      schema: ${schemaSpec?.importName},
-      fixedValues: ${JSON.stringify(spec.execution.fixedValues, null, 6).replace(/\n/g, '\n      ')},
-      fieldSpecs: ${formatFieldSpecsLiteral(fieldSpecs)},
-      rawValues: ${formatRawValues(fieldSpecs)},
-    })`
-
-    return `${parseStep}
-
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      stepsData: {
-        ${JSON.stringify(spec.execution.importStepName)}: {
-          robot: '/http/import',
-          url: this.input,
-        },
-        ${JSON.stringify(spec.execution.previewStepName)}: {
-          ...previewStep,
-          use: ${JSON.stringify(spec.execution.importStepName)},
-        },
-      },
-      inputs: [],
-      output: this.outputPath,
-    })
-
-    return hasFailures ? 1 : undefined`
-  }
-
-  if (spec.input.kind !== 'local-files') {
-    throw new Error(`Template command ${spec.className} requires local-files input`)
-  }
-
-  return `${formatLocalValidation(spec, spec.paths.join(' '))}
-
-    const preparedInputs = await prepareIntentInputs({
-      inputValues: this.inputs ?? [],
-      inputBase64Values: this.inputBase64 ?? [],
-    })${transientWatchGuard}
-
-    try {
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      template: ${JSON.stringify(spec.execution.templateId)},
-${formatLocalCreateOptions(spec)}
-    })
-
-      return hasFailures ? 1 : undefined
-    } finally {
-      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
-    }`
-}
-
 function resolveFixedValues(spec: ResolvedIntentCommandSpec): Record<string, unknown> {
   if (spec.execution.kind === 'single-step') {
-    return spec.execution.fixedValues
-  }
-
-  if (spec.execution.kind === 'remote-preview') {
     return spec.execution.fixedValues
   }
 
@@ -1016,16 +640,81 @@ function generateImports(specs: ResolvedIntentCommandSpec[]): string {
     .join('\n')
 }
 
+function getCommandDefinitionName(spec: ResolvedIntentCommandSpec): string {
+  return `${spec.className[0]?.toLowerCase() ?? ''}${spec.className.slice(1)}Definition`
+}
+
+function getBaseClassName(spec: ResolvedIntentCommandSpec): string {
+  if (spec.input.kind === 'none') {
+    return 'GeneratedNoInputIntentCommand'
+  }
+
+  if (spec.input.defaultSingleAssembly) {
+    return 'GeneratedBundledFileIntentCommand'
+  }
+
+  return 'GeneratedStandardFileIntentCommand'
+}
+
+function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
+  const fieldSpecs =
+    spec.schemaSpec == null
+      ? []
+      : collectSchemaFields(spec.schemaSpec, resolveFixedValues(spec), spec.input)
+  const commandLabel = spec.paths.join(' ')
+
+  if (spec.execution.kind === 'single-step') {
+    const attachUseWhenInputsProvided =
+      spec.input.kind === 'local-files' && spec.input.requiredFieldForInputless != null
+        ? '\n      attachUseWhenInputsProvided: true,'
+        : ''
+    const commandLabelLine =
+      spec.input.kind === 'local-files' ? `\n  commandLabel: ${JSON.stringify(commandLabel)},` : ''
+    const requiredField =
+      spec.input.kind === 'local-files' && spec.input.requiredFieldForInputless != null
+        ? `\n  requiredFieldForInputless: ${JSON.stringify(spec.input.requiredFieldForInputless)},`
+        : ''
+    const outputMode =
+      spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
+
+    return `const ${getCommandDefinitionName(spec)} = {${commandLabelLine}${requiredField}${outputMode}
+  execution: {
+    kind: 'single-step',
+    schema: ${spec.schemaSpec?.importName},
+    fieldSpecs: ${formatFieldSpecsLiteral(fieldSpecs)},
+    fixedValues: ${JSON.stringify(spec.execution.fixedValues, null, 4).replace(/\n/g, '\n    ')},
+    resultStepName: ${JSON.stringify(spec.execution.resultStepName)},${attachUseWhenInputsProvided}
+  },
+} as const`
+  }
+
+  const outputMode =
+    spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
+  return `const ${getCommandDefinitionName(spec)} = {
+  commandLabel: ${JSON.stringify(commandLabel)},${outputMode}
+  execution: {
+    kind: 'template',
+    templateId: ${JSON.stringify(spec.execution.templateId)},
+  },
+} as const`
+}
+
+function formatRawValuesMethod(fieldSpecs: GeneratedSchemaField[]): string {
+  return `  protected override getIntentRawValues(): Record<string, string | undefined> {
+    return ${formatRawValues(fieldSpecs)}
+  }`
+}
+
 function generateClass(spec: ResolvedIntentCommandSpec): string {
   const fixedValues = resolveFixedValues(spec)
   const fieldSpecs =
     spec.schemaSpec == null ? [] : collectSchemaFields(spec.schemaSpec, fixedValues, spec.input)
   const schemaFields = formatSchemaFields(fieldSpecs)
-  const inputOptions = formatInputOptions(spec)
-  const runBody = formatRunBody(spec, fieldSpecs)
+  const rawValuesMethod = formatRawValuesMethod(fieldSpecs)
+  const baseClassName = getBaseClassName(spec)
 
   return `
-class ${spec.className} extends AuthenticatedCommand {
+class ${spec.className} extends ${baseClassName} {
   static override paths = ${JSON.stringify([spec.paths])}
 
   static override usage = Command.Usage({
@@ -1037,21 +726,20 @@ ${formatUsageExamples(spec.examples)}
     ],
   })
 
-${schemaFields}${schemaFields && inputOptions ? '\n\n' : ''}${inputOptions}
+  protected override readonly intentDefinition = ${getCommandDefinitionName(spec)}
 
-  outputPath = Option.String('--out,-o', {
+  override outputPath = Option.String('--out,-o', {
     description: ${JSON.stringify(spec.outputDescription)},
     required: ${spec.outputRequired},
   })
 
-  protected async run(): Promise<number | undefined> {
-${runBody}
-  }
+${schemaFields}${schemaFields ? '\n\n' : ''}${rawValuesMethod}
 }
 `
 }
 
 function generateFile(specs: ResolvedIntentCommandSpec[]): string {
+  const commandDefinitions = specs.map(formatIntentDefinition)
   const commandClasses = specs.map(generateClass)
   const commandNames = specs.map((spec) => spec.className)
 
@@ -1059,12 +747,14 @@ function generateFile(specs: ResolvedIntentCommandSpec[]): string {
 // Generated by \`packages/node/scripts/generate-intent-commands.ts\`.
 
 import { Command, Option } from 'clipanion'
-import * as t from 'typanion'
 
 ${generateImports(specs)}
-import { parseIntentStep, prepareIntentInputs } from '../intentRuntime.ts'
-import * as assembliesCommands from './assemblies.ts'
-import { AuthenticatedCommand } from './BaseCommand.ts'
+import {
+  GeneratedBundledFileIntentCommand,
+  GeneratedNoInputIntentCommand,
+  GeneratedStandardFileIntentCommand,
+} from '../intentRuntime.ts'
+${commandDefinitions.join('\n\n')}
 ${commandClasses.join('\n')}
 export const intentCommands = [
 ${commandNames.map((name) => `  ${name},`).join('\n')}

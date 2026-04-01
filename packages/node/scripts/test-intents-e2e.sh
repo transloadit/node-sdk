@@ -97,6 +97,37 @@ verify_file_decompress() {
   grep -F 'Hello from Transloadit CLI intents' "$1/input.txt" >/dev/null
 }
 
+verify_output() {
+  local verifier="$1"
+  local path="$2"
+
+  case "$verifier" in
+  png) verify_png "$path" ;;
+  jpeg) verify_jpeg "$path" ;;
+  pdf) verify_pdf "$path" ;;
+  mp3) verify_mp3 "$path" ;;
+  zip) verify_zip "$path" ;;
+  document-thumbs) verify_document_thumbs "$path" ;;
+  video-thumbs) verify_video_thumbs "$path" ;;
+  video-encode-hls) verify_video_encode_hls "$path" ;;
+  file-decompress) verify_file_decompress "$path" ;;
+  *)
+    echo "Unknown verifier: $verifier" >&2
+    return 1
+    ;;
+  esac
+}
+
+resolve_placeholder() {
+  local arg="$1"
+
+  case "$arg" in
+  @preview-url) printf '%s\n' "$PREVIEW_URL" ;;
+  @fixture/*) printf '%s\n' "$FIXTUREDIR/${arg#@fixture/}" ;;
+  *) printf '%s\n' "$arg" ;;
+  esac
+}
+
 run_case() {
   local name="$1"
   local output_path="$2"
@@ -115,7 +146,7 @@ run_case() {
   local verdict='FAIL'
   local detail=''
 
-  if [[ $exit_code -eq 0 ]] && "$verifier" "$output_path"; then
+  if [[ $exit_code -eq 0 ]] && verify_output "$verifier" "$output_path"; then
     verdict='OK'
     if [[ -f "$output_path" ]]; then
       detail="$(file "$output_path" | sed 's#^.*: ##' | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')"
@@ -138,101 +169,37 @@ prepare_fixtures
 RESULTS_TSV="$WORKDIR/results.tsv"
 printf 'command\texit\tverdict\tdetail\n' >"$RESULTS_TSV"
 
-run_case image-generate "$OUTDIR/image-generate.png" verify_png \
-  image generate \
-  --prompt 'A small red bicycle on a cream background, studio lighting' \
-  --model 'google/nano-banana' \
-  --out "$OUTDIR/image-generate.png" \
-  >>"$RESULTS_TSV"
+while IFS=$'\t' read -r name path_string args_string output_rel verifier; do
+  [[ -n "$name" ]] || continue
 
-run_case preview-generate "$OUTDIR/preview-generate.png" verify_png \
-  preview generate \
-  --input "$PREVIEW_URL" \
-  --width 300 \
-  --out "$OUTDIR/preview-generate.png" \
-  >>"$RESULTS_TSV"
+  read -r -a path_parts <<<"$path_string"
+  IFS=$'\x1f' read -r -a raw_args <<<"$args_string"
 
-run_case image-remove-background "$OUTDIR/image-remove-background.png" verify_png \
-  image remove-background \
-  --input "$FIXTUREDIR/input.jpg" \
-  --out "$OUTDIR/image-remove-background.png" \
-  >>"$RESULTS_TSV"
+  resolved_args=()
+  for arg in "${raw_args[@]}"; do
+    resolved_args+=("$(resolve_placeholder "$arg")")
+  done
 
-run_case image-optimize "$OUTDIR/image-optimize.jpg" verify_jpeg \
-  image optimize \
-  --input "$FIXTUREDIR/input.jpg" \
-  --out "$OUTDIR/image-optimize.jpg" \
-  >>"$RESULTS_TSV"
+  run_case "$name" "$OUTDIR/$output_rel" "$verifier" \
+    "${path_parts[@]}" \
+    "${resolved_args[@]}" \
+    --out "$OUTDIR/$output_rel" \
+    >>"$RESULTS_TSV"
+done < <(
+  node --input-type=module <<'NODE'
+import { intentSmokeCases } from './packages/node/src/cli/intentSmokeCases.ts'
 
-run_case image-resize "$OUTDIR/image-resize.jpg" verify_jpeg \
-  image resize \
-  --input "$FIXTUREDIR/input.jpg" \
-  --width 200 \
-  --out "$OUTDIR/image-resize.jpg" \
-  >>"$RESULTS_TSV"
-
-run_case document-convert "$OUTDIR/document-convert.pdf" verify_pdf \
-  document convert \
-  --input "$FIXTUREDIR/input.txt" \
-  --format pdf \
-  --out "$OUTDIR/document-convert.pdf" \
-  >>"$RESULTS_TSV"
-
-run_case document-optimize "$OUTDIR/document-optimize.pdf" verify_pdf \
-  document optimize \
-  --input "$FIXTUREDIR/input.pdf" \
-  --out "$OUTDIR/document-optimize.pdf" \
-  >>"$RESULTS_TSV"
-
-run_case document-auto-rotate "$OUTDIR/document-auto-rotate.pdf" verify_pdf \
-  document auto-rotate \
-  --input "$FIXTUREDIR/input.pdf" \
-  --out "$OUTDIR/document-auto-rotate.pdf" \
-  >>"$RESULTS_TSV"
-
-run_case document-thumbs "$OUTDIR/document-thumbs" verify_document_thumbs \
-  document thumbs \
-  --input "$FIXTUREDIR/input.pdf" \
-  --out "$OUTDIR/document-thumbs" \
-  >>"$RESULTS_TSV"
-
-run_case audio-waveform "$OUTDIR/audio-waveform.png" verify_png \
-  audio waveform \
-  --input "$FIXTUREDIR/input.mp3" \
-  --out "$OUTDIR/audio-waveform.png" \
-  >>"$RESULTS_TSV"
-
-run_case text-speak "$OUTDIR/text-speak.mp3" verify_mp3 \
-  text speak \
-  --prompt 'Hello from the Transloadit Node CLI intents test.' \
-  --provider aws \
-  --out "$OUTDIR/text-speak.mp3" \
-  >>"$RESULTS_TSV"
-
-run_case video-thumbs "$OUTDIR/video-thumbs" verify_video_thumbs \
-  video thumbs \
-  --input "$FIXTUREDIR/input.mp4" \
-  --out "$OUTDIR/video-thumbs" \
-  >>"$RESULTS_TSV"
-
-run_case video-encode-hls "$OUTDIR/video-encode-hls" verify_video_encode_hls \
-  video encode-hls \
-  --input "$FIXTUREDIR/input.mp4" \
-  --out "$OUTDIR/video-encode-hls" \
-  >>"$RESULTS_TSV"
-
-run_case file-compress "$OUTDIR/file-compress.zip" verify_zip \
-  file compress \
-  --input "$FIXTUREDIR/input.txt" \
-  --format zip \
-  --out "$OUTDIR/file-compress.zip" \
-  >>"$RESULTS_TSV"
-
-run_case file-decompress "$OUTDIR/file-decompress" verify_file_decompress \
-  file decompress \
-  --input "$FIXTUREDIR/input.zip" \
-  --out "$OUTDIR/file-decompress" \
-  >>"$RESULTS_TSV"
+for (const smokeCase of intentSmokeCases) {
+  console.log([
+    smokeCase.paths.join('-'),
+    smokeCase.paths.join(' '),
+    smokeCase.args.join('\x1f'),
+    smokeCase.outputPath,
+    smokeCase.verifier,
+  ].join('\t'))
+}
+NODE
+)
 
 column -t -s $'\t' "$RESULTS_TSV"
 

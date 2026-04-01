@@ -5,7 +5,6 @@ import fsp from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import type { Readable } from 'node:stream'
-import { Writable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 import tty from 'node:tty'
@@ -300,51 +299,52 @@ async function getNodeWatch(): Promise<NodeWatchFn> {
 const stdinWithPath = process.stdin as unknown as { path: string }
 stdinWithPath.path = '/dev/stdin'
 
-interface OutStream extends Writable {
+interface OutputPlan {
+  kind: 'file' | 'stdout'
+  mtime: Date
   path?: string
-  mtime?: Date
 }
 
 interface Job {
   in: Readable | null
-  out: OutStream | null
+  out: OutputPlan | null
 }
 
-type OutstreamProvider = (inpath: string | null, indir?: string) => Promise<OutStream | null>
+type OutputPlanProvider = (inpath: string | null, indir?: string) => Promise<OutputPlan | null>
 
-interface StreamRegistry {
-  [key: string]: OutStream | undefined
+interface OutputPlanRegistry {
+  [key: string]: OutputPlan | undefined
 }
 
 interface JobEmitterOptions {
   allowOutputCollisions?: boolean
   recursive?: boolean
-  outstreamProvider: OutstreamProvider
+  outputPlanProvider: OutputPlanProvider
   singleAssembly?: boolean
-  streamRegistry: StreamRegistry
+  outputPlanRegistry: OutputPlanRegistry
   watch?: boolean
   reprocessStale?: boolean
 }
 
 interface ReaddirJobEmitterOptions {
   dir: string
-  streamRegistry: StreamRegistry
+  outputPlanRegistry: OutputPlanRegistry
   recursive?: boolean
-  outstreamProvider: OutstreamProvider
+  outputPlanProvider: OutputPlanProvider
   topdir?: string
 }
 
 interface SingleJobEmitterOptions {
   file: string
-  streamRegistry: StreamRegistry
-  outstreamProvider: OutstreamProvider
+  outputPlanRegistry: OutputPlanRegistry
+  outputPlanProvider: OutputPlanProvider
 }
 
 interface WatchJobEmitterOptions {
   file: string
-  streamRegistry: StreamRegistry
+  outputPlanRegistry: OutputPlanRegistry
   recursive?: boolean
-  outstreamProvider: OutstreamProvider
+  outputPlanProvider: OutputPlanProvider
 }
 
 interface StatLike {
@@ -364,19 +364,22 @@ async function myStat(
   return await fsp.stat(filepath)
 }
 
-function createPlaceholderOutStream(outpath: string, mtime: Date): OutStream {
-  const outstream = new Writable({
-    write(_chunk, _encoding, callback) {
-      callback()
-    },
-  }) as OutStream
-  outstream.path = outpath
-  outstream.mtime = mtime
-  outstream.on('error', () => {})
-  return outstream
+function createOutputPlan(pathname: string | undefined, mtime: Date): OutputPlan {
+  if (pathname == null) {
+    return {
+      kind: 'stdout',
+      mtime,
+    }
+  }
+
+  return {
+    kind: 'file',
+    mtime,
+    path: pathname,
+  }
 }
 
-function dirProvider(output: string): OutstreamProvider {
+function dirProvider(output: string): OutputPlanProvider {
   return async (inpath, indir = process.cwd()) => {
     // Inputless assemblies can still write into a directory, but output paths are derived from
     // assembly results rather than an input file path (handled later).
@@ -392,21 +395,23 @@ function dirProvider(output: string): OutstreamProvider {
     const outpath = path.join(output, relpath)
     const [, stats] = await tryCatch(fsp.stat(outpath))
     const mtime = stats?.mtime ?? new Date(0)
-    return createPlaceholderOutStream(outpath, mtime)
+    return createOutputPlan(outpath, mtime)
   }
 }
 
-function fileProvider(output: string): OutstreamProvider {
+function fileProvider(output: string): OutputPlanProvider {
   return async (_inpath) => {
-    if (output === '-') return process.stdout as OutStream
+    if (output === '-') {
+      return createOutputPlan(undefined, new Date(0))
+    }
 
     const [, stats] = await tryCatch(fsp.stat(output))
     const mtime = stats?.mtime ?? new Date(0)
-    return createPlaceholderOutStream(output, mtime)
+    return createOutputPlan(output, mtime)
   }
 }
 
-function nullProvider(): OutstreamProvider {
+function nullProvider(): OutputPlanProvider {
   return async (_inpath) => null
 }
 
@@ -421,7 +426,7 @@ async function downloadResultToFile(
     path.dirname(outPath),
     `.${path.basename(outPath)}.${randomUUID()}.tmp`,
   )
-  const outStream = fs.createWriteStream(tempPath) as OutStream
+  const outStream = fs.createWriteStream(tempPath)
   outStream.on('error', () => {})
 
   const [dlErr] = await tryCatch(pipeline(got.stream(resultUrl, { signal }), outStream))
@@ -431,6 +436,204 @@ async function downloadResultToFile(
   }
 
   await fsp.rename(tempPath, outPath)
+}
+
+interface AssemblyResultFile {
+  file: {
+    basename?: string | null
+    ext?: string | null
+    name?: string | null
+    ssl_url?: string | null
+    url?: string | null
+  }
+  stepName: string
+}
+
+function getResultFileUrl(file: AssemblyResultFile['file']): string | null {
+  return file.ssl_url ?? file.url ?? null
+}
+
+function sanitizeResultName(value: string): string {
+  const base = path.basename(value)
+  return base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
+}
+
+async function ensureUniquePath(targetPath: string): Promise<string> {
+  const parsed = path.parse(targetPath)
+  let candidate = targetPath
+  let counter = 1
+  while (true) {
+    const [statErr] = await tryCatch(fsp.stat(candidate))
+    if (statErr) {
+      return candidate
+    }
+    candidate = path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`)
+    counter += 1
+  }
+}
+
+function flattenAssemblyResults(results: Record<string, Array<AssemblyResultFile['file']>>): {
+  allFiles: AssemblyResultFile[]
+  entries: Array<[string, Array<AssemblyResultFile['file']>]>
+} {
+  const entries = Object.entries(results)
+  const allFiles: AssemblyResultFile[] = []
+  for (const [stepName, stepResults] of entries) {
+    for (const file of stepResults) {
+      allFiles.push({ stepName, file })
+    }
+  }
+
+  return { allFiles, entries }
+}
+
+async function materializeAssemblyResults({
+  abortSignal,
+  hasDirectoryInput,
+  inPath,
+  inputs,
+  outputMode,
+  outputPath,
+  outputRoot,
+  outputRootIsDirectory,
+  outputctl,
+  results,
+  singleAssembly,
+}: {
+  abortSignal: AbortSignal
+  hasDirectoryInput: boolean
+  inPath: string | null
+  inputs: string[]
+  outputMode?: 'directory' | 'file'
+  outputPath: string | null
+  outputRoot: string | null
+  outputRootIsDirectory: boolean
+  outputctl: IOutputCtl
+  results: Record<string, Array<AssemblyResultFile['file']>>
+  singleAssembly?: boolean
+}): Promise<void> {
+  if (outputRoot == null) {
+    return
+  }
+
+  const { allFiles, entries } = flattenAssemblyResults(results)
+  const shouldGroupByInput =
+    !singleAssembly && inPath != null && (hasDirectoryInput || inputs.length > 1)
+  const useIntentDirectoryLayout = outputMode === 'directory'
+
+  const downloadResultFile = async (resultUrl: string, targetPath: string): Promise<void> => {
+    outputctl.debug('DOWNLOADING')
+    const [dlErr] = await tryCatch(downloadResultToFile(resultUrl, targetPath, abortSignal))
+    if (dlErr) {
+      if (dlErr.name === 'AbortError') {
+        return
+      }
+      outputctl.error(dlErr.message)
+      throw dlErr
+    }
+  }
+
+  const resolveDirectoryBaseDir = (): string => {
+    if (!shouldGroupByInput || inPath == null) {
+      return outputRoot
+    }
+
+    if (hasDirectoryInput && outputPath != null) {
+      const mappedRelative = path.relative(outputRoot, outputPath)
+      const mappedDir = path.dirname(mappedRelative)
+      const mappedStem = path.parse(mappedRelative).name
+      return path.join(outputRoot, mappedDir === '.' ? '' : mappedDir, mappedStem)
+    }
+
+    return path.join(outputRoot, path.parse(path.basename(inPath)).name)
+  }
+
+  if (!outputRootIsDirectory) {
+    if (outputPath == null) {
+      return
+    }
+
+    const first = allFiles[0]
+    const resultUrl = first == null ? null : getResultFileUrl(first.file)
+    if (resultUrl != null) {
+      await downloadResultFile(resultUrl, outputPath)
+    }
+    return
+  }
+
+  if (singleAssembly) {
+    await fsp.mkdir(outputRoot, { recursive: true })
+    for (const { stepName, file } of allFiles) {
+      const resultUrl = getResultFileUrl(file)
+      if (resultUrl == null) {
+        continue
+      }
+
+      const rawName =
+        file.name ??
+        (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
+        `${stepName}_result`
+      const safeName = sanitizeResultName(rawName)
+      const targetPath = await ensureUniquePath(path.join(outputRoot, safeName))
+      await downloadResultFile(resultUrl, targetPath)
+    }
+    return
+  }
+
+  if (useIntentDirectoryLayout || outputPath == null) {
+    const baseDir = resolveDirectoryBaseDir()
+    await fsp.mkdir(baseDir, { recursive: true })
+    const shouldUseStepDirectories = entries.length > 1
+
+    for (const { stepName, file } of allFiles) {
+      const resultUrl = getResultFileUrl(file)
+      if (resultUrl == null) {
+        continue
+      }
+
+      const targetDir = shouldUseStepDirectories ? path.join(baseDir, stepName) : baseDir
+      await fsp.mkdir(targetDir, { recursive: true })
+
+      const rawName =
+        file.name ??
+        (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
+        `${stepName}_result`
+      const safeName = sanitizeResultName(rawName)
+      const targetPath = await ensureUniquePath(path.join(targetDir, safeName))
+      await downloadResultFile(resultUrl, targetPath)
+    }
+
+    return
+  }
+
+  if (allFiles.length === 1) {
+    const first = allFiles[0]
+    const resultUrl = first == null ? null : getResultFileUrl(first.file)
+    if (resultUrl != null) {
+      await downloadResultFile(resultUrl, outputPath)
+    }
+    return
+  }
+
+  const legacyBaseDir = path.join(path.dirname(outputPath), path.parse(outputPath).name)
+
+  for (const { stepName, file } of allFiles) {
+    const resultUrl = getResultFileUrl(file)
+    if (resultUrl == null) {
+      continue
+    }
+
+    const targetDir = path.join(legacyBaseDir, stepName)
+    await fsp.mkdir(targetDir, { recursive: true })
+
+    const rawName =
+      file.name ??
+      (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
+      `${stepName}_result`
+    const safeName = sanitizeResultName(rawName)
+    const targetPath = await ensureUniquePath(path.join(targetDir, safeName))
+    await downloadResultFile(resultUrl, targetPath)
+  }
 }
 
 class MyEventEmitter extends EventEmitter {
@@ -454,27 +657,31 @@ class MyEventEmitter extends EventEmitter {
 class ReaddirJobEmitter extends MyEventEmitter {
   constructor({
     dir,
-    streamRegistry,
+    outputPlanRegistry,
     recursive,
-    outstreamProvider,
+    outputPlanProvider,
     topdir = dir,
   }: ReaddirJobEmitterOptions) {
     super()
 
     process.nextTick(() => {
-      this.processDirectory({ dir, streamRegistry, recursive, outstreamProvider, topdir }).catch(
-        (err) => {
-          this.emit('error', err)
-        },
-      )
+      this.processDirectory({
+        dir,
+        outputPlanRegistry,
+        recursive,
+        outputPlanProvider,
+        topdir,
+      }).catch((err) => {
+        this.emit('error', err)
+      })
     })
   }
 
   private async processDirectory({
     dir,
-    streamRegistry,
+    outputPlanRegistry,
     recursive,
-    outstreamProvider,
+    outputPlanProvider,
     topdir,
   }: ReaddirJobEmitterOptions & { topdir: string }): Promise<void> {
     const files = await fsp.readdir(dir)
@@ -484,7 +691,7 @@ class ReaddirJobEmitter extends MyEventEmitter {
     for (const filename of files) {
       const file = path.normalize(path.join(dir, filename))
       pendingOperations.push(
-        this.processFile({ file, streamRegistry, recursive, outstreamProvider, topdir }),
+        this.processFile({ file, outputPlanRegistry, recursive, outputPlanProvider, topdir }),
       )
     }
 
@@ -494,15 +701,15 @@ class ReaddirJobEmitter extends MyEventEmitter {
 
   private async processFile({
     file,
-    streamRegistry,
+    outputPlanRegistry,
     recursive = false,
-    outstreamProvider,
+    outputPlanProvider,
     topdir,
   }: {
     file: string
-    streamRegistry: StreamRegistry
+    outputPlanRegistry: OutputPlanRegistry
     recursive?: boolean
-    outstreamProvider: OutstreamProvider
+    outputPlanProvider: OutputPlanProvider
     topdir: string
   }): Promise<void> {
     const stats = await fsp.stat(file)
@@ -512,9 +719,9 @@ class ReaddirJobEmitter extends MyEventEmitter {
         await new Promise<void>((resolve, reject) => {
           const subdirEmitter = new ReaddirJobEmitter({
             dir: file,
-            streamRegistry,
+            outputPlanRegistry,
             recursive,
-            outstreamProvider,
+            outputPlanProvider,
             topdir,
           })
           subdirEmitter.on('job', (job: Job) => this.emit('job', job))
@@ -523,28 +730,24 @@ class ReaddirJobEmitter extends MyEventEmitter {
         })
       }
     } else {
-      const existing = streamRegistry[file]
-      if (existing) existing.end()
-      const outstream = await outstreamProvider(file, topdir)
-      streamRegistry[file] = outstream ?? undefined
+      const outputPlan = await outputPlanProvider(file, topdir)
+      outputPlanRegistry[file] = outputPlan ?? undefined
       const instream = fs.createReadStream(file)
       // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
       // before being consumed (e.g., due to output collision detection)
       instream.on('error', () => {})
-      this.emit('job', { in: instream, out: outstream })
+      this.emit('job', { in: instream, out: outputPlan })
     }
   }
 }
 
 class SingleJobEmitter extends MyEventEmitter {
-  constructor({ file, streamRegistry, outstreamProvider }: SingleJobEmitterOptions) {
+  constructor({ file, outputPlanRegistry, outputPlanProvider }: SingleJobEmitterOptions) {
     super()
 
     const normalizedFile = path.normalize(file)
-    const existing = streamRegistry[normalizedFile]
-    if (existing) existing.end()
-    outstreamProvider(normalizedFile).then((outstream) => {
-      streamRegistry[normalizedFile] = outstream ?? undefined
+    outputPlanProvider(normalizedFile).then((outputPlan) => {
+      outputPlanRegistry[normalizedFile] = outputPlan ?? undefined
 
       let instream: Readable | null
       if (normalizedFile === '-') {
@@ -561,7 +764,7 @@ class SingleJobEmitter extends MyEventEmitter {
       }
 
       process.nextTick(() => {
-        this.emit('job', { in: instream, out: outstream })
+        this.emit('job', { in: instream, out: outputPlan })
         this.emit('end')
       })
     })
@@ -569,15 +772,13 @@ class SingleJobEmitter extends MyEventEmitter {
 }
 
 class InputlessJobEmitter extends MyEventEmitter {
-  constructor({
-    outstreamProvider,
-  }: { streamRegistry: StreamRegistry; outstreamProvider: OutstreamProvider }) {
+  constructor({ outputPlanProvider }: { outputPlanProvider: OutputPlanProvider }) {
     super()
 
     process.nextTick(() => {
-      outstreamProvider(null).then((outstream) => {
+      outputPlanProvider(null).then((outputPlan) => {
         try {
-          this.emit('job', { in: null, out: outstream })
+          this.emit('job', { in: null, out: outputPlan })
         } catch (err) {
           this.emit('error', err)
         }
@@ -598,10 +799,10 @@ class NullJobEmitter extends MyEventEmitter {
 class WatchJobEmitter extends MyEventEmitter {
   private watcher: NodeWatcher | null = null
 
-  constructor({ file, streamRegistry, recursive, outstreamProvider }: WatchJobEmitterOptions) {
+  constructor({ file, outputPlanRegistry, recursive, outputPlanProvider }: WatchJobEmitterOptions) {
     super()
 
-    this.init({ file, streamRegistry, recursive, outstreamProvider }).catch((err) => {
+    this.init({ file, outputPlanRegistry, recursive, outputPlanProvider }).catch((err) => {
       this.emit('error', err)
     })
 
@@ -621,9 +822,9 @@ class WatchJobEmitter extends MyEventEmitter {
 
   private async init({
     file,
-    streamRegistry,
+    outputPlanRegistry,
     recursive,
-    outstreamProvider,
+    outputPlanProvider,
   }: WatchJobEmitterOptions): Promise<void> {
     const stats = await fsp.stat(file)
     const topdir = stats.isDirectory() ? file : undefined
@@ -638,32 +839,31 @@ class WatchJobEmitter extends MyEventEmitter {
     this.watcher.on('close', () => this.emit('end'))
     this.watcher.on('change', (_evt: string, filename: string) => {
       const normalizedFile = path.normalize(filename)
-      this.handleChange(normalizedFile, topdir, streamRegistry, outstreamProvider).catch((err) => {
-        this.emit('error', err)
-      })
+      this.handleChange(normalizedFile, topdir, outputPlanRegistry, outputPlanProvider).catch(
+        (err) => {
+          this.emit('error', err)
+        },
+      )
     })
   }
 
   private async handleChange(
     normalizedFile: string,
     topdir: string | undefined,
-    streamRegistry: StreamRegistry,
-    outstreamProvider: OutstreamProvider,
+    outputPlanRegistry: OutputPlanRegistry,
+    outputPlanProvider: OutputPlanProvider,
   ): Promise<void> {
     const stats = await fsp.stat(normalizedFile)
     if (stats.isDirectory()) return
 
-    const existing = streamRegistry[normalizedFile]
-    if (existing) existing.end()
-
-    const outstream = await outstreamProvider(normalizedFile, topdir)
-    streamRegistry[normalizedFile] = outstream ?? undefined
+    const outputPlan = await outputPlanProvider(normalizedFile, topdir)
+    outputPlanRegistry[normalizedFile] = outputPlan ?? undefined
 
     const instream = fs.createReadStream(normalizedFile)
     // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
     // before being consumed (e.g., due to output collision detection)
     instream.on('error', () => {})
-    this.emit('job', { in: instream, out: outstream })
+    this.emit('job', { in: instream, out: outputPlan })
   }
 }
 
@@ -726,7 +926,11 @@ function detectConflicts(jobEmitter: EventEmitter): MyEventEmitter {
       return
     }
     const inPath = (job.in as fs.ReadStream).path as string
-    const outPath = job.out.path as string
+    const outPath = job.out.path
+    if (outPath == null) {
+      emitter.emit('job', job)
+      return
+    }
     if (Object.hasOwn(outfileAssociations, outPath) && outfileAssociations[outPath] !== inPath) {
       emitter.emit(
         'error',
@@ -786,9 +990,9 @@ function makeJobEmitter(
   {
     allowOutputCollisions,
     recursive,
-    outstreamProvider,
+    outputPlanProvider,
     singleAssembly,
-    streamRegistry,
+    outputPlanRegistry,
     watch: watchOption,
     reprocessStale,
   }: JobEmitterOptions,
@@ -802,7 +1006,7 @@ function makeJobEmitter(
     for (const input of inputs) {
       if (input === '-') {
         emitterFns.push(
-          () => new SingleJobEmitter({ file: input, outstreamProvider, streamRegistry }),
+          () => new SingleJobEmitter({ file: input, outputPlanProvider, outputPlanRegistry }),
         )
         watcherFns.push(() => new NullJobEmitter())
       } else {
@@ -810,26 +1014,41 @@ function makeJobEmitter(
         if (stats.isDirectory()) {
           emitterFns.push(
             () =>
-              new ReaddirJobEmitter({ dir: input, recursive, outstreamProvider, streamRegistry }),
+              new ReaddirJobEmitter({
+                dir: input,
+                recursive,
+                outputPlanProvider,
+                outputPlanRegistry,
+              }),
           )
           watcherFns.push(
             () =>
-              new WatchJobEmitter({ file: input, recursive, outstreamProvider, streamRegistry }),
+              new WatchJobEmitter({
+                file: input,
+                recursive,
+                outputPlanProvider,
+                outputPlanRegistry,
+              }),
           )
         } else {
           emitterFns.push(
-            () => new SingleJobEmitter({ file: input, outstreamProvider, streamRegistry }),
+            () => new SingleJobEmitter({ file: input, outputPlanProvider, outputPlanRegistry }),
           )
           watcherFns.push(
             () =>
-              new WatchJobEmitter({ file: input, recursive, outstreamProvider, streamRegistry }),
+              new WatchJobEmitter({
+                file: input,
+                recursive,
+                outputPlanProvider,
+                outputPlanRegistry,
+              }),
           )
         }
       }
     }
 
     if (inputs.length === 0) {
-      emitterFns.push(() => new InputlessJobEmitter({ outstreamProvider, streamRegistry }))
+      emitterFns.push(() => new InputlessJobEmitter({ outputPlanProvider }))
     }
 
     startEmitting()
@@ -976,21 +1195,21 @@ export async function create(
       params.fields = fields
     }
 
-    const outstreamProvider: OutstreamProvider =
+    const outputPlanProvider: OutputPlanProvider =
       resolvedOutput == null
         ? nullProvider()
         : outstat?.isDirectory()
           ? dirProvider(resolvedOutput)
           : fileProvider(resolvedOutput)
-    const streamRegistry: StreamRegistry = {}
+    const outputPlanRegistry: OutputPlanRegistry = {}
 
     const emitter = makeJobEmitter(inputs, {
       allowOutputCollisions: singleAssembly,
+      outputPlanProvider,
+      outputPlanRegistry,
       recursive,
       watch: watchOption,
-      outstreamProvider,
       singleAssembly,
-      streamRegistry,
       reprocessStale,
     })
 
@@ -1004,9 +1223,9 @@ export async function create(
     // Helper to process a single assembly job
     async function processAssemblyJob(
       inPath: string | null,
-      outPath: string | null,
+      outputPlan: OutputPlan | null,
     ): Promise<unknown> {
-      outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+      outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
 
       // Create fresh streams for this job
       const inStream = inPath ? fs.createReadStream(inPath) : null
@@ -1041,133 +1260,20 @@ export async function create(
 
       if (!assembly.results) throw new Error('No results in assembly')
 
-      const outIsDirectory = Boolean(resolvedOutput != null && outstat?.isDirectory())
-      const entries = Object.entries(assembly.results)
-      const allFiles: Array<{
-        stepName: string
-        file: { name?: string; basename?: string; ext?: string; ssl_url?: string; url?: string }
-      }> = []
-      for (const [stepName, stepResults] of entries) {
-        for (const file of stepResults as Array<{
-          name?: string
-          basename?: string
-          ext?: string
-          ssl_url?: string
-          url?: string
-        }>) {
-          allFiles.push({ stepName, file })
-        }
-      }
+      await materializeAssemblyResults({
+        abortSignal: abortController.signal,
+        hasDirectoryInput,
+        inPath,
+        inputs,
+        outputMode,
+        outputPath: outputPlan?.path ?? null,
+        outputRoot: resolvedOutput ?? null,
+        outputRootIsDirectory: Boolean(resolvedOutput != null && outstat?.isDirectory()),
+        outputctl,
+        results: assembly.results,
+      })
 
-      const getFileUrl = (file: { ssl_url?: string; url?: string }): string | null =>
-        file.ssl_url ?? file.url ?? null
-
-      const sanitizeName = (value: string): string => {
-        const base = path.basename(value)
-        return base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
-      }
-
-      const ensureUniquePath = async (targetPath: string): Promise<string> => {
-        const parsed = path.parse(targetPath)
-        let candidate = targetPath
-        let counter = 1
-        while (true) {
-          const [statErr] = await tryCatch(fsp.stat(candidate))
-          if (statErr) return candidate
-          candidate = path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`)
-          counter += 1
-        }
-      }
-
-      const shouldGroupByInput = inPath != null && (hasDirectoryInput || inputs.length > 1)
-      const useIntentDirectoryLayout = outputMode === 'directory'
-
-      const resolveDirectoryBaseDir = (): string => {
-        if (!shouldGroupByInput || inPath == null) {
-          return resolvedOutput as string
-        }
-
-        if (hasDirectoryInput && outPath != null) {
-          const mappedRelative = path.relative(resolvedOutput as string, outPath)
-          const mappedDir = path.dirname(mappedRelative)
-          const mappedStem = path.parse(mappedRelative).name
-          return path.join(resolvedOutput as string, mappedDir === '.' ? '' : mappedDir, mappedStem)
-        }
-
-        return path.join(resolvedOutput as string, path.parse(path.basename(inPath)).name)
-      }
-
-      const downloadResultFile = async (resultUrl: string, targetPath: string): Promise<void> => {
-        outputctl.debug('DOWNLOADING')
-        const [dlErr] = await tryCatch(
-          downloadResultToFile(resultUrl, targetPath, abortController.signal),
-        )
-        if (dlErr) {
-          if (dlErr.name === 'AbortError') return
-          outputctl.error(dlErr.message)
-          throw dlErr
-        }
-      }
-
-      if (resolvedOutput != null) {
-        if (outIsDirectory) {
-          if (useIntentDirectoryLayout || outPath == null) {
-            const baseDir = resolveDirectoryBaseDir()
-            await fsp.mkdir(baseDir, { recursive: true })
-            const shouldUseStepDirectories = entries.length > 1
-
-            for (const { stepName, file } of allFiles) {
-              const resultUrl = getFileUrl(file)
-              if (!resultUrl) continue
-
-              const targetDir = shouldUseStepDirectories ? path.join(baseDir, stepName) : baseDir
-              await fsp.mkdir(targetDir, { recursive: true })
-
-              const rawName =
-                file.name ??
-                (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
-                `${stepName}_result`
-              const safeName = sanitizeName(rawName)
-              const targetPath = await ensureUniquePath(path.join(targetDir, safeName))
-
-              await downloadResultFile(resultUrl, targetPath)
-            }
-          } else if (allFiles.length === 1) {
-            const first = allFiles[0]
-            const resultUrl = first ? getFileUrl(first.file) : null
-            if (resultUrl) {
-              await downloadResultFile(resultUrl, outPath)
-            }
-          } else {
-            const legacyBaseDir = path.join(path.dirname(outPath), path.parse(outPath).name)
-
-            for (const { stepName, file } of allFiles) {
-              const resultUrl = getFileUrl(file)
-              if (!resultUrl) continue
-
-              const targetDir = path.join(legacyBaseDir, stepName)
-              await fsp.mkdir(targetDir, { recursive: true })
-
-              const rawName =
-                file.name ??
-                (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
-                `${stepName}_result`
-              const safeName = sanitizeName(rawName)
-              const targetPath = await ensureUniquePath(path.join(targetDir, safeName))
-
-              await downloadResultFile(resultUrl, targetPath)
-            }
-          }
-        } else if (outPath != null) {
-          const first = allFiles[0]
-          const resultUrl = first ? getFileUrl(first.file) : null
-          if (resultUrl) {
-            await downloadResultFile(resultUrl, outPath)
-          }
-        }
-      }
-
-      outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+      outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
 
       if (del && inPath) {
         await fsp.unlink(inPath)
@@ -1248,32 +1354,20 @@ export async function create(
               throw new Error(msg)
             }
 
-            // Download all results
-            if (asm.results && resolvedOutput != null) {
-              for (const [stepName, stepResults] of Object.entries(asm.results)) {
-                for (const stepResult of stepResults) {
-                  const resultUrl =
-                    (stepResult as { ssl_url?: string; url?: string }).ssl_url ?? stepResult.url
-                  if (!resultUrl) continue
-
-                  let outPath: string
-                  if (outstat?.isDirectory()) {
-                    outPath = path.join(resolvedOutput, stepResult.name || `${stepName}_result`)
-                  } else {
-                    outPath = resolvedOutput
-                  }
-
-                  outputctl.debug(`DOWNLOADING ${stepResult.name} to ${outPath}`)
-                  const [dlErr] = await tryCatch(
-                    downloadResultToFile(resultUrl, outPath, abortController.signal),
-                  )
-                  if (dlErr) {
-                    if (dlErr.name === 'AbortError') continue
-                    outputctl.error(dlErr.message)
-                    throw dlErr
-                  }
-                }
-              }
+            if (asm.results) {
+              await materializeAssemblyResults({
+                abortSignal: abortController.signal,
+                hasDirectoryInput: false,
+                inPath: null,
+                inputs: inputPaths,
+                outputMode,
+                outputPath: resolvedOutput ?? null,
+                outputRoot: resolvedOutput ?? null,
+                outputRootIsDirectory: Boolean(resolvedOutput != null && outstat?.isDirectory()),
+                outputctl,
+                results: asm.results,
+                singleAssembly: true,
+              })
             }
 
             // Delete input files if requested
@@ -1298,21 +1392,17 @@ export async function create(
         const inPath = job.in
           ? (((job.in as fs.ReadStream).path as string | undefined) ?? null)
           : null
-        const outPath = job.out?.path ?? null
-        outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
+        const outputPlan = job.out
+        outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
 
         // Close the original streams immediately - we'll create fresh ones when processing
         if (job.in != null) {
           ;(job.in as fs.ReadStream).destroy()
         }
-        if (job.out != null) {
-          job.out.destroy()
-        }
-
         // Add job to queue - p-queue handles concurrency automatically
         queue
           .add(async () => {
-            const result = await processAssemblyJob(inPath, outPath)
+            const result = await processAssemblyJob(inPath, outputPlan)
             if (result !== undefined) {
               results.push(result)
             }

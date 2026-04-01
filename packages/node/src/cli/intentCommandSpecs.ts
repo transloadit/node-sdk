@@ -58,180 +58,227 @@ import {
   meta as robotVideoThumbsMeta,
 } from '../alphalib/types/robots/video-thumbs.ts'
 
-export type IntentInputMode = 'local-files' | 'none' | 'remote-url'
+export type IntentInputMode = 'local-files' | 'none'
 export type IntentOutputMode = 'directory' | 'file'
 
-export interface RobotIntentDefinition {
+interface IntentSchemaDefinition {
   meta: RobotMetaInput
-  robot: string
   schema: z.AnyZodObject
   schemaImportName: string
   schemaImportPath: string
 }
 
-export interface RobotIntentCatalogEntry {
-  kind: 'robot'
-  defaultSingleAssembly?: boolean
-  inputMode?: Exclude<IntentInputMode, 'remote-url'>
+interface IntentBaseDefinition {
   outputMode?: IntentOutputMode
   paths?: string[]
-  robot: keyof typeof robotIntentDefinitions
 }
 
-export interface TemplateIntentCatalogEntry {
+export interface RobotIntentDefinition extends IntentBaseDefinition, IntentSchemaDefinition {
+  defaultSingleAssembly?: boolean
+  inputMode?: IntentInputMode
+  kind: 'robot'
+  robot: string
+}
+
+export interface TemplateIntentDefinition extends IntentBaseDefinition {
   kind: 'template'
-  outputMode?: IntentOutputMode
   paths: string[]
   templateId: string
 }
 
-export interface RecipeIntentCatalogEntry {
-  kind: 'recipe'
-  recipe: keyof typeof intentRecipeDefinitions
+export type IntentDefinition = RobotIntentDefinition | TemplateIntentDefinition
+
+const commandPathAliases = new Map([
+  ['autorotate', 'auto-rotate'],
+  ['bgremove', 'remove-background'],
+])
+
+function defineRobotIntent(definition: RobotIntentDefinition): RobotIntentDefinition {
+  return definition
 }
 
-export type IntentCatalogEntry =
-  | RecipeIntentCatalogEntry
-  | RobotIntentCatalogEntry
-  | TemplateIntentCatalogEntry
-
-export interface IntentRecipeDefinition {
-  description: string
-  details: string
-  examples: Array<[string, string]>
-  inputMode: 'remote-url'
-  outputDescription: string
-  outputRequired: boolean
-  paths: string[]
-  resultStepName: string
-  schema: z.AnyZodObject
-  schemaImportName: string
-  schemaImportPath: string
-  summary: string
+function defineTemplateIntent(definition: TemplateIntentDefinition): TemplateIntentDefinition {
+  return definition
 }
 
-export const robotIntentDefinitions = {
-  '/audio/waveform': {
-    robot: '/audio/waveform',
-    meta: robotAudioWaveformMeta,
-    schema: robotAudioWaveformInstructionsSchema,
-    schemaImportName: 'robotAudioWaveformInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/audio-waveform.ts',
-  },
-  '/document/autorotate': {
-    robot: '/document/autorotate',
-    meta: robotDocumentAutorotateMeta,
-    schema: robotDocumentAutorotateInstructionsSchema,
-    schemaImportName: 'robotDocumentAutorotateInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/document-autorotate.ts',
-  },
-  '/document/convert': {
-    robot: '/document/convert',
-    meta: robotDocumentConvertMeta,
-    schema: robotDocumentConvertInstructionsSchema,
-    schemaImportName: 'robotDocumentConvertInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/document-convert.ts',
-  },
-  '/document/optimize': {
-    robot: '/document/optimize',
-    meta: robotDocumentOptimizeMeta,
-    schema: robotDocumentOptimizeInstructionsSchema,
-    schemaImportName: 'robotDocumentOptimizeInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/document-optimize.ts',
-  },
-  '/document/thumbs': {
-    robot: '/document/thumbs',
-    meta: robotDocumentThumbsMeta,
-    schema: robotDocumentThumbsInstructionsSchema,
-    schemaImportName: 'robotDocumentThumbsInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/document-thumbs.ts',
-  },
-  '/file/compress': {
-    robot: '/file/compress',
-    meta: robotFileCompressMeta,
-    schema: robotFileCompressInstructionsSchema,
-    schemaImportName: 'robotFileCompressInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/file-compress.ts',
-  },
-  '/file/decompress': {
-    robot: '/file/decompress',
-    meta: robotFileDecompressMeta,
-    schema: robotFileDecompressInstructionsSchema,
-    schemaImportName: 'robotFileDecompressInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/file-decompress.ts',
-  },
-  '/file/preview': {
-    robot: '/file/preview',
-    meta: robotFilePreviewMeta,
-    schema: robotFilePreviewInstructionsSchema,
-    schemaImportName: 'robotFilePreviewInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/file-preview.ts',
-  },
-  '/image/bgremove': {
-    robot: '/image/bgremove',
-    meta: robotImageBgremoveMeta,
-    schema: robotImageBgremoveInstructionsSchema,
-    schemaImportName: 'robotImageBgremoveInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/image-bgremove.ts',
-  },
-  '/image/generate': {
+export function getIntentCatalogKey(definition: IntentDefinition): string {
+  if (definition.kind === 'robot') {
+    return definition.robot
+  }
+
+  return definition.templateId
+}
+
+export function getIntentPaths(definition: IntentDefinition): string[] {
+  if (definition.paths != null) {
+    return definition.paths
+  }
+
+  if (definition.kind !== 'robot') {
+    throw new Error(`Intent definition ${getIntentCatalogKey(definition)} is missing paths`)
+  }
+
+  const segments = definition.robot.split('/').filter(Boolean)
+  const [group, action] = segments
+  if (group == null || action == null) {
+    throw new Error(`Could not infer command path from robot "${definition.robot}"`)
+  }
+
+  return [group, commandPathAliases.get(action) ?? action]
+}
+
+export function getIntentCommandLabel(definition: IntentDefinition): string {
+  return getIntentPaths(definition).join(' ')
+}
+
+export function getIntentResultStepName(definition: IntentDefinition): string | null {
+  if (definition.kind !== 'robot') {
+    return null
+  }
+
+  const paths = getIntentPaths(definition)
+  const action = paths[paths.length - 1]
+  if (action == null) {
+    throw new Error(`Intent definition ${definition.robot} has no action path`)
+  }
+
+  return action.replaceAll('-', '_')
+}
+
+export function findIntentDefinitionByPaths(
+  paths: readonly string[],
+): IntentDefinition | undefined {
+  return intentCatalog.find((definition) => {
+    const definitionPaths = getIntentPaths(definition)
+    return (
+      definitionPaths.length === paths.length &&
+      definitionPaths.every((part, index) => part === paths[index])
+    )
+  })
+}
+
+export const intentCatalog = [
+  defineRobotIntent({
+    kind: 'robot',
     robot: '/image/generate',
     meta: robotImageGenerateMeta,
     schema: robotImageGenerateInstructionsSchema,
     schemaImportName: 'robotImageGenerateInstructionsSchema',
     schemaImportPath: '../../alphalib/types/robots/image-generate.ts',
-  },
-  '/image/optimize': {
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/file/preview',
+    paths: ['preview', 'generate'],
+    meta: robotFilePreviewMeta,
+    schema: robotFilePreviewInstructionsSchema,
+    schemaImportName: 'robotFilePreviewInstructionsSchema',
+    schemaImportPath: '../../alphalib/types/robots/file-preview.ts',
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/image/bgremove',
+    meta: robotImageBgremoveMeta,
+    schema: robotImageBgremoveInstructionsSchema,
+    schemaImportName: 'robotImageBgremoveInstructionsSchema',
+    schemaImportPath: '../../alphalib/types/robots/image-bgremove.ts',
+  }),
+  defineRobotIntent({
+    kind: 'robot',
     robot: '/image/optimize',
     meta: robotImageOptimizeMeta,
     schema: robotImageOptimizeInstructionsSchema,
     schemaImportName: 'robotImageOptimizeInstructionsSchema',
     schemaImportPath: '../../alphalib/types/robots/image-optimize.ts',
-  },
-  '/image/resize': {
+  }),
+  defineRobotIntent({
+    kind: 'robot',
     robot: '/image/resize',
     meta: robotImageResizeMeta,
     schema: robotImageResizeInstructionsSchema,
     schemaImportName: 'robotImageResizeInstructionsSchema',
     schemaImportPath: '../../alphalib/types/robots/image-resize.ts',
-  },
-  '/text/speak': {
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/document/convert',
+    meta: robotDocumentConvertMeta,
+    schema: robotDocumentConvertInstructionsSchema,
+    schemaImportName: 'robotDocumentConvertInstructionsSchema',
+    schemaImportPath: '../../alphalib/types/robots/document-convert.ts',
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/document/optimize',
+    meta: robotDocumentOptimizeMeta,
+    schema: robotDocumentOptimizeInstructionsSchema,
+    schemaImportName: 'robotDocumentOptimizeInstructionsSchema',
+    schemaImportPath: '../../alphalib/types/robots/document-optimize.ts',
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/document/autorotate',
+    meta: robotDocumentAutorotateMeta,
+    schema: robotDocumentAutorotateInstructionsSchema,
+    schemaImportName: 'robotDocumentAutorotateInstructionsSchema',
+    schemaImportPath: '../../alphalib/types/robots/document-autorotate.ts',
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/document/thumbs',
+    outputMode: 'directory',
+    meta: robotDocumentThumbsMeta,
+    schema: robotDocumentThumbsInstructionsSchema,
+    schemaImportName: 'robotDocumentThumbsInstructionsSchema',
+    schemaImportPath: '../../alphalib/types/robots/document-thumbs.ts',
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/audio/waveform',
+    meta: robotAudioWaveformMeta,
+    schema: robotAudioWaveformInstructionsSchema,
+    schemaImportName: 'robotAudioWaveformInstructionsSchema',
+    schemaImportPath: '../../alphalib/types/robots/audio-waveform.ts',
+  }),
+  defineRobotIntent({
+    kind: 'robot',
     robot: '/text/speak',
     meta: robotTextSpeakMeta,
     schema: robotTextSpeakInstructionsSchema,
     schemaImportName: 'robotTextSpeakInstructionsSchema',
     schemaImportPath: '../../alphalib/types/robots/text-speak.ts',
-  },
-  '/video/thumbs': {
+  }),
+  defineRobotIntent({
+    kind: 'robot',
     robot: '/video/thumbs',
+    outputMode: 'directory',
     meta: robotVideoThumbsMeta,
     schema: robotVideoThumbsInstructionsSchema,
     schemaImportName: 'robotVideoThumbsInstructionsSchema',
     schemaImportPath: '../../alphalib/types/robots/video-thumbs.ts',
-  },
-} satisfies Record<string, RobotIntentDefinition>
-
-export const intentRecipeDefinitions = {} satisfies Record<string, IntentRecipeDefinition>
-
-export const intentCatalog = [
-  { kind: 'robot', robot: '/image/generate' },
-  { kind: 'robot', robot: '/file/preview', paths: ['preview', 'generate'] },
-  { kind: 'robot', robot: '/image/bgremove' },
-  { kind: 'robot', robot: '/image/optimize' },
-  { kind: 'robot', robot: '/image/resize' },
-  { kind: 'robot', robot: '/document/convert' },
-  { kind: 'robot', robot: '/document/optimize' },
-  { kind: 'robot', robot: '/document/autorotate' },
-  { kind: 'robot', robot: '/document/thumbs', outputMode: 'directory' },
-  { kind: 'robot', robot: '/audio/waveform' },
-  { kind: 'robot', robot: '/text/speak' },
-  { kind: 'robot', robot: '/video/thumbs', outputMode: 'directory' },
-  {
+  }),
+  defineTemplateIntent({
     kind: 'template',
     templateId: 'builtin/encode-hls-video@latest',
     paths: ['video', 'encode-hls'],
     outputMode: 'directory',
-  },
-  { kind: 'robot', robot: '/file/compress', defaultSingleAssembly: true },
-  { kind: 'robot', robot: '/file/decompress', outputMode: 'directory' },
-] satisfies IntentCatalogEntry[]
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/file/compress',
+    defaultSingleAssembly: true,
+    meta: robotFileCompressMeta,
+    schema: robotFileCompressInstructionsSchema,
+    schemaImportName: 'robotFileCompressInstructionsSchema',
+    schemaImportPath: '../../alphalib/types/robots/file-compress.ts',
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/file/decompress',
+    outputMode: 'directory',
+    meta: robotFileDecompressMeta,
+    schema: robotFileDecompressInstructionsSchema,
+    schemaImportName: 'robotFileDecompressInstructionsSchema',
+    schemaImportPath: '../../alphalib/types/robots/file-decompress.ts',
+  }),
+] satisfies IntentDefinition[]

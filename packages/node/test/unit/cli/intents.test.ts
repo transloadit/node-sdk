@@ -3,6 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import * as assembliesCommands from '../../../src/cli/commands/assemblies.ts'
 import { intentCommands } from '../../../src/cli/commands/generated-intents.ts'
+import {
+  findIntentDefinitionByPaths,
+  getIntentPaths,
+  getIntentResultStepName,
+  intentCatalog,
+} from '../../../src/cli/intentCommandSpecs.ts'
+import { intentSmokeCases } from '../../../src/cli/intentSmokeCases.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 
@@ -23,6 +30,20 @@ function getIntentCommand(paths: string[]): (typeof intentCommands)[number] {
   }
 
   return command
+}
+
+function getIntentStepName(paths: string[]): string {
+  const definition = findIntentDefinitionByPaths(paths)
+  if (definition == null || definition.kind !== 'robot') {
+    throw new Error(`No robot intent definition found for ${paths.join(' ')}`)
+  }
+
+  const stepName = getIntentResultStepName(definition)
+  if (stepName == null) {
+    throw new Error(`No intent result step name found for ${paths.join(' ')}`)
+  }
+
+  return stepName
 }
 
 afterEach(() => {
@@ -65,7 +86,7 @@ describe('intent commands', () => {
         inputs: [],
         output: 'generated.png',
         stepsData: {
-          generated_image: expect.objectContaining({
+          [getIntentStepName(['image', 'generate'])]: expect.objectContaining({
             robot: '/image/generate',
             result: true,
             prompt: 'A red bicycle in a studio',
@@ -111,7 +132,7 @@ describe('intent commands', () => {
         inputs: ['document.pdf'],
         output: 'preview.jpg',
         stepsData: {
-          preview: expect.objectContaining({
+          [getIntentStepName(['preview', 'generate'])]: expect.objectContaining({
             robot: '/file/preview',
             result: true,
             use: ':original',
@@ -152,7 +173,7 @@ describe('intent commands', () => {
       expect.objectContaining({
         inputs: [expect.stringContaining('transloadit-input-')],
         stepsData: {
-          preview: expect.objectContaining({
+          [getIntentStepName(['preview', 'generate'])]: expect.objectContaining({
             robot: '/file/preview',
             use: ':original',
           }),
@@ -190,7 +211,7 @@ describe('intent commands', () => {
       expect.objectContaining({
         inputs: [expect.stringContaining('transloadit-input-')],
         stepsData: {
-          converted: expect.objectContaining({
+          [getIntentStepName(['document', 'convert'])]: expect.objectContaining({
             robot: '/document/convert',
             use: ':original',
             format: 'pdf',
@@ -260,7 +281,7 @@ describe('intent commands', () => {
         inputs: [],
         output: 'hello.mp3',
         stepsData: {
-          synthesized: expect.objectContaining({
+          [getIntentStepName(['text', 'speak'])]: expect.objectContaining({
             robot: '/text/speak',
             result: true,
             prompt: 'Hello world',
@@ -303,7 +324,7 @@ describe('intent commands', () => {
         inputs: [],
         output: 'hello.mp3',
         stepsData: {
-          synthesized: {
+          [getIntentStepName(['text', 'speak'])]: {
             robot: '/text/speak',
             result: true,
             prompt: 'Hello from a prompt',
@@ -344,7 +365,7 @@ describe('intent commands', () => {
         inputs: ['article.txt'],
         output: 'hello.mp3',
         stepsData: {
-          synthesized: {
+          [getIntentStepName(['text', 'speak'])]: {
             robot: '/text/speak',
             result: true,
             use: ':original',
@@ -376,7 +397,7 @@ describe('intent commands', () => {
         inputs: ['podcast.mp3'],
         output: 'waveform.png',
         stepsData: {
-          waveformed: {
+          [getIntentStepName(['audio', 'waveform'])]: {
             robot: '/audio/waveform',
             result: true,
             use: ':original',
@@ -416,7 +437,7 @@ describe('intent commands', () => {
         inputs: ['song.mp3'],
         output: 'waveform.png',
         stepsData: {
-          waveformed: expect.objectContaining({
+          [getIntentStepName(['audio', 'waveform'])]: expect.objectContaining({
             robot: '/audio/waveform',
             result: true,
             use: ':original',
@@ -471,7 +492,7 @@ describe('intent commands', () => {
       expect.anything(),
       expect.objectContaining({
         stepsData: {
-          thumbnailed: expect.objectContaining({
+          [getIntentStepName(['video', 'thumbs'])]: expect.objectContaining({
             robot: '/video/thumbs',
             rotate: 90,
           }),
@@ -508,7 +529,7 @@ describe('intent commands', () => {
       expect.anything(),
       expect.objectContaining({
         stepsData: {
-          resized: expect.objectContaining({
+          [getIntentStepName(['image', 'resize'])]: expect.objectContaining({
             robot: '/image/resize',
             rotation: 90,
           }),
@@ -545,7 +566,7 @@ describe('intent commands', () => {
       expect.anything(),
       expect.objectContaining({
         stepsData: {
-          waveformed: expect.objectContaining({
+          [getIntentStepName(['audio', 'waveform'])]: expect.objectContaining({
             robot: '/audio/waveform',
             antialiasing: 1,
           }),
@@ -587,7 +608,7 @@ describe('intent commands', () => {
         output: 'assets.zip',
         singleAssembly: true,
         stepsData: {
-          compressed: expect.objectContaining({
+          [getIntentStepName(['file', 'compress'])]: expect.objectContaining({
             robot: '/file/compress',
             result: true,
             format: 'zip',
@@ -621,7 +642,7 @@ describe('intent commands', () => {
       expect.anything(),
       expect.objectContaining({
         stepsData: {
-          compressed: {
+          [getIntentStepName(['file', 'compress'])]: {
             robot: '/file/compress',
             result: true,
             format: 'zip',
@@ -654,7 +675,7 @@ describe('intent commands', () => {
       expect.anything(),
       expect.objectContaining({
         stepsData: {
-          thumbnailed: {
+          [getIntentStepName(['video', 'thumbs'])]: {
             robot: '/video/thumbs',
             result: true,
             use: ':original',
@@ -671,5 +692,14 @@ describe('intent commands', () => {
     expect(getIntentCommand(['text', 'speak']).usage.examples).toEqual([
       ['Run the command', expect.stringContaining('--provider')],
     ])
+  })
+
+  it('keeps the catalog, generated commands, and smoke cases in sync', () => {
+    const catalogPaths = intentCatalog.map((definition) => getIntentPaths(definition).join(' '))
+    const generatedPaths = intentCommands.map((command) => command.paths[0]?.join(' '))
+    const smokePaths = intentSmokeCases.map((smokeCase) => smokeCase.paths.join(' '))
+
+    expect([...catalogPaths].sort()).toEqual([...generatedPaths].sort())
+    expect([...catalogPaths].sort()).toEqual([...smokePaths].sort())
   })
 })
