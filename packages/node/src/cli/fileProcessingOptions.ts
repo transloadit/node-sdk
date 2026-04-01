@@ -52,11 +52,11 @@ export function singleAssemblyOption(
 
 export function concurrencyOption(
   description = 'Maximum number of concurrent assemblies (default: 5)',
-): string | undefined {
+): number | undefined {
   return Option.String('--concurrency,-c', {
     description,
-    validator: t.isNumber(),
-  }) as unknown as string | undefined
+    validator: t.applyCascade(t.isNumber(), [t.isAtLeast(1)]),
+  }) as unknown as number | undefined
 }
 
 export function countProvidedInputs({

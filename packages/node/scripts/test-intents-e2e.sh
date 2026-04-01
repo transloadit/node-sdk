@@ -149,13 +149,13 @@ run_case() {
   if [[ $exit_code -eq 0 ]] && verify_output "$verifier" "$output_path"; then
     verdict='OK'
     if [[ -f "$output_path" ]]; then
-      detail="$(file "$output_path" | sed 's#^.*: ##' | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')"
+      detail="$(file "$output_path" | sed 's#^.*: ##' | tr '\n' ' ' | awk '{$1=$1; print}')"
     else
       detail="$(find "$output_path" -type f | sed "s#^$output_path/##" | sort | tr '\n' ',' | sed 's/,$//')"
     fi
   else
     if [[ -s "$logfile" ]]; then
-      detail="$(tail -n 8 "$logfile" | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-220)"
+      detail="$(tail -n 8 "$logfile" | tr '\n' ' ' | awk '{$1=$1; print}' | cut -c1-220)"
     else
       detail='No output captured'
     fi

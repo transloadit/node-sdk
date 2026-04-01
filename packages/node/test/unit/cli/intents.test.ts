@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -16,9 +19,16 @@ import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 
 const noopWrite = () => true
+const tempDirs: string[] = []
 
 const resetExitCode = () => {
   process.exitCode = undefined
+}
+
+async function createTempDir(prefix: string): Promise<string> {
+  const tempDir = await mkdtemp(path.join(tmpdir(), prefix))
+  tempDirs.push(tempDir)
+  return tempDir
 }
 
 function getIntentCommand(paths: string[]): (typeof intentCommands)[number] {
@@ -53,6 +63,9 @@ afterEach(() => {
   vi.unstubAllEnvs()
   nock.cleanAll()
   resetExitCode()
+  return Promise.all(
+    tempDirs.splice(0).map((tempDir) => rm(tempDir, { recursive: true, force: true })),
+  )
 })
 
 describe('intent commands', () => {
@@ -193,6 +206,33 @@ describe('intent commands', () => {
     ).rejects.toThrow('URL downloads are limited to public hosts')
   })
 
+  it('keeps duplicate remote basenames as distinct temp inputs', async () => {
+    nock('http://198.51.100.10').get('/nested/file.pdf').reply(200, 'first-file')
+    nock('http://198.51.100.11').get('/other/file.pdf').reply(200, 'second-file')
+
+    const prepared = await prepareIntentInputs({
+      inputValues: ['http://198.51.100.10/nested/file.pdf', 'http://198.51.100.11/other/file.pdf'],
+      inputBase64Values: [],
+    })
+
+    try {
+      expect(prepared.inputs).toHaveLength(2)
+      const firstPath = prepared.inputs[0]
+      const secondPath = prepared.inputs[1]
+      expect(firstPath).toBeDefined()
+      expect(secondPath).toBeDefined()
+      expect(firstPath).not.toBe(secondPath)
+      if (firstPath == null || secondPath == null) {
+        throw new Error('Expected prepared input paths')
+      }
+
+      expect(await readFile(firstPath, 'utf8')).toBe('first-file')
+      expect(await readFile(secondPath, 'utf8')).toBe('second-file')
+    } finally {
+      await Promise.all(prepared.cleanup.map((cleanup) => cleanup()))
+    }
+  })
+
   it('supports base64 inputs for intent commands', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
@@ -229,6 +269,109 @@ describe('intent commands', () => {
           }),
         },
       }),
+    )
+  })
+
+  it('rejects --watch URL inputs before downloading them', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+    const downloadScope = nock('https://example.test').get('/file.pdf').reply(200, 'pdf')
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'preview',
+      'generate',
+      '--watch',
+      '--input',
+      'https://example.test/file.pdf',
+      '--out',
+      'preview.png',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+    expect(downloadScope.isDone()).toBe(false)
+  })
+
+  it('accepts native boolean flags for generated intent options', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'image',
+      'optimize',
+      '--input',
+      'input.jpg',
+      '--progressive',
+      '--out',
+      'optimized.jpg',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['input.jpg'],
+        stepsData: {
+          [getIntentStepName(['image', 'optimize'])]: expect.objectContaining({
+            robot: '/image/optimize',
+            use: ':original',
+            progressive: true,
+          }),
+        },
+      }),
+    )
+  })
+
+  it('rejects multi-input standard single-assembly runs with a file output before processing', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const tempDir = await createTempDir('transloadit-intent-single-assembly-')
+    const inputA = path.join(tempDir, 'a.jpg')
+    const inputB = path.join(tempDir, 'b.jpg')
+    await writeFile(inputA, 'a')
+    await writeFile(inputB, 'b')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'image',
+      'optimize',
+      '--single-assembly',
+      '--input',
+      inputA,
+      '--input',
+      inputB,
+      '--out',
+      path.join(tempDir, 'optimized.jpg'),
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+    const loggedError = errorSpy.mock.calls.flatMap((call) => call.map(String)).join(' ')
+    expect(loggedError).toContain(
+      'Output must be a directory when using --single-assembly with multiple inputs',
     )
   })
 
@@ -763,7 +906,6 @@ describe('intent commands', () => {
       '--format',
       'zip',
       '--gzip',
-      'true',
       '--out',
       'assets.zip',
     ])

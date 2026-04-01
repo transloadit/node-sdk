@@ -1,8 +1,23 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import nock from 'nock'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { prepareInputFiles } from '../../src/inputFiles.ts'
+
+const { lookupMock } = vi.hoisted(() => ({
+  lookupMock: vi.fn(),
+}))
+
+vi.mock('node:dns/promises', () => ({
+  lookup: lookupMock,
+}))
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  lookupMock.mockReset()
+  nock.cleanAll()
+})
 
 describe('prepareInputFiles', () => {
   it('splits files, uploads, and url imports', async () => {
@@ -92,5 +107,51 @@ describe('prepareInputFiles', () => {
         allowPrivateUrls: false,
       }),
     ).rejects.toThrow('URL downloads are limited')
+  })
+
+  it('rejects hostnames that resolve to private IPs', async () => {
+    lookupMock.mockResolvedValue([{ address: '127.0.0.1', family: 4 }])
+    const downloadScope = nock('http://rebind.test').get('/secret').reply(200, 'secret')
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://rebind.test/secret',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+
+    expect(downloadScope.isDone()).toBe(false)
+  })
+
+  it('rejects redirects to private URL downloads', async () => {
+    lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
+    const publicScope = nock('http://198.51.100.10')
+      .get('/public')
+      .reply(302, undefined, { Location: 'http://127.0.0.1/secret' })
+    const privateScope = nock('http://127.0.0.1').get('/secret').reply(200, 'secret')
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://198.51.100.10/public',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+
+    expect(publicScope.isDone()).toBe(true)
+    expect(privateScope.isDone()).toBe(false)
   })
 })

@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs'
 import { basename } from 'node:path'
 import { Option } from 'clipanion'
 import type { z } from 'zod'
@@ -177,7 +178,7 @@ export function parseIntentStep<TSchema extends z.AnyZodObject>({
 }: {
   fieldSpecs: readonly IntentFieldSpec[]
   fixedValues: Record<string, unknown>
-  rawValues: Record<string, string | undefined>
+  rawValues: Record<string, unknown>
   schema: TSchema
 }): z.input<TSchema> {
   const input: Record<string, unknown> = { ...fixedValues }
@@ -223,7 +224,7 @@ function resolveSingleStepFixedValues(
 function createSingleStep(
   execution: IntentSingleStepExecutionDefinition,
   inputPolicy: IntentInputPolicy,
-  rawValues: Record<string, string | undefined>,
+  rawValues: Record<string, unknown>,
   hasInputs: boolean,
 ): z.input<typeof execution.schema> {
   return parseIntentStep({
@@ -236,7 +237,7 @@ function createSingleStep(
 
 function requiresLocalInput(
   inputPolicy: IntentInputPolicy,
-  rawValues: Record<string, string | undefined>,
+  rawValues: Record<string, unknown>,
 ): boolean {
   if (inputPolicy.kind === 'required') {
     return true
@@ -258,7 +259,7 @@ async function executeFileIntentCommand({
   definition: IntentFileCommandDefinition
   output: AuthenticatedCommand['output']
   outputPath: string
-  rawValues: Record<string, string | undefined>
+  rawValues: Record<string, unknown>
 }): Promise<number | undefined> {
   const executionOptions =
     definition.execution.kind === 'template'
@@ -295,7 +296,7 @@ abstract class GeneratedIntentCommandBase extends AuthenticatedCommand {
     | IntentFileCommandDefinition
     | IntentNoInputCommandDefinition
 
-  protected abstract getIntentRawValues(): Record<string, string | undefined>
+  protected abstract getIntentRawValues(): Record<string, unknown>
 
   private getOutputDescription(): string {
     return this.getIntentDefinition().outputDescription
@@ -366,9 +367,14 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
     })
   }
 
-  protected validateInputPresence(
-    rawValues: Record<string, string | undefined>,
-  ): number | undefined {
+  protected hasTransientInputSources(): boolean {
+    return (
+      (this.inputs?.some((input) => isHttpUrl(input)) ?? false) ||
+      (this.inputBase64?.length ?? 0) > 0
+    )
+  }
+
+  protected validateInputPresence(rawValues: Record<string, unknown>): number | undefined {
     const intentDefinition = this.getIntentDefinition()
     const inputCount = this.getProvidedInputCount()
     if (inputCount !== 0) {
@@ -390,9 +396,7 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
     return 1
   }
 
-  protected validateBeforePreparingInputs(
-    rawValues: Record<string, string | undefined>,
-  ): number | undefined {
+  protected validateBeforePreparingInputs(rawValues: Record<string, unknown>): number | undefined {
     return this.validateInputPresence(rawValues)
   }
 
@@ -401,7 +405,7 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
   }
 
   protected async executePreparedInputs(
-    rawValues: Record<string, string | undefined>,
+    rawValues: Record<string, unknown>,
     preparedInputs: PreparedIntentInputs,
   ): Promise<number | undefined> {
     return await executeFileIntentCommand({
@@ -447,14 +451,14 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
   ): Omit<AssembliesCreateOptions, 'output' | 'steps' | 'stepsData' | 'template'> {
     return {
       ...super.getCreateOptions(inputs),
-      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      concurrency: this.concurrency,
       singleAssembly: this.singleAssembly,
       watch: this.watch,
     }
   }
 
   protected override validateBeforePreparingInputs(
-    rawValues: Record<string, string | undefined>,
+    rawValues: Record<string, unknown>,
   ): number | undefined {
     const validationError = this.validateInputPresence(rawValues)
     if (validationError != null) {
@@ -472,6 +476,22 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
       return 1
     }
 
+    if (this.watch && this.hasTransientInputSources()) {
+      this.output.error('--watch is only supported for filesystem inputs')
+      return 1
+    }
+
+    if (
+      this.singleAssembly &&
+      this.getProvidedInputCount() > 1 &&
+      !this.isDirectoryOutputTarget()
+    ) {
+      this.output.error(
+        'Output must be a directory when using --single-assembly with multiple inputs',
+      )
+      return 1
+    }
+
     return undefined
   }
 
@@ -483,6 +503,18 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
       return 1
     }
     return undefined
+  }
+
+  private isDirectoryOutputTarget(): boolean {
+    if (this.getIntentDefinition().outputMode === 'directory') {
+      return true
+    }
+
+    try {
+      return statSync(this.outputPath).isDirectory()
+    } catch {
+      return false
+    }
   }
 }
 

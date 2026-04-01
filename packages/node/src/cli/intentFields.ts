@@ -61,18 +61,31 @@ export function inferIntentFieldKind(schema: unknown): IntentFieldKind {
 
 export function coerceIntentFieldValue(
   kind: IntentFieldKind,
-  raw: string,
+  raw: unknown,
   fieldSchema?: z.ZodTypeAny,
 ): unknown {
+  if (kind === 'number' && typeof raw === 'number') {
+    return raw
+  }
+
+  if (kind === 'boolean' && typeof raw === 'boolean') {
+    return raw
+  }
+
   if (kind === 'auto') {
     if (fieldSchema == null) {
       return raw
     }
 
-    const trimmed = raw.trim()
     const candidates: unknown[] = []
 
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    if (typeof raw !== 'string') {
+      candidates.push(raw)
+    }
+
+    const trimmed = typeof raw === 'string' ? raw.trim() : ''
+
+    if (typeof raw === 'string' && (trimmed.startsWith('{') || trimmed.startsWith('['))) {
       try {
         candidates.push(JSON.parse(trimmed))
       } catch {}
@@ -80,7 +93,12 @@ export function coerceIntentFieldValue(
 
     candidates.push(raw)
 
-    if (trimmed !== '' && !trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    if (
+      typeof raw === 'string' &&
+      trimmed !== '' &&
+      !trimmed.startsWith('{') &&
+      !trimmed.startsWith('[')
+    ) {
       try {
         candidates.push(JSON.parse(trimmed))
       } catch {}
@@ -91,7 +109,7 @@ export function coerceIntentFieldValue(
     }
 
     const numericValue = Number(raw)
-    if (raw.trim() !== '' && !Number.isNaN(numericValue)) {
+    if ((typeof raw === 'number' || trimmed !== '') && !Number.isNaN(numericValue)) {
       candidates.push(numericValue)
     }
 
@@ -106,6 +124,9 @@ export function coerceIntentFieldValue(
   }
 
   if (kind === 'number') {
+    if (typeof raw !== 'string') {
+      throw new Error(`Expected a number but received "${String(raw)}"`)
+    }
     if (raw.trim() === '') {
       throw new Error(`Expected a number but received "${raw}"`)
     }
@@ -117,6 +138,9 @@ export function coerceIntentFieldValue(
   }
 
   if (kind === 'json') {
+    if (typeof raw !== 'string') {
+      return raw
+    }
     let parsedJson: unknown
     try {
       parsedJson = JSON.parse(raw)
@@ -137,6 +161,9 @@ export function coerceIntentFieldValue(
   }
 
   if (kind === 'boolean') {
+    if (typeof raw !== 'string') {
+      throw new Error(`Expected "true" or "false" but received "${String(raw)}"`)
+    }
     if (raw === 'true') return true
     if (raw === 'false') return false
     throw new Error(`Expected "true" or "false" but received "${raw}"`)

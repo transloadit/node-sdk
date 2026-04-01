@@ -179,6 +179,51 @@ describe('assemblies create', () => {
     expect(stdoutWrite).not.toHaveBeenCalled()
   })
 
+  it('rejects file outputs when an assembly returns multiple files', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-file-output-multi-')
+    const outputPath = path.join(tempDir, 'result.txt')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-file-multi' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          generated: [
+            { url: 'http://downloads.test/result-a.txt', name: 'a.txt' },
+            { url: 'http://downloads.test/result-b.txt', name: 'b.txt' },
+          ],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/result-a.txt').reply(200, 'result-a')
+    nock('http://downloads.test').get('/result-b.txt').reply(200, 'result-b')
+
+    await expect(
+      create(output, client as never, {
+        inputs: [],
+        output: outputPath,
+        stepsData: {
+          generated: {
+            robot: '/image/generate',
+            result: true,
+            prompt: 'hello',
+            model: 'flux-schnell',
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: true,
+      }),
+    )
+
+    await expect(stat(outputPath)).rejects.toThrow()
+  })
+
   it('supports bundled single-assembly outputs written to a file path', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -281,6 +326,58 @@ describe('assemblies create', () => {
     expect(client.createAssembly).toHaveBeenCalledTimes(1)
     const uploads = client.createAssembly.mock.calls[0]?.[0]?.uploads
     expect(Object.keys(uploads ?? {}).sort()).toEqual(['a.txt', 'b.txt'])
+  })
+
+  it('skips bundled single-assembly runs when the output is newer than every input', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-bundle-skip-stale-')
+    const inputA = path.join(tempDir, 'a.txt')
+    const inputB = path.join(tempDir, 'b.txt')
+    const outputPath = path.join(tempDir, 'bundle.zip')
+
+    await writeFile(inputA, 'a')
+    await writeFile(inputB, 'b')
+    await writeFile(outputPath, 'existing-bundle')
+
+    const inputTime = new Date('2026-01-01T00:00:00.000Z')
+    const outputTime = new Date('2026-01-01T00:00:10.000Z')
+
+    await utimes(inputA, inputTime, inputTime)
+    await utimes(inputB, inputTime, inputTime)
+    await utimes(outputPath, outputTime, outputTime)
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn(),
+      awaitAssemblyCompletion: vi.fn(),
+    }
+
+    await expect(
+      create(output, client as never, {
+        inputs: [inputA, inputB],
+        output: outputPath,
+        singleAssembly: true,
+        stepsData: {
+          compressed: {
+            robot: '/file/compress',
+            result: true,
+            use: {
+              steps: [':original'],
+              bundle_steps: true,
+            },
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: false,
+        results: [],
+      }),
+    )
+
+    expect(client.createAssembly).not.toHaveBeenCalled()
+    expect(await readFile(outputPath, 'utf8')).toBe('existing-bundle')
   })
 
   it('rewrites existing bundled outputs on single-assembly reruns', async () => {

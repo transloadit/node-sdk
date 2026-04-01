@@ -634,8 +634,12 @@ async function resolveResultDownloadTargets({
   }
 
   if (!outputRootIsDirectory) {
-    if (outputPath == null && allFiles.length > 1) {
-      throw new Error('stdout can only receive a single result file')
+    if (allFiles.length > 1) {
+      if (outputPath == null) {
+        throw new Error('stdout can only receive a single result file')
+      }
+
+      throw new Error('file outputs can only receive a single result file')
     }
 
     const first = allFiles[0]
@@ -1368,6 +1372,39 @@ export async function create(
       return assembly
     }
 
+    async function shouldSkipSingleAssemblyRun(inputPaths: string[]): Promise<boolean> {
+      if (reprocessStale || resolvedOutput == null || outputRootIsDirectory) {
+        return false
+      }
+
+      if (inputPaths.some((inputPath) => inputPath === stdinWithPath.path)) {
+        return false
+      }
+
+      const [outputErr, outputStat] = await tryCatch(fsp.stat(resolvedOutput))
+      if (outputErr != null || outputStat == null) {
+        return false
+      }
+
+      const inputStats = await Promise.all(
+        inputPaths.map(async (inputPath) => {
+          const [inputErr, inputStat] = await tryCatch(fsp.stat(inputPath))
+          if (inputErr != null || inputStat == null) {
+            return null
+          }
+          return inputStat
+        }),
+      )
+
+      if (inputStats.some((inputStat) => inputStat == null)) {
+        return false
+      }
+
+      return inputStats.every((inputStat) => {
+        return inputStat != null && outputStat.mtime > inputStat.mtime
+      })
+    }
+
     // Helper to process a single assembly job
     async function processAssemblyJob(
       inPath: string | null,
@@ -1405,6 +1442,12 @@ export async function create(
 
       emitter.on('end', async () => {
         if (collectedPaths.length === 0) {
+          resolve({ results: [], hasFailures: false })
+          return
+        }
+
+        if (await shouldSkipSingleAssemblyRun(collectedPaths)) {
+          outputctl.debug(`SKIPPED STALE SINGLE ASSEMBLY ${resolvedOutput ?? 'null'}`)
           resolve({ results: [], hasFailures: false })
           return
         }

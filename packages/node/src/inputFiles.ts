@@ -1,3 +1,4 @@
+import * as dnsPromises from 'node:dns/promises'
 import { createWriteStream } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { isIP } from 'node:net'
@@ -74,6 +75,22 @@ const ensureUniqueStepName = (baseName: string, used: Set<string>): string => {
   return name
 }
 
+const ensureUniqueTempFilePath = (root: string, filename: string, used: Set<string>): string => {
+  const parsed = basename(filename)
+  const extension = parsed.includes('.') ? `.${parsed.split('.').slice(1).join('.')}` : ''
+  const stem = extension === '' ? parsed : parsed.slice(0, -extension.length)
+
+  let candidate = join(root, parsed)
+  let counter = 1
+  while (used.has(candidate)) {
+    candidate = join(root, `${stem}-${counter}${extension}`)
+    counter += 1
+  }
+
+  used.add(candidate)
+  return candidate
+}
+
 const decodeBase64 = (value: string): Buffer => Buffer.from(value, 'base64')
 
 const estimateBase64DecodedBytes = (value: string): number => {
@@ -106,9 +123,14 @@ const findImportStepName = (field: string, steps: Record<string, unknown>): stri
   return null
 }
 
-const downloadUrlToFile = async (url: string, filePath: string): Promise<void> => {
-  await pipeline(got.stream(url), createWriteStream(filePath))
-}
+const MAX_URL_REDIRECTS = 10
+
+const isRedirectStatusCode = (statusCode: number): boolean =>
+  statusCode === 301 ||
+  statusCode === 302 ||
+  statusCode === 303 ||
+  statusCode === 307 ||
+  statusCode === 308
 
 const isPrivateIp = (address: string): boolean => {
   if (address === 'localhost') return true
@@ -134,7 +156,7 @@ const isPrivateIp = (address: string): boolean => {
   return false
 }
 
-const assertPublicDownloadUrl = (value: string): void => {
+const assertPublicDownloadUrl = async (value: string): Promise<void> => {
   const parsed = new URL(value)
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`URL downloads are limited to http/https: ${value}`)
@@ -142,6 +164,73 @@ const assertPublicDownloadUrl = (value: string): void => {
   if (isPrivateIp(parsed.hostname)) {
     throw new Error(`URL downloads are limited to public hosts: ${value}`)
   }
+
+  const resolvedAddresses = await dnsPromises.lookup(parsed.hostname, {
+    all: true,
+    verbatim: true,
+  })
+  if (resolvedAddresses.some((address) => isPrivateIp(address.address))) {
+    throw new Error(`URL downloads are limited to public hosts: ${value}`)
+  }
+}
+
+const downloadUrlToFile = async ({
+  allowPrivateUrls,
+  filePath,
+  url,
+}: {
+  allowPrivateUrls: boolean
+  filePath: string
+  url: string
+}): Promise<void> => {
+  let currentUrl = url
+
+  for (let redirectCount = 0; redirectCount <= MAX_URL_REDIRECTS; redirectCount += 1) {
+    if (!allowPrivateUrls) {
+      await assertPublicDownloadUrl(currentUrl)
+    }
+
+    const responseStream = got.stream(currentUrl, {
+      followRedirect: false,
+      retry: { limit: 0 },
+      throwHttpErrors: false,
+    })
+
+    const response = await new Promise<
+      Readable & { headers: Record<string, string>; statusCode?: number }
+    >((resolvePromise, reject) => {
+      responseStream.once('response', (incomingResponse) => {
+        resolvePromise(
+          incomingResponse as Readable & {
+            headers: Record<string, string>
+            statusCode?: number
+          },
+        )
+      })
+      responseStream.once('error', reject)
+    })
+
+    const statusCode = response.statusCode ?? 0
+    if (isRedirectStatusCode(statusCode)) {
+      responseStream.destroy()
+      const location = response.headers.location
+      if (location == null) {
+        throw new Error(`Redirect response missing Location header: ${currentUrl}`)
+      }
+      currentUrl = new URL(location, currentUrl).toString()
+      continue
+    }
+
+    if (statusCode >= 400) {
+      responseStream.destroy()
+      throw new Error(`Failed to download URL: ${currentUrl} (${statusCode})`)
+    }
+
+    await pipeline(responseStream, createWriteStream(filePath))
+    return
+  }
+
+  throw new Error(`Too many redirects while downloading URL input: ${url}`)
 }
 
 export const prepareInputFiles = async (
@@ -176,6 +265,7 @@ export const prepareInputFiles = async (
   const steps = isRecord(nextParams.steps) ? { ...nextParams.steps } : {}
   const usedSteps = new Set(Object.keys(steps))
   const usedFields = new Set<string>()
+  const usedTempPaths = new Set<string>()
   const importUrlsByStep = new Map<string, string[]>()
   const importStepNames = Object.keys(steps).filter((name) => isHttpImportStep(steps[name]))
   const sharedImportStep = importStepNames.length === 1 ? importStepNames[0] : null
@@ -211,7 +301,7 @@ export const prepareInputFiles = async (
         if (base64Strategy === 'tempfile') {
           const root = await ensureTempRoot()
           const filename = file.filename ? basename(file.filename) : `${file.field}.bin`
-          const filePath = join(root, filename)
+          const filePath = ensureUniqueTempFilePath(root, filename, usedTempPaths)
           await writeFile(filePath, buffer)
           files[file.field] = filePath
         } else {
@@ -238,11 +328,12 @@ export const prepareInputFiles = async (
           (file.filename ? basename(file.filename) : null) ??
           getFilenameFromUrl(file.url) ??
           `${file.field}.bin`
-        const filePath = join(root, filename)
-        if (!allowPrivateUrls) {
-          assertPublicDownloadUrl(file.url)
-        }
-        await downloadUrlToFile(file.url, filePath)
+        const filePath = ensureUniqueTempFilePath(root, filename, usedTempPaths)
+        await downloadUrlToFile({
+          allowPrivateUrls,
+          filePath,
+          url: file.url,
+        })
         files[file.field] = filePath
       }
     }
