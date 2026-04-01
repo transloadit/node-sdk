@@ -5,6 +5,7 @@ import fsp from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 import type { Readable } from 'node:stream'
+import { Writable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 import tty from 'node:tty'
@@ -23,6 +24,16 @@ import type { LintFatalLevel } from '../../lintAssemblyInstructions.ts'
 import { lintAssemblyInstructions } from '../../lintAssemblyInstructions.ts'
 import type { CreateAssemblyOptions, Transloadit } from '../../Transloadit.ts'
 import { lintingExamples } from '../docs/assemblyLintingExamples.ts'
+import {
+  concurrencyOption,
+  deleteAfterProcessingOption,
+  inputPathsOption,
+  recursiveOption,
+  reprocessStaleOption,
+  singleAssemblyOption,
+  validateSharedFileProcessingOptions,
+  watchOption,
+} from '../fileProcessingOptions.ts'
 import { createReadStream, formatAPIError, readCliInput, streamToBuffer } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 import { ensureError, isErrnoException } from '../types.ts'
@@ -445,6 +456,43 @@ async function downloadResultToFile(
   await fsp.rename(tempPath, outPath)
 }
 
+async function downloadResultToStdout(resultUrl: string, signal: AbortSignal): Promise<void> {
+  const stdoutStream = new Writable({
+    write(chunk, _encoding, callback) {
+      let settled = false
+
+      const finish = (err?: Error | null) => {
+        if (settled) return
+        settled = true
+        process.stdout.off('drain', onDrain)
+        process.stdout.off('error', onError)
+        callback(err ?? undefined)
+      }
+
+      const onDrain = () => finish()
+      const onError = (err: Error) => finish(err)
+
+      process.stdout.once('error', onError)
+
+      try {
+        if (process.stdout.write(chunk)) {
+          finish()
+          return
+        }
+
+        process.stdout.once('drain', onDrain)
+      } catch (err) {
+        finish(ensureError(err))
+      }
+    },
+    final(callback) {
+      callback()
+    },
+  })
+
+  await pipeline(got.stream(resultUrl, { signal }), stdoutStream)
+}
+
 interface AssemblyResultFile {
   file: {
     basename?: string | null
@@ -465,15 +513,19 @@ function sanitizeResultName(value: string): string {
   return base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
 }
 
-async function ensureUniquePath(targetPath: string): Promise<string> {
+async function ensureUniquePath(targetPath: string, reservedPaths: Set<string>): Promise<string> {
   const parsed = path.parse(targetPath)
   let candidate = targetPath
   let counter = 1
   while (true) {
-    const [statErr] = await tryCatch(fsp.stat(candidate))
-    if (statErr) {
-      return candidate
+    if (!reservedPaths.has(candidate)) {
+      const [statErr] = await tryCatch(fsp.stat(candidate))
+      if (statErr) {
+        reservedPaths.add(candidate)
+        return candidate
+      }
     }
+
     candidate = path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`)
     counter += 1
   }
@@ -505,7 +557,7 @@ function getResultFileName({ file, stepName }: AssemblyResultFile): string {
 
 interface AssemblyDownloadTarget {
   resultUrl: string
-  targetPath: string
+  targetPath: string | null
 }
 
 async function buildDirectoryDownloadTargets({
@@ -520,6 +572,7 @@ async function buildDirectoryDownloadTargets({
   await fsp.mkdir(baseDir, { recursive: true })
 
   const targets: AssemblyDownloadTarget[] = []
+  const reservedPaths = new Set<string>()
   for (const resultFile of allFiles) {
     const resultUrl = getResultFileUrl(resultFile.file)
     if (resultUrl == null) {
@@ -531,7 +584,10 @@ async function buildDirectoryDownloadTargets({
 
     targets.push({
       resultUrl,
-      targetPath: await ensureUniquePath(path.join(targetDir, getResultFileName(resultFile))),
+      targetPath: await ensureUniquePath(
+        path.join(targetDir, getResultFileName(resultFile)),
+        reservedPaths,
+      ),
     })
   }
 
@@ -580,13 +636,17 @@ async function resolveResultDownloadTargets({
   }
 
   if (!outputRootIsDirectory) {
-    if (outputPath == null) {
-      return []
+    if (outputPath == null && allFiles.length > 1) {
+      throw new Error('stdout can only receive a single result file')
     }
 
     const first = allFiles[0]
     const resultUrl = first == null ? null : getResultFileUrl(first.file)
-    return resultUrl == null ? [] : [{ resultUrl, targetPath: outputPath }]
+    if (resultUrl == null) {
+      return []
+    }
+
+    return [{ resultUrl, targetPath: outputPath }]
   }
 
   if (singleAssembly) {
@@ -663,7 +723,11 @@ async function materializeAssemblyResults({
 
   for (const { resultUrl, targetPath } of targets) {
     outputctl.debug('DOWNLOADING')
-    const [dlErr] = await tryCatch(downloadResultToFile(resultUrl, targetPath, abortSignal))
+    const [dlErr] = await tryCatch(
+      targetPath == null
+        ? downloadResultToStdout(resultUrl, abortSignal)
+        : downloadResultToFile(resultUrl, targetPath, abortSignal),
+    )
     if (dlErr) {
       if (dlErr.name === 'AbortError') {
         continue
@@ -767,14 +831,20 @@ class SingleJobEmitter extends MyEventEmitter {
     super()
 
     const normalizedFile = path.normalize(file)
-    outputPlanProvider(normalizedFile).then((outputPlan) => {
-      const instream = createInputJobStream(normalizedFile)
+    outputPlanProvider(normalizedFile)
+      .then((outputPlan) => {
+        const instream = createInputJobStream(normalizedFile)
 
-      process.nextTick(() => {
-        this.emit('job', { in: instream, out: outputPlan })
-        this.emit('end')
+        process.nextTick(() => {
+          this.emit('job', { in: instream, out: outputPlan })
+          this.emit('end')
+        })
       })
-    })
+      .catch((err: unknown) => {
+        process.nextTick(() => {
+          this.emit('error', ensureError(err))
+        })
+      })
   }
 }
 
@@ -783,15 +853,20 @@ class InputlessJobEmitter extends MyEventEmitter {
     super()
 
     process.nextTick(() => {
-      outputPlanProvider(null).then((outputPlan) => {
-        try {
-          this.emit('job', { in: null, out: outputPlan })
-        } catch (err) {
-          this.emit('error', err)
-        }
+      outputPlanProvider(null)
+        .then((outputPlan) => {
+          try {
+            this.emit('job', { in: null, out: outputPlan })
+          } catch (err) {
+            this.emit('error', ensureError(err))
+            return
+          }
 
-        this.emit('end')
-      })
+          this.emit('end')
+        })
+        .catch((err: unknown) => {
+          this.emit('error', ensureError(err))
+        })
     })
   }
 }
@@ -1262,6 +1337,16 @@ export async function create(
       const assembly = await awaitCompletedAssembly(createOptions)
       if (!assembly.results) throw new Error('No results in assembly')
 
+      if (
+        !singleAssemblyMode &&
+        outputPlan?.path != null &&
+        !outputRootIsDirectory &&
+        ((await tryCatch(fsp.stat(outputPlan.path)))[1]?.mtime ?? new Date(0)) > outputPlan.mtime
+      ) {
+        outputctl.debug(`SKIPPED STALE RESULT ${inPath ?? 'null'} ${outputPlan.path}`)
+        return assembly
+      }
+
       await materializeAssemblyResults({
         abortSignal: abortController.signal,
         hasDirectoryInput: singleAssemblyMode ? false : hasDirectoryInput,
@@ -1280,6 +1365,9 @@ export async function create(
 
       if (del) {
         for (const inputPath of inputPaths) {
+          if (inputPath === stdinWithPath.path) {
+            continue
+          }
           await fsp.unlink(inputPath)
         }
       }
@@ -1450,9 +1538,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     description: 'Specify a template to use for these assemblies',
   })
 
-  inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
-  })
+  inputs = inputPathsOption()
 
   outputPath = Option.String('--output,-o', {
     description: 'Specify an output file or directory',
@@ -1462,30 +1548,17 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     description: 'Set a template field (KEY=VAL)',
   })
 
-  watch = Option.Boolean('--watch,-w', false, {
-    description: 'Watch inputs for changes',
-  })
+  watch = watchOption()
 
-  recursive = Option.Boolean('--recursive,-r', false, {
-    description: 'Enumerate input directories recursively',
-  })
+  recursive = recursiveOption()
 
-  deleteAfterProcessing = Option.Boolean('--delete-after-processing,-d', false, {
-    description: 'Delete input files after they are processed',
-  })
+  deleteAfterProcessing = deleteAfterProcessingOption()
 
-  reprocessStale = Option.Boolean('--reprocess-stale', false, {
-    description: 'Process inputs even if output is newer',
-  })
+  reprocessStale = reprocessStaleOption()
 
-  singleAssembly = Option.Boolean('--single-assembly', false, {
-    description: 'Pass all input files to a single assembly instead of one assembly per file',
-  })
+  singleAssembly = singleAssemblyOption()
 
-  concurrency = Option.String('--concurrency,-c', {
-    description: 'Maximum number of concurrent assemblies (default: 5)',
-    validator: t.isNumber(),
-  })
+  concurrency = concurrencyOption()
 
   protected async run(): Promise<number | undefined> {
     if (!this.steps && !this.template) {
@@ -1498,10 +1571,6 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     }
 
     const inputList = this.inputs ?? []
-    if (inputList.length === 0 && this.watch) {
-      this.output.error('assemblies create --watch requires at least one input')
-      return 1
-    }
 
     // Default to stdin only for `--steps` mode (common "pipe a file into a one-off assembly" use case).
     // For `--template` mode, templates may be inputless or use /http/import, so stdin should be explicit (`--input -`).
@@ -1521,8 +1590,14 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       fieldsMap[key] = value
     }
 
-    if (this.singleAssembly && this.watch) {
-      this.output.error('--single-assembly cannot be used with --watch')
+    const sharedValidationError = validateSharedFileProcessingOptions({
+      explicitInputCount: this.inputs?.length ?? 0,
+      singleAssembly: this.singleAssembly,
+      watch: this.watch,
+      watchRequiresInputsMessage: 'assemblies create --watch requires at least one input',
+    })
+    if (sharedValidationError != null) {
+      this.output.error(sharedValidationError)
       return 1
     }
 
@@ -1537,7 +1612,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       del: this.deleteAfterProcessing,
       reprocessStale: this.reprocessStale,
       singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency,
+      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
     })
     return hasFailures ? 1 : undefined
   }

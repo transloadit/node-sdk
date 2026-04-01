@@ -25,6 +25,8 @@ import {
 
 const imageGenerateCommandDefinition = {
   outputMode: 'file',
+  outputDescription: 'Write the result to this path',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotImageGenerateInstructionsSchema,
@@ -50,6 +52,8 @@ const imageGenerateCommandDefinition = {
 const previewGenerateCommandDefinition = {
   commandLabel: 'preview generate',
   outputMode: 'file',
+  outputDescription: 'Write the result to this path or directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotFilePreviewInstructionsSchema,
@@ -59,6 +63,7 @@ const previewGenerateCommandDefinition = {
       { name: 'height', kind: 'number' },
       { name: 'resize_strategy', kind: 'string' },
       { name: 'background', kind: 'string' },
+      { name: 'strategy', kind: 'json' },
       { name: 'artwork_outer_color', kind: 'string' },
       { name: 'artwork_center_color', kind: 'string' },
       { name: 'waveform_center_color', kind: 'string' },
@@ -90,6 +95,8 @@ const previewGenerateCommandDefinition = {
 const imageRemoveBackgroundCommandDefinition = {
   commandLabel: 'image remove-background',
   outputMode: 'file',
+  outputDescription: 'Write the result to this path or directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotImageBgremoveInstructionsSchema,
@@ -111,6 +118,8 @@ const imageRemoveBackgroundCommandDefinition = {
 const imageOptimizeCommandDefinition = {
   commandLabel: 'image optimize',
   outputMode: 'file',
+  outputDescription: 'Write the result to this path or directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotImageOptimizeInstructionsSchema,
@@ -132,6 +141,8 @@ const imageOptimizeCommandDefinition = {
 const imageResizeCommandDefinition = {
   commandLabel: 'image resize',
   outputMode: 'file',
+  outputDescription: 'Write the result to this path or directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotImageResizeInstructionsSchema,
@@ -141,6 +152,7 @@ const imageResizeCommandDefinition = {
       { name: 'height', kind: 'number' },
       { name: 'resize_strategy', kind: 'string' },
       { name: 'zoom', kind: 'boolean' },
+      { name: 'crop', kind: 'auto' },
       { name: 'gravity', kind: 'string' },
       { name: 'strip', kind: 'boolean' },
       { name: 'alpha', kind: 'string' },
@@ -157,11 +169,13 @@ const imageResizeCommandDefinition = {
       { name: 'rotation', kind: 'auto' },
       { name: 'compress', kind: 'string' },
       { name: 'blur', kind: 'string' },
+      { name: 'blur_regions', kind: 'json' },
       { name: 'brightness', kind: 'number' },
       { name: 'saturation', kind: 'number' },
       { name: 'hue', kind: 'number' },
       { name: 'contrast', kind: 'number' },
       { name: 'watermark_url', kind: 'string' },
+      { name: 'watermark_position', kind: 'auto' },
       { name: 'watermark_x_offset', kind: 'number' },
       { name: 'watermark_y_offset', kind: 'number' },
       { name: 'watermark_size', kind: 'string' },
@@ -169,6 +183,7 @@ const imageResizeCommandDefinition = {
       { name: 'watermark_opacity', kind: 'number' },
       { name: 'watermark_repeat_x', kind: 'boolean' },
       { name: 'watermark_repeat_y', kind: 'boolean' },
+      { name: 'text', kind: 'json' },
       { name: 'progressive', kind: 'boolean' },
       { name: 'transparent', kind: 'string' },
       { name: 'trim_whitespace', kind: 'boolean' },
@@ -190,6 +205,8 @@ const imageResizeCommandDefinition = {
 const documentConvertCommandDefinition = {
   commandLabel: 'document convert',
   outputMode: 'file',
+  outputDescription: 'Write the result to this path or directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotDocumentConvertInstructionsSchema,
@@ -216,6 +233,8 @@ const documentConvertCommandDefinition = {
 const documentOptimizeCommandDefinition = {
   commandLabel: 'document optimize',
   outputMode: 'file',
+  outputDescription: 'Write the result to this path or directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotDocumentOptimizeInstructionsSchema,
@@ -240,6 +259,8 @@ const documentOptimizeCommandDefinition = {
 const documentAutoRotateCommandDefinition = {
   commandLabel: 'document auto-rotate',
   outputMode: 'file',
+  outputDescription: 'Write the result to this path or directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotDocumentAutorotateInstructionsSchema,
@@ -256,6 +277,8 @@ const documentAutoRotateCommandDefinition = {
 const documentThumbsCommandDefinition = {
   commandLabel: 'document thumbs',
   outputMode: 'directory',
+  outputDescription: 'Write the results to this directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotDocumentThumbsInstructionsSchema,
@@ -287,10 +310,13 @@ const documentThumbsCommandDefinition = {
 const audioWaveformCommandDefinition = {
   commandLabel: 'audio waveform',
   outputMode: 'file',
+  outputDescription: 'Write the result to this path or directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotAudioWaveformInstructionsSchema,
     fieldSpecs: [
+      { name: 'ffmpeg', kind: 'json' },
       { name: 'format', kind: 'string' },
       { name: 'width', kind: 'number' },
       { name: 'height', kind: 'number' },
@@ -330,6 +356,8 @@ const textSpeakCommandDefinition = {
   commandLabel: 'text speak',
   requiredFieldForInputless: 'prompt',
   outputMode: 'file',
+  outputDescription: 'Write the result to this path or directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotTextSpeakInstructionsSchema,
@@ -352,11 +380,15 @@ const textSpeakCommandDefinition = {
 const videoThumbsCommandDefinition = {
   commandLabel: 'video thumbs',
   outputMode: 'directory',
+  outputDescription: 'Write the results to this directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotVideoThumbsInstructionsSchema,
     fieldSpecs: [
+      { name: 'ffmpeg', kind: 'json' },
       { name: 'count', kind: 'number' },
+      { name: 'offsets', kind: 'json' },
       { name: 'format', kind: 'string' },
       { name: 'width', kind: 'number' },
       { name: 'height', kind: 'number' },
@@ -377,6 +409,8 @@ const videoThumbsCommandDefinition = {
 const videoEncodeHlsCommandDefinition = {
   commandLabel: 'video encode-hls',
   outputMode: 'directory',
+  outputDescription: 'Write the results to this directory',
+  outputRequired: true,
   execution: {
     kind: 'template',
     templateId: 'builtin/encode-hls-video@latest',
@@ -386,6 +420,8 @@ const videoEncodeHlsCommandDefinition = {
 const fileCompressCommandDefinition = {
   commandLabel: 'file compress',
   outputMode: 'file',
+  outputDescription: 'Write the result to this path or directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotFileCompressInstructionsSchema,
@@ -412,6 +448,8 @@ const fileCompressCommandDefinition = {
 const fileDecompressCommandDefinition = {
   commandLabel: 'file decompress',
   outputMode: 'directory',
+  outputDescription: 'Write the results to this directory',
+  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotFileDecompressInstructionsSchema,
@@ -440,12 +478,9 @@ class ImageGenerateCommand extends GeneratedNoInputIntentCommand {
     ],
   })
 
-  protected override readonly intentDefinition = imageGenerateCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return imageGenerateCommandDefinition
+  }
 
   model = Option.String('--model', {
     description: 'The AI model to use for image generation. Defaults to google/nano-banana.',
@@ -511,12 +546,9 @@ class PreviewGenerateCommand extends GeneratedStandardFileIntentCommand {
     ],
   })
 
-  protected override readonly intentDefinition = previewGenerateCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path or directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return previewGenerateCommandDefinition
+  }
 
   format = Option.String('--format', {
     description:
@@ -539,6 +571,11 @@ class PreviewGenerateCommand extends GeneratedStandardFileIntentCommand {
   background = Option.String('--background', {
     description:
       'The hexadecimal code of the color used to fill the background (only used for the pad resize strategy). The format is `#rrggbb[aa]` (red, green, blue, alpha). Use `#00000000` for a transparent padding.',
+  })
+
+  strategy = Option.String('--strategy', {
+    description:
+      'Definition of the thumbnail generation process per file category. The parameter must be an object whose keys can be one of the file categories: `audio`, `video`, `image`, `document`, `archive`, `webpage`, and `unknown`. The corresponding value is an array of strategies for the specific file category. See the above section for a list of all available strategies.\n\nFor each file, the <dfn>Robot</dfn> will attempt to use the first strategy to generate the thumbnail. If this process fails (e.g., because no artwork is available in a video file), the next strategy is attempted. This is repeated until either a thumbnail is generated or the list is exhausted. Selecting the `icon` strategy as the last entry provides a fallback mechanism to ensure that an appropriate strategy is always available.\n\nThe parameter defaults to the following definition:\n\n```json\n{\n  "audio": ["artwork", "waveform", "icon"],\n  "video": ["artwork", "frame", "icon"],\n  "document": ["page", "icon"],\n  "image": ["image", "icon"],\n  "webpage": ["render", "icon"],\n  "archive": ["icon"],\n  "unknown": ["icon"]\n}\n```',
   })
 
   artworkOuterColor = Option.String('--artwork-outer-color', {
@@ -636,6 +673,7 @@ class PreviewGenerateCommand extends GeneratedStandardFileIntentCommand {
       height: this.height,
       resize_strategy: this.resizeStrategy,
       background: this.background,
+      strategy: this.strategy,
       artwork_outer_color: this.artworkOuterColor,
       artwork_center_color: this.artworkCenterColor,
       waveform_center_color: this.waveformCenterColor,
@@ -670,12 +708,9 @@ class ImageRemoveBackgroundCommand extends GeneratedStandardFileIntentCommand {
     ],
   })
 
-  protected override readonly intentDefinition = imageRemoveBackgroundCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path or directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return imageRemoveBackgroundCommandDefinition
+  }
 
   select = Option.String('--select', {
     description: 'Region to select and keep in the image. The other region is removed.',
@@ -716,12 +751,9 @@ class ImageOptimizeCommand extends GeneratedStandardFileIntentCommand {
     ],
   })
 
-  protected override readonly intentDefinition = imageOptimizeCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path or directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return imageOptimizeCommandDefinition
+  }
 
   priority = Option.String('--priority', {
     description:
@@ -763,12 +795,9 @@ class ImageResizeCommand extends GeneratedStandardFileIntentCommand {
     examples: [['Run the command', 'transloadit image resize --input input.png --out output.png']],
   })
 
-  protected override readonly intentDefinition = imageResizeCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path or directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return imageResizeCommandDefinition
+  }
 
   format = Option.String('--format', {
     description:
@@ -792,6 +821,11 @@ class ImageResizeCommand extends GeneratedStandardFileIntentCommand {
   zoom = Option.String('--zoom', {
     description:
       'If this is set to `false`, smaller images will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/topics/resize-strategies/).',
+  })
+
+  crop = Option.String('--crop', {
+    description:
+      'Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original image(s). The coordinate system is rooted in the top left corner of the image. Values can be integers for absolute pixel values or strings for percentage based values.\n\nFor example:\n\n```json\n{\n  "x1": 80,\n  "y1": 100,\n  "x2": "60%",\n  "y2": "80%"\n}\n```\n\nThis will crop the area from `(80, 100)` to `(600, 800)` from a 1000×1000 pixels image, which is a square whose width is 520px and height is 700px. If `crop` is set, the width and height parameters are ignored, and the `resize_strategy` is set to `crop` automatically.\n\nYou can also use a JSON string of such an object with coordinates in similar fashion:\n\n```json\n"{\\"x1\\": <Integer>, \\"y1\\": <Integer>, \\"x2\\": <Integer>, \\"y2\\": <Integer>}"\n```\n\nTo crop around human faces, see [🤖/image/facedetect](/docs/robots/image-facedetect/).',
   })
 
   gravity = Option.String('--gravity', {
@@ -872,6 +906,11 @@ class ImageResizeCommand extends GeneratedStandardFileIntentCommand {
       'Specifies gaussian blur, using a value with the form `{radius}x{sigma}`. The radius value specifies the size of area the operator should look at when spreading pixels, and should typically be either `"0"` or at least two times the sigma value. The sigma value is an approximation of how many pixels the image is "spread"; think of it as the size of the brush used to blur the image. This number is a floating point value, enabling small values like `"0.5"` to be used.',
   })
 
+  blurRegions = Option.String('--blur-regions', {
+    description:
+      'Specifies an array of ellipse objects that should be blurred on the image. Each object has the following keys: `x`, `y`, `width`, `height`.  If `blur_regions` has a value, then the `blur` parameter is used as the strength of the blur for each region.',
+  })
+
   brightness = Option.String('--brightness', {
     description:
       'Increases or decreases the brightness of the image by using a multiplier. For example `1.5` would increase the brightness by 50%, and `0.75` would decrease the brightness by 25%.',
@@ -895,6 +934,11 @@ class ImageResizeCommand extends GeneratedStandardFileIntentCommand {
   watermarkUrl = Option.String('--watermark-url', {
     description:
       'A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.',
+  })
+
+  watermarkPosition = Option.String('--watermark-position', {
+    description:
+      'The position at which the watermark is placed. The available options are `"center"`, `"top"`, `"bottom"`, `"left"`, and `"right"`. You can also combine options, such as `"bottom-right"`.\n\nAn array of possible values can also be specified, in which case one value will be selected at random, such as `[ "center", "left", "bottom-left", "bottom-right" ]`.\n\nThis setting puts the watermark in the specified corner. To use a specific pixel offset for the watermark, you will need to add the padding to the image itself.',
   })
 
   watermarkXOffset = Option.String('--watermark-x-offset', {
@@ -930,6 +974,11 @@ class ImageResizeCommand extends GeneratedStandardFileIntentCommand {
   watermarkRepeatY = Option.String('--watermark-repeat-y', {
     description:
       'When set to `true`, the watermark will be repeated vertically across the entire height of the image.\n\nThis is useful for creating tiled watermark patterns that cover the full image. Can be combined with `watermark_repeat_x` to tile in both directions.',
+  })
+
+  text = Option.String('--text', {
+    description:
+      'Text overlays to be applied to the image. Can be either a single text object or an array of text objects. Each text object contains text rules. The following text parameters are intended to be used as properties for your text overlays. Here is an example:\n\n```json\n"watermarked": {\n  "use": "resized",\n  "robot": "/image/resize",\n  "text": [\n    {\n      "text": "© 2018 Transloadit.com",\n      "size": 12,\n      "font": "Ubuntu",\n      "color": "#eeeeee",\n      "valign": "bottom",\n      "align": "right",\n      "x_offset": 16,\n      "y_offset": -10\n    }\n  ]\n}\n```',
   })
 
   progressive = Option.String('--progressive', {
@@ -978,6 +1027,7 @@ class ImageResizeCommand extends GeneratedStandardFileIntentCommand {
       height: this.height,
       resize_strategy: this.resizeStrategy,
       zoom: this.zoom,
+      crop: this.crop,
       gravity: this.gravity,
       strip: this.strip,
       alpha: this.alpha,
@@ -994,11 +1044,13 @@ class ImageResizeCommand extends GeneratedStandardFileIntentCommand {
       rotation: this.rotation,
       compress: this.compress,
       blur: this.blur,
+      blur_regions: this.blurRegions,
       brightness: this.brightness,
       saturation: this.saturation,
       hue: this.hue,
       contrast: this.contrast,
       watermark_url: this.watermarkUrl,
+      watermark_position: this.watermarkPosition,
       watermark_x_offset: this.watermarkXOffset,
       watermark_y_offset: this.watermarkYOffset,
       watermark_size: this.watermarkSize,
@@ -1006,6 +1058,7 @@ class ImageResizeCommand extends GeneratedStandardFileIntentCommand {
       watermark_opacity: this.watermarkOpacity,
       watermark_repeat_x: this.watermarkRepeatX,
       watermark_repeat_y: this.watermarkRepeatY,
+      text: this.text,
       progressive: this.progressive,
       transparent: this.transparent,
       trim_whitespace: this.trimWhitespace,
@@ -1033,12 +1086,9 @@ class DocumentConvertCommand extends GeneratedStandardFileIntentCommand {
     ],
   })
 
-  protected override readonly intentDefinition = documentConvertCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path or directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return documentConvertCommandDefinition
+  }
 
   format = Option.String('--format', {
     description: 'The desired format for document conversion.',
@@ -1112,12 +1162,9 @@ class DocumentOptimizeCommand extends GeneratedStandardFileIntentCommand {
     ],
   })
 
-  protected override readonly intentDefinition = documentOptimizeCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path or directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return documentOptimizeCommandDefinition
+  }
 
   preset = Option.String('--preset', {
     description:
@@ -1179,12 +1226,9 @@ class DocumentAutoRotateCommand extends GeneratedStandardFileIntentCommand {
     ],
   })
 
-  protected override readonly intentDefinition = documentAutoRotateCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path or directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return documentAutoRotateCommandDefinition
+  }
 
   protected override getIntentRawValues(): Record<string, string | undefined> {
     return {}
@@ -1201,12 +1245,9 @@ class DocumentThumbsCommand extends GeneratedStandardFileIntentCommand {
     examples: [['Run the command', 'transloadit document thumbs --input input.pdf --out output/']],
   })
 
-  protected override readonly intentDefinition = documentThumbsCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the results to this directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return documentThumbsCommandDefinition
+  }
 
   page = Option.String('--page', {
     description:
@@ -1309,11 +1350,13 @@ class AudioWaveformCommand extends GeneratedStandardFileIntentCommand {
     ],
   })
 
-  protected override readonly intentDefinition = audioWaveformCommandDefinition
+  protected override getIntentDefinition() {
+    return audioWaveformCommandDefinition
+  }
 
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path or directory',
-    required: true,
+  ffmpeg = Option.String('--ffmpeg', {
+    description:
+      'A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the [FFmpeg documentation](https://ffmpeg.org/ffmpeg-doc.html). Options specified here take precedence over the preset options.',
   })
 
   format = Option.String('--format', {
@@ -1433,6 +1476,7 @@ class AudioWaveformCommand extends GeneratedStandardFileIntentCommand {
 
   protected override getIntentRawValues(): Record<string, string | undefined> {
     return {
+      ffmpeg: this.ffmpeg,
       format: this.format,
       width: this.width,
       height: this.height,
@@ -1477,12 +1521,9 @@ class TextSpeakCommand extends GeneratedStandardFileIntentCommand {
     ],
   })
 
-  protected override readonly intentDefinition = textSpeakCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path or directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return textSpeakCommandDefinition
+  }
 
   prompt = Option.String('--prompt', {
     description:
@@ -1531,16 +1572,23 @@ class VideoThumbsCommand extends GeneratedStandardFileIntentCommand {
     examples: [['Run the command', 'transloadit video thumbs --input input.mp4 --out output/']],
   })
 
-  protected override readonly intentDefinition = videoThumbsCommandDefinition
+  protected override getIntentDefinition() {
+    return videoThumbsCommandDefinition
+  }
 
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the results to this directory',
-    required: true,
+  ffmpeg = Option.String('--ffmpeg', {
+    description:
+      'A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the [FFmpeg documentation](https://ffmpeg.org/ffmpeg-doc.html). Options specified here take precedence over the preset options.',
   })
 
   count = Option.String('--count', {
     description:
       'The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of thumbnails we currently allow is 999.\n\nThe thumbnails are taken at regular intervals, determined by dividing the video duration by the count. For example, a count of 3 will produce thumbnails at 25%, 50% and 75% through the video.\n\nTo extract thumbnails for specific timestamps, use the `offsets` parameter.',
+  })
+
+  offsets = Option.String('--offsets', {
+    description:
+      'An array of offsets representing seconds of the file duration, such as `[ 2, 45, 120 ]`. Millisecond durations of a file can also be used by using decimal place values. For example, an offset from 1250 milliseconds would be represented with `1.25`. Offsets can also be percentage values such as `[ "2%", "50%", "75%" ]`.\n\nThis option cannot be used with the `count` parameter, and takes precedence if both are specified. Out-of-range offsets are silently ignored.',
   })
 
   format = Option.String('--format', {
@@ -1579,7 +1627,9 @@ class VideoThumbsCommand extends GeneratedStandardFileIntentCommand {
 
   protected override getIntentRawValues(): Record<string, string | undefined> {
     return {
+      ffmpeg: this.ffmpeg,
       count: this.count,
+      offsets: this.offsets,
       format: this.format,
       width: this.width,
       height: this.height,
@@ -1602,12 +1652,9 @@ class VideoEncodeHlsCommand extends GeneratedStandardFileIntentCommand {
     examples: [['Run the command', 'transloadit video encode-hls --input input.mp4 --out output/']],
   })
 
-  protected override readonly intentDefinition = videoEncodeHlsCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the results to this directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return videoEncodeHlsCommandDefinition
+  }
 
   protected override getIntentRawValues(): Record<string, string | undefined> {
     return {}
@@ -1626,12 +1673,9 @@ class FileCompressCommand extends GeneratedBundledFileIntentCommand {
     ],
   })
 
-  protected override readonly intentDefinition = fileCompressCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path or directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return fileCompressCommandDefinition
+  }
 
   format = Option.String('--format', {
     description:
@@ -1684,12 +1728,9 @@ class FileDecompressCommand extends GeneratedStandardFileIntentCommand {
     examples: [['Run the command', 'transloadit file decompress --input input.file --out output/']],
   })
 
-  protected override readonly intentDefinition = fileDecompressCommandDefinition
-
-  override outputPath = Option.String('--out,-o', {
-    description: 'Write the results to this directory',
-    required: true,
-  })
+  protected override getIntentDefinition() {
+    return fileDecompressCommandDefinition
+  }
 
   protected override getIntentRawValues(): Record<string, string | undefined> {
     return {}

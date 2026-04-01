@@ -104,8 +104,9 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
         : ''
     const outputMode =
       spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
+    const outputLines = `\n  outputDescription: ${JSON.stringify(spec.outputDescription)},\n  outputRequired: ${JSON.stringify(spec.outputRequired)},`
 
-    return `const ${getCommandDefinitionName(spec)} = {${commandLabelLine}${requiredField}${outputMode}
+    return `const ${getCommandDefinitionName(spec)} = {${commandLabelLine}${requiredField}${outputMode}${outputLines}
   execution: {
     kind: 'single-step',
     schema: ${spec.schemaSpec?.importName},
@@ -120,6 +121,8 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
     spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
   return `const ${getCommandDefinitionName(spec)} = {
   commandLabel: ${JSON.stringify(spec.commandLabel)},${outputMode}
+  outputDescription: ${JSON.stringify(spec.outputDescription)},
+  outputRequired: ${JSON.stringify(spec.outputRequired)},
   execution: {
     kind: 'template',
     templateId: ${JSON.stringify(spec.execution.templateId)},
@@ -151,12 +154,9 @@ ${formatUsageExamples(spec.examples)}
     ],
   })
 
-  protected override readonly intentDefinition = ${getCommandDefinitionName(spec)}
-
-  override outputPath = Option.String('--out,-o', {
-    description: ${JSON.stringify(spec.outputDescription)},
-    required: ${spec.outputRequired},
-  })
+  protected override getIntentDefinition() {
+    return ${getCommandDefinitionName(spec)}
+  }
 
 ${schemaFields}${schemaFields ? '\n\n' : ''}${rawValuesMethod}
 }

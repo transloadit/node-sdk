@@ -9,6 +9,8 @@ import {
   getIntentResultStepName,
   intentCatalog,
 } from '../../../src/cli/intentCommandSpecs.ts'
+import { coerceIntentFieldValue } from '../../../src/cli/intentFields.ts'
+import { prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
 import { intentSmokeCases } from '../../../src/cli/intentSmokeCases.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
@@ -180,6 +182,15 @@ describe('intent commands', () => {
         },
       }),
     )
+  })
+
+  it('rejects private-host URL inputs for intent commands', async () => {
+    await expect(
+      prepareIntentInputs({
+        inputValues: ['http://127.0.0.1/secret'],
+        inputBase64Values: [],
+      }),
+    ).rejects.toThrow('URL downloads are limited to public hosts')
   })
 
   it('supports base64 inputs for intent commands', async () => {
@@ -495,6 +506,164 @@ describe('intent commands', () => {
           [getIntentStepName(['video', 'thumbs'])]: expect.objectContaining({
             robot: '/video/thumbs',
             rotate: 90,
+          }),
+        },
+      }),
+    )
+  })
+
+  it('maps array-valued robot parameters from JSON flags', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'video',
+      'thumbs',
+      '--input',
+      'demo.mp4',
+      '--offsets',
+      '[1,2,3]',
+      '--out',
+      'thumbs',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          [getIntentStepName(['video', 'thumbs'])]: expect.objectContaining({
+            robot: '/video/thumbs',
+            offsets: [1, 2, 3],
+          }),
+        },
+      }),
+    )
+  })
+
+  it('maps object-valued robot parameters from JSON flags', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'preview',
+      'generate',
+      '--input',
+      'document.pdf',
+      '--strategy',
+      '{"document":["page","icon"],"unknown":["icon"]}',
+      '--out',
+      'preview.png',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          [getIntentStepName(['preview', 'generate'])]: expect.objectContaining({
+            robot: '/file/preview',
+            strategy: expect.objectContaining({
+              document: ['page', 'icon'],
+              unknown: ['icon'],
+            }),
+          }),
+        },
+      }),
+    )
+  })
+
+  it('rejects blank numeric values instead of coercing them to zero', () => {
+    expect(() => coerceIntentFieldValue('number', '   ')).toThrow('Expected a number')
+  })
+
+  it('parses JSON objects for auto-typed flags like image resize --crop', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'image',
+      'resize',
+      '--input',
+      'demo.jpg',
+      '--crop',
+      '{"x1":80,"y1":100,"x2":"60%","y2":"80%"}',
+      '--out',
+      'resized.jpg',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          [getIntentStepName(['image', 'resize'])]: expect.objectContaining({
+            crop: {
+              x1: 80,
+              y1: 100,
+              x2: '60%',
+              y2: '80%',
+            },
+          }),
+        },
+      }),
+    )
+  })
+
+  it('parses JSON arrays for auto-typed flags like image resize --watermark-position', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'image',
+      'resize',
+      '--input',
+      'demo.jpg',
+      '--watermark-position',
+      '["center","left"]',
+      '--out',
+      'resized.jpg',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          [getIntentStepName(['image', 'resize'])]: expect.objectContaining({
+            watermark_position: ['center', 'left'],
           }),
         },
       }),

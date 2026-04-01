@@ -1,12 +1,22 @@
 import { basename } from 'node:path'
 import { Option } from 'clipanion'
-import * as t from 'typanion'
 import type { z } from 'zod'
 
 import { prepareInputFiles } from '../inputFiles.ts'
 import type { AssembliesCreateOptions } from './commands/assemblies.ts'
 import * as assembliesCommands from './commands/assemblies.ts'
 import { AuthenticatedCommand } from './commands/BaseCommand.ts'
+import {
+  concurrencyOption,
+  countProvidedInputs,
+  deleteAfterProcessingOption,
+  inputPathsOption,
+  recursiveOption,
+  reprocessStaleOption,
+  singleAssemblyOption,
+  validateSharedFileProcessingOptions,
+  watchOption,
+} from './fileProcessingOptions.ts'
 import type { IntentFieldSpec } from './intentFields.ts'
 import { coerceIntentFieldValue } from './intentFields.ts'
 
@@ -37,13 +47,17 @@ export type IntentFileExecutionDefinition =
 export interface IntentFileCommandDefinition {
   commandLabel: string
   execution: IntentFileExecutionDefinition
+  outputDescription: string
   outputMode?: 'directory' | 'file'
+  outputRequired: boolean
   requiredFieldForInputless?: string
 }
 
 export interface IntentNoInputCommandDefinition {
   execution: IntentSingleStepExecutionDefinition
+  outputDescription: string
   outputMode?: 'directory' | 'file'
+  outputRequired: boolean
 }
 
 function isHttpUrl(value: string): boolean {
@@ -142,6 +156,7 @@ export async function prepareIntentInputs({
       }
     }),
     base64Strategy: 'tempfile',
+    allowPrivateUrls: false,
     urlStrategy: 'download',
   })
 
@@ -239,48 +254,59 @@ async function executeFileIntentCommand({
   outputPath: string
   rawValues: Record<string, string | undefined>
 }): Promise<number | undefined> {
-  if (definition.execution.kind === 'template') {
-    const { hasFailures } = await assembliesCommands.create(output, client, {
-      ...createOptions,
-      template: definition.execution.templateId,
-      output: outputPath,
-      outputMode: definition.outputMode,
-    })
-    return hasFailures ? 1 : undefined
-  }
+  const executionOptions =
+    definition.execution.kind === 'template'
+      ? {
+          template: definition.execution.templateId,
+        }
+      : {
+          stepsData: {
+            [definition.execution.resultStepName]: createSingleStep(
+              definition.execution,
+              rawValues,
+              createOptions.inputs.length > 0,
+            ),
+          } as AssembliesCreateOptions['stepsData'],
+        }
 
-  const step = createSingleStep(definition.execution, rawValues, createOptions.inputs.length > 0)
   const { hasFailures } = await assembliesCommands.create(output, client, {
     ...createOptions,
     output: outputPath,
     outputMode: definition.outputMode,
-    stepsData: {
-      [definition.execution.resultStepName]: step,
-    } as AssembliesCreateOptions['stepsData'],
+    ...executionOptions,
   })
   return hasFailures ? 1 : undefined
 }
 
 abstract class GeneratedIntentCommandBase extends AuthenticatedCommand {
   outputPath = Option.String('--out,-o', {
-    description: 'Write the result to this path',
+    description: this.getOutputDescription(),
     required: true,
   })
 
+  protected abstract getIntentDefinition():
+    | IntentFileCommandDefinition
+    | IntentNoInputCommandDefinition
+
   protected abstract getIntentRawValues(): Record<string, string | undefined>
+
+  private getOutputDescription(): string {
+    return this.getIntentDefinition().outputDescription
+  }
 }
 
 export abstract class GeneratedNoInputIntentCommand extends GeneratedIntentCommandBase {
-  protected abstract readonly intentDefinition: IntentNoInputCommandDefinition
+  protected abstract override getIntentDefinition(): IntentNoInputCommandDefinition
 
   protected override async run(): Promise<number | undefined> {
-    const step = createSingleStep(this.intentDefinition.execution, this.getIntentRawValues(), false)
+    const intentDefinition = this.getIntentDefinition()
+    const step = createSingleStep(intentDefinition.execution, this.getIntentRawValues(), false)
     const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
       inputs: [],
       output: this.outputPath,
-      outputMode: this.intentDefinition.outputMode,
+      outputMode: intentDefinition.outputMode,
       stepsData: {
-        [this.intentDefinition.execution.resultStepName]: step,
+        [intentDefinition.execution.resultStepName]: step,
       } as AssembliesCreateOptions['stepsData'],
     })
 
@@ -289,27 +315,19 @@ export abstract class GeneratedNoInputIntentCommand extends GeneratedIntentComma
 }
 
 abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase {
-  inputs = Option.Array('--input,-i', {
-    description: 'Provide an input path, directory, URL, or - for stdin',
-  })
+  inputs = inputPathsOption('Provide an input path, directory, URL, or - for stdin')
 
   inputBase64 = Option.Array('--input-base64', {
     description: 'Provide base64-encoded input content directly',
   })
 
-  recursive = Option.Boolean('--recursive,-r', false, {
-    description: 'Enumerate input directories recursively',
-  })
+  recursive = recursiveOption()
 
-  deleteAfterProcessing = Option.Boolean('--delete-after-processing,-d', false, {
-    description: 'Delete input files after they are processed',
-  })
+  deleteAfterProcessing = deleteAfterProcessingOption()
 
-  reprocessStale = Option.Boolean('--reprocess-stale', false, {
-    description: 'Process inputs even if output is newer',
-  })
+  reprocessStale = reprocessStaleOption()
 
-  protected abstract readonly intentDefinition: IntentFileCommandDefinition
+  protected abstract override getIntentDefinition(): IntentFileCommandDefinition
 
   protected async prepareInputs(): Promise<PreparedIntentInputs> {
     return await prepareIntentInputs({
@@ -330,28 +348,32 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
   }
 
   protected getProvidedInputCount(): number {
-    return (this.inputs ?? []).length + (this.inputBase64 ?? []).length
+    return countProvidedInputs({
+      inputs: this.inputs,
+      inputBase64: this.inputBase64,
+    })
   }
 
   protected validateInputPresence(
     rawValues: Record<string, string | undefined>,
   ): number | undefined {
+    const intentDefinition = this.getIntentDefinition()
     const inputCount = this.getProvidedInputCount()
     if (inputCount !== 0) {
       return undefined
     }
 
-    if (!requiresLocalInput(this.intentDefinition.requiredFieldForInputless, rawValues)) {
+    if (!requiresLocalInput(intentDefinition.requiredFieldForInputless, rawValues)) {
       return undefined
     }
 
-    if (this.intentDefinition.requiredFieldForInputless == null) {
-      this.output.error(`${this.intentDefinition.commandLabel} requires --input or --input-base64`)
+    if (intentDefinition.requiredFieldForInputless == null) {
+      this.output.error(`${intentDefinition.commandLabel} requires --input or --input-base64`)
       return 1
     }
 
     this.output.error(
-      `${this.intentDefinition.commandLabel} requires --input or --${this.intentDefinition.requiredFieldForInputless.replaceAll('_', '-')}`,
+      `${intentDefinition.commandLabel} requires --input or --${intentDefinition.requiredFieldForInputless.replaceAll('_', '-')}`,
     )
     return 1
   }
@@ -373,7 +395,7 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
     return await executeFileIntentCommand({
       client: this.client,
       createOptions: this.getCreateOptions(preparedInputs.inputs),
-      definition: this.intentDefinition,
+      definition: this.getIntentDefinition(),
       output: this.output,
       outputPath: this.outputPath,
       rawValues,
@@ -402,18 +424,11 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
 }
 
 export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIntentCommandBase {
-  watch = Option.Boolean('--watch,-w', false, {
-    description: 'Watch inputs for changes',
-  })
+  watch = watchOption()
 
-  singleAssembly = Option.Boolean('--single-assembly', false, {
-    description: 'Pass all input files to a single assembly instead of one assembly per file',
-  })
+  singleAssembly = singleAssemblyOption()
 
-  concurrency = Option.String('--concurrency,-c', {
-    description: 'Maximum number of concurrent assemblies (default: 5)',
-    validator: t.isNumber(),
-  })
+  concurrency = concurrencyOption()
 
   protected override getCreateOptions(
     inputs: string[],
@@ -434,17 +449,17 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
       return validationError
     }
 
-    if (this.watch && this.getProvidedInputCount() === 0) {
-      this.output.error(
-        `${this.intentDefinition.commandLabel} --watch requires --input or --input-base64`,
-      )
+    const sharedValidationError = validateSharedFileProcessingOptions({
+      explicitInputCount: this.getProvidedInputCount(),
+      singleAssembly: this.singleAssembly,
+      watch: this.watch,
+      watchRequiresInputsMessage: `${this.getIntentDefinition().commandLabel} --watch requires --input or --input-base64`,
+    })
+    if (sharedValidationError != null) {
+      this.output.error(sharedValidationError)
       return 1
     }
 
-    if (this.singleAssembly && this.watch) {
-      this.output.error('--single-assembly cannot be used with --watch')
-      return 1
-    }
     return undefined
   }
 

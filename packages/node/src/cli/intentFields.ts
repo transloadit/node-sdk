@@ -1,7 +1,17 @@
 import type { z } from 'zod'
-import { ZodBoolean, ZodEffects, ZodEnum, ZodLiteral, ZodNumber, ZodString, ZodUnion } from 'zod'
+import {
+  ZodArray,
+  ZodBoolean,
+  ZodEffects,
+  ZodEnum,
+  ZodLiteral,
+  ZodNumber,
+  ZodObject,
+  ZodString,
+  ZodUnion,
+} from 'zod'
 
-export type IntentFieldKind = 'auto' | 'boolean' | 'number' | 'string'
+export type IntentFieldKind = 'auto' | 'boolean' | 'json' | 'number' | 'string'
 
 export interface IntentFieldSpec {
   kind: IntentFieldKind
@@ -31,6 +41,10 @@ export function inferIntentFieldKind(schema: unknown): IntentFieldKind {
     return 'string'
   }
 
+  if (schema instanceof ZodArray || schema instanceof ZodObject) {
+    return 'json'
+  }
+
   if (schema instanceof ZodUnion) {
     const optionKinds = Array.from(
       new Set(schema._def.options.map((option: unknown) => inferIntentFieldKind(option))),
@@ -49,13 +63,28 @@ export function coerceIntentFieldValue(
   kind: IntentFieldKind,
   raw: string,
   fieldSchema?: z.ZodTypeAny,
-): boolean | number | string {
+): unknown {
   if (kind === 'auto') {
     if (fieldSchema == null) {
       return raw
     }
 
-    const candidates: unknown[] = [raw]
+    const trimmed = raw.trim()
+    const candidates: unknown[] = []
+
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        candidates.push(JSON.parse(trimmed))
+      } catch {}
+    }
+
+    candidates.push(raw)
+
+    if (trimmed !== '' && !trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+      try {
+        candidates.push(JSON.parse(trimmed))
+      } catch {}
+    }
 
     if (raw === 'true' || raw === 'false') {
       candidates.push(raw === 'true')
@@ -77,11 +106,34 @@ export function coerceIntentFieldValue(
   }
 
   if (kind === 'number') {
+    if (raw.trim() === '') {
+      throw new Error(`Expected a number but received "${raw}"`)
+    }
     const value = Number(raw)
     if (Number.isNaN(value)) {
       throw new Error(`Expected a number but received "${raw}"`)
     }
     return value
+  }
+
+  if (kind === 'json') {
+    let parsedJson: unknown
+    try {
+      parsedJson = JSON.parse(raw)
+    } catch {
+      throw new Error(`Expected valid JSON but received "${raw}"`)
+    }
+
+    if (fieldSchema == null) {
+      return parsedJson
+    }
+
+    const parsed = fieldSchema.safeParse(parsedJson)
+    if (!parsed.success) {
+      throw new Error(parsed.error.message)
+    }
+
+    return parsed.data
   }
 
   if (kind === 'boolean') {

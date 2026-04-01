@@ -1,6 +1,9 @@
+import { EventEmitter } from 'node:events'
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
+import tty from 'node:tty'
 import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -38,6 +41,7 @@ async function collectRelativeFiles(rootDir: string, currentDir = rootDir): Prom
 
 afterEach(async () => {
   vi.restoreAllMocks()
+  vi.resetModules()
   nock.cleanAll()
   nock.abortPendingRequests()
 
@@ -47,6 +51,134 @@ afterEach(async () => {
 })
 
 describe('assemblies create', () => {
+  it('writes result bytes to stdout when output is -', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const output = new OutputCtl()
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-stdout' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          generated: [{ url: 'http://downloads.test/stdout.txt', name: 'stdout.txt' }],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/stdout.txt').reply(200, 'stdout-contents')
+
+    await expect(
+      create(output, client as never, {
+        inputs: [],
+        output: '-',
+        stepsData: {
+          generated: {
+            robot: '/image/generate',
+            result: true,
+            prompt: 'hello',
+            model: 'flux-schnell',
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: false,
+      }),
+    )
+
+    expect(stdoutWrite).toHaveBeenCalled()
+    expect(stdoutWrite.mock.calls.map(([chunk]) => String(chunk)).join('')).toContain(
+      'stdout-contents',
+    )
+  })
+
+  it('waits for stdout drain before finishing stdout downloads', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const output = new OutputCtl()
+    let resolved = false
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => false)
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-stdout-drain' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          generated: [{ url: 'http://downloads.test/stdout-drain.txt', name: 'stdout-drain.txt' }],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/stdout-drain.txt').reply(200, 'stdout-drain')
+
+    const createPromise = create(output, client as never, {
+      inputs: [],
+      output: '-',
+      stepsData: {
+        generated: {
+          robot: '/image/generate',
+          result: true,
+          prompt: 'hello',
+          model: 'flux-schnell',
+        },
+      },
+    }).then(() => {
+      resolved = true
+    })
+
+    await delay(20)
+    expect(resolved).toBe(false)
+    expect(stdoutWrite).toHaveBeenCalled()
+
+    process.stdout.emit('drain')
+
+    await createPromise
+    expect(resolved).toBe(true)
+  })
+
+  it('rejects stdout output when an assembly returns multiple files', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-stdout-multi' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          generated: [
+            { url: 'http://downloads.test/stdout-a.txt', name: 'a.txt' },
+            { url: 'http://downloads.test/stdout-b.txt', name: 'b.txt' },
+          ],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/stdout-a.txt').reply(200, 'stdout-a')
+    nock('http://downloads.test').get('/stdout-b.txt').reply(200, 'stdout-b')
+
+    await expect(
+      create(output, client as never, {
+        inputs: [],
+        output: '-',
+        stepsData: {
+          generated: {
+            robot: '/image/generate',
+            result: true,
+            prompt: 'hello',
+            model: 'flux-schnell',
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: true,
+      }),
+    )
+
+    expect(stdoutWrite).not.toHaveBeenCalled()
+  })
+
   it('supports bundled single-assembly outputs written to a file path', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -151,6 +283,231 @@ describe('assemblies create', () => {
     expect(Object.keys(uploads ?? {}).sort()).toEqual(['a.txt', 'b.txt'])
   })
 
+  it('rewrites existing bundled outputs on single-assembly reruns', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-bundle-rerun-')
+    const inputA = path.join(tempDir, 'a.txt')
+    const inputB = path.join(tempDir, 'b.txt')
+    const outputPath = path.join(tempDir, 'bundle.zip')
+
+    await writeFile(inputA, 'a')
+    await writeFile(inputB, 'b')
+    await writeFile(outputPath, 'old-bundle')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-rerun-bundle' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          compressed: [{ url: 'http://downloads.test/bundle-rerun.zip', name: 'bundle.zip' }],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/bundle-rerun.zip').reply(200, 'fresh-bundle')
+
+    await expect(
+      create(output, client as never, {
+        inputs: [inputA, inputB],
+        output: outputPath,
+        singleAssembly: true,
+        stepsData: {
+          compressed: {
+            robot: '/file/compress',
+            result: true,
+            use: {
+              steps: [':original'],
+              bundle_steps: true,
+            },
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: false,
+      }),
+    )
+
+    expect(await readFile(outputPath, 'utf8')).toBe('fresh-bundle')
+  })
+
+  it('does not let older watch assemblies overwrite newer results', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.resetModules()
+
+    class FakeWatcher extends EventEmitter {
+      close(): void {
+        this.emit('close')
+      }
+    }
+
+    const fakeWatcher = new FakeWatcher()
+    vi.doMock('node-watch', () => {
+      return {
+        default: vi.fn(() => fakeWatcher),
+      }
+    })
+
+    const { create: createWithWatch } = await import('../../../src/cli/commands/assemblies.ts')
+
+    const tempDir = await createTempDir('transloadit-watch-')
+    const inputPath = path.join(tempDir, 'clip.mp4')
+    const outputPath = path.join(tempDir, 'thumb.jpg')
+
+    await writeFile(inputPath, 'video-v1')
+    await writeFile(outputPath, 'existing-thumb')
+
+    const baseTime = new Date('2026-01-01T00:00:00.000Z')
+    const outputTime = new Date('2026-01-01T00:00:10.000Z')
+    const firstChangeTime = new Date('2026-01-01T00:00:20.000Z')
+    const secondChangeTime = new Date('2026-01-01T00:00:30.000Z')
+
+    await utimes(inputPath, baseTime, baseTime)
+    await utimes(outputPath, outputTime, outputTime)
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi
+        .fn()
+        .mockResolvedValueOnce({ assembly_id: 'assembly-old' })
+        .mockResolvedValueOnce({ assembly_id: 'assembly-new' }),
+      awaitAssemblyCompletion: vi.fn(async (assemblyId: string) => {
+        if (assemblyId === 'assembly-old') {
+          await delay(80)
+          return {
+            ok: 'ASSEMBLY_COMPLETED',
+            results: {
+              thumbs: [{ url: 'http://downloads.test/old.jpg', name: 'old.jpg' }],
+            },
+          }
+        }
+
+        await delay(10)
+        return {
+          ok: 'ASSEMBLY_COMPLETED',
+          results: {
+            thumbs: [{ url: 'http://downloads.test/new.jpg', name: 'new.jpg' }],
+          },
+        }
+      }),
+    }
+
+    nock('http://downloads.test').get('/old.jpg').reply(200, 'old-result')
+    nock('http://downloads.test').get('/new.jpg').reply(200, 'new-result')
+
+    const createPromise = createWithWatch(output, client as never, {
+      inputs: [inputPath],
+      output: outputPath,
+      watch: true,
+      concurrency: 2,
+      stepsData: {
+        thumbs: {
+          robot: '/video/thumbs',
+          result: true,
+          use: ':original',
+        },
+      },
+    })
+
+    await delay(20)
+    await writeFile(inputPath, 'video-v2')
+    await utimes(inputPath, firstChangeTime, firstChangeTime)
+    fakeWatcher.emit('change', 'update', inputPath)
+
+    await delay(5)
+    await writeFile(inputPath, 'video-v3')
+    await utimes(inputPath, secondChangeTime, secondChangeTime)
+    fakeWatcher.emit('change', 'update', inputPath)
+
+    await delay(20)
+    fakeWatcher.close()
+
+    await expect(createPromise).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: false,
+      }),
+    )
+
+    expect(await readFile(outputPath, 'utf8')).toBe('new-result')
+  })
+
+  it('does not try to delete /dev/stdin after stdin processing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    vi.spyOn(tty, 'isatty').mockReturnValue(false)
+
+    const tempDir = await createTempDir('transloadit-stdin-')
+    const outputPath = path.join(tempDir, 'waveform.png')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-stdin' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          waveform: [{ url: 'http://downloads.test/stdin-waveform.png', name: 'waveform.png' }],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/stdin-waveform.png').reply(200, 'waveform')
+
+    await expect(
+      create(output, client as never, {
+        inputs: ['-'],
+        output: outputPath,
+        del: true,
+        stepsData: {
+          waveform: {
+            robot: '/audio/waveform',
+            result: true,
+            use: ':original',
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: false,
+      }),
+    )
+
+    expect(await readFile(outputPath, 'utf8')).toBe('waveform')
+  })
+
+  it('surfaces output plan failures through the normal error path', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    const tempDir = await createTempDir('transloadit-output-plan-failure-')
+    const outputDir = path.join(tempDir, 'out')
+    await mkdir(outputDir, { recursive: true })
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn(),
+      awaitAssemblyCompletion: vi.fn(),
+    }
+
+    await expect(
+      create(output, client as never, {
+        inputs: ['-'],
+        output: outputDir,
+        outputMode: 'directory',
+        stepsData: {
+          waveform: {
+            robot: '/audio/waveform',
+            result: true,
+            use: ':original',
+          },
+        },
+      }),
+    ).rejects.toThrow('You must provide an input to output to a directory')
+
+    expect(client.createAssembly).not.toHaveBeenCalled()
+  })
+
   it('writes single-input directory outputs using result filenames', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -203,6 +560,56 @@ describe('assemblies create', () => {
 
     expect(await readFile(path.join(outputDir, 'one.jpg'), 'utf8')).toBe('one')
     expect(await readFile(path.join(outputDir, 'two.jpg'), 'utf8')).toBe('two')
+  })
+
+  it('keeps duplicate sanitized result filenames from overwriting each other', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-dupe-results-')
+    const inputPath = path.join(tempDir, 'clip.mp4')
+    const outputDir = path.join(tempDir, 'thumbs')
+
+    await writeFile(inputPath, 'video')
+    await mkdir(outputDir, { recursive: true })
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-dupe-results' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          thumbs: [
+            { url: 'http://downloads.test/dupe-a.jpg', name: 'thumb.jpg' },
+            { url: 'http://downloads.test/dupe-b.jpg', name: 'thumb.jpg' },
+          ],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/dupe-a.jpg').reply(200, 'first-thumb')
+    nock('http://downloads.test').get('/dupe-b.jpg').reply(200, 'second-thumb')
+
+    await expect(
+      create(output, client as never, {
+        inputs: [inputPath],
+        output: outputDir,
+        outputMode: 'directory',
+        stepsData: {
+          thumbs: {
+            robot: '/video/thumbs',
+            result: true,
+            use: ':original',
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: false,
+      }),
+    )
+
+    expect(await readFile(path.join(outputDir, 'thumb.jpg'), 'utf8')).toBe('first-thumb')
+    expect(await readFile(path.join(outputDir, 'thumb__1.jpg'), 'utf8')).toBe('second-thumb')
   })
 
   it('preserves legacy step-directory layout for generic directory outputs', async () => {

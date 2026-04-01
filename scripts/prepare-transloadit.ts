@@ -28,36 +28,65 @@ const formatPackageJson = (data: Record<string, unknown>): string => {
 
 type PackageJson = Record<string, unknown> & { scripts?: Record<string, string> }
 
+function replaceRequired(
+  value: string,
+  searchValue: string,
+  replaceValue: string,
+  label: string,
+): string {
+  if (!value.includes(searchValue)) {
+    throw new Error(`Expected ${label} to include ${JSON.stringify(searchValue)}`)
+  }
+
+  return value.replace(searchValue, replaceValue)
+}
+
+function deriveLegacyScripts(nodeScripts: Record<string, string>): Record<string, string> {
+  const scripts = { ...nodeScripts }
+  delete scripts['sync:intents']
+
+  if (scripts.check != null) {
+    scripts.check = replaceRequired(scripts.check, 'yarn sync:intents && ', '', 'scripts.check')
+    scripts.check = replaceRequired(scripts.check, ' && yarn fix', '', 'scripts.check')
+  }
+
+  if (scripts['test:unit'] != null) {
+    scripts['test:unit'] = replaceRequired(
+      scripts['test:unit'],
+      'vitest run --coverage ./test/unit',
+      'vitest run --coverage --passWithNoTests ./test/unit',
+      'scripts.test:unit',
+    )
+  }
+
+  if (scripts['test:e2e'] != null) {
+    scripts['test:e2e'] = replaceRequired(
+      scripts['test:e2e'],
+      'vitest run ./test/e2e',
+      'vitest run --passWithNoTests ./test/e2e',
+      'scripts.test:e2e',
+    )
+  }
+
+  if (scripts.test != null) {
+    scripts.test = replaceRequired(
+      scripts.test,
+      'vitest run --coverage',
+      'vitest run --coverage --passWithNoTests',
+      'scripts.test',
+    )
+  }
+
+  scripts.prepack = 'node ../../scripts/prepare-transloadit.ts'
+  return scripts
+}
+
 const writeLegacyPackageJson = async (): Promise<void> => {
   const nodePackageJson = await readJson<PackageJson>(resolve(nodePackage, 'package.json'))
   const legacyExisting = await readJson<PackageJson>(resolve(legacyPackage, 'package.json')).catch(
     () => null,
   )
-  const scripts = { ...(nodePackageJson.scripts ?? {}) }
-  delete scripts['sync:intents']
-  if (scripts.check != null) {
-    scripts.check = scripts.check.replace('yarn sync:intents && ', '')
-    scripts.check = scripts.check.replace(' && yarn fix', '')
-  }
-  if (scripts['test:unit'] != null) {
-    scripts['test:unit'] = scripts['test:unit'].replace(
-      'vitest run --coverage ./test/unit',
-      'vitest run --coverage --passWithNoTests ./test/unit',
-    )
-  }
-  if (scripts['test:e2e'] != null) {
-    scripts['test:e2e'] = scripts['test:e2e'].replace(
-      'vitest run ./test/e2e',
-      'vitest run --passWithNoTests ./test/e2e',
-    )
-  }
-  if (scripts.test != null) {
-    scripts.test = scripts.test.replace(
-      'vitest run --coverage',
-      'vitest run --coverage --passWithNoTests',
-    )
-  }
-  scripts.prepack = 'node ../../scripts/prepare-transloadit.ts'
+  const scripts = deriveLegacyScripts(nodePackageJson.scripts ?? {})
   const legacyPackageJson: PackageJson = {
     ...nodePackageJson,
     name: 'transloadit',
