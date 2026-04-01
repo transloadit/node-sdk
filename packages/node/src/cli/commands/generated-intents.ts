@@ -44,6 +44,7 @@ const imageGenerateCommandDefinition = {
     fixedValues: {
       robot: '/image/generate',
       result: true,
+      use: ':original',
     },
     resultStepName: 'generate',
   },
@@ -51,6 +52,9 @@ const imageGenerateCommandDefinition = {
 
 const previewGenerateCommandDefinition = {
   commandLabel: 'preview generate',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
   outputRequired: true,
@@ -94,6 +98,9 @@ const previewGenerateCommandDefinition = {
 
 const imageRemoveBackgroundCommandDefinition = {
   commandLabel: 'image remove-background',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
   outputRequired: true,
@@ -117,6 +124,9 @@ const imageRemoveBackgroundCommandDefinition = {
 
 const imageOptimizeCommandDefinition = {
   commandLabel: 'image optimize',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
   outputRequired: true,
@@ -140,6 +150,9 @@ const imageOptimizeCommandDefinition = {
 
 const imageResizeCommandDefinition = {
   commandLabel: 'image resize',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
   outputRequired: true,
@@ -204,6 +217,9 @@ const imageResizeCommandDefinition = {
 
 const documentConvertCommandDefinition = {
   commandLabel: 'document convert',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
   outputRequired: true,
@@ -232,6 +248,9 @@ const documentConvertCommandDefinition = {
 
 const documentOptimizeCommandDefinition = {
   commandLabel: 'document optimize',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
   outputRequired: true,
@@ -258,6 +277,9 @@ const documentOptimizeCommandDefinition = {
 
 const documentAutoRotateCommandDefinition = {
   commandLabel: 'document auto-rotate',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
   outputRequired: true,
@@ -276,6 +298,9 @@ const documentAutoRotateCommandDefinition = {
 
 const documentThumbsCommandDefinition = {
   commandLabel: 'document thumbs',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'directory',
   outputDescription: 'Write the results to this directory',
   outputRequired: true,
@@ -309,6 +334,9 @@ const documentThumbsCommandDefinition = {
 
 const audioWaveformCommandDefinition = {
   commandLabel: 'audio waveform',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
   outputRequired: true,
@@ -354,7 +382,11 @@ const audioWaveformCommandDefinition = {
 
 const textSpeakCommandDefinition = {
   commandLabel: 'text speak',
-  requiredFieldForInputless: 'prompt',
+  inputPolicy: {
+    kind: 'optional',
+    field: 'prompt',
+    attachUseWhenInputsProvided: true,
+  },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
   outputRequired: true,
@@ -373,12 +405,14 @@ const textSpeakCommandDefinition = {
       result: true,
     },
     resultStepName: 'speak',
-    attachUseWhenInputsProvided: true,
   },
 } as const
 
 const videoThumbsCommandDefinition = {
   commandLabel: 'video thumbs',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'directory',
   outputDescription: 'Write the results to this directory',
   outputRequired: true,
@@ -408,6 +442,7 @@ const videoThumbsCommandDefinition = {
 
 const videoEncodeHlsCommandDefinition = {
   commandLabel: 'video encode-hls',
+  inputPolicy: { kind: 'required' },
   outputMode: 'directory',
   outputDescription: 'Write the results to this directory',
   outputRequired: true,
@@ -419,6 +454,9 @@ const videoEncodeHlsCommandDefinition = {
 
 const fileCompressCommandDefinition = {
   commandLabel: 'file compress',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
   outputRequired: true,
@@ -447,6 +485,9 @@ const fileCompressCommandDefinition = {
 
 const fileDecompressCommandDefinition = {
   commandLabel: 'file decompress',
+  inputPolicy: {
+    kind: 'required',
+  },
   outputMode: 'directory',
   outputDescription: 'Write the results to this directory',
   outputRequired: true,

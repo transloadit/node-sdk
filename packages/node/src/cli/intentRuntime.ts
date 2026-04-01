@@ -19,6 +19,7 @@ import {
 } from './fileProcessingOptions.ts'
 import type { IntentFieldSpec } from './intentFields.ts'
 import { coerceIntentFieldValue } from './intentFields.ts'
+import type { IntentInputPolicy } from './intentInputPolicy.ts'
 
 export interface PreparedIntentInputs {
   cleanup: Array<() => Promise<void>>
@@ -27,7 +28,6 @@ export interface PreparedIntentInputs {
 }
 
 export interface IntentSingleStepExecutionDefinition {
-  attachUseWhenInputsProvided?: boolean
   fieldSpecs: readonly IntentFieldSpec[]
   fixedValues: Record<string, unknown>
   kind: 'single-step'
@@ -47,10 +47,10 @@ export type IntentFileExecutionDefinition =
 export interface IntentFileCommandDefinition {
   commandLabel: string
   execution: IntentFileExecutionDefinition
+  inputPolicy: IntentInputPolicy
   outputDescription: string
   outputMode?: 'directory' | 'file'
   outputRequired: boolean
-  requiredFieldForInputless?: string
 }
 
 export interface IntentNoInputCommandDefinition {
@@ -203,9 +203,14 @@ export function parseIntentStep<TSchema extends z.AnyZodObject>({
 
 function resolveSingleStepFixedValues(
   execution: IntentSingleStepExecutionDefinition,
+  inputPolicy: IntentInputPolicy,
   hasInputs: boolean,
 ): Record<string, unknown> {
-  if (!hasInputs || execution.attachUseWhenInputsProvided !== true) {
+  if (!hasInputs) {
+    return execution.fixedValues
+  }
+
+  if (inputPolicy.kind !== 'optional' || inputPolicy.attachUseWhenInputsProvided !== true) {
     return execution.fixedValues
   }
 
@@ -217,26 +222,27 @@ function resolveSingleStepFixedValues(
 
 function createSingleStep(
   execution: IntentSingleStepExecutionDefinition,
+  inputPolicy: IntentInputPolicy,
   rawValues: Record<string, string | undefined>,
   hasInputs: boolean,
 ): z.input<typeof execution.schema> {
   return parseIntentStep({
     schema: execution.schema,
-    fixedValues: resolveSingleStepFixedValues(execution, hasInputs),
+    fixedValues: resolveSingleStepFixedValues(execution, inputPolicy, hasInputs),
     fieldSpecs: execution.fieldSpecs,
     rawValues,
   })
 }
 
 function requiresLocalInput(
-  requiredFieldForInputless: string | undefined,
+  inputPolicy: IntentInputPolicy,
   rawValues: Record<string, string | undefined>,
 ): boolean {
-  if (requiredFieldForInputless == null) {
+  if (inputPolicy.kind === 'required') {
     return true
   }
 
-  return rawValues[requiredFieldForInputless] == null
+  return rawValues[inputPolicy.field] == null
 }
 
 async function executeFileIntentCommand({
@@ -263,6 +269,7 @@ async function executeFileIntentCommand({
           stepsData: {
             [definition.execution.resultStepName]: createSingleStep(
               definition.execution,
+              definition.inputPolicy,
               rawValues,
               createOptions.inputs.length > 0,
             ),
@@ -300,7 +307,12 @@ export abstract class GeneratedNoInputIntentCommand extends GeneratedIntentComma
 
   protected override async run(): Promise<number | undefined> {
     const intentDefinition = this.getIntentDefinition()
-    const step = createSingleStep(intentDefinition.execution, this.getIntentRawValues(), false)
+    const step = createSingleStep(
+      intentDefinition.execution,
+      { kind: 'required' },
+      this.getIntentRawValues(),
+      false,
+    )
     const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
       inputs: [],
       output: this.outputPath,
@@ -363,17 +375,17 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
       return undefined
     }
 
-    if (!requiresLocalInput(intentDefinition.requiredFieldForInputless, rawValues)) {
+    if (!requiresLocalInput(intentDefinition.inputPolicy, rawValues)) {
       return undefined
     }
 
-    if (intentDefinition.requiredFieldForInputless == null) {
+    if (intentDefinition.inputPolicy.kind === 'required') {
       this.output.error(`${intentDefinition.commandLabel} requires --input or --input-base64`)
       return 1
     }
 
     this.output.error(
-      `${intentDefinition.commandLabel} requires --input or --${intentDefinition.requiredFieldForInputless.replaceAll('_', '-')}`,
+      `${intentDefinition.commandLabel} requires --input or --${intentDefinition.inputPolicy.field.replaceAll('_', '-')}`,
     )
     return 1
   }

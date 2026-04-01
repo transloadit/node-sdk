@@ -64,8 +64,6 @@ export type IntentOutputMode = 'directory' | 'file'
 interface IntentSchemaDefinition {
   meta: RobotMetaInput
   schema: z.AnyZodObject
-  schemaImportName: string
-  schemaImportPath: string
 }
 
 interface IntentBaseDefinition {
@@ -163,8 +161,6 @@ export const intentCatalog = [
     robot: '/image/generate',
     meta: robotImageGenerateMeta,
     schema: robotImageGenerateInstructionsSchema,
-    schemaImportName: 'robotImageGenerateInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/image-generate.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
@@ -172,56 +168,42 @@ export const intentCatalog = [
     paths: ['preview', 'generate'],
     meta: robotFilePreviewMeta,
     schema: robotFilePreviewInstructionsSchema,
-    schemaImportName: 'robotFilePreviewInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/file-preview.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
     robot: '/image/bgremove',
     meta: robotImageBgremoveMeta,
     schema: robotImageBgremoveInstructionsSchema,
-    schemaImportName: 'robotImageBgremoveInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/image-bgremove.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
     robot: '/image/optimize',
     meta: robotImageOptimizeMeta,
     schema: robotImageOptimizeInstructionsSchema,
-    schemaImportName: 'robotImageOptimizeInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/image-optimize.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
     robot: '/image/resize',
     meta: robotImageResizeMeta,
     schema: robotImageResizeInstructionsSchema,
-    schemaImportName: 'robotImageResizeInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/image-resize.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
     robot: '/document/convert',
     meta: robotDocumentConvertMeta,
     schema: robotDocumentConvertInstructionsSchema,
-    schemaImportName: 'robotDocumentConvertInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/document-convert.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
     robot: '/document/optimize',
     meta: robotDocumentOptimizeMeta,
     schema: robotDocumentOptimizeInstructionsSchema,
-    schemaImportName: 'robotDocumentOptimizeInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/document-optimize.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
     robot: '/document/autorotate',
     meta: robotDocumentAutorotateMeta,
     schema: robotDocumentAutorotateInstructionsSchema,
-    schemaImportName: 'robotDocumentAutorotateInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/document-autorotate.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
@@ -229,24 +211,18 @@ export const intentCatalog = [
     outputMode: 'directory',
     meta: robotDocumentThumbsMeta,
     schema: robotDocumentThumbsInstructionsSchema,
-    schemaImportName: 'robotDocumentThumbsInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/document-thumbs.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
     robot: '/audio/waveform',
     meta: robotAudioWaveformMeta,
     schema: robotAudioWaveformInstructionsSchema,
-    schemaImportName: 'robotAudioWaveformInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/audio-waveform.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
     robot: '/text/speak',
     meta: robotTextSpeakMeta,
     schema: robotTextSpeakInstructionsSchema,
-    schemaImportName: 'robotTextSpeakInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/text-speak.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
@@ -254,8 +230,6 @@ export const intentCatalog = [
     outputMode: 'directory',
     meta: robotVideoThumbsMeta,
     schema: robotVideoThumbsInstructionsSchema,
-    schemaImportName: 'robotVideoThumbsInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/video-thumbs.ts',
   }),
   defineTemplateIntent({
     kind: 'template',
@@ -269,8 +243,6 @@ export const intentCatalog = [
     defaultSingleAssembly: true,
     meta: robotFileCompressMeta,
     schema: robotFileCompressInstructionsSchema,
-    schemaImportName: 'robotFileCompressInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/file-compress.ts',
   }),
   defineRobotIntent({
     kind: 'robot',
@@ -278,7 +250,5 @@ export const intentCatalog = [
     outputMode: 'directory',
     meta: robotFileDecompressMeta,
     schema: robotFileDecompressInstructionsSchema,
-    schemaImportName: 'robotFileDecompressInstructionsSchema',
-    schemaImportPath: '../../alphalib/types/robots/file-decompress.ts',
   }),
 ] satisfies IntentDefinition[]

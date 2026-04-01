@@ -90,29 +90,25 @@ function getBaseClassName(spec: ResolvedIntentCommandSpec): string {
 
 function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
   if (spec.execution.kind === 'single-step') {
-    const attachUseWhenInputsProvided =
-      spec.input.kind === 'local-files' && spec.input.requiredFieldForInputless != null
-        ? '\n      attachUseWhenInputsProvided: true,'
-        : ''
     const commandLabelLine =
       spec.input.kind === 'local-files'
         ? `\n  commandLabel: ${JSON.stringify(spec.commandLabel)},`
         : ''
-    const requiredField =
-      spec.input.kind === 'local-files' && spec.input.requiredFieldForInputless != null
-        ? `\n  requiredFieldForInputless: ${JSON.stringify(spec.input.requiredFieldForInputless)},`
+    const inputPolicyLine =
+      spec.input.kind === 'local-files'
+        ? `\n  inputPolicy: ${JSON.stringify(spec.input.inputPolicy, null, 4).replace(/\n/g, '\n  ')},`
         : ''
     const outputMode =
       spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
     const outputLines = `\n  outputDescription: ${JSON.stringify(spec.outputDescription)},\n  outputRequired: ${JSON.stringify(spec.outputRequired)},`
 
-    return `const ${getCommandDefinitionName(spec)} = {${commandLabelLine}${requiredField}${outputMode}${outputLines}
+    return `const ${getCommandDefinitionName(spec)} = {${commandLabelLine}${inputPolicyLine}${outputMode}${outputLines}
   execution: {
     kind: 'single-step',
     schema: ${spec.schemaSpec?.importName},
     fieldSpecs: ${formatFieldSpecsLiteral(spec.fieldSpecs)},
     fixedValues: ${JSON.stringify(spec.execution.fixedValues, null, 4).replace(/\n/g, '\n    ')},
-    resultStepName: ${JSON.stringify(spec.execution.resultStepName)},${attachUseWhenInputsProvided}
+    resultStepName: ${JSON.stringify(spec.execution.resultStepName)},
   },
 } as const`
   }
@@ -120,7 +116,8 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
   const outputMode =
     spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
   return `const ${getCommandDefinitionName(spec)} = {
-  commandLabel: ${JSON.stringify(spec.commandLabel)},${outputMode}
+  commandLabel: ${JSON.stringify(spec.commandLabel)},
+  inputPolicy: { "kind": "required" },${outputMode}
   outputDescription: ${JSON.stringify(spec.outputDescription)},
   outputRequired: ${JSON.stringify(spec.outputRequired)},
   execution: {

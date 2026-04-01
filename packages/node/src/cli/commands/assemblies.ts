@@ -8,7 +8,6 @@ import type { Readable } from 'node:stream'
 import { Writable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout as delay } from 'node:timers/promises'
-import tty from 'node:tty'
 import { promisify } from 'node:util'
 import { Command, Option } from 'clipanion'
 import got from 'got'
@@ -316,7 +315,7 @@ interface OutputPlan {
 }
 
 interface Job {
-  in: Readable | null
+  inputPath: string | null
   out: OutputPlan | null
 }
 
@@ -366,18 +365,17 @@ async function myStat(
   return await fsp.stat(filepath)
 }
 
-function createInputJobStream(filepath: string): Readable | null {
+function getJobInputPath(filepath: string): string {
   const normalizedFile = path.normalize(filepath)
-
   if (normalizedFile === '-') {
-    if (tty.isatty(process.stdin.fd)) {
-      return null
-    }
-
-    return process.stdin
+    return stdinWithPath.path
   }
 
-  const instream = fs.createReadStream(normalizedFile)
+  return normalizedFile
+}
+
+function createInputUploadStream(filepath: string): Readable {
+  const instream = fs.createReadStream(filepath)
   // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
   // before being consumed (e.g., due to output collision detection)
   instream.on('error', () => {})
@@ -820,8 +818,7 @@ class ReaddirJobEmitter extends MyEventEmitter {
       }
     } else {
       const outputPlan = await outputPlanProvider(file, topdir)
-      const instream = createInputJobStream(file)
-      this.emit('job', { in: instream, out: outputPlan })
+      this.emit('job', { inputPath: getJobInputPath(file), out: outputPlan })
     }
   }
 }
@@ -833,10 +830,8 @@ class SingleJobEmitter extends MyEventEmitter {
     const normalizedFile = path.normalize(file)
     outputPlanProvider(normalizedFile)
       .then((outputPlan) => {
-        const instream = createInputJobStream(normalizedFile)
-
         process.nextTick(() => {
-          this.emit('job', { in: instream, out: outputPlan })
+          this.emit('job', { inputPath: getJobInputPath(normalizedFile), out: outputPlan })
           this.emit('end')
         })
       })
@@ -856,7 +851,7 @@ class InputlessJobEmitter extends MyEventEmitter {
       outputPlanProvider(null)
         .then((outputPlan) => {
           try {
-            this.emit('job', { in: null, out: outputPlan })
+            this.emit('job', { inputPath: null, out: outputPlan })
           } catch (err) {
             this.emit('error', ensureError(err))
             return
@@ -935,8 +930,7 @@ class WatchJobEmitter extends MyEventEmitter {
     if (stats.isDirectory()) return
 
     const outputPlan = await outputPlanProvider(normalizedFile, topdir)
-    const instream = createInputJobStream(normalizedFile)
-    this.emit('job', { in: instream, out: outputPlan })
+    this.emit('job', { inputPath: getJobInputPath(normalizedFile), out: outputPlan })
   }
 }
 
@@ -994,11 +988,11 @@ function detectConflicts(jobEmitter: EventEmitter): MyEventEmitter {
   jobEmitter.on('end', () => emitter.emit('end'))
   jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
   jobEmitter.on('job', (job: Job) => {
-    if (job.in == null || job.out == null) {
+    if (job.inputPath == null || job.out == null) {
       emitter.emit('job', job)
       return
     }
-    const inPath = (job.in as fs.ReadStream).path as string
+    const inPath = job.inputPath
     const outPath = job.out.path
     if (outPath == null) {
       emitter.emit('job', job)
@@ -1025,12 +1019,12 @@ function dismissStaleJobs(jobEmitter: EventEmitter): MyEventEmitter {
   jobEmitter.on('end', () => Promise.all(pendingChecks).then(() => emitter.emit('end')))
   jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
   jobEmitter.on('job', (job: Job) => {
-    if (job.in == null || job.out == null) {
+    if (job.inputPath == null || job.out == null) {
       emitter.emit('job', job)
       return
     }
 
-    const inPath = (job.in as fs.ReadStream).path as string
+    const inPath = job.inputPath
     const checkPromise = fsp
       .stat(inPath)
       .then((stats) => {
@@ -1379,7 +1373,7 @@ export async function create(
       inPath: string | null,
       outputPlan: OutputPlan | null,
     ): Promise<unknown> {
-      const inStream = inPath ? fs.createReadStream(inPath) : null
+      const inStream = inPath ? createInputUploadStream(inPath) : null
       inStream?.on('error', () => {})
 
       return await executeAssemblyLifecycle({
@@ -1392,17 +1386,13 @@ export async function create(
 
     if (singleAssembly) {
       // Single-assembly mode: collect file paths, then create one assembly with all inputs
-      // We close streams immediately to avoid exhausting file descriptors with many files
       const collectedPaths: string[] = []
 
       emitter.on('job', (job: Job) => {
-        if (job.in != null) {
-          const inPath = (job.in as fs.ReadStream).path as string
+        if (job.inputPath != null) {
+          const inPath = job.inputPath
           outputctl.debug(`COLLECTING JOB ${inPath}`)
           collectedPaths.push(inPath)
-          // Close the stream immediately to avoid file descriptor exhaustion
-          ;(job.in as fs.ReadStream).destroy()
-          outputctl.debug(`STREAM CLOSED ${inPath}`)
         }
       })
 
@@ -1430,7 +1420,7 @@ export async function create(
             key = `${path.parse(basename).name}_${counter}${path.parse(basename).ext}`
             counter++
           }
-          uploads[key] = fs.createReadStream(inPath)
+          uploads[key] = createInputUploadStream(inPath)
           inputPaths.push(inPath)
         }
 
@@ -1458,16 +1448,9 @@ export async function create(
     } else {
       // Default mode: one assembly per file with p-queue concurrency limiting
       emitter.on('job', (job: Job) => {
-        const inPath = job.in
-          ? (((job.in as fs.ReadStream).path as string | undefined) ?? null)
-          : null
+        const inPath = job.inputPath
         const outputPlan = job.out
         outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
-
-        // Close the original streams immediately - we'll create fresh ones when processing
-        if (job.in != null) {
-          ;(job.in as fs.ReadStream).destroy()
-        }
         // Add job to queue - p-queue handles concurrency automatically
         queue
           .add(async () => {

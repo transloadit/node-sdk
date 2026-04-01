@@ -11,6 +11,7 @@ import type {
 import { getIntentPaths, getIntentResultStepName, intentCatalog } from './intentCommandSpecs.ts'
 import type { IntentFieldKind, IntentFieldSpec } from './intentFields.ts'
 import { inferIntentFieldKind } from './intentFields.ts'
+import type { IntentInputPolicy } from './intentInputPolicy.ts'
 
 export interface GeneratedSchemaField extends IntentFieldSpec {
   description?: string
@@ -26,8 +27,8 @@ export interface ResolvedIntentLocalFilesInput {
   defaultSingleAssembly?: boolean
   deleteAfterProcessing?: boolean
   description: string
+  inputPolicy: IntentInputPolicy
   kind: 'local-files'
-  requiredFieldForInputless?: string
   recursive?: boolean
   reprocessStale?: boolean
 }
@@ -145,6 +146,14 @@ function toPascalCase(parts: string[]): string {
     .join('')
 }
 
+function getSchemaImportName(robot: string): string {
+  return `robot${toPascalCase(robot.split('/').filter(Boolean))}InstructionsSchema`
+}
+
+function getSchemaImportPath(robot: string): string {
+  return `../../alphalib/types/robots/${robot.split('/').filter(Boolean).join('-')}.ts`
+}
+
 function stripTrailingPunctuation(value: string): string {
   return value.replace(/[.:]+$/, '').trim()
 }
@@ -246,11 +255,11 @@ function inferInputModeFromShape(shape: Record<string, ZodTypeAny>): IntentInput
 function inferInputSpecFromAnalysis({
   defaultSingleAssembly,
   inputMode,
-  requiredFieldForInputless,
+  inputPolicy,
 }: {
   defaultSingleAssembly?: boolean
   inputMode: IntentInputMode
-  requiredFieldForInputless?: string
+  inputPolicy: IntentInputPolicy
 }): ResolvedIntentInput {
   if (inputMode === 'none') {
     return { kind: 'none' }
@@ -264,7 +273,7 @@ function inferInputSpecFromAnalysis({
       deleteAfterProcessing: true,
       reprocessStale: true,
       defaultSingleAssembly: true,
-      requiredFieldForInputless,
+      inputPolicy,
     }
   }
 
@@ -277,19 +286,17 @@ function inferInputSpecFromAnalysis({
     reprocessStale: true,
     allowSingleAssembly: true,
     allowConcurrency: true,
-    requiredFieldForInputless,
+    inputPolicy,
   }
 }
 
 function inferFixedValuesFromAnalysis({
   defaultSingleAssembly,
-  inputMode,
-  promptIsOptional,
+  inputPolicy,
   robot,
 }: {
   defaultSingleAssembly?: boolean
-  inputMode: IntentInputMode
-  promptIsOptional: boolean
+  inputPolicy: IntentInputPolicy
   robot: string
 }): Record<string, unknown> {
   if (defaultSingleAssembly) {
@@ -303,7 +310,7 @@ function inferFixedValuesFromAnalysis({
     }
   }
 
-  if (inputMode === 'local-files' && !promptIsOptional) {
+  if (inputPolicy.kind === 'required') {
     return {
       robot,
       result: true,
@@ -353,18 +360,24 @@ function analyzeRobotIntent(definition: RobotIntentDefinition): RobotIntentAnaly
   const className = `${toPascalCase(paths)}Command`
   const outputMode = definition.outputMode ?? 'file'
   const schemaSpec = {
-    importName: definition.schemaImportName,
-    importPath: definition.schemaImportPath,
+    importName: getSchemaImportName(definition.robot),
+    importPath: getSchemaImportPath(definition.robot),
     schema: definition.schema as ZodObject<ZodRawShape>,
   } satisfies ResolvedIntentSchemaSpec
   const schemaShape = schemaSpec.schema.shape as Record<string, ZodTypeAny>
   const inputMode = definition.inputMode ?? inferInputModeFromShape(schemaShape)
   const promptIsOptional = 'prompt' in schemaShape && !unwrapSchema(schemaShape.prompt).required
-  const requiredFieldForInputless = promptIsOptional ? 'prompt' : undefined
+  const inputPolicy = promptIsOptional
+    ? ({
+        kind: 'optional',
+        field: 'prompt',
+        attachUseWhenInputsProvided: true,
+      } satisfies IntentInputPolicy)
+    : ({ kind: 'required' } satisfies IntentInputPolicy)
   const input = inferInputSpecFromAnalysis({
     defaultSingleAssembly: definition.defaultSingleAssembly,
     inputMode,
-    requiredFieldForInputless,
+    inputPolicy,
   })
   const execution = {
     kind: 'single-step',
@@ -375,8 +388,7 @@ function analyzeRobotIntent(definition: RobotIntentDefinition): RobotIntentAnaly
       })(),
     fixedValues: inferFixedValuesFromAnalysis({
       defaultSingleAssembly: definition.defaultSingleAssembly,
-      inputMode,
-      promptIsOptional,
+      inputPolicy,
       robot: definition.robot,
     }),
   } satisfies ResolvedIntentSingleStepExecution
@@ -482,7 +494,10 @@ function resolveTemplateIntentSpec(
       templateId: definition.templateId,
     },
     fieldSpecs: [],
-    input: inferInputSpecFromAnalysis({ inputMode: 'local-files' }),
+    input: inferInputSpecFromAnalysis({
+      inputMode: 'local-files',
+      inputPolicy: { kind: 'required' },
+    }),
     outputDescription:
       outputMode === 'directory'
         ? 'Write the results to this directory'
