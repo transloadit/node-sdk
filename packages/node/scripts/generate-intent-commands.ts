@@ -16,6 +16,7 @@ import {
   ZodUnion,
 } from 'zod'
 
+import type { RobotMetaInput } from '../src/alphalib/types/robots/_instructions-primitives.ts'
 import type {
   IntentDefinition,
   IntentInputMode,

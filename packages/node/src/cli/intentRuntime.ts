@@ -382,10 +382,14 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
     }
   }
 
+  protected getProvidedInputCount(): number {
+    return (this.inputs ?? []).length + (this.inputBase64 ?? []).length
+  }
+
   protected validateInputPresence(
     rawValues: Record<string, string | undefined>,
   ): number | undefined {
-    const inputCount = (this.inputs ?? []).length + (this.inputBase64 ?? []).length
+    const inputCount = this.getProvidedInputCount()
     if (inputCount !== 0) {
       return undefined
     }
@@ -481,6 +485,13 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
     const validationError = this.validateInputPresence(rawValues)
     if (validationError != null) {
       return validationError
+    }
+
+    if (this.watch && this.getProvidedInputCount() === 0) {
+      this.output.error(
+        `${this.intentDefinition.commandLabel} --watch requires --input or --input-base64`,
+      )
+      return 1
     }
 
     if (this.singleAssembly && this.watch) {

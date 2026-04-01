@@ -300,7 +300,6 @@ const stdinWithPath = process.stdin as unknown as { path: string }
 stdinWithPath.path = '/dev/stdin'
 
 interface OutputPlan {
-  kind: 'file' | 'stdout'
   mtime: Date
   path?: string
 }
@@ -312,23 +311,17 @@ interface Job {
 
 type OutputPlanProvider = (inpath: string | null, indir?: string) => Promise<OutputPlan | null>
 
-interface OutputPlanRegistry {
-  [key: string]: OutputPlan | undefined
-}
-
 interface JobEmitterOptions {
   allowOutputCollisions?: boolean
   recursive?: boolean
   outputPlanProvider: OutputPlanProvider
   singleAssembly?: boolean
-  outputPlanRegistry: OutputPlanRegistry
   watch?: boolean
   reprocessStale?: boolean
 }
 
 interface ReaddirJobEmitterOptions {
   dir: string
-  outputPlanRegistry: OutputPlanRegistry
   recursive?: boolean
   outputPlanProvider: OutputPlanProvider
   topdir?: string
@@ -336,13 +329,11 @@ interface ReaddirJobEmitterOptions {
 
 interface SingleJobEmitterOptions {
   file: string
-  outputPlanRegistry: OutputPlanRegistry
   outputPlanProvider: OutputPlanProvider
 }
 
 interface WatchJobEmitterOptions {
   file: string
-  outputPlanRegistry: OutputPlanRegistry
   recursive?: boolean
   outputPlanProvider: OutputPlanProvider
 }
@@ -367,13 +358,11 @@ async function myStat(
 function createOutputPlan(pathname: string | undefined, mtime: Date): OutputPlan {
   if (pathname == null) {
     return {
-      kind: 'stdout',
       mtime,
     }
   }
 
   return {
-    kind: 'file',
     mtime,
     path: pathname,
   }
@@ -686,19 +675,12 @@ class MyEventEmitter extends EventEmitter {
 }
 
 class ReaddirJobEmitter extends MyEventEmitter {
-  constructor({
-    dir,
-    outputPlanRegistry,
-    recursive,
-    outputPlanProvider,
-    topdir = dir,
-  }: ReaddirJobEmitterOptions) {
+  constructor({ dir, recursive, outputPlanProvider, topdir = dir }: ReaddirJobEmitterOptions) {
     super()
 
     process.nextTick(() => {
       this.processDirectory({
         dir,
-        outputPlanRegistry,
         recursive,
         outputPlanProvider,
         topdir,
@@ -710,7 +692,6 @@ class ReaddirJobEmitter extends MyEventEmitter {
 
   private async processDirectory({
     dir,
-    outputPlanRegistry,
     recursive,
     outputPlanProvider,
     topdir,
@@ -721,9 +702,7 @@ class ReaddirJobEmitter extends MyEventEmitter {
 
     for (const filename of files) {
       const file = path.normalize(path.join(dir, filename))
-      pendingOperations.push(
-        this.processFile({ file, outputPlanRegistry, recursive, outputPlanProvider, topdir }),
-      )
+      pendingOperations.push(this.processFile({ file, recursive, outputPlanProvider, topdir }))
     }
 
     await Promise.all(pendingOperations)
@@ -732,13 +711,11 @@ class ReaddirJobEmitter extends MyEventEmitter {
 
   private async processFile({
     file,
-    outputPlanRegistry,
     recursive = false,
     outputPlanProvider,
     topdir,
   }: {
     file: string
-    outputPlanRegistry: OutputPlanRegistry
     recursive?: boolean
     outputPlanProvider: OutputPlanProvider
     topdir: string
@@ -750,7 +727,6 @@ class ReaddirJobEmitter extends MyEventEmitter {
         await new Promise<void>((resolve, reject) => {
           const subdirEmitter = new ReaddirJobEmitter({
             dir: file,
-            outputPlanRegistry,
             recursive,
             outputPlanProvider,
             topdir,
@@ -762,7 +738,6 @@ class ReaddirJobEmitter extends MyEventEmitter {
       }
     } else {
       const outputPlan = await outputPlanProvider(file, topdir)
-      outputPlanRegistry[file] = outputPlan ?? undefined
       const instream = fs.createReadStream(file)
       // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
       // before being consumed (e.g., due to output collision detection)
@@ -773,13 +748,11 @@ class ReaddirJobEmitter extends MyEventEmitter {
 }
 
 class SingleJobEmitter extends MyEventEmitter {
-  constructor({ file, outputPlanRegistry, outputPlanProvider }: SingleJobEmitterOptions) {
+  constructor({ file, outputPlanProvider }: SingleJobEmitterOptions) {
     super()
 
     const normalizedFile = path.normalize(file)
     outputPlanProvider(normalizedFile).then((outputPlan) => {
-      outputPlanRegistry[normalizedFile] = outputPlan ?? undefined
-
       let instream: Readable | null
       if (normalizedFile === '-') {
         if (tty.isatty(process.stdin.fd)) {
@@ -830,10 +803,10 @@ class NullJobEmitter extends MyEventEmitter {
 class WatchJobEmitter extends MyEventEmitter {
   private watcher: NodeWatcher | null = null
 
-  constructor({ file, outputPlanRegistry, recursive, outputPlanProvider }: WatchJobEmitterOptions) {
+  constructor({ file, recursive, outputPlanProvider }: WatchJobEmitterOptions) {
     super()
 
-    this.init({ file, outputPlanRegistry, recursive, outputPlanProvider }).catch((err) => {
+    this.init({ file, recursive, outputPlanProvider }).catch((err) => {
       this.emit('error', err)
     })
 
@@ -853,7 +826,6 @@ class WatchJobEmitter extends MyEventEmitter {
 
   private async init({
     file,
-    outputPlanRegistry,
     recursive,
     outputPlanProvider,
   }: WatchJobEmitterOptions): Promise<void> {
@@ -870,25 +842,21 @@ class WatchJobEmitter extends MyEventEmitter {
     this.watcher.on('close', () => this.emit('end'))
     this.watcher.on('change', (_evt: string, filename: string) => {
       const normalizedFile = path.normalize(filename)
-      this.handleChange(normalizedFile, topdir, outputPlanRegistry, outputPlanProvider).catch(
-        (err) => {
-          this.emit('error', err)
-        },
-      )
+      this.handleChange(normalizedFile, topdir, outputPlanProvider).catch((err) => {
+        this.emit('error', err)
+      })
     })
   }
 
   private async handleChange(
     normalizedFile: string,
     topdir: string | undefined,
-    outputPlanRegistry: OutputPlanRegistry,
     outputPlanProvider: OutputPlanProvider,
   ): Promise<void> {
     const stats = await fsp.stat(normalizedFile)
     if (stats.isDirectory()) return
 
     const outputPlan = await outputPlanProvider(normalizedFile, topdir)
-    outputPlanRegistry[normalizedFile] = outputPlan ?? undefined
 
     const instream = fs.createReadStream(normalizedFile)
     // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
@@ -1023,7 +991,6 @@ function makeJobEmitter(
     recursive,
     outputPlanProvider,
     singleAssembly,
-    outputPlanRegistry,
     watch: watchOption,
     reprocessStale,
   }: JobEmitterOptions,
@@ -1036,9 +1003,7 @@ function makeJobEmitter(
   async function processInputs(): Promise<void> {
     for (const input of inputs) {
       if (input === '-') {
-        emitterFns.push(
-          () => new SingleJobEmitter({ file: input, outputPlanProvider, outputPlanRegistry }),
-        )
+        emitterFns.push(() => new SingleJobEmitter({ file: input, outputPlanProvider }))
         watcherFns.push(() => new NullJobEmitter())
       } else {
         const stats = await fsp.stat(input)
@@ -1049,7 +1014,6 @@ function makeJobEmitter(
                 dir: input,
                 recursive,
                 outputPlanProvider,
-                outputPlanRegistry,
               }),
           )
           watcherFns.push(
@@ -1058,20 +1022,16 @@ function makeJobEmitter(
                 file: input,
                 recursive,
                 outputPlanProvider,
-                outputPlanRegistry,
               }),
           )
         } else {
-          emitterFns.push(
-            () => new SingleJobEmitter({ file: input, outputPlanProvider, outputPlanRegistry }),
-          )
+          emitterFns.push(() => new SingleJobEmitter({ file: input, outputPlanProvider }))
           watcherFns.push(
             () =>
               new WatchJobEmitter({
                 file: input,
                 recursive,
                 outputPlanProvider,
-                outputPlanRegistry,
               }),
           )
         }
@@ -1232,12 +1192,10 @@ export async function create(
         : outstat?.isDirectory()
           ? dirProvider(resolvedOutput)
           : fileProvider(resolvedOutput)
-    const outputPlanRegistry: OutputPlanRegistry = {}
 
     const emitter = makeJobEmitter(inputs, {
       allowOutputCollisions: singleAssembly,
       outputPlanProvider,
-      outputPlanRegistry,
       recursive,
       watch: watchOption,
       singleAssembly,
@@ -1398,11 +1356,7 @@ export async function create(
               inPath: null,
               inputPaths,
               outputPlan:
-                resolvedOutput == null
-                  ? null
-                  : outputRootIsDirectory
-                    ? { kind: 'file', mtime: new Date(0), path: resolvedOutput }
-                    : { kind: 'file', mtime: new Date(0), path: resolvedOutput },
+                resolvedOutput == null ? null : createOutputPlan(resolvedOutput, new Date(0)),
               singleAssemblyMode: true,
             })
           })
