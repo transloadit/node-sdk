@@ -1,16 +1,5 @@
 import type { ZodObject, ZodRawShape, ZodTypeAny } from 'zod'
-import {
-  ZodBoolean,
-  ZodDefault,
-  ZodEffects,
-  ZodEnum,
-  ZodLiteral,
-  ZodNullable,
-  ZodNumber,
-  ZodOptional,
-  ZodString,
-  ZodUnion,
-} from 'zod'
+import { ZodDefault, ZodEffects, ZodNullable, ZodOptional } from 'zod'
 
 import type { RobotMetaInput } from '../alphalib/types/robots/_instructions-primitives.ts'
 import type {
@@ -20,13 +9,11 @@ import type {
   RobotIntentDefinition,
 } from './intentCommandSpecs.ts'
 import { getIntentPaths, getIntentResultStepName, intentCatalog } from './intentCommandSpecs.ts'
+import type { IntentFieldKind, IntentFieldSpec } from './intentFields.ts'
+import { inferIntentFieldKind } from './intentFields.ts'
 
-export type GeneratedFieldKind = 'auto' | 'boolean' | 'number' | 'string'
-
-export interface GeneratedSchemaField {
+export interface GeneratedSchemaField extends IntentFieldSpec {
   description?: string
-  kind: GeneratedFieldKind
-  name: string
   optionFlags: string
   propertyName: string
   required: boolean
@@ -88,6 +75,30 @@ export interface ResolvedIntentCommandSpec {
   schemaSpec?: ResolvedIntentSchemaSpec
 }
 
+interface RobotIntentPresentation {
+  outputPath?: string
+  promptExample?: string
+  requiredExampleValues?: Partial<Record<string, string>>
+}
+
+interface RobotIntentAnalysis {
+  className: string
+  commandLabel: string
+  definition: RobotIntentDefinition
+  details: string
+  description: string
+  execution: ResolvedIntentSingleStepExecution
+  fieldSpecs: GeneratedSchemaField[]
+  input: ResolvedIntentInput
+  inputMode: IntentInputMode
+  outputDescription: string
+  outputMode: IntentOutputMode
+  paths: string[]
+  presentation: RobotIntentPresentation
+  schemaShape: Record<string, ZodTypeAny>
+  schemaSpec: ResolvedIntentSchemaSpec
+}
+
 const hiddenFieldNames = new Set([
   'ffmpeg_stack',
   'force_accept',
@@ -100,6 +111,24 @@ const hiddenFieldNames = new Set([
   'stack',
   'use',
 ])
+
+const robotIntentPresentationOverrides: Partial<Record<string, RobotIntentPresentation>> = {
+  '/document/convert': {
+    outputPath: 'output.pdf',
+    requiredExampleValues: { format: 'pdf' },
+  },
+  '/file/compress': {
+    outputPath: 'archive.zip',
+    requiredExampleValues: { format: 'zip' },
+  },
+  '/image/generate': {
+    promptExample: 'A red bicycle in a studio',
+    requiredExampleValues: { model: 'flux-schnell' },
+  },
+  '/video/thumbs': {
+    requiredExampleValues: { format: 'jpg' },
+  },
+}
 
 function toCamelCase(value: string): string {
   return value.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase())
@@ -152,110 +181,81 @@ function unwrapSchema(input: unknown): { required: boolean; schema: unknown } {
   }
 }
 
-function getFieldKind(schema: unknown): GeneratedFieldKind {
-  if (schema instanceof ZodEffects) {
-    return getFieldKind(schema._def.schema)
+function getTypicalInputFile(meta: RobotMetaInput): string {
+  switch (meta.typical_file_type) {
+    case 'audio file':
+      return 'input.mp3'
+    case 'document':
+      return 'input.pdf'
+    case 'image':
+      return 'input.png'
+    case 'video':
+      return 'input.mp4'
+    default:
+      return 'input.file'
   }
-
-  if (schema instanceof ZodString || schema instanceof ZodEnum) {
-    return 'string'
-  }
-
-  if (schema instanceof ZodNumber) {
-    return 'number'
-  }
-
-  if (schema instanceof ZodBoolean) {
-    return 'boolean'
-  }
-
-  if (schema instanceof ZodLiteral) {
-    if (typeof schema.value === 'number') return 'number'
-    if (typeof schema.value === 'boolean') return 'boolean'
-    return 'string'
-  }
-
-  if (schema instanceof ZodUnion) {
-    const optionKinds = Array.from(
-      new Set(schema._def.options.map((option: unknown) => getFieldKind(option))),
-    ) as GeneratedFieldKind[]
-    if (optionKinds.length === 1) {
-      const [kind] = optionKinds
-      if (kind != null) return kind
-    }
-    return 'auto'
-  }
-
-  throw new Error('Unsupported schema type')
 }
 
-function inferClassName(paths: string[]): string {
-  return `${toPascalCase(paths)}Command`
-}
-
-function inferInputMode(definition: RobotIntentDefinition): IntentInputMode {
-  if (definition.inputMode != null) {
-    return definition.inputMode
+function getDefaultOutputPath(paths: string[], outputMode: IntentOutputMode): string {
+  if (outputMode === 'directory') {
+    return 'output/'
   }
 
-  const shape = (definition.schema as ZodObject<ZodRawShape>).shape
+  const [group] = paths
+  if (group === 'audio') return 'output.png'
+  if (group === 'document') return 'output.pdf'
+  if (group === 'image') return 'output.png'
+  if (group === 'text') return 'output.mp3'
+  return 'output.file'
+}
+
+function getDefaultPromptExample(robot: string): string {
+  return robotIntentPresentationOverrides[robot]?.promptExample ?? 'Hello world'
+}
+
+function getDefaultRequiredExampleValue(
+  definition: RobotIntentDefinition,
+  fieldSpec: GeneratedSchemaField,
+): string | null {
+  const override =
+    robotIntentPresentationOverrides[definition.robot]?.requiredExampleValues?.[fieldSpec.name]
+  if (override != null) {
+    return override
+  }
+
+  if (fieldSpec.name === 'aspect_ratio') return '1:1'
+  if (fieldSpec.name === 'prompt') return JSON.stringify(getDefaultPromptExample(definition.robot))
+  if (fieldSpec.name === 'provider') return 'aws'
+  if (fieldSpec.name === 'target_language') return 'en-US'
+  if (fieldSpec.name === 'voice') return 'female-1'
+
+  if (fieldSpec.kind === 'boolean') return 'true'
+  if (fieldSpec.kind === 'number') return '1'
+
+  return 'value'
+}
+
+function inferInputModeFromShape(shape: Record<string, ZodTypeAny>): IntentInputMode {
   if ('prompt' in shape) {
-    const promptSchema = shape.prompt
-    const { required } = unwrapSchema(promptSchema)
-    return required ? 'none' : 'local-files'
+    return unwrapSchema(shape.prompt).required ? 'none' : 'local-files'
   }
 
   return 'local-files'
 }
 
-function inferOutputMode(definition: IntentDefinition): IntentOutputMode {
-  return definition.outputMode ?? 'file'
-}
-
-function inferDescription(definition: RobotIntentDefinition): string {
-  return stripTrailingPunctuation(definition.meta.title)
-}
-
-function inferOutputDescription(inputMode: IntentInputMode, outputMode: IntentOutputMode): string {
-  if (outputMode === 'directory') {
-    return 'Write the results to this directory'
-  }
-
-  if (inputMode === 'local-files') {
-    return 'Write the result to this path or directory'
-  }
-
-  return 'Write the result to this path'
-}
-
-function inferDetails(
-  definition: RobotIntentDefinition,
-  inputMode: IntentInputMode,
-  outputMode: IntentOutputMode,
-  defaultSingleAssembly: boolean,
-): string {
-  if (inputMode === 'none') {
-    return `Runs \`${definition.robot}\` and writes the result to \`--out\`.`
-  }
-
-  if (defaultSingleAssembly) {
-    return `Runs \`${definition.robot}\` for the provided inputs and writes the result to \`--out\`.`
-  }
-
-  if (outputMode === 'directory') {
-    return `Runs \`${definition.robot}\` on each input file and writes the results to \`--out\`.`
-  }
-
-  return `Runs \`${definition.robot}\` on each input file and writes the result to \`--out\`.`
-}
-
-function inferLocalFilesInput({
-  defaultSingleAssembly = false,
+function inferInputSpecFromAnalysis({
+  defaultSingleAssembly,
+  inputMode,
   requiredFieldForInputless,
 }: {
   defaultSingleAssembly?: boolean
+  inputMode: IntentInputMode
   requiredFieldForInputless?: string
-}): ResolvedIntentLocalFilesInput {
+}): ResolvedIntentInput {
+  if (inputMode === 'none') {
+    return { kind: 'none' }
+  }
+
   if (defaultSingleAssembly) {
     return {
       kind: 'local-files',
@@ -281,32 +281,20 @@ function inferLocalFilesInput({
   }
 }
 
-function inferInputSpec(definition: RobotIntentDefinition): ResolvedIntentInput {
-  const inputMode = inferInputMode(definition)
-  if (inputMode === 'none') {
-    return { kind: 'none' }
-  }
-
-  const shape = (definition.schema as ZodObject<ZodRawShape>).shape
-  const requiredFieldForInputless =
-    'prompt' in shape && !unwrapSchema(shape.prompt).required ? 'prompt' : undefined
-
-  return inferLocalFilesInput({
-    defaultSingleAssembly: definition.defaultSingleAssembly,
-    requiredFieldForInputless,
-  })
-}
-
-function inferFixedValues(
-  definition: RobotIntentDefinition,
-  inputMode: IntentInputMode,
-): Record<string, unknown> {
-  const shape = (definition.schema as ZodObject<ZodRawShape>).shape
-  const promptIsOptional = 'prompt' in shape && !unwrapSchema(shape.prompt).required
-
-  if (definition.defaultSingleAssembly) {
+function inferFixedValuesFromAnalysis({
+  defaultSingleAssembly,
+  inputMode,
+  promptIsOptional,
+  robot,
+}: {
+  defaultSingleAssembly?: boolean
+  inputMode: IntentInputMode
+  promptIsOptional: boolean
+  robot: string
+}): Record<string, unknown> {
+  if (defaultSingleAssembly) {
     return {
-      robot: definition.robot,
+      robot,
       result: true,
       use: {
         steps: [':original'],
@@ -315,182 +303,43 @@ function inferFixedValues(
     }
   }
 
-  if (inputMode === 'local-files') {
-    if (promptIsOptional) {
-      return {
-        robot: definition.robot,
-        result: true,
-      }
-    }
-
+  if (inputMode === 'local-files' && !promptIsOptional) {
     return {
-      robot: definition.robot,
+      robot,
       result: true,
       use: ':original',
     }
   }
 
   return {
-    robot: definition.robot,
+    robot,
     result: true,
   }
 }
 
-function inferResultStepName(robot: string): string {
-  const definition = intentCatalog.find(
-    (intent): intent is RobotIntentDefinition => intent.kind === 'robot' && intent.robot === robot,
-  )
-  if (definition == null) {
-    throw new Error(`No intent definition found for "${robot}"`)
-  }
-
-  const stepName = getIntentResultStepName(definition)
-  if (stepName == null) {
-    throw new Error(`Could not infer result step name for "${robot}"`)
-  }
-
-  return stepName
-}
-
-function guessInputFile(meta: RobotMetaInput): string {
-  switch (meta.typical_file_type) {
-    case 'audio file':
-      return 'input.mp3'
-    case 'document':
-      return 'input.pdf'
-    case 'image':
-      return 'input.png'
-    case 'video':
-      return 'input.mp4'
-    default:
-      return 'input.file'
-  }
-}
-
-function guessOutputPath(
-  definition: RobotIntentDefinition | null,
-  paths: string[],
-  outputMode: IntentOutputMode,
-): string {
-  if (outputMode === 'directory') {
-    return 'output/'
-  }
-
-  const [group] = paths
-  if (definition?.robot === '/file/compress') {
-    return 'archive.zip'
-  }
-
-  if (group === 'audio') {
-    return 'output.png'
-  }
-
-  if (group === 'document') {
-    return 'output.pdf'
-  }
-
-  if (group === 'image') {
-    return 'output.png'
-  }
-
-  if (group === 'text') {
-    return 'output.mp3'
-  }
-
-  return 'output.file'
-}
-
-function guessPromptExample(robot: string): string {
-  if (robot === '/image/generate') {
-    return 'A red bicycle in a studio'
-  }
-
-  return 'Hello world'
-}
-
-function inferExampleValue(
-  definition: RobotIntentDefinition,
-  fieldSpec: GeneratedSchemaField,
-): string | null {
-  if (fieldSpec.name === 'aspect_ratio') return '1:1'
-  if (fieldSpec.name === 'format') {
-    if (definition.robot === '/document/convert') return 'pdf'
-    if (definition.robot === '/file/compress') return 'zip'
-    if (definition.robot === '/video/thumbs') return 'jpg'
-    return 'png'
-  }
-  if (fieldSpec.name === 'model') return 'flux-schnell'
-  if (fieldSpec.name === 'prompt') return JSON.stringify(guessPromptExample(definition.robot))
-  if (fieldSpec.name === 'provider') return 'aws'
-  if (fieldSpec.name === 'target_language') return 'en-US'
-  if (fieldSpec.name === 'voice') return 'female-1'
-
-  if (fieldSpec.kind === 'boolean') return 'true'
-  if (fieldSpec.kind === 'number') return '1'
-
-  return 'value'
-}
-
-function inferExamples(
-  definition: RobotIntentDefinition | null,
-  paths: string[],
-  inputMode: IntentInputMode,
-  outputMode: IntentOutputMode,
-  fieldSpecs: GeneratedSchemaField[],
-): Array<[string, string]> {
-  const parts = ['transloadit', ...paths]
-
-  if (inputMode === 'local-files' && definition != null) {
-    parts.push('--input', guessInputFile(definition.meta))
-  }
-
-  if (inputMode === 'none' && definition != null) {
-    parts.push('--prompt', JSON.stringify(guessPromptExample(definition.robot)))
-  }
-
-  if (definition != null) {
-    for (const fieldSpec of fieldSpecs) {
-      if (!fieldSpec.required) continue
-      if (fieldSpec.name === 'prompt' && inputMode === 'none') continue
-
-      const exampleValue = inferExampleValue(definition, fieldSpec)
-      if (exampleValue == null) continue
-      parts.push(fieldSpec.optionFlags, exampleValue)
-    }
-  }
-
-  parts.push('--out', guessOutputPath(definition, paths, outputMode))
-
-  return [['Run the command', parts.join(' ')]]
-}
-
 function collectSchemaFields(
-  schemaSpec: ResolvedIntentSchemaSpec,
+  schemaShape: Record<string, ZodTypeAny>,
   fixedValues: Record<string, unknown>,
   input: ResolvedIntentInput,
 ): GeneratedSchemaField[] {
-  const shape = (schemaSpec.schema as ZodObject<ZodRawShape>).shape as Record<string, ZodTypeAny>
-
-  return Object.entries(shape)
+  return Object.entries(schemaShape)
     .filter(([key]) => !hiddenFieldNames.has(key) && !Object.hasOwn(fixedValues, key))
     .flatMap(([key, fieldSchema]) => {
       const { required: schemaRequired, schema: unwrappedSchema } = unwrapSchema(fieldSchema)
 
-      let kind: GeneratedFieldKind
+      let kind: IntentFieldKind
       try {
-        kind = getFieldKind(unwrappedSchema)
+        kind = inferIntentFieldKind(unwrappedSchema)
       } catch {
         return []
       }
-
-      const required = (input.kind === 'none' && key === 'prompt') || schemaRequired
 
       return [
         {
           name: key,
           propertyName: toCamelCase(key),
           optionFlags: `--${toKebabCase(key)}`,
-          required,
+          required: (input.kind === 'none' && key === 'prompt') || schemaRequired,
           description: fieldSchema.description,
           kind,
         },
@@ -498,54 +347,130 @@ function collectSchemaFields(
     })
 }
 
-function resolveRobotIntentSpec(definition: RobotIntentDefinition): ResolvedIntentCommandSpec {
+function analyzeRobotIntent(definition: RobotIntentDefinition): RobotIntentAnalysis {
   const paths = getIntentPaths(definition)
-  const inputMode = inferInputMode(definition)
-  const outputMode = inferOutputMode(definition)
-  const input = inferInputSpec(definition)
+  const commandLabel = paths.join(' ')
+  const className = `${toPascalCase(paths)}Command`
+  const outputMode = definition.outputMode ?? 'file'
   const schemaSpec = {
     importName: definition.schemaImportName,
     importPath: definition.schemaImportPath,
     schema: definition.schema as ZodObject<ZodRawShape>,
   } satisfies ResolvedIntentSchemaSpec
+  const schemaShape = schemaSpec.schema.shape as Record<string, ZodTypeAny>
+  const inputMode = definition.inputMode ?? inferInputModeFromShape(schemaShape)
+  const promptIsOptional = 'prompt' in schemaShape && !unwrapSchema(schemaShape.prompt).required
+  const requiredFieldForInputless = promptIsOptional ? 'prompt' : undefined
+  const input = inferInputSpecFromAnalysis({
+    defaultSingleAssembly: definition.defaultSingleAssembly,
+    inputMode,
+    requiredFieldForInputless,
+  })
   const execution = {
     kind: 'single-step',
-    resultStepName: inferResultStepName(definition.robot),
-    fixedValues: inferFixedValues(definition, inputMode),
+    resultStepName:
+      getIntentResultStepName(definition) ??
+      (() => {
+        throw new Error(`Could not infer result step name for "${definition.robot}"`)
+      })(),
+    fixedValues: inferFixedValuesFromAnalysis({
+      defaultSingleAssembly: definition.defaultSingleAssembly,
+      inputMode,
+      promptIsOptional,
+      robot: definition.robot,
+    }),
   } satisfies ResolvedIntentSingleStepExecution
-  const fieldSpecs = collectSchemaFields(schemaSpec, execution.fixedValues, input)
+  const fieldSpecs = collectSchemaFields(schemaShape, execution.fixedValues, input)
+  const description = stripTrailingPunctuation(definition.meta.title)
+  const details =
+    inputMode === 'none'
+      ? `Runs \`${definition.robot}\` and writes the result to \`--out\`.`
+      : definition.defaultSingleAssembly === true
+        ? `Runs \`${definition.robot}\` for the provided inputs and writes the result to \`--out\`.`
+        : outputMode === 'directory'
+          ? `Runs \`${definition.robot}\` on each input file and writes the results to \`--out\`.`
+          : `Runs \`${definition.robot}\` on each input file and writes the result to \`--out\`.`
 
   return {
-    className: inferClassName(paths),
-    commandLabel: paths.join(' '),
-    description: inferDescription(definition),
-    details: inferDetails(
-      definition,
-      inputMode,
-      outputMode,
-      definition.defaultSingleAssembly === true,
-    ),
-    examples: inferExamples(definition, paths, inputMode, outputMode, fieldSpecs),
+    className,
+    commandLabel,
+    definition,
+    details,
+    description,
     execution,
     fieldSpecs,
     input,
-    outputDescription: inferOutputDescription(inputMode, outputMode),
+    inputMode,
+    outputDescription:
+      outputMode === 'directory'
+        ? 'Write the results to this directory'
+        : inputMode === 'local-files'
+          ? 'Write the result to this path or directory'
+          : 'Write the result to this path',
     outputMode,
-    outputRequired: true,
     paths,
+    presentation: robotIntentPresentationOverrides[definition.robot] ?? {},
+    schemaShape,
     schemaSpec,
+  }
+}
+
+function inferExamples(analysis: RobotIntentAnalysis): Array<[string, string]> {
+  const parts = ['transloadit', ...analysis.paths]
+
+  if (analysis.inputMode === 'local-files') {
+    parts.push('--input', getTypicalInputFile(analysis.definition.meta))
+  }
+
+  if (analysis.inputMode === 'none') {
+    parts.push('--prompt', JSON.stringify(getDefaultPromptExample(analysis.definition.robot)))
+  }
+
+  for (const fieldSpec of analysis.fieldSpecs) {
+    if (!fieldSpec.required) continue
+    if (fieldSpec.name === 'prompt' && analysis.inputMode === 'none') continue
+
+    const exampleValue = getDefaultRequiredExampleValue(analysis.definition, fieldSpec)
+    if (exampleValue == null) continue
+    parts.push(fieldSpec.optionFlags, exampleValue)
+  }
+
+  parts.push(
+    '--out',
+    analysis.presentation.outputPath ?? getDefaultOutputPath(analysis.paths, analysis.outputMode),
+  )
+
+  return [['Run the command', parts.join(' ')]]
+}
+
+function resolveRobotIntentSpec(definition: RobotIntentDefinition): ResolvedIntentCommandSpec {
+  const analysis = analyzeRobotIntent(definition)
+
+  return {
+    className: analysis.className,
+    commandLabel: analysis.commandLabel,
+    description: analysis.description,
+    details: analysis.details,
+    examples: inferExamples(analysis),
+    execution: analysis.execution,
+    fieldSpecs: analysis.fieldSpecs,
+    input: analysis.input,
+    outputDescription: analysis.outputDescription,
+    outputMode: analysis.outputMode,
+    outputRequired: true,
+    paths: analysis.paths,
+    schemaSpec: analysis.schemaSpec,
   }
 }
 
 function resolveTemplateIntentSpec(
   definition: IntentDefinition & { kind: 'template' },
 ): ResolvedIntentCommandSpec {
-  const outputMode = inferOutputMode(definition)
-  const input = inferLocalFilesInput({})
+  const outputMode = definition.outputMode ?? 'file'
   const paths = getIntentPaths(definition)
 
   return {
-    className: inferClassName(paths),
+    className: `${toPascalCase(paths)}Command`,
     commandLabel: paths.join(' '),
     description: `Run ${stripTrailingPunctuation(definition.templateId)}`,
     details: `Runs the \`${definition.templateId}\` template and writes the outputs to \`--out\`.`,
@@ -557,8 +482,11 @@ function resolveTemplateIntentSpec(
       templateId: definition.templateId,
     },
     fieldSpecs: [],
-    input,
-    outputDescription: inferOutputDescription('local-files', outputMode),
+    input: inferInputSpecFromAnalysis({ inputMode: 'local-files' }),
+    outputDescription:
+      outputMode === 'directory'
+        ? 'Write the results to this directory'
+        : 'Write the result to this path or directory',
     outputMode,
     outputRequired: true,
     paths,

@@ -7,13 +7,8 @@ import { prepareInputFiles } from '../inputFiles.ts'
 import type { AssembliesCreateOptions } from './commands/assemblies.ts'
 import * as assembliesCommands from './commands/assemblies.ts'
 import { AuthenticatedCommand } from './commands/BaseCommand.ts'
-
-export type IntentFieldKind = 'auto' | 'boolean' | 'number' | 'string'
-
-export interface IntentFieldSpec {
-  kind: IntentFieldKind
-  name: string
-}
+import type { IntentFieldSpec } from './intentFields.ts'
+import { coerceIntentFieldValue } from './intentFields.ts'
 
 export interface PreparedIntentInputs {
   cleanup: Array<() => Promise<void>>
@@ -157,54 +152,6 @@ export async function prepareIntentInputs({
     hasTransientInputs: true,
     inputs,
   }
-}
-
-function coerceIntentFieldValue(
-  kind: IntentFieldKind,
-  raw: string,
-  fieldSchema?: z.ZodTypeAny,
-): boolean | number | string {
-  if (kind === 'auto') {
-    if (fieldSchema == null) {
-      return raw
-    }
-
-    const candidates: unknown[] = [raw]
-
-    if (raw === 'true' || raw === 'false') {
-      candidates.push(raw === 'true')
-    }
-
-    const numericValue = Number(raw)
-    if (raw.trim() !== '' && !Number.isNaN(numericValue)) {
-      candidates.push(numericValue)
-    }
-
-    for (const candidate of candidates) {
-      const parsed = fieldSchema.safeParse(candidate)
-      if (parsed.success) {
-        return parsed.data as boolean | number | string
-      }
-    }
-
-    return raw
-  }
-
-  if (kind === 'number') {
-    const value = Number(raw)
-    if (Number.isNaN(value)) {
-      throw new Error(`Expected a number but received "${raw}"`)
-    }
-    return value
-  }
-
-  if (kind === 'boolean') {
-    if (raw === 'true') return true
-    if (raw === 'false') return false
-    throw new Error(`Expected "true" or "false" but received "${raw}"`)
-  }
-
-  return raw
 }
 
 export function parseIntentStep<TSchema extends z.AnyZodObject>({
