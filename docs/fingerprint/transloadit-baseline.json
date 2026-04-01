@@ -2,8 +2,8 @@
   "packageDir": "/Users/kvz/code/node-sdk/packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.7.5.tgz",
-    "sizeBytes": 1319165,
-    "sha256": "e398ad0369c894bf96433646ca1831a45b33b733905cdd30fd8d031573d8f25b"
+    "sizeBytes": 1321366,
+    "sha256": "4851dea426769890fb4f6afa664c6a4d561d16d64f6cf11dc72e69ef25481028"
   },
   "packageJson": {
     "name": "transloadit",
@@ -48,8 +48,8 @@
     },
     {
       "path": "dist/cli/commands/assemblies.js",
-      "sizeBytes": 51973,
-      "sha256": "e9ac5395852192082f1a19cf1c0e33b0a3b60c6a6cf3df76de4e73fb53703f6a"
+      "sizeBytes": 51785,
+      "sha256": "7c2279e65fe8bcc4221da04185d4f86128dad847b475471f3e6f51a340446123"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.js",
@@ -328,8 +328,8 @@
     },
     {
       "path": "dist/cli/commands/generated-intents.js",
-      "sizeBytes": 117625,
-      "sha256": "cfb0e934d6e426151f51d1f28519a2dcaafb4c68c0ebae9a8959f96999d2dfcf"
+      "sizeBytes": 80156,
+      "sha256": "78b4ef99a8190fc734bc50fd23b1895ab58a7d0899c67d12c58a5de118145615"
     },
     {
       "path": "dist/alphalib/types/robots/google-import.js",
@@ -413,13 +413,18 @@
     },
     {
       "path": "dist/cli/intentCommandSpecs.js",
-      "sizeBytes": 7199,
-      "sha256": "12a812c6efd4697b45053d9d7a60b2cf4c87c4aa3a497f493b21c53f1affe0d5"
+      "sizeBytes": 8571,
+      "sha256": "51be45b70ed24ee4503e2650d1e7a0813afea58d8988fbf533277b7fd13116df"
     },
     {
       "path": "dist/cli/intentRuntime.js",
-      "sizeBytes": 4416,
-      "sha256": "06cfff14909b48c57dd0aec481b0d45340441dd1a59de3348b9b23a45cfc0415"
+      "sizeBytes": 11592,
+      "sha256": "67306e344a413251a4f3be40fcc59c9f9cfd2a3a7fc39f1613ae12e75f9033d4"
+    },
+    {
+      "path": "dist/cli/intentSmokeCases.js",
+      "sizeBytes": 3072,
+      "sha256": "01e0f5f7d57c1fbb697b9ce1cd599b375cbe2b0414c565f2e6e7a957d470df9d"
     },
     {
       "path": "dist/lintAssemblyInput.js",
@@ -769,12 +774,12 @@
     {
       "path": "dist/cli/commands/assemblies.d.ts.map",
       "sizeBytes": 3877,
-      "sha256": "a7780be849e81aaa345c859f224462a6d36faefdd2a0f8ea91b8f94a505437ef"
+      "sha256": "34168a6c15c65795f807f296f3245b7b57ea869d6a450a87f1c81462ee0f81b5"
     },
     {
       "path": "dist/cli/commands/assemblies.js.map",
-      "sizeBytes": 46288,
-      "sha256": "cf8b96797224c7dc9724bf93100a778967f92288e0a0ae1d3a1a9028e7b50386"
+      "sizeBytes": 46773,
+      "sha256": "f2acb3a132a46d27f42be7e63a77fb3749833a90d3bbce5d4c64c13965363893"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.d.ts.map",
@@ -1328,13 +1333,13 @@
     },
     {
       "path": "dist/cli/commands/generated-intents.d.ts.map",
-      "sizeBytes": 6612,
-      "sha256": "9335d244c8e1414ad5b4186fc4b7bc86cf10c33da7dbd6521de5ae4d8c7b4108"
+      "sizeBytes": 9477,
+      "sha256": "8a092bbeec0210a9a95e857e59adc4885d1f5db3898a35f2963b704f1f1c3303"
     },
     {
       "path": "dist/cli/commands/generated-intents.js.map",
-      "sizeBytes": 66461,
-      "sha256": "e4c0b89607638191017a161b2c253a57663ebaff81800c6c4b33618a1129e75b"
+      "sizeBytes": 38113,
+      "sha256": "9aafe6bd60cc360d4dd6a05adeda0c1e97ae89a9e0661f3ffc065d2ab4f1de0a"
     },
     {
       "path": "dist/alphalib/types/robots/google-import.d.ts.map",
@@ -1498,23 +1503,33 @@
     },
     {
       "path": "dist/cli/intentCommandSpecs.d.ts.map",
-      "sizeBytes": 5804,
-      "sha256": "8179d0aba494de60e0b90dd4d880c1875e3df3053ff11ed76b9cd68de1245f9d"
+      "sizeBytes": 1251,
+      "sha256": "aa4ca0d044e7fa4da9511e5741c0326e4f48b73e0fa177b22700b0ea1dc280cd"
     },
     {
       "path": "dist/cli/intentCommandSpecs.js.map",
-      "sizeBytes": 4171,
-      "sha256": "1e54470578a751319fbac64a4d91a8013dfb6137952aa26f18c7e2f8bfef9fb6"
+      "sizeBytes": 5562,
+      "sha256": "0796aa6c0980187fd622040be588d299a3c51671bf45c1cf36bda74b8097bb7c"
     },
     {
       "path": "dist/cli/intentRuntime.d.ts.map",
-      "sizeBytes": 950,
-      "sha256": "fb6f5fe96ddb695919494e58741d33c251e7d1b458874a604edf65988aa9bab9"
+      "sizeBytes": 2925,
+      "sha256": "5009bb93c79fc17697ac4a4ea16a716fef038f5e508b5a7551108abe3758c35f"
     },
     {
       "path": "dist/cli/intentRuntime.js.map",
-      "sizeBytes": 4469,
-      "sha256": "3dd4065e8c0a72148f15e044af0565fafceaee7b55a270c0d5f6d5e8f214eb79"
+      "sizeBytes": 10400,
+      "sha256": "04832c4b21892b55b0a53cddada09e2c543bdfe6b7c45bb31fef87b166b4d138"
+    },
+    {
+      "path": "dist/cli/intentSmokeCases.d.ts.map",
+      "sizeBytes": 369,
+      "sha256": "5fbbb3c25c53e55cc34ba0be87dcacd00373a6cc2ef774dedf58d1354998fbf3"
+    },
+    {
+      "path": "dist/cli/intentSmokeCases.js.map",
+      "sizeBytes": 2362,
+      "sha256": "79eba061880bea4639cf758199a81f9ba4be20276b463f5d488d5a8054a0659f"
     },
     {
       "path": "dist/lintAssemblyInput.d.ts.map",
@@ -2158,8 +2173,8 @@
     },
     {
       "path": "src/cli/commands/assemblies.ts",
-      "sizeBytes": 51861,
-      "sha256": "2ec97034f025676083dca02198437695a8a315f3c33eb0a12e9d28ffacd0fe8c"
+      "sizeBytes": 52644,
+      "sha256": "06ea627a1d0d29dd8ca853b0a535ee5ab728d56fbeacbe4b65b81c6b90569900"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.d.ts",
@@ -2713,13 +2728,13 @@
     },
     {
       "path": "dist/cli/commands/generated-intents.d.ts",
-      "sizeBytes": 12769,
-      "sha256": "9b9c0bc70c99b952bae43dc7198bd312f4a55a194d9cfac201fff41499f4ec98"
+      "sizeBytes": 261996,
+      "sha256": "4e1c9ba6760c8e0f237cafbbcbfedf799fac73d3e1aa1f9e8f806a2c9ff16ae9"
     },
     {
       "path": "src/cli/commands/generated-intents.ts",
-      "sizeBytes": 108639,
-      "sha256": "0a3e20c1d14a9d9b66d1be3c6cc78343807f7588ec2f160fc46a6af65833d5b6"
+      "sizeBytes": 77835,
+      "sha256": "355aa098c818ed9b822f1b73e29fbc48cef8ffff180dfad38104b95cade90603"
     },
     {
       "path": "dist/alphalib/types/robots/google-import.d.ts",
@@ -2883,23 +2898,33 @@
     },
     {
       "path": "dist/cli/intentCommandSpecs.d.ts",
-      "sizeBytes": 247937,
-      "sha256": "c145a6b21cfa8d5b6e92ddbc8e7e8ce1b3c037019c42c778f57460cf3a028ed3"
+      "sizeBytes": 1499,
+      "sha256": "72015b58dfdcfcf52194487a0d72e68eab5917561f28bf8ae2ecb2a6c3319d3b"
     },
     {
       "path": "src/cli/intentCommandSpecs.ts",
-      "sizeBytes": 8301,
-      "sha256": "12176f47a80112e90409bd858864e0e36592de6e52a60e5c1d8ab034569eee41"
+      "sizeBytes": 9207,
+      "sha256": "8eff37ffd84202c049ebda475ef22ce5175d474aa84f7b4d30936c0a0b911b14"
     },
     {
       "path": "dist/cli/intentRuntime.d.ts",
-      "sizeBytes": 846,
-      "sha256": "9df958e592877cbf4ea4037110a8c3ed42c9a7ae98845c7ea039481d7d8b39b3"
+      "sizeBytes": 3679,
+      "sha256": "2941957647d34aad4d05c8e7ead1c56c53253d8794d3fa6b7a2b68be390cdaeb"
     },
     {
       "path": "src/cli/intentRuntime.ts",
-      "sizeBytes": 4877,
-      "sha256": "8ec93528e4611fa86ba213e17a80c78615a50a01e2cd9440fb9e15aeb83b0445"
+      "sizeBytes": 13948,
+      "sha256": "ee546c1f51c1d896d3176eb5b37eac1a48a7992f8ab7a9ee6dab4a792c42abf6"
+    },
+    {
+      "path": "dist/cli/intentSmokeCases.d.ts",
+      "sizeBytes": 337,
+      "sha256": "d3a0809ad489635cb567005d0e29b024acfc4b480474d81e379c0e98b1b2ba48"
+    },
+    {
+      "path": "src/cli/intentSmokeCases.ts",
+      "sizeBytes": 2939,
+      "sha256": "b6939c7182cf90b73da1fa279c1d44aee97086deb5280ade2e47c57e197fef44"
     },
     {
       "path": "src/alphalib/typings/json-to-ast.d.ts",
