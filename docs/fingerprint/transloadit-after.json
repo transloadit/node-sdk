@@ -1,5 +1,5 @@
 {
-  "packageDir": "/home/kvz/code/node-sdk/packages/transloadit",
+  "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.1.2.tgz",
     "sizeBytes": 1110470,

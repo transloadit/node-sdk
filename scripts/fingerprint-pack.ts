@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { resolve } from 'node:path'
+import { relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
@@ -112,6 +112,11 @@ const runWithConcurrency = async <T, R>(
   return results
 }
 
+const normalizePackageDir = (cwd: string): string => {
+  const normalized = relative(process.cwd(), cwd).split(sep).join('/')
+  return normalized === '' ? '.' : normalized
+}
+
 const main = async (): Promise<void> => {
   const { target, out, keep, ignoreScripts, quiet } = parseArgs()
   const cwd = resolve(process.cwd(), target)
@@ -153,7 +158,7 @@ const main = async (): Promise<void> => {
     const packageJson = JSON.parse(packageJsonRaw)
 
     const summary = {
-      packageDir: cwd,
+      packageDir: normalizePackageDir(cwd),
       tarball: {
         filename: info.filename,
         sizeBytes: tarballStat.size,

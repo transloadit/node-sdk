@@ -70,8 +70,7 @@
     "src": "./src"
   },
   "scripts": {
-    "sync:intents": "node scripts/generate-intent-commands.ts",
-    "check": "yarn sync:intents && yarn lint:ts && yarn fix && yarn test:unit",
+    "check": "yarn lint:ts && yarn test:unit",
     "fix:js": "biome check --write .",
     "lint:ts": "yarn --cwd ../.. tsc:node",
     "fix:js:unsafe": "biome check --write . --unsafe",
@@ -81,9 +80,9 @@
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
     "prepack": "node ../../scripts/prepare-transloadit.ts",
-    "test:unit": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage ./test/unit",
-    "test:e2e": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run ./test/e2e",
-    "test": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage"
+    "test:unit": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage --passWithNoTests ./test/unit",
+    "test:e2e": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --passWithNoTests ./test/e2e",
+    "test": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage --passWithNoTests"
   },
   "license": "MIT",
   "main": "./dist/Transloadit.js",
