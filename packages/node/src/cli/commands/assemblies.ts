@@ -355,6 +355,24 @@ async function myStat(
   return await fsp.stat(filepath)
 }
 
+function createInputJobStream(filepath: string): Readable | null {
+  const normalizedFile = path.normalize(filepath)
+
+  if (normalizedFile === '-') {
+    if (tty.isatty(process.stdin.fd)) {
+      return null
+    }
+
+    return process.stdin
+  }
+
+  const instream = fs.createReadStream(normalizedFile)
+  // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
+  // before being consumed (e.g., due to output collision detection)
+  instream.on('error', () => {})
+  return instream
+}
+
 function createOutputPlan(pathname: string | undefined, mtime: Date): OutputPlan {
   if (pathname == null) {
     return {
@@ -738,10 +756,7 @@ class ReaddirJobEmitter extends MyEventEmitter {
       }
     } else {
       const outputPlan = await outputPlanProvider(file, topdir)
-      const instream = fs.createReadStream(file)
-      // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-      // before being consumed (e.g., due to output collision detection)
-      instream.on('error', () => {})
+      const instream = createInputJobStream(file)
       this.emit('job', { in: instream, out: outputPlan })
     }
   }
@@ -753,19 +768,7 @@ class SingleJobEmitter extends MyEventEmitter {
 
     const normalizedFile = path.normalize(file)
     outputPlanProvider(normalizedFile).then((outputPlan) => {
-      let instream: Readable | null
-      if (normalizedFile === '-') {
-        if (tty.isatty(process.stdin.fd)) {
-          instream = null
-        } else {
-          instream = process.stdin
-        }
-      } else {
-        instream = fs.createReadStream(normalizedFile)
-        // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-        // before being consumed (e.g., due to output collision detection)
-        instream.on('error', () => {})
-      }
+      const instream = createInputJobStream(normalizedFile)
 
       process.nextTick(() => {
         this.emit('job', { in: instream, out: outputPlan })
@@ -857,11 +860,7 @@ class WatchJobEmitter extends MyEventEmitter {
     if (stats.isDirectory()) return
 
     const outputPlan = await outputPlanProvider(normalizedFile, topdir)
-
-    const instream = fs.createReadStream(normalizedFile)
-    // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-    // before being consumed (e.g., due to output collision detection)
-    instream.on('error', () => {})
+    const instream = createInputJobStream(normalizedFile)
     this.emit('job', { in: instream, out: outputPlan })
   }
 }

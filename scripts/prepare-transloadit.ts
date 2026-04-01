@@ -34,6 +34,29 @@ const writeLegacyPackageJson = async (): Promise<void> => {
     () => null,
   )
   const scripts = { ...(nodePackageJson.scripts ?? {}) }
+  delete scripts['sync:intents']
+  if (scripts.check != null) {
+    scripts.check = scripts.check.replace('yarn sync:intents && ', '')
+    scripts.check = scripts.check.replace(' && yarn fix', '')
+  }
+  if (scripts['test:unit'] != null) {
+    scripts['test:unit'] = scripts['test:unit'].replace(
+      'vitest run --coverage ./test/unit',
+      'vitest run --coverage --passWithNoTests ./test/unit',
+    )
+  }
+  if (scripts['test:e2e'] != null) {
+    scripts['test:e2e'] = scripts['test:e2e'].replace(
+      'vitest run ./test/e2e',
+      'vitest run --passWithNoTests ./test/e2e',
+    )
+  }
+  if (scripts.test != null) {
+    scripts.test = scripts.test.replace(
+      'vitest run --coverage',
+      'vitest run --coverage --passWithNoTests',
+    )
+  }
   scripts.prepack = 'node ../../scripts/prepare-transloadit.ts'
   const legacyPackageJson: PackageJson = {
     ...nodePackageJson,
