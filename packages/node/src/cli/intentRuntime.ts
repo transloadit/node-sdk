@@ -405,19 +405,45 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
     return 1
   }
 
-  protected async runWithPreparedInputs(
+  protected validateBeforePreparingInputs(
+    rawValues: Record<string, string | undefined>,
+  ): number | undefined {
+    return this.validateInputPresence(rawValues)
+  }
+
+  protected validatePreparedInputs(_preparedInputs: PreparedIntentInputs): number | undefined {
+    return undefined
+  }
+
+  protected async executePreparedInputs(
     rawValues: Record<string, string | undefined>,
     preparedInputs: PreparedIntentInputs,
   ): Promise<number | undefined> {
+    return await executeFileIntentCommand({
+      client: this.client,
+      createOptions: this.getCreateOptions(preparedInputs.inputs),
+      definition: this.intentDefinition,
+      output: this.output,
+      outputPath: this.outputPath,
+      rawValues,
+    })
+  }
+
+  protected override async run(): Promise<number | undefined> {
+    const rawValues = this.getIntentRawValues()
+    const validationError = this.validateBeforePreparingInputs(rawValues)
+    if (validationError != null) {
+      return validationError
+    }
+
+    const preparedInputs = await this.prepareInputs()
     try {
-      return await executeFileIntentCommand({
-        client: this.client,
-        createOptions: this.getCreateOptions(preparedInputs.inputs),
-        definition: this.intentDefinition,
-        output: this.output,
-        outputPath: this.outputPath,
-        rawValues,
-      })
+      const preparedInputError = this.validatePreparedInputs(preparedInputs)
+      if (preparedInputError != null) {
+        return preparedInputError
+      }
+
+      return await this.executePreparedInputs(rawValues, preparedInputs)
     } finally {
       await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
     }
@@ -449,8 +475,9 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
     }
   }
 
-  protected override async run(): Promise<number | undefined> {
-    const rawValues = this.getIntentRawValues()
+  protected override validateBeforePreparingInputs(
+    rawValues: Record<string, string | undefined>,
+  ): number | undefined {
     const validationError = this.validateInputPresence(rawValues)
     if (validationError != null) {
       return validationError
@@ -460,14 +487,17 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
       this.output.error('--single-assembly cannot be used with --watch')
       return 1
     }
+    return undefined
+  }
 
-    const preparedInputs = await this.prepareInputs()
+  protected override validatePreparedInputs(
+    preparedInputs: PreparedIntentInputs,
+  ): number | undefined {
     if (this.watch && preparedInputs.hasTransientInputs) {
       this.output.error('--watch is only supported for filesystem inputs')
       return 1
     }
-
-    return await this.runWithPreparedInputs(rawValues, preparedInputs)
+    return undefined
   }
 }
 
@@ -479,16 +509,5 @@ export abstract class GeneratedBundledFileIntentCommand extends GeneratedFileInt
       ...super.getCreateOptions(inputs),
       singleAssembly: true,
     }
-  }
-
-  protected override async run(): Promise<number | undefined> {
-    const rawValues = this.getIntentRawValues()
-    const validationError = this.validateInputPresence(rawValues)
-    if (validationError != null) {
-      return validationError
-    }
-
-    const preparedInputs = await this.prepareInputs()
-    return await this.runWithPreparedInputs(rawValues, preparedInputs)
   }
 }

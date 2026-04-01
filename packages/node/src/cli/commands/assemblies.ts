@@ -487,6 +487,130 @@ function flattenAssemblyResults(results: Record<string, Array<AssemblyResultFile
   return { allFiles, entries }
 }
 
+function getResultFileName({ file, stepName }: AssemblyResultFile): string {
+  const rawName =
+    file.name ??
+    (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
+    `${stepName}_result`
+
+  return sanitizeResultName(rawName)
+}
+
+interface AssemblyDownloadTarget {
+  resultUrl: string
+  targetPath: string
+}
+
+async function buildDirectoryDownloadTargets({
+  allFiles,
+  baseDir,
+  groupByStep,
+}: {
+  allFiles: AssemblyResultFile[]
+  baseDir: string
+  groupByStep: boolean
+}): Promise<AssemblyDownloadTarget[]> {
+  await fsp.mkdir(baseDir, { recursive: true })
+
+  const targets: AssemblyDownloadTarget[] = []
+  for (const resultFile of allFiles) {
+    const resultUrl = getResultFileUrl(resultFile.file)
+    if (resultUrl == null) {
+      continue
+    }
+
+    const targetDir = groupByStep ? path.join(baseDir, resultFile.stepName) : baseDir
+    await fsp.mkdir(targetDir, { recursive: true })
+
+    targets.push({
+      resultUrl,
+      targetPath: await ensureUniquePath(path.join(targetDir, getResultFileName(resultFile))),
+    })
+  }
+
+  return targets
+}
+
+async function resolveResultDownloadTargets({
+  allFiles,
+  entries,
+  hasDirectoryInput,
+  inPath,
+  inputs,
+  outputMode,
+  outputPath,
+  outputRoot,
+  outputRootIsDirectory,
+  singleAssembly,
+}: {
+  allFiles: AssemblyResultFile[]
+  entries: Array<[string, Array<AssemblyResultFile['file']>]>
+  hasDirectoryInput: boolean
+  inPath: string | null
+  inputs: string[]
+  outputMode?: 'directory' | 'file'
+  outputPath: string | null
+  outputRoot: string
+  outputRootIsDirectory: boolean
+  singleAssembly?: boolean
+}): Promise<AssemblyDownloadTarget[]> {
+  const shouldGroupByInput =
+    !singleAssembly && inPath != null && (hasDirectoryInput || inputs.length > 1)
+
+  const resolveDirectoryBaseDir = (): string => {
+    if (!shouldGroupByInput || inPath == null) {
+      return outputRoot
+    }
+
+    if (hasDirectoryInput && outputPath != null) {
+      const mappedRelative = path.relative(outputRoot, outputPath)
+      const mappedDir = path.dirname(mappedRelative)
+      const mappedStem = path.parse(mappedRelative).name
+      return path.join(outputRoot, mappedDir === '.' ? '' : mappedDir, mappedStem)
+    }
+
+    return path.join(outputRoot, path.parse(path.basename(inPath)).name)
+  }
+
+  if (!outputRootIsDirectory) {
+    if (outputPath == null) {
+      return []
+    }
+
+    const first = allFiles[0]
+    const resultUrl = first == null ? null : getResultFileUrl(first.file)
+    return resultUrl == null ? [] : [{ resultUrl, targetPath: outputPath }]
+  }
+
+  if (singleAssembly) {
+    return await buildDirectoryDownloadTargets({
+      allFiles,
+      baseDir: outputRoot,
+      groupByStep: false,
+    })
+  }
+
+  if (outputMode === 'directory' || outputPath == null) {
+    return await buildDirectoryDownloadTargets({
+      allFiles,
+      baseDir: resolveDirectoryBaseDir(),
+      groupByStep: entries.length > 1,
+    })
+  }
+
+  if (allFiles.length === 1) {
+    const first = allFiles[0]
+    const resultUrl = first == null ? null : getResultFileUrl(first.file)
+    return resultUrl == null ? [] : [{ resultUrl, targetPath: outputPath }]
+  }
+
+  return await buildDirectoryDownloadTargets({
+    allFiles,
+    baseDir: path.join(path.dirname(outputPath), path.parse(outputPath).name),
+    groupByStep: true,
+  })
+}
+
 async function materializeAssemblyResults({
   abortSignal,
   hasDirectoryInput,
@@ -517,122 +641,29 @@ async function materializeAssemblyResults({
   }
 
   const { allFiles, entries } = flattenAssemblyResults(results)
-  const shouldGroupByInput =
-    !singleAssembly && inPath != null && (hasDirectoryInput || inputs.length > 1)
-  const useIntentDirectoryLayout = outputMode === 'directory'
+  const targets = await resolveResultDownloadTargets({
+    allFiles,
+    entries,
+    hasDirectoryInput,
+    inPath,
+    inputs,
+    outputMode,
+    outputPath,
+    outputRoot,
+    outputRootIsDirectory,
+    singleAssembly,
+  })
 
-  const downloadResultFile = async (resultUrl: string, targetPath: string): Promise<void> => {
+  for (const { resultUrl, targetPath } of targets) {
     outputctl.debug('DOWNLOADING')
     const [dlErr] = await tryCatch(downloadResultToFile(resultUrl, targetPath, abortSignal))
     if (dlErr) {
       if (dlErr.name === 'AbortError') {
-        return
+        continue
       }
       outputctl.error(dlErr.message)
       throw dlErr
     }
-  }
-
-  const resolveDirectoryBaseDir = (): string => {
-    if (!shouldGroupByInput || inPath == null) {
-      return outputRoot
-    }
-
-    if (hasDirectoryInput && outputPath != null) {
-      const mappedRelative = path.relative(outputRoot, outputPath)
-      const mappedDir = path.dirname(mappedRelative)
-      const mappedStem = path.parse(mappedRelative).name
-      return path.join(outputRoot, mappedDir === '.' ? '' : mappedDir, mappedStem)
-    }
-
-    return path.join(outputRoot, path.parse(path.basename(inPath)).name)
-  }
-
-  if (!outputRootIsDirectory) {
-    if (outputPath == null) {
-      return
-    }
-
-    const first = allFiles[0]
-    const resultUrl = first == null ? null : getResultFileUrl(first.file)
-    if (resultUrl != null) {
-      await downloadResultFile(resultUrl, outputPath)
-    }
-    return
-  }
-
-  if (singleAssembly) {
-    await fsp.mkdir(outputRoot, { recursive: true })
-    for (const { stepName, file } of allFiles) {
-      const resultUrl = getResultFileUrl(file)
-      if (resultUrl == null) {
-        continue
-      }
-
-      const rawName =
-        file.name ??
-        (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
-        `${stepName}_result`
-      const safeName = sanitizeResultName(rawName)
-      const targetPath = await ensureUniquePath(path.join(outputRoot, safeName))
-      await downloadResultFile(resultUrl, targetPath)
-    }
-    return
-  }
-
-  if (useIntentDirectoryLayout || outputPath == null) {
-    const baseDir = resolveDirectoryBaseDir()
-    await fsp.mkdir(baseDir, { recursive: true })
-    const shouldUseStepDirectories = entries.length > 1
-
-    for (const { stepName, file } of allFiles) {
-      const resultUrl = getResultFileUrl(file)
-      if (resultUrl == null) {
-        continue
-      }
-
-      const targetDir = shouldUseStepDirectories ? path.join(baseDir, stepName) : baseDir
-      await fsp.mkdir(targetDir, { recursive: true })
-
-      const rawName =
-        file.name ??
-        (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
-        `${stepName}_result`
-      const safeName = sanitizeResultName(rawName)
-      const targetPath = await ensureUniquePath(path.join(targetDir, safeName))
-      await downloadResultFile(resultUrl, targetPath)
-    }
-
-    return
-  }
-
-  if (allFiles.length === 1) {
-    const first = allFiles[0]
-    const resultUrl = first == null ? null : getResultFileUrl(first.file)
-    if (resultUrl != null) {
-      await downloadResultFile(resultUrl, outputPath)
-    }
-    return
-  }
-
-  const legacyBaseDir = path.join(path.dirname(outputPath), path.parse(outputPath).name)
-
-  for (const { stepName, file } of allFiles) {
-    const resultUrl = getResultFileUrl(file)
-    if (resultUrl == null) {
-      continue
-    }
-
-    const targetDir = path.join(legacyBaseDir, stepName)
-    await fsp.mkdir(targetDir, { recursive: true })
-
-    const rawName =
-      file.name ??
-      (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
-      `${stepName}_result`
-    const safeName = sanitizeResultName(rawName)
-    const targetPath = await ensureUniquePath(path.join(targetDir, safeName))
-    await downloadResultFile(resultUrl, targetPath)
   }
 }
 
@@ -1219,28 +1250,23 @@ export async function create(
     let hasFailures = false
     // AbortController to cancel all in-flight createAssembly calls when an error occurs
     const abortController = new AbortController()
+    const outputRootIsDirectory = Boolean(resolvedOutput != null && outstat?.isDirectory())
 
-    // Helper to process a single assembly job
-    async function processAssemblyJob(
-      inPath: string | null,
-      outputPlan: OutputPlan | null,
-    ): Promise<unknown> {
-      outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
-
-      // Create fresh streams for this job
-      const inStream = inPath ? fs.createReadStream(inPath) : null
-      inStream?.on('error', () => {})
-
+    function createAssemblyOptions(uploads?: Record<string, Readable>): CreateAssemblyOptions {
       const createOptions: CreateAssemblyOptions = {
         params,
         signal: abortController.signal,
       }
-      if (inStream != null) {
-        createOptions.uploads = { in: inStream }
+      if (uploads != null && Object.keys(uploads).length > 0) {
+        createOptions.uploads = uploads
       }
+      return createOptions
+    }
 
+    async function awaitCompletedAssembly(
+      createOptions: CreateAssemblyOptions,
+    ): Promise<Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>> {
       const result = await client.createAssembly(createOptions)
-
       const assemblyId = result.assembly_id
       if (!assemblyId) throw new Error('No assembly_id in result')
 
@@ -1258,27 +1284,65 @@ export async function create(
         throw new Error(msg)
       }
 
+      return assembly
+    }
+
+    async function executeAssemblyLifecycle({
+      createOptions,
+      inPath,
+      inputPaths,
+      outputPlan,
+      singleAssemblyMode,
+    }: {
+      createOptions: CreateAssemblyOptions
+      inPath: string | null
+      inputPaths: string[]
+      outputPlan: OutputPlan | null
+      singleAssemblyMode?: boolean
+    }): Promise<unknown> {
+      outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
+
+      const assembly = await awaitCompletedAssembly(createOptions)
       if (!assembly.results) throw new Error('No results in assembly')
 
       await materializeAssemblyResults({
         abortSignal: abortController.signal,
-        hasDirectoryInput,
+        hasDirectoryInput: singleAssemblyMode ? false : hasDirectoryInput,
         inPath,
-        inputs,
+        inputs: inputPaths,
         outputMode,
         outputPath: outputPlan?.path ?? null,
         outputRoot: resolvedOutput ?? null,
-        outputRootIsDirectory: Boolean(resolvedOutput != null && outstat?.isDirectory()),
+        outputRootIsDirectory,
         outputctl,
         results: assembly.results,
+        singleAssembly: singleAssemblyMode,
       })
 
       outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
 
-      if (del && inPath) {
-        await fsp.unlink(inPath)
+      if (del) {
+        for (const inputPath of inputPaths) {
+          await fsp.unlink(inputPath)
+        }
       }
       return assembly
+    }
+
+    // Helper to process a single assembly job
+    async function processAssemblyJob(
+      inPath: string | null,
+      outputPlan: OutputPlan | null,
+    ): Promise<unknown> {
+      const inStream = inPath ? fs.createReadStream(inPath) : null
+      inStream?.on('error', () => {})
+
+      return await executeAssemblyLifecycle({
+        createOptions: createAssemblyOptions(inStream == null ? undefined : { in: inStream }),
+        inPath,
+        inputPaths: inPath == null ? [] : [inPath],
+        outputPlan,
+      })
     }
 
     if (singleAssembly) {
@@ -1329,54 +1393,18 @@ export async function create(
 
         try {
           const assembly = await queue.add(async () => {
-            const createOptions: CreateAssemblyOptions = {
-              params,
-              signal: abortController.signal,
-            }
-            if (Object.keys(uploads).length > 0) {
-              createOptions.uploads = uploads
-            }
-
-            const result = await client.createAssembly(createOptions)
-            const assemblyId = result.assembly_id
-            if (!assemblyId) throw new Error('No assembly_id in result')
-
-            const asm = await client.awaitAssemblyCompletion(assemblyId, {
-              signal: abortController.signal,
-              onAssemblyProgress: (status) => {
-                outputctl.debug(`Assembly status: ${status.ok}`)
-              },
+            return await executeAssemblyLifecycle({
+              createOptions: createAssemblyOptions(uploads),
+              inPath: null,
+              inputPaths,
+              outputPlan:
+                resolvedOutput == null
+                  ? null
+                  : outputRootIsDirectory
+                    ? { kind: 'file', mtime: new Date(0), path: resolvedOutput }
+                    : { kind: 'file', mtime: new Date(0), path: resolvedOutput },
+              singleAssemblyMode: true,
             })
-
-            if (asm.error || (asm.ok && asm.ok !== 'ASSEMBLY_COMPLETED')) {
-              const msg = `Assembly failed: ${asm.error || asm.message} (Status: ${asm.ok})`
-              outputctl.error(msg)
-              throw new Error(msg)
-            }
-
-            if (asm.results) {
-              await materializeAssemblyResults({
-                abortSignal: abortController.signal,
-                hasDirectoryInput: false,
-                inPath: null,
-                inputs: inputPaths,
-                outputMode,
-                outputPath: resolvedOutput ?? null,
-                outputRoot: resolvedOutput ?? null,
-                outputRootIsDirectory: Boolean(resolvedOutput != null && outstat?.isDirectory()),
-                outputctl,
-                results: asm.results,
-                singleAssembly: true,
-              })
-            }
-
-            // Delete input files if requested
-            if (del) {
-              for (const inPath of inputPaths) {
-                await fsp.unlink(inPath)
-              }
-            }
-            return asm
           })
           results.push(assembly)
         } catch (err) {
