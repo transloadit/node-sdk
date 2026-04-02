@@ -7,6 +7,7 @@ import type {
   IntentInputMode,
   IntentOutputMode,
   RobotIntentDefinition,
+  SemanticIntentDefinition,
 } from './intentCommandSpecs.ts'
 import { getIntentPaths, getIntentResultStepName, intentCatalog } from './intentCommandSpecs.ts'
 import type { IntentFieldKind, IntentFieldSpec } from './intentFields.ts'
@@ -44,14 +45,24 @@ export interface ResolvedIntentSingleStepExecution {
   resultStepName: string
 }
 
+export interface ResolvedIntentDynamicExecution {
+  fields: GeneratedSchemaField[]
+  handler: 'image-describe'
+  kind: 'dynamic-step'
+  resultStepName: string
+}
+
 export interface ResolvedIntentTemplateExecution {
   kind: 'template'
   templateId: string
 }
 
 export type ResolvedIntentExecution =
+  | ResolvedIntentDynamicExecution
   | ResolvedIntentSingleStepExecution
   | ResolvedIntentTemplateExecution
+
+export type ResolvedIntentRunnerKind = 'bundled' | 'no-input' | 'standard' | 'watchable'
 
 export interface ResolvedIntentCommandSpec {
   className: string
@@ -65,6 +76,7 @@ export interface ResolvedIntentCommandSpec {
   outputDescription: string
   outputMode?: IntentOutputMode
   paths: string[]
+  runnerKind: ResolvedIntentRunnerKind
   schemaSpec?: ResolvedIntentSchemaSpec
 }
 
@@ -461,7 +473,82 @@ function resolveRobotIntentSpec(definition: RobotIntentDefinition): ResolvedInte
     outputDescription: analysis.outputDescription,
     outputMode: analysis.outputMode,
     paths: analysis.paths,
+    runnerKind:
+      analysis.input.kind === 'none'
+        ? 'no-input'
+        : analysis.input.defaultSingleAssembly
+          ? 'bundled'
+          : 'standard',
     schemaSpec: analysis.schemaSpec,
+  }
+}
+
+function resolveImageDescribeIntentSpec(
+  definition: SemanticIntentDefinition,
+): ResolvedIntentCommandSpec {
+  const paths = getIntentPaths(definition)
+
+  return {
+    className: `${toPascalCase(paths)}Command`,
+    commandLabel: paths.join(' '),
+    description: 'Describe images as labels or publishable text fields',
+    details:
+      'Generates image labels through `/image/describe`, or structured altText/title/caption/description through `/ai/chat`, then writes the JSON result to `--out`.',
+    examples: [
+      [
+        'Describe an image as labels',
+        'transloadit image describe --input hero.jpg --out labels.json',
+      ],
+      [
+        'Generate WordPress-ready fields',
+        'transloadit image describe --input hero.jpg --for wordpress --out fields.json',
+      ],
+      [
+        'Request a custom field set',
+        'transloadit image describe --input hero.jpg --fields altText,title,caption --out fields.json',
+      ],
+    ],
+    execution: {
+      kind: 'dynamic-step',
+      handler: 'image-describe',
+      resultStepName: 'describe',
+      fields: [
+        {
+          name: 'fields',
+          kind: 'string-array',
+          propertyName: 'fields',
+          optionFlags: '--fields',
+          description:
+            'Describe output fields to generate, for example labels or altText,title,caption,description',
+          required: false,
+        },
+        {
+          name: 'forProfile',
+          kind: 'string',
+          propertyName: 'forProfile',
+          optionFlags: '--for',
+          description: 'Use a named output profile, currently: wordpress',
+          required: false,
+        },
+        {
+          name: 'model',
+          kind: 'string',
+          propertyName: 'model',
+          optionFlags: '--model',
+          description:
+            'Model to use for generated text fields (default: anthropic/claude-sonnet-4-5)',
+          required: false,
+        },
+      ],
+    },
+    fieldSpecs: [],
+    input: inferInputSpecFromAnalysis({
+      inputMode: 'local-files',
+      inputPolicy: { kind: 'required' },
+    }),
+    outputDescription: 'Write the JSON result to this path or directory',
+    paths,
+    runnerKind: 'watchable',
   }
 }
 
@@ -494,12 +581,17 @@ function resolveTemplateIntentSpec(
         : 'Write the result to this path or directory',
     outputMode,
     paths,
+    runnerKind: 'standard',
   }
 }
 
 export function resolveIntentCommandSpec(definition: IntentDefinition): ResolvedIntentCommandSpec {
   if (definition.kind === 'robot') {
     return resolveRobotIntentSpec(definition)
+  }
+
+  if (definition.kind === 'semantic') {
+    return resolveImageDescribeIntentSpec(definition)
   }
 
   return resolveTemplateIntentSpec(definition)

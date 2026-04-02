@@ -11,7 +11,7 @@ import {
   ZodUnion,
 } from 'zod'
 
-export type IntentFieldKind = 'auto' | 'boolean' | 'json' | 'number' | 'string'
+export type IntentFieldKind = 'auto' | 'boolean' | 'json' | 'number' | 'string' | 'string-array'
 
 export interface IntentFieldSpec {
   kind: IntentFieldKind
@@ -167,6 +167,14 @@ export function coerceIntentFieldValue(
     if (raw === 'true') return true
     if (raw === 'false') return false
     throw new Error(`Expected "true" or "false" but received "${raw}"`)
+  }
+
+  if (kind === 'string-array') {
+    if (Array.isArray(raw)) {
+      return raw
+    }
+
+    return [String(raw)]
   }
 
   return raw

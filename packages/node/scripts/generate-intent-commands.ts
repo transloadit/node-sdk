@@ -28,21 +28,24 @@ function formatFieldDefinitionsName(spec: ResolvedIntentCommandSpec): string {
   return `${spec.className[0]?.toLowerCase() ?? ''}${spec.className.slice(1)}Fields`
 }
 
-function formatSchemaFields(
-  fieldSpecs: GeneratedSchemaField[],
-  spec: ResolvedIntentCommandSpec,
-): string {
-  return fieldSpecs
+function getOptionFields(spec: ResolvedIntentCommandSpec): readonly GeneratedSchemaField[] {
+  if (spec.execution.kind === 'dynamic-step') {
+    return spec.execution.fields
+  }
+
+  return spec.fieldSpecs
+}
+
+function formatSchemaFields(spec: ResolvedIntentCommandSpec): string {
+  return getOptionFields(spec)
     .map((fieldSpec) => {
       return `  ${fieldSpec.propertyName} = createIntentOption(${formatFieldDefinitionsName(spec)}.${fieldSpec.propertyName})`
     })
     .join('\n\n')
 }
 
-function formatFieldDefinitions(
-  fieldSpecs: GeneratedSchemaField[],
-  spec: ResolvedIntentCommandSpec,
-): string {
+function formatFieldDefinitions(spec: ResolvedIntentCommandSpec): string {
+  const fieldSpecs = getOptionFields(spec)
   if (fieldSpecs.length === 0) {
     return ''
   }
@@ -82,12 +85,16 @@ function getCommandDefinitionName(spec: ResolvedIntentCommandSpec): string {
 }
 
 function getBaseClassName(spec: ResolvedIntentCommandSpec): string {
-  if (spec.input.kind === 'none') {
+  if (spec.runnerKind === 'no-input') {
     return 'GeneratedNoInputIntentCommand'
   }
 
-  if (spec.input.defaultSingleAssembly) {
+  if (spec.runnerKind === 'bundled') {
     return 'GeneratedBundledFileIntentCommand'
+  }
+
+  if (spec.runnerKind === 'watchable') {
+    return 'GeneratedWatchableFileIntentCommand'
   }
 
   return 'GeneratedStandardFileIntentCommand'
@@ -120,6 +127,29 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
 } as const`
   }
 
+  if (spec.execution.kind === 'dynamic-step') {
+    const commandLabelLine =
+      spec.input.kind === 'local-files'
+        ? `\n  commandLabel: ${JSON.stringify(spec.commandLabel)},`
+        : ''
+    const inputPolicyLine =
+      spec.input.kind === 'local-files'
+        ? `\n  inputPolicy: ${JSON.stringify(spec.input.inputPolicy, null, 4).replaceAll('\n', '\n  ')},`
+        : ''
+    const outputMode =
+      spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
+
+    return `const ${getCommandDefinitionName(spec)} = {${commandLabelLine}${inputPolicyLine}${outputMode}
+  outputDescription: ${JSON.stringify(spec.outputDescription)},
+  execution: {
+    kind: 'dynamic-step',
+    handler: ${JSON.stringify(spec.execution.handler)},
+    fields: Object.values(${formatFieldDefinitionsName(spec)}),
+    resultStepName: ${JSON.stringify(spec.execution.resultStepName)},
+  },
+} as const`
+  }
+
   const outputMode =
     spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
   return `const ${getCommandDefinitionName(spec)} = {
@@ -134,7 +164,7 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
 }
 
 function generateClass(spec: ResolvedIntentCommandSpec): string {
-  const schemaFields = formatSchemaFields(spec.fieldSpecs, spec)
+  const schemaFields = formatSchemaFields(spec)
   const baseClassName = getBaseClassName(spec)
 
   return `
@@ -159,7 +189,7 @@ ${schemaFields}
 
 function generateFile(specs: ResolvedIntentCommandSpec[]): string {
   const fieldDefinitions = specs
-    .map((spec) => formatFieldDefinitions(spec.fieldSpecs, spec))
+    .map((spec) => formatFieldDefinitions(spec))
     .filter((definition) => definition.length > 0)
   const commandDefinitions = specs.map(formatIntentDefinition)
   const commandClasses = specs.map(generateClass)
@@ -176,6 +206,7 @@ import {
   GeneratedBundledFileIntentCommand,
   GeneratedNoInputIntentCommand,
   GeneratedStandardFileIntentCommand,
+  GeneratedWatchableFileIntentCommand,
 } from '../intentRuntime.ts'
 ${fieldDefinitions.join('\n\n')}
 ${commandDefinitions.join('\n\n')}

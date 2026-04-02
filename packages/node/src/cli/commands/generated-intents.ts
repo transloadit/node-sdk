@@ -22,6 +22,7 @@ import {
   GeneratedBundledFileIntentCommand,
   GeneratedNoInputIntentCommand,
   GeneratedStandardFileIntentCommand,
+  GeneratedWatchableFileIntentCommand,
 } from '../intentRuntime.ts'
 
 const imageGenerateCommandFields = {
@@ -1283,6 +1284,31 @@ const videoThumbsCommandFields = {
   },
 } as const
 
+const imageDescribeCommandFields = {
+  fields: {
+    name: 'fields',
+    kind: 'string-array',
+    propertyName: 'fields',
+    optionFlags: '--fields',
+    description:
+      'Describe output fields to generate, for example labels or altText,title,caption,description',
+  },
+  forProfile: {
+    name: 'forProfile',
+    kind: 'string',
+    propertyName: 'forProfile',
+    optionFlags: '--for',
+    description: 'Use a named output profile, currently: wordpress',
+  },
+  model: {
+    name: 'model',
+    kind: 'string',
+    propertyName: 'model',
+    optionFlags: '--model',
+    description: 'Model to use for generated text fields (default: anthropic/claude-sonnet-4-5)',
+  },
+} as const
+
 const fileCompressCommandFields = {
   format: {
     name: 'format',
@@ -1576,6 +1602,20 @@ const videoEncodeHlsCommandDefinition = {
   execution: {
     kind: 'template',
     templateId: 'builtin/encode-hls-video@latest',
+  },
+} as const
+
+const imageDescribeCommandDefinition = {
+  commandLabel: 'image describe',
+  inputPolicy: {
+    kind: 'required',
+  },
+  outputDescription: 'Write the JSON result to this path or directory',
+  execution: {
+    kind: 'dynamic-step',
+    handler: 'image-describe',
+    fields: Object.values(imageDescribeCommandFields),
+    resultStepName: 'describe',
   },
 } as const
 
@@ -2133,6 +2173,39 @@ class VideoEncodeHlsCommand extends GeneratedStandardFileIntentCommand {
   })
 }
 
+class ImageDescribeCommand extends GeneratedWatchableFileIntentCommand {
+  static override paths = [['image', 'describe']]
+
+  static override intentDefinition = imageDescribeCommandDefinition
+
+  static override usage = Command.Usage({
+    category: 'Intent Commands',
+    description: 'Describe images as labels or publishable text fields',
+    details:
+      'Generates image labels through `/image/describe`, or structured altText/title/caption/description through `/ai/chat`, then writes the JSON result to `--out`.',
+    examples: [
+      [
+        'Describe an image as labels',
+        'transloadit image describe --input hero.jpg --out labels.json',
+      ],
+      [
+        'Generate WordPress-ready fields',
+        'transloadit image describe --input hero.jpg --for wordpress --out fields.json',
+      ],
+      [
+        'Request a custom field set',
+        'transloadit image describe --input hero.jpg --fields altText,title,caption --out fields.json',
+      ],
+    ],
+  })
+
+  fields = createIntentOption(imageDescribeCommandFields.fields)
+
+  forProfile = createIntentOption(imageDescribeCommandFields.forProfile)
+
+  model = createIntentOption(imageDescribeCommandFields.model)
+}
+
 class FileCompressCommand extends GeneratedBundledFileIntentCommand {
   static override paths = [['file', 'compress']]
 
@@ -2187,6 +2260,7 @@ export const intentCommands = [
   TextSpeakCommand,
   VideoThumbsCommand,
   VideoEncodeHlsCommand,
+  ImageDescribeCommand,
   FileCompressCommand,
   FileDecompressCommand,
 ] as const

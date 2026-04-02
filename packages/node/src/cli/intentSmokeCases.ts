@@ -64,6 +64,11 @@ const intentSmokeOverrides: Record<string, Omit<IntentSmokeCase, 'key' | 'paths'
     outputPath: 'image-generate.png',
     verifier: 'png',
   },
+  'image-describe:image/describe': {
+    args: ['--input', '@fixture/input.jpg'],
+    outputPath: 'image-describe.json',
+    verifier: 'json',
+  },
   '/image/optimize': {
     args: ['--input', '@fixture/input.jpg'],
     outputPath: 'image-optimize.jpg',

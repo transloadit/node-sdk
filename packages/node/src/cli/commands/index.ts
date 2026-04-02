@@ -16,7 +16,6 @@ import { SignatureCommand, SmartCdnSignatureCommand, TokenCommand } from './auth
 import { BillsGetCommand } from './bills.ts'
 import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
 import { intentCommands } from './generated-intents.ts'
-import { ImageDescribeCommand } from './image-describe.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
 import {
   TemplatesCreateCommand,
@@ -74,7 +73,6 @@ export function createCli(): Cli {
   cli.register(DocsRobotsGetCommand)
 
   // Intent-first commands
-  cli.register(ImageDescribeCommand)
   for (const command of intentCommands) {
     cli.register(command)
   }

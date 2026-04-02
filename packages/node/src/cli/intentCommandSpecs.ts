@@ -84,7 +84,16 @@ export interface TemplateIntentDefinition extends IntentBaseDefinition {
   templateId: string
 }
 
-export type IntentDefinition = RobotIntentDefinition | TemplateIntentDefinition
+export interface SemanticIntentDefinition extends IntentBaseDefinition {
+  kind: 'semantic'
+  paths: string[]
+  semantic: 'image-describe'
+}
+
+export type IntentDefinition =
+  | RobotIntentDefinition
+  | TemplateIntentDefinition
+  | SemanticIntentDefinition
 
 const commandPathAliases = new Map([
   ['autorotate', 'auto-rotate'],
@@ -99,12 +108,20 @@ function defineTemplateIntent(definition: TemplateIntentDefinition): TemplateInt
   return definition
 }
 
+function defineSemanticIntent(definition: SemanticIntentDefinition): SemanticIntentDefinition {
+  return definition
+}
+
 export function getIntentCatalogKey(definition: IntentDefinition): string {
   if (definition.kind === 'robot') {
     return definition.robot
   }
 
-  return definition.templateId
+  if (definition.kind === 'template') {
+    return definition.templateId
+  }
+
+  return `${definition.semantic}:${definition.paths.join('/')}`
 }
 
 export function getIntentPaths(definition: IntentDefinition): string[] {
@@ -236,6 +253,11 @@ export const intentCatalog = [
     templateId: 'builtin/encode-hls-video@latest',
     paths: ['video', 'encode-hls'],
     outputMode: 'directory',
+  }),
+  defineSemanticIntent({
+    kind: 'semantic',
+    semantic: 'image-describe',
+    paths: ['image', 'describe'],
   }),
   defineRobotIntent({
     kind: 'robot',
