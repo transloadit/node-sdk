@@ -21,16 +21,9 @@ export interface GeneratedSchemaField extends IntentFieldSpec {
 }
 
 export interface ResolvedIntentLocalFilesInput {
-  allowConcurrency?: boolean
-  allowSingleAssembly?: boolean
-  allowWatch?: boolean
   defaultSingleAssembly?: boolean
-  deleteAfterProcessing?: boolean
-  description: string
   inputPolicy: IntentInputPolicy
   kind: 'local-files'
-  recursive?: boolean
-  reprocessStale?: boolean
 }
 
 export interface ResolvedIntentNoneInput {
@@ -71,7 +64,6 @@ export interface ResolvedIntentCommandSpec {
   input: ResolvedIntentInput
   outputDescription: string
   outputMode?: IntentOutputMode
-  outputRequired: boolean
   paths: string[]
   schemaSpec?: ResolvedIntentSchemaSpec
 }
@@ -268,10 +260,6 @@ function inferInputSpecFromAnalysis({
   if (defaultSingleAssembly) {
     return {
       kind: 'local-files',
-      description: 'Provide one or more input paths, directories, URLs, or - for stdin',
-      recursive: true,
-      deleteAfterProcessing: true,
-      reprocessStale: true,
       defaultSingleAssembly: true,
       inputPolicy,
     }
@@ -279,13 +267,6 @@ function inferInputSpecFromAnalysis({
 
   return {
     kind: 'local-files',
-    description: 'Provide an input path, directory, URL, or - for stdin',
-    recursive: true,
-    allowWatch: true,
-    deleteAfterProcessing: true,
-    reprocessStale: true,
-    allowSingleAssembly: true,
-    allowConcurrency: true,
     inputPolicy,
   }
 }
@@ -469,7 +450,6 @@ function resolveRobotIntentSpec(definition: RobotIntentDefinition): ResolvedInte
     input: analysis.input,
     outputDescription: analysis.outputDescription,
     outputMode: analysis.outputMode,
-    outputRequired: true,
     paths: analysis.paths,
     schemaSpec: analysis.schemaSpec,
   }
@@ -503,7 +483,6 @@ function resolveTemplateIntentSpec(
         ? 'Write the results to this directory'
         : 'Write the result to this path or directory',
     outputMode,
-    outputRequired: true,
     paths,
   }
 }

@@ -52,14 +52,12 @@ export interface IntentFileCommandDefinition {
   inputPolicy: IntentInputPolicy
   outputDescription: string
   outputMode?: 'directory' | 'file'
-  outputRequired: boolean
 }
 
 export interface IntentNoInputCommandDefinition {
   execution: IntentSingleStepExecutionDefinition
   outputDescription: string
   outputMode?: 'directory' | 'file'
-  outputRequired: boolean
 }
 
 export interface IntentOptionDefinition extends IntentFieldSpec {

@@ -1335,7 +1335,6 @@ const fileCompressCommandFields = {
 const imageGenerateCommandDefinition = {
   outputMode: 'file',
   outputDescription: 'Write the result to this path',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotImageGenerateInstructionsSchema,
@@ -1356,7 +1355,6 @@ const previewGenerateCommandDefinition = {
   },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotFilePreviewInstructionsSchema,
@@ -1377,7 +1375,6 @@ const imageRemoveBackgroundCommandDefinition = {
   },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotImageBgremoveInstructionsSchema,
@@ -1398,7 +1395,6 @@ const imageOptimizeCommandDefinition = {
   },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotImageOptimizeInstructionsSchema,
@@ -1419,7 +1415,6 @@ const imageResizeCommandDefinition = {
   },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotImageResizeInstructionsSchema,
@@ -1440,7 +1435,6 @@ const documentConvertCommandDefinition = {
   },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotDocumentConvertInstructionsSchema,
@@ -1461,7 +1455,6 @@ const documentOptimizeCommandDefinition = {
   },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotDocumentOptimizeInstructionsSchema,
@@ -1482,7 +1475,6 @@ const documentAutoRotateCommandDefinition = {
   },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotDocumentAutorotateInstructionsSchema,
@@ -1503,7 +1495,6 @@ const documentThumbsCommandDefinition = {
   },
   outputMode: 'directory',
   outputDescription: 'Write the results to this directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotDocumentThumbsInstructionsSchema,
@@ -1524,7 +1515,6 @@ const audioWaveformCommandDefinition = {
   },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotAudioWaveformInstructionsSchema,
@@ -1547,7 +1537,6 @@ const textSpeakCommandDefinition = {
   },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotTextSpeakInstructionsSchema,
@@ -1567,7 +1556,6 @@ const videoThumbsCommandDefinition = {
   },
   outputMode: 'directory',
   outputDescription: 'Write the results to this directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotVideoThumbsInstructionsSchema,
@@ -1586,7 +1574,6 @@ const videoEncodeHlsCommandDefinition = {
   inputPolicy: { kind: 'required' },
   outputMode: 'directory',
   outputDescription: 'Write the results to this directory',
-  outputRequired: true,
   execution: {
     kind: 'template',
     templateId: 'builtin/encode-hls-video@latest',
@@ -1600,7 +1587,6 @@ const fileCompressCommandDefinition = {
   },
   outputMode: 'file',
   outputDescription: 'Write the result to this path or directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotFileCompressInstructionsSchema,
@@ -1624,7 +1610,6 @@ const fileDecompressCommandDefinition = {
   },
   outputMode: 'directory',
   outputDescription: 'Write the results to this directory',
-  outputRequired: true,
   execution: {
     kind: 'single-step',
     schema: robotFileDecompressInstructionsSchema,

@@ -105,7 +105,7 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
         : ''
     const outputMode =
       spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
-    const outputLines = `\n  outputDescription: ${JSON.stringify(spec.outputDescription)},\n  outputRequired: ${JSON.stringify(spec.outputRequired)},`
+    const outputLines = `\n  outputDescription: ${JSON.stringify(spec.outputDescription)},`
     const fieldsLine =
       spec.fieldSpecs.length === 0 ? '[]' : `Object.values(${formatFieldDefinitionsName(spec)})`
 
@@ -126,7 +126,6 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
   commandLabel: ${JSON.stringify(spec.commandLabel)},
   inputPolicy: { "kind": "required" },${outputMode}
   outputDescription: ${JSON.stringify(spec.outputDescription)},
-  outputRequired: ${JSON.stringify(spec.outputRequired)},
   execution: {
     kind: 'template',
     templateId: ${JSON.stringify(spec.execution.templateId)},

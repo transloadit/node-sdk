@@ -592,6 +592,19 @@ async function buildDirectoryDownloadTargets({
   return targets
 }
 
+function getSingleResultDownloadTarget(
+  allFiles: AssemblyResultFile[],
+  targetPath: string | null,
+): AssemblyDownloadTarget[] {
+  const first = allFiles[0]
+  const resultUrl = first == null ? null : getResultFileUrl(first.file)
+  if (resultUrl == null) {
+    return []
+  }
+
+  return [{ resultUrl, targetPath }]
+}
+
 async function resolveResultDownloadTargets({
   allFiles,
   entries,
@@ -642,13 +655,7 @@ async function resolveResultDownloadTargets({
       throw new Error('file outputs can only receive a single result file')
     }
 
-    const first = allFiles[0]
-    const resultUrl = first == null ? null : getResultFileUrl(first.file)
-    if (resultUrl == null) {
-      return []
-    }
-
-    return [{ resultUrl, targetPath: outputPath }]
+    return getSingleResultDownloadTarget(allFiles, outputPath)
   }
 
   if (singleAssembly) {
@@ -668,15 +675,62 @@ async function resolveResultDownloadTargets({
   }
 
   if (allFiles.length === 1) {
-    const first = allFiles[0]
-    const resultUrl = first == null ? null : getResultFileUrl(first.file)
-    return resultUrl == null ? [] : [{ resultUrl, targetPath: outputPath }]
+    return getSingleResultDownloadTarget(allFiles, outputPath)
   }
 
   return await buildDirectoryDownloadTargets({
     allFiles,
     baseDir: path.join(path.dirname(outputPath), path.parse(outputPath).name),
     groupByStep: true,
+  })
+}
+
+async function shouldSkipStaleOutput({
+  inputPaths,
+  outputPath,
+  outputPlanMtime,
+  outputRootIsDirectory,
+  reprocessStale,
+}: {
+  inputPaths: string[]
+  outputPath: string | null
+  outputPlanMtime: Date
+  outputRootIsDirectory: boolean
+  reprocessStale?: boolean
+}): Promise<boolean> {
+  if (reprocessStale || outputPath == null || outputRootIsDirectory) {
+    return false
+  }
+
+  if (inputPaths.length === 0 || inputPaths.some((inputPath) => inputPath === stdinWithPath.path)) {
+    return false
+  }
+
+  const [outputErr, outputStat] = await tryCatch(fsp.stat(outputPath))
+  if (outputErr != null || outputStat == null) {
+    return false
+  }
+
+  if (inputPaths.length === 1) {
+    return outputStat.mtime > outputPlanMtime
+  }
+
+  const inputStats = await Promise.all(
+    inputPaths.map(async (inputPath) => {
+      const [inputErr, inputStat] = await tryCatch(fsp.stat(inputPath))
+      if (inputErr != null || inputStat == null) {
+        return null
+      }
+      return inputStat
+    }),
+  )
+
+  if (inputStats.some((inputStat) => inputStat == null)) {
+    return false
+  }
+
+  return inputStats.every((inputStat) => {
+    return inputStat != null && outputStat.mtime > inputStat.mtime
   })
 }
 
@@ -1336,12 +1390,15 @@ export async function create(
       if (!assembly.results) throw new Error('No results in assembly')
 
       if (
-        !singleAssemblyMode &&
-        outputPlan?.path != null &&
-        !outputRootIsDirectory &&
-        ((await tryCatch(fsp.stat(outputPlan.path)))[1]?.mtime ?? new Date(0)) > outputPlan.mtime
+        await shouldSkipStaleOutput({
+          inputPaths,
+          outputPath: outputPlan?.path ?? null,
+          outputPlanMtime: outputPlan?.mtime ?? new Date(0),
+          outputRootIsDirectory,
+          reprocessStale,
+        })
       ) {
-        outputctl.debug(`SKIPPED STALE RESULT ${inPath ?? 'null'} ${outputPlan.path}`)
+        outputctl.debug(`SKIPPED STALE RESULT ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
         return assembly
       }
 
@@ -1370,39 +1427,6 @@ export async function create(
         }
       }
       return assembly
-    }
-
-    async function shouldSkipSingleAssemblyRun(inputPaths: string[]): Promise<boolean> {
-      if (reprocessStale || resolvedOutput == null || outputRootIsDirectory) {
-        return false
-      }
-
-      if (inputPaths.some((inputPath) => inputPath === stdinWithPath.path)) {
-        return false
-      }
-
-      const [outputErr, outputStat] = await tryCatch(fsp.stat(resolvedOutput))
-      if (outputErr != null || outputStat == null) {
-        return false
-      }
-
-      const inputStats = await Promise.all(
-        inputPaths.map(async (inputPath) => {
-          const [inputErr, inputStat] = await tryCatch(fsp.stat(inputPath))
-          if (inputErr != null || inputStat == null) {
-            return null
-          }
-          return inputStat
-        }),
-      )
-
-      if (inputStats.some((inputStat) => inputStat == null)) {
-        return false
-      }
-
-      return inputStats.every((inputStat) => {
-        return inputStat != null && outputStat.mtime > inputStat.mtime
-      })
     }
 
     // Helper to process a single assembly job
@@ -1445,7 +1469,15 @@ export async function create(
           return
         }
 
-        if (await shouldSkipSingleAssemblyRun(collectedPaths)) {
+        if (
+          await shouldSkipStaleOutput({
+            inputPaths: collectedPaths,
+            outputPath: resolvedOutput ?? null,
+            outputPlanMtime: new Date(0),
+            outputRootIsDirectory,
+            reprocessStale,
+          })
+        ) {
           outputctl.debug(`SKIPPED STALE SINGLE ASSEMBLY ${resolvedOutput ?? 'null'}`)
           resolve({ results: [], hasFailures: false })
           return

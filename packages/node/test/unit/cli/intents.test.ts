@@ -31,6 +31,26 @@ async function createTempDir(prefix: string): Promise<string> {
   return tempDir
 }
 
+async function runIntentCommand(
+  args: string[],
+  createResult: Awaited<ReturnType<typeof assembliesCommands.create>> = {
+    results: [],
+    hasFailures: false,
+  },
+): Promise<{
+  createSpy: ReturnType<typeof vi.spyOn<typeof assembliesCommands, 'create'>>
+}> {
+  vi.stubEnv('TRANSLOADIT_KEY', 'key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+  const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue(createResult)
+  vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+  await main(args)
+
+  return { createSpy }
+}
+
 function getIntentCommand(paths: string[]): (typeof intentCommands)[number] {
   const command = intentCommands.find((candidate) => {
     const candidatePaths = candidate.paths[0]
@@ -70,17 +90,7 @@ afterEach(() => {
 
 describe('intent commands', () => {
   it('maps image generate flags to /image/generate step parameters', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'image',
       'generate',
       '--prompt',
@@ -114,17 +124,7 @@ describe('intent commands', () => {
   })
 
   it('maps preview generate flags to /file/preview step parameters', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'preview',
       'generate',
       '--input',
@@ -161,18 +161,8 @@ describe('intent commands', () => {
   })
 
   it('downloads URL inputs for preview generate before calling assemblies create', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
     nock('https://example.com').get('/file.pdf').reply(200, 'pdf-data')
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'preview',
       'generate',
       '--input',
@@ -234,17 +224,7 @@ describe('intent commands', () => {
   })
 
   it('supports base64 inputs for intent commands', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'document',
       'convert',
       '--input-base64',
@@ -300,17 +280,7 @@ describe('intent commands', () => {
   })
 
   it('accepts native boolean flags for generated intent options', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'image',
       'optimize',
       '--input',
@@ -376,17 +346,15 @@ describe('intent commands', () => {
   })
 
   it('maps video encode-hls to the builtin template', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main(['video', 'encode-hls', '--input', 'input.mp4', '--out', 'dist/hls', '--recursive'])
+    const { createSpy } = await runIntentCommand([
+      'video',
+      'encode-hls',
+      '--input',
+      'input.mp4',
+      '--out',
+      'dist/hls',
+      '--recursive',
+    ])
 
     expect(process.exitCode).toBeUndefined()
     expect(createSpy).toHaveBeenCalledWith(
@@ -402,17 +370,7 @@ describe('intent commands', () => {
   })
 
   it('maps text speak flags to /text/speak step parameters', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'text',
       'speak',
       '--prompt',
@@ -449,17 +407,7 @@ describe('intent commands', () => {
   })
 
   it('supports prompt-only text speak runs without an input file', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'text',
       'speak',
       '--prompt',
@@ -490,17 +438,7 @@ describe('intent commands', () => {
   })
 
   it('supports file-backed text speak runs without a prompt', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'text',
       'speak',
       '--input',
@@ -888,17 +826,7 @@ describe('intent commands', () => {
   })
 
   it('maps file compress to a bundled single assembly by default', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'file',
       'compress',
       '--input',
