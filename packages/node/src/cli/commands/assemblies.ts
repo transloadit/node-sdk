@@ -565,6 +565,12 @@ interface AssemblyDownloadTarget {
   targetPath: string | null
 }
 
+const STALE_OUTPUT_GRACE_MS = 1000
+
+function isMeaningfullyNewer(newer: Date, older: Date): boolean {
+  return newer.getTime() - older.getTime() > STALE_OUTPUT_GRACE_MS
+}
+
 async function buildDirectoryDownloadTargets({
   allFiles,
   baseDir,
@@ -719,7 +725,7 @@ async function shouldSkipStaleOutput({
   }
 
   if (inputPaths.length === 1) {
-    return outputStat.mtime > outputPlanMtime
+    return isMeaningfullyNewer(outputStat.mtime, outputPlanMtime)
   }
 
   const inputStats = await Promise.all(
@@ -737,7 +743,7 @@ async function shouldSkipStaleOutput({
   }
 
   return inputStats.every((inputStat) => {
-    return inputStat != null && outputStat.mtime > inputStat.mtime
+    return inputStat != null && isMeaningfullyNewer(outputStat.mtime, inputStat.mtime)
   })
 }
 
@@ -1397,13 +1403,14 @@ export async function create(
       if (!assembly.results) throw new Error('No results in assembly')
 
       if (
-        await shouldSkipStaleOutput({
+        !singleAssemblyMode &&
+        (await shouldSkipStaleOutput({
           inputPaths,
           outputPath: outputPlan?.path ?? null,
           outputPlanMtime: outputPlan?.mtime ?? new Date(0),
           outputRootIsDirectory,
           reprocessStale,
-        })
+        }))
       ) {
         outputctl.debug(`SKIPPED STALE RESULT ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
         return assembly

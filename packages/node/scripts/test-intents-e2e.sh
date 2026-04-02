@@ -97,6 +97,35 @@ verify_file_decompress() {
   grep -F 'Hello from Transloadit CLI intents' "$1/input.txt" >/dev/null
 }
 
+verify_image_describe_labels() {
+  node --input-type=module <<'NODE' "$1"
+import { readFileSync } from 'node:fs'
+
+const value = JSON.parse(readFileSync(process.argv[1], 'utf8'))
+const ok =
+  Array.isArray(value) &&
+  value.length > 0 &&
+  value.every((item) => typeof item === 'string' || (item && typeof item.name === 'string'))
+
+process.exit(ok ? 0 : 1)
+NODE
+}
+
+verify_image_describe_wordpress() {
+  node --input-type=module <<'NODE' "$1"
+import { readFileSync } from 'node:fs'
+
+const value = JSON.parse(readFileSync(process.argv[1], 'utf8'))
+const required = ['altText', 'title', 'caption', 'description']
+const ok =
+  value &&
+  typeof value === 'object' &&
+  required.every((key) => typeof value[key] === 'string' && value[key].trim().length > 0)
+
+process.exit(ok ? 0 : 1)
+NODE
+}
+
 verify_output() {
   local verifier="$1"
   local path="$2"
@@ -111,6 +140,8 @@ verify_output() {
   video-thumbs) verify_video_thumbs "$path" ;;
   video-encode-hls) verify_video_encode_hls "$path" ;;
   file-decompress) verify_file_decompress "$path" ;;
+  image-describe-labels) verify_image_describe_labels "$path" ;;
+  image-describe-wordpress) verify_image_describe_wordpress "$path" ;;
   *)
     echo "Unknown verifier: $verifier" >&2
     return 1
@@ -192,6 +223,31 @@ import { intentSmokeCases } from './packages/node/src/cli/intentSmokeCases.ts'
 for (const smokeCase of intentSmokeCases) {
   console.log([
     smokeCase.paths.join('-'),
+    smokeCase.paths.join(' '),
+    smokeCase.args.join('\x1f'),
+    smokeCase.outputPath,
+    smokeCase.verifier,
+  ].join('\t'))
+}
+
+for (const smokeCase of [
+  {
+    name: 'image-describe-labels',
+    paths: ['image', 'describe'],
+    args: ['--input', '@fixture/input.jpg', '--fields', 'labels'],
+    outputPath: 'image-describe-labels.json',
+    verifier: 'image-describe-labels',
+  },
+  {
+    name: 'image-describe-wordpress',
+    paths: ['image', 'describe'],
+    args: ['--input', '@fixture/input.jpg', '--for', 'wordpress'],
+    outputPath: 'image-describe-wordpress.json',
+    verifier: 'image-describe-wordpress',
+  },
+]) {
+  console.log([
+    smokeCase.name,
     smokeCase.paths.join(' '),
     smokeCase.args.join('\x1f'),
     smokeCase.outputPath,

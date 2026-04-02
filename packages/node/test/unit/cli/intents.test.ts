@@ -89,6 +89,119 @@ afterEach(() => {
 })
 
 describe('intent commands', () => {
+  it('routes image describe labels through /image/describe', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'describe',
+      '--input',
+      'hero.jpg',
+      '--fields',
+      'labels',
+      '--out',
+      'labels.json',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['hero.jpg'],
+        output: 'labels.json',
+        stepsData: {
+          describe: expect.objectContaining({
+            robot: '/image/describe',
+            use: ':original',
+            result: true,
+            provider: 'aws',
+            format: 'json',
+            granularity: 'list',
+            explicit_descriptions: false,
+          }),
+        },
+      }),
+    )
+  })
+
+  it('routes image describe --for wordpress through /ai/chat with a schema', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'describe',
+      '--input',
+      'hero.jpg',
+      '--for',
+      'wordpress',
+      '--out',
+      'fields.json',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['hero.jpg'],
+        output: 'fields.json',
+        stepsData: {
+          describe: expect.objectContaining({
+            robot: '/ai/chat',
+            use: ':original',
+            result: true,
+            model: 'anthropic/claude-sonnet-4-5',
+            format: 'json',
+            return_messages: 'last',
+            test_credentials: true,
+            messages: expect.stringContaining('altText, title, caption, description'),
+          }),
+        },
+      }),
+    )
+
+    const describeStep = createSpy.mock.calls[0]?.[2].stepsData?.describe
+    expect(describeStep).toBeDefined()
+    if (describeStep == null || typeof describeStep !== 'object') {
+      throw new Error('Missing describe step')
+    }
+
+    const schema = JSON.parse(String((describeStep as Record<string, unknown>).schema))
+    expect(schema).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      required: ['altText', 'title', 'caption', 'description'],
+      properties: expect.objectContaining({
+        altText: expect.objectContaining({ type: 'string' }),
+        title: expect.objectContaining({ type: 'string' }),
+        caption: expect.objectContaining({ type: 'string' }),
+        description: expect.objectContaining({ type: 'string' }),
+      }),
+    })
+  })
+
+  it('rejects combining labels with authored image describe fields', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+    })
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'image',
+      'describe',
+      '--input',
+      'hero.jpg',
+      '--fields',
+      'labels,caption',
+      '--out',
+      'fields.json',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
   it('maps image generate flags to /image/generate step parameters', async () => {
     const { createSpy } = await runIntentCommand([
       'image',
