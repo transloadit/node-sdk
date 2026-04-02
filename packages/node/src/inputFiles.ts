@@ -65,16 +65,13 @@ const ensureUnique = (field: string, used: Set<string>): void => {
   used.add(field)
 }
 
-const ensureUniqueStepName = (baseName: string, used: Set<string>): string => {
-  let name = baseName
-  let counter = 1
-  while (used.has(name)) {
-    name = `${baseName}_${counter}`
-    counter += 1
-  }
-  used.add(name)
-  return name
-}
+const ensureUniqueStepName = async (baseName: string, used: Set<string>): Promise<string> =>
+  await ensureUniqueCounterValue({
+    initialValue: baseName,
+    isTaken: (candidate) => used.has(candidate),
+    reserve: (candidate) => used.add(candidate),
+    nextValue: (counter) => `${baseName}_${counter}`,
+  })
 
 const ensureUniqueTempFilePath = async (
   root: string,
@@ -317,7 +314,7 @@ export const prepareInputFiles = async (
           urlStrategy === 'import' || (urlStrategy === 'import-if-present' && targetStep)
 
         if (shouldImport) {
-          const stepName = targetStep ?? ensureUniqueStepName(file.field, usedSteps)
+          const stepName = targetStep ?? (await ensureUniqueStepName(file.field, usedSteps))
           const urls = importUrlsByStep.get(stepName) ?? []
           urls.push(file.url)
           importUrlsByStep.set(stepName, urls)

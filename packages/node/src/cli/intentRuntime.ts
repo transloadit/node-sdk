@@ -429,6 +429,22 @@ export abstract class GeneratedFileIntentCommandBase extends GeneratedIntentComm
     )
   }
 
+  protected resolveOutputMode(): 'directory' | 'file' | undefined {
+    if (this.getIntentDefinition().outputMode != null) {
+      return this.getIntentDefinition().outputMode
+    }
+
+    try {
+      return statSync(this.outputPath).isDirectory() ? 'directory' : 'file'
+    } catch {
+      return 'file'
+    }
+  }
+
+  protected isDirectoryOutputTarget(): boolean {
+    return this.resolveOutputMode() === 'directory'
+  }
+
   protected validateInputPresence(rawValues: Record<string, unknown>): number | undefined {
     const intentDefinition = this.getIntentDefinition()
     const inputCount = this.getProvidedInputCount()
@@ -494,10 +510,8 @@ export abstract class GeneratedFileIntentCommandBase extends GeneratedIntentComm
   }
 }
 
-export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIntentCommandBase {
+export abstract class GeneratedWatchableFileIntentCommand extends GeneratedFileIntentCommandBase {
   watch = watchOption()
-
-  singleAssembly = singleAssemblyOption()
 
   concurrency = concurrencyOption()
 
@@ -507,7 +521,6 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
     return {
       ...super.getCreateOptions(inputs),
       concurrency: this.concurrency,
-      singleAssembly: this.singleAssembly,
       watch: this.watch,
     }
   }
@@ -522,7 +535,7 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
 
     const sharedValidationError = validateSharedFileProcessingOptions({
       explicitInputCount: this.getProvidedInputCount(),
-      singleAssembly: this.singleAssembly,
+      singleAssembly: false,
       watch: this.watch,
       watchRequiresInputsMessage: `${this.getIntentDefinition().commandLabel} --watch requires --input or --input-base64`,
     })
@@ -533,17 +546,6 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
 
     if (this.watch && this.hasTransientInputSources()) {
       this.output.error('--watch is only supported for filesystem inputs')
-      return 1
-    }
-
-    if (
-      this.singleAssembly &&
-      this.getProvidedInputCount() > 1 &&
-      !this.isDirectoryOutputTarget()
-    ) {
-      this.output.error(
-        'Output must be a directory when using --single-assembly with multiple inputs',
-      )
       return 1
     }
 
@@ -559,17 +561,40 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedFileIn
     }
     return undefined
   }
+}
 
-  private isDirectoryOutputTarget(): boolean {
-    if (this.getIntentDefinition().outputMode === 'directory') {
-      return true
+export abstract class GeneratedStandardFileIntentCommand extends GeneratedWatchableFileIntentCommand {
+  singleAssembly = singleAssemblyOption()
+
+  protected override getCreateOptions(
+    inputs: string[],
+  ): Omit<AssembliesCreateOptions, 'output' | 'steps' | 'stepsData' | 'template'> {
+    return {
+      ...super.getCreateOptions(inputs),
+      singleAssembly: this.singleAssembly,
+    }
+  }
+
+  protected override validateBeforePreparingInputs(
+    rawValues: Record<string, unknown>,
+  ): number | undefined {
+    const validationError = super.validateBeforePreparingInputs(rawValues)
+    if (validationError != null) {
+      return validationError
     }
 
-    try {
-      return statSync(this.outputPath).isDirectory()
-    } catch {
-      return false
+    if (
+      this.singleAssembly &&
+      this.getProvidedInputCount() > 1 &&
+      !this.isDirectoryOutputTarget()
+    ) {
+      this.output.error(
+        'Output must be a directory when using --single-assembly with multiple inputs',
+      )
+      return 1
     }
+
+    return undefined
   }
 }
 

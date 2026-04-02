@@ -1,22 +1,11 @@
-import { statSync } from 'node:fs'
 import { Command, Option } from 'clipanion'
+import { z } from 'zod'
 
 import type { InterpolatableRobotAiChatInstructionsWithHiddenFieldsInput } from '../../alphalib/types/robots/ai-chat.ts'
 import type { InterpolatableRobotImageDescribeInstructionsWithHiddenFieldsInput } from '../../alphalib/types/robots/image-describe.ts'
-import {
-  concurrencyOption,
-  countProvidedInputs,
-  deleteAfterProcessingOption,
-  inputPathsOption,
-  recursiveOption,
-  reprocessStaleOption,
-  validateSharedFileProcessingOptions,
-  watchOption,
-} from '../fileProcessingOptions.ts'
-import { prepareIntentInputs } from '../intentRuntime.ts'
-import type { AssembliesCreateOptions } from './assemblies.ts'
+import type { IntentFileCommandDefinition, PreparedIntentInputs } from '../intentRuntime.ts'
+import { GeneratedWatchableFileIntentCommand } from '../intentRuntime.ts'
 import * as assembliesCommands from './assemblies.ts'
-import { AuthenticatedCommand } from './BaseCommand.ts'
 
 const imageDescribeFields = ['labels', 'altText', 'title', 'caption', 'description'] as const
 
@@ -30,15 +19,6 @@ const wordpressDescribeFields = [
 ] as const satisfies readonly ImageDescribeField[]
 
 const defaultDescribeModel = 'anthropic/claude-sonnet-4-5'
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
 
 function parseFields(value: string[] | undefined): ImageDescribeField[] {
   const rawFields = (value ?? [])
@@ -259,7 +239,27 @@ function buildDescribeStep({
   return buildAiChatStep({ fields, model, profile })
 }
 
-export class ImageDescribeCommand extends AuthenticatedCommand {
+const imageDescribeBaseDefinition = {
+  commandLabel: 'image describe',
+  execution: {
+    kind: 'single-step',
+    fields: [],
+    fixedValues: {},
+    resultStepName: 'describe',
+    schema: z.object({}),
+  },
+  inputPolicy: {
+    kind: 'required',
+  },
+  outputDescription: 'Write the JSON result to this path or directory',
+} satisfies IntentFileCommandDefinition
+
+type ResolvedDescribeRequest = {
+  profile: 'wordpress' | null
+  requestedFields: ImageDescribeField[]
+}
+
+export class ImageDescribeCommand extends GeneratedWatchableFileIntentCommand {
   static override paths = [['image', 'describe']]
 
   static override usage = Command.Usage({
@@ -283,17 +283,6 @@ export class ImageDescribeCommand extends AuthenticatedCommand {
     ],
   })
 
-  outputPath = Option.String('--out,-o', {
-    description: 'Write the JSON result to this path or directory',
-    required: true,
-  })
-
-  inputs = inputPathsOption('Provide an input path, directory, URL, or - for stdin')
-
-  inputBase64 = Option.Array('--input-base64', {
-    description: 'Provide base64-encoded input content directly',
-  })
-
   fields = Option.Array('--fields', {
     description:
       'Describe output fields to generate, for example labels or altText,title,caption,description',
@@ -307,102 +296,65 @@ export class ImageDescribeCommand extends AuthenticatedCommand {
     description: `Model to use for generated text fields (default: ${defaultDescribeModel})`,
   })
 
-  recursive = recursiveOption()
-
-  deleteAfterProcessing = deleteAfterProcessingOption()
-
-  reprocessStale = reprocessStaleOption()
-
-  watch = watchOption()
-
-  concurrency = concurrencyOption()
-
-  private getProvidedInputCount(): number {
-    return countProvidedInputs({
-      inputs: this.inputs,
-      inputBase64: this.inputBase64,
-    })
+  protected override getIntentDefinition(): IntentFileCommandDefinition {
+    return imageDescribeBaseDefinition
   }
 
-  private hasTransientInputSources(): boolean {
-    return (
-      (this.inputs?.some((input) => isHttpUrl(input)) ?? false) ||
-      (this.inputBase64?.length ?? 0) > 0
-    )
-  }
-
-  private isDirectoryOutputTarget(): boolean {
-    try {
-      return statSync(this.outputPath).isDirectory()
-    } catch {
-      return false
+  protected override getIntentRawValues(): Record<string, unknown> {
+    return {
+      fields: this.fields,
+      forProfile: this.forProfile,
+      model: this.model,
     }
   }
 
-  protected override async run(): Promise<number | undefined> {
-    if (this.getProvidedInputCount() === 0) {
-      this.output.error('image describe requires --input or --input-base64')
-      return 1
-    }
-
-    const sharedValidationError = validateSharedFileProcessingOptions({
-      explicitInputCount: this.getProvidedInputCount(),
-      singleAssembly: false,
-      watch: this.watch,
-      watchRequiresInputsMessage: 'image describe --watch requires --input or --input-base64',
-    })
-    if (sharedValidationError != null) {
-      this.output.error(sharedValidationError)
-      return 1
-    }
-
-    if (this.watch && this.hasTransientInputSources()) {
-      this.output.error('--watch is only supported for filesystem inputs')
-      return 1
-    }
-
-    const explicitFields = parseFields(this.fields)
-    const profile = resolveProfile(this.forProfile)
+  private resolveDescribeRequest(rawValues: Record<string, unknown>): ResolvedDescribeRequest {
+    const explicitFields = parseFields(rawValues.fields as string[] | undefined)
+    const profile = resolveProfile(rawValues.forProfile as string | undefined)
     const requestedFields = resolveRequestedFields({ explicitFields, profile })
     validateRequestedFields({
       explicitFields,
       fields: requestedFields,
-      model: this.model,
+      model: rawValues.model as string,
       profile,
     })
 
-    const preparedInputs = await prepareIntentInputs({
-      inputValues: this.inputs ?? [],
-      inputBase64Values: this.inputBase64 ?? [],
+    return {
+      profile,
+      requestedFields,
+    }
+  }
+
+  protected override validateBeforePreparingInputs(
+    rawValues: Record<string, unknown>,
+  ): number | undefined {
+    const validationError = super.validateBeforePreparingInputs(rawValues)
+    if (validationError != null) {
+      return validationError
+    }
+
+    this.resolveDescribeRequest(rawValues)
+    return undefined
+  }
+
+  protected override async executePreparedInputs(
+    rawValues: Record<string, unknown>,
+    preparedInputs: PreparedIntentInputs,
+  ): Promise<number | undefined> {
+    const { profile, requestedFields } = this.resolveDescribeRequest(rawValues)
+    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
+      ...this.getCreateOptions(preparedInputs.inputs),
+      output: this.outputPath,
+      outputMode: this.resolveOutputMode(),
+      stepsData: {
+        describe: buildDescribeStep({
+          fields: requestedFields,
+          model: rawValues.model as string,
+          profile,
+        }),
+      },
     })
 
-    try {
-      if (this.watch && preparedInputs.hasTransientInputs) {
-        this.output.error('--watch is only supported for filesystem inputs')
-        return 1
-      }
-
-      const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-        del: this.deleteAfterProcessing,
-        inputs: preparedInputs.inputs,
-        recursive: this.recursive,
-        reprocessStale: this.reprocessStale,
-        watch: this.watch,
-        concurrency: this.concurrency,
-        output: this.outputPath,
-        outputMode: this.isDirectoryOutputTarget() ? 'directory' : 'file',
-        stepsData: {
-          describe: buildDescribeStep({
-            fields: requestedFields,
-            model: this.model,
-            profile,
-          }),
-        } satisfies AssembliesCreateOptions['stepsData'],
-      })
-
-      return hasFailures ? 1 : undefined
-    } finally {
-      await Promise.all(preparedInputs.cleanup.map((cleanup) => cleanup()))
-    }
+    return hasFailures ? 1 : undefined
   }
 }

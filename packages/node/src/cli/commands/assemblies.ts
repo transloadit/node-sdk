@@ -1458,8 +1458,14 @@ export async function create(
       })
     }
 
-    if (singleAssembly) {
-      // Single-assembly mode: collect file paths, then create one assembly with all inputs
+    function handleEmitterError(err: Error): void {
+      abortController.abort()
+      queue.clear()
+      outputctl.error(err)
+      reject(err)
+    }
+
+    function runSingleAssemblyEmitter(): void {
       const collectedPaths: string[] = []
 
       emitter.on('job', (job: Job) => {
@@ -1468,13 +1474,6 @@ export async function create(
           outputctl.debug(`COLLECTING JOB ${inPath}`)
           collectedPaths.push(inPath)
         }
-      })
-
-      emitter.on('error', (err: Error) => {
-        abortController.abort()
-        queue.clear()
-        outputctl.error(err)
-        reject(err)
       })
 
       emitter.on('end', async () => {
@@ -1533,13 +1532,13 @@ export async function create(
 
         resolve({ results, hasFailures })
       })
-    } else {
-      // Default mode: one assembly per file with p-queue concurrency limiting
+    }
+
+    function runPerFileEmitter(): void {
       emitter.on('job', (job: Job) => {
         const inPath = job.inputPath
         const outputPlan = job.out
         outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
-        // Add job to queue - p-queue handles concurrency automatically
         queue
           .add(async () => {
             const result = await processAssemblyJob(inPath, outputPlan)
@@ -1553,18 +1552,18 @@ export async function create(
           })
       })
 
-      emitter.on('error', (err: Error) => {
-        abortController.abort()
-        queue.clear()
-        outputctl.error(err)
-        reject(err)
-      })
-
       emitter.on('end', async () => {
-        // Wait for all queued jobs to complete
         await queue.onIdle()
         resolve({ results, hasFailures })
       })
+    }
+
+    emitter.on('error', handleEmitterError)
+
+    if (singleAssembly) {
+      runSingleAssemblyEmitter()
+    } else {
+      runPerFileEmitter()
     }
   })
 }
