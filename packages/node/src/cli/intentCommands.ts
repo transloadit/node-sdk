@@ -87,12 +87,6 @@ interface ResolvedIntentCommandSpec {
   schemaSpec?: ResolvedIntentSchemaSpec
 }
 
-interface RobotIntentPresentation {
-  outputPath?: string
-  promptExample?: string
-  requiredExampleValues?: Partial<Record<string, string>>
-}
-
 const hiddenFieldNames = new Set([
   'ffmpeg_stack',
   'force_accept',
@@ -105,24 +99,6 @@ const hiddenFieldNames = new Set([
   'stack',
   'use',
 ])
-
-const robotIntentPresentationOverrides: Partial<Record<string, RobotIntentPresentation>> = {
-  '/document/convert': {
-    outputPath: 'output.pdf',
-    requiredExampleValues: { format: 'pdf' },
-  },
-  '/file/compress': {
-    outputPath: 'archive.zip',
-    requiredExampleValues: { format: 'zip' },
-  },
-  '/image/generate': {
-    promptExample: 'A red bicycle in a studio',
-    requiredExampleValues: { model: 'flux-schnell' },
-  },
-  '/video/thumbs': {
-    requiredExampleValues: { format: 'jpg' },
-  },
-}
 
 type IntentBaseClass =
   | typeof GeneratedBundledFileIntentCommand
@@ -209,22 +185,27 @@ function getDefaultOutputPath(paths: string[], outputMode: IntentOutputMode): st
   return 'output.file'
 }
 
-function getDefaultPromptExample(robot: string): string {
-  return robotIntentPresentationOverrides[robot]?.promptExample ?? 'Hello world'
+function isIntentPath(paths: string[], expectedGroup: string, expectedAction: string): boolean {
+  return paths[0] === expectedGroup && paths[1] === expectedAction
 }
 
-function getDefaultRequiredExampleValue(
-  definition: RobotIntentDefinition,
-  fieldSpec: GeneratedSchemaField,
-): string | null {
-  const override =
-    robotIntentPresentationOverrides[definition.robot]?.requiredExampleValues?.[fieldSpec.name]
-  if (override != null) {
-    return override
+function inferPromptExample(paths: string[]): string {
+  if (isIntentPath(paths, 'image', 'generate')) {
+    return 'A red bicycle in a studio'
   }
 
+  return 'Hello world'
+}
+
+function inferRequiredExampleValue(
+  paths: string[],
+  fieldSpec: GeneratedSchemaField,
+): string | null {
   if (fieldSpec.name === 'aspect_ratio') return '1:1'
-  if (fieldSpec.name === 'prompt') return JSON.stringify(getDefaultPromptExample(definition.robot))
+  if (fieldSpec.name === 'format' && isIntentPath(paths, 'document', 'convert')) return 'pdf'
+  if (fieldSpec.name === 'format' && isIntentPath(paths, 'file', 'compress')) return 'zip'
+  if (fieldSpec.name === 'format' && isIntentPath(paths, 'video', 'thumbs')) return 'jpg'
+  if (fieldSpec.name === 'prompt') return JSON.stringify(inferPromptExample(paths))
   if (fieldSpec.name === 'provider') return 'aws'
   if (fieldSpec.name === 'target_language') return 'en-US'
   if (fieldSpec.name === 'voice') return 'female-1'
@@ -233,6 +214,40 @@ function getDefaultRequiredExampleValue(
   if (fieldSpec.kind === 'number') return '1'
 
   return 'value'
+}
+
+function inferOutputPath(
+  paths: string[],
+  outputMode: IntentOutputMode,
+  fieldSpecs: readonly GeneratedSchemaField[],
+): string {
+  if (outputMode === 'directory') {
+    return 'output/'
+  }
+
+  if (isIntentPath(paths, 'file', 'compress')) {
+    const formatExample = fieldSpecs
+      .map((fieldSpec) =>
+        fieldSpec.name === 'format' ? inferRequiredExampleValue(paths, fieldSpec) : null,
+      )
+      .find((value) => value != null)
+
+    return `archive.${formatExample ?? 'zip'}`
+  }
+
+  const formatExample = fieldSpecs
+    .map((fieldSpec) =>
+      fieldSpec.required && fieldSpec.name === 'format'
+        ? inferRequiredExampleValue(paths, fieldSpec)
+        : null,
+    )
+    .find((value) => value != null)
+
+  if (formatExample != null && /^[-\w]+$/.test(formatExample)) {
+    return `output.${formatExample}`
+  }
+
+  return getDefaultOutputPath(paths, outputMode)
 }
 
 function inferInputModeFromShape(shape: Record<string, ZodTypeAny>): IntentInputMode {
@@ -368,24 +383,20 @@ function inferExamples(
   }
 
   if (inputMode === 'none') {
-    parts.push('--prompt', JSON.stringify(getDefaultPromptExample(definition.robot)))
+    parts.push('--prompt', JSON.stringify(inferPromptExample(spec.paths)))
   }
 
   for (const fieldSpec of spec.fieldSpecs) {
     if (!fieldSpec.required) continue
     if (fieldSpec.name === 'prompt' && inputMode === 'none') continue
 
-    const exampleValue = getDefaultRequiredExampleValue(definition, fieldSpec)
+    const exampleValue = inferRequiredExampleValue(spec.paths, fieldSpec)
     if (exampleValue == null) continue
     parts.push(fieldSpec.optionFlags, exampleValue)
   }
 
   const outputMode = spec.outputMode ?? 'file'
-  parts.push(
-    '--out',
-    robotIntentPresentationOverrides[definition.robot]?.outputPath ??
-      getDefaultOutputPath(spec.paths, outputMode),
-  )
+  parts.push('--out', inferOutputPath(spec.paths, outputMode, spec.fieldSpecs))
 
   return [['Run the command', parts.join(' ')]]
 }

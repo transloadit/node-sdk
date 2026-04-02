@@ -218,7 +218,7 @@ while IFS=$'\t' read -r name path_string args_string output_rel verifier; do
     >>"$RESULTS_TSV"
 done < <(
   node --input-type=module <<'NODE'
-import { intentSmokeCases } from './packages/node/src/cli/intentSmokeCases.ts'
+import { intentSmokeCases } from './packages/node/test/support/intentSmokeCases.ts'
 
 for (const smokeCase of intentSmokeCases) {
   console.log([

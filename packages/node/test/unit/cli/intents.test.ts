@@ -14,9 +14,9 @@ import {
 import { intentCommands } from '../../../src/cli/intentCommands.ts'
 import { coerceIntentFieldValue } from '../../../src/cli/intentFields.ts'
 import { prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
-import { intentSmokeCases } from '../../../src/cli/intentSmokeCases.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
+import { intentSmokeCases } from '../../support/intentSmokeCases.ts'
 
 const noopWrite = () => true
 const tempDirs: string[] = []

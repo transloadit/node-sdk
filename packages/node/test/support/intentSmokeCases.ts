@@ -1,4 +1,8 @@
-import { getIntentCatalogKey, getIntentPaths, intentCatalog } from './intentCommandSpecs.ts'
+import {
+  getIntentCatalogKey,
+  getIntentPaths,
+  intentCatalog,
+} from '../../src/cli/intentCommandSpecs.ts'
 
 export interface IntentSmokeCase {
   args: string[]
