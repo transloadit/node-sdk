@@ -87,7 +87,7 @@ export interface TemplateIntentDefinition extends IntentBaseDefinition {
 export interface SemanticIntentDefinition extends IntentBaseDefinition {
   kind: 'semantic'
   paths: string[]
-  semantic: 'image-describe'
+  semantic: string
 }
 
 export type IntentDefinition =

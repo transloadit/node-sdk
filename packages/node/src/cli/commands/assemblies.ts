@@ -16,8 +16,7 @@ import * as t from 'typanion'
 import { z } from 'zod'
 import { formatLintIssue } from '../../alphalib/assembly-linter.lang.en.ts'
 import { tryCatch } from '../../alphalib/tryCatch.ts'
-import type { Steps, StepsInput } from '../../alphalib/types/template.ts'
-import { stepsSchema } from '../../alphalib/types/template.ts'
+import type { StepsInput } from '../../alphalib/types/template.ts'
 import type { CreateAssemblyParams, ReplayAssemblyParams } from '../../apiTypes.ts'
 import { ensureUniqueCounterValue } from '../../ensureUniqueCounter.ts'
 import type { LintFatalLevel } from '../../lintAssemblyInstructions.ts'
@@ -34,8 +33,9 @@ import {
   validateSharedFileProcessingOptions,
   watchOption,
 } from '../fileProcessingOptions.ts'
-import { createReadStream, formatAPIError, readCliInput, streamToBuffer } from '../helpers.ts'
+import { formatAPIError, readCliInput } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
+import { readStepsInputFile } from '../stepsInput.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
@@ -160,13 +160,7 @@ export async function replay(
 ): Promise<void> {
   if (steps) {
     try {
-      const buf = await streamToBuffer(createReadStream(steps))
-      const parsed: unknown = JSON.parse(buf.toString())
-      const validated = stepsSchema.safeParse(parsed)
-      if (!validated.success) {
-        throw new Error(`Invalid steps format: ${validated.error.message}`)
-      }
-      await apiCall(validated.data)
+      await apiCall(await readStepsInputFile(steps))
     } catch (err) {
       const error = ensureError(err)
       output.error(error.message)
@@ -175,14 +169,13 @@ export async function replay(
     await apiCall()
   }
 
-  async function apiCall(stepsOverride?: Steps): Promise<void> {
+  async function apiCall(stepsOverride?: StepsInput): Promise<void> {
     const promises = assemblies.map(async (assembly) => {
       const [err] = await tryCatch(
         client.replayAssembly(assembly, {
           reparse_template: reparse ? 1 : 0,
           fields,
           notify_url,
-          // Steps (validated) is assignable to StepsInput at runtime; cast for TS
           steps: stepsOverride as ReplayAssemblyParams['steps'],
         }),
       )
@@ -1253,28 +1246,11 @@ export async function create(
   if (resolvedOutput === undefined && !process.stdout.isTTY) resolvedOutput = '-'
 
   // Read steps file async before entering the Promise constructor
-  // We use StepsInput (the input type) rather than Steps (the transformed output type)
+  // We use StepsInput (the input type) rather than the transformed output type
   // to avoid zod adding default values that the API may reject
   let effectiveStepsData = stepsData
   if (steps) {
-    const stepsContent = await fsp.readFile(steps, 'utf8')
-    const parsed: unknown = JSON.parse(stepsContent)
-    // Basic structural validation: must be an object with step names as keys
-    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('Invalid steps format: expected an object with step names as keys')
-    }
-    // Validate each step has a robot field
-    for (const [stepName, step] of Object.entries(parsed)) {
-      if (step == null || typeof step !== 'object' || Array.isArray(step)) {
-        throw new Error(`Invalid steps format: step '${stepName}' must be an object`)
-      }
-      if (!('robot' in step) || typeof (step as Record<string, unknown>).robot !== 'string') {
-        throw new Error(
-          `Invalid steps format: step '${stepName}' must have a 'robot' string property`,
-        )
-      }
-    }
-    effectiveStepsData = parsed as StepsInput
+    effectiveStepsData = await readStepsInputFile(steps)
   }
 
   // Determine output stat async before entering the Promise constructor

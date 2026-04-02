@@ -22,7 +22,7 @@ import {
 import type { IntentFieldSpec } from './intentFields.ts'
 import { coerceIntentFieldValue } from './intentFields.ts'
 import type { IntentInputPolicy } from './intentInputPolicy.ts'
-import { createImageDescribeStep } from './semanticIntents/imageDescribe.ts'
+import { getSemanticIntentDescriptor } from './semanticIntents/index.ts'
 
 export interface PreparedIntentInputs {
   cleanup: Array<() => Promise<void>>
@@ -40,7 +40,7 @@ export interface IntentSingleStepExecutionDefinition {
 
 export interface IntentDynamicStepExecutionDefinition {
   fields: readonly IntentOptionDefinition[]
-  handler: 'image-describe'
+  handler: string
   kind: 'dynamic-step'
   resultStepName: string
 }
@@ -266,11 +266,7 @@ function createDynamicIntentStep(
   execution: IntentDynamicStepExecutionDefinition,
   rawValues: Record<string, unknown>,
 ): Record<string, unknown> {
-  if (execution.handler === 'image-describe') {
-    return createImageDescribeStep(rawValues)
-  }
-
-  throw new Error(`Unsupported dynamic intent handler "${execution.handler}"`)
+  return getSemanticIntentDescriptor(execution.handler).createStep(rawValues)
 }
 
 function requiresLocalInput(

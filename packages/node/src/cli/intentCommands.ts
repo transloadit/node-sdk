@@ -29,10 +29,7 @@ import {
   GeneratedWatchableFileIntentCommand,
   getIntentOptionDefinitions,
 } from './intentRuntime.ts'
-import {
-  imageDescribeCommandPresentation,
-  imageDescribeExecutionDefinition,
-} from './semanticIntents/imageDescribe.ts'
+import { getSemanticIntentDescriptor } from './semanticIntents/index.ts'
 
 interface GeneratedSchemaField extends IntentFieldSpec {
   description?: string
@@ -439,23 +436,22 @@ function resolveRobotIntent(definition: RobotIntentDefinition): BuiltIntentComma
   }
 }
 
-function resolveImageDescribeIntent(
-  definition: SemanticIntentDefinition,
-): BuiltIntentCommandDefinition {
+function resolveSemanticIntent(definition: SemanticIntentDefinition): BuiltIntentCommandDefinition {
   const paths = getIntentPaths(definition)
+  const descriptor = getSemanticIntentDescriptor(definition.semantic)
 
   return {
     className: `${toPascalCase(paths)}Command`,
-    description: imageDescribeCommandPresentation.description,
-    details: imageDescribeCommandPresentation.details,
-    examples: [...imageDescribeCommandPresentation.examples],
+    description: descriptor.presentation.description,
+    details: descriptor.presentation.details,
+    examples: [...descriptor.presentation.examples],
     paths,
-    runnerKind: 'watchable',
+    runnerKind: descriptor.runnerKind,
     intentDefinition: {
       commandLabel: paths.join(' '),
-      execution: imageDescribeExecutionDefinition,
-      inputPolicy: { kind: 'required' },
-      outputDescription: 'Write the JSON result to this path or directory',
+      execution: descriptor.execution,
+      inputPolicy: descriptor.inputPolicy,
+      outputDescription: descriptor.outputDescription,
     },
   }
 }
@@ -499,7 +495,7 @@ function resolveIntent(definition: IntentDefinition): BuiltIntentCommandDefiniti
   }
 
   if (definition.kind === 'semantic') {
-    return resolveImageDescribeIntent(definition)
+    return resolveSemanticIntent(definition)
   }
 
   return resolveTemplateIntent(definition)

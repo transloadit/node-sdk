@@ -274,6 +274,40 @@ describe('assemblies create', () => {
     expect(await readFile(outputPath, 'utf8')).toBe('bundle-contents')
   })
 
+  it('rejects invalid steps files before calling the API', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-invalid-steps-')
+    const stepsPath = path.join(tempDir, 'steps.json')
+
+    await writeFile(
+      stepsPath,
+      JSON.stringify({
+        generated: {
+          robot: '/image/generate',
+          prompt: 123,
+          model: 'google/nano-banana',
+        },
+      }),
+    )
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn(),
+      awaitAssemblyCompletion: vi.fn(),
+    }
+
+    await expect(
+      create(output, client as never, {
+        inputs: [],
+        output: path.join(tempDir, 'result.png'),
+        steps: stepsPath,
+      }),
+    ).rejects.toThrow(/Invalid steps format/)
+
+    expect(client.createAssembly).not.toHaveBeenCalled()
+  })
+
   it('keeps unchanged inputs in single-assembly rebuilds when one input is stale', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
