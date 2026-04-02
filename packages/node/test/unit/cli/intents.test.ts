@@ -469,17 +469,14 @@ describe('intent commands', () => {
   })
 
   it('omits schema defaults from generated intent steps', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main(['audio', 'waveform', '--input', 'podcast.mp3', '--out', 'waveform.png'])
+    const { createSpy } = await runIntentCommand([
+      'audio',
+      'waveform',
+      '--input',
+      'podcast.mp3',
+      '--out',
+      'waveform.png',
+    ])
 
     expect(process.exitCode).toBeUndefined()
     expect(createSpy).toHaveBeenCalledWith(
@@ -500,17 +497,7 @@ describe('intent commands', () => {
   })
 
   it('applies schema normalization before submitting generated steps', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'audio',
       'waveform',
       '--input',
@@ -541,17 +528,14 @@ describe('intent commands', () => {
   })
 
   it('passes directory output intent for multi-file commands', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main(['video', 'thumbs', '--input', 'demo.mp4', '--out', 'thumbs'])
+    const { createSpy } = await runIntentCommand([
+      'video',
+      'thumbs',
+      '--input',
+      'demo.mp4',
+      '--out',
+      'thumbs',
+    ])
 
     expect(process.exitCode).toBeUndefined()
     expect(createSpy).toHaveBeenCalledWith(
@@ -566,17 +550,16 @@ describe('intent commands', () => {
   })
 
   it('coerces numeric literal union options like video thumbs --rotate', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main(['video', 'thumbs', '--input', 'demo.mp4', '--rotate', '90', '--out', 'thumbs'])
+    const { createSpy } = await runIntentCommand([
+      'video',
+      'thumbs',
+      '--input',
+      'demo.mp4',
+      '--rotate',
+      '90',
+      '--out',
+      'thumbs',
+    ])
 
     expect(process.exitCode).toBeUndefined()
     expect(createSpy).toHaveBeenCalledWith(
@@ -594,17 +577,7 @@ describe('intent commands', () => {
   })
 
   it('maps array-valued robot parameters from JSON flags', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'video',
       'thumbs',
       '--input',
@@ -631,17 +604,7 @@ describe('intent commands', () => {
   })
 
   it('maps object-valued robot parameters from JSON flags', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'preview',
       'generate',
       '--input',
@@ -675,17 +638,7 @@ describe('intent commands', () => {
   })
 
   it('parses JSON objects for auto-typed flags like image resize --crop', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'image',
       'resize',
       '--input',
@@ -716,17 +669,7 @@ describe('intent commands', () => {
   })
 
   it('parses JSON arrays for auto-typed flags like image resize --watermark-position', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'image',
       'resize',
       '--input',
@@ -752,17 +695,7 @@ describe('intent commands', () => {
   })
 
   it('coerces mixed rotation flags like image resize --rotation 90', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'image',
       'resize',
       '--input',
@@ -789,17 +722,7 @@ describe('intent commands', () => {
   })
 
   it('coerces mixed boolean-or-number flags like audio waveform --antialiasing 1', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main([
+    const { createSpy } = await runIntentCommand([
       'audio',
       'waveform',
       '--input',
@@ -863,17 +786,16 @@ describe('intent commands', () => {
   })
 
   it('omits nullable defaults like file compress password when not provided', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main(['file', 'compress', '--input', 'assets', '--format', 'zip', '--out', 'assets.zip'])
+    const { createSpy } = await runIntentCommand([
+      'file',
+      'compress',
+      '--input',
+      'assets',
+      '--format',
+      'zip',
+      '--out',
+      'assets.zip',
+    ])
 
     expect(process.exitCode).toBeUndefined()
     expect(createSpy).toHaveBeenCalledWith(
@@ -896,17 +818,14 @@ describe('intent commands', () => {
   })
 
   it('omits numeric defaults like video thumbs rotate when not provided', async () => {
-    vi.stubEnv('TRANSLOADIT_KEY', 'key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
-
-    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
-      results: [],
-      hasFailures: false,
-    })
-
-    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
-
-    await main(['video', 'thumbs', '--input', 'demo.mp4', '--out', 'thumbs'])
+    const { createSpy } = await runIntentCommand([
+      'video',
+      'thumbs',
+      '--input',
+      'demo.mp4',
+      '--out',
+      'thumbs',
+    ])
 
     expect(process.exitCode).toBeUndefined()
     expect(createSpy).toHaveBeenCalledWith(

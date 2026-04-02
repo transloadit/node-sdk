@@ -9,6 +9,7 @@ import { pipeline } from 'node:stream/promises'
 import got from 'got'
 import type { Input as IntoStreamInput } from 'into-stream'
 import type { CreateAssemblyParams } from './apiTypes.ts'
+import { ensureUniqueCounterValue } from './ensureUniqueCounter.ts'
 
 export type InputFile =
   | {
@@ -75,20 +76,20 @@ const ensureUniqueStepName = (baseName: string, used: Set<string>): string => {
   return name
 }
 
-const ensureUniqueTempFilePath = (root: string, filename: string, used: Set<string>): string => {
+const ensureUniqueTempFilePath = async (
+  root: string,
+  filename: string,
+  used: Set<string>,
+): Promise<string> => {
   const parsed = basename(filename)
   const extension = parsed.includes('.') ? `.${parsed.split('.').slice(1).join('.')}` : ''
   const stem = extension === '' ? parsed : parsed.slice(0, -extension.length)
-
-  let candidate = join(root, parsed)
-  let counter = 1
-  while (used.has(candidate)) {
-    candidate = join(root, `${stem}-${counter}${extension}`)
-    counter += 1
-  }
-
-  used.add(candidate)
-  return candidate
+  return await ensureUniqueCounterValue({
+    initialValue: join(root, parsed),
+    isTaken: (candidate) => used.has(candidate),
+    reserve: (candidate) => used.add(candidate),
+    nextValue: (counter) => join(root, `${stem}-${counter}${extension}`),
+  })
 }
 
 const decodeBase64 = (value: string): Buffer => Buffer.from(value, 'base64')
@@ -301,7 +302,7 @@ export const prepareInputFiles = async (
         if (base64Strategy === 'tempfile') {
           const root = await ensureTempRoot()
           const filename = file.filename ? basename(file.filename) : `${file.field}.bin`
-          const filePath = ensureUniqueTempFilePath(root, filename, usedTempPaths)
+          const filePath = await ensureUniqueTempFilePath(root, filename, usedTempPaths)
           await writeFile(filePath, buffer)
           files[file.field] = filePath
         } else {
@@ -328,7 +329,7 @@ export const prepareInputFiles = async (
           (file.filename ? basename(file.filename) : null) ??
           getFilenameFromUrl(file.url) ??
           `${file.field}.bin`
-        const filePath = ensureUniqueTempFilePath(root, filename, usedTempPaths)
+        const filePath = await ensureUniqueTempFilePath(root, filename, usedTempPaths)
         await downloadUrlToFile({
           allowPrivateUrls,
           filePath,

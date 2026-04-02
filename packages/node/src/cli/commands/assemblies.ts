@@ -19,6 +19,7 @@ import { tryCatch } from '../../alphalib/tryCatch.ts'
 import type { Steps, StepsInput } from '../../alphalib/types/template.ts'
 import { stepsSchema } from '../../alphalib/types/template.ts'
 import type { CreateAssemblyParams, ReplayAssemblyParams } from '../../apiTypes.ts'
+import { ensureUniqueCounterValue } from '../../ensureUniqueCounter.ts'
 import type { LintFatalLevel } from '../../lintAssemblyInstructions.ts'
 import { lintAssemblyInstructions } from '../../lintAssemblyInstructions.ts'
 import type { CreateAssemblyOptions, Transloadit } from '../../Transloadit.ts'
@@ -395,6 +396,15 @@ function createOutputPlan(pathname: string | undefined, mtime: Date): OutputPlan
   }
 }
 
+async function createExistingPathOutputPlan(outputPath: string | undefined): Promise<OutputPlan> {
+  if (outputPath == null) {
+    return createOutputPlan(undefined, new Date(0))
+  }
+
+  const [, stats] = await tryCatch(fsp.stat(outputPath))
+  return createOutputPlan(outputPath, stats?.mtime ?? new Date(0))
+}
+
 function dirProvider(output: string): OutputPlanProvider {
   return async (inpath, indir = process.cwd()) => {
     // Inputless assemblies can still write into a directory, but output paths are derived from
@@ -409,21 +419,17 @@ function dirProvider(output: string): OutputPlanProvider {
     let relpath = path.relative(indir, inpath)
     relpath = relpath.replace(/^(\.\.\/)+/, '')
     const outpath = path.join(output, relpath)
-    const [, stats] = await tryCatch(fsp.stat(outpath))
-    const mtime = stats?.mtime ?? new Date(0)
-    return createOutputPlan(outpath, mtime)
+    return await createExistingPathOutputPlan(outpath)
   }
 }
 
 function fileProvider(output: string): OutputPlanProvider {
   return async (_inpath) => {
     if (output === '-') {
-      return createOutputPlan(undefined, new Date(0))
+      return await createExistingPathOutputPlan(undefined)
     }
 
-    const [, stats] = await tryCatch(fsp.stat(output))
-    const mtime = stats?.mtime ?? new Date(0)
-    return createOutputPlan(output, mtime)
+    return await createExistingPathOutputPlan(output)
   }
 }
 
@@ -513,20 +519,21 @@ function sanitizeResultName(value: string): string {
 
 async function ensureUniquePath(targetPath: string, reservedPaths: Set<string>): Promise<string> {
   const parsed = path.parse(targetPath)
-  let candidate = targetPath
-  let counter = 1
-  while (true) {
-    if (!reservedPaths.has(candidate)) {
-      const [statErr] = await tryCatch(fsp.stat(candidate))
-      if (statErr) {
-        reservedPaths.add(candidate)
-        return candidate
+  return await ensureUniqueCounterValue({
+    initialValue: targetPath,
+    isTaken: async (candidate) => {
+      if (reservedPaths.has(candidate)) {
+        return true
       }
-    }
 
-    candidate = path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`)
-    counter += 1
-  }
+      const [statErr] = await tryCatch(fsp.stat(candidate))
+      return statErr == null
+    },
+    reserve: (candidate) => {
+      reservedPaths.add(candidate)
+    },
+    nextValue: (counter) => path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`),
+  })
 }
 
 function flattenAssemblyResults(results: Record<string, Array<AssemblyResultFile['file']>>): {

@@ -101,7 +101,7 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
         : ''
     const inputPolicyLine =
       spec.input.kind === 'local-files'
-        ? `\n  inputPolicy: ${JSON.stringify(spec.input.inputPolicy, null, 4).replace(/\n/g, '\n  ')},`
+        ? `\n  inputPolicy: ${JSON.stringify(spec.input.inputPolicy, null, 4).replaceAll('\n', '\n  ')},`
         : ''
     const outputMode =
       spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
@@ -114,7 +114,7 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
     kind: 'single-step',
     schema: ${spec.schemaSpec?.importName},
     fields: ${fieldsLine},
-    fixedValues: ${JSON.stringify(spec.execution.fixedValues, null, 4).replace(/\n/g, '\n    ')},
+    fixedValues: ${JSON.stringify(spec.execution.fixedValues, null, 4).replaceAll('\n', '\n    ')},
     resultStepName: ${JSON.stringify(spec.execution.resultStepName)},
   },
 } as const`
