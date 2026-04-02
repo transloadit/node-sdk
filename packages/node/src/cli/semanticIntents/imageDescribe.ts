@@ -14,7 +14,7 @@ const wordpressDescribeFields = [
   'description',
 ] as const satisfies readonly ImageDescribeField[]
 
-const defaultDescribeModel = 'anthropic/claude-sonnet-4-5'
+const defaultDescribeModel = 'anthropic/claude-4-sonnet-20250514'
 
 export const imageDescribeExecutionDefinition = {
   kind: 'dynamic-step',
@@ -43,7 +43,8 @@ export const imageDescribeExecutionDefinition = {
       kind: 'string',
       propertyName: 'model',
       optionFlags: '--model',
-      description: 'Model to use for generated text fields (default: anthropic/claude-sonnet-4-5)',
+      description:
+        'Model to use for generated text fields (default: anthropic/claude-4-sonnet-20250514)',
       required: false,
     },
   ] as const satisfies readonly IntentOptionDefinition[],
