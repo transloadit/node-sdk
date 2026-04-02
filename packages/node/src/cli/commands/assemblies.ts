@@ -1501,12 +1501,13 @@ export async function create(
         const inputPaths: string[] = []
         for (const inPath of collectedPaths) {
           const basename = path.basename(inPath)
-          let key = basename
-          let counter = 1
-          while (key in uploads) {
-            key = `${path.parse(basename).name}_${counter}${path.parse(basename).ext}`
-            counter++
-          }
+          const key = await ensureUniqueCounterValue({
+            initialValue: basename,
+            isTaken: (candidate) => candidate in uploads,
+            nextValue: (counter) =>
+              `${path.parse(basename).name}_${counter}${path.parse(basename).ext}`,
+            reserve: () => {},
+          })
           uploads[key] = createInputUploadStream(inPath)
           inputPaths.push(inPath)
         }
