@@ -273,10 +273,12 @@ function inferInputSpecFromAnalysis({
 
 function inferFixedValuesFromAnalysis({
   defaultSingleAssembly,
+  inputMode,
   inputPolicy,
   robot,
 }: {
   defaultSingleAssembly?: boolean
+  inputMode: IntentInputMode
   inputPolicy: IntentInputPolicy
   robot: string
 }): Record<string, unknown> {
@@ -288,6 +290,13 @@ function inferFixedValuesFromAnalysis({
         steps: [':original'],
         bundle_steps: true,
       },
+    }
+  }
+
+  if (inputMode === 'none') {
+    return {
+      robot,
+      result: true,
     }
   }
 
@@ -369,6 +378,7 @@ function analyzeRobotIntent(definition: RobotIntentDefinition): RobotIntentAnaly
       })(),
     fixedValues: inferFixedValuesFromAnalysis({
       defaultSingleAssembly: definition.defaultSingleAssembly,
+      inputMode,
       inputPolicy,
       robot: definition.robot,
     }),

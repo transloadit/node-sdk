@@ -1342,7 +1342,6 @@ const imageGenerateCommandDefinition = {
     fixedValues: {
       robot: '/image/generate',
       result: true,
-      use: ':original',
     },
     resultStepName: 'generate',
   },

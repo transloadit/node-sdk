@@ -32,13 +32,13 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   }
 }
 
-export function runCliWhenExecuted(): void {
+export async function runCliWhenExecuted(): Promise<void> {
   if (!shouldRunCli(process.argv[1])) return
 
-  void main().catch((error) => {
+  await main().catch((error) => {
     console.error((error as Error).message)
     process.exitCode = 1
   })
 }
 
-runCliWhenExecuted()
+await runCliWhenExecuted()
