@@ -136,6 +136,48 @@ describe('assemblies create', () => {
     expect(resolved).toBe(true)
   })
 
+  it('returns result URLs for completed assemblies without local output', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-urls' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          generated: [{ url: 'http://downloads.test/result.png', name: 'result.png' }],
+        },
+      }),
+    }
+
+    await expect(
+      create(output, client as never, {
+        inputs: [],
+        output: null,
+        stepsData: {
+          generated: {
+            robot: '/image/generate',
+            result: true,
+            prompt: 'hello',
+            model: 'flux-schnell',
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: false,
+        resultUrls: [
+          {
+            assemblyId: 'assembly-urls',
+            step: 'generated',
+            name: 'result.png',
+            url: 'http://downloads.test/result.png',
+          },
+        ],
+      }),
+    )
+  })
+
   it('rejects stdout output when an assembly returns multiple files', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)

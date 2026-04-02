@@ -22,6 +22,7 @@ import {
 import type { IntentFieldSpec } from './intentFields.ts'
 import { coerceIntentFieldValue } from './intentFields.ts'
 import type { IntentInputPolicy } from './intentInputPolicy.ts'
+import { printResultUrls } from './resultUrls.ts'
 import { getSemanticIntentDescriptor } from './semanticIntents/index.ts'
 
 export interface PreparedIntentInputs {
@@ -285,6 +286,7 @@ async function executeIntentCommand({
   definition,
   output,
   outputPath,
+  printUrls,
   rawValues,
   createOptions,
 }: {
@@ -292,7 +294,8 @@ async function executeIntentCommand({
   createOptions: Omit<AssembliesCreateOptions, 'output' | 'steps' | 'stepsData' | 'template'>
   definition: IntentFileCommandDefinition | IntentNoInputCommandDefinition
   output: AuthenticatedCommand['output']
-  outputPath: string
+  outputPath?: string
+  printUrls: boolean
   rawValues: Record<string, unknown>
 }): Promise<number | undefined> {
   const inputPolicy: IntentInputPolicy =
@@ -316,12 +319,16 @@ async function executeIntentCommand({
           } as AssembliesCreateOptions['stepsData'],
         }
 
-  const { hasFailures } = await assembliesCommands.create(output, client, {
+  const { hasFailures, resultUrls } = await assembliesCommands.create(output, client, {
     ...createOptions,
-    output: outputPath,
+    output: outputPath ?? null,
     outputMode: definition.outputMode,
+    printUrls,
     ...executionOptions,
   })
+  if (printUrls) {
+    printResultUrls(output, resultUrls)
+  }
   return hasFailures ? 1 : undefined
 }
 
@@ -330,7 +337,10 @@ abstract class GeneratedIntentCommandBase extends AuthenticatedCommand {
 
   outputPath = Option.String('--out,-o', {
     description: this.getOutputDescription(),
-    required: true,
+  })
+
+  printUrls = Option.Boolean('--print-urls', {
+    description: 'Print temporary result URLs after completion',
   })
 
   protected getIntentDefinition(): IntentFileCommandDefinition | IntentNoInputCommandDefinition {
@@ -345,10 +355,24 @@ abstract class GeneratedIntentCommandBase extends AuthenticatedCommand {
   private getOutputDescription(): string {
     return this.getIntentDefinition().outputDescription
   }
+
+  protected validateOutputChoice(): number | undefined {
+    if (this.outputPath == null && !this.printUrls) {
+      this.output.error('Specify at least one of --out or --print-urls')
+      return 1
+    }
+
+    return undefined
+  }
 }
 
 export abstract class GeneratedNoInputIntentCommand extends GeneratedIntentCommandBase {
   protected override async run(): Promise<number | undefined> {
+    const outputValidationError = this.validateOutputChoice()
+    if (outputValidationError != null) {
+      return outputValidationError
+    }
+
     return await executeIntentCommand({
       client: this.client,
       createOptions: {
@@ -357,6 +381,7 @@ export abstract class GeneratedNoInputIntentCommand extends GeneratedIntentComma
       definition: this.getIntentDefinition() as IntentNoInputCommandDefinition,
       output: this.output,
       outputPath: this.outputPath,
+      printUrls: this.printUrls ?? false,
       rawValues: this.getIntentRawValues(),
     })
   }
@@ -472,6 +497,10 @@ export abstract class GeneratedFileIntentCommandBase extends GeneratedIntentComm
       return this.getIntentDefinition().outputMode
     }
 
+    if (this.outputPath == null) {
+      return undefined
+    }
+
     try {
       return statSync(this.outputPath).isDirectory() ? 'directory' : 'file'
     } catch {
@@ -506,6 +535,11 @@ export abstract class GeneratedFileIntentCommandBase extends GeneratedIntentComm
   }
 
   protected validateBeforePreparingInputs(rawValues: Record<string, unknown>): number | undefined {
+    const outputValidationError = this.validateOutputChoice()
+    if (outputValidationError != null) {
+      return outputValidationError
+    }
+
     const validationError = this.validateInputPresence(rawValues)
     if (validationError != null) {
       return validationError
@@ -533,6 +567,7 @@ export abstract class GeneratedFileIntentCommandBase extends GeneratedIntentComm
       definition: this.getIntentDefinition(),
       output: this.output,
       outputPath: this.outputPath,
+      printUrls: this.printUrls ?? false,
       rawValues,
     })
   }

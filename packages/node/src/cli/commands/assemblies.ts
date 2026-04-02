@@ -35,6 +35,8 @@ import {
 } from '../fileProcessingOptions.ts'
 import { formatAPIError, readCliInput } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
+import type { ResultUrlRow } from '../resultUrls.ts'
+import { collectResultUrlRows, printResultUrls } from '../resultUrls.ts'
 import { readStepsInputFile } from '../stepsInput.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
@@ -1216,6 +1218,7 @@ export interface AssembliesCreateOptions {
   reprocessStale?: boolean
   singleAssembly?: boolean
   concurrency?: number
+  printUrls?: boolean
 }
 
 const DEFAULT_CONCURRENCY = 5
@@ -1238,8 +1241,9 @@ export async function create(
     reprocessStale,
     singleAssembly,
     concurrency = DEFAULT_CONCURRENCY,
+    printUrls: _printUrls,
   }: AssembliesCreateOptions,
-): Promise<{ results: unknown[]; hasFailures: boolean }> {
+): Promise<{ resultUrls: ResultUrlRow[]; results: unknown[]; hasFailures: boolean }> {
   // Quick fix for https://github.com/transloadit/transloadify/issues/13
   // Only default to stdout when output is undefined (not provided), not when explicitly null
   let resolvedOutput = output
@@ -1320,6 +1324,7 @@ export async function create(
     // Use p-queue for concurrency management
     const queue = new PQueue({ concurrency })
     const results: unknown[] = []
+    const resultUrls: ResultUrlRow[] = []
     let hasFailures = false
     // AbortController to cancel all in-flight createAssembly calls when an error occurs
     const abortController = new AbortController()
@@ -1336,9 +1341,10 @@ export async function create(
       return createOptions
     }
 
-    async function awaitCompletedAssembly(
-      createOptions: CreateAssemblyOptions,
-    ): Promise<Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>> {
+    async function awaitCompletedAssembly(createOptions: CreateAssemblyOptions): Promise<{
+      assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
+      assemblyId: string
+    }> {
       const result = await client.createAssembly(createOptions)
       const assemblyId = result.assembly_id
       if (!assemblyId) throw new Error('No assembly_id in result')
@@ -1357,7 +1363,7 @@ export async function create(
         throw new Error(msg)
       }
 
-      return assembly
+      return { assembly, assemblyId }
     }
 
     async function executeAssemblyLifecycle({
@@ -1375,8 +1381,9 @@ export async function create(
     }): Promise<unknown> {
       outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
 
-      const assembly = await awaitCompletedAssembly(createOptions)
+      const { assembly, assemblyId } = await awaitCompletedAssembly(createOptions)
       if (!assembly.results) throw new Error('No results in assembly')
+      resultUrls.push(...collectResultUrlRows({ assemblyId, results: assembly.results }))
 
       if (
         !singleAssemblyMode &&
@@ -1454,7 +1461,7 @@ export async function create(
 
       emitter.on('end', async () => {
         if (collectedPaths.length === 0) {
-          resolve({ results: [], hasFailures: false })
+          resolve({ resultUrls, results: [], hasFailures: false })
           return
         }
 
@@ -1468,7 +1475,7 @@ export async function create(
           })
         ) {
           outputctl.debug(`SKIPPED STALE SINGLE ASSEMBLY ${resolvedOutput ?? 'null'}`)
-          resolve({ results: [], hasFailures: false })
+          resolve({ resultUrls, results: [], hasFailures: false })
           return
         }
 
@@ -1507,7 +1514,7 @@ export async function create(
           outputctl.error(err as Error)
         }
 
-        resolve({ results, hasFailures })
+        resolve({ resultUrls, results, hasFailures })
       })
     }
 
@@ -1531,7 +1538,7 @@ export async function create(
 
       emitter.on('end', async () => {
         await queue.onIdle()
-        resolve({ results, hasFailures })
+        resolve({ resultUrls, results, hasFailures })
       })
     }
 
@@ -1607,6 +1614,10 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
 
   concurrency = concurrencyOption()
 
+  printUrls = Option.Boolean('--print-urls', {
+    description: 'Print temporary result URLs after completion',
+  })
+
   protected async run(): Promise<number | undefined> {
     if (!this.steps && !this.template) {
       this.output.error('assemblies create requires exactly one of either --steps or --template')
@@ -1648,7 +1659,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       return 1
     }
 
-    const { hasFailures } = await create(this.output, this.client, {
+    const { hasFailures, resultUrls } = await create(this.output, this.client, {
       steps: this.steps,
       template: this.template,
       fields: fieldsMap,
@@ -1660,7 +1671,11 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       reprocessStale: this.reprocessStale,
       singleAssembly: this.singleAssembly,
       concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+      printUrls: this.printUrls,
     })
+    if (this.printUrls) {
+      printResultUrls(this.output, resultUrls)
+    }
     return hasFailures ? 1 : undefined
   }
 }

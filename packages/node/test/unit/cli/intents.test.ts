@@ -34,6 +34,7 @@ async function createTempDir(prefix: string): Promise<string> {
 async function runIntentCommand(
   args: string[],
   createResult: Awaited<ReturnType<typeof assembliesCommands.create>> = {
+    resultUrls: [],
     results: [],
     hasFailures: false,
   },
@@ -119,6 +120,72 @@ describe('intent commands', () => {
             explicit_descriptions: false,
           }),
         },
+      }),
+    )
+  })
+
+  it('prints aligned result URLs without requiring --out', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    const { createSpy } = await runIntentCommand(
+      ['image', 'describe', '--input', 'hero.jpg', '--fields', 'labels', '--print-urls'],
+      {
+        results: [],
+        hasFailures: false,
+        resultUrls: [
+          {
+            assemblyId: 'assembly-1',
+            step: 'describe',
+            name: 'hero.json',
+            url: 'https://example.com/hero.json',
+          },
+        ],
+      },
+    )
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['hero.jpg'],
+        output: null,
+        printUrls: true,
+      }),
+    )
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('STEP'))
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('https://example.com/hero.json'))
+  })
+
+  it('prints machine-readable result URLs with --json', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await runIntentCommand(
+      ['--json', 'image', 'describe', '--input', 'hero.jpg', '--fields', 'labels', '--print-urls'],
+      {
+        results: [],
+        hasFailures: false,
+        resultUrls: [
+          {
+            assemblyId: 'assembly-1',
+            step: 'describe',
+            name: 'hero.json',
+            url: 'https://example.com/hero.json',
+          },
+        ],
+      },
+    )
+
+    expect(logSpy).toHaveBeenCalledWith(
+      JSON.stringify({
+        urls: [
+          {
+            assemblyId: 'assembly-1',
+            step: 'describe',
+            name: 'hero.json',
+            url: 'https://example.com/hero.json',
+          },
+        ],
       }),
     )
   })
