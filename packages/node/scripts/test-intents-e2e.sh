@@ -97,6 +97,20 @@ verify_file_decompress() {
   grep -F 'Hello from Transloadit CLI intents' "$1/input.txt" >/dev/null
 }
 
+verify_json() {
+  node --input-type=module <<'NODE' "$1"
+import { readFileSync } from 'node:fs'
+
+const value = JSON.parse(readFileSync(process.argv[1], 'utf8'))
+const ok =
+  value != null &&
+  (!Array.isArray(value) || value.length > 0) &&
+  (typeof value !== 'object' || Object.keys(value).length > 0)
+
+process.exit(ok ? 0 : 1)
+NODE
+}
+
 verify_image_describe_labels() {
   node --input-type=module <<'NODE' "$1"
 import { readFileSync } from 'node:fs'
@@ -131,6 +145,7 @@ verify_output() {
   local path="$2"
 
   case "$verifier" in
+  json) verify_json "$path" ;;
   png) verify_png "$path" ;;
   jpeg) verify_jpeg "$path" ;;
   pdf) verify_pdf "$path" ;;
