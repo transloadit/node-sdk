@@ -154,4 +154,29 @@ describe('prepareInputFiles', () => {
     expect(publicScope.isDone()).toBe(true)
     expect(privateScope.isDone()).toBe(false)
   })
+
+  it('pins URL downloads to the validated DNS answer', async () => {
+    lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
+    const downloadScope = nock('http://rebind.test').get('/public').reply(200, 'public-data')
+
+    const result = await prepareInputFiles({
+      inputFiles: [
+        {
+          kind: 'url',
+          field: 'remote',
+          url: 'http://rebind.test/public',
+        },
+      ],
+      urlStrategy: 'download',
+      allowPrivateUrls: false,
+    })
+
+    try {
+      const downloadedPath = result.files.remote
+      expect(downloadedPath).toBeDefined()
+      expect(downloadScope.isDone()).toBe(true)
+    } finally {
+      await Promise.all(result.cleanup.map((cleanup) => cleanup()))
+    }
+  })
 })

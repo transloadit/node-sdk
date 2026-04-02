@@ -8,7 +8,9 @@ export interface ResultUrlRow {
 }
 
 interface ResultFileLike {
+  basename?: unknown
   name?: unknown
+  ssl_url?: unknown
   url?: unknown
 }
 
@@ -35,19 +37,32 @@ export function collectResultUrlRows({
     }
 
     for (const file of files) {
-      if (
-        !isResultFileLike(file) ||
-        typeof file.url !== 'string' ||
-        typeof file.name !== 'string'
-      ) {
+      if (!isResultFileLike(file)) {
+        continue
+      }
+
+      const url =
+        typeof file.ssl_url === 'string'
+          ? file.ssl_url
+          : typeof file.url === 'string'
+            ? file.url
+            : null
+      const name =
+        typeof file.name === 'string'
+          ? file.name
+          : typeof file.basename === 'string'
+            ? file.basename
+            : null
+
+      if (url == null || name == null) {
         continue
       }
 
       rows.push({
         assemblyId,
         step,
-        name: file.name,
-        url: file.url,
+        name,
+        url,
       })
     }
   }

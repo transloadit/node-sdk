@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import type CacheableLookup from 'cacheable-lookup'
+import type { EntryObject, IPFamily } from 'cacheable-lookup'
 import got from 'got'
 import type { Input as IntoStreamInput } from 'into-stream'
 import type { CreateAssemblyParams } from './apiTypes.ts'
@@ -154,7 +156,9 @@ const isPrivateIp = (address: string): boolean => {
   return false
 }
 
-const assertPublicDownloadUrl = async (value: string): Promise<void> => {
+const resolvePublicDownloadAddress = async (
+  value: string,
+): Promise<{ address: string; family: 4 | 6 }> => {
   const parsed = new URL(value)
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`URL downloads are limited to http/https: ${value}`)
@@ -170,6 +174,16 @@ const assertPublicDownloadUrl = async (value: string): Promise<void> => {
   if (resolvedAddresses.some((address) => isPrivateIp(address.address))) {
     throw new Error(`URL downloads are limited to public hosts: ${value}`)
   }
+
+  const firstAddress = resolvedAddresses[0]
+  if (firstAddress == null) {
+    throw new Error(`Unable to resolve URL hostname: ${value}`)
+  }
+
+  return {
+    address: firstAddress.address,
+    family: firstAddress.family as 4 | 6,
+  }
 }
 
 const downloadUrlToFile = async ({
@@ -184,11 +198,16 @@ const downloadUrlToFile = async ({
   let currentUrl = url
 
   for (let redirectCount = 0; redirectCount <= MAX_URL_REDIRECTS; redirectCount += 1) {
+    let validatedAddress: { address: string; family: 4 | 6 } | null = null
     if (!allowPrivateUrls) {
-      await assertPublicDownloadUrl(currentUrl)
+      validatedAddress = await resolvePublicDownloadAddress(currentUrl)
     }
 
+    const dnsLookup: CacheableLookup['lookup'] | undefined =
+      validatedAddress == null ? undefined : createPinnedDnsLookup(validatedAddress)
+
     const responseStream = got.stream(currentUrl, {
+      dnsLookup,
       followRedirect: false,
       retry: { limit: 0 },
       throwHttpErrors: false,
@@ -229,6 +248,68 @@ const downloadUrlToFile = async ({
   }
 
   throw new Error(`Too many redirects while downloading URL input: ${url}`)
+}
+
+function createPinnedDnsLookup(validatedAddress: {
+  address: string
+  family: 4 | 6
+}): CacheableLookup['lookup'] {
+  function pinnedDnsLookup(
+    _hostname: string,
+    family: IPFamily,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    options: { all: true },
+    callback: (error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    options: object,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    familyOrCallback:
+      | IPFamily
+      | object
+      | ((error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void),
+    callback?:
+      | ((error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void)
+      | ((error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void),
+  ): void {
+    if (typeof familyOrCallback === 'function') {
+      familyOrCallback(null, validatedAddress.address, validatedAddress.family)
+      return
+    }
+
+    if (
+      typeof familyOrCallback === 'object' &&
+      familyOrCallback != null &&
+      'all' in familyOrCallback
+    ) {
+      ;(
+        callback as (
+          error: NodeJS.ErrnoException | null,
+          result: ReadonlyArray<EntryObject>,
+        ) => void
+      )(null, [{ address: validatedAddress.address, family: validatedAddress.family, expires: 0 }])
+      return
+    }
+
+    ;(callback as (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void)(
+      null,
+      validatedAddress.address,
+      validatedAddress.family,
+    )
+  }
+
+  return pinnedDnsLookup
 }
 
 export const prepareInputFiles = async (
