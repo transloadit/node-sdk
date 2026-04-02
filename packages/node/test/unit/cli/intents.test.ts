@@ -5,13 +5,13 @@ import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import * as assembliesCommands from '../../../src/cli/commands/assemblies.ts'
-import { intentCommands } from '../../../src/cli/commands/generated-intents.ts'
 import {
   findIntentDefinitionByPaths,
   getIntentPaths,
   getIntentResultStepName,
   intentCatalog,
 } from '../../../src/cli/intentCommandSpecs.ts'
+import { intentCommands } from '../../../src/cli/intentCommands.ts'
 import { coerceIntentFieldValue } from '../../../src/cli/intentFields.ts'
 import { prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
 import { intentSmokeCases } from '../../../src/cli/intentSmokeCases.ts'

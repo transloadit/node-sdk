@@ -43,10 +43,7 @@ function replaceRequired(
 
 function deriveLegacyScripts(nodeScripts: Record<string, string>): Record<string, string> {
   const scripts = { ...nodeScripts }
-  delete scripts['sync:intents']
-
   if (scripts.check != null) {
-    scripts.check = replaceRequired(scripts.check, 'yarn sync:intents && ', '', 'scripts.check')
     scripts.check = replaceRequired(scripts.check, ' && yarn fix', '', 'scripts.check')
   }
 

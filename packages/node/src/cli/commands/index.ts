@@ -1,7 +1,7 @@
 import { Builtins, Cli } from 'clipanion'
 
 import packageJson from '../../../package.json' with { type: 'json' }
-
+import { intentCommands } from '../intentCommands.ts'
 import {
   AssembliesCreateCommand,
   AssembliesDeleteCommand,
@@ -10,12 +10,9 @@ import {
   AssembliesListCommand,
   AssembliesReplayCommand,
 } from './assemblies.ts'
-
 import { SignatureCommand, SmartCdnSignatureCommand, TokenCommand } from './auth.ts'
-
 import { BillsGetCommand } from './bills.ts'
 import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
-import { intentCommands } from './generated-intents.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
 import {
   TemplatesCreateCommand,

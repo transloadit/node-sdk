@@ -82,8 +82,7 @@
     "src": "./src"
   },
   "scripts": {
-    "sync:intents": "node scripts/generate-intent-commands.ts",
-    "check": "yarn sync:intents && yarn lint:ts && yarn fix && yarn test:unit",
+    "check": "yarn lint:ts && yarn fix && yarn test:unit",
     "fix:js": "biome check --write .",
     "lint:ts": "yarn --cwd ../.. tsc:node",
     "fix:js:unsafe": "biome check --write . --unsafe",
@@ -92,7 +91,7 @@
     "fix": "yarn fix:js",
     "lint:deps": "knip --dependencies --no-progress",
     "fix:deps": "knip --dependencies --no-progress --fix",
-    "prepack": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && yarn sync:intents && yarn --cwd ../.. tsc:node",
+    "prepack": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && rm -f tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo && yarn --cwd ../.. tsc:node",
     "test:unit": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage ./test/unit",
     "test:e2e": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run ./test/e2e",
     "test": "yarn --cwd ../.. tsc:utils && ../../node_modules/.bin/vitest run --coverage"
