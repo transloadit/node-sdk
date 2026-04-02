@@ -1411,7 +1411,6 @@ export async function create(
       outputPlan: OutputPlan | null,
     ): Promise<unknown> {
       const inStream = inPath ? createInputUploadStream(inPath) : null
-      inStream?.on('error', () => {})
 
       return await executeAssemblyLifecycle({
         createOptions: createAssemblyOptions(inStream == null ? undefined : { in: inStream }),

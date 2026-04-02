@@ -24,49 +24,43 @@ function formatUsageExamples(examples: Array<[string, string]>): string {
     .join('\n')
 }
 
-function formatSchemaFields(fieldSpecs: GeneratedSchemaField[]): string {
+function formatFieldDefinitionsName(spec: ResolvedIntentCommandSpec): string {
+  return `${spec.className[0]?.toLowerCase() ?? ''}${spec.className.slice(1)}Fields`
+}
+
+function formatSchemaFields(
+  fieldSpecs: GeneratedSchemaField[],
+  spec: ResolvedIntentCommandSpec,
+): string {
   return fieldSpecs
     .map((fieldSpec) => {
-      const requiredLine = fieldSpec.required ? '\n      required: true,' : ''
-      const optionExpression =
-        fieldSpec.kind === 'boolean'
-          ? `Option.Boolean('${fieldSpec.optionFlags}', {`
-          : fieldSpec.kind === 'number'
-            ? `Option.String('${fieldSpec.optionFlags}', {\n    description: ${formatDescription(fieldSpec.description)},${requiredLine}\n    validator: t.isNumber(),\n  })`
-            : `Option.String('${fieldSpec.optionFlags}', {`
-
-      if (fieldSpec.kind === 'number') {
-        return `  ${fieldSpec.propertyName} = ${optionExpression}`
-      }
-
-      return `  ${fieldSpec.propertyName} = ${optionExpression}
-    description: ${formatDescription(fieldSpec.description)},${requiredLine}
-  })`
+      return `  ${fieldSpec.propertyName} = createIntentOption(${formatFieldDefinitionsName(spec)}.${fieldSpec.propertyName})`
     })
     .join('\n\n')
 }
 
-function formatRawValues(fieldSpecs: GeneratedSchemaField[]): string {
+function formatFieldDefinitions(
+  fieldSpecs: GeneratedSchemaField[],
+  spec: ResolvedIntentCommandSpec,
+): string {
   if (fieldSpecs.length === 0) {
-    return '{}'
+    return ''
   }
 
-  return `{
-${fieldSpecs.map((fieldSpec) => `        ${JSON.stringify(fieldSpec.name)}: this.${fieldSpec.propertyName},`).join('\n')}
-      }`
-}
-
-function formatFieldSpecsLiteral(fieldSpecs: GeneratedSchemaField[]): string {
-  if (fieldSpecs.length === 0) return '[]'
-
-  return `[
+  return `const ${formatFieldDefinitionsName(spec)} = {
 ${fieldSpecs
-  .map(
-    (fieldSpec) =>
-      `        { name: ${JSON.stringify(fieldSpec.name)}, kind: ${JSON.stringify(fieldSpec.kind)} },`,
-  )
+  .map((fieldSpec) => {
+    const requiredLine = fieldSpec.required ? '\n    required: true,' : ''
+    return `  ${fieldSpec.propertyName}: {
+    name: ${JSON.stringify(fieldSpec.name)},
+    kind: ${JSON.stringify(fieldSpec.kind)},
+    propertyName: ${JSON.stringify(fieldSpec.propertyName)},
+    optionFlags: ${JSON.stringify(fieldSpec.optionFlags)},
+    description: ${formatDescription(fieldSpec.description)},${requiredLine}
+  },`
+  })
   .join('\n')}
-      ]`
+} as const`
 }
 
 function generateImports(specs: ResolvedIntentCommandSpec[]): string {
@@ -112,12 +106,14 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
     const outputMode =
       spec.outputMode == null ? '' : `\n  outputMode: ${JSON.stringify(spec.outputMode)},`
     const outputLines = `\n  outputDescription: ${JSON.stringify(spec.outputDescription)},\n  outputRequired: ${JSON.stringify(spec.outputRequired)},`
+    const fieldsLine =
+      spec.fieldSpecs.length === 0 ? '[]' : `Object.values(${formatFieldDefinitionsName(spec)})`
 
     return `const ${getCommandDefinitionName(spec)} = {${commandLabelLine}${inputPolicyLine}${outputMode}${outputLines}
   execution: {
     kind: 'single-step',
     schema: ${spec.schemaSpec?.importName},
-    fieldSpecs: ${formatFieldSpecsLiteral(spec.fieldSpecs)},
+    fields: ${fieldsLine},
     fixedValues: ${JSON.stringify(spec.execution.fixedValues, null, 4).replace(/\n/g, '\n    ')},
     resultStepName: ${JSON.stringify(spec.execution.resultStepName)},
   },
@@ -138,20 +134,15 @@ function formatIntentDefinition(spec: ResolvedIntentCommandSpec): string {
 } as const`
 }
 
-function formatRawValuesMethod(fieldSpecs: GeneratedSchemaField[]): string {
-  return `  protected override getIntentRawValues(): Record<string, unknown> {
-    return ${formatRawValues(fieldSpecs)}
-  }`
-}
-
 function generateClass(spec: ResolvedIntentCommandSpec): string {
-  const schemaFields = formatSchemaFields(spec.fieldSpecs)
-  const rawValuesMethod = formatRawValuesMethod(spec.fieldSpecs)
+  const schemaFields = formatSchemaFields(spec.fieldSpecs, spec)
   const baseClassName = getBaseClassName(spec)
 
   return `
 class ${spec.className} extends ${baseClassName} {
   static override paths = ${JSON.stringify([spec.paths])}
+
+  static override intentDefinition = ${getCommandDefinitionName(spec)}
 
   static override usage = Command.Usage({
     category: 'Intent Commands',
@@ -162,16 +153,15 @@ ${formatUsageExamples(spec.examples)}
     ],
   })
 
-  protected override getIntentDefinition() {
-    return ${getCommandDefinitionName(spec)}
-  }
-
-${schemaFields}${schemaFields ? '\n\n' : ''}${rawValuesMethod}
+${schemaFields}
 }
 `
 }
 
 function generateFile(specs: ResolvedIntentCommandSpec[]): string {
+  const fieldDefinitions = specs
+    .map((spec) => formatFieldDefinitions(spec.fieldSpecs, spec))
+    .filter((definition) => definition.length > 0)
   const commandDefinitions = specs.map(formatIntentDefinition)
   const commandClasses = specs.map(generateClass)
   const commandNames = specs.map((spec) => spec.className)
@@ -179,15 +169,16 @@ function generateFile(specs: ResolvedIntentCommandSpec[]): string {
   return `// DO NOT EDIT BY HAND.
 // Generated by \`packages/node/scripts/generate-intent-commands.ts\`.
 
-import { Command, Option } from 'clipanion'
-import * as t from 'typanion'
+import { Command } from 'clipanion'
 
 ${generateImports(specs)}
 import {
+  createIntentOption,
   GeneratedBundledFileIntentCommand,
   GeneratedNoInputIntentCommand,
   GeneratedStandardFileIntentCommand,
 } from '../intentRuntime.ts'
+${fieldDefinitions.join('\n\n')}
 ${commandDefinitions.join('\n\n')}
 ${commandClasses.join('\n')}
 export const intentCommands = [

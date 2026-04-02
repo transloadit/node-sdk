@@ -1,6 +1,7 @@
 import { statSync } from 'node:fs'
 import { basename } from 'node:path'
 import { Option } from 'clipanion'
+import * as t from 'typanion'
 import type { z } from 'zod'
 
 import { prepareInputFiles } from '../inputFiles.ts'
@@ -29,7 +30,7 @@ export interface PreparedIntentInputs {
 }
 
 export interface IntentSingleStepExecutionDefinition {
-  fieldSpecs: readonly IntentFieldSpec[]
+  fields: readonly IntentOptionDefinition[]
   fixedValues: Record<string, unknown>
   kind: 'single-step'
   resultStepName: string
@@ -59,6 +60,13 @@ export interface IntentNoInputCommandDefinition {
   outputDescription: string
   outputMode?: 'directory' | 'file'
   outputRequired: boolean
+}
+
+export interface IntentOptionDefinition extends IntentFieldSpec {
+  description?: string
+  optionFlags: string
+  propertyName: string
+  required?: boolean
 }
 
 function isHttpUrl(value: string): boolean {
@@ -171,19 +179,19 @@ export async function prepareIntentInputs({
 }
 
 export function parseIntentStep<TSchema extends z.AnyZodObject>({
-  fieldSpecs,
+  fields,
   fixedValues,
   rawValues,
   schema,
 }: {
-  fieldSpecs: readonly IntentFieldSpec[]
+  fields: readonly IntentFieldSpec[]
   fixedValues: Record<string, unknown>
   rawValues: Record<string, unknown>
   schema: TSchema
 }): z.input<TSchema> {
   const input: Record<string, unknown> = { ...fixedValues }
 
-  for (const fieldSpec of fieldSpecs) {
+  for (const fieldSpec of fields) {
     const rawValue = rawValues[fieldSpec.name]
     if (rawValue == null) continue
     const fieldSchema = schema.shape[fieldSpec.name]
@@ -193,7 +201,7 @@ export function parseIntentStep<TSchema extends z.AnyZodObject>({
   const parsed = schema.parse(input) as Record<string, unknown>
   const normalizedInput: Record<string, unknown> = { ...fixedValues }
 
-  for (const fieldSpec of fieldSpecs) {
+  for (const fieldSpec of fields) {
     const rawValue = rawValues[fieldSpec.name]
     if (rawValue == null) continue
     normalizedInput[fieldSpec.name] = parsed[fieldSpec.name]
@@ -230,7 +238,7 @@ function createSingleStep(
   return parseIntentStep({
     schema: execution.schema,
     fixedValues: resolveSingleStepFixedValues(execution, inputPolicy, hasInputs),
-    fieldSpecs: execution.fieldSpecs,
+    fields: execution.fields,
     rawValues,
   })
 }
@@ -246,7 +254,7 @@ function requiresLocalInput(
   return rawValues[inputPolicy.field] == null
 }
 
-async function executeFileIntentCommand({
+async function executeIntentCommand({
   client,
   definition,
   output,
@@ -256,11 +264,13 @@ async function executeFileIntentCommand({
 }: {
   client: AuthenticatedCommand['client']
   createOptions: Omit<AssembliesCreateOptions, 'output' | 'steps' | 'stepsData' | 'template'>
-  definition: IntentFileCommandDefinition
+  definition: IntentFileCommandDefinition | IntentNoInputCommandDefinition
   output: AuthenticatedCommand['output']
   outputPath: string
   rawValues: Record<string, unknown>
 }): Promise<number | undefined> {
+  const inputPolicy: IntentInputPolicy =
+    'inputPolicy' in definition ? definition.inputPolicy : { kind: 'required' }
   const executionOptions =
     definition.execution.kind === 'template'
       ? {
@@ -270,7 +280,7 @@ async function executeFileIntentCommand({
           stepsData: {
             [definition.execution.resultStepName]: createSingleStep(
               definition.execution,
-              definition.inputPolicy,
+              inputPolicy,
               rawValues,
               createOptions.inputs.length > 0,
             ),
@@ -287,16 +297,21 @@ async function executeFileIntentCommand({
 }
 
 abstract class GeneratedIntentCommandBase extends AuthenticatedCommand {
+  declare static intentDefinition: IntentFileCommandDefinition | IntentNoInputCommandDefinition
+
   outputPath = Option.String('--out,-o', {
     description: this.getOutputDescription(),
     required: true,
   })
 
-  protected abstract getIntentDefinition():
-    | IntentFileCommandDefinition
-    | IntentNoInputCommandDefinition
+  protected getIntentDefinition(): IntentFileCommandDefinition | IntentNoInputCommandDefinition {
+    const commandClass = this.constructor as unknown as typeof GeneratedIntentCommandBase
+    return commandClass.intentDefinition
+  }
 
-  protected abstract getIntentRawValues(): Record<string, unknown>
+  protected getIntentRawValues(): Record<string, unknown> {
+    return readIntentRawValues(this, getIntentOptionDefinitions(this.getIntentDefinition()))
+  }
 
   private getOutputDescription(): string {
     return this.getIntentDefinition().outputDescription
@@ -304,30 +319,70 @@ abstract class GeneratedIntentCommandBase extends AuthenticatedCommand {
 }
 
 export abstract class GeneratedNoInputIntentCommand extends GeneratedIntentCommandBase {
-  protected abstract override getIntentDefinition(): IntentNoInputCommandDefinition
-
   protected override async run(): Promise<number | undefined> {
-    const intentDefinition = this.getIntentDefinition()
-    const step = createSingleStep(
-      intentDefinition.execution,
-      { kind: 'required' },
-      this.getIntentRawValues(),
-      false,
-    )
-    const { hasFailures } = await assembliesCommands.create(this.output, this.client, {
-      inputs: [],
-      output: this.outputPath,
-      outputMode: intentDefinition.outputMode,
-      stepsData: {
-        [intentDefinition.execution.resultStepName]: step,
-      } as AssembliesCreateOptions['stepsData'],
+    return await executeIntentCommand({
+      client: this.client,
+      createOptions: {
+        inputs: [],
+      },
+      definition: this.getIntentDefinition() as IntentNoInputCommandDefinition,
+      output: this.output,
+      outputPath: this.outputPath,
+      rawValues: this.getIntentRawValues(),
     })
-
-    return hasFailures ? 1 : undefined
   }
 }
 
-abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase {
+export function createIntentOption(fieldDefinition: IntentOptionDefinition): unknown {
+  const { description, kind, optionFlags, required } = fieldDefinition
+
+  if (kind === 'boolean') {
+    return Option.Boolean(optionFlags, {
+      description,
+      required,
+    })
+  }
+
+  if (kind === 'number') {
+    return Option.String(optionFlags, {
+      description,
+      required,
+      validator: t.isNumber(),
+    })
+  }
+
+  return Option.String(optionFlags, {
+    description,
+    required,
+  })
+}
+
+export function getIntentOptionDefinitions(
+  definition: IntentFileCommandDefinition | IntentNoInputCommandDefinition,
+): readonly IntentOptionDefinition[] {
+  if (definition.execution.kind !== 'single-step') {
+    return []
+  }
+
+  return definition.execution.fields
+}
+
+export function readIntentRawValues(
+  command: object,
+  fieldDefinitions: readonly IntentOptionDefinition[],
+): Record<string, unknown> {
+  const rawValues: Record<string, unknown> = {}
+
+  for (const fieldDefinition of fieldDefinitions) {
+    rawValues[fieldDefinition.name] = (command as Record<string, unknown>)[
+      fieldDefinition.propertyName
+    ]
+  }
+
+  return rawValues
+}
+
+export abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase {
   inputs = inputPathsOption('Provide an input path, directory, URL, or - for stdin')
 
   inputBase64 = Option.Array('--input-base64', {
@@ -340,7 +395,9 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
 
   reprocessStale = reprocessStaleOption()
 
-  protected abstract override getIntentDefinition(): IntentFileCommandDefinition
+  protected override getIntentDefinition(): IntentFileCommandDefinition {
+    return super.getIntentDefinition() as IntentFileCommandDefinition
+  }
 
   protected async prepareInputs(): Promise<PreparedIntentInputs> {
     return await prepareIntentInputs({
@@ -408,7 +465,7 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
     rawValues: Record<string, unknown>,
     preparedInputs: PreparedIntentInputs,
   ): Promise<number | undefined> {
-    return await executeFileIntentCommand({
+    return await executeIntentCommand({
       client: this.client,
       createOptions: this.getCreateOptions(preparedInputs.inputs),
       definition: this.getIntentDefinition(),
