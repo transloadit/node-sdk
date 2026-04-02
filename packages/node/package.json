@@ -44,7 +44,7 @@
     "into-stream": "^9.0.0",
     "is-stream": "^4.0.1",
     "json-to-ast": "^2.1.0",
-    "lodash-es": "^4.17.21",
+    "lodash-es": "^4.18.1",
     "node-watch": "^0.7.4",
     "p-map": "^7.0.3",
     "p-queue": "^9.0.1",
