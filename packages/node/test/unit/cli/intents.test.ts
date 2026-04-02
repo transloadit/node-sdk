@@ -147,7 +147,7 @@ describe('intent commands', () => {
             robot: '/ai/chat',
             use: ':original',
             result: true,
-            model: 'anthropic/claude-4-sonnet-20250514',
+            model: 'anthropic/claude-sonnet-4-6',
             format: 'json',
             return_messages: 'last',
             test_credentials: true,
