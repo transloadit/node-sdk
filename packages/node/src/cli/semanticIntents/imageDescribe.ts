@@ -118,10 +118,7 @@ function resolveRequestedDescribeFields({
   explicitFields: ImageDescribeField[]
   profile: 'wordpress' | null
 }): ImageDescribeField[] {
-  if (
-    explicitFields.length > 0 &&
-    !(explicitFields.length === 1 && explicitFields[0] === 'labels')
-  ) {
+  if (explicitFields.length > 0) {
     return explicitFields
   }
 

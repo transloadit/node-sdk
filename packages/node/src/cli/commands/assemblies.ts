@@ -671,12 +671,14 @@ async function shouldSkipStaleOutput({
   outputPlanMtime,
   outputRootIsDirectory,
   reprocessStale,
+  singleInputReference = 'output-plan',
 }: {
   inputPaths: string[]
   outputPath: string | null
   outputPlanMtime: Date
   outputRootIsDirectory: boolean
   reprocessStale?: boolean
+  singleInputReference?: 'input' | 'output-plan'
 }): Promise<boolean> {
   if (reprocessStale || outputPath == null || outputRootIsDirectory) {
     return false
@@ -692,7 +694,16 @@ async function shouldSkipStaleOutput({
   }
 
   if (inputPaths.length === 1) {
-    return isMeaningfullyNewer(outputStat.mtime, outputPlanMtime)
+    if (singleInputReference === 'output-plan') {
+      return isMeaningfullyNewer(outputStat.mtime, outputPlanMtime)
+    }
+
+    const [inputErr, inputStat] = await tryCatch(fsp.stat(inputPaths[0]))
+    if (inputErr != null || inputStat == null) {
+      return false
+    }
+
+    return isMeaningfullyNewer(outputStat.mtime, inputStat.mtime)
   }
 
   const inputStats = await Promise.all(
@@ -1442,6 +1453,7 @@ export async function create(
             outputPlanMtime: new Date(0),
             outputRootIsDirectory,
             reprocessStale,
+            singleInputReference: 'input',
           })
         ) {
           outputctl.debug(`SKIPPED STALE SINGLE ASSEMBLY ${resolvedOutput ?? 'null'}`)

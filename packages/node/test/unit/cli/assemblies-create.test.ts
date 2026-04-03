@@ -456,6 +456,55 @@ describe('assemblies create', () => {
     expect(await readFile(outputPath, 'utf8')).toBe('existing-bundle')
   })
 
+  it('reruns single-input bundled assemblies when the input is newer than the output', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-bundle-single-input-stale-')
+    const inputPath = path.join(tempDir, 'a.txt')
+    const outputPath = path.join(tempDir, 'bundle.zip')
+
+    await writeFile(inputPath, 'a')
+    await writeFile(outputPath, 'existing-bundle')
+
+    const outputTime = new Date('2026-01-01T00:00:10.000Z')
+    const inputTime = new Date('2026-01-01T00:00:20.000Z')
+
+    await utimes(inputPath, inputTime, inputTime)
+    await utimes(outputPath, outputTime, outputTime)
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-single-input-stale' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          compressed: [{ url: 'http://downloads.test/bundle-single.zip', name: 'bundle.zip' }],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/bundle-single.zip').reply(200, 'fresh-bundle')
+
+    await create(output, client as never, {
+      inputs: [inputPath],
+      output: outputPath,
+      singleAssembly: true,
+      stepsData: {
+        compressed: {
+          robot: '/file/compress',
+          result: true,
+          use: {
+            steps: [':original'],
+            bundle_steps: true,
+          },
+        },
+      },
+    })
+
+    expect(client.createAssembly).toHaveBeenCalledTimes(1)
+    expect(await readFile(outputPath, 'utf8')).toBe('fresh-bundle')
+  })
+
   it('rewrites existing bundled outputs on single-assembly reruns', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 

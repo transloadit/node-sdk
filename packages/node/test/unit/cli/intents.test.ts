@@ -273,6 +273,24 @@ describe('intent commands', () => {
     expect(createSpy).not.toHaveBeenCalled()
   })
 
+  it('rejects combining --fields labels with --for wordpress', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'describe',
+      '--input',
+      'hero.jpg',
+      '--fields',
+      'labels',
+      '--for',
+      'wordpress',
+      '--out',
+      'fields.json',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
   it('maps image generate flags to /image/generate step parameters', async () => {
     const { createSpy } = await runIntentCommand([
       'image',
