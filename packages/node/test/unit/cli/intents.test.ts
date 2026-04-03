@@ -155,7 +155,6 @@ describe('intent commands', () => {
       expect.objectContaining({
         inputs: ['hero.jpg'],
         output: null,
-        printUrls: true,
       }),
     )
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('STEP'))

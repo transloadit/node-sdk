@@ -322,7 +322,6 @@ async function executeIntentCommand({
     ...createOptions,
     output: outputPath ?? null,
     outputMode: definition.outputMode,
-    printUrls,
     ...executionOptions,
   })
   if (printUrls) {

@@ -1190,7 +1190,6 @@ export interface AssembliesCreateOptions {
   reprocessStale?: boolean
   singleAssembly?: boolean
   concurrency?: number
-  printUrls?: boolean
 }
 
 const DEFAULT_CONCURRENCY = 5
@@ -1213,7 +1212,6 @@ export async function create(
     reprocessStale,
     singleAssembly,
     concurrency = DEFAULT_CONCURRENCY,
-    printUrls: _printUrls,
   }: AssembliesCreateOptions,
 ): Promise<{ resultUrls: ResultUrlRow[]; results: unknown[]; hasFailures: boolean }> {
   // Quick fix for https://github.com/transloadit/transloadify/issues/13
@@ -1643,7 +1641,6 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       reprocessStale: this.reprocessStale,
       singleAssembly: this.singleAssembly,
       concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
-      printUrls: this.printUrls,
     })
     if (this.printUrls) {
       printResultUrls(this.output, resultUrls)
