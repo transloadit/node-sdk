@@ -1,7 +1,6 @@
 import type { CommandClass } from 'clipanion'
 import { Command } from 'clipanion'
 import type { ZodObject, ZodRawShape, ZodTypeAny } from 'zod'
-import { ZodDefault, ZodEffects, ZodNullable, ZodOptional } from 'zod'
 
 import type { RobotMetaInput } from '../alphalib/types/robots/_instructions-primitives.ts'
 import type {
@@ -17,6 +16,7 @@ import {
   createIntentOption,
   inferIntentExampleValue,
   inferIntentFieldKind,
+  unwrapIntentSchema,
 } from './intentFields.ts'
 import type { IntentInputPolicy } from './intentInputPolicy.ts'
 import type {
@@ -96,38 +96,6 @@ function stripTrailingPunctuation(value: string): string {
   return value.replace(/[.:]+$/, '').trim()
 }
 
-function unwrapSchema(input: unknown): { required: boolean; schema: unknown } {
-  let schema = input
-  let required = true
-
-  while (true) {
-    if (schema instanceof ZodEffects) {
-      schema = schema._def.schema
-      continue
-    }
-
-    if (schema instanceof ZodOptional) {
-      required = false
-      schema = schema.unwrap()
-      continue
-    }
-
-    if (schema instanceof ZodDefault) {
-      required = false
-      schema = schema.removeDefault()
-      continue
-    }
-
-    if (schema instanceof ZodNullable) {
-      required = false
-      schema = schema.unwrap()
-      continue
-    }
-
-    return { required, schema }
-  }
-}
-
 function getTypicalInputFile(meta: RobotMetaInput): string {
   switch (meta.typical_file_type) {
     case 'audio file':
@@ -186,7 +154,7 @@ function inferOutputPath(
 
 function inferInputModeFromShape(shape: Record<string, ZodTypeAny>): IntentInputMode {
   if ('prompt' in shape) {
-    return unwrapSchema(shape.prompt).required ? 'none' : 'local-files'
+    return unwrapIntentSchema(shape.prompt).required ? 'none' : 'local-files'
   }
 
   return 'local-files'
@@ -201,7 +169,7 @@ function inferIntentInput(
     return { kind: 'none' }
   }
 
-  const promptIsOptional = 'prompt' in shape && !unwrapSchema(shape.prompt).required
+  const promptIsOptional = 'prompt' in shape && !unwrapIntentSchema(shape.prompt).required
   const inputPolicy = promptIsOptional
     ? ({
         kind: 'optional',
@@ -269,7 +237,7 @@ function collectSchemaFields(
   return Object.entries(schemaShape)
     .filter(([key]) => !hiddenFieldNames.has(key) && !Object.hasOwn(fixedValues, key))
     .flatMap(([key, fieldSchema]) => {
-      const { required: schemaRequired, schema: unwrappedSchema } = unwrapSchema(fieldSchema)
+      const { required: schemaRequired, schema: unwrappedSchema } = unwrapIntentSchema(fieldSchema)
 
       let kind: IntentFieldKind
       try {

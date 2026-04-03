@@ -13,7 +13,11 @@ import {
   intentCatalog,
 } from '../../../src/cli/intentCommandSpecs.ts'
 import { intentCommands } from '../../../src/cli/intentCommands.ts'
-import { coerceIntentFieldValue, inferIntentFieldKind } from '../../../src/cli/intentFields.ts'
+import {
+  coerceIntentFieldValue,
+  inferIntentFieldKind,
+  parseStringArrayValue,
+} from '../../../src/cli/intentFields.ts'
 import { prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
@@ -821,6 +825,16 @@ describe('intent commands', () => {
   it('classifies string array schemas as string-array intent fields', () => {
     expect(inferIntentFieldKind(z.array(z.string()))).toBe('string-array')
     expect(inferIntentFieldKind(z.union([z.string(), z.array(z.string())]))).toBe('string-array')
+  })
+
+  it('parses shared string-array values from csv, repeated flags, and JSON arrays', () => {
+    expect(parseStringArrayValue('altText,title')).toEqual(['altText', 'title'])
+    expect(parseStringArrayValue(['altText,title', 'caption'])).toEqual([
+      'altText',
+      'title',
+      'caption',
+    ])
+    expect(parseStringArrayValue(['["altText","title"]'])).toEqual(['altText', 'title'])
   })
 
   it('parses JSON objects for auto-typed flags like image resize --crop', async () => {

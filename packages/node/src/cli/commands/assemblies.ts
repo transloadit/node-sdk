@@ -35,6 +35,8 @@ import {
 } from '../fileProcessingOptions.ts'
 import { formatAPIError, readCliInput } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
+import type { AssemblyResultEntryLike, NormalizedAssemblyResultFile } from '../resultFiles.ts'
+import { flattenAssemblyResultFiles } from '../resultFiles.ts'
 import type { ResultUrlRow } from '../resultUrls.ts'
 import { collectResultUrlRows, printResultUrls } from '../resultUrls.ts'
 import { readStepsInputFile } from '../stepsInput.ts'
@@ -492,21 +494,6 @@ async function downloadResultToStdout(resultUrl: string, signal: AbortSignal): P
   await pipeline(got.stream(resultUrl, { signal }), stdoutStream)
 }
 
-interface AssemblyResultFile {
-  file: {
-    basename?: string | null
-    ext?: string | null
-    name?: string | null
-    ssl_url?: string | null
-    url?: string | null
-  }
-  stepName: string
-}
-
-function getResultFileUrl(file: AssemblyResultFile['file']): string | null {
-  return file.ssl_url ?? file.url ?? null
-}
-
 function sanitizeResultName(value: string): string {
   const base = path.basename(value)
   return base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
@@ -531,28 +518,18 @@ async function ensureUniquePath(targetPath: string, reservedPaths: Set<string>):
   })
 }
 
-function flattenAssemblyResults(results: Record<string, Array<AssemblyResultFile['file']>>): {
-  allFiles: AssemblyResultFile[]
-  entries: Array<[string, Array<AssemblyResultFile['file']>]>
+function flattenAssemblyResults(results: Record<string, Array<AssemblyResultEntryLike>>): {
+  allFiles: NormalizedAssemblyResultFile[]
+  entries: Array<[string, Array<AssemblyResultEntryLike>]>
 } {
-  const entries = Object.entries(results)
-  const allFiles: AssemblyResultFile[] = []
-  for (const [stepName, stepResults] of entries) {
-    for (const file of stepResults) {
-      allFiles.push({ stepName, file })
-    }
+  return {
+    allFiles: flattenAssemblyResultFiles(results),
+    entries: Object.entries(results),
   }
-
-  return { allFiles, entries }
 }
 
-function getResultFileName({ file, stepName }: AssemblyResultFile): string {
-  const rawName =
-    file.name ??
-    (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
-    `${stepName}_result`
-
-  return sanitizeResultName(rawName)
+function getResultFileName(file: NormalizedAssemblyResultFile): string {
+  return sanitizeResultName(file.name)
 }
 
 interface AssemblyDownloadTarget {
@@ -571,7 +548,7 @@ async function buildDirectoryDownloadTargets({
   baseDir,
   groupByStep,
 }: {
-  allFiles: AssemblyResultFile[]
+  allFiles: NormalizedAssemblyResultFile[]
   baseDir: string
   groupByStep: boolean
 }): Promise<AssemblyDownloadTarget[]> {
@@ -580,16 +557,11 @@ async function buildDirectoryDownloadTargets({
   const targets: AssemblyDownloadTarget[] = []
   const reservedPaths = new Set<string>()
   for (const resultFile of allFiles) {
-    const resultUrl = getResultFileUrl(resultFile.file)
-    if (resultUrl == null) {
-      continue
-    }
-
     const targetDir = groupByStep ? path.join(baseDir, resultFile.stepName) : baseDir
     await fsp.mkdir(targetDir, { recursive: true })
 
     targets.push({
-      resultUrl,
+      resultUrl: resultFile.url,
       targetPath: await ensureUniquePath(
         path.join(targetDir, getResultFileName(resultFile)),
         reservedPaths,
@@ -601,11 +573,11 @@ async function buildDirectoryDownloadTargets({
 }
 
 function getSingleResultDownloadTarget(
-  allFiles: AssemblyResultFile[],
+  allFiles: NormalizedAssemblyResultFile[],
   targetPath: string | null,
 ): AssemblyDownloadTarget[] {
   const first = allFiles[0]
-  const resultUrl = first == null ? null : getResultFileUrl(first.file)
+  const resultUrl = first?.url ?? null
   if (resultUrl == null) {
     return []
   }
@@ -625,8 +597,8 @@ async function resolveResultDownloadTargets({
   outputRootIsDirectory,
   singleAssembly,
 }: {
-  allFiles: AssemblyResultFile[]
-  entries: Array<[string, Array<AssemblyResultFile['file']>]>
+  allFiles: NormalizedAssemblyResultFile[]
+  entries: Array<[string, Array<AssemblyResultEntryLike>]>
   hasDirectoryInput: boolean
   inPath: string | null
   inputs: string[]
@@ -764,7 +736,7 @@ async function materializeAssemblyResults({
   outputRoot: string | null
   outputRootIsDirectory: boolean
   outputctl: IOutputCtl
-  results: Record<string, Array<AssemblyResultFile['file']>>
+  results: Record<string, Array<AssemblyResultEntryLike>>
   singleAssembly?: boolean
 }): Promise<void> {
   if (outputRoot == null) {

@@ -1,3 +1,4 @@
+import { parseStringArrayValue } from '../intentFields.ts'
 import type {
   IntentDynamicStepExecutionDefinition,
   IntentOptionDefinition,
@@ -70,10 +71,7 @@ export const imageDescribeCommandPresentation = {
 } as const
 
 function parseDescribeFields(value: string[] | undefined): ImageDescribeField[] {
-  const rawFields = (value ?? [])
-    .flatMap((part) => part.split(','))
-    .map((part) => part.trim())
-    .filter(Boolean)
+  const rawFields = parseStringArrayValue(value ?? [])
 
   if (rawFields.length === 0) {
     return []

@@ -29,31 +29,61 @@ export interface IntentOptionLike extends IntentFieldSpec {
   required?: boolean
 }
 
-export function inferIntentFieldKind(schema: unknown): IntentFieldKind {
-  if (schema instanceof ZodEffects) {
-    return inferIntentFieldKind(schema._def.schema)
-  }
+export function unwrapIntentSchema(input: unknown): { required: boolean; schema: unknown } {
+  let schema = input
+  let required = true
 
-  if (schema instanceof ZodString || schema instanceof ZodEnum) {
+  while (true) {
+    if (schema instanceof ZodEffects) {
+      schema = schema._def.schema
+      continue
+    }
+
+    if (schema instanceof ZodOptional) {
+      required = false
+      schema = schema.unwrap()
+      continue
+    }
+
+    if (schema instanceof ZodDefault) {
+      required = false
+      schema = schema.removeDefault()
+      continue
+    }
+
+    if (schema instanceof ZodNullable) {
+      required = false
+      schema = schema.unwrap()
+      continue
+    }
+
+    return { required, schema }
+  }
+}
+
+export function inferIntentFieldKind(schema: unknown): IntentFieldKind {
+  const unwrappedSchema = unwrapIntentSchema(schema).schema
+
+  if (unwrappedSchema instanceof ZodString || unwrappedSchema instanceof ZodEnum) {
     return 'string'
   }
 
-  if (schema instanceof ZodNumber) {
+  if (unwrappedSchema instanceof ZodNumber) {
     return 'number'
   }
 
-  if (schema instanceof ZodBoolean) {
+  if (unwrappedSchema instanceof ZodBoolean) {
     return 'boolean'
   }
 
-  if (schema instanceof ZodLiteral) {
-    if (typeof schema.value === 'number') return 'number'
-    if (typeof schema.value === 'boolean') return 'boolean'
+  if (unwrappedSchema instanceof ZodLiteral) {
+    if (typeof unwrappedSchema.value === 'number') return 'number'
+    if (typeof unwrappedSchema.value === 'boolean') return 'boolean'
     return 'string'
   }
 
-  if (schema instanceof ZodArray) {
-    const elementKind = inferIntentFieldKind(schema.element)
+  if (unwrappedSchema instanceof ZodArray) {
+    const elementKind = inferIntentFieldKind(unwrappedSchema.element)
     if (elementKind === 'string') {
       return 'string-array'
     }
@@ -61,13 +91,13 @@ export function inferIntentFieldKind(schema: unknown): IntentFieldKind {
     return 'json'
   }
 
-  if (schema instanceof ZodObject) {
+  if (unwrappedSchema instanceof ZodObject) {
     return 'json'
   }
 
-  if (schema instanceof ZodUnion) {
+  if (unwrappedSchema instanceof ZodUnion) {
     const optionKinds = Array.from(
-      new Set(schema._def.options.map((option: unknown) => inferIntentFieldKind(option))),
+      new Set(unwrappedSchema._def.options.map((option: unknown) => inferIntentFieldKind(option))),
     ) as IntentFieldKind[]
     if (
       optionKinds.length === 2 &&
@@ -118,28 +148,18 @@ export function createIntentOption(fieldDefinition: IntentOptionLike): unknown {
 }
 
 function inferSchemaExampleValue(schema: unknown): string | null {
-  if (schema instanceof ZodEffects) {
-    return inferSchemaExampleValue(schema._def.schema)
+  const unwrappedSchema = unwrapIntentSchema(schema).schema
+
+  if (unwrappedSchema instanceof ZodLiteral) {
+    return String(unwrappedSchema.value)
   }
 
-  if (schema instanceof ZodOptional || schema instanceof ZodNullable) {
-    return inferSchemaExampleValue(schema.unwrap())
+  if (unwrappedSchema instanceof ZodEnum) {
+    return unwrappedSchema.options[0] ?? null
   }
 
-  if (schema instanceof ZodDefault) {
-    return inferSchemaExampleValue(schema.removeDefault())
-  }
-
-  if (schema instanceof ZodLiteral) {
-    return String(schema.value)
-  }
-
-  if (schema instanceof ZodEnum) {
-    return schema.options[0] ?? null
-  }
-
-  if (schema instanceof ZodUnion) {
-    for (const option of schema._def.options) {
+  if (unwrappedSchema instanceof ZodUnion) {
+    for (const option of unwrappedSchema._def.options) {
       const exampleValue = inferSchemaExampleValue(option)
       if (exampleValue != null) {
         return exampleValue
@@ -148,6 +168,56 @@ function inferSchemaExampleValue(schema: unknown): string | null {
   }
 
   return null
+}
+
+export function parseStringArrayValue(raw: unknown): string[] {
+  const addNormalizedValues = (source: string[], value: string): void => {
+    source.push(
+      ...value
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean),
+    )
+  }
+
+  const normalizeJsonArray = (value: string): string[] | null => {
+    const trimmed = value.trim()
+    if (!trimmed.startsWith('[')) {
+      return null
+    }
+
+    let parsedJson: unknown
+    try {
+      parsedJson = JSON.parse(trimmed)
+    } catch {
+      throw new Error(`Expected valid JSON but received "${value}"`)
+    }
+
+    if (!Array.isArray(parsedJson) || !parsedJson.every((item) => typeof item === 'string')) {
+      throw new Error(`Expected an array of strings but received "${value}"`)
+    }
+
+    return parsedJson
+  }
+
+  const values = Array.isArray(raw) ? raw : [raw]
+  const normalizedValues: string[] = []
+  for (const value of values) {
+    if (typeof value !== 'string') {
+      normalizedValues.push(String(value))
+      continue
+    }
+
+    const parsedJson = normalizeJsonArray(value)
+    if (parsedJson != null) {
+      normalizedValues.push(...parsedJson)
+      continue
+    }
+
+    addNormalizedValues(normalizedValues, value)
+  }
+
+  return normalizedValues
 }
 
 function pickPreferredExampleValue(name: string, candidates: readonly string[]): string | null {
@@ -331,50 +401,7 @@ export function coerceIntentFieldValue(
   }
 
   if (kind === 'string-array') {
-    if (Array.isArray(raw)) {
-      if (raw.length === 1 && typeof raw[0] === 'string') {
-        const trimmed = raw[0].trim()
-        if (trimmed.startsWith('[')) {
-          let parsedJson: unknown
-          try {
-            parsedJson = JSON.parse(trimmed)
-          } catch {
-            throw new Error(`Expected valid JSON but received "${raw[0]}"`)
-          }
-
-          if (
-            !Array.isArray(parsedJson) ||
-            !parsedJson.every((value) => typeof value === 'string')
-          ) {
-            throw new Error(`Expected an array of strings but received "${raw[0]}"`)
-          }
-
-          return parsedJson
-        }
-      }
-
-      return raw.map((value) => String(value))
-    }
-
-    if (typeof raw === 'string') {
-      const trimmed = raw.trim()
-      if (trimmed.startsWith('[')) {
-        let parsedJson: unknown
-        try {
-          parsedJson = JSON.parse(trimmed)
-        } catch {
-          throw new Error(`Expected valid JSON but received "${raw}"`)
-        }
-
-        if (!Array.isArray(parsedJson) || !parsedJson.every((value) => typeof value === 'string')) {
-          throw new Error(`Expected an array of strings but received "${raw}"`)
-        }
-
-        return parsedJson
-      }
-    }
-
-    return [String(raw)]
+    return parseStringArrayValue(raw)
   }
 
   return raw

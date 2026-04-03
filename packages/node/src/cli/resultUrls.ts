@@ -1,21 +1,11 @@
 import type { IOutputCtl } from './OutputCtl.ts'
+import { flattenAssemblyResultFiles } from './resultFiles.ts'
 
 export interface ResultUrlRow {
   assemblyId: string
   name: string
   step: string
   url: string
-}
-
-interface ResultFileLike {
-  basename?: unknown
-  name?: unknown
-  ssl_url?: unknown
-  url?: unknown
-}
-
-function isResultFileLike(value: unknown): value is ResultFileLike {
-  return value != null && typeof value === 'object'
 }
 
 export function collectResultUrlRows({
@@ -25,49 +15,12 @@ export function collectResultUrlRows({
   assemblyId: string
   results: unknown
 }): ResultUrlRow[] {
-  if (results == null || typeof results !== 'object' || Array.isArray(results)) {
-    return []
-  }
-
-  const rows: ResultUrlRow[] = []
-
-  for (const [step, files] of Object.entries(results)) {
-    if (!Array.isArray(files)) {
-      continue
-    }
-
-    for (const file of files) {
-      if (!isResultFileLike(file)) {
-        continue
-      }
-
-      const url =
-        typeof file.ssl_url === 'string'
-          ? file.ssl_url
-          : typeof file.url === 'string'
-            ? file.url
-            : null
-      const name =
-        typeof file.name === 'string'
-          ? file.name
-          : typeof file.basename === 'string'
-            ? file.basename
-            : null
-
-      if (url == null || name == null) {
-        continue
-      }
-
-      rows.push({
-        assemblyId,
-        step,
-        name,
-        url,
-      })
-    }
-  }
-
-  return rows
+  return flattenAssemblyResultFiles(results).map((file) => ({
+    assemblyId,
+    step: file.stepName,
+    name: file.name,
+    url: file.url,
+  }))
 }
 
 export function formatResultUrlRows(rows: readonly ResultUrlRow[]): string {
