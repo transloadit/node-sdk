@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import * as assembliesCommands from '../../../src/cli/commands/assemblies.ts'
 import {
@@ -12,7 +13,7 @@ import {
   intentCatalog,
 } from '../../../src/cli/intentCommandSpecs.ts'
 import { intentCommands } from '../../../src/cli/intentCommands.ts'
-import { coerceIntentFieldValue } from '../../../src/cli/intentFields.ts'
+import { coerceIntentFieldValue, inferIntentFieldKind } from '../../../src/cli/intentFields.ts'
 import { prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
@@ -817,6 +818,11 @@ describe('intent commands', () => {
     expect(() => coerceIntentFieldValue('number', '   ')).toThrow('Expected a number')
   })
 
+  it('classifies string array schemas as string-array intent fields', () => {
+    expect(inferIntentFieldKind(z.array(z.string()))).toBe('string-array')
+    expect(inferIntentFieldKind(z.union([z.string(), z.array(z.string())]))).toBe('string-array')
+  })
+
   it('parses JSON objects for auto-typed flags like image resize --crop', async () => {
     const { createSpy } = await runIntentCommand([
       'image',
@@ -1029,6 +1035,9 @@ describe('intent commands', () => {
     ])
     expect(getIntentCommand(['text', 'speak']).usage.examples).toEqual([
       ['Run the command', expect.stringContaining('--provider')],
+    ])
+    expect(getIntentCommand(['document', 'convert']).usage.examples).toEqual([
+      ['Run the command', expect.stringContaining('output.pdf')],
     ])
   })
 

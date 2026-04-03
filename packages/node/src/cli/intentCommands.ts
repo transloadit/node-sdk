@@ -13,7 +13,11 @@ import type {
 } from './intentCommandSpecs.ts'
 import { getIntentPaths, getIntentResultStepName, intentCatalog } from './intentCommandSpecs.ts'
 import type { IntentFieldKind, IntentFieldSpec } from './intentFields.ts'
-import { inferIntentFieldKind } from './intentFields.ts'
+import {
+  createIntentOption,
+  inferIntentExampleValue,
+  inferIntentFieldKind,
+} from './intentFields.ts'
 import type { IntentInputPolicy } from './intentInputPolicy.ts'
 import type {
   IntentCommandDefinition,
@@ -22,7 +26,6 @@ import type {
   IntentSingleStepExecutionDefinition,
 } from './intentRuntime.ts'
 import {
-  createIntentOption,
   GeneratedBundledFileIntentCommand,
   GeneratedNoInputIntentCommand,
   GeneratedStandardFileIntentCommand,
@@ -33,6 +36,7 @@ import { getSemanticIntentDescriptor } from './semanticIntents/index.ts'
 
 interface GeneratedSchemaField extends IntentFieldSpec {
   description?: string
+  exampleValue: string
   optionFlags: string
   propertyName: string
   required: boolean
@@ -152,37 +156,6 @@ function getDefaultOutputPath(paths: string[], outputMode: IntentOutputMode): st
   return 'output.file'
 }
 
-function isIntentPath(paths: string[], expectedGroup: string, expectedAction: string): boolean {
-  return paths[0] === expectedGroup && paths[1] === expectedAction
-}
-
-function inferPromptExample(paths: string[]): string {
-  if (isIntentPath(paths, 'image', 'generate')) {
-    return 'A red bicycle in a studio'
-  }
-
-  return 'Hello world'
-}
-
-function inferRequiredExampleValue(
-  paths: string[],
-  fieldSpec: GeneratedSchemaField,
-): string | null {
-  if (fieldSpec.name === 'aspect_ratio') return '1:1'
-  if (fieldSpec.name === 'format' && isIntentPath(paths, 'document', 'convert')) return 'pdf'
-  if (fieldSpec.name === 'format' && isIntentPath(paths, 'file', 'compress')) return 'zip'
-  if (fieldSpec.name === 'format' && isIntentPath(paths, 'video', 'thumbs')) return 'jpg'
-  if (fieldSpec.name === 'prompt') return JSON.stringify(inferPromptExample(paths))
-  if (fieldSpec.name === 'provider') return 'aws'
-  if (fieldSpec.name === 'target_language') return 'en-US'
-  if (fieldSpec.name === 'voice') return 'female-1'
-
-  if (fieldSpec.kind === 'boolean') return 'true'
-  if (fieldSpec.kind === 'number') return '1'
-
-  return 'value'
-}
-
 function inferOutputPath(
   paths: string[],
   outputMode: IntentOutputMode,
@@ -192,23 +165,17 @@ function inferOutputPath(
     return 'output/'
   }
 
-  if (isIntentPath(paths, 'file', 'compress')) {
-    const formatExample = fieldSpecs
-      .map((fieldSpec) =>
-        fieldSpec.name === 'format' ? inferRequiredExampleValue(paths, fieldSpec) : null,
-      )
-      .find((value) => value != null)
-
-    return `archive.${formatExample ?? 'zip'}`
-  }
-
   const formatExample = fieldSpecs
     .map((fieldSpec) =>
-      fieldSpec.required && fieldSpec.name === 'format'
-        ? inferRequiredExampleValue(paths, fieldSpec)
-        : null,
+      fieldSpec.required && fieldSpec.name === 'format' ? fieldSpec.exampleValue : null,
     )
     .find((value) => value != null)
+
+  if (fieldSpecs.some((fieldSpec) => fieldSpec.name === 'format') && formatExample != null) {
+    if (fieldSpecs.some((fieldSpec) => fieldSpec.name === 'relative_pathname')) {
+      return `archive.${formatExample}`
+    }
+  }
 
   if (formatExample != null && /^[-\w]+$/.test(formatExample)) {
     return `output.${formatExample}`
@@ -318,6 +285,11 @@ function collectSchemaFields(
           optionFlags: `--${toKebabCase(key)}`,
           required: (input.kind === 'none' && key === 'prompt') || schemaRequired,
           description: fieldSchema.description,
+          exampleValue: inferIntentExampleValue({
+            kind,
+            name: key,
+            schema: unwrappedSchema as ZodTypeAny,
+          }),
           kind,
         },
       ]
@@ -344,27 +316,25 @@ function inferExamples(
     ZodTypeAny
   >
   const inputMode = definition.inputMode ?? inferInputModeFromShape(schemaShape)
+  const fieldSpecs =
+    spec.intentDefinition.execution.kind === 'single-step'
+      ? (spec.intentDefinition.execution.fields as readonly GeneratedSchemaField[])
+      : []
 
   if (inputMode === 'local-files') {
     parts.push('--input', getTypicalInputFile(definition.meta))
   }
 
   if (inputMode === 'none') {
-    parts.push('--prompt', JSON.stringify(inferPromptExample(spec.paths)))
+    const promptField = fieldSpecs.find((fieldSpec) => fieldSpec.name === 'prompt')
+    parts.push('--prompt', promptField?.exampleValue ?? JSON.stringify('A red bicycle in a studio'))
   }
-
-  const fieldSpecs =
-    spec.intentDefinition.execution.kind === 'single-step'
-      ? (spec.intentDefinition.execution.fields as readonly GeneratedSchemaField[])
-      : []
 
   for (const fieldSpec of fieldSpecs) {
     if (!fieldSpec.required) continue
     if (fieldSpec.name === 'prompt' && inputMode === 'none') continue
 
-    const exampleValue = inferRequiredExampleValue(spec.paths, fieldSpec)
-    if (exampleValue == null) continue
-    parts.push(fieldSpec.optionFlags, exampleValue)
+    parts.push(fieldSpec.optionFlags, fieldSpec.exampleValue)
   }
 
   const outputMode = spec.intentDefinition.outputMode ?? 'file'

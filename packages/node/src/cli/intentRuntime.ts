@@ -1,7 +1,6 @@
 import { statSync } from 'node:fs'
 import { basename } from 'node:path'
 import { Option } from 'clipanion'
-import * as t from 'typanion'
 import type { z } from 'zod'
 
 import { prepareInputFiles } from '../inputFiles.ts'
@@ -385,37 +384,6 @@ export abstract class GeneratedNoInputIntentCommand extends GeneratedIntentComma
       rawValues: this.getIntentRawValues(),
     })
   }
-}
-
-export function createIntentOption(fieldDefinition: IntentOptionDefinition): unknown {
-  const { description, kind, optionFlags, required } = fieldDefinition
-
-  if (kind === 'boolean') {
-    return Option.Boolean(optionFlags, {
-      description,
-      required,
-    })
-  }
-
-  if (kind === 'number') {
-    return Option.String(optionFlags, {
-      description,
-      required,
-      validator: t.isNumber(),
-    })
-  }
-
-  if (kind === 'string-array') {
-    return Option.Array(optionFlags, {
-      description,
-      required,
-    })
-  }
-
-  return Option.String(optionFlags, {
-    description,
-    required,
-  })
 }
 
 export function getIntentOptionDefinitions(
