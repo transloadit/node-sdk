@@ -400,8 +400,8 @@ describe('assemblies create', () => {
     })
 
     expect(client.createAssembly).toHaveBeenCalledTimes(1)
-    const uploads = client.createAssembly.mock.calls[0]?.[0]?.uploads
-    expect(Object.keys(uploads ?? {}).sort()).toEqual(['a.txt', 'b.txt'])
+    const files = client.createAssembly.mock.calls[0]?.[0]?.files
+    expect(Object.keys(files ?? {}).sort()).toEqual(['a.txt', 'b.txt'])
   })
 
   it('skips bundled single-assembly runs when the output is newer than every input', async () => {
@@ -502,7 +502,52 @@ describe('assemblies create', () => {
     })
 
     expect(client.createAssembly).toHaveBeenCalledTimes(1)
+    expect(client.createAssembly.mock.calls[0]?.[0]?.files).toEqual({
+      'a.txt': inputPath,
+    })
     expect(await readFile(outputPath, 'utf8')).toBe('fresh-bundle')
+  })
+
+  it('preserves the original filename for per-file uploads', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-file-upload-name-')
+    const inputPath = path.join(tempDir, 'README.md')
+    const outputPath = path.join(tempDir, 'README.pdf')
+
+    await writeFile(inputPath, '# Hello')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-readme-md' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          converted: [{ url: 'http://downloads.test/README.pdf', name: 'README.pdf' }],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/README.pdf').reply(200, 'pdf-contents')
+
+    await create(output, client as never, {
+      inputs: [inputPath],
+      output: outputPath,
+      stepsData: {
+        converted: {
+          robot: '/document/convert',
+          result: true,
+          use: ':original',
+          format: 'pdf',
+        },
+      },
+    })
+
+    expect(client.createAssembly).toHaveBeenCalledTimes(1)
+    expect(client.createAssembly.mock.calls[0]?.[0]?.files).toEqual({
+      in: inputPath,
+    })
+    expect(client.createAssembly.mock.calls[0]?.[0]?.uploads).toBeUndefined()
   })
 
   it('rewrites existing bundled outputs on single-assembly reruns', async () => {

@@ -1311,10 +1311,19 @@ export async function create(
     const abortController = new AbortController()
     const outputRootIsDirectory = Boolean(resolvedOutput != null && outstat?.isDirectory())
 
-    function createAssemblyOptions(uploads?: Record<string, Readable>): CreateAssemblyOptions {
+    function createAssemblyOptions({
+      files,
+      uploads,
+    }: {
+      files?: Record<string, string>
+      uploads?: Record<string, Readable>
+    } = {}): CreateAssemblyOptions {
       const createOptions: CreateAssemblyOptions = {
         params,
         signal: abortController.signal,
+      }
+      if (files != null && Object.keys(files).length > 0) {
+        createOptions.files = files
       }
       if (uploads != null && Object.keys(uploads).length > 0) {
         createOptions.uploads = uploads
@@ -1412,10 +1421,21 @@ export async function create(
       inPath: string | null,
       outputPlan: OutputPlan | null,
     ): Promise<unknown> {
-      const inStream = inPath ? createInputUploadStream(inPath) : null
+      const files =
+        inPath != null && inPath !== stdinWithPath.path
+          ? {
+              in: inPath,
+            }
+          : undefined
+      const uploads =
+        inPath === stdinWithPath.path
+          ? {
+              in: createInputUploadStream(inPath),
+            }
+          : undefined
 
       return await executeAssemblyLifecycle({
-        createOptions: createAssemblyOptions(inStream == null ? undefined : { in: inStream }),
+        createOptions: createAssemblyOptions({ files, uploads }),
         inPath,
         inputPaths: inPath == null ? [] : [inPath],
         outputPlan,
@@ -1461,28 +1481,37 @@ export async function create(
           return
         }
 
-        // Build uploads object, creating fresh streams for each file
+        // Preserve original basenames/extensions for filesystem uploads so the backend
+        // can infer types like Markdown correctly.
+        const files: Record<string, string> = {}
         const uploads: Record<string, Readable> = {}
         const inputPaths: string[] = []
         for (const inPath of collectedPaths) {
           const basename = path.basename(inPath)
+          const collection = inPath === stdinWithPath.path ? uploads : files
           const key = await ensureUniqueCounterValue({
             initialValue: basename,
-            isTaken: (candidate) => candidate in uploads,
+            isTaken: (candidate) => candidate in collection,
             nextValue: (counter) =>
               `${path.parse(basename).name}_${counter}${path.parse(basename).ext}`,
             reserve: () => {},
           })
-          uploads[key] = createInputUploadStream(inPath)
+          if (inPath === stdinWithPath.path) {
+            uploads[key] = createInputUploadStream(inPath)
+          } else {
+            files[key] = inPath
+          }
           inputPaths.push(inPath)
         }
 
-        outputctl.debug(`Creating single assembly with ${Object.keys(uploads).length} files`)
+        outputctl.debug(
+          `Creating single assembly with ${Object.keys(files).length + Object.keys(uploads).length} files`,
+        )
 
         try {
           const assembly = await queue.add(async () => {
             return await executeAssemblyLifecycle({
-              createOptions: createAssemblyOptions(uploads),
+              createOptions: createAssemblyOptions({ files, uploads }),
               inPath: null,
               inputPaths,
               outputPlan:
