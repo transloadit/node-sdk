@@ -20,6 +20,7 @@ import {
 } from '../../../src/cli/intentFields.ts'
 import { prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
+import { prepareMarkdownPdfInputs } from '../../../src/cli/semanticIntents/markdownPdf.ts'
 import { main } from '../../../src/cli.ts'
 import { intentSmokeCases } from '../../support/intentSmokeCases.ts'
 
@@ -391,6 +392,42 @@ describe('intent commands', () => {
         },
       }),
     )
+  })
+
+  it('renders markdown headings with ids that match toc fragment links', async () => {
+    const tempDir = await createTempDir('markdown-pdf-headings-')
+    const inputPath = path.join(tempDir, 'README.md')
+    await writeFile(
+      inputPath,
+      [
+        '## Inhoud',
+        '1. [Samenvatting](#samenvatting)',
+        '2. [Organisatie & operatie](#organisatie--operatie)',
+        '',
+        '## Samenvatting',
+        '',
+        '## Organisatie & operatie',
+      ].join('\n'),
+    )
+
+    const prepared = await prepareMarkdownPdfInputs(
+      {
+        cleanup: [],
+        hasTransientInputs: false,
+        inputs: [inputPath],
+      },
+      {},
+    )
+
+    try {
+      const html = await readFile(prepared.inputs[0], 'utf8')
+      expect(html).toContain('href="#samenvatting"')
+      expect(html).toContain('id="samenvatting"')
+      expect(html).toContain('href="#organisatie--operatie"')
+      expect(html).toContain('id="organisatie--operatie"')
+    } finally {
+      await Promise.all(prepared.cleanup.map((cleanup) => cleanup()))
+    }
   })
 
   it('downloads URL inputs for preview generate before calling assemblies create', async () => {

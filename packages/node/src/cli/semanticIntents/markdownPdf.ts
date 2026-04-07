@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { marked } from 'marked'
+import { Marked, Renderer } from 'marked'
 import type {
   IntentDynamicStepExecutionDefinition,
   IntentOptionDefinition,
@@ -10,6 +10,36 @@ import type {
 
 const defaultMarkdownFormat = 'gfm'
 const defaultMarkdownTheme = 'github'
+
+function slugifyHeading(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}\- _]/gu, '')
+    .replaceAll(' ', '-')
+    .replaceAll('_', '-')
+}
+
+function createMarkdownParser(markdownFormat: 'commonmark' | 'gfm'): Marked {
+  const slugCounts = new Map<string, number>()
+  const renderer = new Renderer()
+
+  renderer.heading = function ({ depth, tokens }) {
+    const innerHtml = this.parser.parseInline(tokens)
+    const headingText = this.parser.parseInline(tokens, this.parser.textRenderer)
+    const baseSlug = slugifyHeading(headingText)
+    const duplicateCount = slugCounts.get(baseSlug) ?? 0
+    slugCounts.set(baseSlug, duplicateCount + 1)
+    const id = duplicateCount === 0 ? baseSlug : `${baseSlug}-${duplicateCount}`
+    return `<h${depth} id="${id}">${innerHtml}</h${depth}>\n`
+  }
+
+  return new Marked({
+    async: false,
+    gfm: markdownFormat === 'gfm',
+    renderer,
+  })
+}
 
 const githubMarkdownCss = `
   :root {
@@ -191,16 +221,14 @@ export async function prepareMarkdownPdfInputs(
 ): Promise<PreparedIntentInputs> {
   const markdownFormat = resolveMarkdownFormat(rawValues.markdownFormat)
   const markdownTheme = resolveMarkdownTheme(rawValues.markdownTheme)
+  const markdownParser = createMarkdownParser(markdownFormat)
 
   const tempDir = await mkdtemp(path.join(tmpdir(), 'transloadit-markdown-pdf-'))
   const renderedInputs = await Promise.all(
     preparedInputs.inputs.map(async (inputPath, index) => {
       const markdown = await readFile(inputPath, 'utf8')
       const title = path.parse(inputPath).name || `markdown-${index + 1}`
-      const html = await marked.parse(markdown, {
-        async: false,
-        gfm: markdownFormat === 'gfm',
-      })
+      const html = await markdownParser.parse(markdown)
 
       const renderedPath = path.join(tempDir, `${title}.html`)
       await writeFile(
