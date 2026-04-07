@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { create } from '../../../src/cli/commands/assemblies.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
+import { parseStepsInputJson } from '../../../src/cli/stepsInput.ts'
 
 const tempDirs: string[] = []
 
@@ -314,6 +315,65 @@ describe('assemblies create', () => {
 
     expect(client.createAssembly).toHaveBeenCalledTimes(1)
     expect(await readFile(outputPath, 'utf8')).toBe('bundle-contents')
+  })
+
+  it('runs valid inputless single-assembly steps instead of no-oping', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-inputless-single-assembly-')
+    const outputPath = path.join(tempDir, 'generated.png')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-inputless-single' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          generated: [{ url: 'http://downloads.test/generated.png', name: 'generated.png' }],
+        },
+      }),
+    }
+
+    nock('http://downloads.test').get('/generated.png').reply(200, 'image-bytes')
+
+    await create(output, client as never, {
+      inputs: [],
+      output: outputPath,
+      singleAssembly: true,
+      stepsData: {
+        generated: {
+          robot: '/image/generate',
+          result: true,
+          prompt: 'hello',
+          model: 'google/nano-banana',
+        },
+      },
+    })
+
+    expect(client.createAssembly).toHaveBeenCalledTimes(1)
+    expect(await readFile(outputPath, 'utf8')).toBe('image-bytes')
+  })
+
+  it('returns normalized step data from steps input parsing', () => {
+    const parsed = parseStepsInputJson(
+      JSON.stringify({
+        waveform: {
+          robot: '/audio/waveform',
+          use: ':original',
+          result: true,
+          style: 1,
+        },
+      }),
+    )
+
+    expect(parsed).toEqual({
+      waveform: {
+        robot: '/audio/waveform',
+        use: ':original',
+        result: true,
+        style: 'v1',
+      },
+    })
   })
 
   it('rejects invalid steps files before calling the API', async () => {

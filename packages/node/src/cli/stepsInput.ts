@@ -10,8 +10,20 @@ export function parseStepsInputJson(content: string): StepsInput {
     throw new Error(`Invalid steps format: ${validated.error.message}`)
   }
 
-  // Preserve the original input shape so we do not leak zod defaults into API payloads.
-  return parsed as StepsInput
+  const parsedSteps = parsed as Record<string, Record<string, unknown>>
+  const validatedSteps = validated.data as Record<string, Record<string, unknown>>
+
+  return Object.fromEntries(
+    Object.entries(parsedSteps).map(([stepName, stepInput]) => {
+      const normalizedStep = validatedSteps[stepName] ?? {}
+      return [
+        stepName,
+        Object.fromEntries(
+          Object.keys(stepInput).map((key) => [key, normalizedStep[key] ?? stepInput[key]]),
+        ),
+      ]
+    }),
+  ) as StepsInput
 }
 
 export async function readStepsInputFile(filePath: string): Promise<StepsInput> {

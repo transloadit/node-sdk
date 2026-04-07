@@ -547,15 +547,16 @@ async function buildDirectoryDownloadTargets({
   allFiles,
   baseDir,
   groupByStep,
+  reservedPaths,
 }: {
   allFiles: NormalizedAssemblyResultFile[]
   baseDir: string
   groupByStep: boolean
+  reservedPaths: Set<string>
 }): Promise<AssemblyDownloadTarget[]> {
   await fsp.mkdir(baseDir, { recursive: true })
 
   const targets: AssemblyDownloadTarget[] = []
-  const reservedPaths = new Set<string>()
   for (const resultFile of allFiles) {
     const targetDir = groupByStep ? path.join(baseDir, resultFile.stepName) : baseDir
     await fsp.mkdir(targetDir, { recursive: true })
@@ -595,6 +596,7 @@ async function resolveResultDownloadTargets({
   outputPath,
   outputRoot,
   outputRootIsDirectory,
+  reservedPaths,
   singleAssembly,
 }: {
   allFiles: NormalizedAssemblyResultFile[]
@@ -606,6 +608,7 @@ async function resolveResultDownloadTargets({
   outputPath: string | null
   outputRoot: string
   outputRootIsDirectory: boolean
+  reservedPaths: Set<string>
   singleAssembly?: boolean
 }): Promise<AssemblyDownloadTarget[]> {
   const shouldGroupByInput =
@@ -643,6 +646,7 @@ async function resolveResultDownloadTargets({
       allFiles,
       baseDir: outputRoot,
       groupByStep: false,
+      reservedPaths,
     })
   }
 
@@ -651,6 +655,7 @@ async function resolveResultDownloadTargets({
       allFiles,
       baseDir: resolveDirectoryBaseDir(),
       groupByStep: entries.length > 1,
+      reservedPaths,
     })
   }
 
@@ -662,6 +667,7 @@ async function resolveResultDownloadTargets({
     allFiles,
     baseDir: path.join(path.dirname(outputPath), path.parse(outputPath).name),
     groupByStep: true,
+    reservedPaths,
   })
 }
 
@@ -735,6 +741,7 @@ async function materializeAssemblyResults({
   outputRoot,
   outputRootIsDirectory,
   outputctl,
+  reservedPaths,
   results,
   singleAssembly,
 }: {
@@ -747,6 +754,7 @@ async function materializeAssemblyResults({
   outputRoot: string | null
   outputRootIsDirectory: boolean
   outputctl: IOutputCtl
+  reservedPaths: Set<string>
   results: Record<string, Array<AssemblyResultEntryLike>>
   singleAssembly?: boolean
 }): Promise<void> {
@@ -765,6 +773,7 @@ async function materializeAssemblyResults({
     outputPath,
     outputRoot,
     outputRootIsDirectory,
+    reservedPaths,
     singleAssembly,
   })
 
@@ -1306,6 +1315,7 @@ export async function create(
     const queue = new PQueue({ concurrency })
     const results: unknown[] = []
     const resultUrls: ResultUrlRow[] = []
+    const reservedResultPaths = new Set<string>()
     let hasFailures = false
     // AbortController to cancel all in-flight createAssembly calls when an error occurs
     const abortController = new AbortController()
@@ -1399,6 +1409,7 @@ export async function create(
         outputRoot: resolvedOutput ?? null,
         outputRootIsDirectory,
         outputctl,
+        reservedPaths: reservedResultPaths,
         results: assembly.results,
         singleAssembly: singleAssemblyMode,
       })
@@ -1451,17 +1462,21 @@ export async function create(
 
     function runSingleAssemblyEmitter(): void {
       const collectedPaths: string[] = []
+      let inputlessOutputPlan: OutputPlan | null = null
 
       emitter.on('job', (job: Job) => {
         if (job.inputPath != null) {
           const inPath = job.inputPath
           outputctl.debug(`COLLECTING JOB ${inPath}`)
           collectedPaths.push(inPath)
+          return
         }
+
+        inputlessOutputPlan = job.out ?? null
       })
 
       emitter.on('end', async () => {
-        if (collectedPaths.length === 0) {
+        if (collectedPaths.length === 0 && inputlessOutputPlan == null) {
           resolve({ resultUrls, results: [], hasFailures: false })
           return
         }
@@ -1515,7 +1530,8 @@ export async function create(
               inPath: null,
               inputPaths,
               outputPlan:
-                resolvedOutput == null ? null : createOutputPlan(resolvedOutput, new Date(0)),
+                inputlessOutputPlan ??
+                (resolvedOutput == null ? null : createOutputPlan(resolvedOutput, new Date(0))),
               singleAssemblyMode: true,
             })
           })
