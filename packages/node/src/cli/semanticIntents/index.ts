@@ -13,7 +13,6 @@ import {
   createMarkdownPdfStep,
   markdownPdfCommandPresentation,
   markdownPdfExecutionDefinition,
-  prepareMarkdownPdfInputs,
 } from './markdownPdf.ts'
 
 export interface SemanticIntentDescriptor {
@@ -47,7 +46,6 @@ export const semanticIntentDescriptors: Record<string, SemanticIntentDescriptor>
     execution: markdownPdfExecutionDefinition,
     inputPolicy: { kind: 'required' },
     outputDescription: 'Write the rendered PDF to this path or directory',
-    prepareInputs: prepareMarkdownPdfInputs,
     presentation: markdownPdfCommandPresentation,
     runnerKind: 'watchable',
   },

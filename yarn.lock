@@ -2563,7 +2563,6 @@ __metadata:
     is-stream: "npm:^4.0.1"
     json-to-ast: "npm:^2.1.0"
     lodash-es: "npm:^4.17.21"
-    marked: "npm:^16.4.0"
     minimatch: "npm:^10.1.1"
     nock: "npm:^14.0.10"
     node-watch: "npm:^0.7.4"
@@ -5670,15 +5669,6 @@ __metadata:
     promise-retry: "npm:^2.0.1"
     ssri: "npm:^12.0.0"
   checksum: 10c0/c40efb5e5296e7feb8e37155bde8eb70bc57d731b1f7d90e35a092fde403d7697c56fb49334d92d330d6f1ca29a98142036d6480a12681133a0a1453164cb2f0
-  languageName: node
-  linkType: hard
-
-"marked@npm:^16.4.0":
-  version: 16.4.2
-  resolution: "marked@npm:16.4.2"
-  bin:
-    marked: bin/marked.js
-  checksum: 10c0/fc6051142172454f2023f3d6b31cca92879ec8e1b96457086a54c70354c74b00e1b6543a76a1fad6d399366f52b90a848f6ffb8e1d65a5baff87f3ba9b8f1847
   languageName: node
   linkType: hard
 

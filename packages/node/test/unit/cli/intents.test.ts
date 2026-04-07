@@ -20,7 +20,6 @@ import {
 } from '../../../src/cli/intentFields.ts'
 import { prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
-import { prepareMarkdownPdfInputs } from '../../../src/cli/semanticIntents/markdownPdf.ts'
 import { main } from '../../../src/cli.ts'
 import { intentSmokeCases } from '../../support/intentSmokeCases.ts'
 
@@ -363,7 +362,7 @@ describe('intent commands', () => {
     )
   })
 
-  it('maps markdown pdf to /html/convert with Markdown rendering defaults', async () => {
+  it('maps markdown pdf to /document/convert with backend Markdown rendering defaults', async () => {
     const { createSpy } = await runIntentCommand([
       'markdown',
       'pdf',
@@ -378,56 +377,53 @@ describe('intent commands', () => {
       expect.any(OutputCtl),
       expect.anything(),
       expect.objectContaining({
-        inputs: [expect.stringMatching(/README\.html$/)],
+        inputs: ['README.md'],
         output: 'README.pdf',
         stepsData: {
           convert: expect.objectContaining({
-            robot: '/html/convert',
+            robot: '/document/convert',
             use: ':original',
             result: true,
             format: 'pdf',
-            fullpage: true,
-            wait_until: 'load',
+            markdown_format: 'gfm',
+            markdown_theme: 'github',
           }),
         },
       }),
     )
   })
 
-  it('renders markdown headings with ids that match toc fragment links', async () => {
-    const tempDir = await createTempDir('markdown-pdf-headings-')
-    const inputPath = path.join(tempDir, 'README.md')
-    await writeFile(
-      inputPath,
-      [
-        '## Inhoud',
-        '1. [Samenvatting](#samenvatting)',
-        '2. [Organisatie & operatie](#organisatie--operatie)',
-        '',
-        '## Samenvatting',
-        '',
-        '## Organisatie & operatie',
-      ].join('\n'),
-    )
+  it('passes through explicit markdown options for backend rendering', async () => {
+    const { createSpy } = await runIntentCommand([
+      'markdown',
+      'pdf',
+      '--input',
+      'README.md',
+      '--markdown-format',
+      'commonmark',
+      '--markdown-theme',
+      'bare',
+      '--out',
+      'README.pdf',
+    ])
 
-    const prepared = await prepareMarkdownPdfInputs(
-      {
-        cleanup: [],
-        hasTransientInputs: false,
-        inputs: [inputPath],
-      },
-      {},
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['README.md'],
+        output: 'README.pdf',
+        stepsData: {
+          convert: expect.objectContaining({
+            robot: '/document/convert',
+            format: 'pdf',
+            markdown_format: 'commonmark',
+            markdown_theme: 'bare',
+          }),
+        },
+      }),
     )
-
-    try {
-      const html = await readFile(prepared.inputs[0], 'utf8')
-      expect(html).toContain('href="#samenvatting"')
-      expect(html).toContain('id="samenvatting"')
-      expect(html).toContain('href="#organisatie--operatie"')
-      expect(html).toContain('id="organisatie--operatie"')
-    } finally {
-      await Promise.all(prepared.cleanup.map((cleanup) => cleanup()))
-    }
   })
 
   it('downloads URL inputs for preview generate before calling assemblies create', async () => {
