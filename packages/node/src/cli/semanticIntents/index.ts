@@ -1,16 +1,30 @@
 import type { IntentInputPolicy } from '../intentInputPolicy.ts'
-import type { IntentDynamicStepExecutionDefinition, IntentRunnerKind } from '../intentRuntime.ts'
+import type {
+  IntentDynamicStepExecutionDefinition,
+  IntentRunnerKind,
+  PreparedIntentInputs,
+} from '../intentRuntime.ts'
 import {
   createImageDescribeStep,
   imageDescribeCommandPresentation,
   imageDescribeExecutionDefinition,
 } from './imageDescribe.ts'
+import {
+  createMarkdownPdfStep,
+  markdownPdfCommandPresentation,
+  markdownPdfExecutionDefinition,
+  prepareMarkdownPdfInputs,
+} from './markdownPdf.ts'
 
 export interface SemanticIntentDescriptor {
   createStep: (rawValues: Record<string, unknown>) => Record<string, unknown>
   execution: IntentDynamicStepExecutionDefinition
   inputPolicy: IntentInputPolicy
   outputDescription: string
+  prepareInputs?: (
+    preparedInputs: PreparedIntentInputs,
+    rawValues: Record<string, unknown>,
+  ) => Promise<PreparedIntentInputs>
   presentation: {
     description: string
     details: string
@@ -26,6 +40,15 @@ export const semanticIntentDescriptors: Record<string, SemanticIntentDescriptor>
     inputPolicy: { kind: 'required' },
     outputDescription: 'Write the JSON result to this path or directory',
     presentation: imageDescribeCommandPresentation,
+    runnerKind: 'watchable',
+  },
+  'markdown-pdf': {
+    createStep: createMarkdownPdfStep,
+    execution: markdownPdfExecutionDefinition,
+    inputPolicy: { kind: 'required' },
+    outputDescription: 'Write the rendered PDF to this path or directory',
+    prepareInputs: prepareMarkdownPdfInputs,
+    presentation: markdownPdfCommandPresentation,
     runnerKind: 'watchable',
   },
 }

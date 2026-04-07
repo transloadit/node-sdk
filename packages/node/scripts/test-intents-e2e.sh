@@ -42,6 +42,17 @@ prepare_fixtures() {
   cp "$REPO_ROOT/packages/node/examples/fixtures/berkley.jpg" "$FIXTUREDIR/input.jpg"
   cp "$REPO_ROOT/packages/node/test/e2e/fixtures/testsrc.mp4" "$FIXTUREDIR/input.mp4"
   printf 'Hello from Transloadit CLI intents\n' >"$FIXTUREDIR/input.txt"
+  cat >"$FIXTUREDIR/input.md" <<'EOF'
+# CLI Intents
+
+This is a **Markdown** fixture.
+
+## Features
+
+- headings render
+- lists render
+- emphasis renders
+EOF
   zip -j "$FIXTUREDIR/input.zip" "$FIXTUREDIR/input.txt" >/dev/null
   ffmpeg -f lavfi -i sine=frequency=1000:duration=1 -q:a 9 -acodec libmp3lame -y "$FIXTUREDIR/input.mp3" >/dev/null 2>&1
   curl -L --fail --silent --show-error -o "$FIXTUREDIR/input.pdf" "$PREVIEW_URL"

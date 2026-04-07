@@ -528,9 +528,18 @@ export abstract class GeneratedFileIntentCommandBase extends GeneratedIntentComm
     rawValues: Record<string, unknown>,
     preparedInputs: PreparedIntentInputs,
   ): Promise<number | undefined> {
+    let effectivePreparedInputs = preparedInputs
+    const execution = this.getIntentDefinition().execution
+    if (execution.kind === 'dynamic-step') {
+      const descriptor = getSemanticIntentDescriptor(execution.handler)
+      if (descriptor.prepareInputs != null) {
+        effectivePreparedInputs = await descriptor.prepareInputs(preparedInputs, rawValues)
+      }
+    }
+
     return await executeIntentCommand({
       client: this.client,
-      createOptions: this.getCreateOptions(preparedInputs.inputs),
+      createOptions: this.getCreateOptions(effectivePreparedInputs.inputs),
       definition: this.getIntentDefinition(),
       output: this.output,
       outputPath: this.outputPath,

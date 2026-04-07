@@ -73,6 +73,11 @@ const intentSmokeOverrides: Record<string, Omit<IntentSmokeCase, 'key' | 'paths'
     outputPath: 'image-describe.json',
     verifier: 'json',
   },
+  'markdown-pdf:markdown/pdf': {
+    args: ['--input', '@fixture/input.md'],
+    outputPath: 'markdown-pdf.pdf',
+    verifier: 'pdf',
+  },
   '/image/optimize': {
     args: ['--input', '@fixture/input.jpg'],
     outputPath: 'image-optimize.jpg',
