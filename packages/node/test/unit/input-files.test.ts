@@ -1,6 +1,6 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { prepareInputFiles } from '../../src/inputFiles.ts'
@@ -70,6 +70,40 @@ describe('prepareInputFiles', () => {
       })
 
       expect(result.files.logo.startsWith(tempDir)).toBe(true)
+    } finally {
+      await rm(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('preserves leading-dot basenames when duplicate tempfiles collide', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'transloadit-test-'))
+
+    try {
+      const base64 = Buffer.from('hello').toString('base64')
+
+      const result = await prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'base64',
+            field: 'first',
+            base64,
+            filename: '.gitignore',
+          },
+          {
+            kind: 'base64',
+            field: 'second',
+            base64,
+            filename: '.gitignore',
+          },
+        ],
+        base64Strategy: 'tempfile',
+        tempDir,
+      })
+
+      expect(result.files.first.startsWith(tempDir)).toBe(true)
+      expect(result.files.second.startsWith(tempDir)).toBe(true)
+      expect(basename(result.files.first)).toBe('.gitignore')
+      expect(basename(result.files.second)).toBe('.gitignore-1')
     } finally {
       await rm(tempDir, { recursive: true, force: true })
     }

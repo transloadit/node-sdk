@@ -3,7 +3,7 @@ import { createWriteStream } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { isIP } from 'node:net'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, join, parse } from 'node:path'
 import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type CacheableLookup from 'cacheable-lookup'
@@ -81,14 +81,12 @@ const ensureUniqueTempFilePath = async (
   filename: string,
   used: Set<string>,
 ): Promise<string> => {
-  const parsed = basename(filename)
-  const extension = parsed.includes('.') ? `.${parsed.split('.').slice(1).join('.')}` : ''
-  const stem = extension === '' ? parsed : parsed.slice(0, -extension.length)
+  const parsedFilename = parse(basename(filename))
   return await ensureUniqueCounterValue({
-    initialValue: join(root, parsed),
+    initialValue: join(root, parsedFilename.base),
     isTaken: (candidate) => used.has(candidate),
     reserve: (candidate) => used.add(candidate),
-    nextValue: (counter) => join(root, `${stem}-${counter}${extension}`),
+    nextValue: (counter) => join(root, `${parsedFilename.name}-${counter}${parsedFilename.ext}`),
     scope: used,
   })
 }
