@@ -35,10 +35,10 @@ import {
 } from '../fileProcessingOptions.ts'
 import { formatAPIError, readCliInput } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
-import type { AssemblyResultEntryLike, NormalizedAssemblyResultFile } from '../resultFiles.ts'
-import { flattenAssemblyResultFiles } from '../resultFiles.ts'
+import type { NormalizedAssemblyResultFile, NormalizedAssemblyResults } from '../resultFiles.ts'
+import { normalizeAssemblyResults } from '../resultFiles.ts'
 import type { ResultUrlRow } from '../resultUrls.ts'
-import { collectResultUrlRows, printResultUrls } from '../resultUrls.ts'
+import { collectNormalizedResultUrlRows, printResultUrls } from '../resultUrls.ts'
 import { readStepsInputFile } from '../stepsInput.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
@@ -518,16 +518,6 @@ async function ensureUniquePath(targetPath: string, reservedPaths: Set<string>):
   })
 }
 
-function flattenAssemblyResults(results: Record<string, Array<AssemblyResultEntryLike>>): {
-  allFiles: NormalizedAssemblyResultFile[]
-  entries: Array<[string, Array<AssemblyResultEntryLike>]>
-} {
-  return {
-    allFiles: flattenAssemblyResultFiles(results),
-    entries: Object.entries(results),
-  }
-}
-
 function getResultFileName(file: NormalizedAssemblyResultFile): string {
   return sanitizeResultName(file.name)
 }
@@ -587,11 +577,10 @@ function getSingleResultDownloadTarget(
 }
 
 async function resolveResultDownloadTargets({
-  allFiles,
-  entries,
   hasDirectoryInput,
   inPath,
   inputs,
+  normalizedResults,
   outputMode,
   outputPath,
   outputRoot,
@@ -599,11 +588,10 @@ async function resolveResultDownloadTargets({
   reservedPaths,
   singleAssembly,
 }: {
-  allFiles: NormalizedAssemblyResultFile[]
-  entries: Array<[string, Array<AssemblyResultEntryLike>]>
   hasDirectoryInput: boolean
   inPath: string | null
   inputs: string[]
+  normalizedResults: NormalizedAssemblyResults
   outputMode?: 'directory' | 'file'
   outputPath: string | null
   outputRoot: string
@@ -611,6 +599,7 @@ async function resolveResultDownloadTargets({
   reservedPaths: Set<string>
   singleAssembly?: boolean
 }): Promise<AssemblyDownloadTarget[]> {
+  const { allFiles, entries } = normalizedResults
   const shouldGroupByInput =
     !singleAssembly && inPath != null && (hasDirectoryInput || inputs.length > 1)
 
@@ -736,39 +725,37 @@ async function materializeAssemblyResults({
   hasDirectoryInput,
   inPath,
   inputs,
+  normalizedResults,
   outputMode,
   outputPath,
   outputRoot,
   outputRootIsDirectory,
   outputctl,
   reservedPaths,
-  results,
   singleAssembly,
 }: {
   abortSignal: AbortSignal
   hasDirectoryInput: boolean
   inPath: string | null
   inputs: string[]
+  normalizedResults: NormalizedAssemblyResults
   outputMode?: 'directory' | 'file'
   outputPath: string | null
   outputRoot: string | null
   outputRootIsDirectory: boolean
   outputctl: IOutputCtl
   reservedPaths: Set<string>
-  results: Record<string, Array<AssemblyResultEntryLike>>
   singleAssembly?: boolean
 }): Promise<void> {
   if (outputRoot == null) {
     return
   }
 
-  const { allFiles, entries } = flattenAssemblyResults(results)
   const targets = await resolveResultDownloadTargets({
-    allFiles,
-    entries,
     hasDirectoryInput,
     inPath,
     inputs,
+    normalizedResults,
     outputMode,
     outputPath,
     outputRoot,
@@ -1383,7 +1370,8 @@ export async function create(
 
       const { assembly, assemblyId } = await awaitCompletedAssembly(createOptions)
       if (!assembly.results) throw new Error('No results in assembly')
-      resultUrls.push(...collectResultUrlRows({ assemblyId, results: assembly.results }))
+      const normalizedResults = normalizeAssemblyResults(assembly.results)
+      resultUrls.push(...collectNormalizedResultUrlRows({ assemblyId, normalizedResults }))
 
       if (
         !singleAssemblyMode &&
@@ -1404,13 +1392,13 @@ export async function create(
         hasDirectoryInput: singleAssemblyMode ? false : hasDirectoryInput,
         inPath,
         inputs: inputPaths,
+        normalizedResults,
         outputMode,
         outputPath: outputPlan?.path ?? null,
         outputRoot: resolvedOutput ?? null,
         outputRootIsDirectory,
         outputctl,
         reservedPaths: reservedResultPaths,
-        results: assembly.results,
         singleAssembly: singleAssemblyMode,
       })
 

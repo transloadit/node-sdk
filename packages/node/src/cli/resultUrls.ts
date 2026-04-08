@@ -1,5 +1,6 @@
 import type { IOutputCtl } from './OutputCtl.ts'
-import { flattenAssemblyResultFiles } from './resultFiles.ts'
+import type { NormalizedAssemblyResults } from './resultFiles.ts'
+import { normalizeAssemblyResults } from './resultFiles.ts'
 
 export interface ResultUrlRow {
   assemblyId: string
@@ -15,7 +16,20 @@ export function collectResultUrlRows({
   assemblyId: string
   results: unknown
 }): ResultUrlRow[] {
-  return flattenAssemblyResultFiles(results).map((file) => ({
+  return collectNormalizedResultUrlRows({
+    assemblyId,
+    normalizedResults: normalizeAssemblyResults(results),
+  })
+}
+
+export function collectNormalizedResultUrlRows({
+  assemblyId,
+  normalizedResults,
+}: {
+  assemblyId: string
+  normalizedResults: NormalizedAssemblyResults
+}): ResultUrlRow[] {
+  return normalizedResults.allFiles.map((file) => ({
     assemblyId,
     step: file.stepName,
     name: file.name,

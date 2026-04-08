@@ -34,91 +34,118 @@ function resolveMarkdownTheme(value: unknown): 'bare' | 'github' {
   )
 }
 
-export const markdownPdfExecutionDefinition = {
-  kind: 'dynamic-step',
-  handler: 'markdown-pdf',
-  resultStepName: 'convert',
-  fields: [
-    {
-      name: 'markdownFormat',
-      kind: 'string',
-      propertyName: 'markdownFormat',
-      optionFlags: '--markdown-format',
-      description: 'Markdown variant to parse, either commonmark or gfm',
-      required: false,
-    },
-    {
-      name: 'markdownTheme',
-      kind: 'string',
-      propertyName: 'markdownTheme',
-      optionFlags: '--markdown-theme',
-      description: 'Markdown theme to render, either github or bare',
-      required: false,
-    },
-  ] as const satisfies readonly IntentOptionDefinition[],
-} satisfies IntentDynamicStepExecutionDefinition
+const markdownOptionDefinitions = [
+  {
+    name: 'markdownFormat',
+    kind: 'string',
+    propertyName: 'markdownFormat',
+    optionFlags: '--markdown-format',
+    description: 'Markdown variant to parse, either commonmark or gfm',
+    required: false,
+  },
+  {
+    name: 'markdownTheme',
+    kind: 'string',
+    propertyName: 'markdownTheme',
+    optionFlags: '--markdown-theme',
+    description: 'Markdown theme to render, either github or bare',
+    required: false,
+  },
+] as const satisfies readonly IntentOptionDefinition[]
 
-export const markdownDocxExecutionDefinition = {
-  ...markdownPdfExecutionDefinition,
-  handler: 'markdown-docx',
-} satisfies IntentDynamicStepExecutionDefinition
+interface MarkdownConvertSemanticIntentDefinition {
+  createStep: (rawValues: Record<string, unknown>) => Record<string, unknown>
+  execution: IntentDynamicStepExecutionDefinition
+  outputDescription: string
+  presentation: {
+    description: string
+    details: string
+    examples: Array<[string, string]>
+  }
+}
 
-export const markdownPdfCommandPresentation = {
+function createMarkdownConvertSemanticIntent({
+  description,
+  details,
+  exampleOutput,
+  format,
+  handler,
+}: {
+  description: string
+  details: string
+  exampleOutput: string
+  format: 'docx' | 'pdf'
+  handler: 'markdown-docx' | 'markdown-pdf'
+}): MarkdownConvertSemanticIntentDefinition {
+  const formatLabel = format.toUpperCase()
+
+  return {
+    createStep(rawValues) {
+      return {
+        robot: '/document/convert',
+        use: ':original',
+        result: true,
+        format,
+        markdown_format: resolveMarkdownFormat(rawValues.markdownFormat),
+        markdown_theme: resolveMarkdownTheme(rawValues.markdownTheme),
+        // @TODO Replace this semantic CLI alias with a builtin/api2-owned command surface if we later
+        // want richer Markdown conversion semantics beyond `/document/convert`.
+      }
+    },
+    execution: {
+      kind: 'dynamic-step',
+      handler,
+      resultStepName: 'convert',
+      fields: markdownOptionDefinitions,
+    },
+    outputDescription: `Write the rendered ${formatLabel} to this path or directory`,
+    presentation: {
+      description,
+      details,
+      examples: [
+        [
+          `Render a Markdown file as a ${formatLabel} file`,
+          `transloadit markdown ${format} --input README.md --out ${exampleOutput}`,
+        ],
+        [
+          'Print a temporary result URL without downloading locally',
+          `transloadit markdown ${format} --input README.md --print-urls`,
+        ],
+      ],
+    },
+  }
+}
+
+export const markdownPdfSemanticIntent = createMarkdownConvertSemanticIntent({
   description: 'Render Markdown files as PDFs',
   details:
     'Runs `/document/convert` with `format: pdf`, letting the backend render Markdown and preserve features such as internal heading links in the generated PDF.',
-  examples: [
-    [
-      'Render a Markdown file as a PDF',
-      'transloadit markdown pdf --input README.md --out README.pdf',
-    ],
-    [
-      'Print a temporary result URL without downloading locally',
-      'transloadit markdown pdf --input README.md --print-urls',
-    ],
-  ] as Array<[string, string]>,
-} as const
+  exampleOutput: 'README.pdf',
+  format: 'pdf',
+  handler: 'markdown-pdf',
+})
 
-export const markdownDocxCommandPresentation = {
+export const markdownDocxSemanticIntent = createMarkdownConvertSemanticIntent({
   description: 'Render Markdown files as DOCX documents',
   details:
     'Runs `/document/convert` with `format: docx`, letting the backend render Markdown and convert it into a Word document.',
-  examples: [
-    [
-      'Render a Markdown file as a DOCX file',
-      'transloadit markdown docx --input README.md --out README.docx',
-    ],
-    [
-      'Print a temporary result URL without downloading locally',
-      'transloadit markdown docx --input README.md --print-urls',
-    ],
-  ] as Array<[string, string]>,
-} as const
+  exampleOutput: 'README.docx',
+  format: 'docx',
+  handler: 'markdown-docx',
+})
 
-export function createMarkdownPdfStep(rawValues: Record<string, unknown>): Record<string, unknown> {
-  return {
-    robot: '/document/convert',
-    use: ':original',
-    result: true,
-    format: 'pdf',
-    markdown_format: resolveMarkdownFormat(rawValues.markdownFormat),
-    markdown_theme: resolveMarkdownTheme(rawValues.markdownTheme),
-    // @TODO Replace this semantic CLI alias with a builtin/api2-owned command surface if we later
-    // want richer Markdown->PDF product semantics beyond `/document/convert format=pdf`.
-  }
-}
+export const markdownPdfExecutionDefinition = markdownPdfSemanticIntent.execution
 
-export function createMarkdownDocxStep(
-  rawValues: Record<string, unknown>,
-): Record<string, unknown> {
-  return {
-    robot: '/document/convert',
-    use: ':original',
-    result: true,
-    format: 'docx',
-    markdown_format: resolveMarkdownFormat(rawValues.markdownFormat),
-    markdown_theme: resolveMarkdownTheme(rawValues.markdownTheme),
-    // @TODO Replace this semantic CLI alias with a builtin/api2-owned command surface if we later
-    // want richer Markdown->DOCX product semantics beyond `/document/convert format=docx`.
-  }
-}
+export const markdownDocxExecutionDefinition = markdownDocxSemanticIntent.execution
+
+export const markdownPdfCommandPresentation = markdownPdfSemanticIntent.presentation
+
+export const markdownDocxCommandPresentation = markdownDocxSemanticIntent.presentation
+
+export const createMarkdownPdfStep = markdownPdfSemanticIntent.createStep
+
+export const createMarkdownDocxStep = markdownDocxSemanticIntent.createStep
+
+export const markdownPdfOutputDescription = markdownPdfSemanticIntent.outputDescription
+
+export const markdownDocxOutputDescription = markdownDocxSemanticIntent.outputDescription

@@ -13,6 +13,11 @@ export interface NormalizedAssemblyResultFile {
   url: string
 }
 
+export interface NormalizedAssemblyResults {
+  allFiles: NormalizedAssemblyResultFile[]
+  entries: Array<[string, Array<AssemblyResultEntryLike>]>
+}
+
 function isAssemblyResultEntryLike(value: unknown): value is AssemblyResultEntryLike {
   return value != null && typeof value === 'object'
 }
@@ -70,13 +75,17 @@ export function normalizeAssemblyResultFile(
   }
 }
 
-export function flattenAssemblyResultFiles(results: unknown): NormalizedAssemblyResultFile[] {
+export function normalizeAssemblyResults(results: unknown): NormalizedAssemblyResults {
   if (results == null || typeof results !== 'object' || Array.isArray(results)) {
-    return []
+    return {
+      allFiles: [],
+      entries: [],
+    }
   }
 
   const files: NormalizedAssemblyResultFile[] = []
-  for (const [stepName, stepResults] of Object.entries(results)) {
+  const entries = Object.entries(results)
+  for (const [stepName, stepResults] of entries) {
     if (!Array.isArray(stepResults)) {
       continue
     }
@@ -89,5 +98,8 @@ export function flattenAssemblyResultFiles(results: unknown): NormalizedAssembly
     }
   }
 
-  return files
+  return {
+    allFiles: files,
+    entries,
+  }
 }
