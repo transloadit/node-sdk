@@ -196,6 +196,42 @@ describe('prepareInputFiles', () => {
     expect(downloadScope.isDone()).toBe(false)
   })
 
+  it('rejects hostnames that resolve to carrier-grade NAT ranges', async () => {
+    lookupMock.mockResolvedValue([{ address: '100.64.0.1', family: 4 }])
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://cgnat.test/secret',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+  })
+
+  it('rejects hostnames that resolve to benchmark-testing ranges', async () => {
+    lookupMock.mockResolvedValue([{ address: '198.18.0.1', family: 4 }])
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://benchmark.test/secret',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+  })
+
   it('rejects redirects to private URL downloads', async () => {
     lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
     const publicScope = nock('http://198.51.100.10')

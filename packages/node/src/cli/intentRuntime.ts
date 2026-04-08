@@ -108,6 +108,35 @@ function normalizeBase64Value(value: string): string {
   return trimmed.slice(markerIndex + marker.length)
 }
 
+function inferFilenameFromBase64Value(value: string, index: number): string {
+  const trimmed = value.trim()
+  const marker = ';base64,'
+  const markerIndex = trimmed.indexOf(marker)
+  if (!trimmed.startsWith('data:') || markerIndex === -1) {
+    return `input-base64-${index}.bin`
+  }
+
+  const mediaType = trimmed.slice('data:'.length, markerIndex).split(';')[0]?.toLowerCase() ?? ''
+  const extension =
+    mediaType === 'text/plain'
+      ? 'txt'
+      : mediaType === 'text/markdown'
+        ? 'md'
+        : mediaType === 'application/pdf'
+          ? 'pdf'
+          : mediaType === 'image/png'
+            ? 'png'
+            : mediaType === 'image/jpeg'
+              ? 'jpg'
+              : mediaType === 'image/webp'
+                ? 'webp'
+                : mediaType === 'application/json'
+                  ? 'json'
+                  : 'bin'
+
+  return `input-base64-${index}.${extension}`
+}
+
 export async function prepareIntentInputs({
   inputBase64Values,
   inputValues,
@@ -147,7 +176,7 @@ export async function prepareIntentInputs({
 
   for (const [index, value] of inputBase64Values.entries()) {
     const field = `input_base64_${index + 1}`
-    const filename = `input-base64-${index + 1}.bin`
+    const filename = inferFilenameFromBase64Value(value, index + 1)
     syntheticInputs.push({
       kind: 'base64',
       field,
@@ -652,7 +681,14 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedWatcha
 
     if (
       this.singleAssembly &&
-      this.getProvidedInputCount() > 1 &&
+      (this.getProvidedInputCount() > 1 ||
+        this.inputs.some((inputPath) => {
+          try {
+            return statSync(inputPath).isDirectory()
+          } catch {
+            return false
+          }
+        })) &&
       this.outputPath != null &&
       !this.isDirectoryOutputTarget()
     ) {

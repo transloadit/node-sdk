@@ -760,6 +760,112 @@ describe('assemblies create', () => {
     expect(await readFile(outputPath, 'utf8')).toBe('new-result')
   })
 
+  it('does not return stale watched result URLs that lose the race', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.resetModules()
+
+    class FakeWatcher extends EventEmitter {
+      close(): void {
+        this.emit('close')
+      }
+    }
+
+    const fakeWatcher = new FakeWatcher()
+    vi.doMock('node-watch', () => {
+      return {
+        default: vi.fn(() => fakeWatcher),
+      }
+    })
+
+    const { create: createWithWatch } = await import('../../../src/cli/commands/assemblies.ts')
+
+    const tempDir = await createTempDir('transloadit-watch-urls-')
+    const inputPath = path.join(tempDir, 'clip.mp4')
+    const outputPath = path.join(tempDir, 'thumb.jpg')
+
+    await writeFile(inputPath, 'video-v1')
+    await writeFile(outputPath, 'existing-thumb')
+
+    const baseTime = new Date('2026-01-01T00:00:00.000Z')
+    const outputTime = new Date('2026-01-01T00:00:10.000Z')
+    const firstChangeTime = new Date('2026-01-01T00:00:20.000Z')
+    const secondChangeTime = new Date('2026-01-01T00:00:30.000Z')
+
+    await utimes(inputPath, baseTime, baseTime)
+    await utimes(outputPath, outputTime, outputTime)
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi
+        .fn()
+        .mockResolvedValueOnce({ assembly_id: 'assembly-old' })
+        .mockResolvedValueOnce({ assembly_id: 'assembly-new' }),
+      awaitAssemblyCompletion: vi.fn(async (assemblyId: string) => {
+        if (assemblyId === 'assembly-old') {
+          await delay(80)
+          return {
+            ok: 'ASSEMBLY_COMPLETED',
+            results: {
+              thumbs: [{ url: 'http://downloads.test/old.jpg', name: 'old.jpg' }],
+            },
+          }
+        }
+
+        await delay(10)
+        return {
+          ok: 'ASSEMBLY_COMPLETED',
+          results: {
+            thumbs: [{ url: 'http://downloads.test/new.jpg', name: 'new.jpg' }],
+          },
+        }
+      }),
+    }
+
+    nock('http://downloads.test').get('/old.jpg').reply(200, 'old-result')
+    nock('http://downloads.test').get('/new.jpg').reply(200, 'new-result')
+
+    const createPromise = createWithWatch(output, client as never, {
+      inputs: [inputPath],
+      output: outputPath,
+      watch: true,
+      concurrency: 2,
+      stepsData: {
+        thumbs: {
+          robot: '/video/thumbs',
+          result: true,
+          use: ':original',
+        },
+      },
+    })
+
+    await delay(20)
+    await writeFile(inputPath, 'video-v2')
+    await utimes(inputPath, firstChangeTime, firstChangeTime)
+    fakeWatcher.emit('change', 'update', inputPath)
+
+    await delay(5)
+    await writeFile(inputPath, 'video-v3')
+    await utimes(inputPath, secondChangeTime, secondChangeTime)
+    fakeWatcher.emit('change', 'update', inputPath)
+
+    await delay(20)
+    fakeWatcher.close()
+
+    await expect(createPromise).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: false,
+        resultUrls: [
+          {
+            assemblyId: 'assembly-new',
+            step: 'thumbs',
+            name: 'new.jpg',
+            url: 'http://downloads.test/new.jpg',
+          },
+        ],
+      }),
+    )
+  })
+
   it('does not try to delete /dev/stdin after stdin processing', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true)

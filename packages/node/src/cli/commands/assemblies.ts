@@ -1372,7 +1372,6 @@ export async function create(
       const { assembly, assemblyId } = await awaitCompletedAssembly(createOptions)
       if (!assembly.results) throw new Error('No results in assembly')
       const normalizedResults = normalizeAssemblyResults(assembly.results)
-      resultUrls.push(...collectNormalizedResultUrlRows({ assemblyId, normalizedResults }))
 
       if (
         !singleAssemblyMode &&
@@ -1387,6 +1386,8 @@ export async function create(
         outputctl.debug(`SKIPPED STALE RESULT ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
         return assembly
       }
+
+      resultUrls.push(...collectNormalizedResultUrlRows({ assemblyId, normalizedResults }))
 
       await materializeAssemblyResults({
         abortSignal: abortController.signal,

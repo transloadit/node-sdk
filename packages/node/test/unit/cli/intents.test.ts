@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import nock from 'nock'
@@ -549,6 +549,29 @@ describe('intent commands', () => {
     )
   })
 
+  it('preserves data URL media-type filenames for base64 intent inputs', async () => {
+    const base64Value = `data:text/plain;base64,${Buffer.from('hello').toString('base64')}`
+
+    const { createSpy } = await runIntentCommand([
+      'document',
+      'convert',
+      '--input-base64',
+      base64Value,
+      '--format',
+      'pdf',
+      '--print-urls',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [expect.stringMatching(/input-base64-1\.(txt|text)$/)],
+      }),
+    )
+  })
+
   it('rejects --watch URL inputs before downloading them', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
@@ -713,6 +736,42 @@ describe('intent commands', () => {
     expect(createSpy).not.toHaveBeenCalled()
     const loggedError = errorSpy.mock.calls.flatMap((call) => call.map(String)).join(' ')
     expect(loggedError).toContain('--single-assembly cannot be used with --watch')
+  })
+
+  it('rejects single-directory standard single-assembly runs with a file output before processing', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const tempDir = await createTempDir('transloadit-intent-single-assembly-dir-')
+    const inputDir = path.join(tempDir, 'inputs')
+    await mkdir(inputDir, { recursive: true })
+    await writeFile(path.join(inputDir, 'a.jpg'), 'a')
+    await writeFile(path.join(inputDir, 'b.jpg'), 'b')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+      resultUrls: [],
+    })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'image',
+      'optimize',
+      '--single-assembly',
+      '--input',
+      inputDir,
+      '--out',
+      path.join(tempDir, 'optimized.jpg'),
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+    const loggedError = errorSpy.mock.calls.flatMap((call) => call.map(String)).join(' ')
+    expect(loggedError).toContain(
+      'Output must be a directory when using --single-assembly with multiple inputs',
+    )
   })
 
   it('maps video encode-hls to the builtin template', async () => {
