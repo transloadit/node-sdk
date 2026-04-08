@@ -515,6 +515,7 @@ async function ensureUniquePath(targetPath: string, reservedPaths: Set<string>):
       reservedPaths.add(candidate)
     },
     nextValue: (counter) => path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`),
+    scope: reservedPaths,
   })
 }
 
@@ -1498,6 +1499,7 @@ export async function create(
             nextValue: (counter) =>
               `${path.parse(basename).name}_${counter}${path.parse(basename).ext}`,
             reserve: () => {},
+            scope: collection,
           })
           if (inPath === stdinWithPath.path) {
             uploads[key] = createInputUploadStream(inPath)

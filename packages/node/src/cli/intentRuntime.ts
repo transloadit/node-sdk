@@ -594,7 +594,7 @@ export abstract class GeneratedWatchableFileIntentCommand extends GeneratedFileI
 
     const sharedValidationError = validateSharedFileProcessingOptions({
       explicitInputCount: this.getProvidedInputCount(),
-      singleAssembly: false,
+      singleAssembly: this.getSingleAssemblyEnabled(),
       watch: this.watch,
       watchRequiresInputsMessage: `${this.getIntentDefinition().commandLabel} --watch requires --input or --input-base64`,
     })
@@ -611,6 +611,10 @@ export abstract class GeneratedWatchableFileIntentCommand extends GeneratedFileI
     return undefined
   }
 
+  protected getSingleAssemblyEnabled(): boolean {
+    return false
+  }
+
   protected override validatePreparedInputs(
     preparedInputs: PreparedIntentInputs,
   ): number | undefined {
@@ -624,6 +628,10 @@ export abstract class GeneratedWatchableFileIntentCommand extends GeneratedFileI
 
 export abstract class GeneratedStandardFileIntentCommand extends GeneratedWatchableFileIntentCommand {
   singleAssembly = singleAssemblyOption()
+
+  protected override getSingleAssemblyEnabled(): boolean {
+    return this.singleAssembly
+  }
 
   protected override getCreateOptions(
     inputs: string[],
@@ -645,6 +653,7 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedWatcha
     if (
       this.singleAssembly &&
       this.getProvidedInputCount() > 1 &&
+      this.outputPath != null &&
       !this.isDirectoryOutputTarget()
     ) {
       this.output.error(

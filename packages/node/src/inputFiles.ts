@@ -73,6 +73,7 @@ const ensureUniqueStepName = async (baseName: string, used: Set<string>): Promis
     isTaken: (candidate) => used.has(candidate),
     reserve: (candidate) => used.add(candidate),
     nextValue: (counter) => `${baseName}_${counter}`,
+    scope: used,
   })
 
 const ensureUniqueTempFilePath = async (
@@ -88,6 +89,7 @@ const ensureUniqueTempFilePath = async (
     isTaken: (candidate) => used.has(candidate),
     reserve: (candidate) => used.add(candidate),
     nextValue: (counter) => join(root, `${stem}-${counter}${extension}`),
+    scope: used,
   })
 }
 
@@ -132,11 +134,43 @@ const isRedirectStatusCode = (statusCode: number): boolean =>
   statusCode === 307 ||
   statusCode === 308
 
+const ipv4FromMappedIpv6 = (address: string): string | null => {
+  const lowerAddress = address.toLowerCase()
+  const mappedPrefix = lowerAddress.startsWith('::ffff:')
+    ? '::ffff:'
+    : lowerAddress.startsWith('0:0:0:0:0:ffff:')
+      ? '0:0:0:0:0:ffff:'
+      : null
+
+  if (mappedPrefix == null) {
+    return null
+  }
+
+  const mappedValue = lowerAddress.slice(mappedPrefix.length)
+  if (mappedValue.includes('.')) {
+    return mappedValue
+  }
+
+  const segments = mappedValue.split(':')
+  if (segments.length !== 2) {
+    return null
+  }
+
+  const values = segments.map((segment) => Number.parseInt(segment, 16))
+  if (values.some((value) => Number.isNaN(value) || value < 0 || value > 0xffff)) {
+    return null
+  }
+
+  return values.flatMap((value) => [(value >> 8) & 0xff, value & 0xff]).join('.')
+}
+
 const isPrivateIp = (address: string): boolean => {
-  if (address === 'localhost') return true
-  const family = isIP(address)
+  const normalizedAddress =
+    address.startsWith('[') && address.endsWith(']') ? address.slice(1, -1) : address
+  if (normalizedAddress === 'localhost') return true
+  const family = isIP(normalizedAddress)
   if (family === 4) {
-    const parts = address.split('.').map((chunk) => Number(chunk))
+    const parts = normalizedAddress.split('.').map((chunk) => Number(chunk))
     const [a, b] = parts
     if (a === 10) return true
     if (a === 127) return true
@@ -147,8 +181,14 @@ const isPrivateIp = (address: string): boolean => {
     return false
   }
   if (family === 6) {
-    const normalized = address.toLowerCase()
-    if (normalized === '::1') return true
+    const normalized =
+      normalizedAddress.toLowerCase().split('%')[0] ?? normalizedAddress.toLowerCase()
+    if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') return true
+    if (normalized === '::' || normalized === '0:0:0:0:0:0:0:0') return true
+    const mappedAddress = ipv4FromMappedIpv6(normalized)
+    if (mappedAddress != null && isPrivateIp(mappedAddress)) {
+      return true
+    }
     if (normalized.startsWith('fe80:')) return true
     if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true
     return false

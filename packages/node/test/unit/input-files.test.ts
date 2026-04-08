@@ -109,6 +109,38 @@ describe('prepareInputFiles', () => {
     ).rejects.toThrow('URL downloads are limited')
   })
 
+  it('rejects non-canonical IPv6 loopback URL downloads', async () => {
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://[0:0:0:0:0:0:0:1]/secret',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+  })
+
+  it('rejects IPv4-mapped loopback URL downloads', async () => {
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://[::ffff:127.0.0.1]/secret',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+  })
+
   it('rejects hostnames that resolve to private IPs', async () => {
     lookupMock.mockResolvedValue([{ address: '127.0.0.1', family: 4 }])
     const downloadScope = nock('http://rebind.test').get('/secret').reply(200, 'secret')

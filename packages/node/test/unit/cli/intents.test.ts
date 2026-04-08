@@ -642,6 +642,79 @@ describe('intent commands', () => {
     )
   })
 
+  it('allows multi-input standard single-assembly runs with --print-urls and no --out', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const tempDir = await createTempDir('transloadit-intent-single-assembly-urls-')
+    const inputA = path.join(tempDir, 'a.jpg')
+    const inputB = path.join(tempDir, 'b.jpg')
+    await writeFile(inputA, 'a')
+    await writeFile(inputB, 'b')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+      resultUrls: [],
+    })
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'image',
+      'optimize',
+      '--single-assembly',
+      '--input',
+      inputA,
+      '--input',
+      inputB,
+      '--print-urls',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputA, inputB],
+        output: null,
+        singleAssembly: true,
+      }),
+    )
+  })
+
+  it('rejects combining --watch with --single-assembly before processing', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', 'key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
+
+    const tempDir = await createTempDir('transloadit-intent-watch-single-assembly-')
+    const inputPath = path.join(tempDir, 'input.jpg')
+    await writeFile(inputPath, 'a')
+
+    const createSpy = vi.spyOn(assembliesCommands, 'create').mockResolvedValue({
+      results: [],
+      hasFailures: false,
+      resultUrls: [],
+    })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(process.stdout, 'write').mockImplementation(noopWrite)
+
+    await main([
+      'image',
+      'optimize',
+      '--input',
+      inputPath,
+      '--out',
+      path.join(tempDir, 'optimized.jpg'),
+      '--watch',
+      '--single-assembly',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+    const loggedError = errorSpy.mock.calls.flatMap((call) => call.map(String)).join(' ')
+    expect(loggedError).toContain('--single-assembly cannot be used with --watch')
+  })
+
   it('maps video encode-hls to the builtin template', async () => {
     const { createSpy } = await runIntentCommand([
       'video',
