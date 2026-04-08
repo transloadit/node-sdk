@@ -82,7 +82,8 @@
     "src": "./src"
   },
   "scripts": {
-    "check": "yarn lint:ts && yarn fix && yarn test:unit",
+    "check": "yarn sync:intent-docs && yarn lint:ts && yarn fix && yarn test:unit",
+    "sync:intent-docs": "node src/cli/generateIntentDocs.ts",
     "fix:js": "biome check --write .",
     "lint:ts": "yarn --cwd ../.. tsc:node",
     "fix:js:unsafe": "biome check --write . --unsafe",

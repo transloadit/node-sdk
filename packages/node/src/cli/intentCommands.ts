@@ -64,6 +64,10 @@ type BuiltIntentCommandDefinition = IntentCommandDefinition & {
   intentDefinition: IntentFileCommandDefinition | IntentNoInputCommandDefinition
 }
 
+export type ResolvedIntentCommandDefinition = BuiltIntentCommandDefinition & {
+  catalogDefinition: IntentDefinition
+}
+
 const hiddenFieldNames = new Set([
   'ffmpeg_stack',
   'force_accept',
@@ -439,6 +443,13 @@ function resolveIntent(definition: IntentDefinition): BuiltIntentCommandDefiniti
   return resolveTemplateIntent(definition)
 }
 
+export function resolveIntentCommandDefinitions(): ResolvedIntentCommandDefinition[] {
+  return intentCatalog.map((definition) => ({
+    ...resolveIntent(definition),
+    catalogDefinition: definition,
+  }))
+}
+
 function getBaseClass(spec: BuiltIntentCommandDefinition): IntentBaseClass {
   if (spec.runnerKind === 'no-input') {
     return GeneratedNoInputIntentCommand
@@ -487,4 +498,4 @@ function createIntentCommandClass(spec: BuiltIntentCommandDefinition): CommandCl
   return RuntimeIntentCommand as unknown as CommandClass
 }
 
-export const intentCommands = intentCatalog.map(resolveIntent).map(createIntentCommandClass)
+export const intentCommands = resolveIntentCommandDefinitions().map(createIntentCommandClass)
