@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { prepareInputFiles } from '../../src/inputFiles.ts'
+import {
+  createPinnedDnsLookup,
+  prepareInputFiles,
+  resolvePublicDownloadAddresses,
+} from '../../src/inputFiles.ts'
 
 const { lookupMock } = vi.hoisted(() => ({
   lookupMock: vi.fn(),
@@ -257,6 +261,13 @@ describe('prepareInputFiles', () => {
     expect(privateScope.isDone()).toBe(false)
   })
 
+  it('allows public IPv6 literal URL downloads under the private-host guard', async () => {
+    const resolved = await resolvePublicDownloadAddresses('http://[2001:db8::1]/public')
+
+    expect(resolved).toEqual([{ address: '2001:db8::1', family: 6 }])
+    expect(lookupMock).not.toHaveBeenCalled()
+  })
+
   it('pins URL downloads to the validated DNS answer', async () => {
     lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
     const downloadScope = nock('http://rebind.test').get('/public').reply(200, 'public-data')
@@ -280,5 +291,41 @@ describe('prepareInputFiles', () => {
     } finally {
       await Promise.all(result.cleanup.map((cleanup) => cleanup()))
     }
+  })
+
+  it('returns all validated public addresses from the pinned lookup and honors requested families', async () => {
+    const lookup = createPinnedDnsLookup([
+      { address: '2001:db8::1', family: 6 },
+      { address: '198.51.100.10', family: 4 },
+    ])
+
+    const allAddresses = await new Promise<ReadonlyArray<{ address: string; family: number }>>(
+      (resolve, reject) => {
+        lookup('rebind.test', { all: true }, (error, result) => {
+          if (error != null) {
+            reject(error)
+            return
+          }
+          resolve(result)
+        })
+      },
+    )
+    const ipv4Address = await new Promise<{ address: string; family: number }>(
+      (resolve, reject) => {
+        lookup('rebind.test', 4, (error, address, family) => {
+          if (error != null) {
+            reject(error)
+            return
+          }
+          resolve({ address, family })
+        })
+      },
+    )
+
+    expect(allAddresses).toEqual([
+      { address: '2001:db8::1', family: 6, expires: 0 },
+      { address: '198.51.100.10', family: 4, expires: 0 },
+    ])
+    expect(ipv4Address).toEqual({ address: '198.51.100.10', family: 4 })
   })
 })

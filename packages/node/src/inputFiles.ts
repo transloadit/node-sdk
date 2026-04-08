@@ -197,34 +197,137 @@ const isPrivateIp = (address: string): boolean => {
   return false
 }
 
-const resolvePublicDownloadAddress = async (
+export const resolvePublicDownloadAddresses = async (
   value: string,
-): Promise<{ address: string; family: 4 | 6 }> => {
+): Promise<Array<{ address: string; family: 4 | 6 }>> => {
   const parsed = new URL(value)
+  const hostname =
+    parsed.hostname.startsWith('[') && parsed.hostname.endsWith(']')
+      ? parsed.hostname.slice(1, -1)
+      : parsed.hostname
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`URL downloads are limited to http/https: ${value}`)
   }
-  if (isPrivateIp(parsed.hostname)) {
+  if (isPrivateIp(hostname)) {
     throw new Error(`URL downloads are limited to public hosts: ${value}`)
   }
 
-  const resolvedAddresses = await dnsPromises.lookup(parsed.hostname, {
-    all: true,
-    verbatim: true,
-  })
+  const literalFamily = isIP(hostname)
+  const resolvedAddresses =
+    literalFamily !== 0
+      ? [{ address: hostname, family: literalFamily as 4 | 6 }]
+      : await dnsPromises.lookup(hostname, {
+          all: true,
+          verbatim: true,
+        })
   if (resolvedAddresses.some((address) => isPrivateIp(address.address))) {
     throw new Error(`URL downloads are limited to public hosts: ${value}`)
   }
 
-  const firstAddress = resolvedAddresses[0]
-  if (firstAddress == null) {
+  if (resolvedAddresses.length === 0) {
     throw new Error(`Unable to resolve URL hostname: ${value}`)
   }
 
-  return {
-    address: firstAddress.address,
-    family: firstAddress.family as 4 | 6,
+  return resolvedAddresses.map((address) => ({
+    address: address.address,
+    family: address.family as 4 | 6,
+  }))
+}
+
+export function createPinnedDnsLookup(
+  validatedAddresses: Array<{ address: string; family: 4 | 6 }>,
+): CacheableLookup['lookup'] {
+  const pinnedAddresses = [...validatedAddresses]
+
+  function pickAddress(family?: IPFamily): { address: string; family: 4 | 6 } | null {
+    if (family == null) {
+      return pinnedAddresses[0] ?? null
+    }
+
+    return pinnedAddresses.find((address) => address.family === family) ?? null
   }
+
+  function pinnedDnsLookup(
+    _hostname: string,
+    family: IPFamily,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    options: { all: true },
+    callback: (error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    options: object,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    familyOrCallback:
+      | IPFamily
+      | object
+      | ((error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void),
+    callback?:
+      | ((error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void)
+      | ((error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void),
+  ): void {
+    if (typeof familyOrCallback === 'function') {
+      const address = pickAddress()
+      if (address == null) {
+        familyOrCallback(
+          new Error('No validated addresses available') as NodeJS.ErrnoException,
+          '',
+          4,
+        )
+        return
+      }
+      familyOrCallback(null, address.address, address.family)
+      return
+    }
+
+    if (
+      typeof familyOrCallback === 'object' &&
+      familyOrCallback != null &&
+      'all' in familyOrCallback
+    ) {
+      ;(
+        callback as (
+          error: NodeJS.ErrnoException | null,
+          result: ReadonlyArray<EntryObject>,
+        ) => void
+      )(
+        null,
+        pinnedAddresses.map((address) => ({
+          address: address.address,
+          family: address.family,
+          expires: 0,
+        })),
+      )
+      return
+    }
+
+    const family = typeof familyOrCallback === 'number' ? familyOrCallback : undefined
+    const address = pickAddress(family)
+    if (address == null) {
+      ;(
+        callback as (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void
+      )(new Error('No validated addresses available') as NodeJS.ErrnoException, '', family ?? 4)
+      return
+    }
+
+    ;(callback as (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void)(
+      null,
+      address.address,
+      address.family,
+    )
+  }
+
+  return pinnedDnsLookup
 }
 
 const downloadUrlToFile = async ({
@@ -239,13 +342,13 @@ const downloadUrlToFile = async ({
   let currentUrl = url
 
   for (let redirectCount = 0; redirectCount <= MAX_URL_REDIRECTS; redirectCount += 1) {
-    let validatedAddress: { address: string; family: 4 | 6 } | null = null
+    let validatedAddresses: Array<{ address: string; family: 4 | 6 }> | null = null
     if (!allowPrivateUrls) {
-      validatedAddress = await resolvePublicDownloadAddress(currentUrl)
+      validatedAddresses = await resolvePublicDownloadAddresses(currentUrl)
     }
 
     const dnsLookup: CacheableLookup['lookup'] | undefined =
-      validatedAddress == null ? undefined : createPinnedDnsLookup(validatedAddress)
+      validatedAddresses == null ? undefined : createPinnedDnsLookup(validatedAddresses)
 
     const responseStream = got.stream(currentUrl, {
       dnsLookup,
@@ -289,68 +392,6 @@ const downloadUrlToFile = async ({
   }
 
   throw new Error(`Too many redirects while downloading URL input: ${url}`)
-}
-
-function createPinnedDnsLookup(validatedAddress: {
-  address: string
-  family: 4 | 6
-}): CacheableLookup['lookup'] {
-  function pinnedDnsLookup(
-    _hostname: string,
-    family: IPFamily,
-    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
-  ): void
-  function pinnedDnsLookup(
-    _hostname: string,
-    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
-  ): void
-  function pinnedDnsLookup(
-    _hostname: string,
-    options: { all: true },
-    callback: (error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void,
-  ): void
-  function pinnedDnsLookup(
-    _hostname: string,
-    options: object,
-    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
-  ): void
-  function pinnedDnsLookup(
-    _hostname: string,
-    familyOrCallback:
-      | IPFamily
-      | object
-      | ((error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void),
-    callback?:
-      | ((error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void)
-      | ((error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void),
-  ): void {
-    if (typeof familyOrCallback === 'function') {
-      familyOrCallback(null, validatedAddress.address, validatedAddress.family)
-      return
-    }
-
-    if (
-      typeof familyOrCallback === 'object' &&
-      familyOrCallback != null &&
-      'all' in familyOrCallback
-    ) {
-      ;(
-        callback as (
-          error: NodeJS.ErrnoException | null,
-          result: ReadonlyArray<EntryObject>,
-        ) => void
-      )(null, [{ address: validatedAddress.address, family: validatedAddress.family, expires: 0 }])
-      return
-    }
-
-    ;(callback as (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void)(
-      null,
-      validatedAddress.address,
-      validatedAddress.family,
-    )
-  }
-
-  return pinnedDnsLookup
 }
 
 export const prepareInputFiles = async (
