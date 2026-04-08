@@ -58,6 +58,11 @@ export const markdownPdfExecutionDefinition = {
   ] as const satisfies readonly IntentOptionDefinition[],
 } satisfies IntentDynamicStepExecutionDefinition
 
+export const markdownDocxExecutionDefinition = {
+  ...markdownPdfExecutionDefinition,
+  handler: 'markdown-docx',
+} satisfies IntentDynamicStepExecutionDefinition
+
 export const markdownPdfCommandPresentation = {
   description: 'Render Markdown files as PDFs',
   details:
@@ -74,6 +79,22 @@ export const markdownPdfCommandPresentation = {
   ] as Array<[string, string]>,
 } as const
 
+export const markdownDocxCommandPresentation = {
+  description: 'Render Markdown files as DOCX documents',
+  details:
+    'Runs `/document/convert` with `format: docx`, letting the backend render Markdown and convert it into a Word document.',
+  examples: [
+    [
+      'Render a Markdown file as a DOCX file',
+      'transloadit markdown docx --input README.md --out README.docx',
+    ],
+    [
+      'Print a temporary result URL without downloading locally',
+      'transloadit markdown docx --input README.md --print-urls',
+    ],
+  ] as Array<[string, string]>,
+} as const
+
 export function createMarkdownPdfStep(rawValues: Record<string, unknown>): Record<string, unknown> {
   return {
     robot: '/document/convert',
@@ -84,5 +105,20 @@ export function createMarkdownPdfStep(rawValues: Record<string, unknown>): Recor
     markdown_theme: resolveMarkdownTheme(rawValues.markdownTheme),
     // @TODO Replace this semantic CLI alias with a builtin/api2-owned command surface if we later
     // want richer Markdown->PDF product semantics beyond `/document/convert format=pdf`.
+  }
+}
+
+export function createMarkdownDocxStep(
+  rawValues: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    robot: '/document/convert',
+    use: ':original',
+    result: true,
+    format: 'docx',
+    markdown_format: resolveMarkdownFormat(rawValues.markdownFormat),
+    markdown_theme: resolveMarkdownTheme(rawValues.markdownTheme),
+    // @TODO Replace this semantic CLI alias with a builtin/api2-owned command surface if we later
+    // want richer Markdown->DOCX product semantics beyond `/document/convert format=docx`.
   }
 }

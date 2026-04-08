@@ -10,7 +10,10 @@ import {
   imageDescribeExecutionDefinition,
 } from './imageDescribe.ts'
 import {
+  createMarkdownDocxStep,
   createMarkdownPdfStep,
+  markdownDocxCommandPresentation,
+  markdownDocxExecutionDefinition,
   markdownPdfCommandPresentation,
   markdownPdfExecutionDefinition,
 } from './markdownPdf.ts'
@@ -47,6 +50,14 @@ export const semanticIntentDescriptors: Record<string, SemanticIntentDescriptor>
     inputPolicy: { kind: 'required' },
     outputDescription: 'Write the rendered PDF to this path or directory',
     presentation: markdownPdfCommandPresentation,
+    runnerKind: 'watchable',
+  },
+  'markdown-docx': {
+    createStep: createMarkdownDocxStep,
+    execution: markdownDocxExecutionDefinition,
+    inputPolicy: { kind: 'required' },
+    outputDescription: 'Write the rendered DOCX to this path or directory',
+    presentation: markdownDocxCommandPresentation,
     runnerKind: 'watchable',
   },
 }

@@ -78,6 +78,10 @@ verify_pdf() {
   verify_file_type "$1" 'PDF document'
 }
 
+verify_docx() {
+  verify_file_type "$1" 'Microsoft Word 2007+'
+}
+
 verify_mp3() {
   verify_file_type "$1" 'Audio file'
 }
@@ -160,6 +164,7 @@ verify_output() {
   png) verify_png "$path" ;;
   jpeg) verify_jpeg "$path" ;;
   pdf) verify_pdf "$path" ;;
+  docx) verify_docx "$path" ;;
   mp3) verify_mp3 "$path" ;;
   zip) verify_zip "$path" ;;
   document-thumbs) verify_document_thumbs "$path" ;;

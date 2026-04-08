@@ -426,6 +426,37 @@ describe('intent commands', () => {
     )
   })
 
+  it('maps markdown docx to /document/convert with backend Markdown rendering defaults', async () => {
+    const { createSpy } = await runIntentCommand([
+      'markdown',
+      'docx',
+      '--input',
+      'README.md',
+      '--out',
+      'README.docx',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['README.md'],
+        output: 'README.docx',
+        stepsData: {
+          convert: expect.objectContaining({
+            robot: '/document/convert',
+            use: ':original',
+            result: true,
+            format: 'docx',
+            markdown_format: 'gfm',
+            markdown_theme: 'github',
+          }),
+        },
+      }),
+    )
+  })
+
   it('downloads URL inputs for preview generate before calling assemblies create', async () => {
     nock('https://example.com').get('/file.pdf').reply(200, 'pdf-data')
     const { createSpy } = await runIntentCommand([

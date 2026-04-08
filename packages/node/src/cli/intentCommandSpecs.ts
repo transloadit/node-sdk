@@ -264,6 +264,11 @@ export const intentCatalog = [
     semantic: 'markdown-pdf',
     paths: ['markdown', 'pdf'],
   }),
+  defineSemanticIntent({
+    kind: 'semantic',
+    semantic: 'markdown-docx',
+    paths: ['markdown', 'docx'],
+  }),
   defineRobotIntent({
     kind: 'robot',
     robot: '/file/compress',
