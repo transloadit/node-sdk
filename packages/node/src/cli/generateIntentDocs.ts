@@ -15,6 +15,8 @@ interface DocOptionRow {
   type: string
 }
 
+const MAX_OPTION_DESCRIPTION_LENGTH = 180
+
 function inlineCode(value: string): string {
   return `\`${value.replaceAll('`', '\\`')}\``
 }
@@ -32,12 +34,71 @@ function renderTable(headers: string[], rows: string[][]): string {
   ].join('\n')
 }
 
+function collapseWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim()
+}
+
+function stripMarkdownLinks(value: string): string {
+  return value.replace(/!?\[([^\]]+)\]\([^)]+\)/g, '$1')
+}
+
+function stripHtml(value: string): string {
+  return value.replace(/<[^>]+>/g, ' ')
+}
+
+function stripCodeBlocks(value: string): string {
+  return value.replace(/```[\s\S]*?```/g, ' ')
+}
+
+function stripTemplateSyntax(value: string): string {
+  return value.replace(/\{\{[\s\S]*?\}\}/g, ' ')
+}
+
+function stripInlineCode(value: string): string {
+  return value.replaceAll('`', '')
+}
+
+function truncateAtSentenceBoundary(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value
+  }
+
+  const sentenceMatch = value.match(/^(.{1,180}?[.!?])(?:\s|$)/)
+  if (sentenceMatch?.[1] != null && sentenceMatch[1].length >= 60) {
+    return sentenceMatch[1]
+  }
+
+  const truncated = value.slice(0, maxLength).trimEnd()
+  const lastSpace = truncated.lastIndexOf(' ')
+  if (lastSpace > 40) {
+    return `${truncated.slice(0, lastSpace)}…`
+  }
+
+  return `${truncated}…`
+}
+
+function summarizeDescription(value: string | undefined): string {
+  if (value == null || value.trim().length === 0) {
+    return '—'
+  }
+
+  const sanitized = collapseWhitespace(
+    stripInlineCode(stripTemplateSyntax(stripCodeBlocks(stripHtml(stripMarkdownLinks(value))))),
+  )
+
+  if (sanitized.length === 0) {
+    return '—'
+  }
+
+  return truncateAtSentenceBoundary(sanitized, MAX_OPTION_DESCRIPTION_LENGTH)
+}
+
 function getInputSummary(definition: ResolvedIntentCommandDefinition): string {
   if (definition.runnerKind === 'no-input') {
     return 'none'
   }
 
-  return 'files, directories, URLs, base64'
+  return 'file, dir, URL, base64'
 }
 
 function getOutputSummary(definition: ResolvedIntentCommandDefinition): string {
@@ -110,7 +171,7 @@ function getCommandOptionRows(definition: ResolvedIntentCommandDefinition): DocO
     type: formatOptionType(field.kind),
     required: field.required ? 'yes' : 'no',
     example: getExampleValue(field),
-    description: field.description ?? '—',
+    description: summarizeDescription(field.description),
   }))
 }
 
@@ -255,7 +316,9 @@ function renderExamples(examples: Array<[string, string]>): string {
   const lines: string[] = ['```bash']
 
   for (const [label, command] of examples) {
-    lines.push(`# ${label}`)
+    if (examples.length > 1 || label !== 'Run the command') {
+      lines.push(`# ${label}`)
+    }
     lines.push(command)
   }
 

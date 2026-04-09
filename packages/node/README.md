@@ -99,23 +99,23 @@ All intent commands also support the global CLI flags `--json`, `--log-level`, `
 | Command | What it does | Input | Output |
 | --- | --- | --- | --- |
 | `image generate` | Generate images from text prompts | none | file |
-| `preview generate` | Generate a preview thumbnail | files, directories, URLs, base64 | file |
-| `image remove-background` | Remove the background from images | files, directories, URLs, base64 | file |
-| `image optimize` | Optimize images without quality loss | files, directories, URLs, base64 | file |
-| `image resize` | Convert, resize, or watermark images | files, directories, URLs, base64 | file |
-| `document convert` | Convert documents into different formats | files, directories, URLs, base64 | file |
-| `document optimize` | Reduce PDF file size | files, directories, URLs, base64 | file |
-| `document auto-rotate` | Auto-rotate documents to the correct orientation | files, directories, URLs, base64 | file |
-| `document thumbs` | Extract thumbnail images from documents | files, directories, URLs, base64 | directory |
-| `audio waveform` | Generate waveform images from audio | files, directories, URLs, base64 | file |
-| `text speak` | Speak text | files, directories, URLs, base64 | file |
-| `video thumbs` | Extract thumbnails from videos | files, directories, URLs, base64 | directory |
-| `video encode-hls` | Run builtin/encode-hls-video@latest | files, directories, URLs, base64 | directory |
-| `image describe` | Describe images as labels or publishable text fields | files, directories, URLs, base64 | file |
-| `markdown pdf` | Render Markdown files as PDFs | files, directories, URLs, base64 | file |
-| `markdown docx` | Render Markdown files as DOCX documents | files, directories, URLs, base64 | file |
-| `file compress` | Compress files | files, directories, URLs, base64 | file |
-| `file decompress` | Decompress archives | files, directories, URLs, base64 | directory |
+| `preview generate` | Generate a preview thumbnail | file, dir, URL, base64 | file |
+| `image remove-background` | Remove the background from images | file, dir, URL, base64 | file |
+| `image optimize` | Optimize images without quality loss | file, dir, URL, base64 | file |
+| `image resize` | Convert, resize, or watermark images | file, dir, URL, base64 | file |
+| `document convert` | Convert documents into different formats | file, dir, URL, base64 | file |
+| `document optimize` | Reduce PDF file size | file, dir, URL, base64 | file |
+| `document auto-rotate` | Auto-rotate documents to the correct orientation | file, dir, URL, base64 | file |
+| `document thumbs` | Extract thumbnail images from documents | file, dir, URL, base64 | directory |
+| `audio waveform` | Generate waveform images from audio | file, dir, URL, base64 | file |
+| `text speak` | Speak text | file, dir, URL, base64 | file |
+| `video thumbs` | Extract thumbnails from videos | file, dir, URL, base64 | directory |
+| `video encode-hls` | Run builtin/encode-hls-video@latest | file, dir, URL, base64 | directory |
+| `image describe` | Describe images as labels or publishable text fields | file, dir, URL, base64 | file |
+| `markdown pdf` | Render Markdown files as PDFs | file, dir, URL, base64 | file |
+| `markdown docx` | Render Markdown files as DOCX documents | file, dir, URL, base64 | file |
+| `file compress` | Compress files | file, dir, URL, base64 | file |
+| `file decompress` | Decompress archives | file, dir, URL, base64 | directory |
 
 > At least one of `--out` or `--print-urls` is required on every intent command.
 
@@ -162,7 +162,6 @@ npx transloadit image generate [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit image generate --prompt "A red bicycle in a studio" --out output.png
 ```
 
@@ -180,7 +179,7 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/file/preview`
@@ -189,30 +188,30 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--format` | `string` | no | `jpg` |  The output format for the generated thumbnail image. If a short video clip is generated using the `clip` strategy, its format is defined by `clip_format`.  |
-| `--width` | `number` | no | `1` |  Width of the thumbnail, in pixels.  |
-| `--height` | `number` | no | `1` |  Height of the thumbnail, in pixels.  |
-| `--resize-strategy` | `string` | no | `crop` |  To achieve the desired dimensions of the preview thumbnail, the <dfn>Robot</dfn> might have to resize the generated image. This happens, for example, when the dimensions of a frame extracted from a video do not match the chosen `width` and `height` parameters.  See the list of available [resize strategies](/docs/topics/resize-strategies/) for more details.  |
-| `--background` | `string` | no | `value` |  The hexadecimal code of the color used to fill the background (only used for the pad resize strategy). The format is `#rrggbb[aa]` (red, green, blue, alpha). Use `#00000000` for a transparent padding.  |
-| `--strategy` | `json` | no | `value` |  Definition of the thumbnail generation process per file category. The parameter must be an object whose keys can be one of the file categories: `audio`, `video`, `image`, `document`, `archive`, `webpage`, and `unknown`. The corresponding value is an array of strategies for the specific file category. See the above section for a list of all available strategies.  For each file, the <dfn>Robot</dfn> will attempt to use the first strategy to generate the thumbnail. If this process fails (e.g., because no artwork is available in a video file), the next strategy is attempted. This is repeated until either a thumbnail is generated or the list is exhausted. Selecting the `icon` strategy as the last entry provides a fallback mechanism to ensure that an appropriate strategy is always available.  The parameter defaults to the following definition:  ```json {   "audio": ["artwork", "waveform", "icon"],   "video": ["artwork", "frame", "icon"],   "document": ["page", "icon"],   "image": ["image", "icon"],   "webpage": ["render", "icon"],   "archive": ["icon"],   "unknown": ["icon"] } ```  |
-| `--artwork-outer-color` | `string` | no | `value` |    The color used in the outer parts of the artwork's gradient.    |
-| `--artwork-center-color` | `string` | no | `value` |    The color used in the center of the artwork's gradient.    |
-| `--waveform-center-color` | `string` | no | `value` |  The color used in the center of the waveform's gradient. The format is `#rrggbb[aa]` (red, green, blue, alpha). Only used if the `waveform` strategy for audio files is applied.  |
-| `--waveform-outer-color` | `string` | no | `value` |  The color used in the outer parts of the waveform's gradient. The format is `#rrggbb[aa]` (red, green, blue, alpha). Only used if the `waveform` strategy for audio files is applied.  |
-| `--waveform-height` | `number` | no | `1` |  Height of the waveform, in pixels. Only used if the `waveform` strategy for audio files is applied. It can be utilized to ensure that the waveform only takes up a section of the preview thumbnail.  |
-| `--waveform-width` | `number` | no | `1` |  Width of the waveform, in pixels. Only used if the `waveform` strategy for audio files is applied. It can be utilized to ensure that the waveform only takes up a section of the preview thumbnail.  |
-| `--icon-style` | `string` | no | `square` |  The style of the icon generated if the `icon` strategy is applied. The default style, `with-text`, includes an icon showing the file type and a text box below it, whose content can be controlled by the `icon_text_content` parameter and defaults to the file extension (e.g. MP4, JPEG). The `square` style only includes a square variant of the icon showing the file type. Below are exemplary previews generated for a text file utilizing the different styles:  <br><br> <strong>`with-text` style:</strong> <br> ![Image with text style]({{site.asset_cdn}}/assets/images/file-preview/icon-with-text.png) <br><br> <strong>`square` style:</strong> <br> ![Image with square style]({{site.asset_cdn}}/assets/images/file-preview/icon-square.png)  |
-| `--icon-text-color` | `string` | no | `value` |  The color of the text used in the icon. The format is `#rrggbb[aa]`. Only used if the `icon` strategy is applied.  |
-| `--icon-text-font` | `string` | no | `value` |  The font family of the text used in the icon. Only used if the `icon` strategy is applied. [Here](/docs/supported-formats/fonts/) is a list of all supported fonts.  |
-| `--icon-text-content` | `string` | no | `extension` |  The content of the text box in generated icons. Only used if the `icon_style` parameter is set to `with-text`. The default value, `extension`, adds the file extension (e.g. MP4, JPEG) to the icon. The value `none` can be used to render an empty text box, which is useful if no text should not be included in the raster image, but some place should be reserved in the image for later overlaying custom text over the image using HTML etc.  |
-| `--optimize` | `boolean` | no | `true` |  Specifies whether the generated preview image should be optimized to reduce the image's file size while keeping their quaility. If enabled, the images will be optimized using [🤖/image/optimize](/docs/robots/image-optimize/).  |
-| `--optimize-priority` | `string` | no | `compression-ratio` |  Specifies whether conversion speed or compression ratio is prioritized when optimizing images. Only used if `optimize` is enabled. Please see the [🤖/image/optimize documentation](/docs/robots/image-optimize/#param-priority) for more details.  |
-| `--optimize-progressive` | `boolean` | no | `true` |  Specifies whether images should be interlaced, which makes the result image load progressively in browsers. Only used if `optimize` is enabled. Please see the [🤖/image/optimize documentation](/docs/robots/image-optimize/#param-progressive) for more details.  |
-| `--clip-format` | `string` | no | `apng` |  The animated image format for the generated video clip. Only used if the `clip` strategy for video files is applied.  Please consult the [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/Media/Formats/Image_types) for detailed information about the image formats and their characteristics. GIF enjoys the broadest support in software, but only supports a limit color palette. APNG supports a variety of color depths, but its lossless compression produces large images for videos. AVIF is a modern image format that offers great compression, but proper support for animations is still lacking in some browsers. WebP on the other hand, enjoys broad support while offering a great balance between small file sizes and good visual quality, making it the default clip format.  |
-| `--clip-offset` | `number` | no | `1` |  The start position in seconds of where the clip is cut. Only used if the `clip` strategy for video files is applied. Be aware that for larger video only the first few MBs of the file may be imported to improve speed. Larger offsets may seek to a position outside of the imported part and thus fail to generate a clip.  |
-| `--clip-duration` | `number` | no | `1` |  The duration in seconds of the generated video clip. Only used if the `clip` strategy for video files is applied. Be aware that a longer clip duration also results in a larger file size, which might be undesirable for previews.  |
-| `--clip-framerate` | `number` | no | `1` |  The framerate of the generated video clip. Only used if the `clip` strategy for video files is applied. Be aware that a higher framerate appears smoother but also results in a larger file size, which might be undesirable for previews.  |
-| `--clip-loop` | `boolean` | no | `true` |  Specifies whether the generated animated image should loop forever (`true`) or stop after playing the animation once (`false`). Only used if the `clip` strategy for video files is applied.  |
+| `--format` | `string` | no | `jpg` | The output format for the generated thumbnail image. If a short video clip is generated using the clip strategy, its format is defined by clip_format. |
+| `--width` | `number` | no | `1` | Width of the thumbnail, in pixels. |
+| `--height` | `number` | no | `1` | Height of the thumbnail, in pixels. |
+| `--resize-strategy` | `string` | no | `crop` | To achieve the desired dimensions of the preview thumbnail, the Robot might have to resize the generated image. |
+| `--background` | `string` | no | `value` | The hexadecimal code of the color used to fill the background (only used for the pad resize strategy). |
+| `--strategy` | `json` | no | `value` | Definition of the thumbnail generation process per file category. |
+| `--artwork-outer-color` | `string` | no | `value` | The color used in the outer parts of the artwork's gradient. |
+| `--artwork-center-color` | `string` | no | `value` | The color used in the center of the artwork's gradient. |
+| `--waveform-center-color` | `string` | no | `value` | The color used in the center of the waveform's gradient. The format is #rrggbb[aa] (red, green, blue, alpha). Only used if the waveform strategy for audio files is applied. |
+| `--waveform-outer-color` | `string` | no | `value` | The color used in the outer parts of the waveform's gradient. The format is #rrggbb[aa] (red, green, blue, alpha). Only used if the waveform strategy for audio files is applied. |
+| `--waveform-height` | `number` | no | `1` | Height of the waveform, in pixels. Only used if the waveform strategy for audio files is applied. It can be utilized to ensure that the waveform only takes up a section of the… |
+| `--waveform-width` | `number` | no | `1` | Width of the waveform, in pixels. Only used if the waveform strategy for audio files is applied. It can be utilized to ensure that the waveform only takes up a section of the… |
+| `--icon-style` | `string` | no | `square` | The style of the icon generated if the icon strategy is applied. |
+| `--icon-text-color` | `string` | no | `value` | The color of the text used in the icon. The format is #rrggbb[aa]. Only used if the icon strategy is applied. |
+| `--icon-text-font` | `string` | no | `value` | The font family of the text used in the icon. Only used if the icon strategy is applied. Here is a list of all supported fonts. |
+| `--icon-text-content` | `string` | no | `extension` | The content of the text box in generated icons. Only used if the icon_style parameter is set to with-text. The default value, extension, adds the file extension (e.g. MP4, JPEG)… |
+| `--optimize` | `boolean` | no | `true` | Specifies whether the generated preview image should be optimized to reduce the image's file size while keeping their quaility. |
+| `--optimize-priority` | `string` | no | `compression-ratio` | Specifies whether conversion speed or compression ratio is prioritized when optimizing images. |
+| `--optimize-progressive` | `boolean` | no | `true` | Specifies whether images should be interlaced, which makes the result image load progressively in browsers. |
+| `--clip-format` | `string` | no | `apng` | The animated image format for the generated video clip. Only used if the clip strategy for video files is applied. Please consult the MDN Web Docs for detailed information about… |
+| `--clip-offset` | `number` | no | `1` | The start position in seconds of where the clip is cut. Only used if the clip strategy for video files is applied. Be aware that for larger video only the first few MBs of the… |
+| `--clip-duration` | `number` | no | `1` | The duration in seconds of the generated video clip. Only used if the clip strategy for video files is applied. Be aware that a longer clip duration also results in a larger file… |
+| `--clip-framerate` | `number` | no | `1` | The framerate of the generated video clip. Only used if the clip strategy for video files is applied. Be aware that a higher framerate appears smoother but also results in a… |
+| `--clip-loop` | `boolean` | no | `true` | Specifies whether the generated animated image should loop forever (true) or stop after playing the animation once (false). |
 
 **Input & output flags**
 
@@ -237,7 +236,6 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit preview generate --input input.file --out output.file
 ```
 
@@ -255,7 +253,7 @@ npx transloadit image remove-background --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/image/bgremove`
@@ -292,7 +290,6 @@ npx transloadit image remove-background --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit image remove-background --input input.png --out output.png
 ```
 
@@ -310,7 +307,7 @@ npx transloadit image optimize --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/image/optimize`
@@ -319,10 +316,10 @@ npx transloadit image optimize --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--priority` | `string` | no | `compression-ratio` |  Provides different algorithms for better or worse compression for your images, but that run slower or faster. The value `"conversion-speed"` will result in an average compression ratio of 18%. `"compression-ratio"` will result in an average compression ratio of 31%.  |
-| `--progressive` | `boolean` | no | `true` |  Interlaces the image if set to `true`, which makes the result image load progressively in browsers. Instead of rendering the image from top to bottom, the browser will first show a low-res blurry version of the image which is then quickly replaced with the actual image as the data arrives. This greatly increases the user experience, but comes at a loss of about 10% of the file size reduction.  |
-| `--preserve-meta-data` | `boolean` | no | `true` |  Specifies if the image's metadata should be preserved during the optimization, or not. If it is not preserved, the file size is even further reduced. But be aware that this could strip a photographer's copyright information, which for obvious reasons can be frowned upon.  |
-| `--fix-breaking-images` | `boolean` | no | `true` |  If set to `true` this parameter tries to fix images that would otherwise make the underlying tool error out and thereby break your <dfn>Assemblies</dfn>. This can sometimes result in a larger file size, though.  |
+| `--priority` | `string` | no | `compression-ratio` | Provides different algorithms for better or worse compression for your images, but that run slower or faster. |
+| `--progressive` | `boolean` | no | `true` | Interlaces the image if set to true, which makes the result image load progressively in browsers. |
+| `--preserve-meta-data` | `boolean` | no | `true` | Specifies if the image's metadata should be preserved during the optimization, or not. |
+| `--fix-breaking-images` | `boolean` | no | `true` | If set to true this parameter tries to fix images that would otherwise make the underlying tool error out and thereby break your Assemblies . |
 
 **Input & output flags**
 
@@ -347,7 +344,6 @@ npx transloadit image optimize --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit image optimize --input input.png --out output.png
 ```
 
@@ -365,7 +361,7 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/image/resize`
@@ -374,51 +370,51 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--format` | `string` | no | `value` |  The output format for the modified image.  Some of the most important available formats are `"jpg"`, `"png"`, `"gif"`, and `"tiff"`. For a complete lists of all formats that we can write to please check [our supported image formats list](/docs/supported-formats/image-formats/).  If `null` (default), then the input image's format will be used as the output format.  If you wish to convert to `"pdf"`, please consider [🤖/document/convert](/docs/robots/document-convert/) instead.  |
-| `--width` | `number` | no | `1` |  Width of the result in pixels. If not specified, will default to the width of the original.  |
-| `--height` | `number` | no | `1` |  Height of the new image, in pixels. If not specified, will default to the height of the input image.  |
-| `--resize-strategy` | `string` | no | `crop` |  See the list of available [resize strategies](/docs/topics/resize-strategies/).  |
-| `--zoom` | `boolean` | no | `true` |  If this is set to `false`, smaller images will not be stretched to the desired width and height. For details about the impact of zooming for your preferred resize strategy, see the list of available [resize strategies](/docs/topics/resize-strategies/).  |
-| `--crop` | `auto` | no | `value` |  Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original image(s). The coordinate system is rooted in the top left corner of the image. Values can be integers for absolute pixel values or strings for percentage based values.  For example:  ```json {   "x1": 80,   "y1": 100,   "x2": "60%",   "y2": "80%" } ```  This will crop the area from `(80, 100)` to `(600, 800)` from a 1000×1000 pixels image, which is a square whose width is 520px and height is 700px. If `crop` is set, the width and height parameters are ignored, and the `resize_strategy` is set to `crop` automatically.  You can also use a JSON string of such an object with coordinates in similar fashion:  ```json "{\"x1\": <Integer>, \"y1\": <Integer>, \"x2\": <Integer>, \"y2\": <Integer>}" ```  To crop around human faces, see [🤖/image/facedetect](/docs/robots/image-facedetect/).  |
-| `--gravity` | `string` | no | `bottom` |  The direction from which the image is to be cropped, when `"resize_strategy"` is set to `"crop"`, but no crop coordinates are defined.  |
-| `--strip` | `boolean` | no | `true` |  Strips all metadata from the image. This is useful to keep thumbnails as small as possible.  |
-| `--alpha` | `string` | no | `Activate` |  Gives control of the alpha/matte channel of an image.  |
-| `--preclip-alpha` | `string` | no | `Activate` |  Gives control of the alpha/matte channel of an image before applying the clipping path via `clip: true`.  |
-| `--flatten` | `boolean` | no | `true` |  Flattens all layers onto the specified background to achieve better results from transparent formats to non-transparent formats, as explained in the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#layers).  To preserve animations, GIF files are not flattened when this is set to `true`. To flatten GIF animations, use the `frame` parameter.  |
-| `--correct-gamma` | `boolean` | no | `true` |  Prevents gamma errors [common in many image scaling algorithms](https://www.4p8.com/eric.brasseur/gamma.html).  |
-| `--quality` | `number` | no | `1` |  Controls the image compression for JPG and PNG images. Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).  |
-| `--adaptive-filtering` | `boolean` | no | `true` |  Controls the image compression for PNG images. Setting to `true` results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled.  |
-| `--background` | `string` | no | `transparent` |  Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (used for the `pad` resize strategy).  **Note:** By default, the background of transparent images is changed to white. To preserve transparency, set `"background"` to `"none"`.  |
-| `--frame` | `number` | no | `1` |  Use this parameter when dealing with animated GIF files to specify which frame of the GIF is used for the operation. Specify `1` to use the first frame, `2` to use the second, and so on. `null` means all frames.  |
-| `--colorspace` | `string` | no | `CMY` |  Sets the image colorspace. For details about the available values, see the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#colorspace). Please note that if you were using `"RGB"`, we recommend using `"sRGB"` instead as of 2014-02-04. ImageMagick might try to find the most efficient `colorspace` based on the color of an image, and default to e.g. `"Gray"`. To force colors, you might have to use this parameter in combination with `type: "TrueColor"`.  |
-| `--type` | `string` | no | `Bilevel` |  Sets the image color type. For details about the available values, see the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#type). If you're using `colorspace`, ImageMagick might try to find the most efficient based on the color of an image, and default to e.g. `"Gray"`. To force colors, you could e.g. set this parameter to `"TrueColor"`  |
-| `--sepia` | `number` | no | `1` |  Applies a sepia tone effect in percent.  |
-| `--rotation` | `auto` | no | `auto` |  Determines whether the image should be rotated. Use any number to specify the rotation angle in degrees (e.g., `90`, `180`, `270`, `360`, or precise values like `2.9`). Use the value `true` or `"auto"` to auto-rotate images that are rotated incorrectly or depend on EXIF rotation settings. Otherwise, use `false` to disable auto-fixing altogether.  |
-| `--compress` | `string` | no | `BZip` |  Specifies pixel compression for when the image is written. Compression is disabled by default.  Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).  |
-| `--blur` | `string` | no | `value` |  Specifies gaussian blur, using a value with the form `{radius}x{sigma}`. The radius value specifies the size of area the operator should look at when spreading pixels, and should typically be either `"0"` or at least two times the sigma value. The sigma value is an approximation of how many pixels the image is "spread"; think of it as the size of the brush used to blur the image. This number is a floating point value, enabling small values like `"0.5"` to be used.  |
-| `--blur-regions` | `json` | no | `value` |  Specifies an array of ellipse objects that should be blurred on the image. Each object has the following keys: `x`, `y`, `width`, `height`.  If `blur_regions` has a value, then the `blur` parameter is used as the strength of the blur for each region.  |
-| `--brightness` | `number` | no | `1` |  Increases or decreases the brightness of the image by using a multiplier. For example `1.5` would increase the brightness by 50%, and `0.75` would decrease the brightness by 25%.  |
-| `--saturation` | `number` | no | `1` |  Increases or decreases the saturation of the image by using a multiplier. For example `1.5` would increase the saturation by 50%, and `0.75` would decrease the saturation by 25%.  |
-| `--hue` | `number` | no | `1` |  Changes the hue by rotating the color of the image. The value `100` would produce no change whereas `0` and `200` will negate the colors in the image.  |
-| `--contrast` | `number` | no | `1` |  Adjusts the contrast of the image. A value of `1` produces no change. Values below `1` decrease contrast (with `0` being minimum contrast), and values above `1` increase contrast (with `2` being maximum contrast). This works like the `brightness` parameter.  |
-| `--watermark-url` | `string` | no | `value` |  A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.  |
-| `--watermark-position` | `string[]` | no | `bottom` |  The position at which the watermark is placed. The available options are `"center"`, `"top"`, `"bottom"`, `"left"`, and `"right"`. You can also combine options, such as `"bottom-right"`.  An array of possible values can also be specified, in which case one value will be selected at random, such as `[ "center", "left", "bottom-left", "bottom-right" ]`.  This setting puts the watermark in the specified corner. To use a specific pixel offset for the watermark, you will need to add the padding to the image itself.  |
-| `--watermark-x-offset` | `number` | no | `1` |  The x-offset in number of pixels at which the watermark will be placed in relation to the position it has due to `watermark_position`.  Values can be both positive and negative and yield different results depending on the `watermark_position` parameter. Positive values move the watermark closer to the image's center point, whereas negative values move the watermark further away from the image's center point.  |
-| `--watermark-y-offset` | `number` | no | `1` |  The y-offset in number of pixels at which the watermark will be placed in relation to the position it has due to `watermark_position`.  Values can be both positive and negative and yield different results depending on the `watermark_position` parameter. Positive values move the watermark closer to the image's center point, whereas negative values move the watermark further away from the image's center point.  |
-| `--watermark-size` | `string` | no | `value` |  The size of the watermark, as a percentage.  For example, a value of `"50%"` means that size of the watermark will be 50% of the size of image on which it is placed. The exact sizing depends on `watermark_resize_strategy`, too.  |
-| `--watermark-resize-strategy` | `string` | no | `area` |  Available values are `"fit"`, `"min_fit"`, `"stretch"` and `"area"`.  To explain how the resize strategies work, let's assume our target image size is 800×800 pixels and our watermark image is 400×300 pixels. Let's also assume, the `watermark_size` parameter is set to `"25%"`.  For the `"fit"` resize strategy, the watermark is scaled so that the longer side of the watermark takes up 25% of the corresponding image side. And the other side is scaled according to the aspect ratio of the watermark image. So with our watermark, the width is the longer side, and 25% of the image size would be 200px. Hence, the watermark would be resized to 200×150 pixels. If the `watermark_size` was set to `"50%"`, it would be resized to 400×300 pixels (so just left at its original size).  For the `"min_fit"` resize strategy, the watermark is scaled so that the shorter side of the watermark takes up 25% of the corresponding image side. And the other side is scaled according to the aspect ratio of the watermark image. So with our watermark, the height is the shorter side, and 25% of the image size would be 200px. Hence, the watermark would be resized to 267×200 pixels. If the `watermark_size` was set to `"50%"`, it would be resized to 533×400 pixels (so larger than its original size).  For the `"stretch"` resize strategy, the watermark is stretched (meaning, it is resized without keeping its aspect ratio in mind) so that both sides take up 25% of the corresponding image side. Since our image is 800×800 pixels, for a watermark size of 25% the watermark would be resized to 200×200 pixels. Its height would appear stretched, because keeping the aspect ratio in mind it would be resized to 200×150 pixels instead.  For the `"area"` resize strategy, the watermark is resized (keeping its aspect ratio in check) so that it covers `"xx%"` of the image's surface area. The value from `watermark_size` is used for the percentage area size.  |
-| `--watermark-opacity` | `number` | no | `1` |  The opacity of the watermark, where `0.0` is fully transparent and `1.0` is fully opaque.  For example, a value of `0.5` means the watermark will be 50% transparent, allowing the underlying image to show through. This is useful for subtle branding or when you want the watermark to be less obtrusive.  |
-| `--watermark-repeat-x` | `boolean` | no | `true` |  When set to `true`, the watermark will be repeated horizontally across the entire width of the image.  This is useful for creating tiled watermark patterns that cover the full image and make it more difficult to crop out the watermark.  |
-| `--watermark-repeat-y` | `boolean` | no | `true` |  When set to `true`, the watermark will be repeated vertically across the entire height of the image.  This is useful for creating tiled watermark patterns that cover the full image. Can be combined with `watermark_repeat_x` to tile in both directions.  |
-| `--text` | `json` | no | `value` |  Text overlays to be applied to the image. Can be either a single text object or an array of text objects. Each text object contains text rules. The following text parameters are intended to be used as properties for your text overlays. Here is an example:  ```json "watermarked": {   "use": "resized",   "robot": "/image/resize",   "text": [     {       "text": "© 2018 Transloadit.com",       "size": 12,       "font": "Ubuntu",       "color": "#eeeeee",       "valign": "bottom",       "align": "right",       "x_offset": 16,       "y_offset": -10     }   ] } ``` |
-| `--progressive` | `boolean` | no | `true` |  Interlaces the image if set to `true`, which makes the image load progressively in browsers. Instead of rendering the image from top to bottom, the browser will first show a low-res blurry version of the images which is then quickly replaced with the actual image as the data arrives. This greatly increases the user experience, but comes at a cost of a file size increase by around 10%.  |
-| `--transparent` | `string` | no | `transparent` |  Make this color transparent within the image. Example: `"255,255,255"`.  |
-| `--trim-whitespace` | `boolean` | no | `true` |  This determines if additional whitespace around the image should first be trimmed away. If you set this to `true` this parameter removes any edges that are exactly the same color as the corner pixels.  |
-| `--clip` | `auto` | no | `value` |  Apply the clipping path to other operations in the resize job, if one is present. If set to `true`, it will automatically take the first clipping path. If set to a String it finds a clipping path by that name.  |
-| `--negate` | `boolean` | no | `true` |  Replace each pixel with its complementary color, effectively negating the image. Especially useful when testing clipping.  |
-| `--density` | `string` | no | `value` |  While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. That is the density (in pixels per inch) of an image and defines how far apart (or how big) the individual pixels are. It defines the size of the image in real world terms when displayed on devices or printed.  You can set this value to a specific `width` or in the format `width`x`height`.  If your converted image is unsharp, please try increasing density.  |
-| `--monochrome` | `boolean` | no | `true` |  Transform the image to black and white. This is a shortcut for setting the colorspace to Gray and type to Bilevel.  |
-| `--shave` | `auto` | no | `value` |  Shave pixels from the image edges. The value should be in the format `width` or `width`x`height` to specify the number of pixels to remove from each side.  |
+| `--format` | `string` | no | `value` | The output format for the modified image. Some of the most important available formats are "jpg", "png", "gif", and "tiff". For a complete lists of all formats that we can write… |
+| `--width` | `number` | no | `1` | Width of the result in pixels. If not specified, will default to the width of the original. |
+| `--height` | `number` | no | `1` | Height of the new image, in pixels. If not specified, will default to the height of the input image. |
+| `--resize-strategy` | `string` | no | `crop` | See the list of available resize strategies. |
+| `--zoom` | `boolean` | no | `true` | If this is set to false, smaller images will not be stretched to the desired width and height. |
+| `--crop` | `auto` | no | `value` | Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original image(s). |
+| `--gravity` | `string` | no | `bottom` | The direction from which the image is to be cropped, when "resize_strategy" is set to "crop", but no crop coordinates are defined. |
+| `--strip` | `boolean` | no | `true` | Strips all metadata from the image. This is useful to keep thumbnails as small as possible. |
+| `--alpha` | `string` | no | `Activate` | Gives control of the alpha/matte channel of an image. |
+| `--preclip-alpha` | `string` | no | `Activate` | Gives control of the alpha/matte channel of an image before applying the clipping path via clip: true. |
+| `--flatten` | `boolean` | no | `true` | Flattens all layers onto the specified background to achieve better results from transparent formats to non-transparent formats, as explained in the ImageMagick documentation. |
+| `--correct-gamma` | `boolean` | no | `true` | Prevents gamma errors common in many image scaling algorithms. |
+| `--quality` | `number` | no | `1` | Controls the image compression for JPG and PNG images. Please also take a look at 🤖/image/optimize. |
+| `--adaptive-filtering` | `boolean` | no | `true` | Controls the image compression for PNG images. Setting to true results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled. |
+| `--background` | `string` | no | `transparent` | Either the hexadecimal code or name of the color used to fill the background (used for the pad resize strategy). |
+| `--frame` | `number` | no | `1` | Use this parameter when dealing with animated GIF files to specify which frame of the GIF is used for the operation. |
+| `--colorspace` | `string` | no | `CMY` | Sets the image colorspace. For details about the available values, see the ImageMagick documentation. Please note that if you were using "RGB", we recommend using "sRGB" instead… |
+| `--type` | `string` | no | `Bilevel` | Sets the image color type. For details about the available values, see the ImageMagick documentation. If you're using colorspace, ImageMagick might try to find the most efficient… |
+| `--sepia` | `number` | no | `1` | Applies a sepia tone effect in percent. |
+| `--rotation` | `auto` | no | `auto` | Determines whether the image should be rotated. Use any number to specify the rotation angle in degrees (e.g., 90, 180, 270, 360, or precise values like 2.9). Use the value true… |
+| `--compress` | `string` | no | `BZip` | Specifies pixel compression for when the image is written. Compression is disabled by default. Please also take a look at 🤖/image/optimize. |
+| `--blur` | `string` | no | `value` | Specifies gaussian blur, using a value with the form {radius}x{sigma}. |
+| `--blur-regions` | `json` | no | `value` | Specifies an array of ellipse objects that should be blurred on the image. |
+| `--brightness` | `number` | no | `1` | Increases or decreases the brightness of the image by using a multiplier. For example 1.5 would increase the brightness by 50%, and 0.75 would decrease the brightness by 25%. |
+| `--saturation` | `number` | no | `1` | Increases or decreases the saturation of the image by using a multiplier. For example 1.5 would increase the saturation by 50%, and 0.75 would decrease the saturation by 25%. |
+| `--hue` | `number` | no | `1` | Changes the hue by rotating the color of the image. The value 100 would produce no change whereas 0 and 200 will negate the colors in the image. |
+| `--contrast` | `number` | no | `1` | Adjusts the contrast of the image. A value of 1 produces no change. Values below 1 decrease contrast (with 0 being minimum contrast), and values above 1 increase contrast (with 2… |
+| `--watermark-url` | `string` | no | `value` | A URL indicating a PNG image to be overlaid above this image. |
+| `--watermark-position` | `string[]` | no | `bottom` | The position at which the watermark is placed. The available options are "center", "top", "bottom", "left", and "right". You can also combine options, such as "bottom-right". An… |
+| `--watermark-x-offset` | `number` | no | `1` | The x-offset in number of pixels at which the watermark will be placed in relation to the position it has due to watermark_position. |
+| `--watermark-y-offset` | `number` | no | `1` | The y-offset in number of pixels at which the watermark will be placed in relation to the position it has due to watermark_position. |
+| `--watermark-size` | `string` | no | `value` | The size of the watermark, as a percentage. For example, a value of "50%" means that size of the watermark will be 50% of the size of image on which it is placed. The exact… |
+| `--watermark-resize-strategy` | `string` | no | `area` | Available values are "fit", "min_fit", "stretch" and "area". |
+| `--watermark-opacity` | `number` | no | `1` | The opacity of the watermark, where 0.0 is fully transparent and 1.0 is fully opaque. |
+| `--watermark-repeat-x` | `boolean` | no | `true` | When set to true, the watermark will be repeated horizontally across the entire width of the image. |
+| `--watermark-repeat-y` | `boolean` | no | `true` | When set to true, the watermark will be repeated vertically across the entire height of the image. |
+| `--text` | `json` | no | `value` | Text overlays to be applied to the image. Can be either a single text object or an array of text objects. Each text object contains text rules. The following text parameters are… |
+| `--progressive` | `boolean` | no | `true` | Interlaces the image if set to true, which makes the image load progressively in browsers. |
+| `--transparent` | `string` | no | `transparent` | Make this color transparent within the image. Example: "255,255,255". |
+| `--trim-whitespace` | `boolean` | no | `true` | This determines if additional whitespace around the image should first be trimmed away. |
+| `--clip` | `auto` | no | `value` | Apply the clipping path to other operations in the resize job, if one is present. |
+| `--negate` | `boolean` | no | `true` | Replace each pixel with its complementary color, effectively negating the image. Especially useful when testing clipping. |
+| `--density` | `string` | no | `value` | While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. |
+| `--monochrome` | `boolean` | no | `true` | Transform the image to black and white. This is a shortcut for setting the colorspace to Gray and type to Bilevel. |
+| `--shave` | `auto` | no | `value` | Shave pixels from the image edges. The value should be in the format width or widthxheight to specify the number of pixels to remove from each side. |
 
 **Input & output flags**
 
@@ -443,7 +439,6 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit image resize --input input.png --out output.png
 ```
 
@@ -461,7 +456,7 @@ npx transloadit document convert --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/document/convert`
@@ -470,15 +465,15 @@ npx transloadit document convert --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--format` | `string` | yes | `pdf` |  The desired format for document conversion.  |
-| `--markdown-format` | `string` | no | `commonmark` |  Markdown can be represented in several [variants](https://www.iana.org/assignments/markdown-variants/markdown-variants.xhtml), so when using this Robot to transform Markdown into HTML please specify which revision is being used.  |
-| `--markdown-theme` | `string` | no | `bare` |  This parameter overhauls your Markdown files styling based on several canned presets.  |
-| `--pdf-margin` | `string` | no | `value` |  PDF Paper margins, separated by `,` and with units.  We support the following unit values: `px`, `in`, `cm`, `mm`.  Currently this parameter is only supported when converting from `html`.  |
-| `--pdf-print-background` | `boolean` | no | `true` |  Print PDF background graphics.  Currently this parameter is only supported when converting from `html`.  |
-| `--pdf-format` | `string` | no | `A0` |  PDF paper format.  Currently this parameter is only supported when converting from `html`.  |
-| `--pdf-display-header-footer` | `boolean` | no | `true` |  Display PDF header and footer.  Currently this parameter is only supported when converting from `html`.  |
-| `--pdf-header-template` | `string` | no | `value` |  HTML template for the PDF print header.  Should be valid HTML markup with following classes used to inject printing values into them: - `date` formatted print date - `title` document title - `url` document location - `pageNumber` current page number - `totalPages` total pages in the document  Currently this parameter is only supported when converting from `html`, and requires `pdf_display_header_footer` to be enabled.  To change the formatting of the HTML element, the `font-size` must be specified in a wrapper. For example, to center the page number at the top of a page you'd use the following HTML for the header template:  ```html <div style="font-size: 15px; width: 100%; text-align: center;"><span class="pageNumber"></span></div> ```  |
-| `--pdf-footer-template` | `string` | no | `value` |  HTML template for the PDF print footer.  Should use the same format as the `pdf_header_template`.  Currently this parameter is only supported when converting from `html`, and requires `pdf_display_header_footer` to be enabled.  To change the formatting of the HTML element, the `font-size` must be specified in a wrapper. For example, to center the page number in the footer you'd use the following HTML for the footer template:  ```html <div style="font-size: 15px; width: 100%; text-align: center;"><span class="pageNumber"></span></div> ```  |
+| `--format` | `string` | yes | `pdf` | The desired format for document conversion. |
+| `--markdown-format` | `string` | no | `commonmark` | Markdown can be represented in several variants, so when using this Robot to transform Markdown into HTML please specify which revision is being used. |
+| `--markdown-theme` | `string` | no | `bare` | This parameter overhauls your Markdown files styling based on several canned presets. |
+| `--pdf-margin` | `string` | no | `value` | PDF Paper margins, separated by , and with units. We support the following unit values: px, in, cm, mm. Currently this parameter is only supported when converting from html. |
+| `--pdf-print-background` | `boolean` | no | `true` | Print PDF background graphics. Currently this parameter is only supported when converting from html. |
+| `--pdf-format` | `string` | no | `A0` | PDF paper format. Currently this parameter is only supported when converting from html. |
+| `--pdf-display-header-footer` | `boolean` | no | `true` | Display PDF header and footer. Currently this parameter is only supported when converting from html. |
+| `--pdf-header-template` | `string` | no | `value` | HTML template for the PDF print header. Should be valid HTML markup with following classes used to inject printing values into them: - date formatted print date - title document… |
+| `--pdf-footer-template` | `string` | no | `value` | HTML template for the PDF print footer. Should use the same format as the pdf_header_template. Currently this parameter is only supported when converting from html, and requires… |
 
 **Input & output flags**
 
@@ -503,7 +498,6 @@ npx transloadit document convert --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit document convert --input input.pdf --format pdf --out output.pdf
 ```
 
@@ -521,7 +515,7 @@ npx transloadit document optimize --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/document/optimize`
@@ -530,13 +524,13 @@ npx transloadit document optimize --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--preset` | `string` | no | `screen` |  The quality preset to use for optimization. Each preset provides a different balance between file size and quality:  - `screen` - Lowest quality, smallest file size. Best for screen viewing only. Images are downsampled to 72 DPI. - `ebook` - Good balance of quality and size. Suitable for most purposes. Images are downsampled to 150 DPI. - `printer` - High quality suitable for printing. Images are kept at 300 DPI. - `prepress` - Highest quality for professional printing. Minimal compression applied.  |
-| `--image-dpi` | `number` | no | `1` |  Target DPI (dots per inch) for embedded images. When specified, this overrides the DPI setting from the preset.  Higher DPI values result in better image quality but larger file sizes. Lower values produce smaller files but may result in pixelated images when printed.  Common values: - 72 - Screen viewing - 150 - eBooks and general documents - 300 - Print quality - 600 - High-quality print  |
-| `--compress-fonts` | `boolean` | no | `true` |  Whether to compress embedded fonts. When enabled, fonts are compressed to reduce file size.  |
-| `--subset-fonts` | `boolean` | no | `true` |  Whether to subset embedded fonts, keeping only the glyphs that are actually used in the document. This can significantly reduce file size for documents that only use a small portion of a font's character set.  |
-| `--remove-metadata` | `boolean` | no | `true` |  Whether to strip document metadata (title, author, keywords, etc.) from the PDF. This can provide a small reduction in file size and may be useful for privacy.  |
-| `--linearize` | `boolean` | no | `true` |  Whether to linearize (optimize for Fast Web View) the output PDF. Linearized PDFs can begin displaying in a browser before they are fully downloaded, improving the user experience for web delivery.  |
-| `--compatibility` | `string` | no | `1.4` |  The PDF version compatibility level. Lower versions have broader compatibility but fewer features. Higher versions support more advanced features but may not open in older PDF readers.  - `1.4` - Acrobat 5 compatibility, most widely supported - `1.5` - Acrobat 6 compatibility - `1.6` - Acrobat 7 compatibility - `1.7` - Acrobat 8+ compatibility (default) - `2.0` - PDF 2.0 standard  |
+| `--preset` | `string` | no | `screen` | The quality preset to use for optimization. Each preset provides a different balance between file size and quality: - screen - Lowest quality, smallest file size. Best for screen… |
+| `--image-dpi` | `number` | no | `1` | Target DPI (dots per inch) for embedded images. When specified, this overrides the DPI setting from the preset. Higher DPI values result in better image quality but larger file… |
+| `--compress-fonts` | `boolean` | no | `true` | Whether to compress embedded fonts. When enabled, fonts are compressed to reduce file size. |
+| `--subset-fonts` | `boolean` | no | `true` | Whether to subset embedded fonts, keeping only the glyphs that are actually used in the document. |
+| `--remove-metadata` | `boolean` | no | `true` | Whether to strip document metadata (title, author, keywords, etc.) from the PDF. This can provide a small reduction in file size and may be useful for privacy. |
+| `--linearize` | `boolean` | no | `true` | Whether to linearize (optimize for Fast Web View) the output PDF. |
+| `--compatibility` | `string` | no | `1.4` | The PDF version compatibility level. Lower versions have broader compatibility but fewer features. Higher versions support more advanced features but may not open in older PDF… |
 
 **Input & output flags**
 
@@ -561,7 +555,6 @@ npx transloadit document optimize --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit document optimize --input input.pdf --out output.pdf
 ```
 
@@ -579,7 +572,7 @@ npx transloadit document auto-rotate --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/document/autorotate`
@@ -607,7 +600,6 @@ npx transloadit document auto-rotate --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit document auto-rotate --input input.pdf --out output.pdf
 ```
 
@@ -625,7 +617,7 @@ npx transloadit document thumbs --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: directory
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/document/thumbs`
@@ -634,20 +626,20 @@ npx transloadit document thumbs --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--page` | `number` | no | `1` |  The PDF page that you want to convert to an image. By default the value is `null` which means that all pages will be converted into images.  |
-| `--format` | `string` | no | `jpg` |  The format of the extracted image(s).  If you specify the value `"gif"`, then an animated gif cycling through all pages is created. Please check out [this demo](/demos/document-processing/convert-all-pages-of-a-document-into-an-animated-gif/) to learn more about this.  |
-| `--delay` | `number` | no | `1` |  If your output format is `"gif"` then this parameter sets the number of 100th seconds to pass before the next frame is shown in the animation. Set this to `100` for example to allow 1 second to pass between the frames of the animated gif.  If your output format is not `"gif"`, then this parameter does not have any effect.  |
-| `--width` | `number` | no | `1` |  Width of the new image, in pixels. If not specified, will default to the width of the input image  |
-| `--height` | `number` | no | `1` |  Height of the new image, in pixels. If not specified, will default to the height of the input image  |
-| `--resize-strategy` | `string` | no | `crop` |  One of the [available resize strategies](/docs/topics/resize-strategies/).  |
-| `--background` | `string` | no | `value` |  Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (only used for the pad resize strategy).  By default, the background of transparent images is changed to white. For details about how to preserve transparency across all image types, see [this demo](/demos/image-manipulation/properly-preserve-transparency-across-all-image-types/).  |
-| `--alpha` | `string` | no | `Remove` |  Change how the alpha channel of the resulting image should work. Valid values are `"Set"` to enable transparency and `"Remove"` to remove transparency.  For a list of all valid values please check the ImageMagick documentation [here](http://www.imagemagick.org/script/command-line-options.php#alpha).  |
-| `--density` | `string` | no | `value` |  While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. That is the density (in pixels per inch) of an image and defines how far apart (or how big) the individual pixels are. It defines the size of the image in real world terms when displayed on devices or printed.  You can set this value to a specific `width` or in the format `width`x`height`.  If your converted image has a low resolution, please try using the density parameter to resolve that.  |
-| `--antialiasing` | `boolean` | no | `true` |  Controls whether or not antialiasing is used to remove jagged edges from text or images in a document.  |
-| `--colorspace` | `string` | no | `CMY` |  Sets the image colorspace. For details about the available values, see the [ImageMagick documentation](https://www.imagemagick.org/script/command-line-options.php#colorspace).  Please note that if you were using `"RGB"`, we recommend using `"sRGB"`. ImageMagick might try to find the most efficient `colorspace` based on the color of an image, and default to e.g. `"Gray"`. To force colors, you might then have to use this parameter.  |
-| `--trim-whitespace` | `boolean` | no | `true` |  This determines if additional whitespace around the PDF should first be trimmed away before it is converted to an image. If you set this to `true` only the real PDF page contents will be shown in the image.  If you need to reflect the PDF's dimensions in your image, it is generally a good idea to set this to `false`.  |
-| `--pdf-use-cropbox` | `boolean` | no | `true` |  Some PDF documents lie about their dimensions. For instance they'll say they are landscape, but when opened in decent Desktop readers, it's really in portrait mode. This can happen if the document has a cropbox defined. When this option is enabled (by default), the cropbox is leading in determining the dimensions of the resulting thumbnails.  |
-| `--turbo` | `boolean` | no | `true` |  If you set this to `false`, the robot will not emit files as they become available. This is useful if you are only interested in the final result and not in the intermediate steps.  Also, extracted pages will be resized a lot faster as they are sent off to other machines for the resizing. This is especially useful for large documents with many pages to get up to 20 times faster processing.  Turbo Mode increases pricing, though, in that the input document's file size is added for every extracted page. There are no performance benefits nor increased charges for single-page documents.  |
+| `--page` | `number` | no | `1` | The PDF page that you want to convert to an image. By default the value is null which means that all pages will be converted into images. |
+| `--format` | `string` | no | `jpg` | The format of the extracted image(s). If you specify the value "gif", then an animated gif cycling through all pages is created. Please check out this demo to learn more about… |
+| `--delay` | `number` | no | `1` | If your output format is "gif" then this parameter sets the number of 100th seconds to pass before the next frame is shown in the animation. |
+| `--width` | `number` | no | `1` | Width of the new image, in pixels. If not specified, will default to the width of the input image |
+| `--height` | `number` | no | `1` | Height of the new image, in pixels. If not specified, will default to the height of the input image |
+| `--resize-strategy` | `string` | no | `crop` | One of the available resize strategies. |
+| `--background` | `string` | no | `value` | Either the hexadecimal code or name of the color used to fill the background (only used for the pad resize strategy). |
+| `--alpha` | `string` | no | `Remove` | Change how the alpha channel of the resulting image should work. |
+| `--density` | `string` | no | `value` | While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. |
+| `--antialiasing` | `boolean` | no | `true` | Controls whether or not antialiasing is used to remove jagged edges from text or images in a document. |
+| `--colorspace` | `string` | no | `CMY` | Sets the image colorspace. For details about the available values, see the ImageMagick documentation. Please note that if you were using "RGB", we recommend using "sRGB".… |
+| `--trim-whitespace` | `boolean` | no | `true` | This determines if additional whitespace around the PDF should first be trimmed away before it is converted to an image. |
+| `--pdf-use-cropbox` | `boolean` | no | `true` | Some PDF documents lie about their dimensions. For instance they'll say they are landscape, but when opened in decent Desktop readers, it's really in portrait mode. This can… |
+| `--turbo` | `boolean` | no | `true` | If you set this to false, the robot will not emit files as they become available. |
 
 **Input & output flags**
 
@@ -672,7 +664,6 @@ npx transloadit document thumbs --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit document thumbs --input input.pdf --out output/
 ```
 
@@ -690,7 +681,7 @@ npx transloadit audio waveform --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/audio/waveform`
@@ -699,32 +690,32 @@ npx transloadit audio waveform --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--ffmpeg` | `json` | no | `value` |  A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the [FFmpeg documentation](https://ffmpeg.org/ffmpeg-doc.html). Options specified here take precedence over the preset options.  |
-| `--format` | `string` | no | `image` |  The format of the result file. Can be `"image"` or `"json"`. If `"image"` is supplied, a PNG image will be created, otherwise a JSON file.  |
-| `--width` | `number` | no | `1` |  The width of the resulting image if the format `"image"` was selected.  |
-| `--height` | `number` | no | `1` |  The height of the resulting image if the format `"image"` was selected.  |
-| `--antialiasing` | `auto` | no | `0` |  Either a value of `0` or `1`, or `true`/`false`, corresponding to if you want to enable antialiasing to achieve smoother edges in the waveform graph or not.  |
-| `--background-color` | `string` | no | `value` |  The background color of the resulting image in the "rrggbbaa" format (red, green, blue, alpha), if the format `"image"` was selected.  |
-| `--center-color` | `string` | no | `value` |  The color used in the center of the gradient. The format is "rrggbbaa" (red, green, blue, alpha).  |
-| `--outer-color` | `string` | no | `value` |  The color used in the outer parts of the gradient. The format is "rrggbbaa" (red, green, blue, alpha).  |
-| `--style` | `string` | no | `v0` |  Waveform style version.  - `"v0"`: Legacy waveform generation (default). - `"v1"`: Advanced waveform generation with additional parameters.  For backwards compatibility, numeric values `0`, `1`, `2` are also accepted and mapped to `"v0"` (0) and `"v1"` (1/2).  |
-| `--split-channels` | `boolean` | no | `true` |  Available when style is `"v1"`. If set to `true`, outputs multi-channel waveform data or image files, one per channel.  |
-| `--zoom` | `number` | no | `1` |  Available when style is `"v1"`. Zoom level in samples per pixel. This parameter cannot be used together with `pixels_per_second`.  |
-| `--pixels-per-second` | `number` | no | `1` |  Available when style is `"v1"`. Zoom level in pixels per second. This parameter cannot be used together with `zoom`.  |
-| `--bits` | `number` | no | `8` |  Available when style is `"v1"`. Bit depth for waveform data. Can be 8 or 16.  |
-| `--start` | `number` | no | `1` |  Available when style is `"v1"`. Start time in seconds.  |
-| `--end` | `number` | no | `1` |  Available when style is `"v1"`. End time in seconds (0 means end of audio).  |
-| `--colors` | `string` | no | `audition` |  Available when style is `"v1"`. Color scheme to use. Can be "audition" or "audacity".  |
-| `--border-color` | `string` | no | `value` |  Available when style is `"v1"`. Border color in "rrggbbaa" format.  |
-| `--waveform-style` | `string` | no | `normal` |  Available when style is `"v1"`. Waveform style. Can be "normal" or "bars".  |
-| `--bar-width` | `number` | no | `1` |  Available when style is `"v1"`. Width of bars in pixels when waveform_style is "bars".  |
-| `--bar-gap` | `number` | no | `1` |  Available when style is `"v1"`. Gap between bars in pixels when waveform_style is "bars".  |
-| `--bar-style` | `string` | no | `square` |  Available when style is `"v1"`. Bar style when waveform_style is "bars".  |
-| `--axis-label-color` | `string` | no | `value` |  Available when style is `"v1"`. Color for axis labels in "rrggbbaa" format.  |
-| `--no-axis-labels` | `boolean` | no | `true` |  Available when style is `"v1"`. If set to `true`, renders waveform image without axis labels.  |
-| `--with-axis-labels` | `boolean` | no | `true` |  Available when style is `"v1"`. If set to `true`, renders waveform image with axis labels.  |
-| `--amplitude-scale` | `number` | no | `1` |  Available when style is `"v1"`. Amplitude scale factor.  |
-| `--compression` | `number` | no | `1` |  Available when style is `"v1"`. PNG compression level: 0 (none) to 9 (best), or -1 (default). Only applicable when format is "image".  |
+| `--ffmpeg` | `json` | no | `value` | A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the FFmpeg… |
+| `--format` | `string` | no | `image` | The format of the result file. Can be "image" or "json". If "image" is supplied, a PNG image will be created, otherwise a JSON file. |
+| `--width` | `number` | no | `1` | The width of the resulting image if the format "image" was selected. |
+| `--height` | `number` | no | `1` | The height of the resulting image if the format "image" was selected. |
+| `--antialiasing` | `auto` | no | `0` | Either a value of 0 or 1, or true/false, corresponding to if you want to enable antialiasing to achieve smoother edges in the waveform graph or not. |
+| `--background-color` | `string` | no | `value` | The background color of the resulting image in the "rrggbbaa" format (red, green, blue, alpha), if the format "image" was selected. |
+| `--center-color` | `string` | no | `value` | The color used in the center of the gradient. The format is "rrggbbaa" (red, green, blue, alpha). |
+| `--outer-color` | `string` | no | `value` | The color used in the outer parts of the gradient. The format is "rrggbbaa" (red, green, blue, alpha). |
+| `--style` | `string` | no | `v0` | Waveform style version. - "v0": Legacy waveform generation (default). - "v1": Advanced waveform generation with additional parameters. For backwards compatibility, numeric values… |
+| `--split-channels` | `boolean` | no | `true` | Available when style is "v1". If set to true, outputs multi-channel waveform data or image files, one per channel. |
+| `--zoom` | `number` | no | `1` | Available when style is "v1". Zoom level in samples per pixel. This parameter cannot be used together with pixels_per_second. |
+| `--pixels-per-second` | `number` | no | `1` | Available when style is "v1". Zoom level in pixels per second. This parameter cannot be used together with zoom. |
+| `--bits` | `number` | no | `8` | Available when style is "v1". Bit depth for waveform data. Can be 8 or 16. |
+| `--start` | `number` | no | `1` | Available when style is "v1". Start time in seconds. |
+| `--end` | `number` | no | `1` | Available when style is "v1". End time in seconds (0 means end of audio). |
+| `--colors` | `string` | no | `audition` | Available when style is "v1". Color scheme to use. Can be "audition" or "audacity". |
+| `--border-color` | `string` | no | `value` | Available when style is "v1". Border color in "rrggbbaa" format. |
+| `--waveform-style` | `string` | no | `normal` | Available when style is "v1". Waveform style. Can be "normal" or "bars". |
+| `--bar-width` | `number` | no | `1` | Available when style is "v1". Width of bars in pixels when waveform_style is "bars". |
+| `--bar-gap` | `number` | no | `1` | Available when style is "v1". Gap between bars in pixels when waveform_style is "bars". |
+| `--bar-style` | `string` | no | `square` | Available when style is "v1". Bar style when waveform_style is "bars". |
+| `--axis-label-color` | `string` | no | `value` | Available when style is "v1". Color for axis labels in "rrggbbaa" format. |
+| `--no-axis-labels` | `boolean` | no | `true` | Available when style is "v1". If set to true, renders waveform image without axis labels. |
+| `--with-axis-labels` | `boolean` | no | `true` | Available when style is "v1". If set to true, renders waveform image with axis labels. |
+| `--amplitude-scale` | `number` | no | `1` | Available when style is "v1". Amplitude scale factor. |
+| `--compression` | `number` | no | `1` | Available when style is "v1". PNG compression level: 0 (none) to 9 (best), or -1 (default). Only applicable when format is "image". |
 
 **Input & output flags**
 
@@ -749,7 +740,6 @@ npx transloadit audio waveform --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit audio waveform --input input.mp3 --out output.png
 ```
 
@@ -767,7 +757,7 @@ npx transloadit text speak --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/text/speak`
@@ -776,11 +766,11 @@ npx transloadit text speak --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--prompt` | `string` | no | `"A red bicycle in a studio"` |  Which text to speak. You can also set this to `null` and supply an input text file.  |
-| `--provider` | `string` | yes | `aws` |  Which AI provider to leverage.  Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.  |
-| `--target-language` | `string` | no | `en-US` |  The written language of the document. This will also be the language of the spoken text.  The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) format, such as `"en-GB"`, `"de-DE"` or `"fr-FR"`. Please consult the list of supported languages and voices.  |
-| `--voice` | `string` | no | `female-1` |  The gender to be used for voice synthesis. Please consult the list of supported languages and voices.        |
-| `--ssml` | `boolean` | no | `true` |  Supply [Speech Synthesis Markup Language](https://en.wikipedia.org/wiki/Speech_Synthesis_Markup_Language) instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations.  Please see the supported syntaxes for [AWS](https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html) and [GCP](https://cloud.google.com/text-to-speech/docs/ssml).  |
+| `--prompt` | `string` | no | `"A red bicycle in a studio"` | Which text to speak. You can also set this to null and supply an input text file. |
+| `--provider` | `string` | yes | `aws` | Which AI provider to leverage. Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information… |
+| `--target-language` | `string` | no | `en-US` | The written language of the document. This will also be the language of the spoken text. The language should be specified in the BCP-47 format, such as "en-GB", "de-DE" or… |
+| `--voice` | `string` | no | `female-1` | The gender to be used for voice synthesis. Please consult the list of supported languages and voices. |
+| `--ssml` | `boolean` | no | `true` | Supply Speech Synthesis Markup Language instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations. |
 
 **Input & output flags**
 
@@ -805,7 +795,6 @@ npx transloadit text speak --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit text speak --input input.pdf --provider aws --out output.mp3
 ```
 
@@ -823,7 +812,7 @@ npx transloadit video thumbs --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: directory
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/video/thumbs`
@@ -832,16 +821,16 @@ npx transloadit video thumbs --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--ffmpeg` | `json` | no | `value` |  A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the [FFmpeg documentation](https://ffmpeg.org/ffmpeg-doc.html). Options specified here take precedence over the preset options.  |
-| `--count` | `number` | no | `1` |  The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of thumbnails we currently allow is 999.  The thumbnails are taken at regular intervals, determined by dividing the video duration by the count. For example, a count of 3 will produce thumbnails at 25%, 50% and 75% through the video.  To extract thumbnails for specific timestamps, use the `offsets` parameter.  |
-| `--offsets` | `auto` | no | `value` |  An array of offsets representing seconds of the file duration, such as `[ 2, 45, 120 ]`. Millisecond durations of a file can also be used by using decimal place values. For example, an offset from 1250 milliseconds would be represented with `1.25`. Offsets can also be percentage values such as `[ "2%", "50%", "75%" ]`.  This option cannot be used with the `count` parameter, and takes precedence if both are specified. Out-of-range offsets are silently ignored.  |
-| `--format` | `string` | no | `jpg` |  The format of the extracted thumbnail. Supported values are `"jpg"`, `"jpeg"` and `"png"`. Even if you specify the format to be `"jpeg"` the resulting thumbnails will have a `"jpg"` file extension.  |
-| `--width` | `number` | no | `1` |  The width of the thumbnail, in pixels. Defaults to the original width of the video.  |
-| `--height` | `number` | no | `1` |  The height of the thumbnail, in pixels. Defaults to the original height of the video.  |
-| `--resize-strategy` | `string` | no | `crop` |  One of the [available resize strategies](/docs/topics/resize-strategies/).  |
-| `--background` | `string` | no | `value` |  The background color of the resulting thumbnails in the `"rrggbbaa"` format (red, green, blue, alpha) when used with the `"pad"` resize strategy. The default color is black.  |
-| `--rotate` | `number` | no | `0` |  Forces the video to be rotated by the specified degree integer. Currently, only multiples of 90 are supported. We automatically correct the orientation of many videos when the orientation is provided by the camera. This option is only useful for videos requiring rotation because it was not detected by the camera.  |
-| `--input-codec` | `string` | no | `value` |  Specifies the input codec to use when decoding the video. This is useful for videos with special codecs that require specific decoders.  |
+| `--ffmpeg` | `json` | no | `value` | A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the FFmpeg… |
+| `--count` | `number` | no | `1` | The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of… |
+| `--offsets` | `auto` | no | `value` | An array of offsets representing seconds of the file duration, such as [ 2, 45, 120 ]. |
+| `--format` | `string` | no | `jpg` | The format of the extracted thumbnail. Supported values are "jpg", "jpeg" and "png". Even if you specify the format to be "jpeg" the resulting thumbnails will have a "jpg" file… |
+| `--width` | `number` | no | `1` | The width of the thumbnail, in pixels. Defaults to the original width of the video. |
+| `--height` | `number` | no | `1` | The height of the thumbnail, in pixels. Defaults to the original height of the video. |
+| `--resize-strategy` | `string` | no | `crop` | One of the available resize strategies. |
+| `--background` | `string` | no | `value` | The background color of the resulting thumbnails in the "rrggbbaa" format (red, green, blue, alpha) when used with the "pad" resize strategy. The default color is black. |
+| `--rotate` | `number` | no | `0` | Forces the video to be rotated by the specified degree integer. |
+| `--input-codec` | `string` | no | `value` | Specifies the input codec to use when decoding the video. This is useful for videos with special codecs that require specific decoders. |
 
 **Input & output flags**
 
@@ -866,7 +855,6 @@ npx transloadit video thumbs --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit video thumbs --input input.mp4 --out output/
 ```
 
@@ -884,7 +872,7 @@ npx transloadit video encode-hls --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: directory
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `builtin/encode-hls-video@latest`
@@ -912,7 +900,6 @@ npx transloadit video encode-hls --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit video encode-hls --input input.mp4 --out output/
 ```
 
@@ -930,7 +917,7 @@ npx transloadit image describe --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--watch`
 - Backend: semantic alias `image-describe`
@@ -987,7 +974,7 @@ npx transloadit markdown pdf --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--watch`
 - Backend: semantic alias `markdown-pdf`
@@ -1041,7 +1028,7 @@ npx transloadit markdown docx --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: per-file; supports `--watch`
 - Backend: semantic alias `markdown-docx`
@@ -1095,7 +1082,7 @@ npx transloadit file compress --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: file
 - Execution: single assembly
 - Backend: `/file/compress`
@@ -1104,12 +1091,12 @@ npx transloadit file compress --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--format` | `string` | no | `zip` |  The format of the archive to be created. Supported values are `"tar"` and `"zip"`.  Note that `"tar"` without setting `gzip` to `true` results in an archive that's not compressed in any way.  |
-| `--gzip` | `boolean` | no | `true` |  Determines if the result archive should also be gzipped. Gzip compression is only applied if you use the `"tar"` format.  |
-| `--password` | `string` | no | `value` |  This allows you to encrypt all archive contents with a password and thereby protect it against unauthorized use. To unzip the archive, the user will need to provide the password in a text input field prompt.  This parameter has no effect if the format parameter is anything other than `"zip"`.  |
-| `--compression-level` | `number` | no | `1` |  Determines how fiercely to try to compress the archive. `-0` is compressionless, which is suitable for media that is already compressed. `-1` is fastest with lowest compression. `-9` is slowest with the highest compression.  If you are using `-0` in combination with the `tar` format with `gzip` enabled, consider setting `gzip: false` instead. This results in a plain Tar archive, meaning it already has no compression.  |
-| `--file-layout` | `string` | no | `advanced` |  Determines if the result archive should contain all files in one directory (value for this is `"simple"`) or in subfolders according to the explanation below (value for this is `"advanced"`). The `"relative-path"` option preserves the relative directory structure of the input files.  Files with same names are numbered in the `"simple"` file layout to avoid naming collisions.  |
-| `--archive-name` | `string` | no | `value` |  The name of the archive file to be created (without the file extension).  |
+| `--format` | `string` | no | `zip` | The format of the archive to be created. Supported values are "tar" and "zip". Note that "tar" without setting gzip to true results in an archive that's not compressed in any way. |
+| `--gzip` | `boolean` | no | `true` | Determines if the result archive should also be gzipped. Gzip compression is only applied if you use the "tar" format. |
+| `--password` | `string` | no | `value` | This allows you to encrypt all archive contents with a password and thereby protect it against unauthorized use. |
+| `--compression-level` | `number` | no | `1` | Determines how fiercely to try to compress the archive. -0 is compressionless, which is suitable for media that is already compressed. -1 is fastest with lowest compression. -9… |
+| `--file-layout` | `string` | no | `advanced` | Determines if the result archive should contain all files in one directory (value for this is "simple") or in subfolders according to the explanation below (value for this is… |
+| `--archive-name` | `string` | no | `value` | The name of the archive file to be created (without the file extension). |
 
 **Input & output flags**
 
@@ -1131,7 +1118,6 @@ npx transloadit file compress --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit file compress --input input.file --out output.file
 ```
 
@@ -1149,7 +1135,7 @@ npx transloadit file decompress --input <path|dir|url|-> [options]
 
 **Quick facts**
 
-- Input: files, directories, URLs, base64
+- Input: file, dir, URL, base64
 - Output: directory
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/file/decompress`
@@ -1177,7 +1163,6 @@ npx transloadit file decompress --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-# Run the command
 transloadit file decompress --input input.file --out output/
 ```
 
@@ -1957,5 +1942,7 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
+
+
 
 
