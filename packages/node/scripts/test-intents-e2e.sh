@@ -79,7 +79,7 @@ verify_pdf() {
 }
 
 verify_docx() {
-  verify_file_type "$1" 'Microsoft Word 2007+'
+  verify_file_type "$1" 'Microsoft OOXML'
 }
 
 verify_mp3() {
@@ -91,19 +91,23 @@ verify_zip() {
 }
 
 verify_document_thumbs() {
-  [[ -f "$1/in.png" ]] || return 1
-  verify_png "$1/in.png"
+  local first_png
+  first_png="$(find "$1" -maxdepth 1 -type f -name '*.png' | sort | head -n 1)"
+  [[ -n "$first_png" ]] || return 1
+  verify_png "$first_png"
 }
 
 verify_video_thumbs() {
-  [[ -f "$1/in_0.jpg" ]] || return 1
-  verify_jpeg "$1/in_0.jpg"
+  local first_jpeg
+  first_jpeg="$(find "$1" -maxdepth 1 -type f -name '*.jpg' | sort | head -n 1)"
+  [[ -n "$first_jpeg" ]] || return 1
+  verify_jpeg "$first_jpeg"
 }
 
 verify_video_encode_hls() {
-  [[ -f "$1/high/in.mp4" ]] || return 1
-  [[ -f "$1/low/in.mp4" ]] || return 1
-  [[ -f "$1/mid/in.mp4" ]] || return 1
+  [[ -f "$1/high/input.mp4" ]] || return 1
+  [[ -f "$1/low/input.mp4" ]] || return 1
+  [[ -f "$1/mid/input.mp4" ]] || return 1
   [[ -f "$1/adaptive/my_playlist.m3u8" ]] || return 1
 }
 

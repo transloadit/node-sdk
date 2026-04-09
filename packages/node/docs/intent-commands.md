@@ -703,7 +703,7 @@ npx transloadit image describe --input <path|dir|url|-> [options]
 | --- | --- | --- | --- | --- |
 | `--fields` | `string[]` | no | — | Describe output fields to generate, for example labels or altText,title,caption,description |
 | `--for` | `string` | no | — | Use a named output profile, currently: wordpress |
-| `--model` | `string` | no | — | Model to use for generated text fields (default: anthropic/claude-sonnet-4-6) |
+| `--model` | `string` | no | — | Model to use for generated text fields (default: anthropic/claude-4-sonnet-20250514) |
 
 **Examples**
 
