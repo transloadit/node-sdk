@@ -4,15 +4,17 @@ import type {
   IntentRunnerKind,
   PreparedIntentInputs,
 } from '../intentRuntime.ts'
-import {
-  createImageDescribeStep,
-  imageDescribeCommandPresentation,
-  imageDescribeExecutionDefinition,
-} from './imageDescribe.ts'
+import { imageDescribeSemanticIntentDescriptor } from './imageDescribe.ts'
 import {
   markdownDocxSemanticIntentDescriptor,
   markdownPdfSemanticIntentDescriptor,
 } from './markdownPdf.ts'
+
+export interface SemanticIntentPresentation {
+  description: string
+  details: string
+  examples: Array<[string, string]>
+}
 
 export interface SemanticIntentDescriptor {
   createStep: (rawValues: Record<string, unknown>) => Record<string, unknown>
@@ -23,23 +25,12 @@ export interface SemanticIntentDescriptor {
     preparedInputs: PreparedIntentInputs,
     rawValues: Record<string, unknown>,
   ) => Promise<PreparedIntentInputs>
-  presentation: {
-    description: string
-    details: string
-    examples: Array<[string, string]>
-  }
+  presentation: SemanticIntentPresentation
   runnerKind: IntentRunnerKind
 }
 
 export const semanticIntentDescriptors: Record<string, SemanticIntentDescriptor> = {
-  'image-describe': {
-    createStep: createImageDescribeStep,
-    execution: imageDescribeExecutionDefinition,
-    inputPolicy: { kind: 'required' },
-    outputDescription: 'Write the JSON result to this path or directory',
-    presentation: imageDescribeCommandPresentation,
-    runnerKind: 'watchable',
-  },
+  'image-describe': imageDescribeSemanticIntentDescriptor,
   'markdown-pdf': {
     ...markdownPdfSemanticIntentDescriptor,
   },

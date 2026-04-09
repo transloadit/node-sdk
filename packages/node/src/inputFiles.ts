@@ -182,8 +182,7 @@ const isPrivateIp = (address: string): boolean => {
     return false
   }
   if (family === 6) {
-    const normalized =
-      normalizedAddress.toLowerCase().split('%')[0] ?? normalizedAddress.toLowerCase()
+    const normalized = normalizedAddress.toLowerCase().split('%')[0]
     if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') return true
     if (normalized === '::' || normalized === '0:0:0:0:0:0:0:0') return true
     const mappedAddress = ipv4FromMappedIpv6(normalized)

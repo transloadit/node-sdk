@@ -341,14 +341,12 @@ function resolveRobotIntent(definition: RobotIntentDefinition): BuiltIntentComma
   const spec: BuiltIntentCommandDefinition = {
     className,
     description: stripTrailingPunctuation(definition.meta.title),
-    details:
-      inputMode === 'none'
-        ? `Runs \`${definition.robot}\` and writes the result to \`--out\`.`
-        : definition.defaultSingleAssembly === true
-          ? `Runs \`${definition.robot}\` for the provided inputs and writes the result to \`--out\`.`
-          : outputMode === 'directory'
-            ? `Runs \`${definition.robot}\` on each input file and writes the results to \`--out\`.`
-            : `Runs \`${definition.robot}\` on each input file and writes the result to \`--out\`.`,
+    details: getIntentDetails({
+      defaultSingleAssembly: definition.defaultSingleAssembly === true,
+      inputMode,
+      outputMode,
+      robot: definition.robot,
+    }),
     examples: [],
     paths,
     runnerKind:
@@ -376,6 +374,32 @@ function resolveRobotIntent(definition: RobotIntentDefinition): BuiltIntentComma
     ...spec,
     examples: inferExamples(spec, definition),
   }
+}
+
+function getIntentDetails({
+  defaultSingleAssembly,
+  inputMode,
+  outputMode,
+  robot,
+}: {
+  defaultSingleAssembly: boolean
+  inputMode: IntentInputMode
+  outputMode: 'directory' | 'file'
+  robot: string
+}): string {
+  if (inputMode === 'none') {
+    return `Runs \`${robot}\` and writes the result to \`--out\`.`
+  }
+
+  if (defaultSingleAssembly) {
+    return `Runs \`${robot}\` for the provided inputs and writes the result to \`--out\`.`
+  }
+
+  if (outputMode === 'directory') {
+    return `Runs \`${robot}\` on each input file and writes the results to \`--out\`.`
+  }
+
+  return `Runs \`${robot}\` on each input file and writes the result to \`--out\`.`
 }
 
 function resolveSemanticIntent(definition: SemanticIntentDefinition): BuiltIntentCommandDefinition {

@@ -246,20 +246,15 @@ export function inferIntentExampleValue({
   name: string
   schema?: z.ZodTypeAny
 }): string {
-  if (name === 'prompt') {
-    return JSON.stringify('A red bicycle in a studio')
-  }
-
-  if (name === 'provider') {
-    return 'aws'
-  }
-
-  if (name === 'target_language') {
-    return 'en-US'
-  }
-
-  if (name === 'voice') {
-    return 'female-1'
+  const preferredExamples = {
+    prompt: JSON.stringify('A red bicycle in a studio'),
+    provider: 'aws',
+    target_language: 'en-US',
+    voice: 'female-1',
+  } as const satisfies Record<string, string>
+  const preferredExample = (preferredExamples as Record<string, string>)[name]
+  if (preferredExample != null) {
+    return preferredExample
   }
 
   const schemaExample =

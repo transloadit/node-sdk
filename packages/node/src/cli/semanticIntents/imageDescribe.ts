@@ -3,6 +3,7 @@ import type {
   IntentDynamicStepExecutionDefinition,
   IntentOptionDefinition,
 } from '../intentRuntime.ts'
+import type { SemanticIntentDescriptor, SemanticIntentPresentation } from './index.ts'
 import { parseOptionalEnumValue, parseUniqueEnumArray } from './parsing.ts'
 
 const imageDescribeFields = ['labels', 'altText', 'title', 'caption', 'description'] as const
@@ -17,6 +18,12 @@ const wordpressDescribeFields = [
 ] as const satisfies readonly ImageDescribeField[]
 
 const defaultDescribeModel = 'anthropic/claude-sonnet-4-6'
+const describeFieldDescriptions = {
+  altText: 'A concise accessibility-focused alt text that objectively describes the image',
+  title: 'A concise publishable title for the image',
+  caption: 'A short caption suitable for displaying below the image',
+  description: 'A richer description of the image suitable for CMS usage',
+} as const satisfies Record<Exclude<ImageDescribeField, 'labels'>, string>
 
 export const imageDescribeExecutionDefinition = {
   kind: 'dynamic-step',
@@ -69,7 +76,7 @@ export const imageDescribeCommandPresentation = {
       'transloadit image describe --input hero.jpg --fields altText,title,caption --out fields.json',
     ],
   ] as Array<[string, string]>,
-} as const
+} as const satisfies SemanticIntentPresentation
 
 function parseDescribeFields(value: string[] | undefined): ImageDescribeField[] {
   const rawFields = parseStringArrayValue(value ?? [])
@@ -103,7 +110,7 @@ function resolveRequestedDescribeFields({
     return [...wordpressDescribeFields]
   }
 
-  return explicitFields.length === 0 ? ['labels'] : explicitFields
+  return ['labels']
 }
 
 function validateDescribeFields({
@@ -153,20 +160,11 @@ function resolveImageDescribeRequest(rawValues: Record<string, unknown>): {
 function buildDescribeAiChatSchema(fields: readonly ImageDescribeField[]): Record<string, unknown> {
   const properties = Object.fromEntries(
     fields.map((field) => {
-      const description =
-        field === 'altText'
-          ? 'A concise accessibility-focused alt text that objectively describes the image'
-          : field === 'title'
-            ? 'A concise publishable title for the image'
-            : field === 'caption'
-              ? 'A short caption suitable for displaying below the image'
-              : 'A richer description of the image suitable for CMS usage'
-
       return [
         field,
         {
           type: 'string',
-          description,
+          description: describeFieldDescriptions[field as Exclude<ImageDescribeField, 'labels'>],
         },
       ]
     }),
@@ -246,3 +244,12 @@ export function createImageDescribeStep(
     // switch this command to call that builtin instead of shipping prompt logic in the CLI.
   }
 }
+
+export const imageDescribeSemanticIntentDescriptor = {
+  createStep: createImageDescribeStep,
+  execution: imageDescribeExecutionDefinition,
+  inputPolicy: { kind: 'required' },
+  outputDescription: 'Write the JSON result to this path or directory',
+  presentation: imageDescribeCommandPresentation,
+  runnerKind: 'watchable',
+} as const satisfies SemanticIntentDescriptor

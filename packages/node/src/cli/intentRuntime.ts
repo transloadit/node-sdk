@@ -138,22 +138,16 @@ function inferFilenameFromBase64Value(value: string, index: number): string {
   }
 
   const mediaType = trimmed.slice('data:'.length, markerIndex).split(';')[0]?.toLowerCase() ?? ''
-  const extension =
-    mediaType === 'text/plain'
-      ? 'txt'
-      : mediaType === 'text/markdown'
-        ? 'md'
-        : mediaType === 'application/pdf'
-          ? 'pdf'
-          : mediaType === 'image/png'
-            ? 'png'
-            : mediaType === 'image/jpeg'
-              ? 'jpg'
-              : mediaType === 'image/webp'
-                ? 'webp'
-                : mediaType === 'application/json'
-                  ? 'json'
-                  : 'bin'
+  const extensionByMediaType = {
+    'text/plain': 'txt',
+    'text/markdown': 'md',
+    'application/pdf': 'pdf',
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/webp': 'webp',
+    'application/json': 'json',
+  } as const satisfies Record<string, string>
+  const extension = (extensionByMediaType as Record<string, string>)[mediaType] ?? 'bin'
 
   return `input-base64-${index}.${extension}`
 }

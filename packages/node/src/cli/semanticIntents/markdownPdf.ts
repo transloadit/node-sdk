@@ -1,9 +1,7 @@
-import type { IntentInputPolicy } from '../intentInputPolicy.ts'
 import type {
-  IntentDynamicStepExecutionDefinition,
   IntentOptionDefinition,
-  IntentRunnerKind,
 } from '../intentRuntime.ts'
+import type { SemanticIntentDescriptor, SemanticIntentPresentation } from './index.ts'
 import { parseOptionalEnumValue } from './parsing.ts'
 
 const defaultMarkdownFormat = 'gfm'
@@ -50,19 +48,6 @@ const markdownOptionDefinitions = [
   },
 ] as const satisfies readonly IntentOptionDefinition[]
 
-interface MarkdownConvertSemanticIntentDefinition {
-  createStep: (rawValues: Record<string, unknown>) => Record<string, unknown>
-  execution: IntentDynamicStepExecutionDefinition
-  inputPolicy: IntentInputPolicy
-  outputDescription: string
-  presentation: {
-    description: string
-    details: string
-    examples: Array<[string, string]>
-  }
-  runnerKind: IntentRunnerKind
-}
-
 function createMarkdownConvertSemanticIntent({
   description,
   details,
@@ -75,8 +60,22 @@ function createMarkdownConvertSemanticIntent({
   exampleOutput: string
   format: 'docx' | 'pdf'
   handler: 'markdown-docx' | 'markdown-pdf'
-}): MarkdownConvertSemanticIntentDefinition {
+}): SemanticIntentDescriptor {
   const formatLabel = format.toUpperCase()
+  const presentation = {
+    description,
+    details,
+    examples: [
+      [
+        `Render a Markdown file as a ${formatLabel} file`,
+        `transloadit markdown ${format} --input README.md --out ${exampleOutput}`,
+      ],
+      [
+        'Print a temporary result URL without downloading locally',
+        `transloadit markdown ${format} --input README.md --print-urls`,
+      ],
+    ],
+  } satisfies SemanticIntentPresentation
 
   return {
     createStep(rawValues) {
@@ -99,20 +98,7 @@ function createMarkdownConvertSemanticIntent({
     },
     inputPolicy: { kind: 'required' },
     outputDescription: `Write the rendered ${formatLabel} to this path or directory`,
-    presentation: {
-      description,
-      details,
-      examples: [
-        [
-          `Render a Markdown file as a ${formatLabel} file`,
-          `transloadit markdown ${format} --input README.md --out ${exampleOutput}`,
-        ],
-        [
-          'Print a temporary result URL without downloading locally',
-          `transloadit markdown ${format} --input README.md --print-urls`,
-        ],
-      ],
-    },
+    presentation,
     runnerKind: 'watchable',
   }
 }
