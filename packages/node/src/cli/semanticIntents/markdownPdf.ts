@@ -4,35 +4,30 @@ import type {
   IntentOptionDefinition,
   IntentRunnerKind,
 } from '../intentRuntime.ts'
+import { parseOptionalEnumValue } from './parsing.ts'
 
 const defaultMarkdownFormat = 'gfm'
 const defaultMarkdownTheme = 'github'
+const markdownFormats = ['commonmark', 'gfm'] as const
+const markdownThemes = ['bare', 'github'] as const
 
 function resolveMarkdownFormat(value: unknown): 'commonmark' | 'gfm' {
-  if (value == null || value === '') {
-    return defaultMarkdownFormat
-  }
-
-  if (value === 'commonmark' || value === 'gfm') {
-    return value
-  }
-
-  throw new Error(
-    `Unsupported --markdown-format value "${String(value)}". Supported values: commonmark, gfm`,
+  return (
+    parseOptionalEnumValue({
+      flagName: '--markdown-format',
+      supportedValues: markdownFormats,
+      value,
+    }) ?? defaultMarkdownFormat
   )
 }
 
 function resolveMarkdownTheme(value: unknown): 'bare' | 'github' {
-  if (value == null || value === '') {
-    return defaultMarkdownTheme
-  }
-
-  if (value === 'bare' || value === 'github') {
-    return value
-  }
-
-  throw new Error(
-    `Unsupported --markdown-theme value "${String(value)}". Supported values: bare, github`,
+  return (
+    parseOptionalEnumValue({
+      flagName: '--markdown-theme',
+      supportedValues: markdownThemes,
+      value,
+    }) ?? defaultMarkdownTheme
   )
 }
 

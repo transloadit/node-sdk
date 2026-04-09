@@ -43,28 +43,15 @@ function renderTable(headers: string[], rows: string[][]): string {
   ].join('\n')
 }
 
-function collapseWhitespace(value: string): string {
-  return value.replace(/\s+/g, ' ').trim()
-}
-
-function stripMarkdownLinks(value: string): string {
-  return value.replace(/!?\[([^\]]+)\]\([^)]+\)/g, '$1')
-}
-
-function stripHtml(value: string): string {
-  return value.replace(/<[^>]+>/g, ' ')
-}
-
-function stripCodeBlocks(value: string): string {
-  return value.replace(/```[\s\S]*?```/g, ' ')
-}
-
-function stripTemplateSyntax(value: string): string {
-  return value.replace(/\{\{[\s\S]*?\}\}/g, ' ')
-}
-
-function stripInlineCode(value: string): string {
-  return value.replaceAll('`', '')
+function sanitizeDocsMarkdown(value: string): string {
+  return value
+    .replace(/!?\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/\{\{[\s\S]*?\}\}/g, ' ')
+    .replaceAll('`', '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function truncateAtSentenceBoundary(value: string, maxLength: number): string {
@@ -91,9 +78,7 @@ function summarizeDescription(value: string | undefined): string {
     return '—'
   }
 
-  const sanitized = collapseWhitespace(
-    stripInlineCode(stripTemplateSyntax(stripCodeBlocks(stripHtml(stripMarkdownLinks(value))))),
-  )
+  const sanitized = sanitizeDocsMarkdown(value)
 
   if (sanitized.length === 0) {
     return '—'

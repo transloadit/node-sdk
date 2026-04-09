@@ -9,12 +9,7 @@ export interface SharedCliOptionDocumentation {
   type: string
 }
 
-interface SharedCliBooleanOptionDefinition {
-  docs: SharedCliOptionDocumentation
-  optionFlags: string
-}
-
-interface SharedCliStringOptionDefinition {
+interface SharedCliOptionDefinition {
   docs: SharedCliOptionDocumentation
   optionFlags: string
 }
@@ -35,7 +30,7 @@ const inputPathsOptionDefinition = {
     description: 'Provide an input path, directory, URL, or - for stdin',
   },
   optionFlags: '--input,-i',
-} as const satisfies SharedCliStringOptionDefinition
+} as const satisfies SharedCliOptionDefinition
 
 const recursiveOptionDefinition = {
   docs: {
@@ -46,7 +41,7 @@ const recursiveOptionDefinition = {
     description: 'Enumerate input directories recursively',
   },
   optionFlags: '--recursive,-r',
-} as const satisfies SharedCliBooleanOptionDefinition
+} as const satisfies SharedCliOptionDefinition
 
 const deleteAfterProcessingOptionDefinition = {
   docs: {
@@ -57,7 +52,7 @@ const deleteAfterProcessingOptionDefinition = {
     description: 'Delete input files after they are processed',
   },
   optionFlags: '--delete-after-processing,-d',
-} as const satisfies SharedCliBooleanOptionDefinition
+} as const satisfies SharedCliOptionDefinition
 
 const reprocessStaleOptionDefinition = {
   docs: {
@@ -68,7 +63,7 @@ const reprocessStaleOptionDefinition = {
     description: 'Process inputs even if output is newer',
   },
   optionFlags: '--reprocess-stale',
-} as const satisfies SharedCliBooleanOptionDefinition
+} as const satisfies SharedCliOptionDefinition
 
 const watchOptionDefinition = {
   docs: {
@@ -79,7 +74,7 @@ const watchOptionDefinition = {
     description: 'Watch inputs for changes',
   },
   optionFlags: '--watch,-w',
-} as const satisfies SharedCliBooleanOptionDefinition
+} as const satisfies SharedCliOptionDefinition
 
 const singleAssemblyOptionDefinition = {
   docs: {
@@ -90,7 +85,7 @@ const singleAssemblyOptionDefinition = {
     description: 'Pass all input files to a single assembly instead of one assembly per file',
   },
   optionFlags: '--single-assembly',
-} as const satisfies SharedCliBooleanOptionDefinition
+} as const satisfies SharedCliOptionDefinition
 
 const concurrencyOptionDefinition = {
   docs: {
@@ -101,7 +96,7 @@ const concurrencyOptionDefinition = {
     description: 'Maximum number of concurrent assemblies (default: 5)',
   },
   optionFlags: '--concurrency,-c',
-} as const satisfies SharedCliStringOptionDefinition
+} as const satisfies SharedCliOptionDefinition
 
 const printUrlsOptionDefinition = {
   docs: {
@@ -112,113 +107,108 @@ const printUrlsOptionDefinition = {
     description: 'Print temporary result URLs after completion',
   },
   optionFlags: '--print-urls',
-} as const satisfies SharedCliBooleanOptionDefinition
+} as const satisfies SharedCliOptionDefinition
+
+function getSharedCliOptionDocumentation(
+  definition: SharedCliOptionDefinition,
+  description = definition.docs.description,
+): SharedCliOptionDocumentation {
+  return {
+    ...definition.docs,
+    description,
+  }
+}
+
+function arrayOption(
+  definition: SharedCliOptionDefinition,
+  description = definition.docs.description,
+): string[] {
+  return Option.Array(definition.optionFlags, {
+    description,
+  }) as unknown as string[]
+}
+
+function booleanOption(
+  definition: SharedCliOptionDefinition,
+  description = definition.docs.description,
+): boolean {
+  return Option.Boolean(definition.optionFlags, false, {
+    description,
+  }) as unknown as boolean
+}
 
 export function getInputPathsOptionDocumentation(
   description = inputPathsOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return {
-    ...inputPathsOptionDefinition.docs,
-    description,
-  }
+  return getSharedCliOptionDocumentation(inputPathsOptionDefinition, description)
 }
 
 export function inputPathsOption(
   description = inputPathsOptionDefinition.docs.description,
 ): string[] {
-  return Option.Array(inputPathsOptionDefinition.optionFlags, {
-    description,
-  }) as unknown as string[]
+  return arrayOption(inputPathsOptionDefinition, description)
 }
 
 export function getRecursiveOptionDocumentation(
   description = recursiveOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return {
-    ...recursiveOptionDefinition.docs,
-    description,
-  }
+  return getSharedCliOptionDocumentation(recursiveOptionDefinition, description)
 }
 
 export function recursiveOption(description = recursiveOptionDefinition.docs.description): boolean {
-  return Option.Boolean(recursiveOptionDefinition.optionFlags, false, {
-    description,
-  }) as unknown as boolean
+  return booleanOption(recursiveOptionDefinition, description)
 }
 
 export function getDeleteAfterProcessingOptionDocumentation(
   description = deleteAfterProcessingOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return {
-    ...deleteAfterProcessingOptionDefinition.docs,
-    description,
-  }
+  return getSharedCliOptionDocumentation(deleteAfterProcessingOptionDefinition, description)
 }
 
 export function deleteAfterProcessingOption(
   description = deleteAfterProcessingOptionDefinition.docs.description,
 ): boolean {
-  return Option.Boolean(deleteAfterProcessingOptionDefinition.optionFlags, false, {
-    description,
-  }) as unknown as boolean
+  return booleanOption(deleteAfterProcessingOptionDefinition, description)
 }
 
 export function getReprocessStaleOptionDocumentation(
   description = reprocessStaleOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return {
-    ...reprocessStaleOptionDefinition.docs,
-    description,
-  }
+  return getSharedCliOptionDocumentation(reprocessStaleOptionDefinition, description)
 }
 
 export function reprocessStaleOption(
   description = reprocessStaleOptionDefinition.docs.description,
 ): boolean {
-  return Option.Boolean(reprocessStaleOptionDefinition.optionFlags, false, {
-    description,
-  }) as unknown as boolean
+  return booleanOption(reprocessStaleOptionDefinition, description)
 }
 
 export function getWatchOptionDocumentation(
   description = watchOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return {
-    ...watchOptionDefinition.docs,
-    description,
-  }
+  return getSharedCliOptionDocumentation(watchOptionDefinition, description)
 }
 
 export function watchOption(description = watchOptionDefinition.docs.description): boolean {
-  return Option.Boolean(watchOptionDefinition.optionFlags, false, {
-    description,
-  }) as unknown as boolean
+  return booleanOption(watchOptionDefinition, description)
 }
 
 export function getSingleAssemblyOptionDocumentation(
   description = singleAssemblyOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return {
-    ...singleAssemblyOptionDefinition.docs,
-    description,
-  }
+  return getSharedCliOptionDocumentation(singleAssemblyOptionDefinition, description)
 }
 
 export function singleAssemblyOption(
   description = singleAssemblyOptionDefinition.docs.description,
 ): boolean {
-  return Option.Boolean(singleAssemblyOptionDefinition.optionFlags, false, {
-    description,
-  }) as unknown as boolean
+  return booleanOption(singleAssemblyOptionDefinition, description)
 }
 
 export function getConcurrencyOptionDocumentation(
   description = concurrencyOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return {
-    ...concurrencyOptionDefinition.docs,
-    description,
-  }
+  return getSharedCliOptionDocumentation(concurrencyOptionDefinition, description)
 }
 
 export function concurrencyOption(
@@ -233,10 +223,7 @@ export function concurrencyOption(
 export function getPrintUrlsOptionDocumentation(
   description = printUrlsOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return {
-    ...printUrlsOptionDefinition.docs,
-    description,
-  }
+  return getSharedCliOptionDocumentation(printUrlsOptionDefinition, description)
 }
 
 export function printUrlsOption(description = printUrlsOptionDefinition.docs.description): boolean {

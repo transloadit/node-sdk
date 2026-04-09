@@ -3,6 +3,7 @@ import type {
   IntentDynamicStepExecutionDefinition,
   IntentOptionDefinition,
 } from '../intentRuntime.ts'
+import { parseOptionalEnumValue, parseUniqueEnumArray } from './parsing.ts'
 
 const imageDescribeFields = ['labels', 'altText', 'title', 'caption', 'description'] as const
 
@@ -72,43 +73,19 @@ export const imageDescribeCommandPresentation = {
 
 function parseDescribeFields(value: string[] | undefined): ImageDescribeField[] {
   const rawFields = parseStringArrayValue(value ?? [])
-
-  if (rawFields.length === 0) {
-    return []
-  }
-
-  const fields: ImageDescribeField[] = []
-  const seen = new Set<ImageDescribeField>()
-
-  for (const rawField of rawFields) {
-    if (!imageDescribeFields.includes(rawField as ImageDescribeField)) {
-      throw new Error(
-        `Unsupported --fields value "${rawField}". Supported values: ${imageDescribeFields.join(', ')}`,
-      )
-    }
-
-    const field = rawField as ImageDescribeField
-    if (seen.has(field)) {
-      continue
-    }
-
-    seen.add(field)
-    fields.push(field)
-  }
-
-  return fields
+  return parseUniqueEnumArray({
+    flagName: '--fields',
+    supportedValues: imageDescribeFields,
+    values: rawFields,
+  })
 }
 
 function resolveDescribeProfile(profile: string | undefined): 'wordpress' | null {
-  if (profile == null) {
-    return null
-  }
-
-  if (profile === 'wordpress') {
-    return 'wordpress'
-  }
-
-  throw new Error(`Unsupported --for value "${profile}". Supported values: wordpress`)
+  return parseOptionalEnumValue({
+    flagName: '--for',
+    supportedValues: ['wordpress'] as const,
+    value: profile,
+  })
 }
 
 function resolveRequestedDescribeFields({
