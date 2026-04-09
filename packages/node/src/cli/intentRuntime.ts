@@ -118,26 +118,34 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
-function normalizeBase64Value(value: string): string {
+function parseBase64DataUrl(
+  value: string,
+): { mediaType: string | null; payload: string; trimmed: string } | null {
   const trimmed = value.trim()
   const marker = ';base64,'
   const markerIndex = trimmed.indexOf(marker)
   if (!trimmed.startsWith('data:') || markerIndex === -1) {
-    return trimmed
+    return null
   }
 
-  return trimmed.slice(markerIndex + marker.length)
+  return {
+    trimmed,
+    mediaType: trimmed.slice('data:'.length, markerIndex).split(';')[0]?.toLowerCase() ?? null,
+    payload: trimmed.slice(markerIndex + marker.length),
+  }
+}
+
+function normalizeBase64Value(value: string): string {
+  const parsed = parseBase64DataUrl(value)
+  return parsed?.payload ?? value.trim()
 }
 
 function inferFilenameFromBase64Value(value: string, index: number): string {
-  const trimmed = value.trim()
-  const marker = ';base64,'
-  const markerIndex = trimmed.indexOf(marker)
-  if (!trimmed.startsWith('data:') || markerIndex === -1) {
+  const parsed = parseBase64DataUrl(value)
+  if (parsed == null) {
     return `input-base64-${index}.bin`
   }
 
-  const mediaType = trimmed.slice('data:'.length, markerIndex).split(';')[0]?.toLowerCase() ?? ''
   const extensionByMediaType = {
     'text/plain': 'txt',
     'text/markdown': 'md',
@@ -147,7 +155,8 @@ function inferFilenameFromBase64Value(value: string, index: number): string {
     'image/webp': 'webp',
     'application/json': 'json',
   } as const satisfies Record<string, string>
-  const extension = (extensionByMediaType as Record<string, string>)[mediaType] ?? 'bin'
+  const extension =
+    (extensionByMediaType as Record<string, string>)[parsed.mediaType ?? ''] ?? 'bin'
 
   return `input-base64-${index}.${extension}`
 }

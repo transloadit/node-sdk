@@ -14,6 +14,11 @@ interface SharedCliOptionDefinition {
   optionFlags: string
 }
 
+interface SharedCliOptionExports<T> {
+  docs: (description?: string) => SharedCliOptionDocumentation
+  option: (description?: string) => T
+}
+
 export interface SharedFileProcessingValidationInput {
   explicitInputCount: number
   singleAssembly: boolean
@@ -137,72 +142,101 @@ function booleanOption(
   }) as unknown as boolean
 }
 
+function createArrayOptionExports(
+  definition: SharedCliOptionDefinition,
+): SharedCliOptionExports<string[]> {
+  return {
+    docs: (description = definition.docs.description) =>
+      getSharedCliOptionDocumentation(definition, description),
+    option: (description = definition.docs.description) => arrayOption(definition, description),
+  }
+}
+
+function createBooleanOptionExports(
+  definition: SharedCliOptionDefinition,
+): SharedCliOptionExports<boolean> {
+  return {
+    docs: (description = definition.docs.description) =>
+      getSharedCliOptionDocumentation(definition, description),
+    option: (description = definition.docs.description) => booleanOption(definition, description),
+  }
+}
+
+const inputPathsOptionExports = createArrayOptionExports(inputPathsOptionDefinition)
+const recursiveOptionExports = createBooleanOptionExports(recursiveOptionDefinition)
+const deleteAfterProcessingOptionExports = createBooleanOptionExports(
+  deleteAfterProcessingOptionDefinition,
+)
+const reprocessStaleOptionExports = createBooleanOptionExports(reprocessStaleOptionDefinition)
+const watchOptionExports = createBooleanOptionExports(watchOptionDefinition)
+const singleAssemblyOptionExports = createBooleanOptionExports(singleAssemblyOptionDefinition)
+
 export function getInputPathsOptionDocumentation(
   description = inputPathsOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return getSharedCliOptionDocumentation(inputPathsOptionDefinition, description)
+  return inputPathsOptionExports.docs(description)
 }
 
 export function inputPathsOption(
   description = inputPathsOptionDefinition.docs.description,
 ): string[] {
-  return arrayOption(inputPathsOptionDefinition, description)
+  return inputPathsOptionExports.option(description)
 }
 
 export function getRecursiveOptionDocumentation(
   description = recursiveOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return getSharedCliOptionDocumentation(recursiveOptionDefinition, description)
+  return recursiveOptionExports.docs(description)
 }
 
 export function recursiveOption(description = recursiveOptionDefinition.docs.description): boolean {
-  return booleanOption(recursiveOptionDefinition, description)
+  return recursiveOptionExports.option(description)
 }
 
 export function getDeleteAfterProcessingOptionDocumentation(
   description = deleteAfterProcessingOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return getSharedCliOptionDocumentation(deleteAfterProcessingOptionDefinition, description)
+  return deleteAfterProcessingOptionExports.docs(description)
 }
 
 export function deleteAfterProcessingOption(
   description = deleteAfterProcessingOptionDefinition.docs.description,
 ): boolean {
-  return booleanOption(deleteAfterProcessingOptionDefinition, description)
+  return deleteAfterProcessingOptionExports.option(description)
 }
 
 export function getReprocessStaleOptionDocumentation(
   description = reprocessStaleOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return getSharedCliOptionDocumentation(reprocessStaleOptionDefinition, description)
+  return reprocessStaleOptionExports.docs(description)
 }
 
 export function reprocessStaleOption(
   description = reprocessStaleOptionDefinition.docs.description,
 ): boolean {
-  return booleanOption(reprocessStaleOptionDefinition, description)
+  return reprocessStaleOptionExports.option(description)
 }
 
 export function getWatchOptionDocumentation(
   description = watchOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return getSharedCliOptionDocumentation(watchOptionDefinition, description)
+  return watchOptionExports.docs(description)
 }
 
 export function watchOption(description = watchOptionDefinition.docs.description): boolean {
-  return booleanOption(watchOptionDefinition, description)
+  return watchOptionExports.option(description)
 }
 
 export function getSingleAssemblyOptionDocumentation(
   description = singleAssemblyOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
-  return getSharedCliOptionDocumentation(singleAssemblyOptionDefinition, description)
+  return singleAssemblyOptionExports.docs(description)
 }
 
 export function singleAssemblyOption(
   description = singleAssemblyOptionDefinition.docs.description,
 ): boolean {
-  return booleanOption(singleAssemblyOptionDefinition, description)
+  return singleAssemblyOptionExports.option(description)
 }
 
 export function getConcurrencyOptionDocumentation(
