@@ -1,6 +1,8 @@
+import type { IntentInputPolicy } from '../intentInputPolicy.ts'
 import type {
   IntentDynamicStepExecutionDefinition,
   IntentOptionDefinition,
+  IntentRunnerKind,
 } from '../intentRuntime.ts'
 
 const defaultMarkdownFormat = 'gfm'
@@ -56,12 +58,14 @@ const markdownOptionDefinitions = [
 interface MarkdownConvertSemanticIntentDefinition {
   createStep: (rawValues: Record<string, unknown>) => Record<string, unknown>
   execution: IntentDynamicStepExecutionDefinition
+  inputPolicy: IntentInputPolicy
   outputDescription: string
   presentation: {
     description: string
     details: string
     examples: Array<[string, string]>
   }
+  runnerKind: IntentRunnerKind
 }
 
 function createMarkdownConvertSemanticIntent({
@@ -98,6 +102,7 @@ function createMarkdownConvertSemanticIntent({
       resultStepName: 'convert',
       fields: markdownOptionDefinitions,
     },
+    inputPolicy: { kind: 'required' },
     outputDescription: `Write the rendered ${formatLabel} to this path or directory`,
     presentation: {
       description,
@@ -113,10 +118,11 @@ function createMarkdownConvertSemanticIntent({
         ],
       ],
     },
+    runnerKind: 'watchable',
   }
 }
 
-export const markdownPdfSemanticIntent = createMarkdownConvertSemanticIntent({
+export const markdownPdfSemanticIntentDescriptor = createMarkdownConvertSemanticIntent({
   description: 'Render Markdown files as PDFs',
   details:
     'Runs `/document/convert` with `format: pdf`, letting the backend render Markdown and preserve features such as internal heading links in the generated PDF.',
@@ -125,7 +131,7 @@ export const markdownPdfSemanticIntent = createMarkdownConvertSemanticIntent({
   handler: 'markdown-pdf',
 })
 
-export const markdownDocxSemanticIntent = createMarkdownConvertSemanticIntent({
+export const markdownDocxSemanticIntentDescriptor = createMarkdownConvertSemanticIntent({
   description: 'Render Markdown files as DOCX documents',
   details:
     'Runs `/document/convert` with `format: docx`, letting the backend render Markdown and convert it into a Word document.',
@@ -133,19 +139,3 @@ export const markdownDocxSemanticIntent = createMarkdownConvertSemanticIntent({
   format: 'docx',
   handler: 'markdown-docx',
 })
-
-export const markdownPdfExecutionDefinition = markdownPdfSemanticIntent.execution
-
-export const markdownDocxExecutionDefinition = markdownDocxSemanticIntent.execution
-
-export const markdownPdfCommandPresentation = markdownPdfSemanticIntent.presentation
-
-export const markdownDocxCommandPresentation = markdownDocxSemanticIntent.presentation
-
-export const createMarkdownPdfStep = markdownPdfSemanticIntent.createStep
-
-export const createMarkdownDocxStep = markdownDocxSemanticIntent.createStep
-
-export const markdownPdfOutputDescription = markdownPdfSemanticIntent.outputDescription
-
-export const markdownDocxOutputDescription = markdownDocxSemanticIntent.outputDescription

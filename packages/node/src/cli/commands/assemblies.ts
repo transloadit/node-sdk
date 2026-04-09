@@ -27,6 +27,7 @@ import {
   concurrencyOption,
   deleteAfterProcessingOption,
   inputPathsOption,
+  printUrlsOption,
   recursiveOption,
   reprocessStaleOption,
   singleAssemblyOption,
@@ -75,6 +76,30 @@ export interface AssemblyLintOptions {
   fix?: boolean
   providedInput?: string
   json?: boolean
+}
+
+function parseTemplateFieldAssignments(
+  output: IOutputCtl,
+  fields: string[] | undefined,
+): Record<string, string> | undefined {
+  if (fields == null || fields.length === 0) {
+    return undefined
+  }
+
+  const fieldsMap: Record<string, string> = {}
+  for (const field of fields) {
+    const eqIndex = field.indexOf('=')
+    if (eqIndex === -1) {
+      output.error(`invalid argument for --field: '${field}'`)
+      return undefined
+    }
+
+    const key = field.slice(0, eqIndex)
+    const value = field.slice(eqIndex + 1)
+    fieldsMap[key] = value
+  }
+
+  return fieldsMap
 }
 
 const AssemblySchema = z.object({
@@ -1632,9 +1657,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
 
   concurrency = concurrencyOption()
 
-  printUrls = Option.Boolean('--print-urls', {
-    description: 'Print temporary result URLs after completion',
-  })
+  printUrls = printUrlsOption()
 
   protected async run(): Promise<number | undefined> {
     if (!this.steps && !this.template) {
@@ -1654,16 +1677,9 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       inputList.push('-')
     }
 
-    const fieldsMap: Record<string, string> = {}
-    for (const field of this.fields ?? []) {
-      const eqIndex = field.indexOf('=')
-      if (eqIndex === -1) {
-        this.output.error(`invalid argument for --field: '${field}'`)
-        return 1
-      }
-      const key = field.slice(0, eqIndex)
-      const value = field.slice(eqIndex + 1)
-      fieldsMap[key] = value
+    const fieldsMap = parseTemplateFieldAssignments(this.output, this.fields)
+    if (this.fields != null && fieldsMap == null) {
+      return 1
     }
 
     const sharedValidationError = validateSharedFileProcessingOptions({
@@ -1680,7 +1696,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     const { hasFailures, resultUrls } = await create(this.output, this.client, {
       steps: this.steps,
       template: this.template,
-      fields: fieldsMap,
+      fields: fieldsMap ?? {},
       watch: this.watch,
       recursive: this.recursive,
       inputs: inputList,
@@ -1841,20 +1857,13 @@ export class AssembliesReplayCommand extends AuthenticatedCommand {
   assemblyIds = Option.Rest({ required: 1 })
 
   protected async run(): Promise<number | undefined> {
-    const fieldsMap: Record<string, string> = {}
-    for (const field of this.fields ?? []) {
-      const eqIndex = field.indexOf('=')
-      if (eqIndex === -1) {
-        this.output.error(`invalid argument for --field: '${field}'`)
-        return 1
-      }
-      const key = field.slice(0, eqIndex)
-      const value = field.slice(eqIndex + 1)
-      fieldsMap[key] = value
+    const fieldsMap = parseTemplateFieldAssignments(this.output, this.fields)
+    if (this.fields != null && fieldsMap == null) {
+      return 1
     }
 
     await replay(this.output, this.client, {
-      fields: fieldsMap,
+      fields: fieldsMap ?? {},
       reparse: this.reparseTemplate,
       steps: this.steps,
       notify_url: this.notifyUrl,

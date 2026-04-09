@@ -10,14 +10,8 @@ import {
   imageDescribeExecutionDefinition,
 } from './imageDescribe.ts'
 import {
-  createMarkdownDocxStep,
-  createMarkdownPdfStep,
-  markdownDocxCommandPresentation,
-  markdownDocxExecutionDefinition,
-  markdownDocxOutputDescription,
-  markdownPdfCommandPresentation,
-  markdownPdfExecutionDefinition,
-  markdownPdfOutputDescription,
+  markdownDocxSemanticIntentDescriptor,
+  markdownPdfSemanticIntentDescriptor,
 } from './markdownPdf.ts'
 
 export interface SemanticIntentDescriptor {
@@ -47,20 +41,10 @@ export const semanticIntentDescriptors: Record<string, SemanticIntentDescriptor>
     runnerKind: 'watchable',
   },
   'markdown-pdf': {
-    createStep: createMarkdownPdfStep,
-    execution: markdownPdfExecutionDefinition,
-    inputPolicy: { kind: 'required' },
-    outputDescription: markdownPdfOutputDescription,
-    presentation: markdownPdfCommandPresentation,
-    runnerKind: 'watchable',
+    ...markdownPdfSemanticIntentDescriptor,
   },
   'markdown-docx': {
-    createStep: createMarkdownDocxStep,
-    execution: markdownDocxExecutionDefinition,
-    inputPolicy: { kind: 'required' },
-    outputDescription: markdownDocxOutputDescription,
-    presentation: markdownDocxCommandPresentation,
-    runnerKind: 'watchable',
+    ...markdownDocxSemanticIntentDescriptor,
   },
 }
 

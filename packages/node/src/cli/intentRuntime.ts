@@ -13,6 +13,7 @@ import {
   countProvidedInputs,
   deleteAfterProcessingOption,
   inputPathsOption,
+  printUrlsOption,
   recursiveOption,
   reprocessStaleOption,
   singleAssemblyOption,
@@ -90,24 +91,22 @@ export interface IntentOptionDefinition extends IntentFieldSpec {
   required?: boolean
 }
 
+const inputBase64OptionDocumentation = {
+  flags: '--input-base64',
+  type: 'base64 | data URL',
+  required: 'no',
+  example: 'data:text/plain;base64,SGVsbG8=',
+  description: 'Provide base64-encoded input content directly',
+} as const satisfies SharedCliOptionDocumentation
+
 export function getInputBase64OptionDocumentation(): SharedCliOptionDocumentation {
-  return {
-    flags: '--input-base64',
-    type: 'base64 | data URL',
-    required: 'no',
-    example: 'data:text/plain;base64,SGVsbG8=',
-    description: 'Provide base64-encoded input content directly',
-  }
+  return inputBase64OptionDocumentation
 }
 
-export function getPrintUrlsOptionDocumentation(): SharedCliOptionDocumentation {
-  return {
-    flags: '--print-urls',
-    type: 'boolean',
-    required: 'no',
-    example: 'false',
-    description: 'Print temporary result URLs after completion',
-  }
+export function inputBase64Option(): string[] {
+  return Option.Array(inputBase64OptionDocumentation.flags, {
+    description: inputBase64OptionDocumentation.description,
+  }) as unknown as string[]
 }
 
 function isHttpUrl(value: string): boolean {
@@ -388,9 +387,7 @@ abstract class GeneratedIntentCommandBase extends AuthenticatedCommand {
     description: this.getOutputDescription(),
   })
 
-  printUrls = Option.Boolean('--print-urls', {
-    description: 'Print temporary result URLs after completion',
-  })
+  printUrls = printUrlsOption()
 
   protected getIntentDefinition(): IntentFileCommandDefinition | IntentNoInputCommandDefinition {
     const commandClass = this.constructor as unknown as typeof GeneratedIntentCommandBase
@@ -464,9 +461,7 @@ export function readIntentRawValues(
 export abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase {
   inputs = inputPathsOption('Provide an input path, directory, URL, or - for stdin')
 
-  inputBase64 = Option.Array('--input-base64', {
-    description: 'Provide base64-encoded input content directly',
-  })
+  inputBase64 = inputBase64Option()
 
   recursive = recursiveOption()
 

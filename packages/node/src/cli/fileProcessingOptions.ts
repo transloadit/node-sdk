@@ -9,6 +9,16 @@ export interface SharedCliOptionDocumentation {
   type: string
 }
 
+interface SharedCliBooleanOptionDefinition {
+  docs: SharedCliOptionDocumentation
+  optionFlags: string
+}
+
+interface SharedCliStringOptionDefinition {
+  docs: SharedCliOptionDocumentation
+  optionFlags: string
+}
+
 export interface SharedFileProcessingValidationInput {
   explicitInputCount: number
   singleAssembly: boolean
@@ -16,139 +26,223 @@ export interface SharedFileProcessingValidationInput {
   watchRequiresInputsMessage: string
 }
 
-export function getInputPathsOptionDocumentation(
-  description = 'Provide an input path, directory, URL, or - for stdin',
-): SharedCliOptionDocumentation {
-  return {
+const inputPathsOptionDefinition = {
+  docs: {
     flags: '--input, -i',
     type: 'path | dir | url | -',
     required: 'varies',
     example: 'input.file',
+    description: 'Provide an input path, directory, URL, or - for stdin',
+  },
+  optionFlags: '--input,-i',
+} as const satisfies SharedCliStringOptionDefinition
+
+const recursiveOptionDefinition = {
+  docs: {
+    flags: '--recursive, -r',
+    type: 'boolean',
+    required: 'no',
+    example: 'false',
+    description: 'Enumerate input directories recursively',
+  },
+  optionFlags: '--recursive,-r',
+} as const satisfies SharedCliBooleanOptionDefinition
+
+const deleteAfterProcessingOptionDefinition = {
+  docs: {
+    flags: '--delete-after-processing, -d',
+    type: 'boolean',
+    required: 'no',
+    example: 'false',
+    description: 'Delete input files after they are processed',
+  },
+  optionFlags: '--delete-after-processing,-d',
+} as const satisfies SharedCliBooleanOptionDefinition
+
+const reprocessStaleOptionDefinition = {
+  docs: {
+    flags: '--reprocess-stale',
+    type: 'boolean',
+    required: 'no',
+    example: 'false',
+    description: 'Process inputs even if output is newer',
+  },
+  optionFlags: '--reprocess-stale',
+} as const satisfies SharedCliBooleanOptionDefinition
+
+const watchOptionDefinition = {
+  docs: {
+    flags: '--watch, -w',
+    type: 'boolean',
+    required: 'no',
+    example: 'false',
+    description: 'Watch inputs for changes',
+  },
+  optionFlags: '--watch,-w',
+} as const satisfies SharedCliBooleanOptionDefinition
+
+const singleAssemblyOptionDefinition = {
+  docs: {
+    flags: '--single-assembly',
+    type: 'boolean',
+    required: 'no',
+    example: 'false',
+    description: 'Pass all input files to a single assembly instead of one assembly per file',
+  },
+  optionFlags: '--single-assembly',
+} as const satisfies SharedCliBooleanOptionDefinition
+
+const concurrencyOptionDefinition = {
+  docs: {
+    flags: '--concurrency, -c',
+    type: 'number',
+    required: 'no',
+    example: '5',
+    description: 'Maximum number of concurrent assemblies (default: 5)',
+  },
+  optionFlags: '--concurrency,-c',
+} as const satisfies SharedCliStringOptionDefinition
+
+const printUrlsOptionDefinition = {
+  docs: {
+    flags: '--print-urls',
+    type: 'boolean',
+    required: 'no',
+    example: 'false',
+    description: 'Print temporary result URLs after completion',
+  },
+  optionFlags: '--print-urls',
+} as const satisfies SharedCliBooleanOptionDefinition
+
+export function getInputPathsOptionDocumentation(
+  description = inputPathsOptionDefinition.docs.description,
+): SharedCliOptionDocumentation {
+  return {
+    ...inputPathsOptionDefinition.docs,
     description,
   }
 }
 
-export function inputPathsOption(description = 'Provide an input file or a directory'): string[] {
-  return Option.Array('--input,-i', {
+export function inputPathsOption(
+  description = inputPathsOptionDefinition.docs.description,
+): string[] {
+  return Option.Array(inputPathsOptionDefinition.optionFlags, {
     description,
   }) as unknown as string[]
 }
 
 export function getRecursiveOptionDocumentation(
-  description = 'Enumerate input directories recursively',
+  description = recursiveOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
   return {
-    flags: '--recursive, -r',
-    type: 'boolean',
-    required: 'no',
-    example: 'false',
+    ...recursiveOptionDefinition.docs,
     description,
   }
 }
 
-export function recursiveOption(description = 'Enumerate input directories recursively'): boolean {
-  return Option.Boolean('--recursive,-r', false, {
+export function recursiveOption(description = recursiveOptionDefinition.docs.description): boolean {
+  return Option.Boolean(recursiveOptionDefinition.optionFlags, false, {
     description,
   }) as unknown as boolean
 }
 
 export function getDeleteAfterProcessingOptionDocumentation(
-  description = 'Delete input files after they are processed',
+  description = deleteAfterProcessingOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
   return {
-    flags: '--delete-after-processing, -d',
-    type: 'boolean',
-    required: 'no',
-    example: 'false',
+    ...deleteAfterProcessingOptionDefinition.docs,
     description,
   }
 }
 
 export function deleteAfterProcessingOption(
-  description = 'Delete input files after they are processed',
+  description = deleteAfterProcessingOptionDefinition.docs.description,
 ): boolean {
-  return Option.Boolean('--delete-after-processing,-d', false, {
+  return Option.Boolean(deleteAfterProcessingOptionDefinition.optionFlags, false, {
     description,
   }) as unknown as boolean
 }
 
 export function getReprocessStaleOptionDocumentation(
-  description = 'Process inputs even if output is newer',
+  description = reprocessStaleOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
   return {
-    flags: '--reprocess-stale',
-    type: 'boolean',
-    required: 'no',
-    example: 'false',
+    ...reprocessStaleOptionDefinition.docs,
     description,
   }
 }
 
 export function reprocessStaleOption(
-  description = 'Process inputs even if output is newer',
+  description = reprocessStaleOptionDefinition.docs.description,
 ): boolean {
-  return Option.Boolean('--reprocess-stale', false, {
+  return Option.Boolean(reprocessStaleOptionDefinition.optionFlags, false, {
     description,
   }) as unknown as boolean
 }
 
 export function getWatchOptionDocumentation(
-  description = 'Watch inputs for changes',
+  description = watchOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
   return {
-    flags: '--watch, -w',
-    type: 'boolean',
-    required: 'no',
-    example: 'false',
+    ...watchOptionDefinition.docs,
     description,
   }
 }
 
-export function watchOption(description = 'Watch inputs for changes'): boolean {
-  return Option.Boolean('--watch,-w', false, {
+export function watchOption(description = watchOptionDefinition.docs.description): boolean {
+  return Option.Boolean(watchOptionDefinition.optionFlags, false, {
     description,
   }) as unknown as boolean
 }
 
 export function getSingleAssemblyOptionDocumentation(
-  description = 'Pass all input files to a single assembly instead of one assembly per file',
+  description = singleAssemblyOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
   return {
-    flags: '--single-assembly',
-    type: 'boolean',
-    required: 'no',
-    example: 'false',
+    ...singleAssemblyOptionDefinition.docs,
     description,
   }
 }
 
 export function singleAssemblyOption(
-  description = 'Pass all input files to a single assembly instead of one assembly per file',
+  description = singleAssemblyOptionDefinition.docs.description,
 ): boolean {
-  return Option.Boolean('--single-assembly', false, {
+  return Option.Boolean(singleAssemblyOptionDefinition.optionFlags, false, {
     description,
   }) as unknown as boolean
 }
 
 export function getConcurrencyOptionDocumentation(
-  description = 'Maximum number of concurrent assemblies (default: 5)',
+  description = concurrencyOptionDefinition.docs.description,
 ): SharedCliOptionDocumentation {
   return {
-    flags: '--concurrency, -c',
-    type: 'number',
-    required: 'no',
-    example: '5',
+    ...concurrencyOptionDefinition.docs,
     description,
   }
 }
 
 export function concurrencyOption(
-  description = 'Maximum number of concurrent assemblies (default: 5)',
+  description = concurrencyOptionDefinition.docs.description,
 ): number | undefined {
-  return Option.String('--concurrency,-c', {
+  return Option.String(concurrencyOptionDefinition.optionFlags, {
     description,
     validator: t.applyCascade(t.isNumber(), [t.isAtLeast(1)]),
   }) as unknown as number | undefined
+}
+
+export function getPrintUrlsOptionDocumentation(
+  description = printUrlsOptionDefinition.docs.description,
+): SharedCliOptionDocumentation {
+  return {
+    ...printUrlsOptionDefinition.docs,
+    description,
+  }
+}
+
+export function printUrlsOption(description = printUrlsOptionDefinition.docs.description): boolean {
+  return Option.Boolean(printUrlsOptionDefinition.optionFlags, {
+    description,
+  }) as unknown as boolean
 }
 
 export function countProvidedInputs({
