@@ -119,6 +119,47 @@ All intent commands also support the global CLI flags `--json`, `--log-level`, `
 
 > At least one of `--out` or `--print-urls` is required on every intent command.
 
+#### Shared flags
+
+These flags are available across many intent commands, so the per-command sections below focus on differences.
+
+**Shared file input & output flags**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
+| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
+| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
+| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
+
+**Shared no-input output flags**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path |
+| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
+
+**Shared processing flags**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
+| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
+| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
+
+**Shared watch flags**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
+| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
+
+**Shared bundling flags**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
+
 #### `image generate`
 
 Generate images from text prompts
@@ -138,6 +179,10 @@ npx transloadit image generate [options]
 - Execution: no input
 - Backend: `/image/generate`
 
+**Shared flags**
+
+- Uses the shared output flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
@@ -151,13 +196,6 @@ npx transloadit image generate [options]
 | `--width` | `number` | no | `1` | Width of the generated image. |
 | `--style` | `string` | no | `value` | Style of the generated image. |
 | `--num-outputs` | `number` | no | `1` | Number of image variants to generate. |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
 
 **Examples**
 
@@ -183,6 +221,11 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/file/preview`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
 
 **Command options**
 
@@ -213,26 +256,6 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 | `--clip-framerate` | `number` | no | `1` | The framerate of the generated video clip. Only used if the clip strategy for video files is applied. Be aware that a higher framerate appears smoother but also results in a… |
 | `--clip-loop` | `boolean` | no | `true` | Specifies whether the generated animated image should loop forever (true) or stop after playing the animation once (false). |
 
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
-
 **Examples**
 
 ```bash
@@ -258,6 +281,11 @@ npx transloadit image remove-background --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/image/bgremove`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
@@ -266,26 +294,6 @@ npx transloadit image remove-background --input <path|dir|url|-> [options]
 | `--format` | `string` | no | `png` | Format of the generated image. |
 | `--provider` | `string` | no | `aws` | Provider to use for removing the background. |
 | `--model` | `string` | no | `value` | Provider-specific model to use for removing the background. Mostly intended for testing and evaluation. |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
 
 **Examples**
 
@@ -312,6 +320,11 @@ npx transloadit image optimize --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/image/optimize`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
@@ -320,26 +333,6 @@ npx transloadit image optimize --input <path|dir|url|-> [options]
 | `--progressive` | `boolean` | no | `true` | Interlaces the image if set to true, which makes the result image load progressively in browsers. |
 | `--preserve-meta-data` | `boolean` | no | `true` | Specifies if the image's metadata should be preserved during the optimization, or not. |
 | `--fix-breaking-images` | `boolean` | no | `true` | If set to true this parameter tries to fix images that would otherwise make the underlying tool error out and thereby break your Assemblies . |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
 
 **Examples**
 
@@ -365,6 +358,11 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/image/resize`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
 
 **Command options**
 
@@ -416,26 +414,6 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 | `--monochrome` | `boolean` | no | `true` | Transform the image to black and white. This is a shortcut for setting the colorspace to Gray and type to Bilevel. |
 | `--shave` | `auto` | no | `value` | Shave pixels from the image edges. The value should be in the format width or widthxheight to specify the number of pixels to remove from each side. |
 
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
-
 **Examples**
 
 ```bash
@@ -461,6 +439,11 @@ npx transloadit document convert --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/document/convert`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
@@ -474,26 +457,6 @@ npx transloadit document convert --input <path|dir|url|-> [options]
 | `--pdf-display-header-footer` | `boolean` | no | `true` | Display PDF header and footer. Currently this parameter is only supported when converting from html. |
 | `--pdf-header-template` | `string` | no | `value` | HTML template for the PDF print header. Should be valid HTML markup with following classes used to inject printing values into them: - date formatted print date - title document… |
 | `--pdf-footer-template` | `string` | no | `value` | HTML template for the PDF print footer. Should use the same format as the pdf_header_template. Currently this parameter is only supported when converting from html, and requires… |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
 
 **Examples**
 
@@ -520,6 +483,11 @@ npx transloadit document optimize --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/document/optimize`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
@@ -531,26 +499,6 @@ npx transloadit document optimize --input <path|dir|url|-> [options]
 | `--remove-metadata` | `boolean` | no | `true` | Whether to strip document metadata (title, author, keywords, etc.) from the PDF. This can provide a small reduction in file size and may be useful for privacy. |
 | `--linearize` | `boolean` | no | `true` | Whether to linearize (optimize for Fast Web View) the output PDF. |
 | `--compatibility` | `string` | no | `1.4` | The PDF version compatibility level. Lower versions have broader compatibility but fewer features. Higher versions support more advanced features but may not open in older PDF… |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
 
 **Examples**
 
@@ -577,25 +525,10 @@ npx transloadit document auto-rotate --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/document/autorotate`
 
-**Input & output flags**
+**Shared flags**
 
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
 
 **Examples**
 
@@ -622,6 +555,11 @@ npx transloadit document thumbs --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/document/thumbs`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
@@ -640,26 +578,6 @@ npx transloadit document thumbs --input <path|dir|url|-> [options]
 | `--trim-whitespace` | `boolean` | no | `true` | This determines if additional whitespace around the PDF should first be trimmed away before it is converted to an image. |
 | `--pdf-use-cropbox` | `boolean` | no | `true` | Some PDF documents lie about their dimensions. For instance they'll say they are landscape, but when opened in decent Desktop readers, it's really in portrait mode. This can… |
 | `--turbo` | `boolean` | no | `true` | If you set this to false, the robot will not emit files as they become available. |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `directory` | yes* | `output/` | Write the results to this directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
 
 **Examples**
 
@@ -685,6 +603,11 @@ npx transloadit audio waveform --input <path|dir|url|-> [options]
 - Output: file
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/audio/waveform`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
 
 **Command options**
 
@@ -717,26 +640,6 @@ npx transloadit audio waveform --input <path|dir|url|-> [options]
 | `--amplitude-scale` | `number` | no | `1` | Available when style is "v1". Amplitude scale factor. |
 | `--compression` | `number` | no | `1` | Available when style is "v1". PNG compression level: 0 (none) to 9 (best), or -1 (default). Only applicable when format is "image". |
 
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
-
 **Examples**
 
 ```bash
@@ -762,6 +665,11 @@ npx transloadit text speak --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/text/speak`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
@@ -771,26 +679,6 @@ npx transloadit text speak --input <path|dir|url|-> [options]
 | `--target-language` | `string` | no | `en-US` | The written language of the document. This will also be the language of the spoken text. The language should be specified in the BCP-47 format, such as "en-GB", "de-DE" or… |
 | `--voice` | `string` | no | `female-1` | The gender to be used for voice synthesis. Please consult the list of supported languages and voices. |
 | `--ssml` | `boolean` | no | `true` | Supply Speech Synthesis Markup Language instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations. |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
 
 **Examples**
 
@@ -817,6 +705,11 @@ npx transloadit video thumbs --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/video/thumbs`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
@@ -831,26 +724,6 @@ npx transloadit video thumbs --input <path|dir|url|-> [options]
 | `--background` | `string` | no | `value` | The background color of the resulting thumbnails in the "rrggbbaa" format (red, green, blue, alpha) when used with the "pad" resize strategy. The default color is black. |
 | `--rotate` | `number` | no | `0` | Forces the video to be rotated by the specified degree integer. |
 | `--input-codec` | `string` | no | `value` | Specifies the input codec to use when decoding the video. This is useful for videos with special codecs that require specific decoders. |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `directory` | yes* | `output/` | Write the results to this directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
 
 **Examples**
 
@@ -877,25 +750,10 @@ npx transloadit video encode-hls --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `builtin/encode-hls-video@latest`
 
-**Input & output flags**
+**Shared flags**
 
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `directory` | yes* | `output/` | Write the results to this directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
 
 **Examples**
 
@@ -922,6 +780,11 @@ npx transloadit image describe --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--watch`
 - Backend: semantic alias `image-describe`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
@@ -929,25 +792,6 @@ npx transloadit image describe --input <path|dir|url|-> [options]
 | `--fields` | `string[]` | no | — | Describe output fields to generate, for example labels or altText,title,caption,description |
 | `--for` | `string` | no | — | Use a named output profile, currently: wordpress |
 | `--model` | `string` | no | — | Model to use for generated text fields (default: anthropic/claude-sonnet-4-6) |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the JSON result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
 
 **Examples**
 
@@ -979,31 +823,17 @@ npx transloadit markdown pdf --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--watch`
 - Backend: semantic alias `markdown-pdf`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--markdown-format` | `string` | no | — | Markdown variant to parse, either commonmark or gfm |
 | `--markdown-theme` | `string` | no | — | Markdown theme to render, either github or bare |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the rendered PDF to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
 
 **Examples**
 
@@ -1033,31 +863,17 @@ npx transloadit markdown docx --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--watch`
 - Backend: semantic alias `markdown-docx`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--markdown-format` | `string` | no | — | Markdown variant to parse, either commonmark or gfm |
 | `--markdown-theme` | `string` | no | — | Markdown theme to render, either github or bare |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the rendered DOCX to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
 
 **Examples**
 
@@ -1087,6 +903,11 @@ npx transloadit file compress --input <path|dir|url|-> [options]
 - Execution: single assembly
 - Backend: `/file/compress`
 
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags listed above.
+
 **Command options**
 
 | Flag | Type | Required | Example | Description |
@@ -1097,23 +918,6 @@ npx transloadit file compress --input <path|dir|url|-> [options]
 | `--compression-level` | `number` | no | `1` | Determines how fiercely to try to compress the archive. -0 is compressionless, which is suitable for media that is already compressed. -1 is fastest with lowest compression. -9… |
 | `--file-layout` | `string` | no | `advanced` | Determines if the result archive should contain all files in one directory (value for this is "simple") or in subfolders according to the explanation below (value for this is… |
 | `--archive-name` | `string` | no | `value` | The name of the archive file to be created (without the file extension). |
-
-**Input & output flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
 
 **Examples**
 
@@ -1140,25 +944,10 @@ npx transloadit file decompress --input <path|dir|url|-> [options]
 - Execution: per-file; supports `--single-assembly` and `--watch`
 - Backend: `/file/decompress`
 
-**Input & output flags**
+**Shared flags**
 
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
-| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `directory` | yes* | `output/` | Write the results to this directory |
-| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
-
-**Processing flags**
-
-| Flag | Type | Required | Example | Description |
-| --- | --- | --- | --- | --- |
-| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
-| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
-| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
-| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
-| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
-| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
 
 **Examples**
 
@@ -1942,4 +1731,6 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
+
+
 

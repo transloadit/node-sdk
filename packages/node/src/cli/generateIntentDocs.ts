@@ -169,56 +169,69 @@ function getCommandOptionRows(definition: ResolvedIntentCommandDefinition): DocO
   }))
 }
 
-function getInputOutputRows(definition: ResolvedIntentCommandDefinition): DocOptionRow[] {
-  const outputType = definition.intentDefinition.outputMode === 'directory' ? 'directory' : 'path'
-
-  if (definition.runnerKind === 'no-input') {
-    return [
-      {
-        flags: '--out, -o',
-        type: outputType,
-        required: 'yes*',
-        example: definition.intentDefinition.outputMode === 'directory' ? 'output/' : 'output.file',
-        description: definition.intentDefinition.outputDescription,
-      },
-      getPrintUrlsOptionDocumentation(),
-    ]
-  }
-
+function getSharedFileInputOutputRows(): DocOptionRow[] {
   return [
     getInputPathsOptionDocumentation(),
     getInputBase64OptionDocumentation(),
     {
       flags: '--out, -o',
-      type: outputType,
+      type: 'path',
       required: 'yes*',
-      example: definition.intentDefinition.outputMode === 'directory' ? 'output/' : 'output.file',
-      description: definition.intentDefinition.outputDescription,
+      example: 'output.file',
+      description: 'Write the result to this path or directory',
     },
     getPrintUrlsOptionDocumentation(),
   ]
 }
 
-function getProcessingRows(definition: ResolvedIntentCommandDefinition): DocOptionRow[] {
-  if (definition.runnerKind === 'no-input') {
-    return []
-  }
+function getSharedNoInputOutputRows(): DocOptionRow[] {
+  return [
+    {
+      flags: '--out, -o',
+      type: 'path',
+      required: 'yes*',
+      example: 'output.file',
+      description: 'Write the result to this path',
+    },
+    getPrintUrlsOptionDocumentation(),
+  ]
+}
 
-  const rows: DocOptionRow[] = [
+function getSharedProcessingRows(): DocOptionRow[] {
+  return [
     getRecursiveOptionDocumentation(),
     getDeleteAfterProcessingOptionDocumentation(),
     getReprocessStaleOptionDocumentation(),
   ]
+}
+
+function getSharedWatchRows(): DocOptionRow[] {
+  return [getWatchOptionDocumentation(), getConcurrencyOptionDocumentation()]
+}
+
+function getSharedBundlingRows(): DocOptionRow[] {
+  return [getSingleAssemblyOptionDocumentation()]
+}
+
+function getSharedFlagSupportNotes(definition: ResolvedIntentCommandDefinition): string[] {
+  if (definition.runnerKind === 'no-input') {
+    return ['Uses the shared output flags listed above.']
+  }
+
+  const notes = ['Uses the shared file input and output flags listed above.']
+  const processingGroups = ['base processing flags']
 
   if (definition.runnerKind === 'standard' || definition.runnerKind === 'watchable') {
-    rows.push(getWatchOptionDocumentation(), getConcurrencyOptionDocumentation())
+    processingGroups.push('watch flags')
   }
 
   if (definition.runnerKind === 'standard') {
-    rows.push(getSingleAssemblyOptionDocumentation())
+    processingGroups.push('bundling flags')
   }
 
-  return rows
+  notes.push(`Also supports the shared ${processingGroups.join(', ')} listed above.`)
+
+  return notes
 }
 
 function renderOptionSection(title: string, rows: DocOptionRow[]): string[] {
@@ -283,9 +296,11 @@ function renderIntentSection(
     `- Execution: ${getExecutionSummary(definition)}`,
     `- Backend: ${getBackendSummary(definition.catalogDefinition)}`,
     '',
+    '**Shared flags**',
+    '',
+    ...getSharedFlagSupportNotes(definition).map((note) => `- ${note}`),
+    '',
     ...renderOptionSection('Command options', getCommandOptionRows(definition)),
-    ...renderOptionSection('Input & output flags', getInputOutputRows(definition)),
-    ...renderOptionSection('Processing flags', getProcessingRows(definition)),
     '**Examples**',
     '',
     renderExamples(definition.examples),
@@ -326,6 +341,15 @@ function renderIntentDocsBody({
     '',
     '> At least one of `--out` or `--print-urls` is required on every intent command.',
     '',
+    `${heading} Shared flags`,
+    '',
+    'These flags are available across many intent commands, so the per-command sections below focus on differences.',
+    '',
+    ...renderOptionSection('Shared file input & output flags', getSharedFileInputOutputRows()),
+    ...renderOptionSection('Shared no-input output flags', getSharedNoInputOutputRows()),
+    ...renderOptionSection('Shared processing flags', getSharedProcessingRows()),
+    ...renderOptionSection('Shared watch flags', getSharedWatchRows()),
+    ...renderOptionSection('Shared bundling flags', getSharedBundlingRows()),
   ]
 
   for (const definition of definitions) {
