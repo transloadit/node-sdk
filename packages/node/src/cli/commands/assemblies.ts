@@ -664,7 +664,7 @@ async function resolveResultDownloadTargets({
     })
   }
 
-  if (outputMode === 'directory' || outputPath == null) {
+  if (outputMode === 'directory' || outputPath == null || inPath == null) {
     return await buildDirectoryDownloadTargets({
       allFiles,
       baseDir: resolveDirectoryBaseDir(),

@@ -29,7 +29,7 @@ export interface SemanticIntentDescriptor {
   runnerKind: IntentRunnerKind
 }
 
-export const semanticIntentDescriptors: Record<string, SemanticIntentDescriptor> = {
+const semanticIntentDescriptors: Record<string, SemanticIntentDescriptor> = {
   'image-describe': imageDescribeSemanticIntentDescriptor,
   'markdown-pdf': {
     ...markdownPdfSemanticIntentDescriptor,

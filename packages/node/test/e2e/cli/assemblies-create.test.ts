@@ -471,7 +471,7 @@ describeLive('assemblies', () => {
     )
 
     it(
-      'should close streams immediately in single-assembly mode',
+      'should avoid opening filesystem streams during single-assembly collection',
       testCase(async (client) => {
         // Create multiple input files for single-assembly mode
         const fileCount = 5
@@ -493,18 +493,15 @@ describeLive('assemblies', () => {
         const outs = await fsp.readdir('out')
         expect(outs.length).to.be.greaterThan(0)
 
-        // Analyze debug output to verify streams were handled properly.
-        // The fixed code emits "STREAM CLOSED" when closing streams during collection.
-        // The unfixed code keeps all streams open until upload, risking fd exhaustion.
+        // Analyze debug output to verify filesystem inputs were collected as file paths.
+        // The current implementation only opens upload streams lazily for stdin inputs,
+        // so there should be no eager "STREAM CLOSED" churn during collection.
         const debugOutput = output.get(true) as OutputEntry[]
         const messages = debugOutput.map((e) => String(e.msg))
 
-        // Check that streams were closed during collection (added by the fix)
         const streamClosedMessages = messages.filter((m) => m.startsWith('STREAM CLOSED'))
-        expect(
-          streamClosedMessages.length,
-          'Expected "STREAM CLOSED" messages indicating proper fd management',
-        ).to.be.greaterThan(0)
+        expect(streamClosedMessages).to.have.lengthOf(0)
+        expect(messages).to.include(`Creating single assembly with ${fileCount} files`)
       }),
     )
   })

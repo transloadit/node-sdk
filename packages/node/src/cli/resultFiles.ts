@@ -53,7 +53,7 @@ function normalizeAssemblyResultUrl(file: AssemblyResultEntryLike): string | nul
   return null
 }
 
-export function normalizeAssemblyResultFile(
+function normalizeAssemblyResultFile(
   stepName: string,
   value: unknown,
 ): NormalizedAssemblyResultFile | null {

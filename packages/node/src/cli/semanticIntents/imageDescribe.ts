@@ -25,7 +25,7 @@ const describeFieldDescriptions = {
   description: 'A richer description of the image suitable for CMS usage',
 } as const satisfies Record<Exclude<ImageDescribeField, 'labels'>, string>
 
-export const imageDescribeExecutionDefinition = {
+const imageDescribeExecutionDefinition = {
   kind: 'dynamic-step',
   handler: 'image-describe',
   resultStepName: 'describe',
@@ -59,7 +59,7 @@ export const imageDescribeExecutionDefinition = {
   ] as const satisfies readonly IntentOptionDefinition[],
 } satisfies IntentDynamicStepExecutionDefinition
 
-export const imageDescribeCommandPresentation = {
+const imageDescribeCommandPresentation = {
   description: 'Describe images as labels or publishable text fields',
   details:
     'Generates image labels through `/image/describe`, or structured altText/title/caption/description through `/ai/chat`, then writes the JSON result to `--out`.',
@@ -212,9 +212,7 @@ function buildDescribeAiChatMessages({
   }
 }
 
-export function createImageDescribeStep(
-  rawValues: Record<string, unknown>,
-): Record<string, unknown> {
+function createImageDescribeStep(rawValues: Record<string, unknown>): Record<string, unknown> {
   const { fields, profile } = resolveImageDescribeRequest(rawValues)
   if (fields.length === 1 && fields[0] === 'labels') {
     return {

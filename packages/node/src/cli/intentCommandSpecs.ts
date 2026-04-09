@@ -142,10 +142,6 @@ export function getIntentPaths(definition: IntentDefinition): string[] {
   return [group, commandPathAliases.get(action) ?? action]
 }
 
-export function getIntentCommandLabel(definition: IntentDefinition): string {
-  return getIntentPaths(definition).join(' ')
-}
-
 export function getIntentResultStepName(definition: IntentDefinition): string | null {
   if (definition.kind !== 'robot') {
     return null

@@ -75,6 +75,7 @@ const config: KnipConfig = {
         'got',
         'into-stream',
         'is-stream',
+        'cacheable-lookup',
         'node-watch',
         'p-map',
         'p-queue',

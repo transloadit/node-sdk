@@ -103,7 +103,7 @@ export function getInputBase64OptionDocumentation(): SharedCliOptionDocumentatio
   return inputBase64OptionDocumentation
 }
 
-export function inputBase64Option(): string[] {
+function inputBase64Option(): string[] {
   return Option.Array(inputBase64OptionDocumentation.flags, {
     description: inputBase64OptionDocumentation.description,
   }) as unknown as string[]
@@ -250,7 +250,7 @@ export async function prepareIntentInputs({
   }
 }
 
-export function parseIntentStep<TSchema extends z.AnyZodObject>({
+function parseIntentStep<TSchema extends z.AnyZodObject>({
   fields,
   fixedValues,
   rawValues,
@@ -446,7 +446,7 @@ export function getIntentOptionDefinitions(
   return definition.execution.fields
 }
 
-export function readIntentRawValues(
+function readIntentRawValues(
   command: object,
   fieldDefinitions: readonly IntentOptionDefinition[],
 ): Record<string, unknown> {
@@ -461,7 +461,7 @@ export function readIntentRawValues(
   return rawValues
 }
 
-export abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase {
+abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase {
   inputs = inputPathsOption('Provide an input path, directory, URL, or - for stdin')
 
   inputBase64 = inputBase64Option()
