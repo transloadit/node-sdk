@@ -1943,6 +1943,3 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
 
-
-
-

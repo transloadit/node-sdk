@@ -7,6 +7,7 @@ import { prepareInputFiles } from '../inputFiles.ts'
 import type { AssembliesCreateOptions } from './commands/assemblies.ts'
 import * as assembliesCommands from './commands/assemblies.ts'
 import { AuthenticatedCommand } from './commands/BaseCommand.ts'
+import type { SharedCliOptionDocumentation } from './fileProcessingOptions.ts'
 import {
   concurrencyOption,
   countProvidedInputs,
@@ -83,9 +84,30 @@ export interface IntentCommandDefinition {
 
 export interface IntentOptionDefinition extends IntentFieldSpec {
   description?: string
+  exampleValue?: unknown
   optionFlags: string
   propertyName: string
   required?: boolean
+}
+
+export function getInputBase64OptionDocumentation(): SharedCliOptionDocumentation {
+  return {
+    flags: '--input-base64',
+    type: 'base64 | data URL',
+    required: 'no',
+    example: 'data:text/plain;base64,SGVsbG8=',
+    description: 'Provide base64-encoded input content directly',
+  }
+}
+
+export function getPrintUrlsOptionDocumentation(): SharedCliOptionDocumentation {
+  return {
+    flags: '--print-urls',
+    type: 'boolean',
+    required: 'no',
+    example: 'false',
+    description: 'Print temporary result URLs after completion',
+  }
 }
 
 function isHttpUrl(value: string): boolean {

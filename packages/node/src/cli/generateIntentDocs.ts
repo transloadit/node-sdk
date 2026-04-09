@@ -1,11 +1,23 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-
+import {
+  getConcurrencyOptionDocumentation,
+  getDeleteAfterProcessingOptionDocumentation,
+  getInputPathsOptionDocumentation,
+  getRecursiveOptionDocumentation,
+  getReprocessStaleOptionDocumentation,
+  getSingleAssemblyOptionDocumentation,
+  getWatchOptionDocumentation,
+} from './fileProcessingOptions.ts'
 import type { IntentDefinition } from './intentCommandSpecs.ts'
 import type { ResolvedIntentCommandDefinition } from './intentCommands.ts'
 import { resolveIntentCommandDefinitions } from './intentCommands.ts'
 import type { IntentOptionDefinition } from './intentRuntime.ts'
-import { getIntentOptionDefinitions } from './intentRuntime.ts'
+import {
+  getInputBase64OptionDocumentation,
+  getIntentOptionDefinitions,
+  getPrintUrlsOptionDocumentation,
+} from './intentRuntime.ts'
 
 interface DocOptionRow {
   description: string
@@ -157,7 +169,7 @@ function formatOptionType(kind: IntentOptionDefinition['kind']): string {
 }
 
 function getExampleValue(field: IntentOptionDefinition): string {
-  const candidate = (field as IntentOptionDefinition & { exampleValue?: unknown }).exampleValue
+  const candidate = field.exampleValue
   if (typeof candidate === 'string' && candidate.length > 0) {
     return candidate
   }
@@ -187,31 +199,13 @@ function getInputOutputRows(definition: ResolvedIntentCommandDefinition): DocOpt
         example: definition.intentDefinition.outputMode === 'directory' ? 'output/' : 'output.file',
         description: definition.intentDefinition.outputDescription,
       },
-      {
-        flags: '--print-urls',
-        type: 'boolean',
-        required: 'no',
-        example: 'false',
-        description: 'Print temporary result URLs after completion',
-      },
+      getPrintUrlsOptionDocumentation(),
     ]
   }
 
   return [
-    {
-      flags: '--input, -i',
-      type: 'path | dir | url | -',
-      required: 'varies',
-      example: 'input.file',
-      description: 'Provide an input path, directory, URL, or - for stdin',
-    },
-    {
-      flags: '--input-base64',
-      type: 'base64 | data URL',
-      required: 'no',
-      example: 'data:text/plain;base64,SGVsbG8=',
-      description: 'Provide base64-encoded input content directly',
-    },
+    getInputPathsOptionDocumentation(),
+    getInputBase64OptionDocumentation(),
     {
       flags: '--out, -o',
       type: outputType,
@@ -219,13 +213,7 @@ function getInputOutputRows(definition: ResolvedIntentCommandDefinition): DocOpt
       example: definition.intentDefinition.outputMode === 'directory' ? 'output/' : 'output.file',
       description: definition.intentDefinition.outputDescription,
     },
-    {
-      flags: '--print-urls',
-      type: 'boolean',
-      required: 'no',
-      example: 'false',
-      description: 'Print temporary result URLs after completion',
-    },
+    getPrintUrlsOptionDocumentation(),
   ]
 }
 
@@ -235,56 +223,17 @@ function getProcessingRows(definition: ResolvedIntentCommandDefinition): DocOpti
   }
 
   const rows: DocOptionRow[] = [
-    {
-      flags: '--recursive, -r',
-      type: 'boolean',
-      required: 'no',
-      example: 'false',
-      description: 'Enumerate input directories recursively',
-    },
-    {
-      flags: '--delete-after-processing, -d',
-      type: 'boolean',
-      required: 'no',
-      example: 'false',
-      description: 'Delete input files after they are processed',
-    },
-    {
-      flags: '--reprocess-stale',
-      type: 'boolean',
-      required: 'no',
-      example: 'false',
-      description: 'Process inputs even if output is newer',
-    },
+    getRecursiveOptionDocumentation(),
+    getDeleteAfterProcessingOptionDocumentation(),
+    getReprocessStaleOptionDocumentation(),
   ]
 
   if (definition.runnerKind === 'standard' || definition.runnerKind === 'watchable') {
-    rows.push(
-      {
-        flags: '--watch, -w',
-        type: 'boolean',
-        required: 'no',
-        example: 'false',
-        description: 'Watch inputs for changes',
-      },
-      {
-        flags: '--concurrency, -c',
-        type: 'number',
-        required: 'no',
-        example: '5',
-        description: 'Maximum number of concurrent assemblies (default: 5)',
-      },
-    )
+    rows.push(getWatchOptionDocumentation(), getConcurrencyOptionDocumentation())
   }
 
   if (definition.runnerKind === 'standard') {
-    rows.push({
-      flags: '--single-assembly',
-      type: 'boolean',
-      required: 'no',
-      example: 'false',
-      description: 'Pass all input files to a single assembly instead of one assembly per file',
-    })
+    rows.push(getSingleAssemblyOptionDocumentation())
   }
 
   return rows
