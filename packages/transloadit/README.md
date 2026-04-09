@@ -1,0 +1,1736 @@
+[![Build Status](https://github.com/transloadit/node-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/transloadit/node-sdk/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/transloadit/node-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/transloadit/node-sdk)
+
+<a href="https://transloadit.com/?utm_source=github&utm_medium=referral&utm_campaign=sdks&utm_content=node_sdk">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://assets.transloadit.com/assets/images/sponsorships/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://assets.transloadit.com/assets/images/sponsorships/logo-default.svg">
+    <img src="https://assets.transloadit.com/assets/images/sponsorships/logo-default.svg" alt="Transloadit Logo">
+  </picture>
+</a>
+
+This is the official **Node.js** SDK for [Transloadit](https://transloadit.com)'s file uploading and encoding service.
+
+## Intro
+
+[Transloadit](https://transloadit.com) is a service that helps you handle file
+uploads, resize, crop and watermark your images, make GIFs, transcode your
+videos, extract thumbnails, generate audio waveforms, [and so much more](https://transloadit.com/demos/). In
+short, [Transloadit](https://transloadit.com) is the Swiss Army Knife for your
+files.
+
+This is a **Node.js** SDK to make it easy to talk to the
+[Transloadit](https://transloadit.com) REST API.
+
+## Requirements
+
+- [Node.js](https://nodejs.org/en/) version 20 or newer
+- [A Transloadit account](https://transloadit.com/signup/) ([free signup](https://transloadit.com/pricing/))
+- [Your API credentials](https://transloadit.com/c/template-credentials) (`authKey`, `authSecret`)
+
+## Install
+
+Inside your project, type:
+
+```bash
+yarn add @transloadit/node
+```
+
+or
+
+```bash
+npm install --save @transloadit/node
+```
+
+The legacy npm package name `transloadit` is kept as an alias for backward compatibility, but
+`@transloadit/node` is the canonical package name.
+
+## Command Line Interface (CLI)
+
+This package includes a full-featured CLI for interacting with Transloadit from your terminal.
+
+### Quick Start
+
+```bash
+# Set your credentials
+export TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
+export TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
+
+# See all available commands
+npx -y @transloadit/node --help
+```
+
+The CLI binary is still called `transloadit`, so command examples below may use
+`npx transloadit ...`.
+
+### Minting Bearer Tokens (Hosted MCP)
+
+If you want to connect an agent to the Transloadit-hosted MCP endpoint, mint a short-lived bearer
+token via `POST /token`:
+
+```bash
+# Prints JSON to stdout (stderr may include npx/npm noise)
+npx -y transloadit auth token --aud mcp
+```
+
+To reduce blast radius, you can request a narrower set of scopes. The server will only grant scopes
+that your Auth Key already has (it applies an intersection), and will error if you request scopes
+you are not allowed to use.
+
+```bash
+# Request a narrower token (comma-separated scopes)
+npx -y transloadit auth token --aud mcp --scope assemblies:write,templates:read
+```
+
+### Processing Media
+
+For common one-off tasks, prefer the intent-first commands:
+
+The full generated intent reference also lives in [`docs/intent-commands.md`](./docs/intent-commands.md).
+
+<!-- GENERATED_INTENT_DOCS:START -->
+
+#### At a glance
+
+Intent commands are the fastest path to common one-off tasks from the CLI.
+Use `--print-urls` when you want temporary result URLs without downloading locally.
+All intent commands also support the global CLI flags `--json`, `--log-level`, `--endpoint`, and `--help`.
+
+| Command | What it does | Input | Output |
+| --- | --- | --- | --- |
+| `image generate` | Generate images from text prompts | none | file |
+| `preview generate` | Generate a preview thumbnail | file, dir, URL, base64 | file |
+| `image remove-background` | Remove the background from images | file, dir, URL, base64 | file |
+| `image optimize` | Optimize images without quality loss | file, dir, URL, base64 | file |
+| `image resize` | Convert, resize, or watermark images | file, dir, URL, base64 | file |
+| `document convert` | Convert documents into different formats | file, dir, URL, base64 | file |
+| `document optimize` | Reduce PDF file size | file, dir, URL, base64 | file |
+| `document auto-rotate` | Auto-rotate documents to the correct orientation | file, dir, URL, base64 | file |
+| `document thumbs` | Extract thumbnail images from documents | file, dir, URL, base64 | directory |
+| `audio waveform` | Generate waveform images from audio | file, dir, URL, base64 | file |
+| `text speak` | Speak text | file, dir, URL, base64 | file |
+| `video thumbs` | Extract thumbnails from videos | file, dir, URL, base64 | directory |
+| `video encode-hls` | Run builtin/encode-hls-video@latest | file, dir, URL, base64 | directory |
+| `image describe` | Describe images as labels or publishable text fields | file, dir, URL, base64 | file |
+| `markdown pdf` | Render Markdown files as PDFs | file, dir, URL, base64 | file |
+| `markdown docx` | Render Markdown files as DOCX documents | file, dir, URL, base64 | file |
+| `file compress` | Compress files | file, dir, URL, base64 | file |
+| `file decompress` | Decompress archives | file, dir, URL, base64 | directory |
+
+> At least one of `--out` or `--print-urls` is required on every intent command.
+
+#### Shared flags
+
+These flags are available across many intent commands, so the per-command sections below focus on differences.
+
+**Shared file input & output flags**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
+| `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
+| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
+| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
+
+**Shared no-input output flags**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path |
+| `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
+
+**Shared processing flags**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--recursive, -r` | `boolean` | no | `false` | Enumerate input directories recursively |
+| `--delete-after-processing, -d` | `boolean` | no | `false` | Delete input files after they are processed |
+| `--reprocess-stale` | `boolean` | no | `false` | Process inputs even if output is newer |
+
+**Shared watch flags**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--watch, -w` | `boolean` | no | `false` | Watch inputs for changes |
+| `--concurrency, -c` | `number` | no | `5` | Maximum number of concurrent assemblies (default: 5) |
+
+**Shared bundling flags**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--single-assembly` | `boolean` | no | `false` | Pass all input files to a single assembly instead of one assembly per file |
+
+#### `image generate`
+
+Generate images from text prompts
+
+Runs `/image/generate` and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit image generate [options]
+```
+
+**Quick facts**
+
+- Input: none
+- Output: file
+- Execution: no input
+- Backend: `/image/generate`
+
+**Shared flags**
+
+- Uses the shared output flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--model` | `string` | no | `value` | The AI model to use for image generation. Defaults to google/nano-banana. |
+| `--prompt` | `string` | yes | `"A red bicycle in a studio"` | The prompt describing the desired image content. |
+| `--format` | `string` | no | `jpg` | Format of the generated image. |
+| `--seed` | `number` | no | `1` | Seed for the random number generator. |
+| `--aspect-ratio` | `string` | no | `value` | Aspect ratio of the generated image. |
+| `--height` | `number` | no | `1` | Height of the generated image. |
+| `--width` | `number` | no | `1` | Width of the generated image. |
+| `--style` | `string` | no | `value` | Style of the generated image. |
+| `--num-outputs` | `number` | no | `1` | Number of image variants to generate. |
+
+**Examples**
+
+```bash
+transloadit image generate --prompt "A red bicycle in a studio" --out output.png
+```
+
+#### `preview generate`
+
+Generate a preview thumbnail
+
+Runs `/file/preview` on each input file and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit preview generate --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/file/preview`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--format` | `string` | no | `jpg` | The output format for the generated thumbnail image. If a short video clip is generated using the clip strategy, its format is defined by clip_format. |
+| `--width` | `number` | no | `1` | Width of the thumbnail, in pixels. |
+| `--height` | `number` | no | `1` | Height of the thumbnail, in pixels. |
+| `--resize-strategy` | `string` | no | `crop` | To achieve the desired dimensions of the preview thumbnail, the Robot might have to resize the generated image. |
+| `--background` | `string` | no | `value` | The hexadecimal code of the color used to fill the background (only used for the pad resize strategy). |
+| `--strategy` | `json` | no | `value` | Definition of the thumbnail generation process per file category. |
+| `--artwork-outer-color` | `string` | no | `value` | The color used in the outer parts of the artwork's gradient. |
+| `--artwork-center-color` | `string` | no | `value` | The color used in the center of the artwork's gradient. |
+| `--waveform-center-color` | `string` | no | `value` | The color used in the center of the waveform's gradient. The format is #rrggbb[aa] (red, green, blue, alpha). Only used if the waveform strategy for audio files is applied. |
+| `--waveform-outer-color` | `string` | no | `value` | The color used in the outer parts of the waveform's gradient. The format is #rrggbb[aa] (red, green, blue, alpha). Only used if the waveform strategy for audio files is applied. |
+| `--waveform-height` | `number` | no | `1` | Height of the waveform, in pixels. Only used if the waveform strategy for audio files is applied. It can be utilized to ensure that the waveform only takes up a section of the… |
+| `--waveform-width` | `number` | no | `1` | Width of the waveform, in pixels. Only used if the waveform strategy for audio files is applied. It can be utilized to ensure that the waveform only takes up a section of the… |
+| `--icon-style` | `string` | no | `square` | The style of the icon generated if the icon strategy is applied. |
+| `--icon-text-color` | `string` | no | `value` | The color of the text used in the icon. The format is #rrggbb[aa]. Only used if the icon strategy is applied. |
+| `--icon-text-font` | `string` | no | `value` | The font family of the text used in the icon. Only used if the icon strategy is applied. Here is a list of all supported fonts. |
+| `--icon-text-content` | `string` | no | `extension` | The content of the text box in generated icons. Only used if the icon_style parameter is set to with-text. The default value, extension, adds the file extension (e.g. MP4, JPEG)… |
+| `--optimize` | `boolean` | no | `true` | Specifies whether the generated preview image should be optimized to reduce the image's file size while keeping their quaility. |
+| `--optimize-priority` | `string` | no | `compression-ratio` | Specifies whether conversion speed or compression ratio is prioritized when optimizing images. |
+| `--optimize-progressive` | `boolean` | no | `true` | Specifies whether images should be interlaced, which makes the result image load progressively in browsers. |
+| `--clip-format` | `string` | no | `apng` | The animated image format for the generated video clip. Only used if the clip strategy for video files is applied. Please consult the MDN Web Docs for detailed information about… |
+| `--clip-offset` | `number` | no | `1` | The start position in seconds of where the clip is cut. Only used if the clip strategy for video files is applied. Be aware that for larger video only the first few MBs of the… |
+| `--clip-duration` | `number` | no | `1` | The duration in seconds of the generated video clip. Only used if the clip strategy for video files is applied. Be aware that a longer clip duration also results in a larger file… |
+| `--clip-framerate` | `number` | no | `1` | The framerate of the generated video clip. Only used if the clip strategy for video files is applied. Be aware that a higher framerate appears smoother but also results in a… |
+| `--clip-loop` | `boolean` | no | `true` | Specifies whether the generated animated image should loop forever (true) or stop after playing the animation once (false). |
+
+**Examples**
+
+```bash
+transloadit preview generate --input input.file --out output.file
+```
+
+#### `image remove-background`
+
+Remove the background from images
+
+Runs `/image/bgremove` on each input file and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit image remove-background --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/image/bgremove`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--select` | `string` | no | `foreground` | Region to select and keep in the image. The other region is removed. |
+| `--format` | `string` | no | `png` | Format of the generated image. |
+| `--provider` | `string` | no | `aws` | Provider to use for removing the background. |
+| `--model` | `string` | no | `value` | Provider-specific model to use for removing the background. Mostly intended for testing and evaluation. |
+
+**Examples**
+
+```bash
+transloadit image remove-background --input input.png --out output.png
+```
+
+#### `image optimize`
+
+Optimize images without quality loss
+
+Runs `/image/optimize` on each input file and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit image optimize --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/image/optimize`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--priority` | `string` | no | `compression-ratio` | Provides different algorithms for better or worse compression for your images, but that run slower or faster. |
+| `--progressive` | `boolean` | no | `true` | Interlaces the image if set to true, which makes the result image load progressively in browsers. |
+| `--preserve-meta-data` | `boolean` | no | `true` | Specifies if the image's metadata should be preserved during the optimization, or not. |
+| `--fix-breaking-images` | `boolean` | no | `true` | If set to true this parameter tries to fix images that would otherwise make the underlying tool error out and thereby break your Assemblies . |
+
+**Examples**
+
+```bash
+transloadit image optimize --input input.png --out output.png
+```
+
+#### `image resize`
+
+Convert, resize, or watermark images
+
+Runs `/image/resize` on each input file and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit image resize --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/image/resize`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--format` | `string` | no | `value` | The output format for the modified image. Some of the most important available formats are "jpg", "png", "gif", and "tiff". For a complete lists of all formats that we can write… |
+| `--width` | `number` | no | `1` | Width of the result in pixels. If not specified, will default to the width of the original. |
+| `--height` | `number` | no | `1` | Height of the new image, in pixels. If not specified, will default to the height of the input image. |
+| `--resize-strategy` | `string` | no | `crop` | See the list of available resize strategies. |
+| `--zoom` | `boolean` | no | `true` | If this is set to false, smaller images will not be stretched to the desired width and height. |
+| `--crop` | `auto` | no | `value` | Specify an object containing coordinates for the top left and bottom right corners of the rectangle to be cropped from the original image(s). |
+| `--gravity` | `string` | no | `bottom` | The direction from which the image is to be cropped, when "resize_strategy" is set to "crop", but no crop coordinates are defined. |
+| `--strip` | `boolean` | no | `true` | Strips all metadata from the image. This is useful to keep thumbnails as small as possible. |
+| `--alpha` | `string` | no | `Activate` | Gives control of the alpha/matte channel of an image. |
+| `--preclip-alpha` | `string` | no | `Activate` | Gives control of the alpha/matte channel of an image before applying the clipping path via clip: true. |
+| `--flatten` | `boolean` | no | `true` | Flattens all layers onto the specified background to achieve better results from transparent formats to non-transparent formats, as explained in the ImageMagick documentation. |
+| `--correct-gamma` | `boolean` | no | `true` | Prevents gamma errors common in many image scaling algorithms. |
+| `--quality` | `number` | no | `1` | Controls the image compression for JPG and PNG images. Please also take a look at 🤖/image/optimize. |
+| `--adaptive-filtering` | `boolean` | no | `true` | Controls the image compression for PNG images. Setting to true results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled. |
+| `--background` | `string` | no | `transparent` | Either the hexadecimal code or name of the color used to fill the background (used for the pad resize strategy). |
+| `--frame` | `number` | no | `1` | Use this parameter when dealing with animated GIF files to specify which frame of the GIF is used for the operation. |
+| `--colorspace` | `string` | no | `CMY` | Sets the image colorspace. For details about the available values, see the ImageMagick documentation. Please note that if you were using "RGB", we recommend using "sRGB" instead… |
+| `--type` | `string` | no | `Bilevel` | Sets the image color type. For details about the available values, see the ImageMagick documentation. If you're using colorspace, ImageMagick might try to find the most efficient… |
+| `--sepia` | `number` | no | `1` | Applies a sepia tone effect in percent. |
+| `--rotation` | `auto` | no | `auto` | Determines whether the image should be rotated. Use any number to specify the rotation angle in degrees (e.g., 90, 180, 270, 360, or precise values like 2.9). Use the value true… |
+| `--compress` | `string` | no | `BZip` | Specifies pixel compression for when the image is written. Compression is disabled by default. Please also take a look at 🤖/image/optimize. |
+| `--blur` | `string` | no | `value` | Specifies gaussian blur, using a value with the form {radius}x{sigma}. |
+| `--blur-regions` | `json` | no | `value` | Specifies an array of ellipse objects that should be blurred on the image. |
+| `--brightness` | `number` | no | `1` | Increases or decreases the brightness of the image by using a multiplier. For example 1.5 would increase the brightness by 50%, and 0.75 would decrease the brightness by 25%. |
+| `--saturation` | `number` | no | `1` | Increases or decreases the saturation of the image by using a multiplier. For example 1.5 would increase the saturation by 50%, and 0.75 would decrease the saturation by 25%. |
+| `--hue` | `number` | no | `1` | Changes the hue by rotating the color of the image. The value 100 would produce no change whereas 0 and 200 will negate the colors in the image. |
+| `--contrast` | `number` | no | `1` | Adjusts the contrast of the image. A value of 1 produces no change. Values below 1 decrease contrast (with 0 being minimum contrast), and values above 1 increase contrast (with 2… |
+| `--watermark-url` | `string` | no | `value` | A URL indicating a PNG image to be overlaid above this image. |
+| `--watermark-position` | `string[]` | no | `bottom` | The position at which the watermark is placed. The available options are "center", "top", "bottom", "left", and "right". You can also combine options, such as "bottom-right". An… |
+| `--watermark-x-offset` | `number` | no | `1` | The x-offset in number of pixels at which the watermark will be placed in relation to the position it has due to watermark_position. |
+| `--watermark-y-offset` | `number` | no | `1` | The y-offset in number of pixels at which the watermark will be placed in relation to the position it has due to watermark_position. |
+| `--watermark-size` | `string` | no | `value` | The size of the watermark, as a percentage. For example, a value of "50%" means that size of the watermark will be 50% of the size of image on which it is placed. The exact… |
+| `--watermark-resize-strategy` | `string` | no | `area` | Available values are "fit", "min_fit", "stretch" and "area". |
+| `--watermark-opacity` | `number` | no | `1` | The opacity of the watermark, where 0.0 is fully transparent and 1.0 is fully opaque. |
+| `--watermark-repeat-x` | `boolean` | no | `true` | When set to true, the watermark will be repeated horizontally across the entire width of the image. |
+| `--watermark-repeat-y` | `boolean` | no | `true` | When set to true, the watermark will be repeated vertically across the entire height of the image. |
+| `--text` | `json` | no | `value` | Text overlays to be applied to the image. Can be either a single text object or an array of text objects. Each text object contains text rules. The following text parameters are… |
+| `--progressive` | `boolean` | no | `true` | Interlaces the image if set to true, which makes the image load progressively in browsers. |
+| `--transparent` | `string` | no | `transparent` | Make this color transparent within the image. Example: "255,255,255". |
+| `--trim-whitespace` | `boolean` | no | `true` | This determines if additional whitespace around the image should first be trimmed away. |
+| `--clip` | `auto` | no | `value` | Apply the clipping path to other operations in the resize job, if one is present. |
+| `--negate` | `boolean` | no | `true` | Replace each pixel with its complementary color, effectively negating the image. Especially useful when testing clipping. |
+| `--density` | `string` | no | `value` | While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. |
+| `--monochrome` | `boolean` | no | `true` | Transform the image to black and white. This is a shortcut for setting the colorspace to Gray and type to Bilevel. |
+| `--shave` | `auto` | no | `value` | Shave pixels from the image edges. The value should be in the format width or widthxheight to specify the number of pixels to remove from each side. |
+
+**Examples**
+
+```bash
+transloadit image resize --input input.png --out output.png
+```
+
+#### `document convert`
+
+Convert documents into different formats
+
+Runs `/document/convert` on each input file and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit document convert --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/document/convert`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--format` | `string` | yes | `pdf` | The desired format for document conversion. |
+| `--markdown-format` | `string` | no | `commonmark` | Markdown can be represented in several variants, so when using this Robot to transform Markdown into HTML please specify which revision is being used. |
+| `--markdown-theme` | `string` | no | `bare` | This parameter overhauls your Markdown files styling based on several canned presets. |
+| `--pdf-margin` | `string` | no | `value` | PDF Paper margins, separated by , and with units. We support the following unit values: px, in, cm, mm. Currently this parameter is only supported when converting from html. |
+| `--pdf-print-background` | `boolean` | no | `true` | Print PDF background graphics. Currently this parameter is only supported when converting from html. |
+| `--pdf-format` | `string` | no | `A0` | PDF paper format. Currently this parameter is only supported when converting from html. |
+| `--pdf-display-header-footer` | `boolean` | no | `true` | Display PDF header and footer. Currently this parameter is only supported when converting from html. |
+| `--pdf-header-template` | `string` | no | `value` | HTML template for the PDF print header. Should be valid HTML markup with following classes used to inject printing values into them: - date formatted print date - title document… |
+| `--pdf-footer-template` | `string` | no | `value` | HTML template for the PDF print footer. Should use the same format as the pdf_header_template. Currently this parameter is only supported when converting from html, and requires… |
+
+**Examples**
+
+```bash
+transloadit document convert --input input.pdf --format pdf --out output.pdf
+```
+
+#### `document optimize`
+
+Reduce PDF file size
+
+Runs `/document/optimize` on each input file and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit document optimize --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/document/optimize`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--preset` | `string` | no | `screen` | The quality preset to use for optimization. Each preset provides a different balance between file size and quality: - screen - Lowest quality, smallest file size. Best for screen… |
+| `--image-dpi` | `number` | no | `1` | Target DPI (dots per inch) for embedded images. When specified, this overrides the DPI setting from the preset. Higher DPI values result in better image quality but larger file… |
+| `--compress-fonts` | `boolean` | no | `true` | Whether to compress embedded fonts. When enabled, fonts are compressed to reduce file size. |
+| `--subset-fonts` | `boolean` | no | `true` | Whether to subset embedded fonts, keeping only the glyphs that are actually used in the document. |
+| `--remove-metadata` | `boolean` | no | `true` | Whether to strip document metadata (title, author, keywords, etc.) from the PDF. This can provide a small reduction in file size and may be useful for privacy. |
+| `--linearize` | `boolean` | no | `true` | Whether to linearize (optimize for Fast Web View) the output PDF. |
+| `--compatibility` | `string` | no | `1.4` | The PDF version compatibility level. Lower versions have broader compatibility but fewer features. Higher versions support more advanced features but may not open in older PDF… |
+
+**Examples**
+
+```bash
+transloadit document optimize --input input.pdf --out output.pdf
+```
+
+#### `document auto-rotate`
+
+Auto-rotate documents to the correct orientation
+
+Runs `/document/autorotate` on each input file and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit document auto-rotate --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/document/autorotate`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Examples**
+
+```bash
+transloadit document auto-rotate --input input.pdf --out output.pdf
+```
+
+#### `document thumbs`
+
+Extract thumbnail images from documents
+
+Runs `/document/thumbs` on each input file and writes the results to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit document thumbs --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: directory
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/document/thumbs`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--page` | `number` | no | `1` | The PDF page that you want to convert to an image. By default the value is null which means that all pages will be converted into images. |
+| `--format` | `string` | no | `jpg` | The format of the extracted image(s). If you specify the value "gif", then an animated gif cycling through all pages is created. Please check out this demo to learn more about… |
+| `--delay` | `number` | no | `1` | If your output format is "gif" then this parameter sets the number of 100th seconds to pass before the next frame is shown in the animation. |
+| `--width` | `number` | no | `1` | Width of the new image, in pixels. If not specified, will default to the width of the input image |
+| `--height` | `number` | no | `1` | Height of the new image, in pixels. If not specified, will default to the height of the input image |
+| `--resize-strategy` | `string` | no | `crop` | One of the available resize strategies. |
+| `--background` | `string` | no | `value` | Either the hexadecimal code or name of the color used to fill the background (only used for the pad resize strategy). |
+| `--alpha` | `string` | no | `Remove` | Change how the alpha channel of the resulting image should work. |
+| `--density` | `string` | no | `value` | While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. |
+| `--antialiasing` | `boolean` | no | `true` | Controls whether or not antialiasing is used to remove jagged edges from text or images in a document. |
+| `--colorspace` | `string` | no | `CMY` | Sets the image colorspace. For details about the available values, see the ImageMagick documentation. Please note that if you were using "RGB", we recommend using "sRGB".… |
+| `--trim-whitespace` | `boolean` | no | `true` | This determines if additional whitespace around the PDF should first be trimmed away before it is converted to an image. |
+| `--pdf-use-cropbox` | `boolean` | no | `true` | Some PDF documents lie about their dimensions. For instance they'll say they are landscape, but when opened in decent Desktop readers, it's really in portrait mode. This can… |
+| `--turbo` | `boolean` | no | `true` | If you set this to false, the robot will not emit files as they become available. |
+
+**Examples**
+
+```bash
+transloadit document thumbs --input input.pdf --out output/
+```
+
+#### `audio waveform`
+
+Generate waveform images from audio
+
+Runs `/audio/waveform` on each input file and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit audio waveform --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/audio/waveform`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--ffmpeg` | `json` | no | `value` | A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the FFmpeg… |
+| `--format` | `string` | no | `image` | The format of the result file. Can be "image" or "json". If "image" is supplied, a PNG image will be created, otherwise a JSON file. |
+| `--width` | `number` | no | `1` | The width of the resulting image if the format "image" was selected. |
+| `--height` | `number` | no | `1` | The height of the resulting image if the format "image" was selected. |
+| `--antialiasing` | `auto` | no | `0` | Either a value of 0 or 1, or true/false, corresponding to if you want to enable antialiasing to achieve smoother edges in the waveform graph or not. |
+| `--background-color` | `string` | no | `value` | The background color of the resulting image in the "rrggbbaa" format (red, green, blue, alpha), if the format "image" was selected. |
+| `--center-color` | `string` | no | `value` | The color used in the center of the gradient. The format is "rrggbbaa" (red, green, blue, alpha). |
+| `--outer-color` | `string` | no | `value` | The color used in the outer parts of the gradient. The format is "rrggbbaa" (red, green, blue, alpha). |
+| `--style` | `string` | no | `v0` | Waveform style version. - "v0": Legacy waveform generation (default). - "v1": Advanced waveform generation with additional parameters. For backwards compatibility, numeric values… |
+| `--split-channels` | `boolean` | no | `true` | Available when style is "v1". If set to true, outputs multi-channel waveform data or image files, one per channel. |
+| `--zoom` | `number` | no | `1` | Available when style is "v1". Zoom level in samples per pixel. This parameter cannot be used together with pixels_per_second. |
+| `--pixels-per-second` | `number` | no | `1` | Available when style is "v1". Zoom level in pixels per second. This parameter cannot be used together with zoom. |
+| `--bits` | `number` | no | `8` | Available when style is "v1". Bit depth for waveform data. Can be 8 or 16. |
+| `--start` | `number` | no | `1` | Available when style is "v1". Start time in seconds. |
+| `--end` | `number` | no | `1` | Available when style is "v1". End time in seconds (0 means end of audio). |
+| `--colors` | `string` | no | `audition` | Available when style is "v1". Color scheme to use. Can be "audition" or "audacity". |
+| `--border-color` | `string` | no | `value` | Available when style is "v1". Border color in "rrggbbaa" format. |
+| `--waveform-style` | `string` | no | `normal` | Available when style is "v1". Waveform style. Can be "normal" or "bars". |
+| `--bar-width` | `number` | no | `1` | Available when style is "v1". Width of bars in pixels when waveform_style is "bars". |
+| `--bar-gap` | `number` | no | `1` | Available when style is "v1". Gap between bars in pixels when waveform_style is "bars". |
+| `--bar-style` | `string` | no | `square` | Available when style is "v1". Bar style when waveform_style is "bars". |
+| `--axis-label-color` | `string` | no | `value` | Available when style is "v1". Color for axis labels in "rrggbbaa" format. |
+| `--no-axis-labels` | `boolean` | no | `true` | Available when style is "v1". If set to true, renders waveform image without axis labels. |
+| `--with-axis-labels` | `boolean` | no | `true` | Available when style is "v1". If set to true, renders waveform image with axis labels. |
+| `--amplitude-scale` | `number` | no | `1` | Available when style is "v1". Amplitude scale factor. |
+| `--compression` | `number` | no | `1` | Available when style is "v1". PNG compression level: 0 (none) to 9 (best), or -1 (default). Only applicable when format is "image". |
+
+**Examples**
+
+```bash
+transloadit audio waveform --input input.mp3 --out output.png
+```
+
+#### `text speak`
+
+Speak text
+
+Runs `/text/speak` on each input file and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit text speak --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/text/speak`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--prompt` | `string` | no | `"A red bicycle in a studio"` | Which text to speak. You can also set this to null and supply an input text file. |
+| `--provider` | `string` | yes | `aws` | Which AI provider to leverage. Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information… |
+| `--target-language` | `string` | no | `en-US` | The written language of the document. This will also be the language of the spoken text. The language should be specified in the BCP-47 format, such as "en-GB", "de-DE" or… |
+| `--voice` | `string` | no | `female-1` | The gender to be used for voice synthesis. Please consult the list of supported languages and voices. |
+| `--ssml` | `boolean` | no | `true` | Supply Speech Synthesis Markup Language instead of raw text, in order to gain more control over how your text is voiced, including rests and pronounciations. |
+
+**Examples**
+
+```bash
+transloadit text speak --input input.pdf --provider aws --out output.mp3
+```
+
+#### `video thumbs`
+
+Extract thumbnails from videos
+
+Runs `/video/thumbs` on each input file and writes the results to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit video thumbs --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: directory
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/video/thumbs`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--ffmpeg` | `json` | no | `value` | A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the FFmpeg… |
+| `--count` | `number` | no | `1` | The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of… |
+| `--offsets` | `auto` | no | `value` | An array of offsets representing seconds of the file duration, such as [ 2, 45, 120 ]. |
+| `--format` | `string` | no | `jpg` | The format of the extracted thumbnail. Supported values are "jpg", "jpeg" and "png". Even if you specify the format to be "jpeg" the resulting thumbnails will have a "jpg" file… |
+| `--width` | `number` | no | `1` | The width of the thumbnail, in pixels. Defaults to the original width of the video. |
+| `--height` | `number` | no | `1` | The height of the thumbnail, in pixels. Defaults to the original height of the video. |
+| `--resize-strategy` | `string` | no | `crop` | One of the available resize strategies. |
+| `--background` | `string` | no | `value` | The background color of the resulting thumbnails in the "rrggbbaa" format (red, green, blue, alpha) when used with the "pad" resize strategy. The default color is black. |
+| `--rotate` | `number` | no | `0` | Forces the video to be rotated by the specified degree integer. |
+| `--input-codec` | `string` | no | `value` | Specifies the input codec to use when decoding the video. This is useful for videos with special codecs that require specific decoders. |
+
+**Examples**
+
+```bash
+transloadit video thumbs --input input.mp4 --out output/
+```
+
+#### `video encode-hls`
+
+Run builtin/encode-hls-video@latest
+
+Runs the `builtin/encode-hls-video@latest` template and writes the outputs to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit video encode-hls --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: directory
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `builtin/encode-hls-video@latest`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Examples**
+
+```bash
+transloadit video encode-hls --input input.mp4 --out output/
+```
+
+#### `image describe`
+
+Describe images as labels or publishable text fields
+
+Generates image labels through `/image/describe`, or structured altText/title/caption/description through `/ai/chat`, then writes the JSON result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit image describe --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--watch`
+- Backend: semantic alias `image-describe`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--fields` | `string[]` | no | — | Describe output fields to generate, for example labels or altText,title,caption,description |
+| `--for` | `string` | no | — | Use a named output profile, currently: wordpress |
+| `--model` | `string` | no | — | Model to use for generated text fields (default: anthropic/claude-4-sonnet-20250514) |
+
+**Examples**
+
+```bash
+# Describe an image as labels
+transloadit image describe --input hero.jpg --out labels.json
+# Generate WordPress-ready fields
+transloadit image describe --input hero.jpg --for wordpress --out fields.json
+# Request a custom field set
+transloadit image describe --input hero.jpg --fields altText,title,caption --out fields.json
+```
+
+#### `markdown pdf`
+
+Render Markdown files as PDFs
+
+Runs `/document/convert` with `format: pdf`, letting the backend render Markdown and preserve features such as internal heading links in the generated PDF.
+
+**Usage**
+
+```bash
+npx transloadit markdown pdf --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--watch`
+- Backend: semantic alias `markdown-pdf`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--markdown-format` | `string` | no | — | Markdown variant to parse, either commonmark or gfm |
+| `--markdown-theme` | `string` | no | — | Markdown theme to render, either github or bare |
+
+**Examples**
+
+```bash
+# Render a Markdown file as a PDF file
+transloadit markdown pdf --input README.md --out README.pdf
+# Print a temporary result URL without downloading locally
+transloadit markdown pdf --input README.md --print-urls
+```
+
+#### `markdown docx`
+
+Render Markdown files as DOCX documents
+
+Runs `/document/convert` with `format: docx`, letting the backend render Markdown and convert it into a Word document.
+
+**Usage**
+
+```bash
+npx transloadit markdown docx --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--watch`
+- Backend: semantic alias `markdown-docx`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--markdown-format` | `string` | no | — | Markdown variant to parse, either commonmark or gfm |
+| `--markdown-theme` | `string` | no | — | Markdown theme to render, either github or bare |
+
+**Examples**
+
+```bash
+# Render a Markdown file as a DOCX file
+transloadit markdown docx --input README.md --out README.docx
+# Print a temporary result URL without downloading locally
+transloadit markdown docx --input README.md --print-urls
+```
+
+#### `file compress`
+
+Compress files
+
+Runs `/file/compress` for the provided inputs and writes the result to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit file compress --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: single assembly
+- Backend: `/file/compress`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--format` | `string` | no | `zip` | The format of the archive to be created. Supported values are "tar" and "zip". Note that "tar" without setting gzip to true results in an archive that's not compressed in any way. |
+| `--gzip` | `boolean` | no | `true` | Determines if the result archive should also be gzipped. Gzip compression is only applied if you use the "tar" format. |
+| `--password` | `string` | no | `value` | This allows you to encrypt all archive contents with a password and thereby protect it against unauthorized use. |
+| `--compression-level` | `number` | no | `1` | Determines how fiercely to try to compress the archive. -0 is compressionless, which is suitable for media that is already compressed. -1 is fastest with lowest compression. -9… |
+| `--file-layout` | `string` | no | `advanced` | Determines if the result archive should contain all files in one directory (value for this is "simple") or in subfolders according to the explanation below (value for this is… |
+| `--archive-name` | `string` | no | `value` | The name of the archive file to be created (without the file extension). |
+
+**Examples**
+
+```bash
+transloadit file compress --input input.file --out output.file
+```
+
+#### `file decompress`
+
+Decompress archives
+
+Runs `/file/decompress` on each input file and writes the results to `--out`.
+
+**Usage**
+
+```bash
+npx transloadit file decompress --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: directory
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/file/decompress`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Examples**
+
+```bash
+transloadit file decompress --input input.file --out output/
+```
+
+<!-- GENERATED_INTENT_DOCS:END -->
+
+For full control, create Assemblies directly using Assembly Instructions (steps) or Templates:
+
+```bash
+# Process a file using a steps file
+npx transloadit assemblies create --steps steps.json --input image.jpg --output result.jpg
+
+# Process using a Template
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input image.jpg --output result.jpg
+
+# Process with custom fields
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --field size=100 --input image.jpg --output thumb.jpg
+
+# Process a directory of files
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/
+
+# Process recursively with file watching
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/ --recursive --watch
+
+# Process multiple files in a single assembly
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input file1.jpg --input file2.jpg --output results/ --single-assembly
+
+# Limit concurrent processing (default: 5)
+npx transloadit assemblies create --template YOUR_TEMPLATE_ID --input images/ --output thumbs/ --concurrency 2
+```
+
+### Managing Assemblies
+
+```bash
+# List recent assemblies
+npx transloadit assemblies list
+
+# List assemblies with filters
+npx transloadit assemblies list --after 2024-01-01 --before 2024-12-31
+
+# Get assembly status
+npx transloadit assemblies get ASSEMBLY_ID
+
+# Cancel an assembly
+npx transloadit assemblies delete ASSEMBLY_ID
+
+# Replay an assembly (re-run with original instructions)
+npx transloadit assemblies replay ASSEMBLY_ID
+
+# Replay with different steps
+npx transloadit assemblies replay --steps new-steps.json ASSEMBLY_ID
+
+# Replay using latest template version
+npx transloadit assemblies replay --reparse-template ASSEMBLY_ID
+```
+
+### Linting Assembly Instructions
+
+Lint Assembly Instructions locally using the same linter as the API.
+
+```bash
+# From a JSON file (full instructions or steps-only)
+npx transloadit assemblies lint --steps steps.json
+
+# From stdin
+cat steps.json | npx transloadit assemblies lint
+
+# Merge template content before linting
+npx transloadit assemblies lint --template TEMPLATE_ID --steps steps.json
+
+# Treat warnings as fatal; apply fixes (overwrites files / stdout for stdin)
+npx transloadit assemblies lint --fatal warning --fix --steps steps.json
+```
+
+When both `--template` and steps input are provided, Transloadit merges the template content with
+the provided steps before linting, matching the API's runtime behavior. If the template sets
+`allow_steps_override=false`, providing steps will fail with `TEMPLATE_DENIES_STEPS_OVERRIDE`.
+
+## SDK Helpers
+
+### prepareInputFiles
+
+`prepareInputFiles()` converts mixed file inputs into `files`, `uploads`, and optional
+`/http/import` steps so you can pass them directly into `createAssembly()` or
+`resumeAssemblyUploads()`.
+
+```ts
+import { prepareInputFiles } from '@transloadit/node'
+
+const prepared = await prepareInputFiles({
+  inputFiles: [
+    { kind: 'path', field: 'video', path: '/tmp/video.mp4' },
+    { kind: 'base64', field: 'logo', filename: 'logo.png', base64: '...' },
+    { kind: 'url', field: 'remote', url: 'https://example.com/file.jpg' },
+  ],
+  params: {
+    steps: {
+      ':original': { robot: '/upload/handle' },
+      encode: { robot: '/video/encode', use: ':original' },
+    },
+  },
+  base64Strategy: 'tempfile',
+  urlStrategy: 'import-if-present',
+  maxBase64Bytes: 512_000,
+  allowPrivateUrls: true,
+})
+
+await client.createAssembly({
+  params: prepared.params,
+  files: prepared.files,
+  uploads: prepared.uploads,
+})
+```
+
+Options:
+
+- `inputFiles` – Array of `{ kind, field, ... }` entries for `path`, `base64`, or `url` inputs.
+- `params` – Assembly instructions; steps will be extended when URL imports are injected.
+- `fields` – Extra form fields to merge into `params.fields`.
+- `base64Strategy` – `'buffer'` (default) or `'tempfile'` for base64 inputs.
+- `urlStrategy` – `'import'`, `'download'`, or `'import-if-present'` (default `'import'`).
+- `maxBase64Bytes` – Optional size cap (decoded bytes). Overages throw before decoding.
+- `allowPrivateUrls` – Allow downloading private/loopback URLs when using `urlStrategy: 'download'`
+  (default `true`). Hosted deployments should disable this.
+- `tempDir` – Optional temp directory base when `base64Strategy: 'tempfile'`.
+
+### Managing Templates
+
+```bash
+# List all templates
+npx transloadit templates list
+
+# Get template content
+npx transloadit templates get TEMPLATE_ID
+
+# Create a template from a JSON file
+npx transloadit templates create my-template template.json
+
+# Modify a template
+npx transloadit templates modify TEMPLATE_ID template.json
+
+# Rename a template
+npx transloadit templates modify TEMPLATE_ID --name new-name
+
+# Delete a template
+npx transloadit templates delete TEMPLATE_ID
+
+# Sync local template files with Transloadit (bidirectional)
+npx transloadit templates sync templates/*.json
+npx transloadit templates sync --recursive templates/
+```
+
+### Billing
+
+```bash
+# Get bill for a month
+npx transloadit bills get 2024-01
+
+# Get detailed bill as JSON
+npx transloadit bills get 2024-01 --json
+```
+
+### Assembly Notifications
+
+```bash
+# Replay a notification
+npx transloadit assembly-notifications replay ASSEMBLY_ID
+
+# Replay to a different URL
+npx transloadit assembly-notifications replay --notify-url https://example.com/hook ASSEMBLY_ID
+```
+
+### Signature Generation
+
+```bash
+# Generate a signature for assembly params
+echo '{"steps":{}}' | npx transloadit auth signature
+
+# Generate with specific algorithm
+echo '{"steps":{}}' | npx transloadit auth signature --algorithm sha256
+
+# Generate a signed Smart CDN URL
+echo '{"workspace":"my-workspace","template":"my-template","input":"image.jpg"}' | npx transloadit auth smart-cdn
+```
+
+### CLI Options
+
+All commands support these common options:
+
+- `--json, -j` - Output results as JSON (useful for scripting)
+- `--log-level, -l` - Set log verbosity level by name or number (default: notice)
+- `--endpoint` - Custom API endpoint URL (or set `TRANSLOADIT_ENDPOINT` env var)
+- `--help, -h` - Show help for a command
+
+The `assemblies create` command additionally supports:
+
+- `--single-assembly` - Pass all input files to a single assembly instead of one assembly per file
+
+#### Log Levels
+
+The CLI uses [syslog severity levels](https://en.wikipedia.org/wiki/Syslog#Severity_level). Lower = more severe, higher = more verbose:
+
+| Level    | Value | Description                           |
+| -------- | ----- | ------------------------------------- |
+| `err`    | 3     | Error conditions                      |
+| `warn`   | 4     | Warning conditions                    |
+| `notice` | 5     | Normal but significant **(default)**  |
+| `info`   | 6     | Informational messages                |
+| `debug`  | 7     | Debug-level messages                  |
+| `trace`  | 8     | Most verbose/detailed                 |
+
+You can use either the level name or its numeric value:
+
+```bash
+# Show only errors and warnings
+npx transloadit assemblies list -l warn
+npx transloadit assemblies list -l 4
+
+# Show debug output
+npx transloadit assemblies list -l debug
+npx transloadit assemblies list -l 7
+```
+
+## SDK Usage
+
+The following code will upload an image and resize it to a thumbnail:
+
+```javascript
+import { Transloadit } from '@transloadit/node'
+
+const transloadit = new Transloadit({
+  authKey: 'YOUR_TRANSLOADIT_KEY',
+  authSecret: 'YOUR_TRANSLOADIT_SECRET',
+})
+
+try {
+  const options = {
+    files: {
+      file1: '/PATH/TO/FILE.jpg',
+    },
+    params: {
+      steps: {
+        // You can have many Steps. In this case we will just resize any inputs (:original)
+        resize: {
+          use: ':original',
+          robot: '/image/resize',
+          result: true,
+          width: 75,
+          height: 75,
+        },
+      },
+      // OR if you already created a template, you can use it instead of "steps":
+      // template_id: 'YOUR_TEMPLATE_ID',
+    },
+    waitForCompletion: true, // Wait for the Assembly (job) to finish executing before returning
+  }
+
+  const status = await transloadit.createAssembly(options)
+
+  if (status.results.resize) {
+    console.log('✅ Success - Your resized image:', status.results.resize[0].ssl_url)
+  } else {
+    console.log("❌ The Assembly didn't produce any output. Make sure you used a valid image file")
+  }
+} catch (err) {
+  console.error('❌ Unable to process Assembly.', err)
+  if (err instanceof ApiError && err.assemblyId) {
+    console.error(`💡 More info: https://transloadit.com/assemblies/${err.assemblyId}`)
+  }
+}
+```
+
+You can find [details about your executed Assemblies here](https://transloadit.com/assemblies).
+
+### Resuming interrupted uploads
+
+If an upload was interrupted, you can resume it by providing the original `assemblyUrl` and the
+same input mapping. Resume relies on matching `fieldname`, `filename`, and `size`, so keep input
+names stable and pass the same files. Only path-based inputs resume; Buffer/string/stream uploads
+start a new tus upload automatically.
+
+You can pass the same upload and progress options as `createAssembly` (such as `chunkSize`,
+`uploadConcurrency`, `uploadBehavior`, `waitForCompletion`, `timeout`, `onUploadProgress`, and
+`onAssemblyProgress`).
+When `waitForCompletion` is `true`, the SDK will poll and resolve once the Assembly is finished.
+
+```javascript
+const status = await transloadit.resumeAssemblyUploads({
+  assemblyUrl: 'https://api2.transloadit.com/assemblies/ASSEMBLY_ID',
+  files: {
+    file1: '/PATH/TO/FILE.jpg',
+    file2: '/PATH/TO/FILE2.jpg',
+  },
+  uploadConcurrency: 2,
+})
+```
+
+## Examples
+
+- [Upload and resize image](https://github.com/transloadit/node-sdk/blob/main/examples/resize_an_image.ts)
+- [Upload image and convert to WebP](https://github.com/transloadit/node-sdk/blob/main/examples/convert_to_webp.ts)
+- [Rasterize SVG to PNG](https://github.com/transloadit/node-sdk/blob/main/examples/rasterize_svg_to_png.ts)
+- [Crop a face out of an image and download the result](https://github.com/transloadit/node-sdk/blob/main/examples/face_detect_download.ts)
+- [Retry example](https://github.com/transloadit/node-sdk/blob/main/examples/retry.ts)
+- [Calculate total costs (GB usage)](https://github.com/transloadit/node-sdk/blob/main/examples/fetch_costs_of_all_assemblies_in_timeframe.ts)
+- [Templates CRUD](https://github.com/transloadit/node-sdk/blob/main/examples/template_api.ts)
+- [Template Credentials CRUD](https://github.com/transloadit/node-sdk/blob/main/examples/credentials.ts)
+
+For more fully working examples take a look at [`examples/`](https://github.com/transloadit/node-sdk/blob/main/examples/).
+
+For more example use cases and information about the available robots and their parameters, check out the [Transloadit website](https://transloadit.com/).
+
+## API
+
+These are the public methods on the `Transloadit` object and their descriptions. The methods are based on the [Transloadit API](https://transloadit.com/docs/api/).
+
+Table of contents:
+
+- [Main](#main)
+- [Assemblies](#assemblies)
+- [Assembly notifications](#assembly-notifications)
+- [Templates](#templates)
+- [Template Credentials](#template-credentials)
+- [Errors](#errors)
+- [Rate limiting & auto retry](#rate-limiting--auto-retry)
+
+### Main
+
+#### constructor(options)
+
+Returns a new instance of the client.
+
+The `options` object can contain the following keys:
+
+- `authKey` **(required)** - see [requirements](#requirements)
+- `authSecret` **(required)** - see [requirements](#requirements)
+- `endpoint` (default `'https://api2.transloadit.com'`)
+- `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
+- `gotRetry` (default `0`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
+- `timeout` (default `60000`: 1 minute) - the timeout (in milliseconds) for all requests (except `createAssembly`)
+- `validateResponses` (default `false`)
+
+### Assemblies
+
+#### async createAssembly(options)
+
+Creates a new Assembly on Transloadit and optionally upload the specified `files` and `uploads`.
+
+You can provide the following keys inside the `options` object:
+
+- `params` **(required)** - An object containing keys defining the Assembly's behavior with the following keys: (See also [API doc](https://transloadit.com/docs/api/assemblies-post/) and [examples](#examples))
+  - `steps` - Assembly instructions - See [Transloadit docs](https://transloadit.com/docs/topics/assembly-instructions/) and [demos](https://transloadit.com/demos/) for inspiration.
+  - `template_id` - The ID of the Template that contains your Assembly Instructions. **One of either `steps` or `template_id` is required.** If you specify both, then [any Steps will overrule the template](https://transloadit.com/docs/topics/templates/#overruling-templates-at-runtime).
+  - `fields` - An object of form fields to add to the request, to make use of in the Assembly instructions via [Assembly variables](https://transloadit.com/docs#assembly-variables).
+  - `notify_url` - Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly Status in JSON encoded string inside a transloadit field in a multipart POST request to the URL supplied here.
+- `files` - An object (key-value pairs) containing one or more file paths to upload and use in your Assembly. The _key_ is the _field name_ and the _value_ is the path to the file to be uploaded. The _field name_ and the file's name may be used in the ([Assembly instructions](https://transloadit.com/docs/topics/assembly-instructions/)) (`params`.`steps`) to refer to the particular file. See example below.
+  - `'fieldName': '/path/to/file'`
+  - more files...
+- `uploads` - An object (key-value pairs) containing one or more files to upload and use in your Assembly. The _key_ is the _file name_ and the _value_ is the _content_ of the file to be uploaded. _Value_ can be one of many types:
+  - `'fieldName': (Readable | Buffer | TypedArray | ArrayBuffer | string | Iterable<Buffer | string> | AsyncIterable<Buffer | string> | Promise)`.
+  - more uploads...
+- `waitForCompletion` - A boolean (default is `false`) to indicate whether you want to wait for the Assembly to finish with all encoding results present before the promise is fulfilled. If `waitForCompletion` is `true`, this SDK will poll for status updates and fulfill the promise when all encoding work is done.
+- `timeout` - Number of milliseconds to wait before aborting (default `86400000`: 24 hours).
+- `onUploadProgress` - An optional function that will be periodically called with the file upload progress, which is an with an object containing:
+  - `uploadedBytes` - Number of bytes uploaded so far.
+  - `totalBytes` - Total number of bytes to upload or `undefined` if unknown (Streams).
+- `onAssemblyProgress` - Once the Assembly has started processing this will be periodically called with the _Assembly Execution Status_ (result of `getAssembly`) **only if `waitForCompletion` is `true`**.
+- `chunkSize` - (for uploads) a number indicating the maximum size of a tus `PATCH` request body in bytes. Default to `Infinity` for file uploads and 50MB for streams of unknown length. See [tus-js-client](https://github.com/tus/tus-js-client/blob/master/docs/api.md#chunksize).
+- `uploadConcurrency` - Maximum number of concurrent tus file uploads to occur at any given time (default 10.)
+- `uploadBehavior` - Controls how uploads are handled:
+  - `await` (default) waits for all uploads to finish.
+  - `background` starts uploads and returns once upload URLs are created.
+  - `none` returns upload URLs without uploading any bytes.
+  - When `uploadBehavior` is not `await`, `waitForCompletion` is ignored.
+
+**NOTE**: Make sure the key in `files` and `uploads` is not one of `signature`, `params` or `max_size`.
+
+When `uploadBehavior` is `background` or `none`, the resolved Assembly object includes
+`upload_urls` with a map of field names to tus upload URLs.
+
+Example code showing all options:
+
+```js
+await transloadit.createAssembly({
+  files: {
+    file1: '/path/to/file.jpg'
+    // ...
+  },
+  uploads: {
+    'file2.bin': Buffer.from([0, 0, 7]), // A buffer
+    'file3.txt': 'file contents', // A string
+    'file4.jpg': process.stdin // A stream
+    // ...
+  },
+  params: {
+    steps: { ... },
+    template_id: 'MY_TEMPLATE_ID',
+    fields: {
+      field1: 'Field value',
+      // ...
+    },
+    notify_url: 'https://example.com/notify-url',
+  },
+  waitForCompletion: true,
+  timeout: 60000,
+  onUploadProgress,
+  onAssemblyProgress,
+})
+```
+
+Example `onUploadProgress` and `onAssemblyProgress` handlers:
+
+```javascript
+function onUploadProgress({ uploadedBytes, totalBytes }) {
+  // NOTE: totalBytes may be undefined
+  console.log(`♻️ Upload progress polled: ${uploadedBytes} of ${totalBytes} bytes uploaded.`)
+}
+function onAssemblyProgress(assembly) {
+  console.log(
+    `♻️ Assembly progress polled: ${assembly.error ? assembly.error : assembly.ok} ${
+      assembly.assembly_id
+    } ... `
+  )
+}
+```
+
+**Tip:** `createAssembly` returns a `Promise` with an extra property `assemblyId`. This can be used to retrieve the Assembly ID before the Assembly has even been created. Useful for debugging by logging this ID when the request starts, for example:
+
+```js
+const promise = transloadit.createAssembly(options)
+console.log('Creating', promise.assemblyId)
+const status = await promise
+```
+
+See also:
+
+- [API documentation](https://transloadit.com/docs/api/assemblies-post/)
+- Error codes and retry logic below
+
+#### async lintAssemblyInstructions(options)
+
+Lint Assembly Instructions locally using the same linter as the API.
+If you provide a `templateId`, the template content is fetched and merged with your instructions
+before linting (matching the API's runtime merge behavior). If the template sets
+`allow_steps_override=false`, providing steps will throw `TEMPLATE_DENIES_STEPS_OVERRIDE`.
+
+The `options` object accepts:
+
+- `assemblyInstructions` - Assembly Instructions as a JSON string, a full instructions object, or a steps-only object.
+  If no `steps` property is present, the object is treated as steps.
+- `templateId` - Optional template ID to merge before linting.
+- `fatal` - `'error' | 'warning'` (default: `'error'`). When set to `'warning'`, warnings are treated as fatal.
+- `fix` - Apply auto-fixes where possible. If `true`, the result includes `fixedInstructions`.
+
+The method returns:
+
+- `success` - `true` when no fatal issues are found.
+- `issues` - Array of lint issues (each includes `code`, `type`, `row`, `column`, and `desc`).
+- `fixedInstructions` - The fixed JSON string when `fix` is `true` (steps-only inputs return steps-only JSON).
+
+Example:
+
+```js
+const result = await transloadit.lintAssemblyInstructions({
+  assemblyInstructions: {
+    resize: { robot: '/image/resize', use: ':original', width: 100, height: 100 },
+  },
+  fatal: 'warning',
+})
+
+if (!result.success) {
+  console.log(result.issues)
+}
+```
+
+#### async listAssemblies(params)
+
+Retrieve Assemblies according to the given `params`.
+
+Valid params can be `page`, `pagesize`, `type`, `fromdate`, `todate` and `keywords`. Please consult the [API documentation](https://transloadit.com/docs/api/assemblies-get/) for details.
+
+The method returns an object containing these properties:
+
+- `items`: An `Array` of up to `pagesize` Assemblies
+- `count`: Total number of Assemblies
+
+#### streamAssemblies(params)
+
+Creates an `objectMode` `Readable` stream that automates handling of `listAssemblies` pagination. It accepts the same `params` as `listAssemblies`.
+
+This can be used to iterate through Assemblies:
+
+```javascript
+const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' })
+
+assemblyStream.on('readable', function () {
+  const assembly = assemblyStream.read()
+  if (assembly == null) console.log('end of stream')
+
+  console.log(assembly.id)
+})
+```
+
+Results can also be piped. Here's an example using
+[through2](https://github.com/rvagg/through2):
+
+```javascript
+const assemblyStream = transloadit.streamAssemblies({ fromdate: '2016-08-19 01:15:00 UTC' })
+
+assemblyStream
+  .pipe(
+    through.obj(function (chunk, enc, callback) {
+      this.push(chunk.id + '\n')
+      callback()
+    })
+  )
+  .pipe(fs.createWriteStream('assemblies.txt'))
+```
+
+#### async getAssembly(assemblyId)
+
+Retrieves the JSON status of the Assembly identified by the given `assemblyId`. See [API documentation](https://transloadit.com/docs/api/assemblies-assembly-id-get/).
+
+#### async cancelAssembly(assemblyId)
+
+Removes the Assembly identified by the given `assemblyId` from the memory of the Transloadit machines, ultimately cancelling it. This does not delete the Assembly from the database - you can still access it on `https://transloadit.com/assemblies/{assembly_id}` in your Transloadit account. This also does not delete any files associated with the Assembly from the Transloadit servers. See [API documentation](https://transloadit.com/docs/api/assemblies-assembly-id-delete/).
+
+#### async replayAssembly(assemblyId, params)
+
+Replays the Assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/assemblies-assembly-id-replay-post/) for more info about `params`.
+
+The response from the `replayAssembly` is minimal and does not contain much information about the replayed assembly. Please call `getAssembly` or `awaitAssemblyCompletion` after replay to get more information:
+
+```js
+const replayAssemblyResponse = await transloadit.replayAssembly(failedAssemblyId)
+
+const assembly = await transloadit.getAssembly(replayAssemblyResponse.assembly_id)
+// Or
+const completedAssembly = await transloadit.awaitAssemblyCompletion(
+  replayAssemblyResponse.assembly_id
+)
+```
+
+#### async awaitAssemblyCompletion(assemblyId, opts)
+
+This function will continously poll the specified Assembly `assemblyId` and resolve when it is done uploading and executing (until `result.ok` is no longer `ASSEMBLY_UPLOADING`, `ASSEMBLY_EXECUTING` or `ASSEMBLY_REPLAYING`). It resolves with the same value as `getAssembly`.
+
+`opts` is an object with the keys:
+
+- `onAssemblyProgress` - A progress function called on each poll. See `createAssembly`
+- `timeout` - How many milliseconds until polling times out (default: no timeout)
+- `interval` - Poll interval in milliseconds (default `1000`)
+- `signal` - An `AbortSignal` to cancel polling. When aborted, the promise rejects with an `AbortError`.
+- `onPoll` - A callback invoked at the start of each poll iteration. Return `false` to stop polling early and resolve with the last known status. Useful for implementing custom cancellation logic (e.g., superseding assemblies in watch mode).
+
+#### getLastUsedAssemblyUrl()
+
+Returns the internal url that was used for the last call to `createAssembly`. This is meant to be used for debugging purposes.
+
+### Assembly notifications
+
+#### async replayAssemblyNotification(assemblyId, params)
+
+Replays the notification for the Assembly identified by the given `assemblyId` (required argument). Optionally you can also provide a `notify_url` key inside `params` if you want to change the notification target. See [API documentation](https://transloadit.com/docs/api/assembly-notifications-assembly-id-replay-post/) for more info about `params`.
+
+### Templates
+
+Templates are Steps that can be reused. [See example template code](examples/template_api.ts).
+
+#### async createTemplate(params)
+
+Creates a template the provided params. The required `params` keys are:
+
+- `name` - The template name
+- `template` - The template JSON object containing its `steps`
+
+See also [API documentation](https://transloadit.com/docs/api/templates-post/).
+
+```js
+const template = {
+  steps: {
+    encode: {
+      use: ':original',
+      robot: '/video/encode',
+      preset: 'ipad-high',
+    },
+    thumbnail: {
+      use: 'encode',
+      robot: '/video/thumbnails',
+    },
+  },
+}
+
+const result = await transloadit.createTemplate({ name: 'my-template-name', template })
+console.log('✅ Template created with template_id', result.id)
+```
+
+#### async editTemplate(templateId, params)
+
+Updates the template represented by the given `templateId` with the new value. The `params` works just like the one from the `createTemplate` call. See [API documentation](https://transloadit.com/docs/api/templates-template-id-put/).
+
+#### async getTemplate(templateId)
+
+Retrieves the name and the template JSON for the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/templates-template-id-get/).
+
+#### async deleteTemplate(templateId)
+
+Deletes the template represented by the given `templateId`. See [API documentation](https://transloadit.com/docs/api/templates-template-id-delete/).
+
+#### async listTemplates(params)
+
+Retrieve all your templates. See [API documentation](https://transloadit.com/docs/api/templates-template-id-get/) for more info about `params`.
+
+The method returns an object containing these properties:
+
+- `items`: An `Array` of up to `pagesize` templates
+- `count`: Total number of templates
+
+#### streamTemplates(params)
+
+Creates an `objectMode` `Readable` stream that automates handling of `listTemplates` pagination. Similar to `streamAssemblies`.
+
+### Template Credentials
+
+Template Credentials allow you to store third-party credentials (e.g., AWS S3, Google Cloud Storage, FTP) securely on Transloadit for use in your Assembly Instructions.
+
+#### async createTemplateCredential(params)
+
+Creates a new Template Credential. The `params` object should contain the credential configuration. See [API documentation](https://transloadit.com/docs/api/template-credentials-post/).
+
+#### async editTemplateCredential(credentialId, params)
+
+Updates an existing Template Credential identified by `credentialId`. See [API documentation](https://transloadit.com/docs/api/template-credentials-credential-id-put/).
+
+#### async deleteTemplateCredential(credentialId)
+
+Deletes the Template Credential identified by `credentialId`. See [API documentation](https://transloadit.com/docs/api/template-credentials-credential-id-delete/).
+
+#### async getTemplateCredential(credentialId)
+
+Retrieves the Template Credential identified by `credentialId`. See [API documentation](https://transloadit.com/docs/api/template-credentials-credential-id-get/).
+
+#### async listTemplateCredentials(params)
+
+Lists all Template Credentials. See [API documentation](https://transloadit.com/docs/api/template-credentials-get/).
+
+#### streamTemplateCredentials(params)
+
+Creates an `objectMode` `Readable` stream that automates handling of `listTemplateCredentials` pagination. Similar to `streamAssemblies`.
+
+### Other
+
+#### setDefaultTimeout(timeout)
+
+Same as `constructor` `timeout` option: Set the default timeout (in milliseconds) for all requests (except `createAssembly`)
+
+#### async getBill(date)
+
+Retrieves the billing data for a given `date` string with format `YYYY-MM`. See [API documentation](https://transloadit.com/docs/api/bill-date-get/).
+
+#### calcSignature(params)
+
+Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
+
+This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
+
+See [Signature Generation](#signature-generation) in the CLI section for command-line usage.
+
+#### getSignedSmartCDNUrl(params)
+
+Constructs a signed Smart CDN URL, as defined in the [API documentation](https://transloadit.com/docs/topics/signature-authentication/#smart-cdn). `params` must be an object with the following properties:
+
+- `workspace` - Workspace slug (required)
+- `template` - Template slug or template ID (required)
+- `input` - Input value that is provided as `${fields.input}` in the template (required)
+- `urlParams` - Object with additional parameters for the URL query string (optional)
+- `expiresAt` - Expiration timestamp of the signature in milliseconds since UNIX epoch. Defaults to 1 hour from now. (optional)
+
+Example:
+
+```js
+const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+const url = client.getSignedSmartCDNUrl({
+  workspace: 'foo_workspace',
+  template: 'foo_template',
+  input: 'foo_input',
+  urlParams: {
+    foo: 'bar',
+  },
+})
+
+// url is:
+// https://foo_workspace.tlcdn.com/foo_template/foo_input?auth_key=foo_key&exp=1714525200000&foo=bar&sig=sha256:9548915ec70a5f0d05de9497289e792201ceec19a526fe315f4f4fd2e7e377ac
+```
+
+### Errors
+
+Any errors originating from Node.js will be passed on and we use [GOT](https://github.com/sindresorhus/got) v11 for HTTP requests. [Errors from `got`](https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors) will also be passed on, _except_ the `got.HTTPError` which will be replaced with a `transloadit.ApiError`, which will have its `cause` property set to the instance of the original `got.HTTPError`. `transloadit.ApiError` has these properties:
+
+- `code` (`string`) - [The Transloadit API error code](https://transloadit.com/docs/api/response-codes/#error-codes).
+- `rawMessage` (`string`) - A textual representation of the Transloadit API error.
+- `reason` (`string`) - Additional information about the Transloadit API error.
+- `assemblyId`: (`string`) - If the request is related to an assembly, this will be the ID of the assembly.
+- `assemblySslUrl` (`string`) - If the request is related to an assembly, this will be the SSL URL to the assembly .
+
+To identify errors you can either check its props or use `instanceof`, e.g.:
+
+```js
+try {
+  await transloadit.createAssembly(options)
+} catch (err) {
+  if (err instanceof got.TimeoutError) {
+    return console.error('The request timed out', err)
+  }
+  if (err.code === 'ENOENT') {
+    return console.error('Cannot open file', err)
+  }
+  if (err instanceof ApiError && err.code === 'ASSEMBLY_INVALID_STEPS') {
+    return console.error('Invalid Assembly Steps', err)
+  }
+}
+```
+
+**Note:** Assemblies that have an error status (`assembly.error`) will only result in an error being thrown from `createAssembly` and `replayAssembly`. For other Assembly methods, no errors will be thrown, but any error can be found in the response's `error` property (also `ApiError.code`).
+
+- [More information on Transloadit errors (`ApiError.code`)](https://transloadit.com/docs/api/response-codes/#error-codes)
+- [More information on request errors](https://github.com/sindresorhus/got#errors)
+
+### Rate limiting & auto retry
+
+There are three kinds of retries:
+
+#### Retry on rate limiting (`maxRetries`, default `5`)
+
+All functions of the client automatically obey all rate limiting imposed by Transloadit (e.g. `RATE_LIMIT_REACHED`), so there is no need to write your own wrapper scripts to handle rate limits. The SDK will by default retry requests **5 times** with auto back-off (See `maxRetries` constructor option).
+
+#### GOT HTTP retries (`gotRetry`, default `{ limit: 0 }`)
+
+Because we use [got](https://github.com/sindresorhus/got) under the hood, you can pass a `gotRetry` constructor option which is passed on to `got`. This offers great flexibility for handling retries on network errors and HTTP status codes with auto back-off. See [`got` `retry` object documentation](https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md).
+
+**Note that the above `maxRetries` option does not affect the `gotRetry` logic.**
+
+#### Validate API responses (`validateResponses`, default `false`)
+
+As we have ported the JavaScript SDK to TypeScript in v4, we are now also validating API responses using `zod` schemas. Having schema validation enabled (`true`), guarantees that the data returned by the SDK adheres to the TypeScript types of this SDK. However we are still working on improving the schemas and they are not yet 100% complete. This means that if you hit a bug in the schemas, a `zod` schema validation error will be thrown. If you encounter such an error, please report it and we will fix it as soon as possible. If you set this option to `false`, schema validation will be disabled, and you won't get any such errors, however the TypeScript types will not protect you should such a bug be encountered.
+
+#### Custom retry logic
+
+If you want to retry on other errors, please see the [retry example code](examples/retry.ts).
+
+- https://transloadit.com/docs/api/rate-limiting/
+- https://transloadit.com/blog/2012/04/introducing-rate-limiting/
+
+## Debugging
+
+This project uses [debug](https://github.com/visionmedia/debug) so you can run node with the `DEBUG=transloadit` evironment variable to enable verbose logging. Example:
+
+```bash
+DEBUG=transloadit* node examples/template_api.ts
+```
+
+## Maintainers
+
+- [Mikael Finstad](https://github.com/mifi)
+
+### Changelog
+
+See [Releases](https://github.com/transloadit/node-sdk/releases)
+
+## Attribution
+
+Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `transloadit` npm name. You can still access his code under [`v0.0.0`](https://www.npmjs.com/package/transloadit/v/0.0.0).
+
+## License
+
+[MIT](LICENSE) © [Transloadit](https://transloadit.com)
+
+## Development
+
+See [CONTRIBUTING](./CONTRIBUTING.md).
+
+
+
