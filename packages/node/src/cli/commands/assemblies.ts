@@ -340,6 +340,7 @@ interface OutputPlan {
 interface Job {
   inputPath: string | null
   out: OutputPlan | null
+  watchEvent?: boolean
 }
 
 type OutputPlanProvider = (inpath: string | null, indir?: string) => Promise<OutputPlan | null>
@@ -429,10 +430,8 @@ async function createExistingPathOutputPlan(outputPath: string | undefined): Pro
 
 function dirProvider(output: string): OutputPlanProvider {
   return async (inpath, indir = process.cwd()) => {
-    // Inputless assemblies can still write into a directory, but output paths are derived from
-    // assembly results rather than an input file path (handled later).
     if (inpath == null) {
-      return null
+      return await createExistingPathOutputPlan(output)
     }
     if (inpath === '-') {
       throw new Error('You must provide an input to output to a directory')
@@ -1001,7 +1000,11 @@ class WatchJobEmitter extends MyEventEmitter {
     if (stats.isDirectory()) return
 
     const outputPlan = await outputPlanProvider(normalizedFile, topdir)
-    this.emit('job', { inputPath: getJobInputPath(normalizedFile), out: outputPlan })
+    this.emit('job', {
+      inputPath: getJobInputPath(normalizedFile),
+      out: outputPlan,
+      watchEvent: true,
+    })
   }
 }
 
@@ -1059,6 +1062,11 @@ function detectConflicts(jobEmitter: EventEmitter): MyEventEmitter {
   jobEmitter.on('end', () => emitter.emit('end'))
   jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
   jobEmitter.on('job', (job: Job) => {
+    if (job.watchEvent) {
+      emitter.emit('job', job)
+      return
+    }
+
     if (job.inputPath == null || job.out == null) {
       emitter.emit('job', job)
       return
@@ -1329,10 +1337,30 @@ export async function create(
     const results: unknown[] = []
     const resultUrls: ResultUrlRow[] = []
     const reservedResultPaths = new Set<string>()
+    const latestWatchJobTokenByOutputPath = new Map<string, number>()
     let hasFailures = false
+    let nextWatchJobToken = 0
     // AbortController to cancel all in-flight createAssembly calls when an error occurs
     const abortController = new AbortController()
     const outputRootIsDirectory = Boolean(resolvedOutput != null && outstat?.isDirectory())
+
+    function reserveWatchJobToken(outputPath: string | null): number | null {
+      if (!watchOption || outputPath == null) {
+        return null
+      }
+
+      const token = ++nextWatchJobToken
+      latestWatchJobTokenByOutputPath.set(outputPath, token)
+      return token
+    }
+
+    function isSupersededWatchJob(outputPath: string | null, token: number | null): boolean {
+      if (!watchOption || outputPath == null || token == null) {
+        return false
+      }
+
+      return latestWatchJobTokenByOutputPath.get(outputPath) !== token
+    }
 
     function createAssemblyOptions({
       files,
@@ -1384,12 +1412,14 @@ export async function create(
       inPath,
       inputPaths,
       outputPlan,
+      outputToken,
       singleAssemblyMode,
     }: {
       createOptions: CreateAssemblyOptions
       inPath: string | null
       inputPaths: string[]
       outputPlan: OutputPlan | null
+      outputToken: number | null
       singleAssemblyMode?: boolean
     }): Promise<unknown> {
       outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
@@ -1398,8 +1428,16 @@ export async function create(
       if (!assembly.results) throw new Error('No results in assembly')
       const normalizedResults = normalizeAssemblyResults(assembly.results)
 
+      if (isSupersededWatchJob(outputPlan?.path ?? null, outputToken)) {
+        outputctl.debug(
+          `SKIPPED SUPERSEDED WATCH RESULT ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`,
+        )
+        return assembly
+      }
+
       if (
         !singleAssemblyMode &&
+        !watchOption &&
         (await shouldSkipStaleOutput({
           inputPaths,
           outputPath: outputPlan?.path ?? null,
@@ -1446,6 +1484,7 @@ export async function create(
     async function processAssemblyJob(
       inPath: string | null,
       outputPlan: OutputPlan | null,
+      outputToken: number | null,
     ): Promise<unknown> {
       const files =
         inPath != null && inPath !== stdinWithPath.path
@@ -1465,6 +1504,7 @@ export async function create(
         inPath,
         inputPaths: inPath == null ? [] : [inPath],
         outputPlan,
+        outputToken,
       })
     }
 
@@ -1491,11 +1531,6 @@ export async function create(
       })
 
       emitter.on('end', async () => {
-        if (collectedPaths.length === 0 && inputlessOutputPlan == null) {
-          resolve({ resultUrls, results: [], hasFailures: false })
-          return
-        }
-
         if (
           await shouldSkipStaleOutput({
             inputPaths: collectedPaths,
@@ -1548,6 +1583,7 @@ export async function create(
               outputPlan:
                 inputlessOutputPlan ??
                 (resolvedOutput == null ? null : createOutputPlan(resolvedOutput, new Date(0))),
+              outputToken: null,
               singleAssemblyMode: true,
             })
           })
@@ -1565,10 +1601,11 @@ export async function create(
       emitter.on('job', (job: Job) => {
         const inPath = job.inputPath
         const outputPlan = job.out
+        const outputToken = reserveWatchJobToken(outputPlan?.path ?? null)
         outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
         queue
           .add(async () => {
-            const result = await processAssemblyJob(inPath, outputPlan)
+            const result = await processAssemblyJob(inPath, outputPlan, outputToken)
             if (result !== undefined) {
               results.push(result)
             }
