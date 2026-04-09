@@ -2,8 +2,8 @@
   "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.7.5.tgz",
-    "sizeBytes": 1329164,
-    "sha256": "0be45e33a585acb5648bea70b10ef6c8371b5952a890fe378739172338d43a03"
+    "sizeBytes": 1329165,
+    "sha256": "ea0e9d591169bbadaf8370f5dd45e4df776713076458879345721d0781f6e408"
   },
   "packageJson": {
     "name": "transloadit",
@@ -2278,8 +2278,8 @@
     },
     {
       "path": "README.md",
-      "sizeBytes": 81217,
-      "sha256": "4c190c948f0dbdc521fd2163675df8da755274846f73106721b352694c3e2914"
+      "sizeBytes": 81218,
+      "sha256": "e7777f11b097743c372093bb06d995dab0e876a665dfa6a9fc795ccccfc4f594"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts",
