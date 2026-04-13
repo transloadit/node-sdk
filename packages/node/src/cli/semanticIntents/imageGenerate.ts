@@ -1,4 +1,5 @@
-import type { IntentOptionDefinition } from '../intentRuntime.ts'
+import { basename } from 'node:path'
+import type { IntentOptionDefinition, PreparedIntentInputs } from '../intentRuntime.ts'
 import type { SemanticIntentDescriptor, SemanticIntentPresentation } from './index.ts'
 import { parseOptionalEnumValue } from './parsing.ts'
 
@@ -213,6 +214,24 @@ function createImageGenerateStep(
   return step
 }
 
+function ensureUniqueInputBasenames(preparedInputs: PreparedIntentInputs): PreparedIntentInputs {
+  const seenBasenames = new Map<string, string>()
+
+  for (const input of preparedInputs.inputs) {
+    const inputBasename = basename(input)
+    const previousInput = seenBasenames.get(inputBasename)
+    if (previousInput != null) {
+      throw new Error(
+        `image generate requires unique input basenames when prompts refer to files; found duplicate ${inputBasename} in ${previousInput} and ${input}`,
+      )
+    }
+
+    seenBasenames.set(inputBasename, input)
+  }
+
+  return preparedInputs
+}
+
 export const imageGenerateSemanticIntentDescriptor = {
   createStep: createImageGenerateStep,
   execution: {
@@ -227,6 +246,9 @@ export const imageGenerateSemanticIntentDescriptor = {
     attachUseWhenInputsProvided: false,
   },
   outputDescription: 'Write the result to this path',
+  async prepareInputs(preparedInputs) {
+    return await Promise.resolve(ensureUniqueInputBasenames(preparedInputs))
+  },
   presentation: imageGenerateCommandPresentation,
   runnerKind: 'bundled',
 } as const satisfies SemanticIntentDescriptor

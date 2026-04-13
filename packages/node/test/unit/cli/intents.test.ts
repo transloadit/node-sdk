@@ -435,6 +435,24 @@ describe('intent commands', () => {
     expect(createSpy).not.toHaveBeenCalled()
   })
 
+  it('rejects duplicate image generate input basenames', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--input',
+      'dir-a/person.jpg',
+      '--input',
+      'dir-b/person.jpg',
+      '--prompt',
+      'Place person.jpg into a magazine cover',
+      '--out',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
   it('maps preview generate flags to /file/preview step parameters', async () => {
     const { createSpy } = await runIntentCommand([
       'preview',

@@ -169,7 +169,7 @@ Runs `/image/generate`. Without inputs, this is text-to-image. With one or more 
 **Usage**
 
 ```bash
-npx transloadit image generate --input <path|dir|url|-> [options]
+npx transloadit image generate [--input <path|dir|url|->] [options]
 ```
 
 **Quick facts**
@@ -672,7 +672,7 @@ Runs `/text/speak` on each input file and writes the result to `--out`.
 **Usage**
 
 ```bash
-npx transloadit text speak --input <path|dir|url|-> [options]
+npx transloadit text speak [--input <path|dir|url|->] [options]
 ```
 
 **Quick facts**
@@ -1756,6 +1756,7 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
+
 
 
 
