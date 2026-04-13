@@ -13,10 +13,7 @@
       ".": "./dist/Transloadit.js",
       "./package.json": "./package.json"
     },
-    "files": [
-      "dist",
-      "src"
-    ]
+    "files": ["dist", "src"]
   },
   "files": [
     {
