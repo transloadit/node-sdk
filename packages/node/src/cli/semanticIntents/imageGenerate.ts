@@ -11,7 +11,7 @@ const imageGenerateOptionDefinitions = [
     propertyName: 'prompt',
     optionFlags: '--prompt',
     description: 'The prompt describing the desired image content.',
-    required: false,
+    required: true,
     exampleValue: JSON.stringify('A red bicycle in a studio'),
   },
   {
@@ -122,9 +122,26 @@ function parseOptionalNumber(flagName: string, value: unknown): number | undefin
     return undefined
   }
 
-  const numericValue = typeof value === 'number' ? value : Number.parseFloat(String(value).trim())
+  const numericValue = typeof value === 'number' ? value : Number(String(value).trim())
   if (Number.isNaN(numericValue)) {
     throw new Error(`${flagName} must be a number`)
+  }
+
+  return numericValue
+}
+
+function parseOptionalIntegerRange(
+  flagName: string,
+  value: unknown,
+  { max, min }: { max: number; min: number },
+): number | undefined {
+  const numericValue = parseOptionalNumber(flagName, value)
+  if (numericValue == null) {
+    return undefined
+  }
+
+  if (!Number.isInteger(numericValue) || numericValue < min || numericValue > max) {
+    throw new Error(`${flagName} must be an integer between ${min} and ${max}`)
   }
 
   return numericValue
@@ -182,7 +199,10 @@ function createImageGenerateStep(
     step.style = style
   }
 
-  const numOutputs = parseOptionalNumber('--num-outputs', rawValues.numOutputs)
+  const numOutputs = parseOptionalIntegerRange('--num-outputs', rawValues.numOutputs, {
+    min: 1,
+    max: 10,
+  })
   if (numOutputs != null) {
     step.num_outputs = numOutputs
   }

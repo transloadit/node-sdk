@@ -18,7 +18,7 @@ import {
   inferIntentFieldKind,
   parseStringArrayValue,
 } from '../../../src/cli/intentFields.ts'
-import { prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
+import { getIntentOptionDefinitions, prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { intentSmokeCases } from '../../support/intentSmokeCases.ts'
@@ -370,6 +370,36 @@ describe('intent commands', () => {
       'generate',
       '--input',
       'person1.jpg',
+      '--out',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
+  it('marks --prompt as required in image generate option metadata', () => {
+    const command = getIntentCommand(['image', 'generate'])
+    const intentDefinition = Reflect.get(command, 'intentDefinition')
+    if (intentDefinition == null || typeof intentDefinition !== 'object') {
+      throw new Error('Missing intent definition')
+    }
+
+    const promptField = getIntentOptionDefinitions(
+      intentDefinition as Parameters<typeof getIntentOptionDefinitions>[0],
+    ).find((field) => field.name === 'prompt')
+
+    expect(promptField?.required).toBe(true)
+  })
+
+  it('rejects invalid --num-outputs values for image generate before creating an assembly', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--prompt',
+      'A red bicycle in a studio',
+      '--num-outputs',
+      '11',
       '--out',
       'generated.png',
     ])
