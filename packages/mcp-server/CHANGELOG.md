@@ -1,5 +1,18 @@
 # @transloadit/mcp-server
 
+## 0.3.11
+
+### Patch Changes
+
+- b716069: Release the alphalib sync from #370 through npm.
+
+  This updates the Node SDK's generated alphalib robot and template types to match the latest sync,
+  including new robot schemas and metadata refinements. Release the MCP server alongside it so the
+  validated server and SDK surfaces stay aligned.
+
+- Updated dependencies [b716069]
+  - @transloadit/node@4.7.7
+
 ## 0.3.10
 
 ### Patch Changes
