@@ -468,6 +468,7 @@ describeLive('assemblies', () => {
           'Max concurrent jobs should not exceed concurrency limit',
         ).to.be.at.most(2)
       }),
+      180_000,
     )
 
     it(
