@@ -1,5 +1,12 @@
 # @transloadit/node
 
+## 4.8.0
+
+### Minor Changes
+
+- aa91113: Add input-guided `image generate` intent support, default image generation to
+  `google/nano-banana-2`, and document multi-image prompting by filename.
+
 ## 4.7.7
 
 ### Patch Changes
