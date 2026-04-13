@@ -227,6 +227,7 @@ describeLive('assemblies', () => {
         expect(outs).to.include('out/sub/3.jpg')
         expect(outs).to.have.lengthOf(2)
       }),
+      180_000,
     )
 
     it(
@@ -415,6 +416,7 @@ describeLive('assemblies', () => {
           result.map((line) => line.msg).filter((msg) => String(msg).includes('in1.jpg')),
         ).to.have.lengthOf(0)
       }),
+      180_000,
     )
 
     it(
