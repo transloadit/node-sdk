@@ -212,7 +212,10 @@ function buildDescribeAiChatMessages({
   }
 }
 
-function createImageDescribeStep(rawValues: Record<string, unknown>): Record<string, unknown> {
+function createImageDescribeStep(
+  rawValues: Record<string, unknown>,
+  _context: { hasInputs: boolean },
+): Record<string, unknown> {
   const { fields, profile } = resolveImageDescribeRequest(rawValues)
   if (fields.length === 1 && fields[0] === 'labels') {
     return {

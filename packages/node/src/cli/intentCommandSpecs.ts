@@ -38,10 +38,6 @@ import {
   meta as robotImageBgremoveMeta,
 } from '../alphalib/types/robots/image-bgremove.ts'
 import {
-  robotImageGenerateInstructionsSchema,
-  meta as robotImageGenerateMeta,
-} from '../alphalib/types/robots/image-generate.ts'
-import {
   robotImageOptimizeInstructionsSchema,
   meta as robotImageOptimizeMeta,
 } from '../alphalib/types/robots/image-optimize.ts'
@@ -169,11 +165,10 @@ export function findIntentDefinitionByPaths(
 }
 
 export const intentCatalog = [
-  defineRobotIntent({
-    kind: 'robot',
-    robot: '/image/generate',
-    meta: robotImageGenerateMeta,
-    schema: robotImageGenerateInstructionsSchema,
+  defineSemanticIntent({
+    kind: 'semantic',
+    paths: ['image', 'generate'],
+    semantic: 'image-generate',
   }),
   defineRobotIntent({
     kind: 'robot',

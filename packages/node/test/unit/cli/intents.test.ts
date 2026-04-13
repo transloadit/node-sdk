@@ -313,7 +313,7 @@ describe('intent commands', () => {
         inputs: [],
         output: 'generated.png',
         stepsData: {
-          [getIntentStepName(['image', 'generate'])]: expect.objectContaining({
+          generate: expect.objectContaining({
             robot: '/image/generate',
             result: true,
             prompt: 'A red bicycle in a studio',
@@ -323,6 +323,59 @@ describe('intent commands', () => {
         },
       }),
     )
+  })
+
+  it('bundles image generate inputs into a single /image/generate step', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--input',
+      'person1.jpg',
+      '--input',
+      'person2.jpg',
+      '--input',
+      'background.jpg',
+      '--prompt',
+      'Place person1.jpg feeding person2.jpg in front of background.jpg',
+      '--out',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['person1.jpg', 'person2.jpg', 'background.jpg'],
+        output: 'generated.png',
+        singleAssembly: true,
+        stepsData: {
+          generate: expect.objectContaining({
+            robot: '/image/generate',
+            result: true,
+            prompt: 'Place person1.jpg feeding person2.jpg in front of background.jpg',
+            use: {
+              steps: [':original'],
+              bundle_steps: true,
+            },
+          }),
+        },
+      }),
+    )
+  })
+
+  it('requires --prompt for image generate even when inputs are provided', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--input',
+      'person1.jpg',
+      '--out',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
   })
 
   it('maps preview generate flags to /file/preview step parameters', async () => {

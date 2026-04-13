@@ -318,8 +318,9 @@ function createSingleStep(
 function createDynamicIntentStep(
   execution: IntentDynamicStepExecutionDefinition,
   rawValues: Record<string, unknown>,
+  hasInputs: boolean,
 ): Record<string, unknown> {
-  return getSemanticIntentDescriptor(execution.handler).createStep(rawValues)
+  return getSemanticIntentDescriptor(execution.handler).createStep(rawValues, { hasInputs })
 }
 
 function requiresLocalInput(
@@ -367,7 +368,11 @@ async function executeIntentCommand({
                     rawValues,
                     createOptions.inputs.length > 0,
                   )
-                : createDynamicIntentStep(definition.execution, rawValues),
+                : createDynamicIntentStep(
+                    definition.execution,
+                    rawValues,
+                    createOptions.inputs.length > 0,
+                  ),
           } as AssembliesCreateOptions['stepsData'],
         }
 
@@ -563,7 +568,7 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
 
     const execution = this.getIntentDefinition().execution
     if (execution.kind === 'dynamic-step') {
-      createDynamicIntentStep(execution, rawValues)
+      createDynamicIntentStep(execution, rawValues, this.getProvidedInputCount() > 0)
     }
 
     return undefined
