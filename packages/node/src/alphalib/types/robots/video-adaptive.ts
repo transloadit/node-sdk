@@ -10,7 +10,6 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: false,
   bytescount: Number.POSITIVE_INFINITY,
   discount_factor: 1,
   discount_pct: 0,
@@ -54,13 +53,13 @@ export const meta: RobotMetaInput = {
   output_factor: 1.2,
   override_lvl1: 'Video Encoding',
   purpose_sentence:
-    'encodes videos into HTTP Live Streaming (HLS) and MPEG-Dash supported formats and generates the necessary manifest and playlist files',
+    'encodes videos into HTTP Live Streaming (HLS), MPEG-Dash and CMAF supported formats and generates the necessary manifest and playlist files',
   purpose_verb: 'convert',
   purpose_word: 'make adaptive',
-  purpose_words: 'Convert videos to HLS and MPEG-Dash',
+  purpose_words: 'Convert videos to HLS, MPEG-Dash and CMAF',
   service_slug: 'video-encoding',
   slot_count: 60,
-  title: 'Convert videos to HLS and MPEG-Dash',
+  title: 'Convert videos to HLS, MPEG-Dash and CMAF',
   typical_file_size_mb: 80,
   typical_file_type: 'video',
   name: 'VideoAdaptiveRobot',
@@ -119,16 +118,23 @@ The <dfn>Robot</dfn> gives its result files (segments, initialization segments, 
 In the \`path\` parameter of the storage <dfn>Robot</dfn> of your choice, use the <dfn>Assembly Variable</dfn> \`\${file.meta.relative_path}\` to store files in the proper paths to make the playlist files work.
 `),
     technique: z
-      .enum(['dash', 'hls'])
+      .enum(['dash', 'hls', 'cmaf'])
       .default('dash')
       .describe(`
-Determines which streaming technique should be used. Currently supports \`"dash"\` for MPEG-Dash and \`"hls"\` for HTTP Live Streaming.
+Determines which streaming technique should be used. Supports \`"dash"\` for MPEG-Dash, \`"hls"\` for HTTP Live Streaming and \`"cmaf"\` for FFmpeg-based CMAF output with both MPEG-Dash and HLS manifests that reference the same fMP4 segments.
 `),
     playlist_name: z
       .string()
       .optional()
       .describe(`
 The filename for the generated manifest/playlist file. The default is \`"playlist.mpd"\` if your \`technique\` is \`"dash"\`, and \`"playlist.m3u8"\` if your \`technique\` is \`"hls"\`.
+For \`"cmaf"\`, this value names the MPEG-Dash manifest and defaults to \`"playlist.mpd"\`.
+`),
+    hls_playlist_name: z
+      .string()
+      .optional()
+      .describe(`
+Only used when \`technique\` is \`"cmaf"\`. Defines the filename for the generated HLS master playlist. The default is \`"playlist.m3u8"\`.
 `),
     segment_duration: z
       .number()
@@ -142,6 +148,16 @@ The duration for each segment in seconds.
       .default(true)
       .describe(`
 Determines whether you want closed caption support when using the \`"hls"\` technique.
+`),
+    audio_group: z
+      .boolean()
+      .default(false)
+      .describe(`
+When set to \`true\` and using the \`"hls"\` technique, audio-only input files are treated as alternate audio renditions instead of standalone stream variants. This enables players to offer audio track selection (e.g. for multiple languages). Audio-only files are listed as \`#EXT-X-MEDIA:TYPE=AUDIO\` entries in the multivariant playlist, and video variants reference them via the \`AUDIO\` attribute.
+
+When enabled, video inputs only include their video stream in the output segments (any muxed audio is excluded). Provide audio separately as audio-only input files.
+
+This option is only supported for the \`"hls"\` technique and has no effect when using \`"dash"\`.
 `),
   })
   .strict()

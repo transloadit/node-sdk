@@ -4,7 +4,6 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: false,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
@@ -130,6 +129,14 @@ Files with same names are numbered in the \`"simple"\` file layout to avoid nami
       .optional()
       .describe(`
 The name of the archive file to be created (without the file extension).
+`),
+    path: z
+      .string()
+      .optional()
+      .describe(`
+The path at which each file is to be placed inside the archive. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables). Variables are evaluated per file, allowing templates like \`"\${file.meta.archive_directory}/\${file.name}"\` to preserve the original directory structure from a previously extracted archive.
+
+When this parameter is set, the \`file_layout\` parameter is ignored.
 `),
   })
   .strict()

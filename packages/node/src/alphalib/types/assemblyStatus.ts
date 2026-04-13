@@ -54,6 +54,10 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'ASSEMBLY_STATS_ERROR',
   'ASSEMBLY_STATS_INVALID_TIME',
   'ASSEMBLY_STATS_MISSING_REGION',
+  'PRIORITY_JOB_SLOT_STATS_ERROR',
+  'PRIORITY_JOB_SLOT_STATS_INVALID_AGGREGATION',
+  'PRIORITY_JOB_SLOT_STATS_INVALID_TIME',
+  'PRIORITY_JOB_SLOT_STATS_MISSING_REGION',
   'ASSEMBLY_STATUS_FETCHING_RATE_LIMIT_REACHED',
   'ASSEMBLY_STATUS_NOT_FOUND',
   'ASSEMBLY_STATUS_PARSE_ERROR',
@@ -69,6 +73,7 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'AUTH_KEY_SCOPES_NOT_FOUND',
   'AUTH_KEYS_NOT_FOUND',
   'AUTH_SECRET_NOT_RETRIEVED',
+  'AUDIO_WAVEFORM_VALIDATION',
   'AZURE_STORE_ACCESS_DENIED',
   'BEARER_TOKEN_AUTH_KEY_MISMATCH',
   'BEARER_TOKEN_EXPIRED',
@@ -93,6 +98,7 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'DOCUMENT_OPTIMIZE_UNSUPPORTED_INPUT',
   'DOCUMENT_OPTIMIZE_VALIDATION',
   'DOCUMENT_SPLIT_VALIDATION',
+  'DOCUMENT_THUMBS_VALIDATION',
   'FILE_DOWNLOAD_ERROR',
   'FILE_FILTER_DECLINED_FILE',
   'FILE_FILTER_INVALID_OPERATOR',
@@ -113,6 +119,8 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'HTTP_IMPORT_NOT_FOUND',
   'HTTP_IMPORT_VALIDATION',
   'IMAGE_DESCRIBE_VALIDATION',
+  'IMAGE_ENHANCE_NO_INPUT_FILE',
+  'IMAGE_ENHANCE_VALIDATION',
   'IMAGE_RESIZE_ERROR',
   'IMAGE_RESIZE_VALIDATION',
   'IMPORT_FILE_ERROR',
@@ -166,6 +174,9 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'SERVER_404',
   'SERVER_500',
   'SIGNATURE_REUSE_DETECTED',
+  'SLOT_COUNT_ERROR',
+  'SLOT_COUNT_MISSING_PARAMS',
+  'SLOT_COUNTS_ERROR',
   'TEMPLATE_CREDENTIALS_INJECTION_ERROR',
   'TEMPLATE_DB_ERROR',
   'TEMPLATE_DENIES_STEPS_OVERRIDE',
@@ -230,7 +241,20 @@ const assemblyStatusMetaSchema = z
     orientation: z.union([z.string(), z.number()]).nullable().optional(),
     creator: z.string().nullable().optional(),
     author: z.string().nullable().optional(),
-    copyright: z.string().nullable().optional(),
+    copyright: z
+      .union([
+        z.string(),
+        z
+          .object({
+            licenses: z.array(z.unknown()),
+            flagged: z.boolean(),
+            max_confidence: z.number(),
+            confidence_threshold: z.number(),
+          })
+          .passthrough(),
+      ])
+      .nullable()
+      .optional(),
     copyright_notice: z.union([z.string(), z.number()]).nullable().optional(),
     dominant_colors: z.array(z.string()).nullable().optional(),
     xp_title: z.string().nullable().optional(),
@@ -608,6 +632,19 @@ export const assemblyStatusBaseSchema = z.object({
       retryIn: z.number().optional(),
     })
     .optional(),
+  ignored_errors: z
+    .array(
+      z
+        .object({
+          step: z.string().optional(),
+          phase: z.string(),
+          error: z.string(),
+          message: z.string(),
+        })
+        .passthrough(),
+    )
+    .optional(),
+  ignored_error_count: z.number().optional(),
 })
 
 export const assemblyStatusBusySchema = z
@@ -650,6 +687,8 @@ export const assemblyStatusErrSchema = assemblyStatusBaseSchema
     err: z.unknown().optional(),
   })
   .passthrough()
+
+export type AssemblyStatusError = z.infer<typeof assemblyStatusErrSchema>
 
 // Represents a low-level system error not mapped to standard assembly errors.
 // Happened in Assemblies:
@@ -697,7 +736,7 @@ export type AssemblyStatus = z.infer<typeof assemblyStatusSchema>
 export function hasError(
   assembly: AssemblyStatus | undefined | null,
   particularErrorCode?: z.infer<typeof assemblyStatusErrCodeSchema>,
-): assembly is AssemblyStatus & { error: string } {
+): assembly is AssemblyStatusError {
   const errorExists =
     Boolean(assembly) && assembly != null && typeof assembly === 'object' && 'error' in assembly
 

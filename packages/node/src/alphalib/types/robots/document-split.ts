@@ -4,10 +4,18 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
+  example_code: {
+    steps: {
+      extracted_pages: {
+        robot: '/document/split',
+        use: ':original',
+        pages: ['1', '3-5'],
+      },
+    },
+  },
   example_code_description: 'Extract single or multiple pages from a PDF document:',
   minimum_charge: 2097152,
   output_factor: 1,

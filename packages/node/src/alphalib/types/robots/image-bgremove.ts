@@ -4,7 +4,6 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   discount_factor: 1,
   bytescount: 1,
   discount_pct: 0,
@@ -48,7 +47,10 @@ export const robotImageBgremoveInstructionsSchema = robotBase
       .enum(['foreground', 'background'])
       .optional()
       .describe('Region to select and keep in the image. The other region is removed.'),
-    format: z.enum(['png', 'gif', 'webp']).optional().describe('Format of the generated image.'),
+    format: z
+      .enum(['png', 'gif', 'webp'])
+      .default('png')
+      .describe('Format of the generated image. Defaults to PNG when not provided.'),
     provider: z
       .enum(['transloadit', 'replicate', 'fal'])
       .optional()

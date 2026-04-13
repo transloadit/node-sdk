@@ -4,10 +4,10 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse, vimeoBase } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 6,
   discount_factor: 0.15000150001500018,
   discount_pct: 84.99984999849998,
+  hideCredentialsWarning: true,
   example_code: {
     steps: {
       exported: {
@@ -24,7 +24,7 @@ export const meta: RobotMetaInput = {
   minimum_charge: 0,
   output_factor: 1,
   override_lvl1: 'File Exporting',
-  purpose_sentence: 'exports encoding results to vimeo',
+  purpose_sentence: 'exports encoding results to Vimeo',
   purpose_verb: 'export',
   purpose_word: 'Vimeo',
   purpose_words: 'Export files to Vimeo',
@@ -47,7 +47,18 @@ export const robotVimeoStoreInstructionsSchema = robotBase
   .merge(robotUse)
   .merge(vimeoBase)
   .extend({
-    robot: z.literal('/vimeo/store'),
+    robot: z.literal('/vimeo/store').describe(`
+## Getting started
+
+Since Vimeo works with OAuth, you will need to generate [Template Credentials](https://transloadit.com/c/template-credentials/) to use this <dfn>Robot</dfn>.
+
+To change the \`title\` or \`description\` per video, we recommend to [inject variables into your Template](/docs/topics/templates/).
+
+> [!Warning]
+> Vimeo's API limits the number of concurrent uploads per minute based on your Vimeo account plan. To see how many videos can be uploaded at once based on your plan, click the following [link](https://developer.vimeo.com/guidelines/rate-limiting#table-1).
+
+Note that this <dfn>Robot</dfn> only accepts videos.
+`),
     title: z.string().describe(`
 The title of the video to be displayed on Vimeo.
 `),

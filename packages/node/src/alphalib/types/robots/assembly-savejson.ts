@@ -5,6 +5,14 @@ import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 // @ts-expect-error - AssemblySavejsonRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
   name: 'AssemblySavejsonRobot',
+  example_code: {
+    steps: {
+      save_json: {
+        robot: '/assembly/savejson',
+      },
+    },
+  },
+  example_code_description: 'Save Assembly result data as JSON:',
   priceFactor: 0,
   queueSlotCount: 5,
   isAllowedForUrlTransform: true,

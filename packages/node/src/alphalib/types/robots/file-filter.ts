@@ -9,7 +9,6 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 0,
   discount_factor: 0,
   discount_pct: 100,
@@ -18,7 +17,7 @@ export const meta: RobotMetaInput = {
       filtered: {
         robot: '/file/filter',
         use: ':original',
-        declines: [['${file.size}', '>', '20971520']],
+        declines: [['${file.size}', '>', '20mb']],
         error_on_decline: true,
         error_msg: 'File size must not exceed 20 MB',
       },
@@ -74,8 +73,20 @@ Examples:
 
 - \`[["\${file.meta.width}", ">", "\${file.meta.height}"]]\`
 - \`[["\${file.size}", "<=", "720"]]\`
+- \`[["\${file.size}", ">", "20mb"]]\`
 - \`[["720", ">=", "\${file.size}"]]\`
 - \`[["\${file.mime}", "regex", "image"]]\`
+
+When you match against \`\${file.mime}\`, the value is typically based on Transloadit’s
+server-side metadata extraction in the normal upload flow, rather than only the MIME type reported
+by the client or browser. This makes \`/file/filter\` suitable for rejecting mislabeled files.
+Depending on the file container and the detection tools involved, some formats may be reported under
+closely related MIME types such as \`image/heic\` or \`image/heif\`.
+
+If you only want formats that browsers consistently render, prefer an explicit allowlist such as
+\`^(image/jpeg|image/png|image/gif|image/webp|image/avif)$\` over a broad \`^image/\` rule.
+
+For numeric comparisons (\`<\`, \`>\`, \`<=\`, \`>=\`), you can use human-readable byte values such as \`"20mb"\`, \`"1gb"\`, or \`"512kb"\`. These use binary (1024-based) multipliers. Supported units: \`b\`, \`kb\`, \`mb\`, \`gb\`, \`tb\`, \`pb\` (and their IEC equivalents \`kib\`, \`mib\`, \`gib\`, \`tib\`, \`pib\`).
 
 The \`includes\` and \`!includes\` operators work with arrays or strings (strings use substring checks).
 
@@ -98,9 +109,12 @@ As indicated, we charge for this via [🤖/script/run](/docs/robots/script-run/)
     accepts: filterCondition
       .describe(
         `
-Files that match at least one requirement will be accepted, or declined otherwise. If the value is \`null\`, all files will be accepted. If the array is empty, no files will be accepted. Example:
+Files that match at least one requirement will be accepted, or declined otherwise. If the value is \`null\`, all files will be accepted. If the array is empty, no files will be accepted. Examples:
 
-\`[["\${file.mime}", "==", "image/gif"]]\`.
+\`[["\${file.mime}", "==", "image/gif"]]\`
+\`[["\${file.size}", "<", "5kb"]]\`
+
+For numeric comparisons (\`<\`, \`>\`, \`<=\`, \`>=\`), human-readable byte values such as \`"20mb"\`, \`"1gb"\`, or \`"512kb"\` are supported.
 
 If the \`condition_type\` parameter is set to \`"and"\`, then all requirements must match for the file to be accepted.
 
@@ -111,9 +125,12 @@ If \`accepts\` and \`declines\` are both provided, the requirements in \`accepts
     declines: filterCondition
       .describe(
         `
-Files that match at least one requirement will be declined, or accepted otherwise. If the value is \`null\` or an empty array, no files will be declined. Example:
+Files that match at least one requirement will be declined, or accepted otherwise. If the value is \`null\` or an empty array, no files will be declined. Examples:
 
-\`[["\${file.size}",">","1024"]]\`.
+\`[["\${file.size}", ">", "1024"]]\`
+\`[["\${file.size}", ">", "20mb"]]\`
+
+For numeric comparisons (\`<\`, \`>\`, \`<=\`, \`>=\`), human-readable byte values such as \`"20mb"\`, \`"1gb"\`, or \`"512kb"\` are supported.
 
 If the \`condition_type\` parameter is set to \`"and"\`, then all requirements must match for the file to be declined.
 

@@ -227,14 +227,9 @@ export function zodParseWithContext<T extends z.ZodType>(
       }
       // Handle other specific error codes (only if not handled above)
       else {
-        // Handle specific error codes for better messages
-        let received: string
-        let type: string
-        let bigType: string
-
         switch (zodIssue.code) {
           case 'invalid_type': {
-            received = zodIssue.received === 'undefined' ? 'missing' : zodIssue.received
+            const received = zodIssue.received === 'undefined' ? 'missing' : zodIssue.received
             const actualValue = getByPath(obj, path)
             const actualValueStr =
               typeof actualValue === 'object' && actualValue !== null
@@ -254,14 +249,26 @@ export function zodParseWithContext<T extends z.ZodType>(
               messages.push(zodIssue.message)
             }
             break
-          case 'too_small':
-            type = zodIssue.type === 'string' ? 'characters' : 'items'
-            messages.push(`should have at least ${zodIssue.minimum} ${type}`)
+          case 'too_small': {
+            messages.push(
+              zodIssue.type === 'string'
+                ? `should have at least ${zodIssue.minimum} characters`
+                : zodIssue.type === 'array' || zodIssue.type === 'set'
+                  ? `should have at least ${zodIssue.minimum} items`
+                  : `must be ${zodIssue.minimum} or greater`,
+            )
             break
-          case 'too_big':
-            bigType = zodIssue.type === 'string' ? 'characters' : 'items'
-            messages.push(`should have at most ${zodIssue.maximum} ${bigType}`)
+          }
+          case 'too_big': {
+            messages.push(
+              zodIssue.type === 'string'
+                ? `may have at most ${zodIssue.maximum} characters`
+                : zodIssue.type === 'array' || zodIssue.type === 'set'
+                  ? `may have at most ${zodIssue.maximum} items`
+                  : `may not exceed ${zodIssue.maximum}`,
+            )
             break
+          }
           case 'custom':
             messages.push(zodIssue.message)
             break

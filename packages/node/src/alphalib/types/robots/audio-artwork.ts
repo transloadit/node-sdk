@@ -10,7 +10,6 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
@@ -28,7 +27,7 @@ export const meta: RobotMetaInput = {
   output_factor: 0.8,
   override_lvl1: 'Audio Encoding',
   purpose_sentence:
-    'extracts the embedded cover artwork from audio files and allows you to pipe it into other Steps, for example into /image/resize Steps. It can also insert images into audio files as cover artwork',
+    'extracts embedded cover artwork from audio files or inserts a new cover image into them. Extracted artwork can be piped into other Steps such as /image/resize. Use `method: "insert"` to embed artwork into audio files like MP3, FLAC, or M4A',
   purpose_verb: 'extract',
   purpose_word: 'extract/insert artwork',
   purpose_words: 'Extract or insert audio artwork',
@@ -53,11 +52,11 @@ export const robotAudioArtworkInstructionsSchema = robotBase
   .merge(robotFFmpegAudio)
   .extend({
     robot: z.literal('/audio/artwork').describe(`
-For extraction, this <dfn>Robot</dfn> uses the image format embedded within the audio file — most often, this is JPEG.
+This <dfn>Robot</dfn> extracts or inserts cover artwork in audio files.
 
-If you need the image in a different format, pipe the result of this <dfn>Robot</dfn> into [🤖/image/resize](/docs/robots/image-resize/).
+For extraction, it uses the image format embedded within the audio file — most often, this is JPEG. If you need the image in a different format, pipe the result into [🤖/image/resize](/docs/robots/image-resize/).
 
-The \`method\` parameter determines whether to extract or insert.
+For insertion, provide both an audio file (as \`"audio"\`) and an image file (as \`"image"\`) via the \`use\` parameter, and set \`method\` to \`"insert"\`. The image will be embedded as the cover artwork of the audio file.
 `),
     method: z
       .enum(['extract', 'insert'])

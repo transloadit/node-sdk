@@ -4,7 +4,6 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: false,
   bytescount: 10,
   discount_factor: 0.1,
   discount_pct: 90,

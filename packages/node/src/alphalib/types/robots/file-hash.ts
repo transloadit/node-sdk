@@ -4,7 +4,6 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: false,
   bytescount: 5,
   discount_factor: 0.2,
   discount_pct: 80,
@@ -52,6 +51,29 @@ This <dfn>Robot</dfn> allows you to hash any file as part of the <dfn>Assembly</
 The hashing algorithm to use.
 
 The file hash is exported as \`file.meta.hash\`.
+`),
+    partial: z
+      .enum(['full', 'first', 'last', 'both'])
+      .default('full')
+      .describe(`
+Specifies which portion of the file to hash. This is useful for fast fingerprinting of large files.
+
+- \`"full"\` (default): Hash the entire file.
+- \`"first"\`: Hash only the first N bytes (specified by \`partial_size\`).
+- \`"last"\`: Hash only the last N bytes (specified by \`partial_size\`).
+- \`"both"\`: Hash the first N bytes concatenated with the last N bytes.
+
+When using partial hashing, \`file.meta.hash_partial\` indicates the mode used, and \`file.meta.hash_partial_size\` indicates the number of bytes hashed from each portion.
+`),
+    partial_size: z
+      .number()
+      .int()
+      .positive()
+      .default(1048576)
+      .describe(`
+The number of bytes to hash when using partial hashing. Defaults to \`1048576\` (1 MB).
+
+This parameter is only used when \`partial\` is set to \`"first"\`, \`"last"\`, or \`"both"\`.
 `),
   })
   .strict()

@@ -10,7 +10,6 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
@@ -68,6 +67,23 @@ export const robotDocumentThumbsInstructionsSchema = robotBase
       .default(null)
       .describe(`
 The PDF page that you want to convert to an image. By default the value is \`null\` which means that all pages will be converted into images.
+`),
+    page_range: z
+      .string()
+      .regex(/^\d+-\d+$/)
+      .refine(
+        (val) => {
+          const [start, end] = val.split('-').map(Number)
+          return start >= 1 && end >= start
+        },
+        { message: 'Start must be ≥ 1 and end must be ≥ start (e.g. "1-20")' },
+      )
+      .nullable()
+      .default(null)
+      .describe(`
+A page range to extract, in the format \`"start-end"\` (e.g., \`"1-20"\`). Extraction starts from the first page in the range and proceeds sequentially, stopping gracefully when a page does not exist. This is useful for PDFs where the total page count cannot be determined.
+
+This parameter cannot be used together with \`page\`, and is not supported with GIF format. When \`page_range\` is set, the robot does not need to know the total page count upfront, making it robust for PDFs that fail page count detection.
 `),
     format: z
       .enum(['gif', 'jpeg', 'jpg', 'png'])
@@ -169,11 +185,17 @@ Some PDF documents lie about their dimensions. For instance they'll say they are
       .boolean()
       .default(true)
       .describe(`
-If you set this to \`false\`, the robot will not emit files as they become available. This is useful if you are only interested in the final result and not in the intermediate steps.
+Enables high-performance mode for faster document processing.
 
-Also, extracted pages will be resized a lot faster as they are sent off to other machines for the resizing. This is especially useful for large documents with many pages to get up to 20 times faster processing.
+When enabled, Turbo Mode provides two key optimizations:
 
-Turbo Mode increases pricing, though, in that the input document's file size is added for every extracted page. There are no performance benefits nor increased charges for single-page documents.
+1. **Parallel page extraction**: For documents with more than 5 pages, multiple processes run in parallel to extract pages simultaneously. The number of parallel processes scales with the document size (up to 4 processes for documents with 13+ pages).
+
+2. **Distributed resizing**: Extracted pages are resized concurrently on multiple machines, providing up to 20 times faster processing for large documents.
+
+Files are emitted as they become available during processing. If you set this to \`false\`, pages are extracted sequentially using a single process, and files are emitted only after all processing is complete.
+
+Turbo Mode increases pricing in that the input document's file size is added for every extracted page. There are no performance benefits nor increased charges for single-page documents.
 `),
   })
   .strict()

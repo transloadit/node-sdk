@@ -4,7 +4,6 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 4,
   description:
     '/file/verify is a simple Robot that helps ensure that the files you upload are of the type you initially intended. This is especially useful when handling user-generated content, where you may not want to run certain Steps in your Template if the user hasn’t uploaded a file of the correct type. Another use case for /file/verify is when a user uploads a ZIP file, but we find that it has a few damaged files inside when we extract it. Perhaps you don’t want to error out, but only send the good files to a next processing step. With /file/verify, you can do exactly that (assuming the default of `error_on_decline`: `true`).',

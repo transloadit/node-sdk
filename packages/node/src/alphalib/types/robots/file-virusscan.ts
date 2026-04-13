@@ -4,7 +4,6 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: false,
   bytescount: 1,
   description:
     'While 100% security is a myth, having /file/virusscan as a gatekeeper bot helps reject millions of trojans, viruses, malware &amp; other malicious threats before they reach your platform.',
@@ -32,16 +31,19 @@ export const meta: RobotMetaInput = {
   purpose_word: 'scan for viruses and reject malware',
   purpose_words: 'Scan files for viruses',
   service_slug: 'file-filtering',
-  slot_count: 38,
+  slot_count: 16,
   title: 'Scan files for viruses',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
   name: 'FileVirusscanRobot',
   priceFactor: 1,
-  queueSlotCount: 38,
+  queueSlotCount: 16,
   minimumCharge: 1048576,
   lazyLoad: true,
-  installVersionFile: process.env.API2_CLAMD_INSTALL_VERSION_FILE || '',
+  installVersionFile:
+    typeof process !== 'undefined' && process.env.API2_CLAMD_INSTALL_VERSION_FILE
+      ? process.env.API2_CLAMD_INSTALL_VERSION_FILE
+      : '',
   isAllowedForUrlTransform: false,
   trackOutputFileSize: true,
   isInternal: false,

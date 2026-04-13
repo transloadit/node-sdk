@@ -9,7 +9,6 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: false,
   bytescount: 4,
   discount_factor: 0.25,
   discount_pct: 75,
@@ -93,6 +92,36 @@ When used this adds an audio fade in and out effect between each section of your
 This parameter does not add an audio fade effect at the beginning or end of your video. If you want to do so, create an additional [🤖/video/encode](/docs/robots/video-encode/] Step and use our \`ffmpeg\` parameter as shown in this [demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
 
 Please note this parameter is independent of adding video fades between sections.
+`),
+    chapter_markers: z
+      .boolean()
+      .default(false)
+      .describe(`
+When set to \`true\`, the concatenated video will contain chapter markers at the positions where the input videos are joined. Each chapter will be titled with the basename of the corresponding input video file.
+
+This is useful for navigation in video players that support chapter-based seeking.
+`),
+    transition: z
+      .enum(['none', 'crossfade', 'fade_to_black'])
+      .default('none')
+      .describe(`
+Specifies the transition effect to apply between concatenated video clips.
+
+- \`"none"\` (default): No transition effect. Videos are joined end-to-end.
+- \`"crossfade"\`: Applies a crossfade transition where the end of one clip gradually blends into the beginning of the next clip. Both video and audio are crossfaded.
+- \`"fade_to_black"\`: Applies a fade-to-black transition where each clip fades out to black before the next clip fades in from black.
+
+When using \`"crossfade"\` or \`"fade_to_black"\`, the \`transition_duration\` parameter controls how long the transition lasts. Note that crossfade transitions will reduce the total output duration since clips overlap during the transition.
+`),
+    transition_duration: z
+      .number()
+      .default(1)
+      .describe(`
+The duration of the transition effect in seconds. Only applies when \`transition\` is set to \`"crossfade"\` or \`"fade_to_black"\`.
+
+For example, a value of \`1.0\` creates a 1-second transition between clips. The value can be a float for sub-second precision (e.g., \`0.5\` for 500 milliseconds) and must be greater than \`0\` whenever transitions are enabled.
+
+For crossfade transitions, this is the overlap duration where both clips are visible. For fade_to_black transitions, this is the total time for the fade out and fade in (half for each). The applied transition is capped at half of the shorter clip in each transition pair.
 `),
   })
   .strict()

@@ -3,10 +3,17 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: false,
   bytescount: 20,
   discount_factor: 0.05,
   discount_pct: 95,
+  example_code: {
+    steps: {
+      deliver: {
+        robot: '/tlcdn/deliver',
+      },
+    },
+  },
+  example_code_description: 'Cache and deliver files over Smart CDN using the tlcdn.com domain:',
   minimum_charge: 102400,
   output_factor: 1,
   override_lvl1: 'Content Delivery',

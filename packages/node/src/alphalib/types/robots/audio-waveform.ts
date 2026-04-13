@@ -10,7 +10,6 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: false,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
@@ -52,7 +51,7 @@ Here is an example waveform image:
   priceFactor: 1,
   queueSlotCount: 20,
   minimumCharge: 1048576,
-  isAllowedForUrlTransform: false,
+  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
@@ -74,6 +73,7 @@ Similarly, if you need the output image in a different format, please pipe the r
       .default('image')
       .describe(`
 The format of the result file. Can be \`"image"\` or \`"json"\`. If \`"image"\` is supplied, a PNG image will be created, otherwise a JSON file.
+When \`style\` is \`"spectrogram"\`, only \`"image"\` is supported.
 `),
     width: z
       .number()
@@ -110,14 +110,49 @@ The color used in the outer parts of the gradient. The format is "rrggbbaa" (red
 
 const styleSchema = z.preprocess(
   (val) => {
-    // Backwards compatibility: historically this robot used numeric styles 0/1/2.
-    // The new API is `style: "v0" | "v1"`. Old v2 values are mapped to v1.
+    // Backwards compatibility: historically this robot used numeric styles 0/1.
+    // The new API is `style: "v0" | "v1" | "spectrogram"`.
     if (val === 'v1' || val === 1 || val === '1') return 'v1'
     if (val === 'v0' || val === 0 || val === '0') return 'v0'
+    if (val === 'spectrogram') return 'spectrogram'
     return val
   },
-  z.enum(['v0', 'v1']).default('v0'),
+  z.enum(['v0', 'v1', 'spectrogram']).default('v0'),
 )
+
+// Color maps for spectrogram visualization
+export type SpectrogramColorMap =
+  | 'viridis'
+  | 'plasma'
+  | 'magma'
+  | 'cividis'
+  | 'cool'
+  | 'rainbow'
+  | 'moreland'
+  | 'nebulae'
+  | 'fire'
+  | 'fiery'
+  | 'fruit'
+  | 'green'
+  | 'terrain'
+  | 'gray'
+
+export const spectrogramColorMaps = [
+  'viridis',
+  'plasma',
+  'magma',
+  'cividis',
+  'cool',
+  'rainbow',
+  'moreland',
+  'nebulae',
+  'fire',
+  'fiery',
+  'fruit',
+  'green',
+  'terrain',
+  'gray',
+] as const satisfies readonly SpectrogramColorMap[]
 
 // Unified schema: all parameters exist for both styles, but v1-only parameters only apply when
 // `style` is `v1` (they are accepted for v0 but have no effect).
@@ -128,8 +163,9 @@ Waveform style version.
 
 - \`"v0"\`: Legacy waveform generation (default).
 - \`"v1"\`: Advanced waveform generation with additional parameters.
+- \`"spectrogram"\`: Spectrogram visualization showing frequency content over time.
 
-For backwards compatibility, numeric values \`0\`, \`1\`, \`2\` are also accepted and mapped to \`"v0"\` (0) and \`"v1"\` (1/2).
+For backwards compatibility, numeric values \`0\` and \`1\` are also accepted and mapped to \`"v0"\` and \`"v1"\`.
 `),
 
     // v1-only parameters (accepted for v0 but have no effect)
@@ -241,6 +277,54 @@ Available when style is \`"v1"\`. Amplitude scale factor.
       .optional()
       .describe(`
 Available when style is \`"v1"\`. PNG compression level: 0 (none) to 9 (best), or -1 (default). Only applicable when format is "image".
+`),
+
+    // Spectrogram-specific parameters (only apply when style is "spectrogram")
+    color_map: z
+      .enum(spectrogramColorMaps)
+      .optional()
+      .describe(`
+Available when style is \`"spectrogram"\`. Color scheme for the spectrogram visualization. Defaults to \`"viridis"\`.
+`),
+    frequency_scale: z
+      .enum(['linear', 'logarithmic'])
+      .optional()
+      .describe(`
+Available when style is \`"spectrogram"\`. Frequency scale for the spectrogram. \`"linear"\` shows frequencies evenly spaced, \`"logarithmic"\` emphasizes lower frequencies. Defaults to \`"logarithmic"\`.
+`),
+    frequency_min: z
+      .number()
+      .min(0)
+      .optional()
+      .describe(`
+Available when style is \`"spectrogram"\`. Minimum frequency in Hz to display. Defaults to \`0\`.
+`),
+    frequency_max: z
+      .number()
+      .min(1)
+      .optional()
+      .describe(`
+Available when style is \`"spectrogram"\`. Maximum frequency in Hz to display. Defaults to half the sample rate (Nyquist frequency).
+`),
+    legend: z
+      .boolean()
+      .optional()
+      .describe(`
+Available when style is \`"spectrogram"\`. Whether to include a legend showing the frequency and time scales. Defaults to \`false\`.
+`),
+    gain: z
+      .number()
+      .min(0)
+      .max(128)
+      .optional()
+      .describe(`
+Available when style is \`"spectrogram"\`. Linear gain factor for spectrogram intensity. Defaults to \`1\`.
+`),
+    orientation: z
+      .enum(['vertical', 'horizontal'])
+      .optional()
+      .describe(`
+Available when style is \`"spectrogram"\`. Orientation of the spectrogram. \`"horizontal"\` shows time on the x-axis (default), \`"vertical"\` shows time on the y-axis.
 `),
   })
   .strict()

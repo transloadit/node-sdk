@@ -1,9 +1,22 @@
 import { z } from 'zod'
 
-import { robotsSchema, robotsWithHiddenBotsAndFieldsSchema } from './robots/_index.ts'
+import {
+  robotsSchema,
+  robotsWithHiddenBotsAndFieldsSchema,
+} from './robots/_index.ts'
+import type {
+  RobotsSchema,
+  RobotsWithHiddenBotsAndFields,
+} from './robots/_index.ts'
 import type { RobotUse } from './robots/_instructions-primitives.ts'
 
-export const stepSchema = z
+export type Step = RobotsSchema
+export type StepInput = Step
+export type StepInputWithUse = StepInput & RobotUse
+export type Steps = Record<string, Step>
+export type StepsInput = Steps
+
+export const stepSchema: z.ZodType<Step> = z
   .object({
     // This is a hack to get nicer robot hover messages in editors.
     robot: z
@@ -11,15 +24,17 @@ export const stepSchema = z
       .describe('Identifier of the [robot](https://transloadit.com/docs/robots/) to execute'),
   })
   .and(robotsSchema)
-export const stepsSchema = z.record(stepSchema).describe('Contains Assembly Instructions.')
-export type Step = z.infer<typeof stepSchema>
-export type StepInput = z.input<typeof stepSchema>
-export type StepInputWithUse = StepInput & RobotUse
-export type Steps = z.infer<typeof stepsSchema>
-export type StepsInput = z.input<typeof stepsSchema>
+export const stepsSchema: z.ZodType<Steps> = z
+  .record(stepSchema)
+  .describe('Contains Assembly Instructions.')
 export const optionalStepsSchema = stepsSchema.optional()
 
-export const stepSchemaWithHiddenFields = z
+export type StepWithHiddenFields = RobotsWithHiddenBotsAndFields
+export type StepWithHiddenFieldsInput = StepWithHiddenFields
+export type StepsWithHiddenFields = Record<string, StepWithHiddenFields>
+export type StepsWithHiddenFieldsInput = StepsWithHiddenFields
+
+export const stepSchemaWithHiddenFields: z.ZodType<StepWithHiddenFields> = z
   .object({
     // This is a hack to get nicer robot hover messages in editors.
     robot: z
@@ -27,13 +42,9 @@ export const stepSchemaWithHiddenFields = z
       .describe('Identifier of the [robot](https://transloadit.com/docs/robots/) to execute'),
   })
   .and(robotsWithHiddenBotsAndFieldsSchema)
-export const stepsSchemaWithHiddenFields = z
+export const stepsSchemaWithHiddenFields: z.ZodType<StepsWithHiddenFields> = z
   .record(stepSchemaWithHiddenFields)
   .describe('Contains Assembly Instructions.')
-export type StepWithHiddenFields = z.infer<typeof stepSchemaWithHiddenFields>
-export type StepWithHiddenFieldsInput = z.input<typeof stepSchemaWithHiddenFields>
-export type StepsWithHiddenFields = z.infer<typeof stepsSchemaWithHiddenFields>
-export type StepsWithHiddenFieldsInput = z.input<typeof stepsSchemaWithHiddenFields>
 const optionalStepsWithHiddenFieldsSchema = stepsSchemaWithHiddenFields.optional()
 
 export const fieldsSchema = z
@@ -48,7 +59,27 @@ export const notifyUrlSchema = z
   .optional()
   .nullable()
   .describe(
-    'Transloadit can send a Pingback to your server when the Assembly is completed. We’ll send the Assembly status in a form url-encoded JSON string inside of a transloadit field in a multipart POST request to the URL supplied here.',
+    "Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly status in a form url-encoded JSON string inside of a transloadit field in a multipart POST request to the URL supplied here. Use `notification_payload` to reduce the payload size (e.g. `without_uploads`, `without_results`); the same filtering applies to notification replays.",
+  )
+
+export type NotificationPayloadFilter =
+  | 'without_result_meta_data'
+  | 'without_results'
+  | 'without_upload_meta_data'
+  | 'without_uploads'
+
+export const notificationPayloadFilterValues = [
+  'without_result_meta_data',
+  'without_results',
+  'without_upload_meta_data',
+  'without_uploads',
+] as const satisfies readonly NotificationPayloadFilter[]
+
+export const notificationPayloadSchema = z
+  .array(z.enum(notificationPayloadFilterValues))
+  .optional()
+  .describe(
+    'Controls the size of the payload sent in Assembly notifications (both the initial notification and any notification replays). An empty array (default) sends the complete Assembly status. Add `"without_upload_meta_data"` to strip `meta` from files in `uploads`. Add `"without_result_meta_data"` to strip `meta` from files in `results`. Add `"without_uploads"` to strip `uploads` entirely. Add `"without_results"` to strip `results` entirely. Filtering is applied before serialization, so using these options reduces memory use and helps avoid oversized-payload or OOM failures on large assemblies.',
   )
 
 export const templateIdSchema = z
@@ -122,6 +153,7 @@ const assemblyInstructionsSharedShape = {
       'Set this to false to disallow Overruling Templates at Runtime. If you set this to false then template_id and steps will be mutually exclusive and you may only supply one of those parameters. Recommended when deploying Transloadit in untrusted environments. This makes sense to set as part of a Template, rather than on the Assembly itself when creating it.',
     ),
   notify_url: notifyUrlSchema,
+  notification_payload: notificationPayloadSchema,
   fields: fieldsSchema,
   quiet: z
     .boolean()

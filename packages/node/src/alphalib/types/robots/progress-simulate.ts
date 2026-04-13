@@ -6,6 +6,19 @@ import { interpolateRobot, robotBase, robotUse } from './_instructions-primitive
 // @ts-expect-error - ProgressSimulateRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
   name: 'ProgressSimulateRobot',
+  example_code: {
+    steps: {
+      simulate: {
+        robot: '/progress/simulate',
+        use: ':original',
+        duration: 10,
+        output_files: 3,
+        emit_progress: true,
+        predict_output: true,
+      },
+    },
+  },
+  example_code_description: 'Simulate Step progress and output generation for testing:',
   priceFactor: 1,
   queueSlotCount: 20,
   isAllowedForUrlTransform: false,

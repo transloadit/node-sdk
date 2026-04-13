@@ -22,12 +22,20 @@ export const robotNames = z.enum([
   'AudioConcatRobot',
   'AudioMergeRobot',
   'AudioArtworkRobot',
+  'AudioSplitRobot',
+  'BoxImportRobot',
+  'BoxStoreRobot',
+  'VideoArtworkRobot',
   'ImageFacedetectRobot',
   'ImageDescribeRobot',
+  'ImageCopyrightdetectRobot',
   'ImageOcrRobot',
   'ImageBgremoveRobot',
+  'ImageUpscaleRobot',
   'ImageGenerateRobot',
+  'ImageEnhanceRobot',
   'DocumentOcrRobot',
+  'DocumentOptimizeRobot',
   'SpeechTranscribeRobot',
   'VideoThumbsRobot',
   'FileVirusscanRobot',
@@ -52,10 +60,12 @@ export const robotNames = z.enum([
   'BackblazeImportRobot',
   'BackblazeStoreRobot',
   'MinioImportRobot',
+  'MegaImportRobot',
   'TigrisImportRobot',
   'CloudflareImportRobot',
   'SupabaseImportRobot',
   'MinioStoreRobot',
+  'MegaStoreRobot',
   'TigrisStoreRobot',
   'CloudflareStoreRobot',
   'SupabaseStoreRobot',
@@ -84,6 +94,8 @@ export const robotNames = z.enum([
   'FileHashRobot',
   'FileReadRobot',
   'VideoOndemandRobot',
+  'VideoSplitRobot',
+  'VideoGenerateRobot',
   'FileFilterRobot',
   'TextSpeakRobot',
   'TextTranslateRobot',
@@ -125,7 +137,6 @@ export const robotMetaSchema = z.object({
   extraChargeForImageResize: z.number().optional(),
 
   // Original keys from content repo:
-  allowed_for_url_transform: z.boolean(),
   bytescount: z.number(),
   description: z.string().optional(),
   discount_factor: z.number(),
@@ -152,6 +163,7 @@ export const robotMetaSchema = z.object({
     'convert',
     'decompress',
     'detect',
+    'enhance',
     'encode',
     'export',
     'extract',
@@ -169,6 +181,7 @@ export const robotMetaSchema = z.object({
     'scan',
     'serve',
     'speak',
+    'split',
     'subtitle',
     'take',
     'transcode',
@@ -181,6 +194,7 @@ export const robotMetaSchema = z.object({
   ]),
   purpose_word: z.string(),
   purpose_words: z.string(),
+  hideCredentialsWarning: z.boolean().optional(),
   requires_credentials: z.literal(true).optional(),
   service_slug: z.enum([
     'artificial-intelligence',
@@ -443,6 +457,8 @@ Allows you to specify a set of metadata that is more expensive on CPU power to c
 
 For images, you can add \`"has_transparency": true\` in this object to extract if the image contains transparent parts and \`"dominant_colors": true\` to extract an array of hexadecimal color codes from the image.
 
+For images, you can also add \`"blurhash": true\` to extract a [BlurHash](https://blurha.sh) string — a compact representation of a placeholder for the image, useful for showing a blurred preview while the full image loads.
+
 For videos, you can add the \`"colorspace: true"\` parameter to extract the colorspace of the output video.
 
 For audio, you can add \`"mean_volume": true\` to get a single value representing the mean average volume of the audio file.
@@ -571,6 +587,22 @@ Specifies which Step(s) to use as input.
     ]
   }
   \`\`\`
+- You can also tag an input Step with \`as\` to pass semantic intent to robots:
+- You can also tag input Steps with \`as\` to pass semantic intent to robots:
+  \`\`\`json
+  {
+    "use": [
+      {
+        "name": ":original",
+        "as": "image"
+      },
+      {
+        "name": ":original",
+        "as": "mask"
+      }
+    ]
+  }
+  \`\`\`
 
 > [!Tip]
 > That's likely all you need to know about \`use\`, but you can view [Advanced use cases](/docs/topics/use-parameter/).
@@ -600,6 +632,22 @@ Specifies which Step(s) to use as input.
     ]
   }
   \`\`\`
+- You can also tag an input Step with \`as\` to pass semantic intent to robots:
+- You can also tag input Steps with \`as\` to pass semantic intent to robots:
+  \`\`\`json
+  {
+    "use": [
+      {
+        "name": ":original",
+        "as": "image"
+      },
+      {
+        "name": ":original",
+        "as": "mask"
+      }
+    ]
+  }
+  \`\`\`
 
 > [!Tip]
 > That's likely all you need to know about \`use\`, but you can view [Advanced use cases](/docs/topics/use-parameter/).
@@ -621,7 +669,7 @@ export const complexWidthSchema = z.preprocess((val) => {
     return num
   }
   return val
-}, z.number().int().min(1).max(7680))
+}, z.number().int().min(1).max(25_000))
 
 export const complexHeightSchema = z.preprocess((val) => {
   if (typeof val === 'string' && val.startsWith('${')) {
@@ -635,7 +683,7 @@ export const complexHeightSchema = z.preprocess((val) => {
     return num
   }
   return val
-}, z.number().int().min(1).max(4320))
+}, z.number().int().min(1).max(25_000))
 
 /**
  * A robot that uses FFmpeg.
@@ -1252,6 +1300,24 @@ While we recommend to use <dfn>Template Credentials</dfn> at all times, some use
   })
   .strict()
 
+export type BoxBase = z.infer<typeof boxBase>
+export const boxBase = z
+  .object({
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
+Create a Box app in the [Box Developer Console](https://app.box.com/developers/console) using **Server Authentication (JWT)**.
+
+Generate a public/private keypair for that app. Box will download a JSON config file (with \`boxAppSettings\` and \`appAuth\`) that includes your JWT private key material.
+
+In your Transloadit account, create [Template Credentials](/c/template-credentials/) of type Box and paste that full JSON file into \`key_file_contents\`. Then set this \`credentials\` parameter to the Template Credentials name.
+
+If your Box enterprise requires it, make sure the app is authorized by an admin before using it in production.
+`),
+  })
+  .strict()
+
 export type CloudfilesBase = z.infer<typeof cloudfilesBase>
 export const cloudfilesBase = z
   .object({
@@ -1383,6 +1449,30 @@ Please create your associated <dfn>Template Credentials</dfn> in your Transloadi
 While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"host"\`, \`"key"\`, \`"secret"\`.
 `),
     bucket: z.string().optional(),
+    host: z.string().optional(),
+    key: z.string().optional(),
+    secret: z.string().optional(),
+  })
+  .strict()
+
+export type MegaBase = z.infer<typeof megaBase>
+export const megaBase = z
+  .object({
+    credentials: z
+      .string()
+      .optional()
+      .describe(`
+Please create your associated <dfn>Template Credentials</dfn> in your Transloadit account and use the name of your <dfn>Template Credentials</dfn> as this parameter's value. They will contain the values for your MEGA object storage bucket, Key, Secret and Bucket region.
+
+While we recommend to use <dfn>Template Credentials</dfn> at all times, some use cases demand dynamic credentials for which using <dfn>Template Credentials</dfn> is too unwieldy because of their static nature. If you have this requirement, feel free to use the following parameters instead: \`"bucket"\`, \`"bucket_region"\`, \`"key"\`, \`"secret"\`.
+`),
+    bucket: z.string().optional(),
+    bucket_region: z
+      .string()
+      .optional()
+      .describe(`
+The region where the bucket is located.
+`),
     host: z.string().optional(),
     key: z.string().optional(),
     secret: z.string().optional(),

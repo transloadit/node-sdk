@@ -115,10 +115,20 @@ const coreMessageSchema = z.discriminatedUnion('role', [
 
 export const meta: RobotMetaInput = {
   name: 'AiChatRobot',
-  allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
+  example_code: {
+    steps: {
+      reply: {
+        robot: '/ai/chat',
+        model: 'auto',
+        messages:
+          'Summarize this in one sentence: Transloadit handles uploads and media processing.',
+      },
+    },
+  },
+  example_code_description: 'Generate a concise AI response from a text prompt:',
   minimum_charge: 0,
   output_factor: 0.6,
   purpose_sentence: 'generates AI chat responses from prompts',
@@ -132,7 +142,7 @@ export const meta: RobotMetaInput = {
   typical_file_type: 'document',
   priceFactor: 1,
   queueSlotCount: 10,
-  // Is this a sensbile minimum charge? What if the customer supplies their own keys? Is it low enough for these cases?
+  // Is this a sensible minimum charge? What if the customer supplies their own keys? Is it low enough for these cases?
   minimumChargeUsd: 0.06,
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
@@ -148,7 +158,6 @@ export const meta: RobotMetaInput = {
 export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }> = {
   'anthropic/claude-4-sonnet-20250514': { pdf: true, image: true },
   'anthropic/claude-4-opus-20250514': { pdf: true, image: true },
-  'anthropic/claude-sonnet-4-6': { pdf: true, image: true },
   'anthropic/claude-sonnet-4-5': { pdf: true, image: true },
   'anthropic/claude-opus-4-5': { pdf: true, image: true },
   'anthropic/claude-opus-4-6': { pdf: true, image: true },
@@ -160,9 +169,18 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'openai/gpt-5.2-2025-12-11': { pdf: false, image: true },
   'openai/gpt-5.2-chat-latest': { pdf: false, image: true },
   'openai/gpt-5.2-pro': { pdf: false, image: true },
+  'openai/gpt-5.4': { pdf: false, image: true },
+  'openai/gpt-5.4-mini': { pdf: false, image: true },
+  'openai/gpt-5.4-nano': { pdf: false, image: true },
   'google/gemini-2.5-pro': { pdf: true, image: true },
   'moonshot/kimi-k2': { pdf: false, image: false },
 }
+
+// Default model for /ai/chat when `model: "auto"` (or unset).
+// 2026-02-10: default is Opus 4.6 (intentional; aligns with our current recommended Anthropic
+// flagship model and the system tests in this repo). Keep this aligned with MODEL_CAPABILITIES.
+export const AI_CHAT_DEFAULT_MODEL =
+  'anthropic/claude-opus-4-6' satisfies keyof typeof MODEL_CAPABILITIES
 
 const supportedModelsList = Object.keys(MODEL_CAPABILITIES)
 
@@ -179,7 +197,7 @@ export const robotAiChatInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/ai/chat'),
-    // TODO: Is the auto mode yet implemented?
+    // NOTE: model:"auto" is resolved server-side to AI_CHAT_DEFAULT_MODEL for now.
     model: z
       .union([vendorModelSchema, z.literal('auto')])
       .default('auto')
@@ -196,6 +214,12 @@ export const robotAiChatInstructionsSchema = robotBase
       .string()
       .optional()
       .describe('Set the system/developer prompt, if the model allows it'),
+    reasoning_effort: z
+      .enum(['high', 'medium', 'low'])
+      .optional()
+      .describe(
+        'Controls how much effort the model spends on reasoning. Higher values produce more thorough responses but cost more tokens. Applies to models that support extended thinking (OpenAI o-series, GPT-5.x, Anthropic Claude with thinking). If omitted, the model default is used.',
+      ),
     credentials: z
       .union([z.string(), z.array(z.string())])
       .optional()
@@ -215,11 +239,17 @@ export const robotAiChatInstructionsSchema = robotBase
           url: z.string(),
           headers: z.record(z.string()).optional(),
           auth: z.enum(['transloadit']).optional(),
+          allowed_tools: z
+            .array(z.string())
+            .optional()
+            .describe(
+              'Optional allowlist of tool names to expose from this MCP server. If omitted, all tools exposed by the server are available to the model.',
+            ),
         }),
       )
       .optional()
       .describe(
-        'The MCP servers to use. This is used to call tools from the LLM. Use `headers` to pass `Authorization: Bearer <token>` when needed. You can use any MCP server reachable from your environment. For Transloadit\'s own MCP server, you can set `auth: "transloadit"` to let API2 auto-auth and inject an Authorization header for you (only for Transloadit-hosted MCP servers).',
+        'The MCP servers to use for tool calling. You can use any MCP server reachable from your environment. Use `headers` to pass server-specific auth (for example `Authorization: Bearer <token>`). For Transloadit\'s MCP server: Bearer tokens minted via `/token` satisfy Signature Authentication (signature checks apply only to key/secret requests). `auth: "transloadit"` is reserved for API2-managed auth to Transloadit-hosted MCP servers.',
       ),
   })
   .strict()

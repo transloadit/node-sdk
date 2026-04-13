@@ -9,7 +9,6 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   discount_factor: 1,
   discount_pct: 0,
   bytescount: 1,
@@ -84,7 +83,7 @@ export const robotVideoOndemandInstructionsSchema = robotBase
       .union([z.string(), z.array(z.string())])
       .optional()
       .describe(
-        'Specifies which variants, defined in the variants parameter, are enabled. Non-enabled variants will not be included in the master playlist.',
+        'Specifies which variants, defined in the variants parameter, are enabled. Non-enabled variants will not be included in the multivariant playlist.',
       ),
     segment_duration: z
       .number()
@@ -96,13 +95,13 @@ export const robotVideoOndemandInstructionsSchema = robotBase
       .optional()
       .default(0)
       .describe(
-        'When signing URLs is enabled, the URLs in the generated playlist files will be signed. This parameter specifies the duration (in seconds) that the signed URLs will remain valid.',
+        'When signing URLs is enabled, the URLs in the generated playlist files will be signed. This parameter specifies the duration (in seconds) that the signed URLs will remain valid. Use the modern `sig` + `exp` format for new integrations. Legacy `s` signatures are deprecated. Shorter expirations reduce the replay window, but they also reduce cache reuse and can increase segment re-generation and latency.',
       ),
     asset: z
       .string()
       .optional()
       .describe(
-        'Controls which file is generated. For example, if the parameter is unset, a master playlist referencing the variants is generated.',
+        'Controls which file is generated. For example, if the parameter is unset, a multivariant playlist referencing the variants is generated.',
       ),
     asset_param_name: z
       .string()

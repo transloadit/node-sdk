@@ -17,7 +17,6 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
@@ -545,6 +544,43 @@ Apply the clipping path to other operations in the resize job, if one is present
       .default(false)
       .describe(`
 Replace each pixel with its complementary color, effectively negating the image. Especially useful when testing clipping.
+`),
+    clut: z
+      .boolean()
+      .default(false)
+      .describe(`
+Applies a Color Look-Up Table (CLUT) image to remap the colors of the input image using ImageMagick's \`-clut\` operator. When enabled, a second input file must be supplied via the \`use\` parameter with \`"as": "clut"\`.
+
+This operation currently runs via ImageMagick convert stack (not image-resizer daemon), even if \`stack: "daemon"\` is requested.
+
+When using multiple inputs, you should provide your primary image as \`"as": "base"\`. If no explicit \`base\` alias is set, Transloadit will use the first non-auxiliary input (a file that is not tagged as \`watermark\` or \`clut\`) as the primary image.
+
+The CLUT image acts as a gradient map: each pixel's color channels in the input are replaced with the corresponding color from the CLUT image, based on channel intensity. This is a powerful color grading technique widely used in photography and design workflows.
+
+Example:
+
+\`\`\`json
+{
+  "steps": {
+    ":original": {
+      "robot": "/upload/handle"
+    },
+    "lut_image": {
+      "robot": "/upload/handle"
+    },
+    "color_graded": {
+      "robot": "/image/resize",
+      "use": {
+        "steps": [
+          { "name": ":original", "as": "base" },
+          { "name": "lut_image", "as": "clut" }
+        ]
+      },
+      "clut": true
+    }
+  }
+}
+\`\`\`
 `),
     density: z
       .string()

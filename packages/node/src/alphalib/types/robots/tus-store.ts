@@ -4,7 +4,6 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 10,
   discount_factor: 0.1,
   discount_pct: 90,
@@ -43,19 +42,7 @@ export const meta: RobotMetaInput = {
 export const robotTusStoreInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
-    robot: z.literal('/tus/store').describe(`
-> [!Note]
-> This <dfn>Robot</dfn> only accepts videos.
-
-> [!Warning]
-> Vimeo's API limits the number of concurrent uploads per minute based on your Vimeo account plan. To see how many videos can be uploaded at once based on your plan, click the following [link](https://developer.vimeo.com/guidelines/rate-limiting#table-1).
-
-## Installation
-
-Since Vimeo works with OAuth, you will need to generate [Template Credentials](https://transloadit.com/c/template-credentials/) to use this <dfn>Robot</dfn>.
-
-To change the \`title\` or \`description\` per video, we recommend to [inject variables into your Template](/docs/topics/templates/).
-`),
+    robot: z.literal('/tus/store'),
     endpoint: z
       .string()
       .url()

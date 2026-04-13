@@ -13,8 +13,10 @@ For Typescript:
 - Favor `satisfies` over `as`, consider `as` a sin
 - Favor `unknown` over `any`, consider `any` a sin
 - Favor validating data with Zod over using `any` or custom type guards
-- We use the `rewriteRelativeImportExtensions` TS 5.7 compiler option, so for local TypeScript
-  files, import with the `.ts` / `.tsx` extension (not js, not extensionless)
+- For local TypeScript files, import with the `.ts` / `.tsx` extension (not `.js`, not extensionless).
+  Note: we do not currently enable the TS 5.7 `rewriteRelativeImportExtensions` compiler option,
+  because it errors on non-relative imports that include `.ts`/`.tsx` (for example via `paths`
+  aliases like `@/…`). If/when we enable it, we will need to adjust those imports first.
 - Favor defining props as an interface over inline
 - Favor explicit return types over inferring them as it makes typescript a lot faster in the editor
   on our scale

@@ -4,7 +4,6 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
@@ -54,9 +53,11 @@ The following file formats can be converted from:
 - \`ps\`
 - \`rtf\`
 - \`rtx\`
+- \`srt\`
 - \`svg\`
 - \`text\`
 - \`txt\`
+- \`vtt\`
 - \`xhtml\`
 - \`xla\`
 - \`xls\`
@@ -84,7 +85,10 @@ The following file formats can be converted from:
   queueSlotCount: 32,
   minimumCharge: 1048576,
   lazyLoad: true,
-  installVersionFile: process.env.API2_UNOCONV_INSTALL_VERSION_FILE || '',
+  installVersionFile:
+    typeof process !== 'undefined' && process.env.API2_UNOCONV_INSTALL_VERSION_FILE
+      ? process.env.API2_UNOCONV_INSTALL_VERSION_FILE
+      : '',
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
   // we cannot use coreConfig.numUnoconvDaemons, because it does not live in alphalib
@@ -106,7 +110,7 @@ Sometimes, a certain file type might not support what you are trying to accompli
 Using this Robot, you can bypass the issues that certain file types may bring, by converting your file into the most suitable format. This also works in conjunction with our other Robots, allowing for even greater versatility when using our services.
 
 > [!Warning]
-> A general rule of this Robot is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format, but not to an image.
+> A general rule of this Robot is that converting files into an alien format category will result in an error. For example, SRT files can be converted into the VTT format (and vice versa), but not to an image.
 
 The following file formats can be converted from:
 
@@ -133,9 +137,11 @@ The following file formats can be converted from:
 - \`ps\`
 - \`rtf\`
 - \`rtx\`
+- \`srt\`
 - \`svg\`
 - \`text\`
 - \`txt\`
+- \`vtt\`
 - \`xhtml\`
 - \`xla\`
 - \`xls\`
@@ -154,6 +160,7 @@ The following file formats can be converted from:
         'jpeg',
         'jpg',
         'latex',
+        'md',
         'oda',
         'odd',
         'odt',

@@ -4,10 +4,10 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 6,
   discount_factor: 0.15000150001500018,
   discount_pct: 84.99984999849998,
+  hideCredentialsWarning: true,
   example_code: {
     steps: {
       exported: {
@@ -49,14 +49,13 @@ export const robotYoutubeStoreInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/youtube/store').describe(`
-> [!Note]
-> This <dfn>Robot</dfn> only accepts videos.
-
-## Installation
+## Getting started
 
 Since YouTube works with OAuth, you will need to generate [Template Credentials](/c/template-credentials/) to use this <dfn>Robot</dfn>.
 
 To change the \`title\`, \`description\`, \`category\`, or \`keywords\` per video, we recommend to [inject variables into your Template](/docs/topics/templates/).
+
+Note that this <dfn>Robot</dfn> only accepts videos.
 
 ## Adding a thumbnail image to your video
 
