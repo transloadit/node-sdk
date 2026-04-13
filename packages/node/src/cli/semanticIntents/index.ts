@@ -5,6 +5,7 @@ import type {
   PreparedIntentInputs,
 } from '../intentRuntime.ts'
 import { imageDescribeSemanticIntentDescriptor } from './imageDescribe.ts'
+import { imageGenerateSemanticIntentDescriptor } from './imageGenerate.ts'
 import {
   markdownDocxSemanticIntentDescriptor,
   markdownPdfSemanticIntentDescriptor,
@@ -17,7 +18,10 @@ export interface SemanticIntentPresentation {
 }
 
 export interface SemanticIntentDescriptor {
-  createStep: (rawValues: Record<string, unknown>) => Record<string, unknown>
+  createStep: (
+    rawValues: Record<string, unknown>,
+    context: { hasInputs: boolean },
+  ) => Record<string, unknown>
   execution: IntentDynamicStepExecutionDefinition
   inputPolicy: IntentInputPolicy
   outputDescription: string
@@ -31,6 +35,7 @@ export interface SemanticIntentDescriptor {
 
 const semanticIntentDescriptors: Record<string, SemanticIntentDescriptor> = {
   'image-describe': imageDescribeSemanticIntentDescriptor,
+  'image-generate': imageGenerateSemanticIntentDescriptor,
   'markdown-pdf': {
     ...markdownPdfSemanticIntentDescriptor,
   },

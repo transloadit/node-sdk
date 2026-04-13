@@ -76,7 +76,7 @@ function createMarkdownConvertSemanticIntent({
   } satisfies SemanticIntentPresentation
 
   return {
-    createStep(rawValues) {
+    createStep(rawValues, _context) {
       return {
         robot: '/document/convert',
         use: ':original',

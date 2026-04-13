@@ -58,13 +58,8 @@ const intentSmokeOverrides: Record<string, Omit<IntentSmokeCase, 'key' | 'paths'
     outputPath: 'image-remove-background.png',
     verifier: 'png',
   },
-  '/image/generate': {
-    args: [
-      '--prompt',
-      'A small red bicycle on a cream background, studio lighting',
-      '--model',
-      'google/nano-banana',
-    ],
+  'image-generate:image/generate': {
+    args: ['--prompt', 'A small red bicycle on a cream background, studio lighting'],
     outputPath: 'image-generate.png',
     verifier: 'png',
   },

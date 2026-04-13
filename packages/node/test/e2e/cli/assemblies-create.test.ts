@@ -471,7 +471,7 @@ describeLive('assemblies', () => {
           'Max concurrent jobs should not exceed concurrency limit',
         ).to.be.at.most(2)
       }),
-      180_000,
+      300_000,
     )
 
     it(
@@ -507,7 +507,7 @@ describeLive('assemblies', () => {
         expect(streamClosedMessages).to.have.lengthOf(0)
         expect(messages).to.include(`Creating single assembly with ${fileCount} files`)
       }),
-      180_000,
+      300_000,
     )
   })
 })

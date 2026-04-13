@@ -18,7 +18,7 @@ import {
   inferIntentFieldKind,
   parseStringArrayValue,
 } from '../../../src/cli/intentFields.ts'
-import { prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
+import { getIntentOptionDefinitions, prepareIntentInputs } from '../../../src/cli/intentRuntime.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { intentSmokeCases } from '../../support/intentSmokeCases.ts'
@@ -313,7 +313,7 @@ describe('intent commands', () => {
         inputs: [],
         output: 'generated.png',
         stepsData: {
-          [getIntentStepName(['image', 'generate'])]: expect.objectContaining({
+          generate: expect.objectContaining({
             robot: '/image/generate',
             result: true,
             prompt: 'A red bicycle in a studio',
@@ -323,6 +323,134 @@ describe('intent commands', () => {
         },
       }),
     )
+  })
+
+  it('defaults image generate to google/nano-banana-2 when no --model is provided', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--prompt',
+      'A red bicycle in a studio',
+      '--out',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          generate: expect.objectContaining({
+            robot: '/image/generate',
+            model: 'google/nano-banana-2',
+            prompt: 'A red bicycle in a studio',
+            result: true,
+          }),
+        },
+      }),
+    )
+  })
+
+  it('bundles image generate inputs into a single /image/generate step', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--input',
+      'person1.jpg',
+      '--input',
+      'person2.jpg',
+      '--input',
+      'background.jpg',
+      '--prompt',
+      'Place person1.jpg feeding person2.jpg in front of background.jpg',
+      '--out',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['person1.jpg', 'person2.jpg', 'background.jpg'],
+        output: 'generated.png',
+        singleAssembly: true,
+        stepsData: {
+          generate: expect.objectContaining({
+            robot: '/image/generate',
+            result: true,
+            prompt: 'Place person1.jpg feeding person2.jpg in front of background.jpg',
+            use: {
+              steps: [':original'],
+              bundle_steps: true,
+            },
+          }),
+        },
+      }),
+    )
+  })
+
+  it('requires --prompt for image generate even when inputs are provided', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--input',
+      'person1.jpg',
+      '--out',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
+  it('marks --prompt as required in image generate option metadata', () => {
+    const command = getIntentCommand(['image', 'generate'])
+    const intentDefinition = Reflect.get(command, 'intentDefinition')
+    if (intentDefinition == null || typeof intentDefinition !== 'object') {
+      throw new Error('Missing intent definition')
+    }
+
+    const promptField = getIntentOptionDefinitions(
+      intentDefinition as Parameters<typeof getIntentOptionDefinitions>[0],
+    ).find((field) => field.name === 'prompt')
+
+    expect(promptField?.required).toBe(true)
+  })
+
+  it('rejects invalid --num-outputs values for image generate before creating an assembly', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--prompt',
+      'A red bicycle in a studio',
+      '--num-outputs',
+      '11',
+      '--out',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
+  it('rejects duplicate image generate input basenames', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--input',
+      'dir-a/person.jpg',
+      '--input',
+      'dir-b/person.jpg',
+      '--prompt',
+      'Place person.jpg into a magazine cover',
+      '--out',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
   })
 
   it('maps preview generate flags to /file/preview step parameters', async () => {

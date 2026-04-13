@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import {
   getConcurrencyOptionDocumentation,
   getDeleteAfterProcessingOptionDocumentation,
@@ -127,7 +128,14 @@ function getBackendSummary(catalogDefinition: IntentDefinition): string {
 function getUsage(definition: ResolvedIntentCommandDefinition): string {
   const parts = ['npx transloadit', ...definition.paths]
   if (definition.runnerKind !== 'no-input') {
-    parts.push('--input', '<path|dir|url|->')
+    if (
+      'inputPolicy' in definition.intentDefinition &&
+      definition.intentDefinition.inputPolicy.kind === 'optional'
+    ) {
+      parts.push('[--input', '<path|dir|url|->]')
+    } else {
+      parts.push('--input', '<path|dir|url|->')
+    }
   }
   parts.push('[options]')
   return parts.join(' ')
@@ -322,7 +330,7 @@ function renderAtAGlanceTable(definitions: ResolvedIntentCommandDefinition[]): s
   )
 }
 
-function renderIntentDocsBody({
+export function renderIntentDocsBody({
   definitions,
   headingLevel,
 }: {
@@ -357,6 +365,15 @@ function renderIntentDocsBody({
   }
 
   return lines.join('\n').trim()
+}
+
+function isEntrypoint(): boolean {
+  const entrypoint = process.argv[1]
+  if (entrypoint == null) {
+    return false
+  }
+
+  return import.meta.url === pathToFileURL(entrypoint).href
 }
 
 function replaceGeneratedBlock({
@@ -410,10 +427,12 @@ async function main(): Promise<void> {
   await writeFile(readmeUrl, `${nextReadme}\n`)
 }
 
-main().catch((error) => {
-  if (!(error instanceof Error)) {
-    throw new Error(`Was thrown a non-error: ${String(error)}`)
-  }
-  console.error(error)
-  process.exit(1)
-})
+if (isEntrypoint()) {
+  main().catch((error) => {
+    if (!(error instanceof Error)) {
+      throw new Error(`Was thrown a non-error: ${String(error)}`)
+    }
+    console.error(error)
+    process.exit(1)
+  })
+}
