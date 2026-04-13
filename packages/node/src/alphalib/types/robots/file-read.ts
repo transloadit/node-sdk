@@ -4,10 +4,18 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 5,
   discount_factor: 0.2,
   discount_pct: 80,
+  example_code: {
+    steps: {
+      read: {
+        robot: '/file/read',
+        use: ':original',
+      },
+    },
+  },
+  example_code_description: 'Read UTF-8 text content from an uploaded file:',
   minimum_charge: 512000,
   output_factor: 1,
   override_lvl1: 'Document Processing',

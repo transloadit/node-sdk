@@ -5,6 +5,14 @@ import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 // @ts-expect-error - MetaReadRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
   name: 'MetaReadRobot',
+  example_code: {
+    steps: {
+      metadata: {
+        robot: '/meta/read',
+      },
+    },
+  },
+  example_code_description: 'Read metadata from uploaded files:',
   priceFactor: 0,
   queueSlotCount: 15,
   isAllowedForUrlTransform: true,

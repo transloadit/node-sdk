@@ -1091,7 +1091,7 @@ function isRobotAllowedForSmartCdn(robotName: string): boolean {
   const meta = robotsMeta[robotMetaKey as keyof typeof robotsMeta]
 
   // Check if this robot exists and is allowed for Smart CDN
-  return meta?.allowed_for_url_transform === true
+  return meta?.isAllowedForUrlTransform === true
 }
 
 // This function lints Smart CDN Assemblies

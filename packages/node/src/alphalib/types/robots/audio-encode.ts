@@ -12,7 +12,6 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: false,
   bytescount: 4,
   discount_factor: 0.25,
   discount_pct: 75,
@@ -45,7 +44,7 @@ export const meta: RobotMetaInput = {
   name: 'AudioEncodeRobot',
   priceFactor: 4,
   queueSlotCount: 20,
-  isAllowedForUrlTransform: false,
+  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
   isInternal: false,
   stage: 'ga',

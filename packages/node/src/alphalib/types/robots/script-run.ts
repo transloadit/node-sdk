@@ -4,10 +4,20 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 10,
   discount_factor: 0.1,
   discount_pct: 90,
+  example_code: {
+    steps: {
+      evaluate: {
+        robot: '/script/run',
+        use: ':original',
+        script:
+          '({ width: file.meta.width, height: file.meta.height, area: file.meta.width * file.meta.height })',
+      },
+    },
+  },
+  example_code_description: 'Run JavaScript against uploaded file metadata:',
   minimum_charge: 0,
   output_factor: 1,
   override_lvl1: 'Code Evaluation',

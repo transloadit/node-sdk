@@ -6,6 +6,16 @@ import { interpolateRobot, robotBase, robotUse } from './_instructions-primitive
 // @ts-expect-error - FileWatermarkRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
   name: 'FileWatermarkRobot',
+  example_code: {
+    steps: {
+      watermarked: {
+        robot: '/file/watermark',
+        use: ':original',
+        randomize: true,
+      },
+    },
+  },
+  example_code_description: 'Apply randomized watermarking to uploaded files:',
   priceFactor: 4,
   queueSlotCount: 20,
   isAllowedForUrlTransform: true,

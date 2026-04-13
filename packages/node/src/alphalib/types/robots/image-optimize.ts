@@ -9,7 +9,6 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
@@ -30,13 +29,13 @@ export const meta: RobotMetaInput = {
   purpose_word: 'optimize',
   purpose_words: 'Optimize images without quality loss',
   service_slug: 'image-manipulation',
-  slot_count: 15,
+  slot_count: 5,
   title: 'Optimize images without quality loss',
   typical_file_size_mb: 0.8,
   typical_file_type: 'image',
   name: 'ImageOptimizeRobot',
   priceFactor: 1,
-  queueSlotCount: 15,
+  queueSlotCount: 5,
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
   isInternal: false,
@@ -56,6 +55,9 @@ It works well together with [🤖/image/resize](/docs/robots/image-resize/) to b
 
 > [!Note]
 > This <dfn>Robot</dfn> accepts all image types and will just pass on unsupported image types unoptimized. Hence, there is no need to set up [🤖/file/filter](/docs/robots/file-filter/) workflows for this.
+
+> [!Note]
+> PNG optimization uses only lossless (optipng) compressors by default. To also enable lossy compression (pngquant), set \`lossy: true\`. When enabled, both lossy and lossless compressors compete and the smallest result wins, which may cause color shifts in some images.
 `),
     priority: optimize_priority.describe(`
 Provides different algorithms for better or worse compression for your images, but that run slower or faster. The value \`"conversion-speed"\` will result in an average compression ratio of 18%. \`"compression-ratio"\` will result in an average compression ratio of 31%.
@@ -77,6 +79,17 @@ Specifies if the image's metadata should be preserved during the optimization, o
       .default(true)
       .describe(`
 If set to \`true\` this parameter tries to fix images that would otherwise make the underlying tool error out and thereby break your <dfn>Assemblies</dfn>. This can sometimes result in a larger file size, though.
+`),
+    lossy: z
+      .boolean()
+      .default(false)
+      .describe(`
+When set to \`false\` (the default), only lossless PNG optimizers are used, disabling pngquant to preserve color accuracy.
+
+When set to \`true\`, both lossy and lossless PNG optimizers compete and the smallest result wins. This allows pngquant, a lossy compressor that reduces PNGs to a 256-color palette, which may cause noticeable color shifts in images with rich color palettes, subtle gradients, or brand-specific colors.
+
+> [!Note]
+> This parameter only affects PNG optimization. JPEG, GIF, WebP, and SVG optimization is unaffected.
 `),
   })
   .strict()

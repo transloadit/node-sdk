@@ -2,7 +2,7 @@ import type { ZodObject, ZodRawShape } from 'zod'
 import { z } from 'zod'
 
 import { entries } from './object.ts'
-import { robotsSchema } from './types/robots/_index.ts'
+import { getRobotSchemaOptions, robotsSchema } from './types/robots/_index.ts'
 import {
   useParamArrayOfStringsSchema,
   useParamArrayOfUseParamObjectSchema,
@@ -390,7 +390,7 @@ function isZodObject(schema: z.ZodType<unknown>): schema is ZodObject<ZodRawShap
 
 function getSchemaForRobot(rName: string): z.ZodType<unknown> | undefined {
   // Extract all robot schemas from the union and convert readonly array to regular array
-  const schemas = [...robotsSchema._def.options]
+  const schemas = getRobotSchemaOptions()
 
   // Find the matching schema based on the robot name
   return schemas.find((schema) => {

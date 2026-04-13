@@ -11,10 +11,26 @@ import {
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: false,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
+  example_code: {
+    steps: {
+      merged: {
+        robot: '/video/merge',
+        use: [
+          { name: ':original', as: 'image' },
+          { name: ':original', as: 'audio' },
+        ],
+        width: 1280,
+        height: 720,
+        resize_strategy: 'pad',
+        framerate: '1/4',
+        duration: 12,
+      },
+    },
+  },
+  example_code_description: 'Merge uploaded image and audio inputs into one video:',
   minimum_charge: 0,
   output_factor: 0.6,
   override_lvl1: 'Video Encoding',
@@ -101,6 +117,22 @@ Stacks the input media vertically. All streams need to have the same pixel forma
       .optional()
       .describe(`
 The URL of an image to be merged with the audio or video. When this parameter is provided, the robot will download the image from the URL and merge it with the other media.
+`),
+    transition: z
+      .enum(['none', 'crossfade', 'fade_to_black'])
+      .default('none')
+      .describe(`
+The type of transition effect to apply between concatenated video clips. Only applies when concatenating multiple videos (using \`video_1\`, \`video_2\`, etc. or \`pre_roll\`/\`post_roll\` inputs).
+
+- \`"none"\` — No transition effect. Videos are joined end-to-end.
+- \`"crossfade"\` — A gradual blend from one clip to the next (both video and audio).
+- \`"fade_to_black"\` — The current clip fades out to black, then the next clip fades in from black.
+`),
+    transition_duration: z
+      .number()
+      .default(1)
+      .describe(`
+The duration of the transition effect in seconds. Only applies when \`transition\` is not \`"none"\`. Supports float values (e.g., \`0.5\` for a 500ms transition) and must be greater than \`0\` whenever transitions are enabled. The applied transition is automatically capped at half of the shorter clip in each transition pair to prevent overlapping transitions.
 `),
   })
   .strict()

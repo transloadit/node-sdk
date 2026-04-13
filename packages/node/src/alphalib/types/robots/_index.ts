@@ -1,4 +1,7 @@
 import { z } from 'zod'
+
+type RobotSchemaOption = z.ZodObject<any>
+type RobotSchemaOptions = [RobotSchemaOption, ...RobotSchemaOption[]]
 import {
   meta as aiChatMeta,
   interpolatableRobotAiChatInstructionsSchema,
@@ -30,6 +33,11 @@ import {
   interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema,
 } from './audio-merge.ts'
 import {
+  meta as audioSplitMeta,
+  interpolatableRobotAudioSplitInstructionsSchema,
+  interpolatableRobotAudioSplitInstructionsWithHiddenFieldsSchema,
+} from './audio-split.ts'
+import {
   meta as audioWaveformMeta,
   interpolatableRobotAudioWaveformInstructionsSchema,
   interpolatableRobotAudioWaveformInstructionsWithHiddenFieldsSchema,
@@ -54,6 +62,16 @@ import {
   interpolatableRobotBackblazeStoreInstructionsSchema,
   interpolatableRobotBackblazeStoreInstructionsWithHiddenFieldsSchema,
 } from './backblaze-store.ts'
+import {
+  meta as boxImportMeta,
+  interpolatableRobotBoxImportInstructionsSchema,
+  interpolatableRobotBoxImportInstructionsWithHiddenFieldsSchema,
+} from './box-import.ts'
+import {
+  meta as boxStoreMeta,
+  interpolatableRobotBoxStoreInstructionsSchema,
+  interpolatableRobotBoxStoreInstructionsWithHiddenFieldsSchema,
+} from './box-store.ts'
 import {
   meta as cloudfilesImportMeta,
   interpolatableRobotCloudfilesImportInstructionsSchema,
@@ -219,10 +237,20 @@ import {
   interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema,
 } from './image-bgremove.ts'
 import {
+  meta as imageCopyrightdetectMeta,
+  interpolatableRobotImageCopyrightdetectInstructionsSchema,
+  interpolatableRobotImageCopyrightdetectInstructionsWithHiddenFieldsSchema,
+} from './image-copyrightdetect.ts'
+import {
   meta as imageDescribeMeta,
   interpolatableRobotImageDescribeInstructionsSchema,
   interpolatableRobotImageDescribeInstructionsWithHiddenFieldsSchema,
 } from './image-describe.ts'
+import {
+  meta as imageEnhanceMeta,
+  interpolatableRobotImageEnhanceInstructionsSchema,
+  interpolatableRobotImageEnhanceInstructionsWithHiddenFieldsSchema,
+} from './image-enhance.ts'
 import {
   meta as imageFacedetectMeta,
   interpolatableRobotImageFacedetectInstructionsSchema,
@@ -253,6 +281,21 @@ import {
   interpolatableRobotImageResizeInstructionsSchema,
   interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema,
 } from './image-resize.ts'
+import {
+  meta as imageUpscaleMeta,
+  interpolatableRobotImageUpscaleInstructionsSchema,
+  interpolatableRobotImageUpscaleInstructionsWithHiddenFieldsSchema,
+} from './image-upscale.ts'
+import {
+  interpolatableRobotMegaImportInstructionsSchema,
+  interpolatableRobotMegaImportInstructionsWithHiddenFieldsSchema,
+  meta as megaImportMeta,
+} from './mega-import.ts'
+import {
+  interpolatableRobotMegaStoreInstructionsSchema,
+  interpolatableRobotMegaStoreInstructionsWithHiddenFieldsSchema,
+  meta as megaStoreMeta,
+} from './mega-store.ts'
 import {
   interpolatableRobotMetaReadInstructionsSchema,
   interpolatableRobotMetaReadInstructionsWithHiddenFieldsSchema,
@@ -364,6 +407,11 @@ import {
   meta as videoAdaptiveMeta,
 } from './video-adaptive.ts'
 import {
+  interpolatableRobotVideoArtworkInstructionsSchema,
+  interpolatableRobotVideoArtworkInstructionsWithHiddenFieldsSchema,
+  meta as videoArtworkMeta,
+} from './video-artwork.ts'
+import {
   interpolatableRobotVideoConcatInstructionsSchema,
   interpolatableRobotVideoConcatInstructionsWithHiddenFieldsSchema,
   meta as videoConcatMeta,
@@ -374,6 +422,11 @@ import {
   meta as videoEncodeMeta,
 } from './video-encode.ts'
 import {
+  interpolatableRobotVideoGenerateInstructionsSchema,
+  interpolatableRobotVideoGenerateInstructionsWithHiddenFieldsSchema,
+  meta as videoGenerateMeta,
+} from './video-generate.ts'
+import {
   interpolatableRobotVideoMergeInstructionsSchema,
   interpolatableRobotVideoMergeInstructionsWithHiddenFieldsSchema,
   meta as videoMergeMeta,
@@ -383,6 +436,11 @@ import {
   interpolatableRobotVideoOndemandInstructionsWithHiddenFieldsSchema,
   meta as videoOndemandMeta,
 } from './video-ondemand.ts'
+import {
+  interpolatableRobotVideoSplitInstructionsSchema,
+  interpolatableRobotVideoSplitInstructionsWithHiddenFieldsSchema,
+  meta as videoSplitMeta,
+} from './video-split.ts'
 import {
   interpolatableRobotVideoSubtitleInstructionsSchema,
   interpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsSchema,
@@ -419,9 +477,10 @@ import {
   meta as youtubeStoreMeta,
 } from './youtube-store.ts'
 
-const robotStepsInstructions = [
+const robotStepsInstructions: RobotSchemaOptions = [
   interpolatableRobotAudioArtworkInstructionsSchema,
   interpolatableRobotAudioConcatInstructionsSchema,
+  interpolatableRobotAudioSplitInstructionsSchema,
   interpolatableRobotAudioEncodeInstructionsSchema,
   interpolatableRobotAudioLoopInstructionsSchema,
   interpolatableRobotAudioMergeInstructionsSchema,
@@ -430,6 +489,10 @@ const robotStepsInstructions = [
   interpolatableRobotAzureStoreInstructionsSchema,
   interpolatableRobotBackblazeImportInstructionsSchema,
   interpolatableRobotBackblazeStoreInstructionsSchema,
+  interpolatableRobotBoxImportInstructionsSchema,
+  interpolatableRobotBoxStoreInstructionsSchema,
+  interpolatableRobotMegaImportInstructionsSchema,
+  interpolatableRobotMegaStoreInstructionsSchema,
   interpolatableRobotCloudfilesImportInstructionsSchema,
   interpolatableRobotCloudfilesStoreInstructionsSchema,
   interpolatableRobotCloudflareImportInstructionsSchema,
@@ -462,9 +525,12 @@ const robotStepsInstructions = [
   interpolatableRobotHtmlConvertInstructionsSchema,
   interpolatableRobotHttpImportInstructionsSchema,
   interpolatableRobotImageBgremoveInstructionsSchema,
+  interpolatableRobotImageCopyrightdetectInstructionsSchema,
   interpolatableRobotImageDescribeInstructionsSchema,
+  interpolatableRobotImageEnhanceInstructionsSchema,
   interpolatableRobotImageFacedetectInstructionsSchema,
   interpolatableRobotImageGenerateInstructionsSchema,
+  interpolatableRobotImageUpscaleInstructionsSchema,
   interpolatableRobotImageMergeInstructionsSchema,
   interpolatableRobotImageOcrInstructionsSchema,
   interpolatableRobotImageOptimizeInstructionsSchema,
@@ -491,10 +557,13 @@ const robotStepsInstructions = [
   interpolatableRobotTusStoreInstructionsSchema,
   interpolatableRobotUploadHandleInstructionsSchema,
   interpolatableRobotVideoAdaptiveInstructionsSchema,
+  interpolatableRobotVideoArtworkInstructionsSchema,
   interpolatableRobotVideoConcatInstructionsSchema,
   interpolatableRobotVideoEncodeInstructionsSchema,
+  interpolatableRobotVideoGenerateInstructionsSchema,
   interpolatableRobotVideoMergeInstructionsSchema,
   interpolatableRobotVideoOndemandInstructionsSchema,
+  interpolatableRobotVideoSplitInstructionsSchema,
   interpolatableRobotVideoSubtitleInstructionsSchema,
   interpolatableRobotVideoThumbsInstructionsSchema,
   interpolatableRobotVimeoImportInstructionsSchema,
@@ -504,9 +573,10 @@ const robotStepsInstructions = [
   interpolatableRobotYoutubeStoreInstructionsSchema,
 ] as const
 
-const robotStepsInstructionsWithHiddenFields = [
+const robotStepsInstructionsWithHiddenFields: RobotSchemaOptions = [
   interpolatableRobotAudioArtworkInstructionsWithHiddenFieldsSchema,
   interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotAudioSplitInstructionsWithHiddenFieldsSchema,
   interpolatableRobotAudioEncodeInstructionsWithHiddenFieldsSchema,
   interpolatableRobotAudioLoopInstructionsWithHiddenFieldsSchema,
   interpolatableRobotAudioMergeInstructionsWithHiddenFieldsSchema,
@@ -515,6 +585,10 @@ const robotStepsInstructionsWithHiddenFields = [
   interpolatableRobotAzureStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotBackblazeImportInstructionsWithHiddenFieldsSchema,
   interpolatableRobotBackblazeStoreInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotBoxImportInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotBoxStoreInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotMegaImportInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotMegaStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsSchema,
   interpolatableRobotCloudfilesStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotCloudflareImportInstructionsWithHiddenFieldsSchema,
@@ -548,9 +622,12 @@ const robotStepsInstructionsWithHiddenFields = [
   interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema,
   interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema,
   interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotImageCopyrightdetectInstructionsWithHiddenFieldsSchema,
   interpolatableRobotImageDescribeInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotImageEnhanceInstructionsWithHiddenFieldsSchema,
   interpolatableRobotImageFacedetectInstructionsWithHiddenFieldsSchema,
   interpolatableRobotImageGenerateInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotImageUpscaleInstructionsWithHiddenFieldsSchema,
   interpolatableRobotImageMergeInstructionsWithHiddenFieldsSchema,
   interpolatableRobotImageOcrInstructionsWithHiddenFieldsSchema,
   interpolatableRobotImageOptimizeInstructionsWithHiddenFieldsSchema,
@@ -577,10 +654,13 @@ const robotStepsInstructionsWithHiddenFields = [
   interpolatableRobotTusStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotUploadHandleInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotVideoArtworkInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVideoConcatInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVideoEncodeInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotVideoGenerateInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVideoMergeInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVideoOndemandInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotVideoSplitInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVideoThumbsInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVimeoImportInstructionsWithHiddenFieldsSchema,
@@ -590,37 +670,72 @@ const robotStepsInstructionsWithHiddenFields = [
   interpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsSchema,
 ] as const
 
-/**
- * Public robot instructions
- */
-export type RobotsSchema = z.infer<typeof robotsSchema>
-export const robotsSchema = z.discriminatedUnion('robot', [...robotStepsInstructions])
-export const robotsWithHiddenFieldsSchema = z.discriminatedUnion('robot', [
-  ...robotStepsInstructionsWithHiddenFields,
-])
-
-/**
- * All robot instructions, including private ones.
- */
-export const robotsWithHiddenBotsSchema = z.discriminatedUnion('robot', [
+const robotsWithHiddenBotOptions: RobotSchemaOptions = [
   ...robotStepsInstructions,
   interpolatableRobotFileWatermarkInstructionsSchema,
   interpolatableRobotMetaReadInstructionsSchema,
   interpolatableRobotProgressSimulateInstructionsSchema,
-])
-export const robotsWithHiddenBotsAndFieldsSchema = z.discriminatedUnion('robot', [
+]
+const robotsWithHiddenBotAndFieldOptions: RobotSchemaOptions = [
   ...robotStepsInstructionsWithHiddenFields,
   interpolatableRobotMetaReadInstructionsWithHiddenFieldsSchema,
   interpolatableRobotProgressSimulateInstructionsSchema,
-])
+]
 
-export type RobotsWithHiddenBots = z.infer<typeof robotsWithHiddenBotsSchema>
-export type RobotsWithHiddenBotsAndFields = z.infer<typeof robotsWithHiddenBotsAndFieldsSchema>
+const robotsSchemaInternal = z.discriminatedUnion('robot', robotStepsInstructions)
+const robotsWithHiddenFieldsSchemaInternal = z.discriminatedUnion(
+  'robot',
+  robotStepsInstructionsWithHiddenFields,
+)
+const robotsWithHiddenBotsSchemaInternal = z.discriminatedUnion(
+  'robot',
+  robotsWithHiddenBotOptions,
+)
+const robotsWithHiddenBotsAndFieldsSchemaInternal = z.discriminatedUnion(
+  'robot',
+  robotsWithHiddenBotAndFieldOptions,
+)
+
+export interface PublicRobotInstructions {
+  robot: string
+  [key: string]: any
+}
+
+export interface PublicRobotInstructionsWithHiddenFields extends PublicRobotInstructions {}
+
+export interface HiddenRobotInstructions extends PublicRobotInstructions {}
+
+export interface HiddenRobotInstructionsWithFields extends PublicRobotInstructionsWithHiddenFields {}
+
+/**
+ * Public robot instructions
+ */
+export type RobotsSchema = PublicRobotInstructions
+export const robotsSchema: z.ZodType<PublicRobotInstructions> =
+  robotsSchemaInternal as unknown as z.ZodType<PublicRobotInstructions>
+export const robotsWithHiddenFieldsSchema: z.ZodType<PublicRobotInstructionsWithHiddenFields> =
+  robotsWithHiddenFieldsSchemaInternal as unknown as z.ZodType<PublicRobotInstructionsWithHiddenFields>
+
+/**
+ * All robot instructions, including private ones.
+ */
+export const robotsWithHiddenBotsSchema: z.ZodType<HiddenRobotInstructions> =
+  robotsWithHiddenBotsSchemaInternal as unknown as z.ZodType<HiddenRobotInstructions>
+export const robotsWithHiddenBotsAndFieldsSchema: z.ZodType<HiddenRobotInstructionsWithFields> =
+  robotsWithHiddenBotsAndFieldsSchemaInternal as unknown as z.ZodType<HiddenRobotInstructionsWithFields>
+
+export type RobotsWithHiddenBots = HiddenRobotInstructions
+export type RobotsWithHiddenBotsAndFields = HiddenRobotInstructionsWithFields
+
+export function getRobotSchemaOptions(): readonly RobotSchemaOption[] {
+  return [...robotStepsInstructions]
+}
 
 export const robotsMeta = {
   aiChatMeta,
   audioArtworkMeta,
   audioConcatMeta,
+  audioSplitMeta,
   audioEncodeMeta,
   audioLoopMeta,
   audioMergeMeta,
@@ -629,6 +744,10 @@ export const robotsMeta = {
   azureStoreMeta,
   backblazeImportMeta,
   backblazeStoreMeta,
+  boxImportMeta,
+  boxStoreMeta,
+  megaImportMeta,
+  megaStoreMeta,
   cloudfilesImportMeta,
   cloudfilesStoreMeta,
   cloudflareImportMeta,
@@ -660,9 +779,12 @@ export const robotsMeta = {
   googleStoreMeta,
   htmlConvertMeta,
   httpImportMeta,
+  imageCopyrightdetectMeta,
   imageDescribeMeta,
+  imageEnhanceMeta,
   imageFacedetectMeta,
   imageBgremoveMeta,
+  imageUpscaleMeta,
   imageGenerateMeta,
   imageMergeMeta,
   imageOcrMeta,
@@ -689,10 +811,13 @@ export const robotsMeta = {
   tusStoreMeta,
   uploadHandleMeta,
   videoAdaptiveMeta,
+  videoArtworkMeta,
   videoConcatMeta,
   videoEncodeMeta,
+  videoGenerateMeta,
   videoMergeMeta,
   videoOndemandMeta,
+  videoSplitMeta,
   videoSubtitleMeta,
   videoThumbsMeta,
   vimeoImportMeta,
@@ -743,6 +868,12 @@ export type {
   InterpolatableRobotAudioMergeInstructionsWithHiddenFieldsInput,
 } from './audio-merge.ts'
 export type {
+  InterpolatableRobotAudioSplitInstructions,
+  InterpolatableRobotAudioSplitInstructionsInput,
+  InterpolatableRobotAudioSplitInstructionsWithHiddenFields,
+  InterpolatableRobotAudioSplitInstructionsWithHiddenFieldsInput,
+} from './audio-split.ts'
+export type {
   InterpolatableRobotAudioWaveformInstructions,
   InterpolatableRobotAudioWaveformInstructionsInput,
   InterpolatableRobotAudioWaveformInstructionsWithHiddenFields,
@@ -772,6 +903,18 @@ export type {
   InterpolatableRobotBackblazeStoreInstructionsWithHiddenFields,
   InterpolatableRobotBackblazeStoreInstructionsWithHiddenFieldsInput,
 } from './backblaze-store.ts'
+export type {
+  InterpolatableRobotBoxImportInstructions,
+  InterpolatableRobotBoxImportInstructionsInput,
+  InterpolatableRobotBoxImportInstructionsWithHiddenFields,
+  InterpolatableRobotBoxImportInstructionsWithHiddenFieldsInput,
+} from './box-import.ts'
+export type {
+  InterpolatableRobotBoxStoreInstructions,
+  InterpolatableRobotBoxStoreInstructionsInput,
+  InterpolatableRobotBoxStoreInstructionsWithHiddenFields,
+  InterpolatableRobotBoxStoreInstructionsWithHiddenFieldsInput,
+} from './box-store.ts'
 export type {
   InterpolatableRobotCloudfilesImportInstructions,
   InterpolatableRobotCloudfilesImportInstructionsInput,
@@ -971,11 +1114,23 @@ export type {
   InterpolatableRobotImageBgremoveInstructionsWithHiddenFieldsInput,
 } from './image-bgremove.ts'
 export type {
+  InterpolatableRobotImageCopyrightdetectInstructions,
+  InterpolatableRobotImageCopyrightdetectInstructionsInput,
+  InterpolatableRobotImageCopyrightdetectInstructionsWithHiddenFields,
+  InterpolatableRobotImageCopyrightdetectInstructionsWithHiddenFieldsInput,
+} from './image-copyrightdetect.ts'
+export type {
   InterpolatableRobotImageDescribeInstructions,
   InterpolatableRobotImageDescribeInstructionsInput,
   InterpolatableRobotImageDescribeInstructionsWithHiddenFields,
   InterpolatableRobotImageDescribeInstructionsWithHiddenFieldsInput,
 } from './image-describe.ts'
+export type {
+  InterpolatableRobotImageEnhanceInstructions,
+  InterpolatableRobotImageEnhanceInstructionsInput,
+  InterpolatableRobotImageEnhanceInstructionsWithHiddenFields,
+  InterpolatableRobotImageEnhanceInstructionsWithHiddenFieldsInput,
+} from './image-enhance.ts'
 export type {
   InterpolatableRobotImageFacedetectInstructions,
   InterpolatableRobotImageFacedetectInstructionsInput,
@@ -1012,6 +1167,24 @@ export type {
   InterpolatableRobotImageResizeInstructionsWithHiddenFields,
   InterpolatableRobotImageResizeInstructionsWithHiddenFieldsInput,
 } from './image-resize.ts'
+export type {
+  InterpolatableRobotImageUpscaleInstructions,
+  InterpolatableRobotImageUpscaleInstructionsInput,
+  InterpolatableRobotImageUpscaleInstructionsWithHiddenFields,
+  InterpolatableRobotImageUpscaleInstructionsWithHiddenFieldsInput,
+} from './image-upscale.ts'
+export type {
+  InterpolatableRobotMegaImportInstructions,
+  InterpolatableRobotMegaImportInstructionsInput,
+  InterpolatableRobotMegaImportInstructionsWithHiddenFields,
+  InterpolatableRobotMegaImportInstructionsWithHiddenFieldsInput,
+} from './mega-import.ts'
+export type {
+  InterpolatableRobotMegaStoreInstructions,
+  InterpolatableRobotMegaStoreInstructionsInput,
+  InterpolatableRobotMegaStoreInstructionsWithHiddenFields,
+  InterpolatableRobotMegaStoreInstructionsWithHiddenFieldsInput,
+} from './mega-store.ts'
 export type {
   InterpolatableRobotMetaReadInstructions,
   InterpolatableRobotMetaReadInstructionsInput,
@@ -1148,6 +1321,12 @@ export type {
   InterpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsInput,
 } from './video-adaptive.ts'
 export type {
+  InterpolatableRobotVideoArtworkInstructions,
+  InterpolatableRobotVideoArtworkInstructionsInput,
+  InterpolatableRobotVideoArtworkInstructionsWithHiddenFields,
+  InterpolatableRobotVideoArtworkInstructionsWithHiddenFieldsInput,
+} from './video-artwork.ts'
+export type {
   InterpolatableRobotVideoConcatInstructions,
   InterpolatableRobotVideoConcatInstructionsInput,
   InterpolatableRobotVideoConcatInstructionsWithHiddenFields,
@@ -1160,6 +1339,12 @@ export type {
   InterpolatableRobotVideoEncodeInstructionsWithHiddenFieldsInput,
 } from './video-encode.ts'
 export type {
+  InterpolatableRobotVideoGenerateInstructions,
+  InterpolatableRobotVideoGenerateInstructionsInput,
+  InterpolatableRobotVideoGenerateInstructionsWithHiddenFields,
+  InterpolatableRobotVideoGenerateInstructionsWithHiddenFieldsInput,
+} from './video-generate.ts'
+export type {
   InterpolatableRobotVideoMergeInstructions,
   InterpolatableRobotVideoMergeInstructionsInput,
   InterpolatableRobotVideoMergeInstructionsWithHiddenFields,
@@ -1171,6 +1356,12 @@ export type {
   InterpolatableRobotVideoOndemandInstructionsWithHiddenFields,
   InterpolatableRobotVideoOndemandInstructionsWithHiddenFieldsInput,
 } from './video-ondemand.ts'
+export type {
+  InterpolatableRobotVideoSplitInstructions,
+  InterpolatableRobotVideoSplitInstructionsInput,
+  InterpolatableRobotVideoSplitInstructionsWithHiddenFields,
+  InterpolatableRobotVideoSplitInstructionsWithHiddenFieldsInput,
+} from './video-split.ts'
 export type {
   InterpolatableRobotVideoSubtitleInstructions,
   InterpolatableRobotVideoSubtitleInstructionsInput,

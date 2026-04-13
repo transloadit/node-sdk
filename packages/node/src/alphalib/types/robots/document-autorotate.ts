@@ -4,10 +4,17 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  allowed_for_url_transform: true,
   bytescount: 1,
   discount_factor: 1,
   discount_pct: 0,
+  example_code: {
+    steps: {
+      rotated: {
+        robot: '/document/autorotate',
+        use: ':original',
+      },
+    },
+  },
   example_code_description:
     'Auto-rotate individual pages of a documents to the correction orientation:',
   minimum_charge: 2097152,

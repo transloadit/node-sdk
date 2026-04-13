@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import { robotsMeta, robotsSchema } from './alphalib/types/robots/_index.ts'
+import { getRobotSchemaOptions, robotsMeta } from './alphalib/types/robots/_index.ts'
 
 export type RobotListOptions = {
   category?: string
@@ -219,7 +219,7 @@ const getRobotsMetaIndex = (): {
 
 const getRobotSchemaIndex = (): Map<string, z.ZodTypeAny> => {
   const index = new Map<string, z.ZodTypeAny>()
-  for (const option of robotsSchema.options) {
+  for (const option of getRobotSchemaOptions()) {
     const shape = getShape(option)
     const robotSchema = shape.robot
     if (!robotSchema) continue

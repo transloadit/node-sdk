@@ -1,9 +1,22 @@
 import { z } from 'zod'
 
-import { robotsSchema, robotsWithHiddenBotsAndFieldsSchema } from './robots/_index.ts'
+import {
+  robotsSchema,
+  robotsWithHiddenBotsAndFieldsSchema,
+} from './robots/_index.ts'
+import type {
+  RobotsSchema,
+  RobotsWithHiddenBotsAndFields,
+} from './robots/_index.ts'
 import type { RobotUse } from './robots/_instructions-primitives.ts'
 
-export const stepSchema = z
+export type Step = RobotsSchema
+export type StepInput = Step
+export type StepInputWithUse = StepInput & RobotUse
+export type Steps = Record<string, Step>
+export type StepsInput = Steps
+
+export const stepSchema: z.ZodType<Step> = z
   .object({
     // This is a hack to get nicer robot hover messages in editors.
     robot: z
@@ -11,15 +24,17 @@ export const stepSchema = z
       .describe('Identifier of the [robot](https://transloadit.com/docs/robots/) to execute'),
   })
   .and(robotsSchema)
-export const stepsSchema = z.record(stepSchema).describe('Contains Assembly Instructions.')
-export type Step = z.infer<typeof stepSchema>
-export type StepInput = z.input<typeof stepSchema>
-export type StepInputWithUse = StepInput & RobotUse
-export type Steps = z.infer<typeof stepsSchema>
-export type StepsInput = z.input<typeof stepsSchema>
+export const stepsSchema: z.ZodType<Steps> = z
+  .record(stepSchema)
+  .describe('Contains Assembly Instructions.')
 export const optionalStepsSchema = stepsSchema.optional()
 
-export const stepSchemaWithHiddenFields = z
+export type StepWithHiddenFields = RobotsWithHiddenBotsAndFields
+export type StepWithHiddenFieldsInput = StepWithHiddenFields
+export type StepsWithHiddenFields = Record<string, StepWithHiddenFields>
+export type StepsWithHiddenFieldsInput = StepsWithHiddenFields
+
+export const stepSchemaWithHiddenFields: z.ZodType<StepWithHiddenFields> = z
   .object({
     // This is a hack to get nicer robot hover messages in editors.
     robot: z
@@ -27,13 +42,9 @@ export const stepSchemaWithHiddenFields = z
       .describe('Identifier of the [robot](https://transloadit.com/docs/robots/) to execute'),
   })
   .and(robotsWithHiddenBotsAndFieldsSchema)
-export const stepsSchemaWithHiddenFields = z
+export const stepsSchemaWithHiddenFields: z.ZodType<StepsWithHiddenFields> = z
   .record(stepSchemaWithHiddenFields)
   .describe('Contains Assembly Instructions.')
-export type StepWithHiddenFields = z.infer<typeof stepSchemaWithHiddenFields>
-export type StepWithHiddenFieldsInput = z.input<typeof stepSchemaWithHiddenFields>
-export type StepsWithHiddenFields = z.infer<typeof stepsSchemaWithHiddenFields>
-export type StepsWithHiddenFieldsInput = z.input<typeof stepsSchemaWithHiddenFields>
 const optionalStepsWithHiddenFieldsSchema = stepsSchemaWithHiddenFields.optional()
 
 export const fieldsSchema = z
