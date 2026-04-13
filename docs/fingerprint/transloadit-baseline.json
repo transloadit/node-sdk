@@ -1,19 +1,22 @@
 {
   "packageDir": "packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.7.5.tgz",
-    "sizeBytes": 1329165,
-    "sha256": "ea0e9d591169bbadaf8370f5dd45e4df776713076458879345721d0781f6e408"
+    "filename": "transloadit-4.7.6.tgz",
+    "sizeBytes": 1341453,
+    "sha256": "3dc2015ec188b3cadeec1999773aa1c16afaac59f895adeeb76f602c0bf9a90a"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.7.5",
+    "version": "4.7.6",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
       "./package.json": "./package.json"
     },
-    "files": ["dist", "src"]
+    "files": [
+      "dist",
+      "src"
+    ]
   },
   "files": [
     {
@@ -88,8 +91,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js",
-      "sizeBytes": 31124,
-      "sha256": "1133e32f2dcf546c9713fe5832b6b83107dbf9a7dd3f661217ff83acc5fd8c67"
+      "sizeBytes": 32083,
+      "sha256": "1882472bab298064f4f591beb1cb79ac85b7459792f749e5427d18dc74081573"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.js",
@@ -175,6 +178,11 @@
       "path": "dist/alphalib/types/builtinTemplates.js",
       "sizeBytes": 552,
       "sha256": "c69974779485260068e93df6949ae05b36270f233618748b831c7acc7dfabba2"
+    },
+    {
+      "path": "dist/alphalib/providers/BunnyClient.js",
+      "sizeBytes": 8626,
+      "sha256": "b3f34927bf79cc84e1348f20e4515c701fadb06e9bba0a5203bf236560b5036e"
     },
     {
       "path": "dist/cli.js",
@@ -628,13 +636,13 @@
     },
     {
       "path": "dist/alphalib/types/template.js",
-      "sizeBytes": 11108,
-      "sha256": "73cd432fb80df101ca0be422259d19165c01ef5ba766d80d79d40039890a5778"
+      "sizeBytes": 12198,
+      "sha256": "9b571291f937dfdab6bb97a908f16ff3c521616f83c0e3889a936f96fbcb1a17"
     },
     {
       "path": "dist/alphalib/types/templateCredential.js",
-      "sizeBytes": 1423,
-      "sha256": "02c74c8b94d3514c65c86af727ccf69acf6f3ef1cac184eea35aab75bd0b554f"
+      "sizeBytes": 1439,
+      "sha256": "2e7aa6714d813502835147509bd01249306a84b9e22c1617af1ecfc80dbd54d8"
     },
     {
       "path": "dist/alphalib/templateMerge.js",
@@ -768,13 +776,13 @@
     },
     {
       "path": "dist/alphalib/zodParseWithContext.js",
-      "sizeBytes": 13900,
-      "sha256": "95686fd259cf628f479d483dff11edf5ec4bceb75f9780e079fa2444948260fe"
+      "sizeBytes": 14219,
+      "sha256": "b4fd2c2c600573cfdfdb547c1ca5b11c9e49f846a5d94d008b281d9e1173c764"
     },
     {
       "path": "package.json",
       "sizeBytes": 2855,
-      "sha256": "bf0b13fc2703400268108db330445563468f10088f9001eb884afd34a8e79522"
+      "sha256": "b6e241edb89739e05d3babfcf65f1fd7c317c432d5adc72cd875b6bab0599870"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
@@ -908,13 +916,13 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts.map",
-      "sizeBytes": 74450,
-      "sha256": "a455e6ceace04dd94f276f2c0c3b0ba568874ccc2e7268175004aad62ea52779"
+      "sizeBytes": 78997,
+      "sha256": "6a84d02fd305e44d87efe58e4c3eb0c3876f94be559a27725f9f6edf3424bcf2"
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js.map",
-      "sizeBytes": 33305,
-      "sha256": "b298a07cd042be194d1993f0c12f034e3a64284f4cf159004215f2606399eb45"
+      "sizeBytes": 34017,
+      "sha256": "cd3f2ed93ce3e70f5b13d03a452fe3d2ac466dfc01bb02466d2cace15f2996e2"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.d.ts.map",
@@ -1085,6 +1093,16 @@
       "path": "dist/alphalib/types/builtinTemplates.js.map",
       "sizeBytes": 790,
       "sha256": "b734fed0fe28149adef6544cf1757012ccd7d5604e613e03ca957ebef6d1c5d3"
+    },
+    {
+      "path": "dist/alphalib/providers/BunnyClient.d.ts.map",
+      "sizeBytes": 1718,
+      "sha256": "094d3adf11a2869b74e86967ccc78473d459618c973262115d24a49fbc08df69"
+    },
+    {
+      "path": "dist/alphalib/providers/BunnyClient.js.map",
+      "sizeBytes": 7842,
+      "sha256": "cad0355fdc66d77b78956bd76399126bd71b2734bf33bacf890ba2133a3c9bfb"
     },
     {
       "path": "dist/cli.d.ts.map",
@@ -1988,23 +2006,23 @@
     },
     {
       "path": "dist/alphalib/types/template.d.ts.map",
-      "sizeBytes": 134462,
-      "sha256": "b4889f17b1e437b7cd7f0a99e57039d33ece349937641071e49737b2a1f1e791"
+      "sizeBytes": 134619,
+      "sha256": "a21e368d805dfbdd11d640a6450e053d0e0f528c371a014861635633ca5198a9"
     },
     {
       "path": "dist/alphalib/types/template.js.map",
-      "sizeBytes": 5478,
-      "sha256": "87dac3828a2fb9e514164589f9a03fced7b54715e69ee940f31102b0fb4f8749"
+      "sizeBytes": 5741,
+      "sha256": "f2e29ea14790b3281c7f1f32160af6b6107bef522962be49900dca9e7bbad171"
     },
     {
       "path": "dist/alphalib/types/templateCredential.d.ts.map",
       "sizeBytes": 357,
-      "sha256": "fb41daf2fa6ce7cec41195bf5cae66d1eb1b49e2fdf8ee3dbed30fa218dcae3e"
+      "sha256": "9014467fa23091b0d527fd006a2067a01672a36691b2c81addf1b7940503817a"
     },
     {
       "path": "dist/alphalib/types/templateCredential.js.map",
-      "sizeBytes": 912,
-      "sha256": "125372bf800fcb2b436edf9b7ac47aeea00a7ae8bc6cd0592b5a1fc4419e1cd1"
+      "sizeBytes": 922,
+      "sha256": "1bcc2d878803ab0a0aad678fa39ed61e073bf4b8dbd3ea967780ba488d1eb6fa"
     },
     {
       "path": "dist/alphalib/templateMerge.d.ts.map",
@@ -2269,12 +2287,12 @@
     {
       "path": "dist/alphalib/zodParseWithContext.d.ts.map",
       "sizeBytes": 711,
-      "sha256": "7422db554332a0a7a4e2d58e402c5714a1b67db6a1b2ea98f4709b3c319d3041"
+      "sha256": "7163939e697bb346388bf3a8f64bffa4a3c1ce045f670167e6f122962614979a"
     },
     {
       "path": "dist/alphalib/zodParseWithContext.js.map",
-      "sizeBytes": 9563,
-      "sha256": "c3ee1daecdb3fb7a6fb1ab0d5b5cb327e1620c94b3c16ab522b9b599a04c468a"
+      "sizeBytes": 9748,
+      "sha256": "7bd67d48db9b97e0883703ed38f839f42f5e1cb014f2088684764d4f66a2e9a6"
     },
     {
       "path": "README.md",
@@ -2413,13 +2431,13 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts",
-      "sizeBytes": 4256859,
-      "sha256": "4b639cd3a32022cbcdf12490bf2f0c7accd0e9f5b0712e1aa5e9b781e66086e8"
+      "sizeBytes": 4491846,
+      "sha256": "cbb0b5b37d7623b10c6f64c9cd487ba7af433f635ab8d1442dd36d52c46432dc"
     },
     {
       "path": "src/alphalib/types/assemblyStatus.ts",
-      "sizeBytes": 32758,
-      "sha256": "be03fff16ebce38a346785e8453de2fe5b4a2e9a74129a39ad3a175864fc5e51"
+      "sizeBytes": 33762,
+      "sha256": "cc287b4802af12cd3eb55aa0df018240fd30b23786d2ac3a427e6df28d08bd63"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.d.ts",
@@ -2590,6 +2608,16 @@
       "path": "src/alphalib/types/builtinTemplates.ts",
       "sizeBytes": 601,
       "sha256": "4216c2fedf539c16add2e93a4e0566fa2be63bcba2f65510766c4b0bcbef1dcb"
+    },
+    {
+      "path": "dist/alphalib/providers/BunnyClient.d.ts",
+      "sizeBytes": 5153,
+      "sha256": "f889c1896ee12acf0989553738ef8197d4553d767aaa0115fec72b9ee165d3da"
+    },
+    {
+      "path": "src/alphalib/providers/BunnyClient.ts",
+      "sizeBytes": 8859,
+      "sha256": "9785d88702e66d9756e2a91722d9c7f1b40108820e1c1854a4d9b1bd139bd05d"
     },
     {
       "path": "dist/cli.d.ts",
@@ -3498,23 +3526,23 @@
     },
     {
       "path": "dist/alphalib/types/template.d.ts",
-      "sizeBytes": 7722903,
-      "sha256": "a33a90105aea2a848e33f64eac5811f3af602648bdecf2a78b7e83a8a6da1aa4"
+      "sizeBytes": 7724733,
+      "sha256": "12f5236f29a60c315c35973711c9eb30107de66d8d4118294578a5d1168527e6"
     },
     {
       "path": "src/alphalib/types/template.ts",
-      "sizeBytes": 12309,
-      "sha256": "96d1cf2f90fa99ae87ee69f9a39d7379ddcb4ef9ad1e0c74435faee2f9eaf7f2"
+      "sizeBytes": 13595,
+      "sha256": "4c8f2505f459ad92e32179c6f746830b08d96fd7c5a9d07ab9993fbf12183361"
     },
     {
       "path": "dist/alphalib/types/templateCredential.d.ts",
-      "sizeBytes": 4040,
-      "sha256": "48876e7e71edff9b3945f298730415b986b1a9fb255598cacdc4d1e20c8ec564"
+      "sizeBytes": 4066,
+      "sha256": "c39e9015c16d0e1defa6e0ac2eb96b5ee0874ff32c0f899edf15c7bb5dc83d57"
     },
     {
       "path": "src/alphalib/types/templateCredential.ts",
-      "sizeBytes": 1375,
-      "sha256": "2d0a63c819e86f0eee3bb4811d32033ede8be5692ff9ba02c30147db42a41520"
+      "sizeBytes": 1391,
+      "sha256": "855560dd59d0c67873628dc91fc1ab7afb42aa4579bf4f200d043b4257529657"
     },
     {
       "path": "dist/alphalib/templateMerge.d.ts",
@@ -3783,8 +3811,8 @@
     },
     {
       "path": "src/alphalib/zodParseWithContext.ts",
-      "sizeBytes": 12282,
-      "sha256": "d5bf1ecfed63b2a910c20048fa89ca52a84e83c4848c4eb891369b6857e55459"
+      "sizeBytes": 12571,
+      "sha256": "1a6100cd6a84659ca0ba1af113db7d6e495ce62e570a2b15592a9e521bae2410"
     }
   ]
 }

@@ -30,6 +30,7 @@ export const templateCredentialsSchema = z
         'ftp',
         'google',
         'http',
+        'mega',
         'minio',
         'rackspace',
         's3',

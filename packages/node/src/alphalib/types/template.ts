@@ -48,7 +48,27 @@ export const notifyUrlSchema = z
   .optional()
   .nullable()
   .describe(
-    'Transloadit can send a Pingback to your server when the Assembly is completed. We’ll send the Assembly status in a form url-encoded JSON string inside of a transloadit field in a multipart POST request to the URL supplied here.',
+    "Transloadit can send a Pingback to your server when the Assembly is completed. We'll send the Assembly status in a form url-encoded JSON string inside of a transloadit field in a multipart POST request to the URL supplied here. Use `notification_payload` to reduce the payload size (e.g. `without_uploads`, `without_results`); the same filtering applies to notification replays.",
+  )
+
+export type NotificationPayloadFilter =
+  | 'without_result_meta_data'
+  | 'without_results'
+  | 'without_upload_meta_data'
+  | 'without_uploads'
+
+export const notificationPayloadFilterValues = [
+  'without_result_meta_data',
+  'without_results',
+  'without_upload_meta_data',
+  'without_uploads',
+] as const satisfies readonly NotificationPayloadFilter[]
+
+export const notificationPayloadSchema = z
+  .array(z.enum(notificationPayloadFilterValues))
+  .optional()
+  .describe(
+    'Controls the size of the payload sent in Assembly notifications (both the initial notification and any notification replays). An empty array (default) sends the complete Assembly status. Add `"without_upload_meta_data"` to strip `meta` from files in `uploads`. Add `"without_result_meta_data"` to strip `meta` from files in `results`. Add `"without_uploads"` to strip `uploads` entirely. Add `"without_results"` to strip `results` entirely. Filtering is applied before serialization, so using these options reduces memory use and helps avoid oversized-payload or OOM failures on large assemblies.',
   )
 
 export const templateIdSchema = z
@@ -122,6 +142,7 @@ const assemblyInstructionsSharedShape = {
       'Set this to false to disallow Overruling Templates at Runtime. If you set this to false then template_id and steps will be mutually exclusive and you may only supply one of those parameters. Recommended when deploying Transloadit in untrusted environments. This makes sense to set as part of a Template, rather than on the Assembly itself when creating it.',
     ),
   notify_url: notifyUrlSchema,
+  notification_payload: notificationPayloadSchema,
   fields: fieldsSchema,
   quiet: z
     .boolean()
