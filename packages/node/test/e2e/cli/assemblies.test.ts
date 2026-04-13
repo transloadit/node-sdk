@@ -7,6 +7,22 @@ import type { OutputEntry } from './test-utils.ts'
 import { hasTransloaditCredentials, testCase } from './test-utils.ts'
 
 const describeLive = hasTransloaditCredentials ? describe : describe.skip
+const volatileNotifyFields = [
+  'notify_start',
+  'notify_status',
+  'notify_response_code',
+  'notify_response_data',
+  'notify_duration',
+] as const
+
+function normalizeAssemblyForAssertion<T extends Record<string, unknown>>(assembly: T): T {
+  const normalized = { ...assembly }
+  for (const field of volatileNotifyFields) {
+    delete normalized[field]
+  }
+
+  return normalized
+}
 
 describeLive('assemblies', () => {
   describe('get', () => {
@@ -35,7 +51,9 @@ describeLive('assemblies', () => {
         for (const [expectation, actual] of zip(expectations, actuals)) {
           expect(actual).to.have.lengthOf(1)
           expect(actual).to.have.nested.property('[0].type').that.equals('print')
-          expect(actual).to.have.nested.property('[0].json').that.deep.equals(expectation)
+          expect(normalizeAssemblyForAssertion(actual[0].json ?? {})).to.deep.equal(
+            normalizeAssemblyForAssertion(expectation),
+          )
         }
       }),
     )
