@@ -179,6 +179,7 @@ describeLive('assemblies', () => {
         expect(outs).to.include('out/sub/3.jpg')
         expect(outs).to.have.lengthOf(3)
       }),
+      180_000,
     )
 
     it(
@@ -336,6 +337,7 @@ describeLive('assemblies', () => {
         expect(dim.width).to.be.greaterThan(0)
         expect(dim.height).to.be.greaterThan(0)
       }),
+      180_000,
     )
 
     it(
@@ -361,6 +363,7 @@ describeLive('assemblies', () => {
         expect(hasM3u8).to.equal(true)
         expect(hasTs).to.equal(true)
       }),
+      180_000,
     )
 
     it(
@@ -504,6 +507,7 @@ describeLive('assemblies', () => {
         expect(streamClosedMessages).to.have.lengthOf(0)
         expect(messages).to.include(`Creating single assembly with ${fileCount} files`)
       }),
+      180_000,
     )
   })
 })
