@@ -1,5 +1,14 @@
 # @transloadit/mcp-server
 
+## 0.3.12
+
+### Patch Changes
+
+- aa91113: Add input-guided `image generate` intent support, default image generation to
+  `google/nano-banana-2`, and document multi-image prompting by filename.
+- Updated dependencies [aa91113]
+  - @transloadit/node@4.8.0
+
 ## 0.3.11
 
 ### Patch Changes
