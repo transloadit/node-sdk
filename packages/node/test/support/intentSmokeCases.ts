@@ -59,12 +59,7 @@ const intentSmokeOverrides: Record<string, Omit<IntentSmokeCase, 'key' | 'paths'
     verifier: 'png',
   },
   'image-generate:image/generate': {
-    args: [
-      '--prompt',
-      'A small red bicycle on a cream background, studio lighting',
-      '--model',
-      'google/nano-banana',
-    ],
+    args: ['--prompt', 'A small red bicycle on a cream background, studio lighting'],
     outputPath: 'image-generate.png',
     verifier: 'png',
   },

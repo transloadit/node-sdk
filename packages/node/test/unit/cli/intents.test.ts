@@ -325,6 +325,33 @@ describe('intent commands', () => {
     )
   })
 
+  it('defaults image generate to google/nano-banana-2 when no --model is provided', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--prompt',
+      'A red bicycle in a studio',
+      '--out',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          generate: expect.objectContaining({
+            robot: '/image/generate',
+            model: 'google/nano-banana-2',
+            prompt: 'A red bicycle in a studio',
+            result: true,
+          }),
+        },
+      }),
+    )
+  })
+
   it('bundles image generate inputs into a single /image/generate step', async () => {
     const { createSpy } = await runIntentCommand([
       'image',

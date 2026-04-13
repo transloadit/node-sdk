@@ -2,6 +2,7 @@ import type { IntentOptionDefinition } from '../intentRuntime.ts'
 import type { SemanticIntentDescriptor, SemanticIntentPresentation } from './index.ts'
 import { parseOptionalEnumValue } from './parsing.ts'
 
+const defaultImageGenerateModel = 'google/nano-banana-2'
 const imageGenerateFormats = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'svg'] as const
 
 const imageGenerateOptionDefinitions = [
@@ -19,8 +20,9 @@ const imageGenerateOptionDefinitions = [
     kind: 'string',
     propertyName: 'model',
     optionFlags: '--model',
-    description: 'The AI model to use for image generation.',
+    description: `The AI model to use for image generation. Defaults to ${defaultImageGenerateModel}.`,
     required: false,
+    exampleValue: defaultImageGenerateModel,
   },
   {
     name: 'format',
@@ -154,6 +156,7 @@ function createImageGenerateStep(
   const step: Record<string, unknown> = {
     robot: '/image/generate',
     result: true,
+    model: defaultImageGenerateModel,
     prompt: parseRequiredPrompt(rawValues.prompt),
   }
 
