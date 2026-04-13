@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -123,6 +123,7 @@ const main = async (): Promise<void> => {
   await copyDir(resolve(nodePackage, 'src'), resolve(legacyPackage, 'src'))
   await cp(resolve(nodePackage, 'README.md'), resolve(legacyPackage, 'README.md'))
   await cp(resolve(repoRoot, 'LICENSE'), resolve(legacyPackage, 'LICENSE'))
+  await chmod(resolve(legacyPackage, 'dist/cli.js'), 0o755)
   await writeLegacyPackageJson()
   await writeLegacyChangelog()
 }
