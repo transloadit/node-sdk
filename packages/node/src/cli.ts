@@ -6,6 +6,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import 'dotenv/config'
 import { createCli } from './cli/commands/index.ts'
+import { ensureError } from './cli/types.ts'
 
 const currentFile = realpathSync(fileURLToPath(import.meta.url))
 
@@ -32,13 +33,13 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   }
 }
 
-export function runCliWhenExecuted(): void {
+export async function runCliWhenExecuted(): Promise<void> {
   if (!shouldRunCli(process.argv[1])) return
 
-  void main().catch((error) => {
-    console.error((error as Error).message)
+  await main().catch((error) => {
+    console.error(ensureError(error).message)
     process.exitCode = 1
   })
 }
 
-runCliWhenExecuted()
+await runCliWhenExecuted()

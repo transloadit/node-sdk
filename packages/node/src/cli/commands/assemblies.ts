@@ -1,12 +1,13 @@
+import { randomUUID } from 'node:crypto'
 import EventEmitter from 'node:events'
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import type { Readable, Writable } from 'node:stream'
+import type { Readable } from 'node:stream'
+import { Writable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout as delay } from 'node:timers/promises'
-import tty from 'node:tty'
 import { promisify } from 'node:util'
 import { Command, Option } from 'clipanion'
 import got from 'got'
@@ -15,15 +16,31 @@ import * as t from 'typanion'
 import { z } from 'zod'
 import { formatLintIssue } from '../../alphalib/assembly-linter.lang.en.ts'
 import { tryCatch } from '../../alphalib/tryCatch.ts'
-import type { Steps, StepsInput } from '../../alphalib/types/template.ts'
-import { stepsSchema } from '../../alphalib/types/template.ts'
+import type { StepsInput } from '../../alphalib/types/template.ts'
 import type { CreateAssemblyParams, ReplayAssemblyParams } from '../../apiTypes.ts'
+import { ensureUniqueCounterValue } from '../../ensureUniqueCounter.ts'
 import type { LintFatalLevel } from '../../lintAssemblyInstructions.ts'
 import { lintAssemblyInstructions } from '../../lintAssemblyInstructions.ts'
 import type { CreateAssemblyOptions, Transloadit } from '../../Transloadit.ts'
 import { lintingExamples } from '../docs/assemblyLintingExamples.ts'
-import { createReadStream, formatAPIError, readCliInput, streamToBuffer } from '../helpers.ts'
+import {
+  concurrencyOption,
+  deleteAfterProcessingOption,
+  inputPathsOption,
+  printUrlsOption,
+  recursiveOption,
+  reprocessStaleOption,
+  singleAssemblyOption,
+  validateSharedFileProcessingOptions,
+  watchOption,
+} from '../fileProcessingOptions.ts'
+import { formatAPIError, readCliInput } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
+import type { NormalizedAssemblyResultFile, NormalizedAssemblyResults } from '../resultFiles.ts'
+import { normalizeAssemblyResults } from '../resultFiles.ts'
+import type { ResultUrlRow } from '../resultUrls.ts'
+import { collectNormalizedResultUrlRows, printResultUrls } from '../resultUrls.ts'
+import { readStepsInputFile } from '../stepsInput.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
@@ -59,6 +76,30 @@ export interface AssemblyLintOptions {
   fix?: boolean
   providedInput?: string
   json?: boolean
+}
+
+function parseTemplateFieldAssignments(
+  output: IOutputCtl,
+  fields: string[] | undefined,
+): Record<string, string> | undefined {
+  if (fields == null || fields.length === 0) {
+    return undefined
+  }
+
+  const fieldsMap: Record<string, string> = {}
+  for (const field of fields) {
+    const eqIndex = field.indexOf('=')
+    if (eqIndex === -1) {
+      output.error(`invalid argument for --field: '${field}'`)
+      return undefined
+    }
+
+    const key = field.slice(0, eqIndex)
+    const value = field.slice(eqIndex + 1)
+    fieldsMap[key] = value
+  }
+
+  return fieldsMap
 }
 
 const AssemblySchema = z.object({
@@ -148,13 +189,7 @@ export async function replay(
 ): Promise<void> {
   if (steps) {
     try {
-      const buf = await streamToBuffer(createReadStream(steps))
-      const parsed: unknown = JSON.parse(buf.toString())
-      const validated = stepsSchema.safeParse(parsed)
-      if (!validated.success) {
-        throw new Error(`Invalid steps format: ${validated.error.message}`)
-      }
-      await apiCall(validated.data)
+      await apiCall(await readStepsInputFile(steps))
     } catch (err) {
       const error = ensureError(err)
       output.error(error.message)
@@ -163,14 +198,13 @@ export async function replay(
     await apiCall()
   }
 
-  async function apiCall(stepsOverride?: Steps): Promise<void> {
+  async function apiCall(stepsOverride?: StepsInput): Promise<void> {
     const promises = assemblies.map(async (assembly) => {
       const [err] = await tryCatch(
         client.replayAssembly(assembly, {
           reparse_template: reparse ? 1 : 0,
           fields,
           notify_url,
-          // Steps (validated) is assignable to StepsInput at runtime; cast for TS
           steps: stepsOverride as ReplayAssemblyParams['steps'],
         }),
       )
@@ -298,49 +332,44 @@ async function getNodeWatch(): Promise<NodeWatchFn> {
 const stdinWithPath = process.stdin as unknown as { path: string }
 stdinWithPath.path = '/dev/stdin'
 
-interface OutStream extends Writable {
+interface OutputPlan {
+  mtime: Date
   path?: string
-  mtime?: Date
 }
 
 interface Job {
-  in: Readable | null
-  out: OutStream | null
+  inputPath: string | null
+  out: OutputPlan | null
+  watchEvent?: boolean
 }
 
-type OutstreamProvider = (inpath: string | null, indir?: string) => Promise<OutStream | null>
-
-interface StreamRegistry {
-  [key: string]: OutStream | undefined
-}
+type OutputPlanProvider = (inpath: string | null, indir?: string) => Promise<OutputPlan | null>
 
 interface JobEmitterOptions {
+  allowOutputCollisions?: boolean
   recursive?: boolean
-  outstreamProvider: OutstreamProvider
-  streamRegistry: StreamRegistry
+  outputPlanProvider: OutputPlanProvider
+  singleAssembly?: boolean
   watch?: boolean
   reprocessStale?: boolean
 }
 
 interface ReaddirJobEmitterOptions {
   dir: string
-  streamRegistry: StreamRegistry
   recursive?: boolean
-  outstreamProvider: OutstreamProvider
+  outputPlanProvider: OutputPlanProvider
   topdir?: string
 }
 
 interface SingleJobEmitterOptions {
   file: string
-  streamRegistry: StreamRegistry
-  outstreamProvider: OutstreamProvider
+  outputPlanProvider: OutputPlanProvider
 }
 
 interface WatchJobEmitterOptions {
   file: string
-  streamRegistry: StreamRegistry
   recursive?: boolean
-  outstreamProvider: OutstreamProvider
+  outputPlanProvider: OutputPlanProvider
 }
 
 interface StatLike {
@@ -360,12 +389,49 @@ async function myStat(
   return await fsp.stat(filepath)
 }
 
-function dirProvider(output: string): OutstreamProvider {
+function getJobInputPath(filepath: string): string {
+  const normalizedFile = path.normalize(filepath)
+  if (normalizedFile === '-') {
+    return stdinWithPath.path
+  }
+
+  return normalizedFile
+}
+
+function createInputUploadStream(filepath: string): Readable {
+  const instream = fs.createReadStream(filepath)
+  // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
+  // before being consumed (e.g., due to output collision detection)
+  instream.on('error', () => {})
+  return instream
+}
+
+function createOutputPlan(pathname: string | undefined, mtime: Date): OutputPlan {
+  if (pathname == null) {
+    return {
+      mtime,
+    }
+  }
+
+  return {
+    mtime,
+    path: pathname,
+  }
+}
+
+async function createExistingPathOutputPlan(outputPath: string | undefined): Promise<OutputPlan> {
+  if (outputPath == null) {
+    return createOutputPlan(undefined, new Date(0))
+  }
+
+  const [, stats] = await tryCatch(fsp.stat(outputPath))
+  return createOutputPlan(outputPath, stats?.mtime ?? new Date(0))
+}
+
+function dirProvider(output: string): OutputPlanProvider {
   return async (inpath, indir = process.cwd()) => {
-    // Inputless assemblies can still write into a directory, but output paths are derived from
-    // assembly results rather than an input file path (handled later).
     if (inpath == null) {
-      return null
+      return await createExistingPathOutputPlan(output)
     }
     if (inpath === '-') {
       throw new Error('You must provide an input to output to a directory')
@@ -374,39 +440,370 @@ function dirProvider(output: string): OutstreamProvider {
     let relpath = path.relative(indir, inpath)
     relpath = relpath.replace(/^(\.\.\/)+/, '')
     const outpath = path.join(output, relpath)
-    const outdir = path.dirname(outpath)
-
-    await fsp.mkdir(outdir, { recursive: true })
-    const [, stats] = await tryCatch(fsp.stat(outpath))
-    const mtime = stats?.mtime ?? new Date(0)
-    const outstream = fs.createWriteStream(outpath) as OutStream
-    // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-    // before being consumed (e.g., due to output collision detection)
-    outstream.on('error', () => {})
-    outstream.mtime = mtime
-    return outstream
+    return await createExistingPathOutputPlan(outpath)
   }
 }
 
-function fileProvider(output: string): OutstreamProvider {
-  const dirExistsP = fsp.mkdir(path.dirname(output), { recursive: true })
+function fileProvider(output: string): OutputPlanProvider {
   return async (_inpath) => {
-    await dirExistsP
-    if (output === '-') return process.stdout as OutStream
+    if (output === '-') {
+      return await createExistingPathOutputPlan(undefined)
+    }
 
-    const [, stats] = await tryCatch(fsp.stat(output))
-    const mtime = stats?.mtime ?? new Date(0)
-    const outstream = fs.createWriteStream(output) as OutStream
-    // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-    // before being consumed (e.g., due to output collision detection)
-    outstream.on('error', () => {})
-    outstream.mtime = mtime
-    return outstream
+    return await createExistingPathOutputPlan(output)
   }
 }
 
-function nullProvider(): OutstreamProvider {
+function nullProvider(): OutputPlanProvider {
   return async (_inpath) => null
+}
+
+async function downloadResultToFile(
+  resultUrl: string,
+  outPath: string,
+  signal: AbortSignal,
+): Promise<void> {
+  await fsp.mkdir(path.dirname(outPath), { recursive: true })
+
+  const tempPath = path.join(
+    path.dirname(outPath),
+    `.${path.basename(outPath)}.${randomUUID()}.tmp`,
+  )
+  const outStream = fs.createWriteStream(tempPath)
+  outStream.on('error', () => {})
+
+  const [dlErr] = await tryCatch(pipeline(got.stream(resultUrl, { signal }), outStream))
+  if (dlErr) {
+    await fsp.rm(tempPath, { force: true })
+    throw dlErr
+  }
+
+  await fsp.rename(tempPath, outPath)
+}
+
+async function downloadResultToStdout(resultUrl: string, signal: AbortSignal): Promise<void> {
+  const stdoutStream = new Writable({
+    write(chunk, _encoding, callback) {
+      let settled = false
+
+      const finish = (err?: Error | null) => {
+        if (settled) return
+        settled = true
+        process.stdout.off('drain', onDrain)
+        process.stdout.off('error', onError)
+        callback(err ?? undefined)
+      }
+
+      const onDrain = () => finish()
+      const onError = (err: Error) => finish(err)
+
+      process.stdout.once('error', onError)
+
+      try {
+        if (process.stdout.write(chunk)) {
+          finish()
+          return
+        }
+
+        process.stdout.once('drain', onDrain)
+      } catch (err) {
+        finish(ensureError(err))
+      }
+    },
+    final(callback) {
+      callback()
+    },
+  })
+
+  await pipeline(got.stream(resultUrl, { signal }), stdoutStream)
+}
+
+function sanitizeResultName(value: string): string {
+  const base = path.basename(value)
+  return base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
+}
+
+async function ensureUniquePath(targetPath: string, reservedPaths: Set<string>): Promise<string> {
+  const parsed = path.parse(targetPath)
+  return await ensureUniqueCounterValue({
+    initialValue: targetPath,
+    isTaken: async (candidate) => {
+      if (reservedPaths.has(candidate)) {
+        return true
+      }
+
+      const [statErr] = await tryCatch(fsp.stat(candidate))
+      return statErr == null
+    },
+    reserve: (candidate) => {
+      reservedPaths.add(candidate)
+    },
+    nextValue: (counter) => path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`),
+    scope: reservedPaths,
+  })
+}
+
+function getResultFileName(file: NormalizedAssemblyResultFile): string {
+  return sanitizeResultName(file.name)
+}
+
+interface AssemblyDownloadTarget {
+  resultUrl: string
+  targetPath: string | null
+}
+
+const STALE_OUTPUT_GRACE_MS = 1000
+
+function isMeaningfullyNewer(newer: Date, older: Date): boolean {
+  return newer.getTime() - older.getTime() > STALE_OUTPUT_GRACE_MS
+}
+
+async function buildDirectoryDownloadTargets({
+  allFiles,
+  baseDir,
+  groupByStep,
+  reservedPaths,
+}: {
+  allFiles: NormalizedAssemblyResultFile[]
+  baseDir: string
+  groupByStep: boolean
+  reservedPaths: Set<string>
+}): Promise<AssemblyDownloadTarget[]> {
+  await fsp.mkdir(baseDir, { recursive: true })
+
+  const targets: AssemblyDownloadTarget[] = []
+  for (const resultFile of allFiles) {
+    const targetDir = groupByStep ? path.join(baseDir, resultFile.stepName) : baseDir
+    await fsp.mkdir(targetDir, { recursive: true })
+
+    targets.push({
+      resultUrl: resultFile.url,
+      targetPath: await ensureUniquePath(
+        path.join(targetDir, getResultFileName(resultFile)),
+        reservedPaths,
+      ),
+    })
+  }
+
+  return targets
+}
+
+function getSingleResultDownloadTarget(
+  allFiles: NormalizedAssemblyResultFile[],
+  targetPath: string | null,
+): AssemblyDownloadTarget[] {
+  const first = allFiles[0]
+  const resultUrl = first?.url ?? null
+  if (resultUrl == null) {
+    return []
+  }
+
+  return [{ resultUrl, targetPath }]
+}
+
+async function resolveResultDownloadTargets({
+  hasDirectoryInput,
+  inPath,
+  inputs,
+  normalizedResults,
+  outputMode,
+  outputPath,
+  outputRoot,
+  outputRootIsDirectory,
+  reservedPaths,
+  singleAssembly,
+}: {
+  hasDirectoryInput: boolean
+  inPath: string | null
+  inputs: string[]
+  normalizedResults: NormalizedAssemblyResults
+  outputMode?: 'directory' | 'file'
+  outputPath: string | null
+  outputRoot: string
+  outputRootIsDirectory: boolean
+  reservedPaths: Set<string>
+  singleAssembly?: boolean
+}): Promise<AssemblyDownloadTarget[]> {
+  const { allFiles, entries } = normalizedResults
+  const shouldGroupByInput =
+    !singleAssembly && inPath != null && (hasDirectoryInput || inputs.length > 1)
+
+  const resolveDirectoryBaseDir = (): string => {
+    if (!shouldGroupByInput || inPath == null) {
+      return outputRoot
+    }
+
+    if (hasDirectoryInput && outputPath != null) {
+      const mappedRelative = path.relative(outputRoot, outputPath)
+      const mappedDir = path.dirname(mappedRelative)
+      const mappedStem = path.parse(mappedRelative).name
+      return path.join(outputRoot, mappedDir === '.' ? '' : mappedDir, mappedStem)
+    }
+
+    return path.join(outputRoot, path.parse(path.basename(inPath)).name)
+  }
+
+  if (!outputRootIsDirectory) {
+    if (allFiles.length > 1) {
+      if (outputPath == null) {
+        throw new Error('stdout can only receive a single result file')
+      }
+
+      throw new Error('file outputs can only receive a single result file')
+    }
+
+    return getSingleResultDownloadTarget(allFiles, outputPath)
+  }
+
+  if (singleAssembly) {
+    return await buildDirectoryDownloadTargets({
+      allFiles,
+      baseDir: outputRoot,
+      groupByStep: false,
+      reservedPaths,
+    })
+  }
+
+  if (outputMode === 'directory' || outputPath == null || inPath == null) {
+    return await buildDirectoryDownloadTargets({
+      allFiles,
+      baseDir: resolveDirectoryBaseDir(),
+      groupByStep: entries.length > 1,
+      reservedPaths,
+    })
+  }
+
+  if (allFiles.length === 1) {
+    return getSingleResultDownloadTarget(allFiles, outputPath)
+  }
+
+  return await buildDirectoryDownloadTargets({
+    allFiles,
+    baseDir: path.join(path.dirname(outputPath), path.parse(outputPath).name),
+    groupByStep: true,
+    reservedPaths,
+  })
+}
+
+async function shouldSkipStaleOutput({
+  inputPaths,
+  outputPath,
+  outputPlanMtime,
+  outputRootIsDirectory,
+  reprocessStale,
+  singleInputReference = 'output-plan',
+}: {
+  inputPaths: string[]
+  outputPath: string | null
+  outputPlanMtime: Date
+  outputRootIsDirectory: boolean
+  reprocessStale?: boolean
+  singleInputReference?: 'input' | 'output-plan'
+}): Promise<boolean> {
+  if (reprocessStale || outputPath == null || outputRootIsDirectory) {
+    return false
+  }
+
+  if (inputPaths.length === 0 || inputPaths.some((inputPath) => inputPath === stdinWithPath.path)) {
+    return false
+  }
+
+  const [outputErr, outputStat] = await tryCatch(fsp.stat(outputPath))
+  if (outputErr != null || outputStat == null) {
+    return false
+  }
+
+  if (inputPaths.length === 1) {
+    if (singleInputReference === 'output-plan') {
+      return isMeaningfullyNewer(outputStat.mtime, outputPlanMtime)
+    }
+
+    const [inputErr, inputStat] = await tryCatch(fsp.stat(inputPaths[0]))
+    if (inputErr != null || inputStat == null) {
+      return false
+    }
+
+    return isMeaningfullyNewer(outputStat.mtime, inputStat.mtime)
+  }
+
+  const inputStats = await Promise.all(
+    inputPaths.map(async (inputPath) => {
+      const [inputErr, inputStat] = await tryCatch(fsp.stat(inputPath))
+      if (inputErr != null || inputStat == null) {
+        return null
+      }
+      return inputStat
+    }),
+  )
+
+  if (inputStats.some((inputStat) => inputStat == null)) {
+    return false
+  }
+
+  return inputStats.every((inputStat) => {
+    return inputStat != null && isMeaningfullyNewer(outputStat.mtime, inputStat.mtime)
+  })
+}
+
+async function materializeAssemblyResults({
+  abortSignal,
+  hasDirectoryInput,
+  inPath,
+  inputs,
+  normalizedResults,
+  outputMode,
+  outputPath,
+  outputRoot,
+  outputRootIsDirectory,
+  outputctl,
+  reservedPaths,
+  singleAssembly,
+}: {
+  abortSignal: AbortSignal
+  hasDirectoryInput: boolean
+  inPath: string | null
+  inputs: string[]
+  normalizedResults: NormalizedAssemblyResults
+  outputMode?: 'directory' | 'file'
+  outputPath: string | null
+  outputRoot: string | null
+  outputRootIsDirectory: boolean
+  outputctl: IOutputCtl
+  reservedPaths: Set<string>
+  singleAssembly?: boolean
+}): Promise<void> {
+  if (outputRoot == null) {
+    return
+  }
+
+  const targets = await resolveResultDownloadTargets({
+    hasDirectoryInput,
+    inPath,
+    inputs,
+    normalizedResults,
+    outputMode,
+    outputPath,
+    outputRoot,
+    outputRootIsDirectory,
+    reservedPaths,
+    singleAssembly,
+  })
+
+  for (const { resultUrl, targetPath } of targets) {
+    outputctl.debug('DOWNLOADING')
+    const [dlErr] = await tryCatch(
+      targetPath == null
+        ? downloadResultToStdout(resultUrl, abortSignal)
+        : downloadResultToFile(resultUrl, targetPath, abortSignal),
+    )
+    if (dlErr) {
+      if (dlErr.name === 'AbortError') {
+        continue
+      }
+      outputctl.error(dlErr.message)
+      throw dlErr
+    }
+  }
 }
 
 class MyEventEmitter extends EventEmitter {
@@ -428,29 +825,25 @@ class MyEventEmitter extends EventEmitter {
 }
 
 class ReaddirJobEmitter extends MyEventEmitter {
-  constructor({
-    dir,
-    streamRegistry,
-    recursive,
-    outstreamProvider,
-    topdir = dir,
-  }: ReaddirJobEmitterOptions) {
+  constructor({ dir, recursive, outputPlanProvider, topdir = dir }: ReaddirJobEmitterOptions) {
     super()
 
     process.nextTick(() => {
-      this.processDirectory({ dir, streamRegistry, recursive, outstreamProvider, topdir }).catch(
-        (err) => {
-          this.emit('error', err)
-        },
-      )
+      this.processDirectory({
+        dir,
+        recursive,
+        outputPlanProvider,
+        topdir,
+      }).catch((err) => {
+        this.emit('error', err)
+      })
     })
   }
 
   private async processDirectory({
     dir,
-    streamRegistry,
     recursive,
-    outstreamProvider,
+    outputPlanProvider,
     topdir,
   }: ReaddirJobEmitterOptions & { topdir: string }): Promise<void> {
     const files = await fsp.readdir(dir)
@@ -459,9 +852,7 @@ class ReaddirJobEmitter extends MyEventEmitter {
 
     for (const filename of files) {
       const file = path.normalize(path.join(dir, filename))
-      pendingOperations.push(
-        this.processFile({ file, streamRegistry, recursive, outstreamProvider, topdir }),
-      )
+      pendingOperations.push(this.processFile({ file, recursive, outputPlanProvider, topdir }))
     }
 
     await Promise.all(pendingOperations)
@@ -470,15 +861,13 @@ class ReaddirJobEmitter extends MyEventEmitter {
 
   private async processFile({
     file,
-    streamRegistry,
     recursive = false,
-    outstreamProvider,
+    outputPlanProvider,
     topdir,
   }: {
     file: string
-    streamRegistry: StreamRegistry
     recursive?: boolean
-    outstreamProvider: OutstreamProvider
+    outputPlanProvider: OutputPlanProvider
     topdir: string
   }): Promise<void> {
     const stats = await fsp.stat(file)
@@ -488,9 +877,8 @@ class ReaddirJobEmitter extends MyEventEmitter {
         await new Promise<void>((resolve, reject) => {
           const subdirEmitter = new ReaddirJobEmitter({
             dir: file,
-            streamRegistry,
             recursive,
-            outstreamProvider,
+            outputPlanProvider,
             topdir,
           })
           subdirEmitter.on('job', (job: Job) => this.emit('job', job))
@@ -499,67 +887,51 @@ class ReaddirJobEmitter extends MyEventEmitter {
         })
       }
     } else {
-      const existing = streamRegistry[file]
-      if (existing) existing.end()
-      const outstream = await outstreamProvider(file, topdir)
-      streamRegistry[file] = outstream ?? undefined
-      const instream = fs.createReadStream(file)
-      // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-      // before being consumed (e.g., due to output collision detection)
-      instream.on('error', () => {})
-      this.emit('job', { in: instream, out: outstream })
+      const outputPlan = await outputPlanProvider(file, topdir)
+      this.emit('job', { inputPath: getJobInputPath(file), out: outputPlan })
     }
   }
 }
 
 class SingleJobEmitter extends MyEventEmitter {
-  constructor({ file, streamRegistry, outstreamProvider }: SingleJobEmitterOptions) {
+  constructor({ file, outputPlanProvider }: SingleJobEmitterOptions) {
     super()
 
     const normalizedFile = path.normalize(file)
-    const existing = streamRegistry[normalizedFile]
-    if (existing) existing.end()
-    outstreamProvider(normalizedFile).then((outstream) => {
-      streamRegistry[normalizedFile] = outstream ?? undefined
-
-      let instream: Readable | null
-      if (normalizedFile === '-') {
-        if (tty.isatty(process.stdin.fd)) {
-          instream = null
-        } else {
-          instream = process.stdin
-        }
-      } else {
-        instream = fs.createReadStream(normalizedFile)
-        // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-        // before being consumed (e.g., due to output collision detection)
-        instream.on('error', () => {})
-      }
-
-      process.nextTick(() => {
-        this.emit('job', { in: instream, out: outstream })
-        this.emit('end')
+    outputPlanProvider(normalizedFile)
+      .then((outputPlan) => {
+        process.nextTick(() => {
+          this.emit('job', { inputPath: getJobInputPath(normalizedFile), out: outputPlan })
+          this.emit('end')
+        })
       })
-    })
+      .catch((err: unknown) => {
+        process.nextTick(() => {
+          this.emit('error', ensureError(err))
+        })
+      })
   }
 }
 
 class InputlessJobEmitter extends MyEventEmitter {
-  constructor({
-    outstreamProvider,
-  }: { streamRegistry: StreamRegistry; outstreamProvider: OutstreamProvider }) {
+  constructor({ outputPlanProvider }: { outputPlanProvider: OutputPlanProvider }) {
     super()
 
     process.nextTick(() => {
-      outstreamProvider(null).then((outstream) => {
-        try {
-          this.emit('job', { in: null, out: outstream })
-        } catch (err) {
-          this.emit('error', err)
-        }
+      outputPlanProvider(null)
+        .then((outputPlan) => {
+          try {
+            this.emit('job', { inputPath: null, out: outputPlan })
+          } catch (err) {
+            this.emit('error', ensureError(err))
+            return
+          }
 
-        this.emit('end')
-      })
+          this.emit('end')
+        })
+        .catch((err: unknown) => {
+          this.emit('error', ensureError(err))
+        })
     })
   }
 }
@@ -574,10 +946,10 @@ class NullJobEmitter extends MyEventEmitter {
 class WatchJobEmitter extends MyEventEmitter {
   private watcher: NodeWatcher | null = null
 
-  constructor({ file, streamRegistry, recursive, outstreamProvider }: WatchJobEmitterOptions) {
+  constructor({ file, recursive, outputPlanProvider }: WatchJobEmitterOptions) {
     super()
 
-    this.init({ file, streamRegistry, recursive, outstreamProvider }).catch((err) => {
+    this.init({ file, recursive, outputPlanProvider }).catch((err) => {
       this.emit('error', err)
     })
 
@@ -597,9 +969,8 @@ class WatchJobEmitter extends MyEventEmitter {
 
   private async init({
     file,
-    streamRegistry,
     recursive,
-    outstreamProvider,
+    outputPlanProvider,
   }: WatchJobEmitterOptions): Promise<void> {
     const stats = await fsp.stat(file)
     const topdir = stats.isDirectory() ? file : undefined
@@ -614,7 +985,7 @@ class WatchJobEmitter extends MyEventEmitter {
     this.watcher.on('close', () => this.emit('end'))
     this.watcher.on('change', (_evt: string, filename: string) => {
       const normalizedFile = path.normalize(filename)
-      this.handleChange(normalizedFile, topdir, streamRegistry, outstreamProvider).catch((err) => {
+      this.handleChange(normalizedFile, topdir, outputPlanProvider).catch((err) => {
         this.emit('error', err)
       })
     })
@@ -623,23 +994,17 @@ class WatchJobEmitter extends MyEventEmitter {
   private async handleChange(
     normalizedFile: string,
     topdir: string | undefined,
-    streamRegistry: StreamRegistry,
-    outstreamProvider: OutstreamProvider,
+    outputPlanProvider: OutputPlanProvider,
   ): Promise<void> {
     const stats = await fsp.stat(normalizedFile)
     if (stats.isDirectory()) return
 
-    const existing = streamRegistry[normalizedFile]
-    if (existing) existing.end()
-
-    const outstream = await outstreamProvider(normalizedFile, topdir)
-    streamRegistry[normalizedFile] = outstream ?? undefined
-
-    const instream = fs.createReadStream(normalizedFile)
-    // Attach a no-op error handler to prevent unhandled errors if stream is destroyed
-    // before being consumed (e.g., due to output collision detection)
-    instream.on('error', () => {})
-    this.emit('job', { in: instream, out: outstream })
+    const outputPlan = await outputPlanProvider(normalizedFile, topdir)
+    this.emit('job', {
+      inputPath: getJobInputPath(normalizedFile),
+      out: outputPlan,
+      watchEvent: true,
+    })
   }
 }
 
@@ -697,12 +1062,21 @@ function detectConflicts(jobEmitter: EventEmitter): MyEventEmitter {
   jobEmitter.on('end', () => emitter.emit('end'))
   jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
   jobEmitter.on('job', (job: Job) => {
-    if (job.in == null || job.out == null) {
+    if (job.watchEvent) {
       emitter.emit('job', job)
       return
     }
-    const inPath = (job.in as fs.ReadStream).path as string
-    const outPath = job.out.path as string
+
+    if (job.inputPath == null || job.out == null) {
+      emitter.emit('job', job)
+      return
+    }
+    const inPath = job.inputPath
+    const outPath = job.out.path
+    if (outPath == null) {
+      emitter.emit('job', job)
+      return
+    }
     if (Object.hasOwn(outfileAssociations, outPath) && outfileAssociations[outPath] !== inPath) {
       emitter.emit(
         'error',
@@ -724,12 +1098,12 @@ function dismissStaleJobs(jobEmitter: EventEmitter): MyEventEmitter {
   jobEmitter.on('end', () => Promise.all(pendingChecks).then(() => emitter.emit('end')))
   jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
   jobEmitter.on('job', (job: Job) => {
-    if (job.in == null || job.out == null) {
+    if (job.inputPath == null || job.out == null) {
       emitter.emit('job', job)
       return
     }
 
-    const inPath = (job.in as fs.ReadStream).path as string
+    const inPath = job.inputPath
     const checkPromise = fsp
       .stat(inPath)
       .then((stats) => {
@@ -747,12 +1121,23 @@ function dismissStaleJobs(jobEmitter: EventEmitter): MyEventEmitter {
   return emitter
 }
 
+function passthroughJobs(jobEmitter: EventEmitter): MyEventEmitter {
+  const emitter = new MyEventEmitter()
+
+  jobEmitter.on('end', () => emitter.emit('end'))
+  jobEmitter.on('error', (err: Error) => emitter.emit('error', err))
+  jobEmitter.on('job', (job: Job) => emitter.emit('job', job))
+
+  return emitter
+}
+
 function makeJobEmitter(
   inputs: string[],
   {
+    allowOutputCollisions,
     recursive,
-    outstreamProvider,
-    streamRegistry,
+    outputPlanProvider,
+    singleAssembly,
     watch: watchOption,
     reprocessStale,
   }: JobEmitterOptions,
@@ -765,35 +1150,43 @@ function makeJobEmitter(
   async function processInputs(): Promise<void> {
     for (const input of inputs) {
       if (input === '-') {
-        emitterFns.push(
-          () => new SingleJobEmitter({ file: input, outstreamProvider, streamRegistry }),
-        )
+        emitterFns.push(() => new SingleJobEmitter({ file: input, outputPlanProvider }))
         watcherFns.push(() => new NullJobEmitter())
       } else {
         const stats = await fsp.stat(input)
         if (stats.isDirectory()) {
           emitterFns.push(
             () =>
-              new ReaddirJobEmitter({ dir: input, recursive, outstreamProvider, streamRegistry }),
+              new ReaddirJobEmitter({
+                dir: input,
+                recursive,
+                outputPlanProvider,
+              }),
           )
           watcherFns.push(
             () =>
-              new WatchJobEmitter({ file: input, recursive, outstreamProvider, streamRegistry }),
+              new WatchJobEmitter({
+                file: input,
+                recursive,
+                outputPlanProvider,
+              }),
           )
         } else {
-          emitterFns.push(
-            () => new SingleJobEmitter({ file: input, outstreamProvider, streamRegistry }),
-          )
+          emitterFns.push(() => new SingleJobEmitter({ file: input, outputPlanProvider }))
           watcherFns.push(
             () =>
-              new WatchJobEmitter({ file: input, recursive, outstreamProvider, streamRegistry }),
+              new WatchJobEmitter({
+                file: input,
+                recursive,
+                outputPlanProvider,
+              }),
           )
         }
       }
     }
 
     if (inputs.length === 0) {
-      emitterFns.push(() => new InputlessJobEmitter({ outstreamProvider, streamRegistry }))
+      emitterFns.push(() => new InputlessJobEmitter({ outputPlanProvider }))
     }
 
     startEmitting()
@@ -818,14 +1211,18 @@ function makeJobEmitter(
     emitter.emit('error', err)
   })
 
-  const stalefilter = reprocessStale ? (x: EventEmitter) => x as MyEventEmitter : dismissStaleJobs
-  return stalefilter(detectConflicts(emitter))
+  const conflictFilter = allowOutputCollisions ? passthroughJobs : detectConflicts
+  const staleFilter = reprocessStale || singleAssembly ? passthroughJobs : dismissStaleJobs
+
+  return staleFilter(conflictFilter(emitter))
 }
 
 export interface AssembliesCreateOptions {
   steps?: string
+  stepsData?: StepsInput
   template?: string
   fields?: Record<string, string>
+  outputMode?: 'directory' | 'file'
   watch?: boolean
   recursive?: boolean
   inputs: string[]
@@ -844,8 +1241,10 @@ export async function create(
   client: Transloadit,
   {
     steps,
+    stepsData,
     template,
     fields,
+    outputMode,
     watch: watchOption,
     recursive,
     inputs,
@@ -855,35 +1254,18 @@ export async function create(
     singleAssembly,
     concurrency = DEFAULT_CONCURRENCY,
   }: AssembliesCreateOptions,
-): Promise<{ results: unknown[]; hasFailures: boolean }> {
+): Promise<{ resultUrls: ResultUrlRow[]; results: unknown[]; hasFailures: boolean }> {
   // Quick fix for https://github.com/transloadit/transloadify/issues/13
   // Only default to stdout when output is undefined (not provided), not when explicitly null
   let resolvedOutput = output
   if (resolvedOutput === undefined && !process.stdout.isTTY) resolvedOutput = '-'
 
   // Read steps file async before entering the Promise constructor
-  // We use StepsInput (the input type) rather than Steps (the transformed output type)
+  // We use StepsInput (the input type) rather than the transformed output type
   // to avoid zod adding default values that the API may reject
-  let stepsData: StepsInput | undefined
+  let effectiveStepsData = stepsData
   if (steps) {
-    const stepsContent = await fsp.readFile(steps, 'utf8')
-    const parsed: unknown = JSON.parse(stepsContent)
-    // Basic structural validation: must be an object with step names as keys
-    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('Invalid steps format: expected an object with step names as keys')
-    }
-    // Validate each step has a robot field
-    for (const [stepName, step] of Object.entries(parsed)) {
-      if (step == null || typeof step !== 'object' || Array.isArray(step)) {
-        throw new Error(`Invalid steps format: step '${stepName}' must be an object`)
-      }
-      if (!('robot' in step) || typeof (step as Record<string, unknown>).robot !== 'string') {
-        throw new Error(
-          `Invalid steps format: step '${stepName}' must have a 'robot' string property`,
-        )
-      }
-    }
-    stepsData = parsed as StepsInput
+    effectiveStepsData = await readStepsInputFile(steps)
   }
 
   // Determine output stat async before entering the Promise constructor
@@ -891,9 +1273,19 @@ export async function create(
   if (resolvedOutput != null) {
     const [err, stat] = await tryCatch(myStat(process.stdout, resolvedOutput))
     if (err && (!isErrnoException(err) || err.code !== 'ENOENT')) throw err
-    outstat = stat ?? { isDirectory: () => false }
+    outstat =
+      stat ??
+      ({
+        isDirectory: () => outputMode === 'directory',
+      } satisfies StatLike)
 
-    if (!outstat.isDirectory() && inputs.length !== 0) {
+    if (outputMode === 'directory' && stat != null && !stat.isDirectory()) {
+      const msg = 'Output must be a directory for this command'
+      outputctl.error(msg)
+      throw new Error(msg)
+    }
+
+    if (!outstat.isDirectory() && inputs.length !== 0 && !singleAssembly) {
       const firstInput = inputs[0]
       if (firstInput) {
         const firstInputStat = await myStat(process.stdin, firstInput)
@@ -906,84 +1298,105 @@ export async function create(
     }
   }
 
+  const inputStats = await Promise.all(
+    inputs.map(async (input) => {
+      if (input === '-') return null
+      return await myStat(process.stdin, input)
+    }),
+  )
+  const hasDirectoryInput = inputStats.some((stat) => stat?.isDirectory() === true)
+
   return new Promise((resolve, reject) => {
     const params: CreateAssemblyParams = (
-      stepsData ? { steps: stepsData as CreateAssemblyParams['steps'] } : { template_id: template }
+      effectiveStepsData
+        ? { steps: effectiveStepsData as CreateAssemblyParams['steps'] }
+        : { template_id: template }
     ) as CreateAssemblyParams
     if (fields) {
       params.fields = fields
     }
 
-    const outstreamProvider: OutstreamProvider =
+    const outputPlanProvider: OutputPlanProvider =
       resolvedOutput == null
         ? nullProvider()
         : outstat?.isDirectory()
           ? dirProvider(resolvedOutput)
           : fileProvider(resolvedOutput)
-    const streamRegistry: StreamRegistry = {}
 
     const emitter = makeJobEmitter(inputs, {
+      allowOutputCollisions: singleAssembly,
+      outputPlanProvider,
       recursive,
       watch: watchOption,
-      outstreamProvider,
-      streamRegistry,
+      singleAssembly,
       reprocessStale,
     })
 
     // Use p-queue for concurrency management
     const queue = new PQueue({ concurrency })
     const results: unknown[] = []
+    const resultUrls: ResultUrlRow[] = []
+    const reservedResultPaths = new Set<string>()
+    const latestWatchJobTokenByOutputPath = new Map<string, number>()
     let hasFailures = false
+    let nextWatchJobToken = 0
     // AbortController to cancel all in-flight createAssembly calls when an error occurs
     const abortController = new AbortController()
+    const outputRootIsDirectory = Boolean(resolvedOutput != null && outstat?.isDirectory())
 
-    // Helper to process a single assembly job
-    async function processAssemblyJob(
-      inPath: string | null,
-      outPath: string | null,
-      outMtime: Date | undefined,
-    ): Promise<unknown> {
-      outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
-
-      // Create fresh streams for this job
-      const inStream = inPath ? fs.createReadStream(inPath) : null
-      inStream?.on('error', () => {})
-
-      let superceded = false
-      // When writing to a file path (non-directory output), we treat finish as a supersede signal.
-      // Directory-output multi-download mode does not use a single shared outstream.
-      const markSupersededOnFinish = (stream: OutStream) => {
-        stream.on('finish', () => {
-          superceded = true
-        })
+    function reserveWatchJobToken(outputPath: string | null): number | null {
+      if (!watchOption || outputPath == null) {
+        return null
       }
 
+      const token = ++nextWatchJobToken
+      latestWatchJobTokenByOutputPath.set(outputPath, token)
+      return token
+    }
+
+    function isSupersededWatchJob(outputPath: string | null, token: number | null): boolean {
+      if (!watchOption || outputPath == null || token == null) {
+        return false
+      }
+
+      return latestWatchJobTokenByOutputPath.get(outputPath) !== token
+    }
+
+    function createAssemblyOptions({
+      files,
+      uploads,
+    }: {
+      files?: Record<string, string>
+      uploads?: Record<string, Readable>
+    } = {}): CreateAssemblyOptions {
       const createOptions: CreateAssemblyOptions = {
         params,
         signal: abortController.signal,
       }
-      if (inStream != null) {
-        createOptions.uploads = { in: inStream }
+      if (files != null && Object.keys(files).length > 0) {
+        createOptions.files = files
       }
+      if (uploads != null && Object.keys(uploads).length > 0) {
+        createOptions.uploads = uploads
+      }
+      return createOptions
+    }
 
+    async function awaitCompletedAssembly(createOptions: CreateAssemblyOptions): Promise<{
+      assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
+      assemblyId: string
+    }> {
       const result = await client.createAssembly(createOptions)
-      if (superceded) return undefined
-
       const assemblyId = result.assembly_id
       if (!assemblyId) throw new Error('No assembly_id in result')
 
       const assembly = await client.awaitAssemblyCompletion(assemblyId, {
         signal: abortController.signal,
-        onPoll: () => {
-          if (superceded) return false
-          return true
-        },
+        onPoll: () => true,
         onAssemblyProgress: (status) => {
           outputctl.debug(`Assembly status: ${status.ok}`)
         },
       })
-
-      if (superceded) return undefined
 
       if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
         const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok})`
@@ -991,248 +1404,188 @@ export async function create(
         throw new Error(msg)
       }
 
+      return { assembly, assemblyId }
+    }
+
+    async function executeAssemblyLifecycle({
+      createOptions,
+      inPath,
+      inputPaths,
+      outputPlan,
+      outputToken,
+      singleAssemblyMode,
+    }: {
+      createOptions: CreateAssemblyOptions
+      inPath: string | null
+      inputPaths: string[]
+      outputPlan: OutputPlan | null
+      outputToken: number | null
+      singleAssemblyMode?: boolean
+    }): Promise<unknown> {
+      outputctl.debug(`PROCESSING JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
+
+      const { assembly, assemblyId } = await awaitCompletedAssembly(createOptions)
       if (!assembly.results) throw new Error('No results in assembly')
+      const normalizedResults = normalizeAssemblyResults(assembly.results)
 
-      const outIsDirectory = Boolean(resolvedOutput != null && outstat?.isDirectory())
-      const entries = Object.entries(assembly.results)
-      const allFiles: Array<{
-        stepName: string
-        file: { name?: string; basename?: string; ext?: string; ssl_url?: string; url?: string }
-      }> = []
-      for (const [stepName, stepResults] of entries) {
-        for (const file of stepResults as Array<{
-          name?: string
-          basename?: string
-          ext?: string
-          ssl_url?: string
-          url?: string
-        }>) {
-          allFiles.push({ stepName, file })
+      if (isSupersededWatchJob(outputPlan?.path ?? null, outputToken)) {
+        outputctl.debug(
+          `SKIPPED SUPERSEDED WATCH RESULT ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`,
+        )
+        return assembly
+      }
+
+      if (
+        !singleAssemblyMode &&
+        !watchOption &&
+        (await shouldSkipStaleOutput({
+          inputPaths,
+          outputPath: outputPlan?.path ?? null,
+          outputPlanMtime: outputPlan?.mtime ?? new Date(0),
+          outputRootIsDirectory,
+          reprocessStale,
+        }))
+      ) {
+        outputctl.debug(`SKIPPED STALE RESULT ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
+        return assembly
+      }
+
+      resultUrls.push(...collectNormalizedResultUrlRows({ assemblyId, normalizedResults }))
+
+      await materializeAssemblyResults({
+        abortSignal: abortController.signal,
+        hasDirectoryInput: singleAssemblyMode ? false : hasDirectoryInput,
+        inPath,
+        inputs: inputPaths,
+        normalizedResults,
+        outputMode,
+        outputPath: outputPlan?.path ?? null,
+        outputRoot: resolvedOutput ?? null,
+        outputRootIsDirectory,
+        outputctl,
+        reservedPaths: reservedResultPaths,
+        singleAssembly: singleAssemblyMode,
+      })
+
+      outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
+
+      if (del) {
+        for (const inputPath of inputPaths) {
+          if (inputPath === stdinWithPath.path) {
+            continue
+          }
+          await fsp.unlink(inputPath)
         }
-      }
-
-      const getFileUrl = (file: { ssl_url?: string; url?: string }): string | null =>
-        file.ssl_url ?? file.url ?? null
-
-      const sanitizeName = (value: string): string => {
-        const base = path.basename(value)
-        return base.replaceAll('\\', '_').replaceAll('/', '_').replaceAll('\u0000', '')
-      }
-
-      const ensureUniquePath = async (targetPath: string): Promise<string> => {
-        const parsed = path.parse(targetPath)
-        let candidate = targetPath
-        let counter = 1
-        while (true) {
-          const [statErr] = await tryCatch(fsp.stat(candidate))
-          if (statErr) return candidate
-          candidate = path.join(parsed.dir, `${parsed.name}__${counter}${parsed.ext}`)
-          counter += 1
-        }
-      }
-
-      if (resolvedOutput != null && !superceded) {
-        // Directory output:
-        // - For single-result, input-backed jobs, preserve existing behavior (write to mapped file path).
-        // - Otherwise (multi-result or inputless), download all results into a directory structure.
-        if (outIsDirectory && (inPath == null || allFiles.length !== 1 || outPath == null)) {
-          let baseDir = resolvedOutput
-          if (inPath != null) {
-            let relpath = path.relative(process.cwd(), inPath)
-            relpath = relpath.replace(/^(\.\.\/)+/, '')
-            baseDir = path.join(resolvedOutput, path.dirname(relpath), path.parse(relpath).name)
-          }
-          await fsp.mkdir(baseDir, { recursive: true })
-
-          for (const { stepName, file } of allFiles) {
-            const resultUrl = getFileUrl(file)
-            if (!resultUrl) continue
-
-            const stepDir = path.join(baseDir, stepName)
-            await fsp.mkdir(stepDir, { recursive: true })
-
-            const rawName =
-              file.name ??
-              (file.basename && file.ext ? `${file.basename}.${file.ext}` : undefined) ??
-              `${stepName}_result`
-            const safeName = sanitizeName(rawName)
-            const targetPath = await ensureUniquePath(path.join(stepDir, safeName))
-
-            outputctl.debug('DOWNLOADING')
-            const outStream = fs.createWriteStream(targetPath) as OutStream
-            outStream.on('error', () => {})
-            const [dlErr] = await tryCatch(
-              pipeline(got.stream(resultUrl, { signal: abortController.signal }), outStream),
-            )
-            if (dlErr) {
-              if (dlErr.name === 'AbortError') continue
-              outputctl.error(dlErr.message)
-              throw dlErr
-            }
-          }
-        } else if (!outIsDirectory && outPath != null) {
-          const first = allFiles[0]
-          const resultUrl = first ? getFileUrl(first.file) : null
-          if (resultUrl) {
-            outputctl.debug('DOWNLOADING')
-            const outStream = fs.createWriteStream(outPath) as OutStream
-            outStream.on('error', () => {})
-            outStream.mtime = outMtime
-            markSupersededOnFinish(outStream)
-
-            const [dlErr] = await tryCatch(
-              pipeline(got.stream(resultUrl, { signal: abortController.signal }), outStream),
-            )
-            if (dlErr) {
-              if (dlErr.name !== 'AbortError') {
-                outputctl.error(dlErr.message)
-                throw dlErr
-              }
-            }
-          }
-        } else if (outIsDirectory && outPath != null) {
-          // Single-result, input-backed job: preserve existing file mapping in outdir.
-          const first = allFiles[0]
-          const resultUrl = first ? getFileUrl(first.file) : null
-          if (resultUrl) {
-            outputctl.debug('DOWNLOADING')
-            const outStream = fs.createWriteStream(outPath) as OutStream
-            outStream.on('error', () => {})
-            outStream.mtime = outMtime
-            markSupersededOnFinish(outStream)
-
-            const [dlErr] = await tryCatch(
-              pipeline(got.stream(resultUrl, { signal: abortController.signal }), outStream),
-            )
-            if (dlErr) {
-              if (dlErr.name !== 'AbortError') {
-                outputctl.error(dlErr.message)
-                throw dlErr
-              }
-            }
-          }
-        }
-      }
-
-      outputctl.debug(`COMPLETED ${inPath ?? 'null'} ${outPath ?? 'null'}`)
-
-      if (del && inPath) {
-        await fsp.unlink(inPath)
       }
       return assembly
     }
 
-    if (singleAssembly) {
-      // Single-assembly mode: collect file paths, then create one assembly with all inputs
-      // We close streams immediately to avoid exhausting file descriptors with many files
+    // Helper to process a single assembly job
+    async function processAssemblyJob(
+      inPath: string | null,
+      outputPlan: OutputPlan | null,
+      outputToken: number | null,
+    ): Promise<unknown> {
+      const files =
+        inPath != null && inPath !== stdinWithPath.path
+          ? {
+              in: inPath,
+            }
+          : undefined
+      const uploads =
+        inPath === stdinWithPath.path
+          ? {
+              in: createInputUploadStream(inPath),
+            }
+          : undefined
+
+      return await executeAssemblyLifecycle({
+        createOptions: createAssemblyOptions({ files, uploads }),
+        inPath,
+        inputPaths: inPath == null ? [] : [inPath],
+        outputPlan,
+        outputToken,
+      })
+    }
+
+    function handleEmitterError(err: Error): void {
+      abortController.abort()
+      queue.clear()
+      outputctl.error(err)
+      reject(err)
+    }
+
+    function runSingleAssemblyEmitter(): void {
       const collectedPaths: string[] = []
+      let inputlessOutputPlan: OutputPlan | null = null
 
       emitter.on('job', (job: Job) => {
-        if (job.in != null) {
-          const inPath = (job.in as fs.ReadStream).path as string
+        if (job.inputPath != null) {
+          const inPath = job.inputPath
           outputctl.debug(`COLLECTING JOB ${inPath}`)
           collectedPaths.push(inPath)
-          // Close the stream immediately to avoid file descriptor exhaustion
-          ;(job.in as fs.ReadStream).destroy()
-          outputctl.debug(`STREAM CLOSED ${inPath}`)
-        }
-      })
-
-      emitter.on('error', (err: Error) => {
-        abortController.abort()
-        queue.clear()
-        outputctl.error(err)
-        reject(err)
-      })
-
-      emitter.on('end', async () => {
-        if (collectedPaths.length === 0) {
-          resolve({ results: [], hasFailures: false })
           return
         }
 
-        // Build uploads object, creating fresh streams for each file
+        inputlessOutputPlan = job.out ?? null
+      })
+
+      emitter.on('end', async () => {
+        if (
+          await shouldSkipStaleOutput({
+            inputPaths: collectedPaths,
+            outputPath: resolvedOutput ?? null,
+            outputPlanMtime: new Date(0),
+            outputRootIsDirectory,
+            reprocessStale,
+            singleInputReference: 'input',
+          })
+        ) {
+          outputctl.debug(`SKIPPED STALE SINGLE ASSEMBLY ${resolvedOutput ?? 'null'}`)
+          resolve({ resultUrls, results: [], hasFailures: false })
+          return
+        }
+
+        // Preserve original basenames/extensions for filesystem uploads so the backend
+        // can infer types like Markdown correctly.
+        const files: Record<string, string> = {}
         const uploads: Record<string, Readable> = {}
         const inputPaths: string[] = []
         for (const inPath of collectedPaths) {
           const basename = path.basename(inPath)
-          let key = basename
-          let counter = 1
-          while (key in uploads) {
-            key = `${path.parse(basename).name}_${counter}${path.parse(basename).ext}`
-            counter++
+          const collection = inPath === stdinWithPath.path ? uploads : files
+          const key = await ensureUniqueCounterValue({
+            initialValue: basename,
+            isTaken: (candidate) => candidate in collection,
+            nextValue: (counter) =>
+              `${path.parse(basename).name}_${counter}${path.parse(basename).ext}`,
+            reserve: () => {},
+            scope: collection,
+          })
+          if (inPath === stdinWithPath.path) {
+            uploads[key] = createInputUploadStream(inPath)
+          } else {
+            files[key] = inPath
           }
-          uploads[key] = fs.createReadStream(inPath)
           inputPaths.push(inPath)
         }
 
-        outputctl.debug(`Creating single assembly with ${Object.keys(uploads).length} files`)
+        outputctl.debug(
+          `Creating single assembly with ${Object.keys(files).length + Object.keys(uploads).length} files`,
+        )
 
         try {
           const assembly = await queue.add(async () => {
-            const createOptions: CreateAssemblyOptions = {
-              params,
-              signal: abortController.signal,
-            }
-            if (Object.keys(uploads).length > 0) {
-              createOptions.uploads = uploads
-            }
-
-            const result = await client.createAssembly(createOptions)
-            const assemblyId = result.assembly_id
-            if (!assemblyId) throw new Error('No assembly_id in result')
-
-            const asm = await client.awaitAssemblyCompletion(assemblyId, {
-              signal: abortController.signal,
-              onAssemblyProgress: (status) => {
-                outputctl.debug(`Assembly status: ${status.ok}`)
-              },
+            return await executeAssemblyLifecycle({
+              createOptions: createAssemblyOptions({ files, uploads }),
+              inPath: null,
+              inputPaths,
+              outputPlan:
+                inputlessOutputPlan ??
+                (resolvedOutput == null ? null : createOutputPlan(resolvedOutput, new Date(0))),
+              outputToken: null,
+              singleAssemblyMode: true,
             })
-
-            if (asm.error || (asm.ok && asm.ok !== 'ASSEMBLY_COMPLETED')) {
-              const msg = `Assembly failed: ${asm.error || asm.message} (Status: ${asm.ok})`
-              outputctl.error(msg)
-              throw new Error(msg)
-            }
-
-            // Download all results
-            if (asm.results && resolvedOutput != null) {
-              for (const [stepName, stepResults] of Object.entries(asm.results)) {
-                for (const stepResult of stepResults) {
-                  const resultUrl =
-                    (stepResult as { ssl_url?: string; url?: string }).ssl_url ?? stepResult.url
-                  if (!resultUrl) continue
-
-                  let outPath: string
-                  if (outstat?.isDirectory()) {
-                    outPath = path.join(resolvedOutput, stepResult.name || `${stepName}_result`)
-                  } else {
-                    outPath = resolvedOutput
-                  }
-
-                  outputctl.debug(`DOWNLOADING ${stepResult.name} to ${outPath}`)
-                  const [dlErr] = await tryCatch(
-                    pipeline(
-                      got.stream(resultUrl, { signal: abortController.signal }),
-                      fs.createWriteStream(outPath),
-                    ),
-                  )
-                  if (dlErr) {
-                    if (dlErr.name === 'AbortError') continue
-                    outputctl.error(dlErr.message)
-                    throw dlErr
-                  }
-                }
-              }
-            }
-
-            // Delete input files if requested
-            if (del) {
-              for (const inPath of inputPaths) {
-                await fsp.unlink(inPath)
-              }
-            }
-            return asm
           })
           results.push(assembly)
         } catch (err) {
@@ -1240,30 +1593,19 @@ export async function create(
           outputctl.error(err as Error)
         }
 
-        resolve({ results, hasFailures })
+        resolve({ resultUrls, results, hasFailures })
       })
-    } else {
-      // Default mode: one assembly per file with p-queue concurrency limiting
+    }
+
+    function runPerFileEmitter(): void {
       emitter.on('job', (job: Job) => {
-        const inPath = job.in
-          ? (((job.in as fs.ReadStream).path as string | undefined) ?? null)
-          : null
-        const outPath = job.out?.path ?? null
-        const outMtime = job.out?.mtime
-        outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outPath ?? 'null'}`)
-
-        // Close the original streams immediately - we'll create fresh ones when processing
-        if (job.in != null) {
-          ;(job.in as fs.ReadStream).destroy()
-        }
-        if (job.out != null) {
-          job.out.destroy()
-        }
-
-        // Add job to queue - p-queue handles concurrency automatically
+        const inPath = job.inputPath
+        const outputPlan = job.out
+        const outputToken = reserveWatchJobToken(outputPlan?.path ?? null)
+        outputctl.debug(`GOT JOB ${inPath ?? 'null'} ${outputPlan?.path ?? 'null'}`)
         queue
           .add(async () => {
-            const result = await processAssemblyJob(inPath, outPath, outMtime)
+            const result = await processAssemblyJob(inPath, outputPlan, outputToken)
             if (result !== undefined) {
               results.push(result)
             }
@@ -1274,18 +1616,18 @@ export async function create(
           })
       })
 
-      emitter.on('error', (err: Error) => {
-        abortController.abort()
-        queue.clear()
-        outputctl.error(err)
-        reject(err)
-      })
-
       emitter.on('end', async () => {
-        // Wait for all queued jobs to complete
         await queue.onIdle()
-        resolve({ results, hasFailures })
+        resolve({ resultUrls, results, hasFailures })
       })
+    }
+
+    emitter.on('error', handleEmitterError)
+
+    if (singleAssembly) {
+      runSingleAssemblyEmitter()
+    } else {
+      runPerFileEmitter()
     }
   })
 }
@@ -1330,9 +1672,7 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     description: 'Specify a template to use for these assemblies',
   })
 
-  inputs = Option.Array('--input,-i', {
-    description: 'Provide an input file or a directory',
-  })
+  inputs = inputPathsOption()
 
   outputPath = Option.String('--output,-o', {
     description: 'Specify an output file or directory',
@@ -1342,30 +1682,19 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     description: 'Set a template field (KEY=VAL)',
   })
 
-  watch = Option.Boolean('--watch,-w', false, {
-    description: 'Watch inputs for changes',
-  })
+  watch = watchOption()
 
-  recursive = Option.Boolean('--recursive,-r', false, {
-    description: 'Enumerate input directories recursively',
-  })
+  recursive = recursiveOption()
 
-  deleteAfterProcessing = Option.Boolean('--delete-after-processing,-d', false, {
-    description: 'Delete input files after they are processed',
-  })
+  deleteAfterProcessing = deleteAfterProcessingOption()
 
-  reprocessStale = Option.Boolean('--reprocess-stale', false, {
-    description: 'Process inputs even if output is newer',
-  })
+  reprocessStale = reprocessStaleOption()
 
-  singleAssembly = Option.Boolean('--single-assembly', false, {
-    description: 'Pass all input files to a single assembly instead of one assembly per file',
-  })
+  singleAssembly = singleAssemblyOption()
 
-  concurrency = Option.String('--concurrency,-c', {
-    description: 'Maximum number of concurrent assemblies (default: 5)',
-    validator: t.isNumber(),
-  })
+  concurrency = concurrencyOption()
+
+  printUrls = printUrlsOption()
 
   protected async run(): Promise<number | undefined> {
     if (!this.steps && !this.template) {
@@ -1378,10 +1707,6 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     }
 
     const inputList = this.inputs ?? []
-    if (inputList.length === 0 && this.watch) {
-      this.output.error('assemblies create --watch requires at least one input')
-      return 1
-    }
 
     // Default to stdin only for `--steps` mode (common "pipe a file into a one-off assembly" use case).
     // For `--template` mode, templates may be inputless or use /http/import, so stdin should be explicit (`--input -`).
@@ -1389,27 +1714,26 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       inputList.push('-')
     }
 
-    const fieldsMap: Record<string, string> = {}
-    for (const field of this.fields ?? []) {
-      const eqIndex = field.indexOf('=')
-      if (eqIndex === -1) {
-        this.output.error(`invalid argument for --field: '${field}'`)
-        return 1
-      }
-      const key = field.slice(0, eqIndex)
-      const value = field.slice(eqIndex + 1)
-      fieldsMap[key] = value
-    }
-
-    if (this.singleAssembly && this.watch) {
-      this.output.error('--single-assembly cannot be used with --watch')
+    const fieldsMap = parseTemplateFieldAssignments(this.output, this.fields)
+    if (this.fields != null && fieldsMap == null) {
       return 1
     }
 
-    const { hasFailures } = await create(this.output, this.client, {
+    const sharedValidationError = validateSharedFileProcessingOptions({
+      explicitInputCount: this.inputs?.length ?? 0,
+      singleAssembly: this.singleAssembly,
+      watch: this.watch,
+      watchRequiresInputsMessage: 'assemblies create --watch requires at least one input',
+    })
+    if (sharedValidationError != null) {
+      this.output.error(sharedValidationError)
+      return 1
+    }
+
+    const { hasFailures, resultUrls } = await create(this.output, this.client, {
       steps: this.steps,
       template: this.template,
-      fields: fieldsMap,
+      fields: fieldsMap ?? {},
       watch: this.watch,
       recursive: this.recursive,
       inputs: inputList,
@@ -1417,8 +1741,11 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
       del: this.deleteAfterProcessing,
       reprocessStale: this.reprocessStale,
       singleAssembly: this.singleAssembly,
-      concurrency: this.concurrency,
+      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
     })
+    if (this.printUrls) {
+      printResultUrls(this.output, resultUrls)
+    }
     return hasFailures ? 1 : undefined
   }
 }
@@ -1567,20 +1894,13 @@ export class AssembliesReplayCommand extends AuthenticatedCommand {
   assemblyIds = Option.Rest({ required: 1 })
 
   protected async run(): Promise<number | undefined> {
-    const fieldsMap: Record<string, string> = {}
-    for (const field of this.fields ?? []) {
-      const eqIndex = field.indexOf('=')
-      if (eqIndex === -1) {
-        this.output.error(`invalid argument for --field: '${field}'`)
-        return 1
-      }
-      const key = field.slice(0, eqIndex)
-      const value = field.slice(eqIndex + 1)
-      fieldsMap[key] = value
+    const fieldsMap = parseTemplateFieldAssignments(this.output, this.fields)
+    if (this.fields != null && fieldsMap == null) {
+      return 1
     }
 
     await replay(this.output, this.client, {
-      fields: fieldsMap,
+      fields: fieldsMap ?? {},
       reparse: this.reparseTemplate,
       steps: this.steps,
       notify_url: this.notifyUrl,

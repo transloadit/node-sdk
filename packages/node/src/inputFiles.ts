@@ -1,13 +1,17 @@
+import * as dnsPromises from 'node:dns/promises'
 import { createWriteStream } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { isIP } from 'node:net'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, join, parse } from 'node:path'
 import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import type CacheableLookup from 'cacheable-lookup'
+import type { EntryObject, IPFamily } from 'cacheable-lookup'
 import got from 'got'
 import type { Input as IntoStreamInput } from 'into-stream'
 import type { CreateAssemblyParams } from './apiTypes.ts'
+import { ensureUniqueCounterValue } from './ensureUniqueCounter.ts'
 
 export type InputFile =
   | {
@@ -63,15 +67,28 @@ const ensureUnique = (field: string, used: Set<string>): void => {
   used.add(field)
 }
 
-const ensureUniqueStepName = (baseName: string, used: Set<string>): string => {
-  let name = baseName
-  let counter = 1
-  while (used.has(name)) {
-    name = `${baseName}_${counter}`
-    counter += 1
-  }
-  used.add(name)
-  return name
+const ensureUniqueStepName = async (baseName: string, used: Set<string>): Promise<string> =>
+  await ensureUniqueCounterValue({
+    initialValue: baseName,
+    isTaken: (candidate) => used.has(candidate),
+    reserve: (candidate) => used.add(candidate),
+    nextValue: (counter) => `${baseName}_${counter}`,
+    scope: used,
+  })
+
+const ensureUniqueTempFilePath = async (
+  root: string,
+  filename: string,
+  used: Set<string>,
+): Promise<string> => {
+  const parsedFilename = parse(basename(filename))
+  return await ensureUniqueCounterValue({
+    initialValue: join(root, parsedFilename.base),
+    isTaken: (candidate) => used.has(candidate),
+    reserve: (candidate) => used.add(candidate),
+    nextValue: (counter) => join(root, `${parsedFilename.name}-${counter}${parsedFilename.ext}`),
+    scope: used,
+  })
 }
 
 const decodeBase64 = (value: string): Buffer => Buffer.from(value, 'base64')
@@ -106,27 +123,72 @@ const findImportStepName = (field: string, steps: Record<string, unknown>): stri
   return null
 }
 
-const downloadUrlToFile = async (url: string, filePath: string): Promise<void> => {
-  await pipeline(got.stream(url), createWriteStream(filePath))
+const MAX_URL_REDIRECTS = 10
+
+const isRedirectStatusCode = (statusCode: number): boolean =>
+  statusCode === 301 ||
+  statusCode === 302 ||
+  statusCode === 303 ||
+  statusCode === 307 ||
+  statusCode === 308
+
+const ipv4FromMappedIpv6 = (address: string): string | null => {
+  const lowerAddress = address.toLowerCase()
+  const mappedPrefix = lowerAddress.startsWith('::ffff:')
+    ? '::ffff:'
+    : lowerAddress.startsWith('0:0:0:0:0:ffff:')
+      ? '0:0:0:0:0:ffff:'
+      : null
+
+  if (mappedPrefix == null) {
+    return null
+  }
+
+  const mappedValue = lowerAddress.slice(mappedPrefix.length)
+  if (mappedValue.includes('.')) {
+    return mappedValue
+  }
+
+  const segments = mappedValue.split(':')
+  if (segments.length !== 2) {
+    return null
+  }
+
+  const values = segments.map((segment) => Number.parseInt(segment, 16))
+  if (values.some((value) => Number.isNaN(value) || value < 0 || value > 0xffff)) {
+    return null
+  }
+
+  return values.flatMap((value) => [(value >> 8) & 0xff, value & 0xff]).join('.')
 }
 
 const isPrivateIp = (address: string): boolean => {
-  if (address === 'localhost') return true
-  const family = isIP(address)
+  const normalizedAddress =
+    address.startsWith('[') && address.endsWith(']') ? address.slice(1, -1) : address
+  if (normalizedAddress === 'localhost') return true
+  const family = isIP(normalizedAddress)
   if (family === 4) {
-    const parts = address.split('.').map((chunk) => Number(chunk))
+    const parts = normalizedAddress.split('.').map((chunk) => Number(chunk))
     const [a, b] = parts
     if (a === 10) return true
     if (a === 127) return true
     if (a === 0) return true
+    if (a === 100 && b >= 64 && b <= 127) return true
     if (a === 169 && b === 254) return true
     if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 0 && parts[2] === 0) return true
     if (a === 192 && b === 168) return true
+    if (a === 198 && (b === 18 || b === 19)) return true
     return false
   }
   if (family === 6) {
-    const normalized = address.toLowerCase()
-    if (normalized === '::1') return true
+    const normalized = normalizedAddress.toLowerCase().split('%')[0]
+    if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') return true
+    if (normalized === '::' || normalized === '0:0:0:0:0:0:0:0') return true
+    const mappedAddress = ipv4FromMappedIpv6(normalized)
+    if (mappedAddress != null && isPrivateIp(mappedAddress)) {
+      return true
+    }
     if (normalized.startsWith('fe80:')) return true
     if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true
     return false
@@ -134,14 +196,201 @@ const isPrivateIp = (address: string): boolean => {
   return false
 }
 
-const assertPublicDownloadUrl = (value: string): void => {
+export const resolvePublicDownloadAddresses = async (
+  value: string,
+): Promise<Array<{ address: string; family: 4 | 6 }>> => {
   const parsed = new URL(value)
+  const hostname =
+    parsed.hostname.startsWith('[') && parsed.hostname.endsWith(']')
+      ? parsed.hostname.slice(1, -1)
+      : parsed.hostname
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`URL downloads are limited to http/https: ${value}`)
   }
-  if (isPrivateIp(parsed.hostname)) {
+  if (isPrivateIp(hostname)) {
     throw new Error(`URL downloads are limited to public hosts: ${value}`)
   }
+
+  const literalFamily = isIP(hostname)
+  const resolvedAddresses =
+    literalFamily !== 0
+      ? [{ address: hostname, family: literalFamily as 4 | 6 }]
+      : await dnsPromises.lookup(hostname, {
+          all: true,
+          verbatim: true,
+        })
+  if (resolvedAddresses.some((address) => isPrivateIp(address.address))) {
+    throw new Error(`URL downloads are limited to public hosts: ${value}`)
+  }
+
+  if (resolvedAddresses.length === 0) {
+    throw new Error(`Unable to resolve URL hostname: ${value}`)
+  }
+
+  return resolvedAddresses.map((address) => ({
+    address: address.address,
+    family: address.family as 4 | 6,
+  }))
+}
+
+export function createPinnedDnsLookup(
+  validatedAddresses: Array<{ address: string; family: 4 | 6 }>,
+): CacheableLookup['lookup'] {
+  const pinnedAddresses = [...validatedAddresses]
+
+  function pickAddress(family?: IPFamily): { address: string; family: 4 | 6 } | null {
+    if (family == null) {
+      return pinnedAddresses[0] ?? null
+    }
+
+    return pinnedAddresses.find((address) => address.family === family) ?? null
+  }
+
+  function pinnedDnsLookup(
+    _hostname: string,
+    family: IPFamily,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    options: { all: true },
+    callback: (error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    options: object,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
+    familyOrCallback:
+      | IPFamily
+      | object
+      | ((error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void),
+    callback?:
+      | ((error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void)
+      | ((error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void),
+  ): void {
+    if (typeof familyOrCallback === 'function') {
+      const address = pickAddress()
+      if (address == null) {
+        familyOrCallback(
+          new Error('No validated addresses available') as NodeJS.ErrnoException,
+          '',
+          4,
+        )
+        return
+      }
+      familyOrCallback(null, address.address, address.family)
+      return
+    }
+
+    if (
+      typeof familyOrCallback === 'object' &&
+      familyOrCallback != null &&
+      'all' in familyOrCallback
+    ) {
+      ;(
+        callback as (
+          error: NodeJS.ErrnoException | null,
+          result: ReadonlyArray<EntryObject>,
+        ) => void
+      )(
+        null,
+        pinnedAddresses.map((address) => ({
+          address: address.address,
+          family: address.family,
+          expires: 0,
+        })),
+      )
+      return
+    }
+
+    const family = typeof familyOrCallback === 'number' ? familyOrCallback : undefined
+    const address = pickAddress(family)
+    if (address == null) {
+      ;(
+        callback as (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void
+      )(new Error('No validated addresses available') as NodeJS.ErrnoException, '', family ?? 4)
+      return
+    }
+
+    ;(callback as (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void)(
+      null,
+      address.address,
+      address.family,
+    )
+  }
+
+  return pinnedDnsLookup
+}
+
+const downloadUrlToFile = async ({
+  allowPrivateUrls,
+  filePath,
+  url,
+}: {
+  allowPrivateUrls: boolean
+  filePath: string
+  url: string
+}): Promise<void> => {
+  let currentUrl = url
+
+  for (let redirectCount = 0; redirectCount <= MAX_URL_REDIRECTS; redirectCount += 1) {
+    let validatedAddresses: Array<{ address: string; family: 4 | 6 }> | null = null
+    if (!allowPrivateUrls) {
+      validatedAddresses = await resolvePublicDownloadAddresses(currentUrl)
+    }
+
+    const dnsLookup: CacheableLookup['lookup'] | undefined =
+      validatedAddresses == null ? undefined : createPinnedDnsLookup(validatedAddresses)
+
+    const responseStream = got.stream(currentUrl, {
+      dnsLookup,
+      followRedirect: false,
+      retry: { limit: 0 },
+      throwHttpErrors: false,
+    })
+
+    const response = await new Promise<
+      Readable & { headers: Record<string, string>; statusCode?: number }
+    >((resolvePromise, reject) => {
+      responseStream.once('response', (incomingResponse) => {
+        resolvePromise(
+          incomingResponse as Readable & {
+            headers: Record<string, string>
+            statusCode?: number
+          },
+        )
+      })
+      responseStream.once('error', reject)
+    })
+
+    const statusCode = response.statusCode ?? 0
+    if (isRedirectStatusCode(statusCode)) {
+      responseStream.destroy()
+      const location = response.headers.location
+      if (location == null) {
+        throw new Error(`Redirect response missing Location header: ${currentUrl}`)
+      }
+      currentUrl = new URL(location, currentUrl).toString()
+      continue
+    }
+
+    if (statusCode >= 400) {
+      responseStream.destroy()
+      throw new Error(`Failed to download URL: ${currentUrl} (${statusCode})`)
+    }
+
+    await pipeline(responseStream, createWriteStream(filePath))
+    return
+  }
+
+  throw new Error(`Too many redirects while downloading URL input: ${url}`)
 }
 
 export const prepareInputFiles = async (
@@ -176,6 +425,7 @@ export const prepareInputFiles = async (
   const steps = isRecord(nextParams.steps) ? { ...nextParams.steps } : {}
   const usedSteps = new Set(Object.keys(steps))
   const usedFields = new Set<string>()
+  const usedTempPaths = new Set<string>()
   const importUrlsByStep = new Map<string, string[]>()
   const importStepNames = Object.keys(steps).filter((name) => isHttpImportStep(steps[name]))
   const sharedImportStep = importStepNames.length === 1 ? importStepNames[0] : null
@@ -211,7 +461,7 @@ export const prepareInputFiles = async (
         if (base64Strategy === 'tempfile') {
           const root = await ensureTempRoot()
           const filename = file.filename ? basename(file.filename) : `${file.field}.bin`
-          const filePath = join(root, filename)
+          const filePath = await ensureUniqueTempFilePath(root, filename, usedTempPaths)
           await writeFile(filePath, buffer)
           files[file.field] = filePath
         } else {
@@ -226,7 +476,7 @@ export const prepareInputFiles = async (
           urlStrategy === 'import' || (urlStrategy === 'import-if-present' && targetStep)
 
         if (shouldImport) {
-          const stepName = targetStep ?? ensureUniqueStepName(file.field, usedSteps)
+          const stepName = targetStep ?? (await ensureUniqueStepName(file.field, usedSteps))
           const urls = importUrlsByStep.get(stepName) ?? []
           urls.push(file.url)
           importUrlsByStep.set(stepName, urls)
@@ -238,11 +488,12 @@ export const prepareInputFiles = async (
           (file.filename ? basename(file.filename) : null) ??
           getFilenameFromUrl(file.url) ??
           `${file.field}.bin`
-        const filePath = join(root, filename)
-        if (!allowPrivateUrls) {
-          assertPublicDownloadUrl(file.url)
-        }
-        await downloadUrlToFile(file.url, filePath)
+        const filePath = await ensureUniqueTempFilePath(root, filename, usedTempPaths)
+        await downloadUrlToFile({
+          allowPrivateUrls,
+          filePath,
+          url: file.url,
+        })
         files[file.field] = filePath
       }
     }

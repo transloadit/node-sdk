@@ -1,8 +1,27 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
-import { prepareInputFiles } from '../../src/inputFiles.ts'
+import { basename, join } from 'node:path'
+import nock from 'nock'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  createPinnedDnsLookup,
+  prepareInputFiles,
+  resolvePublicDownloadAddresses,
+} from '../../src/inputFiles.ts'
+
+const { lookupMock } = vi.hoisted(() => ({
+  lookupMock: vi.fn(),
+}))
+
+vi.mock('node:dns/promises', () => ({
+  lookup: lookupMock,
+}))
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  lookupMock.mockReset()
+  nock.cleanAll()
+})
 
 describe('prepareInputFiles', () => {
   it('splits files, uploads, and url imports', async () => {
@@ -60,6 +79,40 @@ describe('prepareInputFiles', () => {
     }
   })
 
+  it('preserves leading-dot basenames when duplicate tempfiles collide', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'transloadit-test-'))
+
+    try {
+      const base64 = Buffer.from('hello').toString('base64')
+
+      const result = await prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'base64',
+            field: 'first',
+            base64,
+            filename: '.gitignore',
+          },
+          {
+            kind: 'base64',
+            field: 'second',
+            base64,
+            filename: '.gitignore',
+          },
+        ],
+        base64Strategy: 'tempfile',
+        tempDir,
+      })
+
+      expect(result.files.first.startsWith(tempDir)).toBe(true)
+      expect(result.files.second.startsWith(tempDir)).toBe(true)
+      expect(basename(result.files.first)).toBe('.gitignore')
+      expect(basename(result.files.second)).toBe('.gitignore-1')
+    } finally {
+      await rm(tempDir, { recursive: true, force: true })
+    }
+  })
+
   it('rejects oversized base64 payloads before decoding', async () => {
     const oversized = '!'.repeat(128)
 
@@ -92,5 +145,187 @@ describe('prepareInputFiles', () => {
         allowPrivateUrls: false,
       }),
     ).rejects.toThrow('URL downloads are limited')
+  })
+
+  it('rejects non-canonical IPv6 loopback URL downloads', async () => {
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://[0:0:0:0:0:0:0:1]/secret',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+  })
+
+  it('rejects IPv4-mapped loopback URL downloads', async () => {
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://[::ffff:127.0.0.1]/secret',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+  })
+
+  it('rejects hostnames that resolve to private IPs', async () => {
+    lookupMock.mockResolvedValue([{ address: '127.0.0.1', family: 4 }])
+    const downloadScope = nock('http://rebind.test').get('/secret').reply(200, 'secret')
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://rebind.test/secret',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+
+    expect(downloadScope.isDone()).toBe(false)
+  })
+
+  it('rejects hostnames that resolve to carrier-grade NAT ranges', async () => {
+    lookupMock.mockResolvedValue([{ address: '100.64.0.1', family: 4 }])
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://cgnat.test/secret',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+  })
+
+  it('rejects hostnames that resolve to benchmark-testing ranges', async () => {
+    lookupMock.mockResolvedValue([{ address: '198.18.0.1', family: 4 }])
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://benchmark.test/secret',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+  })
+
+  it('rejects redirects to private URL downloads', async () => {
+    lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
+    const publicScope = nock('http://198.51.100.10')
+      .get('/public')
+      .reply(302, undefined, { Location: 'http://127.0.0.1/secret' })
+    const privateScope = nock('http://127.0.0.1').get('/secret').reply(200, 'secret')
+
+    await expect(
+      prepareInputFiles({
+        inputFiles: [
+          {
+            kind: 'url',
+            field: 'remote',
+            url: 'http://198.51.100.10/public',
+          },
+        ],
+        urlStrategy: 'download',
+        allowPrivateUrls: false,
+      }),
+    ).rejects.toThrow('URL downloads are limited')
+
+    expect(publicScope.isDone()).toBe(true)
+    expect(privateScope.isDone()).toBe(false)
+  })
+
+  it('allows public IPv6 literal URL downloads under the private-host guard', async () => {
+    const resolved = await resolvePublicDownloadAddresses('http://[2001:db8::1]/public')
+
+    expect(resolved).toEqual([{ address: '2001:db8::1', family: 6 }])
+    expect(lookupMock).not.toHaveBeenCalled()
+  })
+
+  it('pins URL downloads to the validated DNS answer', async () => {
+    lookupMock.mockResolvedValue([{ address: '198.51.100.10', family: 4 }])
+    const downloadScope = nock('http://rebind.test').get('/public').reply(200, 'public-data')
+
+    const result = await prepareInputFiles({
+      inputFiles: [
+        {
+          kind: 'url',
+          field: 'remote',
+          url: 'http://rebind.test/public',
+        },
+      ],
+      urlStrategy: 'download',
+      allowPrivateUrls: false,
+    })
+
+    try {
+      const downloadedPath = result.files.remote
+      expect(downloadedPath).toBeDefined()
+      expect(downloadScope.isDone()).toBe(true)
+    } finally {
+      await Promise.all(result.cleanup.map((cleanup) => cleanup()))
+    }
+  })
+
+  it('returns all validated public addresses from the pinned lookup and honors requested families', async () => {
+    const lookup = createPinnedDnsLookup([
+      { address: '2001:db8::1', family: 6 },
+      { address: '198.51.100.10', family: 4 },
+    ])
+
+    const allAddresses = await new Promise<ReadonlyArray<{ address: string; family: number }>>(
+      (resolve, reject) => {
+        lookup('rebind.test', { all: true }, (error, result) => {
+          if (error != null) {
+            reject(error)
+            return
+          }
+          resolve(result)
+        })
+      },
+    )
+    const ipv4Address = await new Promise<{ address: string; family: number }>(
+      (resolve, reject) => {
+        lookup('rebind.test', 4, (error, address, family) => {
+          if (error != null) {
+            reject(error)
+            return
+          }
+          resolve({ address, family })
+        })
+      },
+    )
+
+    expect(allAddresses).toEqual([
+      { address: '2001:db8::1', family: 6, expires: 0 },
+      { address: '198.51.100.10', family: 4, expires: 0 },
+    ])
+    expect(ipv4Address).toEqual({ address: '198.51.100.10', family: 4 })
   })
 })

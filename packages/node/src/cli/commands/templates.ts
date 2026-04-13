@@ -5,12 +5,11 @@ import { Command, Option } from 'clipanion'
 import rreaddir from 'recursive-readdir'
 import { z } from 'zod'
 import { tryCatch } from '../../alphalib/tryCatch.ts'
-import type { Steps } from '../../alphalib/types/template.ts'
-import { stepsSchema } from '../../alphalib/types/template.ts'
 import type { TemplateContent } from '../../apiTypes.ts'
 import type { Transloadit } from '../../Transloadit.ts'
 import { createReadStream, formatAPIError, streamToBuffer } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
+import { parseStepsInputJson } from '../stepsInput.ts'
 import ModifiedLookup from '../template-last-modified.ts'
 import type { TemplateFile } from '../types.ts'
 import { ensureError, isTransloaditAPIError, TemplateFileDataSchema } from '../types.ts'
@@ -60,16 +59,11 @@ export async function create(
   try {
     const buf = await streamToBuffer(createReadStream(file))
 
-    const parsed: unknown = JSON.parse(buf.toString())
-    const validated = stepsSchema.safeParse(parsed)
-    if (!validated.success) {
-      throw new Error(`Invalid template steps format: ${validated.error.message}`)
-    }
+    const steps = parseStepsInputJson(buf.toString())
 
     const result = await client.createTemplate({
       name,
-      // Steps (validated) is assignable to StepsInput at runtime; cast for TS
-      template: { steps: validated.data } as TemplateContent,
+      template: { steps } as TemplateContent,
     })
     output.print(result.id, result)
     return result
@@ -106,23 +100,18 @@ export async function modify(
   try {
     const buf = await streamToBuffer(createReadStream(file))
 
-    let steps: Steps | null = null
+    let steps: TemplateContent['steps'] | null = null
     let newName = name
 
     if (buf.length > 0) {
-      const parsed: unknown = JSON.parse(buf.toString())
-      const validated = stepsSchema.safeParse(parsed)
-      if (!validated.success) {
-        throw new Error(`Invalid template steps format: ${validated.error.message}`)
-      }
-      steps = validated.data
+      steps = parseStepsInputJson(buf.toString()) as TemplateContent['steps']
     }
 
     if (!name || buf.length === 0) {
       const tpl = await client.getTemplate(template)
       if (!name) newName = tpl.name
       if (buf.length === 0 && tpl.content.steps) {
-        steps = tpl.content.steps
+        steps = tpl.content.steps as TemplateContent['steps']
       }
     }
 
