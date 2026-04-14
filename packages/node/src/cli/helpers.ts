@@ -281,21 +281,6 @@ export function resolveCliConfig(): ResolvedCliConfig {
   }
 }
 
-type ResolveCliAuthResult = { ok: true; auth: CliAuth } | { ok: false; error: string }
-
-export function resolveCliEndpoint(): string | undefined {
-  return resolveCliConfig().endpoint
-}
-
-export function resolveCliAuth(): ResolveCliAuthResult {
-  const config = resolveCliConfig()
-  if (config.auth != null) return { ok: true, auth: config.auth }
-
-  const { loadError } = config
-  if (loadError != null) return { ok: false, error: loadError }
-  return { ok: false, error: buildMissingAuthMessage() }
-}
-
 type RequireCliCredentialsResult =
   | { ok: true; credentials: CliKeySecretCredentials }
   | { ok: false; error: string }

@@ -51,22 +51,66 @@ This package includes a full-featured CLI for interacting with Transloadit from 
 
 ### Quick Start
 
+Pick one auth setup and then run the CLI.
+
+Use shell env vars:
+
 ```bash
-# Set your credentials
 export TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
 export TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
+```
 
-# See all available commands
+Or create a reusable home credentials file:
+
+```bash
+mkdir -p ~/.transloadit
+cat > ~/.transloadit/credentials <<'EOF'
+TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
+TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
+EOF
+chmod 600 ~/.transloadit/credentials
+```
+
+Then see all available commands:
+
+```bash
 npx -y @transloadit/node --help
 ```
 
 The CLI binary is still called `transloadit`, so command examples below may use
 `npx transloadit ...`.
 
+### Credential Resolution
+
+The CLI resolves authentication in this order:
+
+1. Shell environment variables such as `TRANSLOADIT_KEY`, `TRANSLOADIT_SECRET`, and `TRANSLOADIT_AUTH_TOKEN`
+2. The current working directory `.env`
+3. `~/.transloadit/credentials`
+
+The home credentials file uses dotenv syntax. It is meant for user-level CLI use, so Intents and
+other commands work from any directory on your machine without having to export credentials first.
+
+Example `~/.transloadit/credentials`:
+
+```env
+TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
+TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
+# Optional:
+# TRANSLOADIT_ENDPOINT="https://api2.transloadit.com"
+# TRANSLOADIT_AUTH_TOKEN="YOUR_BEARER_TOKEN"
+```
+
+If you want to use a different path, set `TRANSLOADIT_CREDENTIALS_FILE=/abs/path/to/credentials.env`.
+
+Most commands can authenticate with either `TRANSLOADIT_AUTH_TOKEN` or `TRANSLOADIT_KEY` +
+`TRANSLOADIT_SECRET`. Commands that mint bearer tokens or generate signatures still require
+`TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET`.
+
 ### Minting Bearer Tokens (Hosted MCP)
 
 If you want to connect an agent to the Transloadit-hosted MCP endpoint, mint a short-lived bearer
-token via `POST /token`:
+token via `POST /token`. This command also uses the same credential resolution order above:
 
 ```bash
 # Prints JSON to stdout (stderr may include npx/npm noise)
@@ -93,12 +137,14 @@ The full generated intent reference also lives in [`docs/intent-commands.md`](./
 #### At a glance
 
 Intent commands are the fastest path to common one-off tasks from the CLI.
+Authentication is resolved in this order: shell environment, the current working directory `.env`, then `~/.transloadit/credentials`.
+The home credentials file uses dotenv syntax and can include `TRANSLOADIT_KEY`, `TRANSLOADIT_SECRET`, `TRANSLOADIT_ENDPOINT`, and `TRANSLOADIT_AUTH_TOKEN`.
 Use `--print-urls` when you want temporary result URLs without downloading locally.
 All intent commands also support the global CLI flags `--json`, `--log-level`, `--endpoint`, and `--help`.
 
 | Command | What it does | Input | Output |
 | --- | --- | --- | --- |
-| `image generate` | Generate images from text prompts | none | file |
+| `image generate` | Generate images from text prompts | file, dir, URL, base64 | file |
 | `preview generate` | Generate a preview thumbnail | file, dir, URL, base64 | file |
 | `image remove-background` | Remove the background from images | file, dir, URL, base64 | file |
 | `image optimize` | Optimize images without quality loss | file, dir, URL, base64 | file |
@@ -164,43 +210,49 @@ These flags are available across many intent commands, so the per-command sectio
 
 Generate images from text prompts
 
-Runs `/image/generate` and writes the result to `--out`.
+Runs `/image/generate`. Without inputs, this is text-to-image. With one or more `--input` files, the inputs are bundled into a single assembly so the prompt can refer to them by filename.
 
 **Usage**
 
 ```bash
-npx transloadit image generate [options]
+npx transloadit image generate [--input <path|dir|url|->] [options]
 ```
 
 **Quick facts**
 
-- Input: none
+- Input: file, dir, URL, base64
 - Output: file
-- Execution: no input
-- Backend: `/image/generate`
+- Execution: single assembly
+- Backend: semantic alias `image-generate`
 
 **Shared flags**
 
-- Uses the shared output flags listed above.
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags listed above.
 
 **Command options**
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--model` | `string` | no | `value` | The AI model to use for image generation. Defaults to google/nano-banana. |
 | `--prompt` | `string` | yes | `"A red bicycle in a studio"` | The prompt describing the desired image content. |
+| `--model` | `string` | no | `google/nano-banana-2` | The AI model to use for image generation. Defaults to google/nano-banana-2. |
 | `--format` | `string` | no | `jpg` | Format of the generated image. |
-| `--seed` | `number` | no | `1` | Seed for the random number generator. |
-| `--aspect-ratio` | `string` | no | `value` | Aspect ratio of the generated image. |
-| `--height` | `number` | no | `1` | Height of the generated image. |
-| `--width` | `number` | no | `1` | Width of the generated image. |
-| `--style` | `string` | no | `value` | Style of the generated image. |
-| `--num-outputs` | `number` | no | `1` | Number of image variants to generate. |
+| `--seed` | `number` | no | — | Seed for the random number generator. |
+| `--aspect-ratio` | `string` | no | — | Aspect ratio of the generated image. |
+| `--height` | `number` | no | — | Height of the generated image. |
+| `--width` | `number` | no | — | Width of the generated image. |
+| `--style` | `string` | no | — | Style of the generated image. |
+| `--num-outputs` | `number` | no | — | Number of image variants to generate. |
 
 **Examples**
 
 ```bash
+# Generate an image from text
 transloadit image generate --prompt "A red bicycle in a studio" --out output.png
+# Guide generation with one input image
+transloadit image generate --input subject.jpg --prompt "Place subject.jpg on a magazine cover" --out output.png
+# Guide generation with multiple input images
+transloadit image generate --input person1.jpg --input person2.jpg --input background.jpg --prompt "Place person1.jpg feeding person2.jpg in front of background.jpg" --out output.png
 ```
 
 #### `preview generate`
@@ -236,6 +288,7 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 | `--height` | `number` | no | `1` | Height of the thumbnail, in pixels. |
 | `--resize-strategy` | `string` | no | `crop` | To achieve the desired dimensions of the preview thumbnail, the Robot might have to resize the generated image. |
 | `--background` | `string` | no | `value` | The hexadecimal code of the color used to fill the background (only used for the pad resize strategy). |
+| `--zoom` | `boolean` | no | `true` | If set to false, smaller images will not be stretched to the desired width and height. |
 | `--strategy` | `json` | no | `value` | Definition of the thumbnail generation process per file category. |
 | `--artwork-outer-color` | `string` | no | `value` | The color used in the outer parts of the artwork's gradient. |
 | `--artwork-center-color` | `string` | no | `value` | The color used in the center of the artwork's gradient. |
@@ -291,7 +344,7 @@ npx transloadit image remove-background --input <path|dir|url|-> [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--select` | `string` | no | `foreground` | Region to select and keep in the image. The other region is removed. |
-| `--format` | `string` | no | `png` | Format of the generated image. |
+| `--format` | `string` | no | `png` | Format of the generated image. Defaults to PNG when not provided. |
 | `--provider` | `string` | no | `aws` | Provider to use for removing the background. |
 | `--model` | `string` | no | `value` | Provider-specific model to use for removing the background. Mostly intended for testing and evaluation. |
 
@@ -333,6 +386,7 @@ npx transloadit image optimize --input <path|dir|url|-> [options]
 | `--progressive` | `boolean` | no | `true` | Interlaces the image if set to true, which makes the result image load progressively in browsers. |
 | `--preserve-meta-data` | `boolean` | no | `true` | Specifies if the image's metadata should be preserved during the optimization, or not. |
 | `--fix-breaking-images` | `boolean` | no | `true` | If set to true this parameter tries to fix images that would otherwise make the underlying tool error out and thereby break your Assemblies . |
+| `--lossy` | `boolean` | no | `true` | When set to false (the default), only lossless PNG optimizers are used, disabling pngquant to preserve color accuracy. |
 
 **Examples**
 
@@ -410,6 +464,7 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 | `--trim-whitespace` | `boolean` | no | `true` | This determines if additional whitespace around the image should first be trimmed away. |
 | `--clip` | `auto` | no | `value` | Apply the clipping path to other operations in the resize job, if one is present. |
 | `--negate` | `boolean` | no | `true` | Replace each pixel with its complementary color, effectively negating the image. Especially useful when testing clipping. |
+| `--clut` | `boolean` | no | `true` | Applies a Color Look-Up Table (CLUT) image to remap the colors of the input image using ImageMagick's -clut operator. |
 | `--density` | `string` | no | `value` | While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. |
 | `--monochrome` | `boolean` | no | `true` | Transform the image to black and white. This is a shortcut for setting the colorspace to Gray and type to Bilevel. |
 | `--shave` | `auto` | no | `value` | Shave pixels from the image edges. The value should be in the format width or widthxheight to specify the number of pixels to remove from each side. |
@@ -565,6 +620,7 @@ npx transloadit document thumbs --input <path|dir|url|-> [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--page` | `number` | no | `1` | The PDF page that you want to convert to an image. By default the value is null which means that all pages will be converted into images. |
+| `--page-range` | `string` | no | `value` | A page range to extract, in the format "start-end" (e.g., "1-20"). |
 | `--format` | `string` | no | `jpg` | The format of the extracted image(s). If you specify the value "gif", then an animated gif cycling through all pages is created. Please check out this demo to learn more about… |
 | `--delay` | `number` | no | `1` | If your output format is "gif" then this parameter sets the number of 100th seconds to pass before the next frame is shown in the animation. |
 | `--width` | `number` | no | `1` | Width of the new image, in pixels. If not specified, will default to the width of the input image |
@@ -577,7 +633,7 @@ npx transloadit document thumbs --input <path|dir|url|-> [options]
 | `--colorspace` | `string` | no | `CMY` | Sets the image colorspace. For details about the available values, see the ImageMagick documentation. Please note that if you were using "RGB", we recommend using "sRGB".… |
 | `--trim-whitespace` | `boolean` | no | `true` | This determines if additional whitespace around the PDF should first be trimmed away before it is converted to an image. |
 | `--pdf-use-cropbox` | `boolean` | no | `true` | Some PDF documents lie about their dimensions. For instance they'll say they are landscape, but when opened in decent Desktop readers, it's really in portrait mode. This can… |
-| `--turbo` | `boolean` | no | `true` | If you set this to false, the robot will not emit files as they become available. |
+| `--turbo` | `boolean` | no | `true` | Enables high-performance mode for faster document processing. |
 
 **Examples**
 
@@ -614,14 +670,14 @@ npx transloadit audio waveform --input <path|dir|url|-> [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--ffmpeg` | `json` | no | `value` | A parameter object to be passed to FFmpeg. If a preset is used, the options specified are merged on top of the ones from the preset. For available options, see the FFmpeg… |
-| `--format` | `string` | no | `image` | The format of the result file. Can be "image" or "json". If "image" is supplied, a PNG image will be created, otherwise a JSON file. |
+| `--format` | `string` | no | `image` | The format of the result file. Can be "image" or "json". If "image" is supplied, a PNG image will be created, otherwise a JSON file. When style is "spectrogram", only "image" is… |
 | `--width` | `number` | no | `1` | The width of the resulting image if the format "image" was selected. |
 | `--height` | `number` | no | `1` | The height of the resulting image if the format "image" was selected. |
 | `--antialiasing` | `auto` | no | `0` | Either a value of 0 or 1, or true/false, corresponding to if you want to enable antialiasing to achieve smoother edges in the waveform graph or not. |
 | `--background-color` | `string` | no | `value` | The background color of the resulting image in the "rrggbbaa" format (red, green, blue, alpha), if the format "image" was selected. |
 | `--center-color` | `string` | no | `value` | The color used in the center of the gradient. The format is "rrggbbaa" (red, green, blue, alpha). |
 | `--outer-color` | `string` | no | `value` | The color used in the outer parts of the gradient. The format is "rrggbbaa" (red, green, blue, alpha). |
-| `--style` | `string` | no | `v0` | Waveform style version. - "v0": Legacy waveform generation (default). - "v1": Advanced waveform generation with additional parameters. For backwards compatibility, numeric values… |
+| `--style` | `string` | no | `v0` | Waveform style version. - "v0": Legacy waveform generation (default). - "v1": Advanced waveform generation with additional parameters. - "spectrogram": Spectrogram visualization… |
 | `--split-channels` | `boolean` | no | `true` | Available when style is "v1". If set to true, outputs multi-channel waveform data or image files, one per channel. |
 | `--zoom` | `number` | no | `1` | Available when style is "v1". Zoom level in samples per pixel. This parameter cannot be used together with pixels_per_second. |
 | `--pixels-per-second` | `number` | no | `1` | Available when style is "v1". Zoom level in pixels per second. This parameter cannot be used together with zoom. |
@@ -639,6 +695,13 @@ npx transloadit audio waveform --input <path|dir|url|-> [options]
 | `--with-axis-labels` | `boolean` | no | `true` | Available when style is "v1". If set to true, renders waveform image with axis labels. |
 | `--amplitude-scale` | `number` | no | `1` | Available when style is "v1". Amplitude scale factor. |
 | `--compression` | `number` | no | `1` | Available when style is "v1". PNG compression level: 0 (none) to 9 (best), or -1 (default). Only applicable when format is "image". |
+| `--color-map` | `string` | no | `viridis` | Available when style is "spectrogram". Color scheme for the spectrogram visualization. Defaults to "viridis". |
+| `--frequency-scale` | `string` | no | `linear` | Available when style is "spectrogram". Frequency scale for the spectrogram. "linear" shows frequencies evenly spaced, "logarithmic" emphasizes lower frequencies. Defaults to… |
+| `--frequency-min` | `number` | no | `1` | Available when style is "spectrogram". Minimum frequency in Hz to display. Defaults to 0. |
+| `--frequency-max` | `number` | no | `1` | Available when style is "spectrogram". Maximum frequency in Hz to display. Defaults to half the sample rate (Nyquist frequency). |
+| `--legend` | `boolean` | no | `true` | Available when style is "spectrogram". Whether to include a legend showing the frequency and time scales. Defaults to false. |
+| `--gain` | `number` | no | `1` | Available when style is "spectrogram". Linear gain factor for spectrogram intensity. Defaults to 1. |
+| `--orientation` | `string` | no | `vertical` | Available when style is "spectrogram". Orientation of the spectrogram. "horizontal" shows time on the x-axis (default), "vertical" shows time on the y-axis. |
 
 **Examples**
 
@@ -655,7 +718,7 @@ Runs `/text/speak` on each input file and writes the result to `--out`.
 **Usage**
 
 ```bash
-npx transloadit text speak --input <path|dir|url|-> [options]
+npx transloadit text speak [--input <path|dir|url|->] [options]
 ```
 
 **Quick facts**
@@ -918,6 +981,7 @@ npx transloadit file compress --input <path|dir|url|-> [options]
 | `--compression-level` | `number` | no | `1` | Determines how fiercely to try to compress the archive. -0 is compressionless, which is suitable for media that is already compressed. -1 is fastest with lowest compression. -9… |
 | `--file-layout` | `string` | no | `advanced` | Determines if the result archive should contain all files in one directory (value for this is "simple") or in subfolders according to the explanation below (value for this is… |
 | `--archive-name` | `string` | no | `value` | The name of the archive file to be created (without the file extension). |
+| `--path` | `string` | no | `value` | The path at which each file is to be placed inside the archive. |
 
 **Examples**
 
@@ -948,6 +1012,13 @@ npx transloadit file decompress --input <path|dir|url|-> [options]
 
 - Uses the shared file input and output flags listed above.
 - Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--password` | `string` | no | `value` | The password to use for decrypting password-protected archives. |
+| `--turbo` | `boolean` | no | `true` | Enables Turbo Mode for /file/decompress. This setting defaults to true. Set it to false to disable Turbo Mode. When enabled, extracted files are emitted as soon as they are… |
 
 **Examples**
 
@@ -1731,6 +1802,10 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
+
+
+
+
 
 
 

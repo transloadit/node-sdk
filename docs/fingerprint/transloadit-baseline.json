@@ -1,13 +1,13 @@
 {
   "packageDir": "packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.7.7.tgz",
-    "sizeBytes": 964327,
-    "sha256": "7b6156e32e95689084a3a00feef03339da945eaaad092fe25409dc61bf38ab8f"
+    "filename": "transloadit-4.8.0.tgz",
+    "sizeBytes": 970751,
+    "sha256": "b8fa380fdbfb8bacb09c0ec3ca704e2701b6f42ca840721e5f4600d1f264bc3c"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.7.7",
+    "version": "4.8.0",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -133,8 +133,8 @@
     },
     {
       "path": "dist/cli/commands/auth.js",
-      "sizeBytes": 11611,
-      "sha256": "f97edb26a829382471ba905d5004ac41caa7c0bca2a3a65b6adf6ff969803063"
+      "sizeBytes": 12418,
+      "sha256": "ee234995a4629d50586f7f92a8e324fa7d24f35ab96b95d32756f6f5f241be7e"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.js",
@@ -158,13 +158,13 @@
     },
     {
       "path": "dist/cli/commands/BaseCommand.js",
-      "sizeBytes": 1883,
-      "sha256": "af4d62f394df456f5137627e8c4f241344fbe7c7796e427bc6ec493de5984762"
+      "sizeBytes": 1886,
+      "sha256": "86179e1558f82f7863804face3aab70f3ccb492d395144117688eb29bb13ef79"
     },
     {
       "path": "dist/bearerToken.js",
-      "sizeBytes": 5587,
-      "sha256": "bc4721aef6564fd8ffd8d7f7f74528ec2194a514c14bb382855215d0b9baa102"
+      "sizeBytes": 5732,
+      "sha256": "1fe9a30b6b737c36576a87c61e9b86c008d1a7d109341055fcfbc59aaee6e1b2"
     },
     {
       "path": "dist/alphalib/types/bill.js",
@@ -193,8 +193,8 @@
     },
     {
       "path": "dist/cli.js",
-      "sizeBytes": 1219,
-      "sha256": "b959001b789f7ebd47577de52ea067ea8115a2710b678f53bd479fadaba75aed"
+      "sizeBytes": 1316,
+      "sha256": "5d8de17e13f8d7b17cd1915be6deafccf62270b47a92fab879e2ea3314530e67"
     },
     {
       "path": "dist/alphalib/types/robots/cloudfiles-import.js",
@@ -353,8 +353,8 @@
     },
     {
       "path": "dist/cli/generateIntentDocs.js",
-      "sizeBytes": 12162,
-      "sha256": "88b738652c7b0ff7d37d3d8977d5ba5fc4ee291862be8b5ebbf25fa2e50f67c2"
+      "sizeBytes": 12474,
+      "sha256": "889889578951ca1a9b96f96a663fda853ddbff46af6122ac7b62caf8fbc158b7"
     },
     {
       "path": "dist/alphalib/types/robots/google-import.js",
@@ -368,8 +368,8 @@
     },
     {
       "path": "dist/cli/helpers.js",
-      "sizeBytes": 2625,
-      "sha256": "8555420c31526195f54151c481bd00d2a1fcf67dacbad3f988a4c6538fa67f21"
+      "sizeBytes": 10485,
+      "sha256": "24ba65d101c7a29c90769a397d5fa17bc4bac6f3d472d046867c591cb57a42dc"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.js",
@@ -834,7 +834,7 @@
     {
       "path": "package.json",
       "sizeBytes": 2855,
-      "sha256": "5b92b07c9bd1125cd9bcc983de69e2be6fcc364d552479963b64adb3eb9e8148"
+      "sha256": "c19e4cc06170dad1e63a97d2e8abb0d61ad1549ba1ceb1f0b9bbd0b3ef47f587"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
@@ -1058,13 +1058,13 @@
     },
     {
       "path": "dist/cli/commands/auth.d.ts.map",
-      "sizeBytes": 922,
-      "sha256": "5723d078eacd9e3aa713aa28aa0b284f4c6a5f5b50203f39967a196542cf333f"
+      "sizeBytes": 924,
+      "sha256": "4415e108e361d5d7ddbf598ed32a5f58ad73f9c606ba20c801288575c0c53ebd"
     },
     {
       "path": "dist/cli/commands/auth.js.map",
-      "sizeBytes": 10384,
-      "sha256": "3ea5009e5c9989b33694c725a9d11aa44f32b9b6c6dd73dc6b145d2318c8ce30"
+      "sizeBytes": 10744,
+      "sha256": "75823f4c7f60b9044bc1a0812993f15a3c1c3b25ad74f1a3f8c146b1c444153f"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts.map",
@@ -1108,23 +1108,23 @@
     },
     {
       "path": "dist/cli/commands/BaseCommand.d.ts.map",
-      "sizeBytes": 854,
-      "sha256": "7795327eb88bff243fbadaa473286c7d6c4bb24e4d0b11d7d7ff314dc9460112"
+      "sizeBytes": 833,
+      "sha256": "b0950ba79b15c784683370396137d92b5fac54dc480684e9aff833a8bb89ad27"
     },
     {
       "path": "dist/cli/commands/BaseCommand.js.map",
-      "sizeBytes": 1771,
-      "sha256": "ea85d352f6620d0688afa1bb3c82f2c9c09b3bec6c06bfcc29d6d9f14f12578a"
+      "sizeBytes": 1740,
+      "sha256": "74855d31a36c89ede8a12c76a02e78038540cada20c2d5fdaa0d4d808a7d7648"
     },
     {
       "path": "dist/bearerToken.d.ts.map",
-      "sizeBytes": 867,
-      "sha256": "bf66bc5231caabe6dea8993dacce769dbd5ebf6884d921d133dd461ab161a0ae"
+      "sizeBytes": 900,
+      "sha256": "c10732e07a2bbb0d47d9d40a0d755716384033e9b6839a0ec189fe6fb7e6aaab"
     },
     {
       "path": "dist/bearerToken.js.map",
-      "sizeBytes": 5767,
-      "sha256": "0bf3817570b3aad5e23f507898ba8bce442d99355f94a0f9ffb7a4650bdd87b6"
+      "sizeBytes": 5867,
+      "sha256": "b584405efd14cd4e22920d6be5c66a21e2cb62352a17760bc8225918a98445d9"
     },
     {
       "path": "dist/alphalib/types/bill.d.ts.map",
@@ -1178,13 +1178,13 @@
     },
     {
       "path": "dist/cli.d.ts.map",
-      "sizeBytes": 293,
-      "sha256": "a9194c2c071b9b11546084324533c30a9188733778b0318be50f6a0f1917b6ae"
+      "sizeBytes": 273,
+      "sha256": "5735702149979dd281b9e657837c05397b14eabb50a78ecc9393e38a88da2471"
     },
     {
       "path": "dist/cli.js.map",
-      "sizeBytes": 1408,
-      "sha256": "00a1c4a99a63ed2b06d9529979d476ffacc8594bad5d891e6a2245fabd0fdfea"
+      "sizeBytes": 1475,
+      "sha256": "afc2fcb54a541f3d923dcec829e8cd1955484a13c1d1f091e40c2027f6a6fc56"
     },
     {
       "path": "dist/alphalib/types/robots/cloudfiles-import.d.ts.map",
@@ -1499,12 +1499,12 @@
     {
       "path": "dist/cli/generateIntentDocs.d.ts.map",
       "sizeBytes": 322,
-      "sha256": "fef7c62b2f31b146d88600a55ae2203411a1cf3e8919754ad9d643090b2b4508"
+      "sha256": "7a4fb5ab59c03c1fc20068db1d99c6c03efff5e7ffb1e8677bd6e7110d9456e4"
     },
     {
       "path": "dist/cli/generateIntentDocs.js.map",
-      "sizeBytes": 10673,
-      "sha256": "0babc761e5669099b7df8af96ccb838ccc20501fe13bae2243c58b681ed3044c"
+      "sizeBytes": 10699,
+      "sha256": "bce7994f7bc8d8013de8cfc59fb9a97f87790932b28ae10b3aeeee661d2761e0"
     },
     {
       "path": "dist/alphalib/types/robots/google-import.d.ts.map",
@@ -1528,13 +1528,13 @@
     },
     {
       "path": "dist/cli/helpers.d.ts.map",
-      "sizeBytes": 1177,
-      "sha256": "0f65f407f35fe35bc23481feaf7146d051d3946557ae80008228844d563e41d5"
+      "sizeBytes": 1649,
+      "sha256": "2e1cb4c1c8921a53d6a90c20462aa5748709360b9ef7abf7558e557ca4eebd9f"
     },
     {
       "path": "dist/cli/helpers.js.map",
-      "sizeBytes": 3067,
-      "sha256": "d644704a139a2ac26a8c7a2ba27b7eee939aecd8506d437ed616cc764eabe8c2"
+      "sizeBytes": 9948,
+      "sha256": "ee71fd0b983f8ef82a803afa8f0cbd195d18a0966d49916bb3f781b5b3a233c0"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.d.ts.map",
@@ -2458,8 +2458,8 @@
     },
     {
       "path": "README.md",
-      "sizeBytes": 84309,
-      "sha256": "6ab0c4d3904d56eb139e9bf290a45591a3428cb2363faf186a27a1bbcdb810d4"
+      "sizeBytes": 86005,
+      "sha256": "fb997dd8b6b5731339b5b710d769893e1ba1ace90d66d34d059f027c74e24b63"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts",
@@ -2688,8 +2688,8 @@
     },
     {
       "path": "src/cli/commands/auth.ts",
-      "sizeBytes": 12042,
-      "sha256": "c2d57b7a2b0cff9a4bcecf8ed8b8c52af664b9764d8a8248630c822f121f9a90"
+      "sizeBytes": 13156,
+      "sha256": "adfd11deb41f1bc9b0c42dcbde4e7542b97f515a6df7e05293e3839c7bab7ff8"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts",
@@ -2733,23 +2733,23 @@
     },
     {
       "path": "dist/cli/commands/BaseCommand.d.ts",
-      "sizeBytes": 944,
-      "sha256": "9f132cb73d644f225f0efa48ab02f0edc6a82c9db7db080e84ae2281d9cf845c"
+      "sizeBytes": 920,
+      "sha256": "9604da61ca909755a0c6574305e9e7f35150f7e0e8df47291877a28cf3cf3223"
     },
     {
       "path": "src/cli/commands/BaseCommand.ts",
-      "sizeBytes": 2101,
-      "sha256": "8716f8a22898d35c025986a31a9234b43a8eaed09f7120b8f6424ff8d045fd50"
+      "sizeBytes": 2106,
+      "sha256": "0b3f59529a584dc382c4e21f9dafc5cd8b6b5a8d297221cbec2bfe479bbed344"
     },
     {
       "path": "dist/bearerToken.d.ts",
-      "sizeBytes": 880,
-      "sha256": "9e4a6e4dff6fc60004e9d6d5d5637c0257345ca97b48ffd6225417a4eda94c80"
+      "sizeBytes": 927,
+      "sha256": "4d9b6cc1958365ef0377d1350b19522de395cd35f36f319527d0b3cd8adb0e38"
     },
     {
       "path": "src/bearerToken.ts",
-      "sizeBytes": 5998,
-      "sha256": "528a38e470b6730ab073de1e845ec964855ffabfe862a4bca65af021732c4f1f"
+      "sizeBytes": 6207,
+      "sha256": "b9dbceaadeed8fd59aa1cf16db6e062a377c4a9256c9f6308488e0d173965646"
     },
     {
       "path": "dist/alphalib/types/bill.d.ts",
@@ -2803,13 +2803,13 @@
     },
     {
       "path": "dist/cli.d.ts",
-      "sizeBytes": 265,
-      "sha256": "84c403d5b19a2a87189fdf87a6a3b9d4f9dc23ff497f55ebacce6b72669adf8e"
+      "sizeBytes": 241,
+      "sha256": "b9aed044f9844b1140903619e189d41cb34ab6c72d457332e0b2f49936f43502"
     },
     {
       "path": "src/cli.ts",
-      "sizeBytes": 1170,
-      "sha256": "757c3922b27c1d9c7fb2a496a66be1af298ed86b3e492fed6f43f7f08db1c8e0"
+      "sizeBytes": 1262,
+      "sha256": "dd56259d35c8072704dac8fe098275fa27bb72e0c22eea393b48cec4d05a816d"
     },
     {
       "path": "dist/alphalib/types/robots/cloudfiles-import.d.ts",
@@ -3128,8 +3128,8 @@
     },
     {
       "path": "src/cli/generateIntentDocs.ts",
-      "sizeBytes": 12525,
-      "sha256": "24ab29b2a991eaa39fb5af54d477a4a4b998dca3b286bbae86a71ebff461d933"
+      "sizeBytes": 12829,
+      "sha256": "482795d80dfa72b6ad61fb785097b347f7a3bc557646842ea8a738e26e07dfc8"
     },
     {
       "path": "dist/alphalib/types/robots/google-import.d.ts",
@@ -3153,13 +3153,13 @@
     },
     {
       "path": "dist/cli/helpers.d.ts",
-      "sizeBytes": 1073,
-      "sha256": "aeed9d1c1186c561cd846c905bac2d9738e88c80e5527c125f47ad6b332d10ee"
+      "sizeBytes": 1663,
+      "sha256": "15bb0db74f1067923856eb6f9ea4eca451a7ef90dffdef50cf5bf9120a64368f"
     },
     {
       "path": "src/cli/helpers.ts",
-      "sizeBytes": 3340,
-      "sha256": "9741aa20b83f837889d248d5b095e6ec2336186bc5ab2b6caa23174950562919"
+      "sizeBytes": 11714,
+      "sha256": "2b9139aa13729a0f4c71062d68fca0872213f31fa901c5032695be2dd4783373"
     },
     {
       "path": "dist/alphalib/types/robots/html-convert.d.ts",
