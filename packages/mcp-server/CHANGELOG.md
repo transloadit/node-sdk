@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.13
+
+### Patch Changes
+
+- 28f1a43: Add home-credentials CLI support and release the MCP server alongside the updated Node package.
+- Updated dependencies [28f1a43]
+  - @transloadit/node@4.8.1
+
 ## 0.3.12
 
 ### Patch Changes
