@@ -115,6 +115,7 @@ export function loadProjectDotenvIntoProcessEnv(): string | undefined {
 
   const projectDotenvResult = readEnvFile(projectDotenvPath)
   if (projectDotenvResult == null) {
+    restoreProjectDotenvFromProcessEnv()
     projectDotenvInjectedValues = undefined
     projectDotenvPreviousValues = undefined
     return undefined

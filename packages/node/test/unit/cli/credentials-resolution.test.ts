@@ -358,6 +358,38 @@ describe('cli credential resolution', () => {
     }
   })
 
+  it('does not keep injected dotenv credentials after the file is removed in the same directory', async () => {
+    const fixture = createCliFixture()
+    const emptyCredentialsFilePath = path.join(fixture.root, 'empty-credentials.env')
+    const dotenvPath = path.join(fixture.cwd, '.env')
+    writeFileSync(dotenvPath, 'TRANSLOADIT_AUTH_TOKEN=dotenv-token\n')
+    writeFileSync(emptyCredentialsFilePath, '')
+
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', emptyCredentialsFilePath)
+
+    const listSpy = vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({
+      items: [],
+      count: 0,
+    })
+    vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      process.chdir(fixture.cwd)
+      await main(['templates', 'list'])
+      rmSync(dotenvPath)
+      await main(['templates', 'list'])
+
+      expect(listSpy).toHaveBeenCalledTimes(1)
+      expect(stderrSpy).toHaveBeenCalled()
+      expect(process.exitCode).toBe(1)
+    } finally {
+      fixture.cleanup()
+    }
+  })
+
   it('merges shell credentials with the current working directory .env', async () => {
     const fixture = createCliFixture()
     writeFileSync(path.join(fixture.cwd, '.env'), 'TRANSLOADIT_SECRET=dotenv-secret\n')
