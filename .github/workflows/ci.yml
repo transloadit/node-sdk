@@ -11,16 +11,13 @@ on:
   schedule:
     - cron: '0 8 * * *'
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
 jobs:
   lockfile:
     name: Lockfile guard
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Ensure yarn.lock matches dependency changes
@@ -98,13 +95,13 @@ jobs:
     name: Build package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - run: corepack yarn
       - run: corepack yarn run pack
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: package
           path: '*.tgz'
@@ -113,8 +110,8 @@ jobs:
     name: Verify (fast)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
       - run: corepack yarn
@@ -124,8 +121,8 @@ jobs:
     name: Verify (full)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
       - run: corepack yarn
@@ -141,8 +138,8 @@ jobs:
           - 22
           - 24
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
       - run: corepack yarn
@@ -154,7 +151,7 @@ jobs:
         if: matrix.node != 24
       - name: Upload coverage reports artifact
         if: matrix.node == 24
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-reports
           path: packages/node/coverage/
@@ -170,8 +167,8 @@ jobs:
     env:
       NODE_OPTIONS: --trace-deprecation --trace-warnings
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
       - run: corepack yarn
@@ -210,7 +207,7 @@ jobs:
       # *** BEGIN PUBLISH STATIC SITE STEPS ***
       # Use the standard checkout action to check out the destination repo to a separate directory
       # See https://github.com/mifi/github-action-push-static
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ssh-key: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
           repository: transloadit/node-sdk-coverage
@@ -236,13 +233,13 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with:
           name: coverage-reports
           path: coverage
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
