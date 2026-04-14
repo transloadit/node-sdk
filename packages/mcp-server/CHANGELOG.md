@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.3.14
+
+### Patch Changes
+
+- cd662b0: Serve Streamable HTTP MCP requests statelessly so hosted deployments keep working behind non-sticky load balancing while preserving isolated transport instances per request.
+
 ## 0.3.13
 
 ### Patch Changes
