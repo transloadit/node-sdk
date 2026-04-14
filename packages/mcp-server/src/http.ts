@@ -59,6 +59,10 @@ function readJsonBody(req: IncomingMessage): Promise<unknown> {
 export function createTransloaditMcpHttpHandler(
   options: TransloaditMcpHttpOptions = {},
 ): TransloaditMcpHttpHandler {
+  const activeRequests = new Set<{
+    transport: StreamableHTTPServerTransport
+    server: Awaited<ReturnType<typeof createTransloaditMcpServer>>
+  }>()
   const expectedPath = options.path ?? defaultPath
   const metricsPath =
     options.metricsPath === false ? undefined : normalizePath(options.metricsPath ?? '/metrics')
@@ -178,10 +182,14 @@ export function createTransloaditMcpHttpHandler(
       enableDnsRebindingProtection: options.enableDnsRebindingProtection,
     })
     const server = createTransloaditMcpServer(options)
-    res.on('close', () => {
+    const activeRequest = { transport, server }
+    activeRequests.add(activeRequest)
+    const cleanupActiveRequest = () => {
+      activeRequests.delete(activeRequest)
       void transport.close()
       void server.close()
-    })
+    }
+    res.on('close', cleanupActiveRequest)
     await server.connect(transport)
 
     try {
@@ -191,10 +199,20 @@ export function createTransloaditMcpHttpHandler(
         res.statusCode = 500
         res.end('Internal Server Error')
       }
+    } finally {
+      activeRequests.delete(activeRequest)
     }
   }) as TransloaditMcpHttpHandler
 
-  handler.close = () => Promise.resolve()
+  handler.close = async () => {
+    await Promise.all(
+      Array.from(activeRequests, async (activeRequest) => {
+        activeRequests.delete(activeRequest)
+        const { transport, server } = activeRequest
+        await Promise.all([transport.close(), server.close()])
+      }),
+    )
+  }
 
   return handler
 }
