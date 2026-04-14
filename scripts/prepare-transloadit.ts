@@ -78,15 +78,17 @@ function deriveLegacyScripts(nodeScripts: Record<string, string>): Record<string
   return scripts
 }
 
-const writeLegacyPackageJson = async (): Promise<void> => {
-  const nodePackageJson = await readJson<PackageJson>(resolve(nodePackage, 'package.json'))
-  const legacyExisting = await readJson<PackageJson>(resolve(legacyPackage, 'package.json')).catch(
-    () => null,
-  )
+function buildLegacyPackageJson(
+  nodePackageJson: PackageJson,
+  legacyExisting: PackageJson | null,
+): PackageJson {
   const scripts = deriveLegacyScripts(nodePackageJson.scripts ?? {})
+  const legacyVersion =
+    typeof legacyExisting?.version === 'string' ? legacyExisting.version : nodePackageJson.version
   const legacyPackageJson: PackageJson = {
     ...nodePackageJson,
     name: 'transloadit',
+    version: legacyVersion,
     scripts,
     devDependencies: legacyExisting?.devDependencies ?? nodePackageJson.devDependencies,
   }
@@ -103,6 +105,16 @@ const writeLegacyPackageJson = async (): Promise<void> => {
   ) {
     legacyPackageJson.bin = legacyBin.transloadit as string
   }
+
+  return legacyPackageJson
+}
+
+const writeLegacyPackageJson = async (): Promise<void> => {
+  const nodePackageJson = await readJson<PackageJson>(resolve(nodePackage, 'package.json'))
+  const legacyExisting = await readJson<PackageJson>(resolve(legacyPackage, 'package.json')).catch(
+    () => null,
+  )
+  const legacyPackageJson = buildLegacyPackageJson(nodePackageJson, legacyExisting)
 
   const formatted = formatPackageJson(legacyPackageJson)
   await writeFile(resolve(legacyPackage, 'package.json'), formatted)
@@ -128,4 +140,8 @@ const main = async (): Promise<void> => {
   await writeLegacyChangelog()
 }
 
-await main()
+if (process.argv[1] != null && resolve(process.argv[1]) === filePath) {
+  await main()
+}
+
+export { buildLegacyPackageJson, deriveLegacyScripts }
