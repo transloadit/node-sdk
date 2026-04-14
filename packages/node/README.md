@@ -51,22 +51,66 @@ This package includes a full-featured CLI for interacting with Transloadit from 
 
 ### Quick Start
 
+Pick one auth setup and then run the CLI.
+
+Use shell env vars:
+
 ```bash
-# Set your credentials
 export TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
 export TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
+```
 
-# See all available commands
+Or create a reusable home credentials file:
+
+```bash
+mkdir -p ~/.transloadit
+cat > ~/.transloadit/credentials <<'EOF'
+TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
+TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
+EOF
+chmod 600 ~/.transloadit/credentials
+```
+
+Then see all available commands:
+
+```bash
 npx -y @transloadit/node --help
 ```
 
 The CLI binary is still called `transloadit`, so command examples below may use
 `npx transloadit ...`.
 
+### Credential Resolution
+
+The CLI resolves authentication in this order:
+
+1. Shell environment variables such as `TRANSLOADIT_KEY`, `TRANSLOADIT_SECRET`, and `TRANSLOADIT_AUTH_TOKEN`
+2. The current working directory `.env`
+3. `~/.transloadit/credentials`
+
+The home credentials file uses dotenv syntax. It is meant for user-level CLI use, so Intents and
+other commands work from any directory on your machine without having to export credentials first.
+
+Example `~/.transloadit/credentials`:
+
+```env
+TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
+TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
+# Optional:
+# TRANSLOADIT_ENDPOINT="https://api2.transloadit.com"
+# TRANSLOADIT_AUTH_TOKEN="YOUR_BEARER_TOKEN"
+```
+
+If you want to use a different path, set `TRANSLOADIT_CREDENTIALS_FILE=/abs/path/to/credentials.env`.
+
+Most commands can authenticate with either `TRANSLOADIT_AUTH_TOKEN` or `TRANSLOADIT_KEY` +
+`TRANSLOADIT_SECRET`. Commands that mint bearer tokens or generate signatures still require
+`TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET`.
+
 ### Minting Bearer Tokens (Hosted MCP)
 
 If you want to connect an agent to the Transloadit-hosted MCP endpoint, mint a short-lived bearer
-token via `POST /token`:
+token via `POST /token`. This command also uses the same credential resolution order above:
 
 ```bash
 # Prints JSON to stdout (stderr may include npx/npm noise)
@@ -93,6 +137,8 @@ The full generated intent reference also lives in [`docs/intent-commands.md`](./
 #### At a glance
 
 Intent commands are the fastest path to common one-off tasks from the CLI.
+Authentication is resolved in this order: shell environment, the current working directory `.env`, then `~/.transloadit/credentials`.
+The home credentials file uses dotenv syntax and can include `TRANSLOADIT_KEY`, `TRANSLOADIT_SECRET`, `TRANSLOADIT_ENDPOINT`, and `TRANSLOADIT_AUTH_TOKEN`.
 Use `--print-urls` when you want temporary result URLs without downloading locally.
 All intent commands also support the global CLI flags `--json`, `--log-level`, `--endpoint`, and `--help`.
 
@@ -1756,6 +1802,8 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
+
+
 
 
 

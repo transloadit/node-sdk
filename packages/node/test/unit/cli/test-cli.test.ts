@@ -137,9 +137,12 @@ describe('cli smart_sig', () => {
       })
 
       expect(stdoutSpy).not.toHaveBeenCalled()
-      expect(stderrSpy).toHaveBeenCalledWith(
-        'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
-      )
+      expect(stderrSpy).toHaveBeenCalled()
+      const message = `${stderrSpy.mock.calls[0]?.[0]}`
+      expect(message).toContain('Missing credentials.')
+      expect(message).toContain('1. Shell env:')
+      expect(message).toContain('2. Current directory .env:')
+      expect(message).toContain('3. Credentials file: ~/.transloadit/credentials')
       expect(process.exitCode).toBe(1)
     } finally {
       if (originalKey != null) process.env.TRANSLOADIT_KEY = originalKey
@@ -310,9 +313,12 @@ describe('cli sig', () => {
       await runSig({ providedInput: '{}' })
 
       expect(stdoutSpy).not.toHaveBeenCalled()
-      expect(stderrSpy).toHaveBeenCalledWith(
-        'Missing credentials. Please set TRANSLOADIT_KEY and TRANSLOADIT_SECRET environment variables.',
-      )
+      expect(stderrSpy).toHaveBeenCalled()
+      const message = `${stderrSpy.mock.calls[0]?.[0]}`
+      expect(message).toContain('Missing credentials.')
+      expect(message).toContain('1. Shell env:')
+      expect(message).toContain('2. Current directory .env:')
+      expect(message).toContain('3. Credentials file: ~/.transloadit/credentials')
       expect(process.exitCode).toBe(1)
     } finally {
       if (originalKey != null) process.env.TRANSLOADIT_KEY = originalKey

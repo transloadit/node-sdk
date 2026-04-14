@@ -1,8 +1,6 @@
-import 'dotenv/config'
-import process from 'node:process'
 import { Command, Option } from 'clipanion'
 import { Transloadit as TransloaditClient } from '../../Transloadit.ts'
-import { requireEnvCredentials } from '../helpers.ts'
+import { buildMissingAuthMessage, resolveCliConfig } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 import OutputCtl, { LOG_LEVEL_DEFAULT, LOG_LEVEL_NAMES, parseLogLevel } from '../OutputCtl.ts'
 
@@ -17,7 +15,7 @@ abstract class BaseCommand extends Command {
 
   endpoint = Option.String('--endpoint', {
     description:
-      'API endpoint URL (default: https://api2.transloadit.com, or TRANSLOADIT_ENDPOINT env var)',
+      'API endpoint URL (default: https://api2.transloadit.com, or TRANSLOADIT_ENDPOINT from the environment, .env, or ~/.transloadit/credentials)',
   })
 
   protected output!: IOutputCtl
@@ -32,16 +30,16 @@ abstract class BaseCommand extends Command {
   }
 
   protected setupClient(): boolean {
-    const credsResult = requireEnvCredentials()
-    if (!credsResult.ok) {
-      this.output.error(credsResult.error)
+    const config = resolveCliConfig()
+    if (config.auth == null) {
+      this.output.error(config.loadError ?? buildMissingAuthMessage())
       return false
     }
 
-    const endpoint = this.endpoint || process.env.TRANSLOADIT_ENDPOINT
+    const endpoint = this.endpoint || config.endpoint
 
     this.client = new TransloaditClient({
-      ...credsResult.credentials,
+      ...config.auth,
       ...(endpoint && { endpoint }),
     })
     return true

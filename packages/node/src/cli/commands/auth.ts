@@ -9,7 +9,14 @@ import {
 import type { OptionalAuthParams } from '../../apiTypes.ts'
 import { mintBearerTokenWithCredentials } from '../../bearerToken.ts'
 import { Transloadit } from '../../Transloadit.ts'
-import { readCliInput, requireEnvCredentials } from '../helpers.ts'
+import type { CliKeySecretCredentials, ResolvedCliConfig } from '../helpers.ts'
+import {
+  buildMissingCredentialsMessage,
+  readCliInput,
+  requireCliCredentials,
+  resolveCliConfig,
+} from '../helpers.ts'
+import type { IOutputCtl } from '../OutputCtl.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 type UrlParamPrimitive = string | number | boolean
@@ -195,14 +202,49 @@ export interface RunSmartSigOptions {
   providedInput?: string
 }
 
-export async function runSig(options: RunSigOptions = {}): Promise<void> {
-  const credentialsResult = requireEnvCredentials()
+function reportStandaloneCredentialsError(error: string): null {
+  console.error(error)
+  process.exitCode = 1
+  return null
+}
+
+function getStandaloneCredentials(): CliKeySecretCredentials | null {
+  const credentialsResult = requireCliCredentials()
   if (!credentialsResult.ok) {
-    console.error(credentialsResult.error)
-    process.exitCode = 1
+    return reportStandaloneCredentialsError(credentialsResult.error)
+  }
+
+  return credentialsResult.credentials
+}
+
+function getCommandCredentials(output: IOutputCtl): CliKeySecretCredentials | null {
+  const credentialsResult = requireCliCredentials()
+  if (!credentialsResult.ok) {
+    output.error(credentialsResult.error)
+    return null
+  }
+
+  return credentialsResult.credentials
+}
+
+function getCommandConfigWithCredentials(output: IOutputCtl): {
+  config: ResolvedCliConfig
+  credentials: CliKeySecretCredentials
+} | null {
+  const config = resolveCliConfig()
+  if (config.credentials == null) {
+    output.error(config.loadError ?? buildMissingCredentialsMessage())
+    return null
+  }
+
+  return { config, credentials: config.credentials }
+}
+
+export async function runSig(options: RunSigOptions = {}): Promise<void> {
+  const credentials = getStandaloneCredentials()
+  if (credentials == null) {
     return
   }
-  const credentials = credentialsResult.credentials
 
   const { content } = await readCliInput({
     providedInput: options.providedInput,
@@ -220,13 +262,10 @@ export async function runSig(options: RunSigOptions = {}): Promise<void> {
 }
 
 export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<void> {
-  const credentialsResult = requireEnvCredentials()
-  if (!credentialsResult.ok) {
-    console.error(credentialsResult.error)
-    process.exitCode = 1
+  const credentials = getStandaloneCredentials()
+  if (credentials == null) {
     return
   }
-  const credentials = credentialsResult.credentials
 
   const { content } = await readCliInput({
     providedInput: options.providedInput,
@@ -260,6 +299,8 @@ export class SignatureCommand extends UnauthenticatedCommand {
     details: `
       Read params JSON from stdin and output signed payload JSON.
       If no input is provided, generates a signature with default params.
+      Credentials are resolved from the shell environment, the current working directory .env, or
+      ~/.transloadit/credentials.
     `,
     examples: [
       ['Generate signature', 'echo \'{"steps":{}}\' | transloadit signature'],
@@ -273,12 +314,8 @@ export class SignatureCommand extends UnauthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    const credentialsResult = requireEnvCredentials()
-    if (!credentialsResult.ok) {
-      this.output.error(credentialsResult.error)
-      return 1
-    }
-    const credentials = credentialsResult.credentials
+    const credentials = getCommandCredentials(this.output)
+    if (credentials == null) return 1
 
     const { content } = await readCliInput({ allowStdinWhenNoPath: true })
     const rawInput = (content ?? '').trim()
@@ -312,6 +349,8 @@ export class SmartCdnSignatureCommand extends UnauthenticatedCommand {
       Read Smart CDN params JSON from stdin and output a signed URL.
       Required fields: workspace, template, input
       Optional fields: expire_at_ms, url_params
+      Credentials are resolved from the shell environment, the current working directory .env, or
+      ~/.transloadit/credentials.
     `,
     examples: [
       [
@@ -326,12 +365,8 @@ export class SmartCdnSignatureCommand extends UnauthenticatedCommand {
   })
 
   protected async run(): Promise<number | undefined> {
-    const credentialsResult = requireEnvCredentials()
-    if (!credentialsResult.ok) {
-      this.output.error(credentialsResult.error)
-      return 1
-    }
-    const credentials = credentialsResult.credentials
+    const credentials = getCommandCredentials(this.output)
+    if (credentials == null) return 1
 
     const { content } = await readCliInput({ allowStdinWhenNoPath: true })
     const rawInput = (content ?? '').trim()
@@ -359,8 +394,9 @@ export class TokenCommand extends UnauthenticatedCommand {
     category: 'Auth',
     description: 'Mint a short-lived bearer token',
     details: `
-      Calls POST /token using HTTP Basic Auth (TRANSLOADIT_KEY + TRANSLOADIT_SECRET) and prints the
-      JSON response to stdout.
+      Calls POST /token using HTTP Basic Auth and prints the JSON response to stdout.
+      Credentials are resolved from the shell environment, the current working directory .env, or
+      ~/.transloadit/credentials.
     `,
     examples: [
       ['Mint an MCP token (default aud)', 'transloadit auth token'],
@@ -378,14 +414,11 @@ export class TokenCommand extends UnauthenticatedCommand {
   })
 
   protected override async run(): Promise<number | undefined> {
-    const credentialsResult = requireEnvCredentials()
-    if (!credentialsResult.ok) {
-      this.output.error(credentialsResult.error)
-      return 1
-    }
+    const resolved = getCommandConfigWithCredentials(this.output)
+    if (resolved == null) return 1
 
-    const result = await mintBearerTokenWithCredentials(credentialsResult.credentials, {
-      endpoint: this.endpoint,
+    const result = await mintBearerTokenWithCredentials(resolved.credentials, {
+      endpoint: this.endpoint ?? resolved.config.endpoint,
       aud: this.aud,
       scope: this.scope,
     })
