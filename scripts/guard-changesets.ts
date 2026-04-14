@@ -11,6 +11,7 @@ type ParsedChangeset = {
 const CHANGESET_DIR = path.join(process.cwd(), '.changeset')
 const NODE_PKG = '@transloadit/node'
 const MCP_SERVER_PKG = '@transloadit/mcp-server'
+const TRANSLOADIT_PKG = 'transloadit'
 
 async function listChangesetFiles(): Promise<string[]> {
   let entries: string[]
@@ -74,11 +75,12 @@ async function main(): Promise<void> {
     for (const pkg of cs.packages) touched.add(pkg)
   }
 
-  // One-way coupling policy:
+  // Coupling policy:
   // If @transloadit/node is being released, also release @transloadit/mcp-server
-  // so the published mcp-server versions stay "in sync" with node evolution.
+  // and the published transloadit clone so all three stay in sync.
   const touchesNode = touched.has(NODE_PKG)
   const touchesMcpServer = touched.has(MCP_SERVER_PKG)
+  const touchesTransloadit = touched.has(TRANSLOADIT_PKG)
 
   if (touchesNode && !touchesMcpServer) {
     fail(
@@ -92,6 +94,22 @@ async function main(): Promise<void> {
         '  corepack yarn changeset',
         `  (select ${MCP_SERVER_PKG} -> patch)`,
         `  Summary: "chore: release mcp-server alongside @transloadit/node"`,
+      ].join('\n'),
+    )
+  }
+
+  if (touchesNode && !touchesTransloadit) {
+    fail(
+      [
+        `Changeset policy violation: ${NODE_PKG} is being released, but ${TRANSLOADIT_PKG} is not.`,
+        '',
+        `Add a patch changeset for ${TRANSLOADIT_PKG} so npx users get the same CLI behavior as`,
+        `${NODE_PKG} users, including the generated transloadit package clone.`,
+        '',
+        'Example:',
+        '  corepack yarn changeset',
+        `  (select ${TRANSLOADIT_PKG} -> patch)`,
+        `  Summary: "chore: release transloadit alongside @transloadit/node"`,
       ].join('\n'),
     )
   }
