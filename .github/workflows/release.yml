@@ -28,7 +28,7 @@ jobs:
       - run: corepack yarn tsc:zod
       - uses: changesets/action@v1
         with:
-          version: corepack yarn changeset version && corepack yarn
+          version: corepack yarn changeset:version:release
           publish: corepack yarn changeset publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
