@@ -121,7 +121,7 @@ Manual fallback (maintainers only):
 Notes:
 
 - CI publishing requires npm trusted publishing (OIDC) configured for this repo.
-- Scoped packages publish with the `experimental` dist-tag by default. If you need to promote a scoped package to `latest`, update the tag manually.
+- Scoped packages now publish to the default `latest` dist-tag unless a workflow explicitly overrides it.
 - If this was a pre-release, remember to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
   - `npm dist-tag add transloadit@X.Y.Z latest`
 
@@ -130,5 +130,5 @@ Notes:
 - **Independent versions:** Changesets are not fixed to a single version. Only packages listed in a changeset bump; internal dependency changes auto-bump dependents (patch) via `updateInternalDependencies`.
 - **Legacy parity:** `transloadit` is generated from `@transloadit/node` artifacts via `scripts/prepare-transloadit.ts`, then verified with `yarn parity:transloadit`. Only `package.json` metadata drift is allowed; any other drift fails.
 - **Accepting intentional drift:** run `node scripts/prepare-transloadit.ts` before updating the parity baseline, then follow the parity tool instructions to regenerate `docs/fingerprint/*` so the baseline reflects the latest build.
-- **Experimental packages:** Scoped packages (`@transloadit/node`, `@transloadit/types`, `@transloadit/zod`) publish with the `experimental` dist-tag. The unscoped `transloadit` package remains stable.
+- **Scoped packages:** Scoped packages publish to the default npm dist-tag unless a workflow or manual publish step overrides it. The unscoped `transloadit` package remains stable.
 - **Changelog visibility:** the “Version Packages” PR is the single source of truth for what gets published. If something was published to npm without a corresponding GitHub release/tag, add the missing release/tag so users can discover the change history from GitHub.
