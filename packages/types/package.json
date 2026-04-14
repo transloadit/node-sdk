@@ -41,8 +41,5 @@
   },
   "devDependencies": {
     "zod": "3.25.76"
-  },
-  "publishConfig": {
-    "tag": "experimental"
   }
 }

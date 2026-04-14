@@ -52,8 +52,5 @@
   },
   "devDependencies": {
     "@transloadit/types": "^4.3.0"
-  },
-  "publishConfig": {
-    "tag": "experimental"
   }
 }

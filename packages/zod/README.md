@@ -1,6 +1,6 @@
-# @transloadit/zod (experimental)
+# @transloadit/zod
 
-**Stability: Experimental.** This package is new and may change without notice.
+**Stability:** This package is still relatively new and may evolve quickly.
 
 Exports Zod schemas derived from Transloadit types.
 

@@ -31,8 +31,5 @@
     "build": "../../node_modules/.bin/tsc --build tsconfig.build.json",
     "check": "yarn lint:ts",
     "prepack": "yarn build"
-  },
-  "publishConfig": {
-    "tag": "experimental"
   }
 }

@@ -20,7 +20,7 @@ describe('prepare-transloadit', () => {
         transloadit: './dist/cli.js',
       },
       publishConfig: {
-        tag: 'experimental',
+        tag: 'beta',
       },
     }
 

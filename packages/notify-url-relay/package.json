@@ -45,8 +45,5 @@
   "devDependencies": {
     "@types/node": "^24.10.3",
     "transloadit": "^4.7.4"
-  },
-  "publishConfig": {
-    "tag": "experimental"
   }
 }

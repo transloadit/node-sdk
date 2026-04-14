@@ -55,9 +55,6 @@
     "type-fest": "^4.41.0",
     "zod": "3.25.76"
   },
-  "publishConfig": {
-    "tag": "experimental"
-  },
   "devDependencies": {
     "@types/debug": "^4.1.12",
     "@types/lodash-es": "^4.17.12",

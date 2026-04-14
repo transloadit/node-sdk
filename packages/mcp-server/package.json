@@ -72,8 +72,5 @@
     "@types/express": "^4.17.23",
     "@types/node": "^24.10.3"
   },
-  "mcpName": "io.github.transloadit/mcp-server",
-  "publishConfig": {
-    "tag": "experimental"
-  }
+  "mcpName": "io.github.transloadit/mcp-server"
 }
