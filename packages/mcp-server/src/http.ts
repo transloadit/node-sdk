@@ -194,9 +194,7 @@ export function createTransloaditMcpHttpHandler(
     }
   }) as TransloaditMcpHttpHandler
 
-  handler.close = async () => {
-    return Promise.resolve()
-  }
+  handler.close = () => Promise.resolve()
 
   return handler
 }

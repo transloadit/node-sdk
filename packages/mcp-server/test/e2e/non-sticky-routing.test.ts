@@ -1,5 +1,5 @@
 import { createServer, request as httpRequest } from 'node:http'
-import type { AddressInfo, Socket } from 'node:net'
+import type { AddressInfo } from 'node:net'
 import { expect, test } from 'vitest'
 import { createHttpClient, startHttpServer } from './http-server.ts'
 import { parseToolPayload } from './mcp-client.ts'
@@ -61,7 +61,7 @@ async function startAlternatingProxy(
   const server = createServer(async (req, res) => {
     try {
       const routedRequest = await readRequest(req)
-      const targetPort = ports[requestCount % ports.length]!
+      const targetPort = ports[requestCount % ports.length] ?? ports[0]
       requestCount += 1
       await proxyToBackend(targetPort, routedRequest, res)
     } catch (error) {
@@ -106,6 +106,47 @@ test('streamable http: survives non-sticky routing across hosted MCP backends', 
     } finally {
       await transport.close()
       await client.close()
+    }
+  } finally {
+    await proxy.close()
+    await backendA.close()
+    await backendB.close()
+  }
+})
+
+test('streamable http: supports concurrent clients through non-sticky routing', async () => {
+  const backendA = await startHttpServer()
+  const backendB = await startHttpServer()
+  const proxy = await startAlternatingProxy([
+    backendA.url.port ? Number(backendA.url.port) : 0,
+    backendB.url.port ? Number(backendB.url.port) : 0,
+  ])
+
+  try {
+    const sessions = await Promise.all(
+      Array.from({ length: 10 }, async () => createHttpClient(proxy.url)),
+    )
+
+    try {
+      const results = await Promise.all(
+        sessions.map(async ({ client }) =>
+          client.callTool({
+            name: 'transloadit_list_robots',
+            arguments: { limit: 1 },
+          }),
+        ),
+      )
+
+      for (const result of results) {
+        expect(parseToolPayload(result).status).toBe('ok')
+      }
+    } finally {
+      await Promise.all(
+        sessions.map(async ({ client, transport }) => {
+          await transport.close()
+          await client.close()
+        }),
+      )
     }
   } finally {
     await proxy.close()
