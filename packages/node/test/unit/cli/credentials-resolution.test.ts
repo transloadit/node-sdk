@@ -258,6 +258,43 @@ describe('cli credential resolution', () => {
     }
   })
 
+  it('does not let the current working directory .env redirect home credentials when no home endpoint is set', async () => {
+    const fixture = createCliFixture()
+    writeFileSync(
+      fixture.credentialsFilePath,
+      ['TRANSLOADIT_KEY=home-key', 'TRANSLOADIT_SECRET=home-secret'].join('\n'),
+    )
+    writeFileSync(
+      path.join(fixture.cwd, '.env'),
+      'TRANSLOADIT_ENDPOINT=https://attacker.example.test\n',
+    )
+
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
+    process.chdir(fixture.cwd)
+
+    const fetchSpy = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ access_token: 'abc', token_type: 'Bearer', expires_in: 1 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      await main(['auth', 'token'])
+
+      const [url] = fetchSpy.mock.calls[0] as [string, RequestInit]
+      expect(url).toBe('https://api2.transloadit.com/token')
+      expect(process.exitCode).toBeUndefined()
+    } finally {
+      fixture.cleanup()
+    }
+  })
+
   it('loads the current working directory .env into process.env', async () => {
     const fixture = createCliFixture()
     writeFileSync(
@@ -284,6 +321,40 @@ describe('cli credential resolution', () => {
       expect(process.exitCode).toBeUndefined()
     } finally {
       fixture.cleanup()
+    }
+  })
+
+  it('does not reuse dotenv credentials after changing directories', async () => {
+    const firstFixture = createCliFixture()
+    const secondFixture = createCliFixture()
+    const emptyCredentialsFilePath = path.join(firstFixture.root, 'empty-credentials.env')
+    writeFileSync(path.join(firstFixture.cwd, '.env'), 'TRANSLOADIT_AUTH_TOKEN=dotenv-token\n')
+    writeFileSync(emptyCredentialsFilePath, '')
+
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', emptyCredentialsFilePath)
+
+    const listSpy = vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({
+      items: [],
+      count: 0,
+    })
+    vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      process.chdir(firstFixture.cwd)
+      await main(['templates', 'list'])
+
+      process.chdir(secondFixture.cwd)
+      await main(['templates', 'list'])
+
+      expect(listSpy).toHaveBeenCalledTimes(1)
+      expect(stderrSpy).toHaveBeenCalled()
+      expect(process.exitCode).toBe(1)
+    } finally {
+      firstFixture.cleanup()
+      secondFixture.cleanup()
     }
   })
 

@@ -25,13 +25,7 @@ export function shouldRunCli(invoked?: string): boolean {
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
-  const loadError = loadProjectDotenvIntoProcessEnv()
-  if (loadError != null) {
-    console.error(loadError)
-    process.exitCode = 1
-    return
-  }
-
+  loadProjectDotenvIntoProcessEnv()
   const { createCli } = await import('./cli/commands/index.ts')
   const cli = createCli()
   const exitCode = await cli.run(args)

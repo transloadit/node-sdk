@@ -409,6 +409,25 @@ describe('cli help', () => {
     const message = stdoutSpy.mock.calls.map((call) => `${call[0]}`).join('')
     expect(message).toContain('Transloadit CLI')
   })
+
+  it('prints usage when --help is provided even if the current directory .env is unreadable', async () => {
+    const fixture = createIsolatedCliFixture()
+    mkdirSync(path.join(fixture.cwd, '.env'))
+    process.chdir(fixture.cwd)
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      await main(['--help'])
+
+      const message = stdoutSpy.mock.calls.map((call) => `${call[0]}`).join('')
+      expect(stderrSpy).not.toHaveBeenCalled()
+      expect(message).toContain('Transloadit CLI')
+    } finally {
+      fixture.cleanup()
+    }
+  })
 })
 
 describe('cli docs robots', () => {

@@ -418,7 +418,8 @@ export class TokenCommand extends UnauthenticatedCommand {
     if (resolved == null) return 1
 
     const result = await mintBearerTokenWithCredentials(resolved.credentials, {
-      endpoint: this.endpoint ?? resolved.config.credentialsEndpoint ?? resolved.config.endpoint,
+      allowProcessEnvEndpointFallback: false,
+      endpoint: this.endpoint ?? resolved.config.credentialsEndpoint,
       aud: this.aud,
       scope: this.scope,
     })

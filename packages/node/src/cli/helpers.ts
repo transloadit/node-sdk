@@ -15,6 +15,8 @@ type CliEnvSource = {
 }
 
 let loadedProjectDotenvPath: string | undefined
+let projectDotenvInjectedValues: Record<string, string> | undefined
+let projectDotenvPreviousValues: Record<string, string | undefined> | undefined
 let shellEnvBeforeProjectDotenv: Record<string, string | undefined> | undefined
 
 type LoadCliEnvSourcesResult = {
@@ -105,21 +107,34 @@ function readEnvFile(
 
 export function loadProjectDotenvIntoProcessEnv(): string | undefined {
   const projectDotenvPath = getProjectDotenvPath()
-  const projectDotenvResult = readEnvFile(getProjectDotenvPath())
   if (loadedProjectDotenvPath !== projectDotenvPath) {
+    restoreProjectDotenvFromProcessEnv()
     shellEnvBeforeProjectDotenv = { ...process.env }
+    loadedProjectDotenvPath = projectDotenvPath
   }
 
-  loadedProjectDotenvPath = projectDotenvPath
+  const projectDotenvResult = readEnvFile(projectDotenvPath)
+  if (projectDotenvResult == null) {
+    projectDotenvInjectedValues = undefined
+    projectDotenvPreviousValues = undefined
+    return undefined
+  }
 
-  if (projectDotenvResult == null) return undefined
   if (!projectDotenvResult.ok) return projectDotenvResult.error
+  if (projectDotenvInjectedValues != null) return undefined
 
+  const previousValues: Record<string, string | undefined> = {}
+  const injectedValues: Record<string, string> = {}
   for (const [key, value] of Object.entries(projectDotenvResult.source.values)) {
     if (value == null) continue
     if (normalizeEnvValue(process.env[key]) != null) continue
+    previousValues[key] = process.env[key]
     process.env[key] = value
+    injectedValues[key] = value
   }
+
+  projectDotenvPreviousValues = previousValues
+  projectDotenvInjectedValues = injectedValues
   return undefined
 }
 
@@ -129,6 +144,25 @@ function getShellEnvValues(): Record<string, string | undefined> {
   }
 
   return { ...process.env }
+}
+
+function restoreProjectDotenvFromProcessEnv(): void {
+  if (projectDotenvInjectedValues == null || projectDotenvPreviousValues == null) return
+
+  for (const [key, injectedValue] of Object.entries(projectDotenvInjectedValues)) {
+    if (process.env[key] !== injectedValue) continue
+
+    const previousValue = projectDotenvPreviousValues[key]
+    if (previousValue == null) {
+      delete process.env[key]
+      continue
+    }
+
+    process.env[key] = previousValue
+  }
+
+  projectDotenvInjectedValues = undefined
+  projectDotenvPreviousValues = undefined
 }
 
 function loadCliEnvSources(): LoadCliEnvSourcesResult {

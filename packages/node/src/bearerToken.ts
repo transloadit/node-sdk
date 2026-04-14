@@ -10,6 +10,7 @@ export type BearerTokenResponse = {
 }
 
 export type MintBearerTokenOptions = {
+  allowProcessEnvEndpointFallback?: boolean
   endpoint?: string
   aud?: BearerTokenAudience | string
   /**
@@ -49,8 +50,15 @@ const isLoopbackHost = (hostname: string): boolean =>
 
 type TokenBaseResult = { ok: true; baseUrl: URL } | { ok: false; error: string }
 
-const normalizeTokenBaseEndpoint = (raw?: string): TokenBaseResult => {
-  const baseRaw = (raw || process.env.TRANSLOADIT_ENDPOINT || 'https://api2.transloadit.com').trim()
+const normalizeTokenBaseEndpoint = (
+  raw?: string,
+  allowProcessEnvEndpointFallback = true,
+): TokenBaseResult => {
+  const baseRaw = (
+    raw ||
+    (allowProcessEnvEndpointFallback ? process.env.TRANSLOADIT_ENDPOINT : undefined) ||
+    'https://api2.transloadit.com'
+  ).trim()
 
   let url: URL
   try {
@@ -118,7 +126,10 @@ export async function mintBearerTokenWithCredentials(
   credentials: { authKey: string; authSecret: string },
   options: MintBearerTokenOptions = {},
 ): Promise<MintBearerTokenResult> {
-  const endpointResult = normalizeTokenBaseEndpoint(options.endpoint)
+  const endpointResult = normalizeTokenBaseEndpoint(
+    options.endpoint,
+    options.allowProcessEnvEndpointFallback,
+  )
   if (!endpointResult.ok) {
     return { ok: false, error: endpointResult.error }
   }
