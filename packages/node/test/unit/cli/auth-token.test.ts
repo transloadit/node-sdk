@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { main } from '../../../src/cli.ts'
 
@@ -258,10 +261,18 @@ describe('cli auth token', () => {
   })
 
   it('fails when credentials are missing', async () => {
+    const emptyCredentialsFile = path.join(
+      mkdtempSync(path.join(tmpdir(), 'transloadit-auth-token-')),
+      'credentials',
+    )
+    writeFileSync(emptyCredentialsFile, '')
+
     vi.stubEnv('TRANSLOADIT_KEY', '')
     vi.stubEnv('TRANSLOADIT_SECRET', '')
     vi.stubEnv('TRANSLOADIT_AUTH_KEY', '')
     vi.stubEnv('TRANSLOADIT_AUTH_SECRET', '')
+    vi.stubEnv('TRANSLOADIT_AUTH_TOKEN', '')
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', emptyCredentialsFile)
 
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
