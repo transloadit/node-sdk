@@ -1,6 +1,4 @@
-import { randomUUID } from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import express from 'express'
 import type { TransloaditMcpHttpOptions } from './http.ts'
 import { isBasicAuthorized } from './http-helpers.ts'
@@ -13,11 +11,6 @@ export type TransloaditMcpExpressOptions = TransloaditMcpHttpOptions & {
 }
 
 export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpressOptions = {}) {
-  const sessionIdGenerator = options.sessionIdGenerator ?? (() => randomUUID())
-
-  // Per-session transport map: each MCP client gets its own transport + server pair.
-  const transports = new Map<string, StreamableHTTPServerTransport>()
-
   const router = express.Router()
   const routePath = options.path ?? '/mcp'
   const metricsPath =
@@ -64,58 +57,27 @@ export function createTransloaditMcpExpressRouter(options: TransloaditMcpExpress
   })
 
   router.all(routePath, async (req: express.Request, res: express.Response) => {
-    const sessionId = req.headers['mcp-session-id'] as string | undefined
-    let transport: StreamableHTTPServerTransport | undefined
-
-    if (sessionId) {
-      transport = transports.get(sessionId)
-      if (!transport) {
-        res.status(404).json({
-          jsonrpc: '2.0',
-          error: { code: -32000, message: 'Session not found' },
-          id: null,
-        })
-        return
-      }
-    } else if (req.method === 'POST' && isInitializeRequest(req.body)) {
-      // New initialization request — create a new transport + server pair.
-      const newTransport = new StreamableHTTPServerTransport({
-        sessionIdGenerator,
-        allowedOrigins: options.allowedOrigins,
-        allowedHosts: options.allowedHosts,
-        enableDnsRebindingProtection: options.enableDnsRebindingProtection,
-        onsessioninitialized: (sid) => {
-          transports.set(sid, newTransport)
-        },
-      })
-
-      newTransport.onclose = () => {
-        const sid = newTransport.sessionId
-        if (sid) {
-          transports.delete(sid)
-        }
-      }
-
-      const server = createTransloaditMcpServer(options)
-      await server.connect(newTransport)
-      transport = newTransport
-    } else if (req.method === 'POST') {
-      res.status(400).json({
+    if (req.method !== 'POST') {
+      res.status(405).json({
         jsonrpc: '2.0',
-        error: { code: -32600, message: 'Bad Request: No valid session ID provided' },
+        error: { code: -32000, message: 'Method not allowed.' },
         id: null,
       })
       return
     }
 
-    if (!transport) {
-      res.status(400).json({
-        jsonrpc: '2.0',
-        error: { code: -32600, message: 'Bad Request: No valid session ID provided' },
-        id: null,
-      })
-      return
-    }
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      allowedOrigins: options.allowedOrigins,
+      allowedHosts: options.allowedHosts,
+      enableDnsRebindingProtection: options.enableDnsRebindingProtection,
+    })
+    const server = createTransloaditMcpServer(options)
+    res.on('close', () => {
+      void transport.close()
+      void server.close()
+    })
+    await server.connect(transport)
 
     await transport.handleRequest(req, res, req.body)
   })

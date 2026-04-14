@@ -1,7 +1,5 @@
-import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import type { SevLogger } from '@transloadit/sev-logger'
 import {
   applyCorsHeaders,
@@ -23,6 +21,7 @@ export type TransloaditMcpHttpOptions = TransloaditMcpServerOptions & {
   path?: string
   metricsPath?: string | false
   metricsAuth?: { username: string; password: string }
+  // Ignored on purpose: the hosted HTTP server is stateless and does not mint session IDs.
   sessionIdGenerator?: (() => string) | undefined
   logger?: SevLogger
 }
@@ -36,7 +35,7 @@ export type TransloaditMcpHttpHandler = ((
 
 const defaultPath = '/mcp'
 
-/** Read the full request body and JSON-parse it so `isInitializeRequest` can inspect the payload. */
+/** Read the full request body and JSON-parse it before handing it to the MCP transport. */
 function readJsonBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
@@ -64,10 +63,6 @@ export function createTransloaditMcpHttpHandler(
   const metricsPath =
     options.metricsPath === false ? undefined : normalizePath(options.metricsPath ?? '/metrics')
   const metricsAuth = options.metricsAuth
-  const sessionIdGenerator = options.sessionIdGenerator ?? (() => randomUUID())
-
-  // Per-session transport map: each MCP client gets its own transport + server pair.
-  const transports = new Map<string, StreamableHTTPServerTransport>()
 
   const serverCardJson = JSON.stringify(
     buildServerCard(expectedPath, { authKey: options.authKey, authSecret: options.authSecret }),
@@ -162,77 +157,32 @@ export function createTransloaditMcpHttpHandler(
       return
     }
 
-    // Route request to the correct per-session transport.
-    const sessionId = req.headers['mcp-session-id'] as string | undefined
-    let transport: StreamableHTTPServerTransport | undefined
-
-    if (sessionId) {
-      transport = transports.get(sessionId)
-      if (!transport) {
-        res.statusCode = 404
-        res.setHeader('Content-Type', 'application/json')
-        res.end(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            error: { code: -32000, message: 'Session not found' },
-            id: null,
-          }),
-        )
-        return
-      }
-    }
-
-    // For POST requests without a session, read the body to check for initialization.
-    let parsedBody: unknown
-    if (req.method === 'POST' && !transport) {
-      parsedBody = await readJsonBody(req)
-      if (isInitializeRequest(parsedBody)) {
-        const newTransport = new StreamableHTTPServerTransport({
-          sessionIdGenerator,
-          allowedOrigins: options.allowedOrigins,
-          allowedHosts: options.allowedHosts,
-          enableDnsRebindingProtection: options.enableDnsRebindingProtection,
-          onsessioninitialized: (sid) => {
-            transports.set(sid, newTransport)
-          },
-        })
-
-        newTransport.onclose = () => {
-          const sid = newTransport.sessionId
-          if (sid) {
-            transports.delete(sid)
-          }
-        }
-
-        const server = createTransloaditMcpServer(options)
-        await server.connect(newTransport)
-        transport = newTransport
-      } else {
-        res.statusCode = 400
-        res.setHeader('Content-Type', 'application/json')
-        res.end(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            error: { code: -32600, message: 'Bad Request: No valid session ID provided' },
-            id: null,
-          }),
-        )
-        return
-      }
-    }
-
-    if (!transport) {
-      res.statusCode = 400
+    if (req.method !== 'POST') {
+      res.statusCode = 405
       res.setHeader('Content-Type', 'application/json')
       res.end(
         JSON.stringify({
           jsonrpc: '2.0',
-          error: { code: -32600, message: 'Bad Request: No valid session ID provided' },
+          error: { code: -32000, message: 'Method not allowed.' },
           id: null,
         }),
       )
       return
     }
+
+    const parsedBody = await readJsonBody(req)
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      allowedOrigins: options.allowedOrigins,
+      allowedHosts: options.allowedHosts,
+      enableDnsRebindingProtection: options.enableDnsRebindingProtection,
+    })
+    const server = createTransloaditMcpServer(options)
+    res.on('close', () => {
+      void transport.close()
+      void server.close()
+    })
+    await server.connect(transport)
 
     try {
       await transport.handleRequest(req, res, parsedBody)
@@ -245,9 +195,7 @@ export function createTransloaditMcpHttpHandler(
   }) as TransloaditMcpHttpHandler
 
   handler.close = async () => {
-    const closePromises = [...transports.values()].map((t) => t.close())
-    await Promise.all(closePromises)
-    transports.clear()
+    return Promise.resolve()
   }
 
   return handler
