@@ -47,6 +47,15 @@ afterEach(() => {
   resetExitCode()
 })
 
+function clearAmbientTransloaditEnv(): void {
+  vi.stubEnv('TRANSLOADIT_KEY', '')
+  vi.stubEnv('TRANSLOADIT_SECRET', '')
+  vi.stubEnv('TRANSLOADIT_AUTH_KEY', '')
+  vi.stubEnv('TRANSLOADIT_AUTH_SECRET', '')
+  vi.stubEnv('TRANSLOADIT_AUTH_TOKEN', '')
+  vi.stubEnv('TRANSLOADIT_ENDPOINT', '')
+}
+
 describe('cli credential resolution', () => {
   it('uses ~/.transloadit/credentials when shell env and .env are absent', async () => {
     const fixture = createCliFixture()
@@ -55,7 +64,8 @@ describe('cli credential resolution', () => {
       ['TRANSLOADIT_KEY=home-key', 'TRANSLOADIT_SECRET=home-secret'].join('\n'),
     )
 
-    vi.stubEnv('HOME', fixture.home)
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
     process.chdir(fixture.cwd)
 
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
@@ -87,7 +97,8 @@ describe('cli credential resolution', () => {
       ['TRANSLOADIT_KEY=dotenv-key', 'TRANSLOADIT_SECRET=dotenv-secret'].join('\n'),
     )
 
-    vi.stubEnv('HOME', fixture.home)
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
     process.chdir(fixture.cwd)
 
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
@@ -114,7 +125,7 @@ describe('cli credential resolution', () => {
       ['TRANSLOADIT_KEY=custom-key', 'TRANSLOADIT_SECRET=custom-secret'].join('\n'),
     )
 
-    vi.stubEnv('HOME', fixture.home)
+    clearAmbientTransloaditEnv()
     vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', explicitFilePath)
     process.chdir(fixture.cwd)
 
@@ -143,7 +154,8 @@ describe('cli credential resolution', () => {
       ),
     )
 
-    vi.stubEnv('HOME', fixture.home)
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
     process.chdir(fixture.cwd)
 
     const listSpy = vi
@@ -179,7 +191,8 @@ describe('cli credential resolution', () => {
       ].join('\n'),
     )
 
-    vi.stubEnv('HOME', fixture.home)
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
     process.chdir(fixture.cwd)
 
     const fetchSpy = vi.fn(
@@ -198,6 +211,32 @@ describe('cli credential resolution', () => {
 
       const [url] = fetchSpy.mock.calls[0] as [string, RequestInit]
       expect(url).toBe('https://api2.example.test/token')
+      expect(process.exitCode).toBeUndefined()
+    } finally {
+      fixture.cleanup()
+    }
+  })
+
+  it('merges shell credentials with the current working directory .env', async () => {
+    const fixture = createCliFixture()
+    writeFileSync(path.join(fixture.cwd, '.env'), 'TRANSLOADIT_SECRET=dotenv-secret\n')
+
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_KEY', 'shell-key')
+    process.chdir(fixture.cwd)
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      await runSig({
+        providedInput: JSON.stringify({ auth: { expires: '2025-01-03T00:00:00.000Z' } }),
+      })
+
+      expect(stderrSpy).not.toHaveBeenCalled()
+      const output = JSON.parse(`${stdoutSpy.mock.calls[0]?.[0]}`.trim())
+      const params = JSON.parse(output.params as string)
+      expect(params.auth?.key).toBe('shell-key')
       expect(process.exitCode).toBeUndefined()
     } finally {
       fixture.cleanup()

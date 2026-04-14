@@ -16,6 +16,11 @@ type LoadCliEnvSourcesResult = {
   sources: CliEnvSource[]
 }
 
+type ResolvedSourceValue = {
+  sourceIndex: number
+  value: string
+}
+
 export type ResolvedCliConfig = {
   auth?: CliAuth
   credentials?: CliKeySecretCredentials
@@ -99,10 +104,8 @@ function loadCliEnvSources(): LoadCliEnvSourcesResult {
   const loadErrors: string[] = []
 
   const projectDotenvResult = readEnvFile(getProjectDotenvPath())
-  let projectDotenvSource: CliEnvSource | undefined
   if (projectDotenvResult?.ok === true) {
-    projectDotenvSource = projectDotenvResult.source
-    sources.push(projectDotenvSource)
+    sources.push(projectDotenvResult.source)
   } else if (projectDotenvResult?.ok === false) {
     loadErrors.push(projectDotenvResult.error)
   }
@@ -132,51 +135,53 @@ function getSourceValue(source: CliEnvSource, keys: string[]): string | undefine
   return undefined
 }
 
-function getSourceKeySecretCredentials(source: CliEnvSource): CliKeySecretCredentials | null {
-  const authKey = getSourceValue(source, ['TRANSLOADIT_KEY', 'TRANSLOADIT_AUTH_KEY'])
-  const authSecret = getSourceValue(source, ['TRANSLOADIT_SECRET', 'TRANSLOADIT_AUTH_SECRET'])
-  if (authKey == null || authSecret == null) return null
-  return { authKey, authSecret }
-}
+function resolveFirstSourceValue(
+  sources: CliEnvSource[],
+  keys: string[],
+): ResolvedSourceValue | undefined {
+  for (const [sourceIndex, source] of sources.entries()) {
+    const value = getSourceValue(source, keys)
+    if (value != null) {
+      return { sourceIndex, value }
+    }
+  }
 
-function getSourceAuthToken(source: CliEnvSource): CliAuthToken | null {
-  const authToken = getSourceValue(source, ['TRANSLOADIT_AUTH_TOKEN'])
-  if (authToken == null) return null
-  return { authToken }
+  return undefined
 }
 
 export function resolveCliConfig(): ResolvedCliConfig {
   const { loadError, sources } = loadCliEnvSources()
-  let auth: CliAuth | undefined
-  let credentials: CliKeySecretCredentials | undefined
-  let endpoint: string | undefined
+  const resolvedKey = resolveFirstSourceValue(sources, ['TRANSLOADIT_KEY', 'TRANSLOADIT_AUTH_KEY'])
+  const resolvedSecret = resolveFirstSourceValue(sources, [
+    'TRANSLOADIT_SECRET',
+    'TRANSLOADIT_AUTH_SECRET',
+  ])
+  const resolvedAuthToken = resolveFirstSourceValue(sources, ['TRANSLOADIT_AUTH_TOKEN'])
+  const resolvedEndpoint = resolveFirstSourceValue(sources, ['TRANSLOADIT_ENDPOINT'])
 
-  for (const source of sources) {
-    if (endpoint == null) {
-      endpoint = getSourceValue(source, ['TRANSLOADIT_ENDPOINT'])
-    }
+  const credentials =
+    resolvedKey != null && resolvedSecret != null
+      ? {
+          authKey: resolvedKey.value,
+          authSecret: resolvedSecret.value,
+        }
+      : undefined
 
-    const sourceCredentials = getSourceKeySecretCredentials(source)
-    if (credentials == null && sourceCredentials != null) {
-      credentials = sourceCredentials
-    }
+  const credentialsSourceIndex =
+    resolvedKey != null && resolvedSecret != null
+      ? Math.max(resolvedKey.sourceIndex, resolvedSecret.sourceIndex)
+      : undefined
 
-    if (auth != null) continue
-
-    const authToken = getSourceAuthToken(source)
-    if (authToken != null) {
-      auth = authToken
-      continue
-    }
-    if (sourceCredentials != null) {
-      auth = sourceCredentials
-    }
-  }
+  const auth =
+    resolvedAuthToken != null &&
+    (credentialsSourceIndex == null || resolvedAuthToken.sourceIndex <= credentialsSourceIndex)
+      ? { authToken: resolvedAuthToken.value }
+      : credentials
 
   return {
     ...(auth != null ? { auth } : {}),
     ...(credentials != null ? { credentials } : {}),
-    ...(endpoint != null ? { endpoint } : {}),
+    ...(resolvedEndpoint != null ? { endpoint: resolvedEndpoint.value } : {}),
     ...(loadError != null ? { loadError } : {}),
   }
 }

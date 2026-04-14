@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, symlinkSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -9,11 +9,44 @@ import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main, shouldRunCli } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
 
+const originalCwd = process.cwd()
+
 const resetExitCode = () => {
   process.exitCode = undefined
 }
 
+function createIsolatedCliFixture(): {
+  cleanup: () => void
+  credentialsFilePath: string
+  cwd: string
+} {
+  const root = mkdtempSync(path.join(tmpdir(), 'transloadit-cli-credentials-'))
+  const cwd = path.join(root, 'workspace')
+  const credentialsFilePath = path.join(root, 'credentials')
+
+  mkdirSync(cwd, { recursive: true })
+  writeFileSync(credentialsFilePath, '')
+
+  return {
+    cwd,
+    credentialsFilePath,
+    cleanup: () => {
+      rmSync(root, { recursive: true, force: true })
+    },
+  }
+}
+
+function clearAmbientTransloaditEnv(): void {
+  vi.stubEnv('TRANSLOADIT_KEY', '')
+  vi.stubEnv('TRANSLOADIT_SECRET', '')
+  vi.stubEnv('TRANSLOADIT_AUTH_KEY', '')
+  vi.stubEnv('TRANSLOADIT_AUTH_SECRET', '')
+  vi.stubEnv('TRANSLOADIT_AUTH_TOKEN', '')
+  vi.stubEnv('TRANSLOADIT_ENDPOINT', '')
+}
+
 afterEach(() => {
+  process.chdir(originalCwd)
   vi.restoreAllMocks()
   vi.unstubAllEnvs()
   resetExitCode()
@@ -115,14 +148,10 @@ describe('cli smart_sig', () => {
   })
 
   it('fails when credentials are missing', async () => {
-    const originalKey = process.env.TRANSLOADIT_KEY
-    const originalSecret = process.env.TRANSLOADIT_SECRET
-    const originalAuthKey = process.env.TRANSLOADIT_AUTH_KEY
-    const originalAuthSecret = process.env.TRANSLOADIT_AUTH_SECRET
-    delete process.env.TRANSLOADIT_KEY
-    delete process.env.TRANSLOADIT_SECRET
-    delete process.env.TRANSLOADIT_AUTH_KEY
-    delete process.env.TRANSLOADIT_AUTH_SECRET
+    const fixture = createIsolatedCliFixture()
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
+    process.chdir(fixture.cwd)
 
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -142,17 +171,10 @@ describe('cli smart_sig', () => {
       expect(message).toContain('Missing credentials.')
       expect(message).toContain('1. Shell env:')
       expect(message).toContain('2. Current directory .env:')
-      expect(message).toContain('3. Credentials file: ~/.transloadit/credentials')
+      expect(message).toContain(`3. Credentials file: ${fixture.credentialsFilePath}`)
       expect(process.exitCode).toBe(1)
     } finally {
-      if (originalKey != null) process.env.TRANSLOADIT_KEY = originalKey
-      else delete process.env.TRANSLOADIT_KEY
-      if (originalSecret != null) process.env.TRANSLOADIT_SECRET = originalSecret
-      else delete process.env.TRANSLOADIT_SECRET
-      if (originalAuthKey != null) process.env.TRANSLOADIT_AUTH_KEY = originalAuthKey
-      else delete process.env.TRANSLOADIT_AUTH_KEY
-      if (originalAuthSecret != null) process.env.TRANSLOADIT_AUTH_SECRET = originalAuthSecret
-      else delete process.env.TRANSLOADIT_AUTH_SECRET
+      fixture.cleanup()
     }
   })
 
@@ -297,14 +319,10 @@ describe('cli sig', () => {
   })
 
   it('fails when credentials are missing', async () => {
-    const originalKey = process.env.TRANSLOADIT_KEY
-    const originalSecret = process.env.TRANSLOADIT_SECRET
-    const originalAuthKey = process.env.TRANSLOADIT_AUTH_KEY
-    const originalAuthSecret = process.env.TRANSLOADIT_AUTH_SECRET
-    delete process.env.TRANSLOADIT_KEY
-    delete process.env.TRANSLOADIT_SECRET
-    delete process.env.TRANSLOADIT_AUTH_KEY
-    delete process.env.TRANSLOADIT_AUTH_SECRET
+    const fixture = createIsolatedCliFixture()
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
+    process.chdir(fixture.cwd)
 
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -318,17 +336,10 @@ describe('cli sig', () => {
       expect(message).toContain('Missing credentials.')
       expect(message).toContain('1. Shell env:')
       expect(message).toContain('2. Current directory .env:')
-      expect(message).toContain('3. Credentials file: ~/.transloadit/credentials')
+      expect(message).toContain(`3. Credentials file: ${fixture.credentialsFilePath}`)
       expect(process.exitCode).toBe(1)
     } finally {
-      if (originalKey != null) process.env.TRANSLOADIT_KEY = originalKey
-      else delete process.env.TRANSLOADIT_KEY
-      if (originalSecret != null) process.env.TRANSLOADIT_SECRET = originalSecret
-      else delete process.env.TRANSLOADIT_SECRET
-      if (originalAuthKey != null) process.env.TRANSLOADIT_AUTH_KEY = originalAuthKey
-      else delete process.env.TRANSLOADIT_AUTH_KEY
-      if (originalAuthSecret != null) process.env.TRANSLOADIT_AUTH_SECRET = originalAuthSecret
-      else delete process.env.TRANSLOADIT_AUTH_SECRET
+      fixture.cleanup()
     }
   })
 
