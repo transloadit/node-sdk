@@ -16,8 +16,9 @@ class MockTransport {
     await new Promise<void>(() => {})
   }
 
-  public async close(): Promise<void> {
+  public close(): Promise<void> {
     this.closed = true
+    return Promise.resolve()
   }
 }
 
@@ -28,10 +29,13 @@ class MockServer {
     serverInstances.push(this)
   }
 
-  public async connect(): Promise<void> {}
+  public connect(): Promise<void> {
+    return Promise.resolve()
+  }
 
-  public async close(): Promise<void> {
+  public close(): Promise<void> {
     this.closed = true
+    return Promise.resolve()
   }
 }
 
