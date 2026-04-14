@@ -5,6 +5,8 @@
 ## At a glance
 
 Intent commands are the fastest path to common one-off tasks from the CLI.
+Authentication is resolved in this order: shell environment, the current working directory `.env`, then `~/.transloadit/credentials`.
+The home credentials file uses dotenv syntax and can include `TRANSLOADIT_KEY`, `TRANSLOADIT_SECRET`, `TRANSLOADIT_ENDPOINT`, and `TRANSLOADIT_AUTH_TOKEN`.
 Use `--print-urls` when you want temporary result URLs without downloading locally.
 All intent commands also support the global CLI flags `--json`, `--log-level`, `--endpoint`, and `--help`.
 
