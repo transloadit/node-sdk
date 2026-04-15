@@ -2,8 +2,8 @@
   "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.8.1.tgz",
-    "sizeBytes": 973716,
-    "sha256": "a05be82415e9217d609322bef3e26f1cd76c2cb2de77b0192e5db75e81ced102"
+    "sizeBytes": 973719,
+    "sha256": "89e3878a12927fa3b189da7115390578ec8f8694e5151605f002afc6471a0ec3"
   },
   "packageJson": {
     "name": "transloadit",
@@ -1769,12 +1769,12 @@
     {
       "path": "dist/cli/intentRuntime.d.ts.map",
       "sizeBytes": 5101,
-      "sha256": "121e802862f4bf20ab4ade47c40c57e48e45a8b38555805d44cf36b68950c723"
+      "sha256": "3872c3cfb95593194004277eb680a31173ec2220c736bab1de674d1cb8334fd1"
     },
     {
       "path": "dist/cli/intentRuntime.js.map",
-      "sizeBytes": 19389,
-      "sha256": "6f55ff518e45b46c1730b12039eb9575521f7ecfcb2e3accb22e03345d75940d"
+      "sizeBytes": 19390,
+      "sha256": "260d8f996281386f6e1da18aa720ed0b4e25d5453b928b22d0bfec277f387c42"
     },
     {
       "path": "dist/lintAssemblyInput.d.ts.map",
@@ -3398,8 +3398,8 @@
     },
     {
       "path": "src/cli/intentRuntime.ts",
-      "sizeBytes": 27159,
-      "sha256": "975f76e1a1e45e008679d7500b8ca2fd850bfe1954ad29d91e048da588573b64"
+      "sizeBytes": 27165,
+      "sha256": "d778ec1566fd05622e85332fcd2ec4d0ad455aec02218fec14b0001c448a289b"
     },
     {
       "path": "src/alphalib/typings/json-to-ast.d.ts",
