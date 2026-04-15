@@ -61,3 +61,5 @@ See `packages/mcp-server/README.md` for MCP setup, auth, and tool docs.
 
 - Docs live under `docs/` (non-MCP).
 - The `transloadit` package is prepared via `scripts/prepare-transloadit.ts`.
+- PR checks enforce that tracked files in `packages/transloadit/` stay in sync with `@transloadit/node`.
+- Tarball fingerprint parity remains available as a manual release/debug tool via `corepack yarn parity:transloadit`.

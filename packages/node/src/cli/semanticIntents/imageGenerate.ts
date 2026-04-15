@@ -91,15 +91,15 @@ const imageGenerateCommandPresentation = {
   examples: [
     [
       'Generate an image from text',
-      'transloadit image generate --prompt "A red bicycle in a studio" --out output.png',
+      'transloadit image generate --prompt "A red bicycle in a studio" --output output.png',
     ],
     [
       'Guide generation with one input image',
-      'transloadit image generate --input subject.jpg --prompt "Place subject.jpg on a magazine cover" --out output.png',
+      'transloadit image generate --input subject.jpg --prompt "Place subject.jpg on a magazine cover" --output output.png',
     ],
     [
       'Guide generation with multiple input images',
-      'transloadit image generate --input person1.jpg --input person2.jpg --input background.jpg --prompt "Place person1.jpg feeding person2.jpg in front of background.jpg" --out output.png',
+      'transloadit image generate --input person1.jpg --input person2.jpg --input background.jpg --prompt "Place person1.jpg feeding person2.jpg in front of background.jpg" --output output.png',
     ],
   ] as Array<[string, string]>,
 } as const satisfies SemanticIntentPresentation
@@ -234,6 +234,7 @@ function ensureUniqueInputBasenames(preparedInputs: PreparedIntentInputs): Prepa
 
 export const imageGenerateSemanticIntentDescriptor = {
   createStep: createImageGenerateStep,
+  defaultOutputPath: 'output.png',
   execution: {
     kind: 'dynamic-step',
     handler: 'image-generate',

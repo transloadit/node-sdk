@@ -22,6 +22,7 @@ export interface SemanticIntentDescriptor {
     rawValues: Record<string, unknown>,
     context: { hasInputs: boolean },
   ) => Record<string, unknown>
+  defaultOutputPath: string
   execution: IntentDynamicStepExecutionDefinition
   inputPolicy: IntentInputPolicy
   outputDescription: string

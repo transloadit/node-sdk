@@ -15,8 +15,8 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
    3. If you touched `packages/node` (or anything that affects the legacy `transloadit` clone):
       1. Run `corepack yarn check` (this may reformat files and/or auto-fix Knip findings)
       2. Run `corepack yarn verify:full` locally once before pushing.
-         - This is the fastest way to catch the common CI-only failure: transloadit parity drift in `Verify (full)`.
-      3. If `verify:full` (or CI `Verify (full)`) fails with transloadit parity drift, apply the “Parity drift playbook” below, then re-run `corepack yarn verify:full`.
+         - This catches wrapper sync drift early and still runs the deeper repo checks.
+      3. If `verify` / `verify:full` fails with transloadit wrapper drift, run `node scripts/prepare-transloadit.ts`, commit the tracked `packages/transloadit` updates, and re-run `corepack yarn verify:full`.
    4. If you add a changeset for `@transloadit/node`, also add a similar changeset for `@transloadit/mcp-server` if it could affect its workings. The chances are, they are, since the latter is mostly a thin wrapper around the former.
       - This repo enforces a one-way coupling: node releases should also publish a new mcp-server version (but mcp-server releases do not require node releases).
       - `yarn check`/`yarn verify` will fail fast if you forget.
@@ -30,15 +30,15 @@ description: Checklist for releasing packages from this monorepo (code PR -> Ver
    2. If you use `gh run watch` heavily, GitHub may throttle with HTTP 429.
       Prefer `gh pr checks <PR_NUMBER>` with occasional polling (or use the web UI) if you hit throttling.
 
-   Parity drift playbook (when `Verify (full)` fails):
+   Optional parity playbook (release/debug only):
    1. Update the parity baseline:
-      1. `node scripts/fingerprint-pack.ts ./packages/transloadit --ignore-scripts --quiet --out ./docs/fingerprint/transloadit-baseline.json`
-      2. `cp ./packages/transloadit/package.json ./docs/fingerprint/transloadit-baseline.package.json`
-   2. Immediately reformat the baseline (required for CI `Verify (fast)` / `yarn verify`, which does not auto-fix formatting):
+      1. `node scripts/prepare-transloadit.ts`
+      2. `node scripts/fingerprint-pack.ts ./packages/transloadit --ignore-scripts --quiet --out ./docs/fingerprint/transloadit-baseline.json`
+      3. `cp ./packages/transloadit/package.json ./docs/fingerprint/transloadit-baseline.package.json`
+   2. Immediately reformat the baseline:
       1. `corepack yarn fix:js`
-      2. (or `corepack yarn check`, but only if you run it after generating the baseline files)
    3. Run `corepack yarn parity:transloadit`
-   4. Commit + push, then re-run `corepack yarn verify:full`
+   4. Commit + push if you intentionally want to update the recorded baseline
 
 3. Merge the "Version Packages" PR (changesets action):
    1. Wait for the `Version Packages` PR to appear (or update)

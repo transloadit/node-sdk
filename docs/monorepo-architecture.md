@@ -39,8 +39,8 @@ node-sdk/
 
 - Publishes the legacy package name.
 - Built from the same runtime artifacts as `@transloadit/node`.
-- Compatibility is verified via tarball fingerprinting.
-- Allowed drift is limited to `package.json` metadata and is reported explicitly.
+- PR CI verifies that tracked files under `packages/transloadit` stay in sync with `@transloadit/node`.
+- Tarball fingerprinting remains available as a manual release/debug tool.
 
 ### @transloadit/types
 
@@ -102,7 +102,14 @@ All internal scripts are TypeScript and rely on Node’s built-in type stripping
 - When `@transloadit/node` changes, include `transloadit` in the same Changeset to keep parity.
 - Packages are versioned independently via Changesets (no fixed version group).
 
-### Parity verification
+### Wrapper sync verification
+
+The generated `transloadit` wrapper is kept fresh in PR CI:
+
+- `scripts/prepare-transloadit.ts` regenerates the tracked wrapper files.
+- `scripts/check-transloadit-sync.ts` fails if tracked files under `packages/transloadit` drift.
+
+### Optional parity verification
 
 The `transloadit` tarball is compared against a recorded baseline:
 
@@ -111,7 +118,7 @@ The `transloadit` tarball is compared against a recorded baseline:
 - `docs/fingerprint/transloadit-baseline.json` is the baseline fingerprint.
 - `docs/fingerprint/transloadit-baseline.package.json` is used to diff `package.json`.
 
-Only `package.json` metadata drift is currently allowed; any other file difference fails the check.
+This is now a manual/release-time tool for investigating publish drift or intentionally updating the recorded baseline.
 
 ## TODO
 

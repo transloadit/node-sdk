@@ -66,7 +66,7 @@ function createMarkdownConvertSemanticIntent({
     examples: [
       [
         `Render a Markdown file as a ${formatLabel} file`,
-        `transloadit markdown ${format} --input README.md --out ${exampleOutput}`,
+        `transloadit markdown ${format} --input README.md --output ${exampleOutput}`,
       ],
       [
         'Print a temporary result URL without downloading locally',
@@ -94,6 +94,7 @@ function createMarkdownConvertSemanticIntent({
       resultStepName: 'convert',
       fields: markdownOptionDefinitions,
     },
+    defaultOutputPath: exampleOutput,
     inputPolicy: { kind: 'required' },
     outputDescription: `Write the rendered ${formatLabel} to this path or directory`,
     presentation,

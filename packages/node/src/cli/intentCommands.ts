@@ -278,7 +278,7 @@ function inferExamples(
     }
 
     return [
-      ['Run the command', `transloadit ${spec.paths.join(' ')} --input input.mp4 --out output/`],
+      ['Run the command', `transloadit ${spec.paths.join(' ')} --input input.mp4 --output output/`],
     ]
   }
 
@@ -310,7 +310,7 @@ function inferExamples(
   }
 
   const outputMode = spec.intentDefinition.outputMode ?? 'file'
-  parts.push('--out', inferOutputPath(spec.paths, outputMode, fieldSpecs))
+  parts.push('--output', inferOutputPath(spec.paths, outputMode, fieldSpecs))
 
   return [['Run the command', parts.join(' ')]]
 }
@@ -355,11 +355,13 @@ function resolveRobotIntent(definition: RobotIntentDefinition): BuiltIntentComma
       input.kind === 'none'
         ? {
             execution,
+            defaultOutputPath: inferOutputPath(paths, outputMode, fieldSpecs),
             outputDescription: 'Write the result to this path',
             outputMode,
           }
         : {
             commandLabel,
+            defaultOutputPath: inferOutputPath(paths, outputMode, fieldSpecs),
             execution,
             inputPolicy: input.inputPolicy,
             outputDescription:
@@ -388,18 +390,18 @@ function getIntentDetails({
   robot: string
 }): string {
   if (inputMode === 'none') {
-    return `Runs \`${robot}\` and writes the result to \`--out\`.`
+    return `Runs \`${robot}\` and writes the result to \`--output\`.`
   }
 
   if (defaultSingleAssembly) {
-    return `Runs \`${robot}\` for the provided inputs and writes the result to \`--out\`.`
+    return `Runs \`${robot}\` for the provided inputs and writes the result to \`--output\`.`
   }
 
   if (outputMode === 'directory') {
-    return `Runs \`${robot}\` on each input file and writes the results to \`--out\`.`
+    return `Runs \`${robot}\` on each input file and writes the results to \`--output\`.`
   }
 
-  return `Runs \`${robot}\` on each input file and writes the result to \`--out\`.`
+  return `Runs \`${robot}\` on each input file and writes the result to \`--output\`.`
 }
 
 function resolveSemanticIntent(definition: SemanticIntentDefinition): BuiltIntentCommandDefinition {
@@ -415,6 +417,7 @@ function resolveSemanticIntent(definition: SemanticIntentDefinition): BuiltInten
     runnerKind: descriptor.runnerKind,
     intentDefinition: {
       commandLabel: paths.join(' '),
+      defaultOutputPath: descriptor.defaultOutputPath,
       execution: descriptor.execution,
       inputPolicy: descriptor.inputPolicy,
       outputDescription: descriptor.outputDescription,
@@ -430,12 +433,13 @@ function resolveTemplateIntent(
   const spec: BuiltIntentCommandDefinition = {
     className: `${toPascalCase(paths)}Command`,
     description: `Run ${stripTrailingPunctuation(definition.templateId)}`,
-    details: `Runs the \`${definition.templateId}\` template and writes the outputs to \`--out\`.`,
+    details: `Runs the \`${definition.templateId}\` template and writes the outputs to \`--output\`.`,
     examples: [],
     paths,
     runnerKind: 'standard',
     intentDefinition: {
       commandLabel: paths.join(' '),
+      defaultOutputPath: inferOutputPath(paths, outputMode, []),
       execution: {
         kind: 'template',
         templateId: definition.templateId,

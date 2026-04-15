@@ -103,7 +103,7 @@ describe('intent commands', () => {
       'hero.jpg',
       '--fields',
       'labels',
-      '--out',
+      '--output',
       'labels.json',
     ])
 
@@ -129,7 +129,179 @@ describe('intent commands', () => {
     )
   })
 
-  it('prints aligned result URLs without requiring --out', async () => {
+  it('defaults a single local file intent output next to the input file', async () => {
+    const tempDir = await createTempDir('transloadit-intent-default-output-')
+    const inputPath = path.join(tempDir, 'hero.jpg')
+    await writeFile(inputPath, 'hero')
+
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'describe',
+      '--input',
+      inputPath,
+      '--fields',
+      'labels',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputPath],
+        output: path.join(tempDir, 'hero.json'),
+      }),
+    )
+  })
+
+  it('avoids overwriting a single local file when the inferred output keeps the same extension', async () => {
+    const tempDir = await createTempDir('transloadit-intent-default-no-overwrite-')
+    const inputPath = path.join(tempDir, 'hero.png')
+    await writeFile(inputPath, 'hero')
+
+    const { createSpy } = await runIntentCommand(['image', 'optimize', '--input', inputPath])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputPath],
+        output: path.join(tempDir, 'hero-output.png'),
+      }),
+    )
+  })
+
+  it('uses the requested runtime format when inferring a sibling output path', async () => {
+    const tempDir = await createTempDir('transloadit-intent-default-runtime-format-')
+    const inputPath = path.join(tempDir, 'README.md')
+    await writeFile(inputPath, '# README')
+
+    const { createSpy } = await runIntentCommand([
+      'document',
+      'convert',
+      '--input',
+      inputPath,
+      '--format',
+      'docx',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputPath],
+        output: path.join(tempDir, 'README.docx'),
+      }),
+    )
+  })
+
+  it('defaults a no-input intent output to the current working directory', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--prompt',
+      'A red bicycle in a studio',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [],
+        output: 'output.png',
+      }),
+    )
+  })
+
+  it('defaults multi-input watchable intents to a cwd output directory', async () => {
+    const tempDir = await createTempDir('transloadit-intent-default-multi-output-')
+    const inputA = path.join(tempDir, 'a.jpg')
+    const inputB = path.join(tempDir, 'b.jpg')
+    await writeFile(inputA, 'a')
+    await writeFile(inputB, 'b')
+
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'describe',
+      '--input',
+      inputA,
+      '--input',
+      inputB,
+      '--fields',
+      'labels',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputA, inputB],
+        output: 'output/',
+        outputMode: 'directory',
+      }),
+    )
+  })
+
+  it('defaults directory-output intents next to a single local file input', async () => {
+    const tempDir = await createTempDir('transloadit-intent-default-directory-output-')
+    const inputPath = path.join(tempDir, 'report.pdf')
+    await writeFile(inputPath, 'pdf')
+
+    const { createSpy } = await runIntentCommand(['document', 'thumbs', '--input', inputPath])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputPath],
+        output: path.join(tempDir, 'report'),
+      }),
+    )
+  })
+
+  it('avoids reusing an extensionless input path for inferred directory outputs', async () => {
+    const tempDir = await createTempDir('transloadit-intent-default-extensionless-directory-')
+    const inputPath = path.join(tempDir, 'report')
+    await writeFile(inputPath, 'pdf')
+
+    const { createSpy } = await runIntentCommand(['document', 'thumbs', '--input', inputPath])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputPath],
+        output: path.join(tempDir, 'report-output'),
+      }),
+    )
+  })
+
+  it('avoids colliding with an existing sibling file for inferred directory outputs', async () => {
+    const tempDir = await createTempDir('transloadit-intent-default-colliding-directory-')
+    const inputPath = path.join(tempDir, 'report.pdf')
+    await writeFile(inputPath, 'pdf')
+    await writeFile(path.join(tempDir, 'report'), 'occupied')
+
+    const { createSpy } = await runIntentCommand(['document', 'thumbs', '--input', inputPath])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputPath],
+        output: path.join(tempDir, 'report-output'),
+      }),
+    )
+  })
+
+  it('prints aligned result URLs without requiring --output', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     const { createSpy } = await runIntentCommand(
@@ -202,7 +374,7 @@ describe('intent commands', () => {
       'hero.jpg',
       '--for',
       'wordpress',
-      '--out',
+      '--output',
       'fields.json',
     ])
 
@@ -265,7 +437,7 @@ describe('intent commands', () => {
       'hero.jpg',
       '--fields',
       'labels,caption',
-      '--out',
+      '--output',
       'fields.json',
     ])
 
@@ -283,7 +455,7 @@ describe('intent commands', () => {
       'labels',
       '--for',
       'wordpress',
-      '--out',
+      '--output',
       'fields.json',
     ])
 
@@ -301,7 +473,7 @@ describe('intent commands', () => {
       'flux-schnell',
       '--aspect-ratio',
       '2:3',
-      '--out',
+      '--output',
       'generated.png',
     ])
 
@@ -331,7 +503,7 @@ describe('intent commands', () => {
       'generate',
       '--prompt',
       'A red bicycle in a studio',
-      '--out',
+      '--output',
       'generated.png',
     ])
 
@@ -364,7 +536,7 @@ describe('intent commands', () => {
       'background.jpg',
       '--prompt',
       'Place person1.jpg feeding person2.jpg in front of background.jpg',
-      '--out',
+      '--output',
       'generated.png',
     ])
 
@@ -397,7 +569,7 @@ describe('intent commands', () => {
       'generate',
       '--input',
       'person1.jpg',
-      '--out',
+      '--output',
       'generated.png',
     ])
 
@@ -427,7 +599,7 @@ describe('intent commands', () => {
       'A red bicycle in a studio',
       '--num-outputs',
       '11',
-      '--out',
+      '--output',
       'generated.png',
     ])
 
@@ -445,7 +617,7 @@ describe('intent commands', () => {
       'dir-b/person.jpg',
       '--prompt',
       'Place person.jpg into a magazine cover',
-      '--out',
+      '--output',
       'generated.png',
     ])
 
@@ -465,7 +637,7 @@ describe('intent commands', () => {
       '200',
       '--format',
       'jpg',
-      '--out',
+      '--output',
       'preview.jpg',
     ])
 
@@ -496,7 +668,7 @@ describe('intent commands', () => {
       'pdf',
       '--input',
       'README.md',
-      '--out',
+      '--output',
       'README.pdf',
     ])
 
@@ -531,7 +703,7 @@ describe('intent commands', () => {
       'commonmark',
       '--markdown-theme',
       'bare',
-      '--out',
+      '--output',
       'README.pdf',
     ])
 
@@ -560,7 +732,7 @@ describe('intent commands', () => {
       'docx',
       '--input',
       'README.md',
-      '--out',
+      '--output',
       'README.docx',
     ])
 
@@ -592,7 +764,7 @@ describe('intent commands', () => {
       'generate',
       '--input',
       'https://example.com/file.pdf',
-      '--out',
+      '--output',
       'preview.png',
     ])
 
@@ -656,7 +828,7 @@ describe('intent commands', () => {
       Buffer.from('hello world').toString('base64'),
       '--format',
       'pdf',
-      '--out',
+      '--output',
       'output.pdf',
     ])
 
@@ -718,7 +890,7 @@ describe('intent commands', () => {
       '--watch',
       '--input',
       'https://example.test/file.pdf',
-      '--out',
+      '--output',
       'preview.png',
     ])
 
@@ -734,7 +906,7 @@ describe('intent commands', () => {
       '--input',
       'input.jpg',
       '--progressive',
-      '--out',
+      '--output',
       'optimized.jpg',
     ])
 
@@ -781,7 +953,7 @@ describe('intent commands', () => {
       inputA,
       '--input',
       inputB,
-      '--out',
+      '--output',
       path.join(tempDir, 'optimized.jpg'),
     ])
 
@@ -793,7 +965,7 @@ describe('intent commands', () => {
     )
   })
 
-  it('allows multi-input standard single-assembly runs with --print-urls and no --out', async () => {
+  it('allows multi-input standard single-assembly runs with --print-urls and no --output', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', 'key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'secret')
 
@@ -854,7 +1026,7 @@ describe('intent commands', () => {
       'optimize',
       '--input',
       inputPath,
-      '--out',
+      '--output',
       path.join(tempDir, 'optimized.jpg'),
       '--watch',
       '--single-assembly',
@@ -890,7 +1062,7 @@ describe('intent commands', () => {
       '--single-assembly',
       '--input',
       inputDir,
-      '--out',
+      '--output',
       path.join(tempDir, 'optimized.jpg'),
     ])
 
@@ -908,7 +1080,7 @@ describe('intent commands', () => {
       'encode-hls',
       '--input',
       'input.mp4',
-      '--out',
+      '--output',
       'dist/hls',
       '--recursive',
     ])
@@ -938,7 +1110,7 @@ describe('intent commands', () => {
       'en-US',
       '--voice',
       'female-1',
-      '--out',
+      '--output',
       'hello.mp3',
     ])
 
@@ -971,7 +1143,7 @@ describe('intent commands', () => {
       'Hello from a prompt',
       '--provider',
       'aws',
-      '--out',
+      '--output',
       'hello.mp3',
     ])
 
@@ -1002,7 +1174,7 @@ describe('intent commands', () => {
       'article.txt',
       '--provider',
       'aws',
-      '--out',
+      '--output',
       'hello.mp3',
     ])
 
@@ -1031,7 +1203,7 @@ describe('intent commands', () => {
       'waveform',
       '--input',
       'podcast.mp3',
-      '--out',
+      '--output',
       'waveform.png',
     ])
 
@@ -1061,7 +1233,7 @@ describe('intent commands', () => {
       'song.mp3',
       '--style',
       '1',
-      '--out',
+      '--output',
       'waveform.png',
     ])
 
@@ -1090,7 +1262,7 @@ describe('intent commands', () => {
       'thumbs',
       '--input',
       'demo.mp4',
-      '--out',
+      '--output',
       'thumbs',
     ])
 
@@ -1114,7 +1286,7 @@ describe('intent commands', () => {
       'demo.mp4',
       '--rotate',
       '90',
-      '--out',
+      '--output',
       'thumbs',
     ])
 
@@ -1141,7 +1313,7 @@ describe('intent commands', () => {
       'demo.mp4',
       '--offsets',
       '[1,2,3]',
-      '--out',
+      '--output',
       'thumbs',
     ])
 
@@ -1168,7 +1340,7 @@ describe('intent commands', () => {
       'document.pdf',
       '--strategy',
       '{"document":["page","icon"],"unknown":["icon"]}',
-      '--out',
+      '--output',
       'preview.png',
     ])
 
@@ -1217,7 +1389,7 @@ describe('intent commands', () => {
       'demo.jpg',
       '--crop',
       '{"x1":80,"y1":100,"x2":"60%","y2":"80%"}',
-      '--out',
+      '--output',
       'resized.jpg',
     ])
 
@@ -1248,7 +1420,7 @@ describe('intent commands', () => {
       'demo.jpg',
       '--watermark-position',
       '["center","left"]',
-      '--out',
+      '--output',
       'resized.jpg',
     ])
 
@@ -1274,7 +1446,7 @@ describe('intent commands', () => {
       'demo.jpg',
       '--rotation',
       '90',
-      '--out',
+      '--output',
       'resized.jpg',
     ])
 
@@ -1301,7 +1473,7 @@ describe('intent commands', () => {
       'song.mp3',
       '--antialiasing',
       '1',
-      '--out',
+      '--output',
       'waveform.png',
     ])
 
@@ -1329,7 +1501,7 @@ describe('intent commands', () => {
       '--format',
       'zip',
       '--gzip',
-      '--out',
+      '--output',
       'assets.zip',
     ])
 
@@ -1365,7 +1537,7 @@ describe('intent commands', () => {
       'assets',
       '--format',
       'zip',
-      '--out',
+      '--output',
       'assets.zip',
     ])
 
@@ -1395,7 +1567,7 @@ describe('intent commands', () => {
       'thumbs',
       '--input',
       'demo.mp4',
-      '--out',
+      '--output',
       'thumbs',
     ])
 

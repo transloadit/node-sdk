@@ -182,11 +182,12 @@ function getSharedFileInputOutputRows(): DocOptionRow[] {
     getInputPathsOptionDocumentation(),
     getInputBase64OptionDocumentation(),
     {
-      flags: '--out, -o',
+      flags: '--output, -o',
       type: 'path',
-      required: 'yes*',
+      required: 'no',
       example: 'output.file',
-      description: 'Write the result to this path or directory',
+      description:
+        'Write the result to this path or directory. If omitted, the CLI infers a local output path.',
     },
     getPrintUrlsOptionDocumentation(),
   ]
@@ -195,11 +196,11 @@ function getSharedFileInputOutputRows(): DocOptionRow[] {
 function getSharedNoInputOutputRows(): DocOptionRow[] {
   return [
     {
-      flags: '--out, -o',
+      flags: '--output, -o',
       type: 'path',
-      required: 'yes*',
+      required: 'no',
       example: 'output.file',
-      description: 'Write the result to this path',
+      description: 'Write the result to this path. If omitted, the CLI infers a local output path.',
     },
     getPrintUrlsOptionDocumentation(),
   ]
@@ -349,7 +350,7 @@ export function renderIntentDocsBody({
     '',
     renderAtAGlanceTable(definitions),
     '',
-    '> At least one of `--out` or `--print-urls` is required on every intent command.',
+    '> If you omit `--output`, the CLI writes next to a single local file input when it can, otherwise it falls back to the current working directory. Use `--print-urls` alone when you want URLs without downloading locally.',
     '',
     `${heading} Shared flags`,
     '',

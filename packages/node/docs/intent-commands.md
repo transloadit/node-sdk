@@ -31,7 +31,7 @@ All intent commands also support the global CLI flags `--json`, `--log-level`, `
 | `file compress` | Compress files | file, dir, URL, base64 | file |
 | `file decompress` | Decompress archives | file, dir, URL, base64 | directory |
 
-> At least one of `--out` or `--print-urls` is required on every intent command.
+> If you omit `--output`, the CLI writes next to a single local file input when it can, otherwise it falls back to the current working directory. Use `--print-urls` alone when you want URLs without downloading locally.
 
 ## Shared flags
 
@@ -43,14 +43,14 @@ These flags are available across many intent commands, so the per-command sectio
 | --- | --- | --- | --- | --- |
 | `--input, -i` | `path \| dir \| url \| -` | varies | `input.file` | Provide an input path, directory, URL, or - for stdin |
 | `--input-base64` | `base64 \| data URL` | no | `data:text/plain;base64,SGVsbG8=` | Provide base64-encoded input content directly |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path or directory |
+| `--output, -o` | `path` | no | `output.file` | Write the result to this path or directory. If omitted, the CLI infers a local output path. |
 | `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
 
 **Shared no-input output flags**
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--out, -o` | `path` | yes* | `output.file` | Write the result to this path |
+| `--output, -o` | `path` | no | `output.file` | Write the result to this path. If omitted, the CLI infers a local output path. |
 | `--print-urls` | `boolean` | no | `false` | Print temporary result URLs after completion |
 
 **Shared processing flags**
@@ -116,18 +116,18 @@ npx transloadit image generate [--input <path|dir|url|->] [options]
 
 ```bash
 # Generate an image from text
-transloadit image generate --prompt "A red bicycle in a studio" --out output.png
+transloadit image generate --prompt "A red bicycle in a studio" --output output.png
 # Guide generation with one input image
-transloadit image generate --input subject.jpg --prompt "Place subject.jpg on a magazine cover" --out output.png
+transloadit image generate --input subject.jpg --prompt "Place subject.jpg on a magazine cover" --output output.png
 # Guide generation with multiple input images
-transloadit image generate --input person1.jpg --input person2.jpg --input background.jpg --prompt "Place person1.jpg feeding person2.jpg in front of background.jpg" --out output.png
+transloadit image generate --input person1.jpg --input person2.jpg --input background.jpg --prompt "Place person1.jpg feeding person2.jpg in front of background.jpg" --output output.png
 ```
 
 ## `preview generate`
 
 Generate a preview thumbnail
 
-Runs `/file/preview` on each input file and writes the result to `--out`.
+Runs `/file/preview` on each input file and writes the result to `--output`.
 
 **Usage**
 
@@ -180,14 +180,14 @@ npx transloadit preview generate --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit preview generate --input input.file --out output.file
+transloadit preview generate --input input.file --output output.file
 ```
 
 ## `image remove-background`
 
 Remove the background from images
 
-Runs `/image/bgremove` on each input file and writes the result to `--out`.
+Runs `/image/bgremove` on each input file and writes the result to `--output`.
 
 **Usage**
 
@@ -219,14 +219,14 @@ npx transloadit image remove-background --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit image remove-background --input input.png --out output.png
+transloadit image remove-background --input input.png --output output.png
 ```
 
 ## `image optimize`
 
 Optimize images without quality loss
 
-Runs `/image/optimize` on each input file and writes the result to `--out`.
+Runs `/image/optimize` on each input file and writes the result to `--output`.
 
 **Usage**
 
@@ -259,14 +259,14 @@ npx transloadit image optimize --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit image optimize --input input.png --out output.png
+transloadit image optimize --input input.png --output output.png
 ```
 
 ## `image resize`
 
 Convert, resize, or watermark images
 
-Runs `/image/resize` on each input file and writes the result to `--out`.
+Runs `/image/resize` on each input file and writes the result to `--output`.
 
 **Usage**
 
@@ -340,14 +340,14 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit image resize --input input.png --out output.png
+transloadit image resize --input input.png --output output.png
 ```
 
 ## `document convert`
 
 Convert documents into different formats
 
-Runs `/document/convert` on each input file and writes the result to `--out`.
+Runs `/document/convert` on each input file and writes the result to `--output`.
 
 **Usage**
 
@@ -384,14 +384,14 @@ npx transloadit document convert --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit document convert --input input.pdf --format pdf --out output.pdf
+transloadit document convert --input input.pdf --format pdf --output output.pdf
 ```
 
 ## `document optimize`
 
 Reduce PDF file size
 
-Runs `/document/optimize` on each input file and writes the result to `--out`.
+Runs `/document/optimize` on each input file and writes the result to `--output`.
 
 **Usage**
 
@@ -426,14 +426,14 @@ npx transloadit document optimize --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit document optimize --input input.pdf --out output.pdf
+transloadit document optimize --input input.pdf --output output.pdf
 ```
 
 ## `document auto-rotate`
 
 Auto-rotate documents to the correct orientation
 
-Runs `/document/autorotate` on each input file and writes the result to `--out`.
+Runs `/document/autorotate` on each input file and writes the result to `--output`.
 
 **Usage**
 
@@ -456,14 +456,14 @@ npx transloadit document auto-rotate --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit document auto-rotate --input input.pdf --out output.pdf
+transloadit document auto-rotate --input input.pdf --output output.pdf
 ```
 
 ## `document thumbs`
 
 Extract thumbnail images from documents
 
-Runs `/document/thumbs` on each input file and writes the results to `--out`.
+Runs `/document/thumbs` on each input file and writes the results to `--output`.
 
 **Usage**
 
@@ -506,14 +506,14 @@ npx transloadit document thumbs --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit document thumbs --input input.pdf --out output/
+transloadit document thumbs --input input.pdf --output output/
 ```
 
 ## `audio waveform`
 
 Generate waveform images from audio
 
-Runs `/audio/waveform` on each input file and writes the result to `--out`.
+Runs `/audio/waveform` on each input file and writes the result to `--output`.
 
 **Usage**
 
@@ -574,14 +574,14 @@ npx transloadit audio waveform --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit audio waveform --input input.mp3 --out output.png
+transloadit audio waveform --input input.mp3 --output output.png
 ```
 
 ## `text speak`
 
 Speak text
 
-Runs `/text/speak` on each input file and writes the result to `--out`.
+Runs `/text/speak` on each input file and writes the result to `--output`.
 
 **Usage**
 
@@ -614,14 +614,14 @@ npx transloadit text speak [--input <path|dir|url|->] [options]
 **Examples**
 
 ```bash
-transloadit text speak --input input.pdf --provider aws --out output.mp3
+transloadit text speak --input input.pdf --provider aws --output output.mp3
 ```
 
 ## `video thumbs`
 
 Extract thumbnails from videos
 
-Runs `/video/thumbs` on each input file and writes the results to `--out`.
+Runs `/video/thumbs` on each input file and writes the results to `--output`.
 
 **Usage**
 
@@ -659,14 +659,14 @@ npx transloadit video thumbs --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit video thumbs --input input.mp4 --out output/
+transloadit video thumbs --input input.mp4 --output output/
 ```
 
 ## `video encode-hls`
 
 Run builtin/encode-hls-video@latest
 
-Runs the `builtin/encode-hls-video@latest` template and writes the outputs to `--out`.
+Runs the `builtin/encode-hls-video@latest` template and writes the outputs to `--output`.
 
 **Usage**
 
@@ -689,14 +689,14 @@ npx transloadit video encode-hls --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit video encode-hls --input input.mp4 --out output/
+transloadit video encode-hls --input input.mp4 --output output/
 ```
 
 ## `image describe`
 
 Describe images as labels or publishable text fields
 
-Generates image labels through `/image/describe`, or structured altText/title/caption/description through `/ai/chat`, then writes the JSON result to `--out`.
+Generates image labels through `/image/describe`, or structured altText/title/caption/description through `/ai/chat`, then writes the JSON result to `--output`.
 
 **Usage**
 
@@ -728,11 +728,11 @@ npx transloadit image describe --input <path|dir|url|-> [options]
 
 ```bash
 # Describe an image as labels
-transloadit image describe --input hero.jpg --out labels.json
+transloadit image describe --input hero.jpg --output labels.json
 # Generate WordPress-ready fields
-transloadit image describe --input hero.jpg --for wordpress --out fields.json
+transloadit image describe --input hero.jpg --for wordpress --output fields.json
 # Request a custom field set
-transloadit image describe --input hero.jpg --fields altText,title,caption --out fields.json
+transloadit image describe --input hero.jpg --fields altText,title,caption --output fields.json
 ```
 
 ## `markdown pdf`
@@ -770,7 +770,7 @@ npx transloadit markdown pdf --input <path|dir|url|-> [options]
 
 ```bash
 # Render a Markdown file as a PDF file
-transloadit markdown pdf --input README.md --out README.pdf
+transloadit markdown pdf --input README.md --output README.pdf
 # Print a temporary result URL without downloading locally
 transloadit markdown pdf --input README.md --print-urls
 ```
@@ -810,7 +810,7 @@ npx transloadit markdown docx --input <path|dir|url|-> [options]
 
 ```bash
 # Render a Markdown file as a DOCX file
-transloadit markdown docx --input README.md --out README.docx
+transloadit markdown docx --input README.md --output README.docx
 # Print a temporary result URL without downloading locally
 transloadit markdown docx --input README.md --print-urls
 ```
@@ -819,7 +819,7 @@ transloadit markdown docx --input README.md --print-urls
 
 Compress files
 
-Runs `/file/compress` for the provided inputs and writes the result to `--out`.
+Runs `/file/compress` for the provided inputs and writes the result to `--output`.
 
 **Usage**
 
@@ -854,14 +854,14 @@ npx transloadit file compress --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit file compress --input input.file --out output.file
+transloadit file compress --input input.file --output output.file
 ```
 
 ## `file decompress`
 
 Decompress archives
 
-Runs `/file/decompress` on each input file and writes the results to `--out`.
+Runs `/file/decompress` on each input file and writes the results to `--output`.
 
 **Usage**
 
@@ -891,5 +891,5 @@ npx transloadit file decompress --input <path|dir|url|-> [options]
 **Examples**
 
 ```bash
-transloadit file decompress --input input.file --out output/
+transloadit file decompress --input input.file --output output/
 ```
