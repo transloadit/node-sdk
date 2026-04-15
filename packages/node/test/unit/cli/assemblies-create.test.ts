@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { create } from '../../../src/cli/commands/assemblies.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { parseStepsInputJson } from '../../../src/cli/stepsInput.ts'
+import PollingTimeoutError from '../../../src/PollingTimeoutError.ts'
 
 const tempDirs: string[] = []
 
@@ -1359,5 +1360,57 @@ describe('assemblies create', () => {
     await expect(stat(outputPath)).rejects.toMatchObject({
       code: 'ENOENT',
     })
+  })
+
+  it('includes the assembly URL when polling times out', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-timeout-url-')
+    const inputPath = path.join(tempDir, 'image.jpg')
+    const outputPath = path.join(tempDir, 'resized.jpg')
+
+    await writeFile(inputPath, 'image-data')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({
+        assembly_id: 'assembly-timeout',
+        assembly_ssl_url: 'https://api2.transloadit.com/assemblies/assembly-timeout',
+      }),
+      awaitAssemblyCompletion: vi
+        .fn()
+        .mockRejectedValue(new PollingTimeoutError('Polling timed out')),
+    }
+
+    await expect(
+      create(output, client as never, {
+        inputs: [inputPath],
+        output: outputPath,
+        stepsData: {
+          resized: {
+            robot: '/image/resize',
+            result: true,
+            use: ':original',
+            width: 200,
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: true,
+      }),
+    )
+
+    const loggedError = consoleError.mock.calls.find(
+      ([prefix, value]) =>
+        prefix === 'err    ' &&
+        value instanceof Error &&
+        value.message.includes(
+          'Assembly URL: https://api2.transloadit.com/assemblies/assembly-timeout',
+        ),
+    )?.[1]
+
+    expect(loggedError).toBeInstanceOf(Error)
+    expect((loggedError as Error).message).toContain('Polling timed out')
   })
 })
