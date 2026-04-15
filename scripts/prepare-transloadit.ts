@@ -1,10 +1,7 @@
-import { execFile } from 'node:child_process'
 import { chmod, cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
+import { ensureNodePackagePrepared } from './prepare-node-package.ts'
 
 const filePath = fileURLToPath(import.meta.url)
 const repoRoot = resolve(dirname(filePath), '..')
@@ -127,9 +124,7 @@ const writeLegacyChangelog = async (): Promise<void> => {
 }
 
 const main = async (): Promise<void> => {
-  await execFileAsync('yarn', ['workspace', '@transloadit/node', 'prepack'], {
-    cwd: repoRoot,
-  })
+  await ensureNodePackagePrepared()
 
   await copyDir(resolve(nodePackage, 'dist'), resolve(legacyPackage, 'dist'))
   await copyDir(resolve(nodePackage, 'src'), resolve(legacyPackage, 'src'))

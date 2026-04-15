@@ -26,6 +26,7 @@ jobs:
       - run: corepack yarn
       - run: corepack yarn tsc:utils
       - run: corepack yarn tsc:zod
+      - run: corepack yarn tsc:node
       - uses: changesets/action@v1
         with:
           version: corepack yarn changeset:version:release
@@ -33,3 +34,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
+          TRANSLOADIT_PUBLISH_PREBUILT_NODE: "true"
