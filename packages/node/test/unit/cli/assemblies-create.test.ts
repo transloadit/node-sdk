@@ -722,7 +722,7 @@ describe('assemblies create', () => {
     vi.doMock('node-watch', () => {
       return {
         default: vi.fn(() => {
-          resolveWatcherReady?.()
+          process.nextTick(() => resolveWatcherReady?.())
           return fakeWatcher
         }),
       }
@@ -739,20 +739,30 @@ describe('assemblies create', () => {
 
     const baseTime = new Date('2026-01-01T00:00:00.000Z')
     const outputTime = new Date('2026-01-01T00:00:10.000Z')
-    const firstChangeTime = new Date('2026-01-01T00:00:20.000Z')
-    const secondChangeTime = new Date('2026-01-01T00:00:30.000Z')
+    const updatedInputTime = new Date('2026-01-01T00:00:30.000Z')
 
     await utimes(inputPath, baseTime, baseTime)
     await utimes(outputPath, outputTime, outputTime)
 
+    let resolveWatchStarted: (() => void) | null = null
+    const watchStarted = new Promise<void>((resolve) => {
+      resolveWatchStarted = resolve
+    })
+    let createAssemblyCallCount = 0
     const output = new OutputCtl()
     const client = {
-      createAssembly: vi
-        .fn()
-        .mockResolvedValueOnce({ assembly_id: 'assembly-old' })
-        .mockResolvedValueOnce({ assembly_id: 'assembly-new' }),
+      createAssembly: vi.fn(() => {
+        createAssemblyCallCount += 1
+        if (createAssemblyCallCount === 1) {
+          return { assembly_id: 'assembly-old' }
+        }
+
+        resolveWatchStarted?.()
+        return { assembly_id: 'assembly-new' }
+      }),
       awaitAssemblyCompletion: vi.fn(async (assemblyId: string) => {
         if (assemblyId === 'assembly-old') {
+          await watchStarted
           await delay(80)
           return {
             ok: 'ASSEMBLY_COMPLETED',
@@ -791,17 +801,13 @@ describe('assemblies create', () => {
 
     await watcherReady
     await writeFile(inputPath, 'video-v2')
-    await utimes(inputPath, firstChangeTime, firstChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
-
-    await delay(5)
     await writeFile(inputPath, 'video-v3')
-    await utimes(inputPath, secondChangeTime, secondChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
 
-    await vi.waitFor(() => {
-      expect(client.awaitAssemblyCompletion).toHaveBeenCalledTimes(2)
-    })
+    await watchStarted
     fakeWatcher.close()
 
     await expect(createPromise).resolves.toEqual(
@@ -831,7 +837,7 @@ describe('assemblies create', () => {
     vi.doMock('node-watch', () => {
       return {
         default: vi.fn(() => {
-          resolveWatcherReady?.()
+          process.nextTick(() => resolveWatcherReady?.())
           return fakeWatcher
         }),
       }
@@ -848,20 +854,30 @@ describe('assemblies create', () => {
 
     const baseTime = new Date('2026-01-01T00:00:00.000Z')
     const outputTime = new Date('2026-01-01T00:00:10.000Z')
-    const firstChangeTime = new Date('2026-01-01T00:00:20.000Z')
-    const secondChangeTime = new Date('2026-01-01T00:00:30.000Z')
+    const updatedInputTime = new Date('2026-01-01T00:00:30.000Z')
 
     await utimes(inputPath, baseTime, baseTime)
     await utimes(outputPath, outputTime, outputTime)
 
+    let resolveWatchStarted: (() => void) | null = null
+    const watchStarted = new Promise<void>((resolve) => {
+      resolveWatchStarted = resolve
+    })
+    let createAssemblyCallCount = 0
     const output = new OutputCtl()
     const client = {
-      createAssembly: vi
-        .fn()
-        .mockResolvedValueOnce({ assembly_id: 'assembly-old' })
-        .mockResolvedValueOnce({ assembly_id: 'assembly-new' }),
+      createAssembly: vi.fn(() => {
+        createAssemblyCallCount += 1
+        if (createAssemblyCallCount === 1) {
+          return { assembly_id: 'assembly-old' }
+        }
+
+        resolveWatchStarted?.()
+        return { assembly_id: 'assembly-new' }
+      }),
       awaitAssemblyCompletion: vi.fn(async (assemblyId: string) => {
         if (assemblyId === 'assembly-old') {
+          await watchStarted
           await delay(80)
           return {
             ok: 'ASSEMBLY_COMPLETED',
@@ -900,17 +916,13 @@ describe('assemblies create', () => {
 
     await watcherReady
     await writeFile(inputPath, 'video-v2')
-    await utimes(inputPath, firstChangeTime, firstChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
-
-    await delay(5)
     await writeFile(inputPath, 'video-v3')
-    await utimes(inputPath, secondChangeTime, secondChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
 
-    await vi.waitFor(() => {
-      expect(client.awaitAssemblyCompletion).toHaveBeenCalledTimes(2)
-    })
+    await watchStarted
     fakeWatcher.close()
 
     await expect(createPromise).resolves.toEqual(
@@ -946,7 +958,7 @@ describe('assemblies create', () => {
     vi.doMock('node-watch', () => {
       return {
         default: vi.fn(() => {
-          resolveWatcherReady?.()
+          process.nextTick(() => resolveWatcherReady?.())
           return fakeWatcher
         }),
       }
@@ -963,20 +975,30 @@ describe('assemblies create', () => {
 
     const baseTime = new Date('2026-01-01T00:00:00.000Z')
     const outputTime = new Date('2026-01-01T00:00:10.000Z')
-    const firstChangeTime = new Date('2026-01-01T00:00:20.000Z')
-    const secondChangeTime = new Date('2026-01-01T00:00:30.000Z')
+    const updatedInputTime = new Date('2026-01-01T00:00:30.000Z')
 
     await utimes(inputPath, baseTime, baseTime)
     await utimes(outputPath, outputTime, outputTime)
 
+    let resolveWatchStarted: (() => void) | null = null
+    const watchStarted = new Promise<void>((resolve) => {
+      resolveWatchStarted = resolve
+    })
+    let createAssemblyCallCount = 0
     const output = new OutputCtl()
     const client = {
-      createAssembly: vi
-        .fn()
-        .mockResolvedValueOnce({ assembly_id: 'assembly-old-fast' })
-        .mockResolvedValueOnce({ assembly_id: 'assembly-new-slow' }),
+      createAssembly: vi.fn(() => {
+        createAssemblyCallCount += 1
+        if (createAssemblyCallCount === 1) {
+          return { assembly_id: 'assembly-old-fast' }
+        }
+
+        resolveWatchStarted?.()
+        return { assembly_id: 'assembly-new-slow' }
+      }),
       awaitAssemblyCompletion: vi.fn(async (assemblyId: string) => {
         if (assemblyId === 'assembly-old-fast') {
+          await watchStarted
           await delay(40)
           return {
             ok: 'ASSEMBLY_COMPLETED',
@@ -1015,17 +1037,13 @@ describe('assemblies create', () => {
 
     await watcherReady
     await writeFile(inputPath, 'video-v2')
-    await utimes(inputPath, firstChangeTime, firstChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
-
-    await delay(5)
     await writeFile(inputPath, 'video-v3')
-    await utimes(inputPath, secondChangeTime, secondChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
 
-    await vi.waitFor(() => {
-      expect(client.awaitAssemblyCompletion).toHaveBeenCalledTimes(2)
-    })
+    await watchStarted
     fakeWatcher.close()
 
     await expect(createPromise).resolves.toEqual(
