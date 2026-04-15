@@ -264,6 +264,43 @@ describe('intent commands', () => {
     )
   })
 
+  it('avoids reusing an extensionless input path for inferred directory outputs', async () => {
+    const tempDir = await createTempDir('transloadit-intent-default-extensionless-directory-')
+    const inputPath = path.join(tempDir, 'report')
+    await writeFile(inputPath, 'pdf')
+
+    const { createSpy } = await runIntentCommand(['document', 'thumbs', '--input', inputPath])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputPath],
+        output: path.join(tempDir, 'report-output'),
+      }),
+    )
+  })
+
+  it('avoids colliding with an existing sibling file for inferred directory outputs', async () => {
+    const tempDir = await createTempDir('transloadit-intent-default-colliding-directory-')
+    const inputPath = path.join(tempDir, 'report.pdf')
+    await writeFile(inputPath, 'pdf')
+    await writeFile(path.join(tempDir, 'report'), 'occupied')
+
+    const { createSpy } = await runIntentCommand(['document', 'thumbs', '--input', inputPath])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputPath],
+        output: path.join(tempDir, 'report-output'),
+      }),
+    )
+  })
+
   it('prints aligned result URLs without requiring --output', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 

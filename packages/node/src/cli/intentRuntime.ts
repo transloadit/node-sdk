@@ -570,9 +570,42 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
     return 'output/'
   }
 
+  private getSafeSiblingDirectoryOutputPath(inputPath: string): string {
+    const parsedInputPath = parse(inputPath)
+    const candidateBaseName =
+      parsedInputPath.name === '' ? basename(inputPath) : parsedInputPath.name
+    const candidateDirectoryPath = join(dirname(inputPath), candidateBaseName)
+
+    const isSafeDirectoryCandidate = (candidatePath: string): boolean => {
+      if (resolve(candidatePath) === resolve(inputPath)) {
+        return false
+      }
+
+      try {
+        return statSync(candidatePath).isDirectory()
+      } catch {
+        return true
+      }
+    }
+
+    if (isSafeDirectoryCandidate(candidateDirectoryPath)) {
+      return candidateDirectoryPath
+    }
+
+    for (let suffixIndex = 0; suffixIndex < 1000; suffixIndex += 1) {
+      const suffix = suffixIndex === 0 ? '-output' : `-output-${suffixIndex + 1}`
+      const fallbackDirectoryPath = join(dirname(inputPath), `${candidateBaseName}${suffix}`)
+      if (isSafeDirectoryCandidate(fallbackDirectoryPath)) {
+        return fallbackDirectoryPath
+      }
+    }
+
+    throw new Error(`Could not infer a safe output directory path for ${inputPath}`)
+  }
+
   protected getSiblingOutputPath(inputPath: string, rawValues: Record<string, unknown>): string {
     if (this.getIntentDefinition().outputMode === 'directory') {
-      return join(dirname(inputPath), parse(inputPath).name)
+      return this.getSafeSiblingDirectoryOutputPath(inputPath)
     }
 
     const resolvedDefaultOutputPath = this.resolveDefaultOutputPath(rawValues)
