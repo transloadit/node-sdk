@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.8.2
+
+### Patch Changes
+
+- 4a63ff7: Improve intent output defaults by inferring local output paths when `--output` is omitted and standardizing intent docs on `--output, -o`.
+
 ## 4.8.1
 
 ### Patch Changes

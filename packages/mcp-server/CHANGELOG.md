@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.15
+
+### Patch Changes
+
+- 4a63ff7: Improve intent output defaults by inferring local output paths when `--output` is omitted and standardizing intent docs on `--output, -o`.
+- Updated dependencies [4a63ff7]
+  - @transloadit/node@4.8.2
+
 ## 0.3.14
 
 ### Patch Changes
