@@ -78,6 +78,20 @@ export interface AssemblyLintOptions {
   json?: boolean
 }
 
+function formatAssemblyReference({
+  assemblyId,
+  assemblyUrl,
+}: {
+  assemblyId: string
+  assemblyUrl: string | null
+}): string {
+  if (assemblyUrl != null) {
+    return `Assembly ID: ${assemblyId}, Assembly URL: ${assemblyUrl}`
+  }
+
+  return `Assembly ID: ${assemblyId}`
+}
+
 function parseTemplateFieldAssignments(
   output: IOutputCtl,
   fields: string[] | undefined,
@@ -1389,18 +1403,25 @@ export async function create(
       const result = await client.createAssembly(createOptions)
       const assemblyId = result.assembly_id
       if (!assemblyId) throw new Error('No assembly_id in result')
+      const assemblyUrl = result.assembly_ssl_url ?? result.assembly_url ?? null
+      const assemblyReference = formatAssemblyReference({ assemblyId, assemblyUrl })
 
-      const assembly = await client.awaitAssemblyCompletion(assemblyId, {
-        signal: abortController.signal,
-        onPoll: () => true,
-        onAssemblyProgress: (status) => {
-          outputctl.debug(`Assembly status: ${status.ok}`)
-        },
-      })
+      let assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
+      try {
+        assembly = await client.awaitAssemblyCompletion(assemblyId, {
+          signal: abortController.signal,
+          onPoll: () => true,
+          onAssemblyProgress: (status) => {
+            outputctl.debug(`Assembly status: ${status.ok}`)
+          },
+        })
+      } catch (err) {
+        const error = ensureError(err)
+        throw new Error(`${error.message} (${assemblyReference})`, { cause: error })
+      }
 
       if (assembly.error || (assembly.ok && assembly.ok !== 'ASSEMBLY_COMPLETED')) {
-        const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok})`
-        outputctl.error(msg)
+        const msg = `Assembly failed: ${assembly.error || assembly.message} (Status: ${assembly.ok}, ${assemblyReference})`
         throw new Error(msg)
       }
 

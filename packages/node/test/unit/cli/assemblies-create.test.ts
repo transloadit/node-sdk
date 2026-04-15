@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { create } from '../../../src/cli/commands/assemblies.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { parseStepsInputJson } from '../../../src/cli/stepsInput.ts'
+import PollingTimeoutError from '../../../src/PollingTimeoutError.ts'
 
 const tempDirs: string[] = []
 
@@ -714,9 +715,16 @@ describe('assemblies create', () => {
     }
 
     const fakeWatcher = new FakeWatcher()
+    let resolveWatcherReady: (() => void) | null = null
+    const watcherReady = new Promise<void>((resolve) => {
+      resolveWatcherReady = resolve
+    })
     vi.doMock('node-watch', () => {
       return {
-        default: vi.fn(() => fakeWatcher),
+        default: vi.fn(() => {
+          process.nextTick(() => resolveWatcherReady?.())
+          return fakeWatcher
+        }),
       }
     })
 
@@ -731,20 +739,30 @@ describe('assemblies create', () => {
 
     const baseTime = new Date('2026-01-01T00:00:00.000Z')
     const outputTime = new Date('2026-01-01T00:00:10.000Z')
-    const firstChangeTime = new Date('2026-01-01T00:00:20.000Z')
-    const secondChangeTime = new Date('2026-01-01T00:00:30.000Z')
+    const updatedInputTime = new Date('2026-01-01T00:00:30.000Z')
 
     await utimes(inputPath, baseTime, baseTime)
     await utimes(outputPath, outputTime, outputTime)
 
+    let resolveWatchStarted: (() => void) | null = null
+    const watchStarted = new Promise<void>((resolve) => {
+      resolveWatchStarted = resolve
+    })
+    let createAssemblyCallCount = 0
     const output = new OutputCtl()
     const client = {
-      createAssembly: vi
-        .fn()
-        .mockResolvedValueOnce({ assembly_id: 'assembly-old' })
-        .mockResolvedValueOnce({ assembly_id: 'assembly-new' }),
+      createAssembly: vi.fn(() => {
+        createAssemblyCallCount += 1
+        if (createAssemblyCallCount === 1) {
+          return { assembly_id: 'assembly-old' }
+        }
+
+        resolveWatchStarted?.()
+        return { assembly_id: 'assembly-new' }
+      }),
       awaitAssemblyCompletion: vi.fn(async (assemblyId: string) => {
         if (assemblyId === 'assembly-old') {
+          await watchStarted
           await delay(80)
           return {
             ok: 'ASSEMBLY_COMPLETED',
@@ -781,17 +799,15 @@ describe('assemblies create', () => {
       },
     })
 
-    await delay(20)
+    await watcherReady
     await writeFile(inputPath, 'video-v2')
-    await utimes(inputPath, firstChangeTime, firstChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
-
-    await delay(5)
     await writeFile(inputPath, 'video-v3')
-    await utimes(inputPath, secondChangeTime, secondChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
 
-    await delay(20)
+    await watchStarted
     fakeWatcher.close()
 
     await expect(createPromise).resolves.toEqual(
@@ -814,9 +830,16 @@ describe('assemblies create', () => {
     }
 
     const fakeWatcher = new FakeWatcher()
+    let resolveWatcherReady: (() => void) | null = null
+    const watcherReady = new Promise<void>((resolve) => {
+      resolveWatcherReady = resolve
+    })
     vi.doMock('node-watch', () => {
       return {
-        default: vi.fn(() => fakeWatcher),
+        default: vi.fn(() => {
+          process.nextTick(() => resolveWatcherReady?.())
+          return fakeWatcher
+        }),
       }
     })
 
@@ -831,20 +854,30 @@ describe('assemblies create', () => {
 
     const baseTime = new Date('2026-01-01T00:00:00.000Z')
     const outputTime = new Date('2026-01-01T00:00:10.000Z')
-    const firstChangeTime = new Date('2026-01-01T00:00:20.000Z')
-    const secondChangeTime = new Date('2026-01-01T00:00:30.000Z')
+    const updatedInputTime = new Date('2026-01-01T00:00:30.000Z')
 
     await utimes(inputPath, baseTime, baseTime)
     await utimes(outputPath, outputTime, outputTime)
 
+    let resolveWatchStarted: (() => void) | null = null
+    const watchStarted = new Promise<void>((resolve) => {
+      resolveWatchStarted = resolve
+    })
+    let createAssemblyCallCount = 0
     const output = new OutputCtl()
     const client = {
-      createAssembly: vi
-        .fn()
-        .mockResolvedValueOnce({ assembly_id: 'assembly-old' })
-        .mockResolvedValueOnce({ assembly_id: 'assembly-new' }),
+      createAssembly: vi.fn(() => {
+        createAssemblyCallCount += 1
+        if (createAssemblyCallCount === 1) {
+          return { assembly_id: 'assembly-old' }
+        }
+
+        resolveWatchStarted?.()
+        return { assembly_id: 'assembly-new' }
+      }),
       awaitAssemblyCompletion: vi.fn(async (assemblyId: string) => {
         if (assemblyId === 'assembly-old') {
+          await watchStarted
           await delay(80)
           return {
             ok: 'ASSEMBLY_COMPLETED',
@@ -881,17 +914,15 @@ describe('assemblies create', () => {
       },
     })
 
-    await delay(20)
+    await watcherReady
     await writeFile(inputPath, 'video-v2')
-    await utimes(inputPath, firstChangeTime, firstChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
-
-    await delay(5)
     await writeFile(inputPath, 'video-v3')
-    await utimes(inputPath, secondChangeTime, secondChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
 
-    await delay(20)
+    await watchStarted
     fakeWatcher.close()
 
     await expect(createPromise).resolves.toEqual(
@@ -920,9 +951,16 @@ describe('assemblies create', () => {
     }
 
     const fakeWatcher = new FakeWatcher()
+    let resolveWatcherReady: (() => void) | null = null
+    const watcherReady = new Promise<void>((resolve) => {
+      resolveWatcherReady = resolve
+    })
     vi.doMock('node-watch', () => {
       return {
-        default: vi.fn(() => fakeWatcher),
+        default: vi.fn(() => {
+          process.nextTick(() => resolveWatcherReady?.())
+          return fakeWatcher
+        }),
       }
     })
 
@@ -937,20 +975,30 @@ describe('assemblies create', () => {
 
     const baseTime = new Date('2026-01-01T00:00:00.000Z')
     const outputTime = new Date('2026-01-01T00:00:10.000Z')
-    const firstChangeTime = new Date('2026-01-01T00:00:20.000Z')
-    const secondChangeTime = new Date('2026-01-01T00:00:30.000Z')
+    const updatedInputTime = new Date('2026-01-01T00:00:30.000Z')
 
     await utimes(inputPath, baseTime, baseTime)
     await utimes(outputPath, outputTime, outputTime)
 
+    let resolveWatchStarted: (() => void) | null = null
+    const watchStarted = new Promise<void>((resolve) => {
+      resolveWatchStarted = resolve
+    })
+    let createAssemblyCallCount = 0
     const output = new OutputCtl()
     const client = {
-      createAssembly: vi
-        .fn()
-        .mockResolvedValueOnce({ assembly_id: 'assembly-old-fast' })
-        .mockResolvedValueOnce({ assembly_id: 'assembly-new-slow' }),
+      createAssembly: vi.fn(() => {
+        createAssemblyCallCount += 1
+        if (createAssemblyCallCount === 1) {
+          return { assembly_id: 'assembly-old-fast' }
+        }
+
+        resolveWatchStarted?.()
+        return { assembly_id: 'assembly-new-slow' }
+      }),
       awaitAssemblyCompletion: vi.fn(async (assemblyId: string) => {
         if (assemblyId === 'assembly-old-fast') {
+          await watchStarted
           await delay(40)
           return {
             ok: 'ASSEMBLY_COMPLETED',
@@ -987,17 +1035,15 @@ describe('assemblies create', () => {
       },
     })
 
-    await delay(20)
+    await watcherReady
     await writeFile(inputPath, 'video-v2')
-    await utimes(inputPath, firstChangeTime, firstChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
-
-    await delay(5)
     await writeFile(inputPath, 'video-v3')
-    await utimes(inputPath, secondChangeTime, secondChangeTime)
+    await utimes(inputPath, updatedInputTime, updatedInputTime)
     fakeWatcher.emit('change', 'update', inputPath)
 
-    await delay(20)
+    await watchStarted
     fakeWatcher.close()
 
     await expect(createPromise).resolves.toEqual(
@@ -1359,5 +1405,125 @@ describe('assemblies create', () => {
     await expect(stat(outputPath)).rejects.toMatchObject({
       code: 'ENOENT',
     })
+  })
+
+  it('includes the assembly URL when polling times out', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-timeout-url-')
+    const inputPath = path.join(tempDir, 'image.jpg')
+    const outputPath = path.join(tempDir, 'resized.jpg')
+
+    await writeFile(inputPath, 'image-data')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({
+        assembly_id: 'assembly-timeout',
+        assembly_ssl_url: 'https://api2.transloadit.com/assemblies/assembly-timeout',
+      }),
+      awaitAssemblyCompletion: vi
+        .fn()
+        .mockRejectedValue(new PollingTimeoutError('Polling timed out')),
+    }
+
+    await expect(
+      create(output, client as never, {
+        inputs: [inputPath],
+        output: outputPath,
+        stepsData: {
+          resized: {
+            robot: '/image/resize',
+            result: true,
+            use: ':original',
+            width: 200,
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: true,
+      }),
+    )
+
+    const loggedError = consoleError.mock.calls.find(
+      ([prefix, value]) =>
+        prefix === 'err    ' &&
+        value instanceof Error &&
+        value.message.includes(
+          'Assembly URL: https://api2.transloadit.com/assemblies/assembly-timeout',
+        ),
+    )?.[1]
+
+    expect(loggedError).toBeInstanceOf(Error)
+    expect((loggedError as Error).message).toContain('Polling timed out')
+  })
+
+  it('does not report another assembly URL when concurrent polling times out', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-timeout-concurrent-url-')
+    const inputA = path.join(tempDir, 'a.jpg')
+    const inputB = path.join(tempDir, 'b.jpg')
+
+    await writeFile(inputA, 'image-a')
+    await writeFile(inputB, 'image-b')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi
+        .fn()
+        .mockResolvedValueOnce({ assembly_id: 'assembly-one' })
+        .mockResolvedValueOnce({ assembly_id: 'assembly-two' }),
+      getLastUsedAssemblyUrl: vi
+        .fn()
+        .mockReturnValue('https://api2.transloadit.com/assemblies/assembly-two'),
+      awaitAssemblyCompletion: vi.fn(async (assemblyId: string) => {
+        if (assemblyId === 'assembly-one') {
+          await delay(30)
+          throw new PollingTimeoutError('Polling timed out')
+        }
+
+        await delay(5)
+        return {
+          ok: 'ASSEMBLY_COMPLETED',
+          results: {
+            resized: [{ url: 'http://downloads.test/result-two.jpg', name: 'result-two.jpg' }],
+          },
+        }
+      }),
+    }
+
+    await expect(
+      create(output, client as never, {
+        concurrency: 2,
+        inputs: [inputA, inputB],
+        output: null,
+        stepsData: {
+          resized: {
+            robot: '/image/resize',
+            result: true,
+            use: ':original',
+            width: 200,
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: true,
+      }),
+    )
+
+    const loggedError = consoleError.mock.calls.find(
+      ([prefix, value]) =>
+        prefix === 'err    ' &&
+        value instanceof Error &&
+        value.message.includes('Assembly ID: assembly-one'),
+    )?.[1]
+
+    expect(loggedError).toBeInstanceOf(Error)
+    expect((loggedError as Error).message).not.toContain(
+      'https://api2.transloadit.com/assemblies/assembly-two',
+    )
   })
 })
