@@ -715,9 +715,16 @@ describe('assemblies create', () => {
     }
 
     const fakeWatcher = new FakeWatcher()
+    let resolveWatcherReady: (() => void) | null = null
+    const watcherReady = new Promise<void>((resolve) => {
+      resolveWatcherReady = resolve
+    })
     vi.doMock('node-watch', () => {
       return {
-        default: vi.fn(() => fakeWatcher),
+        default: vi.fn(() => {
+          resolveWatcherReady?.()
+          return fakeWatcher
+        }),
       }
     })
 
@@ -782,7 +789,7 @@ describe('assemblies create', () => {
       },
     })
 
-    await delay(20)
+    await watcherReady
     await writeFile(inputPath, 'video-v2')
     await utimes(inputPath, firstChangeTime, firstChangeTime)
     fakeWatcher.emit('change', 'update', inputPath)
@@ -817,9 +824,16 @@ describe('assemblies create', () => {
     }
 
     const fakeWatcher = new FakeWatcher()
+    let resolveWatcherReady: (() => void) | null = null
+    const watcherReady = new Promise<void>((resolve) => {
+      resolveWatcherReady = resolve
+    })
     vi.doMock('node-watch', () => {
       return {
-        default: vi.fn(() => fakeWatcher),
+        default: vi.fn(() => {
+          resolveWatcherReady?.()
+          return fakeWatcher
+        }),
       }
     })
 
@@ -884,7 +898,7 @@ describe('assemblies create', () => {
       },
     })
 
-    await delay(20)
+    await watcherReady
     await writeFile(inputPath, 'video-v2')
     await utimes(inputPath, firstChangeTime, firstChangeTime)
     fakeWatcher.emit('change', 'update', inputPath)
@@ -925,9 +939,16 @@ describe('assemblies create', () => {
     }
 
     const fakeWatcher = new FakeWatcher()
+    let resolveWatcherReady: (() => void) | null = null
+    const watcherReady = new Promise<void>((resolve) => {
+      resolveWatcherReady = resolve
+    })
     vi.doMock('node-watch', () => {
       return {
-        default: vi.fn(() => fakeWatcher),
+        default: vi.fn(() => {
+          resolveWatcherReady?.()
+          return fakeWatcher
+        }),
       }
     })
 
@@ -992,7 +1013,7 @@ describe('assemblies create', () => {
       },
     })
 
-    await delay(20)
+    await watcherReady
     await writeFile(inputPath, 'video-v2')
     await utimes(inputPath, firstChangeTime, firstChangeTime)
     fakeWatcher.emit('change', 'update', inputPath)
