@@ -89,7 +89,7 @@ View the coverage report locally by opening `coverage/index.html` in your browse
 
 ## Packaging the legacy `transloadit` package
 
-The `packages/transloadit` folder is a generated legacy wrapper. The `src` directory and top-level `README.md`, `CHANGELOG.md`, and `LICENSE` are produced during packing by `scripts/prepare-transloadit.ts` and are not tracked in git. If you need to validate the legacy package contents, run:
+The `packages/transloadit` folder is a generated legacy wrapper. Tracked files under that package are refreshed by `scripts/prepare-transloadit.ts`, and CI verifies those tracked files stay in sync with `@transloadit/node`. If you need to validate the published legacy package contents, run:
 
 ```sh
 yarn pack
@@ -128,7 +128,8 @@ Notes:
 ### Release FAQ
 
 - **Independent versions:** Changesets are not fixed to a single version. Only packages listed in a changeset bump; internal dependency changes auto-bump dependents (patch) via `updateInternalDependencies`.
-- **Legacy parity:** `transloadit` is generated from `@transloadit/node` artifacts via `scripts/prepare-transloadit.ts`, then verified with `yarn parity:transloadit`. Only `package.json` metadata drift is allowed; any other drift fails.
-- **Accepting intentional drift:** run `node scripts/prepare-transloadit.ts` before updating the parity baseline, then follow the parity tool instructions to regenerate `docs/fingerprint/*` so the baseline reflects the latest build.
+- **Legacy wrapper sync:** PR checks run `scripts/prepare-transloadit.ts` and fail if tracked files in `packages/transloadit` drift from `@transloadit/node`.
+- **Legacy parity:** `yarn parity:transloadit` remains available as a manual release/debug check when you need to compare the generated wrapper tarball against the recorded baseline.
+- **Accepting intentional parity drift:** run `node scripts/prepare-transloadit.ts` before updating the parity baseline, then follow the parity tool instructions to regenerate `docs/fingerprint/*` so the baseline reflects the latest build.
 - **Scoped packages:** Scoped packages publish to the default npm dist-tag unless a workflow or manual publish step overrides it. The unscoped `transloadit` package remains stable.
 - **Changelog visibility:** the “Version Packages” PR is the single source of truth for what gets published. If something was published to npm without a corresponding GitHub release/tag, add the missing release/tag so users can discover the change history from GitHub.
