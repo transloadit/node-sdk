@@ -62,19 +62,19 @@ const imageDescribeExecutionDefinition = {
 const imageDescribeCommandPresentation = {
   description: 'Describe images as labels or publishable text fields',
   details:
-    'Generates image labels through `/image/describe`, or structured altText/title/caption/description through `/ai/chat`, then writes the JSON result to `--out`.',
+    'Generates image labels through `/image/describe`, or structured altText/title/caption/description through `/ai/chat`, then writes the JSON result to `--output`.',
   examples: [
     [
       'Describe an image as labels',
-      'transloadit image describe --input hero.jpg --out labels.json',
+      'transloadit image describe --input hero.jpg --output labels.json',
     ],
     [
       'Generate WordPress-ready fields',
-      'transloadit image describe --input hero.jpg --for wordpress --out fields.json',
+      'transloadit image describe --input hero.jpg --for wordpress --output fields.json',
     ],
     [
       'Request a custom field set',
-      'transloadit image describe --input hero.jpg --fields altText,title,caption --out fields.json',
+      'transloadit image describe --input hero.jpg --fields altText,title,caption --output fields.json',
     ],
   ] as Array<[string, string]>,
 } as const satisfies SemanticIntentPresentation
@@ -249,6 +249,7 @@ function createImageDescribeStep(
 
 export const imageDescribeSemanticIntentDescriptor = {
   createStep: createImageDescribeStep,
+  defaultOutputPath: 'output.json',
   execution: imageDescribeExecutionDefinition,
   inputPolicy: { kind: 'required' },
   outputDescription: 'Write the JSON result to this path or directory',

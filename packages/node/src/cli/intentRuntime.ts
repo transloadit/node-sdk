@@ -1,5 +1,5 @@
 import { statSync } from 'node:fs'
-import { basename } from 'node:path'
+import { basename, dirname, join, parse, resolve } from 'node:path'
 import { Option } from 'clipanion'
 import type { z } from 'zod'
 
@@ -59,6 +59,7 @@ export type IntentFileExecutionDefinition =
 
 export interface IntentFileCommandDefinition {
   commandLabel: string
+  defaultOutputPath: string
   execution: IntentFileExecutionDefinition
   inputPolicy: IntentInputPolicy
   outputDescription: string
@@ -66,6 +67,7 @@ export interface IntentFileCommandDefinition {
 }
 
 export interface IntentNoInputCommandDefinition {
+  defaultOutputPath: string
   execution: IntentSingleStepExecutionDefinition
   outputDescription: string
   outputMode?: 'directory' | 'file'
@@ -338,6 +340,7 @@ async function executeIntentCommand({
   client,
   definition,
   output,
+  outputMode,
   outputPath,
   printUrls,
   rawValues,
@@ -347,6 +350,7 @@ async function executeIntentCommand({
   createOptions: Omit<AssembliesCreateOptions, 'output' | 'steps' | 'stepsData' | 'template'>
   definition: IntentFileCommandDefinition | IntentNoInputCommandDefinition
   output: AuthenticatedCommand['output']
+  outputMode?: 'directory' | 'file'
   outputPath?: string
   printUrls: boolean
   rawValues: Record<string, unknown>
@@ -379,7 +383,7 @@ async function executeIntentCommand({
   const { hasFailures, resultUrls } = await assembliesCommands.create(output, client, {
     ...createOptions,
     output: outputPath ?? null,
-    outputMode: definition.outputMode,
+    outputMode,
     ...executionOptions,
   })
   if (printUrls) {
@@ -391,7 +395,8 @@ async function executeIntentCommand({
 abstract class GeneratedIntentCommandBase extends AuthenticatedCommand {
   declare static intentDefinition: IntentFileCommandDefinition | IntentNoInputCommandDefinition
 
-  outputPath = Option.String('--out,-o', {
+  // Intents standardize on --output while the surface is still young enough to change cleanly.
+  outputPath = Option.String('--output,-o', {
     description: this.getOutputDescription(),
   })
 
@@ -410,23 +415,58 @@ abstract class GeneratedIntentCommandBase extends AuthenticatedCommand {
     return this.getIntentDefinition().outputDescription
   }
 
-  protected validateOutputChoice(): number | undefined {
-    if (this.outputPath == null && !this.printUrls) {
-      this.output.error('Specify at least one of --out or --print-urls')
-      return 1
+  protected resolveDefaultOutputPath(rawValues: Record<string, unknown>): string | undefined {
+    const defaultOutputPath = this.getIntentDefinition().defaultOutputPath
+    if (this.getIntentDefinition().outputMode === 'directory') {
+      return defaultOutputPath
     }
 
-    return undefined
+    const format = rawValues.format
+    if (typeof format !== 'string') {
+      return defaultOutputPath
+    }
+
+    const trimmedFormat = format.trim().toLowerCase()
+    if (!/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/.test(trimmedFormat)) {
+      return defaultOutputPath
+    }
+
+    const parsedDefaultOutputPath = parse(defaultOutputPath)
+    const outputBasename =
+      parsedDefaultOutputPath.name === ''
+        ? basename(defaultOutputPath, parsedDefaultOutputPath.ext)
+        : parsedDefaultOutputPath.name
+
+    return join(parsedDefaultOutputPath.dir, `${outputBasename}.${trimmedFormat}`)
+  }
+
+  protected getDefaultOutputPath(rawValues: Record<string, unknown>): string | undefined {
+    return this.resolveDefaultOutputPath(rawValues)
+  }
+
+  protected getEffectiveOutputPath(rawValues: Record<string, unknown>): string | undefined {
+    if (this.outputPath != null) {
+      return this.outputPath
+    }
+
+    if (this.printUrls) {
+      return undefined
+    }
+
+    return this.getDefaultOutputPath(rawValues)
+  }
+
+  protected getEffectiveOutputMode(
+    _rawValues: Record<string, unknown>,
+    _outputPath: string | undefined,
+  ): 'directory' | 'file' | undefined {
+    return this.getIntentDefinition().outputMode
   }
 }
 
 export abstract class GeneratedNoInputIntentCommand extends GeneratedIntentCommandBase {
   protected override async run(): Promise<number | undefined> {
-    const outputValidationError = this.validateOutputChoice()
-    if (outputValidationError != null) {
-      return outputValidationError
-    }
-
+    const rawValues = this.getIntentRawValues()
     return await executeIntentCommand({
       client: this.client,
       createOptions: {
@@ -434,9 +474,10 @@ export abstract class GeneratedNoInputIntentCommand extends GeneratedIntentComma
       },
       definition: this.getIntentDefinition() as IntentNoInputCommandDefinition,
       output: this.output,
-      outputPath: this.outputPath,
+      outputMode: this.getEffectiveOutputMode(rawValues, this.getEffectiveOutputPath(rawValues)),
+      outputPath: this.getEffectiveOutputPath(rawValues),
       printUrls: this.printUrls ?? false,
-      rawValues: this.getIntentRawValues(),
+      rawValues,
     })
   }
 }
@@ -481,6 +522,93 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
     return super.getIntentDefinition() as IntentFileCommandDefinition
   }
 
+  protected getSingleFilesystemFileInput(): string | null {
+    if ((this.inputBase64?.length ?? 0) > 0) {
+      return null
+    }
+
+    const localInputs = (this.inputs ?? []).filter((input) => input !== '-' && !isHttpUrl(input))
+    if (localInputs.length !== 1) {
+      return null
+    }
+
+    const candidate = localInputs[0]
+    if (candidate == null) {
+      return null
+    }
+
+    try {
+      return statSync(candidate).isFile() ? candidate : null
+    } catch {
+      return null
+    }
+  }
+
+  protected hasDirectoryInput(): boolean {
+    return (this.inputs ?? []).some((input) => {
+      if (input === '-' || isHttpUrl(input)) {
+        return false
+      }
+
+      try {
+        return statSync(input).isDirectory()
+      } catch {
+        return false
+      }
+    })
+  }
+
+  protected prefersDirectoryDefaultOutput(): boolean {
+    return this.getIntentDefinition().outputMode === 'directory'
+  }
+
+  protected getSuggestedDirectoryOutputPath(): string {
+    if (this.getIntentDefinition().outputMode === 'directory') {
+      return this.resolveDefaultOutputPath({}) ?? 'output/'
+    }
+
+    return 'output/'
+  }
+
+  protected getSiblingOutputPath(inputPath: string, rawValues: Record<string, unknown>): string {
+    if (this.getIntentDefinition().outputMode === 'directory') {
+      return join(dirname(inputPath), parse(inputPath).name)
+    }
+
+    const resolvedDefaultOutputPath = this.resolveDefaultOutputPath(rawValues)
+    const extension = parse(
+      resolvedDefaultOutputPath ?? this.getIntentDefinition().defaultOutputPath,
+    ).ext
+    const parsedInputPath = parse(inputPath)
+    const candidateOutputPath = join(dirname(inputPath), `${parsedInputPath.name}${extension}`)
+    if (resolve(candidateOutputPath) !== resolve(inputPath)) {
+      return candidateOutputPath
+    }
+
+    return join(dirname(inputPath), `${parsedInputPath.name}-output${extension}`)
+  }
+
+  protected override getDefaultOutputPath(rawValues: Record<string, unknown>): string | undefined {
+    if (this.prefersDirectoryDefaultOutput()) {
+      const singleFilesystemFileInput = this.getSingleFilesystemFileInput()
+      if (
+        this.getIntentDefinition().outputMode === 'directory' &&
+        singleFilesystemFileInput != null
+      ) {
+        return this.getSiblingOutputPath(singleFilesystemFileInput, rawValues)
+      }
+
+      return this.getSuggestedDirectoryOutputPath()
+    }
+
+    const singleFilesystemFileInput = this.getSingleFilesystemFileInput()
+    if (singleFilesystemFileInput != null) {
+      return this.getSiblingOutputPath(singleFilesystemFileInput, rawValues)
+    }
+
+    return this.resolveDefaultOutputPath(rawValues)
+  }
+
   protected async prepareInputs(): Promise<PreparedIntentInputs> {
     return await prepareIntentInputs({
       inputValues: this.inputs ?? [],
@@ -513,24 +641,39 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
     )
   }
 
-  protected resolveOutputMode(): 'directory' | 'file' | undefined {
+  protected resolveOutputMode(outputPath: string | undefined): 'directory' | 'file' | undefined {
     if (this.getIntentDefinition().outputMode != null) {
       return this.getIntentDefinition().outputMode
     }
 
-    if (this.outputPath == null) {
+    if (outputPath == null) {
       return undefined
     }
 
+    if (this.outputPath == null && this.prefersDirectoryDefaultOutput()) {
+      return 'directory'
+    }
+
+    if (/[\\/]$/.test(outputPath)) {
+      return 'directory'
+    }
+
     try {
-      return statSync(this.outputPath).isDirectory() ? 'directory' : 'file'
+      return statSync(outputPath).isDirectory() ? 'directory' : 'file'
     } catch {
       return 'file'
     }
   }
 
   protected isDirectoryOutputTarget(): boolean {
-    return this.resolveOutputMode() === 'directory'
+    return this.resolveOutputMode(this.outputPath) === 'directory'
+  }
+
+  protected override getEffectiveOutputMode(
+    rawValues: Record<string, unknown>,
+    outputPath: string | undefined,
+  ): 'directory' | 'file' | undefined {
+    return this.resolveOutputMode(outputPath ?? this.getDefaultOutputPath(rawValues))
   }
 
   protected validateInputPresence(rawValues: Record<string, unknown>): number | undefined {
@@ -556,11 +699,6 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
   }
 
   protected validateBeforePreparingInputs(rawValues: Record<string, unknown>): number | undefined {
-    const outputValidationError = this.validateOutputChoice()
-    if (outputValidationError != null) {
-      return outputValidationError
-    }
-
     const validationError = this.validateInputPresence(rawValues)
     if (validationError != null) {
       return validationError
@@ -591,12 +729,14 @@ abstract class GeneratedFileIntentCommandBase extends GeneratedIntentCommandBase
       }
     }
 
+    const effectiveOutputPath = this.getEffectiveOutputPath(rawValues)
     return await executeIntentCommand({
       client: this.client,
       createOptions: this.getCreateOptions(effectivePreparedInputs.inputs),
       definition: this.getIntentDefinition(),
       output: this.output,
-      outputPath: this.outputPath,
+      outputMode: this.getEffectiveOutputMode(rawValues, effectiveOutputPath),
+      outputPath: effectiveOutputPath,
       printUrls: this.printUrls ?? false,
       rawValues,
     })
@@ -669,6 +809,14 @@ export abstract class GeneratedWatchableFileIntentCommand extends GeneratedFileI
     return false
   }
 
+  protected override prefersDirectoryDefaultOutput(): boolean {
+    return (
+      super.prefersDirectoryDefaultOutput() ||
+      this.getProvidedInputCount() > 1 ||
+      this.hasDirectoryInput()
+    )
+  }
+
   protected override validatePreparedInputs(
     preparedInputs: PreparedIntentInputs,
   ): number | undefined {
@@ -685,6 +833,13 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedWatcha
 
   protected override getSingleAssemblyEnabled(): boolean {
     return this.singleAssembly
+  }
+
+  protected override prefersDirectoryDefaultOutput(): boolean {
+    return (
+      super.prefersDirectoryDefaultOutput() ||
+      (this.singleAssembly && (this.getProvidedInputCount() > 1 || this.hasDirectoryInput()))
+    )
   }
 
   protected override getCreateOptions(
@@ -706,14 +861,7 @@ export abstract class GeneratedStandardFileIntentCommand extends GeneratedWatcha
 
     if (
       this.singleAssembly &&
-      (this.getProvidedInputCount() > 1 ||
-        this.inputs.some((inputPath) => {
-          try {
-            return statSync(inputPath).isDirectory()
-          } catch {
-            return false
-          }
-        })) &&
+      (this.getProvidedInputCount() > 1 || this.hasDirectoryInput()) &&
       this.outputPath != null &&
       !this.isDirectoryOutputTarget()
     ) {

@@ -24,7 +24,7 @@ describe('intent docs generation', () => {
     })
 
     expect(markdown).toContain(
-      'transloadit image generate --input person1.jpg --input person2.jpg --input background.jpg --prompt "Place person1.jpg feeding person2.jpg in front of background.jpg" --out output.png',
+      'transloadit image generate --input person1.jpg --input person2.jpg --input background.jpg --prompt "Place person1.jpg feeding person2.jpg in front of background.jpg" --output output.png',
     )
   })
 })
