@@ -1413,4 +1413,72 @@ describe('assemblies create', () => {
     expect(loggedError).toBeInstanceOf(Error)
     expect((loggedError as Error).message).toContain('Polling timed out')
   })
+
+  it('does not report another assembly URL when concurrent polling times out', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-timeout-concurrent-url-')
+    const inputA = path.join(tempDir, 'a.jpg')
+    const inputB = path.join(tempDir, 'b.jpg')
+
+    await writeFile(inputA, 'image-a')
+    await writeFile(inputB, 'image-b')
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi
+        .fn()
+        .mockResolvedValueOnce({ assembly_id: 'assembly-one' })
+        .mockResolvedValueOnce({ assembly_id: 'assembly-two' }),
+      getLastUsedAssemblyUrl: vi
+        .fn()
+        .mockReturnValue('https://api2.transloadit.com/assemblies/assembly-two'),
+      awaitAssemblyCompletion: vi.fn(async (assemblyId: string) => {
+        if (assemblyId === 'assembly-one') {
+          await delay(30)
+          throw new PollingTimeoutError('Polling timed out')
+        }
+
+        await delay(5)
+        return {
+          ok: 'ASSEMBLY_COMPLETED',
+          results: {
+            resized: [{ url: 'http://downloads.test/result-two.jpg', name: 'result-two.jpg' }],
+          },
+        }
+      }),
+    }
+
+    await expect(
+      create(output, client as never, {
+        concurrency: 2,
+        inputs: [inputA, inputB],
+        output: null,
+        stepsData: {
+          resized: {
+            robot: '/image/resize',
+            result: true,
+            use: ':original',
+            width: 200,
+          },
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hasFailures: true,
+      }),
+    )
+
+    const loggedError = consoleError.mock.calls.find(
+      ([prefix, value]) =>
+        prefix === 'err    ' &&
+        value instanceof Error &&
+        value.message.includes('Assembly ID: assembly-one'),
+    )?.[1]
+
+    expect(loggedError).toBeInstanceOf(Error)
+    expect((loggedError as Error).message).not.toContain(
+      'https://api2.transloadit.com/assemblies/assembly-two',
+    )
+  })
 })

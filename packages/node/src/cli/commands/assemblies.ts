@@ -1403,12 +1403,7 @@ export async function create(
       const result = await client.createAssembly(createOptions)
       const assemblyId = result.assembly_id
       if (!assemblyId) throw new Error('No assembly_id in result')
-      const assemblyUrl =
-        result.assembly_ssl_url ??
-        result.assembly_url ??
-        ('getLastUsedAssemblyUrl' in client && typeof client.getLastUsedAssemblyUrl === 'function'
-          ? client.getLastUsedAssemblyUrl()
-          : null)
+      const assemblyUrl = result.assembly_ssl_url ?? result.assembly_url ?? null
       const assemblyReference = formatAssemblyReference({ assemblyId, assemblyUrl })
 
       let assembly: Awaited<ReturnType<typeof client.awaitAssemblyCompletion>>
