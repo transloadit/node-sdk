@@ -792,7 +792,9 @@ describe('assemblies create', () => {
     await utimes(inputPath, secondChangeTime, secondChangeTime)
     fakeWatcher.emit('change', 'update', inputPath)
 
-    await delay(20)
+    await vi.waitFor(() => {
+      expect(client.awaitAssemblyCompletion).toHaveBeenCalledTimes(2)
+    })
     fakeWatcher.close()
 
     await expect(createPromise).resolves.toEqual(
@@ -892,7 +894,9 @@ describe('assemblies create', () => {
     await utimes(inputPath, secondChangeTime, secondChangeTime)
     fakeWatcher.emit('change', 'update', inputPath)
 
-    await delay(20)
+    await vi.waitFor(() => {
+      expect(client.awaitAssemblyCompletion).toHaveBeenCalledTimes(2)
+    })
     fakeWatcher.close()
 
     await expect(createPromise).resolves.toEqual(
@@ -998,7 +1002,9 @@ describe('assemblies create', () => {
     await utimes(inputPath, secondChangeTime, secondChangeTime)
     fakeWatcher.emit('change', 'update', inputPath)
 
-    await delay(20)
+    await vi.waitFor(() => {
+      expect(client.awaitAssemblyCompletion).toHaveBeenCalledTimes(2)
+    })
     fakeWatcher.close()
 
     await expect(createPromise).resolves.toEqual(
