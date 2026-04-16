@@ -161,6 +161,7 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'anthropic/claude-sonnet-4-5': { pdf: true, image: true },
   'anthropic/claude-opus-4-5': { pdf: true, image: true },
   'anthropic/claude-opus-4-6': { pdf: true, image: true },
+  'anthropic/claude-opus-4-7': { pdf: true, image: true },
   'openai/gpt-4.1-2025-04-14': { pdf: false, image: true },
   'openai/chatgpt-4o-latest': { pdf: false, image: true },
   'openai/o3-2025-04-16': { pdf: false, image: true },
@@ -177,10 +178,10 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
 }
 
 // Default model for /ai/chat when `model: "auto"` (or unset).
-// 2026-02-10: default is Opus 4.6 (intentional; aligns with our current recommended Anthropic
+// 2026-04-16: default is Opus 4.7 (intentional; aligns with our current recommended Anthropic
 // flagship model and the system tests in this repo). Keep this aligned with MODEL_CAPABILITIES.
 export const AI_CHAT_DEFAULT_MODEL =
-  'anthropic/claude-opus-4-6' satisfies keyof typeof MODEL_CAPABILITIES
+  'anthropic/claude-opus-4-7' satisfies keyof typeof MODEL_CAPABILITIES
 
 const supportedModelsList = Object.keys(MODEL_CAPABILITIES)
 
