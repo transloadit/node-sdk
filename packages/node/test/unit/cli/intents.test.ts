@@ -1529,6 +1529,49 @@ describe('intent commands', () => {
     )
   })
 
+  it('maps image merge to a bundled single assembly with collage effect', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'merge',
+      '--input',
+      'photo-a.jpg',
+      '--input',
+      'photo-b.jpg',
+      '--effect',
+      'polaroid-stack',
+      '--width',
+      '1920',
+      '--height',
+      '1200',
+      '--output',
+      'collage.png',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['photo-a.jpg', 'photo-b.jpg'],
+        output: 'collage.png',
+        singleAssembly: true,
+        stepsData: {
+          [getIntentStepName(['image', 'merge'])]: expect.objectContaining({
+            robot: '/image/merge',
+            result: true,
+            effect: 'polaroid-stack',
+            width: 1920,
+            height: 1200,
+            use: {
+              steps: [':original'],
+              bundle_steps: true,
+            },
+          }),
+        },
+      }),
+    )
+  })
+
   it('omits nullable defaults like file compress password when not provided', async () => {
     const { createSpy } = await runIntentCommand([
       'file',

@@ -38,6 +38,10 @@ import {
   meta as robotImageBgremoveMeta,
 } from '../alphalib/types/robots/image-bgremove.ts'
 import {
+  robotImageMergeInstructionsSchema,
+  meta as robotImageMergeMeta,
+} from '../alphalib/types/robots/image-merge.ts'
+import {
   robotImageOptimizeInstructionsSchema,
   meta as robotImageOptimizeMeta,
 } from '../alphalib/types/robots/image-optimize.ts'
@@ -182,6 +186,13 @@ export const intentCatalog = [
     robot: '/image/bgremove',
     meta: robotImageBgremoveMeta,
     schema: robotImageBgremoveInstructionsSchema,
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/image/merge',
+    defaultSingleAssembly: true,
+    meta: robotImageMergeMeta,
+    schema: robotImageMergeInstructionsSchema,
   }),
   defineRobotIntent({
     kind: 'robot',
