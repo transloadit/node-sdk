@@ -1,5 +1,12 @@
 # @transloadit/node
 
+## 4.8.3
+
+### Patch Changes
+
+- f79d2d0: Improve `assemblies create` timeout diagnostics by including the assembly URL when available and
+  stabilize the CLI watch-mode test coverage around concurrent assembly updates.
+
 ## 4.8.2
 
 ### Patch Changes

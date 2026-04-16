@@ -1,5 +1,14 @@
 # @transloadit/mcp-server
 
+## 0.3.16
+
+### Patch Changes
+
+- f79d2d0: Improve `assemblies create` timeout diagnostics by including the assembly URL when available and
+  stabilize the CLI watch-mode test coverage around concurrent assembly updates.
+- Updated dependencies [f79d2d0]
+  - @transloadit/node@4.8.3
+
 ## 0.3.15
 
 ### Patch Changes
