@@ -1,5 +1,13 @@
 # @transloadit/node
 
+## 4.9.0
+
+### Minor Changes
+
+- a6b4233: Add an `image merge` intent command that wires up the `/image/merge` Robot's new `polaroid-stack`
+  and `mosaic` collage effects alongside the classic spritesheet modes. Also syncs the updated
+  `/image/merge` schema from alphalib.
+
 ## 4.8.3
 
 ### Patch Changes
