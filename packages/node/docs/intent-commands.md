@@ -15,6 +15,7 @@ All intent commands also support the global CLI flags `--json`, `--log-level`, `
 | `image generate` | Generate images from text prompts | file, dir, URL, base64 | file |
 | `preview generate` | Generate a preview thumbnail | file, dir, URL, base64 | file |
 | `image remove-background` | Remove the background from images | file, dir, URL, base64 | file |
+| `image merge` | Merge several images into a single image | file, dir, URL, base64 | file |
 | `image optimize` | Optimize images without quality loss | file, dir, URL, base64 | file |
 | `image resize` | Convert, resize, or watermark images | file, dir, URL, base64 | file |
 | `document convert` | Convert documents into different formats | file, dir, URL, base64 | file |
@@ -220,6 +221,53 @@ npx transloadit image remove-background --input <path|dir|url|-> [options]
 
 ```bash
 transloadit image remove-background --input input.png --output output.png
+```
+
+## `image merge`
+
+Merge several images into a single image
+
+Runs `/image/merge` for the provided inputs and writes the result to `--output`.
+
+**Usage**
+
+```bash
+npx transloadit image merge --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: single assembly
+- Backend: `/image/merge`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--format` | `string` | no | `jpg` | The output format for the modified image. |
+| `--direction` | `string` | no | `horizontal` | Specifies the direction which the images are displayed. Only applies to the default spritesheet layout. Ignored when effect is set to polaroid-stack or mosaic, as those effects… |
+| `--effect` | `string` | no | `mosaic` | Applies a styled collage layout instead of a plain horizontal or vertical spritesheet. |
+| `--border` | `number` | no | `1` | An integer value which defines the gap between images on the spritesheet. |
+| `--background` | `string` | no | `transparent` | Either the hexadecimal code or name of the color used to fill the background (only shown with a border > 1). |
+| `--width` | `number` | no | `1` | The output canvas width in pixels. This is mainly used by styled effects such as polaroid-stack and mosaic. |
+| `--height` | `number` | no | `1` | The output canvas height in pixels. This is mainly used by styled effects such as polaroid-stack and mosaic. |
+| `--seed` | `number` | no | `1` | Optional deterministic seed used by styled effects such as polaroid-stack and mosaic. |
+| `--shuffle` | `boolean` | no | `true` | Whether styled effects such as polaroid-stack and mosaic may shuffle the input order before laying out the canvas. |
+| `--coverage` | `number` | no | `1` | Area-coverage multiplier for the polaroid-stack effect. Controls how large each polaroid is relative to the canvas and consequently how much of the canvas is covered by photos.… |
+| `--adaptive-filtering` | `boolean` | no | `true` | Controls the image compression for PNG images. Setting to true results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled. |
+| `--quality` | `number` | no | `1` | Controls the image compression for JPG, PNG, and WebP images. Please also take a look at 🤖/image/optimize. |
+
+**Examples**
+
+```bash
+transloadit image merge --input input.png --output output.png
 ```
 
 ## `image optimize`
