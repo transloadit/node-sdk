@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.9.1
+
+### Patch Changes
+
+- 06fb294: Document and test `gpt-image-2` support in the image generation intent flow.
+
 ## 4.9.0
 
 ### Minor Changes

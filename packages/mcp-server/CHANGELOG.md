@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.18
+
+### Patch Changes
+
+- 06fb294: Document and test `gpt-image-2` support in the image generation intent flow.
+- Updated dependencies [06fb294]
+  - @transloadit/node@4.9.1
+
 ## 0.3.17
 
 ### Patch Changes
