@@ -34,4 +34,11 @@ describe('robot catalog helpers', () => {
     expect(Array.isArray(help.examples)).toBe(true)
     expect(help.examples?.length).toBeGreaterThan(0)
   })
+
+  it('includes gpt-image-2 in /image/generate model help text', () => {
+    const help = getRobotHelp({ robotName: '/image/generate', detailLevel: 'full' })
+    const modelParam = help.optionalParams.find((param) => param.name === 'model')
+
+    expect(modelParam?.description).toContain('gpt-image-2')
+  })
 })
