@@ -524,6 +524,44 @@ describe('intent commands', () => {
     )
   })
 
+  it('passes through gpt-image-2 and explicit dimensions for image generate', async () => {
+    const { createSpy } = await runIntentCommand([
+      'image',
+      'generate',
+      '--prompt',
+      'A ceramic coffee mug on a white sweep',
+      '--model',
+      'gpt-image-2',
+      '--width',
+      '1024',
+      '--height',
+      '1024',
+      '--format',
+      'png',
+      '--output',
+      'generated.png',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        stepsData: {
+          generate: expect.objectContaining({
+            robot: '/image/generate',
+            model: 'gpt-image-2',
+            prompt: 'A ceramic coffee mug on a white sweep',
+            width: 1024,
+            height: 1024,
+            format: 'png',
+            result: true,
+          }),
+        },
+      }),
+    )
+  })
+
   it('bundles image generate inputs into a single /image/generate step', async () => {
     const { createSpy } = await runIntentCommand([
       'image',
