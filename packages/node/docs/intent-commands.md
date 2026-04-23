@@ -104,7 +104,7 @@ npx transloadit image generate [--input <path|dir|url|->] [options]
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
 | `--prompt` | `string` | yes | `"A red bicycle in a studio"` | The prompt describing the desired image content. |
-| `--model` | `string` | no | `google/nano-banana-2` | The AI model to use for image generation. Defaults to google/nano-banana-2. Backend-supported models include gpt-image-2 and Google Nano Banana variants. |
+| `--model` | `string` | no | `google/nano-banana-2` | The AI model to use for image generation. Defaults to google/nano-banana-2. Backend-supported models include openai/gpt-image-2 and Google Nano Banana variants. |
 | `--format` | `string` | no | `jpg` | Format of the generated image. |
 | `--seed` | `number` | no | — | Seed for the random number generator. |
 | `--aspect-ratio` | `string` | no | — | Aspect ratio of the generated image. |
@@ -119,7 +119,7 @@ npx transloadit image generate [--input <path|dir|url|->] [options]
 # Generate an image from text
 transloadit image generate --prompt "A red bicycle in a studio" --output output.png
 # Generate with OpenAI gpt-image-2
-transloadit image generate --model gpt-image-2 --width 1024 --height 1024 --prompt "A ceramic coffee mug on a white sweep" --output output.png
+transloadit image generate --model openai/gpt-image-2 --width 1024 --height 1024 --prompt "A ceramic coffee mug on a white sweep" --output output.png
 # Guide generation with one input image
 transloadit image generate --input subject.jpg --prompt "Place subject.jpg on a magazine cover" --output output.png
 # Guide generation with multiple input images

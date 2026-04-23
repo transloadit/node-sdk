@@ -524,14 +524,14 @@ describe('intent commands', () => {
     )
   })
 
-  it('passes through gpt-image-2 and explicit dimensions for image generate', async () => {
+  it('passes through openai/gpt-image-2 and explicit dimensions for image generate', async () => {
     const { createSpy } = await runIntentCommand([
       'image',
       'generate',
       '--prompt',
       'A ceramic coffee mug on a white sweep',
       '--model',
-      'gpt-image-2',
+      'openai/gpt-image-2',
       '--width',
       '1024',
       '--height',
@@ -550,7 +550,7 @@ describe('intent commands', () => {
         stepsData: {
           generate: expect.objectContaining({
             robot: '/image/generate',
-            model: 'gpt-image-2',
+            model: 'openai/gpt-image-2',
             prompt: 'A ceramic coffee mug on a white sweep',
             width: 1024,
             height: 1024,
