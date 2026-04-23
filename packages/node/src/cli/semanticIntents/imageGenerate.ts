@@ -21,7 +21,7 @@ const imageGenerateOptionDefinitions = [
     kind: 'string',
     propertyName: 'model',
     optionFlags: '--model',
-    description: `The AI model to use for image generation. Defaults to ${defaultImageGenerateModel}. Backend-supported models include gpt-image-2 and Google Nano Banana variants.`,
+    description: `The AI model to use for image generation. Defaults to ${defaultImageGenerateModel}. Backend-supported models include openai/gpt-image-2 and Google Nano Banana variants.`,
     required: false,
     exampleValue: defaultImageGenerateModel,
   },
@@ -95,7 +95,7 @@ const imageGenerateCommandPresentation = {
     ],
     [
       'Generate with OpenAI gpt-image-2',
-      'transloadit image generate --model gpt-image-2 --width 1024 --height 1024 --prompt "A ceramic coffee mug on a white sweep" --output output.png',
+      'transloadit image generate --model openai/gpt-image-2 --width 1024 --height 1024 --prompt "A ceramic coffee mug on a white sweep" --output output.png',
     ],
     [
       'Guide generation with one input image',
