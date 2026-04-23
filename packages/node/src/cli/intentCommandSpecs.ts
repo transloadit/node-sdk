@@ -50,6 +50,10 @@ import {
   meta as robotImageResizeMeta,
 } from '../alphalib/types/robots/image-resize.ts'
 import {
+  robotImageUpscaleInstructionsSchema,
+  meta as robotImageUpscaleMeta,
+} from '../alphalib/types/robots/image-upscale.ts'
+import {
   robotTextSpeakInstructionsSchema,
   meta as robotTextSpeakMeta,
 } from '../alphalib/types/robots/text-speak.ts'
@@ -205,6 +209,12 @@ export const intentCatalog = [
     robot: '/image/resize',
     meta: robotImageResizeMeta,
     schema: robotImageResizeInstructionsSchema,
+  }),
+  defineRobotIntent({
+    kind: 'robot',
+    robot: '/image/upscale',
+    meta: robotImageUpscaleMeta,
+    schema: robotImageUpscaleInstructionsSchema,
   }),
   defineRobotIntent({
     kind: 'robot',

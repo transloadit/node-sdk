@@ -100,6 +100,11 @@ const intentSmokeOverrides: Record<string, Omit<IntentSmokeCase, 'key' | 'paths'
     outputPath: 'image-resize.jpg',
     verifier: 'jpeg',
   },
+  '/image/upscale': {
+    args: ['--input', '@fixture/input.jpg'],
+    outputPath: 'image-upscale.png',
+    verifier: 'png',
+  },
   '/text/speak': {
     args: ['--prompt', 'Hello from the Transloadit Node CLI intents test.', '--provider', 'aws'],
     outputPath: 'text-speak.mp3',

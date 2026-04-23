@@ -18,6 +18,7 @@ All intent commands also support the global CLI flags `--json`, `--log-level`, `
 | `image merge` | Merge several images into a single image | file, dir, URL, base64 | file |
 | `image optimize` | Optimize images without quality loss | file, dir, URL, base64 | file |
 | `image resize` | Convert, resize, or watermark images | file, dir, URL, base64 | file |
+| `image upscale` | Upscale images | file, dir, URL, base64 | file |
 | `document convert` | Convert documents into different formats | file, dir, URL, base64 | file |
 | `document optimize` | Reduce PDF file size | file, dir, URL, base64 | file |
 | `document auto-rotate` | Auto-rotate documents to the correct orientation | file, dir, URL, base64 | file |
@@ -391,6 +392,44 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 
 ```bash
 transloadit image resize --input input.png --output output.png
+```
+
+## `image upscale`
+
+Upscale images
+
+Runs `/image/upscale` on each input file and writes the result to `--output`.
+
+**Usage**
+
+```bash
+npx transloadit image upscale --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--single-assembly` and `--watch`
+- Backend: `/image/upscale`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags, bundling flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--model` | `string` | no | `nightmareai/real-esrgan` | The AI model to use for image upscaling. Defaults to nightmareai/real-esrgan. |
+| `--scale` | `number` | no | `2` | Upscale factor. Defaults to 2. |
+| `--face-enhance` | `boolean` | no | `true` | Enable face enhancement for better face restoration. Defaults to false. |
+
+**Examples**
+
+```bash
+transloadit image upscale --input input.png --output output.png
 ```
 
 ## `document convert`
