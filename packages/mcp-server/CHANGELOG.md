@@ -1,5 +1,15 @@
 # @transloadit/mcp-server
 
+## 0.3.19
+
+### Patch Changes
+
+- 153674b: Add an `image upscale` intent command that wires up the `/image/upscale` Robot for AI image
+  upscaling. Flags `--model` (`nightmareai/real-esrgan` by default, plus `tencentarc/gfpgan` and
+  `sczhou/codeformer`), `--scale` (2 or 4), and `--face-enhance` are derived from the robot schema.
+- Updated dependencies [153674b]
+  - @transloadit/node@4.10.0
+
 ## 0.3.18
 
 ### Patch Changes
