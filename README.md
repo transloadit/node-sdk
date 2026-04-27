@@ -386,6 +386,7 @@ Retrieves the billing data for a given `date` string with format `YYYY-MM`. See 
 #### calcSignature(params)
 
 Calculates a signature for the given `params` JSON object. If the `params` object does not include an `authKey` or `expires` keys (and their values) in the `auth` sub-key, then they are set automatically.
+Signatures are generated using `sha384`.
 
 This function returns an object with the key `signature` (containing the calculated signature string) and a key `params`, which contains the stringified version of the passed `params` object (including the set expires and authKey keys).
 

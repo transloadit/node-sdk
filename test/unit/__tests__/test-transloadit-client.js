@@ -272,6 +272,16 @@ describe('Transloadit', () => {
         'sha384:fc75f6a4bbb06340653c0f7efff013e94eb8e402e0e45cf40ad4bc95f45a3ae3263032000727359c595a433364a84f96'
       return expect(client._calcSignature('akjdkadskjads')).toBe(expected)
     })
+
+    it('should always generate sha384 signatures', () => {
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+      client._authSecret = '13123123123'
+
+      const expected =
+        'sha384:8b90663d4b7d14ac7d647c74cb53c529198dee4689d0f8faae44f0df1c2a157acce5cb8c55a375218bc331897cf92e9d'
+
+      expect(client._calcSignature('foo', 'sha1')).toBe(expected)
+    })
   })
 
   describe('_remoteJson', () => {
