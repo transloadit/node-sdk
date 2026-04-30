@@ -170,6 +170,7 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'openai/gpt-5.2-2025-12-11': { pdf: false, image: true },
   'openai/gpt-5.2-chat-latest': { pdf: false, image: true },
   'openai/gpt-5.2-pro': { pdf: false, image: true },
+  'openai/gpt-5.5': { pdf: false, image: true },
   'openai/gpt-5.4': { pdf: false, image: true },
   'openai/gpt-5.4-mini': { pdf: false, image: true },
   'openai/gpt-5.4-nano': { pdf: false, image: true },
@@ -178,10 +179,9 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
 }
 
 // Default model for /ai/chat when `model: "auto"` (or unset).
-// 2026-04-16: default is Opus 4.7 (intentional; aligns with our current recommended Anthropic
-// flagship model and the system tests in this repo). Keep this aligned with MODEL_CAPABILITIES.
-export const AI_CHAT_DEFAULT_MODEL =
-  'anthropic/claude-opus-4-7' satisfies keyof typeof MODEL_CAPABILITIES
+// 2026-04-29: default is GPT-5.5 (intentional; aligns with our current recommended OpenAI
+// flagship model). Keep this aligned with MODEL_CAPABILITIES.
+export const AI_CHAT_DEFAULT_MODEL = 'openai/gpt-5.5' satisfies keyof typeof MODEL_CAPABILITIES
 
 const supportedModelsList = Object.keys(MODEL_CAPABILITIES)
 
@@ -216,7 +216,7 @@ export const robotAiChatInstructionsSchema = robotBase
       .optional()
       .describe('Set the system/developer prompt, if the model allows it'),
     reasoning_effort: z
-      .enum(['high', 'medium', 'low'])
+      .enum(['xhigh', 'high', 'medium', 'low'])
       .optional()
       .describe(
         'Controls how much effort the model spends on reasoning. Higher values produce more thorough responses but cost more tokens. Applies to models that support extended thinking (OpenAI o-series, GPT-5.x, Anthropic Claude with thinking). If omitted, the model default is used.',
