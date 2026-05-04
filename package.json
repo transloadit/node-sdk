@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "yarn lint:changesets && yarn fix:deps && yarn fix:js && yarn lint:ts && yarn test:unit",
+    "check": "yarn lint:changesets && yarn lint:deps && yarn fix:js && yarn lint:ts && yarn test:unit",
     "verify": "yarn lint:changesets && yarn lint:publish && yarn lint:deps && yarn lint:js && yarn lint:ts && yarn lint:transloadit-sync && yarn test:unit",
     "verify:full": "yarn verify && yarn knip && yarn test:types",
     "changeset:version:release": "yarn changeset version && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install",
