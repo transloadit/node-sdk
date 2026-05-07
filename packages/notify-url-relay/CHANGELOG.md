@@ -1,5 +1,13 @@
 # @transloadit/notify-url-relay
 
+## 0.2.1
+
+### Patch Changes
+
+- e832510: Refresh runtime dependencies used by the relay and Zod helper packages.
+- Updated dependencies [e832510]
+  - @transloadit/zod@4.3.1
+
 ## 0.2.0
 
 ### Minor Changes

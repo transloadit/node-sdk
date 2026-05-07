@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.10.1
+
+### Patch Changes
+
+- e832510: Refresh Node SDK and CLI dependencies, removing unused AWS SDK packages from the published dependency tree while keeping existing API behavior unchanged.
+
 ## 4.10.0
 
 ### Minor Changes
