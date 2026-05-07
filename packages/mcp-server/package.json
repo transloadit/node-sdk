@@ -1,6 +1,6 @@
 {
   "name": "@transloadit/mcp-server",
-  "version": "0.3.20",
+  "version": "0.3.21",
   "description": "Transloadit MCP server",
   "keywords": [
     "mcp",
@@ -62,7 +62,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@transloadit/node": "^4.10.1",
+    "@transloadit/node": "^4.10.2",
     "@transloadit/sev-logger": "^0.1.9",
     "express": "^5.2.1",
     "prom-client": "^15.1.3",
