@@ -62,13 +62,29 @@ const config: KnipConfig = {
       project: ['src/**/*.{ts,tsx,js,jsx}'],
       ignore: [...sharedIgnore, alphalibIgnore],
       ignoreDependencies: [
-        // Used by generated compatibility package sources that Knip misses in this workspace.
+        // Used by generated compatibility package sources that are absent in fresh CI checkouts.
         '@transloadit/sev-logger',
+        '@transloadit/utils',
         'cacheable-lookup',
+        'clipanion',
+        'debug',
         'dotenv',
+        'form-data',
+        'got',
+        'into-stream',
+        'is-stream',
         'json-to-ast',
         'lodash-es',
+        'node-watch',
+        'p-map',
+        'p-queue',
+        'recursive-readdir',
+        'tus-js-client',
+        'typanion',
         'type-fest',
+        'zod',
+        '@types/debug',
+        '@types/recursive-readdir',
       ],
     },
     'packages/types': {
@@ -85,6 +101,10 @@ const config: KnipConfig = {
       entry: ['src/**/*.{ts,tsx,js,jsx}', 'scripts/**/*.ts', 'test/**/*.ts'],
       project: ['{src,scripts,test}/**/*.ts'],
       ignore: ['dist/**', 'node_modules/**'],
+      ignoreDependencies: [
+        // Generated code uses this after sync, but sources don't import it directly.
+        'type-fest',
+      ],
     },
   },
 }
