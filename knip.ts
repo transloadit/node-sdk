@@ -25,17 +25,8 @@ const config: KnipConfig = {
       project: ['{src,test}/**/*.{ts,tsx,js,jsx}'],
       ignore: [...sharedIgnore, alphalibIgnore],
       ignoreDependencies: [
-        // Used in src/alphalib/** which is excluded from knip
-        '@aws-sdk/client-s3',
-        '@aws-sdk/s3-request-presigner',
+        // Used in src/alphalib/** which is excluded from Knip's dependency graph.
         '@transloadit/sev-logger',
-        'json-to-ast',
-        'lodash-es',
-        'type-fest',
-        'zod',
-        // Repo-specific ignores
-        '@types/minimist',
-        'minimatch',
         // Tooling lives at the repo root in this monorepo.
         'vitest',
         'vitest/config',
@@ -45,13 +36,20 @@ const config: KnipConfig = {
       entry: ['src/**/*.ts', 'test/**/*.{ts,tsx,js,jsx}'],
       project: ['{src,test}/**/*.{ts,tsx,js,jsx}'],
       ignore: [...sharedIgnore],
-      ignoreDependencies: ['@types/express', '@types/node', 'vitest', 'vitest/config'],
+      ignoreDependencies: [
+        // Tooling lives at the repo root in this monorepo.
+        'vitest',
+      ],
     },
     'packages/notify-url-relay': {
       entry: ['src/**/*.ts', 'test/**/*.ts', 'vitest.config.ts'],
       project: ['{src,test}/**/*.ts'],
       ignore: [...sharedIgnore],
-      ignoreDependencies: ['@types/node', 'vitest', 'vitest/config'],
+      ignoreDependencies: [
+        // Tooling lives at the repo root in this monorepo.
+        'vitest',
+        'vitest/config',
+      ],
     },
     'packages/transloadit': {
       entry: [
@@ -64,44 +62,19 @@ const config: KnipConfig = {
       project: ['src/**/*.{ts,tsx,js,jsx}'],
       ignore: [...sharedIgnore, alphalibIgnore],
       ignoreDependencies: [
-        // Used in src/alphalib/** which is excluded from knip
-        '@aws-sdk/client-s3',
-        '@aws-sdk/s3-request-presigner',
+        // Used by generated compatibility package sources that Knip misses in this workspace.
         '@transloadit/sev-logger',
-        'clipanion',
-        'debug',
-        'dotenv',
-        'form-data',
-        'got',
-        'into-stream',
-        'is-stream',
         'cacheable-lookup',
-        'node-watch',
-        'p-map',
-        'p-queue',
-        'recursive-readdir',
-        'tus-js-client',
-        'typanion',
-        'type-fest',
-        'zod',
-        '@transloadit/utils',
+        'dotenv',
         'json-to-ast',
         'lodash-es',
-        // Repo-specific ignores
-        '@types/debug',
-        '@types/minimist',
-        '@types/recursive-readdir',
-        'minimatch',
+        'type-fest',
       ],
     },
     'packages/types': {
       entry: ['src/index.ts', 'scripts/emit-types.ts', 'scripts/emit-types.test.ts'],
       project: ['{src,scripts}/**/*.ts'],
       ignore: ['dist/**', 'node_modules/**'],
-      ignoreDependencies: [
-        // Zod is required for type inspection but not imported directly.
-        'zod',
-      ],
     },
     'packages/utils': {
       entry: ['src/**/*.{ts,tsx,js,jsx}'],
@@ -112,10 +85,6 @@ const config: KnipConfig = {
       entry: ['src/**/*.{ts,tsx,js,jsx}', 'scripts/**/*.ts', 'test/**/*.ts'],
       project: ['{src,scripts,test}/**/*.ts'],
       ignore: ['dist/**', 'node_modules/**'],
-      ignoreDependencies: [
-        // Generated code uses this after sync, but sources don't import it directly.
-        'type-fest',
-      ],
     },
   },
 }

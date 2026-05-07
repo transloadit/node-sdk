@@ -31,5 +31,8 @@
     "build": "../../node_modules/.bin/tsc --build tsconfig.build.json",
     "check": "yarn lint:ts",
     "prepack": "yarn build"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0"
   }
 }

@@ -39,11 +39,11 @@
     "@transloadit/sev-logger": "^0.1.9",
     "@transloadit/utils": "^4.3.0",
     "@transloadit/zod": "^4.3.0",
-    "dotenv": "^17.2.3",
-    "p-retry": "^7.1.1"
+    "dotenv": "^17.4.2",
+    "p-retry": "^8.0.0"
   },
   "devDependencies": {
-    "@types/node": "^24.10.3",
+    "@types/node": "^25.6.0",
     "transloadit": "^4.7.4"
   }
 }

@@ -209,7 +209,7 @@ describe('Mocked API tests', () => {
       '  reason: undefined,',
       `  assemblySslUrl: 'https:\\/\\/api2-oltu\\.transloadit\\.com\\/assemblies\\/foo'`,
       `  assemblyId: '123',`,
-      '  cause: HTTPError: Response code 400 \\(Bad Request\\)',
+      '  cause: HTTPError: (Response code|Request failed with status code) 400 \\(Bad Request\\)',
       `    code: 'ERR_NON_2XX_3XX_RESPONSE',`,
       '    \\[cause\\]: {}',
     ]

@@ -38,8 +38,5 @@
     "build": "yarn generate && ../../node_modules/.bin/tsc --build tsconfig.build.json",
     "prepack": "yarn build",
     "check": "yarn generate && yarn test:unit && ../../node_modules/.bin/tsc --build tsconfig.build.json"
-  },
-  "devDependencies": {
-    "zod": "3.25.76"
   }
 }
