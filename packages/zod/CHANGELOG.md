@@ -1,5 +1,11 @@
 # @transloadit/zod
 
+## 4.3.1
+
+### Patch Changes
+
+- e832510: Refresh runtime dependencies used by the relay and Zod helper packages.
+
 ## 4.3.0
 
 ## 4.2.0

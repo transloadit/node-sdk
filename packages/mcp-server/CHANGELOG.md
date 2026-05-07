@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.20
+
+### Patch Changes
+
+- e832510: Refresh Node SDK and CLI dependencies, removing unused AWS SDK packages from the published dependency tree while keeping existing API behavior unchanged.
+- Updated dependencies [e832510]
+  - @transloadit/node@4.10.1
+
 ## 0.3.19
 
 ### Patch Changes
