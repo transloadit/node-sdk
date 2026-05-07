@@ -11,6 +11,7 @@
     "module": "NodeNext",
     "allowImportingTsExtensions": true,
     "target": "ES2022",
+    "types": ["node"],
     "noImplicitOverride": true,
     "rewriteRelativeImportExtensions": true,
     "outDir": "dist",

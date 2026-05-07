@@ -7,6 +7,7 @@
     "isolatedModules": true,
     "module": "NodeNext",
     "allowImportingTsExtensions": true,
+    "types": ["node"],
     "noImplicitOverride": true,
     "noEmit": true,
     "resolveJsonModule": true,

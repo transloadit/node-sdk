@@ -22,14 +22,20 @@ vi.mock('node:fs/promises', () => ({
 }))
 
 const { uploadCtor } = vi.hoisted(() => ({
-  uploadCtor: vi.fn((_stream: unknown, options: UploadOptions) => ({
-    start: vi.fn(() => {
-      if (!startBehavior) {
-        throw new Error('startBehavior not configured for test')
+  uploadCtor: vi.fn(
+    class MockUpload {
+      start: () => void
+
+      constructor(_stream: unknown, options: UploadOptions) {
+        this.start = vi.fn(() => {
+          if (!startBehavior) {
+            throw new Error('startBehavior not configured for test')
+          }
+          startBehavior(options)
+        })
       }
-      startBehavior(options)
-    }),
-  })),
+    },
+  ),
 }))
 
 vi.mock('tus-js-client', () => ({

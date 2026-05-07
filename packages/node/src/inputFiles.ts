@@ -1,12 +1,13 @@
+import type { LookupAddress, LookupOptions } from 'node:dns'
 import * as dnsPromises from 'node:dns/promises'
 import { createWriteStream } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import type { LookupFunction } from 'node:net'
 import { isIP } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, join, parse } from 'node:path'
 import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import type CacheableLookup from 'cacheable-lookup'
 import type { EntryObject, IPFamily } from 'cacheable-lookup'
 import got from 'got'
 import type { Input as IntoStreamInput } from 'into-stream'
@@ -233,9 +234,26 @@ export const resolvePublicDownloadAddresses = async (
   }))
 }
 
+type PinnedDnsLookup = LookupFunction & {
+  (
+    hostname: string,
+    options: LookupOptions & { all: true },
+    callback: (error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void,
+  ): void
+  (
+    hostname: string,
+    family: IPFamily,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+  (
+    hostname: string,
+    callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
+  ): void
+}
+
 export function createPinnedDnsLookup(
   validatedAddresses: Array<{ address: string; family: 4 | 6 }>,
-): CacheableLookup['lookup'] {
+): PinnedDnsLookup {
   const pinnedAddresses = [...validatedAddresses]
 
   function pickAddress(family?: IPFamily): { address: string; family: 4 | 6 } | null {
@@ -262,6 +280,15 @@ export function createPinnedDnsLookup(
   ): void
   function pinnedDnsLookup(
     _hostname: string,
+    options: LookupOptions,
+    callback: (
+      error: NodeJS.ErrnoException | null,
+      address: string | LookupAddress[],
+      family?: number,
+    ) => void,
+  ): void
+  function pinnedDnsLookup(
+    _hostname: string,
     options: object,
     callback: (error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void,
   ): void
@@ -269,11 +296,16 @@ export function createPinnedDnsLookup(
     _hostname: string,
     familyOrCallback:
       | IPFamily
-      | object
+      | LookupOptions
       | ((error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void),
     callback?:
       | ((error: NodeJS.ErrnoException | null, address: string, family: IPFamily) => void)
-      | ((error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void),
+      | ((error: NodeJS.ErrnoException | null, result: ReadonlyArray<EntryObject>) => void)
+      | ((
+          error: NodeJS.ErrnoException | null,
+          address: string | LookupAddress[],
+          family?: number,
+        ) => void),
   ): void {
     if (typeof familyOrCallback === 'function') {
       const address = pickAddress()
@@ -310,7 +342,11 @@ export function createPinnedDnsLookup(
       return
     }
 
-    const family = typeof familyOrCallback === 'number' ? familyOrCallback : undefined
+    const requestedFamily =
+      typeof familyOrCallback === 'object' && familyOrCallback != null
+        ? familyOrCallback.family
+        : familyOrCallback
+    const family = requestedFamily === 4 || requestedFamily === 6 ? requestedFamily : undefined
     const address = pickAddress(family)
     if (address == null) {
       ;(
@@ -326,7 +362,7 @@ export function createPinnedDnsLookup(
     )
   }
 
-  return pinnedDnsLookup
+  return pinnedDnsLookup as PinnedDnsLookup
 }
 
 const downloadUrlToFile = async ({
@@ -346,7 +382,7 @@ const downloadUrlToFile = async ({
       validatedAddresses = await resolvePublicDownloadAddresses(currentUrl)
     }
 
-    const dnsLookup: CacheableLookup['lookup'] | undefined =
+    const dnsLookup: LookupFunction | undefined =
       validatedAddresses == null ? undefined : createPinnedDnsLookup(validatedAddresses)
 
     const responseStream = got.stream(currentUrl, {
