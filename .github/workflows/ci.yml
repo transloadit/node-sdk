@@ -224,17 +224,30 @@ jobs:
         run: |
           mv packages/node/coverage/lcov-report static-build
           mv coverage-badge.svg static-build/
+      - name: Check coverage publish credentials
+        id: coverage-publish
+        env:
+          COVERAGE_REPO_SSH_PRIVATE_KEY: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -n "$COVERAGE_REPO_SSH_PRIVATE_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Coverage publish skipped because COVERAGE_REPO_SSH_PRIVATE_KEY is unavailable."
+          fi
       # *** BEGIN PUBLISH STATIC SITE STEPS ***
       # Use the standard checkout action to check out the destination repo to a separate directory
       # See https://github.com/mifi/github-action-push-static
       - uses: actions/checkout@v6
+        if: steps.coverage-publish.outputs.enabled == 'true'
         with:
           ssh-key: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
           repository: transloadit/node-sdk-coverage
           path: static-files-destination
 
       # Push coverage data
-      - run: |
+      - if: steps.coverage-publish.outputs.enabled == 'true'
+        run: |
           git config --global user.name github-actions
           git config --global user.email github-actions@github.com
           # Remove existing files:
