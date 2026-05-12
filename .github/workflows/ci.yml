@@ -99,7 +99,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - run: corepack yarn
+      - run: corepack yarn install --immutable
       - run: corepack yarn run pack
       - uses: actions/upload-artifact@v7
         with:
@@ -114,7 +114,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - run: corepack yarn
+      - run: corepack yarn install --immutable
       - run: corepack yarn verify
 
   verify-full:
@@ -125,7 +125,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - run: corepack yarn
+      - run: corepack yarn install --immutable
       - run: corepack yarn verify:full
 
   release-dry-run:
@@ -141,7 +141,7 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
       - run: npm install -g npm@11.5.1
-      - run: corepack yarn
+      - run: corepack yarn install --immutable
       - run: corepack yarn tsc:utils
       - run: corepack yarn tsc:zod
       - run: corepack yarn tsc:node
@@ -162,7 +162,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
-      - run: corepack yarn
+      - run: corepack yarn install --immutable
       # Root unit tests execute TypeScript scripts via Node's strip-types support.
       # Keep those on Node 24+; Node 20/22 only run @transloadit/node unit tests.
       - run: corepack yarn test:unit
@@ -191,7 +191,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - run: corepack yarn
+      - run: corepack yarn install --immutable
       - name: Download cloudflared
         run: |
           curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 -o cloudflared-linux-amd64 https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64

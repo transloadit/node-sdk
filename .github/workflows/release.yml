@@ -22,8 +22,8 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
       - run: npm install -g npm@11.5.1
-      - run: corepack yarn
-      - run: corepack yarn
+      - run: corepack yarn install --immutable
+      - run: corepack yarn install --immutable
       - run: corepack yarn tsc:utils
       - run: corepack yarn tsc:zod
       - run: corepack yarn tsc:node
