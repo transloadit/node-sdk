@@ -103,6 +103,20 @@ If your output format is \`"gif"\` then this parameter sets the number of 100th 
 
 If your output format is not \`"gif"\`, then this parameter does not have any effect.
 `),
+    stack: z
+      .enum(['ghostscript', 'vips', 'pdfium'])
+      .optional()
+      .describe(`
+Selects the PDF rendering stack. Defaults to Ghostscript.
+
+Use \`"pdfium"\` for page-specific or single-page high-DPI PDF rasterization when Ghostscript is too slow or exhausts scratch space, for example with high-resolution CAD, blueprint, or layered real-estate PDFs. This stack uses PDFium via the Python \`pypdfium2\` bindings and Pillow for final image encoding.
+
+Use \`"vips"\` only when you explicitly want libvips PDF loading. It is lower-overhead, but PDFium was faster in high-DPI floorplan tests while producing comparable output quality.
+
+The \`"pdfium"\` stack currently supports JPG/PNG output, \`resize_strategy: "fit"\`, a specific \`page\` or single-page PDFs, opaque hexadecimal backgrounds, \`antialiasing\`, and \`pdf_use_cropbox\`.
+
+The \`"vips"\` stack currently supports JPG/PNG output, \`resize_strategy: "fit"\`, a specific \`page\` or single-page PDFs, and hexadecimal or transparent backgrounds.
+`),
     width: z
       .number()
       .int()
@@ -206,10 +220,10 @@ export const robotDocumentThumbsInstructionsWithHiddenFieldsSchema =
       .union([z.literal('debug'), robotDocumentThumbsInstructionsSchema.shape.result])
       .optional(),
     stack: z
-      .string()
+      .enum(['ghostscript', 'vips', 'pdfium', 'imagemagick'])
       .optional()
       .describe(`
-The image processing stack to use. Defaults to the robot's preferred stack (ImageMagick).
+Selects the PDF rendering stack. Use \`"ghostscript"\` for the default renderer, \`"pdfium"\` for high-end CAD, blueprint, floorplan, or other complex high-DPI PDFs where Ghostscript is too slow or exhausts scratch space, and \`"vips"\` only when libvips PDF loading is explicitly needed. The \`"imagemagick"\` value is kept for internal/backwards-compatible use and should not be used in new public templates.
 `),
     // Override to support lowercase for BC:
     alpha: z

@@ -3,9 +3,9 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 20,
-  discount_factor: 0.05,
-  discount_pct: 95,
+  bytescount: 25,
+  discount_factor: 0.04,
+  discount_pct: 96,
   example_code: {
     steps: {
       deliver: {
@@ -27,7 +27,8 @@ export const meta: RobotMetaInput = {
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
   name: 'TlcdnDeliverRobot',
-  priceFactor: 20,
+  // Baseline factor for non-HIPAA delivery; HIPAA delivery uses a 20% lower factor.
+  priceFactor: 25,
   queueSlotCount: 0,
   minimumCharge: 102400,
   downloadInputFiles: false,
@@ -42,8 +43,15 @@ export const meta: RobotMetaInput = {
 export const robotTlcdnDeliverInstructionsSchema = robotBase
   .extend({
     robot: z.literal('/tlcdn/deliver').describe(`
-When you want Transloadit to tranform files on the fly, this <dfn>Robot</dfn> can cache and deliver the results close to your end-user, saving on latency and encoding volume. The use of this <dfn>Robot</dfn> is implicit when you use the <code>tlcdn.com</code> domain.
+When you want Transloadit to transform files on the fly, this <dfn>Robot</dfn> can cache and deliver the results close to your end-user, saving on latency and encoding volume. The use of this <dfn>Robot</dfn> is implicit when you use the <code>tlcdn.com</code> domain.
 `),
+    enable_hipaa_compliance: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'When enabled, use the HIPAA-compliant Smart CDN pricing profile for this delivery step (20% lower price factor). When disabled, the non-HIPAA baseline price factor applies.',
+      ),
   })
   .strict()
 

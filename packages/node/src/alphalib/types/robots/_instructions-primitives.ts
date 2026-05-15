@@ -447,7 +447,7 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
 /**
  * The robot keys specified in this array can’t be interpolated.
  */
-const uninterpolatableKeys = ['robot', 'use'] as const
+const uninterpolatableKeys = ['interpolate', 'robot', 'use'] as const
 const uninterpolatableKeySet = new Set<string>(uninterpolatableKeys)
 
 type InterpolatableRobot<Schema extends z.ZodObject<z.ZodRawShape>> =
@@ -484,12 +484,28 @@ export function interpolateRobot<Schema extends z.ZodObject<z.ZodRawShape>>(
   )
 }
 
+const robotInterpolateBooleanSchema = z
+  .union([z.boolean(), booleanStringSchema])
+  .transform((value) => value === true || value === 'true')
+
+export const robotInterpolateSchema = z
+  .union([robotInterpolateBooleanSchema, z.record(robotInterpolateBooleanSchema)])
+  .describe(`
+Controls whether Assembly Variables are interpolated for individual instruction fields.
+
+By default, most Robot instruction fields interpolate Assembly Variables. Set this to \`false\` to treat every instruction field as literal text, or set an individual field path to \`false\` to treat only that field as literal text. For Robot-specific fields that are literal by default, set this to \`true\` or set that field path to \`true\` to opt back into interpolation.
+
+Use field names such as \`path\`, or dotted paths such as \`ffmpeg.vf\` for nested objects.
+`)
+
 /**
  * Fields that are shared by all Transloadit robots.
  */
 export type RobotBase = z.infer<typeof robotBase>
 export const robotBase = z
   .object({
+    interpolate: robotInterpolateSchema.optional(),
+
     output_meta: z
       .union([z.record(z.boolean()), z.boolean(), z.array(z.string())])
       .optional()
@@ -846,7 +862,7 @@ A parameter object to be passed to FFmpeg. If a preset is used, the options spec
   ffmpeg_stack: z
     // Any semver in range is allowed and normalized. The enum is used for editor completions.
     .union([z.enum(['v5', 'v6', 'v7']), z.string().regex(/^v?[567](\.\d+)?(\.\d+)?$/)])
-    .default('v5.0.0')
+    .default('v6.0.0')
     .describe(`
 Selects the FFmpeg stack version to use for encoding. These versions reflect real FFmpeg versions. We currently recommend to use "v6.0.0".
 `),
