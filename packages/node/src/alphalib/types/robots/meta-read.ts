@@ -2,9 +2,11 @@ import { z } from 'zod'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 
-// @ts-expect-error - MetaReadRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
-  name: 'MetaReadRobot',
+  // api2 tracks /meta/read as a special 1% metadata fee while keeping runtime priceFactor at 0.
+  bytescount: 100,
+  discount_factor: 0.01,
+  discount_pct: 99,
   example_code: {
     steps: {
       metadata: {
@@ -13,6 +15,19 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Read metadata from uploaded files:',
+  minimum_charge: 0,
+  output_factor: 1,
+  override_lvl1: 'Media Cataloging',
+  purpose_sentence: 'reads metadata from uploaded files',
+  purpose_verb: 'read',
+  purpose_word: 'metadata',
+  purpose_words: 'Read file metadata',
+  service_slug: 'media-cataloging',
+  slot_count: 15,
+  title: 'Read file metadata',
+  typical_file_size_mb: 1.2,
+  typical_file_type: 'file',
+  name: 'MetaReadRobot',
   priceFactor: 0,
   queueSlotCount: 15,
   isAllowedForUrlTransform: true,

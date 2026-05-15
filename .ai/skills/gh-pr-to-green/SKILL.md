@@ -11,20 +11,31 @@ description:
 
 ## Workflow
 
-- Get context from PR with `gh`, make sure if have all comments
-- Write them as a markdown todolist in `repodocs/prompts/${YYYY}-${MM}-${DD}-${sluggedSemanticTopic}.md` and commit it. If the `repodocs/prompts/` dir does not exist, use the `docs/prompts/` dir.
+- Get context from PR with `gh`; make sure all review comments, threads, CI failures, and PR
+  description updates are included.
+- Write them as a markdown todolist in
+  `repodocs/prompts/${YYYY}-${MM}-${DD}-${sluggedSemanticTopic}.md` and commit it. If the
+  `repodocs/prompts/` dir does not exist, use the `docs/prompts/` dir.
 - Merge the latest main into our branch and resolve any conflict carefully.
 - Determine which review items are correct.
-- Keep working until all items are checked off, either by fixing the issue, or explaining why not in the markdown list as well as comments in code where applicable/sensible
-- commit and push
+- Keep working until all items are checked off, either by fixing the issue, or explaining why not in
+  the markdown list as well as comments in code where applicable/sensible.
+- Commit and push.
 - Invoke `council-review`
-- Run the repo-required checks (often `yarn check`)
-- Fix any issue that you deem related and worth fixing
-- commit and push
+- If the PR has UI/UX impact, invoke `claude-usertest` instead of duplicating browser-test
+  instructions here. Treat its output as reviewer input, reconcile findings yourself, and fold valid
+  fixes back into this PR-to-green loop.
+- Run the repo-required checks (often `yarn check`).
+- Fix any issue that you deem related and worth fixing.
+- Commit and push.
 - Monitor CI until green:
   - Prefer `gh run watch` (works everywhere with `gh`).
   - If `gh-run-watch.ts` exists in the repo, it's fine to use that too.
-- Fix any issue that you deem related and worth fixing
-- Rinse and repeat until CI is green, or there are only 100% unrelated issues remaining
+- Fix any issue that you deem related and worth fixing.
+- Rinse and repeat until CI is green, or there are only 100% unrelated issues remaining.
 
-Report back with a list of all changes made, and offer a link to the PR for inspection and merge. Offer to squash merge with `--admin` if the human thinks a last manual review is not needed.
+This skill is PR orchestration only. Do not add inline UX/browser/user-test instructions here; use
+dedicated validation skills for those workflows.
+
+Report back with a list of all changes made, and offer a link to the PR for inspection and merge.
+Offer to squash merge with `--admin` if the human thinks a last manual review is not needed.

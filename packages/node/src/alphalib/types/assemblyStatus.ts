@@ -913,13 +913,16 @@ export const assemblyIndexItemSchema = z
     instance: assemblyStatusBaseSchema.shape.instance.unwrap().optional(),
     notify_url: assemblyStatusBaseSchema.shape.notify_url.optional(),
     redirect_url: z.string().nullable().optional(),
-    files: z.string().nullable(), // JSON stringified, specific to list item, CAN BE NULL
+    files: z.string().nullable().optional(), // JSON stringified list metadata; replay rows omit it
     warning_count: z.number().optional(),
     execution_duration: assemblyStatusBaseSchema.shape.execution_duration.optional(),
     execution_start: assemblyStatusBaseSchema.shape.execution_start.optional(),
     region: assemblyStatusBaseSchema.shape.region.optional(),
     num_input_files: assemblyStatusBaseSchema.shape.num_input_files.optional(),
     bytes_usage: assemblyStatusBaseSchema.shape.bytes_usage.optional(),
+    bytes_expected: assemblyStatusBaseSchema.shape.bytes_expected.optional(),
+    bytes_received: assemblyStatusBaseSchema.shape.bytes_received.optional(),
+    upload_duration: assemblyStatusBaseSchema.shape.upload_duration.optional(),
     ok: assemblyStatusOkCodeSchema.nullable().optional(),
     error: assemblyStatusErrCodeSchema.nullable().optional(),
     created: z.string(),

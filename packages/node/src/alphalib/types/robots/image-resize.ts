@@ -162,7 +162,7 @@ export const robotImageResizeInstructionsSchema = robotBase
       .describe(`
 The output format for the modified image.
 
-Some of the most important available formats are \`"jpg"\`, \`"png"\`, \`"gif"\`, and \`"tiff"\`. For a complete lists of all formats that we can write to please check [our supported image formats list](/docs/supported-formats/image-formats/).
+Some of the most important available formats are \`"jpg"\`, \`"png"\`, \`"gif"\`, \`"tiff"\`, and \`"jxl"\` for JPEG XL. For a complete list of all formats that we can write to, please check [our supported image formats list](/docs/supported-formats/image-formats/).
 
 If \`null\` (default), then the input image's format will be used as the output format.
 

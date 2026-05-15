@@ -11,5 +11,7 @@ General:
 - Avoid blocking the conversation with terminal commands. For example: A) most of my git commands run through pagers, so pipe their output to `cat` to avoid blocking the
   terminal. B) You can use `tail` for logs, but be smart and use `-n` instead of `-f`, or the conversation will block
 - Use the `gh` tool to interact with GitHub (search/view an Issue, create a PR).
+- When using `fetch()` directly, check `response.ok` before parsing the body, and surface non-2xx
+  responses as errors with enough context for debugging.
 - Treat `AGENTS.md` and `CLAUDE.md` as generated artifacts (single source of truth is `.ai/rules/`), managed by `~/code/content/_scripts/alphalib-sync.ts`; never edit those files directly. If you'd like to make a modification, do it here in `.ai/rules/` and the script will ensure proper preservation and syncing. If you need a rule specific to this repo, add it to `.ai/rules/repo.mdc`.
 - All new files are to be in TypeScript. Even if someone suggests: make this new foo3 feature, model it after `foo1.js`, create: `foo3.ts`. Chances are, a `foo2.ts` already exist that you can take a look at also for inspiration.

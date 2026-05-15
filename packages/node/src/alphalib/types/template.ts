@@ -137,12 +137,12 @@ The \`referer\` property is a regular expression to match against the HTTP refer
 Uploads without a referer will always pass (as they are turned off for some browsers) making this useful in just a handful of use cases. For details about regular expressions, see [Mozilla's RegExp documentation](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/RegExp).
 
 The \`max_size\` property can be used to set a maximum size that an upload can have in bytes, such as \`1048576\` (1 MB). Specify this to prevent users from uploading excessively large files.
-
-This can be set as part of the Assembly request or as part of the Template.
-
 The file size is checked as soon as the upload is started and if it exceeds the maximum size, the entire upload process is canceled and the Assembly will error out, even if it contains files that do not exceed the \`max_size\` limitation.
-
 If you want to just ignore the files that exceed a certain size, but process all others, then please use [🤖/file/filter](https://transloadit.com/docs/robots/file-filter/).
+
+The \`max_number_of_files\` property can be used to set a maximum number of files that an upload can have, such as \`100\`. Specify this to prevent users from uploading excessively many files, both via file uploads and via import Robots.
+
+These properties can be set as part of the Assembly request or as part of the Template.
 `)
 
 const assemblyInstructionsSharedShape = {

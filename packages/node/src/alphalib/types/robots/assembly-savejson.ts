@@ -2,9 +2,10 @@ import { z } from 'zod'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
 
-// @ts-expect-error - AssemblySavejsonRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
-  name: 'AssemblySavejsonRobot',
+  bytescount: 0,
+  discount_factor: 0,
+  discount_pct: 100,
   example_code: {
     steps: {
       save_json: {
@@ -13,6 +14,19 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Save Assembly result data as JSON:',
+  minimum_charge: 0,
+  output_factor: 1,
+  override_lvl1: 'File Exporting',
+  purpose_sentence: 'exports Assembly status data as JSON',
+  purpose_verb: 'export',
+  purpose_word: 'Assembly status',
+  purpose_words: 'Export Assembly status JSON',
+  service_slug: 'file-exporting',
+  slot_count: 5,
+  title: 'Export Assembly status JSON',
+  typical_file_size_mb: 0.1,
+  typical_file_type: 'file',
+  name: 'AssemblySavejsonRobot',
   priceFactor: 0,
   queueSlotCount: 5,
   isAllowedForUrlTransform: true,

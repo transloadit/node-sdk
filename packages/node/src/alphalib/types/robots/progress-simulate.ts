@@ -3,9 +3,10 @@ import { z } from 'zod'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
-// @ts-expect-error - ProgressSimulateRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
-  name: 'ProgressSimulateRobot',
+  bytescount: 1,
+  discount_factor: 1,
+  discount_pct: 0,
   example_code: {
     steps: {
       simulate: {
@@ -19,6 +20,19 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Simulate Step progress and output generation for testing:',
+  minimum_charge: 0,
+  output_factor: 1,
+  override_lvl1: 'Code Evaluation',
+  purpose_sentence: 'simulates Step progress and output generation for tests',
+  purpose_verb: 'run',
+  purpose_word: 'progress simulation',
+  purpose_words: 'Simulate Step progress',
+  service_slug: 'code-evaluation',
+  slot_count: 20,
+  title: 'Simulate Step progress',
+  typical_file_size_mb: 1.2,
+  typical_file_type: 'file',
+  name: 'ProgressSimulateRobot',
   priceFactor: 1,
   queueSlotCount: 20,
   isAllowedForUrlTransform: false,

@@ -12,6 +12,13 @@ Coding style:
 - Favor using real paths (`../lib/schemas.ts`) over aliases (`@/app/lib/schemas`).
 - Favor `for (const comment of comments) {` over `comments.forEach((comment) => {`
 - Favor named exports over default exports, with the exception of Next.js pages
+- Avoid namespace `*` imports unless the API is intentionally consumed as a namespace. Prefer named
+  imports so usage is explicit and bundlers can optimize.
+- Avoid broad file-level lint suppressions. Prefer the narrowest scoped suppression on the exact
+  line, with a reason when the exception is not obvious.
+- Preserve existing dependency import paths and module-system interop unless the change is required
+  and explained. Do not rewrite package imports to `node_modules/...`, switch ESM/CJS shapes, or add
+  duplicate export styles just to satisfy local tooling.
 - Do not wrap each function body and function call in `try`/`catch` blocks. It pollutes the code.
   Assume we will always have an e.g.
   `main().catch((err) => { console.error(err); process.exit(1) })` to catch us. I repeat: Avoid
@@ -28,8 +35,22 @@ Coding style:
 - Use Prettier with 100 char line width, single quotes for JS/TS, semi: false
 - Use descriptive names: PascalCase for components/types, camelCase for variables/methods/schemas
 - Alphabetize imports, group by source type (built-in/external/internal)
+- Preserve existing sorted lists and config ordering unless intentionally changing the order.
 - Favor US English over UK English, so `summarizeError` over `summarise Error`
 - Favor `.replaceAll('a', 'b)` over `.replace(/a/g, 'b')` or `.replace(new RegExp('a', 'g'), 'b')` when the only need for regeses was replacing all strings. That's usually both easier to read and more performant.
 - Use typographic characters: ellipsis (`…`) instead of `...`, curly quotes (`'` `"`) instead of straight quotes in user-facing text
+- Generated text files should end with a trailing newline. Do not trim serializer output when the
+  serializer intentionally emits POSIX-style text.
+- Comments should explain why code exists or why an exception is needed, not narrate what the next
+  line already says.
+- Do not put TODOs, internal implementation notes, or future-work placeholders in user-facing text
+  or schema descriptions. Put those in code comments, issues, or docs for maintainers instead.
 - Put API keys and secrets in `.env` files, not hardcoded in components
+- Do not return raw errors, stack traces, third-party responses, payment objects, database errors, or
+  credential data to clients. Show sanitized user-facing messages and log only redacted diagnostic
+  details server-side.
+- When wrapping or rethrowing an error, preserve the original value with `new Error(message, {
+  cause: error })` when possible instead of stringifying it away.
+- Remove temporary debug logging/instrumentation before merge. Keep new logs only when they are
+  intentional, useful in production, and do not expose sensitive data.
 - Check for existing hooks before creating new ones (e.g., `useUppy()` for Uppy functionality)

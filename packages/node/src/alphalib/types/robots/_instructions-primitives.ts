@@ -300,6 +300,38 @@ type InterpolatableSchema<Schema extends z.ZodTypeAny> = Schema extends z.ZodStr
                     ? z.ZodUnion<[z.ZodString, ...InterpolatableTuple<T>]>
                     : Schema
 
+function isZodTypeAny(schema: unknown): schema is z.ZodTypeAny {
+  return schema instanceof z.ZodType
+}
+
+function toFirstPartySchema(schema: unknown): z.ZodFirstPartySchemaTypes {
+  if (!isZodTypeAny(schema)) {
+    throw new Error('Expected a Zod schema')
+  }
+  return schema as z.ZodFirstPartySchemaTypes
+}
+
+function toInterpolatableSchema<Schema extends z.ZodFirstPartySchemaTypes>(
+  schema: z.ZodTypeAny,
+): InterpolatableSchema<Schema> {
+  return schema as InterpolatableSchema<Schema>
+}
+
+function toInterpolatableRobot<Schema extends z.ZodObject<z.ZodRawShape>>(
+  schema: z.ZodTypeAny,
+): InterpolatableRobot<Schema> {
+  return schema as InterpolatableRobot<Schema>
+}
+
+function toInterpolatableUnionOptions(options: z.ZodTypeAny[]): z.ZodUnionOptions {
+  if (options.length === 0) {
+    throw new Error('Union options must not be empty')
+  }
+
+  const [head, ...tail] = options
+  return [head, ...tail]
+}
+
 export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
   schema: Schema,
 ): InterpolatableSchema<Schema> {
@@ -307,12 +339,14 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
 
   switch (def.typeName) {
     case z.ZodFirstPartyTypeKind.ZodBoolean:
-      return z.union([
-        interpolationSchemaFull,
-        z
-          .union([schema, booleanStringSchema])
-          .transform((value) => value === true || value === false),
-      ]) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(
+        z.union([
+          interpolationSchemaFull,
+          z
+            .union([schema, booleanStringSchema])
+            .transform((value) => value === true || value === false),
+        ]),
+      )
     case z.ZodFirstPartyTypeKind.ZodArray: {
       let replacement = z.array(interpolateRecursive(def.type), def)
 
@@ -328,81 +362,85 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
         replacement = replacement.min(def.minLength.value, def.minLength.message)
       }
 
-      return z.union([interpolationSchemaFull, replacement]) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(z.union([interpolationSchemaFull, replacement]))
     }
     case z.ZodFirstPartyTypeKind.ZodDefault: {
-      const replacement = (
-        interpolateRecursive(def.innerType) as InterpolatableSchema<Schema>
+      const replacement = toInterpolatableSchema<Schema>(
+        interpolateRecursive(def.innerType),
       ).default(def.defaultValue())
 
-      return (
-        def.description ? replacement.describe(def.description) : replacement
-      ) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(
+        def.description ? replacement.describe(def.description) : replacement,
+      )
     }
     case z.ZodFirstPartyTypeKind.ZodEffects:
     case z.ZodFirstPartyTypeKind.ZodEnum:
     case z.ZodFirstPartyTypeKind.ZodLiteral:
-      return z.union([interpolationSchemaFull, schema], def) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(z.union([interpolationSchemaFull, schema], def))
     case z.ZodFirstPartyTypeKind.ZodNumber:
-      return z.union(
-        [
-          z
-            .string()
-            .regex(/^\d+(\.\d+)?$/)
-            .transform((value) => Number(value)),
-          interpolationSchemaFull,
-          schema,
-        ],
-        def,
-      ) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(
+        z.union(
+          [
+            z
+              .string()
+              .regex(/^\d+(\.\d+)?$/)
+              .transform((value) => Number(value)),
+            interpolationSchemaFull,
+            schema,
+          ],
+          def,
+        ),
+      )
     case z.ZodFirstPartyTypeKind.ZodNullable:
-      return interpolateRecursive(def.innerType)
-        .nullable()
-        .describe(def.description) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(
+        interpolateRecursive(def.innerType).nullable().describe(def.description),
+      )
     case z.ZodFirstPartyTypeKind.ZodObject: {
       const replacement = z.object(
         Object.fromEntries(
           Object.entries(def.shape()).map(([key, nested]) => [
             key,
-            interpolateRecursive(nested as z.ZodFirstPartySchemaTypes),
+            interpolateRecursive(toFirstPartySchema(nested)),
           ]),
         ),
         def,
       )
-      return z.union([
-        interpolationSchemaFull,
-        def.unknownKeys === 'strict'
-          ? replacement.strict()
-          : def.unknownKeys === 'passthrough'
-            ? replacement.passthrough()
-            : replacement,
-      ]) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(
+        z.union([
+          interpolationSchemaFull,
+          def.unknownKeys === 'strict'
+            ? replacement.strict()
+            : def.unknownKeys === 'passthrough'
+              ? replacement.passthrough()
+              : replacement,
+        ]),
+      )
     }
     case z.ZodFirstPartyTypeKind.ZodOptional:
-      return z.optional(interpolateRecursive(def.innerType), def) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(z.optional(interpolateRecursive(def.innerType), def))
     case z.ZodFirstPartyTypeKind.ZodRecord:
-      return z.record(
-        def.keyType,
-        interpolateRecursive(def.valueType),
-        def,
-      ) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(z.record(def.keyType, interpolateRecursive(def.valueType), def))
     case z.ZodFirstPartyTypeKind.ZodString:
-      return z.union([interpolationSchemaPartial, schema], def) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(z.union([interpolationSchemaPartial, schema], def))
     case z.ZodFirstPartyTypeKind.ZodTuple: {
       const tuple = z.tuple(def.items.map(interpolateRecursive), def)
 
-      return z.union([
-        interpolationSchemaFull,
-        def.rest ? tuple.rest(def.rest) : tuple,
-      ]) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(
+        z.union([interpolationSchemaFull, def.rest ? tuple.rest(def.rest) : tuple]),
+      )
     }
     case z.ZodFirstPartyTypeKind.ZodUnion:
-      return z.union(
-        [interpolationSchemaFull, ...(def.options.map(interpolateRecursive) as z.ZodUnionOptions)],
-        def,
-      ) as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(
+        z.union(
+          [
+            interpolationSchemaFull,
+            ...toInterpolatableUnionOptions(def.options.map(interpolateRecursive)),
+          ],
+          def,
+        ),
+      )
     default:
-      return schema as InterpolatableSchema<Schema>
+      return toInterpolatableSchema(schema)
   }
 }
 
@@ -410,6 +448,7 @@ export function interpolateRecursive<Schema extends z.ZodFirstPartySchemaTypes>(
  * The robot keys specified in this array can’t be interpolated.
  */
 const uninterpolatableKeys = ['robot', 'use'] as const
+const uninterpolatableKeySet = new Set<string>(uninterpolatableKeys)
 
 type InterpolatableRobot<Schema extends z.ZodObject<z.ZodRawShape>> =
   Schema extends z.ZodObject<infer T, infer UnknownKeys, infer Catchall>
@@ -428,19 +467,21 @@ export function interpolateRobot<Schema extends z.ZodObject<z.ZodRawShape>>(
   schema: Schema,
 ): InterpolatableRobot<Schema> {
   const def = schema._def
-  return z
-    .object(
-      Object.fromEntries(
-        Object.entries(def.shape()).map(([key, nested]) => [
-          key,
-          (uninterpolatableKeys as readonly string[]).includes(key)
-            ? nested
-            : interpolateRecursive(nested as z.ZodFirstPartySchemaTypes),
-        ]),
-      ),
-      def,
-    )
-    .strict() as InterpolatableRobot<Schema>
+  return toInterpolatableRobot(
+    z
+      .object(
+        Object.fromEntries(
+          Object.entries(def.shape()).map(([key, nested]) => [
+            key,
+            uninterpolatableKeySet.has(key)
+              ? nested
+              : interpolateRecursive(toFirstPartySchema(nested)),
+          ]),
+        ),
+        def,
+      )
+      .strict(),
+  )
 }
 
 /**
