@@ -2,8 +2,8 @@
   "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.10.2.tgz",
-    "sizeBytes": 1006246,
-    "sha256": "5caa13a30f0758fd188ed410b4a6c231c7733b4037ba732410b6aa3341d66c2a"
+    "sizeBytes": 996494,
+    "sha256": "3efbc4f6d47037cd52eff1d7f9860b3ed7e5ea6e8e5dafb462540bc63dd1da36"
   },
   "packageJson": {
     "name": "transloadit",
@@ -662,11 +662,6 @@
       "sha256": "d7290c7f61e823981e80ac08a6d5723bd31864aaf300aae95eb36d870752440b"
     },
     {
-      "path": "dist/alphalib/supportSchemas.js",
-      "sizeBytes": 1871,
-      "sha256": "5ffb4ff8dafd3dba2a2391a4a0cc9f67a60224ce40c86c57ec2c719ecb307ead"
-    },
-    {
       "path": "dist/alphalib/types/robots/swift-import.js",
       "sizeBytes": 3988,
       "sha256": "18cc724ff9ac9a47c08af189cdb8099ce97cd70e1847bac31622facc569d0362"
@@ -835,11 +830,6 @@
       "path": "dist/alphalib/types/robots/youtube-store.js",
       "sizeBytes": 4836,
       "sha256": "7dc764a5aa919a747a4478390e51dd9a28def29edc91d53fd2bb06ddd31024fd"
-    },
-    {
-      "path": "dist/alphalib/zodCli.js",
-      "sizeBytes": 7601,
-      "sha256": "478a852fe6ac493df8881b300b0f1f5ce1d33e7b905ebea760cddeaad7fc8f1e"
     },
     {
       "path": "dist/alphalib/zodParseWithContext.js",
@@ -2132,16 +2122,6 @@
       "sha256": "840184ab0b55b1f7508e45daf7ee13bcda41abe70673ea0a8765cd97e9986eeb"
     },
     {
-      "path": "dist/alphalib/supportSchemas.d.ts.map",
-      "sizeBytes": 1192,
-      "sha256": "6951d1e86bdb5148da4be61cdb77fc8f6c0ae9aeecd36e432bda9968a93b4bd5"
-    },
-    {
-      "path": "dist/alphalib/supportSchemas.js.map",
-      "sizeBytes": 2519,
-      "sha256": "e6c6be84b3ba866c251ff8d457d7acc3b1c935f92163971ac20eda44a9c30e50"
-    },
-    {
       "path": "dist/alphalib/types/robots/swift-import.d.ts.map",
       "sizeBytes": 1042,
       "sha256": "5c2615cb8d7faed501fcdbd05004b2e13dec81e7aea06956e978b3b9c3cf44c2"
@@ -2480,16 +2460,6 @@
       "path": "dist/alphalib/types/robots/youtube-store.js.map",
       "sizeBytes": 2379,
       "sha256": "0296754192ca82f0974ab1f8fa3c1b7ae8f560ac372d7129226af5c470e5bd7a"
-    },
-    {
-      "path": "dist/alphalib/zodCli.d.ts.map",
-      "sizeBytes": 1000,
-      "sha256": "0fc47f0a008fbb976548f86675c3f41019588d550f765bee89cced5b0c106271"
-    },
-    {
-      "path": "dist/alphalib/zodCli.js.map",
-      "sizeBytes": 8416,
-      "sha256": "cb246e0c80e7c7b5b3f6ce53d19ba824deae719ace34b8c47369ccf9f4fddf5e"
     },
     {
       "path": "dist/alphalib/zodParseWithContext.d.ts.map",
@@ -3792,16 +3762,6 @@
       "sha256": "9204c52dfd85f6b3863e45f70b7b8176df0c3e5d6a7378f74c70c161bf31736a"
     },
     {
-      "path": "dist/alphalib/supportSchemas.d.ts",
-      "sizeBytes": 18439,
-      "sha256": "ec6a58e7cebfe95ba67a75a957097df66717b22bf912bed05546b26f3bf8d4ae"
-    },
-    {
-      "path": "src/alphalib/supportSchemas.ts",
-      "sizeBytes": 2211,
-      "sha256": "c10e5db1f12c29529d1c9edb61b954c93654ee71468432baad64227ff86688cf"
-    },
-    {
       "path": "dist/alphalib/types/robots/swift-import.d.ts",
       "sizeBytes": 14372,
       "sha256": "3bb6e93bb564b609f21c3f907542a4e58c39a8e8743c2af0a82b3237e4dc4a04"
@@ -4140,16 +4100,6 @@
       "path": "src/alphalib/types/robots/youtube-store.ts",
       "sizeBytes": 5590,
       "sha256": "df0875b60a23026465387d7b06eaa2d7cda53ee8d76116d39fee392ea87db5a4"
-    },
-    {
-      "path": "dist/alphalib/zodCli.d.ts",
-      "sizeBytes": 843,
-      "sha256": "ba74c39a1e9a7519aa9da88cf973f42cbd02bcdc55d8604463e608205d16bfc4"
-    },
-    {
-      "path": "src/alphalib/zodCli.ts",
-      "sizeBytes": 8840,
-      "sha256": "3c537f33e87e9f228252d82b0713bdc9049670b6aeaad8fa373752d75e4691d5"
     },
     {
       "path": "dist/alphalib/zodParseWithContext.d.ts",
