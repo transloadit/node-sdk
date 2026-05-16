@@ -1,5 +1,18 @@
 # @transloadit/mcp-server
 
+## 0.3.22
+
+### Patch Changes
+
+- 776932f: Release the latest alphalib robot schema sync.
+
+  This updates generated Robot and assembly-status schemas, the public TypeScript type package, and
+  the Zod schema package so SDK, CLI, MCP, and schema consumers all see the same validated Transloadit
+  API surface.
+
+- Updated dependencies [776932f]
+  - @transloadit/node@4.10.3
+
 ## 0.3.21
 
 ### Patch Changes
