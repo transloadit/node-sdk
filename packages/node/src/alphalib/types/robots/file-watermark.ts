@@ -3,9 +3,10 @@ import { z } from 'zod'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
-// @ts-expect-error - FileWatermarkRobot is not ready yet @TODO please supply missing keys
 export const meta: RobotMetaInput = {
-  name: 'FileWatermarkRobot',
+  bytescount: 4,
+  discount_factor: 0.25,
+  discount_pct: 75,
   example_code: {
     steps: {
       watermarked: {
@@ -16,6 +17,19 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Apply randomized watermarking to uploaded files:',
+  minimum_charge: 0,
+  output_factor: 1,
+  override_lvl1: 'Image Manipulation',
+  purpose_sentence: 'applies randomized watermarks to uploaded media',
+  purpose_verb: 'write',
+  purpose_word: 'watermark files',
+  purpose_words: 'Watermark files',
+  service_slug: 'image-manipulation',
+  slot_count: 20,
+  title: 'Apply watermarks to files',
+  typical_file_size_mb: 1.2,
+  typical_file_type: 'file',
+  name: 'FileWatermarkRobot',
   priceFactor: 4,
   queueSlotCount: 20,
   isAllowedForUrlTransform: true,

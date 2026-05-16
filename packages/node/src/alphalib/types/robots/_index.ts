@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-type RobotSchemaOption = z.ZodObject<any>
+type RobotSchemaOption = z.ZodObject<{ robot: z.ZodTypeAny } & z.ZodRawShape>
 type RobotSchemaOptions = [RobotSchemaOption, ...RobotSchemaOption[]]
 import {
   meta as aiChatMeta,

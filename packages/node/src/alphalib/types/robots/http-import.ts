@@ -6,6 +6,7 @@ import {
   return_file_stubs,
   robotBase,
   robotImport,
+  robotUseWithHiddenFields,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
@@ -85,6 +86,10 @@ Headers can be specified as:
 - An array of strings in the format "Header-Name: value"
 - An array of objects with header names as keys and values as values
 - A JSON string that will be parsed into an object
+
+The same \`headers\` value is sent with every URL in this \`/http/import\` Step. If \`url\` is an
+array, \`headers\` is not matched to the URLs by array index. Use separate \`/http/import\` Steps
+when different URLs need different headers.
 `),
     import_on_errors: z
       .array(z.string())
@@ -123,8 +128,9 @@ Allows you to specify one or more byte ranges to import from the file. The serve
   })
   .strict()
 
-export const robotHttpImportInstructionsWithHiddenFieldsSchema =
-  robotHttpImportInstructionsSchema.extend({
+export const robotHttpImportInstructionsWithHiddenFieldsSchema = robotHttpImportInstructionsSchema
+  .merge(robotUseWithHiddenFields)
+  .extend({
     force_original_id: z.string().optional(),
     force_name: z
       .union([z.string(), z.record(z.string())])

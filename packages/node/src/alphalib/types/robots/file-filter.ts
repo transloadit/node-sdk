@@ -59,6 +59,10 @@ The <dfn>Robot</dfn> has two modes of operation:
 - Constructing conditions out of arrays with 3 members each. For example, \`["\${file.size}", "<=", "720"]\`
 - Writing conditions in JavaScript. For example, \`\${file.size <= 720}\`. See also [Dynamic Evaluation](/docs/topics/dynamic-evaluation/).
 
+If you want a \`/file/filter\` Step to pass every input file through unchanged, leave \`accepts\` and
+\`declines\` unset, or set them to \`null\`. Do not use \`"accepts": "true"\` for this: plain strings
+are treated as JavaScript expressions only when they use the \`\${...}\` form, such as \`"\${true}"\`.
+
 Passing JavaScript allows you to implement logic as complex as you wish, however it’s slower than combining arrays of conditions, and will be charged for per invocation via [🤖/script/run](/docs/robots/script-run/).
 
 ### Conditions as arrays
@@ -109,7 +113,7 @@ As indicated, we charge for this via [🤖/script/run](/docs/robots/script-run/)
     accepts: filterCondition
       .describe(
         `
-Files that match at least one requirement will be accepted, or declined otherwise. If the value is \`null\`, all files will be accepted. If the array is empty, no files will be accepted. Examples:
+Files that match at least one requirement will be accepted, or declined otherwise. If the value is \`null\`, all files will be accepted. If the array is empty, no files will be accepted. Omit this parameter or set it to \`null\` when you want the Step to pass every file through. Examples:
 
 \`[["\${file.mime}", "==", "image/gif"]]\`
 \`[["\${file.size}", "<", "5kb"]]\`

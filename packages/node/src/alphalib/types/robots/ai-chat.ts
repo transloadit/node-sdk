@@ -214,7 +214,9 @@ export const robotAiChatInstructionsSchema = robotBase
     system_message: z
       .string()
       .optional()
-      .describe('Set the system/developer prompt, if the model allows it'),
+      .describe(
+        'Set the system/developer prompt, if the model allows it. If this prompt contains literal documentation or code examples with `${...}` syntax, set `interpolate.system_message` to `false`.',
+      ),
     reasoning_effort: z
       .enum(['xhigh', 'high', 'medium', 'low'])
       .optional()

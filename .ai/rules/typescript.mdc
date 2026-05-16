@@ -3,20 +3,76 @@ description:
 globs:
 alwaysApply: true
 ---
+
 For Typescript:
 
 - Favor `contentGapItemSchema = z.object()` over `ContentGapItemSchema = z.object()`
 - Favor `from './PosterboyCommand.ts'` over `from './PosterboyCommand'`
 - Favor `return ideas.filter(isPresent)` over `ideas.filter((idea): idea is Idea => idea !== null)`
 - Favor using `.tsx` over `.jsx` file extensions.
-- Use Node v24's native typestripping vs `tsx` or `ts-node`. These days you do not even need to pass `--experimental-strip-types`, `node app.ts` will just work.
-- Favor `satisfies` over `as`, consider `as` a sin
+- Use Node v24's native typestripping vs `tsx` or `ts-node`. These days you do not even need to pass
+  `--experimental-strip-types`, `node app.ts` will just work.
+- In ESM TypeScript, use `import.meta.dirname` / `import.meta.filename` or `URL` objects instead of
+  rebuilding `__dirname` with `fileURLToPath(import.meta.url)` unless compatibility requires it.
+- Use `satisfies` when you need literal preservation or structural conformance while keeping the
+  expression's inferred type. If the variable should simply have a declared type, use a type
+  annotation instead.
+- Avoid redundant type annotations inside expressions when TypeScript already infers the exact type,
+  especially callback parameters. Keep explicit return types and public boundary annotations.
+- Avoid `as`, consider it a sin. If a cast is unavoidable, keep it as narrow as possible and explain
+  the upstream type mismatch or runtime invariant.
+- For DOM queries and browser APIs, prefer runtime narrowing such as
+  `element instanceof HTMLAnchorElement` over type casts. Decide explicitly whether a missing element
+  should throw, return early, or no-op.
+- Browser/client code must not use Node-only globals or APIs such as `Buffer`. Use browser platform
+  APIs such as `btoa`, `TextEncoder`, `Blob`, or `URL`, or isolate the logic in server-only code.
+- When browser APIs are missing TypeScript declarations, augment the global interface in
+  `_types/global.ts` (or the relevant shared global types file) and narrow with checks such as
+  `typeof navigator.setAppBadge === 'function'` instead of casting `navigator` locally.
+- Prefer typed DOM properties such as `element.inert = true` and `element.tabIndex = -1` when the
+  platform exposes them. Use `setAttribute()` only when you intentionally need raw attribute
+  semantics.
 - Favor `unknown` over `any`, consider `any` a sin
+- Avoid `as unknown as ...` and `biome-ignore lint/suspicious/noExplicitAny`. If an upstream library
+  type forces either, isolate it in a tiny adapter/helper with a comment naming the bad upstream
+  type.
+- Every `@ts-expect-error` must be narrow and include a short explanation of the upstream type gap or
+  invariant that makes it safe.
 - Favor validating data with Zod over using `any` or custom type guards
-- For local TypeScript files, import with the `.ts` / `.tsx` extension (not `.js`, not extensionless).
-  Note: we do not currently enable the TS 5.7 `rewriteRelativeImportExtensions` compiler option,
-  because it errors on non-relative imports that include `.ts`/`.tsx` (for example via `paths`
-  aliases like `@/…`). If/when we enable it, we will need to adjust those imports first.
+- Extract duplicated Zod object shapes, regexes, and descriptions into reusable schema fragments
+  when they describe the same domain concept. Keep property-level concerns such as `.optional()` and
+  `.default()` at the property site unless absence is intrinsic to the reusable fragment.
+- Boolean Zod properties should usually use explicit defaults instead of `.optional()` when omission
+  has normal default behavior. Only leave a boolean optional when `undefined` is semantically
+  different from `false`.
+- Prefer `z.union([...])` over chained `.or()` for multi-branch unions, and prefer `z.enum()` or
+  literal unions over clever regexes when the accepted values are finite and autocomplete matters.
+- Do not duplicate supported values in user-facing schema descriptions when schema metadata such as
+  enums or suggested values can carry that information.
+- In TypeScript files, use TypeScript syntax instead of JSDoc type annotations. In JavaScript files,
+  prefer JSDoc `@import` / `@param` forms over noisy inline `import('...')` annotations, and make
+  sure `@type` annotates the expression it is meant to type.
+- Avoid hand-written `.d.ts` files when the declaration can come from TypeScript source or
+  generation. If a declaration file is unavoidable, do not rely on `skipLibCheck` to hide duplicate
+  or invalid exports.
+- Avoid `Reflect.get` for normal object property reads. After narrowing to a record, use
+  `record[key]` or a small typed reader helper. Only keep `Reflect.get` for exotic receivers such as
+  proxies or framework objects where its semantics are intentionally required, and document why.
+- Prefer `Number.isFinite()` / `Number.isNaN()` over global `isFinite()` / `isNaN()` so numeric
+  checks do not silently coerce non-numbers.
+- `isRecord` style guards must reject arrays:
+  `typeof value === 'object' && value !== null && !Array.isArray(value)`. Prefer importing a shared
+  guard when one already exists in the relevant shared layer.
+- Type-only refactors must preserve runtime behavior. If the behavior intentionally changes, call it
+  out in the PR and cover the changed behavior with tests.
+- Use ECMAScript `#private` fields for private state. Do not rely on underscore names or TypeScript
+  `private` to imply runtime privacy.
+- Prefer Zod defaults/preprocessing for schema-backed default values instead of duplicating default
+  objects in runtime code.
+- For local TypeScript files, import with the `.ts` / `.tsx` extension (not `.js`, not
+  extensionless). Note: we do not currently enable the TS 5.7 `rewriteRelativeImportExtensions`
+  compiler option, because it errors on non-relative imports that include `.ts`/`.tsx` (for example
+  via `paths` aliases like `@/…`). If/when we enable it, we will need to adjust those imports first.
 - Favor defining props as an interface over inline
 - Favor explicit return types over inferring them as it makes typescript a lot faster in the editor
   on our scale

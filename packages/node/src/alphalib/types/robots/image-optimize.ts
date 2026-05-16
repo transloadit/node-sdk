@@ -54,7 +54,7 @@ This <dfn>Robot</dfn> enables you to lower your storage and bandwidth costs, and
 It works well together with [🤖/image/resize](/docs/robots/image-resize/) to bring the full power of resized and optimized images to your website or app.
 
 > [!Note]
-> This <dfn>Robot</dfn> accepts all image types and will just pass on unsupported image types unoptimized. Hence, there is no need to set up [🤖/file/filter](/docs/robots/file-filter/) workflows for this.
+> This <dfn>Robot</dfn> accepts all image types and will just pass on unsupported image types unoptimized, including JPEG XL (\`.jxl\`) images when no smaller optimized result can be produced. Hence, there is no need to set up [🤖/file/filter](/docs/robots/file-filter/) workflows for this.
 
 > [!Note]
 > PNG optimization uses only lossless (optipng) compressors by default. To also enable lossy compression (pngquant), set \`lossy: true\`. When enabled, both lossy and lossless compressors compete and the smallest result wins, which may cause color shifts in some images.

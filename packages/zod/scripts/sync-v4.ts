@@ -321,7 +321,17 @@ const patchInterpolatableRobot = (contents: string): string => {
     '      ),\n' +
     '    )\n' +
     '    .strict() as InterpolatableRobot<Schema>\n' +
-    '}\n\n'
+    '}\n\n' +
+    'const robotInterpolateBooleanSchema = z\n' +
+    '  .union([z.boolean(), booleanStringSchema])\n' +
+    "  .transform((value) => value === true || value === 'true')\n\n" +
+    'export const robotInterpolateSchema = z\n' +
+    '  .union([robotInterpolateBooleanSchema, z.record(z.string(), robotInterpolateBooleanSchema)])\n' +
+    '  .describe(`\n' +
+    'Controls whether Assembly Variables are interpolated for individual instruction fields.\n\n' +
+    'By default, most Robot instruction fields interpolate Assembly Variables. Set this to \\`false\\` to treat every instruction field as literal text, or set an individual field path to \\`false\\` to treat only that field as literal text. For Robot-specific fields that are literal by default, set this to \\`true\\` or set that field path to \\`true\\` to opt back into interpolation.\n\n' +
+    'Use field names such as \\`path\\`, or dotted paths such as \\`ffmpeg.vf\\` for nested objects.\n' +
+    '`)\n\n'
 
   return `${contents.slice(0, start)}${replacement}${contents.slice(end)}`
 }
