@@ -52,6 +52,6 @@
   },
   "devDependencies": {
     "@transloadit/types": "^4.3.1",
-    "@types/node": "^25.6.0"
+    "@types/node": "^25.8.0"
   }
 }
