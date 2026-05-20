@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
-import { writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import type { IncomingMessage } from 'node:http'
 import { createServer } from 'node:http'
-import { basename } from 'node:path'
-import temp from 'temp'
+import { tmpdir } from 'node:os'
+import { basename, join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { Transloadit } from '../../src/Transloadit.ts'
 
@@ -39,7 +39,8 @@ async function readBody(req: IncomingMessage): Promise<Buffer> {
 }
 
 async function createTmpFile(contents: string): Promise<string> {
-  const { path } = await temp.open('transloadit-resume')
+  const dir = await mkdtemp(join(tmpdir(), 'transloadit-resume-'))
+  const path = join(dir, 'upload.txt')
   await writeFile(path, contents, 'utf8')
   return path
 }

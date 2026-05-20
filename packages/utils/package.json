@@ -33,6 +33,6 @@
     "prepack": "yarn build"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0"
+    "@types/node": "^25.8.0"
   }
 }

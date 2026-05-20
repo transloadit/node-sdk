@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { createWriteStream, existsSync } from 'node:fs'
+import { mkdtemp } from 'node:fs/promises'
 import type { IncomingMessage, RequestListener } from 'node:http'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parse } from 'node:querystring'
 import { pipeline } from 'node:stream/promises'
@@ -8,7 +10,6 @@ import { setTimeout } from 'node:timers/promises'
 import debug from 'debug'
 import got, { type RetryOptions } from 'got'
 import intoStream from 'into-stream'
-import * as temp from 'temp'
 import { describe } from 'vitest'
 import type { InterpolatableRobotFileFilterInstructionsInput } from '../../src/alphalib/types/robots/file-filter.ts'
 import type { InterpolatableRobotImageResizeInstructionsInput } from '../../src/alphalib/types/robots/image-resize.ts'
@@ -35,7 +36,8 @@ function nn<T>(value: T | null | undefined, name = 'value'): T {
 }
 
 async function downloadTmpFile(url: string) {
-  const { path } = await temp.open('transloadit')
+  const dir = await mkdtemp(join(tmpdir(), 'transloadit-'))
+  const path = join(dir, 'download')
   await pipeline(got.stream(url), createWriteStream(path))
   return path
 }
@@ -230,7 +232,7 @@ describeLive('API integration', { timeout: 60000, retry: 1 }, () => {
           },
         },
         files: {
-          original: temp.path({ suffix: '.transloadit.jpg' }), // Non-existing path
+          original: join(tmpdir(), `${randomUUID()}.transloadit.jpg`), // Non-existing path
         },
       })
       await expect(promise).rejects.toThrow()

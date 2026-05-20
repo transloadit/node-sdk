@@ -43,7 +43,7 @@
     "p-retry": "^8.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.8.0",
     "transloadit": "^4.10.1"
   }
 }

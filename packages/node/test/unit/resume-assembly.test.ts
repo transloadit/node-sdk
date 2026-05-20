@@ -1,8 +1,8 @@
 import { createReadStream } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
-import temp from 'temp'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AssemblyStatus } from '../../src/alphalib/types/assemblyStatus.ts'
 import { Transloadit } from '../../src/Transloadit.ts'
@@ -161,7 +161,7 @@ describe('resumeAssemblyUploads', () => {
       endpoint: 'http://example.com',
     })
 
-    const dir = await temp.mkdir('resume-finished')
+    const dir = await mkdtemp(join(tmpdir(), 'resume-finished-'))
     const filePath = join(dir, 'done.txt')
     await writeFile(filePath, 'done', 'utf8')
 
@@ -216,7 +216,7 @@ describe('resumeAssemblyUploads', () => {
       endpoint: 'http://example.com',
     })
 
-    const dir = await temp.mkdir('resume-collision')
+    const dir = await mkdtemp(join(tmpdir(), 'resume-collision-'))
     const fileAPath = join(dir, 'b::1')
     const fileBPath = join(dir, '1')
 
