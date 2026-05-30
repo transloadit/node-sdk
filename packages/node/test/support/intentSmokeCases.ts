@@ -90,6 +90,11 @@ const intentSmokeOverrides: Record<string, Omit<IntentSmokeCase, 'key' | 'paths'
     outputPath: 'markdown-docx.docx',
     verifier: 'docx',
   },
+  'speech-transcribe:speech/transcribe': {
+    args: ['--input', '@fixture/input.mp3', '--format', 'json'],
+    outputPath: 'speech-transcribe.json',
+    verifier: 'json',
+  },
   '/image/optimize': {
     args: ['--input', '@fixture/input.jpg'],
     outputPath: 'image-optimize.jpg',
