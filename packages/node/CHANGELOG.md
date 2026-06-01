@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.10.5
+
+### Patch Changes
+
+- 76a51df: Add a `speech transcribe` CLI intent for one-off audio and video transcription.
+
 ## 4.10.4
 
 ### Patch Changes

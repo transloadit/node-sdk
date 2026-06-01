@@ -1092,7 +1092,7 @@ __metadata:
   resolution: "@transloadit/mcp-server@workspace:packages/mcp-server"
   dependencies:
     "@modelcontextprotocol/sdk": "npm:^1.29.0"
-    "@transloadit/node": "npm:^4.10.4"
+    "@transloadit/node": "npm:^4.10.5"
     "@transloadit/sev-logger": "npm:^0.1.9"
     "@types/express": "npm:^5.0.6"
     "@types/node": "npm:^25.8.0"
@@ -1104,7 +1104,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@transloadit/node@npm:^4.10.4, @transloadit/node@workspace:packages/node":
+"@transloadit/node@npm:^4.10.5, @transloadit/node@workspace:packages/node":
   version: 0.0.0-use.local
   resolution: "@transloadit/node@workspace:packages/node"
   dependencies:

@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.24
+
+### Patch Changes
+
+- 76a51df: Add a `speech transcribe` CLI intent for one-off audio and video transcription.
+- Updated dependencies [76a51df]
+  - @transloadit/node@4.10.5
+
 ## 0.3.23
 
 ### Patch Changes
