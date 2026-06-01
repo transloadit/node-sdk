@@ -247,6 +247,11 @@ export const intentCatalog = [
     meta: robotAudioWaveformMeta,
     schema: robotAudioWaveformInstructionsSchema,
   }),
+  defineSemanticIntent({
+    kind: 'semantic',
+    semantic: 'speech-transcribe',
+    paths: ['speech', 'transcribe'],
+  }),
   defineRobotIntent({
     kind: 'robot',
     robot: '/text/speak',

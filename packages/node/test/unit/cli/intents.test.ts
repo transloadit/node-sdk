@@ -731,6 +731,83 @@ describe('intent commands', () => {
     )
   })
 
+  it('maps speech transcribe to text output with the SOTA provider default', async () => {
+    const { createSpy } = await runIntentCommand([
+      'speech',
+      'transcribe',
+      '--input',
+      'voice.opus',
+      '--output',
+      'voice.txt',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: ['voice.opus'],
+        output: 'voice.txt',
+        stepsData: {
+          transcribe: expect.objectContaining({
+            robot: '/speech/transcribe',
+            use: ':original',
+            result: true,
+            provider: 'replicate',
+            format: 'text',
+          }),
+        },
+      }),
+    )
+  })
+
+  it('uses the requested speech transcribe format when inferring output paths', async () => {
+    const tempDir = await createTempDir('transloadit-intent-speech-format-')
+    const inputPath = path.join(tempDir, 'voice.opus')
+    await writeFile(inputPath, 'audio')
+
+    const { createSpy } = await runIntentCommand([
+      'speech',
+      'transcribe',
+      '--input',
+      inputPath,
+      '--format',
+      'json',
+    ])
+
+    expect(process.exitCode).toBeUndefined()
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(OutputCtl),
+      expect.anything(),
+      expect.objectContaining({
+        inputs: [inputPath],
+        output: path.join(tempDir, 'voice.json'),
+        stepsData: {
+          transcribe: expect.objectContaining({
+            format: 'json',
+            provider: 'replicate',
+          }),
+        },
+      }),
+    )
+  })
+
+  it('keeps the WIP transloadit speech provider out of the intent surface', async () => {
+    const { createSpy } = await runIntentCommand([
+      'speech',
+      'transcribe',
+      '--input',
+      'voice.opus',
+      '--provider',
+      'transloadit',
+      '--output',
+      'voice.txt',
+    ])
+
+    expect(process.exitCode).toBe(1)
+    expect(createSpy).not.toHaveBeenCalled()
+  })
+
   it('passes through explicit markdown options for backend rendering', async () => {
     const { createSpy } = await runIntentCommand([
       'markdown',

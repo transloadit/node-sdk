@@ -10,6 +10,7 @@ import {
   markdownDocxSemanticIntentDescriptor,
   markdownPdfSemanticIntentDescriptor,
 } from './markdownPdf.ts'
+import { speechTranscribeSemanticIntentDescriptor } from './speechTranscribe.ts'
 
 export interface SemanticIntentPresentation {
   description: string
@@ -43,6 +44,7 @@ const semanticIntentDescriptors: Record<string, SemanticIntentDescriptor> = {
   'markdown-docx': {
     ...markdownDocxSemanticIntentDescriptor,
   },
+  'speech-transcribe': speechTranscribeSemanticIntentDescriptor,
 }
 
 export function getSemanticIntentDescriptor(name: string): SemanticIntentDescriptor {

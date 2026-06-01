@@ -24,6 +24,7 @@ All intent commands also support the global CLI flags `--json`, `--log-level`, `
 | `document auto-rotate` | Auto-rotate documents to the correct orientation | file, dir, URL, base64 | file |
 | `document thumbs` | Extract thumbnail images from documents | file, dir, URL, base64 | directory |
 | `audio waveform` | Generate waveform images from audio | file, dir, URL, base64 | file |
+| `speech transcribe` | Transcribe speech in audio or video files | file, dir, URL, base64 | file |
 | `text speak` | Speak text | file, dir, URL, base64 | file |
 | `video thumbs` | Extract thumbnails from videos | file, dir, URL, base64 | directory |
 | `video encode-hls` | Run builtin/encode-hls-video@latest | file, dir, URL, base64 | directory |
@@ -341,7 +342,7 @@ npx transloadit image resize --input <path|dir|url|-> [options]
 
 | Flag | Type | Required | Example | Description |
 | --- | --- | --- | --- | --- |
-| `--format` | `string` | no | `value` | The output format for the modified image. Some of the most important available formats are "jpg", "png", "gif", and "tiff". For a complete lists of all formats that we can write… |
+| `--format` | `string` | no | `value` | The output format for the modified image. Some of the most important available formats are "jpg", "png", "gif", "tiff", and "jxl" for JPEG XL. For a complete list of all formats… |
 | `--width` | `number` | no | `1` | Width of the result in pixels. If not specified, will default to the width of the original. |
 | `--height` | `number` | no | `1` | Height of the new image, in pixels. If not specified, will default to the height of the input image. |
 | `--resize-strategy` | `string` | no | `crop` | See the list of available resize strategies. |
@@ -664,6 +665,48 @@ npx transloadit audio waveform --input <path|dir|url|-> [options]
 
 ```bash
 transloadit audio waveform --input input.mp3 --output output.png
+```
+
+## `speech transcribe`
+
+Transcribe speech in audio or video files
+
+Runs `/speech/transcribe` with a text-first default and writes the transcript to `--output`.
+
+**Usage**
+
+```bash
+npx transloadit speech transcribe --input <path|dir|url|-> [options]
+```
+
+**Quick facts**
+
+- Input: file, dir, URL, base64
+- Output: file
+- Execution: per-file; supports `--watch`
+- Backend: semantic alias `speech-transcribe`
+
+**Shared flags**
+
+- Uses the shared file input and output flags listed above.
+- Also supports the shared base processing flags, watch flags listed above.
+
+**Command options**
+
+| Flag | Type | Required | Example | Description |
+| --- | --- | --- | --- | --- |
+| `--provider` | `string` | no | `replicate` | Provider to use for transcription. Defaults to replicate. |
+| `--format` | `string` | no | `text` | Output format. Defaults to text. |
+| `--source-language` | `string` | no | `en-US` | Spoken language as a BCP-47 code, for providers that support explicit source languages. |
+| `--target-language` | `string` | no | `en-US` | Target written language for providers that support translation. |
+
+**Examples**
+
+```bash
+# Transcribe an audio file to text
+transloadit speech transcribe --input voice.opus --output voice.txt
+# Generate subtitles
+transloadit speech transcribe --input clip.mp4 --format webvtt --output captions.vtt
 ```
 
 ## `text speak`
