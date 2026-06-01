@@ -1,5 +1,7 @@
-import { z } from 'zod'
 import type { RobotMetaInput } from './_instructions-primitives.ts'
+
+import { z } from 'zod'
+
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 // We duplicate coreMessageSchema (and its related types) from structuredAiVercel.ts here
@@ -162,6 +164,7 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'anthropic/claude-opus-4-5': { pdf: true, image: true },
   'anthropic/claude-opus-4-6': { pdf: true, image: true },
   'anthropic/claude-opus-4-7': { pdf: true, image: true },
+  'anthropic/claude-opus-4-8': { pdf: true, image: true },
   'openai/gpt-4.1-2025-04-14': { pdf: false, image: true },
   'openai/chatgpt-4o-latest': { pdf: false, image: true },
   'openai/o3-2025-04-16': { pdf: false, image: true },
