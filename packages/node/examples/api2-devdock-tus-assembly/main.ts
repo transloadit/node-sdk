@@ -1,8 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import { Upload } from 'tus-js-client'
-
 import { Transloadit } from '../../src/Transloadit.ts'
 
 type JsonRecord = Record<string, unknown>
@@ -56,45 +54,11 @@ function requireArray(value: unknown, label: string): unknown[] {
   return value
 }
 
-function readPath(value: unknown, pathParts: readonly unknown[], label: string): unknown {
-  let current = value
-  for (const part of pathParts) {
-    if (Array.isArray(current) && Number.isInteger(part)) {
-      if (part >= current.length) {
-        fail(`${label} path ${JSON.stringify(pathParts)} index ${part} is out of range`)
-      }
-      current = current[part]
-      continue
-    }
-
-    if (isRecord(current) && typeof part === 'string') {
-      if (!Object.hasOwn(current, part)) {
-        fail(`${label} path ${JSON.stringify(pathParts)} is missing key ${JSON.stringify(part)}`)
-      }
-      current = current[part]
-      continue
-    }
-
-    fail(`${label} path ${JSON.stringify(pathParts)} cannot read ${JSON.stringify(part)}`)
-  }
-
-  return current
-}
-
-function resolveValue(valueSpec: unknown, context: JsonRecord, label: string): unknown {
-  const spec = requireRecord(valueSpec, label)
-  if (Object.hasOwn(spec, 'value')) {
-    return spec.value
-  }
-
-  const source = requireRecord(spec.source, `${label}.source`)
-  const root = requireString(source.root, `${label}.source.root`)
-  const pathParts = requireArray(source.path, `${label}.source.path`)
-  if (!Object.hasOwn(context, root)) {
-    fail(`${label} value source root ${JSON.stringify(root)} is unavailable`)
-  }
-
-  return readPath(context[root], pathParts, label)
+function stringRecord(value: unknown, label: string): Record<string, string> {
+  const record = requireRecord(value, label)
+  return Object.fromEntries(
+    Object.entries(record).map(([key, entryValue]) => [key, String(entryValue)]),
+  )
 }
 
 function featurePreparation(
@@ -119,24 +83,19 @@ function featurePreparation(
   fail(`scenario has no preparation for feature ${JSON.stringify(featureId)}`)
 }
 
-function scalarString(value: unknown): string {
-  if (value === null) {
-    return 'null'
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? 'true' : 'false'
-  }
-
-  return String(value)
-}
-
 async function loadScenario(): Promise<JsonRecord> {
   const scenarioPath =
     process.env.API2_SDK_EXAMPLE_SCENARIO ?? path.join(import.meta.dirname, 'api2-scenario.json')
   const parsed: unknown = JSON.parse(await readFile(scenarioPath, 'utf8'))
 
   return requireRecord(parsed, 'scenario')
+}
+
+function fileCount(scenario: JsonRecord): number {
+  const { label, preparation } = featurePreparation(scenario, 'createTusAssembly')
+  const input = requireRecord(preparation.input, `${label}.input`)
+
+  return requireNumber(input.file_count, `${label}.input.file_count`)
 }
 
 function scenarioBytes(uploadConfig: JsonRecord): Buffer {
@@ -154,62 +113,6 @@ function scenarioBytes(uploadConfig: JsonRecord): Buffer {
   return Buffer.from(requireString(source.value, 'upload.source.value'), 'utf8')
 }
 
-function uploadMetadata(
-  uploadConfig: JsonRecord,
-  scenario: JsonRecord,
-  createResponse: JsonRecord,
-): Record<string, string> {
-  const context = { createResponse, scenario }
-  const metadata: Record<string, string> = {}
-  for (const fieldValue of requireArray(uploadConfig.metadata, 'upload.metadata')) {
-    const field = requireRecord(fieldValue, 'upload.metadata[]')
-    const name = requireString(field.name, 'upload.metadata[].name')
-    metadata[name] = scalarString(resolveValue(field.value, context, `upload.metadata.${name}`))
-  }
-
-  return metadata
-}
-
-function retryDelays(retries: unknown): number[] {
-  const retryCount = requireNumber(retries, 'upload.retries')
-  if (!Number.isInteger(retryCount) || retryCount < 0) {
-    fail(`unsupported retry count ${JSON.stringify(retryCount)}`)
-  }
-
-  return Array.from({ length: retryCount }, () => 0)
-}
-
-async function uploadWithTus(scenario: JsonRecord, createResponse: JsonRecord): Promise<string> {
-  const uploadConfig = requireRecord(scenario.upload, 'upload')
-  const context = { createResponse, scenario }
-  const endpoint = scalarString(resolveValue(uploadConfig.tusUrl, context, 'upload.tusUrl'))
-  const content = scenarioBytes(uploadConfig)
-  if (uploadConfig.chunkSize !== 'full-file') {
-    fail(`unsupported chunk size policy ${JSON.stringify(uploadConfig.chunkSize)}`)
-  }
-
-  return await new Promise<string>((resolve, reject) => {
-    let upload: Upload | null = null
-    upload = new Upload(content, {
-      endpoint,
-      chunkSize: content.length,
-      metadata: uploadMetadata(uploadConfig, scenario, createResponse),
-      retryDelays: retryDelays(uploadConfig.retries),
-      onError: reject,
-      onSuccess: () => {
-        if (!upload?.url) {
-          reject(new Error('TUS upload did not expose an upload URL'))
-          return
-        }
-
-        resolve(upload.url)
-      },
-    })
-
-    upload.start()
-  })
-}
-
 async function writeResult(result: JsonRecord): Promise<void> {
   const resultPath = process.env.API2_SDK_EXAMPLE_RESULT
   if (!resultPath) {
@@ -221,38 +124,29 @@ async function writeResult(result: JsonRecord): Promise<void> {
 
 async function main(): Promise<void> {
   const scenario = await loadScenario()
-  const { label: createTusAssemblyLabel, preparation: createTusAssembly } = featurePreparation(
-    scenario,
-    'createTusAssembly',
-  )
-  const createInput = requireRecord(createTusAssembly.input, `${createTusAssemblyLabel}.input`)
-
+  const upload = requireRecord(scenario.upload, 'upload')
   const client = new Transloadit({
     authKey: requiredEnv('TRANSLOADIT_KEY'),
     authSecret: requiredEnv('TRANSLOADIT_SECRET'),
     endpoint: requiredEnv('TRANSLOADIT_ENDPOINT'),
   })
 
-  const createResponse = requireRecord(
-    await client.createTusAssembly(requireNumber(createInput.file_count, 'file_count')),
-    'createTusAssembly response',
-  )
-  const uploadUrl = await uploadWithTus(scenario, createResponse)
-  const status = requireRecord(
-    await client.waitForAssembly(
-      requireString(createResponse.assembly_ssl_url, 'createTusAssembly response.assembly_ssl_url'),
-    ),
-    'waitForAssembly response',
+  const result = await client.uploadTusAssembly(
+    fileCount(scenario),
+    scenarioBytes(upload),
+    requireString(upload.fieldName, 'upload.fieldName'),
+    requireString(upload.fileName, 'upload.fileName'),
+    stringRecord(upload.userMeta, 'upload.userMeta'),
   )
 
   await writeResult({
-    createResponse,
-    uploadUrl,
-    waitOk: status.ok,
+    createResponse: result.assembly,
+    uploadUrl: result.uploadUrl,
+    waitOk: result.assembly.ok,
   })
 
   console.log(
-    `Node SDK devdock scenario ${requireString(scenario.scenarioId, 'scenarioId')} uploaded to ${uploadUrl}`,
+    `Node SDK devdock scenario ${requireString(scenario.scenarioId, 'scenarioId')} uploaded to ${result.uploadUrl}`,
   )
 }
 

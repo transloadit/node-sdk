@@ -108,6 +108,11 @@ export type AssemblyStatusWithUploadUrls = AssemblyStatus & {
   upload_urls?: Record<string, string>
 }
 
+export interface UploadTusAssemblyResult {
+  assembly: AssemblyStatus
+  uploadUrl: string
+}
+
 const { version } = packageJson
 
 export type AssemblyProgress = (assembly: AssemblyStatus) => void
@@ -635,6 +640,104 @@ export class Transloadit {
   }
 
   // </api2-generated-feature waitForAssembly>
+
+  // <api2-generated-feature uploadTusAssembly>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  async uploadTusAssembly(
+    fileCount: number,
+    content: Buffer | Uint8Array | string,
+    fieldname: string,
+    filename: string,
+    userMeta: Record<string, string>,
+  ): Promise<UploadTusAssemblyResult> {
+    const createdAssembly = await this.createTusAssembly(fileCount)
+
+    const endpointUrl = createdAssembly.tus_url
+    if (!endpointUrl) {
+      throw new Error('TUS singleUploadLifecycle needs input.endpointUrl')
+    }
+
+    const contentBytes = Buffer.isBuffer(content) ? content : Buffer.from(content)
+
+    const metadataMap = new Map<string, string>()
+    for (const [key, value] of Object.entries(userMeta)) {
+      metadataMap.set(String(key), String(value))
+    }
+    metadataMap.set('assembly_url', String(createdAssembly.assembly_url))
+    metadataMap.set('fieldname', String(fieldname))
+    metadataMap.set('filename', String(filename))
+
+    const createHeaders: Record<string, string> = {}
+    createHeaders['Tus-Resumable'] = '1.0.0'
+    createHeaders['Upload-Length'] = String(contentBytes.length)
+    const createMetadataParts: string[] = []
+    for (const [key, value] of metadataMap) {
+      const encodedValue = Buffer.from(String(value), 'utf8').toString('base64')
+      createMetadataParts.push(`${key} ${encodedValue}`)
+    }
+    createHeaders['Upload-Metadata'] = createMetadataParts.join(',')
+    const createResponse = await got(endpointUrl, {
+      method: 'POST',
+      body: Buffer.alloc(0),
+      headers: createHeaders,
+      retry: this._gotRetry,
+      throwHttpErrors: false,
+      timeout: { request: this._defaultTimeout },
+    })
+
+    if (createResponse.statusCode !== 201) {
+      throw new Error(`TUS create returned HTTP ${createResponse.statusCode}, expected 201`)
+    }
+    const uploadUrlLocation = createResponse.headers.location
+    const uploadUrlLocationText = Array.isArray(uploadUrlLocation)
+      ? uploadUrlLocation[0]
+      : uploadUrlLocation
+    if (!uploadUrlLocationText) {
+      throw new Error('TUS create did not return a Location header')
+    }
+    const uploadUrlText = new URL(uploadUrlLocationText, endpointUrl).toString()
+
+    const uploadHeaders: Record<string, string> = {}
+    uploadHeaders['Tus-Resumable'] = '1.0.0'
+    uploadHeaders['Upload-Offset'] = '0'
+    uploadHeaders['Content-Type'] = 'application/offset+octet-stream'
+    const uploadResponse = await got(uploadUrlText, {
+      method: 'PATCH',
+      body: contentBytes,
+      headers: uploadHeaders,
+      retry: this._gotRetry,
+      throwHttpErrors: false,
+      timeout: { request: this._defaultTimeout },
+    })
+
+    if (uploadResponse.statusCode !== 204) {
+      throw new Error(`TUS upload returned HTTP ${uploadResponse.statusCode}, expected 204`)
+    }
+    const uploadOffsetHeader = uploadResponse.headers['upload-offset']
+    const uploadOffsetText = Array.isArray(uploadOffsetHeader)
+      ? uploadOffsetHeader[0]
+      : uploadOffsetHeader
+    if (!uploadOffsetText) {
+      throw new Error('TUS upload returned an invalid Upload-Offset header')
+    }
+    const remoteOffset = Number(uploadOffsetText)
+    if (!Number.isInteger(remoteOffset)) {
+      throw new Error('TUS upload returned an invalid Upload-Offset header')
+    }
+    if (remoteOffset !== contentBytes.length) {
+      throw new Error(`TUS upload offset ${remoteOffset}, expected ${contentBytes.length}`)
+    }
+
+    const completedAssembly = await this.waitForAssembly(createdAssembly.assembly_ssl_url ?? '')
+
+    return { assembly: completedAssembly, uploadUrl: uploadUrlText }
+  }
+
+  // </api2-generated-feature uploadTusAssembly>
 
   async resumeAssemblyUploads(
     opts: ResumeAssemblyUploadsOptions,
