@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { ensureUniqueCounterValue } from '../../src/ensureUniqueCounter.ts'
 
 describe('ensureUniqueCounterValue', () => {

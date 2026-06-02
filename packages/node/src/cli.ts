@@ -4,6 +4,7 @@ import { realpathSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+
 import { loadProjectDotenvIntoProcessEnv } from './cli/helpers.ts'
 import { ensureError } from './cli/types.ts'
 

@@ -1,17 +1,22 @@
 import type { LookupAddress, LookupOptions } from 'node:dns'
+import type { LookupFunction } from 'node:net'
+import type { Readable } from 'node:stream'
+
+import type { EntryObject, IPFamily } from 'cacheable-lookup'
+import type { Input as IntoStreamInput } from 'into-stream'
+
+import type { CreateAssemblyParams } from './apiTypes.ts'
+
 import * as dnsPromises from 'node:dns/promises'
 import { createWriteStream } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import type { LookupFunction } from 'node:net'
 import { isIP } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, join, parse } from 'node:path'
-import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import type { EntryObject, IPFamily } from 'cacheable-lookup'
+
 import got from 'got'
-import type { Input as IntoStreamInput } from 'into-stream'
-import type { CreateAssemblyParams } from './apiTypes.ts'
+
 import { ensureUniqueCounterValue } from './ensureUniqueCounter.ts'
 
 export type InputFile =

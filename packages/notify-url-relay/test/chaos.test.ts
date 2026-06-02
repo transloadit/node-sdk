@@ -1,8 +1,10 @@
+import type { CounterMetricEvent } from '../src/index.ts'
+
 import { createServer } from 'node:http'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import { describe, expect, it } from 'vitest'
-import type { CounterMetricEvent } from '../src/index.ts'
+
 import { TransloaditNotifyUrlProxy } from '../src/index.ts'
 import { closeServer, json, listen, readBody, startRelay, waitFor } from './helpers.ts'
 

@@ -1,5 +1,7 @@
 import type { Client } from '@modelcontextprotocol/sdk/client'
+
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
 import { createMcpClient, isRecord, parseToolPayload } from '../e2e/mcp-client.ts'
 
 describe('mcp-server robots (unit)', { timeout: 20000 }, () => {

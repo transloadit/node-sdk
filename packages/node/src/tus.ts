@@ -1,12 +1,16 @@
-import { stat } from 'node:fs/promises'
-import { basename } from 'node:path'
 import type { Readable } from 'node:stream'
-import debug from 'debug'
-import pMap from 'p-map'
+
 import type { OnSuccessPayload, UploadOptions } from 'tus-js-client'
-import { Upload } from 'tus-js-client'
+
 import type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 import type { UploadProgress } from './Transloadit.ts'
+
+import { stat } from 'node:fs/promises'
+import { basename } from 'node:path'
+
+import debug from 'debug'
+import pMap from 'p-map'
+import { Upload } from 'tus-js-client'
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')

@@ -1,9 +1,11 @@
+import type { Transloadit } from '../../Transloadit.ts'
+import type { IOutputCtl } from '../OutputCtl.ts'
+
 import { Command, Option } from 'clipanion'
 import { z } from 'zod'
+
 import { tryCatch } from '../../alphalib/tryCatch.ts'
-import type { Transloadit } from '../../Transloadit.ts'
 import { formatAPIError } from '../helpers.ts'
-import type { IOutputCtl } from '../OutputCtl.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
 
 // --- Types and business logic ---

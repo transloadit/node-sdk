@@ -1,4 +1,5 @@
 import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js'
+
 import packageJson from '../package.json' with { type: 'json' }
 
 export const serverCardPath = '/.well-known/mcp/server-card.json'

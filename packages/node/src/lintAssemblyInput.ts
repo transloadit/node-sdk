@@ -1,7 +1,8 @@
-import { getIndentation } from './alphalib/stepParsing.ts'
-import { mergeTemplateContent } from './alphalib/templateMerge.ts'
 import type { AssemblyInstructionsInput, StepsInput } from './alphalib/types/template.ts'
 import type { ResponseTemplateContent, TemplateContent } from './apiTypes.ts'
+
+import { getIndentation } from './alphalib/stepParsing.ts'
+import { mergeTemplateContent } from './alphalib/templateMerge.ts'
 
 const DEFAULT_INDENT = '  '
 

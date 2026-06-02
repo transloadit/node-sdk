@@ -3,6 +3,7 @@ import type {
   IntentOptionDefinition,
 } from '../intentRuntime.ts'
 import type { SemanticIntentDescriptor, SemanticIntentPresentation } from './index.ts'
+
 import { parseOptionalEnumValue } from './parsing.ts'
 
 const speechTranscribeProviders = ['aws', 'gcp', 'replicate'] as const

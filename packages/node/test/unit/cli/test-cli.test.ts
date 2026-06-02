@@ -2,7 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { lint as lintAssemblies } from '../../../src/cli/commands/assemblies.ts'
 import { runSig, runSmartSig } from '../../../src/cli/commands/auth.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'

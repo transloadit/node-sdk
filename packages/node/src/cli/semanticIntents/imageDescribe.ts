@@ -1,9 +1,10 @@
-import { parseStringArrayValue } from '../intentFields.ts'
 import type {
   IntentDynamicStepExecutionDefinition,
   IntentOptionDefinition,
 } from '../intentRuntime.ts'
 import type { SemanticIntentDescriptor, SemanticIntentPresentation } from './index.ts'
+
+import { parseStringArrayValue } from '../intentFields.ts'
 import { parseOptionalEnumValue, parseUniqueEnumArray } from './parsing.ts'
 
 const imageDescribeFields = ['labels', 'altText', 'title', 'caption', 'description'] as const

@@ -1,5 +1,4 @@
 import type { CommandClass } from 'clipanion'
-import { Command } from 'clipanion'
 import type { ZodObject, ZodRawShape, ZodTypeAny } from 'zod'
 
 import type { RobotMetaInput } from '../alphalib/types/robots/_instructions-primitives.ts'
@@ -10,14 +9,7 @@ import type {
   RobotIntentDefinition,
   SemanticIntentDefinition,
 } from './intentCommandSpecs.ts'
-import { getIntentPaths, getIntentResultStepName, intentCatalog } from './intentCommandSpecs.ts'
 import type { IntentFieldKind, IntentFieldSpec } from './intentFields.ts'
-import {
-  createIntentOption,
-  inferIntentExampleValue,
-  inferIntentFieldKind,
-  unwrapIntentSchema,
-} from './intentFields.ts'
 import type { IntentInputPolicy } from './intentInputPolicy.ts'
 import type {
   IntentCommandDefinition,
@@ -25,6 +17,16 @@ import type {
   IntentNoInputCommandDefinition,
   IntentSingleStepExecutionDefinition,
 } from './intentRuntime.ts'
+
+import { Command } from 'clipanion'
+
+import { getIntentPaths, getIntentResultStepName, intentCatalog } from './intentCommandSpecs.ts'
+import {
+  createIntentOption,
+  inferIntentExampleValue,
+  inferIntentFieldKind,
+  unwrapIntentSchema,
+} from './intentFields.ts'
 import {
   GeneratedBundledFileIntentCommand,
   GeneratedNoInputIntentCommand,

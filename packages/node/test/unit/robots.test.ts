@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { getRobotHelp, listRobots } from '../../src/Transloadit.ts'
 
 describe('robot catalog helpers', () => {

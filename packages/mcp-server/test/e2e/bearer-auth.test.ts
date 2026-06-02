@@ -1,5 +1,7 @@
 import type { Client } from '@modelcontextprotocol/sdk/client'
+
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
 import { createHttpClient, startHttpServer } from './http-server.ts'
 import { parseToolPayload } from './mcp-client.ts'
 

@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 
-import { parseArgs } from 'node:util'
-import { SevLogger } from '@transloadit/sev-logger'
-import { config as loadDotEnv } from 'dotenv'
 import type {
   CounterMetricEvent,
   GaugeMetricEvent,
@@ -11,6 +8,12 @@ import type {
   ProxySettings,
   TimingMetricEvent,
 } from './index.ts'
+
+import { parseArgs } from 'node:util'
+
+import { SevLogger } from '@transloadit/sev-logger'
+import { config as loadDotEnv } from 'dotenv'
+
 import { TransloaditNotifyUrlProxy } from './index.ts'
 
 loadDotEnv({ quiet: true })

@@ -1,6 +1,7 @@
+import type { AssemblyStatus } from '../../src/alphalib/types/assemblyStatus.ts'
+
 import { describe, expect, it } from 'vitest'
 
-import type { AssemblyStatus } from '../../src/alphalib/types/assemblyStatus.ts'
 import {
   isAssemblySysError,
   isAssemblyTerminal,

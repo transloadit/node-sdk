@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { config as dotenvConfig } from 'dotenv'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))

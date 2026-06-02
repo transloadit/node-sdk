@@ -1,6 +1,9 @@
 import type { stat as NodeStat } from 'node:fs/promises'
-import { PassThrough } from 'node:stream'
+
 import type { OnSuccessPayload, UploadOptions } from 'tus-js-client'
+
+import { PassThrough } from 'node:stream'
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 let startBehavior: (options: UploadOptions) => void
@@ -64,6 +67,7 @@ vi.mock('p-map', () => ({
 }))
 
 import type { AssemblyStatus } from '../../src/alphalib/types/assemblyStatus.ts'
+
 import { sendTusRequest } from '../../src/tus.ts'
 
 const baseAssembly = {

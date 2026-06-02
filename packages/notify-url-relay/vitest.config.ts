@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url'
+
 import { defineConfig } from 'vitest/config'
 
 const includeRealE2E = process.env.RUN_REAL_E2E === '1'

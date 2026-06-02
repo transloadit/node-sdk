@@ -1,7 +1,10 @@
-import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
+
+import { createServer } from 'node:http'
+
 import express from 'express'
 import { afterEach, describe, expect, it } from 'vitest'
+
 import { createTransloaditMcpExpressRouter } from '../../src/express.ts'
 
 type RunningServer = { close: () => Promise<void>; baseUrl: URL }
