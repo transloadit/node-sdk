@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   interpolateRobot,
   robotBase,
@@ -55,7 +56,7 @@ The /video/encode Robot is a versatile tool for video processing that handles tr
 
 ## Adding text overlays with FFmpeg
 
-You can add text overlays to videos using FFmpeg's \`drawtext\` filter through this <Definition term="Robot">Robot</Definition>'s \`ffmpeg\` parameter. Here are two examples — one with the default font and one with a custom font family name:
+You can add text overlays to videos using FFmpeg's \`drawtext\` filter through this <dfn>Robot</dfn>'s \`ffmpeg\` parameter. Here are two examples — one with the default font and one with a custom font family name:
 
 \`\`\`json
 {
@@ -111,6 +112,7 @@ export const robotVideoEncodeInstructionsWithHiddenFieldsSchema =
       .union([z.literal('debug'), robotVideoEncodeInstructionsSchema.shape.result])
       .optional(),
     chunked_transcoding: z.boolean().optional(),
+    freeze_detect: z.boolean().optional(),
     realtime: z.boolean().optional(),
   })
 

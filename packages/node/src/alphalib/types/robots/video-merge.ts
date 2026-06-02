@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_with_alpha,
   interpolateRobot,
@@ -142,6 +143,7 @@ export const robotVideoMergeInstructionsWithHiddenFieldsSchema =
     result: z
       .union([z.literal('debug'), robotVideoMergeInstructionsSchema.shape.result])
       .optional(),
+    turbo: z.boolean().optional(),
   })
 
 export type RobotVideoMergeInstructions = z.infer<typeof robotVideoMergeInstructionsSchema>

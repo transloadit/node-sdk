@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   dropboxBase,
   interpolateRobot,
@@ -53,6 +54,18 @@ export const robotDropboxImportInstructionsSchema = robotBase
   .merge(dropboxBase)
   .extend({
     robot: z.literal('/dropbox/import'),
+    access_token: z
+      .string()
+      .optional()
+      .describe(`
+The Dropbox OAuth access token. We recommend using <dfn>Template Credentials</dfn> via \`credentials\`, but you can use this parameter for dynamic Dropbox credentials.
+`),
+    refresh_token: z
+      .string()
+      .optional()
+      .describe(`
+The Dropbox OAuth refresh token. This is optional and can be used together with \`access_token\` for dynamic Dropbox credentials.
+`),
     path: path.describe(`
 The path in your Dropbox to the specific file or directory. If the path points to a file, only this file will be imported. For example: \`images/avatar.jpg\`.
 
@@ -70,7 +83,6 @@ export const robotDropboxImportInstructionsWithHiddenFieldsSchema =
     result: z
       .union([z.literal('debug'), robotDropboxImportInstructionsSchema.shape.result])
       .optional(),
-    access_token: z.string().optional(), // Legacy field for backward compatibility
   })
 
 export type RobotDropboxImportInstructions = z.infer<typeof robotDropboxImportInstructionsSchema>

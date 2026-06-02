@@ -1,4 +1,5 @@
 import type { Replace } from 'type-fest'
+
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
@@ -46,6 +47,7 @@ export const robotNames = z.enum([
   'MetaWriteRobot',
   'DocumentThumbsRobot',
   'DocumentConvertRobot',
+  'DocumentExtractRobot',
   'DocumentMergeRobot',
   'DocumentSplitRobot',
   'DocumentOptimizeRobot',
@@ -518,6 +520,8 @@ For images, you can also add \`"blurhash": true\` to extract a [BlurHash](https:
 
 For videos, you can add the \`"colorspace: true"\` parameter to extract the colorspace of the output video.
 
+For videos, you can also add \`"interlaced": true\` to detect whether the video is interlaced. This combines the cheap ffprobe \`field_order\` flag with a bounded \`idet\` sampling pass over the first frames of the source, exposing \`interlaced\`, \`field_order\`, and a diagnostic \`interlace_detection\` object under \`file.meta\`. This is computationally expensive and billed accordingly.
+
 For audio, you can add \`"mean_volume": true\` to get a single value representing the mean average volume of the audio file.
 
 You can also set this to \`false\` to skip metadata extraction and speed up transcoding.
@@ -861,10 +865,10 @@ A parameter object to be passed to FFmpeg. If a preset is used, the options spec
 
   ffmpeg_stack: z
     // Any semver in range is allowed and normalized. The enum is used for editor completions.
-    .union([z.enum(['v5', 'v6', 'v7']), z.string().regex(/^v?[567](\.\d+)?(\.\d+)?$/)])
+    .union([z.enum(['v6', 'v7', 'v8']), z.string().regex(/^v?[5-8](\.\d+)?(\.\d+)?$/)])
     .default('v6.0.0')
     .describe(`
-Selects the FFmpeg stack version to use for encoding. These versions reflect real FFmpeg versions. We currently recommend to use "v6.0.0".
+Selects the FFmpeg stack version to use for encoding. These versions reflect real FFmpeg versions. We currently recommend to use "v6.0.0". Deprecated "v5.x" values are accepted for backward compatibility.
 `),
 })
 

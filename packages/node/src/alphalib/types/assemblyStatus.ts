@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { fileAsSchema } from './file.ts'
+
 export const assemblyBusyCodeSchema = z.enum([
   'ASSEMBLY_UPLOADING',
   'ASSEMBLY_EXECUTING',
@@ -128,6 +130,7 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'DOCUMENT_AUTOROTATE_VALIDATION',
   'DOCUMENT_CONVERT_UNSUPPORTED_CONVERSION',
   'DOCUMENT_CONVERT_VALIDATION',
+  'DOCUMENT_EXTRACT_VALIDATION',
   'DOCUMENT_MERGE_UNSUPPORTED_CONVERSION',
   'DOCUMENT_MERGE_VALIDATION',
   'DOCUMENT_OCR_VALIDATION',
@@ -596,10 +599,7 @@ export const assemblyStatusUploadSchema = z
     ssl_url: z.string().nullable(),
     meta: assemblyStatusMetaSchema,
     user_meta: z.record(z.unknown()).optional(),
-    as: z
-      .union([z.string(), z.array(z.string())])
-      .nullable()
-      .optional(),
+    as: fileAsSchema.optional(),
     is_temp_url: z.boolean().optional(),
     queue: z.string().nullable().optional(),
     queue_time: z.number().optional(),
@@ -652,10 +652,7 @@ export const assemblyStatusResultSchema = z
       .nullable()
       .optional(),
     width: z.number().nullable().optional(),
-    as: z
-      .union([z.string(), z.array(z.string())])
-      .nullable()
-      .optional(),
+    as: fileAsSchema.optional(),
     queueTime: z.number().nullable().optional(),
     execTime: z.number().nullable().optional(),
     import_url: z.string().optional(),
@@ -837,6 +834,10 @@ export const assemblyStatusErrSchema = assemblyStatusBaseSchema
     stderr: z.string().optional(),
     cmd: z.union([z.string(), z.array(z.union([z.string(), z.number()]))]).optional(),
     admin_cmd: z.union([z.string(), z.array(z.union([z.string(), z.number()]))]).optional(),
+    is_private_address: z.boolean().optional(),
+    playwright_error_code: z.string().optional(),
+    url: z.string().optional(),
+    url_host: z.string().nullable().optional(),
     worker: z.string().optional(),
     headers: z.record(z.unknown()).optional(),
     retryable: z.boolean().optional(),

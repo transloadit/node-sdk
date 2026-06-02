@@ -1,13 +1,18 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
-  aiProviderSchema,
   granularitySchema,
   interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
+
+const speechTranscribeProviderSchema = z.enum(['aws', 'gcp', 'replicate']).default('replicate')
+const speechTranscribeProviderWithHiddenFieldsSchema = z
+  .enum(['aws', 'gcp', 'replicate', 'transloadit'])
+  .default('replicate')
 
 export const meta: RobotMetaInput = {
   bytescount: 1,
@@ -18,7 +23,7 @@ export const meta: RobotMetaInput = {
       transcribed: {
         robot: '/speech/transcribe',
         use: ':original',
-        provider: 'aws',
+        provider: 'replicate',
         source_language: 'fr-FR',
         format: 'text',
       },
@@ -28,7 +33,7 @@ export const meta: RobotMetaInput = {
     'Transcribe speech in French from uploaded audio or video, and save it to a text file:',
   extended_description: `
 > [!Warning]
-> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
+> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses AI services. The providers will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
 `,
   minimum_charge: 1048576,
   output_factor: 0.05,
@@ -64,10 +69,12 @@ You can use the text that we return in your application, or you can pass the tex
 
 Another common use case is automatically subtitling videos, or making audio searchable.
 `),
-    provider: aiProviderSchema.describe(`
+    provider: speechTranscribeProviderSchema.describe(`
 Which AI provider to leverage.
 
-Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
+Defaults to \`"replicate"\`, which currently uses our highest-quality deployed transcription path while ElevenLabs Scribe support is being prepared.
+
+Transloadit abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
 `),
     granularity: granularitySchema.describe(`
 Whether to return a full response (\`"full"\`), or a flat list of descriptions (\`"list"\`).
@@ -106,6 +113,7 @@ The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/
 
 export const robotSpeechTranscribeInstructionsWithHiddenFieldsSchema =
   robotSpeechTranscribeInstructionsSchema.extend({
+    provider: speechTranscribeProviderWithHiddenFieldsSchema,
     result: z
       .union([z.literal('debug'), robotSpeechTranscribeInstructionsSchema.shape.result])
       .optional(),

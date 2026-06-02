@@ -7,26 +7,6 @@ const zodRoot = resolve(dirname(filePath), '..')
 const sourceRoot = resolve(zodRoot, '../node/src/alphalib/types')
 const destRoot = resolve(zodRoot, 'src/v3')
 
-const reexportExtension = 'ts'
-const indexModules = [
-  'assembliesGet',
-  'assemblyReplay',
-  'assemblyReplayNotification',
-  'assemblyStatus',
-  'assemblyUrls',
-  'bill',
-  'builtinTemplates',
-  'skillFrontmatter',
-  'stackVersions',
-  'template',
-  'templateCredential',
-  'robots/_index',
-]
-const indexContents = [
-  ...indexModules.map((module) => `export * from './${module}.${reexportExtension}'`),
-  '',
-].join('\n')
-
 const collectFiles = async (dir: string, acc: string[] = []): Promise<string[]> => {
   const entries = await readdir(dir, { withFileTypes: true })
   for (const entry of entries) {
@@ -42,6 +22,18 @@ const collectFiles = async (dir: string, acc: string[] = []): Promise<string[]> 
   return acc
 }
 
+const listIndexModules = async (): Promise<string[]> => {
+  const entries = await readdir(sourceRoot, { withFileTypes: true })
+  const modules = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .map((entry) => entry.name.replace(/\.ts$/, ''))
+  modules.push('robots/_index')
+  return [...new Set(modules)].sort()
+}
+
+const buildIndexContents = (modules: string[]): string =>
+  [...modules.map((module) => `export * from './${module}.ts'`), ''].join('\n')
+
 const rewriteZodImports = async () => {
   const files = await collectFiles(destRoot)
   for (const file of files) {
@@ -54,10 +46,11 @@ const rewriteZodImports = async () => {
 }
 
 const main = async () => {
+  const indexModules = await listIndexModules()
   await rm(destRoot, { recursive: true, force: true })
   await mkdir(destRoot, { recursive: true })
   await cp(sourceRoot, destRoot, { recursive: true })
-  await writeFile(resolve(destRoot, 'index.ts'), indexContents, 'utf8')
+  await writeFile(resolve(destRoot, 'index.ts'), buildIndexContents(indexModules), 'utf8')
   await rewriteZodImports()
 }
 

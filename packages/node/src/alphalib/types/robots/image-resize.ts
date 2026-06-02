@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_without_alpha_with_named,
   colorspaceSchema,
@@ -603,11 +604,7 @@ Transform the image to black and white. This is a shortcut for setting the color
     shave: z
       .union([
         z.string().regex(/^\d+(x\d+)?$/),
-        z
-          .number()
-          .int()
-          .min(0)
-          .transform(String), // Accept numbers and convert to string
+        z.number().int().min(0).transform(String), // Accept numbers and convert to string
       ])
       .optional()
       .describe(`

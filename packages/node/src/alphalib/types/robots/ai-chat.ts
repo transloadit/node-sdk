@@ -168,6 +168,8 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'openai/gpt-4.1-2025-04-14': { pdf: false, image: true },
   'openai/chatgpt-4o-latest': { pdf: false, image: true },
   'openai/o3-2025-04-16': { pdf: false, image: true },
+  'openai/gpt-audio': { pdf: false, image: false },
+  'openai/gpt-audio-2025-08-28': { pdf: false, image: false },
   'openai/gpt-4o-audio-preview': { pdf: false, image: false },
   'openai/gpt-5.2': { pdf: false, image: true },
   'openai/gpt-5.2-2025-12-11': { pdf: false, image: true },
