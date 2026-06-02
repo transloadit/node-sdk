@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { azureBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
@@ -40,6 +41,10 @@ export const meta: RobotMetaInput = {
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'ga',
 }
+
+const azureStoreMetadataValueSchema = z
+  .union([z.string(), z.number(), z.boolean()])
+  .transform(String)
 
 export const robotAzureStoreInstructionsSchema = robotBase
   .merge(robotUse)
@@ -82,9 +87,8 @@ The content disposition with which to store the file. By default this will be gu
       .describe(`
 The cache control header with which to store the file.
 `),
-    // TODO: verify if this is correct.
     metadata: z
-      .record(z.string())
+      .record(azureStoreMetadataValueSchema)
       .default({})
       .describe(`
 A JavaScript object containing a list of metadata to be set for this file on Azure, such as \`{ FileURL: "\${file.url_name}" }\`. This can also include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables).
@@ -114,6 +118,7 @@ export const robotAzureStoreInstructionsWithHiddenFieldsSchema =
     result: z
       .union([z.literal('debug'), robotAzureStoreInstructionsSchema.shape.result])
       .optional(),
+    upload_stack: z.enum(['v1', 'v2']).optional(),
   })
 
 export type RobotAzureStoreInstructions = z.infer<typeof robotAzureStoreInstructionsSchema>

@@ -12,6 +12,24 @@ export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
+export function getErrorMessageWithCauses(err: unknown): string {
+  if (err instanceof AggregateError) {
+    return [err.message, ...err.errors.map((error) => getErrorMessageWithCauses(error))]
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  if (err instanceof Error) {
+    const cause = 'cause' in err ? err.cause : undefined
+    const name = err.name && err.name !== 'Error' ? err.name : ''
+    return [name, err.message, cause == null ? '' : getErrorMessageWithCauses(cause)]
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  return String(err)
+}
+
 export function getErrorCode(err: unknown): unknown {
   return isRecord(err) && 'code' in err ? err.code : undefined
 }

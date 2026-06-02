@@ -1,7 +1,8 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_with_alpha,
   color_without_alpha,

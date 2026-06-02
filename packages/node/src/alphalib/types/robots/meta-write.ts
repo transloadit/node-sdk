@@ -1,7 +1,8 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotFFmpeg, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {

@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_without_alpha_with_named,
   interpolateRobot,
