@@ -575,6 +575,67 @@ export class Transloadit {
     return result.data
   }
 
+  // <api2-generated-feature createTusAssembly>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  async createTusAssembly(fileCount: number): Promise<AssemblyStatusWithUploadUrls> {
+    return await this._remoteJson<
+      AssemblyStatusWithUploadUrls,
+      CreateAssemblyParams & Record<string, unknown>
+    >({
+      urlSuffix: '/assemblies',
+      method: 'post',
+      params: {
+        await: false,
+        steps: {
+          ':original': {
+            output_meta: true,
+            result: 'debug',
+            robot: '/upload/handle',
+          },
+        },
+      },
+      fields: {
+        num_expected_upload_files: fileCount,
+      },
+    })
+  }
+
+  // </api2-generated-feature createTusAssembly>
+
+  // <api2-generated-feature waitForAssembly>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  async waitForAssembly(assemblyUrl: string): Promise<AssemblyStatus> {
+    while (true) {
+      const result = await this._remoteJson<AssemblyStatus, OptionalAuthParams>({
+        url: assemblyUrl,
+        isTrustedUrl: true,
+        method: 'get',
+      })
+
+      // Abort polling if the assembly has entered an error state
+      if (result.error) {
+        return result
+      }
+
+      // The polling is done if the assembly is not uploading or executing anymore.
+      if (result.ok !== 'ASSEMBLY_UPLOADING' && result.ok !== 'ASSEMBLY_EXECUTING') {
+        return result
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+  }
+
+  // </api2-generated-feature waitForAssembly>
+
   async resumeAssemblyUploads(
     opts: ResumeAssemblyUploadsOptions,
   ): Promise<AssemblyStatusWithUploadUrls> {
