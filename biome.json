@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "ignoreUnknown": false,
     "includes": [
@@ -91,25 +95,88 @@
   },
   "assist": {
     "enabled": true,
-    "actions": { "source": { "organizeImports": "on" } }
+    "actions": {
+      "source": {
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [
+              {
+                "type": true,
+                "source": [":NODE:"]
+              },
+              ":BLANK_LINE:",
+              {
+                "type": true,
+                "source": [":PACKAGE:"]
+              },
+              ":BLANK_LINE:",
+              {
+                "type": true,
+                "source": [":ALIAS:", ":/**", "\\{*\\}/**"]
+              },
+              ":BLANK_LINE:",
+              {
+                "type": true,
+                "source": [":PATH:"]
+              },
+              ":BLANK_LINE:",
+              {
+                "type": false,
+                "source": [":NODE:"]
+              },
+              ":BLANK_LINE:",
+              {
+                "type": false,
+                "source": [":PACKAGE:"]
+              },
+              ":BLANK_LINE:",
+              {
+                "type": false,
+                "source": [":ALIAS:", ":/**", "\\{*\\}/**"]
+              },
+              ":BLANK_LINE:",
+              {
+                "type": false,
+                "source": [":PATH:"]
+              }
+            ]
+          }
+        }
+      }
+    }
   },
   "overrides": [
     {
       "includes": ["**/package.json"],
-      "formatter": { "expand": "always" }
+      "formatter": {
+        "expand": "always"
+      }
     },
     {
       "includes": ["docs/fingerprint/*.package.json"],
-      "formatter": { "expand": "always" }
+      "formatter": {
+        "expand": "always"
+      }
     },
     {
       "includes": ["*.html"],
-      "javascript": { "formatter": { "quoteStyle": "double" } }
+      "javascript": {
+        "formatter": {
+          "quoteStyle": "double"
+        }
+      }
     },
     {
       "includes": ["*.scss", "*.css"],
-      "javascript": { "formatter": { "quoteStyle": "double" } },
-      "formatter": { "lineWidth": 80 }
+      "javascript": {
+        "formatter": {
+          "quoteStyle": "double"
+        }
+      },
+      "formatter": {
+        "lineWidth": 80
+      }
     }
   ]
 }

@@ -1,6 +1,8 @@
+import type { TransloaditMcpHttpOptions } from './http.ts'
+
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import express from 'express'
-import type { TransloaditMcpHttpOptions } from './http.ts'
+
 import { isBasicAuthorized } from './http-helpers.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
 import { createTransloaditMcpServer } from './server.ts'

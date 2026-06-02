@@ -1,6 +1,7 @@
+import type { z } from 'zod'
+
 import { Option } from 'clipanion'
 import * as t from 'typanion'
-import type { z } from 'zod'
 import {
   ZodArray,
   ZodBoolean,

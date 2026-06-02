@@ -1,6 +1,8 @@
 import type { Client } from '@modelcontextprotocol/sdk/client'
+
 import { Transloadit } from '@transloadit/node'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
 import { createMcpClient, isRecord, parseToolPayload } from './mcp-client.ts'
 
 const authKey = process.env.TRANSLOADIT_KEY

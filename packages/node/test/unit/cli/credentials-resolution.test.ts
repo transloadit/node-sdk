@@ -1,7 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { runSig } from '../../../src/cli/commands/auth.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'

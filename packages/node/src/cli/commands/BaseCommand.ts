@@ -1,7 +1,9 @@
+import type { IOutputCtl } from '../OutputCtl.ts'
+
 import { Command, Option } from 'clipanion'
+
 import { Transloadit as TransloaditClient } from '../../Transloadit.ts'
 import { buildMissingAuthMessage, resolveCliConfig } from '../helpers.ts'
-import type { IOutputCtl } from '../OutputCtl.ts'
 import OutputCtl, { LOG_LEVEL_DEFAULT, LOG_LEVEL_NAMES, parseLogLevel } from '../OutputCtl.ts'
 
 abstract class BaseCommand extends Command {

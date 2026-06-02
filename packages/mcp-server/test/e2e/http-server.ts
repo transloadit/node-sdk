@@ -1,7 +1,10 @@
-import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
+
+import { createServer } from 'node:http'
+
 import { Client } from '@modelcontextprotocol/sdk/client'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+
 import { createTransloaditMcpHttpHandler } from '../../src/index.ts'
 
 type HeadersInit = Record<string, string>

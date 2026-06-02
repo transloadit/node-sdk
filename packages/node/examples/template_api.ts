@@ -7,6 +7,7 @@
 //   yarn prepack
 //
 import type { TemplateContent } from 'transloadit'
+
 import { Transloadit } from 'transloadit'
 
 const { TRANSLOADIT_KEY, TRANSLOADIT_SECRET } = process.env

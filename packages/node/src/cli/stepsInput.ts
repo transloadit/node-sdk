@@ -1,6 +1,7 @@
+import type { StepsInput } from '../alphalib/types/template.ts'
+
 import fsp from 'node:fs/promises'
 
-import type { StepsInput } from '../alphalib/types/template.ts'
 import { stepsSchema } from '../alphalib/types/template.ts'
 
 export function parseStepsInputJson(content: string): StepsInput {

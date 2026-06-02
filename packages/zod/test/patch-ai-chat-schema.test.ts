@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+
 import { patchAiChatSchema } from '../scripts/sync-v4.ts'
 
 const source = `

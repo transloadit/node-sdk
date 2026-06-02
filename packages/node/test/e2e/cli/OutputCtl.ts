@@ -1,4 +1,5 @@
 import type { LogLevelValue, OutputCtlOptions } from '../../../src/cli/OutputCtl.ts'
+
 import { LOG_LEVEL_DEFAULT } from '../../../src/cli/OutputCtl.ts'
 
 interface OutputEntry {

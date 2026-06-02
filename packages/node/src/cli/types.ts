@@ -1,5 +1,7 @@
-import { z } from 'zod'
 import type { Steps } from '../alphalib/types/template.ts'
+
+import { z } from 'zod'
+
 import { optionalStepsSchema } from '../alphalib/types/template.ts'
 
 // Zod schemas for runtime validation

@@ -1,8 +1,9 @@
-import { once } from 'node:events'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
-import { setTimeout as delay } from 'node:timers/promises'
 
 import type { ProxySettings } from '../src/index.ts'
+
+import { once } from 'node:events'
+import { setTimeout as delay } from 'node:timers/promises'
 
 type RelayLike = {
   run: (opts?: Partial<ProxySettings>) => void
