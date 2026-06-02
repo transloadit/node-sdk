@@ -1,5 +1,11 @@
 # @transloadit/zod
 
+## 4.3.3
+
+### Patch Changes
+
+- 910b6d0: Refresh generated Transloadit Robot schemas and shared assembly types from alphalib, including `/document/extract`, FFmpeg v8 stack support, and the latest speech transcription provider defaults.
+
 ## 4.3.2
 
 ### Patch Changes
