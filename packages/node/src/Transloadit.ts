@@ -724,12 +724,12 @@ export class Transloadit {
     if (!uploadOffsetText) {
       throw new Error('TUS upload returned an invalid Upload-Offset header')
     }
-    const remoteOffset = Number(uploadOffsetText)
-    if (!Number.isInteger(remoteOffset)) {
+    const uploadOffset = Number(uploadOffsetText)
+    if (!Number.isInteger(uploadOffset)) {
       throw new Error('TUS upload returned an invalid Upload-Offset header')
     }
-    if (remoteOffset !== contentBytes.length) {
-      throw new Error(`TUS upload offset ${remoteOffset}, expected ${contentBytes.length}`)
+    if (uploadOffset !== contentBytes.length) {
+      throw new Error(`TUS upload offset ${uploadOffset}, expected ${contentBytes.length}`)
     }
 
     const completedAssembly = await this.waitForAssembly(createdAssembly.assembly_ssl_url ?? '')
