@@ -1029,6 +1029,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the Credential is created
    */
+  // <api2-generated-endpoint createTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async createTemplateCredential(
     params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
@@ -1039,6 +1045,8 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint createTemplateCredentials>
+
   /**
    * Edit a Credential
    *
@@ -1046,6 +1054,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the Credential is edited
    */
+  // <api2-generated-endpoint updateTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async editTemplateCredential(
     credentialId: string,
     params: CreateTemplateCredentialParams,
@@ -1057,12 +1071,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint updateTemplateCredentials>
+
   /**
    * Delete a Credential
    *
    * @param credentialId the Credential ID
    * @returns when the Credential is deleted
    */
+  // <api2-generated-endpoint deleteTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async deleteTemplateCredential(credentialId: string): Promise<BaseResponse> {
     return await this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
@@ -1070,12 +1092,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint deleteTemplateCredentials>
+
   /**
    * Get a Credential
    *
    * @param credentialId the Credential ID
    * @returns when the Credential is retrieved
    */
+  // <api2-generated-endpoint getTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async getTemplateCredential(credentialId: string): Promise<TemplateCredentialResponse> {
     return await this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
@@ -1083,12 +1113,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint getTemplateCredentials>
+
   /**
    * List all TemplateCredentials
    *
    * @param params optional request options
    * @returns the list of templates
    */
+  // <api2-generated-endpoint listTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async listTemplateCredentials(
     params?: ListTemplateCredentialsParams,
   ): Promise<TemplateCredentialsResponse> {
@@ -1098,6 +1136,8 @@ export class Transloadit {
       params: params || {},
     })
   }
+
+  // </api2-generated-endpoint listTemplateCredentials>
 
   streamTemplateCredentials(params: ListTemplateCredentialsParams) {
     return new PaginationStream(async (page) => ({
@@ -1111,6 +1151,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the template is created
    */
+  // <api2-generated-endpoint createTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async createTemplate(params: CreateTemplateParams): Promise<TemplateResponse> {
     return await this._remoteJson({
       urlSuffix: '/templates',
@@ -1119,6 +1165,8 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint createTemplate>
+
   /**
    * Edit an Assembly Template
    *
@@ -1126,6 +1174,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the template is edited
    */
+  // <api2-generated-endpoint updateTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async editTemplate(templateId: string, params: EditTemplateParams): Promise<TemplateResponse> {
     return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
@@ -1134,12 +1188,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint updateTemplate>
+
   /**
    * Delete an Assembly Template
    *
    * @param templateId the template ID
    * @returns when the template is deleted
    */
+  // <api2-generated-endpoint deleteTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async deleteTemplate(templateId: string): Promise<BaseResponse> {
     return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
@@ -1147,12 +1209,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint deleteTemplate>
+
   /**
    * Get an Assembly Template
    *
    * @param templateId the template ID
    * @returns when the template is retrieved
    */
+  // <api2-generated-endpoint getTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async getTemplate(templateId: string): Promise<TemplateResponse> {
     return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
@@ -1160,12 +1230,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint getTemplate>
+
   /**
    * List all Assembly Templates
    *
    * @param params optional request options
    * @returns the list of templates
    */
+  // <api2-generated-endpoint listTemplates>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async listTemplates(
     params?: ListTemplatesParams,
   ): Promise<PaginationListWithCount<ListedTemplate>> {
@@ -1175,6 +1253,8 @@ export class Transloadit {
       params: params || {},
     })
   }
+
+  // </api2-generated-endpoint listTemplates>
 
   streamTemplates(params?: ListTemplatesParams): PaginationStream<ListedTemplate> {
     return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
@@ -1187,6 +1267,12 @@ export class Transloadit {
    * @returns with billing data
    * @see https://transloadit.com/docs/api/bill-date-get/
    */
+  // <api2-generated-endpoint getBill>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async getBill(month: string): Promise<BillResponse> {
     assert.ok(month, 'month is required')
     return await this._remoteJson({
@@ -1194,6 +1280,8 @@ export class Transloadit {
       method: 'get',
     })
   }
+
+  // </api2-generated-endpoint getBill>
 
   calcSignature(
     params: OptionalAuthParams,
