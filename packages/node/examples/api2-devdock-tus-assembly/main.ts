@@ -97,6 +97,28 @@ function resolveValue(valueSpec: unknown, context: JsonRecord, label: string): u
   return readPath(context[root], pathParts, label)
 }
 
+function featurePreparation(
+  scenario: JsonRecord,
+  featureId: string,
+): { label: string; preparation: JsonRecord } {
+  const preparations = requireArray(scenario.preparations, 'preparations')
+  for (const [index, rawPreparation] of preparations.entries()) {
+    const label = `preparations[${index}]`
+    const preparation = requireRecord(rawPreparation, label)
+    if (requireString(preparation.featureId, `${label}.featureId`) !== featureId) {
+      continue
+    }
+
+    if (requireString(preparation.kind, `${label}.kind`) !== 'feature-call') {
+      fail(`${label} must be a feature-call preparation`)
+    }
+
+    return { label, preparation }
+  }
+
+  fail(`scenario has no preparation for feature ${JSON.stringify(featureId)}`)
+}
+
 function scalarString(value: unknown): string {
   if (value === null) {
     return 'null'
@@ -199,8 +221,11 @@ async function writeResult(result: JsonRecord): Promise<void> {
 
 async function main(): Promise<void> {
   const scenario = await loadScenario()
-  const createTusAssembly = requireRecord(scenario.createTusAssembly, 'createTusAssembly')
-  const createInput = requireRecord(createTusAssembly.input, 'createTusAssembly.input')
+  const { label: createTusAssemblyLabel, preparation: createTusAssembly } = featurePreparation(
+    scenario,
+    'createTusAssembly',
+  )
+  const createInput = requireRecord(createTusAssembly.input, `${createTusAssemblyLabel}.input`)
 
   const client = new Transloadit({
     authKey: requiredEnv('TRANSLOADIT_KEY'),
