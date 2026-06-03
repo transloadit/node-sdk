@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.25
+
+### Patch Changes
+
+- 910b6d0: Refresh generated Transloadit Robot schemas and shared assembly types from alphalib, including `/document/extract`, FFmpeg v8 stack support, and the latest speech transcription provider defaults.
+- Updated dependencies [910b6d0]
+  - @transloadit/node@4.10.6
+
 ## 0.3.24
 
 ### Patch Changes
