@@ -5,6 +5,29 @@ import { Transloadit } from '../../src/Transloadit.ts'
 
 type JsonRecord = Record<string, unknown>
 
+interface ExampleInput {
+  scenarioId: string
+  sdkFeatureInputs: {
+    uploadTusAssembly: UploadTusAssemblyInput
+  }
+}
+
+interface TusAssemblyScenario {
+  exampleInput: ExampleInput
+}
+
+interface UploadConfig {
+  content: string
+  fieldname: string
+  filename: string
+  user_meta: Record<string, string>
+}
+
+interface UploadTusAssemblyInput {
+  file_count: number
+  upload: UploadConfig
+}
+
 function fail(message: string): never {
   throw new Error(message)
 }
@@ -46,14 +69,6 @@ function requireNumber(value: unknown, label: string): number {
   return value
 }
 
-function requireArray(value: unknown, label: string): unknown[] {
-  if (!Array.isArray(value)) {
-    fail(`${label} must be an array`)
-  }
-
-  return value
-}
-
 function stringRecord(value: unknown, label: string): Record<string, string> {
   const record = requireRecord(value, label)
   return Object.fromEntries(
@@ -69,47 +84,50 @@ function optionalStringRecord(value: unknown, label: string): Record<string, str
   return stringRecord(value, label)
 }
 
-function sdkFeatureCall(
-  scenario: JsonRecord,
-  featureId: string,
-): { featureCall: JsonRecord; label: string } {
-  const featureCalls = requireArray(scenario.sdkFeatureCalls, 'sdkFeatureCalls')
-  for (const [index, rawFeatureCall] of featureCalls.entries()) {
-    const label = `sdkFeatureCalls[${index}]`
-    const featureCall = requireRecord(rawFeatureCall, label)
-    if (requireString(featureCall.featureId, `${label}.featureId`) !== featureId) {
-      continue
-    }
+function uploadConfig(value: unknown, label: string): UploadConfig {
+  const config = requireRecord(value, label)
 
-    if (requireString(featureCall.kind, `${label}.kind`) !== 'sdk-feature-call') {
-      fail(`${label} must be an sdk-feature-call`)
-    }
-
-    return { featureCall, label }
+  return {
+    content: requireString(config.content, `${label}.content`),
+    fieldname: requireString(config.fieldname, `${label}.fieldname`),
+    filename: requireString(config.filename, `${label}.filename`),
+    user_meta: optionalStringRecord(config.user_meta, `${label}.user_meta`),
   }
-
-  fail(`scenario has no SDK feature call for feature ${JSON.stringify(featureId)}`)
 }
 
-async function loadScenario(): Promise<JsonRecord> {
+function uploadTusAssemblyInput(value: unknown, label: string): UploadTusAssemblyInput {
+  const input = requireRecord(value, label)
+
+  return {
+    file_count: requireNumber(input.file_count, `${label}.file_count`),
+    upload: uploadConfig(input.upload, `${label}.upload`),
+  }
+}
+
+function exampleInput(value: unknown, label: string): ExampleInput {
+  const input = requireRecord(value, label)
+  const sdkFeatureInputs = requireRecord(input.sdkFeatureInputs, `${label}.sdkFeatureInputs`)
+
+  return {
+    scenarioId: requireString(input.scenarioId, `${label}.scenarioId`),
+    sdkFeatureInputs: {
+      uploadTusAssembly: uploadTusAssemblyInput(
+        sdkFeatureInputs.uploadTusAssembly,
+        `${label}.sdkFeatureInputs.uploadTusAssembly`,
+      ),
+    },
+  }
+}
+
+async function loadScenario(): Promise<TusAssemblyScenario> {
   const scenarioPath =
     process.env.API2_SDK_EXAMPLE_SCENARIO ?? path.join(import.meta.dirname, 'api2-scenario.json')
   const parsed: unknown = JSON.parse(await readFile(scenarioPath, 'utf8'))
+  const scenario = requireRecord(parsed, 'scenario')
 
-  return requireRecord(parsed, 'scenario')
-}
-
-function uploadTusAssemblyInput(scenario: JsonRecord): JsonRecord {
-  const { featureCall, label } = sdkFeatureCall(scenario, 'uploadTusAssembly')
-
-  return requireRecord(featureCall.input, `${label}.input`)
-}
-
-function scenarioBytes(uploadConfig: JsonRecord): Buffer {
-  return Buffer.from(
-    requireString(uploadConfig.content, 'sdkFeatureCalls.uploadTusAssembly.input.upload.content'),
-    'utf8',
-  )
+  return {
+    exampleInput: exampleInput(scenario.exampleInput, 'scenario.exampleInput'),
+  }
 }
 
 async function writeResult(result: JsonRecord): Promise<void> {
@@ -123,8 +141,8 @@ async function writeResult(result: JsonRecord): Promise<void> {
 
 async function main(): Promise<void> {
   const scenario = await loadScenario()
-  const input = uploadTusAssemblyInput(scenario)
-  const upload = requireRecord(input.upload, 'sdkFeatureCalls.uploadTusAssembly.input.upload')
+  const input = scenario.exampleInput.sdkFeatureInputs.uploadTusAssembly
+  const upload = input.upload
   const client = new Transloadit({
     authKey: requiredEnv('TRANSLOADIT_KEY'),
     authSecret: requiredEnv('TRANSLOADIT_SECRET'),
@@ -132,14 +150,11 @@ async function main(): Promise<void> {
   })
 
   const result = await client.uploadTusAssembly(
-    requireNumber(input.file_count, 'sdkFeatureCalls.uploadTusAssembly.input.file_count'),
-    scenarioBytes(upload),
-    requireString(upload.fieldname, 'sdkFeatureCalls.uploadTusAssembly.input.upload.fieldname'),
-    requireString(upload.filename, 'sdkFeatureCalls.uploadTusAssembly.input.upload.filename'),
-    optionalStringRecord(
-      upload.user_meta,
-      'sdkFeatureCalls.uploadTusAssembly.input.upload.user_meta',
-    ),
+    input.file_count,
+    Buffer.from(upload.content, 'utf8'),
+    upload.fieldname,
+    upload.filename,
+    upload.user_meta,
   )
 
   await writeResult({
@@ -149,7 +164,7 @@ async function main(): Promise<void> {
   })
 
   console.log(
-    `Node SDK devdock scenario ${requireString(scenario.scenarioId, 'scenarioId')} uploaded to ${result.uploadUrl}`,
+    `Node SDK devdock scenario ${scenario.exampleInput.scenarioId} uploaded to ${result.uploadUrl}`,
   )
 }
 
