@@ -61,26 +61,34 @@ function stringRecord(value: unknown, label: string): Record<string, string> {
   )
 }
 
-function featurePreparation(
+function optionalStringRecord(value: unknown, label: string): Record<string, string> {
+  if (value == null) {
+    return {}
+  }
+
+  return stringRecord(value, label)
+}
+
+function sdkFeatureCall(
   scenario: JsonRecord,
   featureId: string,
-): { label: string; preparation: JsonRecord } {
-  const preparations = requireArray(scenario.preparations, 'preparations')
-  for (const [index, rawPreparation] of preparations.entries()) {
-    const label = `preparations[${index}]`
-    const preparation = requireRecord(rawPreparation, label)
-    if (requireString(preparation.featureId, `${label}.featureId`) !== featureId) {
+): { featureCall: JsonRecord; label: string } {
+  const featureCalls = requireArray(scenario.sdkFeatureCalls, 'sdkFeatureCalls')
+  for (const [index, rawFeatureCall] of featureCalls.entries()) {
+    const label = `sdkFeatureCalls[${index}]`
+    const featureCall = requireRecord(rawFeatureCall, label)
+    if (requireString(featureCall.featureId, `${label}.featureId`) !== featureId) {
       continue
     }
 
-    if (requireString(preparation.kind, `${label}.kind`) !== 'feature-call') {
-      fail(`${label} must be a feature-call preparation`)
+    if (requireString(featureCall.kind, `${label}.kind`) !== 'sdk-feature-call') {
+      fail(`${label} must be an sdk-feature-call`)
     }
 
-    return { label, preparation }
+    return { featureCall, label }
   }
 
-  fail(`scenario has no preparation for feature ${JSON.stringify(featureId)}`)
+  fail(`scenario has no SDK feature call for feature ${JSON.stringify(featureId)}`)
 }
 
 async function loadScenario(): Promise<JsonRecord> {
@@ -91,26 +99,17 @@ async function loadScenario(): Promise<JsonRecord> {
   return requireRecord(parsed, 'scenario')
 }
 
-function fileCount(scenario: JsonRecord): number {
-  const { label, preparation } = featurePreparation(scenario, 'createTusAssembly')
-  const input = requireRecord(preparation.input, `${label}.input`)
+function uploadTusAssemblyInput(scenario: JsonRecord): JsonRecord {
+  const { featureCall, label } = sdkFeatureCall(scenario, 'uploadTusAssembly')
 
-  return requireNumber(input.file_count, `${label}.input.file_count`)
+  return requireRecord(featureCall.input, `${label}.input`)
 }
 
 function scenarioBytes(uploadConfig: JsonRecord): Buffer {
-  const source = requireRecord(uploadConfig.source, 'upload.source')
-  const kind = requireString(source.kind, 'upload.source.kind')
-  const encoding = requireString(source.encoding, 'upload.source.encoding')
-  if (kind !== 'bytes') {
-    fail(`unsupported scenario source kind ${JSON.stringify(kind)}`)
-  }
-
-  if (encoding !== 'utf8') {
-    fail(`unsupported scenario source encoding ${JSON.stringify(encoding)}`)
-  }
-
-  return Buffer.from(requireString(source.value, 'upload.source.value'), 'utf8')
+  return Buffer.from(
+    requireString(uploadConfig.content, 'sdkFeatureCalls.uploadTusAssembly.input.upload.content'),
+    'utf8',
+  )
 }
 
 async function writeResult(result: JsonRecord): Promise<void> {
@@ -124,7 +123,8 @@ async function writeResult(result: JsonRecord): Promise<void> {
 
 async function main(): Promise<void> {
   const scenario = await loadScenario()
-  const upload = requireRecord(scenario.upload, 'upload')
+  const input = uploadTusAssemblyInput(scenario)
+  const upload = requireRecord(input.upload, 'sdkFeatureCalls.uploadTusAssembly.input.upload')
   const client = new Transloadit({
     authKey: requiredEnv('TRANSLOADIT_KEY'),
     authSecret: requiredEnv('TRANSLOADIT_SECRET'),
@@ -132,11 +132,14 @@ async function main(): Promise<void> {
   })
 
   const result = await client.uploadTusAssembly(
-    fileCount(scenario),
+    requireNumber(input.file_count, 'sdkFeatureCalls.uploadTusAssembly.input.file_count'),
     scenarioBytes(upload),
-    requireString(upload.fieldName, 'upload.fieldName'),
-    requireString(upload.fileName, 'upload.fileName'),
-    stringRecord(upload.userMeta, 'upload.userMeta'),
+    requireString(upload.fieldname, 'sdkFeatureCalls.uploadTusAssembly.input.upload.fieldname'),
+    requireString(upload.filename, 'sdkFeatureCalls.uploadTusAssembly.input.upload.filename'),
+    optionalStringRecord(
+      upload.user_meta,
+      'sdkFeatureCalls.uploadTusAssembly.input.upload.user_meta',
+    ),
   )
 
   await writeResult({
