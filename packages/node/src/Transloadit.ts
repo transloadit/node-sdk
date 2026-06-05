@@ -108,10 +108,18 @@ export type AssemblyStatusWithUploadUrls = AssemblyStatus & {
   upload_urls?: Record<string, string>
 }
 
+// <api2-generated-feature-model uploadTusAssemblyResult>
+
+// This block is generated from Transloadit API2 contracts. If it looks wrong,
+// please report the issue instead of editing this block by hand; the source fix
+// belongs in the contract generator so all SDKs stay in sync.
+
 export interface UploadTusAssemblyResult {
   assembly: AssemblyStatus
   uploadUrl: string
 }
+
+// </api2-generated-feature-model uploadTusAssemblyResult>
 
 const { version } = packageJson
 
@@ -586,6 +594,9 @@ export class Transloadit {
   // please report the issue instead of editing this block by hand; the source fix
   // belongs in the contract generator so all SDKs stay in sync.
 
+  /**
+   * Creates a TUS-ready Assembly that waits for the requested number of resumable uploads before execution continues.
+   */
   async createTusAssembly(fileCount: number): Promise<AssemblyStatusWithUploadUrls> {
     return await this._remoteJson<
       AssemblyStatusWithUploadUrls,
@@ -617,6 +628,10 @@ export class Transloadit {
   // please report the issue instead of editing this block by hand; the source fix
   // belongs in the contract generator so all SDKs stay in sync.
 
+  /**
+   * Waits for an Assembly to finish uploading and executing.
+   * Use the returned assembly_ssl_url as the assembly URL.
+   */
   async waitForAssembly(assemblyUrl: string): Promise<AssemblyStatus> {
     while (true) {
       const result = await this._remoteJson<AssemblyStatus, OptionalAuthParams>({
@@ -647,6 +662,9 @@ export class Transloadit {
   // please report the issue instead of editing this block by hand; the source fix
   // belongs in the contract generator so all SDKs stay in sync.
 
+  /**
+   * Creates a TUS-ready Assembly, uploads one file with the TUS protocol, and waits for the Assembly to finish.
+   */
   async uploadTusAssembly(
     fileCount: number,
     content: Buffer | Uint8Array | string,
