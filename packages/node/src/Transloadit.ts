@@ -750,7 +750,11 @@ export class Transloadit {
       throw new Error(`TUS upload offset ${uploadOffset}, expected ${contentBytes.length}`)
     }
 
-    const completedAssembly = await this.waitForAssembly(createdAssembly.assembly_ssl_url ?? '')
+    const createdAssemblyAssemblySslUrl = createdAssembly.assembly_ssl_url
+    if (!createdAssemblyAssemblySslUrl) {
+      throw new Error('uploadTusAssembly needs createdAssembly.assembly_ssl_url')
+    }
+    const completedAssembly = await this.waitForAssembly(createdAssemblyAssemblySslUrl)
 
     return { assembly: completedAssembly, uploadUrl: uploadUrlText }
   }
