@@ -115,6 +115,19 @@ export type AssemblyStatusWithUploadUrls = AssemblyStatus & {
   upload_urls?: Record<string, string>
 }
 
+// <api2-generated-feature-model uploadTusAssemblyResult>
+
+// This block is generated from Transloadit API2 contracts. If it looks wrong,
+// please report the issue instead of editing this block by hand; the source fix
+// belongs in the contract generator so all SDKs stay in sync.
+
+export interface UploadTusAssemblyResult {
+  assembly: AssemblyStatus
+  uploadUrl: string
+}
+
+// </api2-generated-feature-model uploadTusAssemblyResult>
+
 const { version } = packageJson
 
 export type AssemblyProgress = (assembly: AssemblyStatus) => void
@@ -582,6 +595,179 @@ export class Transloadit {
     return result.data
   }
 
+  // <api2-generated-feature createTusAssembly>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  /**
+   * Creates a TUS-ready Assembly that waits for the requested number of resumable uploads before execution continues.
+   */
+  async createTusAssembly(fileCount: number): Promise<AssemblyStatusWithUploadUrls> {
+    return await this._remoteJson<
+      AssemblyStatusWithUploadUrls,
+      CreateAssemblyParams & Record<string, unknown>
+    >({
+      urlSuffix: '/assemblies',
+      method: 'post',
+      params: {
+        await: false,
+        steps: {
+          ':original': {
+            output_meta: true,
+            result: 'debug',
+            robot: '/upload/handle',
+          },
+        },
+      },
+      fields: {
+        num_expected_upload_files: fileCount,
+      },
+    })
+  }
+
+  // </api2-generated-feature createTusAssembly>
+
+  // <api2-generated-feature waitForAssembly>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  /**
+   * Waits for an Assembly to finish uploading and executing.
+   * Use the returned assembly_ssl_url as the assembly URL.
+   */
+  async waitForAssembly(assemblyUrl: string): Promise<AssemblyStatus> {
+    while (true) {
+      const result = await this._remoteJson<AssemblyStatus, OptionalAuthParams>({
+        url: assemblyUrl,
+        isTrustedUrl: true,
+        method: 'get',
+      })
+
+      // Abort polling if the assembly has entered an error state
+      if (result.error) {
+        return result
+      }
+
+      // The polling is done if the assembly is not uploading or executing anymore.
+      if (result.ok !== 'ASSEMBLY_UPLOADING' && result.ok !== 'ASSEMBLY_EXECUTING') {
+        return result
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+  }
+
+  // </api2-generated-feature waitForAssembly>
+
+  // <api2-generated-feature uploadTusAssembly>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  /**
+   * Creates a TUS-ready Assembly, uploads one file with the TUS protocol, and waits for the Assembly to finish.
+   */
+  async uploadTusAssembly(
+    fileCount: number,
+    content: Buffer | Uint8Array | string,
+    fieldname: string,
+    filename: string,
+    userMeta: Record<string, string>,
+  ): Promise<UploadTusAssemblyResult> {
+    const createdAssembly = await this.createTusAssembly(fileCount)
+
+    const endpointUrl = createdAssembly.tus_url
+    if (!endpointUrl) {
+      throw new Error('TUS singleUploadLifecycle needs input.endpointUrl')
+    }
+
+    const contentBytes = Buffer.isBuffer(content) ? content : Buffer.from(content)
+
+    const metadataMap = new Map<string, string>()
+    for (const [key, value] of Object.entries(userMeta)) {
+      metadataMap.set(String(key), String(value))
+    }
+    metadataMap.set('assembly_url', String(createdAssembly.assembly_url))
+    metadataMap.set('fieldname', String(fieldname))
+    metadataMap.set('filename', String(filename))
+
+    const createHeaders: Record<string, string> = {}
+    createHeaders['Tus-Resumable'] = '1.0.0'
+    createHeaders['Upload-Length'] = String(contentBytes.length)
+    const createMetadataParts: string[] = []
+    for (const [key, value] of metadataMap) {
+      const encodedValue = Buffer.from(String(value), 'utf8').toString('base64')
+      createMetadataParts.push(`${key} ${encodedValue}`)
+    }
+    createHeaders['Upload-Metadata'] = createMetadataParts.join(',')
+    const createResponse = await got(endpointUrl, {
+      method: 'POST',
+      body: Buffer.alloc(0),
+      headers: createHeaders,
+      retry: this._gotRetry,
+      throwHttpErrors: false,
+      timeout: { request: this._defaultTimeout },
+    })
+
+    if (createResponse.statusCode !== 201) {
+      throw new Error(`TUS create returned HTTP ${createResponse.statusCode}, expected 201`)
+    }
+    const uploadUrlLocation = createResponse.headers.location
+    const uploadUrlLocationText = Array.isArray(uploadUrlLocation)
+      ? uploadUrlLocation[0]
+      : uploadUrlLocation
+    if (!uploadUrlLocationText) {
+      throw new Error('TUS create did not return a Location header')
+    }
+    const uploadUrlText = new URL(uploadUrlLocationText, endpointUrl).toString()
+
+    const uploadHeaders: Record<string, string> = {}
+    uploadHeaders['Tus-Resumable'] = '1.0.0'
+    uploadHeaders['Upload-Offset'] = '0'
+    uploadHeaders['Content-Type'] = 'application/offset+octet-stream'
+    const uploadResponse = await got(uploadUrlText, {
+      method: 'PATCH',
+      body: contentBytes,
+      headers: uploadHeaders,
+      retry: this._gotRetry,
+      throwHttpErrors: false,
+      timeout: { request: this._defaultTimeout },
+    })
+
+    if (uploadResponse.statusCode !== 204) {
+      throw new Error(`TUS upload returned HTTP ${uploadResponse.statusCode}, expected 204`)
+    }
+    const uploadOffsetHeader = uploadResponse.headers['upload-offset']
+    const uploadOffsetText = Array.isArray(uploadOffsetHeader)
+      ? uploadOffsetHeader[0]
+      : uploadOffsetHeader
+    if (!uploadOffsetText) {
+      throw new Error('TUS upload returned an invalid Upload-Offset header')
+    }
+    const uploadOffset = Number(uploadOffsetText)
+    if (!Number.isInteger(uploadOffset)) {
+      throw new Error('TUS upload returned an invalid Upload-Offset header')
+    }
+    if (uploadOffset !== contentBytes.length) {
+      throw new Error(`TUS upload offset ${uploadOffset}, expected ${contentBytes.length}`)
+    }
+
+    const createdAssemblyAssemblySslUrl = createdAssembly.assembly_ssl_url
+    if (!createdAssemblyAssemblySslUrl) {
+      throw new Error('uploadTusAssembly needs createdAssembly.assembly_ssl_url')
+    }
+    const completedAssembly = await this.waitForAssembly(createdAssemblyAssemblySslUrl)
+
+    return { assembly: completedAssembly, uploadUrl: uploadUrlText }
+  }
+
+  // </api2-generated-feature uploadTusAssembly>
+
   async resumeAssemblyUploads(
     opts: ResumeAssemblyUploadsOptions,
   ): Promise<AssemblyStatusWithUploadUrls> {
@@ -975,6 +1161,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the Credential is created
    */
+  // <api2-generated-endpoint createTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async createTemplateCredential(
     params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
@@ -985,6 +1177,8 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint createTemplateCredentials>
+
   /**
    * Edit a Credential
    *
@@ -992,6 +1186,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the Credential is edited
    */
+  // <api2-generated-endpoint updateTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async editTemplateCredential(
     credentialId: string,
     params: CreateTemplateCredentialParams,
@@ -1003,12 +1203,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint updateTemplateCredentials>
+
   /**
    * Delete a Credential
    *
    * @param credentialId the Credential ID
    * @returns when the Credential is deleted
    */
+  // <api2-generated-endpoint deleteTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async deleteTemplateCredential(credentialId: string): Promise<BaseResponse> {
     return await this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
@@ -1016,12 +1224,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint deleteTemplateCredentials>
+
   /**
    * Get a Credential
    *
    * @param credentialId the Credential ID
    * @returns when the Credential is retrieved
    */
+  // <api2-generated-endpoint getTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async getTemplateCredential(credentialId: string): Promise<TemplateCredentialResponse> {
     return await this._remoteJson({
       urlSuffix: `/template_credentials/${credentialId}`,
@@ -1029,12 +1245,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint getTemplateCredentials>
+
   /**
    * List all TemplateCredentials
    *
    * @param params optional request options
    * @returns the list of templates
    */
+  // <api2-generated-endpoint listTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async listTemplateCredentials(
     params?: ListTemplateCredentialsParams,
   ): Promise<TemplateCredentialsResponse> {
@@ -1044,6 +1268,8 @@ export class Transloadit {
       params: params || {},
     })
   }
+
+  // </api2-generated-endpoint listTemplateCredentials>
 
   streamTemplateCredentials(params: ListTemplateCredentialsParams) {
     return new PaginationStream(async (page) => ({
@@ -1057,6 +1283,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the template is created
    */
+  // <api2-generated-endpoint createTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async createTemplate(params: CreateTemplateParams): Promise<TemplateResponse> {
     return await this._remoteJson({
       urlSuffix: '/templates',
@@ -1065,6 +1297,8 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint createTemplate>
+
   /**
    * Edit an Assembly Template
    *
@@ -1072,6 +1306,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the template is edited
    */
+  // <api2-generated-endpoint updateTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async editTemplate(templateId: string, params: EditTemplateParams): Promise<TemplateResponse> {
     return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
@@ -1080,12 +1320,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint updateTemplate>
+
   /**
    * Delete an Assembly Template
    *
    * @param templateId the template ID
    * @returns when the template is deleted
    */
+  // <api2-generated-endpoint deleteTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async deleteTemplate(templateId: string): Promise<BaseResponse> {
     return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
@@ -1093,12 +1341,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint deleteTemplate>
+
   /**
    * Get an Assembly Template
    *
    * @param templateId the template ID
    * @returns when the template is retrieved
    */
+  // <api2-generated-endpoint getTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async getTemplate(templateId: string): Promise<TemplateResponse> {
     return await this._remoteJson({
       urlSuffix: `/templates/${templateId}`,
@@ -1106,12 +1362,20 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint getTemplate>
+
   /**
    * List all Assembly Templates
    *
    * @param params optional request options
    * @returns the list of templates
    */
+  // <api2-generated-endpoint listTemplates>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async listTemplates(
     params?: ListTemplatesParams,
   ): Promise<PaginationListWithCount<ListedTemplate>> {
@@ -1121,6 +1385,8 @@ export class Transloadit {
       params: params || {},
     })
   }
+
+  // </api2-generated-endpoint listTemplates>
 
   streamTemplates(params?: ListTemplatesParams): PaginationStream<ListedTemplate> {
     return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
@@ -1133,6 +1399,12 @@ export class Transloadit {
    * @returns with billing data
    * @see https://transloadit.com/docs/api/bill-date-get/
    */
+  // <api2-generated-endpoint getBill>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async getBill(month: string): Promise<BillResponse> {
     assert.ok(month, 'month is required')
     return await this._remoteJson({
@@ -1140,6 +1412,8 @@ export class Transloadit {
       method: 'get',
     })
   }
+
+  // </api2-generated-endpoint getBill>
 
   calcSignature(
     params: OptionalAuthParams,

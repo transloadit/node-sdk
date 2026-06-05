@@ -229,7 +229,10 @@ jobs:
         env:
           COVERAGE_REPO_SSH_PRIVATE_KEY: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
         run: |
-          if [ -n "$COVERAGE_REPO_SSH_PRIVATE_KEY" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Coverage publish skipped for pull request runs."
+          elif [ -n "$COVERAGE_REPO_SSH_PRIVATE_KEY" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
