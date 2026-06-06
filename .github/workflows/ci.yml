@@ -228,12 +228,20 @@ jobs:
         id: coverage-publish
         env:
           COVERAGE_REPO_SSH_PRIVATE_KEY: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
+          COVERAGE_REPO_SIGNING_SSH_KEY: ${{ secrets.COVERAGE_REPO_SIGNING_SSH_KEY }}
         run: |
-          if [ -n "$COVERAGE_REPO_SSH_PRIVATE_KEY" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Coverage publish skipped for pull request runs."
+          elif [ -z "$COVERAGE_REPO_SSH_PRIVATE_KEY" ]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "Coverage publish skipped because COVERAGE_REPO_SSH_PRIVATE_KEY is unavailable."
+          elif [ -z "$COVERAGE_REPO_SIGNING_SSH_KEY" ]; then
+            echo "COVERAGE_REPO_SIGNING_SSH_KEY is required so generated coverage commits pass the verified-signature ruleset." >&2
+            echo "Add the public half of that key to the GitHub account used below as an SSH signing key." >&2
+            exit 1
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
       # *** BEGIN PUBLISH STATIC SITE STEPS ***
       # Use the standard checkout action to check out the destination repo to a separate directory
@@ -247,9 +255,18 @@ jobs:
 
       # Push coverage data
       - if: steps.coverage-publish.outputs.enabled == 'true'
+        env:
+          COVERAGE_REPO_SIGNING_SSH_KEY: ${{ secrets.COVERAGE_REPO_SIGNING_SSH_KEY }}
         run: |
-          git config --global user.name github-actions
-          git config --global user.email github-actions@github.com
+          mkdir -p ~/.ssh
+          printf '%s\n' "$COVERAGE_REPO_SIGNING_SSH_KEY" > ~/.ssh/id_coverage_signing
+          chmod 600 ~/.ssh/id_coverage_signing
+          ssh-keygen -y -f ~/.ssh/id_coverage_signing > ~/.ssh/id_coverage_signing.pub
+          git config --global user.name "Transloadit Bot"
+          git config --global user.email "24697610+transloadit-bot@users.noreply.github.com"
+          git config --global gpg.format ssh
+          git config --global user.signingkey "$HOME/.ssh/id_coverage_signing.pub"
+          git config --global commit.gpgsign true
           # Remove existing files:
           rm -rf static-files-destination/*
           # Replace with new files:
