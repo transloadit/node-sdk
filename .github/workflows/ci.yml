@@ -224,41 +224,36 @@ jobs:
         run: |
           mv packages/node/coverage/lcov-report static-build
           mv coverage-badge.svg static-build/
-      - name: Check coverage publish credentials
-        id: coverage-publish
-        env:
-          COVERAGE_REPO_SSH_PRIVATE_KEY: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
-        run: |
-          if [ -n "$COVERAGE_REPO_SSH_PRIVATE_KEY" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Coverage publish skipped because COVERAGE_REPO_SSH_PRIVATE_KEY is unavailable."
-          fi
-      # *** BEGIN PUBLISH STATIC SITE STEPS ***
-      # Use the standard checkout action to check out the destination repo to a separate directory
-      # See https://github.com/mifi/github-action-push-static
-      - uses: actions/checkout@v6
-        if: steps.coverage-publish.outputs.enabled == 'true'
+      - name: Upload coverage site artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
         with:
-          ssh-key: ${{ secrets.COVERAGE_REPO_SSH_PRIVATE_KEY }}
-          repository: transloadit/node-sdk-coverage
-          path: static-files-destination
+          name: coverage-site
+          path: static-build
 
-      # Push coverage data
-      - if: steps.coverage-publish.outputs.enabled == 'true'
-        run: |
-          git config --global user.name github-actions
-          git config --global user.email github-actions@github.com
-          # Remove existing files:
-          rm -rf static-files-destination/*
-          # Replace with new files:
-          cp -a static-build/* static-files-destination/
-          cd static-files-destination
-          git add .
-          # git diff-index: to avoid doing the git commit failing if there are no changes to be commit
-          git diff-index --quiet HEAD || git commit --message 'Static file updates'
-          git push
+  pages:
+    name: Publish coverage Pages
+    needs: e2e
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage-site
+          path: static-build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: static-build
+      - name: Deploy coverage to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   coverage:
     name: Upload coverage
