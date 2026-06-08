@@ -199,7 +199,7 @@ jobs:
 
       # can be used for debugging:
       #      - name: Setup tmate session
-      #        uses: mxschmitt/action-tmate@v3
+      #        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
 
       - run: corepack yarn test
         env:

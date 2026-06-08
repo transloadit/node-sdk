@@ -27,7 +27,7 @@ jobs:
       - run: corepack yarn tsc:utils
       - run: corepack yarn tsc:zod
       - run: corepack yarn tsc:node
-      - uses: changesets/action@v1
+      - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d
         with:
           version: corepack yarn changeset:version:release
           publish: corepack yarn changeset publish
