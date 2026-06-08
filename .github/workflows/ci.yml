@@ -253,7 +253,7 @@ jobs:
           path: static-build
       - name: Deploy coverage to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   coverage:
     name: Upload coverage
@@ -267,7 +267,7 @@ jobs:
           name: coverage-reports
           path: coverage
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
@@ -281,8 +281,12 @@ jobs:
     if: ${{ failure() && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: 8398a7/action-slack@v3
-        with:
-          status: failure
+      - name: Send Slack notification
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TEXT: >-
+            ${{ github.workflow }} failed for ${{ github.repository }} on ${{ github.ref_name }}:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node -e "process.stdout.write(JSON.stringify({ text: process.env.SLACK_TEXT }))" |
+            curl --fail-with-body -X POST -H 'Content-type: application/json' --data-binary @- "$SLACK_WEBHOOK_URL"
