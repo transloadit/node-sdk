@@ -34,6 +34,7 @@ export interface PaginationListWithCount<T> extends PaginationList<T> {
 export type CreateAssemblyParams = Omit<AssemblyInstructionsInput, 'auth'> & OptionalAuthParams
 
 export type ListAssembliesParams = OptionalAuthParams & {
+  assembly_id?: string
   page?: number
   pagesize?: number
   type?: 'all' | 'uploading' | 'executing' | 'canceled' | 'completed' | 'failed' | 'request_aborted'

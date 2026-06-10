@@ -108,7 +108,10 @@ async function main(): Promise<void> {
 
   try {
     const fetched = await client.getAssembly(assemblyId)
-    const listed = await client.listAssemblies({ pagesize: scenario.list.pageSize })
+    const listed = await client.listAssemblies({
+      assembly_id: assemblyId,
+      pagesize: scenario.list.pageSize,
+    })
     const cancelled = await client.cancelAssembly(assemblyId)
     cancelOnExit = false
 
