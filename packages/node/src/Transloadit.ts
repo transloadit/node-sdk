@@ -685,7 +685,7 @@ export class Transloadit {
     for (const [key, value] of Object.entries(userMeta)) {
       metadataMap.set(String(key), String(value))
     }
-    metadataMap.set('assembly_url', String(createdAssembly.assembly_url))
+    metadataMap.set('assembly_url', String(createdAssembly.assembly_ssl_url))
     metadataMap.set('fieldname', String(fieldname))
     metadataMap.set('filename', String(filename))
 
