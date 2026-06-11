@@ -108,10 +108,22 @@ async function main(): Promise<void> {
 
   try {
     const fetched = await client.getAssembly(assemblyId)
-    const listed = await client.listAssemblies({
+    // The Assembly list is eventually consistent: the API acknowledges creation before the
+    // list storage row lands, so poll briefly until the created Assembly shows up.
+    let listed = await client.listAssemblies({
       assembly_id: assemblyId,
       pagesize: scenario.list.pageSize,
     })
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (listed.items.some((assembly) => assembly.id === assemblyId)) {
+        break
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      listed = await client.listAssemblies({
+        assembly_id: assemblyId,
+        pagesize: scenario.list.pageSize,
+      })
+    }
     const cancelled = await client.cancelAssembly(assemblyId)
     cancelOnExit = false
 
