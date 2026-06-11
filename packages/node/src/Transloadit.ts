@@ -656,6 +656,90 @@ export class Transloadit {
 
   // </api2-generated-feature waitForAssembly>
 
+  // <api2-generated-feature resumeTusUpload>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  /**
+   * Resumes an interrupted TUS upload from the server-reported offset and waits for the Assembly to finish.
+   */
+  async resumeTusUpload(
+    uploadUrl: string,
+    content: Buffer | Uint8Array | string,
+    assemblySslUrl: string,
+  ): Promise<AssemblyStatus> {
+    const storedUploadUrl = uploadUrl
+    if (!storedUploadUrl) {
+      throw new Error('TUS resumeUpload needs input.storedUploadUrl')
+    }
+
+    const offsetHeaders: Record<string, string> = {}
+    offsetHeaders['Tus-Resumable'] = '1.0.0'
+    const offsetResponse = await got(storedUploadUrl, {
+      method: 'HEAD',
+      headers: offsetHeaders,
+      retry: this._gotRetry,
+      throwHttpErrors: false,
+      timeout: { request: this._defaultTimeout },
+    })
+
+    if (offsetResponse.statusCode !== 200) {
+      throw new Error(`TUS offset returned HTTP ${offsetResponse.statusCode}, expected 200`)
+    }
+    const resumeOffsetHeader = offsetResponse.headers['upload-offset']
+    const resumeOffsetHeaderText = Array.isArray(resumeOffsetHeader)
+      ? resumeOffsetHeader[0]
+      : resumeOffsetHeader
+    if (!resumeOffsetHeaderText) {
+      throw new Error('TUS offset did not return a Upload-Offset header')
+    }
+    const resumeOffset = Number(resumeOffsetHeaderText)
+    if (!Number.isInteger(resumeOffset)) {
+      throw new Error('TUS offset returned an invalid Upload-Offset header')
+    }
+
+    const contentBytes = Buffer.isBuffer(content) ? content : Buffer.from(content)
+
+    const uploadHeaders: Record<string, string> = {}
+    uploadHeaders['Tus-Resumable'] = '1.0.0'
+    uploadHeaders['Upload-Offset'] = String(resumeOffset)
+    uploadHeaders['Content-Type'] = 'application/offset+octet-stream'
+    const uploadResponse = await got(storedUploadUrl, {
+      method: 'PATCH',
+      body: contentBytes.subarray(resumeOffset),
+      headers: uploadHeaders,
+      retry: this._gotRetry,
+      throwHttpErrors: false,
+      timeout: { request: this._defaultTimeout },
+    })
+
+    if (uploadResponse.statusCode !== 204) {
+      throw new Error(`TUS upload returned HTTP ${uploadResponse.statusCode}, expected 204`)
+    }
+    const uploadOffsetHeader = uploadResponse.headers['upload-offset']
+    const uploadOffsetText = Array.isArray(uploadOffsetHeader)
+      ? uploadOffsetHeader[0]
+      : uploadOffsetHeader
+    if (!uploadOffsetText) {
+      throw new Error('TUS upload returned an invalid Upload-Offset header')
+    }
+    const uploadOffset = Number(uploadOffsetText)
+    if (!Number.isInteger(uploadOffset)) {
+      throw new Error('TUS upload returned an invalid Upload-Offset header')
+    }
+    if (uploadOffset !== contentBytes.length) {
+      throw new Error(`TUS upload offset ${uploadOffset}, expected ${contentBytes.length}`)
+    }
+
+    const completedAssembly = await this.waitForAssembly(assemblySslUrl)
+
+    return completedAssembly
+  }
+
+  // </api2-generated-feature resumeTusUpload>
+
   // <api2-generated-feature uploadTusAssembly>
 
   // This block is generated from Transloadit API2 contracts. If it looks wrong,
