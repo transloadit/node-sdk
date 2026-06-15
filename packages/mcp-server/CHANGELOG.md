@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.26
+
+### Patch Changes
+
+- f2abe56: Sync robot and assembly status schemas with the latest Transloadit API definitions.
+- Updated dependencies [f2abe56]
+  - @transloadit/node@4.10.7
+
 ## 0.3.25
 
 ### Patch Changes
