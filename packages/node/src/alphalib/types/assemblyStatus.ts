@@ -7,6 +7,7 @@ export const assemblyBusyCodeSchema = z.enum([
   'ASSEMBLY_EXECUTING',
   'ASSEMBLY_REPLAYING',
 ])
+export type AssemblyBusyCode = z.infer<typeof assemblyBusyCodeSchema>
 
 export const assemblyStatusOkCodeSchema = z.enum([
   'ASSEMBLY_CANCELED',
@@ -19,6 +20,7 @@ export const assemblyStatusOkCodeSchema = z.enum([
   // 'ASSEMBLY_FILE_ACCEPTED',
   // 'ASSEMBLY_FILE_RESERVED',
 ])
+export type AssemblyStatusOkCode = z.infer<typeof assemblyStatusOkCodeSchema>
 
 export const assemblyStatusErrCodeSchema = z.enum([
   'ADMIN_PERMISSIONS_REQUIRED',
@@ -351,6 +353,7 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'YOUTUBE_STORE_PROBLEM_SENDING_FILE',
   'YOUTUBE_STORE_VALIDATION',
 ])
+export type AssemblyStatusErrCode = z.infer<typeof assemblyStatusErrCodeSchema>
 
 const assemblyStatusMetaSchema = z
   .object({
@@ -455,6 +458,22 @@ const assemblyStatusMetaSchema = z
     num_subtitles: z.union([z.number(), z.null()]).optional(),
     bit_depth: z.union([z.number(), z.null()]).optional(),
     seekable: z.union([z.boolean(), z.null()]).optional(),
+    interlaced: z.boolean().nullable().optional(),
+    field_order: z.string().nullable().optional(),
+    interlace_detection: z
+      .object({
+        sampled_frames: z.number().optional(),
+        tff: z.number().optional(),
+        bff: z.number().optional(),
+        progressive: z.number().optional(),
+        undetermined: z.number().optional(),
+        confidence: z.number().optional(),
+        method: z.string().optional(),
+        ffprobe_field_order: z.string().nullable().optional(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
     pixel_format: z.union([z.string(), z.null()]).optional(),
     reference_count: z.union([z.number(), z.null()]).optional(),
     time_base: z.union([z.string(), z.null()]).optional(),
@@ -740,6 +759,7 @@ export const assemblyStatusBaseSchema = z.object({
   notify_status: z.string().nullable().optional(),
   notify_response_code: z.number().nullable().optional(),
   notify_response_data: z.string().nullable().optional(),
+  notify_error: z.string().nullable().optional(),
   notify_duration: z.number().nullable().optional(),
   last_job_completed: z.string().nullable().optional(),
   fields: z.record(z.unknown()).optional(),

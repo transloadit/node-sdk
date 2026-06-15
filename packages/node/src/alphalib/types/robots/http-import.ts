@@ -104,6 +104,14 @@ Setting this to \`"meta"\` will still import the file on metadata extraction err
       .describe(`
 Disable the internal retry mechanism, and fail immediately if a resource can't be imported. This can be useful for performance critical applications.
 `),
+    max_file_size: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(`
+Maximum allowed size in bytes for each imported file. If the remote server reports a larger file size, the import is rejected before the download starts. If the remote server does not report a size upfront, the download is aborted once this limit is exceeded.
+`),
     return_file_stubs,
     range: z
       .union([z.string(), z.array(z.string())])
