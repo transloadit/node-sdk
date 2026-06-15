@@ -9,6 +9,29 @@ import {
   robotUse,
 } from './_instructions-primitives.ts'
 
+export const imageFacedetectFaceSelectionModes = [
+  'each',
+  'group',
+  'max-confidence',
+  'max-size',
+] as const
+
+export const imageFacedetectFaceSelectionModeSchema = z.enum(imageFacedetectFaceSelectionModes)
+
+export const imageFacedetectFaceCoordinatesSchema = z
+  .object({
+    confidence: z.number().optional(),
+    height: z.number(),
+    width: z.number(),
+    x1: z.number(),
+    x2: z.number().optional(),
+    y1: z.number(),
+    y2: z.number().optional(),
+  })
+  .passthrough()
+
+export type ImageFacedetectFaceCoordinates = z.infer<typeof imageFacedetectFaceCoordinatesSchema>
+
 export const meta: RobotMetaInput = {
   bytescount: 1,
   discount_factor: 1,
@@ -104,7 +127,7 @@ The default value \`"preserve"\` means that the input image format is re-used.
 Specifies the minimum confidence that a detected face must have. Only faces which have a higher confidence value than this threshold will be included in the result.
 `),
     faces: z
-      .union([z.enum(['each', 'group', 'max-confidence', 'max-size']), z.number().int()])
+      .union([imageFacedetectFaceSelectionModeSchema, z.number().int()])
       .default('each')
       .describe(`
 Determines which of the detected faces should be returned. Valid values are:

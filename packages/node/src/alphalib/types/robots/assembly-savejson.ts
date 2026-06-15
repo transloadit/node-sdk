@@ -46,8 +46,19 @@ TODO: Add robot description here
   })
   .strict()
 
+export const robotAssemblySavejsonInstructionsWithHiddenFieldsSchema =
+  robotAssemblySavejsonInstructionsSchema.extend({
+    assembly_id: z.string().optional(),
+    expiry: z.string().optional(),
+    instance: z.string().optional(),
+    status: z.unknown().optional(),
+  })
+
 export type RobotAssemblySavejsonInstructions = z.infer<
   typeof robotAssemblySavejsonInstructionsSchema
+>
+export type RobotAssemblySavejsonInstructionsWithHiddenFields = z.infer<
+  typeof robotAssemblySavejsonInstructionsWithHiddenFieldsSchema
 >
 
 export const interpolatableRobotAssemblySavejsonInstructionsSchema = interpolateRobot(
@@ -58,4 +69,14 @@ export type InterpolatableRobotAssemblySavejsonInstructions =
 
 export type InterpolatableRobotAssemblySavejsonInstructionsInput = z.input<
   typeof interpolatableRobotAssemblySavejsonInstructionsSchema
+>
+
+export const interpolatableRobotAssemblySavejsonInstructionsWithHiddenFieldsSchema =
+  interpolateRobot(robotAssemblySavejsonInstructionsWithHiddenFieldsSchema)
+export type InterpolatableRobotAssemblySavejsonInstructionsWithHiddenFields = z.infer<
+  typeof interpolatableRobotAssemblySavejsonInstructionsWithHiddenFieldsSchema
+>
+
+export type InterpolatableRobotAssemblySavejsonInstructionsWithHiddenFieldsInput = z.input<
+  typeof interpolatableRobotAssemblySavejsonInstructionsWithHiddenFieldsSchema
 >

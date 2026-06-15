@@ -95,6 +95,8 @@ You can add text overlays to videos using FFmpeg's \`drawtext\` filter through t
 - Use the \`font\` attribute to reference a font by family name with FFmpeg's \`drawtext\`
 - FFmpeg font family names typically do not contain dashes (e.g. \`Times New Roman\`), while
   ImageMagick uses dashed names (e.g. \`Times-New-Roman\`).
+- File-loading \`drawtext\` options such as \`textfile\` and \`fontfile\` are not supported. Use
+  inline \`text\` and a font family name instead.
 - Preserve the source audio by setting \`"codec:a": "copy"\`.
 - Position text with the \`x\` and \`y\` expressions. The example above centers the text.
 

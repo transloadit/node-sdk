@@ -1682,58 +1682,58 @@ export const filterExpression = z.union([
   z.array(z.union([z.string(), z.number(), z.null()])),
 ])
 
-export type FilterCondition = z.infer<typeof filterCondition>
-export const filterCondition = z.union([
-  z.null(),
-  z.string(),
-  z.array(
-    z.tuple([
-      filterExpression,
-      z.union([
-        z.literal('=').describe('Equals without type check'),
-        z.literal('==').describe('Equals without type check'),
-        z.literal('===').describe('Strict equals with type check'),
-        z.literal('<').describe('Less than'),
-        z.literal('>').describe('Greater than'),
-        z.literal('<=').describe('Less or equal'),
-        z.literal('>=').describe('Greater or equal'),
-        z.literal('!=').describe('Simple inequality check without type check'),
-        z.literal('!==').describe('Strict inequality check with type check'),
-        z
-          .literal('regex')
-          .describe(
-            'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `.match()`',
-          ),
-        z
-          .literal('!regex')
-          .describe(
-            'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `!.match()`',
-          ),
-        z
-          .literal('includes')
-          .describe(
-            'Check if the right element is included in the array, which is represented by the left element',
-          ),
-        z
-          .literal('!includes')
-          .describe(
-            'Check if the right element is not included in the array, which is represented by the left element',
-          ),
-        z
-          .literal('empty')
-          .describe(
-            'Check if the left element is an empty array, an object without properties, an empty string, the number zero or the boolean false. Leave the third element of the array to be an empty string. It won’t be evaluated.',
-          ),
-        z
-          .literal('!empty')
-          .describe(
-            'Check if the left element is an array with members, an object with at least one property, a non-empty string, a number that does not equal zero or the boolean true. Leave the third element of the array to be an empty string. It won’t be evaluated.',
-          ),
-      ]),
-      filterExpression,
-    ]),
-  ),
+export type FilterConditionOperator = z.infer<typeof filterConditionOperatorSchema>
+export const filterConditionOperatorSchema = z.union([
+  z.literal('=').describe('Equals without type check'),
+  z.literal('==').describe('Equals without type check'),
+  z.literal('===').describe('Strict equals with type check'),
+  z.literal('<').describe('Less than'),
+  z.literal('>').describe('Greater than'),
+  z.literal('<=').describe('Less or equal'),
+  z.literal('>=').describe('Greater or equal'),
+  z.literal('!=').describe('Simple inequality check without type check'),
+  z.literal('!==').describe('Strict inequality check with type check'),
+  z
+    .literal('regex')
+    .describe(
+      'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `.match()`',
+    ),
+  z
+    .literal('!regex')
+    .describe(
+      'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `!.match()`',
+    ),
+  z
+    .literal('includes')
+    .describe(
+      'Check if the right element is included in the array, which is represented by the left element',
+    ),
+  z
+    .literal('!includes')
+    .describe(
+      'Check if the right element is not included in the array, which is represented by the left element',
+    ),
+  z
+    .literal('empty')
+    .describe(
+      'Check if the left element is an empty array, an object without properties, an empty string, the number zero or the boolean false. Leave the third element of the array to be an empty string. It won’t be evaluated.',
+    ),
+  z
+    .literal('!empty')
+    .describe(
+      'Check if the left element is an array with members, an object with at least one property, a non-empty string, a number that does not equal zero or the boolean true. Leave the third element of the array to be an empty string. It won’t be evaluated.',
+    ),
 ])
+
+export type FilterConditionPart = z.infer<typeof filterConditionPartSchema>
+export const filterConditionPartSchema = z.tuple([
+  filterExpression,
+  filterConditionOperatorSchema,
+  filterExpression,
+])
+
+export type FilterCondition = z.infer<typeof filterCondition>
+export const filterCondition = z.union([z.null(), z.string(), z.array(filterConditionPartSchema)])
 
 /**
  * Parameters specific to the /video/encode robot. Useful for typing robots that pass files to /video/encode.
@@ -1913,10 +1913,17 @@ Delta to apply to segment duration. This is optional and allows fine-tuning of s
   })
   .strict()
 
-/**
- * Type for the normalized use parameter from AssemblyNormalizer
- * The steps array can contain either strings or objects with name property
- */
+export type NormalizedUseStepName = string | undefined
+
+export interface NormalizedUseStep {
+  as?: unknown[]
+  fields?: unknown[]
+  name: NormalizedUseStepName
+}
+
 export interface NormalizedUse {
-  steps: Array<{ name: string; as?: string; fields?: string }>
+  bundle_steps: boolean
+  fields: true | unknown[]
+  group_by_original: boolean
+  steps: NormalizedUseStep[]
 }
