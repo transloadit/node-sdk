@@ -1,5 +1,11 @@
 # @transloadit/types
 
+## 4.3.3
+
+### Patch Changes
+
+- f2abe56: Sync robot and assembly status schemas with the latest Transloadit API definitions.
+
 ## 4.3.2
 
 ### Patch Changes

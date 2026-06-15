@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.10.7
+
+### Patch Changes
+
+- f2abe56: Sync robot and assembly status schemas with the latest Transloadit API definitions.
+
 ## 4.10.6
 
 ### Patch Changes
