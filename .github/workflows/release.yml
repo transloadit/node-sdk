@@ -31,6 +31,7 @@ jobs:
         with:
           version: corepack yarn changeset:version:release
           publish: corepack yarn changeset publish
+          commitMode: github-api
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
