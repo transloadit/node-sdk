@@ -3,6 +3,7 @@ import type { stat as NodeStat } from 'node:fs/promises'
 import type { OnSuccessPayload, UploadOptions } from 'tus-js-client'
 
 import { PassThrough } from 'node:stream'
+import { setImmediate as delayImmediate } from 'node:timers/promises'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -269,5 +270,41 @@ describe('sendTusRequest', () => {
     ).rejects.toThrow('assembly_ssl_url is not present in the assembly status')
 
     expect(uploadCtor).not.toHaveBeenCalled()
+  })
+
+  it('does not leave bookkeeping promises unhandled when an awaited upload fails', async () => {
+    statMock.mockResolvedValue({ size: 2048 })
+
+    const uploadError = new Error('connect ETIMEDOUT 5.161.182.178:443')
+    const unhandledRejections: unknown[] = []
+    const onUnhandledRejection = (reason: unknown): void => {
+      unhandledRejections.push(reason)
+    }
+
+    startBehavior = (options) => {
+      options.onError?.(uploadError)
+    }
+
+    process.on('unhandledRejection', onUnhandledRejection)
+    try {
+      await expect(
+        sendTusRequest({
+          streamsMap: {
+            failed: { path: '/tmp/failed', stream: new PassThrough() },
+          },
+          assembly: baseAssembly,
+          requestedChunkSize: 1_048_576,
+          uploadConcurrency: 1,
+          onProgress: () => {},
+        }),
+      ).rejects.toBe(uploadError)
+
+      await delayImmediate()
+      await delayImmediate()
+
+      expect(unhandledRejections).toEqual([])
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+    }
   })
 })
