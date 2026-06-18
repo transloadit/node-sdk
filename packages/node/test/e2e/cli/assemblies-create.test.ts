@@ -19,7 +19,7 @@ const rreaddirAsync = promisify(rreaddir)
 
 const describeLive = hasTransloaditCredentials ? describe : describe.skip
 
-describeLive('assemblies', () => {
+describeLive('assemblies', { retry: 1 }, () => {
   describe('create', () => {
     const genericImg =
       'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
