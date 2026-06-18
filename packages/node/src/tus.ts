@@ -153,6 +153,12 @@ export async function sendTusRequest({
       rejectCompletion = reject
     })
 
+    // If startPromise rejects first, pMap aborts before sendTusRequest reaches the aggregate awaits
+    // below. These bookkeeping promises still need handlers so the startPromise rejection remains
+    // the single error surface.
+    uploadUrlPromise.catch(() => {})
+    completionPromise.catch(() => {})
+
     uploadUrlPromises.push(uploadUrlPromise)
     completionPromises.push(completionPromise)
 
