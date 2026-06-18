@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.27
+
+### Patch Changes
+
+- 9cf7aea: Handle tus upload failures without leaving duplicate internal promises unhandled.
+- Updated dependencies [9cf7aea]
+  - @transloadit/node@4.10.8
+
 ## 0.3.26
 
 ### Patch Changes

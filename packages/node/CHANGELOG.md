@@ -1,5 +1,11 @@
 # @transloadit/node
 
+## 4.10.8
+
+### Patch Changes
+
+- 9cf7aea: Handle tus upload failures without leaving duplicate internal promises unhandled.
+
 ## 4.10.7
 
 ### Patch Changes
