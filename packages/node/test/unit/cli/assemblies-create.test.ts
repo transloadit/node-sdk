@@ -319,6 +319,47 @@ describe('assemblies create', () => {
     expect(await readFile(outputPath, 'utf8')).toBe('bundle-contents')
   })
 
+  it('collects filesystem inputs for single assemblies without opening upload streams', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const tempDir = await createTempDir('transloadit-single-files-')
+    const inputs = await Promise.all(
+      Array.from({ length: 5 }, async (_, index) => {
+        const inputPath = path.join(tempDir, `in${index}.txt`)
+        await writeFile(inputPath, `input-${index}`)
+        return inputPath
+      }),
+    )
+
+    const output = new OutputCtl()
+    const client = {
+      createAssembly: vi.fn().mockResolvedValue({ assembly_id: 'assembly-single-files' }),
+      awaitAssemblyCompletion: vi.fn().mockResolvedValue({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {},
+      }),
+    }
+
+    await create(output, client as never, {
+      inputs,
+      output: null,
+      singleAssembly: true,
+      stepsData: {
+        exported: {
+          robot: '/file/filter',
+          result: true,
+          use: ':original',
+        },
+      },
+    })
+
+    expect(client.createAssembly).toHaveBeenCalledTimes(1)
+    expect(client.createAssembly.mock.calls[0]?.[0]?.files).toEqual(
+      Object.fromEntries(inputs.map((inputPath) => [path.basename(inputPath), inputPath])),
+    )
+    expect(client.createAssembly.mock.calls[0]?.[0]?.uploads).toBeUndefined()
+  })
+
   it('runs valid inputless single-assembly steps instead of no-oping', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 

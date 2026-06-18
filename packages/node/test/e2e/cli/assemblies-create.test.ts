@@ -19,7 +19,7 @@ const rreaddirAsync = promisify(rreaddir)
 
 const describeLive = hasTransloaditCredentials ? describe : describe.skip
 
-describeLive('assemblies', () => {
+describeLive('assemblies', { retry: 1 }, () => {
   describe('create', () => {
     const genericImg =
       'https://demos.transloadit.com/66/01604e7d0248109df8c7cc0f8daef8/snowflake.jpg'
@@ -475,42 +475,6 @@ describeLive('assemblies', () => {
           maxActiveJobs,
           'Max concurrent jobs should not exceed concurrency limit',
         ).to.be.at.most(2)
-      }),
-      300_000,
-    )
-
-    it(
-      'should avoid opening filesystem streams during single-assembly collection',
-      testCase(async (client) => {
-        // Create multiple input files for single-assembly mode
-        const fileCount = 5
-        const infiles = await Promise.all(
-          Array.from({ length: fileCount }, (_, i) => imgPromise(`in${i}.jpg`)),
-        )
-        const steps = await stepsPromise()
-        await fsp.mkdir('out')
-
-        const output = new OutputCtl()
-        await assembliesCreate(output, client, {
-          steps,
-          inputs: infiles,
-          output: 'out',
-          singleAssembly: true, // All files in one assembly
-        })
-
-        // Verify files were processed
-        const outs = await fsp.readdir('out')
-        expect(outs.length).to.be.greaterThan(0)
-
-        // Analyze debug output to verify filesystem inputs were collected as file paths.
-        // The current implementation only opens upload streams lazily for stdin inputs,
-        // so there should be no eager "STREAM CLOSED" churn during collection.
-        const debugOutput = output.get(true) as OutputEntry[]
-        const messages = debugOutput.map((e) => String(e.msg))
-
-        const streamClosedMessages = messages.filter((m) => m.startsWith('STREAM CLOSED'))
-        expect(streamClosedMessages).to.have.lengthOf(0)
-        expect(messages).to.include(`Creating single assembly with ${fileCount} files`)
       }),
       300_000,
     )
