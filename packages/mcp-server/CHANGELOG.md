@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.28
+
+### Patch Changes
+
+- c2de344: Release mcp-server and transloadit alongside @transloadit/node.
+- Updated dependencies [c2de344]
+  - @transloadit/node@4.11.0
+
 ## 0.3.27
 
 ### Patch Changes

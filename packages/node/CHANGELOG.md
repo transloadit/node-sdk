@@ -1,5 +1,17 @@
 # @transloadit/node
 
+## 4.11.0
+
+### Minor Changes
+
+- c2de344: Add a shared Assembly Instructions compiler and expose prompt-to-Assembly-Instructions helpers in
+  the Node SDK and CLI.
+
+### Patch Changes
+
+- Updated dependencies [c2de344]
+  - @transloadit/utils@4.4.0
+
 ## 4.10.8
 
 ### Patch Changes
