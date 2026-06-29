@@ -3,7 +3,11 @@ import type { Readable } from 'node:stream'
 import type { StepsInput } from '../../alphalib/types/template.ts'
 import type { CreateAssemblyParams, ReplayAssemblyParams } from '../../apiTypes.ts'
 import type { LintFatalLevel } from '../../lintAssemblyInstructions.ts'
-import type { CreateAssemblyOptions, Transloadit } from '../../Transloadit.ts'
+import type {
+  CompileAssemblyInstructionsFromPromptOptions,
+  CreateAssemblyOptions,
+  Transloadit,
+} from '../../Transloadit.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 import type { NormalizedAssemblyResultFile, NormalizedAssemblyResults } from '../resultFiles.ts'
 import type { ResultUrlRow } from '../resultUrls.ts'
@@ -44,7 +48,7 @@ import {
 import { formatAPIError, readCliInput } from '../helpers.ts'
 import { normalizeAssemblyResults } from '../resultFiles.ts'
 import { collectNormalizedResultUrlRows, printResultUrls } from '../resultUrls.ts'
-import { readStepsInputFile } from '../stepsInput.ts'
+import { parseStepsInputJson, readStepsInputFile } from '../stepsInput.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
@@ -80,6 +84,14 @@ export interface AssemblyLintOptions {
   fix?: boolean
   providedInput?: string
   json?: boolean
+}
+
+export interface AssemblyCompileOptions {
+  maxAttempts?: number
+  mcpServerUrl?: string
+  model?: string
+  prompt: string
+  timeout?: number
 }
 
 function formatAssemblyReference({
@@ -323,6 +335,49 @@ export async function lint(
   }
 
   return result.success ? 0 : 1
+}
+
+function toPositiveInteger(value: number | undefined, optionName: string): number | undefined {
+  if (value == null) {
+    return undefined
+  }
+
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${optionName} must be a positive integer`)
+  }
+
+  return value
+}
+
+function createCompileOptions({
+  maxAttempts,
+  mcpServerUrl,
+  model,
+  prompt,
+  timeout,
+}: AssemblyCompileOptions): CompileAssemblyInstructionsFromPromptOptions {
+  return {
+    maxAttempts,
+    mcpServerUrl,
+    model,
+    prompt,
+    timeout,
+  }
+}
+
+export async function compileAssemblyInstructions(
+  output: IOutputCtl,
+  client: Transloadit,
+  options: AssemblyCompileOptions,
+): Promise<number> {
+  try {
+    const result = await client.compileAssemblyInstructionsFromPrompt(createCompileOptions(options))
+    output.print(result.instructionsJson, result)
+    return 0
+  } catch (error) {
+    output.error(formatAPIError(error))
+    return 1
+  }
 }
 
 // --- From assemblies-create.ts: Helper classes and functions ---
@@ -1658,6 +1713,64 @@ export async function create(
 }
 
 // --- Command classes ---
+export class AssembliesCompileCommand extends AuthenticatedCommand {
+  static override paths = [
+    ['assemblies', 'compile'],
+    ['assembly', 'compile'],
+    ['a', 'compile'],
+  ]
+
+  static override usage = Command.Usage({
+    category: 'Assemblies',
+    description: 'Compile a prompt into Assembly Instructions',
+    details: `
+      Compile a natural-language prompt into validated Transloadit Assembly Instructions JSON.
+    `,
+    examples: [
+      [
+        'Compile instructions',
+        'transloadit assemblies compile "resize uploaded images to 400px wide"',
+      ],
+    ],
+  })
+
+  prompt = Option.String({ required: true })
+
+  model = Option.String('--model', {
+    description: 'AI model to use for instruction compilation',
+  })
+
+  mcpServerUrl = Option.String('--mcp-server', {
+    description: 'MCP server URL used for Robot docs and instruction linting',
+  })
+
+  maxAttempts = Option.String('--max-attempts', {
+    description: 'Maximum validation attempts',
+    validator: t.applyCascade(t.isNumber(), [t.isAtLeast(1)]),
+  })
+
+  timeout = Option.String('--timeout', {
+    description: 'Compiler Assembly timeout in milliseconds',
+    validator: t.applyCascade(t.isNumber(), [t.isAtLeast(1)]),
+  })
+
+  protected async run(): Promise<number | undefined> {
+    return await compileAssemblyInstructions(this.output, this.client, {
+      maxAttempts: toPositiveInteger(
+        this.maxAttempts == null ? undefined : Number(this.maxAttempts),
+        '--max-attempts',
+      ),
+      mcpServerUrl: this.mcpServerUrl,
+      model: this.model,
+      prompt: this.prompt,
+      timeout: toPositiveInteger(
+        this.timeout == null ? undefined : Number(this.timeout),
+        '--timeout',
+      ),
+    })
+  }
+}
+
 export class AssembliesCreateCommand extends AuthenticatedCommand {
   static override paths = [
     ['assemblies', 'create'],
@@ -1758,6 +1871,135 @@ export class AssembliesCreateCommand extends AuthenticatedCommand {
     const { hasFailures, resultUrls } = await create(this.output, this.client, {
       steps: this.steps,
       template: this.template,
+      fields: fieldsMap ?? {},
+      watch: this.watch,
+      recursive: this.recursive,
+      inputs: inputList,
+      output: this.outputPath ?? null,
+      del: this.deleteAfterProcessing,
+      reprocessStale: this.reprocessStale,
+      singleAssembly: this.singleAssembly,
+      concurrency: this.concurrency == null ? undefined : Number(this.concurrency),
+    })
+    if (this.printUrls) {
+      printResultUrls(this.output, resultUrls)
+    }
+    return hasFailures ? 1 : undefined
+  }
+}
+
+export class RunCommand extends AuthenticatedCommand {
+  static override paths = [['run']]
+
+  static override usage = Command.Usage({
+    category: 'Assemblies',
+    description: 'Compile a prompt and run it as an Assembly',
+    details: `
+      Compile a natural-language prompt into Assembly Instructions, then run those instructions directly.
+    `,
+    examples: [
+      [
+        'Compile and run',
+        'transloadit run "resize uploaded images to 400px wide" -i input.jpg -o output.jpg',
+      ],
+      [
+        'Print result URLs',
+        'transloadit run "extract a waveform image from this audio" -i input.mp3 --print-urls',
+      ],
+    ],
+  })
+
+  prompt = Option.String({ required: true })
+
+  model = Option.String('--model', {
+    description: 'AI model to use for instruction compilation',
+  })
+
+  mcpServerUrl = Option.String('--mcp-server', {
+    description: 'MCP server URL used for Robot docs and instruction linting',
+  })
+
+  maxAttempts = Option.String('--max-attempts', {
+    description: 'Maximum validation attempts',
+    validator: t.applyCascade(t.isNumber(), [t.isAtLeast(1)]),
+  })
+
+  timeout = Option.String('--timeout', {
+    description: 'Compiler Assembly timeout in milliseconds',
+    validator: t.applyCascade(t.isNumber(), [t.isAtLeast(1)]),
+  })
+
+  inputs = inputPathsOption()
+
+  outputPath = Option.String('--output,-o', {
+    description: 'Specify an output file or directory',
+  })
+
+  fields = Option.Array('--field,-f', {
+    description: 'Set an Assembly field (KEY=VAL)',
+  })
+
+  watch = watchOption()
+
+  recursive = recursiveOption()
+
+  deleteAfterProcessing = deleteAfterProcessingOption()
+
+  reprocessStale = reprocessStaleOption()
+
+  singleAssembly = singleAssemblyOption()
+
+  concurrency = concurrencyOption()
+
+  printUrls = printUrlsOption()
+
+  protected async run(): Promise<number | undefined> {
+    const inputList = this.inputs ?? []
+
+    if (inputList.length === 0 && !process.stdin.isTTY) {
+      inputList.push('-')
+    }
+
+    const fieldsMap = parseTemplateFieldAssignments(this.output, this.fields)
+    if (this.fields != null && fieldsMap == null) {
+      return 1
+    }
+
+    const sharedValidationError = validateSharedFileProcessingOptions({
+      explicitInputCount: this.inputs?.length ?? 0,
+      singleAssembly: this.singleAssembly,
+      watch: this.watch,
+      watchRequiresInputsMessage: 'run --watch requires at least one input',
+    })
+    if (sharedValidationError != null) {
+      this.output.error(sharedValidationError)
+      return 1
+    }
+
+    let compiled: Awaited<ReturnType<Transloadit['compileAssemblyInstructionsFromPrompt']>>
+    try {
+      compiled = await this.client.compileAssemblyInstructionsFromPrompt(
+        createCompileOptions({
+          maxAttempts: toPositiveInteger(
+            this.maxAttempts == null ? undefined : Number(this.maxAttempts),
+            '--max-attempts',
+          ),
+          mcpServerUrl: this.mcpServerUrl,
+          model: this.model,
+          prompt: this.prompt,
+          timeout: toPositiveInteger(
+            this.timeout == null ? undefined : Number(this.timeout),
+            '--timeout',
+          ),
+        }),
+      )
+    } catch (error) {
+      this.output.error(formatAPIError(error))
+      return 1
+    }
+
+    const { hasFailures, resultUrls } = await create(this.output, this.client, {
+      stepsData: parseStepsInputJson(JSON.stringify(compiled.instructions.steps)),
       fields: fieldsMap ?? {},
       watch: this.watch,
       recursive: this.recursive,

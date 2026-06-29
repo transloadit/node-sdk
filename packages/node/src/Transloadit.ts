@@ -1,5 +1,9 @@
 import type { Readable } from 'node:stream'
 
+import type {
+  CompileAssemblyInstructionsOptions,
+  CompileAssemblyInstructionsResult,
+} from '@transloadit/utils'
 import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
 
 import type { TransloaditErrorResponseBody } from './ApiError.ts'
@@ -43,6 +47,7 @@ import { access, stat } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
+import { compileAssemblyInstructionsFromPrompt } from '@transloadit/utils'
 import { getSignedSmartCdnUrl, signParamsSync } from '@transloadit/utils/node'
 import debug from 'debug'
 import FormData from 'form-data'
@@ -61,6 +66,14 @@ import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
 import { sendTusRequest } from './tus.ts'
+
+export type {
+  CompileAssemblyInstructionsAttempt,
+  CompileAssemblyInstructionsClient,
+  CompileAssemblyInstructionsLintIssue,
+  CompileAssemblyInstructionsMessage,
+  CompileAssemblyInstructionsResult,
+} from '@transloadit/utils'
 
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 export type {
@@ -81,6 +94,11 @@ export type {
   RobotParamHelp,
 } from './robots.ts'
 
+export {
+  buildCompileAssemblyInstructionsSystemPrompt,
+  CompileAssemblyInstructionsError,
+  parseCompileAssemblyInstructionsResponse,
+} from '@transloadit/utils'
 // See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
 // Expose relevant errors
 export {
@@ -274,6 +292,13 @@ export interface SmartCDNUrlOptions {
   expiresAt?: number
 }
 
+export type CompileAssemblyInstructionsFromPromptOptions = Omit<
+  CompileAssemblyInstructionsOptions,
+  'client'
+> & {
+  timeout?: number
+}
+
 export type Fields = Record<string, string | number>
 
 // A special promise that lets the user immediately get the assembly ID (synchronously before the request is sent)
@@ -311,6 +336,37 @@ function checkResult<T>(result: T | { error: string }): asserts result is T {
   ) {
     throw new ApiError({ body: result }) // in this case there is no `cause` because we don't have an HTTPError
   }
+}
+
+function getResultBilledChargeUsd(result: unknown): number | undefined {
+  if (typeof result !== 'object' || result === null || Array.isArray(result)) {
+    return undefined
+  }
+
+  if (!('meta' in result)) {
+    return undefined
+  }
+
+  const { meta } = result
+  if (typeof meta !== 'object' || meta === null || Array.isArray(meta)) {
+    return undefined
+  }
+
+  if (!('billed_charge_usd' in meta)) {
+    return undefined
+  }
+
+  const { billed_charge_usd: billedChargeUsd } = meta
+  return typeof billedChargeUsd === 'number' ? billedChargeUsd : undefined
+}
+
+async function fetchJson(url: string): Promise<unknown> {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch AI response: ${response.status} ${response.statusText}`)
+  }
+
+  return await response.json()
 }
 
 type AuthKeySecret = {
@@ -549,6 +605,56 @@ export class Transloadit {
     return await lintAssemblyInstructionsInternal({
       ...rest,
       template: template.content,
+    })
+  }
+
+  /**
+   * Compile a natural-language prompt into validated Assembly Instructions.
+   *
+   * This creates a zero-upload /ai/chat Assembly, validates the structured response,
+   * and lints the generated instructions locally before returning them.
+   */
+  async compileAssemblyInstructionsFromPrompt(
+    options: CompileAssemblyInstructionsFromPromptOptions,
+  ): Promise<CompileAssemblyInstructionsResult> {
+    const timeout = options.timeout ?? 5 * 60 * 1000
+
+    return await compileAssemblyInstructionsFromPrompt({
+      ...options,
+      mcpServerUrl: options.mcpServerUrl ?? `${this._endpoint}/mcp`,
+      client: {
+        runAssemblyInstructionsCompiler: async ({ aiStep }) => {
+          const assembly = await this.createAssembly({
+            params: {
+              steps: {
+                ai: aiStep,
+              },
+            },
+            waitForCompletion: true,
+            expectedUploads: 0,
+            timeout,
+          })
+
+          const result = assembly.results?.ai?.[0]
+          const resultUrl = result?.url
+          if (!resultUrl) {
+            throw new Error('No AI response in Assembly results.')
+          }
+
+          return {
+            response: await fetchJson(resultUrl),
+            assemblyUrl: assembly.assembly_ssl_url ?? assembly.assembly_url ?? undefined,
+            billedChargeUsd: getResultBilledChargeUsd(result),
+            usageBytes: assembly.bytes_usage ?? undefined,
+          }
+        },
+        lintAssemblyInstructions: async (instructionsJson) => {
+          const lintResult = await this.lintAssemblyInstructions({
+            assemblyInstructions: instructionsJson,
+          })
+          return lintResult.issues
+        },
+      },
     })
   }
 

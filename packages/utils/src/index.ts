@@ -1,5 +1,7 @@
 export type SignatureAlgorithm = 'sha1' | 'sha256' | 'sha384'
 
+export * from './assemblyInstructionsCompiler.ts'
+
 const algorithmMap = {
   sha1: 'SHA-1',
   sha256: 'SHA-256',
