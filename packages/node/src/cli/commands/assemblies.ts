@@ -365,7 +365,7 @@ function createCompileOptions({
   }
 }
 
-export async function compileAssemblyInstructions(
+async function compileAssemblyInstructions(
   output: IOutputCtl,
   client: Transloadit,
   options: AssemblyInstructionsCompileOptions,

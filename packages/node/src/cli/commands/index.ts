@@ -3,13 +3,13 @@ import { Builtins, Cli } from 'clipanion'
 import packageJson from '../../../package.json' with { type: 'json' }
 import { intentCommands } from '../intentCommands.ts'
 import {
-  AssemblyInstructionsCompileCommand,
   AssembliesCreateCommand,
   AssembliesDeleteCommand,
   AssembliesGetCommand,
   AssembliesLintCommand,
   AssembliesListCommand,
   AssembliesReplayCommand,
+  AssemblyInstructionsCompileCommand,
   RunCommand,
 } from './assemblies.ts'
 import { SignatureCommand, SmartCdnSignatureCommand, TokenCommand } from './auth.ts'
