@@ -9,6 +9,8 @@ import {
   AssembliesLintCommand,
   AssembliesListCommand,
   AssembliesReplayCommand,
+  AssemblyInstructionsCompileCommand,
+  RunCommand,
 } from './assemblies.ts'
 import { SignatureCommand, SmartCdnSignatureCommand, TokenCommand } from './auth.ts'
 import { BillsGetCommand } from './bills.ts'
@@ -64,6 +66,10 @@ export function createCli(): Cli {
 
   // Uploads commands
   cli.register(UploadCommand)
+
+  // Prompt-to-Assembly-Instructions commands
+  cli.register(AssemblyInstructionsCompileCommand)
+  cli.register(RunCommand)
 
   // Documentation commands (offline metadata)
   cli.register(DocsRobotsListCommand)
