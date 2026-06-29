@@ -86,7 +86,7 @@ export interface AssemblyLintOptions {
   json?: boolean
 }
 
-export interface AssemblyCompileOptions {
+export interface AssemblyInstructionsCompileOptions {
   maxAttempts?: number
   mcpServerUrl?: string
   model?: string
@@ -355,7 +355,7 @@ function createCompileOptions({
   model,
   prompt,
   timeout,
-}: AssemblyCompileOptions): CompileAssemblyInstructionsFromPromptOptions {
+}: AssemblyInstructionsCompileOptions): CompileAssemblyInstructionsFromPromptOptions {
   return {
     maxAttempts,
     mcpServerUrl,
@@ -368,7 +368,7 @@ function createCompileOptions({
 export async function compileAssemblyInstructions(
   output: IOutputCtl,
   client: Transloadit,
-  options: AssemblyCompileOptions,
+  options: AssemblyInstructionsCompileOptions,
 ): Promise<number> {
   try {
     const result = await client.compileAssemblyInstructionsFromPrompt(createCompileOptions(options))
@@ -1713,15 +1713,15 @@ export async function create(
 }
 
 // --- Command classes ---
-export class AssembliesCompileCommand extends AuthenticatedCommand {
+export class AssemblyInstructionsCompileCommand extends AuthenticatedCommand {
   static override paths = [
-    ['assemblies', 'compile'],
-    ['assembly', 'compile'],
-    ['a', 'compile'],
+    ['assembly-instructions', 'compile'],
+    ['assembly-instruction', 'compile'],
+    ['instructions', 'compile'],
   ]
 
   static override usage = Command.Usage({
-    category: 'Assemblies',
+    category: 'Assembly Instructions',
     description: 'Compile a prompt into Assembly Instructions',
     details: `
       Compile a natural-language prompt into validated Transloadit Assembly Instructions JSON.
@@ -1729,7 +1729,7 @@ export class AssembliesCompileCommand extends AuthenticatedCommand {
     examples: [
       [
         'Compile instructions',
-        'transloadit assemblies compile "resize uploaded images to 400px wide"',
+        'transloadit assembly-instructions compile "resize uploaded images to 400px wide"',
       ],
     ],
   })
@@ -1893,7 +1893,7 @@ export class RunCommand extends AuthenticatedCommand {
 
   static override usage = Command.Usage({
     category: 'Assemblies',
-    description: 'Compile a prompt and run it as an Assembly',
+    description: 'Compile Assembly Instructions and run them as an Assembly',
     details: `
       Compile a natural-language prompt into Assembly Instructions, then run those instructions directly.
     `,

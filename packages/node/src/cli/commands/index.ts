@@ -3,7 +3,7 @@ import { Builtins, Cli } from 'clipanion'
 import packageJson from '../../../package.json' with { type: 'json' }
 import { intentCommands } from '../intentCommands.ts'
 import {
-  AssembliesCompileCommand,
+  AssemblyInstructionsCompileCommand,
   AssembliesCreateCommand,
   AssembliesDeleteCommand,
   AssembliesGetCommand,
@@ -43,7 +43,6 @@ export function createCli(): Cli {
   cli.register(TokenCommand)
 
   // Assemblies commands
-  cli.register(AssembliesCompileCommand)
   cli.register(AssembliesCreateCommand)
   cli.register(AssembliesListCommand)
   cli.register(AssembliesGetCommand)
@@ -68,7 +67,8 @@ export function createCli(): Cli {
   // Uploads commands
   cli.register(UploadCommand)
 
-  // Prompt-to-Assembly command
+  // Prompt-to-Assembly-Instructions commands
+  cli.register(AssemblyInstructionsCompileCommand)
   cli.register(RunCommand)
 
   // Documentation commands (offline metadata)

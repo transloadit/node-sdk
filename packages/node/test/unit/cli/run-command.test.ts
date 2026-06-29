@@ -121,7 +121,7 @@ describe('run command', () => {
     )
   })
 
-  it('prints compiled Assembly Instructions from assemblies compile', async () => {
+  it('prints compiled Assembly Instructions from assembly-instructions compile', async () => {
     stubCredentials()
     const printSpy = vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
     const compileSpy = vi
@@ -150,7 +150,7 @@ describe('run command', () => {
       })
 
     await main([
-      'assemblies',
+      'assembly-instructions',
       'compile',
       'import https://example.com/image.jpg',
       '--mcp-server',
