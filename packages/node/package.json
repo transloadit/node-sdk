@@ -1,6 +1,6 @@
 {
   "name": "@transloadit/node",
-  "version": "4.10.8",
+  "version": "4.11.0",
   "description": "Node.js SDK for Transloadit",
   "homepage": "https://github.com/transloadit/node-sdk/tree/main/packages/node",
   "bugs": {
@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@transloadit/sev-logger": "^0.1.9",
-    "@transloadit/utils": "^4.3.0",
+    "@transloadit/utils": "^4.4.0",
     "cacheable-lookup": "^7.0.0",
     "clipanion": "^4.0.0-rc.4",
     "debug": "^4.4.3",
