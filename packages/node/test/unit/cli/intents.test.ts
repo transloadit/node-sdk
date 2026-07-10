@@ -1746,12 +1746,12 @@ describe('intent commands', () => {
     )
   })
 
-  it('includes required schema flags in generated usage examples', () => {
+  it('reflects required and defaulted schema flags in generated usage examples', () => {
     expect(getIntentCommand(['document', 'convert']).usage.examples).toEqual([
       ['Run the command', expect.stringContaining('--format')],
     ])
     expect(getIntentCommand(['text', 'speak']).usage.examples).toEqual([
-      ['Run the command', expect.stringContaining('--provider')],
+      ['Run the command', expect.not.stringContaining('--provider')],
     ])
     expect(getIntentCommand(['document', 'convert']).usage.examples).toEqual([
       ['Run the command', expect.stringContaining('output.pdf')],

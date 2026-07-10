@@ -2,11 +2,13 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { imagemagickDensityPattern } from '../../imagemagickDensity.ts'
 import {
   color_without_alpha_with_named,
   colorspaceSchema,
   complexHeightSchema,
   complexWidthSchema,
+  httpUrlSchema,
   imageQualitySchema,
   interpolateRobot,
   percentageSchema,
@@ -16,6 +18,8 @@ import {
   robotUse,
   unsafeCoordinatesSchema,
 } from './_instructions-primitives.ts'
+
+const imageResizeGravitySchema = z.union([positionSchema, z.enum(['attention', 'entropy'])])
 
 export const meta: RobotMetaInput = {
   bytescount: 1,
@@ -242,8 +246,10 @@ You can also use a JSON string of such an object with coordinates in similar fas
 
 To crop around human faces, see [🤖/image/facedetect](/docs/robots/image-facedetect/).
 `),
-    gravity: positionSchema.default('center').describe(`
-The direction from which the image is to be cropped, when \`"resize_strategy"\` is set to \`"crop"\`, but no crop coordinates are defined.
+    gravity: imageResizeGravitySchema.default('center').describe(`
+The direction from which the image is to be cropped when \`"resize_strategy"\` is set to \`"crop"\` or \`"fillcrop"\`, but no crop coordinates are defined.
+
+You can also use \`"entropy"\` or \`"attention"\` for automatic point-of-interest cropping. \`"entropy"\` keeps the region with the highest Shannon entropy, while \`"attention"\` favors areas with luminance frequency, saturation, and skin-tone cues.
 `),
     strip: z
       .boolean()
@@ -426,10 +432,7 @@ Changes the hue by rotating the color of the image. The value \`100\` would prod
       .describe(`
 Adjusts the contrast of the image. A value of \`1\` produces no change. Values below \`1\` decrease contrast (with \`0\` being minimum contrast), and values above \`1\` increase contrast (with \`2\` being maximum contrast). This works like the \`brightness\` parameter.
 `),
-    watermark_url: z
-      .string()
-      .optional()
-      .describe(`
+    watermark_url: httpUrlSchema.optional().describe(`
 A URL indicating a PNG image to be overlaid above this image. Please note that you can also  [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step). With watermarking you can add an image onto another image. This is usually used for logos.
 `),
     watermark_position: z
@@ -585,7 +588,7 @@ Example:
 `),
     density: z
       .string()
-      .regex(/\d+(x\d+)?/)
+      .regex(imagemagickDensityPattern)
       .nullable()
       .default(null)
       .describe(`
@@ -661,6 +664,7 @@ export const robotImageResizeInstructionsWithHiddenFieldsSchema =
   })
 
 export type RobotImageResizeInstructions = z.infer<typeof robotImageResizeInstructionsSchema>
+export type RobotImageResizeInstructionsInput = z.input<typeof robotImageResizeInstructionsSchema>
 export type RobotImageResizeInstructionsWithHiddenFields = z.infer<
   typeof robotImageResizeInstructionsWithHiddenFieldsSchema
 >

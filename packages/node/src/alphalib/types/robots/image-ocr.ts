@@ -3,7 +3,8 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { z } from 'zod'
 
 import {
-  aiProviderSchema,
+  autoProviderDescription,
+  awsGcpAiProviderSchema,
   granularitySchema,
   interpolateRobot,
   robotBase,
@@ -60,10 +61,10 @@ With this <dfn>Robot</dfn> you can detect and extract text from images using opt
 
 For example, you can use the results to obtain the content of traffic signs, name tags, package labels and many more. You can also pass the text down to other <dfn>Robots</dfn> to filter images that contain (or do not contain) certain phrases. For images of dense documents, results may vary and be less accurate than for small pieces of text in photos.
 `),
-    provider: aiProviderSchema.describe(`
-Which AI provider to leverage.
+    provider: awsGcpAiProviderSchema.describe(`
+${autoProviderDescription}
 
-Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
+Set this to \`"aws"\` or \`"gcp"\` to force a specific provider.
 
 AWS supports detection for the following languages: English, Arabic, Russian, German, French, Italian, Portuguese and Spanish. GCP allows for a wider range of languages, with varying levels of support which can be found on the [official documentation](https://cloud.google.com/vision/docs/languages/).
 `),

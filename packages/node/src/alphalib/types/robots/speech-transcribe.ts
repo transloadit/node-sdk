@@ -3,16 +3,17 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { z } from 'zod'
 
 import {
+  autoProviderDescription,
   granularitySchema,
   interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
 
-const speechTranscribeProviderSchema = z.enum(['aws', 'gcp', 'replicate']).optional()
+const speechTranscribeProviderSchema = z.enum(['auto', 'aws', 'gcp', 'replicate']).default('auto')
 const speechTranscribeProviderWithHiddenFieldsSchema = z
-  .enum(['aws', 'gcp', 'replicate', 'transloadit'])
-  .optional()
+  .enum(['auto', 'aws', 'gcp', 'replicate', 'transloadit'])
+  .default('auto')
 
 export const meta: RobotMetaInput = {
   bytescount: 1,
@@ -52,7 +53,7 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 10,
   minimumChargeUsdPerSpeechTranscribeMinute: {
     aws: 0.024,
-    gcp: 0.016,
+    gcp: 0.024,
   },
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
@@ -107,11 +108,11 @@ are normalized as \`speaker_1\`, \`speaker_2\`, and so on:
 \`\`\`
 `),
     provider: speechTranscribeProviderSchema.describe(`
-Which AI provider to leverage.
+${autoProviderDescription}
 
-Defaults to \`"replicate"\`, which currently uses our highest-quality deployed transcription path while ElevenLabs Scribe support is being prepared. When \`speaker_labels\` is \`true\` and \`provider\` is omitted, Transloadit defaults to \`"aws"\`, because speaker labels are currently supported by the \`aws\` and \`gcp\` providers.
-
-Transloadit abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
+Set this to \`"aws"\`, \`"gcp"\`, or \`"replicate"\` to force a specific provider.
+When set to \`"auto"\`, Transloadit keeps the existing transcription default and uses \`"aws"\` only
+when \`speaker_labels\` is enabled.
 `),
     granularity: granularitySchema.describe(`
 Whether to return a full response (\`"full"\`), or a flat list of descriptions (\`"list"\`).

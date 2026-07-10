@@ -3,7 +3,8 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { z } from 'zod'
 
 import {
-  aiProviderSchema,
+  autoProviderDescription,
+  awsGcpAiProviderSchema,
   interpolateRobot,
   robotBase,
   robotUse,
@@ -91,10 +92,10 @@ Another common use case is making your product accessible to people with a readi
       .describe(`
 Which text to speak. You can also set this to \`null\` and supply an input text file.
 `),
-    provider: aiProviderSchema.describe(`
-Which AI provider to leverage.
+    provider: awsGcpAiProviderSchema.describe(`
+${autoProviderDescription}
 
-Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
+Set this to \`"aws"\` or \`"gcp"\` to force a specific provider.
 `),
     // TODO determine the list of languages
     target_language: z

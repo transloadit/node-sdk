@@ -66,6 +66,7 @@ export const meta: RobotMetaInput = {
   downloadInputFiles: false,
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
+  applyCommunityPlanMediaTrim: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'beta',

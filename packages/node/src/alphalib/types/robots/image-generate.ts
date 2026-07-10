@@ -2,7 +2,12 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  autoProviderDescription,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   bytescount: 1,
@@ -131,7 +136,7 @@ Best practice:
 
 export const robotImageGenerateInstructionsWithHiddenFieldsSchema =
   robotImageGenerateInstructionsSchema.extend({
-    provider: z.string().optional().describe('Provider for generating the image.'),
+    provider: z.string().default('auto').describe(autoProviderDescription),
     result: z
       .union([z.literal('debug'), robotImageGenerateInstructionsSchema.shape.result])
       .optional(),

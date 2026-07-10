@@ -2,7 +2,13 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotImport, sftpBase } from './_instructions-primitives.ts'
+import {
+  interpolateRobot,
+  recursive,
+  robotBase,
+  robotImport,
+  sftpBase,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   bytescount: 10,
@@ -14,6 +20,7 @@ export const meta: RobotMetaInput = {
         robot: '/sftp/import',
         credentials: 'YOUR_SFTP_CREDENTIALS',
         path: 'path/to/files/',
+        recursive: true,
       },
     },
   },
@@ -48,7 +55,10 @@ export const robotSftpImportInstructionsSchema = robotBase
   .extend({
     robot: z.literal('/sftp/import'),
     path: z.string().describe(`
-The path on your SFTP server where to search for files.
+The path on your SFTP server where to search for files. If the path points to a directory, only direct descendants of this directory are imported by default.
+`),
+    recursive: recursive.describe(`
+Setting this to \`true\` will enable importing files from subdirectories and sub-subdirectories (etc.) of the given path.
 `),
   })
   .strict()

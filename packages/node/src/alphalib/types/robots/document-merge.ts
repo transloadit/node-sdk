@@ -2,7 +2,12 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  inputSortBySchema,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   bytescount: 1,
@@ -78,6 +83,7 @@ If the as-syntax is not used in the "use" parameter, the documents are sorted al
       .describe(`
 If not empty, encrypts the output file and makes it accessible only by typing in this password.
 `),
+    sort_by: inputSortBySchema,
   })
   .strict()
 

@@ -33,6 +33,7 @@ export const meta: RobotMetaInput = {
   priceFactor: 25,
   queueSlotCount: 0,
   minimumCharge: 102400,
+  minimumChargeUsd: 0.0000152587890625,
   downloadInputFiles: false,
   preserveInputFileUrls: true,
   isAllowedForUrlTransform: false,

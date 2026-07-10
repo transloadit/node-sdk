@@ -3,7 +3,8 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { z } from 'zod'
 
 import {
-  aiProviderSchema,
+  autoProviderDescription,
+  awsGcpAiProviderSchema,
   granularitySchema,
   interpolateRobot,
   robotBase,
@@ -58,10 +59,10 @@ export const robotImageDescribeInstructionsSchema = robotBase
     robot: z.literal('/image/describe').describe(`
 You can use the labels that we return in your application to automatically classify images. You can also pass the labels down to other <dfn>Robots</dfn> to filter images that contain (or do not contain) certain content.
 `),
-    provider: aiProviderSchema.optional().describe(`
-Which AI provider to leverage.
+    provider: awsGcpAiProviderSchema.describe(`
+${autoProviderDescription}
 
-Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
+Set this to \`"aws"\` or \`"gcp"\` to force a specific provider.
 `),
     granularity: granularitySchema.describe(`
 Whether to return a full response (\`"full"\`) including confidence percentages for each found label, or just a flat list of labels (\`"list"\`).

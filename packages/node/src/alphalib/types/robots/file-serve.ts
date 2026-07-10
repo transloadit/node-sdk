@@ -38,6 +38,7 @@ export const meta: RobotMetaInput = {
   typical_file_type: 'file',
   name: 'FileServeRobot',
   priceFactor: 4,
+  minimumChargeUsd: 0.0000152587890625,
   queueSlotCount: 0,
   downloadInputFiles: false,
   preserveInputFileUrls: true,

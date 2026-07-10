@@ -43,6 +43,8 @@ Coding style:
   serializer intentionally emits POSIX-style text.
 - Comments should explain why code exists or why an exception is needed, not narrate what the next
   line already says.
+- Use JSDoc block comments for exported constants, functions, classes, and types when documenting
+  their purpose or contract. Use regular line comments for local quirks, reasoning, or exceptions.
 - Do not put TODOs, internal implementation notes, or future-work placeholders in user-facing text
   or schema descriptions. Put those in code comments, issues, or docs for maintainers instead.
 - Put API keys and secrets in `.env` files, not hardcoded in components

@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { stackVersions } from '../stackVersions.ts'
 import {
   bitrateSchema,
+  inputSortBySchema,
   interpolateRobot,
   robotBase,
   robotFFmpegAudio,
@@ -64,6 +65,7 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 20,
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
+  applyCommunityPlanMediaTrim: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'ga',
@@ -104,6 +106,7 @@ The duration of the crossfade is controlled by the \`audio_fade_seconds\` parame
 
 Note: This parameter requires at least 2 audio files to concatenate and only works with audio files, not video files.
 `),
+    sort_by: inputSortBySchema,
   })
   .strict()
 

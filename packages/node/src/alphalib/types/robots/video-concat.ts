@@ -3,6 +3,7 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { z } from 'zod'
 
 import {
+  inputSortBySchema,
   interpolateRobot,
   robotBase,
   robotFFmpegVideo,
@@ -59,6 +60,7 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 60,
   isAllowedForUrlTransform: false,
   trackOutputFileSize: true,
+  applyCommunityPlanMediaTrim: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'ga',
@@ -102,6 +104,7 @@ When set to \`true\`, the concatenated video will contain chapter markers at the
 
 This is useful for navigation in video players that support chapter-based seeking.
 `),
+    sort_by: inputSortBySchema,
     transition: z
       .enum(['none', 'crossfade', 'fade_to_black'])
       .default('none')
