@@ -68,6 +68,8 @@ describe('compileAssemblyInstructionsFromPrompt', () => {
     expect(aiSteps[0]).toMatchObject({
       robot: '/ai/chat',
       result: true,
+      model: 'openai/gpt-5.6-sol',
+      reasoning_effort: 'xhigh',
       format: 'json',
       interpolate: { system_message: false },
       mcp_servers: [

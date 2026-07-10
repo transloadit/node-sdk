@@ -337,32 +337,11 @@ const patchInterpolatableRobot = (contents: string): string => {
 }
 
 export const patchAiChatSchema = (contents: string): string => {
-  const jsonValueToken = 'const jsonValueSchema: z.ZodType ='
-  const jsonValuePatched = 'const jsonValueSchema: z.ZodType<any> ='
-  const resultToken = 'result: z.unknown(),'
-  const resultPatched = 'result: z.unknown().optional(),'
-
-  let next = contents
-  if (next.includes(jsonValueToken)) {
-    next = next.replace(jsonValueToken, jsonValuePatched)
-  }
-  if (next.includes(resultToken)) {
-    next = next.replace(resultToken, resultPatched)
+  if (!contents.includes('const jsonValueSchema: z.ZodType<JsonValue> =')) {
+    throw new Error('ai-chat schema patch failed (jsonValueSchema)')
   }
 
-  const hasJsonValue = next.includes(jsonValuePatched)
-  const hasResult = next.includes(resultPatched)
-  if (!hasJsonValue || !hasResult) {
-    const missing = [
-      !hasJsonValue ? 'jsonValueSchema' : null,
-      !hasResult ? 'result optional' : null,
-    ]
-      .filter(Boolean)
-      .join(', ')
-    throw new Error(`ai-chat schema patch failed (${missing})`)
-  }
-
-  return next
+  return contents
 }
 
 const patchFile = (filePath: string, contents: string): string => {
