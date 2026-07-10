@@ -391,7 +391,7 @@ describe('intent commands', () => {
             robot: '/ai/chat',
             use: ':original',
             result: true,
-            model: 'anthropic/claude-fable-5',
+            model: 'anthropic/claude-sonnet-5',
             format: 'json',
             return_messages: 'last',
             test_credentials: true,

@@ -540,6 +540,7 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'anthropic/claude-opus-4-7': { pdf: true, image: true },
   'anthropic/claude-opus-4-8': { pdf: true, image: true },
   'anthropic/claude-fable-5': { pdf: true, image: true },
+  'anthropic/claude-sonnet-5': { pdf: true, image: true },
   'openai/gpt-4.1-2025-04-14': { pdf: false, image: true },
   'openai/chatgpt-4o-latest': { pdf: false, image: true },
   'openai/o3-2025-04-16': { pdf: false, image: true },

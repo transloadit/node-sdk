@@ -69,7 +69,7 @@ describe('compileAssemblyInstructionsFromPrompt', () => {
       robot: '/ai/chat',
       result: true,
       model: 'openai/gpt-5.6-sol',
-      reasoning_effort: 'xhigh',
+      reasoning_effort: 'medium',
       format: 'json',
       interpolate: { system_message: false },
       mcp_servers: [

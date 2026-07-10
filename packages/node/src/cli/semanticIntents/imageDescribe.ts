@@ -18,7 +18,7 @@ const wordpressDescribeFields = [
   'description',
 ] as const satisfies readonly ImageDescribeField[]
 
-const defaultDescribeModel = 'anthropic/claude-fable-5'
+const defaultDescribeModel = 'anthropic/claude-sonnet-5'
 const describeFieldDescriptions = {
   altText: 'A concise accessibility-focused alt text that objectively describes the image',
   title: 'A concise publishable title for the image',
@@ -53,7 +53,7 @@ const imageDescribeExecutionDefinition = {
       kind: 'string',
       propertyName: 'model',
       optionFlags: '--model',
-      description: 'Model to use for generated text fields (default: anthropic/claude-fable-5)',
+      description: 'Model to use for generated text fields (default: anthropic/claude-sonnet-5)',
       required: false,
     },
   ] as const satisfies readonly IntentOptionDefinition[],
