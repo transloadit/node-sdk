@@ -1,5 +1,15 @@
 # @transloadit/node
 
+## 4.11.1
+
+### Patch Changes
+
+- 507ec7f: Use GPT-5.6 Sol for OpenAI defaults, Claude Fable 5 for general Anthropic defaults, and Claude
+  Sonnet 5 for image descriptions. Keep end-user Assembly Instructions compilation at medium
+  reasoning for responsive generation.
+- Updated dependencies [507ec7f]
+  - @transloadit/utils@4.4.1
+
 ## 4.11.0
 
 ### Minor Changes
