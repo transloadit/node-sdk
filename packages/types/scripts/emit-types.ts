@@ -86,6 +86,14 @@ const isLibSymbol = (symbol: ts.Symbol | undefined): boolean =>
 const isZodText = (value: string): boolean =>
   value.includes('Zod') || value.includes('objectOutputType') || value.includes('objectInputType')
 
+const isPrivateAliasInSource = (symbol: ts.Symbol, sourceFile: ts.SourceFile): boolean =>
+  symbol.declarations?.some(
+    (declaration) =>
+      declaration.getSourceFile() === sourceFile &&
+      ts.isTypeAliasDeclaration(declaration) &&
+      !isExported(declaration),
+  ) === true
+
 const shouldUseTypeToString = (type: ts.Type, checker: ts.TypeChecker): boolean => {
   if (hasZodType(type, checker, new Set())) {
     return false
@@ -207,19 +215,29 @@ const renderType = (
   }
 
   if (type.isUnion()) {
-    const parts = type.types.map((subType) => {
-      const rendered = renderType(subType, checker, fallbackNode, inProgress)
-      return wrap(rendered.text, rendered.precedence, TypePrecedence.Union)
-    })
-    return { text: parts.join(' | '), precedence: TypePrecedence.Union }
+    inProgress.add(type)
+    try {
+      const parts = type.types.map((subType) => {
+        const rendered = renderType(subType, checker, fallbackNode, inProgress)
+        return wrap(rendered.text, rendered.precedence, TypePrecedence.Union)
+      })
+      return { text: parts.join(' | '), precedence: TypePrecedence.Union }
+    } finally {
+      inProgress.delete(type)
+    }
   }
 
   if (type.isIntersection()) {
-    const parts = type.types.map((subType) => {
-      const rendered = renderType(subType, checker, fallbackNode, inProgress)
-      return wrap(rendered.text, rendered.precedence, TypePrecedence.Intersection)
-    })
-    return { text: parts.join(' & '), precedence: TypePrecedence.Intersection }
+    inProgress.add(type)
+    try {
+      const parts = type.types.map((subType) => {
+        const rendered = renderType(subType, checker, fallbackNode, inProgress)
+        return wrap(rendered.text, rendered.precedence, TypePrecedence.Intersection)
+      })
+      return { text: parts.join(' & '), precedence: TypePrecedence.Intersection }
+    } finally {
+      inProgress.delete(type)
+    }
   }
 
   if (type.isLiteral()) {
@@ -227,6 +245,12 @@ const renderType = (
       return { text: `'${escapeStringLiteral(type.value)}'`, precedence: TypePrecedence.Primary }
     }
     return { text: String(type.value), precedence: TypePrecedence.Primary }
+  }
+  if (type.flags & ts.TypeFlags.TemplateLiteral) {
+    return {
+      text: checker.typeToString(type, undefined, typeFormatFlags),
+      precedence: TypePrecedence.Primary,
+    }
   }
   if (type.flags & ts.TypeFlags.BooleanLiteral) {
     return { text: type.intrinsicName, precedence: TypePrecedence.Primary }
@@ -292,7 +316,12 @@ const renderType = (
 
   const aliasSymbol = type.aliasSymbol
   const symbol = type.symbol ?? type.aliasSymbol
-  if (aliasSymbol && !isZodSymbol(aliasSymbol) && shouldUseTypeToString(type, checker)) {
+  if (
+    aliasSymbol &&
+    !isZodSymbol(aliasSymbol) &&
+    !isPrivateAliasInSource(aliasSymbol, fallbackNode.getSourceFile()) &&
+    shouldUseTypeToString(type, checker)
+  ) {
     return {
       text: checker.typeToString(type, undefined, typeFormatFlags),
       precedence: TypePrecedence.Primary,
@@ -313,16 +342,16 @@ const renderType = (
 
   if (properties.length > 0 || stringIndex || numberIndex) {
     const entries: string[] = []
-    if (stringIndex) {
-      const rendered = renderType(stringIndex, checker, fallbackNode, inProgress)
-      entries.push(`[key: string]: ${rendered.text}`)
-    }
-    if (numberIndex) {
-      const rendered = renderType(numberIndex, checker, fallbackNode, inProgress)
-      entries.push(`[key: number]: ${rendered.text}`)
-    }
     inProgress.add(type)
     try {
+      if (stringIndex) {
+        const rendered = renderType(stringIndex, checker, fallbackNode, inProgress)
+        entries.push(`[key: string]: ${rendered.text}`)
+      }
+      if (numberIndex) {
+        const rendered = renderType(numberIndex, checker, fallbackNode, inProgress)
+        entries.push(`[key: number]: ${rendered.text}`)
+      }
       for (const prop of properties) {
         const propDecl = prop.valueDeclaration ?? prop.declarations?.[0]
         const propType = checker.getTypeOfSymbolAtLocation(prop, propDecl ?? fallbackNode)
