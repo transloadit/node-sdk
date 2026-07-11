@@ -725,13 +725,12 @@ export class Transloadit {
    * Creates a TUS-ready Assembly, uploads one file with the TUS protocol, and waits for the Assembly to finish.
    */
   async uploadTusAssembly(
-    fileCount: number,
     content: Buffer | Uint8Array | string,
     fieldname: string,
     filename: string,
     userMeta: Record<string, string>,
   ): Promise<UploadTusAssemblyResult> {
-    const createdAssembly = await this.createTusAssembly(fileCount)
+    const createdAssembly = await this.createTusAssembly(1)
 
     const endpointUrl = createdAssembly.tus_url
     if (!endpointUrl) {

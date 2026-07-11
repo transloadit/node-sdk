@@ -150,7 +150,6 @@ async function main(): Promise<void> {
   })
 
   const result = await client.uploadTusAssembly(
-    input.file_count,
     Buffer.from(upload.content, 'utf8'),
     upload.fieldname,
     upload.filename,
