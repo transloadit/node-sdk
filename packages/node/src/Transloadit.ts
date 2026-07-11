@@ -608,9 +608,23 @@ export class Transloadit {
    * Use the returned assembly_ssl_url as the assembly URL.
    */
   async waitForAssembly(assemblyUrl: string): Promise<AssemblyStatus> {
+    const candidateUrl = new URL(assemblyUrl)
+    const configuredUrl = new URL(this._endpoint)
+    const hasUrlCredentials = candidateUrl.username !== '' || candidateUrl.password !== ''
+    const isConfiguredOrigin = !hasUrlCredentials && candidateUrl.origin === configuredUrl.origin
+    const isTransloaditApi2Cell =
+      !hasUrlCredentials &&
+      candidateUrl.protocol === 'https:' &&
+      candidateUrl.port === '' &&
+      candidateUrl.hostname.startsWith('api2-') &&
+      candidateUrl.hostname.endsWith('.transloadit.com')
+    if (!isConfiguredOrigin && !isTransloaditApi2Cell) {
+      throw new Error(`Untrusted Assembly URL: ${candidateUrl.origin}`)
+    }
     while (true) {
       const result = await this._remoteJson<AssemblyStatus, OptionalAuthParams>({
         url: assemblyUrl,
+        authenticate: false,
         isTrustedUrl: true,
         method: 'get',
       })
@@ -1497,8 +1511,13 @@ export class Transloadit {
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including
   // the streams, the signed params, and any additional fields.
-  private _appendForm(form: FormData, params: OptionalAuthParams, fields?: Fields): void {
-    const shouldSign = Boolean(this._authKey && this._authSecret)
+  private _appendForm(
+    form: FormData,
+    params: OptionalAuthParams,
+    fields?: Fields,
+    authenticate = true,
+  ): void {
+    const shouldSign = authenticate && Boolean(this._authKey && this._authSecret)
     let jsonParams = JSON.stringify(params ?? {})
     let signature: string | undefined
 
@@ -1523,10 +1542,12 @@ export class Transloadit {
 
   // Implements HTTP GET query params, handling the case where the url already
   // has params.
-  private _appendParamsToUrl(url: string, params: OptionalAuthParams): string {
+  private _appendParamsToUrl(url: string, params: OptionalAuthParams, authenticate = true): string {
+    if (!authenticate && Object.keys(params).length === 0) return url
+
     const prefix = url.indexOf('?') === -1 ? '?' : '&'
 
-    const shouldSign = Boolean(this._authKey && this._authSecret)
+    const shouldSign = authenticate && Boolean(this._authKey && this._authSecret)
     if (!shouldSign) {
       const jsonParams = JSON.stringify(params ?? {})
       return `${url}${prefix}params=${encodeURIComponent(jsonParams)}`
@@ -1567,6 +1588,7 @@ export class Transloadit {
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
   private async _remoteJson<TRet, TParams extends OptionalAuthParams>(opts: {
+    authenticate?: boolean
     urlSuffix?: string
     url?: string
     isTrustedUrl?: boolean
@@ -1578,6 +1600,7 @@ export class Transloadit {
     signal?: AbortSignal
   }): Promise<TRet> {
     const {
+      authenticate = true,
       urlSuffix,
       url: urlInput,
       isTrustedUrl = false,
@@ -1601,7 +1624,7 @@ export class Transloadit {
     }
 
     if (method === 'get') {
-      url = this._appendParamsToUrl(url, params)
+      url = this._appendParamsToUrl(url, params, authenticate)
     }
 
     log('Sending request', method, url)
@@ -1613,7 +1636,7 @@ export class Transloadit {
 
       if (method === 'post' || method === 'put' || method === 'delete') {
         form = new FormData()
-        this._appendForm(form, params, fields)
+        this._appendForm(form, params, fields, authenticate)
       }
 
       const requestOpts: OptionsOfJSONResponseBody = {
@@ -1623,7 +1646,9 @@ export class Transloadit {
         headers: {
           'Transloadit-Client': this._clientName,
           'User-Agent': undefined, // Remove got's user-agent
-          ...(this._authToken ? { Authorization: `Bearer ${this._authToken}` } : {}),
+          ...(authenticate && this._authToken
+            ? { Authorization: `Bearer ${this._authToken}` }
+            : {}),
           ...headers,
         },
         responseType: 'json',

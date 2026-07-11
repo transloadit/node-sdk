@@ -30,6 +30,33 @@ const mockRemoteJson = (client: Transloadit) =>
     .mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
+  it('rejects untrusted Assembly status URLs before making a request', async () => {
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const remoteJson = mockRemoteJson(client).mockResolvedValue({ ok: 'ASSEMBLY_COMPLETED' })
+
+    await expect(
+      client.waitForAssembly('https://attacker.example/assemblies/assembly-id'),
+    ).rejects.toThrow('Untrusted Assembly URL')
+    expect(remoteJson).not.toHaveBeenCalled()
+  })
+
+  it('polls cell-specific Assembly URLs without authentication', async () => {
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const remoteJson = mockRemoteJson(client).mockResolvedValue({ ok: 'ASSEMBLY_COMPLETED' })
+    const assemblyUrl = 'https://api2-jenks.transloadit.com/assemblies/assembly-id'
+
+    await expect(client.waitForAssembly(assemblyUrl)).resolves.toEqual({
+      ok: 'ASSEMBLY_COMPLETED',
+    })
+    expect(remoteJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authenticate: false,
+        isTrustedUrl: true,
+        url: assemblyUrl,
+      }),
+    )
+  })
+
   it('validates the complete listAssemblies response envelope', async () => {
     const client = new Transloadit({
       authKey: 'foo_key',
@@ -394,6 +421,22 @@ describe('Transloadit', () => {
   })
 
   describe('_remoteJson', () => {
+    it('omits bearer and signed query authentication when authentication is disabled', async () => {
+      const client = new Transloadit({ authToken: 'secret-token' })
+      const get = mockGot('get')
+      const url = 'https://api2-jenks.transloadit.com/assemblies/assembly-id'
+
+      // @ts-expect-error This tests private internals
+      await client._remoteJson({ authenticate: false, isTrustedUrl: true, method: 'get', url })
+
+      expect(get).toHaveBeenCalledWith(
+        url,
+        expect.objectContaining({
+          headers: expect.not.objectContaining({ Authorization: expect.anything() }),
+        }),
+      )
+    })
+
     it('should add "Transloadit-Client" header to requests', async () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
