@@ -1744,4 +1744,21 @@ export class Transloadit {
   }
 
   // </api2-generated-endpoint issueBearerToken>
+
+  // <api2-generated-endpoint getBillForInvoice>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  async getBillForInvoice(month: string, invoiceId: string): Promise<BillResponse> {
+    assert.ok(month, 'month is required')
+    assert.ok(invoiceId, 'invoiceId is required')
+    return await this._remoteJson({
+      urlSuffix: `/bill/${month}/${invoiceId}`,
+      method: 'get',
+    })
+  }
+
+  // </api2-generated-endpoint getBillForInvoice>
 }
