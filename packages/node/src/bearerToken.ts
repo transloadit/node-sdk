@@ -9,6 +9,13 @@ export type BearerTokenResponse = {
   scope?: string
 }
 
+export type IssueBearerTokenOptions = {
+  aud?: BearerTokenAudience | string
+  scope?: string
+}
+
+export type IssueBearerTokenResponse = BearerTokenResponse & { scope: string }
+
 export type MintBearerTokenOptions = {
   allowProcessEnvEndpointFallback?: boolean
   endpoint?: string
@@ -122,7 +129,7 @@ const normalizeScopeInput = (input?: string[] | string): string | undefined => {
   return out.length > 0 ? out.join(' ') : undefined
 }
 
-export async function mintBearerTokenWithCredentials(
+export async function issueBearerTokenWithCredentials(
   credentials: { authKey: string; authSecret: string },
   options: MintBearerTokenOptions = {},
 ): Promise<MintBearerTokenResult> {
@@ -135,14 +142,12 @@ export async function mintBearerTokenWithCredentials(
   }
 
   const url = new URL('token', endpointResult.baseUrl).toString()
-  const aud = (options.aud ?? 'mcp').trim() || 'mcp'
+  const aud = options.aud?.trim()
   const scope = normalizeScopeInput(options.scope)
   const timeoutMs = options.timeoutMs ?? 15_000
 
-  const params = new URLSearchParams({
-    grant_type: 'client_credentials',
-    aud,
-  })
+  const params = new URLSearchParams({ grant_type: 'client_credentials' })
+  if (aud) params.set('aud', aud)
   if (scope) params.set('scope', scope)
 
   let res: Response
@@ -216,4 +221,12 @@ export async function mintBearerTokenWithCredentials(
     ok: false,
     error: `Token request failed (${res.status}): ${trimmed || res.statusText}`,
   }
+}
+
+export async function mintBearerTokenWithCredentials(
+  credentials: { authKey: string; authSecret: string },
+  options: MintBearerTokenOptions = {},
+): Promise<MintBearerTokenResult> {
+  const aud = (options.aud ?? 'mcp').trim() || 'mcp'
+  return await issueBearerTokenWithCredentials(credentials, { ...options, aud })
 }

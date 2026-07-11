@@ -1723,4 +1723,29 @@ export class Transloadit {
       }
     }
   }
+
+  // <api2-generated-endpoint issueBearerToken>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  async issueBearerToken(
+    options: import('./bearerToken.ts').IssueBearerTokenOptions = {},
+  ): Promise<import('./bearerToken.ts').IssueBearerTokenResponse> {
+    if (this._authToken) {
+      throw new Error('Cannot issue bearer tokens when using authToken authentication.')
+    }
+
+    const { issueBearerTokenWithCredentials } = await import('./bearerToken.ts')
+    const result = await issueBearerTokenWithCredentials(
+      { authKey: this._authKey, authSecret: this._authSecret },
+      { ...options, endpoint: this._endpoint, allowProcessEnvEndpointFallback: false },
+    )
+    if (!result.ok) throw new Error(result.error)
+    if (result.data.scope == null) throw new Error('Bearer token response omitted scope.')
+    return { ...result.data, scope: result.data.scope }
+  }
+
+  // </api2-generated-endpoint issueBearerToken>
 }
