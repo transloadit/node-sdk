@@ -54,6 +54,7 @@ Here is an example waveform image:
   minimumCharge: 1048576,
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
+  applyCommunityPlanMediaTrim: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'ga',

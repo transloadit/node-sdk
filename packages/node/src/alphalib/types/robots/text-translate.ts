@@ -3,7 +3,8 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { z } from 'zod'
 
 import {
-  aiProviderSchema,
+  autoProviderDescription,
+  awsGcpAiProviderSchema,
   interpolateRobot,
   robotBase,
   robotUse,
@@ -192,10 +193,10 @@ You can use the text that we return in your application, or you can pass the tex
 > [!Note]
 > **This <dfn>Robot</dfn> accepts only files with a \`text/*\` MIME-type,** including plain text and Markdown. For documents in other formats, use [🤖/document/convert](/docs/robots/document-convert/) to first convert them into a compatible text format before proceeding.
 `),
-    provider: aiProviderSchema.describe(`
-Which AI provider to leverage. Valid values are \`"aws"\` (Amazon Web Services) and \`"gcp"\` (Google Cloud Platform).
+    provider: awsGcpAiProviderSchema.describe(`
+${autoProviderDescription}
 
-Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
+Set this to \`"aws"\` or \`"gcp"\` to force a specific provider.
 `),
     target_language: translatableLanguages.describe(`
 The desired language to translate to.

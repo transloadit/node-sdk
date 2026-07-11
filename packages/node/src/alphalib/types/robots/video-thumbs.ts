@@ -46,6 +46,7 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 15,
   isAllowedForUrlTransform: false,
   trackOutputFileSize: true,
+  applyCommunityPlanMediaTrim: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'ga',
@@ -121,6 +122,34 @@ Forces the video to be rotated by the specified degree integer. Currently, only 
       .optional()
       .describe(`
 Specifies the input codec to use when decoding the video. This is useful for videos with special codecs that require specific decoders.
+`),
+    smart: z
+      .boolean()
+      .default(false)
+      .describe(`
+When set to \`true\`, enables AI-powered smart thumbnail selection. Instead of returning thumbnails at regular intervals, the Robot will analyze candidate frames and select the most visually appealing ones.
+
+The AI evaluates frames based on:
+- Visual clarity (avoiding blurry or dark frames)
+- Composition quality
+- Face presence and expressions
+- Action and motion (avoiding transition frames)
+- Overall visual interest
+
+Smart thumbnail analysis is billed with a 50% margin over the underlying AI provider cost.
+`),
+    smart_max_candidates: z
+      .number()
+      .int()
+      .min(2)
+      .max(100)
+      .default(20)
+      .describe(`
+The maximum number of candidate frames to extract and analyze when \`smart\` is \`true\`.
+
+A higher number may yield better results but increases processing time and cost. The Robot will extract this many frames evenly distributed across the video, analyze them with AI, and return only the top \`count\` results.
+
+This parameter is only used when \`smart\` is \`true\`.
 `),
   })
   .strict()

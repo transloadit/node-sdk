@@ -2,7 +2,12 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  autoProviderDescription,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 // We duplicate coreMessageSchema (and its related types) from structuredAiVercel.ts here
 // so that we do not need to distribute structuredAiVercel.ts to for instance
@@ -528,17 +533,22 @@ export const meta: RobotMetaInput = {
 }
 
 /**
- * Model capabilities for /ai/chat. This centralizes which models support which input types.
+ * Transloadit's supported /ai/chat models and their input capabilities.
+ * This is intentionally not a complete vendor catalog: add models only after runtime behavior,
+ * pricing, and file handling have been reviewed.
  * Key format: 'vendor/model'
  */
 export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }> = {
+  'anthropic/claude-sonnet-4-6': { pdf: true, image: true },
   'anthropic/claude-4-sonnet-20250514': { pdf: true, image: true },
+  'anthropic/claude-sonnet-4-20250514': { pdf: true, image: true },
+  'anthropic/claude-opus-4-8': { pdf: true, image: true },
   'anthropic/claude-4-opus-20250514': { pdf: true, image: true },
+  'anthropic/claude-opus-4-20250514': { pdf: true, image: true },
   'anthropic/claude-sonnet-4-5': { pdf: true, image: true },
   'anthropic/claude-opus-4-5': { pdf: true, image: true },
   'anthropic/claude-opus-4-6': { pdf: true, image: true },
   'anthropic/claude-opus-4-7': { pdf: true, image: true },
-  'anthropic/claude-opus-4-8': { pdf: true, image: true },
   'anthropic/claude-fable-5': { pdf: true, image: true },
   'anthropic/claude-sonnet-5': { pdf: true, image: true },
   'openai/gpt-4.1-2025-04-14': { pdf: false, image: true },
@@ -609,13 +619,13 @@ export const robotAiChatInstructionsSchema = robotBase
       .union([z.string(), z.array(z.string())])
       .optional()
       .describe(
-        'Names of template credentials to make available to the robot. When using your own AI provider keys, Transloadit charges a 10% markup (minimum $0.0005 per request).',
+        'Names of template credentials to make available to the robot. When using your own AI provider keys, Transloadit charges a 30% markup (minimum $0.0005 per request).',
       ),
     test_credentials: z
       .boolean()
       .optional()
       .describe(
-        'Use Transloadit-provided credentials for testing. Usage is billed at provider cost plus a 10% markup (minimum $0.0005 per request).',
+        'Use Transloadit-provided credentials for testing. Usage is billed at provider cost plus a 30% markup (minimum $0.0005 per request).',
       ),
     mcp_servers: z
       .array(
@@ -643,9 +653,9 @@ export const robotAiChatInstructionsWithHiddenFieldsSchema = robotAiChatInstruct
   result: z.union([z.literal('debug'), robotAiChatInstructionsSchema.shape.result]),
   provider: z
     .string()
-    .optional()
+    .default('auto')
     .describe(
-      'Where to run the model. By the default, it is the vendor. For instance, anthropic:claude* runs on the Anthropic API. But, Claude could also be run on AWS Bedrock. This is a hidden placeholder for now, but will be used in the future to allow for more flexibility in where to run models. ',
+      `${autoProviderDescription} This is a hidden placeholder for future model routing flexibility.`,
     ),
   // These are listed here because we don't have these properties in the public documentation.
   // They should set these keys using template credentials.

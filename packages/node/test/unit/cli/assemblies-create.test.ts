@@ -129,9 +129,8 @@ describe('assemblies create', () => {
       resolved = true
     })
 
-    await delay(20)
+    await vi.waitFor(() => expect(stdoutWrite).toHaveBeenCalled())
     expect(resolved).toBe(false)
-    expect(stdoutWrite).toHaveBeenCalled()
 
     process.stdout.emit('drain')
 

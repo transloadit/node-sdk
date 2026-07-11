@@ -1,13 +1,13 @@
 {
   "packageDir": "packages/transloadit",
   "tarball": {
-    "filename": "transloadit-4.10.6.tgz",
-    "sizeBytes": 1017113,
-    "sha256": "b63562d470a26e5b96ce60ba0ffcf07a0d09bd20e4dc92626863d9e66af33255"
+    "filename": "transloadit-4.11.0.tgz",
+    "sizeBytes": 1055883,
+    "sha256": "c8183b05b27b57f61820528a113e71b780a4279e34bf5840c38442423589d0ae"
   },
   "packageJson": {
     "name": "transloadit",
-    "version": "4.10.6",
+    "version": "4.11.0",
     "main": "./dist/Transloadit.js",
     "exports": {
       ".": "./dist/Transloadit.js",
@@ -28,13 +28,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.js",
-      "sizeBytes": 64944,
-      "sha256": "c62ef995b93423fb71175c43de08b426af0059208650839939254f817c48a23f"
+      "sizeBytes": 66309,
+      "sha256": "21dcf45fd3488d03af20a7af2473f88ebe41bad7967310193fa169878d2627ab"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.js",
-      "sizeBytes": 11504,
-      "sha256": "b8f92dec2aa21f9c5bef86d3015d10136af9578458bd613a4d584a56e883d7ab"
+      "sizeBytes": 20773,
+      "sha256": "0ba708afcce53f95bd31bc3902dd9e586caf568681f9a34818718ec53b6cb877"
     },
     {
       "path": "dist/ApiError.js",
@@ -48,8 +48,8 @@
     },
     {
       "path": "dist/cli/commands/assemblies.js",
-      "sizeBytes": 54203,
-      "sha256": "e4f182058afcc14718e3825ba0b0910af281b3a8bf9b70b95b74d22ae7f20260"
+      "sizeBytes": 60985,
+      "sha256": "092e450e45263c93e9d2725bebfd90ac0e2abf55b02db50ffe29a761a5ca8de0"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.js",
@@ -78,8 +78,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.js",
-      "sizeBytes": 708,
-      "sha256": "678ac3ccb4b3d4cfc239bc82315fecf3b6c0ab9830c4262af53094521efe49cd"
+      "sizeBytes": 1812,
+      "sha256": "79df2ee8f6cb9ed14e2aba4831574be4ed7a7b502ffa0e52fec9d1bc490a8d7c"
     },
     {
       "path": "dist/alphalib/types/assemblyReplayNotification.js",
@@ -88,8 +88,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js",
-      "sizeBytes": 38253,
-      "sha256": "7c9f57bdf91e00997fde586f2927c8e062ccb594c71d638fa9ff2bb8f37b5197"
+      "sizeBytes": 39068,
+      "sha256": "5c88f6f6c47ed23ac3b4dd9aeb79ef93c64b0bef6fd9ac95ed6fec3cbe49e32e"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.js",
@@ -98,38 +98,38 @@
     },
     {
       "path": "dist/alphalib/types/robots/audio-artwork.js",
-      "sizeBytes": 3297,
-      "sha256": "18ac69b15b404a27f3da31ea94a0f3eace16fca3beaeb61b8d100412251dcd3c"
+      "sizeBytes": 3336,
+      "sha256": "c3218065be8a8ea9e618c7da193b4113053abdef38ab34b61a66de72ca1ba303"
     },
     {
       "path": "dist/alphalib/types/robots/audio-concat.js",
-      "sizeBytes": 4975,
-      "sha256": "ab0bd6417c1ed813db7a61c8c162389df5d0dddd84a1ed08d04485c1c9e601f8"
+      "sizeBytes": 5065,
+      "sha256": "540d8fadbf267af180bb2f49f8f0d2c3c7afec63bae39456e2a991f612cad63c"
     },
     {
       "path": "dist/alphalib/types/robots/audio-encode.js",
-      "sizeBytes": 2687,
-      "sha256": "ddee0532b2c403980a2b2f6e6c9b766552d320b6c88320a1233e78282f23a444"
+      "sizeBytes": 2726,
+      "sha256": "1bc422c856b7f408b1e0c2b6cf4398c907d4a390f0f7fa873ea00da35a458b9c"
     },
     {
       "path": "dist/alphalib/types/robots/audio-loop.js",
-      "sizeBytes": 2926,
-      "sha256": "84ef0b94e96e2d9a3128a6f58ff726ff36bb3bb8d107aa1e447cf1d4bd4657fb"
+      "sizeBytes": 2965,
+      "sha256": "a148c5dfe185f8ac344ac12d510882a381f54f027d3397d36d4c22e29d385b04"
     },
     {
       "path": "dist/alphalib/types/robots/audio-merge.js",
-      "sizeBytes": 4406,
-      "sha256": "4c4f1fc1d8cad2d67065bfebdb1c5f97c93da6b4ba66d49053d0c6d087db7963"
+      "sizeBytes": 4445,
+      "sha256": "eb19fbe65d605004b7fd3bdffb9222dfb7ab2d7bc52deaec4276e6fda2076687"
     },
     {
       "path": "dist/alphalib/types/robots/audio-split.js",
-      "sizeBytes": 3786,
-      "sha256": "9e0a9300a64c423dbc1f6be043ee87ad20f3dece3587e5cd215662551eb1c2e6"
+      "sizeBytes": 3825,
+      "sha256": "2e05410bef5154701a547a50fa0619977bb860774e0528a39a014c7a47d90313"
     },
     {
       "path": "dist/alphalib/types/robots/audio-waveform.js",
-      "sizeBytes": 10973,
-      "sha256": "d9822a2863cafa60da9917fcb1316c6e9e556e2ecdf283a5de6ee342c64d04ac"
+      "sizeBytes": 11012,
+      "sha256": "dcdc16c8ade755dad14e69411d354813ed1b4f8faefc4d0be5f55300187f9538"
     },
     {
       "path": "dist/cli/commands/auth.js",
@@ -248,13 +248,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/document-merge.js",
-      "sizeBytes": 3076,
-      "sha256": "eb4b98721a006cdfd7de1813fecdda5991e7e456b7184463ca4b14db299422ad"
+      "sizeBytes": 3128,
+      "sha256": "5fdaac1009d7000c506114322ba28375d6f90c13696979161bd244cbd6e2bea3"
     },
     {
       "path": "dist/alphalib/types/robots/document-ocr.js",
-      "sizeBytes": 4543,
-      "sha256": "2e5d4c18a8c74c98529ac2d5d7757df7b782c4bb44ac1447309e8911eb7f3518"
+      "sizeBytes": 4294,
+      "sha256": "a8e343c68a9503a5b9f3aa4089d1cc45cc78deddba71d03ac0659bd02dfcd0a6"
     },
     {
       "path": "dist/alphalib/types/robots/document-optimize.js",
@@ -318,8 +318,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/file-preview.js",
-      "sizeBytes": 13337,
-      "sha256": "458426c92d5b1244306812ee675704782a9fe12aad777030f2907ca52a79be14"
+      "sizeBytes": 13395,
+      "sha256": "4b2778c453835654de5a501725bbaa9e6021ff40f2f02232591c71d891ca2c9c"
     },
     {
       "path": "dist/alphalib/types/robots/file-read.js",
@@ -328,13 +328,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/file-serve.js",
-      "sizeBytes": 7873,
-      "sha256": "9ed66fc446567387e4d59e27a0f64a5ff7e75ecb4f95ead0d6720d27cf28a6e2"
+      "sizeBytes": 7915,
+      "sha256": "cd1df421283fc89df1419b996a5c5da8f0bd51a6d4c80a4a54985dcad4118f7d"
     },
     {
       "path": "dist/alphalib/types/robots/file-verify.js",
-      "sizeBytes": 3444,
-      "sha256": "2fec19c031010507502ba20847f25a38cc0d606c3081200f8eca4992da0b1082"
+      "sizeBytes": 3656,
+      "sha256": "624d0c92e2e140650e389118c8131acef9e47691603ffa0ee3a09b43a7d655f5"
     },
     {
       "path": "dist/alphalib/types/robots/file-virusscan.js",
@@ -393,13 +393,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/http-import.js",
-      "sizeBytes": 6408,
-      "sha256": "c5a41edb477649b15b200bcb11b7d704000f8af71fd62515aa33391396f5e668"
+      "sizeBytes": 6100,
+      "sha256": "adc92026de1c5b93cbbca351230a512469d181f24af2b8d0d31fd3d275b12c3d"
     },
     {
       "path": "dist/alphalib/types/robots/image-bgremove.js",
-      "sizeBytes": 2544,
-      "sha256": "853f8b172f96beb39ef5eb8bbbbe45d12994413d99919695bb757d86e5308a72"
+      "sizeBytes": 2656,
+      "sha256": "50a8abf29c72599d0dc3af44b8044295f1aeb65115dc7f91b07ac3b83cc5ec57"
     },
     {
       "path": "dist/alphalib/types/robots/image-copyrightdetect.js",
@@ -408,8 +408,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-describe.js",
-      "sizeBytes": 4531,
-      "sha256": "2bea91e78efdcd17d83129d0349c3b9c847fe1ee3d31e1c2a88758abd3d2b981"
+      "sizeBytes": 4313,
+      "sha256": "900570a2682cdb6e877d3a4debd512942b213def0d5aecdf189ac38d60d786aa"
     },
     {
       "path": "dist/alphalib/types/robots/image-enhance.js",
@@ -418,23 +418,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-facedetect.js",
-      "sizeBytes": 6847,
-      "sha256": "cf168d9bf78f3c2e04267bb671df99bb89ef28f05b05c8fe80bbb28113e420ba"
+      "sizeBytes": 6629,
+      "sha256": "601428785f83aa83fbf83722a008ffd42be7b4b55ca4308d6aa725480829bc0d"
     },
     {
       "path": "dist/alphalib/types/robots/image-generate.js",
-      "sizeBytes": 5305,
-      "sha256": "caf59f043d36fe37493c3c1dbd33bc7ea9b2ccd5dacb028ebe94a6ae91bb4066"
+      "sizeBytes": 5323,
+      "sha256": "761256119c6c1ecc5516aa55fa082a7d34534a38c90591b59a836ec364f192ae"
     },
     {
       "path": "dist/alphalib/types/robots/image-merge.js",
-      "sizeBytes": 6270,
-      "sha256": "800457bb83294eef0835d7d13b1299b2b15f75a7db538bf723b119caf45edb3d"
+      "sizeBytes": 7531,
+      "sha256": "8c3f464ec4072d2c9486f24cd8c96e1014ba4568737d9a244176925efedd21e7"
     },
     {
       "path": "dist/alphalib/types/robots/image-ocr.js",
-      "sizeBytes": 4279,
-      "sha256": "7296f14286fc238988714d462ed6678e7ac9ad3bcb3dbdc4e423568b01d44b11"
+      "sizeBytes": 4072,
+      "sha256": "efe94fcbacaba310571d95897f19d63c8214fe1cfcbec281c79ed81765e4ed92"
     },
     {
       "path": "dist/alphalib/types/robots/image-optimize.js",
@@ -443,23 +443,28 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-resize.js",
-      "sizeBytes": 29215,
-      "sha256": "de30264b4e273f9594b13f78237412ed976d924cd51dd091b216449a650d883f"
+      "sizeBytes": 29664,
+      "sha256": "7e11c40e2c9522b9a3b786aac0087b38e34e1640ab8be3151c0551b7e81a38d1"
     },
     {
       "path": "dist/alphalib/types/robots/image-upscale.js",
-      "sizeBytes": 2422,
-      "sha256": "95333fc458f4b99a8ecb7baac18e1480efbe13e6892997bbd3ec299b166e3aee"
+      "sizeBytes": 2441,
+      "sha256": "e803d5432de8dedc7cb58e1de26a6896b364dfe1d9c954e8a3475dd749ebe866"
     },
     {
       "path": "dist/cli/semanticIntents/imageDescribe.js",
-      "sizeBytes": 7407,
-      "sha256": "6ed30cb3d271faeab8b1221c0b3e01f5d70d14841b5af781260db9e877e6c1c9"
+      "sizeBytes": 7389,
+      "sha256": "172da3741208b407a83d574cfc22da0a635afdce2e4d3bab60078b4ae0cf3001"
     },
     {
       "path": "dist/cli/semanticIntents/imageGenerate.js",
       "sizeBytes": 7574,
       "sha256": "62bf4d77d72bfee22ddd10d9557d0b07279a632aafb9197494e2a274fb129377"
+    },
+    {
+      "path": "dist/alphalib/imagemagickDensity.js",
+      "sizeBytes": 537,
+      "sha256": "43ca0c668840d44191b10adaab2a4f064859d98736d5c01f394700dbed00a8d1"
     },
     {
       "path": "dist/InconsistentResponseError.js",
@@ -468,8 +473,8 @@
     },
     {
       "path": "dist/cli/commands/index.js",
-      "sizeBytes": 2310,
-      "sha256": "a60cff637a0113cfbbf64ff93eb3fa00da81119dae258555326b9cde940556dc"
+      "sizeBytes": 2490,
+      "sha256": "78abf5b503924d3439ae521e0300a11f5d237622971ed67d73e84f56b7c823f9"
     },
     {
       "path": "dist/cli/semanticIntents/index.js",
@@ -628,8 +633,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/sftp-import.js",
-      "sizeBytes": 2303,
-      "sha256": "3677ce29b77302baa67b74c95d6386617161083e51bbccfed0ce35043e213187"
+      "sizeBytes": 2612,
+      "sha256": "da8a258ed01c975066bb8a453ce888144f522ad8a171bfeba988adcac221112c"
     },
     {
       "path": "dist/alphalib/types/robots/sftp-store.js",
@@ -643,8 +648,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/speech-transcribe.js",
-      "sizeBytes": 7930,
-      "sha256": "130882a255302cc876d6292da7a695599e2a12ad0c1bf6d71d9c1a0611712192"
+      "sizeBytes": 7582,
+      "sha256": "d9ec27eec50cd00ab0c970aca31b876524bcd07da61f6c200cdc2612c5bc6e19"
     },
     {
       "path": "dist/cli/semanticIntents/speechTranscribe.js",
@@ -713,13 +718,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.js",
-      "sizeBytes": 4725,
-      "sha256": "eae968bd971ec3d486459830cda54702827e78ffc8c03553e4748f733e45b430"
+      "sizeBytes": 4518,
+      "sha256": "edc2e43899220a376c98f2ef25041a755794c6d01948ef59edd6cddf30f09d1f"
     },
     {
       "path": "dist/alphalib/types/robots/text-translate.js",
-      "sizeBytes": 5376,
-      "sha256": "26e5640068a795df68eaa17b876ced9755f4cd7e9d2a37bd6dd6f05ac534369d"
+      "sizeBytes": 5081,
+      "sha256": "ffa75f41cb98efe2f9f2a41dcc60bcf28661a8a9949c5c3cdc588ec554f3c928"
     },
     {
       "path": "dist/alphalib/types/robots/tigris-import.js",
@@ -733,13 +738,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/tlcdn-deliver.js",
-      "sizeBytes": 2561,
-      "sha256": "27e01611c2e4ee951c0cb03aed2053a2ebcd2341ce72a9fe616fbb5260bcb2f9"
+      "sizeBytes": 2603,
+      "sha256": "f0f2f4afd17db599de8a410cbf19853185900907492597e914e07d219a01c67f"
     },
     {
       "path": "dist/Transloadit.js",
-      "sizeBytes": 37922,
-      "sha256": "da28e944dd0a9cadb5a2cecdb2d859a639a53abd4d45489fab02069115918b6a"
+      "sizeBytes": 40957,
+      "sha256": "021d988fc64fdb22f8a544a9967c70c0938e50002f83e422ba53bf476de1fe64"
     },
     {
       "path": "dist/alphalib/tryCatch.js",
@@ -753,8 +758,8 @@
     },
     {
       "path": "dist/tus.js",
-      "sizeBytes": 7775,
-      "sha256": "9e009aad8928e1417f312de5fe6d7300dd1bfd671458fab57607217aeda6f8c6"
+      "sizeBytes": 8107,
+      "sha256": "ddfb1114597f04fe00472810588ea20eead4e17243e385049cc58547a609a114"
     },
     {
       "path": "dist/cli/types.js",
@@ -773,53 +778,53 @@
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.js",
-      "sizeBytes": 7228,
-      "sha256": "1342a51ba37c18bc5a82b8dd47e8ad51fa87a700b1de1b87d5948ad58952fc78"
+      "sizeBytes": 7267,
+      "sha256": "658e1078b61106a4d754cbbb506c0597aba7aa366be016b88e9e1ebc7a749fcd"
     },
     {
       "path": "dist/alphalib/types/robots/video-artwork.js",
-      "sizeBytes": 3079,
-      "sha256": "ac2f855177c9c360af892a9bbc412225f2cf37a4e473c24027e3bb75ed355e7c"
+      "sizeBytes": 3118,
+      "sha256": "2d3a572a9c66b5391fadb846e431eb6e2b009b5c6f80a3791a9bd5267a8a994e"
     },
     {
       "path": "dist/alphalib/types/robots/video-concat.js",
-      "sizeBytes": 6597,
-      "sha256": "eec1f8124750a492018e920dc8a769d7ff28f026a457caa3a6e5b4d841c3b5a5"
+      "sizeBytes": 6687,
+      "sha256": "b516287fd7da25c8ff6cccc59e34acdac914ac12568c144ab0c63012870d63cf"
     },
     {
       "path": "dist/alphalib/types/robots/video-encode.js",
-      "sizeBytes": 4482,
-      "sha256": "f6478955c613586e5f0069ab04d5eecb3a94dd86974419e6a66fc6db9e79e428"
+      "sizeBytes": 4521,
+      "sha256": "cd9108d0bd0db652720ad95a1d79da4d5a3ee309ad7edd4c1d01c79a56c16809"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.js",
-      "sizeBytes": 3793,
-      "sha256": "98ef93272e5b35c7d3114cdf17f25984b1343e66725c71656c7bdacf5e58e17e"
+      "sizeBytes": 3850,
+      "sha256": "00324c337988fe1246f4ba3145de606067b0c5685ee828275359a720bbbbe63f"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.js",
-      "sizeBytes": 7131,
-      "sha256": "a409e912b11d9a3d7ff5d72636e656c7cadd9d626f94081db4798ec830d15ef8"
+      "sizeBytes": 7197,
+      "sha256": "be132a024b3ffb95c43d0ad5c3f2bacbf75cf5fbbe03abe8c0d6add9010b8fe7"
     },
     {
       "path": "dist/alphalib/types/robots/video-ondemand.js",
-      "sizeBytes": 5058,
-      "sha256": "0f3bf150647d45c1b095c0f71d16e1bcbd58a64ee0d0ca56f8b853637ad82250"
+      "sizeBytes": 5097,
+      "sha256": "43d0ee8b9e0277d707cf5a5938376eb8c088f2b8c40cc37a92b08c074d787ec0"
     },
     {
       "path": "dist/alphalib/types/robots/video-split.js",
-      "sizeBytes": 3199,
-      "sha256": "ba19059f0bcb7c8985aa199177185d70082abe3efbd3ef73459f7d716a712c45"
+      "sizeBytes": 3238,
+      "sha256": "b7d1a064f8b44648c71baac8a9154ba10fc5ec6679f7fb67b35088141fe2ea45"
     },
     {
       "path": "dist/alphalib/types/robots/video-subtitle.js",
-      "sizeBytes": 7210,
-      "sha256": "803b1bf06d885cad95d1bdf5cf9d6cdc2555dbe22cdea96984112ba37a78c723"
+      "sizeBytes": 7249,
+      "sha256": "debb085d2f80d51a29412ad9a26c61e3b4d0ea8c2fde24d85435dc16deb51d93"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.js",
-      "sizeBytes": 5431,
-      "sha256": "2e9d5f244f40281fb4024a5124630f2fbcfeb760a12696b7dcc23aa60bb264fa"
+      "sizeBytes": 6574,
+      "sha256": "5e41670829502667fe96c3ca6340e35ce9bbd5eb656f09c385685adb404d4c8c"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.js",
@@ -854,12 +859,12 @@
     {
       "path": "package.json",
       "sizeBytes": 2705,
-      "sha256": "9c138111d5553276522681638154c92e8d9a689f95d786f86aca7159fe3df0aa"
+      "sha256": "7cd0687c8f91752a80a8d01fb1172c5744779b4b7e205e8cbca8950ad1fc274c"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts.map",
-      "sizeBytes": 14180,
-      "sha256": "0e9078b1014cf84b14c762d6314bc3c29d89cab81fb72cdeac73de730ed283cf"
+      "sizeBytes": 14273,
+      "sha256": "79a23499020a6d82cdd7ec7c088d338c05f1d985afe579e506041d80a83a5d1e"
     },
     {
       "path": "dist/alphalib/types/robots/_index.js.map",
@@ -868,23 +873,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.d.ts.map",
-      "sizeBytes": 11132,
-      "sha256": "d97f1be0f9a4bdecae90c2542a63b0c3cc6cb4be7ed3c7cb024f8f836f8da1a4"
+      "sizeBytes": 11374,
+      "sha256": "246a2b399837454d7fc2842e15a2a57f02b73e21f5d4b61824f081577887a584"
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.js.map",
-      "sizeBytes": 38409,
-      "sha256": "413b357c8a228d4dca834babac93790b41571ccb2ae9a72052a3c39eeab6ec19"
+      "sizeBytes": 39168,
+      "sha256": "3e7a8787f90a362a1acc1862842d4b0fa96f49f624c0f96cc2952b3e877d8e89"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts.map",
-      "sizeBytes": 3301,
-      "sha256": "8a20a3ee5ad2c1ff8edceae61dfdd273ce857765341b7464a90527c51c397ccc"
+      "sizeBytes": 19699,
+      "sha256": "4c809bf035089f8f555a27c29ad749fe6ea61d0e920d4103858f1114a5df950d"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.js.map",
-      "sizeBytes": 8603,
-      "sha256": "7ad2a849228c639b8b3963ba779db0e3c7a6e53780f8a2a0e91d5c11a2e6d45e"
+      "sizeBytes": 18334,
+      "sha256": "2640263725913ec9668bb8025ea33d235c4b1c0cd41f8f54c3a789ed7c87c412"
     },
     {
       "path": "dist/ApiError.d.ts.map",
@@ -908,13 +913,13 @@
     },
     {
       "path": "dist/cli/commands/assemblies.d.ts.map",
-      "sizeBytes": 3983,
-      "sha256": "aae69fe5fa5e582c3d8bcbe4897b4317d9bee824021d783d43f118f13c1efda1"
+      "sizeBytes": 4744,
+      "sha256": "235ee78841606715c643233a04e80a96587d003e158eb5f6a9f25c8b7f36873d"
     },
     {
       "path": "dist/cli/commands/assemblies.js.map",
-      "sizeBytes": 49250,
-      "sha256": "ab0abdd2965854cf3ba8ea8ae708b594350eb46816eb3331e898cb0e6383fc6c"
+      "sizeBytes": 54911,
+      "sha256": "3f3a581b7e8fa8fadcd4daa78781a5184f65c41bc9f41244e589f402c9798c5c"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.d.ts.map",
@@ -968,13 +973,13 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.d.ts.map",
-      "sizeBytes": 336,
-      "sha256": "0f29cc804e2dc8db859a22a923b09e5db49bcb537e5ace9d3ecc138129279c06"
+      "sizeBytes": 817,
+      "sha256": "57ae842c871f4900534a10aa0c0c2b35628a692ab2c480cb72bec1db9508f48a"
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.js.map",
-      "sizeBytes": 612,
-      "sha256": "e3515c0e8c7af60e5655c8e8befc9d9456f0951c5db08b9fdbdc2753198a0719"
+      "sizeBytes": 1504,
+      "sha256": "dcd8a630e6e1a8836ab49a5099037ef50c796a6ac0a25a43816fed51087c1a83"
     },
     {
       "path": "dist/alphalib/types/assemblyReplayNotification.d.ts.map",
@@ -988,13 +993,13 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts.map",
-      "sizeBytes": 87802,
-      "sha256": "db6a2dfba346a57d99abe9f4f9e7cce3cd0dd041da1d4fe67b25e7239dce0a8b"
+      "sizeBytes": 87918,
+      "sha256": "36c53f471e2c6bb272df6468f63e305734a311882424587b37b6d97fb3c24391"
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js.map",
-      "sizeBytes": 37027,
-      "sha256": "65488da4c3ce903b7bf3a26365f6352adaa912b0a31845ce64b04546f06b0f87"
+      "sizeBytes": 37352,
+      "sha256": "b9b8cb7f7e07c42adf9b0b8a5f9f27e0acca5a8fa0a8711f3cc0235166f32810"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.d.ts.map",
@@ -1009,72 +1014,72 @@
     {
       "path": "dist/alphalib/types/robots/audio-artwork.d.ts.map",
       "sizeBytes": 3665,
-      "sha256": "e4463412be80f33cc5bec1facb3b4945e09b769a1ec815ed38fec0ea7963da4b"
+      "sha256": "6ce8520465e4acb90d847686a1a9b76437eccaa65d544ad8e1590d38c7d0c569"
     },
     {
       "path": "dist/alphalib/types/robots/audio-artwork.js.map",
-      "sizeBytes": 1812,
-      "sha256": "8a0dade1d0e38e048cad7322772425397e4e68aa3d4ebba513d8fce73a608d5a"
+      "sizeBytes": 1835,
+      "sha256": "29b1df5fb5c61e89deb0ce265a28bccfa36edae03363652691734dffbc6804a1"
     },
     {
       "path": "dist/alphalib/types/robots/audio-concat.d.ts.map",
-      "sizeBytes": 3712,
-      "sha256": "12464254f3ef3b710548335b09f94e51cbad70dd7da40a1b48617ed4b43186c8"
+      "sizeBytes": 3724,
+      "sha256": "cbc44098278d844c472b93bd81aa45587e38f45ef718bb9546581745410f3777"
     },
     {
       "path": "dist/alphalib/types/robots/audio-concat.js.map",
-      "sizeBytes": 2345,
-      "sha256": "ae0389552251ccf2d58f63d0a54de3b69cfd6a943f85212e4dddaf57fbf10b74"
+      "sizeBytes": 2404,
+      "sha256": "b3864f04d6986c169becfa617c913c038296f80f961b7ed3880e5db5cec7a1fe"
     },
     {
       "path": "dist/alphalib/types/robots/audio-encode.d.ts.map",
       "sizeBytes": 3660,
-      "sha256": "af6f48b47f37ece17faa88b17153dc48d36db8b653c01cf45309e2af463e9142"
+      "sha256": "a7066dfcc8373c304ae7c48ba00d582da4c5446d10cc6eb5092a812fdad0355c"
     },
     {
       "path": "dist/alphalib/types/robots/audio-encode.js.map",
-      "sizeBytes": 1830,
-      "sha256": "450b20cb9de729b6eedc25bc779ac5e9be33e886ddba575ae4046d0bae5b9a82"
+      "sizeBytes": 1853,
+      "sha256": "d6692c1b4c8ef1cd9601240b1054dd34c2b07c41f935a8a83b708540b6de8ccd"
     },
     {
       "path": "dist/alphalib/types/robots/audio-loop.d.ts.map",
       "sizeBytes": 3670,
-      "sha256": "bb9f884bf5f99af2cd76bd811c932cfa13c06f8cbd8cf25561d23a0edee6b754"
+      "sha256": "62c16320a2b4e6a07fb75a466675da52876558915e9f937150b85d5a22926c43"
     },
     {
       "path": "dist/alphalib/types/robots/audio-loop.js.map",
-      "sizeBytes": 1836,
-      "sha256": "4f90cfb7acfed7c737da527807cb8fc66b32fda719c143cacd9e4e7bd9d92645"
+      "sizeBytes": 1859,
+      "sha256": "7bff7f3e60905dad290eb7e3c11ad732135fe4338dff87301b618c1462ebe674"
     },
     {
       "path": "dist/alphalib/types/robots/audio-merge.d.ts.map",
       "sizeBytes": 3725,
-      "sha256": "c25121a7ae9870df6ae53fc36b19f20d3e19dcb26376d7002cbc1b8794cb48c2"
+      "sha256": "5c34d7443a5859e18cb2919c18516b8782c5545bbde13dfafa0d1b7adf7d4336"
     },
     {
       "path": "dist/alphalib/types/robots/audio-merge.js.map",
-      "sizeBytes": 2411,
-      "sha256": "b3b2fb828d0c25da10057d2c8704c402e1cc1c6257f3a51fda262db0649a1140"
+      "sizeBytes": 2434,
+      "sha256": "b3d81ba385c83cd7e6c9a19366b4909fc278df6e657cbbd50dce12054e41abaf"
     },
     {
       "path": "dist/alphalib/types/robots/audio-split.d.ts.map",
       "sizeBytes": 3731,
-      "sha256": "3a64cebe42ed2394564b552bbe45186d071f6d527ca91e640acf7ac0fbcf7da7"
+      "sha256": "75d62e16246d35108adc606a16905c0b9818197a350ca4cd38950c061db829b7"
     },
     {
       "path": "dist/alphalib/types/robots/audio-split.js.map",
-      "sizeBytes": 2357,
-      "sha256": "edb7b716bfa7aead61d8e3f40306bd176eb99b98e87f68cebe6af553795a68f1"
+      "sizeBytes": 2380,
+      "sha256": "bc907bd83cc4e4edcdd31ac52a277dfcff21a92a39aadfb3b759e8a99782d260"
     },
     {
       "path": "dist/alphalib/types/robots/audio-waveform.d.ts.map",
       "sizeBytes": 4249,
-      "sha256": "958aaebc460be420a923d83a36b09d90ff1af1dc0a8d3debd419267e5eb68ec4"
+      "sha256": "477457006ad8f186493b640f7d5de02c7fbd164008addcc2921414fa9c9a32c2"
     },
     {
       "path": "dist/alphalib/types/robots/audio-waveform.js.map",
-      "sizeBytes": 5632,
-      "sha256": "9f70c3bae1ca5f18a3f6b8d3ad6417b0d48463bcc9c3b7418b0908e76daa36b3"
+      "sizeBytes": 5655,
+      "sha256": "a9bd3b7663fdc4f3845a5452eab8adae3773782d5aaf6a7e4110e797ef2789b0"
     },
     {
       "path": "dist/cli/commands/auth.d.ts.map",
@@ -1088,8 +1093,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts.map",
-      "sizeBytes": 1006,
-      "sha256": "97cb2329ce95991b1d7dcf9e569ed09bf7680ce7f58261ae3e4cf213025352c2"
+      "sizeBytes": 1018,
+      "sha256": "25bf2d4bb842317f1f5a77d6a71df9999fa9a6f9d0b8502aac78627ae8b67aea"
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.js.map",
@@ -1108,8 +1113,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/backblaze-import.d.ts.map",
-      "sizeBytes": 1015,
-      "sha256": "223ed7f25be2dc8d4a0f47b2ada4931b52f679f4f21fef448b1f8909e3d79579"
+      "sizeBytes": 1027,
+      "sha256": "cc087f68e4868e282f858a99e7662bff9aa009bc69eec5051a06563c0c4a0a2a"
     },
     {
       "path": "dist/alphalib/types/robots/backblaze-import.js.map",
@@ -1168,8 +1173,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/box-import.d.ts.map",
-      "sizeBytes": 940,
-      "sha256": "b0b50cf11f4e0d317b9e454f980107e95a0d539cec7447405cee4bac8473f618"
+      "sizeBytes": 952,
+      "sha256": "fe6fe140e186b95fcccffd23a81473ac58e13f331e6d882ca0dd326269cf74f9"
     },
     {
       "path": "dist/alphalib/types/robots/box-import.js.map",
@@ -1208,8 +1213,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/cloudfiles-import.d.ts.map",
-      "sizeBytes": 1041,
-      "sha256": "7137f7ad4b4f93ab70332957689cfd511e45b603576e1011474cc5c64cedd774"
+      "sizeBytes": 1053,
+      "sha256": "fdfaabe565121cec5a88eda66b33674b633e6d0b37e222fe13405b6f5d5482af"
     },
     {
       "path": "dist/alphalib/types/robots/cloudfiles-import.js.map",
@@ -1228,8 +1233,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/cloudflare-import.d.ts.map",
-      "sizeBytes": 1041,
-      "sha256": "7098b7cd01ce717abc9aa4951b0134ce5d2c2b2ffa90b07592abe70c9dc2f3c2"
+      "sizeBytes": 1053,
+      "sha256": "a4f59031dd91a76d59e3b94601292c1d197d47748cff58b4d9e174e14a3e5b4a"
     },
     {
       "path": "dist/alphalib/types/robots/cloudflare-import.js.map",
@@ -1248,8 +1253,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/digitalocean-import.d.ts.map",
-      "sizeBytes": 1045,
-      "sha256": "e71fe7a57df38ae71effea56f2b77a3344b4d893a4872efc2025179aa1bfcac7"
+      "sizeBytes": 1057,
+      "sha256": "b37d03eda3644346b6f002c5be05a7af3344441152fa03672310e0d2ce13bb2e"
     },
     {
       "path": "dist/alphalib/types/robots/digitalocean-import.js.map",
@@ -1308,23 +1313,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/document-merge.d.ts.map",
-      "sizeBytes": 1229,
-      "sha256": "71e8c338f0af01219a3ad42436e56d1b001c504c864bdc5c20f19101036755ef"
+      "sizeBytes": 1241,
+      "sha256": "f7983013c2b80a0481479f07e18faa3d6236452e566c58a0feab95ef5fea96a1"
     },
     {
       "path": "dist/alphalib/types/robots/document-merge.js.map",
-      "sizeBytes": 1715,
-      "sha256": "877115a99dc6d7a3adf24e39db2b2f665cf5c20d9f71352979ec8d4b0056b912"
+      "sizeBytes": 1752,
+      "sha256": "acac6459068600115962614cf6436eb3240d832840cede3e088f32c5319ae6af"
     },
     {
       "path": "dist/alphalib/types/robots/document-ocr.d.ts.map",
       "sizeBytes": 1237,
-      "sha256": "4724f05db210676ca00cb7993dfcfb14b86a6eb875c9570a213a8ffa9924cf8c"
+      "sha256": "6ad3a5867ae939c63e13633a25d6e432d788b870e8054a5662b16800ce0ab18f"
     },
     {
       "path": "dist/alphalib/types/robots/document-ocr.js.map",
-      "sizeBytes": 1806,
-      "sha256": "67a0c51f52f2d759749ef2fce0186af0c83aa602ad227652b05817d5811888d4"
+      "sizeBytes": 1831,
+      "sha256": "ae22e99516ab204b8ccc93b00346ee4b4397c674cbb84940f9cc2450270b9c24"
     },
     {
       "path": "dist/alphalib/types/robots/document-optimize.d.ts.map",
@@ -1358,8 +1363,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/dropbox-import.d.ts.map",
-      "sizeBytes": 962,
-      "sha256": "5483dee96c86bc39fca0081df5ed803bf4d9030b9032414f329f765483f06782"
+      "sizeBytes": 974,
+      "sha256": "66bdf96fe4270954ffd8943d62b6d50d02429c07ca0532893d3c64a720252fe7"
     },
     {
       "path": "dist/alphalib/types/robots/dropbox-import.js.map",
@@ -1453,8 +1458,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/file-preview.js.map",
-      "sizeBytes": 4781,
-      "sha256": "ecde837fcfbfde5207c256829933a19e3906c149a1d9b2713f423716dd84060f"
+      "sizeBytes": 4811,
+      "sha256": "b8fd193ccdd2d2c613f0315b85076122cdaa320e8328a4d66171423787479708"
     },
     {
       "path": "dist/alphalib/types/robots/file-read.d.ts.map",
@@ -1469,22 +1474,22 @@
     {
       "path": "dist/alphalib/types/robots/file-serve.d.ts.map",
       "sizeBytes": 1290,
-      "sha256": "67f417e3fd08f53a81182a265429ff55ceb7b1b4bb2584e1a451f2c6611ea6fc"
+      "sha256": "a70a98d1c9725ad5a4fd3a56643097213841e3f15339a8d344c179fd571404fd"
     },
     {
       "path": "dist/alphalib/types/robots/file-serve.js.map",
-      "sizeBytes": 2088,
-      "sha256": "394da3486353b2555c7ff9dcbde0f0e0183428b0ad16711263a4ee68ef694e30"
+      "sizeBytes": 2113,
+      "sha256": "714d8597ffdd014fb72d42919896c73859b674be22bb2ed9f81a1c1805cecc6f"
     },
     {
       "path": "dist/alphalib/types/robots/file-verify.d.ts.map",
-      "sizeBytes": 1235,
-      "sha256": "8ae28ca53e254e9945724610e21baa5a1e68548e8ee7fda0f11101845e28b29c"
+      "sizeBytes": 1247,
+      "sha256": "d9ce896029d2e11ae37b88e5b382a8fd237a22d6658665279f46aa88ba0b2a0e"
     },
     {
       "path": "dist/alphalib/types/robots/file-verify.js.map",
-      "sizeBytes": 1765,
-      "sha256": "c3dc2c54473427a23870c391eda59857894c305037f4ea89b12d29f935446e7e"
+      "sizeBytes": 1851,
+      "sha256": "232b7cb6890eb74e8caaf3431eb76345a2e7fe7e1454de0a80c7a03c29ad1e20"
     },
     {
       "path": "dist/alphalib/types/robots/file-virusscan.d.ts.map",
@@ -1528,8 +1533,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/ftp-import.d.ts.map",
-      "sizeBytes": 988,
-      "sha256": "9e5b22bf04a96951c8c67c6600ee3c4bc205fa9ca6ff294b78d8b9240b6e34ac"
+      "sizeBytes": 1000,
+      "sha256": "55723ec850e22dd94fea0034225e171d6fce23d5d2164feed773d30c6851fe3f"
     },
     {
       "path": "dist/alphalib/types/robots/ftp-import.js.map",
@@ -1558,8 +1563,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/google-import.d.ts.map",
-      "sizeBytes": 972,
-      "sha256": "057e42daf7327c0788c90fabc805a8cd15ddae3acb1daaf9dec4e432cdee4c23"
+      "sizeBytes": 984,
+      "sha256": "e669c262a5e66fa3dee28f1c7faef6b1ee5024684047fc518226fb2f8102ec2d"
     },
     {
       "path": "dist/alphalib/types/robots/google-import.js.map",
@@ -1599,22 +1604,22 @@
     {
       "path": "dist/alphalib/types/robots/http-import.d.ts.map",
       "sizeBytes": 1202,
-      "sha256": "bf17f4d78333ef23ca68cd061bc33e0d6ce0ca68c920072b8ce6335ba45eca7c"
+      "sha256": "d1b49ce09699a9ff08f74304d769aadc83bcaca9a6e86153fc33bd68a65f3dd5"
     },
     {
       "path": "dist/alphalib/types/robots/http-import.js.map",
-      "sizeBytes": 3020,
-      "sha256": "0d57a8da355966ac9ac6f2b09a8653a9cb0dafac58131976fdacce980ddde55d"
+      "sizeBytes": 2905,
+      "sha256": "f57b141f3f96cd5718e39ec190924fbe8adfe4b406fec9d33c8f850bac45fcf2"
     },
     {
       "path": "dist/alphalib/types/robots/image-bgremove.d.ts.map",
       "sizeBytes": 1253,
-      "sha256": "59ea55bf80e279085d0610f357c11a302c81dadddb85a41609313722edb35a32"
+      "sha256": "1bfd74f7db820e90c0b2ed3d6d6a6e54a42910de612c33214721d1e48d94e2d2"
     },
     {
       "path": "dist/alphalib/types/robots/image-bgremove.js.map",
-      "sizeBytes": 1873,
-      "sha256": "9f8eccdeabd5a8d2e1a11e52f2f71b4438ed3a9d163cf0b410113bc6a3f6aaa0"
+      "sizeBytes": 1919,
+      "sha256": "59af9eaf3b9df9be9adaffeb1c025a507ecfb68afc4e7d2a59e62d79774f9e21"
     },
     {
       "path": "dist/alphalib/types/robots/image-copyrightdetect.d.ts.map",
@@ -1629,12 +1634,12 @@
     {
       "path": "dist/alphalib/types/robots/image-describe.d.ts.map",
       "sizeBytes": 1253,
-      "sha256": "ea91b1d9aa823eb84a2f92f9c33ee4dfe9bb91e8a4fcffb48bc145533ac18e53"
+      "sha256": "36a2f778fc69d9550037211416b99725c28059ec98cc3da28071a8e14bb1855b"
     },
     {
       "path": "dist/alphalib/types/robots/image-describe.js.map",
-      "sizeBytes": 1876,
-      "sha256": "7c7945ed4bfc384063a821607521859e30f380c68051d465578e5da1e3d76c33"
+      "sizeBytes": 1886,
+      "sha256": "3b3447ac845c23abd00f8ee1b0a4eca4fcb3db632ac084e61e1e195e6e343e65"
     },
     {
       "path": "dist/alphalib/types/robots/image-enhance.d.ts.map",
@@ -1649,42 +1654,42 @@
     {
       "path": "dist/alphalib/types/robots/image-facedetect.d.ts.map",
       "sizeBytes": 1479,
-      "sha256": "9ea562457a1de1654348c62085c5d555a4da0b08a4eea05daa57c2391c870186"
+      "sha256": "e0a42d06b6d0a1dd0f1adc6bc3c99a07bcd8eb75721e16447efe7c01778bd007"
     },
     {
       "path": "dist/alphalib/types/robots/image-facedetect.js.map",
-      "sizeBytes": 2836,
-      "sha256": "2e6c56c10c4d097b61b85f2cf4a47579c781cb46c30dfc859c657dcbc52205a6"
+      "sizeBytes": 2846,
+      "sha256": "d266d3270e600ba0a4ae934c238dcc61c0b487d2259b399fbbd2fc3d49977f99"
     },
     {
       "path": "dist/alphalib/types/robots/image-generate.d.ts.map",
       "sizeBytes": 1321,
-      "sha256": "3e9c7e4ca073f554e18e3e997877467dba0855099dce9899e1dca03ec35779e1"
+      "sha256": "5521eead0c4d21d9ff0c7bff5fd9833a03c632c23522d3108089f2a92e42e007"
     },
     {
       "path": "dist/alphalib/types/robots/image-generate.js.map",
-      "sizeBytes": 2703,
-      "sha256": "ba87c360ceaba2b38dabe0c074987de716249038920de10a6312ee59bce181dd"
+      "sizeBytes": 2727,
+      "sha256": "9652ec669ccc915f63016f788a64a61b85ea4ec062bae7da546292f708483f80"
     },
     {
       "path": "dist/alphalib/types/robots/image-merge.d.ts.map",
-      "sizeBytes": 1343,
-      "sha256": "1d7d0c301478ad117b0687dc479dcc30c2e1444e2a2896c91c0ac87cce9b3274"
+      "sizeBytes": 1403,
+      "sha256": "67c6e7a053a5dbeb95bc447bcc91a7febcc375b5aae90989430b765a39a9dcd5"
     },
     {
       "path": "dist/alphalib/types/robots/image-merge.js.map",
-      "sizeBytes": 2820,
-      "sha256": "d13974a19c2e2b50c8d187a061ee28e40e35f46b39d3e9a080e926ab7e71119a"
+      "sizeBytes": 3340,
+      "sha256": "6718f97584114c8c3b14b05a6814ad144f2914e918a8b5b80d67fa52d020bae4"
     },
     {
       "path": "dist/alphalib/types/robots/image-ocr.d.ts.map",
       "sizeBytes": 1230,
-      "sha256": "8e111248037b9e4e1d99039772fc8fad71c60561c85bcc9285f0d007768cfdc0"
+      "sha256": "a40bd0494a195386b76e5bfe2caf9c1496a81814e92a5a6c26daf0b1930c3ae3"
     },
     {
       "path": "dist/alphalib/types/robots/image-ocr.js.map",
-      "sizeBytes": 1775,
-      "sha256": "4a8b8d96d91214490bda8dbfaa20d2d3a16fd899938c145a64550d4eab0dabdd"
+      "sizeBytes": 1800,
+      "sha256": "36c8c8ca796083fc803150666a0d94592b882c32ed5e136a673885f5663e6c59"
     },
     {
       "path": "dist/alphalib/types/robots/image-optimize.d.ts.map",
@@ -1698,33 +1703,33 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-resize.d.ts.map",
-      "sizeBytes": 2599,
-      "sha256": "e420e7c50a0075404a852ef3ecd1450ed5cddbfb6670c9023fd7ac5dc0a5a584"
+      "sizeBytes": 2669,
+      "sha256": "87bab5a321b000720ca5d10d8817099d2b41b429d1763793cd3d8f8129bf31d2"
     },
     {
       "path": "dist/alphalib/types/robots/image-resize.js.map",
-      "sizeBytes": 9499,
-      "sha256": "fef90edbb956f1d31022a419c19ae342784c6f7bfacc82be0ad6688b227a20ca"
+      "sizeBytes": 9669,
+      "sha256": "428e16b298296d1f6bc31cd71949af2dfcef05ff99404efa7c477b0a0684058b"
     },
     {
       "path": "dist/alphalib/types/robots/image-upscale.d.ts.map",
       "sizeBytes": 1245,
-      "sha256": "a3c78cacd4b3185b60838075e91bca659538dc1ffddf546789f5349f90fed704"
+      "sha256": "6c52ffa32f0144977f265ddda70275faae26dfed054e1cdcfe59489a8096c30d"
     },
     {
       "path": "dist/alphalib/types/robots/image-upscale.js.map",
-      "sizeBytes": 1893,
-      "sha256": "033f9cb2f6cc6b7336789baf10cff1c9e62bc7e7e2a29cc916d5622644e67dc2"
+      "sizeBytes": 1917,
+      "sha256": "1f5691cf80acc00bee1de5763be90d7374ab279bf344eb1b059e296ecad599df"
     },
     {
       "path": "dist/cli/semanticIntents/imageDescribe.d.ts.map",
       "sizeBytes": 418,
-      "sha256": "b5fe124082ffbc5d1b08993ea21e3b13e000989dea00690fc1c9e6c16050ed32"
+      "sha256": "c7b6d3f1d4004dca42b506b85c5eb96e9cc4af294110421a869171f01a302520"
     },
     {
       "path": "dist/cli/semanticIntents/imageDescribe.js.map",
       "sizeBytes": 4505,
-      "sha256": "f7c3795f95c0a83f58dbab5d4c2410530da53531401b1a8b4a05f93afacaca2b"
+      "sha256": "ce35f90a0011c36000e3f219178929174fe539b31255cf09c7f5e8a65d98c1d7"
     },
     {
       "path": "dist/cli/semanticIntents/imageGenerate.d.ts.map",
@@ -1735,6 +1740,16 @@
       "path": "dist/cli/semanticIntents/imageGenerate.js.map",
       "sizeBytes": 5617,
       "sha256": "f113496d2f30aa4d1fa3c2c28ec86f8b72ab8d35d90c483b0cf1e5179fb658f4"
+    },
+    {
+      "path": "dist/alphalib/imagemagickDensity.d.ts.map",
+      "sizeBytes": 272,
+      "sha256": "9fb62cedba9333d93ff32f14d3ea2c2ec386288cbbb2a36bce4fb151c848e498"
+    },
+    {
+      "path": "dist/alphalib/imagemagickDensity.js.map",
+      "sizeBytes": 544,
+      "sha256": "94d4f25d65dffbad1ee58a4a6a70f93a01a6575df3646be47045346788e8af1a"
     },
     {
       "path": "dist/InconsistentResponseError.d.ts.map",
@@ -1749,7 +1764,7 @@
     {
       "path": "dist/cli/commands/index.d.ts.map",
       "sizeBytes": 198,
-      "sha256": "b9e290d2d6c1c22f6396324b843032e88c2360d1d18fe45417519d1976df6a1e"
+      "sha256": "d0975ca0dbbac3c632c5a6d8501b0a673781c127259de072bffa0a88cb48e78e"
     },
     {
       "path": "dist/cli/semanticIntents/index.d.ts.map",
@@ -1758,8 +1773,8 @@
     },
     {
       "path": "dist/cli/commands/index.js.map",
-      "sizeBytes": 2088,
-      "sha256": "0c6068340d4cb461b7512bb30a77a6aad97a694fadab9c5a865d5cd52bd9f941"
+      "sizeBytes": 2208,
+      "sha256": "75f1604a8f54cf9f0bc07f5f909d1d52f9f0763e5bd270e6e9e5be9eb589c51a"
     },
     {
       "path": "dist/cli/semanticIntents/index.js.map",
@@ -1868,8 +1883,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/mega-import.d.ts.map",
-      "sizeBytes": 1038,
-      "sha256": "be01f134688e558eceb3b1f0839bdb248eb2d05057e20912960685350687c12e"
+      "sizeBytes": 1050,
+      "sha256": "52b963c379eb18fc3f642fe8d4d924118ec1d279fbd97afd349af374adf4e024"
     },
     {
       "path": "dist/alphalib/types/robots/mega-import.js.map",
@@ -1908,8 +1923,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/minio-import.d.ts.map",
-      "sizeBytes": 1030,
-      "sha256": "f0416d18716fe95a89179f1c90ca44d5678bccd8db22aebf4b57f7b36149e104"
+      "sizeBytes": 1042,
+      "sha256": "439b69e7006523166bc07dafed881d2c0e1257b5d15b3319a032e2a30036e6cb"
     },
     {
       "path": "dist/alphalib/types/robots/minio-import.js.map",
@@ -2038,8 +2053,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/s3-import.d.ts.map",
-      "sizeBytes": 1035,
-      "sha256": "10778c33ed466525dbf2996d19af373efc80eb63e4e2c654fd8bc94bfd4625c3"
+      "sizeBytes": 1047,
+      "sha256": "de5014880253ad7cc3103075a7eb0c85d2cc304b0b445f07e327276ef0919384"
     },
     {
       "path": "dist/alphalib/types/robots/s3-import.js.map",
@@ -2068,13 +2083,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/sftp-import.d.ts.map",
-      "sizeBytes": 985,
-      "sha256": "a76a01d2b5ac3f79bf66c55d4625083676d6f0ac261c628b7de71ced09f11b69"
+      "sizeBytes": 1009,
+      "sha256": "0b9079eef2858c10da975465fad59e58a8f756abdc7908eda248b646b1581ab4"
     },
     {
       "path": "dist/alphalib/types/robots/sftp-import.js.map",
-      "sizeBytes": 1605,
-      "sha256": "b3156cdeadda0174914273edbe965268f068229f117efa55ecf2616fd55c4227"
+      "sizeBytes": 1685,
+      "sha256": "6c2fe047710140d3d85b9725cf85723632d73d5611c966dc7373c8a1f94b4662"
     },
     {
       "path": "dist/alphalib/types/robots/sftp-store.d.ts.map",
@@ -2099,12 +2114,12 @@
     {
       "path": "dist/alphalib/types/robots/speech-transcribe.d.ts.map",
       "sizeBytes": 1302,
-      "sha256": "5f55163937021328101bc7c392f20d36a0966e554a1f9c2b5117335361cbf0a7"
+      "sha256": "9ee1d56e4add8879e2fee81b3a6a62b0d2cdb61ed0d3dba6eb5ad4e7da6d642d"
     },
     {
       "path": "dist/alphalib/types/robots/speech-transcribe.js.map",
-      "sizeBytes": 2675,
-      "sha256": "7d6ac921ca9ad839629cf183f77142eca5b2196189cf903bb2f9133b50b9883c"
+      "sizeBytes": 2741,
+      "sha256": "b108ebdd2d838b298c593f6cd3d74d9638425bf2edaf7616dfb699553cec3e9e"
     },
     {
       "path": "dist/cli/semanticIntents/speechTranscribe.d.ts.map",
@@ -2148,8 +2163,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/supabase-import.d.ts.map",
-      "sizeBytes": 1048,
-      "sha256": "bdb9fc23f7302f03d5fa5b146b3eae7a55632081390caada940310e790d28a98"
+      "sizeBytes": 1060,
+      "sha256": "ade2d3eaa5c21ff171e6a28a0f63c270609ab284854dd5743307348647d7cfb7"
     },
     {
       "path": "dist/alphalib/types/robots/supabase-import.js.map",
@@ -2168,8 +2183,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/swift-import.d.ts.map",
-      "sizeBytes": 1042,
-      "sha256": "96cd83f574244c68b812c1ca03d005e19286d04dc1c1387df88d89db0492a3dc"
+      "sizeBytes": 1054,
+      "sha256": "5d8d1f320258fa7a2af701937a8e3a85386b1117077b680d59c4a24099b4e861"
     },
     {
       "path": "dist/alphalib/types/robots/swift-import.js.map",
@@ -2239,27 +2254,27 @@
     {
       "path": "dist/alphalib/types/robots/text-speak.d.ts.map",
       "sizeBytes": 1256,
-      "sha256": "e044fbacd3c13976fb075765fbbb7b3f90db43bf4da6f71cac05a03bab892dfa"
+      "sha256": "26a081f49d0342413f877efa45d4a5faf6f0a1939d2aa21b749cd3760f3cb177"
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.js.map",
-      "sizeBytes": 2058,
-      "sha256": "b2feaa7a33314f8c07694d579abe1d18cf2028c135eee5ea4e2805c0b49da466"
+      "sizeBytes": 2083,
+      "sha256": "22396da2d8f0960b8d1f5bca6b203a1956e66b9f2e61c4d01b2bb81979cc0ed3"
     },
     {
       "path": "dist/alphalib/types/robots/text-translate.d.ts.map",
       "sizeBytes": 1242,
-      "sha256": "44a745b2a9136da3a9db10b5f3262423f3dac31eb6fb44b65aa650d8cf240ed0"
+      "sha256": "5f7ede290bc71461f75110b213e1347bcc2f10bcbc4309c246f955be25dfc795"
     },
     {
       "path": "dist/alphalib/types/robots/text-translate.js.map",
-      "sizeBytes": 2928,
-      "sha256": "599065aee514c2519e23a441b6cc329e40cfc0ac0fd13707182948ca5faaca8e"
+      "sizeBytes": 2953,
+      "sha256": "10882c27ca30c06372277c12dfeb6a51a5da958e5dcf2200f20f2f1d26020496"
     },
     {
       "path": "dist/alphalib/types/robots/tigris-import.d.ts.map",
-      "sizeBytes": 1042,
-      "sha256": "6ecaa8be6f52f515d88846e7650918dd95cf231d972975a54d99bc6b2a061323"
+      "sizeBytes": 1054,
+      "sha256": "7de41c3df25c379757bbfbecc2025651fa5ef048ac2f97b50631ed9c6dac7eaf"
     },
     {
       "path": "dist/alphalib/types/robots/tigris-import.js.map",
@@ -2279,22 +2294,22 @@
     {
       "path": "dist/alphalib/types/robots/tlcdn-deliver.d.ts.map",
       "sizeBytes": 909,
-      "sha256": "359203f5398e3b077ba588a1ebc9c7d8ff026fc2e52628f05003882a2cd54e81"
+      "sha256": "4e742e4004aa08bf4663215e151150892862aab74967c1261a80a125959576c4"
     },
     {
       "path": "dist/alphalib/types/robots/tlcdn-deliver.js.map",
-      "sizeBytes": 1570,
-      "sha256": "eda6be92ee05ad3a7165598349af664f9c167ad04b95ac0f6e710c9679a15035"
+      "sizeBytes": 1595,
+      "sha256": "e40324733d263a0c12b5067f839b239cf5f96571e1f3896f8b720e84dc61d4dd"
     },
     {
       "path": "dist/Transloadit.d.ts.map",
-      "sizeBytes": 6679,
-      "sha256": "7c822aa114dacac70fb9110c5a5792bbbabfb6dc9d905423d3b69949cb302d02"
+      "sizeBytes": 7099,
+      "sha256": "f337fa54f8ab5b71adbb4e0303a13daf7fc23ec37c613494968483d98e13249d"
     },
     {
       "path": "dist/Transloadit.js.map",
-      "sizeBytes": 27587,
-      "sha256": "81e429d28ac323783db5c02043762b9743812256f70e303c95265638dfc143d0"
+      "sizeBytes": 29707,
+      "sha256": "b02eb70af5add6f5a9c25897489f0542cad923eba13417de59cbc1ae16037232"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts.map",
@@ -2319,12 +2334,12 @@
     {
       "path": "dist/tus.d.ts.map",
       "sizeBytes": 840,
-      "sha256": "4fb76fe4991affff29846fe05118338dfa1be2a08c657a2fdfb6ea64c8c96798"
+      "sha256": "e3a641edd9314ed175efe08935ec6a1ad6f153119d91f9d5dfee889bc34310df"
     },
     {
       "path": "dist/tus.js.map",
-      "sizeBytes": 6459,
-      "sha256": "af78f52099e396e3b4cd4d9d5d97d93f0b97204d73f5f2aae98c3662df1c49e5"
+      "sizeBytes": 6614,
+      "sha256": "744a42e88d1bcdc863dfc2db790ad3602a181d900d89e43fd0b5a3490c24eeb8"
     },
     {
       "path": "dist/cli/types.d.ts.map",
@@ -2359,107 +2374,107 @@
     {
       "path": "dist/alphalib/types/robots/video-adaptive.d.ts.map",
       "sizeBytes": 3739,
-      "sha256": "af978bdac9ce1fdbd39df1515c74710f8ec769f369cc5442d9290b1fbd38456a"
+      "sha256": "116ee80f054799a9287859eaac1d431f093808049ae3eaab80a731a5a8428fd7"
     },
     {
       "path": "dist/alphalib/types/robots/video-adaptive.js.map",
-      "sizeBytes": 2693,
-      "sha256": "f814ffa0a9657188d1118265c1e323c57731c485e2d110e8f967f296d1a7b6cd"
+      "sizeBytes": 2716,
+      "sha256": "40baa1068196f9855102d6f539826421c1d5c2fb95148a5c24c9ca42b72f6f37"
     },
     {
       "path": "dist/alphalib/types/robots/video-artwork.d.ts.map",
       "sizeBytes": 3653,
-      "sha256": "851bcaa72a0fcb0dbd78d8e78b02d719810a51a61903d874f930b1aafb927c8a"
+      "sha256": "bd2056243825a8912e4b3ec71c310cf0f363696626bd5e6e84b2d4175448bec5"
     },
     {
       "path": "dist/alphalib/types/robots/video-artwork.js.map",
-      "sizeBytes": 1723,
-      "sha256": "ed891df17b04f4d83f9ee6912baa803312e1cb77139758061007cdd7dbb02b31"
+      "sizeBytes": 1746,
+      "sha256": "d69ee2b54827930d82e14ab501098f74ab5de9739e11cce11a8d74d9933cf43a"
     },
     {
       "path": "dist/alphalib/types/robots/video-concat.d.ts.map",
-      "sizeBytes": 3723,
-      "sha256": "58f807ecca4c08a535e97a90e6fec95d9f390f8bb2628320ec1c7257be197c0f"
+      "sizeBytes": 3735,
+      "sha256": "67aeec04986eb6197df537ce98236a98156ce08dff81db4d1d1f2bb820e7e8d1"
     },
     {
       "path": "dist/alphalib/types/robots/video-concat.js.map",
-      "sizeBytes": 2267,
-      "sha256": "09454c80999152c4a35848f61b7bfb33ce2491b9ee3b575099c43032c33e4bcd"
+      "sizeBytes": 2326,
+      "sha256": "44f28833db5ae47e865402b58374d8a05232d8f0727732c54c014eb9803f3dfa"
     },
     {
       "path": "dist/alphalib/types/robots/video-encode.d.ts.map",
       "sizeBytes": 4082,
-      "sha256": "edfe5b5f3d2e520949de7037026fd6dc6b40cda7854b34618f2df71849d9e9a7"
+      "sha256": "291985917f56593fff942ec154f8ee3d0837e4a50346805e35f359a0bf501875"
     },
     {
       "path": "dist/alphalib/types/robots/video-encode.js.map",
-      "sizeBytes": 1886,
-      "sha256": "d068edfb5d94c7c95eeb3545845aadcc320e7a43b3bfb1132d833d47830f57f2"
+      "sizeBytes": 1909,
+      "sha256": "0fb3a64a1cff98a60a7411db1e90e34b8fe6f41abd8fc8abc12a1a489cbd3b3a"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.d.ts.map",
       "sizeBytes": 1394,
-      "sha256": "9dc622d6af288c890e044cdba8b52ea5edeaa1cc23c4d74b644aafb138aef7f0"
+      "sha256": "82eea0f256e2cd82a7e4f7a5516f4836db3ae4ebb4255906daa508ea84fffa87"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.js.map",
-      "sizeBytes": 2809,
-      "sha256": "0b48f84381d73f23b5b8fe3b7f6a7051e7d2e6a07c1097a45e5a9f139eaf2005"
+      "sizeBytes": 2856,
+      "sha256": "1b4452a69c570ea14c580f04e44f087da61f67baa3771a6552dc857793b3f414"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.d.ts.map",
-      "sizeBytes": 3811,
-      "sha256": "ac55569ca54c2aa9dac5648e17ca80f61f214378d7a691d19367f48b0ccfbfc9"
+      "sizeBytes": 3823,
+      "sha256": "48e2e41d38b040e2a816cda2163875d26c5c933825fb6a795550ec499c06eea6"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.js.map",
-      "sizeBytes": 2954,
-      "sha256": "7baefabc7e8a16c94affa4723aad13c0ac12de6c751334992a905faf8a182118"
+      "sizeBytes": 2994,
+      "sha256": "4aa83084745ab67e2d863bbd772f79b0ae056120f43c97f77fc846ba7897a86b"
     },
     {
       "path": "dist/alphalib/types/robots/video-ondemand.d.ts.map",
       "sizeBytes": 5354,
-      "sha256": "0c4f2417c2df9dcb74c483423bb20b5e79cbb139eabbfd8133badde609d5b70e"
+      "sha256": "b47b3f7d58ef54673aecc2d60b2f41252d593a953da0a65b0e4be1a78c7e0db7"
     },
     {
       "path": "dist/alphalib/types/robots/video-ondemand.js.map",
-      "sizeBytes": 2701,
-      "sha256": "89902d12bf494d6084d9c28e8b5103cbf0f0a6326dc5a4cf853775ba787da7d2"
+      "sizeBytes": 2724,
+      "sha256": "dd2aea02c02cf0985fcfa35a3327fa3c7c867826bfe8446ec7b4eeec5ecf4e24"
     },
     {
       "path": "dist/alphalib/types/robots/video-split.d.ts.map",
       "sizeBytes": 3734,
-      "sha256": "10603981a81a4774b575b7257e02955a46ad53b33989f631021096f40801fd32"
+      "sha256": "083c01b68a51769e636d256d73fbdb3b4e2e4789e84f0c39d8ebbe8c89bac1e7"
     },
     {
       "path": "dist/alphalib/types/robots/video-split.js.map",
-      "sizeBytes": 2129,
-      "sha256": "1048b7de91d584345ade8a4076a8f185a099fe3aa3a04c2e721662ddc10fc04b"
+      "sizeBytes": 2152,
+      "sha256": "64c3ae8632889799d9835ff86e4d5fe58ca81f11d4c05110b55cd7948392caa4"
     },
     {
       "path": "dist/alphalib/types/robots/video-subtitle.d.ts.map",
       "sizeBytes": 3823,
-      "sha256": "d46d96600cd70915eb11792544ebe1928a641210e2e0f375098d2200bd479408"
+      "sha256": "4bfa3dbfc954655f09cf55caf9423b0f31b214de37c9e5acd9659167ce239339"
     },
     {
       "path": "dist/alphalib/types/robots/video-subtitle.js.map",
-      "sizeBytes": 3650,
-      "sha256": "5aaebac313345c8552e2dfc96b837d716bca0aa2a1c00148454a9f394a57aee6"
+      "sizeBytes": 3673,
+      "sha256": "ef8a63a91329b898ab43b600c78be93f29d2c5f865cf871ddf459355b515f2ef"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.d.ts.map",
-      "sizeBytes": 3734,
-      "sha256": "a6269d3040aae13809ab1e84bff2fc80337421150e9f98bd468b21b6a29f0a9f"
+      "sizeBytes": 3758,
+      "sha256": "55431ae9e53e1202e2b5f56b613952fb8207830010c13efb3c5a9ad955c9d1a5"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.js.map",
-      "sizeBytes": 2863,
-      "sha256": "755eff7b87130ca0fede7b7b10dcf21e0a68fe4e3b0255d748763cae56f59678"
+      "sizeBytes": 3139,
+      "sha256": "4b8c515d927ce83e2906af43e546642a8ed9d6b13fc7ec9bb45d3b74dc78ce37"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.d.ts.map",
-      "sizeBytes": 984,
-      "sha256": "de537e1a606db52551da722e6f4ada49f8531bad1f75924934b5ce1fefb244b9"
+      "sizeBytes": 996,
+      "sha256": "cdbeb3a531876b4cb14476e4e239e1fda076720ba9e928805e8aa30bda230337"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.js.map",
@@ -2478,8 +2493,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/wasabi-import.d.ts.map",
-      "sizeBytes": 1042,
-      "sha256": "e303ed56b661d8a3cc6895349b7b4c22263d5c019d03bcd8ae102ea5d381a1ee"
+      "sizeBytes": 1054,
+      "sha256": "2fd1354c19dc2c42f0a8b461834c0e61e675a46343e4c20720d6d4b5b9f19238"
     },
     {
       "path": "dist/alphalib/types/robots/wasabi-import.js.map",
@@ -2518,13 +2533,13 @@
     },
     {
       "path": "README.md",
-      "sizeBytes": 91869,
-      "sha256": "f3c82ee0ee28adfa9cf23c56fe8d5eb9f07d297d3a6086725d544310e03ef71e"
+      "sizeBytes": 91860,
+      "sha256": "1ffef9ee5e0b9f3c1d9df3f24249002a26925fe001c627325c85c17f679c4b06"
     },
     {
       "path": "dist/alphalib/types/robots/_index.d.ts",
-      "sizeBytes": 491105,
-      "sha256": "1da74e4a4f442ffa4e06ae26cc1fb8bd0318b34629effbb14fd54e67df1f37c3"
+      "sizeBytes": 496592,
+      "sha256": "31ecaf2a4a75e229e691da26929f6cc81c8f6ee7587e6effbeccadaf5a48ded0"
     },
     {
       "path": "src/alphalib/types/robots/_index.ts",
@@ -2533,23 +2548,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/_instructions-primitives.d.ts",
-      "sizeBytes": 211628,
-      "sha256": "33fa41bf8f61d405836303aaed822136b2b9da9661cd69f59e80bd436a3ec238"
+      "sizeBytes": 212566,
+      "sha256": "39a7713ced869533efa81ffbca5cc9586dcd39bd1277a9a1b6808b1c22bb9a2e"
     },
     {
       "path": "src/alphalib/types/robots/_instructions-primitives.ts",
-      "sizeBytes": 69233,
-      "sha256": "8997301de670e2113ee822f0c4dcdd6c6f55a14cc2ee86ab4e264d3eac2dc76d"
+      "sizeBytes": 70581,
+      "sha256": "f39c85ae3d9bf55a98d455dc9d66bf112fa5ba0c0da8cdb7960714c5e8baa17b"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts",
-      "sizeBytes": 95738,
-      "sha256": "dec32d808acbbab116ed9b9f390403b0c9f5084d80884d548d18f861fc5fb653"
+      "sizeBytes": 663516,
+      "sha256": "c4858adb7938d8bfd4438a1c1359a086dce6f82b59b4fd9b25a7e10e836e3a68"
     },
     {
       "path": "src/alphalib/types/robots/ai-chat.ts",
-      "sizeBytes": 12403,
-      "sha256": "698c1c5675642e82ecf213e16fdc55dbcd44bfa190a02fa1591fb252238d00ad"
+      "sizeBytes": 25289,
+      "sha256": "d6b2c1a663419a17864106cb89a62187016c59b271ecb6ae305c6abeca68a734"
     },
     {
       "path": "dist/ApiError.d.ts",
@@ -2573,13 +2588,13 @@
     },
     {
       "path": "dist/cli/commands/assemblies.d.ts",
-      "sizeBytes": 4598,
-      "sha256": "2bfe2853f48b9a9e828d909e4898b5ce39bee0ed8e80bf2bd188dac8fe5f424b"
+      "sizeBytes": 5782,
+      "sha256": "3b372d877b361432956ea50be6fc007eb12402022b242461317a7852aea657e4"
     },
     {
       "path": "src/cli/commands/assemblies.ts",
-      "sizeBytes": 56247,
-      "sha256": "c3857429975ec1338681d341179e2612704998856377e4f8e1f2cf3b2f5c77f4"
+      "sizeBytes": 63150,
+      "sha256": "dad9d0d12afcaa27cb1c4947ed86da556e46c60c5017d7158688ec8b4a7512c2"
     },
     {
       "path": "dist/alphalib/types/assembliesGet.d.ts",
@@ -2633,13 +2648,13 @@
     },
     {
       "path": "dist/alphalib/types/assemblyReplay.d.ts",
-      "sizeBytes": 2370,
-      "sha256": "d9d1bf83ab50d5cf67a39326956d7391b6198c437a77dfdfe3a9390f112e4334"
+      "sizeBytes": 16075,
+      "sha256": "42b7388d8447e147581a4f9391bf66b96010f5e1ec86611fc1a8390739425863"
     },
     {
       "path": "src/alphalib/types/assemblyReplay.ts",
-      "sizeBytes": 716,
-      "sha256": "dadae8a1525f6d8313d65d52810fdd40ac14f1d2c52aa3fbd9e227ea13482aa8"
+      "sizeBytes": 1949,
+      "sha256": "dccb4f4ab1c5faafcf501079163948d8eaf01d9587c60afcffca3c197a214539"
     },
     {
       "path": "dist/alphalib/types/assemblyReplayNotification.d.ts",
@@ -2653,13 +2668,13 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts",
-      "sizeBytes": 5041858,
-      "sha256": "dbb024350b0d8b5e5b3e4c94bf2c15b573f39fcd2dccbd2e117017723424ec76"
+      "sizeBytes": 5049124,
+      "sha256": "34c3e85bb257b9331f56008559c756e55e86df3773a4e404e3e2edda90b308f3"
     },
     {
       "path": "src/alphalib/types/assemblyStatus.ts",
-      "sizeBytes": 39850,
-      "sha256": "ab60471de16e84b142ee4849e7edd8aeb169a201dd7c945c380d10a310d06eb6"
+      "sizeBytes": 40735,
+      "sha256": "b49384b5c109a5b0eb782448803d54a2374aed920b44928baa15967563d1d837"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.d.ts",
@@ -2678,18 +2693,18 @@
     },
     {
       "path": "src/alphalib/types/robots/audio-artwork.ts",
-      "sizeBytes": 4042,
-      "sha256": "677bfdc3cadf295e7f4f6b01602f602f1e442415a4ea63d54d2b853f1e32dc10"
+      "sizeBytes": 4079,
+      "sha256": "a8866e72c9a14809d6f635720cedded07feb8df6df92b952b0563a405af15c30"
     },
     {
       "path": "dist/alphalib/types/robots/audio-concat.d.ts",
-      "sizeBytes": 171798,
-      "sha256": "5cf5b7e37dd3d8403ef64ce7b6faf7303708df0dfe8ead0a3cc27227da28ac41"
+      "sizeBytes": 172496,
+      "sha256": "74e847ed0dd51946c50b4d63902681dafd986ee1ed23becc6b666e7b209db3a2"
     },
     {
       "path": "src/alphalib/types/robots/audio-concat.ts",
-      "sizeBytes": 5475,
-      "sha256": "c11ad4f723583c2283564d413ecd3065fecb813e3a1924620953606d866a02c7"
+      "sizeBytes": 5565,
+      "sha256": "175db16383f3f458ff1218e1250ff9b5c7afd884982457937a7a8843df98d2c4"
     },
     {
       "path": "dist/alphalib/types/robots/audio-encode.d.ts",
@@ -2698,8 +2713,8 @@
     },
     {
       "path": "src/alphalib/types/robots/audio-encode.ts",
-      "sizeBytes": 3415,
-      "sha256": "7aa26fbc89804f066647550542874566e2c75e503d5006cf369e87c6205662b0"
+      "sizeBytes": 3452,
+      "sha256": "d6f1a672874f259eeb477da4885b94e5c6419383760a041bfdc0f2fd9d035bac"
     },
     {
       "path": "dist/alphalib/types/robots/audio-loop.d.ts",
@@ -2708,8 +2723,8 @@
     },
     {
       "path": "src/alphalib/types/robots/audio-loop.ts",
-      "sizeBytes": 3640,
-      "sha256": "949153fd900edd20d049a0138aae6d7fac8df669fbf16057c6de12321201077a"
+      "sizeBytes": 3677,
+      "sha256": "f3009d22d7fe236a21118def0753421107258a2a2da623e8caa9130b95768be1"
     },
     {
       "path": "dist/alphalib/types/robots/audio-merge.d.ts",
@@ -2718,8 +2733,8 @@
     },
     {
       "path": "src/alphalib/types/robots/audio-merge.ts",
-      "sizeBytes": 4887,
-      "sha256": "0adffd08230d40d4ce3f55f2a1451b1316cfd05099b424b2d7dd0e98a00f2d6d"
+      "sizeBytes": 4924,
+      "sha256": "00e0a27d2f51ee458ce29e429281e17730b910ca49ca2fcedcb7ed2b6e359db8"
     },
     {
       "path": "dist/alphalib/types/robots/audio-split.d.ts",
@@ -2728,8 +2743,8 @@
     },
     {
       "path": "src/alphalib/types/robots/audio-split.ts",
-      "sizeBytes": 4505,
-      "sha256": "cfa0496484eb181643c6bbb245576a46b578c08facca0da727f1482f54beea4f"
+      "sizeBytes": 4542,
+      "sha256": "81f5c90815cebb56ed2a6ff971d06e9de27504238c16eb8967dc107dbdbed918"
     },
     {
       "path": "dist/alphalib/types/robots/audio-waveform.d.ts",
@@ -2738,8 +2753,8 @@
     },
     {
       "path": "src/alphalib/types/robots/audio-waveform.ts",
-      "sizeBytes": 11807,
-      "sha256": "1e14b3031e4a3226b4ef583e256e26ad98e81df8f579da4f3414ba1443b86345"
+      "sizeBytes": 11844,
+      "sha256": "1def935b71855f0d2427f351a85aa61051c26845794646516669b3b04fde9d58"
     },
     {
       "path": "dist/cli/commands/auth.d.ts",
@@ -2753,8 +2768,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/azure-import.d.ts",
-      "sizeBytes": 12868,
-      "sha256": "1ad1591818b1d59733d0a67cbbb7d3c244e9b1034773b3672d44be65f5425d0b"
+      "sizeBytes": 13628,
+      "sha256": "51f3ad44a3806b3a309614e788a40fff9f247fa27a0d4f95cc2d45efbed44d4d"
     },
     {
       "path": "src/alphalib/types/robots/azure-import.ts",
@@ -2773,8 +2788,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/backblaze-import.d.ts",
-      "sizeBytes": 13032,
-      "sha256": "894fe73e43515d4b7ebd8b6520d789eeccd4df1fad98f6ac9a18ce4be1a01331"
+      "sizeBytes": 13792,
+      "sha256": "e7e2377fa467f881c9843bbae1ebc7c12ccd16f634cfcdac54f03e18e41494a5"
     },
     {
       "path": "src/alphalib/types/robots/backblaze-import.ts",
@@ -2833,8 +2848,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/box-import.d.ts",
-      "sizeBytes": 10516,
-      "sha256": "0ade497881020acd62b702de223d97d16c45cc28ad638338d85edcee9e971a2d"
+      "sizeBytes": 11276,
+      "sha256": "6e8398c460f56d7ae47703ec327e56f6b07fe3d881a87c943e1cf62d21d31dbf"
     },
     {
       "path": "src/alphalib/types/robots/box-import.ts",
@@ -2873,8 +2888,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/cloudfiles-import.d.ts",
-      "sizeBytes": 14121,
-      "sha256": "add2a1ea662fa969204a52d84695d7e19dcd9114d173342fe67c221c21e77047"
+      "sizeBytes": 14881,
+      "sha256": "1e9ecd30cf8161d9b7e3330658db0e06acaefbfd7c2fbd93d70aa648b49af491"
     },
     {
       "path": "src/alphalib/types/robots/cloudfiles-import.ts",
@@ -2893,8 +2908,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/cloudflare-import.d.ts",
-      "sizeBytes": 14009,
-      "sha256": "006373d68c337ee13ba1be1fed8395efd498f8f7ba3f24490d8cedb1675977ef"
+      "sizeBytes": 14769,
+      "sha256": "ec80d08fafd7906075f5ac058e5442124ac5269ef624c11c071b227b79d30fb4"
     },
     {
       "path": "src/alphalib/types/robots/cloudflare-import.ts",
@@ -2913,8 +2928,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/digitalocean-import.d.ts",
-      "sizeBytes": 14079,
-      "sha256": "3d0d8d809a3b273e58ae18e13d094d0ba4aae988b1f4cb5911f5568b54d47850"
+      "sizeBytes": 14839,
+      "sha256": "bc6e1303d56e5d1d15387a60e15506db7ced63bb275a974f231b947728556c83"
     },
     {
       "path": "src/alphalib/types/robots/digitalocean-import.ts",
@@ -2973,23 +2988,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/document-merge.d.ts",
-      "sizeBytes": 19874,
-      "sha256": "82dcadd790cb23f0bea8d4c7d795b19a82fb1cf6730549344c161d1d570ac902"
+      "sizeBytes": 20572,
+      "sha256": "388e755940bde459f243fd55b51becf7d3d43138aaf8477822ff387265dac87a"
     },
     {
       "path": "src/alphalib/types/robots/document-merge.ts",
-      "sizeBytes": 3801,
-      "sha256": "dfab259cf783a2faf2fa2d3a7732dc1ff67f600e5dddcac2be8b49387e0bcbc2"
+      "sizeBytes": 3861,
+      "sha256": "5f94f295f124737c4ac1c3c2a653b6fd9b71cf6349c38767d95e451f28c613c0"
     },
     {
       "path": "dist/alphalib/types/robots/document-ocr.d.ts",
-      "sizeBytes": 20508,
-      "sha256": "0abbf22c55f5851d78895dde131cc5e612703931adeede287ec495d7cb11e52b"
+      "sizeBytes": 20392,
+      "sha256": "8bbcf31edcb427cb650597d3a0b43a4c87dad1677ba8e7ec1179617efa381607"
     },
     {
       "path": "src/alphalib/types/robots/document-ocr.ts",
-      "sizeBytes": 5272,
-      "sha256": "ea1c8bce047d49ecd374711af2607552a6e051e4246a68edf3839ee27f7167d9"
+      "sizeBytes": 5025,
+      "sha256": "2d93ed0822930877b2a97f5b5c0e4c21129935c6e578a44111bb26759ea6e75c"
     },
     {
       "path": "dist/alphalib/types/robots/document-optimize.d.ts",
@@ -3023,8 +3038,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/dropbox-import.d.ts",
-      "sizeBytes": 11110,
-      "sha256": "701bca2fd6d2d64c0e068faa5e60c8190be98b2409c5c6763ba60d854b8e0da0"
+      "sizeBytes": 11870,
+      "sha256": "5807bed230a053fdb1f8873500c8968222f4860dcb39d9d447186632661dc208"
     },
     {
       "path": "src/alphalib/types/robots/dropbox-import.ts",
@@ -3113,13 +3128,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/file-preview.d.ts",
-      "sizeBytes": 39668,
-      "sha256": "bf45a2f82626064d2707efffd17fe45800bcdfde4ea770f5e3d3554524da421c"
+      "sizeBytes": 39872,
+      "sha256": "b2af53604a9709ad41096cab75848dfcc33bbfc553fc4a945b74c03eb9118875"
     },
     {
       "path": "src/alphalib/types/robots/file-preview.ts",
-      "sizeBytes": 14065,
-      "sha256": "a1ecda4c1bf1495a8f5b341f144183be30d9df690b654ea4cc31b3f4f4e5900b"
+      "sizeBytes": 14123,
+      "sha256": "de757ce2b0ecacc6410a73ba5d3f68c0a3095667a24fb3a426b8edfffd762c77"
     },
     {
       "path": "dist/alphalib/types/robots/file-read.d.ts",
@@ -3138,18 +3153,18 @@
     },
     {
       "path": "src/alphalib/types/robots/file-serve.ts",
-      "sizeBytes": 8639,
-      "sha256": "be67d4163d2f33172312cadb310e8ef5c0bd0b76ceb5c6c6c7c40a7c8a957672"
+      "sizeBytes": 8679,
+      "sha256": "7bbbaa83139589252cc0912efbf30982133d28af53d8737d8c463f84279e053b"
     },
     {
       "path": "dist/alphalib/types/robots/file-verify.d.ts",
-      "sizeBytes": 20027,
-      "sha256": "4c654649122b75584606492ba65fbbdc681b97e8405cbf0697282d4b4d90636d"
+      "sizeBytes": 20545,
+      "sha256": "bcecbb8e78514d773ee7eb6ec054a731bba0cb57c2cc379d44471699f0e1af26"
     },
     {
       "path": "src/alphalib/types/robots/file-verify.ts",
-      "sizeBytes": 4140,
-      "sha256": "fc124b4b82097f6c24089084a06f5a66bf1aff951c7a7a2a0a5298de8cfdb5b6"
+      "sizeBytes": 4346,
+      "sha256": "d2529de16009a53705f8abc75da63c1e7b068c9d29e748e1a3960dc1b35b750a"
     },
     {
       "path": "dist/alphalib/types/robots/file-virusscan.d.ts",
@@ -3193,8 +3208,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/ftp-import.d.ts",
-      "sizeBytes": 12214,
-      "sha256": "e7ebd9815e114f11e556d27d67905c2db53235a4b2c7b443d03ebb09118202c8"
+      "sizeBytes": 12974,
+      "sha256": "f1f555db98a0ed0fc654b5150043df84f898cd748818d078369fea2f2a445bd6"
     },
     {
       "path": "src/alphalib/types/robots/ftp-import.ts",
@@ -3223,8 +3238,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/google-import.d.ts",
-      "sizeBytes": 11613,
-      "sha256": "dc8803ae1ebcc8a6dce6d23d3e7b99c581901acc3d3f91fc143b5273b896ad54"
+      "sizeBytes": 12373,
+      "sha256": "7ec6623e3d4d7bd6e8cb4a23db8b112d564fceb6e47518ce1d1993cfe3646a83"
     },
     {
       "path": "src/alphalib/types/robots/google-import.ts",
@@ -3263,23 +3278,23 @@
     },
     {
       "path": "dist/alphalib/types/robots/http-import.d.ts",
-      "sizeBytes": 21912,
-      "sha256": "4dfbd1dd71243fd08f717aff064109373deccb21817e662f98bf5e824228e785"
+      "sizeBytes": 21998,
+      "sha256": "d1b524256b5065817380c2107a342ad194516cbd05f68bc895de1ea6bbd111c1"
     },
     {
       "path": "src/alphalib/types/robots/http-import.ts",
-      "sizeBytes": 7104,
-      "sha256": "7d00ca14eb136fda1539aabeb66f2b77664223cb4ea91d55a6a767e1ada14950"
+      "sizeBytes": 6802,
+      "sha256": "0504955a036390b9640f25b800620e09720adf7edea5ff508411a2c617c8cf33"
     },
     {
       "path": "dist/alphalib/types/robots/image-bgremove.d.ts",
-      "sizeBytes": 21098,
-      "sha256": "e5fd08daeb0630ca56b3b480e0249f2c5a5a82edf180ad13966641de3d3376b4"
+      "sizeBytes": 21110,
+      "sha256": "a172bbf721b15f1a0822badbf0be5c20b8218ff58af7db0ef3ba238170d6b3e6"
     },
     {
       "path": "src/alphalib/types/robots/image-bgremove.ts",
-      "sizeBytes": 3304,
-      "sha256": "898175642685c574f0b10587a65832a8181ebb10b20ababff50492be74aae171"
+      "sizeBytes": 3441,
+      "sha256": "91d7375355235f881a7d7153557eadf96d666e41ba3bda23ce837e8c7d6b2e31"
     },
     {
       "path": "dist/alphalib/types/robots/image-copyrightdetect.d.ts",
@@ -3293,13 +3308,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-describe.d.ts",
-      "sizeBytes": 21380,
-      "sha256": "fbf78b0ce670f599c64a37f176506749f6949b045780cf40190ef00809abd18d"
+      "sizeBytes": 21100,
+      "sha256": "e95240dad9cd6ee78488e8dbde9c84e8552a12a724fd73021465d93c143b304c"
     },
     {
       "path": "src/alphalib/types/robots/image-describe.ts",
-      "sizeBytes": 5290,
-      "sha256": "ffba005f86b88749016d3dadc63aadfe261067dd14476bdbc0b33ba64ffba31f"
+      "sizeBytes": 5074,
+      "sha256": "178f1241635b525619233d99efbd26bff9b0e00ab3df1e1f3feef68ae637ec24"
     },
     {
       "path": "dist/alphalib/types/robots/image-enhance.d.ts",
@@ -3313,43 +3328,43 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-facedetect.d.ts",
-      "sizeBytes": 23924,
-      "sha256": "96f89dc221271e549614751fdb91ac7b1b5efb03f08310cfb8cc4d85fc48645e"
+      "sizeBytes": 23644,
+      "sha256": "aa3d293dd326c6f2ca23a776893fbee1fa35f27c7a36617f807a97c76cb52b8c"
     },
     {
       "path": "src/alphalib/types/robots/image-facedetect.ts",
-      "sizeBytes": 7689,
-      "sha256": "24a471ebc21925cf38f5378ebf4158edd492223dc71b60d54c26c627a638566f"
+      "sizeBytes": 7473,
+      "sha256": "6b543b088e1ec710f7e73b414161895f26d4d1c26bbbf0e94e2524b265ea31ea"
     },
     {
       "path": "dist/alphalib/types/robots/image-generate.d.ts",
-      "sizeBytes": 23593,
-      "sha256": "881f0cb53837160b78cbb900123aa11e469da01587c4f0e57f2f27bf3a1e5880"
+      "sizeBytes": 23551,
+      "sha256": "c70184253436e8a21fd0bbffa9e6c9715d8a04074d2074d91210cdcbb095716b"
     },
     {
       "path": "src/alphalib/types/robots/image-generate.ts",
-      "sizeBytes": 6085,
-      "sha256": "6f336dd6b6f2e38bd856b89815229ebca810f49f154908f6fefdb846e6fc831c"
+      "sizeBytes": 6111,
+      "sha256": "0f1aa87d8644bf76f856cbc088f4d65fd0891cb4f064f05a0a22adf3c0600925"
     },
     {
       "path": "dist/alphalib/types/robots/image-merge.d.ts",
-      "sizeBytes": 25631,
-      "sha256": "00fed65865eb9052e09e227c99140adb81fac2375bbdc0a6ed06e9c30b4a0264"
+      "sizeBytes": 28549,
+      "sha256": "d22f535d7cca1acb57e7e3807a71018cdb9999c9e20057c4e50b9027188c569c"
     },
     {
       "path": "src/alphalib/types/robots/image-merge.ts",
-      "sizeBytes": 6896,
-      "sha256": "7d2430d9a94b1abe8a3dbde7da849276c3ce278d01fc68c973b3c7af7788006b"
+      "sizeBytes": 8119,
+      "sha256": "1fa8296077842e4023d161b9cc1d004cbf37c1d2e7db3c7ee3b7f6ccc193f103"
     },
     {
       "path": "dist/alphalib/types/robots/image-ocr.d.ts",
-      "sizeBytes": 20421,
-      "sha256": "ab3182229477d7633610fec6409a24fab1858cc107e5ac1d39f8735976bdecf1"
+      "sizeBytes": 20305,
+      "sha256": "3758e9c0114a71023ea79bec39bb19c6e4b09b186e41a511bf15d5a8aa8096e4"
     },
     {
       "path": "src/alphalib/types/robots/image-ocr.ts",
-      "sizeBytes": 4979,
-      "sha256": "015fbd7775af6b26be62195a65e96904b8e4bad593609c71ff300ade414ac56b"
+      "sizeBytes": 4774,
+      "sha256": "229b65cf40be4dfee3d0433da308b40b6c352e6fc425b16efdc15107a1be19e2"
     },
     {
       "path": "dist/alphalib/types/robots/image-optimize.d.ts",
@@ -3363,33 +3378,33 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-resize.d.ts",
-      "sizeBytes": 92869,
-      "sha256": "89735961a6b3e3711a4913a2b761ad9a1d944296d4dc1da034258b1b7f080b35"
+      "sizeBytes": 93357,
+      "sha256": "b4becdd5ca55406e581728a51822780e54cae284bff44f0efa37ddd4ede4c048"
     },
     {
       "path": "src/alphalib/types/robots/image-resize.ts",
-      "sizeBytes": 29587,
-      "sha256": "713cb68accd5a21069c594ca6a052756f658cf8989a2974c3830db32ec312008"
+      "sizeBytes": 30142,
+      "sha256": "43f37024e85a77f5691ab8b4e7a868739500ea71351a8aa508e6eeaf3fd3cea1"
     },
     {
       "path": "dist/alphalib/types/robots/image-upscale.d.ts",
-      "sizeBytes": 21181,
-      "sha256": "6178c13a8ab1d9f47076e706e12dcf10cc56904c31cf67cabe46b2f51c914c43"
+      "sizeBytes": 21153,
+      "sha256": "e26275abb897969c0f5af9421ffc93251920100a2761484b9a0f7a63f8ca41a6"
     },
     {
       "path": "src/alphalib/types/robots/image-upscale.ts",
-      "sizeBytes": 3146,
-      "sha256": "7099c3f8f4a04725f993f605039be2d1eb23561e62e47c246a9a8b6829dfbc27"
+      "sizeBytes": 3173,
+      "sha256": "6bf9409d2b5e0e3752c549354ae5cefec5c135d4b4477bcfbf6800e234b53c08"
     },
     {
       "path": "dist/cli/semanticIntents/imageDescribe.d.ts",
-      "sizeBytes": 2060,
-      "sha256": "8abb2908de1032ac74568245ff4d2727020a7968cf44daa3bb6d26721f427913"
+      "sizeBytes": 2051,
+      "sha256": "2318d3e85f71cd413c7bc520ad7011591758358a1f167f575c6c2716d58de811"
     },
     {
       "path": "src/cli/semanticIntents/imageDescribe.ts",
-      "sizeBytes": 8167,
-      "sha256": "8582c06ad289d1f17bf5d3aed4ad4639216ac416259f9d519a97732782927dc1"
+      "sizeBytes": 8141,
+      "sha256": "530c6b952b7ef25bcbee76231aa2e9689dfad52d5deb4ef0bbfa72a27f5b0b5c"
     },
     {
       "path": "dist/cli/semanticIntents/imageGenerate.d.ts",
@@ -3400,6 +3415,16 @@
       "path": "src/cli/semanticIntents/imageGenerate.ts",
       "sizeBytes": 7603,
       "sha256": "70b0099e7b31236b97a4fe7b592f86dd3e377653b2bc104ae015296edc456b45"
+    },
+    {
+      "path": "dist/alphalib/imagemagickDensity.d.ts",
+      "sizeBytes": 231,
+      "sha256": "b87c3c8590386c240e2170ec08c944238166caa05d1972dd0d6ff1ff37e82492"
+    },
+    {
+      "path": "src/alphalib/imagemagickDensity.ts",
+      "sizeBytes": 502,
+      "sha256": "982c67331c0194b2a15c1c3de35f98735e4f12a6de2e22e0a63665d72ee599ac"
     },
     {
       "path": "dist/InconsistentResponseError.d.ts",
@@ -3423,8 +3448,8 @@
     },
     {
       "path": "src/cli/commands/index.ts",
-      "sizeBytes": 2195,
-      "sha256": "3a4b178bd5147f2621f7daa679081550ca410dc1c3e003d7bb9c55e525d05a7a"
+      "sizeBytes": 2372,
+      "sha256": "3b57c1d5d387917e141dc91cf1d28b83792851f963ef78aec3190ec5b0b35ef9"
     },
     {
       "path": "src/cli/semanticIntents/index.ts",
@@ -3538,8 +3563,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/mega-import.d.ts",
-      "sizeBytes": 14361,
-      "sha256": "bc7677dc2fd481d4b1a09cca291a48a72501733f4040cb2ea0b447ab2486d7db"
+      "sizeBytes": 15121,
+      "sha256": "6aa6ec4a1c7573710a3edf217ed07fd980317bcce4ec6849454a117a105e5ebe"
     },
     {
       "path": "src/alphalib/types/robots/mega-import.ts",
@@ -3578,8 +3603,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/minio-import.d.ts",
-      "sizeBytes": 13864,
-      "sha256": "41b25c797b7e69d04541d5a86f871049bb31d7a66e76580b16a8249ac7775b39"
+      "sizeBytes": 14624,
+      "sha256": "bda71c620d619c14f6f180c8ffbd8f97f0b3261737edffbb47122e4b612bb89a"
     },
     {
       "path": "src/alphalib/types/robots/minio-import.ts",
@@ -3708,8 +3733,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/s3-import.d.ts",
-      "sizeBytes": 14877,
-      "sha256": "1171c233aecf72814ff0411f0243f7ce78900ea537a6d48ca4054971a5914cd4"
+      "sizeBytes": 15637,
+      "sha256": "a6ff487be62aaf78c496691f8bd63396a02f322e3e55cdb93ce2d1c0d4cda438"
     },
     {
       "path": "src/alphalib/types/robots/s3-import.ts",
@@ -3738,13 +3763,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/sftp-import.d.ts",
-      "sizeBytes": 11617,
-      "sha256": "a99fafcabd576a08a29f89d1cefe5e7d0c868ac0fd5a862138173dd5535a3881"
+      "sizeBytes": 12883,
+      "sha256": "92258aff1df9f526b768553903243cc387847d572adbe34e4ce1978645925496"
     },
     {
       "path": "src/alphalib/types/robots/sftp-import.ts",
-      "sizeBytes": 3031,
-      "sha256": "b7bad04159e9adeb166a959afabc65b3862f8952d9f213233796cfcb5bed6f1b"
+      "sizeBytes": 3342,
+      "sha256": "461e9c08b515c0c080ab05a6d79d6dffefcbb207160a631fe0ec6c63c10f3a5c"
     },
     {
       "path": "dist/alphalib/types/robots/sftp-store.d.ts",
@@ -3768,13 +3793,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/speech-transcribe.d.ts",
-      "sizeBytes": 23216,
-      "sha256": "4bb7986e66f7aa5d50ce61a6945dedf3351cdd8e95d8aa5570cb3c58454f9d30"
+      "sizeBytes": 23228,
+      "sha256": "77aeba4b42518f50a934aaac7ee523891ef18ae20a579e367bac518eee53ff1d"
     },
     {
       "path": "src/alphalib/types/robots/speech-transcribe.ts",
-      "sizeBytes": 8666,
-      "sha256": "2fc58905993adf43c6e4539e187d33021464765e9bceb522d5cc3bd2178d12d2"
+      "sizeBytes": 8320,
+      "sha256": "bd1927b40fe2764db54c991f7c6775ba6583b3ec874c5b3bd5f292f09d53ade9"
     },
     {
       "path": "dist/cli/semanticIntents/speechTranscribe.d.ts",
@@ -3818,8 +3843,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/supabase-import.d.ts",
-      "sizeBytes": 14459,
-      "sha256": "ff4a8ebb883463f0f5f8559222c09291e68558587a15380e65d5af0f88263816"
+      "sizeBytes": 15219,
+      "sha256": "1254469ee68f21753c671fddfa5342e2f4ab556b8657457fea8ca414f6831305"
     },
     {
       "path": "src/alphalib/types/robots/supabase-import.ts",
@@ -3838,8 +3863,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/swift-import.d.ts",
-      "sizeBytes": 14372,
-      "sha256": "6c84558c02f5e2e9f9418e7710666a1d48b53a7a1a24a42dc600191deb3f7851"
+      "sizeBytes": 15132,
+      "sha256": "8f4477ac0caf70b138d086784c2d8c46dd48b9bba5daa7f81d111687a1d824ba"
     },
     {
       "path": "src/alphalib/types/robots/swift-import.ts",
@@ -3908,28 +3933,28 @@
     },
     {
       "path": "dist/alphalib/types/robots/text-speak.d.ts",
-      "sizeBytes": 21778,
-      "sha256": "08f50fcf280d432d959daf6b31cfb91f33f478ed543d387207732ce8358c1a0c"
+      "sizeBytes": 21662,
+      "sha256": "2b0d6b1a71fc5d3d8e4a97522192d38d7e80a32bffaa1da163bd0095276704eb"
     },
     {
       "path": "src/alphalib/types/robots/text-speak.ts",
-      "sizeBytes": 5412,
-      "sha256": "6a3573c9278017a0ef02391f07b71025a2e644be54eeee906a8f0c2580beada5"
+      "sizeBytes": 5207,
+      "sha256": "7c25933d34b3f992916c93be880634bf7aa01a70cac6455cfa3870070739af52"
     },
     {
       "path": "dist/alphalib/types/robots/text-translate.d.ts",
-      "sizeBytes": 32678,
-      "sha256": "92d5ccda6a272388eb0f45dbc168fb9d10432080f8dc8f47454adbe14ccae73d"
+      "sizeBytes": 32562,
+      "sha256": "3544bdc08e963d9638e52620e45720a33a79d4700fa148b7c88149b8a5f32998"
     },
     {
       "path": "src/alphalib/types/robots/text-translate.ts",
-      "sizeBytes": 6133,
-      "sha256": "9d9a860a260dcbeada0b4c2e45e5c03ae8931c6009fe03df9f033c098faa4260"
+      "sizeBytes": 5840,
+      "sha256": "5486ac1b45ac65fa578a150e1ba859266344a58997c4e2837d0390379122e353"
     },
     {
       "path": "dist/alphalib/types/robots/tigris-import.d.ts",
-      "sizeBytes": 14389,
-      "sha256": "e40b2588938cfff886b41859e7c7f8a38a8d29751da01fafcc2660ee14df573b"
+      "sizeBytes": 15149,
+      "sha256": "f012ed557e5932c8922c8f7c3e6cf7678515e00f5355c53133e15d65f2fd5d14"
     },
     {
       "path": "src/alphalib/types/robots/tigris-import.ts",
@@ -3953,18 +3978,18 @@
     },
     {
       "path": "src/alphalib/types/robots/tlcdn-deliver.ts",
-      "sizeBytes": 3330,
-      "sha256": "460d5bf58bede75484f908885be52e3930a6ce8498de35950fd1ebcb4b9674b1"
+      "sizeBytes": 3370,
+      "sha256": "b71e1bb5d58b824fcdefcaf82caec059de918123d32e8eaeaf0e7dc81603d04e"
     },
     {
       "path": "dist/Transloadit.d.ts",
-      "sizeBytes": 12397,
-      "sha256": "ba03de9b07badadce9a3c66ea5cbe42921fe3a45ea590b2c00e3f4c195f9282b"
+      "sizeBytes": 13439,
+      "sha256": "1dca2d439a1c513e0faaa62e879b9fbb14d695a1843c4aa251da0c7be854760c"
     },
     {
       "path": "src/Transloadit.ts",
-      "sizeBytes": 42672,
-      "sha256": "56202dc1fbdcc88442df5baab21a1b95683f98bb0681499879fa49b12ad03528"
+      "sizeBytes": 45929,
+      "sha256": "0630d14793988b6f1f117e2c5e4e0e2a8c8494af364afe84d74e41967794a907"
     },
     {
       "path": "dist/alphalib/tryCatch.d.ts",
@@ -3993,8 +4018,8 @@
     },
     {
       "path": "src/tus.ts",
-      "sizeBytes": 7558,
-      "sha256": "1ea6d14ba05dfe444f27cf8b3451d9032664eebc991b3adbafcedefdc2ca6129"
+      "sizeBytes": 7867,
+      "sha256": "bb2a987e9dcb208c6c6f08008e98c1ca7ae86b68f46cff5a16ca4d256b985bfc"
     },
     {
       "path": "dist/cli/types.d.ts",
@@ -4033,8 +4058,8 @@
     },
     {
       "path": "src/alphalib/types/robots/video-adaptive.ts",
-      "sizeBytes": 7776,
-      "sha256": "421ed59567ca96aaf3b4e238b7fcaf7d23f8578bd5e152bfe253b5f8d8d4db46"
+      "sizeBytes": 7813,
+      "sha256": "c666e3d09de45705c1759db4b97084928d0ee8fac7658969769a125aa126f28c"
     },
     {
       "path": "dist/alphalib/types/robots/video-artwork.d.ts",
@@ -4043,58 +4068,58 @@
     },
     {
       "path": "src/alphalib/types/robots/video-artwork.ts",
-      "sizeBytes": 3830,
-      "sha256": "a66e0a98a4db405e1feecac195d764b738bf3b53e767e96704da1e548de4b737"
+      "sizeBytes": 3867,
+      "sha256": "08a90ec11f2aab01cdfe0aec8aec833d9dfcb25e5753a18d52e3ac1f941982a3"
     },
     {
       "path": "dist/alphalib/types/robots/video-concat.d.ts",
-      "sizeBytes": 216024,
-      "sha256": "c3a50bdbc124b4a22980eb120330b966d91156737f112704e968e696800970ba"
+      "sizeBytes": 216722,
+      "sha256": "8f810ae7f942b3b387fe43cae0558cedc5a03c98587d6d3174cf91251a7a543a"
     },
     {
       "path": "src/alphalib/types/robots/video-concat.ts",
-      "sizeBytes": 7096,
-      "sha256": "03a9633a019f9b53a10975e1eaff8a1e32395b30cc666745aa4e6853183b6934"
+      "sizeBytes": 7186,
+      "sha256": "75130d40f274718764bac35813e49baa0b2c1306fc52b33725d0488bea16f66b"
     },
     {
       "path": "dist/alphalib/types/robots/video-encode.d.ts",
-      "sizeBytes": 235921,
-      "sha256": "c45dbbbbeb9e2276e0b4c5d7e74aaf236ac80e70afe1f185859e2dd9a9126c5a"
+      "sizeBytes": 236129,
+      "sha256": "196b966ac2cd7677c867eff2b9795aec3c6bff1fcf555f2562c1bca217a349d9"
     },
     {
       "path": "src/alphalib/types/robots/video-encode.ts",
-      "sizeBytes": 5229,
-      "sha256": "2336d0c5c1b9a76e1542360bdabb50b000c197dc74e459024ba3b5dd46ae047f"
+      "sizeBytes": 5266,
+      "sha256": "bcead19cf5609eab16ee774c9efe7331ca084b8243cc6a9b94c52414515f6403"
     },
     {
       "path": "dist/alphalib/types/robots/video-generate.d.ts",
-      "sizeBytes": 26655,
-      "sha256": "e364da0334be898cc5a993afb3b1a33e695854a5eee1ba6919ca12b7a3a58677"
+      "sizeBytes": 26613,
+      "sha256": "c1fe296c6094c38606096d69ee8630432b15bfa19070267fb0095947dd31d8b5"
     },
     {
       "path": "src/alphalib/types/robots/video-generate.ts",
-      "sizeBytes": 4513,
-      "sha256": "f8bad19756abadafada97ccb8e56ff7a950cbe2e9748e1d6d3dc59d4cc592748"
+      "sizeBytes": 4576,
+      "sha256": "ee9312b6617721efdbcf72a72225ebd4d8946980add1b9c1140b1faed5ad7a72"
     },
     {
       "path": "dist/alphalib/types/robots/video-merge.d.ts",
-      "sizeBytes": 220206,
-      "sha256": "6f84a5b534503c102091868e62ea1da34b4fef4a23af65fb91fc0048c1d3031e"
+      "sizeBytes": 220904,
+      "sha256": "be365bcd36fa9fe42dc5f54e01cc1b689bbfe2b05d4056308d4a50599c7b493f"
     },
     {
       "path": "src/alphalib/types/robots/video-merge.ts",
-      "sizeBytes": 7749,
-      "sha256": "e603fac52336daabcf8c3176b3ef662a1a19909dd527ccf50651899e345678af"
+      "sizeBytes": 7825,
+      "sha256": "deeeb005c7810a8b0856229fbf98a99e1b6705508bd2c512c95e8ecb477e46b1"
     },
     {
       "path": "dist/alphalib/types/robots/video-ondemand.d.ts",
-      "sizeBytes": 330108,
-      "sha256": "2d42966a0f6131cf5e43b5f2fd31f4ecc1c646e63a82007082e339b8dd50f405"
+      "sizeBytes": 330316,
+      "sha256": "41a9cf11a63f824515a374874fd8bb8ca40b4ea7a58d7c48818e5f9d15f6ee30"
     },
     {
       "path": "src/alphalib/types/robots/video-ondemand.ts",
-      "sizeBytes": 5684,
-      "sha256": "fc56567bc4d59b94f5ecef854a28162cab893b7be3a183ce0daa2ac95927933e"
+      "sizeBytes": 5721,
+      "sha256": "947b2c54861616efcf9c707a3a23b207c6a209dece8ef1d504b13f5ba9788363"
     },
     {
       "path": "dist/alphalib/types/robots/video-split.d.ts",
@@ -4103,8 +4128,8 @@
     },
     {
       "path": "src/alphalib/types/robots/video-split.ts",
-      "sizeBytes": 3916,
-      "sha256": "3d68b41eccad5ba8a46acc029dea2f285796cbdb208ba0538e0b005d1d9ba619"
+      "sizeBytes": 3953,
+      "sha256": "5c70294c2a71aa1b3cd237eb80e11b393970ebdddd4cb697e7ad797f510cfe70"
     },
     {
       "path": "dist/alphalib/types/robots/video-subtitle.d.ts",
@@ -4113,23 +4138,23 @@
     },
     {
       "path": "src/alphalib/types/robots/video-subtitle.ts",
-      "sizeBytes": 7518,
-      "sha256": "753511b9f070830bc6d2548dc8c9890b246b88aa558a187af2525e56d10cb36f"
+      "sizeBytes": 7555,
+      "sha256": "b1bc0dc07cbdc87c6f590579d4feadeefaa63c6ad6f44bfd82e2022e3cd74ef3"
     },
     {
       "path": "dist/alphalib/types/robots/video-thumbs.d.ts",
-      "sizeBytes": 161668,
-      "sha256": "d31fad89f88679f82f14569756698ab3db32f66ff275bee4aa3f6897578d89e6"
+      "sizeBytes": 162752,
+      "sha256": "096acda1918a3617c54612c0e2dd2fc5b39022bb253a98ef260363137660035b"
     },
     {
       "path": "src/alphalib/types/robots/video-thumbs.ts",
-      "sizeBytes": 6111,
-      "sha256": "60c2b8a2f90db8077d005f03e30361f8fb49f2f6fffa64e55d44a69647b11fa2"
+      "sizeBytes": 7234,
+      "sha256": "b149ef735b868df3200d5eb247da7a39dfcfa8d940f3ab420cafd58653a00ba3"
     },
     {
       "path": "dist/alphalib/types/robots/vimeo-import.d.ts",
-      "sizeBytes": 12460,
-      "sha256": "2bab6b80611a8bf7b795e2cab963d137b5a2a1a3fa4b6f60f0a2ba925bbcc6d4"
+      "sizeBytes": 13220,
+      "sha256": "c1dbef42f5db35cbf9a4d272e611de9d8ef1f96b8b2cbafa46bc7aafd53fff57"
     },
     {
       "path": "src/alphalib/types/robots/vimeo-import.ts",
@@ -4148,8 +4173,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/wasabi-import.d.ts",
-      "sizeBytes": 14419,
-      "sha256": "3bf41c83d59fce6625a2ac4dcfc361f073f536f1b378cec5a160ba5fc24d5859"
+      "sizeBytes": 15179,
+      "sha256": "5e34189eb6349fb9b4832febeb1d3b5d0b48e5cd19acfcd7d21e1e477b14e0fe"
     },
     {
       "path": "src/alphalib/types/robots/wasabi-import.ts",

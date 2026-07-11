@@ -2,7 +2,12 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  autoProviderDescription,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   bytescount: 1,
@@ -37,6 +42,7 @@ export const meta: RobotMetaInput = {
   minimumChargeUsd: 0.06,
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
+  applyCommunityPlanMediaTrim: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'ga',
@@ -89,7 +95,7 @@ export const robotVideoGenerateInstructionsSchema = robotBase
 
 export const robotVideoGenerateInstructionsWithHiddenFieldsSchema =
   robotVideoGenerateInstructionsSchema.extend({
-    provider: z.string().optional().describe('Provider for generating the video.'),
+    provider: z.string().default('auto').describe(autoProviderDescription),
     result: z
       .union([z.literal('debug'), robotVideoGenerateInstructionsSchema.shape.result])
       .optional(),

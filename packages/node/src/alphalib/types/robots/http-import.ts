@@ -92,12 +92,6 @@ The same \`headers\` value is sent with every URL in this \`/http/import\` Step.
 array, \`headers\` is not matched to the URLs by array index. Use separate \`/http/import\` Steps
 when different URLs need different headers.
 `),
-    import_on_errors: z
-      .array(z.string())
-      .default([])
-      .describe(`
-Setting this to \`"meta"\` will still import the file on metadata extraction errors. \`ignore_errors\` is similar, it also ignores the error and makes sure the Robot doesn't stop, but it doesn't import the file.
-`),
     fail_fast: z
       .boolean()
       .default(false)

@@ -127,6 +127,7 @@ export const robotMetaSchema = z.object({
       gcp: z.number(),
     })
     .optional(),
+  applyCommunityPlanMediaTrim: z.boolean().optional(),
   isAllowedForUrlTransform: z.boolean(),
   removeJobResultFilesFromDiskRightAfterStoringOnS3: z.boolean(),
   lazyLoad: z.boolean().optional(),
@@ -250,6 +251,17 @@ export const interpolationSchemaPartial = z.custom<string>(
 )
 
 export const booleanStringSchema = z.enum(['true', 'false'])
+
+export const inputSortBySchema = z
+  .enum(['auto', 'basename', 'import_order'])
+  .default('basename')
+  .describe(`
+Controls how bundled inputs are ordered when no explicit numbered alias such as \`video_1\` or \`document_1\` is used.
+
+The default \`"basename"\` keeps the legacy natural basename sorting behavior.
+
+Set this to \`"import_order"\` to preserve the order of array-based import steps when all input files carry complete import order metadata. \`"auto"\` has the same import-order preference with natural basename sorting as fallback.
+`)
 
 type InterpolatableTuple<Schemas extends readonly z.ZodTypeAny[]> = Schemas extends readonly [
   infer Head extends z.ZodTypeAny,
@@ -503,15 +515,19 @@ Use field names such as \`path\`, or dotted paths such as \`ffmpeg.vf\` for nest
 /**
  * Fields that are shared by all Transloadit robots.
  */
+export const robotOutputMetaSchema = z.union([
+  z.record(z.boolean()),
+  z.boolean(),
+  z.array(z.string()),
+])
+export type RobotOutputMeta = z.infer<typeof robotOutputMetaSchema>
+
 export type RobotBase = z.infer<typeof robotBase>
 export const robotBase = z
   .object({
     interpolate: robotInterpolateSchema.optional(),
 
-    output_meta: z
-      .union([z.record(z.boolean()), z.boolean(), z.array(z.string())])
-      .optional()
-      .describe(`
+    output_meta: robotOutputMetaSchema.optional().describe(`
 Allows you to specify a set of metadata that is more expensive on CPU power to calculate, and thus is disabled by default to keep your Assemblies processing fast.
 
 For images, you can add \`"has_transparency": true\` in this object to extract if the image contains transparent parts and \`"dominant_colors": true\` to extract an array of hexadecimal color codes from the image.
@@ -1185,6 +1201,11 @@ export const positionSchema = z.enum([
 
 export const percentageSchema = z.string().regex(/^\d+%$/)
 
+export const httpUrlSchema = z
+  .string()
+  .url()
+  .regex(/^https?:\/\//i)
+
 export const color_with_alpha = z.string().regex(/^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/)
 
 export const color_without_alpha = z.string().regex(/^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/)
@@ -1295,7 +1316,13 @@ export const imageQualitySchema = z
 Controls the image compression for JPG and PNG images. Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).
 `)
 
-export const aiProviderSchema = z.enum(['aws', 'gcp', 'replicate', 'fal', 'transloadit'])
+export const autoProviderDescription = 'Chooses the best provider based on your request'
+
+export const awsGcpAiProviderSchema = z.enum(['auto', 'aws', 'gcp']).default('auto')
+
+export const aiProviderSchema = z
+  .enum(['auto', 'aws', 'gcp', 'replicate', 'fal', 'transloadit'])
+  .default('auto')
 
 export const granularitySchema = z.enum(['full', 'list']).default('full')
 
@@ -1318,6 +1345,12 @@ export const robotImport = z
         value === true ? ['meta', 'import', 'execute'] : value === false ? [] : value,
       )
       .default([]),
+    import_on_errors: z
+      .array(z.enum(['meta']))
+      .default([])
+      .describe(`
+Setting this to \`["meta"]\` will still import the file on metadata extraction errors. \`ignore_errors\` is similar, it also ignores the error and makes sure the Robot doesn't stop, but it doesn't import the file.
+`),
   })
   .strict()
 
@@ -1810,7 +1843,7 @@ Splits the video into multiple chunks so that each chunk can be encoded in paral
 Allows you to specify the duration of each chunk when \`turbo\` is set to \`true\`. This means you can take advantage of that feature while using fewer <dfn>Priority Job Slots</dfn>. For instance, the longer each chunk is, the fewer <dfn>Encoding Jobs</dfn> will need to be used.
 `),
     watermark_url: z
-      .string()
+      .union([z.literal(''), httpUrlSchema])
       .default('')
       .describe(`
 A URL indicating a PNG image to be overlaid above this image. You can also [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step).

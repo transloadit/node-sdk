@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import {
   color_without_alpha_with_named,
+  inputSortBySchema,
   interpolateRobot,
   robotBase,
   robotUse,
@@ -52,7 +53,7 @@ export const robotImageMergeInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/image/merge').describe(`
-The final result will be a spritesheet, with the images displayed horizontally or vertically.
+The final result will be a spritesheet, with the images displayed horizontally, vertically, or in a grid layout.
 
 It's recommended to use this Robot with
 [🤖/image/resize](/docs/robots/image-resize/) so your images are of a
@@ -63,10 +64,12 @@ similar size before merging them.
       .default('png')
       .describe('The output format for the modified image.'),
     direction: z
-      .enum(['horizontal', 'vertical'])
+      .enum(['horizontal', 'vertical', 'grid'])
       .default('horizontal')
       .describe(`
 Specifies the direction which the images are displayed.
+
+Use \`grid\` to arrange inputs left-to-right and top-to-bottom.
 
 Only applies to the default spritesheet layout. Ignored when \`effect\` is set to \`polaroid-stack\` or \`mosaic\`, as those effects use their own layout algorithms.
 `),
@@ -77,6 +80,46 @@ Only applies to the default spritesheet layout. Ignored when \`effect\` is set t
 Applies a styled collage layout instead of a plain horizontal or vertical spritesheet.
 
 Currently supports \`polaroid-stack\`, which renders the inputs as overlapping instant photos on a canvas, and \`mosaic\`, which builds a justified tiled collage.
+`),
+    columns: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe(`
+Number of columns in the grid layout. Only applies when \`direction\` is \`grid\`.
+
+If omitted, columns are calculated automatically from the number of inputs and requested rows.
+`),
+    rows: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe(`
+Number of rows in the grid layout. Only applies when \`direction\` is \`grid\`.
+
+If omitted, rows are calculated automatically from the number of inputs and requested columns.
+`),
+    cell_width: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe(`
+Uniform width for each grid cell in pixels. Only applies when \`direction\` is \`grid\`.
+
+Images are resized to fit within the cell while preserving aspect ratio.
+`),
+    cell_height: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe(`
+Uniform height for each grid cell in pixels. Only applies when \`direction\` is \`grid\`.
+
+Images are resized to fit within the cell while preserving aspect ratio.
 `),
     // TODO: default is not between 1 and 10
     border: z
@@ -132,6 +175,7 @@ Optional deterministic seed used by styled effects such as \`polaroid-stack\` an
       .describe(`
 Whether styled effects such as \`polaroid-stack\` and \`mosaic\` may shuffle the input order before laying out the canvas.
 `),
+    sort_by: inputSortBySchema,
     coverage: z
       .number()
       .min(0.5)

@@ -42,6 +42,7 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 60,
   isAllowedForUrlTransform: false,
   trackOutputFileSize: true,
+  applyCommunityPlanMediaTrim: true,
   isInternal: false,
   stage: 'ga',
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
