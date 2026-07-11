@@ -2,8 +2,8 @@
   "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.11.0.tgz",
-    "sizeBytes": 1056347,
-    "sha256": "93383df740830e98b992bd08dee3c11e362b3cf18c653e2b484d45a30ee2ef76"
+    "sizeBytes": 1055883,
+    "sha256": "c8183b05b27b57f61820528a113e71b780a4279e34bf5840c38442423589d0ae"
   },
   "packageJson": {
     "name": "transloadit",
@@ -13,7 +13,10 @@
       ".": "./dist/Transloadit.js",
       "./package.json": "./package.json"
     },
-    "files": ["dist", "src"]
+    "files": [
+      "dist",
+      "src"
+    ]
   },
   "files": [
     {
@@ -33,13 +36,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.js",
-      "sizeBytes": 20760,
-      "sha256": "ed63e808f122413a46cc9c884de3624e9122d5f2bb4ce1f0be448ccc44c198cb"
-    },
-    {
-      "path": "dist/alphalib/anthropicModels.js",
-      "sizeBytes": 536,
-      "sha256": "47babdd7b1686178de232b5d6a3efaedb263914d10957ed6f2df91e8cc0c311b"
+      "sizeBytes": 20773,
+      "sha256": "0ba708afcce53f95bd31bc3902dd9e586caf568681f9a34818718ec53b6cb877"
     },
     {
       "path": "dist/ApiError.js",
@@ -888,23 +886,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts.map",
-      "sizeBytes": 19697,
-      "sha256": "60e87a553ee8968674633ea62a799068eb980058ea29db889adaf1be89865057"
+      "sizeBytes": 19699,
+      "sha256": "4c809bf035089f8f555a27c29ad749fe6ea61d0e920d4103858f1114a5df950d"
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.js.map",
-      "sizeBytes": 18429,
-      "sha256": "7e9fe54cdb7b8ae57d0c62f390d2597d3c0a277f5590593d5df56bd4981685f1"
-    },
-    {
-      "path": "dist/alphalib/anthropicModels.d.ts.map",
-      "sizeBytes": 260,
-      "sha256": "24237c9c9651fafcaff18c66300ce02c24a7e3d780098e3f22743d6ada66aebd"
-    },
-    {
-      "path": "dist/alphalib/anthropicModels.js.map",
-      "sizeBytes": 517,
-      "sha256": "5d9ce549d8920e0401a50ae2be8cd5e865de6cedaa6ea1a84f131ac135e00644"
+      "sizeBytes": 18334,
+      "sha256": "2640263725913ec9668bb8025ea33d235c4b1c0cd41f8f54c3a789ed7c87c412"
     },
     {
       "path": "dist/ApiError.d.ts.map",
@@ -2573,23 +2561,13 @@
     },
     {
       "path": "dist/alphalib/types/robots/ai-chat.d.ts",
-      "sizeBytes": 663390,
-      "sha256": "24005944d0d6c91ef1d35ce377e3571e2d60dbb101aac53cff6bd2d3298f4f6a"
+      "sizeBytes": 663516,
+      "sha256": "c4858adb7938d8bfd4438a1c1359a086dce6f82b59b4fd9b25a7e10e836e3a68"
     },
     {
       "path": "src/alphalib/types/robots/ai-chat.ts",
-      "sizeBytes": 25275,
-      "sha256": "8a3f3e93c8d1a077d4497028a7d6c83bb65e1a90331f0e7e64979ac8989af37b"
-    },
-    {
-      "path": "dist/alphalib/anthropicModels.d.ts",
-      "sizeBytes": 249,
-      "sha256": "f8b3b04a3c63f77bf6ea9b5b0619fa4515eb04d5441bb5a3f1d84f4d235b392c"
-    },
-    {
-      "path": "src/alphalib/anthropicModels.ts",
-      "sizeBytes": 497,
-      "sha256": "5b4d07faaee74b937a2469519ae656447ec38c812e51edb3d6dec2c9e27bfd82"
+      "sizeBytes": 25289,
+      "sha256": "d6b2c1a663419a17864106cb89a62187016c59b271ecb6ae305c6abeca68a734"
     },
     {
       "path": "dist/ApiError.d.ts",

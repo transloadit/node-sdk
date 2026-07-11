@@ -2,7 +2,6 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { CLAUDE_OPUS_4_CURRENT, CLAUDE_SONNET_4_CURRENT } from '../../anthropicModels.ts'
 import {
   autoProviderDescription,
   interpolateRobot,
@@ -534,14 +533,16 @@ export const meta: RobotMetaInput = {
 }
 
 /**
- * Model capabilities for /ai/chat. This centralizes which models support which input types.
+ * Transloadit's supported /ai/chat models and their input capabilities.
+ * This is intentionally not a complete vendor catalog: add models only after runtime behavior,
+ * pricing, and file handling have been reviewed.
  * Key format: 'vendor/model'
  */
 export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }> = {
-  [`anthropic/${CLAUDE_SONNET_4_CURRENT}`]: { pdf: true, image: true },
+  'anthropic/claude-sonnet-4-6': { pdf: true, image: true },
   'anthropic/claude-4-sonnet-20250514': { pdf: true, image: true },
   'anthropic/claude-sonnet-4-20250514': { pdf: true, image: true },
-  [`anthropic/${CLAUDE_OPUS_4_CURRENT}`]: { pdf: true, image: true },
+  'anthropic/claude-opus-4-8': { pdf: true, image: true },
   'anthropic/claude-4-opus-20250514': { pdf: true, image: true },
   'anthropic/claude-opus-4-20250514': { pdf: true, image: true },
   'anthropic/claude-sonnet-4-5': { pdf: true, image: true },
