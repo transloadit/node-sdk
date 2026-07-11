@@ -30,6 +30,26 @@ const mockRemoteJson = (client: Transloadit) =>
     .mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
+  it('validates the complete listAssemblies response envelope', async () => {
+    const client = new Transloadit({
+      authKey: 'foo_key',
+      authSecret: 'foo_secret',
+      validateResponses: true,
+    })
+    vi.spyOn(
+      client as unknown as Record<string, (...args: unknown[]) => unknown>,
+      '_remoteJson',
+    ).mockResolvedValue({
+      count: 1,
+      items: [{ created: '2026-07-11T00:00:00.000Z', id: 'assembly-id' }],
+    })
+
+    await expect(client.listAssemblies()).resolves.toEqual({
+      count: 1,
+      items: [{ created: '2026-07-11T00:00:00.000Z', id: 'assembly-id' }],
+    })
+  })
+
   it('should throw a proper error for request stream', async () => {
     const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 

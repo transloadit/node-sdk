@@ -1089,5 +1089,10 @@ export const assemblyIndexItemSchema = z
 
 export type AssemblyIndexItem = z.infer<typeof assemblyIndexItemSchema>
 
-export const assemblyIndexSchema = z.array(assemblyIndexItemSchema)
+export const assemblyIndexSchema = z
+  .object({
+    count: z.number().int().nonnegative(),
+    items: z.array(assemblyIndexItemSchema),
+  })
+  .passthrough()
 export type AssemblyIndex = z.infer<typeof assemblyIndexSchema>

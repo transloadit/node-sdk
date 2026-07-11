@@ -1,3 +1,5 @@
+import { isIP } from 'node:net'
+
 import { z } from 'zod'
 
 export type BearerTokenAudience = 'mcp' | 'api2' | (string & {})
@@ -52,8 +54,15 @@ const tokenSuccessSchema = z
 const buildBasicAuthHeaderValue = (credentials: { authKey: string; authSecret: string }): string =>
   `Basic ${Buffer.from(`${credentials.authKey}:${credentials.authSecret}`, 'utf8').toString('base64')}`
 
-const isLoopbackHost = (hostname: string): boolean =>
-  hostname === 'localhost' || hostname === '::1' || hostname.startsWith('127.')
+const isLoopbackHost = (hostname: string): boolean => {
+  const normalizedHostname =
+    hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname
+  return (
+    normalizedHostname === 'localhost' ||
+    normalizedHostname === '::1' ||
+    (isIP(normalizedHostname) === 4 && normalizedHostname.startsWith('127.'))
+  )
+}
 
 type TokenBaseResult = { ok: true; baseUrl: URL } | { ok: false; error: string }
 

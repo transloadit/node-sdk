@@ -7,6 +7,21 @@ afterEach(() => {
 })
 
 describe('Transloadit.mintBearerToken', () => {
+  it('does not treat a 127-prefixed domain as a loopback host', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const client = new Transloadit({
+      authKey: 'key',
+      authSecret: 'secret',
+      endpoint: 'http://127.attacker.com',
+    })
+
+    await expect(client.mintBearerToken()).rejects.toThrow(
+      'Refusing to send credentials to an insecure bearer token endpoint.',
+    )
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
   it('rejects a contract token response without scope', async () => {
     vi.stubGlobal(
       'fetch',
@@ -20,12 +35,10 @@ describe('Transloadit.mintBearerToken', () => {
     )
     const client = new Transloadit({ authKey: 'key', authSecret: 'secret' })
 
-    await expect(client.issueBearerToken()).rejects.toThrow(
-      'Bearer token response omitted scope.',
-    )
+    await expect(client.mintBearerToken()).rejects.toThrow('Bearer token response omitted scope.')
   })
 
-  it('issues the contract token without overriding the server audience default', async () => {
+  it('issues the token with the API2 contract audience default', async () => {
     const fetchSpy = vi.fn(
       async () =>
         new Response(
@@ -46,7 +59,7 @@ describe('Transloadit.mintBearerToken', () => {
       endpoint: 'https://api2.transloadit.com',
     })
 
-    const response = await client.issueBearerToken({ scope: 'assemblies:read' })
+    const response = await client.mintBearerToken({ scope: 'assemblies:read' })
 
     expect(response.access_token).toBe('abc')
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
@@ -58,7 +71,7 @@ describe('Transloadit.mintBearerToken', () => {
     })
     const params = new URLSearchParams(init.body as string)
     expect(params.get('grant_type')).toBe('client_credentials')
-    expect(params.has('aud')).toBe(false)
+    expect(params.get('aud')).toBe('api2')
     expect(params.get('scope')).toBe('assemblies:read')
   })
 

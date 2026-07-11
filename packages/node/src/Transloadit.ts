@@ -44,8 +44,6 @@ import type {
   TemplateCredentialsResponse,
   TemplateResponse,
 } from './apiTypes.ts'
-import type { BearerTokenResponse, MintBearerTokenOptions } from './bearerToken.ts'
-import { mintBearerTokenWithCredentials } from './bearerToken.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import type {
   LintAssemblyInstructionsInput,
@@ -564,29 +562,6 @@ export class Transloadit {
    * This uses HTTP Basic Auth (authKey + authSecret) and can optionally request a narrowed scope.
    * If `scope` is omitted, the token inherits the auth key's scope.
    */
-  async mintBearerToken(
-    options: Omit<MintBearerTokenOptions, 'endpoint'> & { endpoint?: string } = {},
-  ): Promise<BearerTokenResponse> {
-    if (this._authToken) {
-      throw new Error(
-        'Cannot mint bearer tokens when using authToken authentication. Provide authKey + authSecret instead.',
-      )
-    }
-
-    const result = await mintBearerTokenWithCredentials(
-      { authKey: this._authKey, authSecret: this._authSecret },
-      {
-        ...options,
-        endpoint: options.endpoint ?? this._endpoint,
-      },
-    )
-
-    if (!result.ok) {
-      throw new Error(result.error)
-    }
-
-    return result.data
-  }
 
   // <api2-generated-feature createTusAssembly>
 
@@ -1149,10 +1124,7 @@ export class Transloadit {
   async listAssemblies(
     params?: ListAssembliesParams,
   ): Promise<PaginationListWithCount<AssemblyIndexItem>> {
-    const rawResponse = await this._remoteJson<
-      PaginationListWithCount<Record<string, unknown>>,
-      ListAssembliesParams
-    >({
+    const rawResponse = await this._remoteJson<AssemblyIndex, ListAssembliesParams>({
       urlSuffix: '/assemblies',
       method: 'get',
       params: params || {},
@@ -1168,18 +1140,16 @@ export class Transloadit {
       )
     }
 
-    const parsedResult = zodParseWithContext(assemblyIndexSchema, rawResponse.items)
+    const parsedResult = zodParseWithContext(assemblyIndexSchema, rawResponse)
 
     if (!parsedResult.success) {
       this.maybeThrowInconsistentResponseError(
-        `API response for listAssemblies contained items that do not match the expected schema.\n${parsedResult.humanReadable}`,
+        `API response for listAssemblies does not match the expected schema.\n${parsedResult.humanReadable}`,
       )
+      return rawResponse
     }
 
-    return {
-      items: rawResponse.items as AssemblyIndex,
-      count: rawResponse.count,
-    }
+    return parsedResult.safe
   }
 
   streamAssemblies(params: ListAssembliesParams): Readable {
@@ -1730,17 +1700,43 @@ export class Transloadit {
   // please report the issue instead of editing this block by hand; the source fix
   // belongs in the contract generator so all SDKs stay in sync.
 
-  async issueBearerToken(
-    options: import('./bearerToken.ts').IssueBearerTokenOptions = {},
-  ): Promise<import('./bearerToken.ts').IssueBearerTokenResponse> {
+  async mintBearerToken(
+    options: Omit<import('./bearerToken.ts').MintBearerTokenOptions, 'endpoint'> & {
+      endpoint?: string
+    } = {},
+  ): Promise<import('./bearerToken.ts').BearerTokenResponse & { scope: string }> {
     if (this._authToken) {
-      throw new Error('Cannot issue bearer tokens when using authToken authentication.')
+      throw new Error('Cannot mint bearer tokens when using authToken authentication.')
     }
 
-    const { issueBearerTokenWithCredentials } = await import('./bearerToken.ts')
-    const result = await issueBearerTokenWithCredentials(
+    const endpointRaw = options.endpoint ?? this._endpoint ?? 'https://api2.transloadit.com'
+    const endpoint = new URL(endpointRaw)
+    const hostname =
+      endpoint.hostname.startsWith('[') && endpoint.hostname.endsWith(']')
+        ? endpoint.hostname.slice(1, -1)
+        : endpoint.hostname
+    const octet = '(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)'
+    const isNumericIpv4Loopback = new RegExp(`^127\\.${octet}\\.${octet}\\.${octet}$`).test(
+      hostname,
+    )
+    const loopback = hostname === 'localhost' || hostname === '::1' || isNumericIpv4Loopback
+    if (
+      endpoint.username ||
+      endpoint.password ||
+      (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && loopback))
+    ) {
+      throw new Error('Refusing to send credentials to an insecure bearer token endpoint.')
+    }
+
+    const { mintBearerTokenWithCredentials } = await import('./bearerToken.ts')
+    const result = await mintBearerTokenWithCredentials(
       { authKey: this._authKey, authSecret: this._authSecret },
-      { ...options, endpoint: this._endpoint, allowProcessEnvEndpointFallback: false },
+      {
+        ...options,
+        aud: options.aud ?? 'api2',
+        endpoint: endpointRaw,
+        allowProcessEnvEndpointFallback: false,
+      },
     )
     if (!result.ok) throw new Error(result.error)
     if (result.data.scope == null) throw new Error('Bearer token response omitted scope.')
