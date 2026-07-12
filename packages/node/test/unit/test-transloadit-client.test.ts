@@ -59,6 +59,28 @@ describe('Transloadit', () => {
     )
   })
 
+  it('allows HTTPS polling on the configured HTTP hostname', async () => {
+    const client = new Transloadit({
+      authKey: 'foo_key',
+      authSecret: 'foo_secret',
+      endpoint: 'http://api2-devdock.transloadit.dev',
+    })
+    const remoteJson = mockRemoteJson(client).mockResolvedValue({ ok: 'ASSEMBLY_COMPLETED' })
+    const assemblyUrl = 'https://api2-devdock.transloadit.dev/assemblies/assembly-id'
+
+    await expect(client.waitForAssembly(assemblyUrl)).resolves.toEqual({
+      ok: 'ASSEMBLY_COMPLETED',
+    })
+    expect(remoteJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authenticate: false,
+        followRedirect: false,
+        isTrustedUrl: true,
+        url: assemblyUrl,
+      }),
+    )
+  })
+
   it('validates the complete listAssemblies response envelope', async () => {
     const client = new Transloadit({
       authKey: 'foo_key',

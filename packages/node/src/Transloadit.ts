@@ -725,13 +725,18 @@ export class Transloadit {
     const configuredUrl = new URL(this._endpoint)
     const hasUrlCredentials = candidateUrl.username !== '' || candidateUrl.password !== ''
     const isConfiguredOrigin = !hasUrlCredentials && candidateUrl.origin === configuredUrl.origin
+    const isConfiguredHttpsHost =
+      !hasUrlCredentials &&
+      candidateUrl.protocol === 'https:' &&
+      candidateUrl.port === '' &&
+      candidateUrl.hostname === configuredUrl.hostname
     const isTransloaditApi2Cell =
       !hasUrlCredentials &&
       candidateUrl.protocol === 'https:' &&
       candidateUrl.port === '' &&
       candidateUrl.hostname.startsWith('api2-') &&
       candidateUrl.hostname.endsWith('.transloadit.com')
-    if (!isConfiguredOrigin && !isTransloaditApi2Cell) {
+    if (!isConfiguredOrigin && !isConfiguredHttpsHost && !isTransloaditApi2Cell) {
       throw new Error(`Untrusted Assembly URL: ${candidateUrl.origin}`)
     }
     while (true) {
