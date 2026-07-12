@@ -472,6 +472,25 @@ describe('Transloadit', () => {
         expect.objectContaining({ headers: { 'Transloadit-Client': 'mcp-server:1.2.3' } }),
       )
     })
+
+    it('should allow redirects to be disabled for trusted polling URLs', async () => {
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+      const get = mockGot('get')
+
+      // @ts-expect-error This tests private internals
+      await client._remoteJson({
+        url: 'https://api2-eu-west-1.transloadit.com/assemblies/example',
+        method: 'get',
+        isTrustedUrl: true,
+        followRedirect: false,
+      })
+
+      expect(get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ followRedirect: false }),
+      )
+    })
   })
 
   describe('getSignedSmartCDNUrl', () => {

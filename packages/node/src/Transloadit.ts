@@ -33,7 +33,6 @@ import type {
   TemplateCredentialsResponse,
   TemplateResponse,
 } from './apiTypes.ts'
-import type { BearerTokenResponse, MintBearerTokenOptions } from './bearerToken.ts'
 import type {
   LintAssemblyInstructionsInput,
   LintAssemblyInstructionsResult,
@@ -60,7 +59,6 @@ import packageJson from '../package.json' with { type: 'json' }
 import { ApiError } from './ApiError.ts'
 import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/assemblyStatus.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
-import { mintBearerTokenWithCredentials } from './bearerToken.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
@@ -740,6 +738,7 @@ export class Transloadit {
       const result = await this._remoteJson<AssemblyStatus, OptionalAuthParams>({
         url: assemblyUrl,
         authenticate: false,
+        followRedirect: false,
         isTrustedUrl: true,
         method: 'get',
       })
@@ -1372,7 +1371,7 @@ export class Transloadit {
     params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
     return await this._remoteJson({
-      urlSuffix: `/template_credentials/${credentialId}`,
+      urlSuffix: `/template_credentials/${encodeURIComponent(credentialId)}`,
       method: 'put',
       params: params || {},
     })
@@ -1394,7 +1393,7 @@ export class Transloadit {
 
   async deleteTemplateCredential(credentialId: string): Promise<BaseResponse> {
     return await this._remoteJson({
-      urlSuffix: `/template_credentials/${credentialId}`,
+      urlSuffix: `/template_credentials/${encodeURIComponent(credentialId)}`,
       method: 'delete',
     })
   }
@@ -1415,7 +1414,7 @@ export class Transloadit {
 
   async getTemplateCredential(credentialId: string): Promise<TemplateCredentialResponse> {
     return await this._remoteJson({
-      urlSuffix: `/template_credentials/${credentialId}`,
+      urlSuffix: `/template_credentials/${encodeURIComponent(credentialId)}`,
       method: 'get',
     })
   }
@@ -1489,7 +1488,7 @@ export class Transloadit {
 
   async editTemplate(templateId: string, params: EditTemplateParams): Promise<TemplateResponse> {
     return await this._remoteJson({
-      urlSuffix: `/templates/${templateId}`,
+      urlSuffix: `/templates/${encodeURIComponent(templateId)}`,
       method: 'put',
       params: params || {},
     })
@@ -1511,7 +1510,7 @@ export class Transloadit {
 
   async deleteTemplate(templateId: string): Promise<BaseResponse> {
     return await this._remoteJson({
-      urlSuffix: `/templates/${templateId}`,
+      urlSuffix: `/templates/${encodeURIComponent(templateId)}`,
       method: 'delete',
     })
   }
@@ -1532,7 +1531,7 @@ export class Transloadit {
 
   async getTemplate(templateId: string): Promise<TemplateResponse> {
     return await this._remoteJson({
-      urlSuffix: `/templates/${templateId}`,
+      urlSuffix: `/templates/${encodeURIComponent(templateId)}`,
       method: 'get',
     })
   }
@@ -1583,7 +1582,7 @@ export class Transloadit {
   async getBill(month: string): Promise<BillResponse> {
     assert.ok(month, 'month is required')
     return await this._remoteJson({
-      urlSuffix: `/bill/${month}`,
+      urlSuffix: `/bill/${encodeURIComponent(month)}`,
       method: 'get',
     })
   }
@@ -1711,6 +1710,7 @@ export class Transloadit {
     method?: 'delete' | 'get' | 'post' | 'put'
     params?: TParams
     fields?: Fields
+    followRedirect?: boolean
     headers?: Headers
     signal?: AbortSignal
   }): Promise<TRet> {
@@ -1723,6 +1723,7 @@ export class Transloadit {
       method = 'get',
       params = {},
       fields,
+      followRedirect = true,
       headers,
       signal,
     } = opts
@@ -1757,6 +1758,7 @@ export class Transloadit {
       const requestOpts: OptionsOfJSONResponseBody = {
         retry: this._gotRetry,
         body: form,
+        followRedirect,
         timeout,
         headers: {
           'Transloadit-Client': this._clientName,
@@ -1894,7 +1896,7 @@ export class Transloadit {
     assert.ok(month, 'month is required')
     assert.ok(invoiceId, 'invoiceId is required')
     return await this._remoteJson({
-      urlSuffix: `/bill/${month}/${invoiceId}`,
+      urlSuffix: `/bill/${encodeURIComponent(month)}/${encodeURIComponent(invoiceId)}`,
       method: 'get',
     })
   }
