@@ -1376,7 +1376,7 @@ export class Transloadit {
     params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
     return await this._remoteJson({
-      urlSuffix: `/template_credentials/${encodeURIComponent(credentialId)}`,
+      urlSuffix: `/template_credentials/${this.#encodePathSegment(credentialId)}`,
       method: 'put',
       params: params || {},
     })
@@ -1398,7 +1398,7 @@ export class Transloadit {
 
   async deleteTemplateCredential(credentialId: string): Promise<BaseResponse> {
     return await this._remoteJson({
-      urlSuffix: `/template_credentials/${encodeURIComponent(credentialId)}`,
+      urlSuffix: `/template_credentials/${this.#encodePathSegment(credentialId)}`,
       method: 'delete',
     })
   }
@@ -1419,7 +1419,7 @@ export class Transloadit {
 
   async getTemplateCredential(credentialId: string): Promise<TemplateCredentialResponse> {
     return await this._remoteJson({
-      urlSuffix: `/template_credentials/${encodeURIComponent(credentialId)}`,
+      urlSuffix: `/template_credentials/${this.#encodePathSegment(credentialId)}`,
       method: 'get',
     })
   }
@@ -1493,7 +1493,7 @@ export class Transloadit {
 
   async editTemplate(templateId: string, params: EditTemplateParams): Promise<TemplateResponse> {
     return await this._remoteJson({
-      urlSuffix: `/templates/${encodeURIComponent(templateId)}`,
+      urlSuffix: `/templates/${this.#encodePathSegment(templateId)}`,
       method: 'put',
       params: params || {},
     })
@@ -1515,7 +1515,7 @@ export class Transloadit {
 
   async deleteTemplate(templateId: string): Promise<BaseResponse> {
     return await this._remoteJson({
-      urlSuffix: `/templates/${encodeURIComponent(templateId)}`,
+      urlSuffix: `/templates/${this.#encodePathSegment(templateId)}`,
       method: 'delete',
     })
   }
@@ -1536,7 +1536,7 @@ export class Transloadit {
 
   async getTemplate(templateId: string): Promise<TemplateResponse> {
     return await this._remoteJson({
-      urlSuffix: `/templates/${encodeURIComponent(templateId)}`,
+      urlSuffix: `/templates/${this.#encodePathSegment(templateId)}`,
       method: 'get',
     })
   }
@@ -1587,7 +1587,7 @@ export class Transloadit {
   async getBill(month: string): Promise<BillResponse> {
     assert.ok(month, 'month is required')
     return await this._remoteJson({
-      urlSuffix: `/bill/${encodeURIComponent(month)}`,
+      urlSuffix: `/bill/${this.#encodePathSegment(month)}`,
       method: 'get',
     })
   }
@@ -1901,10 +1901,26 @@ export class Transloadit {
     assert.ok(month, 'month is required')
     assert.ok(invoiceId, 'invoiceId is required')
     return await this._remoteJson({
-      urlSuffix: `/bill/${encodeURIComponent(month)}/${encodeURIComponent(invoiceId)}`,
+      urlSuffix: `/bill/${this.#encodePathSegment(month)}/${this.#encodePathSegment(invoiceId)}`,
       method: 'get',
     })
   }
 
   // </api2-generated-endpoint getBillForInvoice>
+
+  // <api2-generated-endpoint pathSegmentEncodingSupport>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  #encodePathSegment(value: string): string {
+    if (value === '.' || value === '..') {
+      throw new Error('Path parameters cannot be dot segments')
+    }
+
+    return encodeURIComponent(value)
+  }
+
+  // </api2-generated-endpoint pathSegmentEncodingSupport>
 }

@@ -81,6 +81,16 @@ describe('Transloadit', () => {
     )
   })
 
+  it.each(['.', '..'])('rejects the %s path segment before making a request', async (segment) => {
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const remoteJson = mockRemoteJson(client).mockResolvedValue({})
+
+    await expect(client.getTemplate(segment)).rejects.toThrow(
+      'Path parameters cannot be dot segments',
+    )
+    expect(remoteJson).not.toHaveBeenCalled()
+  })
+
   it('validates the complete listAssemblies response envelope', async () => {
     const client = new Transloadit({
       authKey: 'foo_key',
