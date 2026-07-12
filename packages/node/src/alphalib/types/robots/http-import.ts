@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   interpolateRobot,
   return_file_stubs,
@@ -91,17 +92,19 @@ The same \`headers\` value is sent with every URL in this \`/http/import\` Step.
 array, \`headers\` is not matched to the URLs by array index. Use separate \`/http/import\` Steps
 when different URLs need different headers.
 `),
-    import_on_errors: z
-      .array(z.string())
-      .default([])
-      .describe(`
-Setting this to \`"meta"\` will still import the file on metadata extraction errors. \`ignore_errors\` is similar, it also ignores the error and makes sure the Robot doesn't stop, but it doesn't import the file.
-`),
     fail_fast: z
       .boolean()
       .default(false)
       .describe(`
 Disable the internal retry mechanism, and fail immediately if a resource can't be imported. This can be useful for performance critical applications.
+`),
+    max_file_size: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(`
+Maximum allowed size in bytes for each imported file. If the remote server reports a larger file size, the import is rejected before the download starts. If the remote server does not report a size upfront, the download is aborted once this limit is exceeded.
 `),
     return_file_stubs,
     range: z

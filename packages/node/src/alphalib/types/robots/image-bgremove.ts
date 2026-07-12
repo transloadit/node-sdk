@@ -1,7 +1,13 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  autoProviderDescription,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   discount_factor: 1,
@@ -52,9 +58,11 @@ export const robotImageBgremoveInstructionsSchema = robotBase
       .default('png')
       .describe('Format of the generated image. Defaults to PNG when not provided.'),
     provider: z
-      .enum(['transloadit', 'replicate', 'fal'])
-      .optional()
-      .describe('Provider to use for removing the background.'),
+      .enum(['auto', 'transloadit', 'replicate', 'fal'])
+      .default('auto')
+      .describe(
+        `${autoProviderDescription} Set this to \`"transloadit"\`, \`"replicate"\`, or \`"fal"\` to force a specific provider.`,
+      ),
     model: z
       .string()
       .optional()

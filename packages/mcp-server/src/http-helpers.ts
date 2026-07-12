@@ -1,5 +1,6 @@
-import { timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+
+import { timingSafeEqual } from 'node:crypto'
 
 export const parsePathname = (url: string | undefined, fallback: string): string => {
   try {

@@ -1,6 +1,8 @@
-import { basename } from 'node:path'
 import type { IntentOptionDefinition, PreparedIntentInputs } from '../intentRuntime.ts'
 import type { SemanticIntentDescriptor, SemanticIntentPresentation } from './index.ts'
+
+import { basename } from 'node:path'
+
 import { parseOptionalEnumValue } from './parsing.ts'
 
 const defaultImageGenerateModel = 'google/nano-banana-2'

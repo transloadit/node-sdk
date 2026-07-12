@@ -1,8 +1,11 @@
-import fs from 'node:fs'
-import { Command, Option } from 'clipanion'
 import type { AssemblyStatus } from '../../alphalib/types/assemblyStatus.ts'
-import { sendTusRequest } from '../../tus.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
+
+import fs from 'node:fs'
+
+import { Command, Option } from 'clipanion'
+
+import { sendTusRequest } from '../../tus.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 export interface UploadOptions {

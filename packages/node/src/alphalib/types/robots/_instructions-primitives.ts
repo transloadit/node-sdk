@@ -1,4 +1,5 @@
 import type { Replace } from 'type-fest'
+
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
@@ -46,6 +47,7 @@ export const robotNames = z.enum([
   'MetaWriteRobot',
   'DocumentThumbsRobot',
   'DocumentConvertRobot',
+  'DocumentExtractRobot',
   'DocumentMergeRobot',
   'DocumentSplitRobot',
   'DocumentOptimizeRobot',
@@ -125,6 +127,7 @@ export const robotMetaSchema = z.object({
       gcp: z.number(),
     })
     .optional(),
+  applyCommunityPlanMediaTrim: z.boolean().optional(),
   isAllowedForUrlTransform: z.boolean(),
   removeJobResultFilesFromDiskRightAfterStoringOnS3: z.boolean(),
   lazyLoad: z.boolean().optional(),
@@ -248,6 +251,17 @@ export const interpolationSchemaPartial = z.custom<string>(
 )
 
 export const booleanStringSchema = z.enum(['true', 'false'])
+
+export const inputSortBySchema = z
+  .enum(['auto', 'basename', 'import_order'])
+  .default('basename')
+  .describe(`
+Controls how bundled inputs are ordered when no explicit numbered alias such as \`video_1\` or \`document_1\` is used.
+
+The default \`"basename"\` keeps the legacy natural basename sorting behavior.
+
+Set this to \`"import_order"\` to preserve the order of array-based import steps when all input files carry complete import order metadata. \`"auto"\` has the same import-order preference with natural basename sorting as fallback.
+`)
 
 type InterpolatableTuple<Schemas extends readonly z.ZodTypeAny[]> = Schemas extends readonly [
   infer Head extends z.ZodTypeAny,
@@ -501,15 +515,19 @@ Use field names such as \`path\`, or dotted paths such as \`ffmpeg.vf\` for nest
 /**
  * Fields that are shared by all Transloadit robots.
  */
+export const robotOutputMetaSchema = z.union([
+  z.record(z.boolean()),
+  z.boolean(),
+  z.array(z.string()),
+])
+export type RobotOutputMeta = z.infer<typeof robotOutputMetaSchema>
+
 export type RobotBase = z.infer<typeof robotBase>
 export const robotBase = z
   .object({
     interpolate: robotInterpolateSchema.optional(),
 
-    output_meta: z
-      .union([z.record(z.boolean()), z.boolean(), z.array(z.string())])
-      .optional()
-      .describe(`
+    output_meta: robotOutputMetaSchema.optional().describe(`
 Allows you to specify a set of metadata that is more expensive on CPU power to calculate, and thus is disabled by default to keep your Assemblies processing fast.
 
 For images, you can add \`"has_transparency": true\` in this object to extract if the image contains transparent parts and \`"dominant_colors": true\` to extract an array of hexadecimal color codes from the image.
@@ -517,6 +535,8 @@ For images, you can add \`"has_transparency": true\` in this object to extract i
 For images, you can also add \`"blurhash": true\` to extract a [BlurHash](https://blurha.sh) string — a compact representation of a placeholder for the image, useful for showing a blurred preview while the full image loads.
 
 For videos, you can add the \`"colorspace: true"\` parameter to extract the colorspace of the output video.
+
+For videos, you can also add \`"interlaced": true\` to detect whether the video is interlaced. This combines the cheap ffprobe \`field_order\` flag with a bounded \`idet\` sampling pass over the first frames of the source, exposing \`interlaced\`, \`field_order\`, and a diagnostic \`interlace_detection\` object under \`file.meta\`. This is computationally expensive and billed accordingly.
 
 For audio, you can add \`"mean_volume": true\` to get a single value representing the mean average volume of the audio file.
 
@@ -861,10 +881,10 @@ A parameter object to be passed to FFmpeg. If a preset is used, the options spec
 
   ffmpeg_stack: z
     // Any semver in range is allowed and normalized. The enum is used for editor completions.
-    .union([z.enum(['v5', 'v6', 'v7']), z.string().regex(/^v?[567](\.\d+)?(\.\d+)?$/)])
+    .union([z.enum(['v6', 'v7', 'v8']), z.string().regex(/^v?[5-8](\.\d+)?(\.\d+)?$/)])
     .default('v6.0.0')
     .describe(`
-Selects the FFmpeg stack version to use for encoding. These versions reflect real FFmpeg versions. We currently recommend to use "v6.0.0".
+Selects the FFmpeg stack version to use for encoding. These versions reflect real FFmpeg versions. We currently recommend to use "v6.0.0". Deprecated "v5.x" values are accepted for backward compatibility.
 `),
 })
 
@@ -1181,6 +1201,11 @@ export const positionSchema = z.enum([
 
 export const percentageSchema = z.string().regex(/^\d+%$/)
 
+export const httpUrlSchema = z
+  .string()
+  .url()
+  .regex(/^https?:\/\//i)
+
 export const color_with_alpha = z.string().regex(/^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/)
 
 export const color_without_alpha = z.string().regex(/^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/)
@@ -1291,7 +1316,13 @@ export const imageQualitySchema = z
 Controls the image compression for JPG and PNG images. Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).
 `)
 
-export const aiProviderSchema = z.enum(['aws', 'gcp', 'replicate', 'fal', 'transloadit'])
+export const autoProviderDescription = 'Chooses the best provider based on your request'
+
+export const awsGcpAiProviderSchema = z.enum(['auto', 'aws', 'gcp']).default('auto')
+
+export const aiProviderSchema = z
+  .enum(['auto', 'aws', 'gcp', 'replicate', 'fal', 'transloadit'])
+  .default('auto')
 
 export const granularitySchema = z.enum(['full', 'list']).default('full')
 
@@ -1314,6 +1345,12 @@ export const robotImport = z
         value === true ? ['meta', 'import', 'execute'] : value === false ? [] : value,
       )
       .default([]),
+    import_on_errors: z
+      .array(z.enum(['meta']))
+      .default([])
+      .describe(`
+Setting this to \`["meta"]\` will still import the file on metadata extraction errors. \`ignore_errors\` is similar, it also ignores the error and makes sure the Robot doesn't stop, but it doesn't import the file.
+`),
   })
   .strict()
 
@@ -1678,58 +1715,58 @@ export const filterExpression = z.union([
   z.array(z.union([z.string(), z.number(), z.null()])),
 ])
 
-export type FilterCondition = z.infer<typeof filterCondition>
-export const filterCondition = z.union([
-  z.null(),
-  z.string(),
-  z.array(
-    z.tuple([
-      filterExpression,
-      z.union([
-        z.literal('=').describe('Equals without type check'),
-        z.literal('==').describe('Equals without type check'),
-        z.literal('===').describe('Strict equals with type check'),
-        z.literal('<').describe('Less than'),
-        z.literal('>').describe('Greater than'),
-        z.literal('<=').describe('Less or equal'),
-        z.literal('>=').describe('Greater or equal'),
-        z.literal('!=').describe('Simple inequality check without type check'),
-        z.literal('!==').describe('Strict inequality check with type check'),
-        z
-          .literal('regex')
-          .describe(
-            'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `.match()`',
-          ),
-        z
-          .literal('!regex')
-          .describe(
-            'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `!.match()`',
-          ),
-        z
-          .literal('includes')
-          .describe(
-            'Check if the right element is included in the array, which is represented by the left element',
-          ),
-        z
-          .literal('!includes')
-          .describe(
-            'Check if the right element is not included in the array, which is represented by the left element',
-          ),
-        z
-          .literal('empty')
-          .describe(
-            'Check if the left element is an empty array, an object without properties, an empty string, the number zero or the boolean false. Leave the third element of the array to be an empty string. It won’t be evaluated.',
-          ),
-        z
-          .literal('!empty')
-          .describe(
-            'Check if the left element is an array with members, an object with at least one property, a non-empty string, a number that does not equal zero or the boolean true. Leave the third element of the array to be an empty string. It won’t be evaluated.',
-          ),
-      ]),
-      filterExpression,
-    ]),
-  ),
+export type FilterConditionOperator = z.infer<typeof filterConditionOperatorSchema>
+export const filterConditionOperatorSchema = z.union([
+  z.literal('=').describe('Equals without type check'),
+  z.literal('==').describe('Equals without type check'),
+  z.literal('===').describe('Strict equals with type check'),
+  z.literal('<').describe('Less than'),
+  z.literal('>').describe('Greater than'),
+  z.literal('<=').describe('Less or equal'),
+  z.literal('>=').describe('Greater or equal'),
+  z.literal('!=').describe('Simple inequality check without type check'),
+  z.literal('!==').describe('Strict inequality check with type check'),
+  z
+    .literal('regex')
+    .describe(
+      'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `.match()`',
+    ),
+  z
+    .literal('!regex')
+    .describe(
+      'Case-insensitive regular expression based on [RE2](https://github.com/google/re2) `!.match()`',
+    ),
+  z
+    .literal('includes')
+    .describe(
+      'Check if the right element is included in the array, which is represented by the left element',
+    ),
+  z
+    .literal('!includes')
+    .describe(
+      'Check if the right element is not included in the array, which is represented by the left element',
+    ),
+  z
+    .literal('empty')
+    .describe(
+      'Check if the left element is an empty array, an object without properties, an empty string, the number zero or the boolean false. Leave the third element of the array to be an empty string. It won’t be evaluated.',
+    ),
+  z
+    .literal('!empty')
+    .describe(
+      'Check if the left element is an array with members, an object with at least one property, a non-empty string, a number that does not equal zero or the boolean true. Leave the third element of the array to be an empty string. It won’t be evaluated.',
+    ),
 ])
+
+export type FilterConditionPart = z.infer<typeof filterConditionPartSchema>
+export const filterConditionPartSchema = z.tuple([
+  filterExpression,
+  filterConditionOperatorSchema,
+  filterExpression,
+])
+
+export type FilterCondition = z.infer<typeof filterCondition>
+export const filterCondition = z.union([z.null(), z.string(), z.array(filterConditionPartSchema)])
 
 /**
  * Parameters specific to the /video/encode robot. Useful for typing robots that pass files to /video/encode.
@@ -1806,7 +1843,7 @@ Splits the video into multiple chunks so that each chunk can be encoded in paral
 Allows you to specify the duration of each chunk when \`turbo\` is set to \`true\`. This means you can take advantage of that feature while using fewer <dfn>Priority Job Slots</dfn>. For instance, the longer each chunk is, the fewer <dfn>Encoding Jobs</dfn> will need to be used.
 `),
     watermark_url: z
-      .string()
+      .union([z.literal(''), httpUrlSchema])
       .default('')
       .describe(`
 A URL indicating a PNG image to be overlaid above this image. You can also [supply the watermark via another Assembly Step](/docs/topics/use-parameter/#supplying-the-watermark-via-an-assembly-step).
@@ -1909,10 +1946,17 @@ Delta to apply to segment duration. This is optional and allows fine-tuning of s
   })
   .strict()
 
-/**
- * Type for the normalized use parameter from AssemblyNormalizer
- * The steps array can contain either strings or objects with name property
- */
+export type NormalizedUseStepName = string | undefined
+
+export interface NormalizedUseStep {
+  as?: unknown[]
+  fields?: unknown[]
+  name: NormalizedUseStepName
+}
+
 export interface NormalizedUse {
-  steps: Array<{ name: string; as?: string; fields?: string }>
+  bundle_steps: boolean
+  fields: true | unknown[]
+  group_by_original: boolean
+  steps: NormalizedUseStep[]
 }

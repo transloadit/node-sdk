@@ -47,8 +47,9 @@ vi.mock('got', () => {
   }
 })
 
-import { ApiError } from '../../src/ApiError.ts'
 import type { AssemblyStatus } from '../../src/alphalib/types/assemblyStatus.ts'
+
+import { ApiError } from '../../src/ApiError.ts'
 import PaginationStream from '../../src/PaginationStream.ts'
 import PollingTimeoutError from '../../src/PollingTimeoutError.ts'
 import { Transloadit } from '../../src/Transloadit.ts'

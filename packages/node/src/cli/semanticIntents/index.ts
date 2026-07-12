@@ -4,6 +4,7 @@ import type {
   IntentRunnerKind,
   PreparedIntentInputs,
 } from '../intentRuntime.ts'
+
 import { imageDescribeSemanticIntentDescriptor } from './imageDescribe.ts'
 import { imageGenerateSemanticIntentDescriptor } from './imageGenerate.ts'
 import {

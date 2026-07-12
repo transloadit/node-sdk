@@ -40,6 +40,8 @@ Coding style:
   serializer intentionally emits POSIX-style text.
 - Comments should explain why code exists or why an exception is needed, not narrate what the next
   line already says.
+- Use JSDoc block comments for exported constants, functions, classes, and types when documenting
+  their purpose or contract. Use regular line comments for local quirks, reasoning, or exceptions.
 - Do not put TODOs, internal implementation notes, or future-work placeholders in user-facing text
   or schema descriptions. Put those in code comments, issues, or docs for maintainers instead.
 - Put API keys and secrets in `.env` files, not hardcoded in components
@@ -58,7 +60,10 @@ General:
 
 - Do not touch `.env` files!
 - Favor Yarn (4) over npm
-- Never run any dev server yourself. I have one running that auto-reloads on changes.
+- Before starting a dev server, first check whether a suitable one is already running and use that
+  if possible. If none is available and local browser/e2e validation needs one, start the documented
+  dev server, capture its log path/pid, and stop it when you are done unless the user asked to keep
+  it running.
 - Avoid blocking the conversation with terminal commands. For example: A) most of my git commands run through pagers, so pipe their output to `cat` to avoid blocking the
   terminal. B) You can use `tail` for logs, but be smart and use `-n` instead of `-f`, or the conversation will block
 - Use the `gh` tool to interact with GitHub (search/view an Issue, create a PR).
@@ -70,8 +75,13 @@ General:
 ## playwright
 
 - Prefer user-centric locators: `getByRole`/`getByText` with accessible names; avoid `page.locator('body')`, `innerText()`, or raw CSS unless there is no accessible alternative.
+- Treat `data-*` attributes as implementation details in browser tests unless they are the only
+  stable contract available. If UI needs testing via state such as notifications, prefer adding or
+  using an accessible role/name/state contract over asserting hidden implementation attributes.
 - Make positive assertions on expected UI/text instead of looping over regexes to assert absence.
 - Keep tests simple: no control-flow loops or extra variables for straightforward assertions.
+- For localized route work, cover page chrome as well as body content: navbar/mobile nav, search
+  labels, subnav, post metadata/bylines, dynamic cards, `html lang`, canonical, and hreflang.
 - Navigate with relative URLs (`page.goto('/path')`) by setting `baseURL` in `playwright.config.ts`; avoid stringing environment URLs in tests.
 - Stub or mock external/third‑party requests (Intercom, Sentry, etc.) and any auth/login endpoints to keep tests deterministic; return minimal valid JSON when the app expects data.
 - Each unexpected error should surface and fail the test.

@@ -2,7 +2,9 @@
 
 import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
+
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+
 import { createTransloaditMcpHttpHandler, createTransloaditMcpServer } from './index.ts'
 import { buildRedactor, getLogger } from './logger.ts'
 

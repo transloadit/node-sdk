@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
@@ -58,6 +59,12 @@ If this is set to \`true\` and one or more files are declined, the Assembly will
       .default('One of your files was declined')
       .describe(`
 The error message shown to your users (such as by Uppy) when a file is declined and \`error_on_decline\` is set to \`true\`.
+`),
+    repair_pdf: z
+      .boolean()
+      .default(false)
+      .describe(`
+Attempt to repair invalid PDFs with \`mutool clean\`. This is best-effort and only applies when \`verify_to_be\` is \`"pdf"\`.
 `),
     verify_to_be: z
       .string()

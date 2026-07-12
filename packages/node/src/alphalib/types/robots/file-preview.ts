@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_with_alpha,
   complexHeightSchema,
@@ -64,10 +65,10 @@ If no file-specific thumbnail can be generated because the file type is not supp
 The default parameters ensure that the <dfn>Robot</dfn> always generates a preview image with the predefined dimensions and formats, to allow an easy integration into your application's UI. In addition, the generated preview images are optimized by default to reduce their file size while keeping their quality.
 `),
     format: z
-      .enum(['gif', 'jpg', 'png'])
+      .enum(['avif', 'gif', 'jpeg', 'jpg', 'png', 'webp'])
       .default('png')
       .describe(`
-The output format for the generated thumbnail image. If a short video clip is generated using the \`clip\` strategy, its format is defined by \`clip_format\`.
+The output format for the generated thumbnail image. AVIF and WebP are also supported. If a short video clip is generated using the \`clip\` strategy, its format is defined by \`clip_format\`.
 `),
     width: complexWidthSchema.default(300).describe(`
 Width of the thumbnail, in pixels.

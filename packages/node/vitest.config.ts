@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url'
+
 import { defineConfig } from 'vitest/config'
 
 const utilsIndexPath = fileURLToPath(new URL('../utils/src/index.ts', import.meta.url))

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { renderIntentDocsBody } from '../../../src/cli/generateIntentDocs.ts'
 import { resolveIntentCommandDefinitions } from '../../../src/cli/intentCommands.ts'
 

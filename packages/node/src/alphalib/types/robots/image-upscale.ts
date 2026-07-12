@@ -1,7 +1,13 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  autoProviderDescription,
+  interpolateRobot,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   bytescount: 1,
@@ -61,7 +67,7 @@ export const robotImageUpscaleInstructionsSchema = robotBase
 
 export const robotImageUpscaleInstructionsWithHiddenFieldsSchema =
   robotImageUpscaleInstructionsSchema.extend({
-    provider: z.string().optional().describe('Provider for upscaling the image.'),
+    provider: z.string().default('auto').describe(autoProviderDescription),
     result: z
       .union([z.literal('debug'), robotImageUpscaleInstructionsSchema.shape.result])
       .optional(),

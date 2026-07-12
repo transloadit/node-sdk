@@ -1,8 +1,9 @@
 import type { HydratedLintIssue } from './alphalib/assembly-linter.lang.en.ts'
-import { hydrateLintIssues } from './alphalib/assembly-linter.lang.en.ts'
-import { applyFix, parseAndLint } from './alphalib/assembly-linter.ts'
 import type { AssemblyInstructionsInput, StepsInput } from './alphalib/types/template.ts'
 import type { ResponseTemplateContent, TemplateContent } from './apiTypes.ts'
+
+import { hydrateLintIssues } from './alphalib/assembly-linter.lang.en.ts'
+import { applyFix, parseAndLint } from './alphalib/assembly-linter.ts'
 import { buildLintInput, unwrapStepsOnly } from './lintAssemblyInput.ts'
 
 export type LintFatalLevel = 'error' | 'warning'

@@ -1,28 +1,17 @@
-import * as assert from 'node:assert'
-import { randomUUID } from 'node:crypto'
-import { constants, createReadStream } from 'node:fs'
-import { access, stat } from 'node:fs/promises'
-import { basename } from 'node:path'
 import type { Readable } from 'node:stream'
-import { setTimeout as delay } from 'node:timers/promises'
-import { getSignedSmartCdnUrl, signParamsSync } from '@transloadit/utils/node'
-import debug from 'debug'
-import FormData from 'form-data'
+
+import type {
+  CompileAssemblyInstructionsOptions,
+  CompileAssemblyInstructionsResult,
+} from '@transloadit/utils'
 import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
-import got, { HTTPError, RequestError } from 'got'
-import intoStream, { type Input as IntoStreamInput } from 'into-stream'
-import { isReadableStream, isStream } from 'is-stream'
-import pMap from 'p-map'
-import packageJson from '../package.json' with { type: 'json' }
+
 import type { TransloaditErrorResponseBody } from './ApiError.ts'
-import { ApiError } from './ApiError.ts'
 import type {
   AssemblyIndex,
   AssemblyIndexItem,
   AssemblyStatus,
 } from './alphalib/types/assemblyStatus.ts'
-import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/assemblyStatus.ts'
-import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import type {
   BaseResponse,
   BillResponse,
@@ -44,17 +33,72 @@ import type {
   TemplateCredentialsResponse,
   TemplateResponse,
 } from './apiTypes.ts'
-import InconsistentResponseError from './InconsistentResponseError.ts'
+import type { BearerTokenResponse, MintBearerTokenOptions } from './bearerToken.ts'
 import type {
   LintAssemblyInstructionsInput,
   LintAssemblyInstructionsResult,
 } from './lintAssemblyInstructions.ts'
+import type { Stream, UploadBehavior } from './tus.ts'
+
+import * as assert from 'node:assert'
+import { randomUUID } from 'node:crypto'
+import { constants, createReadStream } from 'node:fs'
+import { access, stat } from 'node:fs/promises'
+import { basename } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
+
+import { compileAssemblyInstructionsFromPrompt } from '@transloadit/utils'
+import { getSignedSmartCdnUrl, signParamsSync } from '@transloadit/utils/node'
+import debug from 'debug'
+import FormData from 'form-data'
+import got, { HTTPError, RequestError } from 'got'
+import intoStream, { type Input as IntoStreamInput } from 'into-stream'
+import { isReadableStream, isStream } from 'is-stream'
+import pMap from 'p-map'
+
+import packageJson from '../package.json' with { type: 'json' }
+import { ApiError } from './ApiError.ts'
+import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/assemblyStatus.ts'
+import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
+import { mintBearerTokenWithCredentials } from './bearerToken.ts'
+import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
-import type { Stream, UploadBehavior } from './tus.ts'
 import { sendTusRequest } from './tus.ts'
 
+export type {
+  CompileAssemblyInstructionsAttempt,
+  CompileAssemblyInstructionsClient,
+  CompileAssemblyInstructionsLintIssue,
+  CompileAssemblyInstructionsMessage,
+  CompileAssemblyInstructionsResult,
+} from '@transloadit/utils'
+
+export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
+export type {
+  Base64Strategy,
+  InputFile,
+  PrepareInputFilesOptions,
+  PrepareInputFilesResult,
+  UploadInput,
+  UrlStrategy,
+} from './inputFiles.ts'
+export type { LintAssemblyInstructionsResult, LintFatalLevel } from './lintAssemblyInstructions.ts'
+export type {
+  RobotHelp,
+  RobotHelpOptions,
+  RobotListItem,
+  RobotListOptions,
+  RobotListResult,
+  RobotParamHelp,
+} from './robots.ts'
+
+export {
+  buildCompileAssemblyInstructionsSystemPrompt,
+  CompileAssemblyInstructionsError,
+  parseCompileAssemblyInstructionsResponse,
+} from '@transloadit/utils'
 // See https://github.com/sindresorhus/got/tree/v11.8.6?tab=readme-ov-file#errors
 // Expose relevant errors
 export {
@@ -66,29 +110,12 @@ export {
   TimeoutError,
   UploadError,
 } from 'got'
+
 export { extractFieldNamesFromTemplate } from './alphalib/stepParsing.ts'
 // Builtin templates replace the legacy golden template helpers.
 export { mergeTemplateContent } from './alphalib/templateMerge.ts'
-export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 export * from './apiTypes.ts'
-export type {
-  Base64Strategy,
-  InputFile,
-  PrepareInputFilesOptions,
-  PrepareInputFilesResult,
-  UploadInput,
-  UrlStrategy,
-} from './inputFiles.ts'
 export { prepareInputFiles } from './inputFiles.ts'
-export type { LintAssemblyInstructionsResult, LintFatalLevel } from './lintAssemblyInstructions.ts'
-export type {
-  RobotHelp,
-  RobotHelpOptions,
-  RobotListItem,
-  RobotListOptions,
-  RobotListResult,
-  RobotParamHelp,
-} from './robots.ts'
 export { getRobotHelp, isKnownRobot, listRobots } from './robots.ts'
 export { ApiError, InconsistentResponseError }
 
@@ -278,6 +305,13 @@ export interface SmartCDNUrlOptions {
   expiresAt?: number
 }
 
+export type CompileAssemblyInstructionsFromPromptOptions = Omit<
+  CompileAssemblyInstructionsOptions,
+  'client'
+> & {
+  timeout?: number
+}
+
 export type Fields = Record<string, string | number>
 
 // A special promise that lets the user immediately get the assembly ID (synchronously before the request is sent)
@@ -315,6 +349,37 @@ function checkResult<T>(result: T | { error: string }): asserts result is T {
   ) {
     throw new ApiError({ body: result }) // in this case there is no `cause` because we don't have an HTTPError
   }
+}
+
+function getResultBilledChargeUsd(result: unknown): number | undefined {
+  if (typeof result !== 'object' || result === null || Array.isArray(result)) {
+    return undefined
+  }
+
+  if (!('meta' in result)) {
+    return undefined
+  }
+
+  const { meta } = result
+  if (typeof meta !== 'object' || meta === null || Array.isArray(meta)) {
+    return undefined
+  }
+
+  if (!('billed_charge_usd' in meta)) {
+    return undefined
+  }
+
+  const { billed_charge_usd: billedChargeUsd } = meta
+  return typeof billedChargeUsd === 'number' ? billedChargeUsd : undefined
+}
+
+async function fetchJson(url: string): Promise<unknown> {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch AI response: ${response.status} ${response.statusText}`)
+  }
+
+  return await response.json()
 }
 
 type AuthKeySecret = {
@@ -553,6 +618,56 @@ export class Transloadit {
     return await lintAssemblyInstructionsInternal({
       ...rest,
       template: template.content,
+    })
+  }
+
+  /**
+   * Compile a natural-language prompt into validated Assembly Instructions.
+   *
+   * This creates a zero-upload /ai/chat Assembly, validates the structured response,
+   * and lints the generated instructions locally before returning them.
+   */
+  async compileAssemblyInstructionsFromPrompt(
+    options: CompileAssemblyInstructionsFromPromptOptions,
+  ): Promise<CompileAssemblyInstructionsResult> {
+    const timeout = options.timeout ?? 5 * 60 * 1000
+
+    return await compileAssemblyInstructionsFromPrompt({
+      ...options,
+      mcpServerUrl: options.mcpServerUrl ?? `${this._endpoint}/mcp`,
+      client: {
+        runAssemblyInstructionsCompiler: async ({ aiStep }) => {
+          const assembly = await this.createAssembly({
+            params: {
+              steps: {
+                ai: aiStep,
+              },
+            },
+            waitForCompletion: true,
+            expectedUploads: 0,
+            timeout,
+          })
+
+          const result = assembly.results?.ai?.[0]
+          const resultUrl = result?.url
+          if (!resultUrl) {
+            throw new Error('No AI response in Assembly results.')
+          }
+
+          return {
+            response: await fetchJson(resultUrl),
+            assemblyUrl: assembly.assembly_ssl_url ?? assembly.assembly_url ?? undefined,
+            billedChargeUsd: getResultBilledChargeUsd(result),
+            usageBytes: assembly.bytes_usage ?? undefined,
+          }
+        },
+        lintAssemblyInstructions: async (instructionsJson) => {
+          const lintResult = await this.lintAssemblyInstructions({
+            assemblyInstructions: instructionsJson,
+          })
+          return lintResult.issues
+        },
+      },
     })
   }
 

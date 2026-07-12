@@ -1,7 +1,8 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   bitrateSchema,
   interpolateRobot,
@@ -46,6 +47,7 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 20,
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
+  applyCommunityPlanMediaTrim: true,
   isInternal: false,
   stage: 'ga',
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,

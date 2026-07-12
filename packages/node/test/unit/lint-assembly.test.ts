@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { lintAssemblyInstructions } from '../../src/lintAssemblyInstructions.ts'
 
 describe('lintAssemblyInstructions', () => {

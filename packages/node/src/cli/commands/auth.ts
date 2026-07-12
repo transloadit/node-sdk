@@ -1,22 +1,26 @@
-import process from 'node:process'
-import { Command, Option } from 'clipanion'
 import type { ZodIssue } from 'zod'
+
+import type { OptionalAuthParams } from '../../apiTypes.ts'
+import type { CliKeySecretCredentials, ResolvedCliConfig } from '../helpers.ts'
+import type { IOutputCtl } from '../OutputCtl.ts'
+
+import process from 'node:process'
+
+import { Command, Option } from 'clipanion'
 import { z } from 'zod'
+
 import {
   assemblyAuthInstructionsSchema,
   assemblyInstructionsSchema,
 } from '../../alphalib/types/template.ts'
-import type { OptionalAuthParams } from '../../apiTypes.ts'
 import { mintBearerTokenWithCredentials } from '../../bearerToken.ts'
 import { Transloadit } from '../../Transloadit.ts'
-import type { CliKeySecretCredentials, ResolvedCliConfig } from '../helpers.ts'
 import {
   buildMissingCredentialsMessage,
   readCliInput,
   requireCliCredentials,
   resolveCliConfig,
 } from '../helpers.ts'
-import type { IOutputCtl } from '../OutputCtl.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 type UrlParamPrimitive = string | number | boolean

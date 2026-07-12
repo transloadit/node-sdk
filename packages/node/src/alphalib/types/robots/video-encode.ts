@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   interpolateRobot,
   robotBase,
@@ -41,6 +42,7 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 60,
   isAllowedForUrlTransform: false,
   trackOutputFileSize: true,
+  applyCommunityPlanMediaTrim: true,
   isInternal: false,
   stage: 'ga',
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
@@ -55,7 +57,7 @@ The /video/encode Robot is a versatile tool for video processing that handles tr
 
 ## Adding text overlays with FFmpeg
 
-You can add text overlays to videos using FFmpeg's \`drawtext\` filter through this <Definition term="Robot">Robot</Definition>'s \`ffmpeg\` parameter. Here are two examples — one with the default font and one with a custom font family name:
+You can add text overlays to videos using FFmpeg's \`drawtext\` filter through this <dfn>Robot</dfn>'s \`ffmpeg\` parameter. Here are two examples — one with the default font and one with a custom font family name:
 
 \`\`\`json
 {
@@ -94,6 +96,8 @@ You can add text overlays to videos using FFmpeg's \`drawtext\` filter through t
 - Use the \`font\` attribute to reference a font by family name with FFmpeg's \`drawtext\`
 - FFmpeg font family names typically do not contain dashes (e.g. \`Times New Roman\`), while
   ImageMagick uses dashed names (e.g. \`Times-New-Roman\`).
+- File-loading \`drawtext\` options such as \`textfile\` and \`fontfile\` are not supported. Use
+  inline \`text\` and a font family name instead.
 - Preserve the source audio by setting \`"codec:a": "copy"\`.
 - Position text with the \`x\` and \`y\` expressions. The example above centers the text.
 
@@ -111,6 +115,7 @@ export const robotVideoEncodeInstructionsWithHiddenFieldsSchema =
       .union([z.literal('debug'), robotVideoEncodeInstructionsSchema.shape.result])
       .optional(),
     chunked_transcoding: z.boolean().optional(),
+    freeze_detect: z.boolean().optional(),
     realtime: z.boolean().optional(),
   })
 

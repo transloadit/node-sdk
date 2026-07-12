@@ -1,6 +1,7 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
@@ -37,6 +38,7 @@ export const meta: RobotMetaInput = {
   typical_file_type: 'file',
   name: 'FileServeRobot',
   priceFactor: 4,
+  minimumChargeUsd: 0.0000152587890625,
   queueSlotCount: 0,
   downloadInputFiles: false,
   preserveInputFileUrls: true,

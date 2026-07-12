@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+
 import type { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import type { SevLogger } from '@transloadit/sev-logger'
+
 import { applyCorsHeaders, isAuthorized, normalizePath, parsePathname } from './http-helpers.ts'
 import { buildRedactor, getLogger } from './logger.ts'
 

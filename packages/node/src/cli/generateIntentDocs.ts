@@ -1,6 +1,11 @@
+import type { IntentDefinition } from './intentCommandSpecs.ts'
+import type { ResolvedIntentCommandDefinition } from './intentCommands.ts'
+import type { IntentOptionDefinition } from './intentRuntime.ts'
+
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { pathToFileURL } from 'node:url'
+
 import {
   getConcurrencyOptionDocumentation,
   getDeleteAfterProcessingOptionDocumentation,
@@ -11,10 +16,7 @@ import {
   getSingleAssemblyOptionDocumentation,
   getWatchOptionDocumentation,
 } from './fileProcessingOptions.ts'
-import type { IntentDefinition } from './intentCommandSpecs.ts'
-import type { ResolvedIntentCommandDefinition } from './intentCommands.ts'
 import { resolveIntentCommandDefinitions } from './intentCommands.ts'
-import type { IntentOptionDefinition } from './intentRuntime.ts'
 import { getInputBase64OptionDocumentation, getIntentOptionDefinitions } from './intentRuntime.ts'
 
 interface DocOptionRow {

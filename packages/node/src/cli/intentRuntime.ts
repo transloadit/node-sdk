@@ -1,13 +1,18 @@
-import { statSync } from 'node:fs'
-import { basename, dirname, join, parse, resolve } from 'node:path'
-import { Option } from 'clipanion'
 import type { z } from 'zod'
 
-import { prepareInputFiles } from '../inputFiles.ts'
 import type { AssembliesCreateOptions } from './commands/assemblies.ts'
+import type { SharedCliOptionDocumentation } from './fileProcessingOptions.ts'
+import type { IntentFieldSpec } from './intentFields.ts'
+import type { IntentInputPolicy } from './intentInputPolicy.ts'
+
+import { statSync } from 'node:fs'
+import { basename, dirname, join, parse, resolve } from 'node:path'
+
+import { Option } from 'clipanion'
+
+import { prepareInputFiles } from '../inputFiles.ts'
 import * as assembliesCommands from './commands/assemblies.ts'
 import { AuthenticatedCommand } from './commands/BaseCommand.ts'
-import type { SharedCliOptionDocumentation } from './fileProcessingOptions.ts'
 import {
   concurrencyOption,
   countProvidedInputs,
@@ -20,9 +25,7 @@ import {
   validateSharedFileProcessingOptions,
   watchOption,
 } from './fileProcessingOptions.ts'
-import type { IntentFieldSpec } from './intentFields.ts'
 import { coerceIntentFieldValue } from './intentFields.ts'
-import type { IntentInputPolicy } from './intentInputPolicy.ts'
 import { printResultUrls } from './resultUrls.ts'
 import { getSemanticIntentDescriptor } from './semanticIntents/index.ts'
 

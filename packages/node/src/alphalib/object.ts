@@ -35,13 +35,39 @@ export function getRecordProperty(value: unknown, property: PropertyKey): unknow
   return value[property]
 }
 
+export function getNestedRecordProperty(
+  value: unknown,
+  first: PropertyKey,
+  second: PropertyKey,
+): unknown {
+  return getRecordProperty(getRecordProperty(value, first), second)
+}
+
 export function getStringProperty(value: unknown, property: PropertyKey): string | undefined {
   const propertyValue = getRecordProperty(value, property)
   return typeof propertyValue === 'string' ? propertyValue : undefined
 }
 
+export function getNestedStringProperty(
+  value: unknown,
+  first: PropertyKey,
+  second: PropertyKey,
+): string | undefined {
+  const propertyValue = getNestedRecordProperty(value, first, second)
+  return typeof propertyValue === 'string' ? propertyValue : undefined
+}
+
 export function getNumberProperty(value: unknown, property: PropertyKey): number | undefined {
   const propertyValue = getRecordProperty(value, property)
+  return typeof propertyValue === 'number' ? propertyValue : undefined
+}
+
+export function getNestedNumberProperty(
+  value: unknown,
+  first: PropertyKey,
+  second: PropertyKey,
+): number | undefined {
+  const propertyValue = getNestedRecordProperty(value, first, second)
   return typeof propertyValue === 'number' ? propertyValue : undefined
 }
 

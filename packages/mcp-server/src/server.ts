@@ -1,10 +1,11 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js'
 import type {
   AssemblyInstructionsInput,
   CreateAssemblyParams,
   LintAssemblyInstructionsResult,
 } from '@transloadit/node'
+
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import {
   ApiError,
   extractFieldNamesFromTemplate,
@@ -16,6 +17,7 @@ import {
   Transloadit,
 } from '@transloadit/node'
 import { z } from 'zod'
+
 import packageJson from '../package.json' with { type: 'json' }
 import { extractBearerToken } from './http-helpers.ts'
 

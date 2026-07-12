@@ -1,5 +1,6 @@
 import { once } from 'node:events'
 import { createServer, request as httpRequest } from 'node:http'
+
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const transportInstances: MockTransport[] = []

@@ -1,6 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+
 import type { SevLogger } from '@transloadit/sev-logger'
+
+import type { TransloaditMcpServerOptions } from './server.ts'
+
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+
 import {
   applyCorsHeaders,
   isAuthorized,
@@ -9,7 +14,6 @@ import {
   parsePathname,
 } from './http-helpers.ts'
 import { getMetrics, getMetricsContentType } from './metrics.ts'
-import type { TransloaditMcpServerOptions } from './server.ts'
 import { createTransloaditMcpServer } from './server.ts'
 import { buildServerCard, serverCardPath } from './server-card.ts'
 

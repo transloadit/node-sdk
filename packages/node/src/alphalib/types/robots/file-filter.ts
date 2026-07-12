@@ -1,11 +1,23 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   filterCondition,
   interpolateRobot,
   robotBase,
   robotUse,
+} from './_instructions-primitives.ts'
+
+export type {
+  FilterCondition,
+  FilterConditionOperator,
+  FilterConditionPart,
+} from './_instructions-primitives.ts'
+
+export {
+  filterConditionOperatorSchema,
+  filterConditionPartSchema,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
@@ -70,7 +82,7 @@ Passing JavaScript allows you to implement logic as complex as you wish, however
 The \`accepts\` and \`declines\` parameters can each be set to an array of arrays with three members:
 
 1. A value or job variable, such as \`\${file.mime}\`
-2. One of the following operators: \`==\`, \`===\`, \`<\`, \`>\`, \`<=\`, \`>=\`, \`!=\`, \`!==\`, \`regex\`, \`!regex\`, \`includes\`, \`!includes\`
+2. One of the following operators: \`=\`, \`==\`, \`===\`, \`<\`, \`>\`, \`<=\`, \`>=\`, \`!=\`, \`!==\`, \`regex\`, \`!regex\`, \`includes\`, \`!includes\`, \`empty\`, \`!empty\`
 3. A value or job variable, such as \`50\` or \`"foo"\`
 
 Examples:

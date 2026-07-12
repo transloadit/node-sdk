@@ -1,5 +1,47 @@
 # @transloadit/node
 
+## 4.11.1
+
+### Patch Changes
+
+- c4cdc23: Update Robot schemas and Assembly status types with the latest supported parameters, formats,
+  validation, and status fields.
+- 507ec7f: Use GPT-5.6 Sol for OpenAI defaults, Claude Fable 5 for general Anthropic defaults, and Claude
+  Sonnet 5 for image descriptions. Keep end-user Assembly Instructions compilation at medium
+  reasoning for responsive generation.
+- Updated dependencies [507ec7f]
+  - @transloadit/utils@4.4.1
+
+## 4.11.0
+
+### Minor Changes
+
+- c2de344: Add a shared Assembly Instructions compiler and expose prompt-to-Assembly-Instructions helpers in
+  the Node SDK and CLI.
+
+### Patch Changes
+
+- Updated dependencies [c2de344]
+  - @transloadit/utils@4.4.0
+
+## 4.10.8
+
+### Patch Changes
+
+- 9cf7aea: Handle tus upload failures without leaving duplicate internal promises unhandled.
+
+## 4.10.7
+
+### Patch Changes
+
+- f2abe56: Sync robot and assembly status schemas with the latest Transloadit API definitions.
+
+## 4.10.6
+
+### Patch Changes
+
+- 910b6d0: Refresh generated Transloadit Robot schemas and shared assembly types from alphalib, including `/document/extract`, FFmpeg v8 stack support, and the latest speech transcription provider defaults.
+
 ## 4.10.5
 
 ### Patch Changes

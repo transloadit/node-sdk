@@ -1,6 +1,7 @@
 import type { AssemblyStatus } from '@transloadit/types/assemblyStatus'
 import type { AssemblyInstructions } from '@transloadit/types/template'
 import type { z } from 'zod/v3'
+
 import type { assemblyStatusSchema } from '../src/v3/assemblyStatus.ts'
 import type { assemblyInstructionsSchema } from '../src/v3/template.ts'
 

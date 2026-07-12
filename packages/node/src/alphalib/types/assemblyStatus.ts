@@ -1,10 +1,13 @@
 import { z } from 'zod'
 
+import { fileAsSchema } from './file.ts'
+
 export const assemblyBusyCodeSchema = z.enum([
   'ASSEMBLY_UPLOADING',
   'ASSEMBLY_EXECUTING',
   'ASSEMBLY_REPLAYING',
 ])
+export type AssemblyBusyCode = z.infer<typeof assemblyBusyCodeSchema>
 
 export const assemblyStatusOkCodeSchema = z.enum([
   'ASSEMBLY_CANCELED',
@@ -17,6 +20,7 @@ export const assemblyStatusOkCodeSchema = z.enum([
   // 'ASSEMBLY_FILE_ACCEPTED',
   // 'ASSEMBLY_FILE_RESERVED',
 ])
+export type AssemblyStatusOkCode = z.infer<typeof assemblyStatusOkCodeSchema>
 
 export const assemblyStatusErrCodeSchema = z.enum([
   'ADMIN_PERMISSIONS_REQUIRED',
@@ -116,18 +120,24 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'CLOUDFLARE_IMPORT_FAILURE',
   'CLOUDFLARE_IMPORT_NOT_FOUND',
   'CLOUDFLARE_IMPORT_VALIDATION',
+  'CLOUDFLARE_STORE_ACCESS_DENIED',
+  'CLOUDFLARE_STORE_NOT_FOUND',
   'CLOUDFLARE_STORE_URL_VERIFICATION_FAILURE',
   'CLOUDFLARE_STORE_VALIDATION',
+  'CLOUDFLARE_STORE_WRONG_REGION',
   'CLOUD_AI_IMAGE_VALIDATION',
   'DIGITALOCEAN_IMPORT_ACCESS_DENIED',
   'DIGITALOCEAN_IMPORT_FAILURE',
   'DIGITALOCEAN_IMPORT_NOT_FOUND',
   'DIGITALOCEAN_IMPORT_VALIDATION',
   'DIGITALOCEAN_STORE_ACCESS_DENIED',
+  'DIGITALOCEAN_STORE_NOT_FOUND',
   'DIGITALOCEAN_STORE_VALIDATION',
+  'DIGITALOCEAN_STORE_WRONG_REGION',
   'DOCUMENT_AUTOROTATE_VALIDATION',
   'DOCUMENT_CONVERT_UNSUPPORTED_CONVERSION',
   'DOCUMENT_CONVERT_VALIDATION',
+  'DOCUMENT_EXTRACT_VALIDATION',
   'DOCUMENT_MERGE_UNSUPPORTED_CONVERSION',
   'DOCUMENT_MERGE_VALIDATION',
   'DOCUMENT_OCR_VALIDATION',
@@ -231,13 +241,19 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'MEGA_IMPORT_FAILURE',
   'MEGA_IMPORT_NOT_FOUND',
   'MEGA_IMPORT_VALIDATION',
+  'MEGA_STORE_ACCESS_DENIED',
+  'MEGA_STORE_NOT_FOUND',
   'MEGA_STORE_VALIDATION',
+  'MEGA_STORE_WRONG_REGION',
   'META_WRITE_VALIDATION',
   'MINIO_IMPORT_ACCESS_DENIED',
   'MINIO_IMPORT_FAILURE',
   'MINIO_IMPORT_NOT_FOUND',
   'MINIO_IMPORT_VALIDATION',
+  'MINIO_STORE_ACCESS_DENIED',
+  'MINIO_STORE_NOT_FOUND',
   'MINIO_STORE_VALIDATION',
+  'MINIO_STORE_WRONG_REGION',
   'NO_AUTH_EXPIRES_PARAMETER',
   'NO_AUTH_KEY_PARAMETER',
   'NO_AUTH_PARAMETER',
@@ -270,8 +286,10 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'S3_NOT_FOUND',
   'S3_STORE_ACCESS_DENIED',
   'S3_STORE_FAILURE',
+  'S3_STORE_NOT_FOUND',
   'S3_STORE_URL_VERIFICATION_FAILURE',
   'S3_STORE_VALIDATION',
+  'S3_STORE_WRONG_REGION',
   'SCRIPT_RUN_VALIDATION',
   'SERVER_403',
   'SERVER_404',
@@ -290,12 +308,18 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'SUPABASE_IMPORT_FAILURE',
   'SUPABASE_IMPORT_NOT_FOUND',
   'SUPABASE_IMPORT_VALIDATION',
+  'SUPABASE_STORE_ACCESS_DENIED',
+  'SUPABASE_STORE_NOT_FOUND',
   'SUPABASE_STORE_VALIDATION',
+  'SUPABASE_STORE_WRONG_REGION',
   'SWIFT_IMPORT_ACCESS_DENIED',
   'SWIFT_IMPORT_FAILURE',
   'SWIFT_IMPORT_NOT_FOUND',
   'SWIFT_IMPORT_VALIDATION',
+  'SWIFT_STORE_ACCESS_DENIED',
+  'SWIFT_STORE_NOT_FOUND',
   'SWIFT_STORE_VALIDATION',
+  'SWIFT_STORE_WRONG_REGION',
   'TEMPLATE_CREDENTIALS_INJECTION_ERROR',
   'TEMPLATE_DB_ERROR',
   'TEMPLATE_DENIES_STEPS_OVERRIDE',
@@ -307,7 +331,10 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'TIGRIS_IMPORT_FAILURE',
   'TIGRIS_IMPORT_NOT_FOUND',
   'TIGRIS_IMPORT_VALIDATION',
+  'TIGRIS_STORE_ACCESS_DENIED',
+  'TIGRIS_STORE_NOT_FOUND',
   'TIGRIS_STORE_VALIDATION',
+  'TIGRIS_STORE_WRONG_REGION',
   'TMP_FILE_DOWNLOAD_ERROR',
   'TOKEN_INVALID_CREDENTIALS',
   'TUS_STORE_VALIDATION',
@@ -343,11 +370,15 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'WASABI_IMPORT_FAILURE',
   'WASABI_IMPORT_NOT_FOUND',
   'WASABI_IMPORT_VALIDATION',
+  'WASABI_STORE_ACCESS_DENIED',
+  'WASABI_STORE_NOT_FOUND',
   'WASABI_STORE_VALIDATION',
+  'WASABI_STORE_WRONG_REGION',
   'WORKER_JOB_ERROR',
   'YOUTUBE_STORE_PROBLEM_SENDING_FILE',
   'YOUTUBE_STORE_VALIDATION',
 ])
+export type AssemblyStatusErrCode = z.infer<typeof assemblyStatusErrCodeSchema>
 
 const assemblyStatusMetaSchema = z
   .object({
@@ -452,6 +483,22 @@ const assemblyStatusMetaSchema = z
     num_subtitles: z.union([z.number(), z.null()]).optional(),
     bit_depth: z.union([z.number(), z.null()]).optional(),
     seekable: z.union([z.boolean(), z.null()]).optional(),
+    interlaced: z.boolean().nullable().optional(),
+    field_order: z.string().nullable().optional(),
+    interlace_detection: z
+      .object({
+        sampled_frames: z.number().optional(),
+        tff: z.number().optional(),
+        bff: z.number().optional(),
+        progressive: z.number().optional(),
+        undetermined: z.number().optional(),
+        confidence: z.number().optional(),
+        method: z.string().optional(),
+        ffprobe_field_order: z.string().nullable().optional(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
     pixel_format: z.union([z.string(), z.null()]).optional(),
     reference_count: z.union([z.number(), z.null()]).optional(),
     time_base: z.union([z.string(), z.null()]).optional(),
@@ -596,10 +643,7 @@ export const assemblyStatusUploadSchema = z
     ssl_url: z.string().nullable(),
     meta: assemblyStatusMetaSchema,
     user_meta: z.record(z.unknown()).optional(),
-    as: z
-      .union([z.string(), z.array(z.string())])
-      .nullable()
-      .optional(),
+    as: fileAsSchema.optional(),
     is_temp_url: z.boolean().optional(),
     queue: z.string().nullable().optional(),
     queue_time: z.number().optional(),
@@ -652,10 +696,7 @@ export const assemblyStatusResultSchema = z
       .nullable()
       .optional(),
     width: z.number().nullable().optional(),
-    as: z
-      .union([z.string(), z.array(z.string())])
-      .nullable()
-      .optional(),
+    as: fileAsSchema.optional(),
     queueTime: z.number().nullable().optional(),
     execTime: z.number().nullable().optional(),
     import_url: z.string().optional(),
@@ -743,6 +784,7 @@ export const assemblyStatusBaseSchema = z.object({
   notify_status: z.string().nullable().optional(),
   notify_response_code: z.number().nullable().optional(),
   notify_response_data: z.string().nullable().optional(),
+  notify_error: z.string().nullable().optional(),
   notify_duration: z.number().nullable().optional(),
   last_job_completed: z.string().nullable().optional(),
   fields: z.record(z.unknown()).optional(),
@@ -803,6 +845,10 @@ export const assemblyStatusBaseSchema = z.object({
   ignored_error_count: z.number().optional(),
 })
 
+export type AssemblyStatusTusUpload = NonNullable<
+  z.infer<typeof assemblyStatusBaseSchema>['tus_uploads']
+>[number]
+
 export const assemblyStatusBusySchema = z
   .object({
     ok: assemblyBusyCodeSchema,
@@ -837,6 +883,10 @@ export const assemblyStatusErrSchema = assemblyStatusBaseSchema
     stderr: z.string().optional(),
     cmd: z.union([z.string(), z.array(z.union([z.string(), z.number()]))]).optional(),
     admin_cmd: z.union([z.string(), z.array(z.union([z.string(), z.number()]))]).optional(),
+    is_private_address: z.boolean().optional(),
+    playwright_error_code: z.string().optional(),
+    url: z.string().optional(),
+    url_host: z.string().nullable().optional(),
     worker: z.string().optional(),
     headers: z.record(z.unknown()).optional(),
     retryable: z.boolean().optional(),

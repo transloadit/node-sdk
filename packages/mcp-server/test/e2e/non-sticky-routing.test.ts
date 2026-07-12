@@ -1,6 +1,9 @@
-import { createServer, request as httpRequest } from 'node:http'
 import type { AddressInfo } from 'node:net'
+
+import { createServer, request as httpRequest } from 'node:http'
+
 import { expect, test } from 'vitest'
+
 import { createHttpClient, startHttpServer } from './http-server.ts'
 import { parseToolPayload } from './mcp-client.ts'
 

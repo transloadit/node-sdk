@@ -1,12 +1,15 @@
+import type { TemplateContent } from '../../../src/apiTypes.ts'
+import type { OutputEntry } from './test-utils.ts'
+
 import fsp from 'node:fs/promises'
 import path from 'node:path'
+
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { TemplateContent } from '../../../src/apiTypes.ts'
+
 import * as templates from '../../../src/cli/commands/templates.ts'
 import { zip } from '../../../src/cli/helpers.ts'
 import { Transloadit as TransloaditClient } from '../../../src/Transloadit.ts'
 import OutputCtl from './OutputCtl.ts'
-import type { OutputEntry } from './test-utils.ts'
 import { authKey, authSecret, delay, hasTransloaditCredentials, testCase } from './test-utils.ts'
 
 const describeLive = hasTransloaditCredentials ? describe : describe.skip

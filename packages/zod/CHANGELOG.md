@@ -1,5 +1,27 @@
 # @transloadit/zod
 
+## 4.3.5
+
+### Patch Changes
+
+- c4cdc23: Update Robot schemas and Assembly status types with the latest supported parameters, formats,
+  validation, and status fields.
+- 507ec7f: Use GPT-5.6 Sol for OpenAI defaults, Claude Fable 5 for general Anthropic defaults, and Claude
+  Sonnet 5 for image descriptions. Keep end-user Assembly Instructions compilation at medium
+  reasoning for responsive generation.
+
+## 4.3.4
+
+### Patch Changes
+
+- f2abe56: Sync robot and assembly status schemas with the latest Transloadit API definitions.
+
+## 4.3.3
+
+### Patch Changes
+
+- 910b6d0: Refresh generated Transloadit Robot schemas and shared assembly types from alphalib, including `/document/extract`, FFmpeg v8 stack support, and the latest speech transcription provider defaults.
+
 ## 4.3.2
 
 ### Patch Changes

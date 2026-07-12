@@ -7,7 +7,10 @@ General:
 
 - Do not touch `.env` files!
 - Favor Yarn (4) over npm
-- Never run any dev server yourself. I have one running that auto-reloads on changes.
+- Before starting a dev server, first check whether a suitable one is already running and use that
+  if possible. If none is available and local browser/e2e validation needs one, start the documented
+  dev server, capture its log path/pid, and stop it when you are done unless the user asked to keep
+  it running.
 - Avoid blocking the conversation with terminal commands. For example: A) most of my git commands run through pagers, so pipe their output to `cat` to avoid blocking the
   terminal. B) You can use `tail` for logs, but be smart and use `-n` instead of `-f`, or the conversation will block
 - Use the `gh` tool to interact with GitHub (search/view an Issue, create a PR).

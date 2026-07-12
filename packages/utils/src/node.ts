@@ -1,6 +1,6 @@
-import { createHmac } from 'node:crypto'
-
 import type { SignatureAlgorithm } from './index.ts'
+
+import { createHmac } from 'node:crypto'
 
 export type { SignatureAlgorithm } from './index.ts'
 

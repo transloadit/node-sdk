@@ -1,12 +1,37 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
-  aiProviderSchema,
+  autoProviderDescription,
+  awsGcpAiProviderSchema,
   interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
+
+export const imageFacedetectFaceSelectionModes = [
+  'each',
+  'group',
+  'max-confidence',
+  'max-size',
+] as const
+
+export const imageFacedetectFaceSelectionModeSchema = z.enum(imageFacedetectFaceSelectionModes)
+
+export const imageFacedetectFaceCoordinatesSchema = z
+  .object({
+    confidence: z.number().optional(),
+    height: z.number(),
+    width: z.number(),
+    x1: z.number(),
+    x2: z.number().optional(),
+    y1: z.number(),
+    y2: z.number().optional(),
+  })
+  .passthrough()
+
+export type ImageFacedetectFaceCoordinates = z.infer<typeof imageFacedetectFaceCoordinatesSchema>
 
 export const meta: RobotMetaInput = {
   bytescount: 1,
@@ -67,10 +92,10 @@ This <dfn>Robot</dfn> works well together with [🤖/image/resize](/docs/robots/
 
 </div>
 `),
-    provider: aiProviderSchema.optional().describe(`
-Which AI provider to leverage.
+    provider: awsGcpAiProviderSchema.describe(`
+${autoProviderDescription}
 
-Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
+Set this to \`"aws"\` or \`"gcp"\` to force a specific provider.
 `),
     crop: z
       .boolean()
@@ -103,7 +128,7 @@ The default value \`"preserve"\` means that the input image format is re-used.
 Specifies the minimum confidence that a detected face must have. Only faces which have a higher confidence value than this threshold will be included in the result.
 `),
     faces: z
-      .union([z.enum(['each', 'group', 'max-confidence', 'max-size']), z.number().int()])
+      .union([imageFacedetectFaceSelectionModeSchema, z.number().int()])
       .default('each')
       .describe(`
 Determines which of the detected faces should be returned. Valid values are:

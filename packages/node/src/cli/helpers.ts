@@ -1,9 +1,12 @@
+import type { Readable } from 'node:stream'
+
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
-import type { Readable } from 'node:stream'
+
 import { parse as parseDotenv } from 'dotenv'
+
 import { isAPIError } from './types.ts'
 
 export type CliKeySecretCredentials = { authKey: string; authSecret: string }

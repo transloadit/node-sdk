@@ -1,13 +1,19 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
-  aiProviderSchema,
+  autoProviderDescription,
   granularitySchema,
   interpolateRobot,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
+
+const speechTranscribeProviderSchema = z.enum(['auto', 'aws', 'gcp', 'replicate']).default('auto')
+const speechTranscribeProviderWithHiddenFieldsSchema = z
+  .enum(['auto', 'aws', 'gcp', 'replicate', 'transloadit'])
+  .default('auto')
 
 export const meta: RobotMetaInput = {
   bytescount: 1,
@@ -18,7 +24,7 @@ export const meta: RobotMetaInput = {
       transcribed: {
         robot: '/speech/transcribe',
         use: ':original',
-        provider: 'aws',
+        provider: 'replicate',
         source_language: 'fr-FR',
         format: 'text',
       },
@@ -28,7 +34,7 @@ export const meta: RobotMetaInput = {
     'Transcribe speech in French from uploaded audio or video, and save it to a text file:',
   extended_description: `
 > [!Warning]
-> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
+> Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses AI services. The providers will evolve their models over time, giving different responses for the same input media. Avoid relying on exact responses in your tests and application.
 `,
   minimum_charge: 1048576,
   output_factor: 0.05,
@@ -47,7 +53,7 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 10,
   minimumChargeUsdPerSpeechTranscribeMinute: {
     aws: 0.024,
-    gcp: 0.016,
+    gcp: 0.024,
   },
   isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
@@ -63,11 +69,50 @@ export const robotSpeechTranscribeInstructionsSchema = robotBase
 You can use the text that we return in your application, or you can pass the text down to other <dfn>Robots</dfn> to filter audio or video files that contain (or do not contain) certain content, or burn the text into images or video for example.
 
 Another common use case is automatically subtitling videos, or making audio searchable.
-`),
-    provider: aiProviderSchema.describe(`
-Which AI provider to leverage.
 
-Transloadit outsources this task and abstracts the interface so you can expect the same data structures, but different latencies and information being returned. Different cloud vendors have different areas they shine in, and we recommend to try out and see what yields the best results for your use case.
+Set \`speaker_labels\` to \`true\` when you want JSON or meta transcription output to distinguish
+recurring speakers:
+
+\`\`\`json
+{
+  "steps": {
+    "transcribed": {
+      "use": ":original",
+      "robot": "/speech/transcribe",
+      "provider": "aws",
+      "format": "json",
+      "speaker_labels": true,
+      "max_speakers": 3
+    }
+  }
+}
+\`\`\`
+
+Speaker labels are currently supported by the \`aws\` and \`gcp\` providers. If you enable
+\`speaker_labels\` without setting \`provider\`, Transloadit uses \`aws\` for that <dfn>Step</dfn>. Labels
+are normalized as \`speaker_1\`, \`speaker_2\`, and so on:
+
+\`\`\`json
+{
+  "text": "Hello there. Hi!",
+  "words": [
+    { "text": "Hello", "startTime": 0, "endTime": 0.5, "speaker": "speaker_1" },
+    { "text": "there", "startTime": 0.6, "endTime": 1, "speaker": "speaker_1" },
+    { "text": "Hi!", "startTime": 1.2, "endTime": 1.8, "speaker": "speaker_2" }
+  ],
+  "segments": [
+    { "text": "Hello there", "startTime": 0, "endTime": 1, "speaker": "speaker_1" },
+    { "text": "Hi!", "startTime": 1.2, "endTime": 1.8, "speaker": "speaker_2" }
+  ]
+}
+\`\`\`
+`),
+    provider: speechTranscribeProviderSchema.describe(`
+${autoProviderDescription}
+
+Set this to \`"aws"\`, \`"gcp"\`, or \`"replicate"\` to force a specific provider.
+When set to \`"auto"\`, Transloadit keeps the existing transcription default and uses \`"aws"\` only
+when \`speaker_labels\` is enabled.
 `),
     granularity: granularitySchema.describe(`
 Whether to return a full response (\`"full"\`), or a flat list of descriptions (\`"list"\`).
@@ -79,9 +124,26 @@ Whether to return a full response (\`"full"\`), or a flat list of descriptions (
 Output format for the transcription.
 
 - \`"text"\` outputs a plain text file that you can store and process.
-- \`"json"\` outputs a JSON file containing timestamped words.
+- \`"json"\` outputs a JSON file containing timestamped words. When \`speaker_labels\` is enabled, words can include \`speaker\` labels and the JSON can also include grouped \`segments\` by speaker.
 - \`"srt"\` and \`"webvtt"\` output subtitle files of those respective file types, which can be stored separately or used in other encoding <dfn>Steps</dfn>.
-- \`"meta"\` does not return a file, but stores the data inside  Transloadit's file object (under \`\${file.meta.transcription.text}\`) that's passed around between encoding <dfn>Steps</dfn>, so that you can use the values to burn the data into videos, filter on them, etc.
+- \`"meta"\` does not return a file, but stores the data inside Transloadit's file object (under \`\${file.meta.transcription.text}\`, \`\${file.meta.transcription.words}\`, and, when speaker labels are available, \`\${file.meta.transcription.segments}\`) that's passed around between encoding <dfn>Steps</dfn>, so that you can use the values to burn the data into videos, filter on them, etc.
+`),
+    speaker_labels: z
+      .boolean()
+      .default(false)
+      .describe(`
+When enabled, Transloadit asks the transcription provider to distinguish different speakers. JSON and meta output can then include \`speaker\` labels such as \`"speaker_1"\` on individual words, plus grouped \`segments\` by speaker. Text, SRT, and WebVTT output behavior is unchanged.
+
+Speaker labels identify recurring voices, not real person names. Accuracy depends on audio quality, background noise, overlapping speech, and the number of speakers.
+`),
+    max_speakers: z
+      .number()
+      .int()
+      .min(1)
+      .max(10)
+      .default(10)
+      .describe(`
+The maximum number of speakers to detect when \`speaker_labels\` is enabled.
 `),
     // TODO determine the list of languages
     source_language: z
@@ -106,6 +168,8 @@ The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/
 
 export const robotSpeechTranscribeInstructionsWithHiddenFieldsSchema =
   robotSpeechTranscribeInstructionsSchema.extend({
+    model: z.enum(['whisper-large-v3']).optional(),
+    provider: speechTranscribeProviderWithHiddenFieldsSchema,
     result: z
       .union([z.literal('debug'), robotSpeechTranscribeInstructionsSchema.shape.result])
       .optional(),

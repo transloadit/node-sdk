@@ -1,17 +1,20 @@
+import type { TemplateContent } from '../../apiTypes.ts'
+import type { Transloadit } from '../../Transloadit.ts'
+import type { IOutputCtl } from '../OutputCtl.ts'
+import type { TemplateFile } from '../types.ts'
+
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
+
 import { Command, Option } from 'clipanion'
 import rreaddir from 'recursive-readdir'
 import { z } from 'zod'
+
 import { tryCatch } from '../../alphalib/tryCatch.ts'
-import type { TemplateContent } from '../../apiTypes.ts'
-import type { Transloadit } from '../../Transloadit.ts'
 import { createReadStream, formatAPIError, streamToBuffer } from '../helpers.ts'
-import type { IOutputCtl } from '../OutputCtl.ts'
 import { parseStepsInputJson } from '../stepsInput.ts'
 import ModifiedLookup from '../template-last-modified.ts'
-import type { TemplateFile } from '../types.ts'
 import { ensureError, isTransloaditAPIError, TemplateFileDataSchema } from '../types.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
 

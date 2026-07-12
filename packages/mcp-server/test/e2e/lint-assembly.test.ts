@@ -1,5 +1,7 @@
 import type { Client } from '@modelcontextprotocol/sdk/client'
+
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
 import { lintAssemblyInstructions } from '../../../node/src/lintAssemblyInstructions.ts'
 import { createMcpClient, isRecord, parseToolPayload } from './mcp-client.ts'
 

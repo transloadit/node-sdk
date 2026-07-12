@@ -1,8 +1,11 @@
+import type { RobotMetaInput } from './_instructions-primitives.ts'
+
 import { z } from 'zod'
 
-import type { RobotMetaInput } from './_instructions-primitives.ts'
 import {
   color_with_alpha,
+  httpUrlSchema,
+  inputSortBySchema,
   interpolateRobot,
   resize_strategy,
   robotBase,
@@ -50,6 +53,7 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 60,
   isAllowedForUrlTransform: false,
   trackOutputFileSize: true,
+  applyCommunityPlanMediaTrim: true,
   isInternal: false,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'ga',
@@ -111,13 +115,10 @@ Determines whether the audio of the video should be replaced with a provided aud
       .describe(`
 Stacks the input media vertically. All streams need to have the same pixel format and width - so consider using a [/video/encode](/docs/robots/video-encode/) <dfn>Step</dfn> before using this parameter to enforce this.
 `),
-    image_url: z
-      .string()
-      .url()
-      .optional()
-      .describe(`
+    image_url: httpUrlSchema.optional().describe(`
 The URL of an image to be merged with the audio or video. When this parameter is provided, the robot will download the image from the URL and merge it with the other media.
 `),
+    sort_by: inputSortBySchema,
     transition: z
       .enum(['none', 'crossfade', 'fade_to_black'])
       .default('none')
@@ -142,6 +143,7 @@ export const robotVideoMergeInstructionsWithHiddenFieldsSchema =
     result: z
       .union([z.literal('debug'), robotVideoMergeInstructionsSchema.shape.result])
       .optional(),
+    turbo: z.boolean().optional(),
   })
 
 export type RobotVideoMergeInstructions = z.infer<typeof robotVideoMergeInstructionsSchema>

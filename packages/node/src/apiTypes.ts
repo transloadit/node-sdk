@@ -1,11 +1,12 @@
 import type { AssemblyInstructions, AssemblyInstructionsInput } from './alphalib/types/template.ts'
 
+export type { AssemblyInstructions, AssemblyInstructionsInput } from './alphalib/types/template.ts'
+
 export {
   type AssemblyIndexItem,
   assemblyIndexItemSchema,
   assemblyStatusSchema,
 } from './alphalib/types/assemblyStatus.ts'
-export type { AssemblyInstructions, AssemblyInstructionsInput } from './alphalib/types/template.ts'
 export { assemblyInstructionsSchema } from './alphalib/types/template.ts'
 
 export interface OptionalAuthParams {

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs/promises'
+
 import { makeBadge } from 'badge-maker'
 
 const json = JSON.parse(await fs.readFile(process.argv[2], 'utf-8'))

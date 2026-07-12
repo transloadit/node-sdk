@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+
 import nock from 'nock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
@@ -390,7 +391,7 @@ describe('intent commands', () => {
             robot: '/ai/chat',
             use: ':original',
             result: true,
-            model: 'anthropic/claude-4-sonnet-20250514',
+            model: 'anthropic/claude-sonnet-5',
             format: 'json',
             return_messages: 'last',
             test_credentials: true,
@@ -1745,12 +1746,12 @@ describe('intent commands', () => {
     )
   })
 
-  it('includes required schema flags in generated usage examples', () => {
+  it('reflects required and defaulted schema flags in generated usage examples', () => {
     expect(getIntentCommand(['document', 'convert']).usage.examples).toEqual([
       ['Run the command', expect.stringContaining('--format')],
     ])
     expect(getIntentCommand(['text', 'speak']).usage.examples).toEqual([
-      ['Run the command', expect.stringContaining('--provider')],
+      ['Run the command', expect.not.stringContaining('--provider')],
     ])
     expect(getIntentCommand(['document', 'convert']).usage.examples).toEqual([
       ['Run the command', expect.stringContaining('output.pdf')],
