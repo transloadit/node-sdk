@@ -543,6 +543,7 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'anthropic/claude-4-sonnet-20250514': { pdf: true, image: true },
   'anthropic/claude-sonnet-4-20250514': { pdf: true, image: true },
   'anthropic/claude-opus-4-8': { pdf: true, image: true },
+  'anthropic/claude-opus-5': { pdf: true, image: true },
   'anthropic/claude-4-opus-20250514': { pdf: true, image: true },
   'anthropic/claude-opus-4-20250514': { pdf: true, image: true },
   'anthropic/claude-sonnet-4-5': { pdf: true, image: true },
