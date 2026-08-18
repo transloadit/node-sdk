@@ -14,8 +14,22 @@ export interface DocsPage {
 }
 
 const docsOrigin = 'https://transloadit.com'
-const docsIndexUrl = `${docsOrigin}/llms.txt`
 const docsFetchTimeoutMs = 10_000
+const docsIndexMaxChars = 500_000
+const rootDocsIndexUrl = `${docsOrigin}/llms.txt`
+const docsIndexUrls: Record<DocsScope, readonly string[]> = {
+  all: [
+    `${docsOrigin}/docs/llms.txt`,
+    `${docsOrigin}/docs/api/llms.txt`,
+    `${docsOrigin}/docs/faq/llms.txt`,
+    `${docsOrigin}/docs/robots/llms.txt`,
+    `${docsOrigin}/docs/sdks/llms.txt`,
+  ],
+  api: [`${docsOrigin}/docs/api/llms.txt`],
+  faq: [`${docsOrigin}/docs/faq/llms.txt`],
+  robots: [`${docsOrigin}/docs/robots/llms.txt`],
+  sdks: [`${docsOrigin}/docs/sdks/llms.txt`],
+}
 const markdownLinkPattern = /^- \[([^\]]+)\]\(([^)]+)\)(?::\s*(.*))?$/u
 
 function normalizeDocsUrl(value: string): URL | undefined {
@@ -23,18 +37,57 @@ function normalizeDocsUrl(value: string): URL | undefined {
 
   const url = new URL(value, docsOrigin)
   if (url.origin !== docsOrigin) return
+  url.hash = ''
+  url.search = ''
   if (url.pathname === '/llms.txt') return url
   if (!url.pathname.startsWith('/docs/')) return
 
   if (!url.pathname.endsWith('.md') && !url.pathname.endsWith('.txt')) {
     url.pathname = `${url.pathname.replace(/\/$/u, '')}.md`
   }
-  url.hash = ''
-  url.search = ''
   return url
 }
 
-async function fetchDocsText(url: string, fetcher: typeof fetch): Promise<string> {
+interface DocsTextResponse {
+  text: string
+  truncated: boolean
+}
+
+async function readBoundedResponseText(
+  response: Response,
+  maxChars: number,
+): Promise<DocsTextResponse> {
+  if (response.body === null) {
+    return { text: '', truncated: false }
+  }
+
+  const decoder = new TextDecoder()
+  const reader = response.body.getReader()
+  let text = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) {
+      text += decoder.decode()
+      return {
+        text: text.slice(0, maxChars),
+        truncated: text.length > maxChars,
+      }
+    }
+
+    text += decoder.decode(value, { stream: true })
+    if (text.length <= maxChars) continue
+
+    await reader.cancel()
+    return { text: text.slice(0, maxChars), truncated: true }
+  }
+}
+
+async function fetchDocsText(
+  url: string,
+  maxChars: number,
+  fetcher: typeof fetch,
+): Promise<DocsTextResponse> {
   const response = await fetcher(url, {
     headers: { Accept: 'text/markdown, text/plain;q=0.9' },
     signal: AbortSignal.timeout(docsFetchTimeoutMs),
@@ -42,7 +95,25 @@ async function fetchDocsText(url: string, fetcher: typeof fetch): Promise<string
   if (!response.ok) {
     throw new Error(`Documentation request failed with HTTP ${response.status}.`)
   }
-  return response.text()
+  const contentType = response.headers.get('content-type') ?? ''
+  if (!contentType.includes('text/markdown') && !contentType.includes('text/plain')) {
+    throw new Error(`Documentation request returned unsupported content type: ${contentType}.`)
+  }
+  return readBoundedResponseText(response, maxChars)
+}
+
+async function fetchSearchIndexes(
+  scope: DocsScope,
+  fetcher: typeof fetch,
+): Promise<DocsTextResponse[]> {
+  try {
+    return await Promise.all(
+      docsIndexUrls[scope].map((url) => fetchDocsText(url, docsIndexMaxChars, fetcher)),
+    )
+  } catch {
+    // Keep search available if the MCP package deploys before the scoped content routes.
+    return [await fetchDocsText(rootDocsIndexUrl, docsIndexMaxChars, fetcher)]
+  }
 }
 
 function parseIndex(index: string): DocsSearchResult[] {
@@ -86,7 +157,11 @@ export async function searchTransloaditDocs(
   fetcher: typeof fetch = fetch,
 ): Promise<DocsSearchResult[]> {
   const terms = query.toLowerCase().split(/\s+/u).filter(Boolean)
-  const index = await fetchDocsText(docsIndexUrl, fetcher)
+  const indexResponses = await fetchSearchIndexes(scope, fetcher)
+  if (indexResponses.some(({ truncated }) => truncated)) {
+    throw new Error('A documentation index exceeded the maximum supported size.')
+  }
+  const index = indexResponses.map(({ text }) => text).join('\n')
 
   return parseIndex(index)
     .filter((result) => matchesScope(result, scope))
@@ -109,12 +184,12 @@ export async function getTransloaditDoc(
   const url = normalizeDocsUrl(pathOrUrl)
   if (url === undefined) return
 
-  const markdown = await fetchDocsText(url.toString(), fetcher)
+  const { text: markdown, truncated } = await fetchDocsText(url.toString(), maxChars, fetcher)
   const title = markdown.match(/^#\s+(.+)$/mu)?.[1] ?? url.pathname
   return {
     title,
     url: url.toString(),
-    markdown: markdown.slice(0, maxChars),
-    truncated: markdown.length > maxChars,
+    markdown,
+    truncated,
   }
 }
