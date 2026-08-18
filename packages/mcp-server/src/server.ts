@@ -19,6 +19,7 @@ import {
 import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
+import { getTransloaditDoc, searchTransloaditDocs } from './docs.ts'
 import { extractBearerToken } from './http-helpers.ts'
 
 export type TransloaditMcpServerOptions = {
@@ -54,7 +55,52 @@ type ToolExtra = {
   }
 }
 
+const toolMessageSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+  hint: z.string().optional(),
+  path: z.string().optional(),
+})
+
 const maxBase64Bytes = 512_000
+
+const searchDocsInputSchema = z.object({
+  query: z.string().min(2),
+  scope: z.enum(['all', 'api', 'faq', 'robots', 'sdks']).default('all'),
+  limit: z.number().int().min(1).max(20).default(8),
+})
+
+const searchDocsOutputSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  results: z
+    .array(
+      z.object({
+        title: z.string(),
+        url: z.string(),
+        description: z.string().optional(),
+      }),
+    )
+    .optional(),
+  errors: z.array(toolMessageSchema).optional(),
+})
+
+const getDocInputSchema = z.object({
+  path_or_url: z.string().min(1),
+  max_chars: z.number().int().min(1_000).max(100_000).default(50_000),
+})
+
+const getDocOutputSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  document: z
+    .object({
+      title: z.string(),
+      url: z.string(),
+      markdown: z.string(),
+      truncated: z.boolean(),
+    })
+    .optional(),
+  errors: z.array(toolMessageSchema).optional(),
+})
 
 type LintAssemblyInstructionsInput = Parameters<Transloadit['lintAssemblyInstructions']>[0]
 
@@ -63,13 +109,6 @@ const lintIssueSchema = z.object({
   message: z.string(),
   severity: z.enum(['error', 'warning']),
   hint: z.string().optional(),
-})
-
-const toolMessageSchema = z.object({
-  code: z.string(),
-  message: z.string(),
-  hint: z.string().optional(),
-  path: z.string().optional(),
 })
 
 const listRobotsInputSchema = z.object({
@@ -616,6 +655,56 @@ export const createTransloaditMcpServer = (
   })
 
   // Builtin templates supersede the old golden template tool; no legacy alias by design.
+  server.registerTool(
+    'transloadit_search_docs',
+    {
+      title: 'Search Transloadit documentation',
+      description:
+        'Search the public Transloadit documentation index. This read-only tool does not require account credentials.',
+      inputSchema: searchDocsInputSchema,
+      outputSchema: searchDocsOutputSchema,
+    },
+    async ({ query, scope, limit }) => {
+      try {
+        const results = await searchTransloaditDocs(query, scope, limit)
+        return buildToolResponse({ status: 'ok', results })
+      } catch {
+        return buildToolError(
+          'mcp_docs_unavailable',
+          'The Transloadit documentation index is temporarily unavailable.',
+        )
+      }
+    },
+  )
+
+  server.registerTool(
+    'transloadit_get_doc',
+    {
+      title: 'Get Transloadit documentation',
+      description:
+        'Fetch one public Transloadit documentation page as Markdown. Accepts a /docs path or transloadit.com docs URL.',
+      inputSchema: getDocInputSchema,
+      outputSchema: getDocOutputSchema,
+    },
+    async ({ path_or_url, max_chars }) => {
+      try {
+        const document = await getTransloaditDoc(path_or_url, max_chars)
+        if (document === undefined) {
+          return buildToolError(
+            'mcp_invalid_docs_url',
+            'Provide a public path under /docs or a transloadit.com documentation URL.',
+          )
+        }
+        return buildToolResponse({ status: 'ok', document })
+      } catch {
+        return buildToolError(
+          'mcp_docs_unavailable',
+          'The requested Transloadit documentation page is temporarily unavailable.',
+        )
+      }
+    },
+  )
+
   server.registerTool(
     'transloadit_lint_assembly_instructions',
     {
