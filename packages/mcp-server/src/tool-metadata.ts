@@ -15,6 +15,8 @@ export type ToolSecurityScheme = { type: 'noauth' } | { type: 'oauth2'; scopes: 
 
 export const toolNames = [
   'transloadit_lint_assembly_instructions',
+  'transloadit_search_docs',
+  'transloadit_get_doc',
   'transloadit_create_assembly',
   'transloadit_get_assembly_status',
   'transloadit_wait_for_assembly',
@@ -92,6 +94,22 @@ export const widgetToolNames: readonly ToolName[] = [
  * server and the static server card so the two never drift.
  */
 const genericToolMetadata: Record<(typeof toolNames)[number], ToolMetadata> = {
+  transloadit_search_docs: {
+    title: 'Search Transloadit documentation',
+    description:
+      'Search the public Transloadit documentation index. This read-only tool does not require account credentials.',
+    annotations: readOnly,
+    access: 'public',
+    scopes: [],
+  },
+  transloadit_get_doc: {
+    title: 'Get Transloadit documentation',
+    description:
+      'Fetch one public Transloadit documentation page as Markdown. Accepts a /docs path or transloadit.com docs URL.',
+    annotations: readOnly,
+    access: 'public',
+    scopes: [],
+  },
   transloadit_lint_assembly_instructions: {
     title: 'Lint Assembly Instructions',
     description:

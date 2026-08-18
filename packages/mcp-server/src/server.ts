@@ -37,6 +37,7 @@ import {
   selectBuiltinInputUrls,
   validateBuiltinFields,
 } from './builtin-shortcuts.ts'
+import { getTransloaditDoc, searchTransloaditDocs } from './docs.ts'
 import { buildBearerChallenge, extractBearerToken } from './http-helpers.ts'
 import { buildRedactor, getDiagnosticsLogger } from './logger.ts'
 import { assertServerOptions } from './options.ts'
@@ -171,6 +172,44 @@ const toolMessageSchema = z.object({
   message: z.string(),
   hint: z.string().optional(),
   path: z.string().optional(),
+})
+
+const searchDocsInputSchema = z.object({
+  query: z.string().min(2),
+  scope: z.enum(['all', 'api', 'faq', 'robots', 'sdks']).default('all'),
+  limit: z.number().int().min(1).max(20).default(8),
+})
+
+const searchDocsOutputSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  results: z
+    .array(
+      z.object({
+        title: z.string(),
+        url: z.string(),
+        description: z.string().optional(),
+      }),
+    )
+    .optional(),
+  errors: z.array(toolMessageSchema).optional(),
+})
+
+const getDocInputSchema = z.object({
+  path_or_url: z.string().min(1),
+  max_chars: z.number().int().min(1_000).max(100_000).default(50_000),
+})
+
+const getDocOutputSchema = z.object({
+  status: z.enum(['ok', 'error']),
+  document: z
+    .object({
+      title: z.string(),
+      url: z.string(),
+      markdown: z.string(),
+      truncated: z.boolean(),
+    })
+    .optional(),
+  errors: z.array(toolMessageSchema).optional(),
 })
 
 const listRobotsInputSchema = z.object({
@@ -1365,6 +1404,46 @@ export const createTransloaditMcpServer = (
   }
 
   // Builtin templates supersede the old golden template tool; no legacy alias by design.
+  register(
+    'transloadit_search_docs',
+    searchDocsInputSchema,
+    searchDocsOutputSchema,
+    async ({ query, scope, limit }) => {
+      try {
+        const results = await searchTransloaditDocs(query, scope, limit)
+        return buildToolResponse({ status: 'ok', results })
+      } catch {
+        return buildToolError(
+          'mcp_docs_unavailable',
+          'The Transloadit documentation index is temporarily unavailable.',
+        )
+      }
+    },
+  )
+
+  register(
+    'transloadit_get_doc',
+    getDocInputSchema,
+    getDocOutputSchema,
+    async ({ path_or_url, max_chars }) => {
+      try {
+        const document = await getTransloaditDoc(path_or_url, max_chars)
+        if (document === undefined) {
+          return buildToolError(
+            'mcp_invalid_docs_url',
+            'Provide a public path under /docs or a transloadit.com documentation URL.',
+          )
+        }
+        return buildToolResponse({ status: 'ok', document })
+      } catch {
+        return buildToolError(
+          'mcp_docs_unavailable',
+          'The requested Transloadit documentation page is temporarily unavailable.',
+        )
+      }
+    },
+  )
+
   register(
     'transloadit_lint_assembly_instructions',
     lintAssemblyInputSchema,

@@ -350,6 +350,8 @@ The JSON config accepts the same keys as `createTransloaditMcpHttpHandler()`, in
 | Tool                                     | Account | OAuth scopes                         | Notes                                           |
 | ---------------------------------------- | ------- | ------------------------------------ | ----------------------------------------------- |
 | `transloadit_lint_assembly_instructions` | no      | none                                 | read-only                                       |
+| `transloadit_search_docs` | no | none | read-only; public documentation |
+| `transloadit_get_doc` | no | none | read-only; public documentation |
 | `transloadit_list_robots`                | no      | none                                 | read-only                                       |
 | `transloadit_get_robot_help`             | no      | none                                 | read-only                                       |
 | `transloadit_create_assembly`            | yes     | `assemblies:write`, `templates:read` | destructive, open-world (URL imports), widget   |
@@ -405,6 +407,8 @@ For a sandbox file, set `expected_uploads`, run the returned upload command, the
 
 - `include_builtin`: `all`, `latest`, `exclusively-all`, `exclusively-latest`
 - `include_content`: include parsed `steps` in each template item
+
+Use `transloadit_search_docs` to discover relevant pages, then `transloadit_get_doc` to retrieve bounded Markdown. These tools fetch public documentation without account credentials.
 
 Builtin items also carry `fields_schema` unchanged, including conservative-fidelity metadata
 and null for older Builtins without a declared schema. Workspace Templates omit that property.
