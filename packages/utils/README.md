@@ -24,7 +24,11 @@ const verified = await verifyWebhookSignature({
 ## Node usage
 
 ```ts
-import { signParamsSync, getSignedSmartCdnUrl } from '@transloadit/utils/node'
+import {
+  getSignedSmartCdnImageCandidates,
+  getSignedSmartCdnUrl,
+  signParamsSync,
+} from '@transloadit/utils/node'
 
 const signature = signParamsSync(paramsString, authSecret)
 const url = getSignedSmartCdnUrl({
@@ -34,6 +38,15 @@ const url = getSignedSmartCdnUrl({
   authKey,
   authSecret,
 })
+const imageCandidates = getSignedSmartCdnImageCandidates({
+  authKey,
+  authSecret,
+  // Reuse one absolute expiry across a build instead of recomputing it per request.
+  expiresAt,
+  input: 'https://example.com/image.jpg',
+  widths: [320, 640, 960],
+  workspace,
+})
 ```
 
 ## API
@@ -42,3 +55,5 @@ const url = getSignedSmartCdnUrl({
 - `verifyWebhookSignature({ rawBody, signatureHeader, authSecret })`: validates webhook signatures.
 - `signParamsSync(paramsString, authSecret, algorithm?)`: Node-only sync signature helper.
 - `getSignedSmartCdnUrl(options)`: Node-only Smart CDN URL signer.
+- `getSignedSmartCdnImageCandidates(options)`: deterministic signed AVIF and WebP `srcset`
+  candidates plus the original fallback URL.
