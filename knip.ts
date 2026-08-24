@@ -93,9 +93,13 @@ const config: KnipConfig = {
       ignore: ['dist/**', 'node_modules/**'],
     },
     'packages/utils': {
-      entry: ['src/**/*.{ts,tsx,js,jsx}'],
-      project: ['src/**/*.{ts,tsx,js,jsx}'],
+      entry: ['src/**/*.ts', 'test/**/*.ts'],
+      project: ['{src,test}/**/*.ts'],
       ignore: ['dist/**', 'node_modules/**'],
+      ignoreDependencies: [
+        // Tooling lives at the repo root in this monorepo.
+        'vitest',
+      ],
     },
     'packages/zod': {
       entry: ['src/**/*.{ts,tsx,js,jsx}', 'scripts/**/*.ts', 'test/**/*.ts'],
