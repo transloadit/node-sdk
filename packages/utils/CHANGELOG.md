@@ -1,5 +1,11 @@
 # @transloadit/utils
 
+## 4.5.0
+
+### Minor Changes
+
+- 1565012: Add deterministic signed responsive-image candidates for Smart CDN.
+
 ## 4.4.1
 
 ### Patch Changes
