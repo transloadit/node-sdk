@@ -11,31 +11,25 @@ const baseOptions = {
   workspace: 'test-workspace',
 }
 
-interface ParsedCandidate {
-  url: URL
-  width: number
-}
-
-function requireSource(source: string | undefined): string {
-  if (source == null) {
+function requireSource(
+  sources: ReturnType<typeof getSignedSmartCdnImageCandidates>['sources'],
+  format: 'avif' | 'png' | 'webp',
+): (typeof sources)[number] {
+  const source = sources.find((candidateSource) => candidateSource.format === format)
+  if (source === undefined) {
     throw new Error('Expected image source candidates')
   }
   return source
 }
 
-function parseSrcSet(srcSet: string): ParsedCandidate[] {
-  return srcSet.split(', ').map((candidate) => {
-    const separator = candidate.lastIndexOf(' ')
-    const descriptor = candidate.slice(separator + 1)
-    if (separator === -1 || !descriptor.endsWith('w')) {
-      throw new Error(`Invalid srcset candidate: ${candidate}`)
-    }
-
-    return {
-      url: new URL(candidate.slice(0, separator)),
-      width: Number(descriptor.slice(0, -1)),
-    }
-  })
+function requireFirstCandidate(
+  source: ReturnType<typeof requireSource>,
+): (typeof source.candidates)[number] {
+  const candidate = source.candidates[0]
+  if (candidate === undefined) {
+    throw new Error('Expected at least one image candidate')
+  }
+  return candidate
 }
 
 afterEach(() => {
@@ -43,7 +37,7 @@ afterEach(() => {
 })
 
 describe('getSignedSmartCdnImageCandidates', () => {
-  it('builds deterministic AVIF and WebP srcsets with measured quality defaults', () => {
+  it('builds deterministic structured AVIF and WebP candidates with measured defaults', () => {
     vi.spyOn(Date, 'now').mockImplementation(() => {
       throw new Error('The candidate builder must not read the clock')
     })
@@ -51,16 +45,19 @@ describe('getSignedSmartCdnImageCandidates', () => {
     const result = getSignedSmartCdnImageCandidates(baseOptions)
 
     expect(result).toEqual(getSignedSmartCdnImageCandidates(baseOptions))
-    expect(result.fallback).toBe(baseOptions.input)
-    expect(Object.keys(result.sources)).toEqual(['avif', 'webp'])
+    expect(result.fallbackUrl).toBe(baseOptions.input)
+    expect(result.sources.map(({ format }) => format)).toEqual(['avif', 'webp'])
 
-    const avifCandidates = parseSrcSet(requireSource(result.sources.avif))
-    const webpCandidates = parseSrcSet(requireSource(result.sources.webp))
+    const avifSource = requireSource(result.sources, 'avif')
+    const webpSource = requireSource(result.sources, 'webp')
 
-    expect(avifCandidates.map(({ width }) => width)).toEqual([320, 640])
-    expect(webpCandidates.map(({ width }) => width)).toEqual([320, 640])
+    expect(avifSource.quality).toBe(45)
+    expect(webpSource.quality).toBe(75)
+    expect(avifSource.candidates.map(({ width }) => width)).toEqual([320, 640])
+    expect(webpSource.candidates.map(({ width }) => width)).toEqual([320, 640])
 
-    for (const { url, width } of avifCandidates) {
+    for (const { url: rawUrl, width } of avifSource.candidates) {
+      const url = new URL(rawUrl)
       expect(url.pathname).toBe(
         '/builtin%2Fserve-image%400.0.1/' +
           'https%3A%2F%2Fassets.example%2Fimage.jpg%3Fversion%3D1',
@@ -74,7 +71,8 @@ describe('getSignedSmartCdnImageCandidates', () => {
       expect(url.searchParams.get('sig')).toMatch(/^sha256:[a-f0-9]{64}$/)
     }
 
-    for (const { url, width } of webpCandidates) {
+    for (const { url: rawUrl, width } of webpSource.candidates) {
+      const url = new URL(rawUrl)
       expect(url.searchParams.get('f')).toBe('webp')
       expect(url.searchParams.get('q')).toBe('75')
       expect(url.searchParams.get('w')).toBe(`${width}`)
@@ -89,17 +87,16 @@ describe('getSignedSmartCdnImageCandidates', () => {
       widths: [480],
     })
 
-    expect(result.sources.avif).toBeUndefined()
-    expect(Object.keys(result.sources)).toEqual(['webp', 'png'])
+    expect(result.sources.map(({ format }) => format)).toEqual(['webp', 'png'])
 
-    const [webpCandidate] = parseSrcSet(requireSource(result.sources.webp))
-    const [pngCandidate] = parseSrcSet(requireSource(result.sources.png))
+    const webpCandidate = requireFirstCandidate(requireSource(result.sources, 'webp'))
+    const pngCandidate = requireFirstCandidate(requireSource(result.sources, 'png'))
 
-    expect(webpCandidate?.url.pathname).toBe(
+    expect(new URL(webpCandidate.url).pathname).toBe(
       '/customer-image/https%3A%2F%2Fassets.example%2Fimage.jpg%3Fversion%3D1',
     )
-    expect(webpCandidate?.url.searchParams.get('q')).toBe('82')
-    expect(pngCandidate?.url.searchParams.get('q')).toBe('90')
+    expect(new URL(webpCandidate.url).searchParams.get('q')).toBe('82')
+    expect(new URL(pngCandidate.url).searchParams.get('q')).toBe('90')
   })
 
   it('rejects values that the Built-in cannot execute safely', () => {

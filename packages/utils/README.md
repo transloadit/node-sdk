@@ -47,6 +47,10 @@ const imageCandidates = getSignedSmartCdnImageCandidates({
   widths: [320, 640, 960],
   workspace,
 })
+
+for (const source of imageCandidates.sources) {
+  console.log(source.format, source.quality, source.candidates)
+}
 ```
 
 ## API
@@ -55,5 +59,5 @@ const imageCandidates = getSignedSmartCdnImageCandidates({
 - `verifyWebhookSignature({ rawBody, signatureHeader, authSecret })`: validates webhook signatures.
 - `signParamsSync(paramsString, authSecret, algorithm?)`: Node-only sync signature helper.
 - `getSignedSmartCdnUrl(options)`: Node-only Smart CDN URL signer.
-- `getSignedSmartCdnImageCandidates(options)`: deterministic signed AVIF and WebP `srcset`
+- `getSignedSmartCdnImageCandidates(options)`: deterministic structured, signed AVIF and WebP
   candidates plus the original fallback URL.
