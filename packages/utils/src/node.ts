@@ -6,11 +6,26 @@ export type { SignatureAlgorithm } from './index.ts'
 
 export type SignatureAlgorithmInput = SignatureAlgorithm | (string & {})
 
-type SmartCdnImageFormat = 'avif' | 'png' | 'webp'
+/** Image formats supported by the responsive-image Built-in. */
+export type SmartCdnImageFormat = 'avif' | 'png' | 'webp'
 
-interface SmartCdnImageCandidates {
-  fallback: string
-  sources: Partial<Record<SmartCdnImageFormat, string>>
+/** One signed Smart CDN rendition at a specific intrinsic width. */
+export interface SmartCdnImageCandidate {
+  url: string
+  width: number
+}
+
+/** Ordered candidates for one image format and quality. */
+export interface SmartCdnImageSource {
+  candidates: readonly SmartCdnImageCandidate[]
+  format: SmartCdnImageFormat
+  quality: number
+}
+
+/** Structured data for rendering a responsive image. */
+export interface SmartCdnImageCandidates {
+  fallbackUrl: string
+  sources: readonly SmartCdnImageSource[]
 }
 
 /** Options for deterministic, server-generated Smart CDN image candidates. */
@@ -210,14 +225,14 @@ export function getSignedSmartCdnImageCandidates(
   validateSmartCdnImageFormats(formats)
 
   widths.sort((left, right) => left - right)
-  const sources: Partial<Record<SmartCdnImageFormat, string>> = {}
+  const sources: SmartCdnImageSource[] = []
   for (const format of smartCdnImageFormats) {
     const quality = formats[format]
     if (quality == null) {
       continue
     }
 
-    const candidates: string[] = []
+    const candidates: SmartCdnImageCandidate[] = []
     for (const width of widths) {
       const url = getSignedSmartCdnUrl({
         authKey: opts.authKey,
@@ -228,10 +243,10 @@ export function getSignedSmartCdnImageCandidates(
         urlParams: { f: format, q: quality, r: 'fit', w: width },
         workspace: opts.workspace,
       })
-      candidates.push(`${url} ${width}w`)
+      candidates.push({ url, width })
     }
-    sources[format] = candidates.join(', ')
+    sources.push({ candidates, format, quality })
   }
 
-  return { fallback: opts.input, sources }
+  return { fallbackUrl: opts.input, sources }
 }
