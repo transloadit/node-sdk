@@ -21,10 +21,12 @@ renderers retain ownership of HTML serialization.
 - [x] Run council review. Its sole finding requested major-version treatment; this was deliberately
       rejected under the verified zero-external-consumer exception for APIs introduced in the last
       two days.
-- [ ] Confirm every GitHub check passes.
-- [ ] Squash-merge node-sdk #475.
-- [ ] Land the generated Version Packages PR and verify the patch on npm.
-- [ ] Migrate Content to the exact released version and complete its browser/network validation.
+- [x] Confirm every GitHub check passes.
+
+## Next actions
+
+Squash-merge node-sdk #475, land the generated Version Packages PR, verify the patch on npm, and
+then migrate Content to that exact release with browser and network validation.
 
 ## Contract
 
