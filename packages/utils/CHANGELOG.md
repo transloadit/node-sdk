@@ -1,5 +1,12 @@
 # @transloadit/utils
 
+## 4.5.1
+
+### Patch Changes
+
+- 85a0bbd: Replace the two-day-old Smart CDN candidate return value with structured sources for
+  renderer-independent integrations. The only application consumer migrates with this release.
+
 ## 4.5.0
 
 ### Minor Changes
