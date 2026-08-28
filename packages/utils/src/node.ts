@@ -1,8 +1,12 @@
 import type { SignatureAlgorithm } from './index.ts'
+import type { SmartCdnUrlOptions } from './smartCdn.ts'
 
 import { createHmac } from 'node:crypto'
 
+import { finishSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
+
 export type { SignatureAlgorithm } from './index.ts'
+export type { SmartCdnUrlOptions } from './smartCdn.ts'
 
 export type SignatureAlgorithmInput = SignatureAlgorithm | (string & {})
 
@@ -46,38 +50,6 @@ export interface SmartCdnImageCandidatesOptions {
   widths: readonly number[]
   /** Workspace slug. */
   workspace: string
-}
-
-export type SmartCdnUrlOptions = {
-  /**
-   * Workspace slug.
-   */
-  workspace: string
-  /**
-   * Template slug or template ID.
-   */
-  template: string
-  /**
-   * Input value that is provided as `${fields.input}` in the template.
-   */
-  input: string
-  /**
-   * Additional parameters for the URL query string.
-   */
-  urlParams?: Record<string, boolean | number | string | (boolean | number | string)[]>
-  /**
-   * Expiration timestamp of the signature in milliseconds since UNIX epoch.
-   * Defaults to 1 hour from now.
-   */
-  expiresAt?: number
-  /**
-   * Transloadit auth key used to sign the URL.
-   */
-  authKey: string
-  /**
-   * Transloadit auth secret used to sign the URL.
-   */
-  authSecret: string
 }
 
 const defaultSmartCdnImageFormats: Readonly<Partial<Record<SmartCdnImageFormat, number>>> = {
@@ -155,36 +127,13 @@ export const signParamsSync = (
   return `${algorithm}:${signature}`
 }
 
+/** Synchronous Smart CDN URL signer (Node). The root export has an async WebCrypto twin. */
 export const getSignedSmartCdnUrl = (opts: SmartCdnUrlOptions): string => {
-  if (opts.workspace == null || opts.workspace === '') throw new TypeError('workspace is required')
-  if (opts.template == null || opts.template === '') throw new TypeError('template is required')
-  if (opts.input == null) throw new TypeError('input is required')
-
-  const workspaceSlug = encodeURIComponent(opts.workspace)
-  const templateSlug = encodeURIComponent(opts.template)
-  const inputField = encodeURIComponent(opts.input)
-  const expiresAt = opts.expiresAt || Date.now() + 60 * 60 * 1000
-
-  const queryParams = new URLSearchParams()
-  for (const [key, value] of Object.entries(opts.urlParams || {})) {
-    if (Array.isArray(value)) {
-      for (const val of value) {
-        queryParams.append(key, `${val}`)
-      }
-    } else {
-      queryParams.append(key, `${value}`)
-    }
-  }
-
-  queryParams.set('auth_key', opts.authKey)
-  queryParams.set('exp', `${expiresAt}`)
-  queryParams.sort()
-
-  const stringToSign = `${workspaceSlug}/${templateSlug}/${inputField}?${queryParams}`
-  const signature = createHmac('sha256', opts.authSecret).update(stringToSign).digest('hex')
-
-  queryParams.set('sig', `sha256:${signature}`)
-  return `https://${workspaceSlug}.tlcdn.com/${templateSlug}/${inputField}?${queryParams}`
+  const prepared = prepareSmartCdnUrl(opts)
+  const signature = createHmac('sha256', opts.authSecret)
+    .update(prepared.stringToSign)
+    .digest('hex')
+  return finishSmartCdnUrl(prepared, signature)
 }
 
 /**
