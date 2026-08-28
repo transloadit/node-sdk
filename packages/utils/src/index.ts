@@ -1,4 +1,10 @@
-export type SignatureAlgorithm = 'sha1' | 'sha256' | 'sha384'
+import type { SmartCdnUrlOptions } from './smartCdn.ts'
+
+import { finishSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
+
+export type SignatureAlgorithm = 'sha1' | 'sha256' | 'sha384' | 'sha512'
+
+export type { SmartCdnUrlOptions } from './smartCdn.ts'
 
 export * from './assemblyInstructionsCompiler.ts'
 
@@ -6,15 +12,19 @@ const algorithmMap = {
   sha1: 'SHA-1',
   sha256: 'SHA-256',
   sha384: 'SHA-384',
+  sha512: 'SHA-512',
 } as const
 
 const isSignatureAlgorithm = (value: string): value is SignatureAlgorithm =>
-  value === 'sha1' || value === 'sha256' || value === 'sha384'
+  value === 'sha1' || value === 'sha256' || value === 'sha384' || value === 'sha512'
 
 const getSubtle = (): SubtleCrypto => {
   const subtle = globalThis.crypto?.subtle
   if (!subtle) {
-    throw new Error('Web Crypto is required to sign Transloadit payloads')
+    // Browsers only expose crypto.subtle on secure origins (https:// or localhost).
+    throw new Error(
+      'Web Crypto is required to sign Transloadit payloads; browsers only provide crypto.subtle on secure origins (https:// or localhost)',
+    )
   }
   return subtle
 }
@@ -88,4 +98,14 @@ export const verifyWebhookSignature = async (
 
   const expected = await hmacHex(normalized, options.authSecret, options.rawBody)
   return safeCompare(expected, signature)
+}
+
+/**
+ * Signs a Smart CDN URL with WebCrypto, so it works in browsers, edge runtimes and Node alike.
+ * Produces the same URL as the synchronous `getSignedSmartCdnUrl` from `@transloadit/utils/node`.
+ */
+export const getSignedSmartCdnUrl = async (opts: SmartCdnUrlOptions): Promise<string> => {
+  const prepared = prepareSmartCdnUrl(opts)
+  const signature = await hmacHex('sha256', opts.authSecret, prepared.stringToSign)
+  return finishSmartCdnUrl(prepared, signature)
 }
