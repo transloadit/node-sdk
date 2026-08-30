@@ -4,9 +4,16 @@ import { finishSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
 
 export type SignatureAlgorithm = 'sha1' | 'sha256' | 'sha384' | 'sha512'
 
-export type { SmartCdnUrlOptions } from './smartCdn.ts'
+export type {
+  ParsedSmartCdnUrl,
+  ParseSmartCdnUrlOptions,
+  SmartCdnUnsignedUrlOptions,
+  SmartCdnUrlOptions,
+  SmartCdnUrlParams,
+} from './smartCdn.ts'
 
 export * from './assemblyInstructionsCompiler.ts'
+export { getSmartCdnUrl, parseSmartCdnUrl, stripSmartCdnAuth } from './smartCdn.ts'
 
 const algorithmMap = {
   sha1: 'SHA-1',

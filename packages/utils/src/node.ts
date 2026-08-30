@@ -6,7 +6,15 @@ import { createHmac } from 'node:crypto'
 import { finishSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
 
 export type { SignatureAlgorithm } from './index.ts'
-export type { SmartCdnUrlOptions } from './smartCdn.ts'
+export type {
+  ParsedSmartCdnUrl,
+  ParseSmartCdnUrlOptions,
+  SmartCdnUnsignedUrlOptions,
+  SmartCdnUrlOptions,
+  SmartCdnUrlParams,
+} from './smartCdn.ts'
+
+export { getSmartCdnUrl, parseSmartCdnUrl, stripSmartCdnAuth } from './smartCdn.ts'
 
 export type SignatureAlgorithmInput = SignatureAlgorithm | (string & {})
 
