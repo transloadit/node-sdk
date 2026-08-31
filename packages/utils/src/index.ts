@@ -134,3 +134,12 @@ export const getSignedSmartCdnUrl = async (opts: SmartCdnUrlOptions): Promise<st
   const signature = await hmacHex('sha256', opts.authSecret, prepared.stringToSign)
   return finishSmartCdnUrl(prepared, signature)
 }
+
+export type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
+
+export {
+  decodeStorageGrant,
+  normalizeStorageGrantPrefix,
+  parseStorageGrantClaims,
+  STORAGE_GRANT_SCOPES,
+} from './storageGrant.ts'
