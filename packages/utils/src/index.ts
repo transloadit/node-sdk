@@ -11,9 +11,27 @@ export type {
   SmartCdnUrlOptions,
   SmartCdnUrlParams,
 } from './smartCdn.ts'
+export type {
+  SignSmartCdnImageRequest,
+  SmartCdnImageCandidate,
+  SmartCdnImageCandidates,
+  SmartCdnImageFormat,
+  SmartCdnImageFormatQuality,
+  SmartCdnImageFormats,
+  SmartCdnImagePolicyOptions,
+  SmartCdnImageSignRequest,
+  SmartCdnImageSource,
+  SmartCdnImageSourceDimensions,
+} from './smartCdnImage.ts'
 
 export * from './assemblyInstructionsCompiler.ts'
 export { getSmartCdnUrl, parseSmartCdnUrl, stripSmartCdnAuth } from './smartCdn.ts'
+export {
+  createSmartCdnImageCandidates,
+  resolveSmartCdnImageFormats,
+  resolveSmartCdnImageWidths,
+  smartCdnImageMaxDimension,
+} from './smartCdnImage.ts'
 
 const algorithmMap = {
   sha1: 'SHA-1',

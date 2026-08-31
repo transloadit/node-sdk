@@ -148,6 +148,20 @@ jobs:
       - run: corepack yarn changeset:version:release
       - run: corepack yarn release:pack:dry-run
 
+  img-next-fixture:
+    name: Image package Next.js fixture
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          cache: npm
+          cache-dependency-path: scripts/fixtures/img-next/package-lock.json
+          node-version: 24
+      - run: corepack yarn install --immutable
+      - run: corepack yarn test:img:fixture
+
   unit:
     name: Unit tests (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
