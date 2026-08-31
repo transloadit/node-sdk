@@ -56,10 +56,23 @@ async function withFixtureServer(
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const port = await getFreePort()
     const baseUrl = `http://127.0.0.1:${port}`
-    const server = execa('npm', ['run', 'start', '--', '-H', '127.0.0.1', '-p', `${port}`], {
-      cwd: fixtureDir,
-      reject: false,
-    })
+    // Start Next directly so cleanup targets the server process instead of an npm wrapper. On
+    // Linux, killing the wrapper can leave Next holding Execa's output pipes open indefinitely.
+    const server = execa(
+      process.execPath,
+      [
+        resolve(fixtureDir, 'node_modules/next/dist/bin/next'),
+        'start',
+        '-H',
+        '127.0.0.1',
+        '-p',
+        `${port}`,
+      ],
+      {
+        cwd: fixtureDir,
+        reject: false,
+      },
+    )
     server.stdout?.pipe(process.stdout)
     server.stderr?.pipe(process.stderr)
     const shouldRetry = await withProcess(server, async () => {

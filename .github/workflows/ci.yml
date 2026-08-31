@@ -151,6 +151,7 @@ jobs:
   img-next-fixture:
     name: Image package Next.js fixture
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
