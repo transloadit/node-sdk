@@ -1,17 +1,14 @@
 import type { SignatureAlgorithm } from './index.ts'
 import type { SmartCdnUrlOptions } from './smartCdn.ts'
 import type { SmartCdnImageCandidates, SmartCdnImagePolicyOptions } from './smartCdnImage.ts'
+import type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
 
 import { Buffer } from 'node:buffer'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { finishSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
-import {
-  parseStorageGrantClaims,
-  type StorageGrantClaims,
-  type StorageGrantScope,
-} from './storageGrant.ts'
 import { createSmartCdnImageCandidates } from './smartCdnImage.ts'
+import { parseStorageGrantClaims } from './storageGrant.ts'
 
 export type { SignatureAlgorithm } from './index.ts'
 export type {
@@ -105,8 +102,9 @@ export function getSignedSmartCdnImageCandidates(
   )
 }
 
-
 // ── storage grants ───────────────────────────────────────────────────────────
+
+export type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
 
 export {
   decodeStorageGrant,
@@ -114,7 +112,6 @@ export {
   parseStorageGrantClaims,
   STORAGE_GRANT_SCOPES,
 } from './storageGrant.ts'
-export type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
 
 const base64url = (value: Buffer | string): string =>
   (typeof value === 'string' ? Buffer.from(value) : value).toString('base64url')

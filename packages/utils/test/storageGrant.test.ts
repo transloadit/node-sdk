@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'vitest'
 
+import { signStorageGrant, verifyStorageGrant } from '../src/node.ts'
 import {
   decodeStorageGrant,
   normalizeStorageGrantPrefix,
   parseStorageGrantClaims,
 } from '../src/storageGrant.ts'
-import { signStorageGrant, verifyStorageGrant } from '../src/node.ts'
 
 const SECRET = 'test-secret-0123456789abcdef0123456789abcdef'
 
@@ -34,10 +34,10 @@ describe('storage grants', () => {
       exp: 1_750_000_900,
     })
     const [headerPart, payloadPart] = grant.split('.')
-    expect(Buffer.from(headerPart!, 'base64url').toString('utf8')).toBe(
+    expect(Buffer.from(headerPart ?? '', 'base64url').toString('utf8')).toBe(
       '{"alg":"HS256","typ":"JWT"}',
     )
-    expect(Buffer.from(payloadPart!, 'base64url').toString('utf8')).toBe(
+    expect(Buffer.from(payloadPart ?? '', 'base64url').toString('utf8')).toBe(
       '{"v":1,"bucket":"toystory","prefix":"photos/","scopes":["read","write"],"sub":"user-1","iat":1750000000,"exp":1750000900}',
     )
     expect(grant).not.toContain('=')
@@ -60,16 +60,16 @@ describe('storage grants', () => {
     const [h, p, s] = grant.split('.')
     const forged = `${h}.${Buffer.from('{"v":1,"bucket":"evil","prefix":"","scopes":["write"],"exp":9999999999}').toString('base64url')}.${s}`
     expect(() => verifyStorageGrant(forged, SECRET)).toThrow(/signature/)
-    expect(() =>
-      verifyStorageGrant(grant, SECRET, { nowMs: 1_750_000_901_000 }),
-    ).toThrow(/expired/)
+    expect(() => verifyStorageGrant(grant, SECRET, { nowMs: 1_750_000_901_000 })).toThrow(/expired/)
     expect(() => verifyStorageGrant('not-a-jwt', SECRET)).toThrow(/Invalid/)
     expect(() => verifyStorageGrant(`${grant}.extra`, SECRET)).toThrow(/Invalid/)
   })
 
   test('claim parsing is strict, dedupes scopes, and decode is lenient about padding', () => {
     expect(parseStorageGrantClaims(null)).toBeNull()
-    expect(parseStorageGrantClaims({ v: 2, bucket: 'b', prefix: '', scopes: [], exp: 1 })).toBeNull()
+    expect(
+      parseStorageGrantClaims({ v: 2, bucket: 'b', prefix: '', scopes: [], exp: 1 }),
+    ).toBeNull()
     expect(parseStorageGrantClaims({ v: 1, bucket: '', prefix: '', scopes: [], exp: 1 })).toBeNull()
     expect(
       parseStorageGrantClaims({ v: 1, bucket: 'b', prefix: '', scopes: ['read', 'admin'], exp: 1 }),

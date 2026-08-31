@@ -135,6 +135,7 @@ export const getSignedSmartCdnUrl = async (opts: SmartCdnUrlOptions): Promise<st
   return finishSmartCdnUrl(prepared, signature)
 }
 
+export type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
 
 export {
   decodeStorageGrant,
@@ -142,4 +143,3 @@ export {
   parseStorageGrantClaims,
   STORAGE_GRANT_SCOPES,
 } from './storageGrant.ts'
-export type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
