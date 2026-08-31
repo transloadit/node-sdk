@@ -92,7 +92,7 @@ async function withFixtureServer(
       const abortController = new AbortController()
       try {
         const outcome = await Promise.race([
-          fetchWhenReady(`${baseUrl}/fixture/public-image`, abortController.signal).then(
+          fetchWhenReady(`${baseUrl}/fixture/storage-image`, abortController.signal).then(
             () => undefined,
           ),
           server,
@@ -258,7 +258,6 @@ async function main(): Promise<void> {
 
     const appOutput = resolve(fixtureDir, '.next/server/app')
     const outputNames = await readdir(appOutput, { recursive: true })
-    assert(outputNames.includes('public-image.html'), 'Expected the public URL route to prerender')
     assert(
       outputNames.includes('storage-image.html'),
       'Expected a safe partial-prerender Storage shell',
@@ -277,25 +276,20 @@ async function main(): Promise<void> {
     await assertTreeExcludes(appOutput, fixtureSecret)
 
     await withFixtureServer(fixtureDir, async (baseUrl) => {
-      const publicResponse = await fetchWhenReady(`${baseUrl}/fixture/public-image`)
-      const publicLinkHeader = publicResponse.headers.get('link') ?? ''
-      const publicHtml = await publicResponse.text()
       const storageHtml = await (await fetchWhenReady(`${baseUrl}/fixture/storage-image`)).text()
-      const redirectHtml = await (
-        await fetchWhenReady(`${baseUrl}/fixture/storage-redirect`)
-      ).text()
-      assert(publicHtml.includes('builtin%2Fserve-image%400.0.1'), 'Public Built-in is absent')
-      assert(publicHtml.includes('/fallback.jpg'), 'Public fallback is absent')
-      const imagePreloads = (publicHtml.match(/<link\b[^>]*>/g) ?? []).filter(
+      const redirectResponse = await fetchWhenReady(`${baseUrl}/fixture/storage-redirect`)
+      const redirectLinkHeader = redirectResponse.headers.get('link') ?? ''
+      const redirectHtml = await redirectResponse.text()
+      const imagePreloads = (redirectHtml.match(/<link\b[^>]*>/g) ?? []).filter(
         (tag) => tag.includes('rel="preload"') && tag.includes('as="image"'),
       )
       assert(
         imagePreloads.length === 1,
-        `Expected one responsive image preload; HTML=${JSON.stringify(imagePreloads)} Link=${publicLinkHeader}`,
+        `Expected one responsive image preload; HTML=${JSON.stringify(imagePreloads)} Link=${redirectLinkHeader}`,
       )
-      const headEnd = publicHtml.indexOf('</head>')
+      const headEnd = redirectHtml.indexOf('</head>')
       assert(
-        headEnd > 0 && imagePreloads.every((tag) => publicHtml.indexOf(tag) < headEnd),
+        headEnd > 0 && imagePreloads.every((tag) => redirectHtml.indexOf(tag) < headEnd),
         'Responsive image preloads were not hoisted into the document head',
       )
       assert(imagePreloads[0]?.includes('imageSrcSet='), 'Responsive preload srcset is absent')
@@ -313,7 +307,6 @@ async function main(): Promise<void> {
         !redirectHtml.includes('builtin%2Fstorage-preview%400.0.1'),
         'Redirect markup contains a direct signed Storage URL',
       )
-      assert(!publicHtml.includes(fixtureSecret), 'Secret leaked into public URL output')
       assert(!storageHtml.includes(fixtureSecret), 'Secret leaked into Storage output')
       assert(!redirectHtml.includes(fixtureSecret), 'Secret leaked into redirect output')
 

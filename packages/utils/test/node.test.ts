@@ -6,7 +6,9 @@ const baseOptions = {
   authKey: 'test-key',
   authSecret: 'test-secret',
   expiresAt: 1_900_000_000_000,
+  fallbackUrl: 'https://assets.example/image.jpg?version=1',
   input: 'https://assets.example/image.jpg?version=1',
+  template: 'website-images',
   widths: [640, 320, 640],
   workspace: 'test-workspace',
 }
@@ -45,7 +47,7 @@ describe('getSignedSmartCdnImageCandidates', () => {
     const result = getSignedSmartCdnImageCandidates(baseOptions)
 
     expect(result).toEqual(getSignedSmartCdnImageCandidates(baseOptions))
-    expect(result.fallbackUrl).toBe(baseOptions.input)
+    expect(result.fallbackUrl).toBe(baseOptions.fallbackUrl)
     expect(result.sources.map(({ format }) => format)).toEqual(['avif', 'webp'])
 
     const avifSource = requireSource(result.sources, 'avif')
@@ -59,8 +61,7 @@ describe('getSignedSmartCdnImageCandidates', () => {
     for (const { url: rawUrl, width } of avifSource.candidates) {
       const url = new URL(rawUrl)
       expect(url.pathname).toBe(
-        '/builtin%2Fserve-image%400.0.1/' +
-          'https%3A%2F%2Fassets.example%2Fimage.jpg%3Fversion%3D1',
+        '/website-images/' + 'https%3A%2F%2Fassets.example%2Fimage.jpg%3Fversion%3D1',
       )
       expect(url.searchParams.get('auth_key')).toBe(baseOptions.authKey)
       expect(url.searchParams.get('exp')).toBe(`${baseOptions.expiresAt}`)
@@ -97,6 +98,16 @@ describe('getSignedSmartCdnImageCandidates', () => {
     )
     expect(new URL(webpCandidate.url).searchParams.get('q')).toBe('82')
     expect(new URL(pngCandidate.url).searchParams.get('q')).toBe('90')
+  })
+
+  it('keeps the Template input separate from the browser fallback URL', () => {
+    const result = getSignedSmartCdnImageCandidates({
+      ...baseOptions,
+      fallbackUrl: '/images/photo.jpg',
+      input: 'images/photo.jpg',
+    })
+
+    expect(result.fallbackUrl).toBe('/images/photo.jpg')
   })
 
   it('snapshots credentials and workspace before signing candidates', () => {
@@ -160,36 +171,36 @@ describe('getSignedSmartCdnImageCandidates', () => {
     expect(() =>
       getSignedSmartCdnImageCandidates({ ...baseOptions, expiresAt: Number.MAX_VALUE }),
     ).toThrow('expiresAt must be a positive safe integer')
-    expect(() => getSignedSmartCdnImageCandidates({ ...baseOptions, input: 'not-a-url' })).toThrow(
-      'input must be an HTTP or HTTPS URL',
-    )
+    expect(() =>
+      getSignedSmartCdnImageCandidates({ ...baseOptions, fallbackUrl: ' /images/photo.jpg' }),
+    ).toThrow('fallbackUrl must be a non-empty string without surrounding whitespace')
     expect(() =>
       getSignedSmartCdnImageCandidates({
         ...baseOptions,
         // @ts-expect-error The runtime boundary must not coerce URL objects.
         input: new URL('https://assets.example/image.jpg'),
       }),
-    ).toThrow('input must be a single HTTP or HTTPS URL string')
+    ).toThrow('input must be one non-empty Template input string')
     expect(() =>
       getSignedSmartCdnImageCandidates({
         ...baseOptions,
         input: ' https://assets.example/image.jpg',
       }),
-    ).toThrow('input must be a single HTTP or HTTPS URL string')
+    ).toThrow('input must be one non-empty Template input string')
     expect(() =>
       getSignedSmartCdnImageCandidates({
         ...baseOptions,
         input: 'https://assets.example/one.jpg|https://assets.example/two.jpg',
       }),
-    ).toThrow('input must be a single HTTP or HTTPS URL string')
-    expect(() =>
-      getSignedSmartCdnImageCandidates({ ...baseOptions, input: 'ftp://assets.example/image.jpg' }),
-    ).toThrow('input must be an HTTP or HTTPS URL')
+    ).toThrow('input must be one non-empty Template input string')
     expect(() => getSignedSmartCdnImageCandidates({ ...baseOptions, authKey: '' })).toThrow(
       'authKey is required',
     )
     expect(() => getSignedSmartCdnImageCandidates({ ...baseOptions, authSecret: '' })).toThrow(
       'authSecret is required',
+    )
+    expect(() => getSignedSmartCdnImageCandidates({ ...baseOptions, template: '' })).toThrow(
+      'template must be a non-empty string without surrounding whitespace',
     )
     expect(() =>
       getSignedSmartCdnImageCandidates({

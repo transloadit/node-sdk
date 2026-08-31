@@ -7,7 +7,6 @@ import type {
   SmartCdnImageSignRequest,
   StoragePreviewFormats,
   TransloaditImageModel,
-  UrlImageFormats,
 } from '../index.ts'
 import type { TransloaditImagePresentationProps } from './index.tsx'
 
@@ -15,37 +14,24 @@ import { hkdfSync } from 'node:crypto'
 
 import { gcmsiv } from '@noble/ciphers/aes.js'
 import { getSignedSmartCdnUrl } from '@transloadit/utils/node'
-import { cacheLife } from 'next/cache.js'
 import { connection } from 'next/server.js'
 import { Suspense } from 'react'
 
-import { getCanonicalPublicImageUrl } from '../imageSource.ts'
 import { createTransloaditImageModel, transloaditStoragePreviewTemplate } from '../index.ts'
 import { validateStoragePath, validateStoragePathPrefix } from '../storagePath.ts'
 import { TransloaditPicture } from './index.tsx'
 
-const defaultPublicExpiresInMs = 365 * 24 * 60 * 60 * 1000
-const maximumPublicRotationIntervalMs = 24 * 60 * 60 * 1000
 const defaultStorageExpiresInMs = 60 * 60 * 1000
 const defaultStorageRotationIntervalMs = 5 * 60 * 1000
 const imagePolicyParams = new Set(['auth_key', 'exp', 'f', 'h', 'q', 'r', 'sig', 'w'])
 const maximumImageDimension = 8000
 const maximumStorageLifetimeMs = 48 * 60 * 60 * 1000
-const minimumPublicExpiresInMs = 60 * 1000
 const storageCapabilityAuthenticationBytes = 16
 const storageCapabilityMaximumLength = 4096
 const storageCapabilityMinimumBytes = storageCapabilityAuthenticationBytes + 1
 const storageCapabilityPattern = /^[A-Za-z0-9_-]+$/
 const storageCapabilityVersion = 1
 const storageRouteKeyDomain = '@transloadit/img/storage-route/v1'
-
-/** A public source policy. Exact origins are deny-all by default. */
-export interface TransloaditPublicImageConfiguration {
-  /** Exact HTTP(S) origins from which Smart CDN may import public source images. */
-  allowedOrigins?: readonly string[]
-  /** Minimum signed URL lifetime, at least one minute. Defaults to one year. */
-  expiresInMs?: number
-}
 
 /** Values available to application authorization before a Storage redirect is issued. */
 export interface TransloaditStorageAuthorizationContext {
@@ -85,13 +71,9 @@ export interface TransloaditImageConfiguration {
   authSecret: string
   /** Trusted development endpoint override; never derive this from request data. */
   baseUrl?: string
-  public?: TransloaditPublicImageConfiguration
-  storage?: TransloaditStorageImageConfiguration
-  /** Trusted compatible Template overrides for the two source policies. */
-  templates?: {
-    storage?: string
-    url?: string
-  }
+  storage: TransloaditStorageImageConfiguration
+  /** Trusted compatible signed Template override for Storage previews. */
+  template?: string
   /** Trusted transport parameters appended to every signed URL, such as `cdn=required`. */
   urlParams?: SmartCdnUrlParams
   workspace: string
@@ -109,44 +91,22 @@ interface CommonTransloaditImageProps extends TransloaditImagePresentationProps 
   widths?: readonly number[]
 }
 
-/** Props for an immutable public HTTP(S) source. */
-export interface UrlTransloaditImageProps extends CommonTransloaditImageProps {
-  fallbackQuality?: never
-  /** Browser fallback. Defaults to the original public source URL. */
-  fallbackSrc?: string
-  formats?: UrlImageFormats
-  src: string
-  suspenseFallback?: never
-}
-
-/** One private file in the configured Transloadit Storage workspace. */
-export interface TransloaditStorageImageSource {
-  storage: string
-}
-
 /** Props for a private Transloadit Storage preview. */
-export interface StorageTransloaditImageProps
+export interface TransloaditImageProps
   extends Omit<CommonTransloaditImageProps, 'media' | 'mediaPlaceholderSrc'> {
-  fallbackSrc?: never
   /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
   fallbackQuality?: number
   formats?: StoragePreviewFormats
   media?: never
   mediaPlaceholderSrc?: never
-  src: TransloaditStorageImageSource
+  /** Relative object path inside the configured Transloadit Storage workspace. */
+  src: string
   /** Static shell used only while direct request-time signing is suspended. */
   suspenseFallback?: ReactNode
 }
 
-/** Props accepted by a configured Next.js Transloadit image Server Component. */
-export type TransloaditImageProps = UrlTransloaditImageProps | StorageTransloaditImageProps
-
-/** One configured Next.js Server Component for public URLs and private Storage objects. */
-export interface TransloaditImageComponent {
-  (props: StorageTransloaditImageProps): ReactNode
-  (props: UrlTransloaditImageProps): ReactNode
-  (props: TransloaditImageProps): ReactNode
-}
+/** One configured Next.js Server Component for Transloadit Storage objects. */
+export type TransloaditImageComponent = (props: TransloaditImageProps) => ReactNode
 
 /** A Next.js route handler that authorizes and redirects one private image request. */
 export type TransloaditStorageRoute = (request: Request) => Promise<Response>
@@ -183,12 +143,7 @@ interface StorageImageTransform {
 }
 
 interface TransloaditStorageImageRequestProps {
-  props: StorageTransloaditImageProps
-}
-
-interface TransloaditUrlImageRequestProps {
-  props: UrlTransloaditImageProps
-  sourceUrl: string
+  props: TransloaditImageProps
 }
 
 function validateRequiredConfiguration(value: string, name: string): void {
@@ -292,12 +247,12 @@ function matchesStorageRoute(path: string, delivery: TransloaditStorageRedirectD
 }
 
 function getStoragePolicy(
-  configuration: TransloaditStorageImageConfiguration | undefined,
+  configuration: TransloaditStorageImageConfiguration,
 ): ResolvedStoragePolicy {
-  const allowedPathPrefixes = configuration?.allowedPathPrefixes ?? []
-  const delivery = configuration?.delivery ?? 'direct'
-  const expiresInMs = configuration?.expiresInMs ?? defaultStorageExpiresInMs
-  const rotationIntervalMs = configuration?.rotationIntervalMs ?? defaultStorageRotationIntervalMs
+  const allowedPathPrefixes = configuration.allowedPathPrefixes ?? []
+  const delivery = configuration.delivery ?? 'direct'
+  const expiresInMs = configuration.expiresInMs ?? defaultStorageExpiresInMs
+  const rotationIntervalMs = configuration.rotationIntervalMs ?? defaultStorageRotationIntervalMs
   if (!Array.isArray(allowedPathPrefixes)) {
     throw new TypeError('storage.allowedPathPrefixes must be an array')
   }
@@ -341,77 +296,11 @@ function getStorageExpiresAt(now: number, policy: ResolvedStoragePolicy): number
   return nextRotation + policy.expiresInMs
 }
 
-function getPublicRotationIntervalMs(expiresInMs: number): number {
-  return Math.min(expiresInMs, maximumPublicRotationIntervalMs)
-}
-
-function getPublicExpiresAt(now: number, expiresInMs: number): number {
-  const rotationIntervalMs = getPublicRotationIntervalMs(expiresInMs)
-  const nextRotation = (Math.floor(now / rotationIntervalMs) + 1) * rotationIntervalMs
-  const expiresAt = nextRotation + expiresInMs
-  if (!Number.isSafeInteger(expiresAt)) {
-    throw new RangeError('public.expiresInMs produces an unsafe expiration timestamp')
-  }
-  return expiresAt
-}
-
-// biome-ignore lint/suspicious/useAwait: Next.js requires functions with `use cache` to be async.
-async function getCachedPublicExpiresAt(expiresInMs: number): Promise<number> {
-  'use cache'
-
-  const rotationSeconds = Math.floor(getPublicRotationIntervalMs(expiresInMs) / 1000)
-  cacheLife({
-    expire: Math.max(2, Math.floor(rotationSeconds / 2)),
-    revalidate: Math.max(1, Math.floor(rotationSeconds / 4)),
-  })
-  return getPublicExpiresAt(Date.now(), expiresInMs)
-}
-
 function assertAllowedStoragePath(path: string, policy: ResolvedStoragePolicy): void {
   validateStoragePath(path)
   if (!policy.allowedPathPrefixes.some((prefix) => path.startsWith(prefix))) {
     throw new TypeError('Storage image path is outside the configured allowed prefixes')
   }
-}
-
-function getAllowedOrigins(origins: readonly string[] | undefined): ReadonlySet<string> {
-  if (origins === undefined) return new Set()
-  if (!Array.isArray(origins)) throw new TypeError('public.allowedOrigins must be an array')
-
-  const normalized = new Set<string>()
-  for (const [index, origin] of origins.entries()) {
-    const error = new TypeError(`public.allowedOrigins[${index}] must be one exact HTTP(S) origin`)
-    if (typeof origin !== 'string' || origin === '' || origin.trim() !== origin || origin === '*') {
-      throw error
-    }
-    let parsed: URL
-    try {
-      parsed = new URL(origin)
-    } catch {
-      throw error
-    }
-    if (
-      (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') ||
-      parsed.username !== '' ||
-      parsed.password !== '' ||
-      parsed.pathname !== '/' ||
-      parsed.search !== '' ||
-      parsed.hash !== ''
-    ) {
-      throw error
-    }
-    normalized.add(parsed.origin.toLowerCase())
-  }
-  return normalized
-}
-
-function getAllowedUrlSource(input: unknown, allowedOrigins: ReadonlySet<string>): string {
-  const sourceUrl = new URL(getCanonicalPublicImageUrl(input))
-  const origin = sourceUrl.origin.toLowerCase()
-  if (!allowedOrigins.has(origin)) {
-    throw new TypeError(`URL image source origin is not allowed: ${origin}`)
-  }
-  return sourceUrl.href
 }
 
 function snapshotUrlParams(
@@ -426,9 +315,9 @@ function snapshotUrlParams(
 }
 
 function snapshotStorageImageProps(
-  props: StorageTransloaditImageProps,
+  props: TransloaditImageProps,
   path: string,
-): StorageTransloaditImageProps {
+): TransloaditImageProps {
   return {
     alt: props.alt,
     className: props.className,
@@ -441,7 +330,7 @@ function snapshotStorageImageProps(
     objectFit: props.objectFit,
     preload: props.preload,
     sizes: props.sizes,
-    src: { storage: path },
+    src: path,
     style: props.style === undefined ? undefined : { ...props.style },
     suspenseFallback: props.suspenseFallback,
     width: props.width,
@@ -450,18 +339,10 @@ function snapshotStorageImageProps(
 }
 
 function getStoragePath(src: unknown): string {
-  if (typeof src !== 'object' || src === null || Array.isArray(src) || !('storage' in src)) {
-    throw new TypeError('Storage image src must contain one string `storage` path')
+  if (typeof src !== 'string') {
+    throw new TypeError('Storage image src must be one relative object path')
   }
-  const path: unknown = src.storage
-  if (typeof path !== 'string') {
-    throw new TypeError('Storage image src must contain one string `storage` path')
-  }
-  return path
-}
-
-function isStorageImageProps(props: TransloaditImageProps): props is StorageTransloaditImageProps {
-  return typeof props.src !== 'string'
+  return src
 }
 
 function renderPicture(
@@ -683,30 +564,20 @@ export function createTransloaditImage(
   const authKey = configuration.authKey
   const authSecret = configuration.authSecret
   const baseUrl = configuration.baseUrl
-  const storageTemplate = configuration.templates?.storage ?? transloaditStoragePreviewTemplate
+  const storageTemplate = configuration.template ?? transloaditStoragePreviewTemplate
   const urlParams = snapshotUrlParams(configuration.urlParams)
-  const urlTemplate = configuration.templates?.url
   const workspace = configuration.workspace
   validateRequiredConfiguration(authKey, 'authKey')
   validateRequiredConfiguration(authSecret, 'authSecret')
   validateRequiredConfiguration(workspace, 'workspace')
   validateBaseUrl(baseUrl)
-  validateTemplate(storageTemplate, 'templates.storage')
-  validateTemplate(urlTemplate, 'templates.url')
+  validateTemplate(storageTemplate, 'template')
   validateGlobalUrlParams(urlParams)
 
-  const allowedOrigins = getAllowedOrigins(configuration.public?.allowedOrigins)
-  const publicExpiresInMs = configuration.public?.expiresInMs ?? defaultPublicExpiresInMs
-  validateDuration(publicExpiresInMs, 'public.expiresInMs')
-  if (publicExpiresInMs < minimumPublicExpiresInMs) {
-    throw new RangeError(
-      `public.expiresInMs must be at least ${minimumPublicExpiresInMs} milliseconds`,
-    )
-  }
-  // Redirect capabilities do not encode this value; keeping one factory snapshot makes their
-  // prerendered markup deterministic while public signed URLs rotate independently below.
-  const storageCapabilityModelExpiresAt = getPublicExpiresAt(Date.now(), publicExpiresInMs)
   const storagePolicy = getStoragePolicy(configuration.storage)
+  // Redirect capabilities do not encode this value; keeping one factory snapshot makes their
+  // prerendered markup deterministic while request-time CDN signatures rotate independently.
+  const storageCapabilityModelExpiresAt = getStorageExpiresAt(Date.now(), storagePolicy)
   const sign = (request: SmartCdnImageSignRequest): string =>
     getSignedSmartCdnUrl({
       authKey,
@@ -747,7 +618,7 @@ export function createTransloaditImage(
         fallbackQuality: props.fallbackQuality,
         formats: props.formats,
         height: props.height,
-        source: { path: props.src.storage, type: 'storage' },
+        src: props.src,
         template: storageTemplate,
         width: props.width,
         widths: props.widths,
@@ -757,78 +628,41 @@ export function createTransloaditImage(
     return renderPicture(props, model)
   }
 
-  async function PublicUrlImage({
-    props,
-    sourceUrl,
-  }: TransloaditUrlImageRequestProps): Promise<ReactNode> {
-    const model = createTransloaditImageModel(
+  function Image(props: TransloaditImageProps): ReactNode {
+    const storagePath = getStoragePath(props.src)
+    if (props.media !== undefined) {
+      throw new TypeError('Storage image previews do not support media conditions')
+    }
+    assertAllowedStoragePath(storagePath, storagePolicy)
+    const storageProps = snapshotStorageImageProps(props, storagePath)
+    if (storageCapability === undefined) {
+      return (
+        <Suspense fallback={props.suspenseFallback}>
+          <DirectStorageImage props={storageProps} />
+        </Suspense>
+      )
+    }
+    if (props.suspenseFallback !== undefined) {
+      throw new TypeError('suspenseFallback is only used by direct Storage delivery')
+    }
+    const resolvedModel = createTransloaditImageModel(
       {
-        expiresAt: await getCachedPublicExpiresAt(publicExpiresInMs),
-        fallbackUrl: props.fallbackSrc,
+        expiresAt: storageCapabilityModelExpiresAt,
+        fallbackQuality: props.fallbackQuality,
         formats: props.formats,
-        source: {
-          height: props.height,
-          type: 'url',
-          url: sourceUrl,
-          width: props.width,
-        },
-        template: urlTemplate,
+        height: props.height,
+        src: storagePath,
+        template: storageTemplate,
+        width: props.width,
         widths: props.widths,
       },
-      sign,
+      buildStorageUrl,
     )
-    return renderPicture(props, model)
-  }
-
-  function Image(props: StorageTransloaditImageProps): ReactNode
-  function Image(props: UrlTransloaditImageProps): ReactNode
-  function Image(props: TransloaditImageProps): ReactNode
-  function Image(props: TransloaditImageProps): ReactNode {
-    if (isStorageImageProps(props)) {
-      const storagePath = getStoragePath(props.src)
-      if (props.fallbackSrc !== undefined) {
-        throw new TypeError('fallbackSrc is only supported for public URL image sources')
-      }
-      if (props.media !== undefined) {
-        throw new TypeError('Storage image previews do not support media conditions')
-      }
-      assertAllowedStoragePath(storagePath, storagePolicy)
-      const storageProps = snapshotStorageImageProps(props, storagePath)
-      if (storageCapability === undefined) {
-        return (
-          <Suspense fallback={props.suspenseFallback}>
-            <DirectStorageImage props={storageProps} />
-          </Suspense>
-        )
-      }
-      if (props.suspenseFallback !== undefined) {
-        throw new TypeError('suspenseFallback is only used by direct Storage delivery')
-      }
-      const resolvedModel = createTransloaditImageModel(
-        {
-          expiresAt: storageCapabilityModelExpiresAt,
-          fallbackQuality: props.fallbackQuality,
-          formats: props.formats,
-          height: props.height,
-          source: { path: storagePath, type: 'storage' },
-          template: storageTemplate,
-          width: props.width,
-          widths: props.widths,
-        },
-        buildStorageUrl,
-      )
-      const model: TransloaditImageModel = {
-        fallbackUrl: resolvedModel.fallbackUrl,
-        sources: resolvedModel.sources,
-      }
-      return renderPicture(storageProps, model)
+    const model: TransloaditImageModel = {
+      fallbackUrl: resolvedModel.fallbackUrl,
+      sources: resolvedModel.sources,
     }
-
-    if (props.fallbackQuality !== undefined) {
-      throw new TypeError('fallbackQuality is only supported for Storage image sources')
-    }
-    const sourceUrl = getAllowedUrlSource(props.src, allowedOrigins)
-    return <PublicUrlImage props={props} sourceUrl={sourceUrl} />
+    return renderPicture(storageProps, model)
   }
 
   const integration: TransloaditImageIntegration = { Image }

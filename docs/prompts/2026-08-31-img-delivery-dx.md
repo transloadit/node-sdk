@@ -153,6 +153,30 @@ mixed public path:
 
 ## Progress and evidence
 
+### Storage-only cutover
+
+The final pre-publication source contract is narrower than the initial prototype:
+
+- `@transloadit/img` accepts only relative Transloadit Storage object paths. The Next component uses
+  the native-looking `src="website/photo.jpg"` shape; the redundant discriminated source object and
+  every arbitrary HTTP-origin policy were removed before publication.
+- `builtin/storage-preview@0.0.1` remains the signed default, with one trusted factory-level
+  `template` override. Template selection is never controlled by an individual image.
+- `@transloadit/utils` keeps the lower-level remote-image candidate primitive for workspace-owned
+  Templates, but no longer selects `builtin/serve-image` implicitly. Its Template is mandatory.
+- Content can first move to a signed workspace Template with a literal Transloadit origin, then move
+  canonical originals to Transloadit Storage without changing the browser rendering model.
+- API2 may remove `builtin/serve-image` only after the SDK patch and Content cutover are deployed.
+  Removing the Built-in first would break the currently published utils default and Content's live
+  signed candidates.
+
+- 2026-08-31: Papertrail evidence for `builtin/serve-image` showed only the internal `my-app`
+  workspace, and organization-wide GitHub code search found no external repository consumer. The
+  bounded production SQL audit was not bypassed after SSH reported a changed host key.
+- 2026-08-31: the Storage-only refactor removed the public URL factory policy, origin allowlist,
+  long-lived public expiry cache, source discriminator, and public fixture route. Direct and
+  authorized-redirect Storage delivery remain independently covered.
+
 - 2026-08-31: PR #481 was green and based on current `origin/main`; no human or bot review comments
   were open before this completion slice started.
 - 2026-08-31: 78 package tests pass. The packed Next.js 16.3 fixture proves static redirect markup
@@ -168,7 +192,8 @@ mixed public path:
   that `baseUrl` accepted non-HTTP schemes. Regression tests failed first; the implementation now
   uses a Next `use cache` expiry function and eagerly validates an HTTP(S)-only base URL. The packed
   Next 16.3 fixture keeps `/public-image` static while reporting a six-hour revalidation and
-  twelve-hour cache expiry.
+  twelve-hour cache expiry. This describes the superseded public-URL prototype; the Storage-only
+  cutover above removes that route and cache policy.
 - 2026-08-31: The API2 repository and Storage PR #8844 were inspected read-only. Its existing
   untracked files were left untouched. Current CloudFront and Bunny configurations, Built-ins, URL
   Transform admission, and DAM/resource-limit issues informed the recommendation above.

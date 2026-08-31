@@ -9,7 +9,6 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 const { connection } = vi.hoisted(() => ({ connection: vi.fn(async () => undefined) }))
 
 vi.mock('next/server.js', () => ({ connection }))
-vi.mock('next/cache.js', () => ({ cacheLife: vi.fn() }))
 vi.mock('server-only', () => ({}))
 
 import { createTransloaditImage } from '../src/next/server.tsx'
@@ -19,7 +18,6 @@ const baseConfiguration = {
   authKey: 'auth-key',
   authSecret,
   baseUrl: 'https://cdn.example/file/{workspace}',
-  public: { allowedOrigins: ['https://assets.example'] },
   storage: { allowedPathPrefixes: ['documents/'] },
   workspace: 'my-app',
 }
@@ -63,7 +61,7 @@ function getStorageRouteCandidate(): {
       alt="Report preview"
       height={600}
       sizes="(min-width: 800px) 640px, 100vw"
-      src={{ storage: 'documents/report.pdf' }}
+      src="documents/report.pdf"
       width={800}
     />,
   )
@@ -85,86 +83,6 @@ afterEach(() => {
 })
 
 describe('createTransloaditImage', () => {
-  test('renders the public happy path from standard image props', async () => {
-    const { Image } = createTransloaditImage(baseConfiguration)
-    const markup = await renderAsync(
-      <Image
-        alt="A public image"
-        fallbackSrc="/fallback/photo.jpg"
-        height={768}
-        sizes="640px"
-        src="https://assets.example/photo.jpg"
-        width={1024}
-      />,
-    )
-    const document = parseMarkup(markup)
-    const source = new URL(getFirstCandidate(document))
-    const sourceSet = document.querySelector('source')?.getAttribute('srcset') ?? ''
-
-    expect(connection).not.toHaveBeenCalled()
-    expect(source.pathname).toContain('/builtin%2Fserve-image%400.0.1/')
-    expect(source.searchParams.get('auth_key')).toBe('auth-key')
-    expect(source.searchParams.get('exp')).toBe(String(Date.parse('2030-01-02T00:00:00.000Z')))
-    expect(source.searchParams.get('f')).toBe('avif')
-    expect(sourceSet).toContain('320w')
-    expect(sourceSet).toContain('640w')
-    expect(sourceSet).toContain('960w')
-    expect(sourceSet).toContain('1024w')
-    expect(document.querySelector('img')?.getAttribute('src')).toBe('/fallback/photo.jpg')
-    expect(document.querySelector('img')?.getAttribute('loading')).toBe('lazy')
-    expect(markup).not.toContain(authSecret)
-  })
-
-  test('keeps public expiry stable within a coarse rotation bucket', async () => {
-    const { Image } = createTransloaditImage({
-      ...baseConfiguration,
-      public: { allowedOrigins: ['https://assets.example'], expiresInMs: 60_000 },
-    })
-    const renderExpiration = async (): Promise<string | null> =>
-      new URL(
-        getFirstCandidate(
-          parseMarkup(
-            await renderAsync(
-              <Image
-                alt="Static"
-                height={600}
-                src="https://assets.example/photo.jpg"
-                width={800}
-              />,
-            ),
-          ),
-        ),
-      ).searchParams.get('exp')
-    const firstExpiration = await renderExpiration()
-    vi.advanceTimersByTime(30_000)
-
-    expect(firstExpiration).toBe(String(Date.parse('2029-01-01T12:04:00.000Z')))
-    expect(await renderExpiration()).toBe(firstExpiration)
-  })
-
-  test('refreshes public expiry before a long-lived factory can emit expired URLs', async () => {
-    const { Image } = createTransloaditImage({
-      ...baseConfiguration,
-      public: { allowedOrigins: ['https://assets.example'], expiresInMs: 60_000 },
-    })
-    const renderExpiration = async (): Promise<number> => {
-      const markup = await renderAsync(
-        <Image alt="Static" height={600} src="https://assets.example/photo.jpg" width={800} />,
-      )
-      const expiration = new URL(getFirstCandidate(parseMarkup(markup))).searchParams.get('exp')
-      if (expiration === null) throw new Error('Expected a signed public image URL')
-      return Number(expiration)
-    }
-
-    const firstExpiration = await renderExpiration()
-    vi.advanceTimersByTime(120_000)
-    const refreshedExpiration = await renderExpiration()
-
-    expect(firstExpiration).toBe(Date.parse('2029-01-01T12:04:00.000Z'))
-    expect(refreshedExpiration).toBeGreaterThan(Date.now())
-    expect(refreshedExpiration).toBeGreaterThan(firstExpiration)
-  })
-
   test('allows explicit widths while making sizes optional', async () => {
     const { Image } = createTransloaditImage(baseConfiguration)
     const document = parseMarkup(
@@ -172,7 +90,7 @@ describe('createTransloaditImage', () => {
         <Image
           alt="Explicit widths"
           height={600}
-          src="https://assets.example/photo.jpg"
+          src="documents/report.pdf"
           width={800}
           widths={[200, 400, 800]}
         />,
@@ -186,28 +104,7 @@ describe('createTransloaditImage', () => {
     expect(source?.getAttribute('srcset')).toContain('800w')
   })
 
-  test('rejects public sources outside exact configured origins', () => {
-    const { Image } = createTransloaditImage(baseConfiguration)
-
-    expect(() =>
-      Image({
-        alt: 'Untrusted',
-        height: 600,
-        src: 'https://attacker.example/photo.jpg',
-        width: 800,
-      }),
-    ).toThrow('URL image source origin is not allowed: https://attacker.example')
-    expect(() =>
-      Image({
-        alt: 'Downgraded',
-        height: 600,
-        src: 'http://assets.example/photo.jpg',
-        width: 800,
-      }),
-    ).toThrow('URL image source origin is not allowed: http://assets.example')
-  })
-
-  test('rejects public source query strings and coercible values before signing', () => {
+  test('rejects coercible Storage sources before signing', () => {
     const { Image } = createTransloaditImage(baseConfiguration)
     const stringConversion = vi.fn(() => 'https://assets.example/photo.jpg')
 
@@ -215,16 +112,8 @@ describe('createTransloaditImage', () => {
       Reflect.apply(Image, undefined, [
         { alt: 'Coercible', height: 600, src: { toString: stringConversion }, width: 800 },
       ]),
-    ).toThrow('Storage image src must contain one string `storage` path')
+    ).toThrow('Storage image src must be one relative object path')
     expect(stringConversion).not.toHaveBeenCalled()
-    expect(() =>
-      Image({
-        alt: 'Query input',
-        height: 600,
-        src: 'https://assets.example/photo.jpg?private=1',
-        width: 800,
-      }),
-    ).toThrow('without credentials, query strings, or fragments')
   })
 
   test('request-renders direct Storage previews with bounded stable signatures', async () => {
@@ -236,7 +125,7 @@ describe('createTransloaditImage', () => {
           formats={{ webp: 61 }}
           height={300}
           sizes="400px"
-          src={{ storage: 'documents/report.pdf' }}
+          src="documents/report.pdf"
           width={400}
           widths={[200, 400]}
         />,
@@ -274,7 +163,7 @@ describe('createTransloaditImage', () => {
   test('denies private paths by default and matches explicit directory boundaries', () => {
     const { Image: denyAllImage } = createTransloaditImage({
       ...baseConfiguration,
-      storage: undefined,
+      storage: {},
     })
     const { Image } = createTransloaditImage(baseConfiguration)
 
@@ -282,7 +171,7 @@ describe('createTransloaditImage', () => {
       denyAllImage({
         alt: 'Denied',
         height: 300,
-        src: { storage: 'documents/report.pdf' },
+        src: 'documents/report.pdf',
         width: 400,
       }),
     ).toThrow('outside the configured allowed prefixes')
@@ -290,7 +179,7 @@ describe('createTransloaditImage', () => {
       Image({
         alt: 'Boundary mismatch',
         height: 300,
-        src: { storage: 'documents-private/report.pdf' },
+        src: 'documents-private/report.pdf',
         width: 400,
       }),
     ).toThrow('outside the configured allowed prefixes')
@@ -313,10 +202,8 @@ describe('createTransloaditImage', () => {
       get height() {
         return height
       },
-      src: {
-        get storage() {
-          return path
-        },
+      get src() {
+        return path
       },
       get width() {
         return width
@@ -361,7 +248,7 @@ describe('createTransloaditImage', () => {
       },
     })
     const markup = renderToStaticMarkup(
-      <Image alt="Base path" height={300} src={{ storage: 'documents/report.pdf' }} width={400} />,
+      <Image alt="Base path" height={300} src="documents/report.pdf" width={400} />,
     )
     const externalUrl = new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
     const internalUrl = new URL(externalUrl)
@@ -393,7 +280,7 @@ describe('createTransloaditImage', () => {
       },
     })
     const markup = renderToStaticMarkup(
-      <Image alt="Strict ACL" height={300} src={{ storage: 'documents/report.pdf' }} width={400} />,
+      <Image alt="Strict ACL" height={300} src="documents/report.pdf" width={400} />,
     )
     const routeUrl = new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
 
@@ -433,7 +320,7 @@ describe('createTransloaditImage', () => {
     })
     const render = (): URL => {
       const markup = renderToStaticMarkup(
-        <Image alt="Stable" height={300} src={{ storage: 'documents/report.pdf' }} width={400} />,
+        <Image alt="Stable" height={300} src="documents/report.pdf" width={400} />,
       )
       return new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
     }
@@ -475,7 +362,7 @@ describe('createTransloaditImage', () => {
           allowedPathPrefixes: ['documents/'],
           delivery: { authorize, basePath, route },
         },
-        templates: storageTemplate === undefined ? undefined : { storage: storageTemplate },
+        template: storageTemplate,
         workspace,
       }).storageRoute
     const otherRouteUrl = new URL(url)
@@ -617,7 +504,7 @@ describe('createTransloaditImage', () => {
       Image({
         alt: 'No suspension',
         height: 300,
-        src: { storage: 'documents/report.pdf' },
+        src: 'documents/report.pdf',
         suspenseFallback: 'Loading',
         width: 400,
       }),
@@ -642,25 +529,13 @@ describe('createTransloaditImage', () => {
     ).toThrow(`urlParams must not override image policy parameter: ${parameter}`)
   })
 
-  test('validates credentials, origins, route configuration, and bounded expiry', () => {
+  test('validates credentials, route configuration, and bounded expiry', () => {
     expect(() => createTransloaditImage({ ...baseConfiguration, authKey: '' })).toThrow(
       'authKey must be a non-empty string',
     )
     expect(() =>
       createTransloaditImage({ ...baseConfiguration, baseUrl: 'ftp://cdn.example/file' }),
     ).toThrow('baseUrl must be an absolute HTTP(S) URL')
-    expect(() =>
-      createTransloaditImage({
-        ...baseConfiguration,
-        public: { allowedOrigins: ['https://assets.example'], expiresInMs: 59_999 },
-      }),
-    ).toThrow('public.expiresInMs must be at least 60000 milliseconds')
-    expect(() =>
-      createTransloaditImage({
-        ...baseConfiguration,
-        public: { allowedOrigins: ['*'] },
-      }),
-    ).toThrow('public.allowedOrigins[0] must be one exact HTTP(S) origin')
     expect(() =>
       createTransloaditImage({
         ...baseConfiguration,
@@ -709,25 +584,14 @@ describe('createTransloaditImage', () => {
   test('keeps template selection in trusted factory configuration', async () => {
     const { Image } = createTransloaditImage({
       ...baseConfiguration,
-      templates: { storage: 'my-storage-preview', url: 'my-url-preview' },
+      template: 'my-storage-preview',
     })
-    const publicDocument = parseMarkup(
-      await renderAsync(
-        <Image alt="Public" height={600} src="https://assets.example/photo.jpg" width={800} />,
-      ),
-    )
     const storageDocument = parseMarkup(
       await renderAsync(
-        <Image alt="Storage" height={600} src={{ storage: 'documents/report.pdf' }} width={800} />,
+        <Image alt="Storage" height={600} src="documents/report.pdf" width={800} />,
       ),
     )
 
-    expect(
-      parseSmartCdnUrl(getFirstCandidate(publicDocument), {
-        baseUrl: baseConfiguration.baseUrl,
-        workspace: baseConfiguration.workspace,
-      }).template,
-    ).toBe('my-url-preview')
     expect(
       parseSmartCdnUrl(getFirstCandidate(storageDocument), {
         baseUrl: baseConfiguration.baseUrl,

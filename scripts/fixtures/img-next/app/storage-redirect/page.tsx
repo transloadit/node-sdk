@@ -6,9 +6,11 @@ export default function Page(): ReactNode {
   return (
     <TransloaditRedirectImage
       alt="Authorized Storage fixture"
+      fetchPriority="high"
       height={300}
+      preload
       sizes="400px"
-      src={{ storage: 'documents/report.pdf' }}
+      src="documents/report.pdf"
       width={400}
     />
   )

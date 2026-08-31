@@ -35,9 +35,11 @@ describe('createSmartCdnImageCandidates', () => {
     const result = createSmartCdnImageCandidates(
       {
         expiresAt: 1_900_000_000_000,
+        fallbackUrl: '/images/portrait.jpg',
         formats: { webp: 75 },
         input: 'https://assets.example/portrait.jpg',
         sourceDimensions: { height: 10_000, width: 1_000 },
+        template: 'website-images',
         widths: [1_000, 400],
       },
       (request) => {
@@ -54,13 +56,13 @@ describe('createSmartCdnImageCandidates', () => {
       {
         expiresAt: 1_900_000_000_000,
         input: 'https://assets.example/portrait.jpg',
-        template: 'builtin/serve-image@0.0.1',
+        template: 'website-images',
         urlParams: { f: 'webp', q: 75, r: 'fit', w: 400 },
       },
       {
         expiresAt: 1_900_000_000_000,
         input: 'https://assets.example/portrait.jpg',
-        template: 'builtin/serve-image@0.0.1',
+        template: 'website-images',
         urlParams: { f: 'webp', q: 75, r: 'fit', w: 800 },
       },
     ])
@@ -76,11 +78,13 @@ describe('createSmartCdnImageCandidates', () => {
           expiresAtReads += 1
           return expiresAtReads === 1 ? 1_900_000_000_000 : 0
         },
+        fallbackUrl: '/images/photo.jpg',
         formats: { webp: 75 },
         get input() {
           inputReads += 1
           return inputReads === 1 ? 'https://assets.example/photo.jpg' : 'file:///etc/passwd'
         },
+        template: 'website-images',
         widths: [400],
       },
       (request) => {
@@ -93,11 +97,11 @@ describe('createSmartCdnImageCandidates', () => {
       {
         expiresAt: 1_900_000_000_000,
         input: 'https://assets.example/photo.jpg',
-        template: 'builtin/serve-image@0.0.1',
+        template: 'website-images',
         urlParams: { f: 'webp', q: 75, r: 'fit', w: 400 },
       },
     ])
-    expect(result.fallbackUrl).toBe('https://assets.example/photo.jpg')
+    expect(result.fallbackUrl).toBe('/images/photo.jpg')
     expect(expiresAtReads).toBe(1)
     expect(inputReads).toBe(1)
   })
@@ -109,7 +113,9 @@ describe('createSmartCdnImageCandidates', () => {
       createSmartCdnImageCandidates(
         {
           expiresAt: 1_893_456_000,
+          fallbackUrl: '/images/photo.jpg',
           input: 'https://assets.example/photo.jpg',
+          template: 'website-images',
           widths: [400],
         },
         sign,

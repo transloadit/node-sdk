@@ -86,8 +86,12 @@ const imageCandidates = getSignedSmartCdnImageCandidates({
   authSecret,
   // Reuse one absolute expiry across a build instead of recomputing it per request.
   expiresAt,
-  input: 'https://example.com/image.jpg',
+  // The browser fallback is independent from the Template's input grammar.
+  fallbackUrl: '/images/photo.jpg',
+  // This workspace Template pins https://example.com/ and accepts a relative path.
+  input: 'images/photo.jpg',
   sourceDimensions: { height: 1600, width: 2400 },
+  template: 'website-images',
   widths: [320, 640, 960],
   workspace,
 })
@@ -112,8 +116,10 @@ for (const source of imageCandidates.sources) {
 - `signParamsSync(paramsString, authSecret, algorithm?)`: Node-only sync signature helper.
 - `getSignedSmartCdnUrl(options)` from `@transloadit/utils/node`: synchronous Smart CDN URL signer.
 - `getSignedSmartCdnImageCandidates(options)`: deterministic structured, signed AVIF and WebP
-  candidates plus the original fallback URL. Supply `sourceDimensions` to prevent upscaling and
-  keep both output dimensions within backend limits.
+  candidates plus an explicit browser fallback. `template` is mandatory: use a trusted workspace
+  Template that owns its source policy. `fallbackUrl` is deliberately separate from `input`, which
+  may use a Template-specific grammar such as a relative origin-pinned path. Supply
+  `sourceDimensions` to prevent upscaling and keep both output dimensions within backend limits.
 - `createSmartCdnImageCandidates(options, sign)` from `@transloadit/utils`: the same deterministic
   image policy with an injected synchronous signer, for framework and package adapters that own
   their credential boundary.

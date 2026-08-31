@@ -1,5 +1,4 @@
 const defaultSmartCdnImageFormats: SmartCdnImageFormats = { avif: 45, webp: 75 }
-const defaultSmartCdnImageTemplate = 'builtin/serve-image@0.0.1'
 const minimumMillisecondTimestamp = 1_000_000_000_000
 const smartCdnImageFormats: readonly SmartCdnImageFormat[] = ['avif', 'webp', 'png']
 const smartCdnImageMaxWidths = 32
@@ -59,14 +58,16 @@ export type SignSmartCdnImageRequest = (request: SmartCdnImageSignRequest) => st
 export interface SmartCdnImagePolicyOptions {
   /** One absolute expiry in milliseconds since UNIX epoch, shared by every candidate. */
   expiresAt: number
+  /** Browser-safe fallback URL, kept separate from the Template-specific input value. */
+  fallbackUrl: string
   /** Formats and their quality values. Defaults to AVIF 45 and WebP 75. */
   formats?: SmartCdnImageFormats
-  /** Absolute HTTP(S) source URL accepted by the responsive-image Template. */
+  /** One source value accepted by the explicitly selected responsive-image Template. */
   input: string
   /** Intrinsic dimensions, when known, used to keep generated output within backend limits. */
   sourceDimensions?: SmartCdnImageSourceDimensions
-  /** Compatible Template override. Defaults to `builtin/serve-image@0.0.1`. */
-  template?: string
+  /** Trusted Template whose source policy is controlled by the caller's workspace. */
+  template: string
   /** Up to 32 intrinsic widths. Each value must be an integer from 1 through 8000. */
   widths: readonly number[]
 }
@@ -94,16 +95,20 @@ function validateSmartCdnImageQuality(quality: number): void {
 }
 
 function validateSmartCdnImageInput(input: string): void {
-  if (typeof input !== 'string' || input.trim() !== input || input.includes('|')) {
-    throw new TypeError('input must be a single HTTP or HTTPS URL string')
+  if (typeof input !== 'string' || input === '' || input.trim() !== input || input.includes('|')) {
+    throw new TypeError('input must be one non-empty Template input string')
   }
-  if (!URL.canParse(input)) {
-    throw new TypeError('input must be an HTTP or HTTPS URL')
-  }
+}
 
-  const protocol = new URL(input).protocol
-  if (protocol !== 'http:' && protocol !== 'https:') {
-    throw new TypeError('input must be an HTTP or HTTPS URL')
+function validateSmartCdnImageFallbackUrl(fallbackUrl: string): void {
+  if (typeof fallbackUrl !== 'string' || fallbackUrl === '' || fallbackUrl.trim() !== fallbackUrl) {
+    throw new TypeError('fallbackUrl must be a non-empty string without surrounding whitespace')
+  }
+}
+
+function validateSmartCdnImageTemplate(template: string): void {
+  if (typeof template !== 'string' || template === '' || template.trim() !== template) {
+    throw new TypeError('template must be a non-empty string without surrounding whitespace')
   }
 }
 
@@ -179,6 +184,7 @@ export function createSmartCdnImageCandidates(
   sign: SignSmartCdnImageRequest,
 ): SmartCdnImageCandidates {
   const expiresAt = options.expiresAt
+  const fallbackUrl = options.fallbackUrl
   const formatOptions = options.formats
   const formatsSnapshot = formatOptions === undefined ? undefined : { ...formatOptions }
   const input = options.input
@@ -187,7 +193,7 @@ export function createSmartCdnImageCandidates(
     sourceDimensionOptions === undefined
       ? undefined
       : { height: sourceDimensionOptions.height, width: sourceDimensionOptions.width }
-  const template = options.template ?? defaultSmartCdnImageTemplate
+  const template = options.template
   const widthOptions = options.widths
   const widthsSnapshot = Array.isArray(widthOptions) ? [...widthOptions] : widthOptions
 
@@ -195,7 +201,9 @@ export function createSmartCdnImageCandidates(
   if (expiresAt < minimumMillisecondTimestamp) {
     throw new RangeError('expiresAt must be a millisecond timestamp')
   }
+  validateSmartCdnImageFallbackUrl(fallbackUrl)
   validateSmartCdnImageInput(input)
+  validateSmartCdnImageTemplate(template)
   if (typeof sign !== 'function') throw new TypeError('sign must be a function')
 
   const formats = resolveSmartCdnImageFormats(formatsSnapshot)
@@ -221,5 +229,5 @@ export function createSmartCdnImageCandidates(
     })
   }
 
-  return { fallbackUrl: input, sources }
+  return { fallbackUrl, sources }
 }

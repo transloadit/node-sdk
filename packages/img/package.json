@@ -1,7 +1,7 @@
 {
   "name": "@transloadit/img",
   "version": "0.0.0",
-  "description": "Responsive images powered by Transloadit Smart CDN",
+  "description": "Responsive Transloadit Storage previews powered by Smart CDN",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -32,7 +32,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "build": "../../node_modules/.bin/tsc --build --clean tsconfig.build.json && ../../node_modules/.bin/tsc --build tsconfig.build.json",
     "check": "yarn lint:ts && yarn test:unit",
     "lint:ts": "../../node_modules/.bin/tsc --build tsconfig.build.json && ../../node_modules/.bin/tsc --noEmit --project tsconfig.json",
     "prepack": "yarn build",

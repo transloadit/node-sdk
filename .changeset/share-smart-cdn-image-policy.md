@@ -1,5 +1,5 @@
 ---
-"@transloadit/utils": minor
+"@transloadit/utils": patch
 ---
 
 Add a framework-neutral `createSmartCdnImageCandidates` policy with an injected signer, and make
@@ -15,3 +15,8 @@ Ignore a legacy caller-provided `sig` while signing instead of including a value
 signature replaces, which could otherwise produce an unverifiable URL.
 Unsigned URLs now omit caller-provided `auth_key`, `exp`, and `sig` fields so they remain
 unambiguously unsigned and round-trip through the parser.
+
+Require callers to select a trusted workspace Template explicitly. The helper no longer defaults
+to the arbitrary-origin `builtin/serve-image` Template. Require a separate browser `fallbackUrl`
+because Template inputs are not necessarily browser-resolvable URLs. These intentional patch-level
+replacements affect only the newly introduced, not-yet-adopted image-candidate API.

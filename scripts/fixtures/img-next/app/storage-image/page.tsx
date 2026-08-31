@@ -8,7 +8,7 @@ export default function Page(): ReactNode {
       alt="Storage fixture"
       height={300}
       sizes="400px"
-      src={{ storage: 'documents/report.pdf' }}
+      src="documents/report.pdf"
       suspenseFallback={<div aria-label="Loading preview" role="status" />}
       width={400}
     />
