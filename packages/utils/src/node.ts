@@ -16,11 +16,13 @@ export type {
   SmartCdnUrlParams,
 } from './smartCdn.ts'
 export type {
+  SignSmartCdnImageRequest,
   SmartCdnImageCandidate,
   SmartCdnImageCandidates,
   SmartCdnImageFormat,
   SmartCdnImageFormatQuality,
   SmartCdnImageFormats,
+  SmartCdnImagePolicyOptions,
   SmartCdnImageSignRequest,
   SmartCdnImageSource,
   SmartCdnImageSourceDimensions,

@@ -32,7 +32,8 @@ export interface TransloaditImagePresentationProps {
   /** Explicitly handles a display box whose aspect ratio differs from the source image. */
   objectFit?: CSSProperties['objectFit']
   preload?: boolean
-  sizes: string
+  /** Expected rendered widths. Browsers otherwise assume `100vw` for width-based source sets. */
+  sizes?: string
   style?: CSSProperties
   width: number
 }
@@ -74,7 +75,7 @@ function escapeSourceSetUrl(url: string): string {
 
 function preloadImage(
   source: TransloaditImageSourceSet,
-  sizes: string,
+  sizes: string | undefined,
   fetchPriority?: 'auto' | 'high' | 'low',
 ): void {
   const firstCandidate = source.candidates[0]

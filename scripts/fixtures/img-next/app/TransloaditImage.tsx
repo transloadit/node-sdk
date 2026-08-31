@@ -1,10 +1,10 @@
 import { createTransloaditImage } from '@transloadit/img/next/server'
 
-export const TransloaditImage = createTransloaditImage({
-  allowedSourceOrigins: ['https://assets.example'],
-  authKey: 'fixture-auth-key',
-  authSecret: 'fixture-secret-must-never-reach-the-browser',
-  baseUrl: 'https://cdn.example/file/{workspace}',
+import { imageConfiguration } from './imageConfiguration.ts'
+
+const { Image } = createTransloaditImage({
+  ...imageConfiguration,
   storage: { allowedPathPrefixes: ['documents/'] },
-  workspace: 'fixture',
 })
+
+export { Image as TransloaditImage }

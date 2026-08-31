@@ -80,6 +80,46 @@ describe('createTransloaditImageModel', () => {
     ])
   })
 
+  test('derives a concise default ladder ending at the public source width', () => {
+    const { sign } = collectSignedRequests()
+    const model = createTransloaditImageModel(
+      {
+        expiresAt,
+        formats: { webp: 75 },
+        source: {
+          height: 900,
+          type: 'url',
+          url: 'https://assets.example/photo.jpg',
+          width: 1500,
+        },
+      },
+      sign,
+    )
+
+    expect(model.sources[0]?.candidates.map(({ width }) => width)).toEqual([
+      320, 640, 960, 1280, 1500,
+    ])
+  })
+
+  test('caps a default public ladder when the original is wider than the backend limit', () => {
+    const { sign } = collectSignedRequests()
+    const model = createTransloaditImageModel(
+      {
+        expiresAt,
+        formats: { webp: 75 },
+        source: {
+          height: 4000,
+          type: 'url',
+          url: 'https://assets.example/photo.jpg',
+          width: 12_000,
+        },
+      },
+      sign,
+    )
+
+    expect(model.sources[0]?.candidates.at(-1)?.width).toBe(8000)
+  })
+
   test('caps URL-image widths before the derived height exceeds the backend limit', () => {
     const { requests, sign } = collectSignedRequests()
 
@@ -254,10 +294,26 @@ describe('createTransloaditImageModel', () => {
     ])
   })
 
-  test('uses the display width instead of the largest rendition for the JPEG fallback', () => {
+  test('caps the default Storage ladder at the declared intrinsic width', () => {
+    const { sign } = collectSignedRequests()
+    const model = createTransloaditImageModel(
+      {
+        expiresAt,
+        formats: { webp: 75 },
+        height: 300,
+        source: { path: 'documents/report.pdf', type: 'storage' },
+        width: 400,
+      },
+      sign,
+    )
+
+    expect(model.sources[0]?.candidates.map(({ width }) => width)).toEqual([320, 400])
+  })
+
+  test('caps Storage candidates and the JPEG fallback at the intrinsic width', () => {
     const { requests, sign } = collectSignedRequests()
 
-    createTransloaditImageModel(
+    const model = createTransloaditImageModel(
       {
         expiresAt,
         formats: { webp: 61 },
@@ -269,6 +325,7 @@ describe('createTransloaditImageModel', () => {
       sign,
     )
 
+    expect(model.sources[0]?.candidates.map(({ width }) => width)).toEqual([200, 400])
     expect(requests.at(-1)?.urlParams).toEqual({ f: 'jpg', h: 300, q: 75, r: 'pad', w: 400 })
   })
 
@@ -291,7 +348,7 @@ describe('createTransloaditImageModel', () => {
     expect(requests).toEqual([])
   })
 
-  test('uses deterministic Storage format preference and caps tall previews to backend dimensions', () => {
+  test('uses deterministic Storage format preference and intrinsic dimensions', () => {
     const { requests, sign } = collectSignedRequests()
     const model = createTransloaditImageModel(
       {
@@ -307,9 +364,9 @@ describe('createTransloaditImageModel', () => {
 
     expect(model.sources.map(({ format }) => format)).toEqual(['avif', 'webp'])
     expect(model.sources.flatMap(({ candidates }) => candidates.map(({ width }) => width))).toEqual(
-      [2666, 2666],
+      [400, 400],
     )
-    expect(requests.slice(0, -1).every(({ urlParams }) => urlParams.h === 7998)).toBe(true)
+    expect(requests.slice(0, -1).every(({ urlParams }) => urlParams.h === 1200)).toBe(true)
     expect(requests.at(-1)?.urlParams).toEqual({ f: 'jpg', h: 1200, q: 75, r: 'pad', w: 400 })
   })
 
@@ -340,6 +397,7 @@ describe('createTransloaditImageModel', () => {
     'documents/../private/report.pdf',
     'documents/./report.pdf',
     String.raw`documents\private\report.pdf`,
+    'documents/cover.jpg|private/secret.pdf',
   ])('rejects an ambiguous Storage path: %s', (path) => {
     const { sign } = collectSignedRequests()
 
@@ -354,7 +412,7 @@ describe('createTransloaditImageModel', () => {
         },
         sign,
       ),
-    ).toThrow('Storage image paths must not contain dot segments or backslashes')
+    ).toThrow('Storage image paths must not contain delimiters, dot segments, or backslashes')
   })
 
   test.each([

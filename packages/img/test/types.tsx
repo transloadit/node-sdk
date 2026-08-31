@@ -6,7 +6,9 @@ import type {
 import type {
   StorageTransloaditImageProps,
   TransloaditImageComponent,
+  TransloaditImageIntegration,
   TransloaditImageProps,
+  TransloaditRedirectImageIntegration,
   UrlTransloaditImageProps,
 } from '../src/next/server.tsx'
 
@@ -18,7 +20,6 @@ const storageModel: StoragePreviewModelOptions = {
   height: 300,
   source: { path: 'documents/report.pdf', type: 'storage' },
   width: 400,
-  widths: [200, 400],
 }
 
 const urlModel: UrlImageModelOptions = {
@@ -29,42 +30,29 @@ const urlModel: UrlImageModelOptions = {
     url: 'https://assets.example/image.jpg',
     width: 800,
   },
-  widths: [200, 400],
 }
 
 const storageProps: StorageTransloaditImageProps = {
   alt: 'Preview of report.pdf',
   height: 300,
-  sizes: '400px',
-  source: { path: 'documents/report.pdf', type: 'storage' },
+  src: { storage: 'documents/report.pdf' },
   width: 400,
-  widths: [200, 400],
 }
 
 const urlProps: UrlTransloaditImageProps = {
   alt: 'Public image',
-  expiresAt: Date.UTC(2030, 0, 1),
   fallbackSrc: '/fallback.jpg',
-  height: 300,
+  height: 600,
   sizes: '400px',
-  source: {
-    height: 600,
-    type: 'url',
-    url: 'https://assets.example/image.jpg',
-    width: 800,
-  },
-  width: 400,
-  widths: [200, 400],
+  src: 'https://assets.example/image.jpg',
+  width: 800,
 }
 
 // @ts-expect-error Storage preview formats use format-specific quality values, not a tuple.
 const storageWithTuple: StoragePreviewModelOptions = { ...storageModel, formats: ['webp'] }
 
-const storageWithStaticExpiry: StorageTransloaditImageProps = {
-  ...storageProps,
-  // @ts-expect-error Private Storage URLs must use request-rendered bounded expiry.
-  expiresAt: Date.UTC(2030, 0, 1),
-}
+// @ts-expect-error Public expiry belongs to factory policy, not an individual image.
+const urlPropsWithExpiry: UrlTransloaditImageProps = { ...urlProps, expiresAt: Date.now() }
 
 // @ts-expect-error Storage previews always use a signed JPEG fallback.
 createTransloaditImageModel(
@@ -74,30 +62,38 @@ createTransloaditImageModel(
     height: 300,
     source: { path: 'documents/report.pdf', type: 'storage' },
     width: 400,
-    widths: [200, 400],
   },
   () => '',
 )
 
-declare const TransloaditImage: TransloaditImageComponent
+declare const Image: TransloaditImageComponent
+declare const direct: TransloaditImageIntegration
 declare const modelOptions: TransloaditImageModelOptions
+declare const redirect: TransloaditRedirectImageIntegration
 declare const unionProps: TransloaditImageProps
 const unionModel = createTransloaditImageModel(modelOptions, () => '')
-const unionImage = TransloaditImage(unionProps)
-// @ts-expect-error Storage previews always use a signed JPEG fallback.
-const storagePropsWithFallback = <TransloaditImage {...storageProps} fallbackSrc="/report.jpg" />
-// @ts-expect-error A media condition can first activate after a Storage signature has expired.
-const storagePropsWithMedia = <TransloaditImage {...storageProps} media="(min-width: 768px)" />
+const unionImage = Image(unionProps)
+const directImage = direct.Image(urlProps)
+const redirectedImage = redirect.Image(storageProps)
+const routeResponse = redirect.storageRoute(new Request('https://app.example/images'))
+// @ts-expect-error Direct integrations do not expose an authorization route.
+const missingRoute = direct.storageRoute
+// @ts-expect-error Storage previews always use their signed JPEG fallback.
+const storagePropsWithFallback = <Image {...storageProps} fallbackSrc="/report.jpg" />
+// @ts-expect-error Storage previews do not support viewport-conditional activation.
+const storagePropsWithMedia = <Image {...storageProps} media="(min-width: 768px)" />
 // @ts-expect-error Public URL images use their own fallback URL instead of a JPEG quality.
-const urlPropsWithFallbackQuality = <TransloaditImage {...urlProps} fallbackQuality={70} />
+const urlPropsWithFallbackQuality = <Image {...urlProps} fallbackQuality={70} />
 
-void storageWithTuple
+void directImage
+void missingRoute
+void redirectedImage
+void routeResponse
 void storagePropsWithFallback
 void storagePropsWithMedia
-void storageWithStaticExpiry
-void storageProps
+void storageWithTuple
 void unionImage
 void unionModel
-void urlPropsWithFallbackQuality
 void urlModel
-void urlProps
+void urlPropsWithExpiry
+void urlPropsWithFallbackQuality

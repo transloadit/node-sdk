@@ -895,6 +895,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/ciphers@npm:^1.3.0":
+  version: 1.3.0
+  resolution: "@noble/ciphers@npm:1.3.0"
+  checksum: 10c0/3ba6da645ce45e2f35e3b2e5c87ceba86b21dfa62b9466ede9edfb397f8116dae284f06652c0cd81d99445a2262b606632e868103d54ecc99fd946ae1af8cd37
+  languageName: node
+  linkType: hard
+
 "@nodelib/fs.scandir@npm:2.1.5":
   version: 2.1.5
   resolution: "@nodelib/fs.scandir@npm:2.1.5"
@@ -1417,6 +1424,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@transloadit/img@workspace:packages/img"
   dependencies:
+    "@noble/ciphers": "npm:^1.3.0"
     "@transloadit/utils": "workspace:^"
     "@types/react": "npm:^19.2.14"
     "@types/react-dom": "npm:^19.2.3"

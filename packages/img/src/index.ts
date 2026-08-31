@@ -12,8 +12,10 @@ import { validateStoragePath } from './storagePath.ts'
 
 export type { SignSmartCdnImageRequest, SmartCdnImageSignRequest } from '@transloadit/utils'
 
-const defaultStoragePreviewTemplate = 'builtin/storage-preview@0.0.1'
+/** Signed Built-in used by default for private Storage previews. */
+export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.1'
 const defaultStorageFallbackQuality = 75
+const defaultResponsiveImageWidths: readonly number[] = [320, 640, 960, 1280, 1920, 2560, 3840]
 const minimumMillisecondTimestamp = 1_000_000_000_000
 
 /** Image formats supported by the responsive HTTP(S)-image Built-in. */
@@ -60,15 +62,16 @@ export interface TransloaditImageSourceSet {
 
 /** Serializable data consumed by framework renderers. */
 export interface TransloaditImageModel {
-  expiresAt: number
+  /** Fixed URL expiry. Omitted when an adapter resolves fresh URLs after browser authorization. */
+  expiresAt?: number
   fallbackUrl: string
   sources: readonly TransloaditImageSourceSet[]
 }
 
 interface CommonImageModelOptions {
   expiresAt: number
-  /** Requested intrinsic candidate widths. */
-  widths: readonly number[]
+  /** Requested intrinsic candidate widths. Defaults to a conservative ladder up to the source. */
+  widths?: readonly number[]
 }
 
 /** Model options for a public HTTP(S) image. */
@@ -142,6 +145,14 @@ function getStorageHeight(candidateWidth: number, width: number, height: number)
   return candidateHeight
 }
 
+function getResponsiveImageWidths(
+  widths: readonly number[] | undefined,
+  maximumWidth: number,
+): readonly number[] {
+  if (widths !== undefined) return widths
+  return [...defaultResponsiveImageWidths.filter((width) => width < maximumWidth), maximumWidth]
+}
+
 function createUrlImageModel(
   options: UrlImageModelOptions,
   sign: SignSmartCdnImageRequest,
@@ -156,7 +167,10 @@ function createUrlImageModel(
       input: sourceUrl,
       sourceDimensions: { height: options.source.height, width: options.source.width },
       template: options.template,
-      widths: options.widths,
+      widths: getResponsiveImageWidths(
+        options.widths,
+        Math.min(options.source.width, smartCdnImageMaxDimension),
+      ),
     },
     sign,
   )
@@ -181,10 +195,13 @@ function createStoragePreviewModel(
   if (heightLimitedWidth < 1) {
     throw new RangeError('display aspect ratio cannot fit within backend dimensions')
   }
-  const maximumWidth = Math.min(smartCdnImageMaxDimension, heightLimitedWidth)
-  const widths = resolveSmartCdnImageWidths(options.widths, maximumWidth)
+  const maximumWidth = Math.min(options.width, smartCdnImageMaxDimension, heightLimitedWidth)
+  const widths = resolveSmartCdnImageWidths(
+    getResponsiveImageWidths(options.widths, maximumWidth),
+    maximumWidth,
+  )
   const formats = resolveSmartCdnImageFormats(options.formats)
-  const template = options.template ?? defaultStoragePreviewTemplate
+  const template = options.template ?? transloaditStoragePreviewTemplate
   const fallbackQuality = options.fallbackQuality ?? defaultStorageFallbackQuality
   validateQuality(fallbackQuality, 'fallbackQuality')
   const sources = formats.map(({ format, quality }) => ({

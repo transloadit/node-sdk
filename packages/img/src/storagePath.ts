@@ -13,7 +13,9 @@ function hasAmbiguousSegments(path: string): boolean {
   // A percent escape is literal object-key text here: signing encodes `%`, and API2 decodes the
   // Smart CDN route exactly once before matching the same catalog path.
   return (
-    path.includes('\\') || path.split('/').some((segment) => segment === '.' || segment === '..')
+    path.includes('|') ||
+    path.includes('\\') ||
+    path.split('/').some((segment) => segment === '.' || segment === '..')
   )
 }
 
@@ -37,7 +39,9 @@ export function validateStoragePath(path: string): void {
     )
   }
   if (hasAmbiguousSegments(path)) {
-    throw new TypeError('Storage image paths must not contain dot segments or backslashes')
+    throw new TypeError(
+      'Storage image paths must not contain delimiters, dot segments, or backslashes',
+    )
   }
   if (
     path.normalize('NFC') !== path ||

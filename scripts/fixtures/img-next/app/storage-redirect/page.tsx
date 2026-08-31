@@ -1,15 +1,14 @@
 import type { ReactNode } from 'react'
 
-import { TransloaditImage } from '../TransloaditImage.tsx'
+import { TransloaditRedirectImage } from '../TransloaditRedirectImage.tsx'
 
 export default function Page(): ReactNode {
   return (
-    <TransloaditImage
-      alt="Storage fixture"
+    <TransloaditRedirectImage
+      alt="Authorized Storage fixture"
       height={300}
       sizes="400px"
       src={{ storage: 'documents/report.pdf' }}
-      suspenseFallback={<div aria-label="Loading preview" role="status" />}
       width={400}
     />
   )

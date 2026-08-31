@@ -39,6 +39,7 @@
     "test:unit": "yarn build && ../../node_modules/.bin/vitest run ./test"
   },
   "dependencies": {
+    "@noble/ciphers": "^1.3.0",
     "@transloadit/utils": "workspace:^",
     "server-only": "^0.0.1"
   },
