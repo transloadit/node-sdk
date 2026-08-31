@@ -150,7 +150,7 @@ async function main(): Promise<void> {
         '--no-audit',
         '--no-fund',
         '--no-save',
-        '--offline',
+        '--prefer-offline',
         '--package-lock=false',
         resolve(packDir, utilsTarball),
         resolve(packDir, imageTarball),
