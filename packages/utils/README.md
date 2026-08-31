@@ -55,6 +55,9 @@ const { workspace, template, input, urlParams, auth } = parseSmartCdnUrl(url)
 const unsigned = stripSmartCdnAuth(url)
 ```
 
+`auth_key`, `exp`, and `sig` are reserved: signed builders replace them and the unsigned builder
+omits them. Other fields, including `hsh`, round-trip through the builders and parser.
+
 Both builders accept a `baseUrl` that replaces `https://{workspace}.tlcdn.com`, for example a local
 api2's URL Transform endpoint `https://api2-devdock.transloadit.dev/file/{workspace}` (a literal
 `{workspace}` is substituted). The signature does not cover the host, so treat `baseUrl` as trusted
@@ -84,6 +87,7 @@ const imageCandidates = getSignedSmartCdnImageCandidates({
   // Reuse one absolute expiry across a build instead of recomputing it per request.
   expiresAt,
   input: 'https://example.com/image.jpg',
+  sourceDimensions: { height: 1600, width: 2400 },
   widths: [320, 640, 960],
   workspace,
 })
@@ -108,4 +112,10 @@ for (const source of imageCandidates.sources) {
 - `signParamsSync(paramsString, authSecret, algorithm?)`: Node-only sync signature helper.
 - `getSignedSmartCdnUrl(options)` from `@transloadit/utils/node`: synchronous Smart CDN URL signer.
 - `getSignedSmartCdnImageCandidates(options)`: deterministic structured, signed AVIF and WebP
-  candidates plus the original fallback URL.
+  candidates plus the original fallback URL. Supply `sourceDimensions` to prevent upscaling and
+  keep both output dimensions within backend limits.
+- `createSmartCdnImageCandidates(options, sign)` from `@transloadit/utils`: the same deterministic
+  image policy with an injected synchronous signer, for framework and package adapters that own
+  their credential boundary.
+- `resolveSmartCdnImageFormats(formats)` and `resolveSmartCdnImageWidths(widths, maximumWidth?)`:
+  shared validation and normalization for adapters that use a different image Built-in.

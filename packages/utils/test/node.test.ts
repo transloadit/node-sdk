@@ -99,18 +99,44 @@ describe('getSignedSmartCdnImageCandidates', () => {
     expect(new URL(pngCandidate.url).searchParams.get('q')).toBe('90')
   })
 
+  it('snapshots credentials and workspace before signing candidates', () => {
+    let authKeyReads = 0
+    let authSecretReads = 0
+    let workspaceReads = 0
+    const result = getSignedSmartCdnImageCandidates({
+      ...baseOptions,
+      get authKey() {
+        authKeyReads += 1
+        return authKeyReads === 1 ? baseOptions.authKey : 'changed-key'
+      },
+      get authSecret() {
+        authSecretReads += 1
+        return authSecretReads === 1 ? baseOptions.authSecret : 'changed-secret'
+      },
+      get workspace() {
+        workspaceReads += 1
+        return workspaceReads === 1 ? baseOptions.workspace : 'changed-workspace'
+      },
+    })
+
+    expect(result).toEqual(getSignedSmartCdnImageCandidates(baseOptions))
+    expect(authKeyReads).toBe(1)
+    expect(authSecretReads).toBe(1)
+    expect(workspaceReads).toBe(1)
+  })
+
   it('rejects values that the Built-in cannot execute safely', () => {
     expect(() => getSignedSmartCdnImageCandidates({ ...baseOptions, widths: [] })).toThrow(
       'widths must contain at least one value',
     )
     expect(() => getSignedSmartCdnImageCandidates({ ...baseOptions, widths: [0] })).toThrow(
-      'width must be an integer from 1 through 8000',
+      'widths[0] must be an integer from 1 through 8000',
     )
     expect(() => getSignedSmartCdnImageCandidates({ ...baseOptions, widths: [8001] })).toThrow(
-      'width must be an integer from 1 through 8000',
+      'widths[0] must be an integer from 1 through 8000',
     )
     expect(() => getSignedSmartCdnImageCandidates({ ...baseOptions, widths: [1.5] })).toThrow(
-      'width must be an integer from 1 through 8000',
+      'widths[0] must be an integer from 1 through 8000',
     )
     expect(() =>
       getSignedSmartCdnImageCandidates({ ...baseOptions, formats: { avif: 0 } }),

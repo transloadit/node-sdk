@@ -1,0 +1,18 @@
+{
+  "exclude": ["coverage", "dist", "src"],
+  "references": [{ "path": "./tsconfig.build.json" }],
+  "compilerOptions": {
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "lib": ["DOM", "ES2022"],
+    "module": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "noImplicitOverride": true,
+    "noEmit": true,
+    // Next 16's declarations reference optional webpack and RSC types absent from consumers.
+    "skipLibCheck": true,
+    "strict": true,
+    "types": ["react", "react-dom"]
+  }
+}

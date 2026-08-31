@@ -30,7 +30,8 @@ export type SmartCdnUrlOptions = {
    */
   input: string
   /**
-   * Additional parameters for the URL query string.
+   * Additional parameters for the URL query string. `auth_key`, `exp`, and `sig` are reserved:
+   * signed builders replace them and unsigned builders omit them.
    */
   urlParams?: SmartCdnUrlParams
   /**
@@ -84,7 +85,7 @@ export interface ParsedSmartCdnUrl {
   workspace: string
   template: string
   input: string
-  /** Every query parameter except the signature ones; repeated parameters become arrays. */
+  /** Every query parameter except auth fields; repeated parameters become arrays. */
   urlParams: Record<string, string | string[]>
   /** Present when the URL carries `auth_key`, `exp` and `sig`. */
   auth?: {
@@ -157,6 +158,8 @@ export const prepareSmartCdnUrl = (opts: SmartCdnUrlOptions): PreparedSmartCdnUr
   const expiresAt = opts.expiresAt || Date.now() + 60 * 60 * 1000
 
   const queryParams = buildQueryParams(opts.urlParams)
+  // Keep accepting legacy values: the signer safely replaces its own authentication fields.
+  queryParams.delete('sig')
   queryParams.set('auth_key', opts.authKey)
   queryParams.set('exp', `${expiresAt}`)
   queryParams.sort()
@@ -190,6 +193,8 @@ export const getSmartCdnUrl = (opts: SmartCdnUnsignedUrlOptions): string => {
   const templateSlug = encodeURIComponent(opts.template)
   const inputField = encodeURIComponent(opts.input)
   const queryParams = buildQueryParams(opts.urlParams)
+  // An unsigned builder must not emit fields that make the URL look partially or fully signed.
+  for (const param of SIGNATURE_PARAMS) queryParams.delete(param)
   queryParams.sort()
   const query = queryParams.toString()
   return `${resolveBaseUrl(opts.baseUrl, workspaceSlug)}/${templateSlug}/${inputField}${
@@ -311,10 +316,20 @@ export const parseSmartCdnUrl = (
   if (templateSlug === '') throw notSmartCdnUrl('missing the template segment')
 
   const urlParams: Record<string, string | string[]> = {}
-  const signature: Record<string, string> = {}
+  let authKey: string | undefined
+  let expiration: string | undefined
+  let signatureValue: string | undefined
   for (const [key, value] of new URLSearchParams(parsed.search)) {
-    if (SIGNATURE_PARAMS.has(key)) {
-      signature[key] = value
+    if (key === 'auth_key') {
+      authKey = value
+      continue
+    }
+    if (key === 'exp') {
+      expiration = value
+      continue
+    }
+    if (key === 'sig') {
+      signatureValue = value
       continue
     }
     const existing = urlParams[key]
@@ -324,17 +339,18 @@ export const parseSmartCdnUrl = (
   }
 
   let auth: ParsedSmartCdnUrl['auth']
-  const present = Object.keys(signature).length
+  const present = [authKey, expiration, signatureValue].filter(
+    (value) => value !== undefined,
+  ).length
   if (present > 0) {
-    if (present !== SIGNATURE_PARAMS.size) {
+    if (authKey === undefined || expiration === undefined || signatureValue === undefined) {
       throw notSmartCdnUrl(
         'incomplete signature parameters; expected auth_key, exp and sig together',
       )
     }
-    const expiresAt = Number(signature.exp)
-    if (!Number.isInteger(expiresAt))
-      throw notSmartCdnUrl(`exp '${signature.exp}' is not a timestamp`)
-    auth = { key: signature.auth_key as string, expiresAt, signature: signature.sig as string }
+    const expiresAt = Number(expiration)
+    if (!Number.isInteger(expiresAt)) throw notSmartCdnUrl(`exp '${expiration}' is not a timestamp`)
+    auth = { key: authKey, expiresAt, signature: signatureValue }
   }
 
   return {

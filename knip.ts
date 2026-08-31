@@ -20,6 +20,17 @@ const config: KnipConfig = {
     interface: true,
   },
   workspaces: {
+    'packages/img': {
+      entry: ['src/index.ts', 'src/next/index.tsx', 'src/next/server.tsx', 'test/**/*.{ts,tsx}'],
+      project: ['{src,test}/**/*.{ts,tsx}'],
+      ignore: [...sharedIgnore],
+      ignoreDependencies: [
+        // Knip cannot infer the Vitest environment dependency from its file pragma.
+        'happy-dom',
+        // Tooling lives at the repo root in this monorepo.
+        'vitest',
+      ],
+    },
     'packages/node': {
       entry: ['src/Transloadit.ts', 'src/cli.ts', 'test/**/*.{ts,tsx,js,jsx}', 'vitest.config.ts'],
       project: ['{src,test}/**/*.{ts,tsx,js,jsx}'],

@@ -78,6 +78,28 @@ describe('getSmartCdnUrl (unsigned)', () => {
     expect(() => getSmartCdnUrl({ ...storage, baseUrl: 'https://cdn.example/?x=1' })).toThrow(
       'baseUrl must not contain a query string or fragment',
     )
+    expect(
+      new URL(
+        getSmartCdnUrl({ ...storage, urlParams: { hsh: 'saved-template-hash' } }),
+      ).searchParams.get('hsh'),
+    ).toBe('saved-template-hash')
+  })
+
+  it('omits reserved authentication fields and remains parseable', () => {
+    const url = getSmartCdnUrl({
+      ...storage,
+      urlParams: {
+        auth_key: 'caller-controlled',
+        exp: 1,
+        hsh: 'saved-template-hash',
+        sig: 'caller-controlled',
+      },
+    })
+
+    expect(parseSmartCdnUrl(url).urlParams).toEqual({ hsh: 'saved-template-hash' })
+    expect(new URL(url).searchParams.has('auth_key')).toBe(false)
+    expect(new URL(url).searchParams.has('exp')).toBe(false)
+    expect(new URL(url).searchParams.has('sig')).toBe(false)
   })
 })
 
@@ -95,6 +117,33 @@ describe('getSignedSmartCdnUrl with baseUrl', () => {
 
   it('still matches the known answer without a baseUrl', async () => {
     await expect(getSignedSmartCdnUrl(signed)).resolves.toBe(knownAnswer)
+  })
+
+  it('overwrites caller-provided signature parameters for backward compatibility', async () => {
+    const compatible = {
+      ...signed,
+      urlParams: {
+        ...signed.urlParams,
+        auth_key: 'caller-controlled',
+        exp: 1,
+        sig: 'caller-controlled',
+      },
+    }
+
+    await expect(getSignedSmartCdnUrl(compatible)).resolves.toBe(knownAnswer)
+    expect(getSignedSmartCdnUrlSync(compatible)).toBe(knownAnswer)
+  })
+
+  it('preserves signed template-cache metadata and parses it as a normal field', async () => {
+    const withTemplateHash = {
+      ...signed,
+      urlParams: { ...signed.urlParams, hsh: 'saved-template-hash' },
+    }
+    const url = await getSignedSmartCdnUrl(withTemplateHash)
+
+    expect(getSignedSmartCdnUrlSync(withTemplateHash)).toBe(url)
+    expect(new URL(url).searchParams.get('hsh')).toBe('saved-template-hash')
+    expect(parseSmartCdnUrl(url).urlParams.hsh).toBe('saved-template-hash')
   })
 })
 
@@ -122,6 +171,22 @@ describe('stripSmartCdnAuth', () => {
 })
 
 describe('parseSmartCdnUrl', () => {
+  it('ignores signature fields inherited from Object.prototype', () => {
+    Object.defineProperties(Object.prototype, {
+      auth_key: { configurable: true, value: 'polluted-key' },
+      exp: { configurable: true, value: '1900000000000' },
+      sig: { configurable: true, value: 'sha256:polluted' },
+    })
+
+    try {
+      expect(parseSmartCdnUrl(getSmartCdnUrl(storage)).auth).toBeUndefined()
+    } finally {
+      Reflect.deleteProperty(Object.prototype, 'auth_key')
+      Reflect.deleteProperty(Object.prototype, 'exp')
+      Reflect.deleteProperty(Object.prototype, 'sig')
+    }
+  })
+
   it('inverts the signed known answer', () => {
     const parsed = parseSmartCdnUrl(knownAnswer)
     expect(parsed).toEqual({
