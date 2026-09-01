@@ -1,3 +1,5 @@
+import { isIP } from 'node:net'
+
 import { z } from 'zod'
 
 export type BearerTokenAudience = 'mcp' | 'api2' | (string & {})
@@ -8,6 +10,13 @@ export type BearerTokenResponse = {
   expires_in: number
   scope?: string
 }
+
+export type IssueBearerTokenOptions = {
+  aud?: BearerTokenAudience | string
+  scope?: string
+}
+
+export type IssueBearerTokenResponse = BearerTokenResponse & { scope: string }
 
 export type MintBearerTokenOptions = {
   allowProcessEnvEndpointFallback?: boolean
@@ -45,8 +54,15 @@ const tokenSuccessSchema = z
 const buildBasicAuthHeaderValue = (credentials: { authKey: string; authSecret: string }): string =>
   `Basic ${Buffer.from(`${credentials.authKey}:${credentials.authSecret}`, 'utf8').toString('base64')}`
 
-const isLoopbackHost = (hostname: string): boolean =>
-  hostname === 'localhost' || hostname === '::1' || hostname.startsWith('127.')
+const isLoopbackHost = (hostname: string): boolean => {
+  const normalizedHostname =
+    hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname
+  return (
+    normalizedHostname === 'localhost' ||
+    normalizedHostname === '::1' ||
+    (isIP(normalizedHostname) === 4 && normalizedHostname.startsWith('127.'))
+  )
+}
 
 type TokenBaseResult = { ok: true; baseUrl: URL } | { ok: false; error: string }
 
@@ -122,7 +138,7 @@ const normalizeScopeInput = (input?: string[] | string): string | undefined => {
   return out.length > 0 ? out.join(' ') : undefined
 }
 
-export async function mintBearerTokenWithCredentials(
+export async function issueBearerTokenWithCredentials(
   credentials: { authKey: string; authSecret: string },
   options: MintBearerTokenOptions = {},
 ): Promise<MintBearerTokenResult> {
@@ -135,14 +151,12 @@ export async function mintBearerTokenWithCredentials(
   }
 
   const url = new URL('token', endpointResult.baseUrl).toString()
-  const aud = (options.aud ?? 'mcp').trim() || 'mcp'
+  const aud = options.aud?.trim()
   const scope = normalizeScopeInput(options.scope)
   const timeoutMs = options.timeoutMs ?? 15_000
 
-  const params = new URLSearchParams({
-    grant_type: 'client_credentials',
-    aud,
-  })
+  const params = new URLSearchParams({ grant_type: 'client_credentials' })
+  if (aud) params.set('aud', aud)
   if (scope) params.set('scope', scope)
 
   let res: Response
@@ -216,4 +230,12 @@ export async function mintBearerTokenWithCredentials(
     ok: false,
     error: `Token request failed (${res.status}): ${trimmed || res.statusText}`,
   }
+}
+
+export async function mintBearerTokenWithCredentials(
+  credentials: { authKey: string; authSecret: string },
+  options: MintBearerTokenOptions = {},
+): Promise<MintBearerTokenResult> {
+  const aud = (options.aud ?? 'mcp').trim() || 'mcp'
+  return await issueBearerTokenWithCredentials(credentials, { ...options, aud })
 }

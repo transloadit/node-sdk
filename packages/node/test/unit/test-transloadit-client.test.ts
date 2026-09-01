@@ -32,6 +32,85 @@ const mockRemoteJson = (client: Transloadit) =>
     .mockImplementation(() => ({ body: {} }))
 
 describe('Transloadit', () => {
+  it('rejects untrusted Assembly status URLs before making a request', async () => {
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const remoteJson = mockRemoteJson(client).mockResolvedValue({ ok: 'ASSEMBLY_COMPLETED' })
+
+    await expect(
+      client.waitForAssembly('https://attacker.example/assemblies/assembly-id'),
+    ).rejects.toThrow('Untrusted Assembly URL')
+    expect(remoteJson).not.toHaveBeenCalled()
+  })
+
+  it('polls cell-specific Assembly URLs without authentication', async () => {
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const remoteJson = mockRemoteJson(client).mockResolvedValue({ ok: 'ASSEMBLY_COMPLETED' })
+    const assemblyUrl = 'https://api2-jenks.transloadit.com/assemblies/assembly-id'
+
+    await expect(client.waitForAssembly(assemblyUrl)).resolves.toEqual({
+      ok: 'ASSEMBLY_COMPLETED',
+    })
+    expect(remoteJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authenticate: false,
+        isTrustedUrl: true,
+        url: assemblyUrl,
+      }),
+    )
+  })
+
+  it('allows HTTPS polling on the configured HTTP hostname', async () => {
+    const client = new Transloadit({
+      authKey: 'foo_key',
+      authSecret: 'foo_secret',
+      endpoint: 'http://api2-devdock.transloadit.dev',
+    })
+    const remoteJson = mockRemoteJson(client).mockResolvedValue({ ok: 'ASSEMBLY_COMPLETED' })
+    const assemblyUrl = 'https://api2-devdock.transloadit.dev/assemblies/assembly-id'
+
+    await expect(client.waitForAssembly(assemblyUrl)).resolves.toEqual({
+      ok: 'ASSEMBLY_COMPLETED',
+    })
+    expect(remoteJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authenticate: false,
+        followRedirect: false,
+        isTrustedUrl: true,
+        url: assemblyUrl,
+      }),
+    )
+  })
+
+  it.each(['.', '..'])('rejects the %s path segment before making a request', async (segment) => {
+    const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+    const remoteJson = mockRemoteJson(client).mockResolvedValue({})
+
+    await expect(client.getTemplate(segment)).rejects.toThrow(
+      'Path parameters cannot be dot segments',
+    )
+    expect(remoteJson).not.toHaveBeenCalled()
+  })
+
+  it('validates the complete listAssemblies response envelope', async () => {
+    const client = new Transloadit({
+      authKey: 'foo_key',
+      authSecret: 'foo_secret',
+      validateResponses: true,
+    })
+    vi.spyOn(
+      client as unknown as Record<string, (...args: unknown[]) => unknown>,
+      '_remoteJson',
+    ).mockResolvedValue({
+      count: 1,
+      items: [{ created: '2026-07-11T00:00:00.000Z', id: 'assembly-id' }],
+    })
+
+    await expect(client.listAssemblies()).resolves.toEqual({
+      count: 1,
+      items: [{ created: '2026-07-11T00:00:00.000Z', id: 'assembly-id' }],
+    })
+  })
+
   it('should throw a proper error for request stream', async () => {
     const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
@@ -376,6 +455,22 @@ describe('Transloadit', () => {
   })
 
   describe('_remoteJson', () => {
+    it('omits bearer and signed query authentication when authentication is disabled', async () => {
+      const client = new Transloadit({ authToken: 'secret-token' })
+      const get = mockGot('get')
+      const url = 'https://api2-jenks.transloadit.com/assemblies/assembly-id'
+
+      // @ts-expect-error This tests private internals
+      await client._remoteJson({ authenticate: false, isTrustedUrl: true, method: 'get', url })
+
+      expect(get).toHaveBeenCalledWith(
+        url,
+        expect.objectContaining({
+          headers: expect.not.objectContaining({ Authorization: expect.anything() }),
+        }),
+      )
+    })
+
     it('should add "Transloadit-Client" header to requests', async () => {
       const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
 
@@ -407,6 +502,25 @@ describe('Transloadit', () => {
       expect(get).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({ headers: { 'Transloadit-Client': 'mcp-server:1.2.3' } }),
+      )
+    })
+
+    it('should allow redirects to be disabled for trusted polling URLs', async () => {
+      const client = new Transloadit({ authKey: 'foo_key', authSecret: 'foo_secret' })
+
+      const get = mockGot('get')
+
+      // @ts-expect-error This tests private internals
+      await client._remoteJson({
+        url: 'https://api2-eu-west-1.transloadit.com/assemblies/example',
+        method: 'get',
+        isTrustedUrl: true,
+        followRedirect: false,
+      })
+
+      expect(get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ followRedirect: false }),
       )
     })
   })

@@ -33,7 +33,6 @@ import type {
   TemplateCredentialsResponse,
   TemplateResponse,
 } from './apiTypes.ts'
-import type { BearerTokenResponse, MintBearerTokenOptions } from './bearerToken.ts'
 import type {
   LintAssemblyInstructionsInput,
   LintAssemblyInstructionsResult,
@@ -60,7 +59,6 @@ import packageJson from '../package.json' with { type: 'json' }
 import { ApiError } from './ApiError.ts'
 import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/assemblyStatus.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
-import { mintBearerTokenWithCredentials } from './bearerToken.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
@@ -132,6 +130,19 @@ export type { UploadBehavior }
 export type AssemblyStatusWithUploadUrls = AssemblyStatus & {
   upload_urls?: Record<string, string>
 }
+
+// <api2-generated-feature-model uploadTusAssemblyResult>
+
+// This block is generated from Transloadit API2 contracts. If it looks wrong,
+// please report the issue instead of editing this block by hand; the source fix
+// belongs in the contract generator so all SDKs stay in sync.
+
+export interface UploadTusAssemblyResult {
+  assembly: AssemblyStatus
+  uploadUrl: string
+}
+
+// </api2-generated-feature-model uploadTusAssemblyResult>
 
 const { version } = packageJson
 
@@ -664,29 +675,282 @@ export class Transloadit {
    * This uses HTTP Basic Auth (authKey + authSecret) and can optionally request a narrowed scope.
    * If `scope` is omitted, the token inherits the auth key's scope.
    */
-  async mintBearerToken(
-    options: Omit<MintBearerTokenOptions, 'endpoint'> & { endpoint?: string } = {},
-  ): Promise<BearerTokenResponse> {
-    if (this._authToken) {
-      throw new Error(
-        'Cannot mint bearer tokens when using authToken authentication. Provide authKey + authSecret instead.',
-      )
-    }
 
-    const result = await mintBearerTokenWithCredentials(
-      { authKey: this._authKey, authSecret: this._authSecret },
-      {
-        ...options,
-        endpoint: options.endpoint ?? this._endpoint,
+  // <api2-generated-feature createTusAssembly>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  /**
+   * Creates a TUS-ready Assembly that waits for the requested number of resumable uploads before execution continues.
+   */
+  async createTusAssembly(fileCount: number): Promise<AssemblyStatusWithUploadUrls> {
+    return await this._remoteJson<
+      AssemblyStatusWithUploadUrls,
+      CreateAssemblyParams & Record<string, unknown>
+    >({
+      urlSuffix: '/assemblies',
+      method: 'post',
+      params: {
+        await: false,
+        steps: {
+          ':original': {
+            output_meta: true,
+            result: 'debug',
+            robot: '/upload/handle',
+          },
+        },
       },
-    )
+      fields: {
+        num_expected_upload_files: fileCount,
+      },
+    })
+  }
 
-    if (!result.ok) {
-      throw new Error(result.error)
+  // </api2-generated-feature createTusAssembly>
+
+  // <api2-generated-feature waitForAssembly>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  /**
+   * Waits for an Assembly to finish uploading and executing.
+   * Use the returned assembly_ssl_url as the assembly URL.
+   */
+  async waitForAssembly(assemblyUrl: string): Promise<AssemblyStatus> {
+    const candidateUrl = new URL(assemblyUrl)
+    const configuredUrl = new URL(this._endpoint)
+    const hasUrlCredentials = candidateUrl.username !== '' || candidateUrl.password !== ''
+    const isConfiguredOrigin = !hasUrlCredentials && candidateUrl.origin === configuredUrl.origin
+    const isConfiguredHttpsHost =
+      !hasUrlCredentials &&
+      candidateUrl.protocol === 'https:' &&
+      candidateUrl.port === '' &&
+      candidateUrl.hostname === configuredUrl.hostname
+    const isTransloaditApi2Cell =
+      !hasUrlCredentials &&
+      candidateUrl.protocol === 'https:' &&
+      candidateUrl.port === '' &&
+      candidateUrl.hostname.startsWith('api2-') &&
+      candidateUrl.hostname.endsWith('.transloadit.com')
+    if (!isConfiguredOrigin && !isConfiguredHttpsHost && !isTransloaditApi2Cell) {
+      throw new Error(`Untrusted Assembly URL: ${candidateUrl.origin}`)
+    }
+    while (true) {
+      const result = await this._remoteJson<AssemblyStatus, OptionalAuthParams>({
+        url: assemblyUrl,
+        authenticate: false,
+        followRedirect: false,
+        isTrustedUrl: true,
+        method: 'get',
+      })
+
+      // Abort polling if the assembly has entered an error state
+      if (result.error) {
+        return result
+      }
+
+      // The polling is done if the assembly is not uploading or executing anymore.
+      if (result.ok !== 'ASSEMBLY_UPLOADING' && result.ok !== 'ASSEMBLY_EXECUTING') {
+        return result
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+  }
+
+  // </api2-generated-feature waitForAssembly>
+
+  // <api2-generated-feature resumeTusUpload>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  /**
+   * Resumes an interrupted TUS upload from the server-reported offset and waits for the Assembly to finish.
+   */
+  async resumeTusUpload(
+    uploadUrl: string,
+    content: Buffer | Uint8Array | string,
+    assemblySslUrl: string,
+  ): Promise<AssemblyStatus> {
+    const storedUploadUrl = uploadUrl
+    if (!storedUploadUrl) {
+      throw new Error('TUS resumeUpload needs input.storedUploadUrl')
     }
 
-    return result.data
+    const offsetHeaders: Record<string, string> = {}
+    offsetHeaders['Tus-Resumable'] = '1.0.0'
+    const offsetResponse = await got(storedUploadUrl, {
+      method: 'HEAD',
+      headers: offsetHeaders,
+      retry: this._gotRetry,
+      throwHttpErrors: false,
+      timeout: { request: this._defaultTimeout },
+    })
+
+    if (offsetResponse.statusCode !== 200) {
+      throw new Error(`TUS offset returned HTTP ${offsetResponse.statusCode}, expected 200`)
+    }
+    const resumeOffsetHeader = offsetResponse.headers['upload-offset']
+    const resumeOffsetHeaderText = Array.isArray(resumeOffsetHeader)
+      ? resumeOffsetHeader[0]
+      : resumeOffsetHeader
+    if (!resumeOffsetHeaderText) {
+      throw new Error('TUS offset did not return a Upload-Offset header')
+    }
+    const resumeOffset = Number(resumeOffsetHeaderText)
+    if (!Number.isInteger(resumeOffset)) {
+      throw new Error('TUS offset returned an invalid Upload-Offset header')
+    }
+
+    const contentBytes = Buffer.isBuffer(content) ? content : Buffer.from(content)
+
+    const uploadHeaders: Record<string, string> = {}
+    uploadHeaders['Tus-Resumable'] = '1.0.0'
+    uploadHeaders['Upload-Offset'] = String(resumeOffset)
+    uploadHeaders['Content-Type'] = 'application/offset+octet-stream'
+    const uploadResponse = await got(storedUploadUrl, {
+      method: 'PATCH',
+      body: contentBytes.subarray(resumeOffset),
+      headers: uploadHeaders,
+      retry: this._gotRetry,
+      throwHttpErrors: false,
+      timeout: { request: this._defaultTimeout },
+    })
+
+    if (uploadResponse.statusCode !== 204) {
+      throw new Error(`TUS upload returned HTTP ${uploadResponse.statusCode}, expected 204`)
+    }
+    const uploadOffsetHeader = uploadResponse.headers['upload-offset']
+    const uploadOffsetText = Array.isArray(uploadOffsetHeader)
+      ? uploadOffsetHeader[0]
+      : uploadOffsetHeader
+    if (!uploadOffsetText) {
+      throw new Error('TUS upload returned an invalid Upload-Offset header')
+    }
+    const uploadOffset = Number(uploadOffsetText)
+    if (!Number.isInteger(uploadOffset)) {
+      throw new Error('TUS upload returned an invalid Upload-Offset header')
+    }
+    if (uploadOffset !== contentBytes.length) {
+      throw new Error(`TUS upload offset ${uploadOffset}, expected ${contentBytes.length}`)
+    }
+
+    const completedAssembly = await this.waitForAssembly(assemblySslUrl)
+
+    return completedAssembly
   }
+
+  // </api2-generated-feature resumeTusUpload>
+
+  // <api2-generated-feature uploadTusAssembly>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  /**
+   * Creates a TUS-ready Assembly, uploads one file with the TUS protocol, and waits for the Assembly to finish.
+   */
+  async uploadTusAssembly(
+    content: Buffer | Uint8Array | string,
+    fieldname: string,
+    filename: string,
+    userMeta: Record<string, string>,
+  ): Promise<UploadTusAssemblyResult> {
+    const createdAssembly = await this.createTusAssembly(1)
+
+    const endpointUrl = createdAssembly.tus_url
+    if (!endpointUrl) {
+      throw new Error('TUS singleUploadLifecycle needs input.endpointUrl')
+    }
+
+    const contentBytes = Buffer.isBuffer(content) ? content : Buffer.from(content)
+
+    const metadataMap = new Map<string, string>()
+    for (const [key, value] of Object.entries(userMeta)) {
+      metadataMap.set(String(key), String(value))
+    }
+    metadataMap.set('assembly_url', String(createdAssembly.assembly_ssl_url))
+    metadataMap.set('fieldname', String(fieldname))
+    metadataMap.set('filename', String(filename))
+
+    const createHeaders: Record<string, string> = {}
+    createHeaders['Tus-Resumable'] = '1.0.0'
+    createHeaders['Upload-Length'] = String(contentBytes.length)
+    const createMetadataParts: string[] = []
+    for (const [key, value] of metadataMap) {
+      const encodedValue = Buffer.from(String(value), 'utf8').toString('base64')
+      createMetadataParts.push(`${key} ${encodedValue}`)
+    }
+    createHeaders['Upload-Metadata'] = createMetadataParts.join(',')
+    const createResponse = await got(endpointUrl, {
+      method: 'POST',
+      body: Buffer.alloc(0),
+      headers: createHeaders,
+      retry: this._gotRetry,
+      throwHttpErrors: false,
+      timeout: { request: this._defaultTimeout },
+    })
+
+    if (createResponse.statusCode !== 201) {
+      throw new Error(`TUS create returned HTTP ${createResponse.statusCode}, expected 201`)
+    }
+    const uploadUrlLocation = createResponse.headers.location
+    const uploadUrlLocationText = Array.isArray(uploadUrlLocation)
+      ? uploadUrlLocation[0]
+      : uploadUrlLocation
+    if (!uploadUrlLocationText) {
+      throw new Error('TUS create did not return a Location header')
+    }
+    const uploadUrlText = new URL(uploadUrlLocationText, endpointUrl).toString()
+
+    const uploadHeaders: Record<string, string> = {}
+    uploadHeaders['Tus-Resumable'] = '1.0.0'
+    uploadHeaders['Upload-Offset'] = '0'
+    uploadHeaders['Content-Type'] = 'application/offset+octet-stream'
+    const uploadResponse = await got(uploadUrlText, {
+      method: 'PATCH',
+      body: contentBytes,
+      headers: uploadHeaders,
+      retry: this._gotRetry,
+      throwHttpErrors: false,
+      timeout: { request: this._defaultTimeout },
+    })
+
+    if (uploadResponse.statusCode !== 204) {
+      throw new Error(`TUS upload returned HTTP ${uploadResponse.statusCode}, expected 204`)
+    }
+    const uploadOffsetHeader = uploadResponse.headers['upload-offset']
+    const uploadOffsetText = Array.isArray(uploadOffsetHeader)
+      ? uploadOffsetHeader[0]
+      : uploadOffsetHeader
+    if (!uploadOffsetText) {
+      throw new Error('TUS upload returned an invalid Upload-Offset header')
+    }
+    const uploadOffset = Number(uploadOffsetText)
+    if (!Number.isInteger(uploadOffset)) {
+      throw new Error('TUS upload returned an invalid Upload-Offset header')
+    }
+    if (uploadOffset !== contentBytes.length) {
+      throw new Error(`TUS upload offset ${uploadOffset}, expected ${contentBytes.length}`)
+    }
+
+    const createdAssemblyAssemblySslUrl = createdAssembly.assembly_ssl_url
+    if (!createdAssemblyAssemblySslUrl) {
+      throw new Error('uploadTusAssembly needs createdAssembly.assembly_ssl_url')
+    }
+    const completedAssembly = await this.waitForAssembly(createdAssemblyAssemblySslUrl)
+
+    return { assembly: completedAssembly, uploadUrl: uploadUrlText }
+  }
+
+  // </api2-generated-feature uploadTusAssembly>
 
   async resumeAssemblyUploads(
     opts: ResumeAssemblyUploadsOptions,
@@ -992,10 +1256,7 @@ export class Transloadit {
   async listAssemblies(
     params?: ListAssembliesParams,
   ): Promise<PaginationListWithCount<AssemblyIndexItem>> {
-    const rawResponse = await this._remoteJson<
-      PaginationListWithCount<Record<string, unknown>>,
-      ListAssembliesParams
-    >({
+    const rawResponse = await this._remoteJson<AssemblyIndex, ListAssembliesParams>({
       urlSuffix: '/assemblies',
       method: 'get',
       params: params || {},
@@ -1011,18 +1272,16 @@ export class Transloadit {
       )
     }
 
-    const parsedResult = zodParseWithContext(assemblyIndexSchema, rawResponse.items)
+    const parsedResult = zodParseWithContext(assemblyIndexSchema, rawResponse)
 
     if (!parsedResult.success) {
       this.maybeThrowInconsistentResponseError(
-        `API response for listAssemblies contained items that do not match the expected schema.\n${parsedResult.humanReadable}`,
+        `API response for listAssemblies does not match the expected schema.\n${parsedResult.humanReadable}`,
       )
+      return rawResponse
     }
 
-    return {
-      items: rawResponse.items as AssemblyIndex,
-      count: rawResponse.count,
-    }
+    return parsedResult.safe
   }
 
   streamAssemblies(params: ListAssembliesParams): Readable {
@@ -1081,6 +1340,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the Credential is created
    */
+  // <api2-generated-endpoint createTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async createTemplateCredential(
     params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
@@ -1091,6 +1356,8 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint createTemplateCredentials>
+
   /**
    * Edit a Credential
    *
@@ -1098,16 +1365,24 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the Credential is edited
    */
+  // <api2-generated-endpoint updateTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async editTemplateCredential(
     credentialId: string,
     params: CreateTemplateCredentialParams,
   ): Promise<TemplateCredentialResponse> {
     return await this._remoteJson({
-      urlSuffix: `/template_credentials/${credentialId}`,
+      urlSuffix: `/template_credentials/${this.#encodePathSegment(credentialId)}`,
       method: 'put',
       params: params || {},
     })
   }
+
+  // </api2-generated-endpoint updateTemplateCredentials>
 
   /**
    * Delete a Credential
@@ -1115,12 +1390,20 @@ export class Transloadit {
    * @param credentialId the Credential ID
    * @returns when the Credential is deleted
    */
+  // <api2-generated-endpoint deleteTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async deleteTemplateCredential(credentialId: string): Promise<BaseResponse> {
     return await this._remoteJson({
-      urlSuffix: `/template_credentials/${credentialId}`,
+      urlSuffix: `/template_credentials/${this.#encodePathSegment(credentialId)}`,
       method: 'delete',
     })
   }
+
+  // </api2-generated-endpoint deleteTemplateCredentials>
 
   /**
    * Get a Credential
@@ -1128,12 +1411,20 @@ export class Transloadit {
    * @param credentialId the Credential ID
    * @returns when the Credential is retrieved
    */
+  // <api2-generated-endpoint getTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async getTemplateCredential(credentialId: string): Promise<TemplateCredentialResponse> {
     return await this._remoteJson({
-      urlSuffix: `/template_credentials/${credentialId}`,
+      urlSuffix: `/template_credentials/${this.#encodePathSegment(credentialId)}`,
       method: 'get',
     })
   }
+
+  // </api2-generated-endpoint getTemplateCredentials>
 
   /**
    * List all TemplateCredentials
@@ -1141,6 +1432,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns the list of templates
    */
+  // <api2-generated-endpoint listTemplateCredentials>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async listTemplateCredentials(
     params?: ListTemplateCredentialsParams,
   ): Promise<TemplateCredentialsResponse> {
@@ -1150,6 +1447,8 @@ export class Transloadit {
       params: params || {},
     })
   }
+
+  // </api2-generated-endpoint listTemplateCredentials>
 
   streamTemplateCredentials(params: ListTemplateCredentialsParams) {
     return new PaginationStream(async (page) => ({
@@ -1163,6 +1462,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the template is created
    */
+  // <api2-generated-endpoint createTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async createTemplate(params: CreateTemplateParams): Promise<TemplateResponse> {
     return await this._remoteJson({
       urlSuffix: '/templates',
@@ -1171,6 +1476,8 @@ export class Transloadit {
     })
   }
 
+  // </api2-generated-endpoint createTemplate>
+
   /**
    * Edit an Assembly Template
    *
@@ -1178,13 +1485,21 @@ export class Transloadit {
    * @param params optional request options
    * @returns when the template is edited
    */
+  // <api2-generated-endpoint updateTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async editTemplate(templateId: string, params: EditTemplateParams): Promise<TemplateResponse> {
     return await this._remoteJson({
-      urlSuffix: `/templates/${templateId}`,
+      urlSuffix: `/templates/${this.#encodePathSegment(templateId)}`,
       method: 'put',
       params: params || {},
     })
   }
+
+  // </api2-generated-endpoint updateTemplate>
 
   /**
    * Delete an Assembly Template
@@ -1192,12 +1507,20 @@ export class Transloadit {
    * @param templateId the template ID
    * @returns when the template is deleted
    */
+  // <api2-generated-endpoint deleteTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async deleteTemplate(templateId: string): Promise<BaseResponse> {
     return await this._remoteJson({
-      urlSuffix: `/templates/${templateId}`,
+      urlSuffix: `/templates/${this.#encodePathSegment(templateId)}`,
       method: 'delete',
     })
   }
+
+  // </api2-generated-endpoint deleteTemplate>
 
   /**
    * Get an Assembly Template
@@ -1205,12 +1528,20 @@ export class Transloadit {
    * @param templateId the template ID
    * @returns when the template is retrieved
    */
+  // <api2-generated-endpoint getTemplate>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async getTemplate(templateId: string): Promise<TemplateResponse> {
     return await this._remoteJson({
-      urlSuffix: `/templates/${templateId}`,
+      urlSuffix: `/templates/${this.#encodePathSegment(templateId)}`,
       method: 'get',
     })
   }
+
+  // </api2-generated-endpoint getTemplate>
 
   /**
    * List all Assembly Templates
@@ -1218,6 +1549,12 @@ export class Transloadit {
    * @param params optional request options
    * @returns the list of templates
    */
+  // <api2-generated-endpoint listTemplates>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async listTemplates(
     params?: ListTemplatesParams,
   ): Promise<PaginationListWithCount<ListedTemplate>> {
@@ -1227,6 +1564,8 @@ export class Transloadit {
       params: params || {},
     })
   }
+
+  // </api2-generated-endpoint listTemplates>
 
   streamTemplates(params?: ListTemplatesParams): PaginationStream<ListedTemplate> {
     return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
@@ -1239,13 +1578,21 @@ export class Transloadit {
    * @returns with billing data
    * @see https://transloadit.com/docs/api/bill-date-get/
    */
+  // <api2-generated-endpoint getBill>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
   async getBill(month: string): Promise<BillResponse> {
     assert.ok(month, 'month is required')
     return await this._remoteJson({
-      urlSuffix: `/bill/${month}`,
+      urlSuffix: `/bill/${this.#encodePathSegment(month)}`,
       method: 'get',
     })
   }
+
+  // </api2-generated-endpoint getBill>
 
   calcSignature(
     params: OptionalAuthParams,
@@ -1283,8 +1630,13 @@ export class Transloadit {
 
   // Sets the multipart/form-data for POST, PUT and DELETE requests, including
   // the streams, the signed params, and any additional fields.
-  private _appendForm(form: FormData, params: OptionalAuthParams, fields?: Fields): void {
-    const shouldSign = Boolean(this._authKey && this._authSecret)
+  private _appendForm(
+    form: FormData,
+    params: OptionalAuthParams,
+    fields?: Fields,
+    authenticate = true,
+  ): void {
+    const shouldSign = authenticate && Boolean(this._authKey && this._authSecret)
     let jsonParams = JSON.stringify(params ?? {})
     let signature: string | undefined
 
@@ -1309,10 +1661,12 @@ export class Transloadit {
 
   // Implements HTTP GET query params, handling the case where the url already
   // has params.
-  private _appendParamsToUrl(url: string, params: OptionalAuthParams): string {
+  private _appendParamsToUrl(url: string, params: OptionalAuthParams, authenticate = true): string {
+    if (!authenticate && Object.keys(params).length === 0) return url
+
     const prefix = url.indexOf('?') === -1 ? '?' : '&'
 
-    const shouldSign = Boolean(this._authKey && this._authSecret)
+    const shouldSign = authenticate && Boolean(this._authKey && this._authSecret)
     if (!shouldSign) {
       const jsonParams = JSON.stringify(params ?? {})
       return `${url}${prefix}params=${encodeURIComponent(jsonParams)}`
@@ -1353,6 +1707,7 @@ export class Transloadit {
   // PUT or DELETE requests. Automatically adds signature parameters to all
   // requests. Also automatically parses the JSON response.
   private async _remoteJson<TRet, TParams extends OptionalAuthParams>(opts: {
+    authenticate?: boolean
     urlSuffix?: string
     url?: string
     isTrustedUrl?: boolean
@@ -1360,10 +1715,12 @@ export class Transloadit {
     method?: 'delete' | 'get' | 'post' | 'put'
     params?: TParams
     fields?: Fields
+    followRedirect?: boolean
     headers?: Headers
     signal?: AbortSignal
   }): Promise<TRet> {
     const {
+      authenticate = true,
       urlSuffix,
       url: urlInput,
       isTrustedUrl = false,
@@ -1371,6 +1728,7 @@ export class Transloadit {
       method = 'get',
       params = {},
       fields,
+      followRedirect = true,
       headers,
       signal,
     } = opts
@@ -1387,7 +1745,7 @@ export class Transloadit {
     }
 
     if (method === 'get') {
-      url = this._appendParamsToUrl(url, params)
+      url = this._appendParamsToUrl(url, params, authenticate)
     }
 
     log('Sending request', method, url)
@@ -1399,17 +1757,20 @@ export class Transloadit {
 
       if (method === 'post' || method === 'put' || method === 'delete') {
         form = new FormData()
-        this._appendForm(form, params, fields)
+        this._appendForm(form, params, fields, authenticate)
       }
 
       const requestOpts: OptionsOfJSONResponseBody = {
         retry: this._gotRetry,
         body: form,
+        followRedirect,
         timeout,
         headers: {
           'Transloadit-Client': this._clientName,
           'User-Agent': undefined, // Remove got's user-agent
-          ...(this._authToken ? { Authorization: `Bearer ${this._authToken}` } : {}),
+          ...(authenticate && this._authToken
+            ? { Authorization: `Bearer ${this._authToken}` }
+            : {}),
           ...headers,
         },
         responseType: 'json',
@@ -1478,4 +1839,88 @@ export class Transloadit {
       }
     }
   }
+
+  // <api2-generated-endpoint issueBearerToken>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  async mintBearerToken(
+    options: Omit<import('./bearerToken.ts').MintBearerTokenOptions, 'endpoint'> & {
+      endpoint?: string
+    } = {},
+  ): Promise<import('./bearerToken.ts').BearerTokenResponse & { scope: string }> {
+    if (this._authToken) {
+      throw new Error('Cannot mint bearer tokens when using authToken authentication.')
+    }
+
+    const endpointRaw = options.endpoint ?? this._endpoint ?? 'https://api2.transloadit.com'
+    const endpoint = new URL(endpointRaw)
+    const hostname =
+      endpoint.hostname.startsWith('[') && endpoint.hostname.endsWith(']')
+        ? endpoint.hostname.slice(1, -1)
+        : endpoint.hostname
+    const octet = '(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)'
+    const isNumericIpv4Loopback = new RegExp(`^127\\.${octet}\\.${octet}\\.${octet}$`).test(
+      hostname,
+    )
+    const loopback = hostname === 'localhost' || hostname === '::1' || isNumericIpv4Loopback
+    if (
+      endpoint.username ||
+      endpoint.password ||
+      (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && loopback))
+    ) {
+      throw new Error('Refusing to send credentials to an insecure bearer token endpoint.')
+    }
+
+    const { mintBearerTokenWithCredentials } = await import('./bearerToken.ts')
+    const result = await mintBearerTokenWithCredentials(
+      { authKey: this._authKey, authSecret: this._authSecret },
+      {
+        ...options,
+        aud: options.aud ?? 'api2',
+        endpoint: endpointRaw,
+        allowProcessEnvEndpointFallback: false,
+      },
+    )
+    if (!result.ok) throw new Error(result.error)
+    if (result.data.scope == null) throw new Error('Bearer token response omitted scope.')
+    return { ...result.data, scope: result.data.scope }
+  }
+
+  // </api2-generated-endpoint issueBearerToken>
+
+  // <api2-generated-endpoint getBillForInvoice>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  async getBillForInvoice(month: string, invoiceId: string): Promise<BillResponse> {
+    assert.ok(month, 'month is required')
+    assert.ok(invoiceId, 'invoiceId is required')
+    return await this._remoteJson({
+      urlSuffix: `/bill/${this.#encodePathSegment(month)}/${this.#encodePathSegment(invoiceId)}`,
+      method: 'get',
+    })
+  }
+
+  // </api2-generated-endpoint getBillForInvoice>
+
+  // <api2-generated-endpoint pathSegmentEncodingSupport>
+
+  // This block is generated from Transloadit API2 contracts. If it looks wrong,
+  // please report the issue instead of editing this block by hand; the source fix
+  // belongs in the contract generator so all SDKs stay in sync.
+
+  #encodePathSegment(value: string): string {
+    if (value === '.' || value === '..') {
+      throw new Error('Path parameters cannot be dot segments')
+    }
+
+    return encodeURIComponent(value)
+  }
+
+  // </api2-generated-endpoint pathSegmentEncodingSupport>
 }
