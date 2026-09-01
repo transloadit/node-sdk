@@ -1,5 +1,11 @@
 # @transloadit/mcp-server
 
+## 0.3.30
+
+### Patch Changes
+
+- 76fa652: Stop recommending the retired `builtin/serve-preview` Template for URL inputs.
+
 ## 0.3.29
 
 ### Patch Changes
