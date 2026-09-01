@@ -26,8 +26,8 @@ describe('cli templates list', () => {
       .mockResolvedValueOnce({
         items: [
           {
-            id: 'builtin/serve-preview@0.0.1',
-            name: 'Serve preview',
+            id: 'builtin/encode-hls-video@0.0.1',
+            name: 'Encode HLS video',
             // minimal shape for CLI printing
             content: {},
             require_signature_auth: 0,
@@ -57,8 +57,8 @@ describe('cli templates list', () => {
       .mockResolvedValueOnce({
         items: [
           {
-            id: 'builtin/serve-preview@0.0.1',
-            name: 'Serve preview',
+            id: 'builtin/encode-hls-video@0.0.1',
+            name: 'Encode HLS video',
             content: {},
             require_signature_auth: 0,
           },
@@ -70,8 +70,8 @@ describe('cli templates list', () => {
     const getSpy = vi.spyOn(Transloadit.prototype, 'getTemplate').mockResolvedValue({
       ok: 'ok',
       message: 'OK',
-      id: 'builtin/serve-preview@0.0.1',
-      name: 'Serve preview',
+      id: 'builtin/encode-hls-video@0.0.1',
+      name: 'Encode HLS video',
       require_signature_auth: 0,
       content: {
         steps: {
@@ -86,7 +86,7 @@ describe('cli templates list', () => {
     await main(['templates', 'list', '--include-content', '--include-builtin', 'latest'])
 
     expect(process.exitCode).toBeUndefined()
-    expect(getSpy).toHaveBeenCalledWith('builtin/serve-preview@0.0.1')
+    expect(getSpy).toHaveBeenCalledWith('builtin/encode-hls-video@0.0.1')
   })
 
   it('fails with an invalid --include-builtin value', async () => {
