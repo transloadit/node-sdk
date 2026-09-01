@@ -313,33 +313,51 @@ describeLive('assemblies', { retry: 1 }, () => {
     )
 
     it(
-      'should allow output directory for no-input templates (downloads into directory)',
+      'should allow output directory for no-input workspace templates',
       testCase(async (client) => {
         await fsp.mkdir('out')
 
-        const output = new OutputCtl()
-        await assembliesCreate(output, client, {
-          template: 'builtin/serve-preview@0.0.1',
-          fields: {
-            input: genericImg,
-            w: '256',
-            h: '256',
-            f: 'png',
+        const template = await client.createTemplate({
+          name: `node-sdk-no-input-${crypto.randomUUID()}`,
+          template: {
+            steps: {
+              import: {
+                robot: '/http/import',
+                url: genericImg,
+              },
+              resize: {
+                robot: '/image/resize',
+                use: 'import',
+                result: true,
+                width: 256,
+                height: 256,
+                format: 'png',
+              },
+            },
           },
-          inputs: [],
-          output: 'out',
         })
 
-        const files = await rreaddirAsync('out')
-        expect(files.length).to.be.greaterThan(0)
+        try {
+          const output = new OutputCtl()
+          await assembliesCreate(output, client, {
+            template: template.id,
+            inputs: [],
+            output: 'out',
+          })
 
-        // Ensure at least one output file is a valid image.
-        const first = files[0]
-        expect(first).to.be.a('string')
-        const buf = await fsp.readFile(first)
-        const dim = imageSize(new Uint8Array(buf))
-        expect(dim.width).to.be.greaterThan(0)
-        expect(dim.height).to.be.greaterThan(0)
+          const files = await rreaddirAsync('out')
+          expect(files.length).to.be.greaterThan(0)
+
+          // Ensure at least one output file is a valid image.
+          const first = files[0]
+          expect(first).to.be.a('string')
+          const buf = await fsp.readFile(first)
+          const dim = imageSize(new Uint8Array(buf))
+          expect(dim.width).to.be.greaterThan(0)
+          expect(dim.height).to.be.greaterThan(0)
+        } finally {
+          await client.deleteTemplate(template.id)
+        }
       }),
       180_000,
     )

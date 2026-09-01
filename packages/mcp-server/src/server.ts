@@ -746,7 +746,7 @@ export const createTransloaditMcpServer = (
             warnings.push({
               code: 'mcp_url_inputs_ignored',
               message: 'URL inputs were ignored because the template does not require input files.',
-              hint: 'If you meant to process a URL, use a template that imports URLs (e.g. builtin/serve-preview@0.0.1), or call transloadit_list_templates with include_builtin: "exclusively-latest" to discover builtins.',
+              hint: 'If you meant to process a URL, add an /http/import step or choose a workspace template that contains one. Call transloadit_list_templates to discover available templates.',
               path: templatePathHint ?? 'instructions',
             })
           } else if (analysis.hasHttpImport) {

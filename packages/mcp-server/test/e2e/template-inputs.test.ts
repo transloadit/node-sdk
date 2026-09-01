@@ -183,8 +183,9 @@ maybeDescribe('mcp-server template URL handling', { timeout: 60000 }, () => {
     const warnings = Array.isArray(payload.warnings) ? payload.warnings : []
     const ignored = warnings.find((warning) => warning.code === 'mcp_url_inputs_ignored')
     expect(ignored).toBeDefined()
-    expect(typeof ignored?.hint).toBe('string')
-    expect(String(ignored?.hint)).toContain('transloadit_list_templates')
+    expect(ignored?.hint).toBe(
+      'If you meant to process a URL, add an /http/import step or choose a workspace template that contains one. Call transloadit_list_templates to discover available templates.',
+    )
   })
 
   it('errors when required fields are missing', async () => {
