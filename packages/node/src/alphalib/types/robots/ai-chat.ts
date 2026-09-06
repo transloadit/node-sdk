@@ -551,6 +551,7 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'anthropic/claude-opus-4-6': { pdf: true, image: true },
   'anthropic/claude-opus-4-7': { pdf: true, image: true },
   'anthropic/claude-fable-5': { pdf: true, image: true },
+  'anthropic/claude-fable-5-1': { pdf: true, image: true },
   'anthropic/claude-sonnet-5': { pdf: true, image: true },
   'openai/gpt-4.1-2025-04-14': { pdf: false, image: true },
   'openai/chatgpt-4o-latest': { pdf: false, image: true },
@@ -564,6 +565,7 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'openai/gpt-5.2-pro': { pdf: false, image: true },
   'openai/gpt-5.5': { pdf: false, image: true },
   'openai/gpt-5.6-sol': { pdf: false, image: true },
+  'openai/gpt-6-astra': { pdf: false, image: true },
   'openai/gpt-5.4': { pdf: false, image: true },
   'openai/gpt-5.4-mini': { pdf: false, image: true },
   'openai/gpt-5.4-nano': { pdf: false, image: true },
@@ -571,10 +573,8 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'moonshot/kimi-k2': { pdf: false, image: false },
 }
 
-// Default model for /ai/chat when `model: "auto"` (or unset).
-// 2026-07-09: default is GPT-5.6 Sol (intentional; aligns with our current recommended OpenAI
-// flagship model). Keep this aligned with MODEL_CAPABILITIES.
-export const AI_CHAT_DEFAULT_MODEL = 'openai/gpt-5.6-sol' satisfies keyof typeof MODEL_CAPABILITIES
+/** Default /ai/chat model for `auto` or omitted selections; keep aligned with the API backend. */
+export const AI_CHAT_DEFAULT_MODEL = 'openai/gpt-6-astra' satisfies keyof typeof MODEL_CAPABILITIES
 
 const supportedModelsList = Object.keys(MODEL_CAPABILITIES)
 
@@ -614,7 +614,7 @@ export const robotAiChatInstructionsSchema = robotBase
       .enum(['xhigh', 'high', 'medium', 'low'])
       .optional()
       .describe(
-        'Controls how much effort the model spends on reasoning. Higher values produce more thorough responses but cost more tokens. Applies to models that support extended thinking (OpenAI o-series, GPT-5.x, Anthropic Claude with thinking). If omitted, the model default is used.',
+        'Controls how much effort the model spends on reasoning. Higher values produce more thorough responses but cost more tokens. Applies to models that support extended thinking (OpenAI o-series, GPT-5.x, GPT-6, Anthropic Claude with thinking). If omitted, the model default is used.',
       ),
     credentials: z
       .union([z.string(), z.array(z.string())])
