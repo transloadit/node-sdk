@@ -1,5 +1,16 @@
 # @transloadit/node
 
+## 4.12.0
+
+### Minor Changes
+
+- 5fe9706: Support GPT-6 Astra and Claude Fable 5.1, and use Astra for automatic chat and assembly-instruction compilation. Assembly compilation retains medium reasoning effort. Existing model identifiers remain supported.
+
+### Patch Changes
+
+- Updated dependencies [5fe9706]
+  - @transloadit/utils@4.8.1
+
 ## 4.11.1
 
 ### Patch Changes
