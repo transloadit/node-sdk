@@ -614,7 +614,7 @@ export const robotAiChatInstructionsSchema = robotBase
       .enum(['xhigh', 'high', 'medium', 'low'])
       .optional()
       .describe(
-        'Controls how much effort the model spends on reasoning. Higher values produce more thorough responses but cost more tokens. Applies to models that support extended thinking (OpenAI o-series, GPT-5.x, Anthropic Claude with thinking). If omitted, the model default is used.',
+        'Controls how much effort the model spends on reasoning. Higher values produce more thorough responses but cost more tokens. Applies to models that support extended thinking (OpenAI o-series, GPT-5.x, GPT-6, Anthropic Claude with thinking). If omitted, the model default is used.',
       ),
     credentials: z
       .union([z.string(), z.array(z.string())])
