@@ -573,9 +573,7 @@ export const MODEL_CAPABILITIES: Record<string, { pdf: boolean; image: boolean }
   'moonshot/kimi-k2': { pdf: false, image: false },
 }
 
-// Default model for /ai/chat when `model: "auto"` (or unset).
-// 2026-07-09: default is GPT-5.6 Sol (intentional; aligns with our current recommended OpenAI
-// flagship model). Keep this aligned with MODEL_CAPABILITIES.
+/** Default /ai/chat model for `auto` or omitted selections; keep aligned with the API backend. */
 export const AI_CHAT_DEFAULT_MODEL = 'openai/gpt-6-astra' satisfies keyof typeof MODEL_CAPABILITIES
 
 const supportedModelsList = Object.keys(MODEL_CAPABILITIES)
