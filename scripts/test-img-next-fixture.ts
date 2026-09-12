@@ -330,11 +330,19 @@ async function main(): Promise<void> {
       const routeCandidate = getFirstPictureCandidates(redirectHtml)[0]
       assert(routeCandidate !== undefined, 'Expected a redirect route candidate')
       const routeUrl = new URL(routeCandidate, baseUrl)
+      const beforeAuthorization = Date.now()
       const allowed = await fetch(routeUrl, {
         headers: { Authorization: 'Bearer fixture' },
         redirect: 'manual',
       })
       assert(allowed.status === 307, 'Authorized Storage route did not redirect')
+      const location = allowed.headers.get('location')
+      assert(location !== null, 'Authorized Storage route has no target')
+      const expiresAt = Number(new URL(location).searchParams.get('exp'))
+      assert(
+        expiresAt >= beforeAuthorization + 5 * 60 * 1000 && expiresAt <= Date.now() + 330_000,
+        'Redirect fixture did not use the documented five-minute plus 30-second grant',
+      )
       assert(
         allowed.headers.get('location')?.startsWith('https://cdn.example/') === true,
         'Authorized Storage route did not target Smart CDN',

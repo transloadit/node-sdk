@@ -479,6 +479,50 @@ describe('createTransloaditImage', () => {
     expect(connection).not.toHaveBeenCalled()
   })
 
+  test('refreshes an expired target from cached markup, then denies new grants after revocation', async () => {
+    const authorize = vi.fn(() => true)
+    const { Image, storageRoute } = createTransloaditImage({
+      ...baseConfiguration,
+      storage: {
+        allowedPathPrefixes: ['documents/'],
+        delivery: { authorize, route: '/api/private-images' },
+        expiresInMs: 5 * 60 * 1000,
+        rotationIntervalMs: 30 * 1000,
+      },
+    })
+    const document = parseMarkup(
+      renderToStaticMarkup(
+        <Image alt="Long-lived preview" height={300} src="documents/report.pdf" width={400} />,
+      ),
+    )
+    const originalCapability = new URL(getFirstCandidate(document), 'https://app.example')
+    const firstResponse = await storageRoute(new Request(originalCapability))
+    const firstLocation = firstResponse.headers.get('location')
+    if (firstLocation === null) throw new Error('Expected the first authorized target')
+    const originalExpiry = Number(new URL(firstLocation).searchParams.get('exp'))
+    expect(originalExpiry).toBe(Date.parse('2029-01-01T12:07:30Z'))
+
+    vi.setSystemTime(originalExpiry + 1)
+    const renewed = await storageRoute(new Request(originalCapability))
+    const renewedLocation = renewed.headers.get('location')
+    if (renewedLocation === null) throw new Error('Expected a renewed authorized target')
+    expect(renewed.status).toBe(307)
+    expect(renewedLocation).not.toBe(firstLocation)
+    expect(Number(new URL(renewedLocation).searchParams.get('exp'))).toBe(
+      Date.parse('2029-01-01T12:13:00Z'),
+    )
+    expect(renewed.headers.get('cache-control')).toBe('private, no-store')
+    expect(await renewed.text()).toBe('')
+
+    authorize.mockReturnValue(false)
+    const denied = await storageRoute(new Request(originalCapability))
+    expect(denied.status).toBe(404)
+    expect(denied.headers.get('location')).toBeNull()
+    expect(denied.headers.get('cache-control')).toBe('private, no-store')
+    expect(await denied.text()).toBe('')
+    expect(authorize).toHaveBeenCalledTimes(3)
+  })
+
   test('binds capabilities to the secret, workspace, Template, route, and basePath', async () => {
     const { url } = getStorageRouteCandidate()
     const authorize = vi.fn(() => true)

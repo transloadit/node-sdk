@@ -11,6 +11,8 @@ const { Image, storageRoute } = createTransloaditImage({
       basePath: '/fixture',
       route: '/api/private-images',
     },
+    expiresInMs: 5 * 60 * 1000,
+    rotationIntervalMs: 30 * 1000,
   },
 })
 

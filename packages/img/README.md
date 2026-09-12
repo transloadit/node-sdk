@@ -85,6 +85,10 @@ non-normalized Unicode, or more than 1024 UTF-8 bytes are rejected before signin
 
 ### Direct delivery
 
+Choose the delivery policy based on the page's lifetime: use authorized redirects for cached
+markup and pages that may outlive a CDN signature. Use direct delivery for request-authorized
+galleries that do not need a new application authorization check when each image loads.
+
 Direct delivery is the default and fits image-heavy views that already authorize their data while
 rendering. The component calls Next.js `connection()` before creating short-lived signed URLs. A
 built-in Suspense boundary lets a Cache Components page prerender a shell, but the signed image
@@ -95,8 +99,8 @@ image that has no source and makes no request. `suspenseFallback` explicitly rep
 
 The browser requests the selected candidate directly from Smart CDN. Lazy loading remains the
 platform default. A candidate first requested after its signature expires can fail on an unusually
-long-lived page; choose an appropriate bounded `expiresInMs`, eagerly load a measured critical
-image, or use authorized redirect delivery.
+long-lived page. Prefer authorized redirects for that case; a longer direct signature only delays
+the boundary and also extends the lifetime of a URL that has already been issued.
 
 ### Authorized redirects
 
@@ -120,6 +124,8 @@ export const { Image, storageRoute } = createTransloaditImage({
       basePath: '/app',
       route: '/api/private-images',
     },
+    expiresInMs: 5 * 60 * 1000,
+    rotationIntervalMs: 30 * 1000,
   },
   workspace,
 })
@@ -137,18 +143,31 @@ The handler rejects changed, duplicate, unknown, oversized, or malformed capabil
 calling application authorization. `authorize` must return the boolean `true` for the current
 request.
 
+Use browser-attached credentials, normally your same-origin session cookie, in `authenticate`.
+Native image requests cannot attach an application-defined Bearer header.
+
 After authorization, the handler returns a private, non-cacheable `307` to a fresh signed Smart CDN
 URL. Image bytes still bypass Next.js. Rotating the Transloadit secret invalidates existing
 capabilities, so redeploy cached static markup at the same time.
+
+The example issues CDN grants valid for at least five minutes and at most five minutes thirty
+seconds, including the rotation window. These are explicit example settings, not new defaults;
+allow enough time for a cold transformation. Cached capabilities can still request a new grant
+after an earlier CDN URL has expired, provided application authorization continues to allow access.
+
+Revoking application access denies **new redirect grants**. It does not invalidate signed CDN URLs
+already handed to a browser: those remain valid until their expiry. Downloaded bytes cannot be
+recalled. Shorter grants bound this remaining access window; they do not provide instant revocation.
 
 | Property | Direct, the default | Authorized redirect |
 | --- | --- | --- |
 | Next.js work per loaded image | None | One authorization + redirect |
 | Image bytes through Next.js | Never | Never |
 | Shared/static image markup | No | Yes |
-| Request-time revocation | No | Yes |
+| Application checks for new image grants | During page rendering | On each redirect request |
+| Already-issued CDN URLs | Valid until expiry | Valid until expiry |
 | Long-lived lazy pages | Signature can expire | Fresh CDN signature per load |
-| Typical fit | Large authorized galleries | Strict ACLs and revocation |
+| Typical fit | Request-authorized galleries | Cached markup and long-lived private pages |
 
 ## Responsive policy
 
