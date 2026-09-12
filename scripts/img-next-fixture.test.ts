@@ -60,7 +60,8 @@ test('gets to the first image before teaching the security model and keeps the p
     readme.indexOf('export const { StorageImage'),
     readme.indexOf('Then in `app/page.tsx`'),
   )
-  expect(firstFactory).toContain("delivery: 'direct'")
+  expect(firstFactory).toContain("public: ['website/']")
+  expect(firstFactory).toContain('createStorageImages')
   expect(firstFactory).not.toContain('authorize:')
   const login = readme.indexOf('yarn transloadit auth login')
   const store = readme.indexOf('yarn transloadit storage store')
@@ -74,7 +75,8 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(readme).toContain('## Under the hood')
   expect(readme).toContain('storageRoute as GET, storageRoute as HEAD')
   expect(readme).not.toContain('loading="eager"')
-  expect(readme).toContain('Chrome 126+ and Firefox; not Safari')
+  expect(readme).toContain('Firefox 150+')
+  expect(readme).toContain('Safari 27 beta')
   expect(readme).toContain('Uppy')
   expect(readme).toContain('"robot": "/transloadit/store"')
   expect(readme).toContain('notification')

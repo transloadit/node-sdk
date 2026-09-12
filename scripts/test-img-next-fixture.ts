@@ -307,6 +307,23 @@ async function main(): Promise<void> {
       const appOutput = resolve(fixtureDir, '.next/server/app')
       const outputNames = await readdir(appOutput, { recursive: true })
       assert(
+        outputNames.includes('public-image.html'),
+        'Public direct images must prerender with or without Cache Components',
+      )
+      const publicHtml = await readFile(resolve(appOutput, 'public-image.html'), 'utf8')
+      assert(
+        publicHtml.includes('builtin%2Fstorage-preview%400.0.2'),
+        'Public HTML must already contain signed direct URLs',
+      )
+      assert(
+        !publicHtml.includes('visibility:hidden'),
+        'Public direct images must not emit a signing shell',
+      )
+      assert(
+        publicHtml.includes('max-width:960px'),
+        'Public hero must be constrained without a CSS reset',
+      )
+      assert(
         outputNames.includes('storage-image.html') === (cacheComponents === 'enabled'),
         'Only Cache Components should emit a partial-prerender Storage shell',
       )
@@ -402,8 +419,8 @@ async function main(): Promise<void> {
         assert(location !== null, 'Authorized Storage route has no target')
         const expiresAt = Number(new URL(location).searchParams.get('exp'))
         assert(
-          expiresAt >= beforeAuthorization + 5 * 60 * 1000 && expiresAt <= Date.now() + 330_000,
-          'Redirect fixture did not use the documented five-minute plus 30-second grant',
+          expiresAt >= beforeAuthorization + 270_000 && expiresAt <= Date.now() + 300_000,
+          'Redirect fixture did not keep its maximum five-minute grant inside the 30-second rotation bucket',
         )
         assert(
           allowed.headers.get('location')?.startsWith(`${cdnOrigin}/`) === true,

@@ -5,16 +5,12 @@ import { imageConfiguration } from './imageConfiguration'
 
 const { StorageImage, storageRoute } = createTransloaditImage({
   ...imageConfiguration,
-  storage: {
-    allowedPathPrefixes: ['documents/'],
-    delivery: {
-      authorize: authorizeFixtureImage,
-      basePath: '/fixture',
-      route: '/api/private-images',
-    },
-    expiresInMs: 5 * 60 * 1000,
-    rotationIntervalMs: 30 * 1000,
-  },
+  allowedPathPrefixes: ['documents/'],
+  authorize: authorizeFixtureImage,
+  basePath: '/fixture',
+  route: '/api/private-images',
+  lifetime: 5 * 60 * 1000,
+  rotationIntervalMs: 30 * 1000,
 })
 
 export { StorageImage as TransloaditRedirectImage, storageRoute }

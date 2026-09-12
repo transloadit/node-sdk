@@ -95,6 +95,17 @@ function listed(path = 'website/a.jpg'): nock.Scope {
     )
 }
 
+test('defaults the rendering catalog to images.json', async () => {
+  const api = listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+  await main(['storage', 'receipts', 'sync', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(JSON.parse(await readFile('images.json', 'utf8'))['website/a.jpg']).toMatchObject({
+    width: 800,
+    height: 600,
+  })
+  expect(api.isDone()).toBe(true)
+})
+
 test('rebuilds a rendering catalog from paginated List + HEAD without asset IDs or image GETs', async () => {
   const api = storageApi()
     .get('/storage/my-app/')

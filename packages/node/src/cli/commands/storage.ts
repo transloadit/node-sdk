@@ -47,15 +47,22 @@ export class StorageStoreCommand extends AuthenticatedCommand {
   overwrite = Option.Boolean('--overwrite', false, {
     description: 'Explicitly replace an existing Storage path',
   })
-  receipts = Option.String('--receipts', {
+  receipts = Option.String('--receipts', 'images.json', {
     description: 'JSON receipts file to append to atomically, for example images.json',
-    required: true,
+  })
+  privateDelivery = Option.Boolean('--private', false, {
+    description: 'Print the request-authorized private integration',
+  })
+  publicDelivery = Option.Boolean('--public', false, {
+    description: 'Declare the destination directory public in the printed static integration',
   })
 
   protected async run(): Promise<number | undefined> {
     const file = resolve(this.receipts)
     let verifiedReceipt: StoredImageReceipt | undefined
     try {
+      if (this.privateDelivery && this.publicDelivery)
+        throw new Error('Choose either --private or --public, not both')
       if (file === resolve(this.file))
         throw new Error('The receipts file cannot be the input image')
       await updateStorageReceipts(file, async (receipts) => {
@@ -71,13 +78,13 @@ export class StorageStoreCommand extends AuthenticatedCommand {
       const root = nextAppRoot() ?? ''
       if (prefix === '') {
         this.output.print(
-          `Saved ${this.receipts}. Commit this receipt file.\n\nThis image is at the workspace root, so no factory is printed. For scoped delivery, choose an explicit directory prefix when storing images. To allow the entire workspace deliberately, configure an empty prefix yourself.`,
+          `Saved ${this.receipts}. Commit this receipt file.\n\nThis image is at the workspace root, so no factory is printed. For scoped delivery, choose an explicit directory prefix when storing images. To allow the entire workspace deliberately, configure allowWorkspaceRoot: true.`,
           receipt,
         )
         return undefined
       }
       this.output.print(
-        `Saved ${this.receipts}. Commit this receipt file.\n\n${root}lib/storageImage.ts:\n${storageImageFactory(prefix)}\n${root}app/page.tsx:\n${storageImagePage(receipt.path, relative(resolve(`${root}app`), file).replaceAll('\\', '/'))}\nRendering environment (.env.local; build and runtime):\n${storageImageEnvBlock}\nDirect delivery makes this route dynamic; use redirect delivery for static pages.\nFor private images, use createPrivateStorageImages with your application authorization:\nhttps://github.com/transloadit/node-sdk/tree/main/packages/img#ship-it-privately`,
+        `Saved ${this.receipts}. Commit this receipt file.\n\n${root}lib/storageImage.ts:\n${storageImageFactory({ prefix, privateDelivery: this.privateDelivery, publicDelivery: this.publicDelivery, receiptsImport: relative(resolve(`${root}lib`), file).replaceAll('\\', '/') })}\n${root}app/page.tsx:\n${storageImagePage(receipt.path)}\nRendering environment (.env.local):\n${storageImageEnvBlock}\n${this.publicDelivery ? 'Public images prerender with long-lived direct URLs. Rebuild before expiry; revocation requires key rotation and a rebuild.' : this.privateDelivery ? 'Export storageRoute as GET and HEAD; configure your application authorization before enabling access.' : 'Private direct images render at request time. Choose --public for explicitly public static images or --private for request-authorized redirects.'}\nhttps://github.com/transloadit/node-sdk/tree/main/packages/img#ship-it-privately`,
         receipt,
       )
       return undefined
@@ -200,9 +207,8 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
   workspace = Option.String('--workspace', {
     description: 'Explicit workspace slug (otherwise discovered from this Auth Key)',
   })
-  receipts = Option.String('--receipts', {
+  receipts = Option.String('--receipts', 'images.json', {
     description: 'JSON rendering catalog to update atomically, for example images.json',
-    required: true,
   })
 
   protected async run(): Promise<number | undefined> {

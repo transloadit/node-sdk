@@ -28,6 +28,9 @@ path/width/height with an optional compatible MD5 ETag, without inventing an ass
 atomic receipt-file writes and credential-bound endpoint resolution with the existing commands;
 preserve unmatched records and the entire previous file on metadata, listing or write failures.
 
-Add hidden-input `auth login` for owner-only CLI credentials and `image init --next [--private]`
-for application scaffolding without env-file writes. Complete store snippets recognize `src/app`
-and ordinary relative receipt imports.
+Add hidden-input `auth login` with one signed read before saving owner-only CLI credentials.
+Keep newly entered credentials independent from project dotenv endpoint settings; save an explicit
+trusted endpoint with the key. Add `image init [--public | --private]`, with optional `--next` and
+opt-in private `.env.local` scaffolding via `--write-env`. Never overwrite existing application files.
+Default store/sync catalogs to `images.json`. Complete store snippets recognize `src/app`, typed
+catalog paths, constrained hero geometry and ordinary relative receipt imports.

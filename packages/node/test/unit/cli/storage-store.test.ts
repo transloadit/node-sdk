@@ -79,6 +79,21 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test.each([
+    '--private',
+    '--public',
+  ])('defaults to images.json and prints a constrained, catalog-typed hero (%s)', async (delivery) => {
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main(['storage', 'store', './hero.jpg', receipt.path, delivery])
+    expect(process.exitCode).toBeUndefined()
+    expect(JSON.parse(await readFile('images.json', 'utf8'))[receipt.path]).toEqual(receipt)
+    const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(snippet).toContain('layout="constrained" maxWidth={960} preload')
+    expect(snippet).toContain('src={"website/hero.jpg"}')
+    expect(snippet).toContain(
+      delivery === '--private' ? 'createPrivateStorageImages' : 'public: ["website/"]',
+    )
+  })
   test('stores a root object without implicitly generating workspace-wide authorization', async () => {
     const rootReceipt = { ...receipt, path: 'hero.jpg' }
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(rootReceipt)
@@ -88,7 +103,7 @@ describe('storage store', () => {
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toContain('workspace root')
     expect(snippet).toContain('choose an explicit directory prefix')
-    expect(snippet).not.toContain('createTransloaditImageFromEnv')
+    expect(snippet).not.toContain('createStorageImages')
     expect(snippet).not.toContain('allowedPathPrefixes: [""]')
   })
 
@@ -157,7 +172,7 @@ describe('storage store', () => {
     await main(['storage', 'store', './hero.jpg', receipt.path, '--receipts', `app/${name}`])
     expect(process.exitCode).toBeUndefined()
     expect(vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]).toContain(
-      `import images from "./${name}"`,
+      `import images from "../app/${name}"`,
     )
   })
 
@@ -269,16 +284,16 @@ describe('storage store', () => {
     })
     expect(await readFile('images.json', 'utf8')).toMatch(/\n$/)
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
-      expect.stringContaining('<StorageImage src={images["website/hero.jpg"]}'),
+      expect.stringContaining('<StorageImage src={"website/hero.jpg"}'),
       receipt,
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
-    expect(snippet).toContain('createTransloaditImageFromEnv')
+    expect(snippet).toContain('createStorageImages')
     expect(snippet).toContain('allowedPathPrefixes: ["website/"]')
     expect(snippet).toContain("import { StorageImage } from '../lib/storageImage'")
     expect(snippet).toContain('import images from "../images.json"')
     expect(snippet).toContain('export default function Page()')
-    expect(snippet).toContain('For private images, use createPrivateStorageImages')
+    expect(snippet).toContain('--private for request-authorized redirects')
     expect(snippet).toContain('#ship-it-privately')
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   })

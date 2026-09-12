@@ -1,5 +1,47 @@
 # Storage image onboarding review
 
+## Round 5 — active merge gate
+
+Kevin approved `/tmp/img-task2-round5-brief.md`, all in #500. Start from `aa59c0d`; no
+merge or publication. Red-first; run checks sequentially and the packed fixture before every
+push. The earlier sync work below is complete, but does not substitute for proof on this head.
+
+- [x] A1: explicitly public, static direct delivery; long lifetimes only on public prefixes.
+- [x] A2: catalog-typed sources, inferred scope, one flat factory configuration.
+- [x] A3: stable Built-in capabilities, custom-template binding, no migration-window API.
+- [x] A4: lifetime is a maximum, with rotation inside that maximum.
+- [ ] B5–6: constrained CLI hero, correct private/public setup, receipts and integration defaults,
+      explicit `allowWorkspaceRoot` instead of an empty-string prefix.
+- [x] B7–8: verified login, opt-in rendering env file, lazy credential validation.
+- [ ] B9: deliberate/session-key image error recovery, tested through sign-in and refresh.
+- [ ] B10: precise browser/attribute wording, measured HTML/route-work table, short PR changelog.
+- [x] C11: repeat List + HEAD sync on owned API2 `b4aba072ee`, refresh live evidence.
+- [ ] C12: Content clone10 on this package, StorageImage fill/cover breakpoint ratios, geometry
+      and CLS proof in `/tmp/img-dogfood-round2.md`.
+- [ ] C13: fresh stranger test, council/UX/security review, final checks and green CI.
+
+Design boundaries: importing a lazy factory and building a request-rendered page need no signing
+secret at build time. Actually prerendering signed public URLs does require it at build time;
+do not claim those two cases are equivalent. Catalog inference must never make one root-level
+file authorize the whole workspace. Public access remains an explicit developer declaration.
+API2 implementation/schema changes and production activation are out of scope. Keep the known
+EXIF catalog mismatch visible unless independently demonstrated fixed on a new supplied head.
+
+Round-5 implementation check-in: 16 new factory/runtime cases failed first; generic consumer
+type checks cover catalog typos and DB receipts. Img now expands to 219 test cases; Node to
+415 passed plus one existing skip. Root check and verify:full pass. Nine packed seed/CLI cases
+pass, including compiling the exact printed constrained page; final browser iteration is pending.
+List/HEAD/current/versioned GET and the actual new packed receipts-sync CLI pass again on b4.
+Evidence: `/tmp/img-r5-{head,sync}.log`. The EXIF and missing-old-metadata boundaries remain.
+
+Content clone10's current-head canary uses catalog-typed `StorageImage` fill/cover, breakpoint
+ratios and no handwritten sizes/382vw. Six new baseline versus six Storage samples have exactly
+equal hero/heading boxes and CLS. Native AVIF bodies are 56,554 B desktop and 16,633 B mobile,
+versus 410,398 B original (local devdock, no production latency claim). Browser/retina and
+independent UX review evidence will be recorded in `/tmp/img-dogfood-round2.md`.
+The local Yarn consumer needs a utilities tarball resolution until coherent versions are released;
+do not publish img with an old utilities dependency minimum. No Content production migration yet.
+
 ## Catalog-backed render receipt sync
 
 Kevin supplied API2 `b4aba072ee9cbeba0dda56dbdfaf2883e56ede06`: public HEAD/GET now expose

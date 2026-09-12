@@ -582,6 +582,35 @@ test('an opted-in fallback replaces a denied private image without leaking its c
   await expect(page.getByRole('img', { name: 'Private preview' })).toHaveCount(0)
   expect(await page.content()).not.toContain(imageConfiguration.authSecret)
   await expect(page.getByRole('button', { name: 'Hydration count: 0' })).toBeVisible()
+  await page.getByRole('button', { name: 'Hydration count: 0' }).click()
+  const refreshed = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return url.pathname === '/fixture/image-error' && url.searchParams.has('_rsc')
+  })
+  await page.getByRole('button', { name: 'Sign in and refresh' }).click()
+  expect(await (await refreshed).finished()).toBeNull()
+  await expect(page.getByRole('button', { name: 'Sign in and refresh' })).toBeEnabled()
+  await decode(page.getByRole('img', { name: 'Private preview' }))
+  await expect(page.getByRole('status')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
+})
+
+test('the public catalog hero has stock-CSS geometry and no application image requests', async ({
+  page,
+}) => {
+  const applicationImages: string[] = []
+  page.on('request', (request) => {
+    if (request.resourceType() === 'image' && request.url().includes('/api/'))
+      applicationImages.push(request.url())
+  })
+  await page.goto('/fixture/cli-image/app')
+  const hero = page.getByRole('img', { name: 'Describe this image' })
+  await decode(hero)
+  const viewport = page.viewportSize()
+  if (viewport === null) throw new Error('Expected a fixed viewport')
+  expect((await hero.boundingBox())?.width).toBe(Math.min(960, viewport.width - 16))
+  expect(applicationImages).toEqual([])
+  expect(await hero.getAttribute('src')).toContain(cdnOrigin)
 })
 
 test('a portrait fill layout downloads the cropped box rather than an oversized landscape', async ({

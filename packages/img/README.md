@@ -4,7 +4,8 @@ Responsive Transloadit Storage images for Next.js. Native `<picture>` format sel
 `srcset` sizing; image bytes go straight from Smart CDN to the browser, never through Next's
 image optimizer. Sources are Storage paths or saved receipts, not arbitrary remote URLs.
 
-Direct delivery makes the route dynamic. Use redirect delivery for static pages (details below).
+Public images can prerender with long-lived direct CDN URLs: no image route, signing shell or
+per-view function invocation. Private images can use request-authorized redirects with native cookies.
 
 **Not published yet:** this package remains private at `0.0.0` during dogfood. When published:
 
@@ -26,41 +27,46 @@ Storage writes must be enabled for your workspace, and the backend must provide
 `builtin/storage-preview@0.0.2`. Start with a JPEG or PNG; transparent images retain their alpha
 channel in AVIF, WebP and PNG previews, with an opaque JPEG fallback.
 
-### Log in and store an original
+### Log in, configure delivery and store an original
 
 Run from your app root (beside `package.json`); `images.json` is written there:
 
 ```bash
 yarn transloadit auth login
-yarn transloadit storage store ./hero.jpg website/hero.jpg --receipts images.json
+yarn transloadit image init website/ --public --write-env
+yarn transloadit storage store ./hero.jpg website/hero.jpg --public
 ```
 
-Login prompts with hidden input and saves CLI credentials outside your app. The store command
-prints the complete factory and page below. **Commit images.json**: it is your image catalog.
+Login verifies one signed read before saving CLI credentials outside your app. Init prompts for
+the separate rendering key and writes the factory and owner-only `.env.local`, without overwriting
+existing files. `--public` explicitly declares `website/` public. Store prints the complete factory
+and page below; keep the factory init already created. **Commit images.json**, never `.env.local`.
+Both store and receipts sync default to `images.json`; `--receipts` selects another catalog.
 
 ### Create your component
 
-Save the printed factory as `lib/storageImage.ts`:
+Init has created `lib/storageImage.ts`. For manual setup, its essential contents are:
 
 ```ts
-import { createTransloaditImageFromEnv } from '@transloadit/img/next/server'
+import { createStorageImages } from '@transloadit/img/next/server'
+import images from '../images.json'
 
-export const { StorageImage } = createTransloaditImageFromEnv({
-  storage: { allowedPathPrefixes: ['website/'], delivery: 'direct' },
+export const { StorageImage } = createStorageImages({
+  images,
+  public: ['website/'],
 })
 ```
 
 Then in `app/page.tsx`:
 
 ```tsx
-import images from '../images.json'
 import { StorageImage } from '../lib/storageImage'
 
 export default function Page() {
   return (
     <StorageImage
       alt="A canal house"
-      src={images['website/hero.jpg']}
+      src="website/hero.jpg"
       layout="constrained"
       maxWidth={960}
       preload
@@ -69,7 +75,7 @@ export default function Page() {
 }
 ```
 
-Add the three rendering values to your gitignored `.env.local`, then start Next:
+Without `--write-env`, add the three rendering values to your gitignored `.env.local`, then start Next:
 
 ```dotenv
 TRANSLOADIT_WORKSPACE=your-workspace-slug
@@ -77,12 +83,22 @@ TRANSLOADIT_SMART_CDN_KEY=your-smart-cdn-auth-key
 TRANSLOADIT_SMART_CDN_SECRET=your-smart-cdn-secret
 ```
 
-Supply these during `next build` and runtime. Do not prefix them with `NEXT_PUBLIC_`.
+Prerendering signed public HTML needs these values during `next build`. Factories validate env
+credentials on first render/request, not on import: builds that only request-render private direct
+images can supply them at runtime alone. A secretless build cannot prerender signed public URLs.
+Do not prefix them with `NEXT_PUBLIC_`.
 That's your first image. `preload` implies eager; other images default to native lazy loading.
 
-Prefer generated files? `yarn transloadit image init --next website/` writes the factory and
-prints those environment names without writing env files. It detects `app/` or `src/app/`
-and refuses to overwrite existing code.
+Init detects `app/` or `src/app/`; `--next` is optional. Omit `--write-env` to leave all env files
+untouched. With `--write-env --stdin`, supply exactly those three rendering variables in dotenv
+format instead of terminal prompts. It refuses to overwrite existing code or `.env.local`.
+
+Catalog keys autocomplete in `src`; a typo is a TypeScript error. Receipt objects from a database
+still work as `src`. Allowed directories are inferred from catalog paths, or narrowed explicitly
+with `allowedPathPrefixes`. A root-level catalog file permits only that exact file, not its siblings.
+The default public lifetime is one year; use `lifetime: '365d'` to make it explicit. Rebuild before
+expiry. Public revocation means key rotation **and** rebuilding cached markup; already cached or
+downloaded bytes cannot be recalled.
 
 ## Ship it privately
 
@@ -91,10 +107,11 @@ same-origin session cookie; it cannot add a custom Bearer header. Replace the fa
 
 ```ts
 import { createPrivateStorageImages } from '@transloadit/img/next/server'
+import images from '../images.json'
 import { authenticate, canReadStorageObject } from './authorization'
 
 export const { StorageImage, storageRoute } = createPrivateStorageImages({
-  allowedPathPrefixes: ['website/'],
+  images,
   authorize: async ({ path, request }) => {
     const user = await authenticate(request)
     return user !== null && (await canReadStorageObject(user, path))
@@ -113,23 +130,24 @@ export { storageRoute as GET, storageRoute as HEAD } from '../../../lib/storageI
 ```
 
 The default route is `/api/storage-images`; set `route` only if you move the handler.
-The page stays unchanged. `image init --next --private website/` generates a private route and
+The page stays unchanged. `image init --private website/` generates a private route and
 a factory that denies all requests until you wire in your authorization. Prefixes limit signing,
-not per-user access. An empty array denies all; `['']` explicitly permits the workspace root.
-The private factory takes `allowedPathPrefixes`, `authorize` and `public` at the top level;
-the general factory groups them under `storage` and `storage.delivery`.
+not per-user access. An empty array denies all; `allowWorkspaceRoot: true` explicitly permits the
+entire workspace. Empty-string prefixes are rejected. All factories share the same flat options:
+`images`, `allowedPathPrefixes`, `public`, `authorize`, `lifetime` and `route`.
 Trusted `template`, `baseUrl` and `urlParams` overrides also work on the private factory.
 For your own sign-in or unavailable-image UI, use the optional `errorFallback` shown below.
 
-### Keep marketing pages static
+### Mixed private and public redirects
 
-Explicitly publish only the marketing directories with `public: ['website/']` on the private
-factory (or `storage.delivery.public` on the general factory). Their redirects skip authorization
+For marketing pages, prefer the direct public factory above: zero application image requests.
+When sharing a private integration, explicitly publish only its marketing directories with
+`public: ['website/']`. Their redirects skip authorization
 and use `public, max-age=0, s-maxage=<rotation>, stale-while-revalidate=60`, bounded by the remaining
 grant lifetime including the stale window. All other directories stay behind `authorize` with
 `private, no-store`. Public prefixes must be inside `allowedPathPrefixes`; nothing becomes public
 implicitly. Do not put account-specific data in a public prefix.
-`public: ['']` explicitly publishes the entire allowed workspace root; use narrower prefixes.
+Public declarations must name directories; there is no implicit workspace-wide public declaration.
 
 Static markup plus a cached 307 avoids app invocations on shared-cache hits. Cold entries and
 revalidation still invoke the handler; your hosting CDN must honor these headers. The built-in
@@ -144,17 +162,23 @@ redirect login's write destination, and login refuses app env filenames. Existin
 `--replace`. For automation, `auth login --stdin` reads `TRANSLOADIT_KEY` and
 `TRANSLOADIT_SECRET` in dotenv format; never put secrets in command-line arguments.
 Shell credentials use those same two names. Gitignore any credentials-file override inside a repo.
-Login saves credentials locally; the first API request verifies them with the server.
+Login verifies one signed Template read (the key needs read scope), not Storage write activation.
+It prints the Console credential link on verification failure and saves nothing. Verification uses
+production unless `--endpoint` explicitly selects another trusted origin; a project `.env` cannot
+redirect newly entered credentials. That explicit endpoint is saved with the key.
 CLI lookup remains shell environment, current directory `.env`, then the credentials file.
 Keep the write key out of app env files: Next reads `.env` too.
 
 Rendering uses a **Smart CDN Auth Key** from the same workspace. The server separates the two
 purposes by design: Assembly creation rejects a Smart CDN key; Smart CDN rejects an Assembly-only
 key. `TRANSLOADIT_WORKSPACE` is the slug in `/c/your-workspace/`, not a workspace ID.
-Module-scoped factories need these rendering values at build time as well as runtime.
+Factory imports need no rendering credentials. First use snapshots and validates them. Public
+prerenders and private capability prerenders need a build-time secret; request-only direct rendering
+can defer the secret to runtime. Supply rendering credentials to the deployed private handler too.
 
 The Assembly client is a seed-only dependency; it is not part of rendering or the browser.
-`--endpoint` (or `TRANSLOADIT_ENDPOINT`) selects a trusted CLI API override. The separate
+`--endpoint` selects an explicit trusted CLI API override. After login, ordinary commands can also
+use `TRANSLOADIT_ENDPOINT` according to the credential lookup rules. The separate
 `TRANSLOADIT_ASSEMBLY_ENDPOINT` in the maintainer seed script is only for that script.
 See [local dogfood](https://github.com/transloadit/node-sdk/blob/main/docs/img-dogfood.md)
 for direct devdock delivery, including the required CDN acknowledgment.
@@ -167,7 +191,7 @@ for direct devdock delivery, including the required CDN acknowledgment.
 
 ```tsx
 <StorageImage
-  src={images['website/avatar.jpg']}
+  src="website/avatar.jpg"
   alt="Your profile photo"
   layout="fixed"
   width={48}
@@ -184,7 +208,7 @@ The default `fit="contain"` keeps the source proportions with CSS letterboxing.
 ```tsx
 <div style={{ position: 'relative', aspectRatio: '9/16' }}>
   <StorageImage
-    src={images['website/hero.jpg']}
+    src="website/hero.jpg"
     alt="A canal house"
     layout="fill"
     fit="cover"
@@ -205,7 +229,7 @@ For different mobile and desktop crops, pass width breakpoints in priority order
 
 ```tsx
 <StorageImage
-  src={images['website/hero.jpg']}
+  src="website/hero.jpg"
   alt="A canal house"
   layout="fill"
   fit="cover"
@@ -234,27 +258,28 @@ The matching responsive preload is reused by the image, not a second intended re
 Redact capabilities and signed CDN query strings from logs. A private capability still requires
 application authorization; a downstream signed CDN URL is usable until its own expiry.
 The capability has no independent expiry: current prefix and authorization policy is checked
-again at the handler. Key/route/Template changes can invalidate it, and old-Template acceptance
-ends at its configured cutoff. Only cached redirects and already-issued CDN grants delay revocation.
+again at the handler. Key/route/custom-Template or capability-contract changes can invalidate it.
+Only cached redirects and already-issued CDN grants delay revocation.
 
 Default `Cache-Control: private, no-store` rechecks every redirect request. To trade faster repeat
-loads for delayed reauthorization, opt in with `delivery.cacheMaxAgeMs: 30_000`. The `307` uses
+loads for delayed reauthorization, opt in with `cacheMaxAgeMs: 30_000`. The `307` uses
 `private, max-age=30` (HTTP seconds), capped at the rotation interval and signed lifetime. Errors
 remain `no-store`. Cached redirects may grant access without a new app check until that age elapses.
 CDN URLs already issued remain usable until their own expiry; downloaded bytes cannot be recalled.
 
 Production Smart CDN uses Bunny for `*.tlcdn.com`: hostname and the whole query string form the
-cache key. Changing expiry/signature creates a new cache entry, so signatures rotate once per
-expiry interval by default. Shorter grants or rotation intervals mean more cold transformations.
+cache key. Changing expiry/signature creates a new cache entry. Private grants rotate every
+30 minutes by default; public direct markup retains its build-time URLs. Shorter rotation
+intervals mean more cold transformations when new markup or redirects issue new signatures.
 
 ### Direct delivery for request-authorized galleries
 
-Direct delivery remains the factory default for existing integrations, but is an explicit
-optimization for request-authorized galleries, not this private-app walkthrough. Configure it as:
+Omitting `public` and `authorize` chooses request-rendered private direct delivery. It can reduce
+application requests for galleries whose page data is already authorized:
 
 ```ts
-export const { StorageImage } = createTransloaditImageFromEnv({
-  storage: { allowedPathPrefixes: ['website/'], delivery: 'direct' },
+export const { StorageImage } = createStorageImages({
+  allowedPathPrefixes: ['website/'],
 })
 ```
 
@@ -265,26 +290,22 @@ full-page cache. A lazy candidate requested after expiry can fail; direct URLs a
 until expiry. Prefer redirects for long-lived pages. `suspenseFallback` replaces only the pending
 server shell, not browser image failures.
 
-Prefixes are required: `[]` deliberately denies all and `['']` explicitly allows the workspace root.
+Without a catalog, prefixes or `allowWorkspaceRoot: true` are required. `[]` deliberately denies all.
 Directory prefixes end in `/`; ambiguous paths are rejected. Prefixes bound signing but are not a
 replacement for per-user object authorization. Rotate the secret together with cached markup:
 existing redirect capabilities become invalid.
 
 ### Template migrations and revocation
 
-Capabilities bind the Template version and route/basePath. During a rollout, set the factory's
-`previousTemplatesUntil` to an **absolute UTC millisecond timestamp**. Until that cutoff, the
-current builtin accepts markup from the preceding version (`builtin/storage-preview@0.0.1`).
-Use `previousTemplates: ['your-previous-template']` to override the list; at most four versions
-are accepted. Restarting a process does not extend the deadline. Without a cutoff, only the current
-Template is accepted. Old requests retain their original Template and still follow current
-prefix/authorization policy. Rebuild cached pages before the deadline.
+Capabilities bind the payload-contract version, workspace and route/basePath, not the default
+Built-in version. An SDK upgrade can pin a new compatible `storage-preview` without breaking old
+private markup: the new handler signs with its current Built-in and rechecks current authorization.
+There are no `previousTemplates` options or time-window chores for consumers.
 
-Set `previousTemplates: []` or rotate the signing secret to reject old capabilities immediately
-at the handler. Already-issued or cached CDN grants remain usable until their own expiry.
-An explicit fixed cutoff avoids silently extending a migration every time a serverless process
-starts. Coordinate custom Template upgrades with their owners and keep prior versions deployed
-through the migration window.
+An explicitly configured `template` is bound to the capability. Coordinate custom Template changes
+with a cached-markup rebuild. Payload-contract changes also require a capability-version bump and
+rebuild; ordinary Built-in updates do not. Rotating the signing secret invalidates existing
+capabilities. Already-issued or cached CDN grants remain usable until their own expiry.
 
 ## Responsive policy
 
@@ -297,7 +318,9 @@ its largest candidate. For a 48px avatar, `widths={[48, 96]}` also caps JPEG at 
 Explicit `sizes` describes CSS layout; it does not set that layout. Without a derived or explicit
 size, lazy images default to `sizes="auto, 100vw"` (automatic CSS-box sizing where supported,
 viewport fallback otherwise); eager/preloaded images retain `100vw`. Auto sizing is lazy-only:
-Chrome 126+ and Firefox; not Safari, which uses the listed fallback.
+Chrome 126+, [Firefox 150+](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Releases/150)
+and [Safari 27 beta](https://webkit.org/blog/17967/news-from-wwdc26-webkit-in-safari-27-beta/#html).
+Older browsers, including Safari 26, use the listed fallback. Keep explicit fallback lengths.
 `objectFit` controls CSS, while the default `r: 'pad'` preserves source
 proportions in encoded candidates. AVIF/WebP/PNG candidates sign `bg: '#00000000'` to preserve
 transparency through both preview and encoding; JPEG signs an opaque background, white by default.
@@ -307,11 +330,14 @@ Pass raw hex colors: URL signing encodes `#` as `%23`. `bg` cannot be overridden
 `urlParams`. A custom Template must support the same background field contract.
 `formats` sets per-format quality; `fallbackQuality` sets JPEG quality.
 
-The default minimum CDN lifetime is one hour with one-hour rotation windows (one to two hours of
-remaining validity). URLs stay identical within each wall-clock hour. Configure
-`lifetime` on `createPrivateStorageImages` for one control, with rotation derived from it. The
-advanced factory exposes `storage.expiresInMs` and `rotationIntervalMs`; their sum cannot exceed
-48 hours. Without `errorFallback`, a 403/404 uses native broken-image/alt behavior. JPEG is a format
+`lifetime` is a **maximum**, in milliseconds or a duration such as `'1h'` or `'365d'`, on every
+factory. Defaults: one hour for private paths, one year for explicitly public paths. Private
+grants never exceed 48 hours, including in a mixed factory with a longer public lifetime.
+The default rotation interval is half the lifetime, capped at one hour. For the private default,
+a newly issued grant has 30–60 minutes remaining, never 60–120. Advanced `rotationIntervalMs`
+chooses a stable bucket inside the maximum; smaller buckets reduce variation but fragment the
+CDN cache more. Public direct URLs use the factory's captured time, so rebuild before they expire.
+Without `errorFallback`, a 403/404 uses native broken-image/alt behavior. JPEG is a format
 fallback, not HTTP-error recovery. Opt-in `deferUntilHydrated` delays noncritical images; leave it
 off unless addressing an observed WebKit replay issue.
 
@@ -327,7 +353,7 @@ Denied redirect routes also emit one development-only hint per reason: route/bas
 invalid or stale capability (secret/Template changes), disallowed prefix, or failed authorization.
 These messages contain no requested path, URL or secret. Next's bundled server modules infer
 `basePath` from its build configuration; supply it explicitly for externalized integrations.
-Direct delivery logs once per factory in development that it makes the route dynamic.
+Private direct delivery logs once per factory that it makes the route dynamic; public direct does not.
 
 Hints cover Smart CDN-enabled versus Assembly-only keys, workspace/Storage path/Template setup,
 signature secrets, expiry and clock errors, and endpoint reachability. A generic 403 cannot tell us
@@ -336,7 +362,7 @@ The probe can trigger one cold transformation in development; it does not weaken
 
 ```tsx
 <StorageImage
-  src={images['website/hero.jpg']}
+  src="website/hero.jpg"
   alt="A canal house"
   layout="constrained"
   maxWidth={960}
@@ -346,7 +372,12 @@ The probe can trigger one cold transformation in development; it does not weaken
 
 This optional small client boundary keeps the exact server-rendered picture and replaces it only
 after a failed native image load, including one completed before hydration. It adds no wrapper
-element or retry loop. A changed source remounts the boundary. With no JavaScript, native image
+element or retry loop. A changed source remounts the boundary. For a same-page sign-in followed
+by `router.refresh()`, pass a non-secret session-dependent `retryKey`, for example
+`retryKey={user?.id ?? 'anonymous'}`. The refreshed Server Component then resets a failed image
+even though its redirect URL has not changed. A deliberate retry counter also works. Refreshing
+alone does not reset a stable failed boundary, and unchanged keys never cause retry loops.
+With no JavaScript, native image
 failure behavior remains. A cross-origin browser error cannot identify the HTTP failure reason.
 This is separate from `suspenseFallback`, which handles pending server signing, and from JPEG
 format fallback, which does not recover failed AVIF/WebP requests.
@@ -457,11 +488,16 @@ The browser never needs the Assembly secret, Smart CDN secret, or a render-time 
 
 ### Credentials and framework adapters
 
-`createTransloaditImage({ authKey, authSecret, workspace, storage })` supports secret managers and
-multiple workspaces. The env factory snapshots only the three rendering values; it loads no files
+`createTransloaditImage({ authKey, authSecret, workspace, images, public: ['website/'] })` supports
+secret managers and multiple workspaces with the same flat options. The env factory snapshots only
+the three rendering values on first use; it loads no files
 and never falls back to Assembly credentials. All three factories, including
 `createPrivateStorageImages`, accept a trusted compatible `template`,
 `baseUrl` and transport `urlParams`. Never derive these signing policies from request input.
 
 `@transloadit/img` exposes `createTransloaditImageModel` and serializable model types for other
 framework adapters. `@transloadit/img/next` renders a resolved model without owning credentials.
+
+“Native props” means serializable image attributes such as `alt`, `className`, `aria-*`, `data-*`,
+`decoding` and `referrerPolicy`. Event callbacks and refs do not cross this Server Component
+boundary. `src` and candidate URLs belong to the configured catalog and signing policy.

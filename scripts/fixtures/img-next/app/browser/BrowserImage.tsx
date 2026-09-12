@@ -7,13 +7,9 @@ import { imageConfiguration } from '../imageConfiguration'
 export const { StorageImage: BrowserImage, storageRoute: browserStorageRoute } =
   createTransloaditImage({
     ...imageConfiguration,
-    storage: {
-      allowedPathPrefixes: ['documents/'],
-      delivery: {
-        authorize: authorizeFixtureImage,
-        route: '/api/browser-images',
-      },
-      expiresInMs: 10_000,
-      rotationIntervalMs: 1_000,
-    },
+    allowedPathPrefixes: ['documents/'],
+    authorize: authorizeFixtureImage,
+    route: '/api/browser-images',
+    lifetime: 10_000,
+    rotationIntervalMs: 1_000,
   })

@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname } from 'node:path'
-import { createInterface } from 'node:readline/promises'
-import { Writable } from 'node:stream'
 
 import { Command, Option } from 'clipanion'
 import { parse } from 'dotenv'
 import { z } from 'zod'
 
+import { Transloadit } from '../../Transloadit.ts'
 import { getConfiguredCredentialsFilePath, readCliInput } from '../helpers.ts'
+import { promptSecretInput, quoteCredential } from '../secretInput.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
@@ -23,45 +23,6 @@ const credentialsSchema = z.object({
   TRANSLOADIT_SECRET: credentialSchema,
 })
 
-function quoteCredential(value: string): string {
-  // Credentials are opaque. Choose a dotenv quote that preserves punctuation and literal escapes.
-  for (const quote of ["'", '"', '`']) {
-    const quoted = `${quote}${value}${quote}`
-    if (parse(`value=${quoted}`).value === value) return quoted
-  }
-  throw new Error(
-    'This credential cannot be represented safely in a dotenv file; nothing was saved',
-  )
-}
-
-async function promptCredentials(): Promise<unknown> {
-  if (!process.stdin.isTTY || !process.stderr.isTTY) {
-    throw new Error(
-      'Use an interactive terminal, or auth login --stdin with TRANSLOADIT_KEY and TRANSLOADIT_SECRET in dotenv format',
-    )
-  }
-  // A silent terminal output keeps both pasted credentials out of terminal transcripts and history.
-  const output = new Writable({
-    write(_chunk, _encoding, done) {
-      done()
-    },
-  })
-  const prompt = createInterface({ input: process.stdin, output, terminal: true })
-  const abort = new AbortController()
-  prompt.on('SIGINT', () => abort.abort())
-  try {
-    process.stderr.write('Assembly Auth Key (input hidden): ')
-    const key = await prompt.question('', { signal: abort.signal })
-    process.stderr.write('\nAssembly Auth Secret (input hidden): ')
-    const secret = await prompt.question('', { signal: abort.signal })
-    process.stderr.write('\n')
-    return { TRANSLOADIT_KEY: key.trim(), TRANSLOADIT_SECRET: secret.trim() }
-  } finally {
-    prompt.close()
-    output.destroy()
-  }
-}
-
 /** Saves CLI-only credentials without passing secrets through command-line arguments. */
 export class AuthLoginCommand extends UnauthenticatedCommand {
   static override paths = [['auth', 'login']]
@@ -69,7 +30,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
     category: 'Authentication',
     description: 'Save Assembly credentials privately in ~/.transloadit/credentials',
     details:
-      'Prompts with hidden input. Honors a shell TRANSLOADIT_CREDENTIALS_FILE override, never one from project .env, and refuses app env files. Existing credentials require --replace. This saves credentials locally, not a server-side credential check.',
+      'Prompts with hidden input and verifies one signed Template read before saving. The key needs read scope. Honors a shell TRANSLOADIT_CREDENTIALS_FILE override, never one from project .env, and refuses app env files. Existing credentials require --replace. Verification uses production unless --endpoint is explicitly supplied.',
   })
 
   stdin = Option.Boolean('--stdin', false, {
@@ -88,13 +49,47 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
         throw new Error('Credentials destination must not be an app env file')
       const input = this.stdin
         ? parse((await readCliInput({ inputPath: '-' })).content ?? '')
-        : await promptCredentials()
+        : await promptSecretInput({
+            TRANSLOADIT_KEY: 'Assembly Auth Key',
+            TRANSLOADIT_SECRET: 'Assembly Auth Secret',
+          })
       const credentials = credentialsSchema.safeParse(input)
       if (!credentials.success)
         throw new Error(
           'Provide a valid TRANSLOADIT_KEY and TRANSLOADIT_SECRET pair; nothing was saved',
         )
-      const data = `TRANSLOADIT_KEY=${quoteCredential(credentials.data.TRANSLOADIT_KEY)}\nTRANSLOADIT_SECRET=${quoteCredential(credentials.data.TRANSLOADIT_SECRET)}\n`
+      // Never send newly pasted credentials to a project-controlled dotenv endpoint.
+      const endpoint = new URL(this.endpoint ?? 'https://api2.transloadit.com')
+      if (
+        (endpoint.protocol !== 'https:' &&
+          !(
+            endpoint.protocol === 'http:' &&
+            ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname)
+          )) ||
+        endpoint.username ||
+        endpoint.password ||
+        endpoint.search ||
+        endpoint.hash ||
+        endpoint.pathname !== '/'
+      )
+        throw new Error(
+          'Login endpoint must be an HTTPS API origin (HTTP is allowed only on loopback)',
+        )
+      const origin = endpoint.origin
+      const client = new Transloadit({
+        authKey: credentials.data.TRANSLOADIT_KEY,
+        authSecret: credentials.data.TRANSLOADIT_SECRET,
+        endpoint: origin,
+        maxRetries: 0,
+        timeout: 10_000,
+      })
+      await client.listTemplates({ pagesize: 1 }).catch((error: unknown) => {
+        throw new Error(
+          'Could not verify these credentials. Check the endpoint, key/secret and read scope at https://transloadit.com/c/template-credentials/. Nothing was saved.',
+          { cause: error },
+        )
+      })
+      const data = `TRANSLOADIT_KEY=${quoteCredential(credentials.data.TRANSLOADIT_KEY)}\nTRANSLOADIT_SECRET=${quoteCredential(credentials.data.TRANSLOADIT_SECRET)}\n${this.endpoint === undefined ? '' : `TRANSLOADIT_ENDPOINT=${quoteCredential(origin)}\n`}`
       await mkdir(dirname(file), { recursive: true, mode: 0o700 })
       if (this.replace) {
         const info = await lstat(file).catch((error: unknown) => {
@@ -112,8 +107,8 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
         await writeFile(file, data, { flag: 'wx', mode: 0o600 })
       }
       this.output.print(
-        `Saved CLI credentials to ${file}. Application env files were not changed.`,
-        { saved: file },
+        `Verified one signed Template read and saved CLI credentials to ${file}. Application env files were not changed.`,
+        { saved: file, verified: true },
       )
       return undefined
     } catch (error) {

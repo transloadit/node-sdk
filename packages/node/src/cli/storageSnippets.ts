@@ -7,13 +7,32 @@ export function nextAppRoot(): '' | 'src/' | undefined {
   return undefined
 }
 
-/** One copy-pasteable Next.js factory, shared by storage store and image init. */
-export function storageImageFactory(prefix: string, privateDelivery = false): string {
+interface StorageImageSnippetOptions {
+  prefix: string
+  privateDelivery?: boolean
+  publicDelivery?: boolean
+  receiptsImport: string
+}
+
+function relativeImport(path: string): string {
+  return path.startsWith('./') || path.startsWith('../') ? path : `./${path}`
+}
+
+/** One catalog-typed Next.js factory, shared by storage store and image init. */
+export function storageImageFactory({
+  prefix,
+  privateDelivery = false,
+  publicDelivery = false,
+  receiptsImport,
+}: StorageImageSnippetOptions): string {
+  const catalogImport = `import images from ${JSON.stringify(relativeImport(receiptsImport))}`
   if (privateDelivery) {
     return [
       "import { createPrivateStorageImages } from '@transloadit/img/next/server'",
+      catalogImport,
       '',
       'export const { StorageImage, storageRoute } = createPrivateStorageImages({',
+      '  images,',
       `  allowedPathPrefixes: [${JSON.stringify(prefix)}],`,
       '  // Replace with your application session and per-object authorization.',
       '  authorize: () => false,',
@@ -22,27 +41,26 @@ export function storageImageFactory(prefix: string, privateDelivery = false): st
     ].join('\n')
   }
   return [
-    "import { createTransloaditImageFromEnv } from '@transloadit/img/next/server'",
+    "import { createStorageImages } from '@transloadit/img/next/server'",
+    catalogImport,
     '',
-    'export const { StorageImage } = createTransloaditImageFromEnv({',
-    '  storage: {',
-    `    allowedPathPrefixes: [${JSON.stringify(prefix)}],`,
-    "    delivery: 'direct',",
-    '  },',
+    'export const { StorageImage } = createStorageImages({',
+    '  images,',
+    `  allowedPathPrefixes: [${JSON.stringify(prefix)}],`,
+    ...(publicDelivery ? [`  public: [${JSON.stringify(prefix)}],`] : []),
     '})',
     '',
   ].join('\n')
 }
 
 /** Prints a complete receipt-consuming page using ordinary Next.js imports. */
-export function storageImagePage(path: string, receiptsImport: string): string {
+export function storageImagePage(path: string): string {
   return [
     "import { StorageImage } from '../lib/storageImage'",
-    `import images from ${JSON.stringify(receiptsImport.startsWith('./') || receiptsImport.startsWith('../') ? receiptsImport : `./${receiptsImport}`)}`,
     '',
     'export default function Page() {',
     '  return (',
-    `    <StorageImage src={images[${JSON.stringify(path)}]} alt="Describe this image" preload />`,
+    `    <StorageImage src={${JSON.stringify(path)}} alt="Describe this image" layout="constrained" maxWidth={960} preload />`,
     '  )',
     '}',
     '',

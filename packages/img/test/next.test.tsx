@@ -76,6 +76,33 @@ afterEach(() => {
 })
 
 describe('TransloaditPicture', () => {
+  test('a session-dependent retry key recovers the same failed URL without an automatic retry loop', async () => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false)
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    const props = {
+      alt: 'Private photo',
+      height: 300,
+      width: 400,
+      model,
+      errorFallback: <p role="status">Sign in</p>,
+    }
+    try {
+      await act(() => root.render(<TransloaditPicture {...props} retryKey="anonymous" />))
+      await act(() => container.querySelector('img')?.dispatchEvent(new Event('error')))
+      expect(container.querySelector('[role="status"]')?.textContent).toBe('Sign in')
+      await act(() => root.render(<TransloaditPicture {...props} retryKey="anonymous" />))
+      expect(container.querySelector('[role="status"]')?.textContent).toBe('Sign in')
+      await act(() => root.render(<TransloaditPicture {...props} retryKey="session-1" />))
+      expect(container.querySelector('img')?.getAttribute('src')).toBe(model.fallbackUrl)
+      expect(container.querySelector('[role="status"]')).toBeNull()
+    } finally {
+      await act(() => root.unmount())
+      container.remove()
+    }
+  })
+
   test('keeps the Flight error-boundary key compact instead of repeating every signed candidate', () => {
     const picture = TransloaditPicture({
       alt: 'Photo',

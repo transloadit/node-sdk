@@ -27,6 +27,8 @@ interface ImagePresentationProps extends Omit<ImageAttributes, 'height' | 'width
   deferUntilHydrated?: boolean
   /** Optional client-side image-load fallback. Does not replace the server-rendered picture. */
   errorFallback?: ReactNode
+  /** Change deliberately after signing in or retrying to reset a failed image with stable URLs. */
+  retryKey?: string | number
   media?: string
   /** CSP-compatible placeholder used while `media` is unmatched. Defaults to an inline GIF. */
   mediaPlaceholderSrc?: string
@@ -65,6 +67,7 @@ function getImageRecoveryKey({
   model,
   media,
   mediaPlaceholderSrc,
+  retryKey,
 }: TransloaditPictureProps): string {
   const identity = JSON.stringify([
     model.fallbackUrl,
@@ -72,6 +75,7 @@ function getImageRecoveryKey({
     model.artDirection,
     media,
     mediaPlaceholderSrc,
+    retryKey,
   ])
   // FNV-1a is only a remount identity, never an authorization hash. Keep all candidate URLs out
   // of the Flight key without requiring Node crypto or asynchronous rendering in this component.

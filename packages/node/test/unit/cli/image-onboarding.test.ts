@@ -7,6 +7,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { readCliInput, resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
+import { Transloadit } from '../../../src/Transloadit.ts'
 
 vi.mock('../../../src/cli/helpers.ts', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../../src/cli/helpers.ts')>()
@@ -40,6 +41,7 @@ beforeEach(async () => {
   vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
+  vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({ items: [], count: 0 })
   vi.mocked(readCliInput).mockResolvedValue({
     content: 'TRANSLOADIT_KEY=write-key\nTRANSLOADIT_SECRET=hidden-secret\n',
     isStdin: true,
@@ -63,6 +65,7 @@ afterEach(async () => {
 test('auth login saves owner-only credentials in the existing lookup without leaking secrets', async () => {
   await main(['auth', 'login', '--stdin'])
   expect(process.exitCode).toBeUndefined()
+  expect(Transloadit.prototype.listTemplates).toHaveBeenCalledExactlyOnceWith({ pagesize: 1 })
   expect((await stat('credentials')).mode & 0o777).toBe(0o600)
   expect(resolveCliConfig().credentials).toEqual({
     authKey: 'write-key',
@@ -72,6 +75,26 @@ test('auth login saves owner-only credentials in the existing lookup without lea
   expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
     'hidden-secret',
   )
+})
+
+test('auth login rejects failed verification without saving credentials or echoing upstream errors', async () => {
+  vi.mocked(Transloadit.prototype.listTemplates).mockRejectedValue(
+    new Error('remote hidden-secret'),
+  )
+  await main(['auth', 'login', '--stdin'])
+  expect(process.exitCode).toBe(1)
+  expect(await readdir(directory)).toEqual([])
+  const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+  expect(message).toContain('https://transloadit.com/c/template-credentials/')
+  expect(message).toContain('verify')
+  expect(message).not.toContain('hidden-secret')
+})
+
+test('auth login verifies only against the explicit endpoint and saves that binding', async () => {
+  await writeFile('.env', 'TRANSLOADIT_ENDPOINT=https://untrusted.invalid\n')
+  await main(['auth', 'login', '--stdin', '--endpoint', 'http://127.0.0.1:3020'])
+  expect(process.exitCode).toBeUndefined()
+  expect(resolveCliConfig().credentialsEndpoint).toBe('http://127.0.0.1:3020')
 })
 
 test('project dotenv cannot redirect newly entered credentials into the application', async () => {
@@ -134,13 +157,14 @@ test.each([
   'src/app',
 ])('image init creates a direct factory for %s and prints only rendering env names', async (app) => {
   await mkdir(app, { recursive: true })
-  await main(['image', 'init', '--next', 'website/'])
+  await main(['image', 'init', 'website/', '--public'])
   expect(process.exitCode).toBeUndefined()
   const root = app === 'app' ? '' : 'src/'
   const factory = await readFile(`${root}lib/storageImage.ts`, 'utf8')
-  expect(factory).toContain('createTransloaditImageFromEnv')
+  expect(factory).toContain('createStorageImages')
   expect(factory).toContain('allowedPathPrefixes: ["website/"]')
-  expect(factory).toContain("delivery: 'direct'")
+  expect(factory).toContain('public: ["website/"]')
+  expect(factory).toContain('images,')
   expect(await readdir(app)).toEqual([])
   const printed = JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)
   expect(printed).toContain('TRANSLOADIT_WORKSPACE=')
@@ -148,6 +172,45 @@ test.each([
   expect(printed).toContain('TRANSLOADIT_SMART_CDN_SECRET=')
   expect(printed).not.toContain('TRANSLOADIT_SECRET=')
   expect(await readdir(directory)).not.toContain('.env.local')
+})
+
+test('init writes rendering env only when explicitly requested, privately and without printing it', async () => {
+  await mkdir('app')
+  vi.mocked(readCliInput).mockResolvedValue({
+    content:
+      'TRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_SMART_CDN_KEY=render-key\nTRANSLOADIT_SMART_CDN_SECRET=render-secret\n',
+    isStdin: true,
+  })
+  await main(['image', 'init', 'website/', '--public', '--write-env', '--stdin'])
+  expect(process.exitCode).toBeUndefined()
+  expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
+  expect(await readFile('.env.local', 'utf8')).toContain('TRANSLOADIT_SMART_CDN_SECRET=')
+  expect(await readFile('.env.local', 'utf8')).toContain('render-secret')
+  expect(await readFile('.env.local', 'utf8')).not.toContain('TRANSLOADIT_SECRET=')
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
+    'render-secret',
+  )
+})
+
+test('init never overwrites an existing rendering env file, even with --write-env', async () => {
+  await mkdir('app')
+  await writeFile('.env.local', 'APP_SETTING=preserved\n')
+  vi.mocked(readCliInput).mockResolvedValue({
+    content:
+      'TRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_SMART_CDN_KEY=render-key\nTRANSLOADIT_SMART_CDN_SECRET=render-secret\n',
+    isStdin: true,
+  })
+  await main(['image', 'init', 'website/', '--write-env', '--stdin'])
+  expect(process.exitCode).toBe(1)
+  expect(await readFile('.env.local', 'utf8')).toBe('APP_SETTING=preserved\n')
+  await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('public and private scaffold declarations cannot be combined', async () => {
+  await mkdir('app')
+  await main(['image', 'init', 'website/', '--public', '--private'])
+  expect(process.exitCode).toBe(1)
+  await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
 })
 
 test('private init creates GET and HEAD with a fail-closed authorization placeholder', async () => {

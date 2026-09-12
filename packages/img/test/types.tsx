@@ -10,8 +10,8 @@ import { createTransloaditImageModel } from '../src/index.ts'
 import { TransloaditPicture } from '../src/next/index.tsx'
 import {
   createPrivateStorageImages,
+  createStorageImages,
   createTransloaditImage,
-  createTransloaditImageFromEnv,
 } from '../src/next/server.tsx'
 
 const modelOptions: TransloaditImageModelOptions = {
@@ -109,17 +109,63 @@ const configuredRedirect = createTransloaditImage({
   authKey: 'key',
   authSecret: 'secret',
   workspace: 'app',
-  storage: { allowedPathPrefixes: [], delivery: { route: '/images', authorize: () => true } },
+  allowedPathPrefixes: [],
+  route: '/images',
+  authorize: () => true,
 })
 const configuredRedirectFallback = (
   // @ts-expect-error Factory overloads retain the redirect-specific component contract.
   <configuredRedirect.StorageImage {...imageProps} suspenseFallback="Loading" />
 )
-const envDirect = createTransloaditImageFromEnv({
-  storage: { allowedPathPrefixes: ['documents/'] },
+const envDirect = createStorageImages({
+  allowedPathPrefixes: ['documents/'],
 })
+const images = {
+  'website/hero.jpg': { path: 'website/hero.jpg', width: 2400, height: 1600 },
+}
+const catalog = createStorageImages({ images, public: ['website/'], lifetime: '365d' })
+const catalogHero = (
+  <catalog.StorageImage
+    src="website/hero.jpg"
+    alt="Hero"
+    layout="constrained"
+    maxWidth={960}
+    preload
+  />
+)
+const catalogAvatar = (
+  <catalog.StorageImage src="website/hero.jpg" alt="Avatar" layout="fixed" width={48} height={48} />
+)
+const catalogFill = (
+  <catalog.StorageImage
+    src="website/hero.jpg"
+    alt="Cover"
+    layout="fill"
+    fit="cover"
+    aspectRatio="9/16"
+  />
+)
+const catalogReceipt = <catalog.StorageImage src={receipt} alt="DB receipt" />
+// @ts-expect-error Catalog references are exact keys, not unchecked paths.
+const catalogTypo = <catalog.StorageImage src="website/heor.jpg" alt="Typo" />
+const catalogUnknown = (
+  // @ts-expect-error Explicit geometry does not bypass the catalog-key contract.
+  <catalog.StorageImage src="website/other.jpg" alt="Other" width={100} height={100} />
+)
+const privateCatalog = createPrivateStorageImages({ images, authorize: () => true })
+// @ts-expect-error The private factory retains the same exact catalog keys.
+const privateTypo = <privateCatalog.StorageImage src="website/heor.jpg" alt="Typo" />
+void [
+  catalogHero,
+  catalogAvatar,
+  catalogFill,
+  catalogReceipt,
+  catalogTypo,
+  catalogUnknown,
+  privateTypo,
+]
 // @ts-expect-error Callers must explicitly choose the allowed prefixes, including deny-all [].
-createTransloaditImageFromEnv({ storage: {} })
+createStorageImages({})
 const namedStorageImage = <envDirect.StorageImage alt="Receipt" src={receipt} loading="lazy" />
 void namedStorageImage
 const fixedImage = (
@@ -150,7 +196,6 @@ const privateIntegration = createPrivateStorageImages({
   authorize: ({ path, request }) => path.endsWith('.pdf') && request.method === 'GET',
   lifetime: 60_000,
   public: ['documents/public/'],
-  previousTemplatesUntil: Date.UTC(2030, 0, 1),
 })
 const artDirectedImage = (
   <privateIntegration.StorageImage
@@ -218,11 +263,10 @@ const fixedString = (
 )
 void missingFillRatio
 void fixedString
-const envRedirect = createTransloaditImageFromEnv({
-  storage: {
-    allowedPathPrefixes: ['documents/'],
-    delivery: { route: '/images', authorize: () => true },
-  },
+const envRedirect = createStorageImages({
+  allowedPathPrefixes: ['documents/'],
+  route: '/images',
+  authorize: () => true,
 })
 const envImage = (
   <envDirect.StorageImage alt="Receipt" src={receipt} preload suspenseFallback="Loading" />
@@ -230,7 +274,7 @@ const envImage = (
 const envRedirectImage = <envRedirect.StorageImage alt="Receipt" src={receipt} preload />
 const envRoute = envRedirect.storageRoute(new Request('https://app.example/images'))
 // @ts-expect-error The environment helper requires explicit Storage policy, not guessed access.
-createTransloaditImageFromEnv({})
+createStorageImages({})
 // @ts-expect-error Direct delivery does not expose an authorization route.
 const envDirectRoute = envDirect.storageRoute
 // @ts-expect-error The env factory preserves the lazy/preload union.

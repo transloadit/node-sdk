@@ -4,7 +4,7 @@ import type { InterpolatableRobotTransloaditStoreInstructions } from '@transload
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -27,6 +27,56 @@ const receipt = {
   path: 'website/photo.png',
   size: bytes.length,
 }
+
+test('the packed CLI generates the actual constrained public page used by the browser proof', async (t) => {
+  const originalCwd = process.cwd()
+  const directory = join(originalCwd, 'app/cli-image')
+  await mkdir(join(directory, 'app'), { recursive: true })
+  const environment = { ...process.env }
+  t.after(() => {
+    process.chdir(originalCwd)
+    process.env = environment
+    process.exitCode = undefined
+  })
+  process.chdir(directory)
+  process.env.TRANSLOADIT_KEY = 'assembly-key'
+  process.env.TRANSLOADIT_SECRET = 'assembly-secret'
+  process.env.TRANSLOADIT_CREDENTIALS_FILE = join(directory, 'absent-credentials')
+  const cli: { main: (args: string[]) => Promise<void> } = await import(
+    new URL('./cli.js', import.meta.resolve('@transloadit/node')).href
+  )
+  const output: string[] = []
+  t.mock.method(process.stdout, 'write', (chunk: string | Uint8Array) => {
+    output.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString())
+    return true
+  })
+  t.mock.method(Transloadit.prototype, 'storeImage', async () => ({
+    ...receipt,
+    path: 'documents/hero.jpg',
+    width: 2400,
+    height: 1600,
+  }))
+  await cli.main(['image', 'init', 'documents/', '--public'])
+  assert.equal(process.exitCode, undefined)
+  await cli.main(['storage', 'store', './hero.jpg', 'documents/hero.jpg', '--public'])
+  assert.equal(process.exitCode, undefined)
+  const printed = output.join('')
+  const page = printed.match(/app\/page.tsx:\n([\s\S]*?)\nRendering environment/)?.[1]
+  assert(page, 'Expected a complete CLI page')
+  assert(page.includes('layout="constrained" maxWidth={960} preload'))
+  assert(page.includes('src={"documents/hero.jpg"}'))
+  await writeFile('app/page.tsx', `${page}\n`)
+  const factory = await readFile('lib/storageImage.ts', 'utf8')
+  assert(factory.includes('public: ["documents/"]'))
+  // Only the delivery origin changes for this offline fixture; the generated page is verbatim.
+  await writeFile(
+    'lib/storageImage.ts',
+    factory.replace(
+      '  images,',
+      '  images,\n  baseUrl: `${process.env.IMG_FIXTURE_CDN_ORIGIN}/file/{workspace}`,',
+    ),
+  )
+})
 
 test('a failed second run of the documented command preserves the first receipt', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'img-seed-receipt-'))

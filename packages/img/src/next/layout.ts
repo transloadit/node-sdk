@@ -4,9 +4,14 @@ import type { TransloaditImageSource } from '../imageSource.ts'
 
 import { snapshotImageSource } from '../imageSource.ts'
 
-type PresentationSourceProps =
-  | { src: string; width: number; height: number }
-  | { src: TransloaditImageSource; width?: number; height?: number }
+/** Committed rendering receipts indexed by their exact Storage paths. */
+export type StorageImageCatalog = Readonly<Record<string, TransloaditImageSource>>
+
+type CatalogSource<Catalog> = TransloaditImageSource | Extract<keyof Catalog, string>
+
+type PresentationSourceProps<Catalog> =
+  | (Catalog extends undefined ? { src: string; width: number; height: number } : never)
+  | { src: CatalogSource<Catalog>; width?: number; height?: number }
 
 /** Crop ratios selected by viewport width; default is required for all other viewports. */
 export type StorageImageAspectRatio =
@@ -15,14 +20,14 @@ export type StorageImageAspectRatio =
   | Readonly<{ default: string | number } & Record<string, string | number>>
 
 /** Optional layout convenience; explicit source geometry remains unchanged without a mode. */
-export type StorageImageLayoutProps =
-  | (PresentationSourceProps & {
+export type StorageImageLayoutProps<Catalog extends StorageImageCatalog | undefined = undefined> =
+  | (PresentationSourceProps<Catalog> & {
       layout?: never
       maxWidth?: never
       fit?: never
       aspectRatio?: never
     })
-  | (PresentationSourceProps & {
+  | (PresentationSourceProps<Catalog> & {
       layout: 'constrained'
       maxWidth: number
       fit?: never
@@ -30,7 +35,7 @@ export type StorageImageLayoutProps =
     })
   | {
       layout: 'fixed'
-      src: TransloaditImageSource
+      src: CatalogSource<Catalog>
       width: number
       height: number
       fit?: 'contain' | 'cover'
@@ -39,7 +44,7 @@ export type StorageImageLayoutProps =
     }
   | ({
       layout: 'fill'
-      src: TransloaditImageSource
+      src: CatalogSource<Catalog>
       width?: never
       height?: never
       maxWidth?: never
@@ -87,10 +92,13 @@ function parseAspectRatio(value: string | number | undefined): number {
 
 /** Snapshots intrinsic and box geometry before any caller-owned attribute getter can mutate it. */
 export function resolveImageLayout(
-  props: StorageImageLayoutProps & { widths?: readonly number[] },
+  props: StorageImageLayoutProps<StorageImageCatalog> & { widths?: readonly number[] },
+  images?: StorageImageCatalog,
 ): ResolvedImageLayout {
   const layout = props.layout
-  const src = props.src
+  const input = props.src
+  const src = typeof input === 'string' && images !== undefined ? images[input] : input
+  if (src === undefined) throw new TypeError('Storage image path is not in the configured catalog')
   if ((layout === 'fixed' || layout === 'fill') && typeof src === 'string') {
     throw new TypeError(
       `${layout} layout requires a receipt source with intrinsic dimensions${layout === 'fixed' ? '; width and height describe the display box' : ''}`,

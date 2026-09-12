@@ -18,7 +18,7 @@ depend on it from npm yet.
 This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app. The
 workspace must have Transloadit Storage writes enabled; package installation does not enable them.
 The backend must provide `builtin/storage-preview@0.0.2` for this package revision: use API2
-#9057 at `a15af5ed96a4605cd500587cf002bd249534fe62` or newer in an owned devdock until that PR is
+#9057 at `b4aba072ee9cbeba0dda56dbdfaf2883e56ede06` or newer in an owned devdock until that PR is
 deployed. Version 0.0.1 stays unchanged and flattens transparency; 0.0.2 accepts the signed `bg`
 field needed by alpha-preserving candidates and the opaque JPEG fallback.
 
@@ -188,10 +188,15 @@ Normal Smart CDN delivery needs neither local override.
 `createPrivateStorageImages` accepts these same `baseUrl` and `urlParams` fields directly,
 alongside `allowedPathPrefixes` and `authorize`.
 
-The factory now exports `StorageImage`; Content no longer needs to alias it against `next/image`.
-The unpublished `Image` alias is removed; update the Content dogfood branch to destructure
-`StorageImage` when installing the round-4 package. See the package README for layout
-and authorization policy; this document only covers maintainer setup.
+The factory exports `StorageImage`. Round 5 uses one flat `createStorageImages({ images, public })`
+shape for the public Content hero, with catalog-typed src and fill/cover breakpoint ratios.
+Public direct markup is static; private direct images remain request-rendered. See the package
+README for layout and authorization policy; this document only covers maintainer setup.
+
+Before publication, a Yarn consumer may resolve a registry copy of `@transloadit/utils` under
+the image package even when the new utilities tarball is a direct dependency. For local dogfood,
+explicitly resolve that dependency to the same packed utilities. The release must bump utilities
+and the dependent minimum versions together; publishing img against the old minimum is unsafe.
 
 ### Live Storage listing and rendering receipt recovery
 
@@ -249,10 +254,12 @@ corepack yarn test:img:fixture
 The fixture packs all four local artifacts and installs them with its pinned **npm** lockfile into
 a clean Next.js app. It executes this exact seed recipe against mocked Assembly receipts without
 network access and compiles it against the packed SDK/types. It builds and serves both production
-Cache Components configurations, then runs 60 Chromium/WebKit cases: native cookie authorization,
+Cache Components configurations, then runs 64 Chromium/WebKit cases (16 cases × 2 engines ×
+2 configurations): native cookie authorization,
 GET/HEAD parity, explicit public-prefix caching, responsive art direction with real cropped bytes,
 separate app/CDN hosts, constrained hero/fixed avatar geometry, portrait fillcrop, optional error
-fallback, private-redirect decoding before application JavaScript, hydration, bounded JPEG fallback,
+fallback and same-page sign-in/refresh recovery, the actual CLI-generated constrained public page
+without a CSS reset, private-redirect decoding before application JavaScript, hydration, bounded JPEG fallback,
 original-capability renewal, revocation, expiry and tampering. Chromium
 also verifies direct streaming before application JavaScript; direct WebKit navigation uses normal
 script loading because holding bundles can stall React's streaming reveal in the test browser.

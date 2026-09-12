@@ -13,8 +13,8 @@ vi.mock('server-only', () => ({}))
 
 import {
   createPrivateStorageImages,
+  createStorageImages,
   createTransloaditImage,
-  createTransloaditImageFromEnv,
 } from '../src/next/server.tsx'
 
 const authSecret = 'never-render-this-secret'
@@ -22,7 +22,7 @@ const baseConfiguration = {
   authKey: 'auth-key',
   authSecret,
   baseUrl: 'https://cdn.example/file/{workspace}',
-  storage: { allowedPathPrefixes: ['documents/'] },
+  allowedPathPrefixes: ['documents/'],
   workspace: 'my-app',
 }
 
@@ -55,10 +55,9 @@ function getStorageRouteCandidate(): {
   )
   const { StorageImage: Image, storageRoute } = createTransloaditImage({
     ...baseConfiguration,
-    storage: {
-      allowedPathPrefixes: ['documents/'],
-      delivery: { authorize, route: '/api/private-images' },
-    },
+    allowedPathPrefixes: ['documents/'],
+    authorize,
+    route: '/api/private-images',
   })
   const markup = renderToStaticMarkup(
     <Image
@@ -136,7 +135,8 @@ describe('development delivery diagnostics', () => {
     vi.mocked(fetch).mockReturnValue(probe)
     const { StorageImage } = createTransloaditImage({
       ...baseConfiguration,
-      storage: { ...baseConfiguration.storage, expiresInMs: 1000, rotationIntervalMs: 1000 },
+      lifetime: 5000,
+      rotationIntervalMs: 1000,
     })
     const rendered = renderAsync(
       <StorageImage alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
@@ -269,7 +269,8 @@ describe('development delivery diagnostics', () => {
     const authorize = vi.fn(() => false)
     const { StorageImage, storageRoute } = createTransloaditImage({
       ...baseConfiguration,
-      storage: { ...baseConfiguration.storage, delivery: { route: '/images', authorize } },
+      route: '/images',
+      authorize,
     })
     expect(() =>
       StorageImage({ alt: 'Denied', src: { path: 'private/hero.jpg', width: 400, height: 300 } }),
@@ -291,7 +292,7 @@ describe('development delivery diagnostics', () => {
   })
 })
 
-describe('createTransloaditImageFromEnv', () => {
+describe('createStorageImages', () => {
   test.each([
     'direct',
     'redirect',
@@ -301,10 +302,9 @@ describe('createTransloaditImageFromEnv', () => {
         ? createTransloaditImage(baseConfiguration)
         : createTransloaditImage({
             ...baseConfiguration,
-            storage: {
-              allowedPathPrefixes: ['documents/'],
-              delivery: { route: '/images', authorize: () => true },
-            },
+            allowedPathPrefixes: ['documents/'],
+            route: '/images',
+            authorize: () => true,
           })
     const document = parseMarkup(
       await renderAsync(
@@ -435,10 +435,8 @@ describe('createTransloaditImageFromEnv', () => {
   test('fixed cover uses receipt geometry for a signed 48px crop and a 1x JPEG fallback', async () => {
     const { StorageImage, storageRoute } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        ...baseConfiguration.storage,
-        delivery: { route: '/images', authorize: () => true },
-      },
+      route: '/images',
+      authorize: () => true,
     })
     const document = parseMarkup(
       renderToStaticMarkup(
@@ -506,19 +504,20 @@ describe('createTransloaditImageFromEnv', () => {
 
   afterEach(() => vi.unstubAllEnvs())
 
-  test('snapshots rendering environment once and delegates to the explicit factory', async () => {
-    const { StorageImage: Image } = createTransloaditImageFromEnv({
+  test('snapshots rendering environment on first use and delegates to the explicit factory', async () => {
+    const { StorageImage: Image } = createStorageImages({
       baseUrl: baseConfiguration.baseUrl,
-      storage: baseConfiguration.storage,
+      allowedPathPrefixes: baseConfiguration.allowedPathPrefixes,
     })
     const { StorageImage: ExplicitImage } = createTransloaditImage(baseConfiguration)
-    vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', 'changed-key')
-    vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', 'changed-secret')
-    vi.stubEnv('TRANSLOADIT_WORKSPACE', 'changed-workspace')
     const props = {
       alt: 'Snapshot',
       src: { path: 'documents/report.pdf', width: 400, height: 300 },
     }
+    await renderAsync(Image(props))
+    vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', 'changed-key')
+    vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', 'changed-secret')
+    vi.stubEnv('TRANSLOADIT_WORKSPACE', 'changed-workspace')
     const actual = parseMarkup(await renderAsync(Image(props)))
     const expected = parseMarkup(await renderAsync(ExplicitImage(props)))
     expect(actual.querySelector('picture')?.isEqualNode(expected.querySelector('picture'))).toBe(
@@ -535,8 +534,9 @@ describe('createTransloaditImageFromEnv', () => {
     ),
   )('rejects missing or invalid $name without exposing its value', ({ name, value }) => {
     vi.stubEnv(name, value)
+    const { StorageImage } = createStorageImages({ ...baseConfiguration, public: ['documents/'] })
     expect(() =>
-      createTransloaditImageFromEnv({ storage: baseConfiguration.storage }),
+      StorageImage({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 }),
     ).toThrowError(
       new TypeError(`${name} must be a non-empty string without surrounding whitespace`),
     )
@@ -549,16 +549,17 @@ describe('createTransloaditImageFromEnv', () => {
     vi.stubEnv('TRANSLOADIT_ASSEMBLY_SECRET', 'write-secret')
     vi.stubEnv('TRANSLOADIT_KEY', 'legacy-key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'legacy-secret')
-    expect(() => createTransloaditImageFromEnv({ storage: baseConfiguration.storage })).toThrow(
-      'TRANSLOADIT_SMART_CDN_KEY',
-    )
+    const { StorageImage } = createStorageImages({ ...baseConfiguration, public: ['documents/'] })
+    expect(() =>
+      StorageImage({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 }),
+    ).toThrow('TRANSLOADIT_SMART_CDN_KEY')
     expect(() => createTransloaditImage(baseConfiguration)).not.toThrow()
   })
 
-  test('still requires explicit storage and retains deny-all without path prefixes', () => {
-    expect(() => Reflect.apply(createTransloaditImageFromEnv, undefined, [{}])).toThrow(/storage/)
-    const { StorageImage: Image } = createTransloaditImageFromEnv({
-      storage: { allowedPathPrefixes: [] },
+  test('still requires explicit scope and retains deny-all without path prefixes', () => {
+    expect(() => Reflect.apply(createStorageImages, undefined, [{}])).toThrow(/allowedPathPrefixes/)
+    const { StorageImage: Image } = createStorageImages({
+      allowedPathPrefixes: [],
     })
     expect(() =>
       Image({ alt: 'Denied', src: { path: 'documents/report.pdf', width: 400, height: 300 } }),
@@ -574,7 +575,8 @@ describe('createTransloaditImageFromEnv', () => {
     const delivery = { authorize: vi.fn(() => true), cacheMaxAgeMs, route: '/images' }
     const { StorageImage: Image, storageRoute } = createTransloaditImage({
       ...baseConfiguration,
-      storage: { ...baseConfiguration.storage, delivery, rotationIntervalMs: 30_000 },
+      ...delivery,
+      rotationIntervalMs: 30_000,
     })
     delivery.cacheMaxAgeMs = 1
     const document = parseMarkup(
@@ -602,32 +604,31 @@ describe('createTransloaditImageFromEnv', () => {
     expect(() =>
       createTransloaditImage({
         ...baseConfiguration,
-        storage: {
-          ...baseConfiguration.storage,
-          delivery: { authorize: () => true, cacheMaxAgeMs, route: '/images' },
-        },
+        authorize: () => true,
+        cacheMaxAgeMs,
+        route: '/images',
       }),
     ).toThrow('cacheMaxAgeMs must be a positive safe integer')
   })
 
   test.each(
-    [undefined, null, false, 'documents/', []].map((storage) => ({ storage })),
-  )('rejects invalid explicit storage $storage', ({ storage }) => {
-    expect(() =>
-      Reflect.apply(createTransloaditImageFromEnv, undefined, [{ storage }]),
-    ).toThrowError(new TypeError('storage must be an explicit configuration object'))
+    [undefined, null, false, 'documents/', []].map((configuration) => ({ configuration })),
+  )('rejects invalid configuration $configuration', ({ configuration }) => {
+    expect(() => Reflect.apply(createStorageImages, undefined, [configuration])).toThrowError(
+      new TypeError('Storage images require an explicit configuration object'),
+    )
   })
 
   test('retains trusted template, transport and authorization settings for redirect delivery', async () => {
     const authorize = vi.fn(() => true)
-    const { StorageImage: Image, storageRoute } = createTransloaditImageFromEnv({
+    const { StorageImage: Image, storageRoute } = createStorageImages({
       baseUrl: baseConfiguration.baseUrl,
       template: 'website/preview',
       urlParams: { cdn: 'required' },
-      storage: {
-        allowedPathPrefixes: ['documents/'],
-        delivery: { route: '/images', basePath: '/app', authorize },
-      },
+      allowedPathPrefixes: ['documents/'],
+      route: '/images',
+      basePath: '/app',
+      authorize,
     })
     const document = parseMarkup(
       renderToStaticMarkup(
@@ -657,10 +658,9 @@ describe('createTransloaditImage', () => {
       expect(url.pathname).toBe('/inferred/api/private-images')
       const { StorageImage } = createTransloaditImage({
         ...baseConfiguration,
-        storage: {
-          ...baseConfiguration.storage,
-          delivery: { authorize: () => true, route: '/images', basePath: '/explicit' },
-        },
+        authorize: () => true,
+        route: '/images',
+        basePath: '/explicit',
       })
       expect(
         getFirstCandidate(
@@ -682,10 +682,8 @@ describe('createTransloaditImage', () => {
   test('renders real per-breakpoint crops with a JPEG fallback for each art direction', () => {
     const { StorageImage } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        ...baseConfiguration.storage,
-        delivery: { authorize: () => true, route: '/images' },
-      },
+      authorize: () => true,
+      route: '/images',
     })
     const document = parseMarkup(
       renderToStaticMarkup(
@@ -716,10 +714,8 @@ describe('createTransloaditImage', () => {
   ])('derives %s constrained sizes without overestimating narrow columns', (loading, sizes) => {
     const { StorageImage } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        ...baseConfiguration.storage,
-        delivery: { authorize: () => true, route: '/images' },
-      },
+      authorize: () => true,
+      route: '/images',
     })
     const document = parseMarkup(
       renderToStaticMarkup(
@@ -759,7 +755,8 @@ describe('createTransloaditImage', () => {
     const delivery = { authorize, public: ['documents/public/'], route: '/images' }
     const { StorageImage, storageRoute } = createTransloaditImage({
       ...baseConfiguration,
-      storage: { allowedPathPrefixes: ['documents/'], delivery },
+      allowedPathPrefixes: ['documents/'],
+      ...delivery,
     })
     delivery.public.push('documents/private/')
     const candidate = (path: string): Request =>
@@ -789,37 +786,36 @@ describe('createTransloaditImage', () => {
     vi.setSystemTime('2029-01-01T12:59:59.000Z')
     expect(
       (await storageRoute(candidate('documents/public/hero.jpg'))).headers.get('cache-control'),
-    ).toBe('public, max-age=0, s-maxage=3541, stale-while-revalidate=60')
+    ).toBe('public, max-age=0, s-maxage=3600, stale-while-revalidate=60')
   })
 
   test('rejects public prefixes outside the signing policy', () => {
     expect(() =>
       createTransloaditImage({
         ...baseConfiguration,
-        storage: {
-          allowedPathPrefixes: ['documents/'],
-          delivery: { route: '/images', authorize: () => true, public: ['documents'] },
-        },
+        allowedPathPrefixes: ['documents/'],
+        route: '/images',
+        authorize: () => true,
+        public: ['documents'],
       }),
-    ).toThrow('storage.delivery.public[0]')
+    ).toThrow('public[0]')
     expect(() =>
       createTransloaditImage({
         ...baseConfiguration,
-        storage: {
-          ...baseConfiguration.storage,
-          delivery: { route: '/images', authorize: () => true, public: ['other/'] },
-        },
+        route: '/images',
+        authorize: () => true,
+        public: ['other/'],
       }),
     ).toThrow(/public.*allowedPathPrefixes/)
   })
 
-  test('accepts old template markup only until an absolute migration deadline and still authorizes', async () => {
+  test('binds explicit custom templates, still authorizes, and revokes on key rotation', async () => {
     const authorize = vi.fn(() => true)
-    const storage = { ...baseConfiguration.storage, delivery: { route: '/images', authorize } }
+    const storage = { ...baseConfiguration, route: '/images', authorize }
     const old = createTransloaditImage({
       ...baseConfiguration,
-      template: 'builtin/storage-preview@0.0.1',
-      storage,
+      template: 'my-custom-preview',
+      ...storage,
     })
     const url = new URL(
       getFirstCandidate(
@@ -834,48 +830,40 @@ describe('createTransloaditImage', () => {
       ),
       'https://app.example',
     )
-    const until = Date.now() + 60_000
     const current = createTransloaditImage({
       ...baseConfiguration,
-      storage,
-      previousTemplatesUntil: until,
+      ...storage,
+      template: 'my-custom-preview',
     })
     const response = await current.storageRoute(new Request(url))
     expect(response.status).toBe(307)
     expect(decodeURIComponent(response.headers.get('location') ?? '')).toContain(
-      'builtin/storage-preview@0.0.1',
+      'my-custom-preview',
     )
     authorize.mockReturnValue(false)
     expect((await current.storageRoute(new Request(url))).status).toBe(404)
     authorize.mockReturnValue(true)
     const revoked = createTransloaditImage({
       ...baseConfiguration,
-      storage,
-      previousTemplatesUntil: until,
-      previousTemplates: [],
+      ...storage,
+      template: 'another-custom-preview',
     })
     expect((await revoked.storageRoute(new Request(url))).status).toBe(404)
     const rotated = createTransloaditImage({
       ...baseConfiguration,
-      storage,
+      ...storage,
       authSecret: 'rotated',
-      previousTemplatesUntil: until,
+      template: 'my-custom-preview',
     })
     expect((await rotated.storageRoute(new Request(url))).status).toBe(404)
-    vi.setSystemTime(until)
-    expect((await current.storageRoute(new Request(url))).status).toBe(404)
+    vi.setSystemTime(Date.now() + 365 * 86_400_000)
+    expect((await current.storageRoute(new Request(url))).status).toBe(307)
     const restarted = createTransloaditImage({
       ...baseConfiguration,
-      storage,
-      previousTemplatesUntil: until,
+      ...storage,
+      template: 'my-custom-preview',
     })
-    expect((await restarted.storageRoute(new Request(url))).status).toBe(404)
-  })
-
-  test('rejects unbounded explicit template migrations', () => {
-    expect(() =>
-      createTransloaditImage({ ...baseConfiguration, previousTemplates: ['old-preview'] }),
-    ).toThrow(/previousTemplatesUntil/)
+    expect((await restarted.storageRoute(new Request(url))).status).toBe(307)
   })
 
   test('the named private factory uses rendering env, redirects and a single lifetime knob', async () => {
@@ -908,7 +896,7 @@ describe('createTransloaditImage', () => {
       expect(location).not.toBeNull()
       if (location === null) throw new Error('Expected CDN location')
       expect(new URL(location).searchParams.get('exp')).toBe(
-        String(Date.parse('2029-01-01T12:20:00Z')),
+        String(Date.parse('2029-01-01T12:10:00Z')),
       )
       expect(connection).not.toHaveBeenCalled()
     } finally {
@@ -918,8 +906,10 @@ describe('createTransloaditImage', () => {
 
   test('rejects a missing prefix policy at factory time for untyped callers', () => {
     expect(() =>
-      Reflect.apply(createTransloaditImage, undefined, [{ ...baseConfiguration, storage: {} }]),
-    ).toThrow('storage.allowedPathPrefixes is required')
+      Reflect.apply(createTransloaditImage, undefined, [
+        { ...baseConfiguration, allowedPathPrefixes: undefined },
+      ]),
+    ).toThrow('images, allowedPathPrefixes or allowWorkspaceRoot: true is required')
   })
 
   test('exports only the named StorageImage component, not the unpublished Image alias', () => {
@@ -940,9 +930,9 @@ describe('createTransloaditImage', () => {
         ),
       )
     const first = await render()
-    vi.setSystemTime('2029-01-01T12:59:59.999Z')
+    vi.setSystemTime('2029-01-01T12:29:59.999Z')
     expect(await render()).toBe(first)
-    vi.setSystemTime('2029-01-01T13:00:00.000Z')
+    vi.setSystemTime('2029-01-01T12:30:00.000Z')
     expect(await render()).not.toBe(first)
   })
 
@@ -950,7 +940,7 @@ describe('createTransloaditImage', () => {
     const { authorize, storageRoute, url } = getStorageRouteCandidate()
     const request = new Request(url, { headers: { Authorization: 'Bearer allowed' } })
     const first = await storageRoute(request)
-    vi.setSystemTime('2029-01-01T12:59:59.999Z')
+    vi.setSystemTime('2029-01-01T12:29:59.999Z')
     expect((await storageRoute(request)).headers.get('location')).toBe(
       first.headers.get('location'),
     )
@@ -963,10 +953,7 @@ describe('createTransloaditImage', () => {
   ])('renders a receipt exactly like its string equivalent with %s delivery', async (delivery) => {
     const { StorageImage: Image } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        ...baseConfiguration.storage,
-        delivery: delivery === 'direct' ? 'direct' : { route: '/images', authorize: () => true },
-      },
+      ...(delivery === 'direct' ? {} : { route: '/images', authorize: () => true }),
     })
     const src = {
       path: 'documents/report.pdf',
@@ -1049,10 +1036,8 @@ describe('createTransloaditImage', () => {
   ])('snapshots %s dimensions before reading other attributes in redirect delivery', async (kind) => {
     const { StorageImage: Image, storageRoute } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        ...baseConfiguration.storage,
-        delivery: { route: '/images', authorize: () => true },
-      },
+      route: '/images',
+      authorize: () => true,
     })
     const source = { path: 'documents/report.pdf', width: 400, height: 300 }
     const props = {
@@ -1212,13 +1197,7 @@ describe('createTransloaditImage', () => {
   ])('preserves native attributes and descriptions in %s delivery', async (delivery) => {
     const { StorageImage: Image } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        ...baseConfiguration.storage,
-        delivery:
-          delivery === 'direct'
-            ? 'direct'
-            : { authorize: () => true, route: '/api/private-images' },
-      },
+      ...(delivery === 'direct' ? {} : { authorize: () => true, route: '/api/private-images' }),
     })
     const document = parseMarkup(
       await renderAsync(
@@ -1256,13 +1235,7 @@ describe('createTransloaditImage', () => {
   ])('rejects non-string alt before rendering in %s delivery', (delivery) => {
     const { StorageImage: Image } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        ...baseConfiguration.storage,
-        delivery:
-          delivery === 'direct'
-            ? 'direct'
-            : { authorize: () => true, route: '/api/private-images' },
-      },
+      ...(delivery === 'direct' ? {} : { authorize: () => true, route: '/api/private-images' }),
     })
     expect(() =>
       Reflect.apply(Image, undefined, [
@@ -1312,15 +1285,15 @@ describe('createTransloaditImage', () => {
     expect(firstSource.searchParams.get('q')).toBe('61')
     expect(firstFallback.searchParams.get('f')).toBe('jpg')
     expect(firstDocument.querySelector('img')?.getAttribute('loading')).toBe('lazy')
-    expect(firstSource.searchParams.get('exp')).toBe(String(Date.parse('2029-01-01T14:00:00Z')))
+    expect(firstSource.searchParams.get('exp')).toBe(String(Date.parse('2029-01-01T13:00:00Z')))
 
-    vi.setSystemTime('2029-01-01T12:59:59.999Z')
+    vi.setSystemTime('2029-01-01T12:29:59.999Z')
     const sameWindow = await render()
     expect(sameWindow.querySelector('source')?.getAttribute('srcset')).toBe(
       firstDocument.querySelector('source')?.getAttribute('srcset'),
     )
 
-    vi.setSystemTime('2029-01-01T13:00:00.000Z')
+    vi.setSystemTime('2029-01-01T12:30:00.000Z')
     const nextWindow = await render()
     expect(nextWindow.querySelector('source')?.getAttribute('srcset')).not.toBe(
       firstDocument.querySelector('source')?.getAttribute('srcset'),
@@ -1330,7 +1303,7 @@ describe('createTransloaditImage', () => {
   test('denies private paths by default and matches explicit directory boundaries', () => {
     const { StorageImage: denyAllImage } = createTransloaditImage({
       ...baseConfiguration,
-      storage: { allowedPathPrefixes: [] },
+      allowedPathPrefixes: [],
     })
     const { StorageImage: Image } = createTransloaditImage(baseConfiguration)
 
@@ -1411,14 +1384,10 @@ describe('createTransloaditImage', () => {
   test('prepends basePath while accepting Next.js stripped handler paths', async () => {
     const { StorageImage: Image, storageRoute } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        allowedPathPrefixes: ['documents/'],
-        delivery: {
-          authorize: () => true,
-          basePath: '/app',
-          route: '/api/private-images',
-        },
-      },
+      allowedPathPrefixes: ['documents/'],
+      authorize: () => true,
+      basePath: '/app',
+      route: '/api/private-images',
     })
     const markup = renderToStaticMarkup(
       <Image alt="Base path" height={300} src="documents/report.pdf" width={400} />,
@@ -1447,10 +1416,9 @@ describe('createTransloaditImage', () => {
     })
     const { StorageImage: Image, storageRoute } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        allowedPathPrefixes: ['documents/'],
-        delivery: { authorize: malformedAuthorize, route: '/api/private-images' },
-      },
+      allowedPathPrefixes: ['documents/'],
+      authorize: malformedAuthorize,
+      route: '/api/private-images',
     })
     const markup = renderToStaticMarkup(
       <Image alt="Strict ACL" height={300} src="documents/report.pdf" width={400} />,
@@ -1480,16 +1448,15 @@ describe('createTransloaditImage', () => {
     expect(target.template).toBe('builtin/storage-preview@0.0.2')
     expect(target.input).toBe('documents/report.pdf')
     expect(target.urlParams).toMatchObject({ f: 'avif', h: '240', q: '45', r: 'pad', w: '320' })
-    expect(target.auth?.expiresAt).toBe(Date.parse('2029-01-01T14:00:00Z'))
+    expect(target.auth?.expiresAt).toBe(Date.parse('2029-01-01T13:00:00Z'))
   })
 
   test('keeps cached capabilities valid while rotating only their redirect targets', async () => {
     const { StorageImage: Image, storageRoute } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        allowedPathPrefixes: ['documents/'],
-        delivery: { authorize: () => true, route: '/api/private-images' },
-      },
+      allowedPathPrefixes: ['documents/'],
+      authorize: () => true,
+      route: '/api/private-images',
     })
     const render = (): URL => {
       const markup = renderToStaticMarkup(
@@ -1516,12 +1483,11 @@ describe('createTransloaditImage', () => {
     const authorize = vi.fn(() => true)
     const { StorageImage: Image, storageRoute } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        allowedPathPrefixes: ['documents/'],
-        delivery: { authorize, route: '/api/private-images' },
-        expiresInMs: 5 * 60 * 1000,
-        rotationIntervalMs: 30 * 1000,
-      },
+      allowedPathPrefixes: ['documents/'],
+      authorize,
+      route: '/api/private-images',
+      lifetime: 5 * 60 * 1000,
+      rotationIntervalMs: 30 * 1000,
     })
     const document = parseMarkup(
       renderToStaticMarkup(
@@ -1533,7 +1499,7 @@ describe('createTransloaditImage', () => {
     const firstLocation = firstResponse.headers.get('location')
     if (firstLocation === null) throw new Error('Expected the first authorized target')
     const originalExpiry = Number(new URL(firstLocation).searchParams.get('exp'))
-    expect(originalExpiry).toBe(Date.parse('2029-01-01T12:07:30Z'))
+    expect(originalExpiry).toBe(Date.parse('2029-01-01T12:07:00Z'))
 
     vi.setSystemTime(originalExpiry + 1)
     const renewed = await storageRoute(new Request(originalCapability))
@@ -1542,7 +1508,7 @@ describe('createTransloaditImage', () => {
     expect(renewed.status).toBe(307)
     expect(renewedLocation).not.toBe(firstLocation)
     expect(Number(new URL(renewedLocation).searchParams.get('exp'))).toBe(
-      Date.parse('2029-01-01T12:13:00Z'),
+      Date.parse('2029-01-01T12:12:00Z'),
     )
     expect(renewed.headers.get('cache-control')).toBe('private, no-store')
     expect(await renewed.text()).toBe('')
@@ -1575,10 +1541,10 @@ describe('createTransloaditImage', () => {
       createTransloaditImage({
         ...baseConfiguration,
         authSecret: candidateSecret,
-        storage: {
-          allowedPathPrefixes: ['documents/'],
-          delivery: { authorize, basePath, route },
-        },
+        allowedPathPrefixes: ['documents/'],
+        authorize,
+        basePath,
+        route,
         template: storageTemplate,
         workspace,
       }).storageRoute
@@ -1711,10 +1677,9 @@ describe('createTransloaditImage', () => {
   test('rejects direct-only suspense props in static redirect mode', () => {
     const { StorageImage: Image } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {
-        allowedPathPrefixes: ['documents/'],
-        delivery: { authorize: () => true, route: '/api/private-images' },
-      },
+      allowedPathPrefixes: ['documents/'],
+      authorize: () => true,
+      route: '/api/private-images',
     })
 
     expect(() =>
@@ -1758,46 +1723,38 @@ describe('createTransloaditImage', () => {
     expect(() =>
       createTransloaditImage({
         ...baseConfiguration,
-        storage: {
-          allowedPathPrefixes: ['documents/'],
-          expiresInMs: 48 * 60 * 60 * 1000,
-          rotationIntervalMs: 5 * 60 * 1000,
-        },
+        allowedPathPrefixes: ['documents/'],
+        lifetime: 48 * 60 * 60 * 1000 + 1,
+        rotationIntervalMs: 5 * 60 * 1000,
       }),
     ).toThrow('must not exceed 48 hours')
     expect(() =>
       createTransloaditImage({
         ...baseConfiguration,
-        storage: {
-          allowedPathPrefixes: ['documents/'],
-          delivery: { authorize: () => true, route: 'api/private-images' },
-        },
+        allowedPathPrefixes: ['documents/'],
+        authorize: () => true,
+        route: 'api/private-images',
       }),
-    ).toThrow('storage.delivery.route must be one absolute application path')
+    ).toThrow('route must be one absolute application path')
     expect(() =>
       createTransloaditImage({
         ...baseConfiguration,
-        storage: {
-          allowedPathPrefixes: ['documents/'],
-          delivery: {
-            authorize: () => true,
-            basePath: '/app/',
-            route: '/api/private-images',
-          },
-        },
+        allowedPathPrefixes: ['documents/'],
+        authorize: () => true,
+        basePath: '/app/',
+        route: '/api/private-images',
       }),
-    ).toThrow('storage.delivery.basePath must be one absolute path without a trailing slash')
+    ).toThrow('basePath must be one absolute path without a trailing slash')
     expect(() =>
       Reflect.apply(createTransloaditImage, undefined, [
         {
           ...baseConfiguration,
-          storage: {
-            allowedPathPrefixes: ['documents/'],
-            delivery: { authorize: 'yes', route: '/api/private-images' },
-          },
+          allowedPathPrefixes: ['documents/'],
+          authorize: 'yes',
+          route: '/api/private-images',
         },
       ]),
-    ).toThrow('storage.delivery.authorize must be a function')
+    ).toThrow('authorize must be a function')
   })
 
   test('keeps template selection in trusted factory configuration', async () => {
