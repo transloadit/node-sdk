@@ -149,10 +149,15 @@ interface TransloaditStorageImageRequestProps {
 
 function StorageImagePlaceholder({ props }: TransloaditStorageImageRequestProps): ReactNode {
   const attributes = snapshotImageAttributes(props)
+  // Streaming briefly keeps both elements in the DOM; identity and accessibility belong to the
+  // resolved image, not to the decorative shell that React will remove.
+  const placeholderAttributes = Object.fromEntries(
+    Object.entries(attributes).filter(([name]) => name !== 'id' && !name.startsWith('aria-')),
+  )
   return (
     <picture>
       <img
-        {...attributes}
+        {...placeholderAttributes}
         alt=""
         aria-hidden="true"
         inert
@@ -338,7 +343,6 @@ function snapshotStorageImageProps(
   return {
     ...snapshotImageAttributes(props),
     ...snapshotImageLoading(props),
-    alt: props.alt,
     deferUntilHydrated: props.deferUntilHydrated,
     fallbackQuality: props.fallbackQuality,
     formats: props.formats === undefined ? undefined : { ...props.formats },

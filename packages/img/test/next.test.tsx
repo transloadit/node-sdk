@@ -40,6 +40,7 @@ const model: TransloaditImageModel = {
 
 function renderPicture(
   overrides: Partial<{
+    alt: unknown
     deferUntilHydrated: boolean
     loading: 'eager' | 'lazy'
     media: string
@@ -74,6 +75,18 @@ afterEach(() => {
 })
 
 describe('TransloaditPicture', () => {
+  test.each([
+    { description: 'A canal house' },
+    undefined,
+    123,
+  ])('rejects a non-string alt from JavaScript: %j', (alt) => {
+    expect(() => renderPicture({ alt })).toThrow('Image alt must be a string')
+  })
+
+  test.each(['A canal house', ''])('preserves the supplied alt text: %j', (alt) => {
+    expect(renderPicture({ alt }).querySelector('img')?.getAttribute('alt')).toBe(alt)
+  })
+
   test('retains asynchronous decoding when a wrapper forwards undefined', () => {
     const markup = renderToStaticMarkup(
       <TransloaditPicture

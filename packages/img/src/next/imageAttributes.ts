@@ -88,7 +88,9 @@ const nativeAttributes: Record<
 }
 
 /** Snapshots only native, serializable attributes before suspension or rendering. */
-export function snapshotImageAttributes(props: ImageAttributes): ImageAttributes {
+export function snapshotImageAttributes(props: ImageAttributes): ImageAttributes & { alt: string } {
+  const alt = props.alt
+  if (typeof alt !== 'string') throw new TypeError('Image alt must be a string')
   const style = props.style
   if (style != null && (typeof style !== 'object' || Array.isArray(style))) {
     throw new TypeError('Image style must be an object')
@@ -104,7 +106,7 @@ export function snapshotImageAttributes(props: ImageAttributes): ImageAttributes
           typeof value === 'boolean'),
     ),
   )
-  return { ...attributes, style: style == null ? undefined : { ...style } }
+  return { ...attributes, alt, style: style == null ? undefined : { ...style } }
 }
 
 /** A preload is eager; explicitly lazy images must not issue preload requests. */

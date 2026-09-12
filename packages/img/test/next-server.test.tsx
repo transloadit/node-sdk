@@ -96,6 +96,8 @@ describe('createTransloaditImage', () => {
       <main>
         <Image
           alt="Hero"
+          aria-describedby="hero-caption"
+          aria-labelledby="hero hero-caption"
           className="hero"
           height={1600}
           id="hero"
@@ -110,7 +112,7 @@ describe('createTransloaditImage', () => {
     )
     const reader = stream.getReader()
     const shell = new TextDecoder().decode((await reader.read()).value)
-    const placeholder = parseMarkup(shell).getElementById('hero')
+    const placeholder = parseMarkup(shell).querySelector('img')
     // Always resolve the request so a failed assertion cannot leak a suspended stream.
     resolveConnection(undefined)
     await stream.allReady
@@ -122,6 +124,12 @@ describe('createTransloaditImage', () => {
     }
     const image = parseMarkup(remaining).getElementById('hero')
 
+    expect(placeholder?.hasAttribute('id')).toBe(false)
+    expect(placeholder?.hasAttribute('aria-describedby')).toBe(false)
+    expect(placeholder?.hasAttribute('aria-labelledby')).toBe(false)
+    expect(image?.getAttribute('id')).toBe('hero')
+    expect(image?.getAttribute('aria-describedby')).toBe('hero-caption')
+    expect(image?.getAttribute('aria-labelledby')).toBe('hero hero-caption')
     expect(placeholder?.getAttribute('width')).toBe('2400')
     expect(placeholder?.getAttribute('height')).toBe('1600')
     expect(placeholder?.getAttribute('class')).toBe('hero')
@@ -238,6 +246,27 @@ describe('createTransloaditImage', () => {
     expect(image?.getAttribute('role')).toBe('img')
     expect(image?.getAttribute('data-document')).toBe('report')
     expect(image?.getAttribute('sizes')).toBe('auto')
+  })
+
+  test.each([
+    'direct',
+    'redirect',
+  ])('rejects non-string alt before rendering in %s delivery', (delivery) => {
+    const { Image } = createTransloaditImage({
+      ...baseConfiguration,
+      storage: {
+        ...baseConfiguration.storage,
+        delivery:
+          delivery === 'direct'
+            ? 'direct'
+            : { authorize: () => true, route: '/api/private-images' },
+      },
+    })
+    expect(() =>
+      Reflect.apply(Image, undefined, [
+        { alt: { text: 'Report' }, height: 600, src: 'documents/report.pdf', width: 800 },
+      ]),
+    ).toThrow('Image alt must be a string')
   })
 
   test('rejects coercible Storage sources before signing', () => {

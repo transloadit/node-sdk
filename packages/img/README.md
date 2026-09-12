@@ -287,7 +287,8 @@ rendering. The component calls Next.js `connection()` before creating short-live
 built-in Suspense boundary lets a Cache Components page prerender a shell, but the signed image
 itself is request-rendered and must not be stored in a shared full-page cache.
 By default the shell reserves the image's dimensions and layout styles with an inert, invisible
-image that has no source and makes no request. `suspenseFallback` explicitly replaces that shell
+image that has no source and makes no request. IDs and ARIA relationships belong only to the
+resolved image, not its decorative shell. `suspenseFallback` explicitly replaces that shell
 (including `null` to omit it); custom fallbacks must reserve their own space.
 
 The browser requests the selected candidate directly from Smart CDN. Lazy loading remains the
