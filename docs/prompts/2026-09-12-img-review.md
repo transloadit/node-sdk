@@ -1,5 +1,35 @@
 # Storage image onboarding review
 
+## Final round-3 council
+
+Source: `/tmp/img-pr500-r3-council.md`, against #500 head `0ce8c14`. Five bounded fixes remain
+in this PR, red-first, followed by sequential checks/fixture and green CI. The supplied council
+is the review input; no new delegates, merge or publication. Kevin reviews the result next.
+
+- [x] CLI receipt-validation failures name the destination/Assembly ID and warn about conflicts.
+- [x] Receipts-file failures preserve filesystem reasons and name the path, separately from JSON errors.
+- [x] Fixed-layout string sources explain that a receipt is required before geometry is dropped.
+- [x] Subpixel source crops explain the source/aspect-ratio constraint before candidate signing.
+- [x] Remove the obsolete import-extension prerequisite from the maintainer walkthrough.
+- [x] Sequential affected checks, root/full verification and packed fixture.
+- [ ] Push and green CI; record the post-push outcome in the PR body and handover.
+
+Twelve assertions failed first across all five findings; all 165 focused cases now pass. The
+malformed-receipt case calls the real storeImage validation through the CLI and checks receipt/lock
+preservation. Permission denial is injected portably, and symlink/directory/JSON failures use real
+temporary files. Ordinary upload errors keep their original output. Fixed-layout checks still
+snapshot src once; the one-pixel crop boundary remains valid, while subpixel crops fail before
+signing with both default and explicit candidate widths. Public img types pass. Logs:
+`/tmp/img-r3-council-{red,green,img-types}.log`. No schema or Template contract changed.
+
+Final sequential checks passed: Node 328 cases (one existing skip), generated legacy parity,
+img 178 cases plus public types, root `yarn check`, `yarn verify:full`, then the packed fixture.
+All eight seed cases and 48 Chromium/WebKit cases passed (24 per Cache Components configuration,
+55.9s/53.3s), with no retries/skips/flakes and a native-response audit in each case. Logs:
+`/tmp/img-r3-council-{node-check,legacy,img-check,check,verify,fixture}.log`. The Node check's
+unrelated generated intent-document drift was removed byte-for-byte before wrapper verification.
+After the push/CI gate, the supplied final council has no remaining items and Kevin reviews next.
+
 ## Server-side round-3 follow-up
 
 Source: `/tmp/img-server-side-round3.md`, API2 #9057 head
@@ -14,7 +44,7 @@ at `a760ae8` (CI34700979700). This follow-up stays in #500, without merge/public
 - [x] Verify transparent/opaque pixels in the packed browser fixture.
 - [x] Attempt the owned API2 canary; record the guest DNS blocker without a false server pass.
 - [x] Sequential checks, generated packages and final packed fixture.
-- [ ] Push and green CI (record the post-push result in the PR body and handover).
+- [x] Push and green CI (head `0ce8c14`, CI34703027822; evidence in the PR body and handover).
 
 Thirteen focused regressions failed first; all 145 focused runtime cases then passed. The
 canonical schema removes the recursive schema violation. Its existing no-storage advisory for

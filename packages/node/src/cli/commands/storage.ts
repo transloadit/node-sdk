@@ -5,6 +5,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { Command, Option } from 'clipanion'
 import { z } from 'zod'
 
+import InconsistentResponseError from '../../InconsistentResponseError.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
 
@@ -20,9 +21,13 @@ async function readReceipts(file: string): Promise<Record<string, unknown>> {
     return receiptsSchema.parse(JSON.parse(await readFile(file, 'utf8')))
   } catch (error) {
     if (isErrnoException(error) && error.code === 'ENOENT') return {}
-    throw new Error('Cannot read receipts: expected a JSON object keyed by Storage path', {
-      cause: error,
-    })
+    const reason =
+      error instanceof SyntaxError
+        ? 'invalid JSON'
+        : error instanceof z.ZodError
+          ? 'expected a JSON object keyed by Storage path'
+          : ensureError(error).message
+    throw new Error(`Cannot read receipts ${JSON.stringify(file)}: ${reason}`, { cause: error })
   }
 }
 
@@ -95,7 +100,23 @@ export class StorageStoreCommand extends AuthenticatedCommand {
       }
       return undefined
     } catch (error) {
-      this.output.error(ensureError(error).message)
+      const failure = ensureError(error)
+      const recovery =
+        failure instanceof InconsistentResponseError
+          ? z.object({ assemblyId: z.string().min(1) }).safeParse(failure.cause)
+          : undefined
+      if (recovery?.success) {
+        this.output.error(
+          [
+            failure.message,
+            `Destination: ${JSON.stringify(this.destination)}`,
+            `Assembly ID: ${JSON.stringify(recovery.data.assemblyId)}`,
+            "The object may already exist. A retry with conflict_strategy: 'error' will conflict if the destination is occupied. Inspect it before retrying.",
+          ].join('\n'),
+        )
+        return 1
+      }
+      this.output.error(failure.message)
       return 1
     }
   }

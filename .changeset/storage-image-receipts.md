@@ -13,3 +13,5 @@ upload progress, cancellation and errors; receipt validation after a write is no
 Add `transloadit storage store <file> <path> --receipts images.json` using the CLI's existing
 Assembly credentials. Atomically append keyed receipts, preserve previous data on failures and
 reject concurrent writers, then print a ready-to-render StorageImage snippet.
+When receipt validation fails after writing, print the destination and Assembly ID for recovery.
+Keep receipts-file filesystem errors distinct from JSON validation failures, with the file path.

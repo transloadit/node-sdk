@@ -165,6 +165,11 @@ export function createTransloaditImageModel(
     cropAspectRatio === undefined ? width : Math.floor(height * cropAspectRatio),
     requestedMaximumWidth ?? width,
   )
+  if (maximumWidth < 1) {
+    throw new RangeError(
+      'source dimensions and cropAspectRatio must allow a crop at least one pixel wide',
+    )
+  }
   const widths = resolveSmartCdnImageWidths(
     getResponsiveImageWidths(widthsSnapshot, maximumWidth),
     maximumWidth,

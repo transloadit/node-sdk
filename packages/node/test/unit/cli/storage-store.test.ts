@@ -1,4 +1,5 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -7,6 +8,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:fs/promises')>()
+  return { ...original, readFile: vi.fn(original.readFile) }
+})
 
 const originalCwd = process.cwd()
 const stdoutErrorListeners = process.stdout.listeners('error')
@@ -56,6 +62,73 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('prints recovery details for a malformed receipt after the write and preserves saved receipts', async () => {
+    const bytes = Buffer.from('image')
+    await writeFile('hero.jpg', bytes)
+    const previous = JSON.stringify({ 'website/earlier.jpg': receipt })
+    await writeFile('images.json', previous)
+    const assemblyId = 'assembly-missing-metadata'
+    const create = vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
+      assembly_id: assemblyId,
+      ok: 'ASSEMBLY_COMPLETED',
+      results: {
+        ':original': [
+          {
+            ...receipt,
+            md5hash: createHash('md5').update(bytes).digest('hex'),
+            size: bytes.length,
+          },
+        ],
+      },
+    })
+    await runStore()
+    expect(create).toHaveBeenCalledOnce()
+    expect(process.exitCode).toBe(1)
+    const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+    expect(message).toContain(receipt.path)
+    expect(message).toContain(assemblyId)
+    expect(message).toContain('may already exist')
+    expect(message).toMatch(/retry.*conflict_strategy.*error.*conflict/)
+    expect(message).not.toContain('assembly-secret')
+    expect(await readFile('images.json', 'utf8')).toBe(previous)
+    expect(await readdir(directory)).toEqual(['credentials', 'hero.jpg', 'images.json'])
+  })
+
+  test('keeps a receipts-file permission error and names the file before uploading', async () => {
+    const previous = JSON.stringify({ [receipt.path]: receipt })
+    await writeFile('images.json', previous)
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    // Inject the OS error so this also exercises EACCES when the test process runs as root.
+    vi.mocked(readFile).mockRejectedValueOnce(
+      Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }),
+    )
+    await runStore()
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+    expect(message).toContain(join(directory, 'images.json'))
+    expect(message).toContain('EACCES: permission denied')
+    expect(await readFile('images.json', 'utf8')).toBe(previous)
+    expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
+  })
+
+  test.each([
+    'symlink',
+    'directory',
+  ])('names a receipts %s without calling it invalid JSON', async (kind) => {
+    if (kind === 'symlink') await symlink('credentials', 'images.json')
+    else await mkdir('images.json')
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+    expect(message).toContain(join(directory, 'images.json'))
+    expect(message).toContain('regular JSON file')
+    expect(message).toContain(kind)
+    expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
+  })
+
   test('preserves every existing path, including ordinary JSON prototype-looking keys', async () => {
     const earlier = { ...receipt, path: '__proto__' }
     await writeFile('images.json', JSON.stringify({ [earlier.path]: earlier }))
@@ -104,6 +177,7 @@ describe('storage store', () => {
     await runStore()
     expect(store).toHaveBeenCalledOnce()
     expect(process.exitCode).toBe(1)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledExactlyOnceWith('Offline')
     expect(await readdir(directory)).toEqual(['credentials'])
   })
 
@@ -119,7 +193,11 @@ describe('storage store', () => {
     expect(process.exitCode).toBe(1)
     expect(store).not.toHaveBeenCalled()
     expect(await readFile('images.json', 'utf8')).toBe(previous)
-    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('receipts'))
+    const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+    expect(message).toContain(join(directory, 'images.json'))
+    expect(message).toContain(
+      previous === '' || previous === '{' ? 'invalid JSON' : 'expected a JSON object',
+    )
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   })
 

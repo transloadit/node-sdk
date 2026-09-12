@@ -79,7 +79,13 @@ export function resolveImageLayout(
   props: StorageImageLayoutProps & { widths?: readonly number[] },
 ): ResolvedImageLayout {
   const layout = props.layout
-  const source = snapshotImageSource(layout === 'fixed' ? { src: props.src } : props)
+  const sourceProps = layout === 'fixed' ? { src: props.src } : props
+  if (layout === 'fixed' && typeof sourceProps.src === 'string') {
+    throw new TypeError(
+      'fixed layout requires a receipt source with intrinsic dimensions; width and height describe the display box',
+    )
+  }
+  const source = snapshotImageSource(sourceProps)
   const widths = Array.isArray(props.widths) ? [...props.widths] : props.widths
   const base = { source, width: source.width, height: source.height, widths }
   if (layout === undefined) return base

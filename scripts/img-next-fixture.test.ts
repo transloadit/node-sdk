@@ -26,6 +26,7 @@ async function readManifest(path: string): Promise<PackageManifest> {
 test('keeps seed credentials outside Next and defines the factory before its first render', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   const dogfood = await readFile(resolve(import.meta.dirname, '../docs/img-dogfood.md'), 'utf8')
+  expect.soft(dogfood).not.toContain('allowImportingTsExtensions')
   expect.soft(/^\s*node --env-file=(\S+) seed\.ts /m.exec(dogfood)?.[1]).toBe('.env.seed.local')
   const factory = readme.indexOf('export const { StorageImage')
   const firstRender = readme.indexOf("import { StorageImage } from '../lib/storageImage'")

@@ -289,6 +289,21 @@ describe('createTransloaditImageFromEnv', () => {
     expect(document.querySelector('img')?.style.maxWidth).toBe('1200px')
   })
 
+  test('explains that fixed layout needs receipt geometry rather than a string source', () => {
+    const { StorageImage } = createTransloaditImage(baseConfiguration)
+    expect(() =>
+      // @ts-expect-error JavaScript callers can pass a string where fixed layout requires a receipt.
+      StorageImage({
+        alt: 'Avatar',
+        src: 'documents/avatar.jpg',
+        layout: 'fixed',
+        width: 48,
+        height: 48,
+      }),
+    ).toThrow('fixed layout requires a receipt source')
+    expect(connection).not.toHaveBeenCalled()
+  })
+
   test.each([
     { layout: 'fixed', width: 0, height: 48 },
     { layout: 'constrained', maxWidth: Number.NaN },

@@ -22,6 +22,43 @@ function collectSignedRequests(): {
 
 describe('createTransloaditImageModel', () => {
   test.each([
+    { widths: undefined },
+    { widths: [1, 100] },
+  ])('explains a subpixel source crop before signing (widths $widths)', ({ widths }) => {
+    const { requests, sign } = collectSignedRequests()
+    expect(() =>
+      createTransloaditImageModel(
+        {
+          expiresAt,
+          src: { path: 'website/banner.jpg', width: 1000, height: 10 },
+          cropAspectRatio: 0.01,
+          widths,
+        },
+        sign,
+      ),
+    ).toThrow(/source dimensions.*cropAspectRatio.*one pixel/)
+    expect(requests).toEqual([])
+  })
+
+  test('accepts the one-pixel source crop boundary without upscaling', () => {
+    const { requests, sign } = collectSignedRequests()
+    createTransloaditImageModel(
+      {
+        expiresAt,
+        src: { path: 'website/banner.jpg', width: 1000, height: 10 },
+        cropAspectRatio: 0.1,
+        widths: [1, 100],
+      },
+      sign,
+    )
+    expect(requests.map(({ urlParams }) => [urlParams.w, urlParams.h])).toEqual([
+      [1, 10],
+      [1, 10],
+      [1, 10],
+    ])
+  })
+
+  test.each([
     undefined,
     '#224466',
     '#AABBCCFF',

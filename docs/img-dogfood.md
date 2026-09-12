@@ -25,9 +25,6 @@ field needed by alpha-preserving candidates and the opaque JPEG fallback.
 
 The server entry point needs the **Node.js runtime**, not Edge: it uses `node:crypto` and `Buffer`.
 The examples use root `app/` and `lib/` directories; adjust their relative imports for `src/app/`.
-For the shown `.ts`/`.tsx` imports, enable `allowImportingTsExtensions` and `noEmit` in your app's
-`tsconfig.json`; enable `resolveJsonModule` for the saved receipt. See the
-[TypeScript import-extension reference](https://www.typescriptlang.org/tsconfig/allowImportingTsExtensions.html).
 Keep your app's Node/React type dependencies; with TypeScript 6, include `node` in
 `compilerOptions.types` when checking the seed outside Next's generated environment declarations.
 
