@@ -104,7 +104,7 @@ const configuredRedirect = createTransloaditImage({
   authKey: 'key',
   authSecret: 'secret',
   workspace: 'app',
-  storage: { delivery: { route: '/images', authorize: () => true } },
+  storage: { allowedPathPrefixes: [], delivery: { route: '/images', authorize: () => true } },
 })
 const configuredRedirectFallback = (
   // @ts-expect-error Factory overloads retain the redirect-specific component contract.
@@ -113,6 +113,10 @@ const configuredRedirectFallback = (
 const envDirect = createTransloaditImageFromEnv({
   storage: { allowedPathPrefixes: ['documents/'] },
 })
+// @ts-expect-error Callers must explicitly choose the allowed prefixes, including deny-all [].
+createTransloaditImageFromEnv({ storage: {} })
+const namedStorageImage = <envDirect.StorageImage alt="Receipt" src={receipt} loading="lazy" />
+void namedStorageImage
 const envRedirect = createTransloaditImageFromEnv({
   storage: {
     allowedPathPrefixes: ['documents/'],

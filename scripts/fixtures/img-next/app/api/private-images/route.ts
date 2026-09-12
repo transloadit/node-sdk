@@ -1,1 +1,1 @@
-export { storageRoute as GET } from '../../TransloaditRedirectImage.tsx'
+export { storageRoute as GET } from '../../TransloaditRedirectImage'

@@ -16,12 +16,18 @@ async function readManifest(path: string): Promise<PackageManifest> {
 
 test('keeps seed credentials outside Next and defines the factory before its first render', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
-  expect.soft(/^node --env-file=(\S+) seed\.ts /m.exec(readme)?.[1]).toBe('.env.seed.local')
-  const factory = readme.indexOf('export const { Image } = ')
-  const firstRender = readme.indexOf("import { Image } from '../lib/transloaditImage.tsx'")
+  const dogfood = await readFile(resolve(import.meta.dirname, '../docs/img-dogfood.md'), 'utf8')
+  expect.soft(/^\s*node --env-file=(\S+) seed\.ts /m.exec(dogfood)?.[1]).toBe('.env.seed.local')
+  const factory = readme.indexOf('export const { StorageImage } = ')
+  const firstRender = readme.indexOf("import { StorageImage } from '../lib/storageImage'")
   expect(factory).toBeGreaterThan(0)
   expect.soft(firstRender).toBeGreaterThan(factory)
-  expect.soft(readme.slice(factory, firstRender)).toMatch(/build time \(`next build`\).*runtime/s)
+  expect.soft(readme).toMatch(/`next build`.*runtime/s)
+  expect
+    .soft(readme)
+    .not.toMatch(
+      /allowImportingTsExtensions|gh pr checkout|from ['"][^'"]+\.tsx?['"]|type:.*module/,
+    )
 })
 
 test('locks every external runtime dependency of the packed image package', async () => {

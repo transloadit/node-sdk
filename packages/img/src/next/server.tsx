@@ -52,14 +52,16 @@ export interface TransloaditStorageRedirectDelivery {
   authorize: AuthorizeTransloaditStorageImage
   /** Next.js `basePath` prepended only to browser-facing route URLs. */
   basePath?: string
+  /** Opt-in browser caching; capped at the rotation interval. Delays reauthorization. */
+  cacheMaxAgeMs?: number
   /** Internal App Router path that exports `storageRoute`, for example `/api/private-images`. */
   route: string
 }
 
 /** Bounded request-time policy for private Storage previews. */
 export interface TransloaditStorageImageConfiguration {
-  /** Authorized directory prefixes. Defaults to deny-all; an empty prefix explicitly allows all. */
-  allowedPathPrefixes?: readonly string[]
+  /** Authorized directory prefixes. An empty array denies all; an empty prefix allows all. */
+  allowedPathPrefixes: readonly string[]
   /** Direct signed CDN URLs are the default; an object opts into authorized redirect delivery. */
   delivery?: 'direct' | TransloaditStorageRedirectDelivery
   /** Minimum lifetime of each CDN signature. Defaults to one hour. */
@@ -126,11 +128,15 @@ export type TransloaditStorageRoute = (request: Request) => Promise<Response>
 
 /** Direct-delivery integration. Image bytes and requests bypass the Next.js server. */
 export interface TransloaditImageIntegration {
+  StorageImage: TransloaditImageComponent
+  /** @deprecated Use StorageImage to distinguish this component from next/image. */
   Image: TransloaditImageComponent
 }
 
 /** Redirect-delivery integration with a route handler for private Storage images. */
 export interface TransloaditRedirectImageIntegration {
+  StorageImage: (props: TransloaditRedirectImageProps) => ReactNode
+  /** @deprecated Use StorageImage to distinguish this component from next/image. */
   Image: (props: TransloaditRedirectImageProps) => ReactNode
   storageRoute: TransloaditStorageRoute
 }
@@ -312,6 +318,9 @@ function getStoragePolicy(
     }
     validateStorageRoute(delivery.route)
     validateStorageBasePath(delivery.basePath)
+    if (delivery.cacheMaxAgeMs !== undefined) {
+      validateDuration(delivery.cacheMaxAgeMs, 'storage.delivery.cacheMaxAgeMs')
+    }
     if (typeof delivery.authorize !== 'function') {
       throw new TypeError('storage.delivery.authorize must be a function')
     }
@@ -324,6 +333,7 @@ function getStoragePolicy(
         : {
             authorize: delivery.authorize,
             basePath: delivery.basePath,
+            cacheMaxAgeMs: delivery.cacheMaxAgeMs,
             route: delivery.route,
           },
     expiresInMs,
@@ -539,8 +549,13 @@ function createStorageRoute(
     }
     if ((await delivery.authorize({ path: transform.path, request })) !== true) return notFound()
 
+    const now = Date.now()
+    const expiresAt = getStorageExpiresAt(now, policy)
+    const cacheSeconds = Math.floor(
+      Math.min(delivery.cacheMaxAgeMs ?? 0, policy.rotationIntervalMs, expiresAt - now) / 1000,
+    )
     const location = sign({
-      expiresAt: getStorageExpiresAt(Date.now(), policy),
+      expiresAt,
       input: transform.path,
       template,
       urlParams: {
@@ -553,7 +568,8 @@ function createStorageRoute(
     })
     return new Response(null, {
       headers: {
-        'Cache-Control': 'private, no-store',
+        'Cache-Control':
+          cacheSeconds > 0 ? `private, max-age=${cacheSeconds}` : 'private, no-store',
         Location: location,
         'Referrer-Policy': 'no-referrer',
       },
@@ -639,7 +655,7 @@ export function createTransloaditImage(
     return renderPicture(props, model)
   }
 
-  function Image(props: TransloaditImageProps): ReactNode {
+  function StorageImage(props: TransloaditImageProps): ReactNode {
     const source = snapshotImageSource(props)
     if (props.media !== undefined) {
       throw new TypeError('Storage image previews do not support media conditions')
@@ -684,7 +700,7 @@ export function createTransloaditImage(
     return renderPicture(storageProps, model)
   }
 
-  const integration: TransloaditImageIntegration = { Image }
+  const integration: TransloaditImageIntegration = { StorageImage, Image: StorageImage }
   if (storageCapability === undefined) return integration
   return {
     ...integration,

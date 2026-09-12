@@ -1,5 +1,48 @@
 # Storage image onboarding review
 
+## Round 3
+
+Kevin's `/tmp/img-task2-round3-brief.md` requests all work in #500, red-first, without merging
+or publishing. Council remains orchestrator-owned. Checks, builds and packs run sequentially.
+
+- [x] Safe seed receipt replacement; bounded JPEG fallback; required prefix configuration.
+- [x] StorageImage factory export and ordinary Next.js consumer imports/install instructions.
+- [x] Accurate lazy-loading wording, opt-in bounded private redirect caching and HTML benchmark.
+- [ ] A: CLI `storage store` with atomic keyed receipts and existing credential resolution.
+- [ ] B: Constrained/fixed/fill layout derivation, signed fillcrop, native browser proofs.
+- [ ] C: Development-only, deduplicated diagnostics and optional image error fallback.
+- [ ] D: User-upload ingest, notification and receipt persistence documentation.
+- [ ] E: Authorized redirects first; direct delivery cost/lifetime optimization explained.
+- [ ] Sequential affected package checks, root check, full verification and packed browser fixture.
+- [ ] Push, monitor #500, record evidence and remaining release gates.
+
+API2's import schema must stay byte-identical; server-side platform changes remain with Kevin.
+
+Part1: nine runtime failures and an unused type-error expectation reproduced first; all 136 img
+tests/types now pass. The documented seed command separately reproduced receipt truncation, then
+preserved the file. Sequential root check/full verification and the packed fixture pass, including
+eight seed tests and 36 Chromium/WebKit cases (both production Cache Components configurations).
+The fixture app no longer needs explicit module type or TypeScript import extensions; only its
+internal Node tooling uses a separate TS config. Consumer imports have a scoped lint exception.
+Logs: `/tmp/img-round3-part1-{check,package,verify,fixture}.log` and
+`/tmp/img-round3-{receipt-red,receipt-green,part1-red,part1-types-red}.log`.
+
+Measured full HTML (Cache Components omitted, bytes, including Next/RSC overhead):
+
+| Images | Delivery | Raw | Gzip | Brotli | App redirect requests |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 1 | Direct | 10,835 | 2,600 | 2,173 | 0 |
+| 1 | Redirect | 9,492 | 2,774 | 2,356 | 1 |
+| 20 | Direct | 93,045 | 13,499 | 7,163 | 0 |
+| 20 | Redirect | 63,181 | 24,340 | 14,891 | 20 |
+| 100 | Direct | 442,038 | 54,608 | 25,393 | 0 |
+| 100 | Redirect | 286,475 | 128,458 | 65,028 | 100 |
+
+This 400×300 fixture has five URLs per image (two widths × AVIF/WebP plus JPEG), not 21.
+Twenty-one ~250-character candidates would alone cost ~5KB raw, but that illustrative estimate
+is not the measured page. Compression favors repeated direct URL structure over encrypted
+capabilities; fewer raw bytes does not mean fewer wire bytes. Local times are not CDN benchmarks.
+
 ## Final round-2 council
 
 The orchestrator supplied `/tmp/img-pr500-final-council.md` against `0f214f8`.

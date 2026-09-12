@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { BrowserImage } from './BrowserImage.tsx'
+import { BrowserImage } from './BrowserImage'
 
 export default function Page(): ReactNode {
   return (

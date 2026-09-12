@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { TransloaditImage } from '../TransloaditImage.tsx'
+import { TransloaditImage } from '../TransloaditImage'
 
 export default function Page(): ReactNode {
   return (

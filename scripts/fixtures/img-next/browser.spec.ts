@@ -418,7 +418,7 @@ for (const delivery of ['direct', 'redirect']) {
 
 test.describe('JPEG fallback', () => {
   test.use({ javaScriptEnabled: false })
-  test('native fallback decodes without modern sources and keeps its source-width policy', async ({
+  test('native fallback decodes without modern sources and respects the candidate widths', async ({
     page,
   }) => {
     await page.route('**/fixture/browser', async (route) => {
@@ -437,7 +437,7 @@ test.describe('JPEG fallback', () => {
     const avatar = page.getByRole('img', { name: 'Private avatar', exact: true })
     await decode(avatar)
     await decode(page.getByRole('img', { name: 'Late private preview' }))
-    await expect(avatar).toHaveJSProperty('naturalWidth', 400)
+    await expect(avatar).toHaveJSProperty('naturalWidth', 96)
     expect((await avatar.boundingBox())?.width).toBe(48)
     const images = cdn.requests.slice(requestOffset).map((request) => new URL(request.url))
     // Browsers disable native lazy loading when JavaScript is disabled.

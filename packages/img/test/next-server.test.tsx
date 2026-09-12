@@ -83,6 +83,12 @@ afterEach(() => {
 })
 
 describe('createTransloaditImageFromEnv', () => {
+  test('exports an unambiguous StorageImage with the legacy Image alias', () => {
+    const integration = createTransloaditImage(baseConfiguration)
+    expect(integration.StorageImage).toBeTypeOf('function')
+    expect(integration.StorageImage).toBe(integration.Image)
+  })
+
   beforeEach(() => {
     vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', baseConfiguration.authKey)
     vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', baseConfiguration.authSecret)
@@ -142,11 +148,55 @@ describe('createTransloaditImageFromEnv', () => {
 
   test('still requires explicit storage and retains deny-all without path prefixes', () => {
     expect(() => Reflect.apply(createTransloaditImageFromEnv, undefined, [{}])).toThrow(/storage/)
-    const { Image } = createTransloaditImageFromEnv({ storage: {} })
+    const { Image } = createTransloaditImageFromEnv({ storage: { allowedPathPrefixes: [] } })
     expect(() =>
       Image({ alt: 'Denied', src: { path: 'documents/report.pdf', width: 400, height: 300 } }),
     ).toThrow('outside the configured allowed prefixes')
     expect(connection).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    { cacheMaxAgeMs: 10_999, expected: 'private, max-age=10' },
+    { cacheMaxAgeMs: 999, expected: 'private, no-store' },
+    { cacheMaxAgeMs: 120_000, expected: 'private, max-age=30' },
+  ])('bounds opt-in redirect caching ($cacheMaxAgeMs ms)', async ({ cacheMaxAgeMs, expected }) => {
+    const delivery = { authorize: vi.fn(() => true), cacheMaxAgeMs, route: '/images' }
+    const { Image, storageRoute } = createTransloaditImage({
+      ...baseConfiguration,
+      storage: { ...baseConfiguration.storage, delivery, rotationIntervalMs: 30_000 },
+    })
+    delivery.cacheMaxAgeMs = 1
+    const document = parseMarkup(
+      renderToStaticMarkup(
+        <Image alt="Report" src={{ path: 'documents/report.pdf', width: 400, height: 300 }} />,
+      ),
+    )
+    const request = new Request(new URL(getFirstCandidate(document), 'https://app.example'))
+    const response = await storageRoute(request)
+    expect(response.status).toBe(307)
+    expect(response.headers.get('Cache-Control')).toBe(expected)
+    delivery.authorize.mockReturnValue(false)
+    const denied = await storageRoute(request)
+    expect(denied.status).toBe(404)
+    expect(denied.headers.get('Cache-Control')).toBe('private, no-store')
+  })
+
+  test.each([
+    -1,
+    0,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    1.5,
+  ])('rejects invalid redirect cache duration %s', (cacheMaxAgeMs) => {
+    expect(() =>
+      createTransloaditImage({
+        ...baseConfiguration,
+        storage: {
+          ...baseConfiguration.storage,
+          delivery: { authorize: () => true, cacheMaxAgeMs, route: '/images' },
+        },
+      }),
+    ).toThrow('cacheMaxAgeMs must be a positive safe integer')
   })
 
   test.each(
@@ -562,7 +612,7 @@ describe('createTransloaditImage', () => {
   test('denies private paths by default and matches explicit directory boundaries', () => {
     const { Image: denyAllImage } = createTransloaditImage({
       ...baseConfiguration,
-      storage: {},
+      storage: { allowedPathPrefixes: [] },
     })
     const { Image } = createTransloaditImage(baseConfiguration)
 

@@ -3,8 +3,8 @@ import type { ReactNode } from 'react'
 import { notFound } from 'next/navigation.js'
 import { Suspense } from 'react'
 
-import { TransloaditImage } from '../../../TransloaditImage.tsx'
-import { TransloaditRedirectImage } from '../../../TransloaditRedirectImage.tsx'
+import { TransloaditImage } from '../../../TransloaditImage'
+import { TransloaditRedirectImage } from '../../../TransloaditRedirectImage'
 
 interface PageProps {
   params: Promise<{ count: string; delivery: string }>

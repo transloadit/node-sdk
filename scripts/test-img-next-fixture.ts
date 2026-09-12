@@ -214,7 +214,8 @@ async function runImageBenchmark(
 async function main(): Promise<void> {
   const repoRoot = resolve(import.meta.dirname, '..')
   const seed = await readFile(resolve(import.meta.dirname, 'fixtures/img-next/seed.ts'), 'utf8')
-  const readme = await readFile(resolve(repoRoot, 'packages/img/README.md'), 'utf8')
+  const dogfoodPath = resolve(repoRoot, 'docs/img-dogfood.md')
+  const readme = await readFile(dogfoodPath, 'utf8')
   assert(
     readme.includes(`\`\`\`ts\n${seed}\`\`\``),
     'The documented seed recipe differs from the tested fixture',
@@ -262,7 +263,15 @@ async function main(): Promise<void> {
       ],
       { cwd: fixtureDir, stdio: 'inherit' },
     )
-    await execa(process.execPath, ['--test', 'seed.test.ts'], { cwd: fixtureDir, stdio: 'inherit' })
+    await execa(process.execPath, ['--test', 'seed.test.ts'], {
+      cwd: fixtureDir,
+      env: { IMG_DOGFOOD_DOC: dogfoodPath },
+      stdio: 'inherit',
+    })
+    await execa('npx', ['--no-install', 'tsc', '--project', 'tsconfig.tooling.json'], {
+      cwd: fixtureDir,
+      stdio: 'inherit',
+    })
     const playwright = resolve(fixtureDir, 'node_modules/@playwright/test/cli.js')
     await execa(
       process.execPath,

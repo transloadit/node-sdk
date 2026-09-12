@@ -1,9 +1,9 @@
 import { createTransloaditImage } from '@transloadit/img/next/server'
 
-import { authorizeFixtureImage } from '../browser-policy.ts'
-import { imageConfiguration } from './imageConfiguration.ts'
+import { authorizeFixtureImage } from '../browser-policy'
+import { imageConfiguration } from './imageConfiguration'
 
-const { Image, storageRoute } = createTransloaditImage({
+const { StorageImage, storageRoute } = createTransloaditImage({
   ...imageConfiguration,
   storage: {
     allowedPathPrefixes: ['documents/'],
@@ -17,4 +17,4 @@ const { Image, storageRoute } = createTransloaditImage({
   },
 })
 
-export { Image as TransloaditRedirectImage, storageRoute }
+export { StorageImage as TransloaditRedirectImage, storageRoute }

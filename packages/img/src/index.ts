@@ -152,7 +152,7 @@ export function createTransloaditImageModel(
     })),
     format,
   }))
-  const fallbackWidth = Math.min(width, maximumWidth)
+  const fallbackWidth = Math.min(width, Math.max(...widths))
   const fallbackUrl = sign({
     expiresAt,
     input: src,

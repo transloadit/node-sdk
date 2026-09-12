@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { HydrationProbe } from './HydrationProbe.tsx'
+import { HydrationProbe } from './HydrationProbe'
 
 interface LayoutProps {
   children: ReactNode

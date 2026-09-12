@@ -2,8 +2,9 @@ import type { AssemblyStatus } from '@transloadit/node'
 import type { InterpolatableRobotTransloaditStoreInstructions } from '@transloadit/types/robots'
 
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -26,6 +27,24 @@ const receipt = {
   path: 'website/photo.png',
   size: bytes.length,
 }
+
+test('a failed second run of the documented command preserves the first receipt', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'img-seed-receipt-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const previous = `${JSON.stringify({ ...receipt, width: 1, height: 1 })}\n`
+  await writeFile(join(directory, 'image.json'), previous)
+  const documentation = await readFile(
+    process.env.IMG_DOGFOOD_DOC ?? new URL('../../../docs/img-dogfood.md', import.meta.url),
+    'utf8',
+  )
+  const command = documentation.match(
+    /<!-- seed-receipt-command -->\n```bash\n([\s\S]*?)\n```/,
+  )?.[1]
+  assert(command, 'Expected the documented receipt command')
+  const result = spawnSync('bash', ['-c', command], { cwd: directory, encoding: 'utf8' })
+  assert.notEqual(result.status, 0, 'Missing seed credentials must fail')
+  assert.equal(await readFile(join(directory, 'image.json'), 'utf8'), previous)
+})
 
 test('seeds one original and returns verified metadata for rendering without another lookup', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'img-seed-test-'))
@@ -124,7 +143,7 @@ test('orients a phone-photo receipt before generating proportional preview candi
     ({ urlParams }) => `https://cdn.example/image?w=${urlParams?.w}&h=${urlParams?.h}`,
   )
   assert.equal(model.sources[0]?.candidates[0]?.url, 'https://cdn.example/image?w=320&h=240')
-  assert.equal(model.fallbackUrl, 'https://cdn.example/image?w=600&h=450')
+  assert.equal(model.fallbackUrl, 'https://cdn.example/image?w=320&h=240')
   const { info } = await sharp(rotated)
     .autoOrient()
     .resize(320)

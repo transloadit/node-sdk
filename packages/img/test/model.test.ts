@@ -21,6 +21,19 @@ function collectSignedRequests(): {
 }
 
 describe('createTransloaditImageModel', () => {
+  test('caps the JPEG fallback at the largest requested candidate', () => {
+    const { requests, sign } = collectSignedRequests()
+    createTransloaditImageModel(
+      {
+        expiresAt,
+        src: { path: 'website/avatar.jpg', width: 400, height: 400 },
+        widths: [96, 48],
+      },
+      sign,
+    )
+    expect(requests.at(-1)?.urlParams).toMatchObject({ f: 'jpg', w: 96, h: 96 })
+  })
+
   test('uses receipt geometry without forwarding ancillary receipt fields to signing', () => {
     const src = {
       path: 'documents/report.pdf',
