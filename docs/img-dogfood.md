@@ -208,9 +208,10 @@ corepack yarn test:img:fixture
 The fixture packs all four local artifacts and installs them with its pinned **npm** lockfile into
 a clean Next.js app. It executes this exact seed recipe against mocked Assembly receipts without
 network access and compiles it against the packed SDK/types. It builds and serves both production
-Cache Components configurations, then runs 36 Chromium/WebKit cases: native cookie authorization,
-separate app/CDN hosts, responsive hero/avatar geometry, private-redirect decoding before application JavaScript,
-hydration, JPEG fallback, original-capability renewal, revocation, expiry and tampering. Chromium
+Cache Components configurations, then runs 44 Chromium/WebKit cases: native cookie authorization,
+separate app/CDN hosts, constrained hero/fixed avatar geometry, portrait fillcrop, optional error
+fallback, private-redirect decoding before application JavaScript, hydration, bounded JPEG fallback,
+original-capability renewal, revocation, expiry and tampering. Chromium
 also verifies direct streaming before application JavaScript; direct WebKit navigation uses normal
 script loading because holding bundles can stall React's streaming reveal in the test browser.
 That extra WebKit pre-JS scenario remains unverified. The owned

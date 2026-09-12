@@ -9,11 +9,11 @@ or publishing. Council remains orchestrator-owned. Checks, builds and packs run 
 - [x] StorageImage factory export and ordinary Next.js consumer imports/install instructions.
 - [x] Accurate lazy-loading wording, opt-in bounded private redirect caching and HTML benchmark.
 - [x] A: CLI `storage store` with atomic keyed receipts and existing credential resolution.
-- [ ] B: Constrained/fixed/fill layout derivation, signed fillcrop, native browser proofs.
-- [ ] C: Development-only, deduplicated diagnostics and optional image error fallback.
-- [ ] D: User-upload ingest, notification and receipt persistence documentation.
-- [ ] E: Authorized redirects first; direct delivery cost/lifetime optimization explained.
-- [ ] Sequential affected package checks, root check, full verification and packed browser fixture.
+- [x] B: Constrained/fixed/fill layout derivation, signed fillcrop, native browser proofs.
+- [x] C: Development-only, deduplicated diagnostics and optional image error fallback.
+- [x] D: User-upload ingest, notification and receipt persistence documentation.
+- [x] E: Authorized redirects first; direct delivery cost/lifetime optimization explained.
+- [x] Sequential affected package checks, root check, full verification and packed browser fixture.
 - [ ] Push, monitor #500, record evidence and remaining release gates.
 
 API2's import schema must stay byte-identical; server-side platform changes remain with Kevin.
@@ -22,6 +22,43 @@ A: `storage store` reproduced nine failing CLI cases before implementation. Its 
 now pass; Node package check passes 322 tests with one existing skip. Reuses AuthenticatedCommand
 and storeImage; sibling lock prevents lost updates and rename preserves receipts on failures.
 No schema changes. Generated legacy parity and the packed CLI help are in final verification.
+An additional red-first regression preserves existing JSON keys such as `__proto__` during append;
+the focused CLI suite now has eleven passing cases.
+
+B: Layout runtime and public type regressions failed first, then passed. The browser fixture also
+failed first on the legacy CSS-only cover recipe (ten failures). Constrained heroes cap the derived
+ladder at 1920px; fixed 48px avatars request real square fillcrop bytes with a 48px JPEG fallback;
+portrait fill uses the box ratio, not oversized landscape downloads. Explicit overrides remain.
+Lazy default sizes now use `auto, 100vw`; eager/preloaded usage keeps its existing contract.
+
+C: Six diagnostic cases and two browser-error fallback cases failed before implementation. Probes
+are development-only, one HEAD per path/Template/factory, after redirect authorization, with a
+five-second timeout and static, credential-free hints. A generic 403 cannot establish one exact
+cause. A separate slow-probe regression ensures probing cannot consume a new CDN grant's lifetime.
+The opt-in client boundary preserves the SSR picture and catches failure before/after hydration;
+a mutation test verifies that a changed source resets the fallback. No retries or added DOM wrapper.
+The img package passes 162 runtime tests and its public type fixtures.
+
+D/E: The consumer walkthrough now starts with request-authorized redirects and the CLI receipt
+file. Uppy/Assembly uploads use server-owned paths and `/transloadit/store`; trusted server polling,
+upload correlation, exact receipt validation, EXIF display dimensions and persisted ownership are
+explicit. A doc regression failed before the rewrite. Direct delivery is a named optimization with
+its expiry/cache trade-offs. The Robot recipe was checked against the local offline catalog.
+
+The packed fixture passes eight seed cases and 44 browser cases across both production Cache
+Components configurations (22 each in Chromium/WebKit, 53.3s/52.6s), including the native error
+fallback. Logs: `/tmp/img-round3-complete-fixture.log`, `/tmp/img-round3-cli-docs-green.log`,
+`/tmp/img-round3-fallback-reset-{red,green}.log`, and `/tmp/img-round3-diagnostics-check.log`.
+Final verification, including the last CLI key-preservation change, passed sequentially: Node
+package check (323 passed, one existing skip), generated legacy wrapper, img package check
+(162 passed plus public types), root `yarn check`, `yarn verify:full`, and the packed production
+fixture (eight seed tests and 44 browser cases). Logs: `/tmp/img-round3-final-{node,legacy,img,
+check,verify,fixture}.log`. Unrelated generated intent-document drift was removed byte-for-byte.
+
+Publication is still gated on an independent stranger reaching a private image in under ten
+minutes in a stock create-next-app without TS/module changes. These packed local tests are not
+that user test. API2/Console cache-key policy, unified credentials, alpha preservation and metadata
+lookup remain Kevin's separate scope; no merge, release or production deployment is authorized.
 
 Part1: nine runtime failures and an unused type-error expectation reproduced first; all 136 img
 tests/types now pass. The documented seed command separately reproduced receipt truncation, then

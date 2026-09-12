@@ -18,7 +18,7 @@ test('keeps seed credentials outside Next and defines the factory before its fir
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   const dogfood = await readFile(resolve(import.meta.dirname, '../docs/img-dogfood.md'), 'utf8')
   expect.soft(/^\s*node --env-file=(\S+) seed\.ts /m.exec(dogfood)?.[1]).toBe('.env.seed.local')
-  const factory = readme.indexOf('export const { StorageImage } = ')
+  const factory = readme.indexOf('export const { StorageImage')
   const firstRender = readme.indexOf("import { StorageImage } from '../lib/storageImage'")
   expect(factory).toBeGreaterThan(0)
   expect.soft(firstRender).toBeGreaterThan(factory)
@@ -28,6 +28,21 @@ test('keeps seed credentials outside Next and defines the factory before its fir
     .not.toMatch(
       /allowImportingTsExtensions|gh pr checkout|from ['"][^'"]+\.tsx?['"]|type:.*module/,
     )
+})
+
+test('leads private apps with authorization and documents trusted user-upload receipt ingestion', async () => {
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  const firstFactory = readme.slice(
+    readme.indexOf('export const { StorageImage'),
+    readme.indexOf('Then in `app/page.tsx`'),
+  )
+  expect(firstFactory).toContain('authorize:')
+  expect(firstFactory).toContain('storageRoute as GET')
+  expect(readme).toContain('Uppy')
+  expect(readme).toContain('"robot": "/transloadit/store"')
+  expect(readme).toContain('notification')
+  expect(readme).toContain('EXIF')
+  expect(readme).toContain('asset_id')
 })
 
 test('locks every external runtime dependency of the packed image package', async () => {

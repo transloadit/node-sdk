@@ -61,48 +61,7 @@ not a rollback. Existing paths fail with a conflict; retrying does not silently 
 
 ### Create a server-only component
 
-Save as `lib/storageImage.ts`:
-
-```ts
-import { createTransloaditImageFromEnv } from '@transloadit/img/next/server'
-
-export const { StorageImage } = createTransloaditImageFromEnv({
-  storage: { allowedPathPrefixes: ['website/'] },
-})
-```
-
-Then in `app/page.tsx`:
-
-```tsx
-import images from '../images.json'
-import { StorageImage } from '../lib/storageImage'
-
-export default function Page() {
-  return (
-    <StorageImage
-      alt="A canal house"
-      src={images['website/hero.jpg']}
-      sizes="(min-width: 960px) 960px, 100vw"
-      style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
-      preload
-      loading="eager"
-    />
-  )
-}
-```
-
-This hero is explicitly preloaded. Other images default to **native lazy loading in this
-component**; HTML's own default is eager. `preload` implies eager and cannot combine with lazy.
-Use `fetchPriority="high"` only for a measured LCP image.
-
-`src` accepts `{ path, width, height }`, including complete SDK receipts. Only those three fields
-enter signing; IDs and checksums do not. Object sources cannot also have separate dimensions.
-A string `src` requires the source's intrinsic `width` and `height`.
-
-## Private delivery and lifetime
-
-Use authorized redirects for cached markup or private pages that may outlive a CDN signature.
-The browser sends its native same-origin session cookie; it cannot add a custom Bearer header.
+For a private app, start with request-authorized redirects. Save as `lib/storageImage.ts`:
 
 ```ts
 import { createTransloaditImageFromEnv } from '@transloadit/img/next/server'
@@ -131,6 +90,80 @@ object-access policy. Export the handler in `app/api/private-images/route.ts`:
 export { storageRoute as GET, storageRoute as HEAD } from '../../../lib/storageImage'
 ```
 
+Then in `app/page.tsx`:
+
+```tsx
+import images from '../images.json'
+import { StorageImage } from '../lib/storageImage'
+
+export default function Page() {
+  return (
+    <StorageImage
+      alt="A canal house"
+      src={images['website/hero.jpg']}
+      layout="constrained"
+      maxWidth={960}
+      preload
+      loading="eager"
+    />
+  )
+}
+```
+
+This hero is explicitly preloaded. Other images default to **native lazy loading in this
+component**; HTML's own default is eager. `preload` implies eager and cannot combine with lazy.
+Use `fetchPriority="high"` only for a measured LCP image.
+
+`src` accepts `{ path, width, height }`, including complete SDK receipts. Only those three fields
+enter signing; IDs and checksums do not. Without a layout mode, object sources cannot also have
+separate dimensions. A string `src` requires the source's intrinsic `width` and `height`.
+
+## Layout without the arithmetic
+
+`layout="constrained" maxWidth={960}` derives proportional responsive CSS, the
+`(min-width: 960px) 960px, 100vw` sizes expression and a ladder capped at 1920px and the source.
+
+```tsx
+<StorageImage
+  src={images['website/avatar.jpg']}
+  alt="Your profile photo"
+  layout="fixed"
+  width={48}
+  height={48}
+  fit="cover"
+/>
+```
+
+Fixed layout keeps intrinsic dimensions in `src`; `width` and `height` describe the display box.
+It derives `sizes="48px"`, 48/96px candidates and a 48px JPEG fallback. `fit="cover"` requests a
+signed `fillcrop` at the box ratio, so a square avatar does not download an uncropped original.
+The default `fit="contain"` keeps the source proportions with CSS letterboxing.
+
+```tsx
+<div style={{ position: 'relative', aspectRatio: '9/16' }}>
+  <StorageImage
+    src={images['website/hero.jpg']}
+    alt="A canal house"
+    layout="fill"
+    fit="cover"
+    aspectRatio="9/16"
+    sizes="100vw"
+  />
+</div>
+```
+
+Fill layout occupies an already-sized, positioned parent. Cover requires its aspect ratio: the
+source cannot tell us the container's shape. Smart CDN crops to that ratio, eliminating the
+oversized `sizes` arithmetic needed for CSS-only cover. Match `aspectRatio` to the actual box.
+All layout modes preserve explicit `sizes`, `widths`, `style` and `objectFit` overrides. Source
+and backend limits still apply. `widths` overrides even the constrained mode's default 2× cap.
+Without `layout`, the explicit API remains available; its encoding strategy stays `pad`.
+
+## Private delivery and lifetime
+
+Use authorized redirects for cached markup or private pages that may outlive a CDN signature.
+The browser sends its native same-origin session cookie; it cannot add a custom Bearer header.
+
 Redirect capabilities hide filenames and bind one path and transformation. Authorization must
 return exactly `true`. The handler responds with a fresh signed CDN URL in a `307`; no image bytes
 pass through the app. By default each candidate load makes one app function invocation for
@@ -144,7 +177,16 @@ CDN URLs already issued remain usable until their own expiry; downloaded bytes c
 
 ### Direct delivery for request-authorized galleries
 
-Direct delivery is the factory default and avoids per-image application requests. Authorize the
+Direct delivery remains the factory default for existing integrations, but is an explicit
+optimization for request-authorized galleries, not this private-app walkthrough. Configure it as:
+
+```ts
+export const { StorageImage } = createTransloaditImageFromEnv({
+  storage: { allowedPathPrefixes: ['website/'], delivery: 'direct' },
+})
+```
+
+It avoids per-image application requests. Authorize the
 page's image data before rendering. `connection()` defers signing to the request, with an inert,
 source-free Suspense shell for partial prerendering. Do not cache the signed markup in a shared
 full-page cache. A lazy candidate requested after expiry can fail; direct URLs are bearer grants
@@ -164,18 +206,100 @@ Candidate widths follow 320, 640, 960, 1280, 1920, 2560, 3840 plus intrinsic wid
 source and backend dimensions. `widths` overrides the ladder; the JPEG fallback is no larger than
 its largest candidate. For a 48px avatar, `widths={[48, 96]}` also caps JPEG at 96px.
 
-Explicit `sizes` describes CSS layout; it does not set that layout. `sizes="auto, 100vw"` is valid
-for lazy images only. `objectFit` controls CSS, while the default `r: 'pad'` preserves source
+Explicit `sizes` describes CSS layout; it does not set that layout. Without a derived or explicit
+size, lazy images default to `sizes="auto, 100vw"` (automatic CSS-box sizing where supported,
+viewport fallback otherwise); eager/preloaded images retain `100vw`. Auto sizing is lazy-only.
+`objectFit` controls CSS, while the default `r: 'pad'` preserves source
 proportions in encoded candidates. The Built-in owns the padding background (currently white).
 `formats` sets per-format quality; `fallbackQuality` sets JPEG quality.
 
 The default minimum CDN lifetime is one hour with five-minute rotation windows. Configure
 `storage.expiresInMs` and `rotationIntervalMs` explicitly when needed; their sum cannot exceed
-48 hours. A 403/404 currently uses native broken-image/alt behavior. JPEG is a format fallback,
-not HTTP-error recovery. Opt-in `deferUntilHydrated` delays noncritical images; leave it off
-unless addressing an observed WebKit replay issue.
+48 hours. Without `errorFallback`, a 403/404 uses native broken-image/alt behavior. JPEG is a format
+fallback, not HTTP-error recovery. Opt-in `deferUntilHydrated` delays noncritical images; leave it
+off unless addressing an observed WebKit replay issue.
+
+## Diagnose and handle image failures
+
+In development only, the server performs one HEAD per unique path/Template per factory, with a
+five-second timeout. Concurrent/repeated renders share that probe. Redirects probe only after
+application authorization; disallowed prefixes fail before any request. Production performs no
+diagnostic requests. Restart development to retry a failed check or after changing credentials.
+
+Hints cover Smart CDN-enabled versus Assembly-only keys, workspace/Storage path/Template setup,
+signature secrets, expiry and clock errors, and endpoint reachability. A generic 403 cannot tell us
+which of those is wrong. Neither raw responses, errors, signed URLs nor secrets are logged.
+The probe can trigger one cold transformation in development; it does not weaken authorization.
+
+```tsx
+<StorageImage
+  src={images['website/hero.jpg']}
+  alt="A canal house"
+  layout="constrained"
+  maxWidth={960}
+  errorFallback={<p role="status">Image unavailable</p>}
+/>
+```
+
+This optional small client boundary keeps the exact server-rendered picture and replaces it only
+after a failed native image load, including one completed before hydration. It adds no wrapper
+element or retry loop. A changed source remounts the boundary. With no JavaScript, native image
+failure behavior remains. A cross-origin browser error cannot identify the HTTP failure reason.
+This is separate from `suspenseFallback`, which handles pending server signing, and from JPEG
+format fallback, which does not recover failed AVIF/WebP requests.
 
 ## Advanced integration
+
+### Images uploaded by your users
+
+The CLI is for repository/content seeding. In an application, use Uppy with its Transloadit plugin
+or your existing Assembly upload flow, with a server-owned `/transloadit/store` step:
+
+```json
+{
+  "steps": {
+    "stored": {
+      "robot": "/transloadit/store",
+      "use": ":original",
+      "path": "uploads/server-generated-upload-id/${file.url_name}",
+      "conflict_strategy": "error"
+    }
+  }
+}
+```
+
+The application server authenticates the uploader, chooses the destination prefix/upload ID,
+and signs the Assembly parameters or a trusted Template. Transloadit interpolates the literal
+`${file.url_name}`. Do not put the Assembly secret in Uppy/browser code or let a client choose
+another user's destination/steps. Enable `uploads/` in the rendering factory's allowed prefixes
+only alongside an exact per-object ownership check in `authorize`.
+
+Treat an Assembly notification as a wake-up signal: fetch the completed Assembly on the server
+through the SDK with your write-side credentials. Correlate its ID with the upload your server
+authorized. Do not persist a browser-supplied receipt without that independent check. The store result annotates
+`results[':original']`: require `ASSEMBLY_COMPLETED`, the expected files and destination paths,
+nonempty typed `asset_id`, positive size/dimensions and a valid `md5hash`. For uploads with known
+expected size/checksum, compare those too. For transformed inputs, inspect the named input step
+that `/transloadit/store` annotates instead.
+
+Persist at least `{ path, width, height, asset_id }` together with your own owner/project ID;
+keeping `size` and `md5hash` also helps integrity checks. Store **display** dimensions: EXIF values
+5–8 (including mirrored rotations) swap width and height; values 1–4 do not. API metadata may use
+ExifTool orientation labels instead of numbers. The local-file `storeImage()` helper already
+normalizes these; your notification ingestion must do the same before creating a receipt.
+
+Read the saved receipt in an authorized Server Component and pass it as `src`:
+
+```tsx
+<StorageImage src={savedImage} alt={savedImage.description} layout="constrained" maxWidth={960} />
+```
+
+`savedImage` is the application's validated database record; the extra owner/asset/checksum fields
+are not forwarded to CDN signing. Delivery resolves by path, not `asset_id` or checksum: those
+fields do not pin bytes if you intentionally replace the path later. Prefer immutable paths.
+The browser never needs the Assembly secret, Smart CDN secret, or a render-time metadata lookup.
+
+### Credentials and framework adapters
 
 `createTransloaditImage({ authKey, authSecret, workspace, storage })` supports secret managers and
 multiple workspaces. The env factory snapshots only the three rendering values; it loads no files
