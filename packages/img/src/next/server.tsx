@@ -19,6 +19,7 @@ import { getSignedSmartCdnUrl } from '@transloadit/utils/node'
 import { connection } from 'next/server.js'
 import { Suspense } from 'react'
 
+import { isOpaqueImageBackground, transparentImageBackground } from '../imageBackground.ts'
 import { createTransloaditImageModel, transloaditStoragePreviewTemplate } from '../index.ts'
 import { validateStoragePath, validateStoragePathPrefix } from '../storagePath.ts'
 import { createImageDiagnostics } from './diagnostics.ts'
@@ -28,7 +29,7 @@ import { resolveImageLayout } from './layout.ts'
 
 const defaultStorageExpiresInMs = 60 * 60 * 1000
 const defaultStorageRotationIntervalMs = 5 * 60 * 1000
-const imagePolicyParams = new Set(['auth_key', 'exp', 'f', 'h', 'q', 'r', 'sig', 'w'])
+const imagePolicyParams = new Set(['auth_key', 'bg', 'exp', 'f', 'h', 'q', 'r', 'sig', 'w'])
 const maximumImageDimension = 8000
 const maximumStorageLifetimeMs = 48 * 60 * 60 * 1000
 const storageCapabilityAuthenticationBytes = 16
@@ -108,6 +109,8 @@ export type TransloaditRedirectImageEnvConfiguration = Omit<
 /** Props for a private Transloadit Storage preview. */
 export type TransloaditImageProps = TransloaditImageLayoutProps &
   StorageImageLayoutProps & {
+    /** Opaque JPEG background as #rrggbb or #rrggbbff. Defaults to white. */
+    fallbackBackground?: string
     /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
     fallbackQuality?: number
     formats?: StoragePreviewFormats
@@ -157,6 +160,7 @@ interface ResolvedStorageCapabilityPolicy {
 }
 
 interface StorageImageTransform {
+  background?: string
   format: 'avif' | 'jpg' | 'png' | 'webp'
   height: number
   path: string
@@ -174,6 +178,7 @@ type ResolvedStorageImageProps = TransloaditImagePresentationProps & {
   cropAspectRatio?: number
   fallbackWidth?: number
   maximumWidth?: number
+  fallbackBackground?: string
   fallbackQuality?: number
   formats?: StoragePreviewFormats
   suspenseFallback?: ReactNode
@@ -387,6 +392,7 @@ function snapshotStorageImageProps(
     cropAspectRatio: layout.cropAspectRatio,
     deferUntilHydrated: props.deferUntilHydrated,
     errorFallback: props.errorFallback,
+    fallbackBackground: props.fallbackBackground,
     fallbackQuality: props.fallbackQuality,
     fallbackWidth: layout.fallbackWidth,
     formats: props.formats === undefined ? undefined : { ...props.formats },
@@ -410,9 +416,17 @@ function renderPicture(
 }
 
 function getStorageTransform(request: SmartCdnImageSignRequest): StorageImageTransform {
-  const { f: format, h: height, q: quality, r: strategy, w: width } = request.urlParams
+  const {
+    bg: background,
+    f: format,
+    h: height,
+    q: quality,
+    r: strategy,
+    w: width,
+  } = request.urlParams
   if (
     (format !== 'avif' && format !== 'jpg' && format !== 'png' && format !== 'webp') ||
+    typeof background !== 'string' ||
     typeof height !== 'number' ||
     typeof quality !== 'number' ||
     (strategy !== 'pad' && strategy !== 'fillcrop') ||
@@ -421,6 +435,7 @@ function getStorageTransform(request: SmartCdnImageSignRequest): StorageImageTra
     throw new TypeError('Storage image model produced an unsupported transform')
   }
   return {
+    background,
     format,
     height,
     path: request.input,
@@ -480,9 +495,13 @@ function isStorageRouteFormat(value: unknown): value is StorageImageTransform['f
 
 function getStorageTransformFromPayload(payload: unknown): StorageImageTransform | undefined {
   if (!isRecord(payload) || payload.version !== storageCapabilityVersion) return undefined
-  const { format, height, path, quality, width, strategy } = payload
+  const { background, format, height, path, quality, width, strategy } = payload
   if (
     !isStorageRouteFormat(format) ||
+    (background !== undefined &&
+      (format === 'jpg'
+        ? !isOpaqueImageBackground(background)
+        : background !== transparentImageBackground)) ||
     (strategy !== undefined && strategy !== 'fillcrop') ||
     typeof height !== 'number' ||
     !Number.isInteger(height) ||
@@ -501,7 +520,15 @@ function getStorageTransformFromPayload(payload: unknown): StorageImageTransform
     return undefined
   }
   validateStoragePath(path)
-  return { format, height, path, quality, width, ...(strategy === 'fillcrop' ? { strategy } : {}) }
+  return {
+    ...(typeof background === 'string' ? { background } : {}),
+    format,
+    height,
+    path,
+    quality,
+    width,
+    ...(strategy === 'fillcrop' ? { strategy } : {}),
+  }
 }
 
 function decryptStorageCapability(
@@ -581,6 +608,7 @@ function createStorageRoute(
       input: transform.path,
       template,
       urlParams: {
+        ...(transform.background === undefined ? {} : { bg: transform.background }),
         f: transform.format,
         h: transform.height,
         q: transform.quality,
@@ -679,6 +707,7 @@ export function createTransloaditImage(
       {
         cropAspectRatio: props.cropAspectRatio,
         expiresAt,
+        fallbackBackground: props.fallbackBackground,
         fallbackQuality: props.fallbackQuality,
         fallbackWidth: props.fallbackWidth,
         formats: props.formats,

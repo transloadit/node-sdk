@@ -23,6 +23,25 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
   const requests: { url: string; status: number; cookie: string | undefined }[] = []
   const errors: unknown[] = []
   const images = new Map<string, Promise<Buffer>>()
+  const transparentSource = await sharp({
+    create: { width: 64, height: 64, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([
+      {
+        input: {
+          create: {
+            width: 32,
+            height: 32,
+            channels: 4,
+            background: { r: 45, g: 110, b: 160, alpha: 1 },
+          },
+        },
+        left: 16,
+        top: 16,
+      },
+    ])
+    .png()
+    .toBuffer()
   async function respond(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const url = new URL(request.url ?? '/', origin)
     const signature = url.searchParams.get('sig')
@@ -39,10 +58,11 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
     const height = Number(url.searchParams.get('h'))
     const format = url.searchParams.get('f')
     const strategy = url.searchParams.get('r')
-    const mime = format === 'avif' ? 'image/avif' : format === 'webp' ? 'image/webp' : 'image/jpeg'
+    const background = url.searchParams.get('bg') ?? ''
+    const mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`
     const accepted =
       authenticated &&
-      url.pathname.startsWith('/file/fixture/') &&
+      decodeURIComponent(url.pathname).startsWith('/file/fixture/builtin/storage-preview@0.0.2/') &&
       url.searchParams.get('auth_key') === imageConfiguration.authKey &&
       Number(url.searchParams.get('exp')) > Date.now() &&
       Number.isSafeInteger(width) &&
@@ -52,7 +72,8 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
       height > 0 &&
       height <= 2400 &&
       (strategy === 'pad' || strategy === 'fillcrop') &&
-      (format === 'avif' || format === 'webp' || format === 'jpg')
+      (format === 'avif' || format === 'webp' || format === 'png' || format === 'jpg') &&
+      (format === 'jpg' ? /^#[0-9a-f]{6}(?:ff)?$/i.test(background) : background === '#00000000')
     requests.push({
       url: new URL(request.url ?? '/', origin).href,
       status: accepted ? 200 : 403,
@@ -63,22 +84,32 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
       return
     }
     const avatar = decodeURIComponent(url.pathname).endsWith('/documents/avatar.jpg')
-    const key = `${avatar}/${width}/${height}/${format}/${strategy}`
+    const transparent = decodeURIComponent(url.pathname).endsWith('/documents/alpha.png')
+    const key = `${avatar}/${transparent}/${width}/${height}/${format}/${strategy}/${background}`
     let bytes = images.get(key)
     if (bytes === undefined) {
-      const image = sharp({
-        create: {
-          width: avatar ? 400 : 2400,
-          height: avatar ? 300 : 1600,
-          channels: 3,
-          background: { r: 45, g: 110, b: 160 },
-        },
-      }).resize(width, height, {
+      const source = transparent
+        ? sharp(transparentSource)
+        : sharp({
+            create: {
+              width: avatar ? 400 : 2400,
+              height: avatar ? 300 : 1600,
+              channels: 3,
+              background: { r: 45, g: 110, b: 160 },
+            },
+          })
+      const image = source.resize(width, height, {
         fit: strategy === 'fillcrop' ? 'cover' : 'contain',
-        background: 'white',
+        background,
       })
       bytes = (
-        format === 'avif' ? image.avif() : format === 'webp' ? image.webp() : image.jpeg()
+        format === 'avif'
+          ? image.avif()
+          : format === 'webp'
+            ? image.webp()
+            : format === 'png'
+              ? image.png()
+              : image.flatten({ background }).jpeg()
       ).toBuffer()
       images.set(key, bytes)
     }

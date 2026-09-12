@@ -1,5 +1,49 @@
 # Storage image onboarding review
 
+## Server-side round-3 follow-up
+
+Source: `/tmp/img-server-side-round3.md`, API2 #9057 head
+`a15af5ed96a4605cd500587cf002bd249534fe62`. Earlier round-3 implementation is pushed and green
+at `a760ae8` (CI34700979700). This follow-up stays in #500, without merge/publication.
+
+- [x] Pin storage-preview@0.0.2; sign transparent modern candidates and opaque configurable JPEG.
+- [x] Bind background through redirect capabilities and disallow global bg overrides.
+- [x] Sync only the canonical import schema byte-identically; new blob
+      `2a4d398ae1caef1b4ee9e0efa66be81a6d204896`, including `recursive`.
+- [x] Document CloudFront NoCacheSigExp and the server-enforced two-key purposes.
+- [x] Verify transparent/opaque pixels in the packed browser fixture.
+- [x] Attempt the owned API2 canary; record the guest DNS blocker without a false server pass.
+- [x] Sequential checks, generated packages and final packed fixture.
+- [ ] Push and green CI (record the post-push result in the PR body and handover).
+
+Thirteen focused regressions failed first; all 145 focused runtime cases then passed. The
+canonical schema removes the recursive schema violation. Its existing no-storage advisory for
+the Storage Robot is unchanged; it is not a recursive error and is outside this schema sync.
+The package adds `fallbackBackground`, accepts only opaque RGB/RGBA hex and retains server policy
+over caller URL parameters. No Node SDK or API2 secret is exposed in diagnostics/markup.
+
+The canary fast-forwarded cleanly to the API2 head, preserving its pre-existing Deno lock/test
+files. It restarted without bootstrap or published ports. Guest package installation failed
+fetching packages with ERR_SOCKET_CLOSED_BEFORE_CONNECTION, including a bounded IPv4 retry.
+The guest's registry DNS lookup also failed (`getent` exit 2; resolver 127.0.0.11). No system test ran. The
+container is stopped again, and only the pre-existing Deno lock/untracked canary remain dirty;
+automatic Yarn lock deduplication was undone. API2's supplied pixel proof is separate evidence,
+not a new successful canary run by this agent.
+
+The first packed browser attempts hit a fixture navigation bug (`/transparency` omitted its
+`/fixture` base path), not an alpha regression. Corrected that path and added a heading assertion;
+do not count those failures as pixel-level red-first evidence. The thirteen model/route/schema
+failures and the README regression are the actual red-first proofs for this follow-up.
+
+Final checks pass sequentially: Node 324 cases (one existing skip), img 174 cases and public
+types, canonical types/Zod generation/checks, legacy parity, root `yarn check`, `yarn verify:full`
+and the final packed fixture. All eight seed cases and 48 browser cases pass (24 each, 54.6s/53.6s),
+without retries, flakes or skips. Every browser case has a native-response audit. Both browsers
+decode 64×64 AVIF/WebP/PNG corners as `[0,0,0,0]` and the JPEG corner as `[34,68,103,255]` for
+the requested `#224466` (one lossy blue-channel unit). The measured HTML table below is refreshed
+for 0.0.2/background-bound capabilities. Logs: `/tmp/img-alpha-final-{node,legacy,img,types,zod,
+check,verify,fixture}.log`. API2 live verification remains blocked as described above.
+
 ## Round 3
 
 Kevin's `/tmp/img-task2-round3-brief.md` requests all work in #500, red-first, without merging
@@ -14,7 +58,7 @@ or publishing. Council remains orchestrator-owned. Checks, builds and packs run 
 - [x] D: User-upload ingest, notification and receipt persistence documentation.
 - [x] E: Authorized redirects first; direct delivery cost/lifetime optimization explained.
 - [x] Sequential affected package checks, root check, full verification and packed browser fixture.
-- [ ] Push, monitor #500, record evidence and remaining release gates.
+- [x] Push, monitor #500, record evidence and remaining release gates (head `a760ae8`, CI34700979700).
 
 API2's import schema must stay byte-identical; server-side platform changes remain with Kevin.
 
@@ -69,16 +113,16 @@ internal Node tooling uses a separate TS config. Consumer imports have a scoped 
 Logs: `/tmp/img-round3-part1-{check,package,verify,fixture}.log` and
 `/tmp/img-round3-{receipt-red,receipt-green,part1-red,part1-types-red}.log`.
 
-Measured full HTML (Cache Components omitted, bytes, including Next/RSC overhead):
+Measured full HTML (latest 0.0.2 follow-up, Cache Components omitted, bytes, including Next/RSC overhead):
 
 | Images | Delivery | Raw | Gzip | Brotli | App redirect requests |
 | --- | --- | ---: | ---: | ---: | ---: |
-| 1 | Direct | 10,835 | 2,600 | 2,173 | 0 |
-| 1 | Redirect | 9,492 | 2,774 | 2,356 | 1 |
-| 20 | Direct | 93,045 | 13,499 | 7,163 | 0 |
-| 20 | Redirect | 63,181 | 24,340 | 14,891 | 20 |
-| 100 | Direct | 442,038 | 54,608 | 25,393 | 0 |
-| 100 | Redirect | 286,475 | 128,458 | 65,028 | 100 |
+| 1 | Direct | 11,026 | 2,621 | 2,194 | 0 |
+| 1 | Redirect | 9,904 | 2,911 | 2,483 | 1 |
+| 20 | Direct | 96,865 | 13,535 | 7,173 | 0 |
+| 20 | Redirect | 69,980 | 33,117 | 17,226 | 20 |
+| 100 | Direct | 461,138 | 54,636 | 25,570 | 0 |
+| 100 | Redirect | 319,183 | 153,292 | 77,152 | 100 |
 
 This 400×300 fixture has five URLs per image (two widths × AVIF/WebP plus JPEG), not 21.
 Twenty-one ~250-character candidates would alone cost ~5KB raw, but that illustrative estimate

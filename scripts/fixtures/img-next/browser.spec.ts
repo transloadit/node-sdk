@@ -18,6 +18,7 @@ declare global {
 
 interface ImageEvidence {
   bytes: number
+  corner?: number[]
   contentType: string | undefined
   height: number | undefined
   url: string
@@ -104,8 +105,20 @@ const test = base.extend<{ audit: BrowserAudit }>({
               (async () => {
                 const bytes = await response.body()
                 const metadata = await sharp(bytes).metadata()
+                const corner = decodeURIComponent(new URL(response.url()).pathname).endsWith(
+                  '/documents/alpha.png',
+                )
+                  ? [
+                      ...(await sharp(bytes)
+                        .extract({ left: 0, top: 0, width: 1, height: 1 })
+                        .ensureAlpha()
+                        .raw()
+                        .toBuffer()),
+                    ]
+                  : undefined
                 images.push({
                   bytes: bytes.length,
+                  corner,
                   contentType: response.headers()['content-type'],
                   height: metadata.height,
                   width: metadata.width,
@@ -196,6 +209,30 @@ const test = base.extend<{ audit: BrowserAudit }>({
 
 test.beforeAll(async () => {
   cdn = await startFixtureCdn(cdnOrigin)
+})
+
+test('keeps transparent corners in native AVIF/WebP/PNG and composites JPEG onto its signed color', async ({
+  page,
+  audit,
+}) => {
+  await page.goto('/fixture/transparency')
+  await expect(page.getByRole('heading', { name: 'Transparent previews' })).toBeVisible()
+  await decode(page.getByRole('img', { name: 'AVIF logo', exact: true }))
+  await decode(page.getByRole('img', { name: 'WebP logo', exact: true }))
+  const png = page.getByRole('img', { name: 'PNG logo', exact: true })
+  await decode(png)
+  await expect.poll(() => audit.images.filter((image) => image.corner?.[3] === 0).length).toBe(3)
+  expect(audit.images.map((image) => image.contentType)).toEqual(
+    expect.arrayContaining(['image/avif', 'image/webp', 'image/png']),
+  )
+  const fallback = await png.getAttribute('src')
+  assert(fallback)
+  expect((await audit.loadNativeImage(new URL(fallback, page.url()).href)).loaded).toBe(true)
+  const jpeg = audit.images.find((image) => image.contentType === 'image/jpeg')
+  expect(jpeg?.corner?.[3]).toBe(255)
+  expect(jpeg?.corner?.[0]).toBeCloseTo(34, -1)
+  expect(jpeg?.corner?.[1]).toBeCloseTo(68, -1)
+  expect(jpeg?.corner?.[2]).toBeCloseTo(102, -1)
 })
 test.afterAll(async () => {
   if (cdn === undefined) return

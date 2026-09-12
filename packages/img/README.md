@@ -17,8 +17,9 @@ the unpublished packages should follow [local dogfood](../../docs/img-dogfood.md
 
 ## Your first Storage image
 
-Storage writes must be enabled for your workspace. Start with an opaque JPEG or PNG; the current
-preview Built-in does not promise transparency preservation.
+Storage writes must be enabled for your workspace, and the backend must provide
+`builtin/storage-preview@0.0.2`. Start with a JPEG or PNG; transparent images retain their alpha
+channel in AVIF, WebP and PNG previews, with an opaque JPEG fallback.
 
 ### Configure delivery
 
@@ -40,7 +41,10 @@ The CLI uses an **Assembly Auth Key** from the same workspace. Its existing cred
 checks `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET` in shell environment, the current directory's `.env`,
 then `~/.transloadit/credentials` (or `TRANSLOADIT_CREDENTIALS_FILE`). Keep this write credential in
 your CLI credentials file or seed-only shell, not the rendering app's env files: Next loads `.env`
-too. A Smart CDN-only key cannot store images. `--endpoint` is an optional trusted API override.
+too. The server enforces two key purposes by design: the rendering app holds a delivery-only key,
+while the write-capable key stays in the seeding/upload environment; Assembly creation rejects a
+Smart CDN key, and Smart CDN rejects an Assembly-only key. `--endpoint` is an optional trusted API
+override.
 
 ```bash
 yarn transloadit storage store ./hero.jpg website/hero.jpg --receipts images.json
@@ -175,6 +179,11 @@ loads for delayed reauthorization, opt in with `delivery.cacheMaxAgeMs: 30_000`.
 remain `no-store`. Cached redirects may grant access without a new app check until that age elapses.
 CDN URLs already issued remain usable until their own expiry; downloaded bytes cannot be recalled.
 
+On the default `*.tlcdn.com` CloudFront host, `NoCacheSigExp` excludes `sig`, `exp`, `signature`,
+`expires` and `s` from the cache key, so signature rotation alone does not bust the candidate cache;
+entries still obey the origin's expiry-bounded `Cache-Control`, whereas the legacy `*.edgly.net`
+Bunny zone keys on the whole query string and should not be used for this integration.
+
 ### Direct delivery for request-authorized galleries
 
 Direct delivery remains the factory default for existing integrations, but is an explicit
@@ -200,7 +209,7 @@ existing redirect capabilities become invalid.
 
 ## Responsive policy
 
-The default signed template is `builtin/storage-preview@0.0.1`. AVIF quality 45 and WebP quality
+The default signed template is `builtin/storage-preview@0.0.2`. AVIF quality 45 and WebP quality
 75 precede a JPEG quality 75 fallback. Formats use separate URLs, not unkeyed Accept negotiation.
 Candidate widths follow 320, 640, 960, 1280, 1920, 2560, 3840 plus intrinsic width, bounded by the
 source and backend dimensions. `widths` overrides the ladder; the JPEG fallback is no larger than
@@ -210,7 +219,12 @@ Explicit `sizes` describes CSS layout; it does not set that layout. Without a de
 size, lazy images default to `sizes="auto, 100vw"` (automatic CSS-box sizing where supported,
 viewport fallback otherwise); eager/preloaded images retain `100vw`. Auto sizing is lazy-only.
 `objectFit` controls CSS, while the default `r: 'pad'` preserves source
-proportions in encoded candidates. The Built-in owns the padding background (currently white).
+proportions in encoded candidates. AVIF/WebP/PNG candidates sign `bg: '#00000000'` to preserve
+transparency through both preview and encoding; JPEG signs an opaque background, white by default.
+`fallbackBackground="#224466"` changes only the JPEG background (six RGB hex digits, or eight RGBA
+digits ending in `ff`). Named colors and transparent JPEG backgrounds are rejected before signing.
+Pass raw hex colors: URL signing encodes `#` as `%23`. `bg` cannot be overridden through global
+`urlParams`. A custom Template must support the same background field contract.
 `formats` sets per-format quality; `fallbackQuality` sets JPEG quality.
 
 The default minimum CDN lifetime is one hour with five-minute rotation windows. Configure

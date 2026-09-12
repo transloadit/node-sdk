@@ -8,6 +8,7 @@ import {
   smartCdnImageMaxDimension,
 } from '@transloadit/utils'
 
+import { isOpaqueImageBackground, transparentImageBackground } from './imageBackground.ts'
 import { snapshotImageSource } from './imageSource.ts'
 
 export type { SignSmartCdnImageRequest, SmartCdnImageSignRequest } from '@transloadit/utils'
@@ -15,7 +16,7 @@ export type { SignSmartCdnImageRequest, SmartCdnImageSignRequest } from '@transl
 export type { TransloaditImageSource } from './imageSource.ts'
 
 /** Signed Built-in used by default for Transloadit Storage previews. */
-export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.1'
+export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.2'
 const defaultFallbackQuality = 75
 const defaultResponsiveImageWidths: readonly number[] = [320, 640, 960, 1280, 1920, 2560, 3840]
 const minimumMillisecondTimestamp = 1_000_000_000_000
@@ -54,6 +55,8 @@ interface TransloaditImageModelConfiguration {
   /** Optional output width/height ratio; requests a server-side fillcrop instead of padding. */
   cropAspectRatio?: number
   expiresAt: number
+  /** Opaque JPEG background as #rrggbb or #rrggbbff. Defaults to white. */
+  fallbackBackground?: string
   /** Optional JPEG width, capped by the resolved candidate ladder. */
   fallbackWidth?: number
   /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
@@ -61,7 +64,7 @@ interface TransloaditImageModelConfiguration {
   formats?: StoragePreviewFormats
   /** Maximum candidate width, additionally bounded by the source and backend dimensions. */
   maximumWidth?: number
-  /** Trusted compatible signed Template. Defaults to `builtin/storage-preview@0.0.1`. */
+  /** Trusted compatible signed Template. Defaults to `builtin/storage-preview@0.0.2`. */
   template?: string
   /** Requested intrinsic candidate widths. Defaults to a conservative ladder up to the source. */
   widths?: readonly number[]
@@ -119,6 +122,7 @@ export function createTransloaditImageModel(
   const cropAspectRatio = options.cropAspectRatio
   const requestedMaximumWidth = options.maximumWidth
   const requestedFallbackWidth = options.fallbackWidth
+  const fallbackBackground = options.fallbackBackground ?? '#ffffff'
   const fallbackQuality = options.fallbackQuality ?? defaultFallbackQuality
   const formats = options.formats === undefined ? undefined : { ...options.formats }
   const template = options.template ?? transloaditStoragePreviewTemplate
@@ -131,6 +135,9 @@ export function createTransloaditImageModel(
   if (typeof sign !== 'function') throw new TypeError('sign must be a function')
   validateQuality(fallbackQuality, 'fallbackQuality')
   validateTemplate(template)
+  if (!isOpaqueImageBackground(fallbackBackground)) {
+    throw new TypeError('fallbackBackground must be an opaque #rrggbb or #rrggbbff color')
+  }
   if (
     cropAspectRatio !== undefined &&
     (!Number.isFinite(cropAspectRatio) || cropAspectRatio <= 0)
@@ -169,6 +176,7 @@ export function createTransloaditImageModel(
         input: src,
         template,
         urlParams: {
+          bg: transparentImageBackground,
           f: format,
           h: getStorageHeight(candidateWidth, ratioWidth, ratioHeight),
           q: quality,
@@ -186,6 +194,7 @@ export function createTransloaditImageModel(
     input: src,
     template,
     urlParams: {
+      bg: fallbackBackground,
       f: 'jpg',
       h: getStorageHeight(fallbackWidth, ratioWidth, ratioHeight),
       q: fallbackQuality,

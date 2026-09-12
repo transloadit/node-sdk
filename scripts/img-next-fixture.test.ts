@@ -10,6 +10,15 @@ interface PackageManifest {
   devDependencies?: Record<string, string>
 }
 
+test('documents the pinned alpha pipeline, cache-key policy and server-enforced key separation', async () => {
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  expect(readme).toContain('builtin/storage-preview@0.0.2')
+  expect(readme).toContain('fallbackBackground')
+  expect(readme).toContain('#00000000')
+  expect(readme).toContain('NoCacheSigExp')
+  expect(readme).toContain('by design')
+})
+
 async function readManifest(path: string): Promise<PackageManifest> {
   return JSON.parse(await readFile(path, 'utf8'))
 }

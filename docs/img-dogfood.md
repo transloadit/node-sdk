@@ -18,7 +18,10 @@ depend on it from npm yet.
 This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app with
 Yarn 4's `node-modules` linker (`nodeLinker: node-modules`). The
 workspace must have Transloadit Storage writes enabled; package installation does not enable them.
-Start with an opaque JPEG or PNG. The current preview Built-in does not promise alpha preservation.
+The backend must provide `builtin/storage-preview@0.0.2` for this package revision: use API2
+#9057 at `a15af5ed96a4605cd500587cf002bd249534fe62` or newer in an owned devdock until that PR is
+deployed. Version 0.0.1 stays unchanged and flattens transparency; 0.0.2 accepts the signed `bg`
+field needed by alpha-preserving candidates and the opaque JPEG fallback.
 
 The server entry point needs the **Node.js runtime**, not Edge: it uses `node:crypto` and `Buffer`.
 The examples use root `app/` and `lib/` directories; adjust their relative imports for `src/app/`.
@@ -208,7 +211,7 @@ corepack yarn test:img:fixture
 The fixture packs all four local artifacts and installs them with its pinned **npm** lockfile into
 a clean Next.js app. It executes this exact seed recipe against mocked Assembly receipts without
 network access and compiles it against the packed SDK/types. It builds and serves both production
-Cache Components configurations, then runs 44 Chromium/WebKit cases: native cookie authorization,
+Cache Components configurations, then runs 48 Chromium/WebKit cases: native cookie authorization,
 separate app/CDN hosts, constrained hero/fixed avatar geometry, portrait fillcrop, optional error
 fallback, private-redirect decoding before application JavaScript, hydration, bounded JPEG fallback,
 original-capability renewal, revocation, expiry and tampering. Chromium
@@ -216,10 +219,12 @@ also verifies direct streaming before application JavaScript; direct WebKit navi
 script loading because holding bundles can stall React's streaming reveal in the test browser.
 That extra WebKit pre-JS scenario remains unverified. The owned
 local image origin independently verifies signatures/expiry and serves real encoded bytes; it
-never receives the application's session cookie. Secret scans cover the rendered/client artifacts.
+never receives the application's session cookie. Transparent AVIF/WebP/PNG corners and the signed
+opaque JPEG background are checked at the pixel level. This origin emulates the Built-in contract;
+it does not execute API2's transformation pipeline. Secret scans cover rendered/client artifacts.
 
 The test records browser evidence and direct-versus-redirect HTML size and route work for 1, 20,
 and 100 images. Wall-clock measurements are diagnostic, not CI performance thresholds. This local
-proof does not measure production CDN latency/caching or alpha preservation. The npm fixture is
+proof does not measure production CDN latency/caching or prove the deployed API2 pipeline. The npm fixture is
 not proof of the exact Yarn commands above; those are also verified separately in a clean Yarn
 consumer, including the local utils resolution.

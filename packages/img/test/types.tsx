@@ -12,6 +12,7 @@ import { createTransloaditImage, createTransloaditImageFromEnv } from '../src/ne
 
 const modelOptions: TransloaditImageModelOptions = {
   expiresAt: Date.UTC(2030, 0, 1),
+  fallbackBackground: '#ffffff',
   formats: { avif: 45, webp: 75 },
   height: 300,
   src: 'documents/report.pdf',
@@ -20,6 +21,7 @@ const modelOptions: TransloaditImageModelOptions = {
 
 const imageProps = {
   alt: 'Preview of report.pdf',
+  fallbackBackground: '#224466',
   height: 300,
   src: 'documents/report.pdf',
   width: 400,

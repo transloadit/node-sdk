@@ -2,7 +2,7 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotImport } from './_instructions-primitives.ts'
+import { interpolateRobot, recursive, robotBase, robotImport } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
   bytescount: 10,
@@ -47,6 +47,10 @@ Imports a file from your workspace's Transloadit Storage by its path.
 `),
     path: z.string().describe(`
 The path of the file in Transloadit Storage, for example \`photos/cat.jpg\`.
+`),
+    recursive: recursive.describe(`
+Whether to import files from subfolders and sub-subfolders when \`path\` is a folder. By default
+only the folder's own files are imported.
 `),
   })
   .strict()

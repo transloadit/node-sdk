@@ -334,7 +334,7 @@ async function main(): Promise<void> {
         )
         assert(storageShell.includes('height:48px;width:48px'), 'Avatar CSS box is absent')
         assert(
-          !storageShell.includes('builtin%2Fstorage-preview%400.0.1'),
+          !storageShell.includes('builtin%2Fstorage-preview%400.0.2'),
           'A signed Storage URL leaked into the prerendered shell',
         )
       }
@@ -360,7 +360,7 @@ async function main(): Promise<void> {
         )
         assert(imagePreloads[0]?.includes('imageSrcSet='), 'Responsive preload srcset is absent')
         assert(
-          storageHtml.includes('builtin%2Fstorage-preview%400.0.1'),
+          storageHtml.includes('builtin%2Fstorage-preview%400.0.2'),
           'Storage Built-in is absent',
         )
         assert(storageHtml.includes('r=pad'), 'Storage preview does not preserve exact dimensions')
@@ -373,7 +373,7 @@ async function main(): Promise<void> {
           'Authorized Storage route is absent',
         )
         assert(
-          !redirectHtml.includes('builtin%2Fstorage-preview%400.0.1'),
+          !redirectHtml.includes('builtin%2Fstorage-preview%400.0.2'),
           'Redirect markup contains a direct signed Storage URL',
         )
         assert(!storageHtml.includes(fixtureSecret), 'Secret leaked into Storage output')

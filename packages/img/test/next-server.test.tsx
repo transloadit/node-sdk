@@ -211,6 +211,64 @@ describe('development delivery diagnostics', () => {
 })
 
 describe('createTransloaditImageFromEnv', () => {
+  test.each([
+    'direct',
+    'redirect',
+  ])('binds transparent candidates and the configured JPEG background through %s delivery', async (delivery) => {
+    const integration =
+      delivery === 'direct'
+        ? createTransloaditImage(baseConfiguration)
+        : createTransloaditImage({
+            ...baseConfiguration,
+            storage: {
+              allowedPathPrefixes: ['documents/'],
+              delivery: { route: '/images', authorize: () => true },
+            },
+          })
+    const document = parseMarkup(
+      await renderAsync(
+        <integration.StorageImage
+          alt="Transparent logo"
+          src={{ path: 'documents/logo.png', width: 64, height: 64 }}
+          fallbackBackground="#224466"
+        />,
+      ),
+    )
+    const candidate = getFirstCandidate(document)
+    const fallback = document.querySelector('img')?.getAttribute('src')
+    if (fallback == null) throw new Error('Expected a JPEG fallback')
+    for (const [source, bg] of [
+      [candidate, '#00000000'],
+      [fallback, '#224466'],
+    ]) {
+      if (source === undefined) throw new Error('Expected a candidate URL')
+      const location =
+        'storageRoute' in integration
+          ? (
+              await integration.storageRoute(new Request(new URL(source, 'https://app.example')))
+            ).headers.get('location')
+          : source
+      if (location === null) throw new Error('Expected a redirect')
+      expect(
+        parseSmartCdnUrl(location, {
+          baseUrl: baseConfiguration.baseUrl,
+          workspace: baseConfiguration.workspace,
+        }).urlParams.bg,
+      ).toBe(bg)
+      expect(new URL(location).hash).toBe('')
+      expect(location).toContain('bg=%23')
+    }
+  })
+
+  test('rejects a global background override before it can flatten alpha or make JPEG transparent', () => {
+    expect(() =>
+      createTransloaditImage({
+        ...baseConfiguration,
+        urlParams: { bg: '#00000000' },
+      }),
+    ).toThrow(/image policy parameter: bg/)
+  })
+
   test('layout defaults leave explicit sizes, widths and styles in control', async () => {
     const { StorageImage } = createTransloaditImage(baseConfiguration)
     const document = parseMarkup(
@@ -840,7 +898,7 @@ describe('createTransloaditImage', () => {
     const firstFallback = new URL(firstDocument.querySelector('img')?.getAttribute('src') ?? '')
 
     expect(connection).toHaveBeenCalledOnce()
-    expect(firstSource.pathname).toContain('/builtin%2Fstorage-preview%400.0.1/')
+    expect(firstSource.pathname).toContain('/builtin%2Fstorage-preview%400.0.2/')
     expect(firstSource.searchParams.get('f')).toBe('webp')
     expect(firstSource.searchParams.get('h')).toBe('150')
     expect(firstSource.searchParams.get('q')).toBe('61')
@@ -1011,7 +1069,7 @@ describe('createTransloaditImage', () => {
     expect(response.headers.get('referrer-policy')).toBe('no-referrer')
     expect(authorize).toHaveBeenCalledOnce()
     expect(authorize).toHaveBeenCalledWith({ path: 'documents/report.pdf', request })
-    expect(target.template).toBe('builtin/storage-preview@0.0.1')
+    expect(target.template).toBe('builtin/storage-preview@0.0.2')
     expect(target.input).toBe('documents/report.pdf')
     expect(target.urlParams).toMatchObject({ f: 'avif', h: '240', q: '45', r: 'pad', w: '320' })
     expect(target.auth?.expiresAt).toBe(Date.parse('2029-01-01T13:05:00Z'))
