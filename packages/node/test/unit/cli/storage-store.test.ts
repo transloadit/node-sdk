@@ -56,6 +56,17 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('preserves every existing path, including ordinary JSON prototype-looking keys', async () => {
+    const earlier = { ...receipt, path: '__proto__' }
+    await writeFile('images.json', JSON.stringify({ [earlier.path]: earlier }))
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({
+      [earlier.path]: earlier,
+      [receipt.path]: receipt,
+    })
+  })
+
   test('uses storeImage and appends a keyed receipt with a ready-to-render snippet', async () => {
     const earlier = { ...receipt, path: 'website/earlier.jpg' }
     await writeFile('images.json', JSON.stringify({ [earlier.path]: earlier }))

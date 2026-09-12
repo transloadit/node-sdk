@@ -8,11 +8,16 @@ import { z } from 'zod'
 import { ensureError, isErrnoException } from '../types.ts'
 import { AuthenticatedCommand } from './BaseCommand.ts'
 
+// Keep every JSON key verbatim: a Storage filename may be "__proto__", which z.record strips.
+const receiptsSchema = z.custom<Record<string, unknown>>(
+  (value: unknown) => typeof value === 'object' && value !== null && !Array.isArray(value),
+)
+
 async function readReceipts(file: string): Promise<Record<string, unknown>> {
   try {
     const info = await lstat(file)
     if (!info.isFile()) throw new Error('Expected a regular JSON file, not a symlink or directory')
-    return z.record(z.string(), z.unknown()).parse(JSON.parse(await readFile(file, 'utf8')))
+    return receiptsSchema.parse(JSON.parse(await readFile(file, 'utf8')))
   } catch (error) {
     if (isErrnoException(error) && error.code === 'ENOENT') return {}
     throw new Error('Cannot read receipts: expected a JSON object keyed by Storage path', {
