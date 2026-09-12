@@ -166,6 +166,12 @@ jobs:
           node-version: 24
       - run: corepack yarn install --immutable
       - run: corepack yarn test:img:fixture
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: img-browser-evidence
+          path: test-results/img-next
+          if-no-files-found: ignore
 
   unit:
     name: Unit tests (Node ${{ matrix.node }})

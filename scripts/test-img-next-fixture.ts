@@ -64,6 +64,7 @@ async function fetchWhenReady(url: string, signal?: AbortSignal): Promise<Respon
 
 async function withFixtureServer(
   fixtureDir: string,
+  cdnOrigin: string,
   verify: (baseUrl: string) => Promise<void>,
 ): Promise<void> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -83,6 +84,7 @@ async function withFixtureServer(
       ],
       {
         cwd: fixtureDir,
+        env: { IMG_FIXTURE_CDN_ORIGIN: cdnOrigin },
         reject: false,
       },
     )
@@ -149,6 +151,7 @@ function getFirstPictureCandidates(html: string): string[] {
 
 async function runImageBenchmark(
   baseUrl: string,
+  cdnOrigin: string,
   count: number,
   delivery: 'direct' | 'redirect',
 ): Promise<ImageBenchmarkResult> {
@@ -165,7 +168,7 @@ async function runImageBenchmark(
     const redirects = await Promise.all(
       candidates.map((candidate) =>
         fetch(new URL(candidate, baseUrl), {
-          headers: { Authorization: 'Bearer fixture' },
+          headers: { Cookie: 'fixture-session=fixture' },
           redirect: 'manual',
         }),
       ),
@@ -174,14 +177,14 @@ async function runImageBenchmark(
     for (const redirect of redirects) {
       assert(redirect.status === 307, 'Expected every authorized image route to redirect')
       assert(
-        redirect.headers.get('location')?.startsWith('https://cdn.example/') === true,
+        redirect.headers.get('location')?.startsWith(`${cdnOrigin}/`) === true,
         'Expected every image redirect to target Smart CDN',
       )
       assert((await redirect.text()) === '', 'An image route must not proxy response bytes')
     }
   } else {
     assert(
-      candidates.every((candidate) => candidate.startsWith('https://cdn.example/')),
+      candidates.every((candidate) => candidate.startsWith(`${cdnOrigin}/`)),
       'Expected direct benchmark images to bypass the application route',
     )
   }
@@ -209,6 +212,7 @@ async function main(): Promise<void> {
   const temporaryRoot = await mkdtemp(resolve(tmpdir(), 'transloadit-img-next-'))
   const fixtureDir = resolve(temporaryRoot, 'fixture')
   const packDir = resolve(temporaryRoot, 'pack')
+  const cdnOrigin = `http://127.0.0.1:${await getFreePort()}`
 
   try {
     // Keep the entire external execution graph reviewable and age-gated in the repository.
@@ -249,7 +253,11 @@ async function main(): Promise<void> {
       { cwd: fixtureDir, stdio: 'inherit' },
     )
     await execa(process.execPath, ['--test', 'seed.test.ts'], { cwd: fixtureDir, stdio: 'inherit' })
-    await execa('npm', ['run', 'build'], { cwd: fixtureDir, stdio: 'inherit' })
+    await execa('npm', ['run', 'build'], {
+      cwd: fixtureDir,
+      env: { IMG_FIXTURE_CDN_ORIGIN: cdnOrigin },
+      stdio: 'inherit',
+    })
 
     const appOutput = resolve(fixtureDir, '.next/server/app')
     const outputNames = await readdir(appOutput, { recursive: true })
@@ -286,7 +294,7 @@ async function main(): Promise<void> {
     await assertTreeExcludes(resolve(fixtureDir, '.next/static'), fixtureSecret)
     await assertTreeExcludes(appOutput, fixtureSecret)
 
-    await withFixtureServer(fixtureDir, async (baseUrl) => {
+    await withFixtureServer(fixtureDir, cdnOrigin, async (baseUrl) => {
       const storageHtml = await (await fetchWhenReady(`${baseUrl}/fixture/storage-image`)).text()
       const redirectResponse = await fetchWhenReady(`${baseUrl}/fixture/storage-redirect`)
       const redirectLinkHeader = redirectResponse.headers.get('link') ?? ''
@@ -331,10 +339,11 @@ async function main(): Promise<void> {
       const routeUrl = new URL(routeCandidate, baseUrl)
       const beforeAuthorization = Date.now()
       const allowed = await fetch(routeUrl, {
-        headers: { Authorization: 'Bearer fixture' },
+        headers: { Cookie: 'fixture-session=fixture' },
         redirect: 'manual',
       })
       assert(allowed.status === 307, 'Authorized Storage route did not redirect')
+      assert((await allowed.text()) === '', 'Authorized Storage route must not proxy image bytes')
       const location = allowed.headers.get('location')
       assert(location !== null, 'Authorized Storage route has no target')
       const expiresAt = Number(new URL(location).searchParams.get('exp'))
@@ -343,11 +352,11 @@ async function main(): Promise<void> {
         'Redirect fixture did not use the documented five-minute plus 30-second grant',
       )
       assert(
-        allowed.headers.get('location')?.startsWith('https://cdn.example/') === true,
+        allowed.headers.get('location')?.startsWith(`${cdnOrigin}/`) === true,
         'Authorized Storage route did not target Smart CDN',
       )
       const allowedHead = await fetch(routeUrl, {
-        headers: { Authorization: 'Bearer fixture' },
+        headers: { Cookie: 'fixture-session=fixture' },
         method: 'HEAD',
         redirect: 'manual',
       })
@@ -360,17 +369,37 @@ async function main(): Promise<void> {
       const replacement = capability.endsWith('A') ? 'B' : 'A'
       routeUrl.searchParams.set('cap', `${capability.slice(0, -1)}${replacement}`)
       const altered = await fetch(routeUrl, {
-        headers: { Authorization: 'Bearer fixture' },
+        headers: { Cookie: 'fixture-session=fixture' },
         redirect: 'manual',
       })
       assert(altered.status === 404, 'Storage route accepted an altered transform capability')
 
       const benchmarks: ImageBenchmarkResult[] = []
       for (const count of benchmarkCounts) {
-        benchmarks.push(await runImageBenchmark(baseUrl, count, 'direct'))
-        benchmarks.push(await runImageBenchmark(baseUrl, count, 'redirect'))
+        benchmarks.push(await runImageBenchmark(baseUrl, cdnOrigin, count, 'direct'))
+        benchmarks.push(await runImageBenchmark(baseUrl, cdnOrigin, count, 'redirect'))
       }
       console.table(benchmarks)
+      const playwright = resolve(fixtureDir, 'node_modules/@playwright/test/cli.js')
+      await execa(
+        process.execPath,
+        [
+          playwright,
+          'install',
+          ...(process.env.CI && process.platform === 'linux' ? ['--with-deps'] : []),
+          'chromium',
+        ],
+        { cwd: fixtureDir, stdio: 'inherit' },
+      )
+      await execa(process.execPath, [playwright, 'test'], {
+        cwd: fixtureDir,
+        env: {
+          IMG_FIXTURE_BASE_URL: baseUrl,
+          IMG_FIXTURE_CDN_ORIGIN: cdnOrigin,
+          IMG_FIXTURE_OUTPUT_DIR: resolve(repoRoot, 'test-results/img-next'),
+        },
+        stdio: 'inherit',
+      })
     })
   } finally {
     await rm(temporaryRoot, { force: true, recursive: true })

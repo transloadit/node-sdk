@@ -14,11 +14,13 @@
     "server-only": "0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.58.2",
     "@transloadit/node": "4.11.1",
     "@transloadit/types": "4.3.4",
     "@types/node": "25.8.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
+    "sharp": "0.35.4",
     "typescript": "6.0.3"
   }
 }
