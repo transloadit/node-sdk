@@ -83,6 +83,136 @@ afterEach(() => {
 })
 
 describe('createTransloaditImage', () => {
+  test.each([
+    'direct',
+    'redirect',
+  ])('renders a receipt exactly like its string equivalent with %s delivery', async (delivery) => {
+    const { Image } = createTransloaditImage({
+      ...baseConfiguration,
+      storage: {
+        ...baseConfiguration.storage,
+        delivery: delivery === 'direct' ? 'direct' : { route: '/images', authorize: () => true },
+      },
+    })
+    const src = {
+      path: 'documents/report.pdf',
+      width: 400,
+      height: 300,
+      asset_id: 'private-asset-id',
+      md5hash: 'private-checksum',
+      authSecret: 'secret-from-receipt',
+      id: 'not-an-attribute',
+    }
+    const received = parseMarkup(await renderAsync(Image({ alt: 'Report', src })))
+    const expected = parseMarkup(
+      await renderAsync(Image({ alt: 'Report', src: src.path, width: 400, height: 300 })),
+    )
+    expect(received.querySelector('picture')?.isEqualNode(expected.querySelector('picture'))).toBe(
+      true,
+    )
+    expect(received.querySelector('img')?.getAttribute('width')).toBe('400')
+    expect(received.querySelector('img')?.getAttribute('height')).toBe('300')
+    expect(received.documentElement.outerHTML).not.toContain('private-asset-id')
+    expect(received.documentElement.outerHTML).not.toContain('private-checksum')
+    expect(received.documentElement.outerHTML).not.toContain('secret-from-receipt')
+    expect(received.querySelector('img')?.id).toBe('')
+  })
+
+  test.each(
+    [
+      null,
+      [],
+      {},
+      { toString: () => 'documents/report.pdf' },
+      { path: 'documents/../secret.pdf', width: 400, height: 300 },
+      { path: 'private/report.pdf', width: 400, height: 300 },
+      { path: 'documents/report.pdf', width: '400', height: 300 },
+      { path: 'documents/report.pdf', width: 0, height: 300 },
+      { path: 'documents/report.pdf', width: 400, height: 1.5 },
+      { path: 'documents/report.pdf', width: 400, height: Number.POSITIVE_INFINITY },
+      { path: 'documents/report.pdf', width: Number.MAX_SAFE_INTEGER + 1, height: 300 },
+    ].map((src) => ({ src })),
+  )('rejects malformed or unauthorized receipt $src before request I/O', ({ src }) => {
+    const { Image } = createTransloaditImage(baseConfiguration)
+    expect(() => Reflect.apply(Image, undefined, [{ alt: 'Invalid', src }])).toThrow()
+    expect(connection).not.toHaveBeenCalled()
+  })
+
+  test('rejects redundant receipt dimensions from JavaScript callers', () => {
+    const { Image } = createTransloaditImage(baseConfiguration)
+    expect(() =>
+      Reflect.apply(Image, undefined, [
+        {
+          alt: 'Ambiguous',
+          src: { path: 'documents/report.pdf', width: 400, height: 300 },
+          width: 400,
+          height: 300,
+        },
+      ]),
+    ).toThrow()
+    expect(connection).not.toHaveBeenCalled()
+  })
+
+  test('snapshots receipt geometry and path before request-time mutation', async () => {
+    const { Image } = createTransloaditImage(baseConfiguration)
+    const src = { path: 'documents/report.pdf', width: 400, height: 300 }
+    connection.mockImplementationOnce(() => {
+      Object.assign(src, { path: 'private/changed.pdf', width: 0, height: 0 })
+      return Promise.resolve(undefined)
+    })
+    const document = parseMarkup(
+      await renderAsync(Image({ alt: 'Stable receipt', src, widths: [400] })),
+    )
+    const url = parseSmartCdnUrl(getFirstCandidate(document), baseConfiguration)
+    expect(url.input).toBe('documents/report.pdf')
+    expect(url.urlParams).toMatchObject({ h: '300', w: '400' })
+    expect(document.querySelector('img')?.getAttribute('width')).toBe('400')
+  })
+
+  test.each([
+    'string',
+    'receipt',
+  ])('snapshots %s dimensions before reading other attributes in redirect delivery', async (kind) => {
+    const { Image, storageRoute } = createTransloaditImage({
+      ...baseConfiguration,
+      storage: {
+        ...baseConfiguration.storage,
+        delivery: { route: '/images', authorize: () => true },
+      },
+    })
+    const source = { path: 'documents/report.pdf', width: 400, height: 300 }
+    const props = {
+      alt: 'Stable redirect',
+      src: source.path,
+      width: 400,
+      height: 300,
+      widths: [400],
+    }
+    const sourceProps = kind === 'string' ? props : { alt: props.alt, src: source, widths: [400] }
+    Object.defineProperty(sourceProps, 'id', {
+      enumerable: true,
+      get() {
+        Object.assign(source, { path: 'private/changed.pdf', width: 0, height: 0 })
+        props.width = 0
+        props.height = 0
+        return 'original-id'
+      },
+    })
+    const markup = renderToStaticMarkup(Image(sourceProps))
+    const document = parseMarkup(markup)
+    const response = await storageRoute(
+      new Request(new URL(getFirstCandidate(document), 'https://app.example')),
+    )
+    expect(response.status).toBe(307)
+    const location = response.headers.get('location')
+    if (location === null) throw new Error('Expected an authorized CDN target')
+    const candidate = parseSmartCdnUrl(location, baseConfiguration)
+    expect(candidate.input).toBe('documents/report.pdf')
+    expect(candidate.urlParams).toMatchObject({ h: '300', w: '400' })
+    expect(document.querySelector('img')?.getAttribute('width')).toBe('400')
+    expect(connection).not.toHaveBeenCalled()
+  })
+
   test('reserves native image geometry while request-time signing is suspended', async () => {
     let resolveConnection: (value: undefined) => void = () => {
       throw new Error('Connection was not initialized')
@@ -99,13 +229,11 @@ describe('createTransloaditImage', () => {
           aria-describedby="hero-caption"
           aria-labelledby="hero hero-caption"
           className="hero"
-          height={1600}
           id="hero"
           preload
           sizes="(min-width: 960px) 960px, 100vw"
-          src="documents/hero.jpg"
+          src={{ path: 'documents/hero.jpg', height: 1600, width: 2400 }}
           style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
-          width={2400}
         />
         <p>Following content</p>
       </main>,

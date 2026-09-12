@@ -1,14 +1,18 @@
 import type { SignSmartCdnImageRequest, SmartCdnImageFormat } from '@transloadit/utils'
 
+import type { TransloaditImageSourceProps } from './imageSource.ts'
+
 import {
   resolveSmartCdnImageFormats,
   resolveSmartCdnImageWidths,
   smartCdnImageMaxDimension,
 } from '@transloadit/utils'
 
-import { validateStoragePath } from './storagePath.ts'
+import { snapshotImageSource } from './imageSource.ts'
 
 export type { SignSmartCdnImageRequest, SmartCdnImageSignRequest } from '@transloadit/utils'
+
+export type { TransloaditImageSource } from './imageSource.ts'
 
 /** Signed Built-in used by default for Transloadit Storage previews. */
 export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.1'
@@ -46,23 +50,20 @@ export interface TransloaditImageModel {
   sources: readonly TransloaditImageSourceSet[]
 }
 
-/** Framework-neutral options for a responsive Transloadit Storage preview. */
-export interface TransloaditImageModelOptions {
+interface TransloaditImageModelConfiguration {
   expiresAt: number
   /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
   fallbackQuality?: number
   formats?: StoragePreviewFormats
-  /** Storage preview aspect-ratio numerator. */
-  height: number
-  /** Relative object path inside the configured Transloadit Storage workspace. */
-  src: string
   /** Trusted compatible signed Template. Defaults to `builtin/storage-preview@0.0.1`. */
   template?: string
-  /** Storage preview aspect-ratio denominator and conservative JPEG fallback width. */
-  width: number
   /** Requested intrinsic candidate widths. Defaults to a conservative ladder up to the source. */
   widths?: readonly number[]
 }
+
+/** Framework-neutral options for a responsive Transloadit Storage preview. */
+export type TransloaditImageModelOptions = TransloaditImageModelConfiguration &
+  TransloaditImageSourceProps
 
 function validateDimension(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 1 || value > smartCdnImageMaxDimension) {
@@ -107,13 +108,11 @@ export function createTransloaditImageModel(
   options: TransloaditImageModelOptions,
   sign: SignSmartCdnImageRequest,
 ): TransloaditImageModel {
+  const { path: src, width, height } = snapshotImageSource(options)
   const expiresAt = options.expiresAt
   const fallbackQuality = options.fallbackQuality ?? defaultFallbackQuality
   const formats = options.formats === undefined ? undefined : { ...options.formats }
-  const height = options.height
-  const src = options.src
   const template = options.template ?? transloaditStoragePreviewTemplate
-  const width = options.width
   const widthsSnapshot = Array.isArray(options.widths) ? [...options.widths] : options.widths
 
   validatePositiveSafeInteger(expiresAt, 'expiresAt')
@@ -121,10 +120,7 @@ export function createTransloaditImageModel(
     throw new RangeError('expiresAt must be a millisecond timestamp')
   }
   if (typeof sign !== 'function') throw new TypeError('sign must be a function')
-  validatePositiveSafeInteger(width, 'width')
-  validatePositiveSafeInteger(height, 'height')
   validateQuality(fallbackQuality, 'fallbackQuality')
-  validateStoragePath(src)
   validateTemplate(template)
 
   const heightLimitedWidth = Number(

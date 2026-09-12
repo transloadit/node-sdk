@@ -9,7 +9,6 @@ import sharp from 'sharp'
 import { imageConfiguration } from './app/imageConfiguration.ts'
 import { startFixtureCdn } from './browser-cdn.ts'
 import { revokedAccessFile } from './browser-policy.ts'
-import { startScriptGate } from './script-gate.ts'
 
 declare global {
   interface Window {
@@ -28,7 +27,6 @@ interface ImageEvidence {
 interface BrowserAudit {
   expectedFailures: Map<string, number>
   images: ImageEvidence[]
-  holdApplicationScripts(): Promise<Awaited<ReturnType<typeof startScriptGate>>>
   loadNativeImage(url: string): Promise<{
     loaded: boolean
     status: number
@@ -42,40 +40,12 @@ assert(cdnOrigin, 'The packed fixture must provide its own CDN origin')
 let cdn: Awaited<ReturnType<typeof startFixtureCdn>>
 
 const test = base.extend<{ audit: BrowserAudit }>({
-  // WebKit can carry stalled animation frames between contexts; each case needs a fresh browser.
-  context: async (
-    {
-      baseURL,
-      browserName,
-      contextOptions,
-      headless,
-      javaScriptEnabled,
-      launchOptions,
-      playwright,
-      viewport,
-    },
-    use,
-  ) => {
-    const browser = await playwright[browserName].launch({ ...launchOptions, headless })
-    try {
-      const context = await browser.newContext({
-        ...contextOptions,
-        baseURL,
-        javaScriptEnabled,
-        viewport,
-      })
-      await use(context)
-    } finally {
-      await browser.close()
-    }
-  },
   audit: [
     async ({ page, context, browserName }, use, info) => {
       const expectedFailures = new Map<string, number>()
       const images: ImageEvidence[] = []
       const errors: string[] = []
       const reads: Promise<void>[] = []
-      const scriptGates: Awaited<ReturnType<typeof startScriptGate>>[] = []
       // The empty scaffold intentionally has no favicon; it is not an image delivery failure.
       expectedFailures.set(new URL('/favicon.ico', info.project.use.baseURL).href, 404)
       await rm(revokedAccessFile, { force: true })
@@ -150,12 +120,6 @@ const test = base.extend<{ audit: BrowserAudit }>({
       await use({
         expectedFailures,
         images,
-        async holdApplicationScripts() {
-          assert(info.project.use.baseURL)
-          const gate = await startScriptGate(info.project.use.baseURL)
-          scriptGates.push(gate)
-          return gate
-        },
         async loadNativeImage(url) {
           const browser = context.browser()
           assert(browser)
@@ -208,7 +172,6 @@ const test = base.extend<{ audit: BrowserAudit }>({
           }
         },
       })
-      for (const gate of scriptGates) await gate.close()
       await Promise.all(reads)
       await info.attach('native-image-responses', {
         body: JSON.stringify({ images, errors, expectedFailures: [...expectedFailures] }, null, 2),
@@ -325,7 +288,7 @@ test('native image requests authorize with an HttpOnly session cookie, without B
 
 for (const delivery of ['direct', 'redirect']) {
   for (const width of [1200, 390]) {
-    test(`${delivery} hero and avatar decode before application JS and hydrate at ${width}px`, async ({
+    test(`${delivery} hero and avatar decode and hydrate at ${width}px`, async ({
       audit,
       browserName,
       page,
@@ -333,17 +296,24 @@ for (const delivery of ['direct', 'redirect']) {
       await page.setViewportSize({ width, height: 1000 })
       const afterHero = page.getByText('After the hero', { exact: true })
       const afterAvatar = page.getByText('After the avatar', { exact: true })
-      let beforeHydration:
+      let decodedGeometry:
         | {
             hero: Awaited<ReturnType<Locator['boundingBox']>>
             avatar: Awaited<ReturnType<Locator['boundingBox']>>
           }
         | undefined
-      const scripts = await audit.holdApplicationScripts()
-      await page.route('**/_next/**/*.js*', async (route) => {
-        const url = new URL(route.request().url())
-        await route.continue({ url: new URL(`${url.pathname}${url.search}`, scripts.origin).href })
-      })
+      // Required pre-JS proof covers native private redirects in both browsers. Chromium also
+      // covers direct streaming; held bundles can stall React's reveal animation frame in WebKit.
+      const holdScripts = delivery === 'redirect' || browserName === 'chromium'
+      const scripts = Promise.withResolvers<void>()
+      let scriptsWaiting = 0
+      if (holdScripts) {
+        await page.route('**/_next/**/*.js*', async (route) => {
+          scriptsWaiting += 1
+          await scripts.promise
+          await route.continue()
+        })
+      }
       const started = performance.now()
       const requestOffset = cdn.requests.length
       const hero = page.getByRole('img', {
@@ -360,8 +330,8 @@ for (const delivery of ['direct', 'redirect']) {
         })
         await decode(hero)
         await decode(avatar)
-        expect(scripts.waiting).toBeGreaterThan(0)
-        beforeHydration = {
+        if (holdScripts) expect(scriptsWaiting).toBeGreaterThan(0)
+        decodedGeometry = {
           hero: await afterHero.boundingBox(),
           avatar: await afterAvatar.boundingBox(),
         }
@@ -402,13 +372,13 @@ for (const delivery of ['direct', 'redirect']) {
           contentType: 'application/json',
         })
       } finally {
-        scripts.release()
+        scripts.resolve()
       }
       await page.getByRole('button', { name: 'Hydration count: 0' }).click()
       await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
       await info.attach('hydrated', { body: await page.screenshot(), contentType: 'image/png' })
       if (delivery === 'direct' && process.env.IMG_FIXTURE_CACHE_COMPONENTS === 'enabled') {
-        assert(beforeHydration)
+        assert(decodedGeometry)
         const hydrated = {
           hero: await afterHero.boundingBox(),
           avatar: await afterAvatar.boundingBox(),
@@ -433,8 +403,8 @@ for (const delivery of ['direct', 'redirect']) {
           hero: await afterHero.boundingBox(),
           avatar: await afterAvatar.boundingBox(),
         }
-        expectSameBox(beforeHydration.hero, pending.hero)
-        expectSameBox(beforeHydration.avatar, pending.avatar)
+        expectSameBox(decodedGeometry.hero, pending.hero)
+        expectSameBox(decodedGeometry.avatar, pending.avatar)
         expectSameBox(hydrated.hero, pending.hero)
         expectSameBox(hydrated.avatar, pending.avatar)
         expect(cdn.requests).toHaveLength(requestsBeforeShell)

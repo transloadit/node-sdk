@@ -1,4 +1,5 @@
 import type { AssemblyStatus } from '@transloadit/node'
+import type { InterpolatableRobotTransloaditStoreInstructions } from '@transloadit/types/robots'
 
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
@@ -7,6 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
+import { createTransloaditImageModel } from '@transloadit/img'
 import { Transloadit } from '@transloadit/node'
 
 import { seedStorageImage } from './seed.ts'
@@ -38,7 +40,8 @@ test('seeds one original and returns verified metadata for rendering without ano
   const create = t.mock.method(client, 'createAssembly', () =>
     Object.assign(Promise.resolve(response), { assemblyId: 'offline-assembly' }),
   )
-  assert.deepEqual(await seedStorageImage(client, filePath), {
+  const image = await seedStorageImage(client, filePath, receipt.path)
+  assert.deepEqual(image, {
     asset_id: receipt.asset_id,
     height: 1,
     md5hash: receipt.md5hash,
@@ -46,18 +49,31 @@ test('seeds one original and returns verified metadata for rendering without ano
     size: bytes.length,
     width: 1,
   })
+  const model = createTransloaditImageModel(
+    { src: image, expiresAt: Date.UTC(2030, 0, 1) },
+    ({ input }) => {
+      assert.equal(input, receipt.path)
+      return `https://cdn.example/${input}`
+    },
+  )
+  assert.equal(model.sources[0]?.candidates[0]?.width, image.width)
   assert.deepEqual(create.mock.calls[0]?.arguments[0], {
-    files: { photo: filePath },
+    chunkSize: undefined,
+    files: { image: filePath },
+    onAssemblyProgress: undefined,
+    onUploadProgress: undefined,
     params: {
       steps: {
         stored: {
           robot: '/transloadit/store',
           use: ':original',
-          path: 'website/${file.url_name}',
+          path: receipt.path,
           conflict_strategy: 'error',
-        },
+        } satisfies InterpolatableRobotTransloaditStoreInstructions,
       },
     },
+    signal: undefined,
+    timeout: undefined,
     waitForCompletion: true,
   })
 })
@@ -80,6 +96,9 @@ for (const missing of ['asset_id', 'path', 'size', 'md5hash', 'meta']) {
     t.mock.method(client, 'createAssembly', () =>
       Object.assign(Promise.resolve(response), { assemblyId: 'offline-assembly' }),
     )
-    await assert.rejects(seedStorageImage(client, filePath), /matching Storage image receipt/)
+    await assert.rejects(
+      seedStorageImage(client, filePath, receipt.path),
+      /matching Storage image receipt/,
+    )
   })
 }

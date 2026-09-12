@@ -8,22 +8,18 @@ export default function Page(): ReactNode {
       <TransloaditImage
         alt="Storage hero"
         className="hero"
-        height={1600}
         id="hero"
         sizes="(min-width: 960px) 960px, 100vw"
-        src="documents/hero.jpg"
-        width={2400}
+        src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
       />
       <p>After the hero</p>
       <TransloaditImage
         alt="Storage avatar"
-        height={400}
         id="avatar"
         objectFit="cover"
         sizes="48px"
-        src="documents/avatar.jpg"
+        src={{ path: 'documents/avatar.jpg', width: 400, height: 400 }}
         style={{ display: 'block', height: 48, width: 48 }}
-        width={400}
         widths={[48, 96]}
       />
       <p>After the avatar</p>

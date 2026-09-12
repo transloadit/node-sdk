@@ -20,10 +20,9 @@ const mimeTypes = {
   webp: 'image/webp',
 } satisfies Record<TransloaditImageSourceSet['format'], string>
 
-interface ImagePresentationProps extends ImageAttributes {
+interface ImagePresentationProps extends Omit<ImageAttributes, 'height' | 'width'> {
   alt: string
   deferUntilHydrated?: boolean
-  height: number
   media?: string
   /** CSP-compatible placeholder used while `media` is unmatched. Defaults to an inline GIF. */
   mediaPlaceholderSrc?: string
@@ -31,11 +30,16 @@ interface ImagePresentationProps extends ImageAttributes {
   objectFit?: CSSProperties['objectFit']
   /** Expected rendered widths. Browsers otherwise assume `100vw` for width-based source sets. */
   sizes?: string
-  width: number
 }
 
+/** Layout and loading without assuming how the caller supplies source dimensions. */
+export type TransloaditImageLayoutProps = ImagePresentationProps & ImageLoadingProps
+
 /** Serializable native image attributes and layout shared by both Next.js renderers. */
-export type TransloaditImagePresentationProps = ImagePresentationProps & ImageLoadingProps
+export type TransloaditImagePresentationProps = TransloaditImageLayoutProps & {
+  height: number
+  width: number
+}
 
 /** Props for rendering an already-signed framework-neutral image model. */
 export type TransloaditPictureProps = TransloaditImagePresentationProps & {

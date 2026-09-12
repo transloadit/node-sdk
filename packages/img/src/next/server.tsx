@@ -3,12 +3,13 @@ import 'server-only'
 import type { SmartCdnUrlParams } from '@transloadit/utils/node'
 import type { ReactNode } from 'react'
 
+import type { TransloaditImageSource, TransloaditImageSourceProps } from '../imageSource.ts'
 import type {
   SmartCdnImageSignRequest,
   StoragePreviewFormats,
   TransloaditImageModel,
 } from '../index.ts'
-import type { TransloaditImagePresentationProps } from './index.tsx'
+import type { TransloaditImageLayoutProps, TransloaditImagePresentationProps } from './index.tsx'
 
 import { hkdfSync } from 'node:crypto'
 
@@ -17,6 +18,7 @@ import { getSignedSmartCdnUrl } from '@transloadit/utils/node'
 import { connection } from 'next/server.js'
 import { Suspense } from 'react'
 
+import { snapshotImageSource } from '../imageSource.ts'
 import { createTransloaditImageModel, transloaditStoragePreviewTemplate } from '../index.ts'
 import { validateStoragePath, validateStoragePathPrefix } from '../storagePath.ts'
 import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
@@ -88,19 +90,18 @@ export interface TransloaditRedirectImageConfiguration extends TransloaditImageC
 }
 
 /** Props for a private Transloadit Storage preview. */
-export type TransloaditImageProps = TransloaditImagePresentationProps & {
-  /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
-  fallbackQuality?: number
-  formats?: StoragePreviewFormats
-  media?: never
-  mediaPlaceholderSrc?: never
-  /** Relative object path inside the configured Transloadit Storage workspace. */
-  src: string
-  /** Static shell used only while direct request-time signing is suspended. */
-  suspenseFallback?: ReactNode
-  /** Advanced candidate override. Defaults to a conservative ladder capped at `width`. */
-  widths?: readonly number[]
-}
+export type TransloaditImageProps = TransloaditImageLayoutProps &
+  TransloaditImageSourceProps & {
+    /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
+    fallbackQuality?: number
+    formats?: StoragePreviewFormats
+    media?: never
+    mediaPlaceholderSrc?: never
+    /** Static shell used only while direct request-time signing is suspended. */
+    suspenseFallback?: ReactNode
+    /** Advanced candidate override. Defaults to a conservative ladder capped at `width`. */
+    widths?: readonly number[]
+  }
 
 /** Redirect images render synchronously and have no signing suspension to replace. */
 export type TransloaditRedirectImageProps = TransloaditImageProps & { suspenseFallback?: never }
@@ -144,8 +145,10 @@ interface StorageImageTransform {
 }
 
 interface TransloaditStorageImageRequestProps {
-  props: TransloaditImageProps
+  props: ResolvedStorageImageProps
 }
+
+type ResolvedStorageImageProps = Extract<TransloaditImageProps, { src: string }>
 
 function StorageImagePlaceholder({ props }: TransloaditStorageImageRequestProps): ReactNode {
   const attributes = snapshotImageAttributes(props)
@@ -338,28 +341,21 @@ function snapshotUrlParams(
 
 function snapshotStorageImageProps(
   props: TransloaditImageProps,
-  path: string,
-): TransloaditImageProps {
+  source: TransloaditImageSource,
+): ResolvedStorageImageProps {
   return {
     ...snapshotImageAttributes(props),
     ...snapshotImageLoading(props),
     deferUntilHydrated: props.deferUntilHydrated,
     fallbackQuality: props.fallbackQuality,
     formats: props.formats === undefined ? undefined : { ...props.formats },
-    height: props.height,
+    height: source.height,
     objectFit: props.objectFit,
-    src: path,
+    src: source.path,
     suspenseFallback: props.suspenseFallback,
-    width: props.width,
+    width: source.width,
     widths: Array.isArray(props.widths) ? [...props.widths] : props.widths,
   }
-}
-
-function getStoragePath(src: unknown): string {
-  if (typeof src !== 'string') {
-    throw new TypeError('Storage image src must be one relative object path')
-  }
-  return src
 }
 
 function renderPicture(
@@ -629,12 +625,12 @@ export function createTransloaditImage(
   }
 
   function Image(props: TransloaditImageProps): ReactNode {
-    const storagePath = getStoragePath(props.src)
+    const source = snapshotImageSource(props)
     if (props.media !== undefined) {
       throw new TypeError('Storage image previews do not support media conditions')
     }
-    assertAllowedStoragePath(storagePath, storagePolicy)
-    const storageProps = snapshotStorageImageProps(props, storagePath)
+    assertAllowedStoragePath(source.path, storagePolicy)
+    const storageProps = snapshotStorageImageProps(props, source)
     if (storageCapability === undefined) {
       return (
         <Suspense
@@ -650,19 +646,19 @@ export function createTransloaditImage(
         </Suspense>
       )
     }
-    if (props.suspenseFallback !== undefined) {
+    if (storageProps.suspenseFallback !== undefined) {
       throw new TypeError('suspenseFallback is only used by direct Storage delivery')
     }
     const resolvedModel = createTransloaditImageModel(
       {
         expiresAt: storageCapabilityModelExpiresAt,
-        fallbackQuality: props.fallbackQuality,
-        formats: props.formats,
-        height: props.height,
-        src: storagePath,
+        fallbackQuality: storageProps.fallbackQuality,
+        formats: storageProps.formats,
+        height: storageProps.height,
+        src: storageProps.src,
         template: storageTemplate,
-        width: props.width,
-        widths: props.widths,
+        width: storageProps.width,
+        widths: storageProps.widths,
       },
       buildStorageUrl,
     )

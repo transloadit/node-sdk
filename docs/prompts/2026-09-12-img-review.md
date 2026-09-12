@@ -73,7 +73,7 @@ edits to credential files. Council remains orchestrator-owned. Four follow-up co
       host-wide HttpOnly cookie exclusion at the CDN, JPEG fallback, and WebKit if inexpensive.
 - [x] Sequential first-image walkthrough: close all eleven reader questions and document the
       full-cover `sizes` rule. Match the literal tested seed and repeat the Yarn consumer install.
-- [ ] SDK `storeImage` plus receipt-as-`src`: stream the checksum, validate the one completed
+- [x] SDK `storeImage` plus receipt-as-`src`: stream the checksum, validate the one completed
       receipt, preserve cancellation/progress, ship packed exports and legacy wrapper. Snapshot
       source geometry before suspension without weakening loading or authorization contracts.
 - [ ] Explicit-policy env factory: read the three rendering variables once, require `storage`,
@@ -139,3 +139,38 @@ Final logs: `/tmp/img-round2-2-isolated-{check,img-check,verify,fixture}.log`;
 repeat evidence: `/tmp/img-browser-isolated-repeat.log`.
 Evidence: `/tmp/img-webkit-{scriptgate,gate-original}.log`; retained failing traces and probes are
 under `/tmp/img-round2-webkit-red.d8oxnW` and `/tmp/img-webkit-debug.log`.
+
+The README commit is `e946915`. Its CI run `34691609803` passed nine checks but failed the extra
+direct-WebKit-before-JavaScript case. Earlier green repetitions did not establish a reliable fix.
+Restoring Playwright's standard context fixture recovered full network/DOM traces; the custom
+context had retained test steps and screenshots, but not the complete browser trace.
+
+The approved done criteria require private redirects to decode before application JavaScript in
+both browsers. Keep that proof, plus Chromium's extra direct-streaming proof. Direct WebKit uses
+normal script loading: its extra held-bundle streaming scenario remains unverified, with React's
+resolved content observed in hidden stream containers. This is not evidence of an API2 failure or
+a production Safari defect. The HTTP gate and custom browser lifecycle were removed; no retries,
+timeouts, authorization assertions, geometry checks or production hydration code were changed.
+The scoped full browser run passed 18/18 (`/tmp/img-browser-scoped.log`); the packed matrix follows.
+
+SDK receipt work now wraps one original-only Storage Assembly with an explicit complete path and
+conflict errors. Thirty-three red-first tests pass, covering malformed receipts, chunked checksum
+input, cancellation, progress, path policy and preserved SDK errors. `StoredImageReceipt` is public
+and reaches the generated legacy wrapper. Validation is explicitly after the write, not rollback.
+
+Receipt sources now supply readonly path/geometry and exclude redundant dimension props. Model,
+placeholder and direct/redirect signing share a validated source snapshot; ancillary receipt fields
+are ignored. Mutation tests reproduce and fix the redirect's original-props dimension read. Image
+checks pass 105 tests plus type fixtures; the packed seed now calls the public SDK helper and feeds
+its receipt into the public image model. Both production browser pages exercise object sources.
+
+The node package check initially resolved a globally installed Biome 2.5.10 and reported an
+unrelated existing SVG fixture. Putting this checkout's pinned Biome 2.4.16 first on PATH made
+the package check pass (285 tests, one existing skip). Incidental formatter and generated intent-doc
+changes were discarded; the unrelated fixture and dependency versions were not modified.
+
+The final sequential root check, img package check, full verification and packed production matrix
+passed. Browser results: 36/36, 54.1s enabled and 52.2s omitted, without retries or skips. The clean
+literal Yarn consumer also passed all six seed cases, exact updated snippet parity, public model
+execution, shared local utils resolution and TypeScript compilation. It uses the same four tarballs
+as that browser matrix: `/tmp/img-receipts-yarn.JD5X0O`. Logs: `/tmp/img-round2-3-*.log`.

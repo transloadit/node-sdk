@@ -5,6 +5,7 @@ import type {
   CompileAssemblyInstructionsResult,
 } from '@transloadit/utils'
 import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
+import type { Input as IntoStreamInput } from 'into-stream'
 
 import type { TransloaditErrorResponseBody } from './ApiError.ts'
 import type {
@@ -38,6 +39,7 @@ import type {
   LintAssemblyInstructionsInput,
   LintAssemblyInstructionsResult,
 } from './lintAssemblyInstructions.ts'
+import type { StoredImageReceipt, StoreImageOptions } from './storageImage.ts'
 import type { Stream, UploadBehavior } from './tus.ts'
 
 import * as assert from 'node:assert'
@@ -52,7 +54,7 @@ import { getSignedSmartCdnUrl, signParamsSync } from '@transloadit/utils/node'
 import debug from 'debug'
 import FormData from 'form-data'
 import got, { HTTPError, RequestError } from 'got'
-import intoStream, { type Input as IntoStreamInput } from 'into-stream'
+import intoStream from 'into-stream'
 import { isReadableStream, isStream } from 'is-stream'
 import pMap from 'p-map'
 
@@ -65,6 +67,7 @@ import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
+import { storeImage } from './storageImage.ts'
 import { sendTusRequest } from './tus.ts'
 
 export type {
@@ -93,6 +96,7 @@ export type {
   RobotListResult,
   RobotParamHelp,
 } from './robots.ts'
+export type { StoredImageReceipt, StoreImageOptions } from './storageImage.ts'
 
 export {
   buildCompileAssemblyInstructionsSystemPrompt,
@@ -451,6 +455,11 @@ export class Transloadit {
 
   setDefaultTimeout(timeout: number): void {
     this._defaultTimeout = timeout
+  }
+
+  /** Stores one local original at an explicit path and returns its verified image metadata. */
+  storeImage(filePath: string, options: StoreImageOptions): Promise<StoredImageReceipt> {
+    return storeImage(this, filePath, options)
   }
 
   /**

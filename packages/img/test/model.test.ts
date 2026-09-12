@@ -21,6 +21,28 @@ function collectSignedRequests(): {
 }
 
 describe('createTransloaditImageModel', () => {
+  test('uses receipt geometry without forwarding ancillary receipt fields to signing', () => {
+    const src = {
+      path: 'documents/report.pdf',
+      width: 400,
+      height: 300,
+      asset_id: 'private-id',
+      authSecret: 'not-a-signing-option',
+    }
+    const fromReceipt = collectSignedRequests()
+    const fromString = collectSignedRequests()
+    const options = { expiresAt, widths: [200, 400] }
+    expect(createTransloaditImageModel({ ...options, src }, fromReceipt.sign)).toEqual(
+      createTransloaditImageModel(
+        { ...options, src: src.path, width: 400, height: 300 },
+        fromString.sign,
+      ),
+    )
+    expect(fromReceipt.requests).toEqual(fromString.requests)
+    expect(JSON.stringify(fromReceipt.requests)).not.toContain('private-id')
+    expect(JSON.stringify(fromReceipt.requests)).not.toContain('not-a-signing-option')
+  })
+
   test('builds responsive Storage previews and a signed JPEG fallback', () => {
     const { requests, sign } = collectSignedRequests()
     const model = createTransloaditImageModel(

@@ -62,7 +62,8 @@ corepack yarn add "@transloadit/img@file:$img_pack_dir/transloadit-img.tgz" "@tr
 corepack yarn add -D "@transloadit/node@file:$img_pack_dir/transloadit-node.tgz" "@transloadit/types@file:$img_pack_dir/transloadit-types.tgz"
 ```
 
-The Assembly client and instruction types are seed-only development dependencies. Utils is a real
+The Assembly client is a seed-only development dependency. The optional instruction types are used
+by the packed recipe's tests and by advanced `createAssembly()` calls, not the seed helper. Utils is a real
 runtime dependency of img; the local tarball override is specific to this unpublished walkthrough.
 Img does not add the Assembly client to the browser or create an Assembly for each render. Keep
 the tarballs available for reinstalls; do not commit machine-specific paths as a production setup.
@@ -90,91 +91,43 @@ write-capable Assembly credentials. `.env.seed.local` is outside Next's normal e
 
 ### Store one image and keep its verified metadata
 
-Save this as `seed.ts` in the app. `createAssembly()` signs with the Assembly secret. The `stored`
-export step annotates its input: the receipt is in **`results[':original']`**, not `results.stored`.
-This recipe checks completion, a typed `asset_id`, the returned path, byte count, MD5, and positive
-image dimensions against the uploaded file. Those fields were verified in a real Storage canary.
+Save this as `seed.ts` in the app. `client.storeImage(filePath, { path })` uses your Assembly key
+to store one local original at an explicit complete destination path. It streams the checksum,
+waits for completion and verifies exactly one matching receipt: a nonempty typed `asset_id`, exact
+path, byte count, MD5, and positive safe-integer image dimensions. It returns `StoredImageReceipt`.
+
+Underneath, one `/transloadit/store` Assembly annotates its input: the receipt is in
+**`results[':original']`**, not `results.stored`. Those fields were verified in a real Storage canary.
 
 ```ts
-import type { InterpolatableRobotTransloaditStoreInstructions } from '@transloadit/types/robots'
-
-import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import type { StoredImageReceipt } from '@transloadit/node'
 
 import { Transloadit } from '@transloadit/node'
 
-/** An application-owned record saved once after upload, not fetched during rendering. */
-export interface StoredImageReceipt {
-  asset_id: string
-  height: number
-  md5hash: string
-  path: string
-  size: number
-  width: number
-}
-
-/** Seed one image with an Assembly key and verify its returned Storage receipt. */
-export async function seedStorageImage(
+/** Seed with an Assembly key, then save the receipt for rendering without another lookup. */
+export function seedStorageImage(
   client: Transloadit,
   filePath: string,
+  path: string,
 ): Promise<StoredImageReceipt> {
-  const bytes = await readFile(filePath)
-  const expectedMd5 = createHash('md5').update(bytes).digest('hex')
-  const stored = {
-    conflict_strategy: 'error',
-    path: 'website/${file.url_name}',
-    robot: '/transloadit/store',
-    use: ':original',
-  } satisfies InterpolatableRobotTransloaditStoreInstructions
-  const assembly = await client.createAssembly({
-    files: { photo: filePath },
-    params: { steps: { stored } },
-    waitForCompletion: true,
-  })
-  const result = assembly.results?.[':original']?.[0]
-  const width = result?.meta?.width
-  const height = result?.meta?.height
-  if (
-    assembly.ok !== 'ASSEMBLY_COMPLETED' ||
-    typeof result?.asset_id !== 'string' ||
-    result.asset_id === '' ||
-    typeof result.path !== 'string' ||
-    !result.path.startsWith('website/') ||
-    result.size !== bytes.length ||
-    bytes.length === 0 ||
-    result.md5hash !== expectedMd5 ||
-    typeof width !== 'number' ||
-    !Number.isSafeInteger(width) ||
-    width <= 0 ||
-    typeof height !== 'number' ||
-    !Number.isSafeInteger(height) ||
-    height <= 0
-  ) {
-    throw new Error('The Assembly did not return a matching Storage image receipt')
-  }
-  return {
-    asset_id: result.asset_id,
-    height,
-    md5hash: result.md5hash,
-    path: result.path,
-    size: result.size,
-    width,
-  }
+  return client.storeImage(filePath, { path })
 }
 
 async function main(): Promise<void> {
   const authKey = process.env.TRANSLOADIT_ASSEMBLY_KEY
   const authSecret = process.env.TRANSLOADIT_ASSEMBLY_SECRET
-  const filePath = process.argv[2]
-  if (!authKey || !authSecret || !filePath) {
-    throw new Error('Provide an Assembly key/secret and run: node seed.ts ./image.jpg')
+  const [filePath, path] = process.argv.slice(2)
+  if (!authKey || !authSecret || !filePath || !path) {
+    throw new Error(
+      'Provide an Assembly key/secret and run: node seed.ts ./image.jpg website/image.jpg',
+    )
   }
   const client = new Transloadit({
     authKey,
     authSecret,
     endpoint: process.env.TRANSLOADIT_ASSEMBLY_ENDPOINT,
   })
-  console.log(JSON.stringify(await seedStorageImage(client, filePath), null, 2))
+  console.log(JSON.stringify(await seedStorageImage(client, filePath, path), null, 2))
 }
 
 if (import.meta.main) {
@@ -188,24 +141,33 @@ if (import.meta.main) {
 Run it once for an image you want to store, keeping the printed record as app data:
 
 ```bash
-node --env-file=.env.seed.local seed.ts ./canal-house.jpg > image.json
+node --env-file=.env.seed.local seed.ts ./canal-house.jpg website/canal-house.jpg > image.json
 ```
 
-The single-quoted `'website/${file.url_name}'` in the script is a literal Assembly interpolation
-expression. Transloadit, not JavaScript, substitutes the input's URL-safe filename. Node 24 detects
+The helper requires the full filename, not a directory or an interpolation expression. Advanced
+`createAssembly()` instructions can use the single-quoted `'website/${file.url_name}'` literal:
+Transloadit, not JavaScript, substitutes the input's URL-safe filename in that expression. Node 24 detects
 ES module syntax when `package.json` has no `type`; explicit `"type": "commonjs"` is different.
 For this native TypeScript seed, use `"type": "module"` in the app's package manifest. No tsx or
 ts-node runner is needed. See [Node's module detection](https://nodejs.org/download/release/v24.11.0/docs/api/packages.html#syntax-detection).
 
 Proceed only when the command exits successfully. `conflict_strategy: 'error'` makes a repeated
 upload to the same path fail rather than silently replacing an asset. Choose a different filename
-or an intentional conflict policy for another upload. This small recipe reads the image into
-memory to verify its checksum; it is not a bulk-ingestion tool.
+or use `createAssembly()` for an intentional conflict policy. Do not modify the input file while
+it is being checksummed and uploaded. Receipt validation happens **after the Storage write**:
+a validation error is not a rollback, and retrying the same path can encounter the stored object.
+An `InconsistentResponseError` retains `cause.assemblyId` for investigation without copying the
+Assembly response. Existing API, timeout and cancellation errors propagate unchanged.
+
+The helper also accepts `signal`, `chunkSize`, `onUploadProgress`, `onAssemblyProgress` and the
+existing Assembly `timeout` (upload/polling, not local checksum time). It never accepts replacement
+steps or enables overwrite. Use `createAssembly()` for multi-file or transformation workflows.
 
 The resulting JSON contains `asset_id`, `path`, `size`, `md5hash`, `width`, and `height`. Keep it
 alongside your content or in your application's database; rendering needs no metadata request.
-The `asset_id` identifies the stored asset, while the returned `path` is the component's `src`.
-Only the dimensions and path need to enter image markup.
+The `asset_id` identifies the stored asset. Pass the whole receipt as `src`; only its `path`,
+`width` and `height` are used. No receipt ID, checksum or other ancillary fields enter markup or
+signing, and the rendering package does not import the Assembly client.
 
 ### Create the server-only factory
 
@@ -246,15 +208,18 @@ export default function Page() {
   return (
     <Image
       alt="A canal house"
-      height={image.height}
       sizes="(min-width: 960px) 960px, 100vw"
-      src={image.path}
+      src={image}
       style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
-      width={image.width}
     />
   )
 }
 ```
+
+Object `src` accepts the readonly structural `TransloaditImageSource` shape: `{ path, width, height }`.
+Saved JSON and SDK receipts both work; separate `width`/`height` props are forbidden with object
+input. The string form remains available with both dimensions required. The same rules apply to
+direct delivery, redirect delivery and the framework-neutral model.
 
 The dimensions come from the receipt, not the display box. The CSS preserves those proportions
 and caps the displayed width at 960px. This uses direct delivery; choose the authorized-redirect
@@ -515,8 +480,11 @@ The fixture packs all four local artifacts and installs them with its pinned **n
 a clean Next.js app. It executes this exact seed recipe against mocked Assembly receipts without
 network access and compiles it against the packed SDK/types. It builds and serves both production
 Cache Components configurations, then runs 36 Chromium/WebKit cases: native cookie authorization,
-separate app/CDN hosts, responsive hero/avatar geometry, decoding before application JavaScript,
-hydration, JPEG fallback, original-capability renewal, revocation, expiry and tampering. The owned
+separate app/CDN hosts, responsive hero/avatar geometry, private-redirect decoding before application JavaScript,
+hydration, JPEG fallback, original-capability renewal, revocation, expiry and tampering. Chromium
+also verifies direct streaming before application JavaScript; direct WebKit navigation uses normal
+script loading because holding bundles can stall React's streaming reveal in the test browser.
+That extra WebKit pre-JS scenario remains unverified. The owned
 local image origin independently verifies signatures/expiry and serves real encoded bytes; it
 never receives the application's session cookie. Secret scans cover the rendered/client artifacts.
 

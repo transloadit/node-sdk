@@ -1,4 +1,4 @@
-import type { TransloaditImageModelOptions } from '../src/index.ts'
+import type { TransloaditImageModelOptions, TransloaditImageSource } from '../src/index.ts'
 import type {
   TransloaditImageComponent,
   TransloaditImageIntegration,
@@ -60,6 +60,32 @@ const attributedImage = (
 )
 const eagerImage = <Image {...imageProps} loading="eager" preload />
 const lazyImage = <Image {...imageProps} loading="lazy" preload={false} />
+const receipt = {
+  path: 'documents/report.pdf',
+  width: 400,
+  height: 300,
+} satisfies TransloaditImageSource
+const receiptImage = <Image alt="Receipt" src={receipt} preload />
+const receiptRedirect = <redirect.Image alt="Receipt" src={receipt} loading="lazy" />
+const receiptModel = createTransloaditImageModel(
+  { expiresAt: modelOptions.expiresAt, src: receipt },
+  () => '',
+)
+// @ts-expect-error A string source still requires its source dimensions.
+const missingDimensions = <Image alt="Incomplete" src="documents/report.pdf" />
+// @ts-expect-error Receipt geometry cannot be combined with separate dimensions.
+const duplicateDimensions = <Image alt="Ambiguous" src={receipt} width={400} height={300} />
+createTransloaditImageModel(
+  // @ts-expect-error The neutral model has the same exclusive source geometry contract.
+  { expiresAt: modelOptions.expiresAt, src: receipt, width: 400, height: 300 },
+  () => '',
+)
+// @ts-expect-error A receipt does not weaken the lazy/preload union.
+const lazyReceiptPreload = <Image alt="Receipt" src={receipt} loading="lazy" preload />
+const receiptRedirectFallback = (
+  // @ts-expect-error A receipt does not give redirect delivery a Suspense fallback.
+  <redirect.Image alt="Receipt" src={receipt} suspenseFallback="Loading" />
+)
 // @ts-expect-error A preloaded image cannot be lazy.
 const lazyPreload = <Image {...imageProps} loading="lazy" preload />
 const lazyPicturePreload = (
@@ -90,7 +116,7 @@ const missingRoute = direct.storageRoute
 const imageWithFallback = <Image {...imageProps} fallbackSrc="/report.jpg" />
 // @ts-expect-error Storage previews do not support viewport-conditional activation.
 const imageWithMedia = <Image {...imageProps} media="(min-width: 768px)" />
-// @ts-expect-error Storage-only sources are relative object paths, not discriminated objects.
+// @ts-expect-error An object source needs a path and source dimensions, not a storage discriminator.
 const imageWithObjectSource = <Image {...imageProps} src={{ storage: 'documents/report.pdf' }} />
 
 void directImage
@@ -113,3 +139,10 @@ void callbackImage
 void customSourceSet
 void perImageSecret
 void configuredRedirectFallback
+void receiptImage
+void receiptRedirect
+void receiptModel
+void missingDimensions
+void duplicateDimensions
+void lazyReceiptPreload
+void receiptRedirectFallback
