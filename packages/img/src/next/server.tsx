@@ -150,15 +150,16 @@ interface TransloaditStorageImageRequestProps {
 function StorageImagePlaceholder({ props }: TransloaditStorageImageRequestProps): ReactNode {
   const attributes = snapshotImageAttributes(props)
   return (
-    // biome-ignore lint/performance/noImgElement: A source-free image retains native layout without fetching.
-    <img
-      {...attributes}
-      alt=""
-      aria-hidden="true"
-      inert
-      sizes={undefined}
-      style={{ ...attributes.style, visibility: 'hidden' }}
-    />
+    <picture>
+      <img
+        {...attributes}
+        alt=""
+        aria-hidden="true"
+        inert
+        sizes={undefined}
+        style={{ ...attributes.style, visibility: 'hidden' }}
+      />
+    </picture>
   )
 }
 

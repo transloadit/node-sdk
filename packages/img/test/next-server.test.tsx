@@ -125,6 +125,8 @@ describe('createTransloaditImage', () => {
     expect(placeholder?.getAttribute('width')).toBe('2400')
     expect(placeholder?.getAttribute('height')).toBe('1600')
     expect(placeholder?.getAttribute('class')).toBe('hero')
+    // Consumer selectors such as picture > img must apply before signing resolves too.
+    expect(placeholder?.parentElement?.tagName).toBe('PICTURE')
     expect(placeholder?.getAttribute('style')).toBe(
       'display:block;height:auto;max-width:960px;width:100%;visibility:hidden',
     )
