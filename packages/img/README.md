@@ -171,30 +171,23 @@ signing, and the rendering package does not import the Assembly client.
 
 ### Create the server-only factory
 
-Save this complete module as `lib/transloaditImage.tsx`. The explicit factory does not read env
-files or variables itself; the application passes its rendering credentials and allowed paths:
+Save this complete module as `lib/transloaditImage.tsx`. Next loads your rendering environment;
+the helper reads the three documented variables once when you create the factory:
 
 ```tsx
-import { createTransloaditImage } from '@transloadit/img/next/server'
+import { createTransloaditImageFromEnv } from '@transloadit/img/next/server'
 
-const authKey = process.env.TRANSLOADIT_SMART_CDN_KEY
-const authSecret = process.env.TRANSLOADIT_SMART_CDN_SECRET
-const workspace = process.env.TRANSLOADIT_WORKSPACE
-
-if (!authKey || !authSecret || !workspace) {
-  throw new Error('Transloadit image credentials are required')
-}
-
-export const { Image } = createTransloaditImage({
-  authKey,
-  authSecret,
+export const { Image } = createTransloaditImageFromEnv({
   storage: { allowedPathPrefixes: ['website/'] },
-  workspace,
 })
 ```
 
 The Auth Secret stays in the server module and never enters rendered markup or a client bundle.
 Signed browser URLs contain the public Auth Key identifier, as required by Smart CDN verification.
+The helper loads no env files itself, never falls back to Assembly credentials, and rejects missing,
+empty or whitespace-padded values without printing them. Recreate the factory after changing those
+values. `storage` is required: omitted path prefixes still deny all paths, rather than silently
+granting access to the workspace.
 
 ### Render the stored image
 
@@ -316,11 +309,9 @@ Redirect delivery keeps markup stable and rechecks application access when the b
 image:
 
 ```tsx
-import { createTransloaditImage } from '@transloadit/img/next/server'
+import { createTransloaditImageFromEnv } from '@transloadit/img/next/server'
 
-export const { Image, storageRoute } = createTransloaditImage({
-  authKey,
-  authSecret,
+export const { Image, storageRoute } = createTransloaditImageFromEnv({
   storage: {
     allowedPathPrefixes: ['documents/'],
     delivery: {
@@ -335,7 +326,6 @@ export const { Image, storageRoute } = createTransloaditImage({
     expiresInMs: 5 * 60 * 1000,
     rotationIntervalMs: 30 * 1000,
   },
-  workspace,
 })
 ```
 
@@ -437,6 +427,32 @@ storage: {
   rotationIntervalMs: 5 * 60 * 1000,
 }
 ```
+
+## Explicit credentials
+
+For a secret manager or multiple workspaces, keep using `createTransloaditImage()` with explicit
+values. It reads no environment itself. For example, the longer equivalent of the first factory is:
+
+```tsx
+import { createTransloaditImage } from '@transloadit/img/next/server'
+
+const authKey = process.env.TRANSLOADIT_SMART_CDN_KEY
+const authSecret = process.env.TRANSLOADIT_SMART_CDN_SECRET
+const workspace = process.env.TRANSLOADIT_WORKSPACE
+if (!authKey || !authSecret || !workspace) {
+  throw new Error('Transloadit image credentials are required')
+}
+
+export const { Image } = createTransloaditImage({
+  authKey,
+  authSecret,
+  storage: { allowedPathPrefixes: ['website/'] },
+  workspace,
+})
+```
+
+Both factories share the same direct/redirect policy, trusted `baseUrl`, Template and `urlParams`
+options. Neither is safe to configure from untrusted request parameters.
 
 ## Template override
 

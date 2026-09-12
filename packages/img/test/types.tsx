@@ -8,7 +8,7 @@ import type {
 
 import { createTransloaditImageModel } from '../src/index.ts'
 import { TransloaditPicture } from '../src/next/index.tsx'
-import { createTransloaditImage } from '../src/next/server.tsx'
+import { createTransloaditImage, createTransloaditImageFromEnv } from '../src/next/server.tsx'
 
 const modelOptions: TransloaditImageModelOptions = {
   expiresAt: Date.UTC(2030, 0, 1),
@@ -110,6 +110,28 @@ const configuredRedirectFallback = (
   // @ts-expect-error Factory overloads retain the redirect-specific component contract.
   <configuredRedirect.Image {...imageProps} suspenseFallback="Loading" />
 )
+const envDirect = createTransloaditImageFromEnv({
+  storage: { allowedPathPrefixes: ['documents/'] },
+})
+const envRedirect = createTransloaditImageFromEnv({
+  storage: {
+    allowedPathPrefixes: ['documents/'],
+    delivery: { route: '/images', authorize: () => true },
+  },
+})
+const envImage = <envDirect.Image alt="Receipt" src={receipt} preload suspenseFallback="Loading" />
+const envRedirectImage = <envRedirect.Image alt="Receipt" src={receipt} preload />
+const envRoute = envRedirect.storageRoute(new Request('https://app.example/images'))
+// @ts-expect-error The environment helper requires explicit Storage policy, not guessed access.
+createTransloaditImageFromEnv({})
+// @ts-expect-error Direct delivery does not expose an authorization route.
+const envDirectRoute = envDirect.storageRoute
+// @ts-expect-error The env factory preserves the lazy/preload union.
+const envLazyPreload = <envDirect.Image alt="Receipt" src={receipt} loading="lazy" preload />
+const envRedirectFallback = (
+  // @ts-expect-error Redirect delivery has no signing suspension to replace.
+  <envRedirect.Image alt="Receipt" src={receipt} suspenseFallback="Loading" />
+)
 // @ts-expect-error Direct integrations do not expose an authorization route.
 const missingRoute = direct.storageRoute
 // @ts-expect-error Storage previews always use their signed JPEG fallback.
@@ -146,3 +168,9 @@ void missingDimensions
 void duplicateDimensions
 void lazyReceiptPreload
 void receiptRedirectFallback
+void envImage
+void envRedirectImage
+void envRoute
+void envDirectRoute
+void envLazyPreload
+void envRedirectFallback

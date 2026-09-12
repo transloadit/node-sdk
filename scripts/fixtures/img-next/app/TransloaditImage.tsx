@@ -1,9 +1,9 @@
-import { createTransloaditImage } from '@transloadit/img/next/server'
+import { createTransloaditImageFromEnv } from '@transloadit/img/next/server'
 
 import { imageConfiguration } from './imageConfiguration.ts'
 
-const { Image } = createTransloaditImage({
-  ...imageConfiguration,
+const { Image } = createTransloaditImageFromEnv({
+  baseUrl: imageConfiguration.baseUrl,
   storage: { allowedPathPrefixes: ['documents/'] },
 })
 

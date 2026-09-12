@@ -76,7 +76,7 @@ edits to credential files. Council remains orchestrator-owned. Four follow-up co
 - [x] SDK `storeImage` plus receipt-as-`src`: stream the checksum, validate the one completed
       receipt, preserve cancellation/progress, ship packed exports and legacy wrapper. Snapshot
       source geometry before suspension without weakening loading or authorization contracts.
-- [ ] Explicit-policy env factory: read the three rendering variables once, require `storage`,
+- [x] Explicit-policy env factory: read the three rendering variables once, require `storage`,
       retain deny-all/redirect overloads, reject invalid environment without exposing secrets.
 
 Before each push, run affected package checks, `yarn verify:full`, and the packed fixture
@@ -174,3 +174,25 @@ passed. Browser results: 36/36, 54.1s enabled and 52.2s omitted, without retries
 literal Yarn consumer also passed all six seed cases, exact updated snippet parity, public model
 execution, shared local utils resolution and TypeScript compilation. It uses the same four tarballs
 as that browser matrix: `/tmp/img-receipts-yarn.JD5X0O`. Logs: `/tmp/img-round2-3-*.log`.
+
+The receipt commit `4b330c6` is pushed and all GitHub checks passed, monitored with
+`gh-run-watch.ts` (`/tmp/img-round2-3-watch.log`). The explicit-policy env factory is the remaining
+commit: its initial 16 runtime regressions failed before implementation, then passed. Additional
+invalid-policy cases and type tests retain explicit Storage access, loading/preload discrimination
+and redirect-only props. It reads only the three conventional rendering variables once, delegates
+to the explicit factory and never loads files or falls back to Assembly credentials.
+
+The final env-factory verification passed: 126 img tests plus type fixtures, root check,
+`verify:full`, and 36/36 packed browser cases (55.9s enabled, 54.5s omitted). The direct production
+fixture uses the env helper with explicit test-only environment in both build and server processes.
+Automatic request/error auditing remains active after removing an unused fixture parameter; every
+browser case has response evidence and no retry or skip. A separate clean Yarn consumer verifies
+the new literal factory, receipt render and seed, all six offline seed cases, the four local package
+resolutions and public TypeScript exports: `/tmp/img-env-yarn.CRhRIp`.
+Logs: `/tmp/img-round2-4-{img-check,final-check,verify,fixture,yarn-final-proof,yarn-types}.log`.
+
+One earlier root run failed an unchanged notify-relay cookie test; both full reruns passed all
+22 relay tests without changing that package. An isolated diagnostic was invalidated by an
+overlapping generated-utils rebuild and was not counted as evidence. Likewise, a bare Node
+react-server-condition probe cannot replace Next's client/server module boundaries; the env
+factory's runtime proof is the two real Next production builds, not that extra standalone probe.

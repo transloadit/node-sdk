@@ -10,6 +10,11 @@ import { execa } from 'execa'
 import { withProcess } from './withProcess.ts'
 
 const fixtureSecret = 'fixture-secret-must-never-reach-the-browser'
+const renderingEnvironment = {
+  TRANSLOADIT_SMART_CDN_KEY: 'fixture-auth-key',
+  TRANSLOADIT_SMART_CDN_SECRET: fixtureSecret,
+  TRANSLOADIT_WORKSPACE: 'fixture',
+}
 const benchmarkCounts: readonly number[] = [1, 20, 100]
 
 interface ImageBenchmarkResult {
@@ -86,6 +91,7 @@ async function withFixtureServer(
       {
         cwd: fixtureDir,
         env: {
+          ...renderingEnvironment,
           IMG_FIXTURE_CDN_ORIGIN: cdnOrigin,
           IMG_FIXTURE_CACHE_COMPONENTS: cacheComponents,
         },
@@ -274,6 +280,7 @@ async function main(): Promise<void> {
       await execa('npm', ['run', 'build'], {
         cwd: fixtureDir,
         env: {
+          ...renderingEnvironment,
           IMG_FIXTURE_CDN_ORIGIN: cdnOrigin,
           IMG_FIXTURE_CACHE_COMPONENTS: cacheComponents,
         },

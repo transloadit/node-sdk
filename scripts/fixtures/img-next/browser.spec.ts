@@ -289,7 +289,6 @@ test('native image requests authorize with an HttpOnly session cookie, without B
 for (const delivery of ['direct', 'redirect']) {
   for (const width of [1200, 390]) {
     test(`${delivery} hero and avatar decode and hydrate at ${width}px`, async ({
-      audit,
       browserName,
       page,
     }, info) => {

@@ -89,6 +89,18 @@ export interface TransloaditRedirectImageConfiguration extends TransloaditImageC
   }
 }
 
+/** Explicit Storage policy with rendering credentials supplied by the application environment. */
+export type TransloaditImageEnvConfiguration = Omit<
+  TransloaditImageConfiguration,
+  'authKey' | 'authSecret' | 'workspace'
+>
+
+/** Environment-backed configuration that retains the authorized redirect integration. */
+export type TransloaditRedirectImageEnvConfiguration = Omit<
+  TransloaditRedirectImageConfiguration,
+  'authKey' | 'authSecret' | 'workspace'
+>
+
 /** Props for a private Transloadit Storage preview. */
 export type TransloaditImageProps = TransloaditImageLayoutProps &
   TransloaditImageSourceProps & {
@@ -171,7 +183,7 @@ function StorageImagePlaceholder({ props }: TransloaditStorageImageRequestProps)
   )
 }
 
-function validateRequiredConfiguration(value: string, name: string): void {
+function validateRequiredConfiguration(value: unknown, name: string): asserts value is string {
   if (typeof value !== 'string' || value === '' || value.trim() !== value) {
     throw new TypeError(`${name} must be a non-empty string without surrounding whitespace`)
   }
@@ -274,6 +286,9 @@ function matchesStorageRoute(path: string, delivery: TransloaditStorageRedirectD
 function getStoragePolicy(
   configuration: TransloaditStorageImageConfiguration,
 ): ResolvedStoragePolicy {
+  if (typeof configuration !== 'object' || configuration === null || Array.isArray(configuration)) {
+    throw new TypeError('storage must be an explicit configuration object')
+  }
   const allowedPathPrefixes = configuration.allowedPathPrefixes ?? []
   const delivery = configuration.delivery ?? 'direct'
   const expiresInMs = configuration.expiresInMs ?? defaultStorageExpiresInMs
@@ -682,4 +697,23 @@ export function createTransloaditImage(
       storageTemplate,
     ),
   }
+}
+
+/** Snapshots the three rendering environment values once; loads no files and guesses no access. */
+export function createTransloaditImageFromEnv(
+  configuration: TransloaditRedirectImageEnvConfiguration,
+): TransloaditRedirectImageIntegration
+export function createTransloaditImageFromEnv(
+  configuration: TransloaditImageEnvConfiguration,
+): TransloaditImageIntegration
+export function createTransloaditImageFromEnv(
+  configuration: TransloaditImageEnvConfiguration,
+): TransloaditImageIntegration | TransloaditRedirectImageIntegration {
+  const authKey = process.env.TRANSLOADIT_SMART_CDN_KEY
+  const authSecret = process.env.TRANSLOADIT_SMART_CDN_SECRET
+  const workspace = process.env.TRANSLOADIT_WORKSPACE
+  validateRequiredConfiguration(authKey, 'TRANSLOADIT_SMART_CDN_KEY')
+  validateRequiredConfiguration(authSecret, 'TRANSLOADIT_SMART_CDN_SECRET')
+  validateRequiredConfiguration(workspace, 'TRANSLOADIT_WORKSPACE')
+  return createTransloaditImage({ ...configuration, authKey, authSecret, workspace })
 }

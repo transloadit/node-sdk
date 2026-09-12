@@ -11,7 +11,7 @@ const { connection } = vi.hoisted(() => ({ connection: vi.fn(async () => undefin
 vi.mock('next/server.js', () => ({ connection }))
 vi.mock('server-only', () => ({}))
 
-import { createTransloaditImage } from '../src/next/server.tsx'
+import { createTransloaditImage, createTransloaditImageFromEnv } from '../src/next/server.tsx'
 
 const authSecret = 'never-render-this-secret'
 const baseConfiguration = {
@@ -80,6 +80,112 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+})
+
+describe('createTransloaditImageFromEnv', () => {
+  beforeEach(() => {
+    vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', baseConfiguration.authKey)
+    vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', baseConfiguration.authSecret)
+    vi.stubEnv('TRANSLOADIT_WORKSPACE', baseConfiguration.workspace)
+  })
+
+  afterEach(() => vi.unstubAllEnvs())
+
+  test('snapshots rendering environment once and delegates to the explicit factory', async () => {
+    const { Image } = createTransloaditImageFromEnv({
+      baseUrl: baseConfiguration.baseUrl,
+      storage: baseConfiguration.storage,
+    })
+    const { Image: ExplicitImage } = createTransloaditImage(baseConfiguration)
+    vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', 'changed-key')
+    vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', 'changed-secret')
+    vi.stubEnv('TRANSLOADIT_WORKSPACE', 'changed-workspace')
+    const props = {
+      alt: 'Snapshot',
+      src: { path: 'documents/report.pdf', width: 400, height: 300 },
+    }
+    const actual = parseMarkup(await renderAsync(Image(props)))
+    const expected = parseMarkup(await renderAsync(ExplicitImage(props)))
+    expect(actual.querySelector('picture')?.isEqualNode(expected.querySelector('picture'))).toBe(
+      true,
+    )
+    expect(actual.documentElement.outerHTML).not.toContain(authSecret)
+    expect(actual.documentElement.outerHTML).not.toContain('changed-')
+  })
+
+  test.each(
+    ['TRANSLOADIT_SMART_CDN_KEY', 'TRANSLOADIT_SMART_CDN_SECRET', 'TRANSLOADIT_WORKSPACE'].flatMap(
+      (name) =>
+        [undefined, '', '   ', ' secret-with-whitespace '].map((value) => ({ name, value })),
+    ),
+  )('rejects missing or invalid $name without exposing its value', ({ name, value }) => {
+    vi.stubEnv(name, value)
+    expect(() =>
+      createTransloaditImageFromEnv({ storage: baseConfiguration.storage }),
+    ).toThrowError(
+      new TypeError(`${name} must be a non-empty string without surrounding whitespace`),
+    )
+  })
+
+  test('never falls back to Assembly credentials or changes the explicit factory', () => {
+    vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', undefined)
+    vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', undefined)
+    vi.stubEnv('TRANSLOADIT_ASSEMBLY_KEY', 'write-key')
+    vi.stubEnv('TRANSLOADIT_ASSEMBLY_SECRET', 'write-secret')
+    vi.stubEnv('TRANSLOADIT_KEY', 'legacy-key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'legacy-secret')
+    expect(() => createTransloaditImageFromEnv({ storage: baseConfiguration.storage })).toThrow(
+      'TRANSLOADIT_SMART_CDN_KEY',
+    )
+    expect(() => createTransloaditImage(baseConfiguration)).not.toThrow()
+  })
+
+  test('still requires explicit storage and retains deny-all without path prefixes', () => {
+    expect(() => Reflect.apply(createTransloaditImageFromEnv, undefined, [{}])).toThrow(/storage/)
+    const { Image } = createTransloaditImageFromEnv({ storage: {} })
+    expect(() =>
+      Image({ alt: 'Denied', src: { path: 'documents/report.pdf', width: 400, height: 300 } }),
+    ).toThrow('outside the configured allowed prefixes')
+    expect(connection).not.toHaveBeenCalled()
+  })
+
+  test.each(
+    [undefined, null, false, 'documents/', []].map((storage) => ({ storage })),
+  )('rejects invalid explicit storage $storage', ({ storage }) => {
+    expect(() =>
+      Reflect.apply(createTransloaditImageFromEnv, undefined, [{ storage }]),
+    ).toThrowError(new TypeError('storage must be an explicit configuration object'))
+  })
+
+  test('retains trusted template, transport and authorization settings for redirect delivery', async () => {
+    const authorize = vi.fn(() => true)
+    const { Image, storageRoute } = createTransloaditImageFromEnv({
+      baseUrl: baseConfiguration.baseUrl,
+      template: 'website/preview',
+      urlParams: { cdn: 'required' },
+      storage: {
+        allowedPathPrefixes: ['documents/'],
+        delivery: { route: '/images', basePath: '/app', authorize },
+      },
+    })
+    const document = parseMarkup(
+      renderToStaticMarkup(
+        Image({ alt: 'Report', src: { path: 'documents/report.pdf', width: 400, height: 300 } }),
+      ),
+    )
+    const url = new URL(getFirstCandidate(document), 'https://app.example')
+    expect(url.pathname).toBe('/app/images')
+    expect(connection).not.toHaveBeenCalled()
+    const response = await storageRoute(new Request(url))
+    expect(response.status).toBe(307)
+    expect(authorize).toHaveBeenCalledOnce()
+    const location = response.headers.get('location')
+    if (location === null) throw new Error('Expected an authorized CDN target')
+    const candidate = parseSmartCdnUrl(location, baseConfiguration)
+    expect(candidate.template).toBe('website/preview')
+    expect(candidate.urlParams.cdn).toBe('required')
+    expect(candidate.input).toBe('documents/report.pdf')
+  })
 })
 
 describe('createTransloaditImage', () => {
