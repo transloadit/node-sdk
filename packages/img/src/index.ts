@@ -51,10 +51,16 @@ export interface TransloaditImageModel {
 }
 
 interface TransloaditImageModelConfiguration {
+  /** Optional output width/height ratio; requests a server-side fillcrop instead of padding. */
+  cropAspectRatio?: number
   expiresAt: number
+  /** Optional JPEG width, capped by the resolved candidate ladder. */
+  fallbackWidth?: number
   /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
   fallbackQuality?: number
   formats?: StoragePreviewFormats
+  /** Maximum candidate width, additionally bounded by the source and backend dimensions. */
+  maximumWidth?: number
   /** Trusted compatible signed Template. Defaults to `builtin/storage-preview@0.0.1`. */
   template?: string
   /** Requested intrinsic candidate widths. Defaults to a conservative ladder up to the source. */
@@ -110,6 +116,9 @@ export function createTransloaditImageModel(
 ): TransloaditImageModel {
   const { path: src, width, height } = snapshotImageSource(options)
   const expiresAt = options.expiresAt
+  const cropAspectRatio = options.cropAspectRatio
+  const requestedMaximumWidth = options.maximumWidth
+  const requestedFallbackWidth = options.fallbackWidth
   const fallbackQuality = options.fallbackQuality ?? defaultFallbackQuality
   const formats = options.formats === undefined ? undefined : { ...options.formats }
   const template = options.template ?? transloaditStoragePreviewTemplate
@@ -122,14 +131,33 @@ export function createTransloaditImageModel(
   if (typeof sign !== 'function') throw new TypeError('sign must be a function')
   validateQuality(fallbackQuality, 'fallbackQuality')
   validateTemplate(template)
+  if (
+    cropAspectRatio !== undefined &&
+    (!Number.isFinite(cropAspectRatio) || cropAspectRatio <= 0)
+  ) {
+    throw new RangeError('cropAspectRatio must be a positive finite number')
+  }
+  if (requestedMaximumWidth !== undefined)
+    validatePositiveSafeInteger(requestedMaximumWidth, 'maximumWidth')
+  if (requestedFallbackWidth !== undefined)
+    validatePositiveSafeInteger(requestedFallbackWidth, 'fallbackWidth')
 
-  const heightLimitedWidth = Number(
-    (BigInt(smartCdnImageMaxDimension) * BigInt(width)) / BigInt(height),
-  )
+  const ratioWidth = cropAspectRatio ?? width
+  const ratioHeight = cropAspectRatio === undefined ? height : 1
+  const heightLimitedWidth =
+    cropAspectRatio === undefined
+      ? Number((BigInt(smartCdnImageMaxDimension) * BigInt(width)) / BigInt(height))
+      : Math.floor(smartCdnImageMaxDimension * cropAspectRatio)
   if (heightLimitedWidth < 1) {
     throw new RangeError('display aspect ratio cannot fit within backend dimensions')
   }
-  const maximumWidth = Math.min(width, smartCdnImageMaxDimension, heightLimitedWidth)
+  const maximumWidth = Math.min(
+    width,
+    smartCdnImageMaxDimension,
+    heightLimitedWidth,
+    cropAspectRatio === undefined ? width : Math.floor(height * cropAspectRatio),
+    requestedMaximumWidth ?? width,
+  )
   const widths = resolveSmartCdnImageWidths(
     getResponsiveImageWidths(widthsSnapshot, maximumWidth),
     maximumWidth,
@@ -142,9 +170,9 @@ export function createTransloaditImageModel(
         template,
         urlParams: {
           f: format,
-          h: getStorageHeight(candidateWidth, width, height),
+          h: getStorageHeight(candidateWidth, ratioWidth, ratioHeight),
           q: quality,
-          r: 'pad',
+          r: cropAspectRatio === undefined ? 'pad' : 'fillcrop',
           w: candidateWidth,
         },
       }),
@@ -152,16 +180,16 @@ export function createTransloaditImageModel(
     })),
     format,
   }))
-  const fallbackWidth = Math.min(width, Math.max(...widths))
+  const fallbackWidth = Math.min(requestedFallbackWidth ?? width, Math.max(...widths))
   const fallbackUrl = sign({
     expiresAt,
     input: src,
     template,
     urlParams: {
       f: 'jpg',
-      h: getStorageHeight(fallbackWidth, width, height),
+      h: getStorageHeight(fallbackWidth, ratioWidth, ratioHeight),
       q: fallbackQuality,
-      r: 'pad',
+      r: cropAspectRatio === undefined ? 'pad' : 'fillcrop',
       w: fallbackWidth,
     },
   })

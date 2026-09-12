@@ -117,6 +117,58 @@ const envDirect = createTransloaditImageFromEnv({
 createTransloaditImageFromEnv({ storage: {} })
 const namedStorageImage = <envDirect.StorageImage alt="Receipt" src={receipt} loading="lazy" />
 void namedStorageImage
+const fixedImage = (
+  <envDirect.StorageImage
+    src={receipt}
+    alt="Avatar"
+    layout="fixed"
+    width={48}
+    height={48}
+    fit="cover"
+  />
+)
+const constrainedImage = (
+  <envDirect.StorageImage src={receipt} alt="Hero" layout="constrained" maxWidth={960} />
+)
+const fillImage = (
+  <envDirect.StorageImage
+    src={receipt}
+    alt="Cover"
+    layout="fill"
+    fit="cover"
+    aspectRatio="9/16"
+    sizes="100vw"
+  />
+)
+const incompleteFixed = (
+  // @ts-expect-error Fixed layout needs both display-box dimensions.
+  <envDirect.StorageImage src={receipt} alt="Avatar" layout="fixed" width={48} />
+)
+const incompleteConstrained = (
+  // @ts-expect-error Constrained layout needs an explicit maximum display width.
+  <envDirect.StorageImage src={receipt} alt="Hero" layout="constrained" />
+)
+void fixedImage
+void constrainedImage
+void fillImage
+void incompleteFixed
+void incompleteConstrained
+const missingFillRatio = (
+  // @ts-expect-error A fill crop needs the container ratio; it cannot be inferred from the source.
+  <envDirect.StorageImage src={receipt} alt="Cover" layout="fill" fit="cover" />
+)
+const fixedString = (
+  // @ts-expect-error Fixed width and height describe the box, so the source must carry its dimensions.
+  <envDirect.StorageImage
+    src="documents/report.pdf"
+    alt="Cover"
+    layout="fixed"
+    width={48}
+    height={48}
+  />
+)
+void missingFillRatio
+void fixedString
 const envRedirect = createTransloaditImageFromEnv({
   storage: {
     allowedPathPrefixes: ['documents/'],

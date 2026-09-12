@@ -21,6 +21,57 @@ function collectSignedRequests(): {
 }
 
 describe('createTransloaditImageModel', () => {
+  test('signs cover crops in the box ratio without upscaling source pixels', () => {
+    const { requests, sign } = collectSignedRequests()
+    const model = createTransloaditImageModel(
+      {
+        expiresAt,
+        src: { path: 'website/hero.jpg', width: 2400, height: 1600 },
+        cropAspectRatio: 9 / 16,
+        widths: [390, 780, 2400],
+        fallbackWidth: 390,
+      },
+      sign,
+    )
+    expect(model.sources[0]?.candidates.map(({ width }) => width)).toEqual([390, 780, 900])
+    expect(requests[0]?.urlParams).toMatchObject({ r: 'fillcrop', w: 390, h: 693 })
+    expect(requests.at(-1)?.urlParams).toMatchObject({ r: 'fillcrop', w: 390, h: 693, f: 'jpg' })
+  })
+
+  test('caps the default ladder at an explicit maximum without changing source proportions', () => {
+    const { requests, sign } = collectSignedRequests()
+    const model = createTransloaditImageModel(
+      {
+        expiresAt,
+        src: { path: 'website/hero.jpg', width: 2400, height: 1600 },
+        maximumWidth: 1920,
+      },
+      sign,
+    )
+    expect(model.sources[0]?.candidates.at(-1)?.width).toBe(1920)
+    expect(requests.at(-1)?.urlParams).toMatchObject({ r: 'pad', w: 1920, h: 1280 })
+  })
+
+  test.each([
+    0,
+    -1,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])('rejects invalid crop aspect ratio %s before signing', (cropAspectRatio) => {
+    const { requests, sign } = collectSignedRequests()
+    expect(() =>
+      createTransloaditImageModel(
+        {
+          expiresAt,
+          src: { path: 'website/hero.jpg', width: 2400, height: 1600 },
+          cropAspectRatio,
+        },
+        sign,
+      ),
+    ).toThrow('cropAspectRatio')
+    expect(requests).toEqual([])
+  })
+
   test('caps the JPEG fallback at the largest requested candidate', () => {
     const { requests, sign } = collectSignedRequests()
     createTransloaditImageModel(

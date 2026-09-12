@@ -76,6 +76,57 @@ afterEach(() => {
 
 describe('TransloaditPicture', () => {
   test.each([
+    'after hydration',
+    'before hydration',
+  ])('optional fallback handles a failed image %s without replacing SSR markup', async (timing) => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const props = { alt: 'Photo', height: 300, width: 400, model }
+    const picture = (
+      <TransloaditPicture {...props} errorFallback={<p role="status">Image unavailable</p>} />
+    )
+    const original = renderToString(<TransloaditPicture {...props} />)
+    const markup = renderToString(picture)
+    expect(markup).toBe(original)
+    container.innerHTML = markup
+    const complete = vi
+      .spyOn(HTMLImageElement.prototype, 'complete', 'get')
+      .mockReturnValue(timing === 'before hydration')
+    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(0)
+    vi.spyOn(HTMLImageElement.prototype, 'currentSrc', 'get').mockReturnValue(model.fallbackUrl)
+    let root: Root | undefined
+    const recoverableErrors: unknown[] = []
+    await act(() => {
+      root = hydrateRoot(container, picture, {
+        onRecoverableError: (error) => recoverableErrors.push(error),
+      })
+    })
+    if (timing === 'after hydration') {
+      await act(() => {
+        container.querySelector('img')?.dispatchEvent(new Event('error'))
+      })
+    }
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('Image unavailable')
+    expect(container.querySelector('picture')).toBeNull()
+    expect(recoverableErrors).toEqual([])
+    complete.mockReturnValue(false)
+    const replacement = { ...model, fallbackUrl: 'https://assets.example/replacement.jpg' }
+    await act(() => {
+      root?.render(
+        <TransloaditPicture
+          {...props}
+          errorFallback={<p role="status">Image unavailable</p>}
+          model={replacement}
+        />,
+      )
+    })
+    expect(container.querySelector('img')?.src).toBe(replacement.fallbackUrl)
+    expect(container.querySelector('[role="status"]')).toBeNull()
+    act(() => root?.unmount())
+    container.remove()
+  })
+
+  test.each([
     { description: 'A canal house' },
     undefined,
     123,
@@ -153,13 +204,13 @@ describe('TransloaditPicture', () => {
     expect(image?.hasAttribute('data-nonserializable')).toBe(false)
   })
 
-  test('emits the browser default size explicitly when sizes is omitted', () => {
+  test('defaults lazy sizing to the CSS box with a viewport fallback', () => {
     const document = renderPicture({ sizes: undefined })
     expect([...document.querySelectorAll('source')].map((source) => source.sizes)).toEqual([
-      '100vw',
-      '100vw',
+      'auto, 100vw',
+      'auto, 100vw',
     ])
-    expect(document.querySelector('img')?.hasAttribute('sizes')).toBe(false)
+    expect(document.querySelector('img')?.getAttribute('sizes')).toBe('auto')
   })
 
   test.each([

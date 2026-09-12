@@ -82,7 +82,259 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+describe('development delivery diagnostics', () => {
+  test('a slow diagnostic cannot consume the direct image grant lifetime', async () => {
+    vi.mocked(fetch).mockImplementation(() => {
+      vi.setSystemTime(Date.now() + 5000)
+      return Promise.resolve(new Response(null, { headers: { 'Content-Type': 'image/jpeg' } }))
+    })
+    const { StorageImage } = createTransloaditImage({
+      ...baseConfiguration,
+      storage: { ...baseConfiguration.storage, expiresInMs: 1000, rotationIntervalMs: 1000 },
+    })
+    const document = parseMarkup(
+      await renderAsync(
+        <StorageImage
+          alt="Preview"
+          src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
+        />,
+      ),
+    )
+    expect(Number(new URL(getFirstCandidate(document)).searchParams.get('exp'))).toBeGreaterThan(
+      Date.now(),
+    )
+  })
+
+  beforeEach(() => {
+    vi.stubEnv('NODE_ENV', 'development')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { headers: { 'Content-Type': 'image/jpeg' } })),
+    )
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  test('checks one HEAD per path/template per configured integration', async () => {
+    const { StorageImage } = createTransloaditImage(baseConfiguration)
+    const props = { alt: 'Preview', src: { path: 'documents/hero.jpg', width: 400, height: 300 } }
+    await Promise.all([
+      renderAsync(<StorageImage {...props} />),
+      renderAsync(<StorageImage {...props} widths={[100]} />),
+    ])
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        method: 'HEAD',
+        redirect: 'manual',
+        cache: 'no-store',
+        signal: expect.any(AbortSignal),
+      }),
+    )
+    expect(console.warn).not.toHaveBeenCalled()
+    const other = createTransloaditImage({ ...baseConfiguration, template: 'another-preview' })
+    await renderAsync(<other.StorageImage {...props} />)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  test('never probes from production rendering', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    const { StorageImage } = createTransloaditImage(baseConfiguration)
+    await renderAsync(
+      <StorageImage alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+    )
+    expect(fetch).not.toHaveBeenCalled()
+    expect(console.warn).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    { status: 403, hint: /Smart CDN-enabled Auth Key.*workspace.*signature/ },
+    { status: 404, hint: /workspace slug.*Storage path.*Template/ },
+    { status: 500, hint: /HTTP 500.*retry/ },
+  ])('gives actionable, non-secret hints for HTTP $status without guessing the cause', async ({
+    status,
+    hint,
+  }) => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(authSecret, { status, headers: { 'x-secret': authSecret } }),
+    )
+    const { StorageImage } = createTransloaditImage(baseConfiguration)
+    const props = { alt: 'Preview', src: { path: 'documents/hero.jpg', width: 400, height: 300 } }
+    await renderAsync(<StorageImage {...props} />)
+    await renderAsync(<StorageImage {...props} />)
+    expect(console.warn).toHaveBeenCalledOnce()
+    expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(hint))
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain(authSecret)
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
+  test('sanitizes network failures while preserving native rendering', async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error(`Failed at secret URL ${authSecret}`))
+    const { StorageImage } = createTransloaditImage(baseConfiguration)
+    const markup = await renderAsync(
+      <StorageImage alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+    )
+    expect(markup).toContain('<picture>')
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('reach Smart CDN'))
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain(authSecret)
+  })
+
+  test('never diagnoses an unauthorized redirect or a path outside policy', async () => {
+    const authorize = vi.fn(() => false)
+    const { StorageImage, storageRoute } = createTransloaditImage({
+      ...baseConfiguration,
+      storage: { ...baseConfiguration.storage, delivery: { route: '/images', authorize } },
+    })
+    expect(() =>
+      StorageImage({ alt: 'Denied', src: { path: 'private/hero.jpg', width: 400, height: 300 } }),
+    ).toThrow(/allowed prefixes/)
+    const document = parseMarkup(
+      renderToStaticMarkup(
+        <StorageImage
+          alt="Preview"
+          src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
+        />,
+      ),
+    )
+    const request = new Request(new URL(getFirstCandidate(document), 'https://app.example'))
+    expect((await storageRoute(request)).status).toBe(404)
+    expect(fetch).not.toHaveBeenCalled()
+    authorize.mockReturnValue(true)
+    expect((await storageRoute(request)).status).toBe(307)
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+})
+
 describe('createTransloaditImageFromEnv', () => {
+  test('layout defaults leave explicit sizes, widths and styles in control', async () => {
+    const { StorageImage } = createTransloaditImage(baseConfiguration)
+    const document = parseMarkup(
+      await renderAsync(
+        <StorageImage
+          alt="Override"
+          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          layout="constrained"
+          maxWidth={960}
+          widths={[2400]}
+          sizes="50vw"
+          style={{ maxWidth: 1200 }}
+        />,
+      ),
+    )
+    expect(document.querySelector('source')?.sizes).toBe('50vw')
+    expect(document.querySelector('source')?.srcset).toContain('2400w')
+    expect(document.querySelector('img')?.style.maxWidth).toBe('1200px')
+  })
+
+  test.each([
+    { layout: 'fixed', width: 0, height: 48 },
+    { layout: 'constrained', maxWidth: Number.NaN },
+    { layout: 'fill', fit: 'cover' },
+    { layout: 'fill', fit: 'cover', aspectRatio: '9/0' },
+    { layout: 'fixed', width: 48, height: 48, fit: 'stretch' },
+    { layout: 'other' },
+  ])('rejects invalid layout before rendering %j', (layout) => {
+    const { StorageImage } = createTransloaditImage(baseConfiguration)
+    expect(() =>
+      Reflect.apply(StorageImage, undefined, [
+        {
+          alt: 'Invalid',
+          src: { path: 'documents/hero.jpg', width: 400, height: 300 },
+          ...layout,
+        },
+      ]),
+    ).toThrow()
+    expect(connection).not.toHaveBeenCalled()
+  })
+
+  test('derives constrained layout and caps its candidates at twice maxWidth', async () => {
+    const { StorageImage } = createTransloaditImage(baseConfiguration)
+    const document = parseMarkup(
+      await renderAsync(
+        <StorageImage
+          alt="Hero"
+          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          layout="constrained"
+          maxWidth={960}
+        />,
+      ),
+    )
+    const image = document.querySelector('img')
+    expect(image?.style.cssText).toBe(
+      'display: block; max-width: 960px; width: 100%; height: auto;',
+    )
+    expect(image?.getAttribute('width')).toBe('2400')
+    const source = document.querySelector('source')
+    expect(source?.sizes).toBe('(min-width: 960px) 960px, 100vw')
+    expect(source?.srcset).toContain('1920w')
+    expect(source?.srcset).not.toContain('2400w')
+  })
+
+  test('fixed cover uses receipt geometry for a signed 48px crop and a 1x JPEG fallback', async () => {
+    const { StorageImage, storageRoute } = createTransloaditImage({
+      ...baseConfiguration,
+      storage: {
+        ...baseConfiguration.storage,
+        delivery: { route: '/images', authorize: () => true },
+      },
+    })
+    const document = parseMarkup(
+      renderToStaticMarkup(
+        <StorageImage
+          alt="Avatar"
+          src={{ path: 'documents/avatar.jpg', width: 400, height: 300 }}
+          layout="fixed"
+          width={48}
+          height={48}
+          fit="cover"
+        />,
+      ),
+    )
+    const image = document.querySelector('img')
+    expect(image?.getAttribute('width')).toBe('48')
+    expect(image?.getAttribute('height')).toBe('48')
+    expect(document.querySelector('source')?.sizes).toBe('48px')
+    expect(document.querySelector('source')?.srcset).toContain('96w')
+    expect(document.querySelector('source')?.srcset).not.toContain('400w')
+    const response = await storageRoute(
+      new Request(new URL(image?.getAttribute('src') ?? '', 'https://app.example')),
+    )
+    const target = parseSmartCdnUrl(response.headers.get('location') ?? '', {
+      baseUrl: baseConfiguration.baseUrl,
+    })
+    expect(target.urlParams).toMatchObject({ r: 'fillcrop', w: '48', h: '48', f: 'jpg' })
+  })
+
+  test('fill cover signs the declared box ratio and retains explicit layout overrides', async () => {
+    const { StorageImage } = createTransloaditImage(baseConfiguration)
+    const document = parseMarkup(
+      await renderAsync(
+        <StorageImage
+          alt="Portrait crop"
+          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          layout="fill"
+          fit="cover"
+          aspectRatio="9/16"
+          sizes="100vw"
+          widths={[390, 780]}
+          style={{ position: 'relative' }}
+        />,
+      ),
+    )
+    expect(document.querySelector('img')?.style.position).toBe('relative')
+    expect(document.querySelector('img')?.style.width).toBe('100%')
+    expect(document.querySelector('source')?.sizes).toBe('100vw')
+    const target = parseSmartCdnUrl(getFirstCandidate(document), {
+      baseUrl: baseConfiguration.baseUrl,
+    })
+    expect(target.urlParams).toMatchObject({ r: 'fillcrop', w: '390', h: '693' })
+  })
+
   test('exports an unambiguous StorageImage with the legacy Image alias', () => {
     const integration = createTransloaditImage(baseConfiguration)
     expect(integration.StorageImage).toBeTypeOf('function')
@@ -482,7 +734,7 @@ describe('createTransloaditImage', () => {
     )
     const source = document.querySelector('source')
 
-    expect(source?.getAttribute('sizes')).toBe('100vw')
+    expect(source?.getAttribute('sizes')).toBe('auto, 100vw')
     expect(source?.getAttribute('srcset')).toContain('200w')
     expect(source?.getAttribute('srcset')).toContain('400w')
     expect(source?.getAttribute('srcset')).toContain('800w')

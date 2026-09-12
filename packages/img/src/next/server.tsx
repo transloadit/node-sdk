@@ -3,13 +3,14 @@ import 'server-only'
 import type { SmartCdnUrlParams } from '@transloadit/utils/node'
 import type { ReactNode } from 'react'
 
-import type { TransloaditImageSource, TransloaditImageSourceProps } from '../imageSource.ts'
 import type {
   SmartCdnImageSignRequest,
   StoragePreviewFormats,
   TransloaditImageModel,
 } from '../index.ts'
+import type { DiagnoseStorageImage } from './diagnostics.ts'
 import type { TransloaditImageLayoutProps, TransloaditImagePresentationProps } from './index.tsx'
+import type { StorageImageLayoutProps } from './layout.ts'
 
 import { hkdfSync } from 'node:crypto'
 
@@ -18,11 +19,12 @@ import { getSignedSmartCdnUrl } from '@transloadit/utils/node'
 import { connection } from 'next/server.js'
 import { Suspense } from 'react'
 
-import { snapshotImageSource } from '../imageSource.ts'
 import { createTransloaditImageModel, transloaditStoragePreviewTemplate } from '../index.ts'
 import { validateStoragePath, validateStoragePathPrefix } from '../storagePath.ts'
+import { createImageDiagnostics } from './diagnostics.ts'
 import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
 import { TransloaditPicture } from './index.tsx'
+import { resolveImageLayout } from './layout.ts'
 
 const defaultStorageExpiresInMs = 60 * 60 * 1000
 const defaultStorageRotationIntervalMs = 5 * 60 * 1000
@@ -105,7 +107,7 @@ export type TransloaditRedirectImageEnvConfiguration = Omit<
 
 /** Props for a private Transloadit Storage preview. */
 export type TransloaditImageProps = TransloaditImageLayoutProps &
-  TransloaditImageSourceProps & {
+  StorageImageLayoutProps & {
     /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
     fallbackQuality?: number
     formats?: StoragePreviewFormats
@@ -159,6 +161,7 @@ interface StorageImageTransform {
   height: number
   path: string
   quality: number
+  strategy?: 'fillcrop'
   width: number
 }
 
@@ -166,7 +169,16 @@ interface TransloaditStorageImageRequestProps {
   props: ResolvedStorageImageProps
 }
 
-type ResolvedStorageImageProps = Extract<TransloaditImageProps, { src: string }>
+type ResolvedStorageImageProps = TransloaditImagePresentationProps & {
+  source: ReturnType<typeof resolveImageLayout>['source']
+  cropAspectRatio?: number
+  fallbackWidth?: number
+  maximumWidth?: number
+  fallbackQuality?: number
+  formats?: StoragePreviewFormats
+  suspenseFallback?: ReactNode
+  widths?: readonly number[]
+}
 
 function StorageImagePlaceholder({ props }: TransloaditStorageImageRequestProps): ReactNode {
   const attributes = snapshotImageAttributes(props)
@@ -366,20 +378,27 @@ function snapshotUrlParams(
 
 function snapshotStorageImageProps(
   props: TransloaditImageProps,
-  source: TransloaditImageSource,
+  layout: ReturnType<typeof resolveImageLayout>,
 ): ResolvedStorageImageProps {
+  const attributes = snapshotImageAttributes(props)
   return {
-    ...snapshotImageAttributes(props),
+    ...attributes,
     ...snapshotImageLoading(props),
+    cropAspectRatio: layout.cropAspectRatio,
     deferUntilHydrated: props.deferUntilHydrated,
+    errorFallback: props.errorFallback,
     fallbackQuality: props.fallbackQuality,
+    fallbackWidth: layout.fallbackWidth,
     formats: props.formats === undefined ? undefined : { ...props.formats },
-    height: source.height,
+    height: layout.height,
+    maximumWidth: layout.maximumWidth,
     objectFit: props.objectFit,
-    src: source.path,
+    source: layout.source,
+    sizes: attributes.sizes ?? layout.sizes,
+    style: { ...layout.style, ...attributes.style },
     suspenseFallback: props.suspenseFallback,
-    width: source.width,
-    widths: Array.isArray(props.widths) ? [...props.widths] : props.widths,
+    width: layout.width,
+    widths: layout.widths,
   }
 }
 
@@ -396,12 +415,19 @@ function getStorageTransform(request: SmartCdnImageSignRequest): StorageImageTra
     (format !== 'avif' && format !== 'jpg' && format !== 'png' && format !== 'webp') ||
     typeof height !== 'number' ||
     typeof quality !== 'number' ||
-    strategy !== 'pad' ||
+    (strategy !== 'pad' && strategy !== 'fillcrop') ||
     typeof width !== 'number'
   ) {
     throw new TypeError('Storage image model produced an unsupported transform')
   }
-  return { format, height, path: request.input, quality, width }
+  return {
+    format,
+    height,
+    path: request.input,
+    quality,
+    width,
+    ...(strategy === 'fillcrop' ? { strategy } : {}),
+  }
 }
 
 function createStorageRouteKey(authSecret: string, workspace: string): Buffer {
@@ -454,9 +480,10 @@ function isStorageRouteFormat(value: unknown): value is StorageImageTransform['f
 
 function getStorageTransformFromPayload(payload: unknown): StorageImageTransform | undefined {
   if (!isRecord(payload) || payload.version !== storageCapabilityVersion) return undefined
-  const { format, height, path, quality, width } = payload
+  const { format, height, path, quality, width, strategy } = payload
   if (
     !isStorageRouteFormat(format) ||
+    (strategy !== undefined && strategy !== 'fillcrop') ||
     typeof height !== 'number' ||
     !Number.isInteger(height) ||
     height < 1 ||
@@ -474,7 +501,7 @@ function getStorageTransformFromPayload(payload: unknown): StorageImageTransform
     return undefined
   }
   validateStoragePath(path)
-  return { format, height, path, quality, width }
+  return { format, height, path, quality, width, ...(strategy === 'fillcrop' ? { strategy } : {}) }
 }
 
 function decryptStorageCapability(
@@ -530,6 +557,7 @@ function createStorageRoute(
   policy: ResolvedStoragePolicy,
   sign: (request: SmartCdnImageSignRequest) => string,
   template: string,
+  diagnose: DiagnoseStorageImage | undefined,
 ): TransloaditStorageRoute {
   return async function storageRoute(request: Request): Promise<Response> {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -549,23 +577,29 @@ function createStorageRoute(
     }
     if ((await delivery.authorize({ path: transform.path, request })) !== true) return notFound()
 
-    const now = Date.now()
-    const expiresAt = getStorageExpiresAt(now, policy)
-    const cacheSeconds = Math.floor(
-      Math.min(delivery.cacheMaxAgeMs ?? 0, policy.rotationIntervalMs, expiresAt - now) / 1000,
-    )
-    const location = sign({
-      expiresAt,
+    const signRequest = {
       input: transform.path,
       template,
       urlParams: {
         f: transform.format,
         h: transform.height,
         q: transform.quality,
-        r: 'pad',
+        r: transform.strategy ?? 'pad',
         w: transform.width,
       },
-    })
+    }
+    if (diagnose !== undefined) {
+      await diagnose(
+        transform.path,
+        sign({ ...signRequest, expiresAt: getStorageExpiresAt(Date.now(), policy) }),
+      )
+    }
+    const now = Date.now()
+    const expiresAt = getStorageExpiresAt(now, policy)
+    const cacheSeconds = Math.floor(
+      Math.min(delivery.cacheMaxAgeMs ?? 0, policy.rotationIntervalMs, expiresAt - now) / 1000,
+    )
+    const location = sign({ ...signRequest, expiresAt })
     return new Response(null, {
       headers: {
         'Cache-Control':
@@ -602,6 +636,7 @@ export function createTransloaditImage(
   validateGlobalUrlParams(urlParams)
 
   const storagePolicy = getStoragePolicy(configuration.storage)
+  const diagnose = createImageDiagnostics(storageTemplate)
   // Redirect capabilities do not encode this value; keeping one factory snapshot makes their
   // prerendered markup deterministic while request-time CDN signatures rotate independently.
   const storageCapabilityModelExpiresAt = getStorageExpiresAt(Date.now(), storagePolicy)
@@ -635,33 +670,50 @@ export function createTransloaditImage(
             request,
           )
 
+  function createModel(
+    props: ResolvedStorageImageProps,
+    expiresAt: number,
+    resolveUrl: (request: SmartCdnImageSignRequest) => string,
+  ): TransloaditImageModel {
+    return createTransloaditImageModel(
+      {
+        cropAspectRatio: props.cropAspectRatio,
+        expiresAt,
+        fallbackQuality: props.fallbackQuality,
+        fallbackWidth: props.fallbackWidth,
+        formats: props.formats,
+        maximumWidth: props.maximumWidth,
+        src: props.source,
+        template: storageTemplate,
+        widths: props.widths,
+      },
+      resolveUrl,
+    )
+  }
+
   async function DirectStorageImage({
     props,
   }: TransloaditStorageImageRequestProps): Promise<ReactNode> {
     await connection()
-    const model = createTransloaditImageModel(
-      {
-        expiresAt: getStorageExpiresAt(Date.now(), storagePolicy),
-        fallbackQuality: props.fallbackQuality,
-        formats: props.formats,
-        height: props.height,
-        src: props.src,
-        template: storageTemplate,
-        width: props.width,
-        widths: props.widths,
-      },
-      sign,
-    )
+    const model = createModel(props, getStorageExpiresAt(Date.now(), storagePolicy), sign)
+    if (diagnose !== undefined) {
+      await diagnose(props.source.path, model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl)
+      // A cold development probe must not consume the lifetime of the URLs sent to the browser.
+      return renderPicture(
+        props,
+        createModel(props, getStorageExpiresAt(Date.now(), storagePolicy), sign),
+      )
+    }
     return renderPicture(props, model)
   }
 
   function StorageImage(props: TransloaditImageProps): ReactNode {
-    const source = snapshotImageSource(props)
+    const layout = resolveImageLayout(props)
     if (props.media !== undefined) {
       throw new TypeError('Storage image previews do not support media conditions')
     }
-    assertAllowedStoragePath(source.path, storagePolicy)
-    const storageProps = snapshotStorageImageProps(props, source)
+    assertAllowedStoragePath(layout.source.path, storagePolicy)
+    const storageProps = snapshotStorageImageProps(props, layout)
     if (storageCapability === undefined) {
       return (
         <Suspense
@@ -680,17 +732,9 @@ export function createTransloaditImage(
     if (storageProps.suspenseFallback !== undefined) {
       throw new TypeError('suspenseFallback is only used by direct Storage delivery')
     }
-    const resolvedModel = createTransloaditImageModel(
-      {
-        expiresAt: storageCapabilityModelExpiresAt,
-        fallbackQuality: storageProps.fallbackQuality,
-        formats: storageProps.formats,
-        height: storageProps.height,
-        src: storageProps.src,
-        template: storageTemplate,
-        width: storageProps.width,
-        widths: storageProps.widths,
-      },
+    const resolvedModel = createModel(
+      storageProps,
+      storageCapabilityModelExpiresAt,
       buildStorageUrl,
     )
     const model: TransloaditImageModel = {
@@ -711,6 +755,7 @@ export function createTransloaditImage(
       storagePolicy,
       sign,
       storageTemplate,
+      diagnose,
     ),
   }
 }

@@ -38,6 +38,7 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
     const width = Number(url.searchParams.get('w'))
     const height = Number(url.searchParams.get('h'))
     const format = url.searchParams.get('f')
+    const strategy = url.searchParams.get('r')
     const mime = format === 'avif' ? 'image/avif' : format === 'webp' ? 'image/webp' : 'image/jpeg'
     const accepted =
       authenticated &&
@@ -50,6 +51,7 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
       Number.isSafeInteger(height) &&
       height > 0 &&
       height <= 2400 &&
+      (strategy === 'pad' || strategy === 'fillcrop') &&
       (format === 'avif' || format === 'webp' || format === 'jpg')
     requests.push({
       url: new URL(request.url ?? '/', origin).href,
@@ -60,11 +62,20 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
       response.writeHead(403, { 'Cache-Control': 'no-store' }).end()
       return
     }
-    const key = `${width}/${height}/${format}`
+    const avatar = decodeURIComponent(url.pathname).endsWith('/documents/avatar.jpg')
+    const key = `${avatar}/${width}/${height}/${format}/${strategy}`
     let bytes = images.get(key)
     if (bytes === undefined) {
       const image = sharp({
-        create: { width, height, channels: 3, background: { r: 45, g: 110, b: 160 } },
+        create: {
+          width: avatar ? 400 : 2400,
+          height: avatar ? 300 : 1600,
+          channels: 3,
+          background: { r: 45, g: 110, b: 160 },
+        },
+      }).resize(width, height, {
+        fit: strategy === 'fillcrop' ? 'cover' : 'contain',
+        background: 'white',
       })
       bytes = (
         format === 'avif' ? image.avif() : format === 'webp' ? image.webp() : image.jpeg()

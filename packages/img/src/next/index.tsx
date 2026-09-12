@@ -11,6 +11,7 @@ import { preload as preloadResource } from 'react-dom'
 
 import { HydratedTransloaditPicture } from './HydratedTransloaditPicture.tsx'
 import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
+import { StorageImageErrorBoundary } from './StorageImageErrorBoundary.tsx'
 
 const transparentPixel =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
@@ -23,6 +24,8 @@ const mimeTypes = {
 interface ImagePresentationProps extends Omit<ImageAttributes, 'height' | 'width'> {
   alt: string
   deferUntilHydrated?: boolean
+  /** Optional client-side image-load fallback. Does not replace the server-rendered picture. */
+  errorFallback?: ReactNode
   media?: string
   /** CSP-compatible placeholder used while `media` is unmatched. Defaults to an inline GIF. */
   mediaPlaceholderSrc?: string
@@ -111,7 +114,7 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
     model,
     objectFit,
     preload = false,
-    sizes = '100vw',
+    sizes: explicitSizes,
   } = props
   if (deferUntilHydrated && (loading === 'eager' || preload)) {
     throw new Error('An eager or preloaded Transloadit image cannot be deferred until hydration')
@@ -122,6 +125,7 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
     throw new Error('A media-gated Transloadit image cannot be preloaded')
   }
   const resolvedLoading = loading ?? (preload ? 'eager' : 'lazy')
+  const sizes = explicitSizes ?? (resolvedLoading === 'lazy' ? 'auto, 100vw' : '100vw')
   const automaticSizes = /^auto(?:\s*,|\s*$)/i.test(sizes.trimStart())
   if (automaticSizes && resolvedLoading !== 'lazy') {
     throw new Error('Automatic image sizes require lazy loading')
@@ -179,9 +183,17 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
     </picture>
   )
 
+  const resolved =
+    props.errorFallback === undefined ? (
+      picture
+    ) : (
+      <StorageImageErrorBoundary key={model.fallbackUrl} fallback={props.errorFallback}>
+        {picture}
+      </StorageImageErrorBoundary>
+    )
   return deferUntilHydrated ? (
-    <HydratedTransloaditPicture fallback={fallback}>{picture}</HydratedTransloaditPicture>
+    <HydratedTransloaditPicture fallback={fallback}>{resolved}</HydratedTransloaditPicture>
   ) : (
-    picture
+    resolved
   )
 }

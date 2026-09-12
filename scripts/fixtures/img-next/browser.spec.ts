@@ -350,7 +350,24 @@ for (const delivery of ['direct', 'redirect']) {
         const heroRequest = heroRequests[0]
         assert(heroRequest)
         expect(new URL(heroRequest.url).searchParams.get('w')).toBe(width === 1200 ? '960' : '640')
+        const heroSources = await hero.evaluate((element) =>
+          [...(element.parentElement?.querySelectorAll('source') ?? [])].map(
+            (source) => source.srcset,
+          ),
+        )
+        expect(heroSources.every((source) => !source.includes('2400w'))).toBe(true)
+        const avatarRequests = cdn.requests
+          .slice(requestOffset)
+          .filter((request) =>
+            decodeURIComponent(new URL(request.url).pathname).endsWith('/documents/avatar.jpg'),
+          )
+        expect(avatarRequests).toHaveLength(1)
+        assert(avatarRequests[0])
+        expect(new URL(avatarRequests[0].url).searchParams.get('r')).toBe('fillcrop')
+        expect(new URL(avatarRequests[0].url).searchParams.get('w')).toBe('48')
+        expect(new URL(avatarRequests[0].url).searchParams.get('h')).toBe('48')
         await expect(avatar).toHaveJSProperty('naturalWidth', 48)
+        await expect(avatar).toHaveJSProperty('naturalHeight', 48)
         // WebKit has no CDP compositor API; its ordinary screenshot waits for the deliberately
         // held document load. Geometry is checked now in both engines; both capture after hydration.
         if (browserName === 'chromium')
@@ -437,13 +454,50 @@ test.describe('JPEG fallback', () => {
     const avatar = page.getByRole('img', { name: 'Private avatar', exact: true })
     await decode(avatar)
     await decode(page.getByRole('img', { name: 'Late private preview' }))
-    await expect(avatar).toHaveJSProperty('naturalWidth', 96)
+    await expect(avatar).toHaveJSProperty('naturalWidth', 48)
     expect((await avatar.boundingBox())?.width).toBe(48)
     const images = cdn.requests.slice(requestOffset).map((request) => new URL(request.url))
     // Browsers disable native lazy loading when JavaScript is disabled.
     expect(images).toHaveLength(3)
     expect(images.every((url) => url.searchParams.get('f') === 'jpg')).toBe(true)
   })
+})
+
+test('an opted-in fallback replaces a denied private image without leaking its credentials', async ({
+  page,
+  context,
+  audit,
+}) => {
+  await context.clearCookies()
+  await page.route('**/api/browser-images?*', async (route) => {
+    audit.expectedFailures.set(route.request().url(), 404)
+    await route.continue()
+  })
+  await page.goto('/fixture/image-error')
+  await expect(page.getByRole('status')).toHaveText('Sign in to see this image')
+  await expect(page.getByRole('img', { name: 'Private preview' })).toHaveCount(0)
+  expect(await page.content()).not.toContain(imageConfiguration.authSecret)
+  await expect(page.getByRole('button', { name: 'Hydration count: 0' })).toBeVisible()
+})
+
+test('a portrait fill layout downloads the cropped box rather than an oversized landscape', async ({
+  page,
+}) => {
+  const requestOffset = cdn.requests.length
+  await page.goto('/fixture/layouts')
+  const image = page.getByRole('img', { name: 'Portrait cover' })
+  await decode(image)
+  expect((await image.boundingBox())?.width).toBe(390)
+  expect((await image.boundingBox())?.height).toBeCloseTo((390 * 16) / 9, 1)
+  const requests = cdn.requests.slice(requestOffset)
+  expect(requests).toHaveLength(1)
+  assert(requests[0])
+  const parameters = new URL(requests[0].url).searchParams
+  expect(parameters.get('r')).toBe('fillcrop')
+  expect(parameters.get('w')).toBe('390')
+  expect(parameters.get('h')).toBe('693')
+  await expect(image).toHaveJSProperty('naturalWidth', 390)
+  await expect(image).toHaveJSProperty('naturalHeight', 693)
 })
 
 test('an original lazy capability gets a new grant after its earlier target expires', async ({

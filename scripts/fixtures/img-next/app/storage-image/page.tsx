@@ -7,20 +7,20 @@ export default function Page(): ReactNode {
     <main>
       <TransloaditImage
         alt="Storage hero"
-        className="hero"
         id="hero"
-        sizes="(min-width: 960px) 960px, 100vw"
+        layout="constrained"
+        maxWidth={960}
         src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
       />
       <p>After the hero</p>
       <TransloaditImage
         alt="Storage avatar"
         id="avatar"
-        objectFit="cover"
-        sizes="48px"
-        src={{ path: 'documents/avatar.jpg', width: 400, height: 400 }}
-        style={{ display: 'block', height: 48, width: 48 }}
-        widths={[48, 96]}
+        layout="fixed"
+        width={48}
+        height={48}
+        fit="cover"
+        src={{ path: 'documents/avatar.jpg', width: 400, height: 300 }}
       />
       <p>After the avatar</p>
     </main>
