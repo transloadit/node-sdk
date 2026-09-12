@@ -147,6 +147,21 @@ interface TransloaditStorageImageRequestProps {
   props: TransloaditImageProps
 }
 
+function StorageImagePlaceholder({ props }: TransloaditStorageImageRequestProps): ReactNode {
+  const attributes = snapshotImageAttributes(props)
+  return (
+    // biome-ignore lint/performance/noImgElement: A source-free image retains native layout without fetching.
+    <img
+      {...attributes}
+      alt=""
+      aria-hidden="true"
+      inert
+      sizes={undefined}
+      style={{ ...attributes.style, visibility: 'hidden' }}
+    />
+  )
+}
+
 function validateRequiredConfiguration(value: string, name: string): void {
   if (typeof value !== 'string' || value === '' || value.trim() !== value) {
     throw new TypeError(`${name} must be a non-empty string without surrounding whitespace`)
@@ -617,7 +632,15 @@ export function createTransloaditImage(
     const storageProps = snapshotStorageImageProps(props, storagePath)
     if (storageCapability === undefined) {
       return (
-        <Suspense fallback={props.suspenseFallback}>
+        <Suspense
+          fallback={
+            storageProps.suspenseFallback === undefined ? (
+              <StorageImagePlaceholder props={storageProps} />
+            ) : (
+              storageProps.suspenseFallback
+            )
+          }
+        >
           <DirectStorageImage props={storageProps} />
         </Suspense>
       )

@@ -267,7 +267,19 @@ async function main(): Promise<void> {
       'Expected redirect-delivery markup to prerender',
     )
     const storageShell = await readFile(resolve(appOutput, 'storage-image.html'), 'utf8')
-    assert(storageShell.includes('Loading preview'), 'Storage shell fallback is absent')
+    assert(
+      storageShell.includes('visibility:hidden'),
+      'Storage shell does not reserve image layout',
+    )
+    assert(
+      storageShell.includes('width="2400"') && storageShell.includes('height="1600"'),
+      'Hero source dimensions are absent',
+    )
+    assert(
+      storageShell.includes('height:auto;max-width:960px;width:100%'),
+      'Hero responsive CSS is absent',
+    )
+    assert(storageShell.includes('height:48px;width:48px'), 'Avatar CSS box is absent')
     assert(
       !storageShell.includes('builtin%2Fstorage-preview%400.0.1'),
       'A signed Storage URL leaked into the prerendered shell',
@@ -309,6 +321,11 @@ async function main(): Promise<void> {
       )
       assert(!storageHtml.includes(fixtureSecret), 'Secret leaked into Storage output')
       assert(!redirectHtml.includes(fixtureSecret), 'Secret leaked into redirect output')
+      assert(
+        storageHtml.includes(' 48w') && storageHtml.includes(' 96w'),
+        'Avatar candidates are absent',
+      )
+      assert(storageHtml.includes('sizes="48px"'), 'Avatar sizes are absent')
 
       const routeCandidate = getFirstPictureCandidates(redirectHtml)[0]
       assert(routeCandidate !== undefined, 'Expected a redirect route candidate')

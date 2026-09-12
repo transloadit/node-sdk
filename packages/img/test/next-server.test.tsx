@@ -83,6 +83,96 @@ afterEach(() => {
 })
 
 describe('createTransloaditImage', () => {
+  test('reserves native image geometry while request-time signing is suspended', async () => {
+    let resolveConnection: (value: undefined) => void = () => {
+      throw new Error('Connection was not initialized')
+    }
+    const pending = new Promise<undefined>((resolve) => {
+      resolveConnection = resolve
+    })
+    connection.mockImplementationOnce(() => pending)
+    const { Image } = createTransloaditImage(baseConfiguration)
+    const stream = await renderToReadableStream(
+      <main>
+        <Image
+          alt="Hero"
+          className="hero"
+          height={1600}
+          id="hero"
+          preload
+          sizes="(min-width: 960px) 960px, 100vw"
+          src="documents/hero.jpg"
+          style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
+          width={2400}
+        />
+        <p>Following content</p>
+      </main>,
+    )
+    const reader = stream.getReader()
+    const shell = new TextDecoder().decode((await reader.read()).value)
+    const placeholder = parseMarkup(shell).getElementById('hero')
+    // Always resolve the request so a failed assertion cannot leak a suspended stream.
+    resolveConnection(undefined)
+    await stream.allReady
+    let remaining = ''
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      remaining += new TextDecoder().decode(value)
+    }
+    const image = parseMarkup(remaining).getElementById('hero')
+
+    expect(placeholder?.getAttribute('width')).toBe('2400')
+    expect(placeholder?.getAttribute('height')).toBe('1600')
+    expect(placeholder?.getAttribute('class')).toBe('hero')
+    expect(placeholder?.getAttribute('style')).toBe(
+      'display:block;height:auto;max-width:960px;width:100%;visibility:hidden',
+    )
+    expect(placeholder?.getAttribute('aria-hidden')).toBe('true')
+    expect(placeholder?.hasAttribute('inert')).toBe(true)
+    expect(placeholder?.hasAttribute('src')).toBe(false)
+    expect(shell).not.toContain('cdn.example')
+    expect(shell).not.toContain('imageSrcSet')
+    expect(shell).toContain('Following content')
+    expect(image?.getAttribute('style')).toBe(
+      'display:block;height:auto;max-width:960px;width:100%',
+    )
+    expect(image?.getAttribute('width')).toBe('2400')
+    expect(image?.getAttribute('height')).toBe('1600')
+    expect(image?.getAttribute('src')).toContain('cdn.example')
+  })
+
+  test('keeps an explicit direct Suspense fallback as an override', async () => {
+    let resolveConnection: (value: undefined) => void = () => {
+      throw new Error('Connection was not initialized')
+    }
+    const pending = new Promise<undefined>((resolve) => {
+      resolveConnection = resolve
+    })
+    connection.mockImplementationOnce(() => pending)
+    const { Image } = createTransloaditImage(baseConfiguration)
+    const stream = await renderToReadableStream(
+      <main>
+        <Image
+          alt="Custom shell"
+          height={300}
+          src="documents/report.pdf"
+          suspenseFallback={<p role="status">Custom preview</p>}
+          width={400}
+        />
+        <p>Following content</p>
+      </main>,
+    )
+    const reader = stream.getReader()
+    const shell = new TextDecoder().decode((await reader.read()).value)
+    resolveConnection(undefined)
+    await stream.allReady
+    await reader.cancel()
+
+    expect(parseMarkup(shell).querySelector('[role="status"]')?.textContent).toBe('Custom preview')
+    expect(parseMarkup(shell).querySelector('img')).toBeNull()
+  })
+
   test('allows explicit widths while making sizes optional', async () => {
     const { Image } = createTransloaditImage(baseConfiguration)
     const document = parseMarkup(

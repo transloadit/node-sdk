@@ -49,12 +49,33 @@ export default function Page() {
     <Image
       alt="A canal house"
       height={1600}
-      sizes="(min-width: 1024px) 960px, 100vw"
+      sizes="(min-width: 960px) 960px, 100vw"
       src="website/canal-house.jpg"
+      style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
       width={2400}
     />
   )
 }
+```
+
+The 2400×1600 dimensions describe the source, not a 2400px display box. The CSS caps the hero at
+960px, preserves its 3:2 aspect ratio, and lets it shrink with its container. `sizes` describes
+that layout to the browser; it does not set CSS dimensions. Adjust it if your page has gutters or
+a narrower container.
+
+For a 400×400 avatar source displayed in a 48px box, limit the candidates to 1× and 2×:
+
+```tsx
+<Image
+  alt="Your profile photo"
+  height={400}
+  objectFit="cover"
+  sizes="48px"
+  src="website/avatar.jpg"
+  style={{ display: 'block', height: 48, width: 48 }}
+  width={400}
+  widths={[48, 96]}
+/>
 ```
 
 `storage.allowedPathPrefixes` is a hard workspace boundary, not object authorization. Prefixes must
@@ -68,7 +89,9 @@ Direct delivery is the default and fits image-heavy views that already authorize
 rendering. The component calls Next.js `connection()` before creating short-lived signed URLs. A
 built-in Suspense boundary lets a Cache Components page prerender a shell, but the signed image
 itself is request-rendered and must not be stored in a shared full-page cache.
-`suspenseFallback` customizes that shell.
+By default the shell reserves the image's dimensions and layout styles with an inert, invisible
+image that has no source and makes no request. `suspenseFallback` explicitly replaces that shell
+(including `null` to omit it); custom fallbacks must reserve their own space.
 
 The browser requests the selected candidate directly from Smart CDN. Lazy loading remains the
 platform default. A candidate first requested after its signature expires can fail on an unusually
@@ -135,16 +158,18 @@ CDN objects independent from an unkeyed `Accept` header.
 
 The default candidate ladder is 320, 640, 960, 1280, 1920, 2560, and 3840 pixels, capped at the
 declared intrinsic width and backend-safe height. The exact intrinsic width is included between
-steps. `widths` is an advanced per-image override. `sizes` is optional because that is valid HTML,
-but strongly recommended whenever an image is not effectively `100vw`.
+steps. `widths` is an advanced per-image override. Omitted `sizes` emits explicit `100vw` on the
+width-based sources. Supply the actual display width when it differs, or use `sizes="auto, 100vw"`
+for a lazy image whose size should come from its CSS box. Automatic sizes cannot be eager or preloaded.
 
 ```tsx
 <Image
   alt="Product photo"
   formats={{ avif: 40, webp: 70 }}
   height={1200}
-  sizes="(min-width: 1280px) 600px, 50vw"
+  sizes="(min-width: 1200px) 600px, 50vw"
   src="website/products/photo.jpg"
+  style={{ display: 'block', height: 'auto', maxWidth: 600, width: '50vw' }}
   width={1600}
   widths={[400, 800, 1200, 1600]}
 />
@@ -153,9 +178,8 @@ but strongly recommended whenever an image is not effectively `100vw`.
 - Images are lazy and asynchronously decoded by default.
 - `preload` implies eager loading. Combine it with `fetchPriority="high"` only for a measured LCP
   image. Explicitly lazy preloads are rejected.
-- `objectFit` is forwarded for deliberate crop or containment behavior.
-- `deferUntilHydrated` avoids WebKit parser-to-hydration replay for non-critical images. It cannot be
-  eager or preloaded and is not a secrecy mechanism.
+- Keep `width`/`height` in the source's proportions. Transforms use `r: 'pad'`; CSS `objectFit`
+  controls cropping in a display box but cannot undo padding already encoded in the image.
 - `fallbackQuality` changes the signed JPEG fallback quality.
 
 Private signature lifetimes default to at least one hour in stable five-minute rotation windows.
@@ -185,6 +209,13 @@ export const { Image } = createTransloaditImage({
 
 Template selection is unavailable on individual images because the factory owns the signing
 boundary. A replacement must accept the same trusted fields as the Storage preview Built-in.
+
+### Opt-in hydration workaround
+
+`deferUntilHydrated` avoids WebKit parser-to-hydration request replay for non-critical images.
+Leave it off unless you have observed that problem: it delays candidate markup until hydration,
+and its initial `<noscript>` fallback does not reserve space for JavaScript-enabled browsers.
+It cannot be eager or preloaded and is not a secrecy mechanism.
 
 ## Framework-neutral API
 

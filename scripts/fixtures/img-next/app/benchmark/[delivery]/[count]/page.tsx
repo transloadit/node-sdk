@@ -29,6 +29,7 @@ export default async function Page({ params }: PageProps): Promise<ReactNode> {
         key={index}
         sizes="200px"
         src={`documents/benchmark-${index + 1}.jpg`}
+        style={{ display: 'block', height: 'auto', width: 200 }}
         width={400}
       />,
     )
