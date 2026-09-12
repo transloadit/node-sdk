@@ -130,9 +130,9 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
   const original = (
     // biome-ignore lint/performance/noImgElement: This package is the image optimizer.
     <img
-      decoding="async"
       {...attributes}
       alt={props.alt}
+      decoding={attributes.decoding ?? 'async'}
       loading={resolvedLoading}
       // Without img srcset, only lazy auto sizing is valid here. Fallback lengths stay on source.
       sizes={automaticSizes ? 'auto' : undefined}
