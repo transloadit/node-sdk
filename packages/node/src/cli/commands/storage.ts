@@ -270,7 +270,7 @@ export class StorageListCommand extends UnauthenticatedCommand {
           .safeParse(error)
         if (remote.success) {
           throw new Error(
-            `Storage listing failed${remote.data.$metadata.httpStatusCode === undefined ? '' : ` (HTTP ${remote.data.$metadata.httpStatusCode})`}. Check your workspace and a read-scoped Auth Key.`,
+            `Storage listing failed${remote.data.$metadata.httpStatusCode === undefined ? '' : ` (HTTP ${remote.data.$metadata.httpStatusCode})`}. Check that the Storage S3 API is enabled and that you are using the correct workspace and a read-scoped Auth Key.`,
             { cause: error },
           )
         }

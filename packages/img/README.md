@@ -366,6 +366,8 @@ the object already exists. Existing paths conflict by default.
 
 `storage ls website/` lists the current workspace using its read-scoped Auth Key and the existing
 S3-compatible read API, without an Assembly. `--workspace` overrides automatic workspace discovery.
+The Storage S3 API must be enabled separately: successful Assembly-based storage or image delivery
+does not imply that listing is enabled. A disabled S3 API returns HTTP 403, even with valid credentials.
 `storage store --overwrite` explicitly replaces an occupied path; it is never the default. Prefer
 immutable filenames because delivery resolves paths, not receipt hashes, and cached bytes can outlive
 an overwrite. Commit your receipts until a catalog recovery API exposes all required image metadata.

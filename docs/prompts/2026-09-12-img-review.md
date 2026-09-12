@@ -91,6 +91,14 @@ The final packed image package was installed normally into the stranger consumer
 rechecked against the real devdock at 19:48:45 UTC: the same pixels, cookie boundary and 307/404
 results pass. The original timed result is preserved separately as result-timed.json.
 
+The first round-4 push (`888c4e0`) passed unit/build/release/e2e/browser CI but failed both verify
+jobs: cold checkouts have the legacy package manifest without its generated sources. The new S3
+dependency must join that workspace's existing generated-source exceptions; the canonical Node
+package remains checked normally. A failing-first manifest/config regression now runs in root CI.
+An extra read-only devdock listing probe returned 403 because its separate Storage S3 API is
+disabled before authentication. The README and sanitized CLI hint now name that prerequisite;
+no API2 flags, credentials or running services were changed to turn on listing.
+
 ## Final round-3 council
 
 Source: `/tmp/img-pr500-r3-council.md`, against #500 head `0ce8c14`. Five bounded fixes remain
