@@ -18,7 +18,7 @@ import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
 import { ImageInitCommand } from './image.ts'
 import { AuthLoginCommand } from './login.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
-import { StorageListCommand, StorageStoreCommand } from './storage.ts'
+import { StorageListCommand, StorageReceiptsSyncCommand, StorageStoreCommand } from './storage.ts'
 import {
   TemplatesCreateCommand,
   TemplatesDeleteCommand,
@@ -72,6 +72,7 @@ export function createCli(): Cli {
   cli.register(UploadCommand)
   cli.register(StorageStoreCommand)
   cli.register(StorageListCommand)
+  cli.register(StorageReceiptsSyncCommand)
   cli.register(ImageInitCommand)
 
   // Prompt-to-Assembly-Instructions commands

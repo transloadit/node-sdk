@@ -1,49 +1,25 @@
+import type { HeadObjectCommandOutput } from '@aws-sdk/client-s3'
+
 import type { StoredImageReceipt } from '../../storageImage.ts'
 
-import { randomUUID } from 'node:crypto'
-import { chmod, lstat, open, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, relative, resolve } from 'node:path'
+import { relative, resolve } from 'node:path'
 
+import { validateStoragePath } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
+import pMap from 'p-map'
 import { z } from 'zod'
 
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
-import { buildMissingCredentialsMessage, resolveCliConfig } from '../helpers.ts'
+import { updateStorageReceipts } from '../storageReceipts.ts'
+import { listStorageObjects, withStorageS3 } from '../storageS3.ts'
 import {
   nextAppRoot,
   storageImageEnvBlock,
   storageImageFactory,
   storageImagePage,
 } from '../storageSnippets.ts'
-import { ensureError, isErrnoException } from '../types.ts'
+import { ensureError } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
-
-// Keep every JSON key verbatim: a Storage filename may be "__proto__", which z.record strips.
-const receiptsSchema = z.custom<Record<string, unknown>>(
-  (value: unknown) => typeof value === 'object' && value !== null && !Array.isArray(value),
-)
-
-async function readReceipts(
-  file: string,
-): Promise<{ receipts: Record<string, unknown>; mode: number }> {
-  try {
-    const info = await lstat(file)
-    if (!info.isFile()) throw new Error('Expected a regular JSON file, not a symlink or directory')
-    return {
-      receipts: receiptsSchema.parse(JSON.parse(await readFile(file, 'utf8'))),
-      mode: info.mode & 0o777,
-    }
-  } catch (error) {
-    if (isErrnoException(error) && error.code === 'ENOENT') return { receipts: {}, mode: 0o600 }
-    const reason =
-      error instanceof SyntaxError
-        ? 'invalid JSON'
-        : error instanceof z.ZodError
-          ? 'expected a JSON object keyed by Storage path'
-          : ensureError(error).message
-    throw new Error(`Cannot read receipts ${JSON.stringify(file)}: ${reason}`, { cause: error })
-  }
-}
 
 /** Stores one image and atomically appends its verified receipt for application imports. */
 export class StorageStoreCommand extends AuthenticatedCommand {
@@ -78,61 +54,32 @@ export class StorageStoreCommand extends AuthenticatedCommand {
 
   protected async run(): Promise<number | undefined> {
     const file = resolve(this.receipts)
-    const lockPath = `${file}.lock`
-    const temporary = join(dirname(file), `.${basename(file)}.${randomUUID()}.tmp`)
     let verifiedReceipt: StoredImageReceipt | undefined
-    let retainTemporary = false
     try {
       if (file === resolve(this.file))
         throw new Error('The receipts file cannot be the input image')
-      // Fail fast rather than silently losing another process's receipts. A crashed writer's lock
-      // is deliberately not stolen: the operator must confirm that no upload is still running.
-      const lock = await open(lockPath, 'wx', 0o600).catch((error: unknown) => {
-        if (isErrnoException(error) && error.code === 'EEXIST') {
-          throw new Error(
-            `The receipts file is locked by another storage store. Remove ${lockPath} only after confirming no writer is running.`,
-            { cause: error },
-          )
-        }
-        throw error
-      })
-      try {
-        const { receipts, mode } = await readReceipts(file)
-        const receipt = await this.client.storeImage(this.file, {
+      await updateStorageReceipts(file, async (receipts) => {
+        verifiedReceipt = await this.client.storeImage(this.file, {
           path: this.destination,
           ...(this.overwrite ? { overwrite: true } : {}),
         })
-        verifiedReceipt = receipt
-        await writeFile(
-          temporary,
-          `${JSON.stringify({ ...receipts, [receipt.path]: receipt }, null, 2)}\n`,
-          {
-            flag: 'wx',
-            mode: 0o600,
-          },
-        )
-        retainTemporary = true
-        await chmod(temporary, mode)
-        await rename(temporary, file)
-        retainTemporary = false
-        const prefix = receipt.path.slice(0, receipt.path.lastIndexOf('/') + 1)
-        const root = nextAppRoot() ?? ''
-        if (prefix === '') {
-          this.output.print(
-            `Saved ${this.receipts}. Commit this receipt file.\n\nThis image is at the workspace root, so no factory is printed. For scoped delivery, choose an explicit directory prefix when storing images. To allow the entire workspace deliberately, configure an empty prefix yourself.`,
-            receipt,
-          )
-          return undefined
-        }
+        return { ...receipts, [verifiedReceipt.path]: verifiedReceipt }
+      })
+      if (verifiedReceipt === undefined) throw new Error('Storage did not return a receipt')
+      const receipt = verifiedReceipt
+      const prefix = receipt.path.slice(0, receipt.path.lastIndexOf('/') + 1)
+      const root = nextAppRoot() ?? ''
+      if (prefix === '') {
         this.output.print(
-          `Saved ${this.receipts}. Commit this receipt file.\n\n${root}lib/storageImage.ts:\n${storageImageFactory(prefix)}\n${root}app/page.tsx:\n${storageImagePage(receipt.path, relative(resolve(`${root}app`), file).replaceAll('\\', '/'))}\nRendering environment (.env.local; build and runtime):\n${storageImageEnvBlock}\nDirect delivery makes this route dynamic; use redirect delivery for static pages.\nFor private images, use createPrivateStorageImages with your application authorization:\nhttps://github.com/transloadit/node-sdk/tree/main/packages/img#ship-it-privately`,
+          `Saved ${this.receipts}. Commit this receipt file.\n\nThis image is at the workspace root, so no factory is printed. For scoped delivery, choose an explicit directory prefix when storing images. To allow the entire workspace deliberately, configure an empty prefix yourself.`,
           receipt,
         )
-      } finally {
-        await lock.close()
-        await rm(lockPath, { force: true })
-        if (!retainTemporary) await rm(temporary, { force: true })
+        return undefined
       }
+      this.output.print(
+        `Saved ${this.receipts}. Commit this receipt file.\n\n${root}lib/storageImage.ts:\n${storageImageFactory(prefix)}\n${root}app/page.tsx:\n${storageImagePage(receipt.path, relative(resolve(`${root}app`), file).replaceAll('\\', '/'))}\nRendering environment (.env.local; build and runtime):\n${storageImageEnvBlock}\nDirect delivery makes this route dynamic; use redirect delivery for static pages.\nFor private images, use createPrivateStorageImages with your application authorization:\nhttps://github.com/transloadit/node-sdk/tree/main/packages/img#ship-it-privately`,
+        receipt,
+      )
       return undefined
     } catch (error) {
       const failure = ensureError(error)
@@ -141,9 +88,6 @@ export class StorageStoreCommand extends AuthenticatedCommand {
           [
             failure.message,
             'The object was stored successfully. Do not re-upload; recover the verified receipt below.',
-            ...(retainTemporary
-              ? [`Complete catalog retained at ${JSON.stringify(temporary)}.`]
-              : []),
             `Receipt: ${JSON.stringify(verifiedReceipt)}`,
           ].join('\n'),
         )
@@ -188,104 +132,134 @@ export class StorageListCommand extends UnauthenticatedCommand {
 
   protected async run(): Promise<number | undefined> {
     try {
-      const config = resolveCliConfig()
-      if (config.credentials === undefined)
-        throw new Error(config.loadError ?? buildMissingCredentialsMessage())
-      const endpoint = new URL(
-        this.endpoint ?? config.credentialsEndpoint ?? 'https://api2.transloadit.com',
+      const objects = await withStorageS3(
+        this,
+        (client, workspace) => listStorageObjects(client, workspace, this.prefix),
+        'Storage listing',
       )
-      if (
-        !['http:', 'https:'].includes(endpoint.protocol) ||
-        endpoint.username ||
-        endpoint.password ||
-        endpoint.search ||
-        endpoint.hash ||
-        (endpoint.pathname !== '/' && endpoint.pathname !== '/storage')
-      ) {
-        throw new Error(
-          'Storage endpoint must be an HTTP(S) API origin without credentials, query or fragment',
+      this.output.print(
+        objects.length === 0
+          ? 'No stored objects match this prefix.'
+          : objects
+              .map((object) => `${JSON.stringify(object.path)}\t${object.size} bytes`)
+              .join('\n'),
+        objects,
+      )
+      return undefined
+    } catch (error) {
+      this.output.error(ensureError(error).message)
+      return 1
+    }
+  }
+}
+
+const dimensionSchema = z
+  .string()
+  .regex(/^[1-9]\d*$/)
+  .transform(Number)
+  .pipe(z.number().int().positive().max(Number.MAX_SAFE_INTEGER))
+const imageMetadataSchema = z.object({
+  'dam-width': dimensionSchema,
+  'dam-height': dimensionSchema,
+})
+
+function md5FromHead(head: HeadObjectCommandOutput): string | undefined {
+  // S3's multipart, SSE-KMS and SSE-C ETags are not original-byte MD5 checksums.
+  if (
+    head.SSECustomerAlgorithm !== undefined ||
+    (head.ServerSideEncryption !== undefined && head.ServerSideEncryption !== 'AES256')
+  )
+    return undefined
+  const etag = head.ETag
+  const hash = etag?.startsWith('"') && etag.endsWith('"') ? etag.slice(1, -1) : etag
+  return hash !== undefined && /^[a-f0-9]{32}$/i.test(hash) ? hash.toLowerCase() : undefined
+}
+
+/** Recovers rendering metadata using signed List + HEAD only, without downloading originals. */
+export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
+  static override paths = [['storage', 'receipts', 'sync']]
+  static override usage = Command.Usage({
+    category: 'Storage',
+    description: 'Rebuild saved rendering metadata from the Storage catalog',
+    details: `
+      Uses the same read-scoped Auth Key, endpoint and workspace discovery as storage ls.
+      Adds or refreshes matched paths; never prunes unmatched local entries. Matched entries become
+      path/width/height and an MD5 when the HEAD ETag supports it, not full upload-integrity receipts.
+      All listed images must expose valid dam-width/dam-height metadata. Any failure preserves the
+      previous file. No Assembly, original download or remote write is performed.
+    `,
+    examples: [
+      [
+        'Recover website images',
+        'transloadit storage receipts sync website/ --receipts images.json',
+      ],
+    ],
+  })
+
+  prefix = Option.String({ required: true })
+  workspace = Option.String('--workspace', {
+    description: 'Explicit workspace slug (otherwise discovered from this Auth Key)',
+  })
+  receipts = Option.String('--receipts', {
+    description: 'JSON rendering catalog to update atomically, for example images.json',
+    required: true,
+  })
+
+  protected async run(): Promise<number | undefined> {
+    try {
+      let count = 0
+      let synced: Record<string, unknown> = {}
+      await updateStorageReceipts(resolve(this.receipts), async (previous) => {
+        synced = await withStorageS3(
+          this,
+          async (client, workspace) => {
+            const objects = await listStorageObjects(client, workspace, this.prefix)
+            const paths = new Set<string>()
+            for (const { path } of objects) {
+              validateStoragePath(path)
+              if (!path.startsWith(this.prefix) || paths.has(path))
+                throw new Error(
+                  'Storage returned a duplicate path or one outside the requested prefix',
+                )
+              paths.add(path)
+            }
+            const { HeadObjectCommand } = await import('@aws-sdk/client-s3')
+            const entries = await pMap(
+              objects,
+              async ({ path }) => {
+                const head = await client.send(
+                  new HeadObjectCommand({ Bucket: workspace, Key: path }),
+                )
+                const dimensions = imageMetadataSchema.safeParse(head.Metadata)
+                if (!dimensions.success)
+                  throw new Error(
+                    `Storage image ${JSON.stringify(path)} needs positive integer dam-width and dam-height metadata. Select an image-only prefix and backfill missing catalog dimensions before retrying.`,
+                  )
+                const md5hash = md5FromHead(head)
+                return [
+                  path,
+                  {
+                    path,
+                    width: dimensions.data['dam-width'],
+                    height: dimensions.data['dam-height'],
+                    ...(md5hash === undefined ? {} : { md5hash }),
+                  },
+                ]
+              },
+              { concurrency: 5 },
+            )
+            count = entries.length
+            return Object.fromEntries(entries)
+          },
+          'Storage receipt sync',
         )
-      }
-      endpoint.pathname = '/storage'
-      // Keep the S3 client out of the ordinary CLI startup and all image-rendering bundles.
-      const { ListBucketsCommand, ListObjectsV2Command, S3Client } = await import(
-        '@aws-sdk/client-s3'
-      )
-      const client = new S3Client({
-        credentials: {
-          accessKeyId: config.credentials.authKey,
-          secretAccessKey: config.credentials.authSecret,
-        },
-        endpoint: endpoint.href,
-        forcePathStyle: true,
-        maxAttempts: 2,
-        region: 'us-east-1',
-        requestHandler: { connectionTimeout: 10_000, requestTimeout: 30_000 },
+        return { ...previous, ...synced }
       })
-      try {
-        const buckets =
-          this.workspace === undefined
-            ? (await client.send(new ListBucketsCommand({}))).Buckets
-            : undefined
-        const workspace = this.workspace ?? (buckets?.length === 1 ? buckets[0]?.Name : undefined)
-        if (!workspace)
-          throw new Error('Could not determine one workspace; supply --workspace explicitly')
-        const objects: { path: string; size: number; etag?: string }[] = []
-        const cursors = new Set<string>()
-        let cursor: string | undefined
-        do {
-          const page = await client.send(
-            new ListObjectsV2Command({
-              Bucket: workspace,
-              Prefix: this.prefix,
-              ContinuationToken: cursor,
-            }),
-          )
-          for (const object of page.Contents ?? []) {
-            if (
-              object.Key === undefined ||
-              object.Size === undefined ||
-              !Number.isSafeInteger(object.Size) ||
-              object.Size < 0
-            )
-              throw new Error('Storage returned an incomplete object listing')
-            objects.push({
-              path: object.Key,
-              size: object.Size,
-              ...(object.ETag === undefined ? {} : { etag: object.ETag }),
-            })
-          }
-          if (!page.IsTruncated) break
-          cursor = page.NextContinuationToken
-          if (!cursor || cursors.has(cursor))
-            throw new Error(
-              'Storage omitted or repeated its listing cursor; results would be incomplete',
-            )
-          cursors.add(cursor)
-        } while (cursor !== undefined)
-        this.output.print(
-          objects.length === 0
-            ? 'No stored objects match this prefix.'
-            : objects
-                .map((object) => `${JSON.stringify(object.path)}\t${object.size} bytes`)
-                .join('\n'),
-          objects,
-        )
-        return undefined
-      } catch (error) {
-        const remote = z
-          .object({ $metadata: z.object({ httpStatusCode: z.number().optional() }) })
-          .safeParse(error)
-        if (remote.success) {
-          throw new Error(
-            `Storage listing failed${remote.data.$metadata.httpStatusCode === undefined ? '' : ` (HTTP ${remote.data.$metadata.httpStatusCode})`}. Check that the Storage S3 API is enabled and that you are using the correct workspace and a read-scoped Auth Key.`,
-            { cause: error },
-          )
-        }
-        throw error
-      } finally {
-        client.destroy()
-      }
+      this.output.print(
+        `Synced ${count} rendering receipts to ${this.receipts}. Unmatched entries were preserved. Commit this file before building.`,
+        synced,
+      )
+      return undefined
     } catch (error) {
       this.output.error(ensureError(error).message)
       return 1

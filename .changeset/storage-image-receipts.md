@@ -22,6 +22,12 @@ Add `getStoredImageReceipt({ assemblyId, expected })` to recover the same verifi
 a trusted upload notification or a local file error. Add explicit `store --overwrite` and
 read-scoped `storage ls <prefix>`; overwriting is never implicit.
 
+Add `storage receipts sync <prefix> --receipts images.json` to recover rendering metadata from
+signed, paginated List + HEAD reads without an Assembly or original download. Rebuild
+path/width/height with an optional compatible MD5 ETag, without inventing an asset ID. Share
+atomic receipt-file writes and credential-bound endpoint resolution with the existing commands;
+preserve unmatched records and the entire previous file on metadata, listing or write failures.
+
 Add hidden-input `auth login` for owner-only CLI credentials and `image init --next [--private]`
 for application scaffolding without env-file writes. Complete store snippets recognize `src/app`
 and ordinary relative receipt imports.

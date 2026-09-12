@@ -1,6 +1,53 @@
 # Storage image onboarding review
 
-## Live Storage S3 follow-up
+## Catalog-backed render receipt sync
+
+Kevin supplied API2 `b4aba072ee9cbeba0dda56dbdfaf2883e56ede06`: public HEAD/GET now expose
+catalog dimensions for live and versioned objects. Continue in #500, no merge/publication or
+API2 implementation edits. Keep the owned devdock's S3 flag enabled only locally. Kevin's
+follow-up explicitly approves implementing List + HEAD sync now: path/width/height, plus MD5
+only where the ETag represents it. Missing asset IDs do not block rendering recovery.
+
+- [x] Fast-forward the owned canary to the exact supplied head, preserving its local changes.
+- [x] Verify live List/HEAD/GET and versioned dimensions; reproduce the EXIF mismatch below.
+- [x] Build `storage receipts sync` red-first with shared endpoint/listing and atomic catalog I/O.
+      Rebuild rendering sources, not fabricated upload-integrity receipts; preserve unrelated entries
+      and fail safely on missing/malformed image metadata or interrupted listings.
+- [x] Prove the actual packed command against the owned devdock.
+- [ ] Run sequential checks, council review, packed browser verification and exact-head green CI.
+- [ ] Replace the obsolete public-HEAD gap in README/dogfood/PR body, record the separate API2
+      EXIF finding honestly, and stop owned services/remove credential copies after verification.
+
+Live result at API2 `b4aba072ee`: listing and current/versioned HEAD/GET pass for the existing
+1024×683 stranger image. The real `rotated_8.jpg` upload returns an SDK rendering receipt of
+600×450, but public HEAD reports 450×600. The positive geometry assertion fails. Catalog
+registration currently persists raw dimensions without EXIF normalization; the public headers
+cannot reconstruct orientation. Sync will trust catalog dimensions as requested; API2 still owns
+normalizing those dimensions. Do not claim the EXIF case is fixed or patch API2 here.
+An older `website/construction.jpg` also has no dimensions and needs explicit missing-metadata
+handling, not silent omission. Evidence: `/tmp/img-sync-head-result.md` and clone17's
+`tmp/img-sync-oriented-receipt.json`. No API2 implementation or canonical schema edits.
+
+Implementation: 30 new assertions failed before the command existed; all passed after implementation.
+Two extra regressions cover duplicate paths and successful-then-invalid HEAD atomicity. Existing
+store/list tests still pass. The shared file helper preserves locking, permissions, JSON keys and
+retained-catalog recovery; the shared S3 helper preserves the credential-bound endpoint and cursor
+checks. Five concurrent HEADs maximum, no new dependency, no original downloads or remote writes.
+Sync refreshes matched entries into the minimal rendering shape, never prunes unmatched entries,
+and never fabricates asset IDs or keeps stale upload-integrity fields for refreshed paths.
+
+The actual packed CLI also failed first on the old package (unrecognized command), then passed
+at 2026-09-12T22:22:14.120Z after normal package installation in the accepted stranger consumer.
+Three images recovered at 1024×683 with matching original MD5s; endpoint override/decoy, empty-prefix
+results and the missing-old-metadata error all preserve the prior file as specified. Evidence:
+`/tmp/img-sync2-{unit-red,unit-green,live-red,live-green,head}.log` and clone17's
+`tmp/img-sync2-cli-result.json`. No live EXIF-correctness claim is made.
+
+Clarification: rebuilding a rendering catalog only needs path/display width/display height.
+The previous full asset-ID/MD5 receipt requirement is not needed for that task; retain the
+verified SDK upload receipt as a separate integrity contract, without fabricating missing fields.
+
+## Earlier live Storage S3 follow-up (superseded by the catalog sync above)
 
 Source: `/tmp/img-storage-ls-devdock.md`. Continue after the six council fixes in #500;
 no merge, publication, production access, or API2 implementation changes. Latest main is

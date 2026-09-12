@@ -373,8 +373,30 @@ The Storage S3 API must be enabled separately: successful Assembly-based storage
 does not imply that listing is enabled. A disabled S3 API returns HTTP 403, even with valid credentials.
 `storage store --overwrite` explicitly replaces an occupied path; it is never the default. Prefer
 immutable filenames because delivery resolves paths, not receipt hashes, and cached bytes can outlive
-an overwrite. Commit `images.json`: the current public S3 HEAD response omits the stored image
-dimensions and asset ID, so listing plus HEAD cannot reconstruct complete receipts yet.
+an overwrite.
+
+Recover or refresh a rendering catalog without re-uploading or downloading originals:
+
+```console
+yarn transloadit storage receipts sync website/ --receipts images.json
+```
+
+This uses paginated List + HEAD with the same read-scoped credentials, `--workspace` and
+`--endpoint` options as `storage ls`. HEAD's `x-amz-meta-dam-width` and `x-amz-meta-dam-height`
+rebuild `{ path, width, height }`, which can be passed directly as `StorageImage`'s `src`.
+`md5hash` is included only for compatible single-part ETags; multipart, opaque and SSE-KMS/SSE-C
+ETags are not treated as MD5. See [S3's ETag contract](https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html).
+HEAD does not expose `asset_id`: sync recovers rendering metadata, not a verified upload receipt.
+Matched entries are replaced with this rendering shape, so keep full upload receipts separately
+if your application needs their asset IDs or upload-integrity evidence.
+
+Sync adds or refreshes matching paths and never prunes unmatched entries. Any missing/invalid
+dimensions, failed HEAD or incomplete listing leaves the existing file intact; a failed atomic
+replacement retains the complete temporary catalog for recovery. Choose an image-only prefix;
+older objects without dimensions need a catalog backfill. Dimensions are used as returned by
+Storage: EXIF-rotated originals need display-oriented catalog dimensions before receipt recovery.
+Commit `images.json` before building so rendering needs no runtime metadata lookup; it can now
+be regenerated from Storage rather than being the only copy of rendering metadata.
 
 ### Images uploaded by your users
 
