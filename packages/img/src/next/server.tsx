@@ -15,13 +15,13 @@ import type { StorageImageLayoutProps } from './layout.ts'
 import { hkdfSync } from 'node:crypto'
 
 import { gcmsiv } from '@noble/ciphers/aes.js'
+import { validateStoragePath, validateStoragePathPrefix } from '@transloadit/utils'
 import { getSignedSmartCdnUrl } from '@transloadit/utils/node'
 import { connection } from 'next/server.js'
 import { Suspense } from 'react'
 
 import { isOpaqueImageBackground, transparentImageBackground } from '../imageBackground.ts'
 import { createTransloaditImageModel, transloaditStoragePreviewTemplate } from '../index.ts'
-import { validateStoragePath, validateStoragePathPrefix } from '../storagePath.ts'
 import { createImageDiagnostics } from './diagnostics.ts'
 import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
 import { TransloaditPicture } from './index.tsx'
@@ -686,12 +686,6 @@ function createStorageRoute(
         w: transform.width,
       },
     }
-    if (diagnose !== undefined) {
-      await diagnose(
-        transform.path,
-        sign({ ...signRequest, expiresAt: getStorageExpiresAt(Date.now(), policy) }),
-      )
-    }
     const now = Date.now()
     const expiresAt = getStorageExpiresAt(now, policy)
     // Stale public redirects must not outlive either their grant or a template migration cutoff.
@@ -708,6 +702,7 @@ function createStorageRoute(
       ),
     )
     const location = sign({ ...signRequest, expiresAt })
+    diagnose?.(path, location)
     return new Response(null, {
       headers: {
         'Cache-Control':
@@ -855,14 +850,7 @@ export function createTransloaditImage(
       )
     }
     const model = createModel(props, getStorageExpiresAt(Date.now(), storagePolicy), sign)
-    if (diagnose !== undefined) {
-      await diagnose(props.source.path, model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl)
-      // A cold development probe must not consume the lifetime of the URLs sent to the browser.
-      return renderPicture(
-        props,
-        createModel(props, getStorageExpiresAt(Date.now(), storagePolicy), sign),
-      )
-    }
+    diagnose?.(props.source.path, model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl)
     return renderPicture(props, model)
   }
 

@@ -1,5 +1,40 @@
 # Storage image onboarding review
 
+## Final round-4 council — active follow-up
+
+Source: `/tmp/img-pr500-r4-council.md`, reviewed against `888c4e0`. Work continues in #500;
+no merge or publication. Main is still an ancestor of `8e5d7fc`; no GitHub review threads.
+
+- [x] Root-path store output must not implicitly allow the whole workspace.
+- [x] Storage listing must keep endpoint and signing credentials from one resolved source.
+- [x] Hidden receipts imports must use an explicit relative module prefix.
+- [x] Compact error-boundary identity without losing candidate/placeholder reset behavior.
+- [x] One shared directory-prefix validator for the CLI and renderer.
+- [x] Development HEAD probes must not block direct or redirect delivery.
+- [x] Cold legacy Knip regression fixed in `8e5d7fc`; both Verify jobs are green.
+- [x] Sequential checks and packed fixture.
+- [ ] Push and exact-head green CI.
+- [ ] Then a fresh Opus stranger test from a stock consumer against the owned devdock.
+
+Seven assertions failed first across the six findings, then 54 focused CLI and 161 renderer
+cases passed. Root objects still store successfully, but print no factory and explain the explicit
+scope decision. Listing resolves configuration once and retains only the explicit endpoint override.
+The unchanged path validator moves into utils for both actual consumers; the separate permissive
+Storage Grant prefix normalizer retains its different contract. The changeset releases utils with
+the SDK, and Changesets updates its dependent ranges. A browser-safe 64-bit FNV-1a remount key keeps
+candidate/placeholder reset semantics without another dependency; it is not an authorization hash.
+HEAD probes remain deduplicated and error-contained, but neither rendering nor redirects await them.
+The post-fix council found one command-specific message mismatch: the shared validator permits an
+explicit empty prefix, but image init must not suggest that option. Ten invalid-prefix cases failed
+on the message first, then all 26 onboarding cases passed with an actionable directory example.
+Validation remains shared; only the CLI error presentation differs.
+Final local root check/full verify pass: Node374 cases (one existing skip), img203 and utils54,
+plus the other workspace/type/Knip checks. All eight packed seed cases and 60 browser cases pass
+on their first attempt across both Cache Components configurations. The machine-readable native
+response audit reports no errors, retries, skipped cases or flakes. Existing tooling warnings
+(unused Storage Grant test variable, coverage-version mismatch and socket listener counts) remain
+outside this scoped correction.
+
 ## Round 4 — active merge gate
 
 Source: `/tmp/img-task2-round4-brief.md` and `/tmp/img-round4-inputs.md`. All work stays in

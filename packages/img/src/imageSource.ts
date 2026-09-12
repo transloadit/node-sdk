@@ -1,4 +1,4 @@
-import { validateStoragePath } from './storagePath.ts'
+import { validateStoragePath } from '@transloadit/utils'
 
 /** Saved source geometry; structurally compatible with a verified SDK Storage receipt. */
 export interface TransloaditImageSource {

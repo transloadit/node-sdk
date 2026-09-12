@@ -176,10 +176,18 @@ test.each([
   'website',
   'a//',
   'a/../',
+  ' website/',
+  'website/ ',
+  'website/\u0001/',
+  'cafe\u0301/',
+  `${'a'.repeat(1024)}/`,
   '',
 ])('init rejects unsafe or implicit root prefix %j before writing', async (prefix) => {
   await mkdir('app')
   await main(['image', 'init', '--next', prefix])
   expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Provide one safe relative directory prefix ending in /, for example website/',
+  )
   expect(await readdir(directory)).toEqual(['app'])
 })

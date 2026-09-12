@@ -79,6 +79,19 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('stores a root object without implicitly generating workspace-wide authorization', async () => {
+    const rootReceipt = { ...receipt, path: 'hero.jpg' }
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(rootReceipt)
+    await runStore(rootReceipt.path)
+    expect(process.exitCode).toBeUndefined()
+    expect(JSON.parse(await readFile('images.json', 'utf8'))['hero.jpg']).toEqual(rootReceipt)
+    const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(snippet).toContain('workspace root')
+    expect(snippet).toContain('choose an explicit directory prefix')
+    expect(snippet).not.toContain('createTransloaditImageFromEnv')
+    expect(snippet).not.toContain('allowedPathPrefixes: [""]')
+  })
+
   test('releases the writer lock even when temporary-file cleanup fails', async () => {
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     const remove = vi.mocked(rm).getMockImplementation()
@@ -135,13 +148,16 @@ describe('storage store', () => {
     expect(snippet).toContain('import images from "../../images.json"')
   })
 
-  test('keeps receipts imports relative when the receipts live beside the page', async () => {
+  test.each([
+    'images.json',
+    '.images.json',
+  ])('keeps %s imports relative beside the page', async (name) => {
     await mkdir('app')
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
-    await main(['storage', 'store', './hero.jpg', receipt.path, '--receipts', 'app/images.json'])
+    await main(['storage', 'store', './hero.jpg', receipt.path, '--receipts', `app/${name}`])
     expect(process.exitCode).toBeUndefined()
     expect(vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]).toContain(
-      'import images from "./images.json"',
+      `import images from "./${name}"`,
     )
   })
 

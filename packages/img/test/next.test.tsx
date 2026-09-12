@@ -5,12 +5,13 @@ import type { Root } from 'react-dom/client'
 
 import type { TransloaditImageModel } from '../src/index.ts'
 
-import { act, createElement } from 'react'
+import { act, Children, createElement, isValidElement } from 'react'
 import { createRoot, hydrateRoot } from 'react-dom/client'
 import { renderToStaticMarkup, renderToString } from 'react-dom/server'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { TransloaditPicture } from '../src/next/index.tsx'
+import { StorageImageErrorBoundary } from '../src/next/StorageImageErrorBoundary.tsx'
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -75,6 +76,25 @@ afterEach(() => {
 })
 
 describe('TransloaditPicture', () => {
+  test('keeps the Flight error-boundary key compact instead of repeating every signed candidate', () => {
+    const picture = TransloaditPicture({
+      alt: 'Photo',
+      height: 300,
+      width: 400,
+      model: { ...model, artDirection: [{ media: '(max-width: 639px)', model }] },
+      errorFallback: <p role="status">Image unavailable</p>,
+    })
+    if (!isValidElement<{ children: ReactNode }>(picture))
+      throw new Error('Expected a picture fragment')
+    const boundary = Children.toArray(picture.props.children).find(
+      (child) => isValidElement(child) && child.type === StorageImageErrorBoundary,
+    )
+    if (!isValidElement(boundary)) throw new Error('Expected the image-load boundary')
+    expect(boundary.key).toBeTypeOf('string')
+    expect(boundary.key?.length).toBeLessThanOrEqual(66)
+    expect(boundary.key).not.toContain('https://')
+  })
+
   test('resets a failed media placeholder when only its source changes', async () => {
     vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false)
     const container = document.createElement('div')

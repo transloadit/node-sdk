@@ -61,6 +61,27 @@ function getMimeType(format: TransloaditImageSourceSet['format']): string {
   return mimeTypes[format]
 }
 
+function getImageRecoveryKey({
+  model,
+  media,
+  mediaPlaceholderSrc,
+}: TransloaditPictureProps): string {
+  const identity = JSON.stringify([
+    model.fallbackUrl,
+    model.sources,
+    model.artDirection,
+    media,
+    mediaPlaceholderSrc,
+  ])
+  // FNV-1a is only a remount identity, never an authorization hash. Keep all candidate URLs out
+  // of the Flight key without requiring Node crypto or asynchronous rendering in this component.
+  let hash = 0xcbf29ce484222325n
+  for (const byte of new TextEncoder().encode(identity)) {
+    hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n)
+  }
+  return hash.toString(16).padStart(16, '0')
+}
+
 function escapeSourceSetUrl(url: string): string {
   const sourceSet = url
     .replaceAll('\t', '%09')
@@ -238,16 +259,7 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
     props.errorFallback === undefined ? (
       picture
     ) : (
-      <StorageImageErrorBoundary
-        key={JSON.stringify([
-          model.fallbackUrl,
-          model.sources,
-          model.artDirection,
-          media,
-          mediaPlaceholderSrc,
-        ])}
-        fallback={props.errorFallback}
-      >
+      <StorageImageErrorBoundary key={getImageRecoveryKey(props)} fallback={props.errorFallback}>
         {picture}
       </StorageImageErrorBoundary>
     )

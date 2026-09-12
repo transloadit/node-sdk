@@ -32,6 +32,7 @@ export {
   resolveSmartCdnImageWidths,
   smartCdnImageMaxDimension,
 } from './smartCdnImage.ts'
+export { validateStoragePath, validateStoragePathPrefix } from './storagePath.ts'
 
 const algorithmMap = {
   sha1: 'SHA-1',

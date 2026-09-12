@@ -125,26 +125,64 @@ describe('development delivery diagnostics', () => {
     )
   })
 
-  test('a slow diagnostic cannot consume the direct image grant lifetime', async () => {
-    vi.mocked(fetch).mockImplementation(() => {
-      vi.setSystemTime(Date.now() + 5000)
-      return Promise.resolve(new Response(null, { headers: { 'Content-Type': 'image/jpeg' } }))
+  test('direct images settle before a slow diagnostic, without consuming their grant lifetime', async () => {
+    vi.useRealTimers()
+    let finishProbe: (response: Response) => void = () => {
+      throw new Error('Expected the pending probe')
+    }
+    const probe = new Promise<Response>((resolve) => {
+      finishProbe = resolve
     })
+    vi.mocked(fetch).mockReturnValue(probe)
     const { StorageImage } = createTransloaditImage({
       ...baseConfiguration,
       storage: { ...baseConfiguration.storage, expiresInMs: 1000, rotationIntervalMs: 1000 },
     })
-    const document = parseMarkup(
-      await renderAsync(
-        <StorageImage
-          alt="Preview"
-          src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
-        />,
-      ),
+    const rendered = renderAsync(
+      <StorageImage alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
     )
-    expect(Number(new URL(getFirstCandidate(document)).searchParams.get('exp'))).toBeGreaterThan(
-      Date.now(),
+    try {
+      await vi.waitFor(async () => {
+        const result = await Promise.race([rendered, Promise.resolve('pending')])
+        expect(result).toContain('<picture>')
+      })
+      expect(fetch).toHaveBeenCalledOnce()
+      const document = parseMarkup(await rendered)
+      expect(Number(new URL(getFirstCandidate(document)).searchParams.get('exp'))).toBeGreaterThan(
+        Date.now(),
+      )
+    } finally {
+      finishProbe(new Response(null, { headers: { 'Content-Type': 'image/jpeg' } }))
+      await rendered
+    }
+  })
+
+  test('redirects settle before a slow diagnostic and consume its rejection safely', async () => {
+    vi.useRealTimers()
+    let failProbe: (error: Error) => void = () => {
+      throw new Error('Expected the pending probe')
+    }
+    const probe = new Promise<Response>((_resolve, reject) => {
+      failProbe = reject
+    })
+    vi.mocked(fetch).mockReturnValue(probe)
+    const { storageRoute, url } = getStorageRouteCandidate()
+    const response = storageRoute(
+      new Request(url, { headers: { Authorization: 'Bearer allowed' } }),
     )
+    try {
+      await vi.waitFor(async () => {
+        const result = await Promise.race([response, Promise.resolve(undefined)])
+        expect(result?.status).toBe(307)
+      })
+      expect(fetch).toHaveBeenCalledOnce()
+      expect(console.warn).not.toHaveBeenCalled()
+    } finally {
+      failProbe(new Error(`Failed at ${authSecret}`))
+      await response
+    }
+    await vi.waitFor(() => expect(console.warn).toHaveBeenCalledOnce())
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain(authSecret)
   })
 
   beforeEach(() => {

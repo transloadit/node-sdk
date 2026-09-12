@@ -24,6 +24,7 @@ beforeEach(async () => {
     'TRANSLOADIT_AUTH_KEY',
     'TRANSLOADIT_AUTH_SECRET',
     'TRANSLOADIT_AUTH_TOKEN',
+    'TRANSLOADIT_ENDPOINT',
   ])
     vi.stubEnv(name, '')
   vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
@@ -44,6 +45,43 @@ afterEach(async () => {
   for (const listener of process.stderr.listeners('error'))
     if (!stderrListeners.includes(listener)) process.stderr.off('error', listener)
   await rm(directory, { force: true, recursive: true })
+})
+
+test.each([
+  undefined,
+  'http://override.invalid',
+])('uses the saved credentials endpoint, with only the explicit %j override taking precedence', async (endpoint) => {
+  await writeFile(
+    '.env',
+    'TRANSLOADIT_AUTH_TOKEN=project-token\nTRANSLOADIT_ENDPOINT=http://token.invalid\n',
+  )
+  await writeFile(
+    'credentials',
+    'TRANSLOADIT_KEY=local-key\nTRANSLOADIT_SECRET=local-secret\nTRANSLOADIT_ENDPOINT=http://saved.invalid\n',
+  )
+  const intended = nock(endpoint ?? 'http://saved.invalid', {
+    reqheaders: {
+      authorization: (value: string) => value.startsWith('AWS4-HMAC-SHA256 Credential=local-key/'),
+    },
+  })
+    .get('/storage/my-app/')
+    .query(true)
+    .reply(200, '<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>')
+  const unrelated = nock('http://token.invalid')
+    .get('/storage/my-app/')
+    .query(true)
+    .reply(403, '<Error><Code>AccessDenied</Code></Error>')
+  await main([
+    'storage',
+    'ls',
+    'website/',
+    '--workspace',
+    'my-app',
+    ...(endpoint === undefined ? [] : ['--endpoint', endpoint]),
+  ])
+  expect(process.exitCode).toBeUndefined()
+  expect(intended.isDone()).toBe(true)
+  expect(unrelated.isDone()).toBe(false)
 })
 
 test('lists the key workspace and follows signed S3 continuation tokens without an Assembly', async () => {

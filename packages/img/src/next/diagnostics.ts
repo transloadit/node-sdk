@@ -1,5 +1,5 @@
 /** Server-side development probe; errors become static hints, never raw response/URL logs. */
-export type DiagnoseStorageImage = (path: string, url: string) => Promise<void>
+export type DiagnoseStorageImage = (path: string, url: string) => void
 
 async function probe(url: string): Promise<void> {
   try {
@@ -34,13 +34,11 @@ async function probe(url: string): Promise<void> {
 /** Deduplicates concurrent and repeated probes within one credentialed development integration. */
 export function createImageDiagnostics(template: string): DiagnoseStorageImage | undefined {
   if (process.env.NODE_ENV !== 'development') return undefined
-  const requests = new Map<string, Promise<void>>()
+  const requests = new Set<string>()
   return (path, url) => {
     const key = JSON.stringify([path, template])
-    const existing = requests.get(key)
-    if (existing !== undefined) return existing
-    const pending = probe(url)
-    requests.set(key, pending)
-    return pending
+    if (requests.has(key)) return
+    requests.add(key)
+    void probe(url)
   }
 }

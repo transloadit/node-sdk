@@ -1,6 +1,7 @@
 import { mkdir, open, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 
+import { validateStoragePathPrefix } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
 
 import { nextAppRoot, storageImageEnvBlock, storageImageFactory } from '../storageSnippets.ts'
@@ -27,18 +28,13 @@ export class ImageInitCommand extends UnauthenticatedCommand {
     try {
       if (!this.next) throw new Error('Choose the Next.js integration with --next')
       const prefix = this.prefix
-      if (
-        !prefix.endsWith('/') ||
-        prefix.normalize('NFC') !== prefix ||
-        Buffer.byteLength(prefix) > 1024 ||
-        /[\p{Cc}\p{Cs}\\|]/u.test(prefix) ||
-        prefix
-          .slice(0, -1)
-          .split('/')
-          .some((part) => part.trim() === '' || part === '.' || part === '..')
-      ) {
+      try {
+        validateStoragePathPrefix(prefix, 0, 'prefix')
+        if (prefix === '') throw new Error('Image scaffolds must name a directory')
+      } catch (error) {
         throw new Error(
           'Provide one safe relative directory prefix ending in /, for example website/',
+          { cause: error },
         )
       }
       const root = nextAppRoot()

@@ -318,7 +318,8 @@ off unless addressing an observed WebKit replay issue.
 ## Diagnose and handle image failures
 
 In development only, the server performs one HEAD per unique path/Template per factory, with a
-five-second timeout. Concurrent/repeated renders share that probe. Redirects probe only after
+five-second timeout. The probe runs in the background and never holds up the image or redirect.
+Concurrent/repeated renders share that probe. Redirects probe only after
 application authorization; disallowed prefixes fail before any request. Production performs no
 diagnostic requests. Restart development to retry a failed check or after changing credentials.
 

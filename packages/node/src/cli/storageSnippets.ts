@@ -38,7 +38,7 @@ export function storageImageFactory(prefix: string, privateDelivery = false): st
 export function storageImagePage(path: string, receiptsImport: string): string {
   return [
     "import { StorageImage } from '../lib/storageImage'",
-    `import images from ${JSON.stringify(receiptsImport.startsWith('.') ? receiptsImport : `./${receiptsImport}`)}`,
+    `import images from ${JSON.stringify(receiptsImport.startsWith('./') || receiptsImport.startsWith('../') ? receiptsImport : `./${receiptsImport}`)}`,
     '',
     'export default function Page() {',
     '  return (',

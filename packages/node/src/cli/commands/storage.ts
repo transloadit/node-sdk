@@ -8,7 +8,7 @@ import { Command, Option } from 'clipanion'
 import { z } from 'zod'
 
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
-import { requireCliCredentials, resolveCliConfig } from '../helpers.ts'
+import { buildMissingCredentialsMessage, resolveCliConfig } from '../helpers.ts'
 import {
   nextAppRoot,
   storageImageEnvBlock,
@@ -117,6 +117,13 @@ export class StorageStoreCommand extends AuthenticatedCommand {
         retainTemporary = false
         const prefix = receipt.path.slice(0, receipt.path.lastIndexOf('/') + 1)
         const root = nextAppRoot() ?? ''
+        if (prefix === '') {
+          this.output.print(
+            `Saved ${this.receipts}. Commit this receipt file.\n\nThis image is at the workspace root, so no factory is printed. For scoped delivery, choose an explicit directory prefix when storing images. To allow the entire workspace deliberately, configure an empty prefix yourself.`,
+            receipt,
+          )
+          return undefined
+        }
         this.output.print(
           `Saved ${this.receipts}. Commit this receipt file.\n\n${root}lib/storageImage.ts:\n${storageImageFactory(prefix)}\n${root}app/page.tsx:\n${storageImagePage(receipt.path, relative(resolve(`${root}app`), file).replaceAll('\\', '/'))}\nRendering environment (.env.local; build and runtime):\n${storageImageEnvBlock}\nDirect delivery makes this route dynamic; use redirect delivery for static pages.\nFor private images, use createPrivateStorageImages with your application authorization:\nhttps://github.com/transloadit/node-sdk/tree/main/packages/img#ship-it-privately`,
           receipt,
@@ -181,10 +188,11 @@ export class StorageListCommand extends UnauthenticatedCommand {
 
   protected async run(): Promise<number | undefined> {
     try {
-      const credentials = requireCliCredentials()
-      if (!credentials.ok) throw new Error(credentials.error)
+      const config = resolveCliConfig()
+      if (config.credentials === undefined)
+        throw new Error(config.loadError ?? buildMissingCredentialsMessage())
       const endpoint = new URL(
-        this.endpoint ?? resolveCliConfig().endpoint ?? 'https://api2.transloadit.com',
+        this.endpoint ?? config.credentialsEndpoint ?? 'https://api2.transloadit.com',
       )
       if (
         !['http:', 'https:'].includes(endpoint.protocol) ||
@@ -205,8 +213,8 @@ export class StorageListCommand extends UnauthenticatedCommand {
       )
       const client = new S3Client({
         credentials: {
-          accessKeyId: credentials.credentials.authKey,
-          secretAccessKey: credentials.credentials.authSecret,
+          accessKeyId: config.credentials.authKey,
+          secretAccessKey: config.credentials.authSecret,
         },
         endpoint: endpoint.href,
         forcePathStyle: true,
