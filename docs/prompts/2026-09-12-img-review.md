@@ -13,8 +13,8 @@ no merge or publication. Main is still an ancestor of `8e5d7fc`; no GitHub revie
 - [x] Development HEAD probes must not block direct or redirect delivery.
 - [x] Cold legacy Knip regression fixed in `8e5d7fc`; both Verify jobs are green.
 - [x] Sequential checks and packed fixture.
-- [ ] Push and exact-head green CI.
-- [ ] Then a fresh Opus stranger test from a stock consumer against the owned devdock.
+- [x] Push and exact-head green CI.
+- [x] Then a fresh Opus stranger test from a stock consumer against the owned devdock.
 
 Seven assertions failed first across the six findings, then 54 focused CLI and 161 renderer
 cases passed. Root objects still store successfully, but print no factory and explain the explicit
@@ -28,12 +28,34 @@ The post-fix council found one command-specific message mismatch: the shared val
 explicit empty prefix, but image init must not suggest that option. Ten invalid-prefix cases failed
 on the message first, then all 26 onboarding cases passed with an actionable directory example.
 Validation remains shared; only the CLI error presentation differs.
-Final local root check/full verify pass: Node374 cases (one existing skip), img203 and utils54,
+Final local root check/full verify pass: Node 374 cases (one existing skip), img 203 and utils 54,
 plus the other workspace/type/Knip checks. All eight packed seed cases and 60 browser cases pass
 on their first attempt across both Cache Components configurations. The machine-readable native
 response audit reports no errors, retries, skipped cases or flakes. Existing tooling warnings
 (unused Storage Grant test variable, coverage-version mismatch and socket listener counts) remain
 outside this scoped correction.
+
+Implementation head `3cc783ab06174d5facd4f3bf3525d81e56d7aea1` is green in CI run 34717820219:
+ten checks passed. Its downloaded browser artifact independently confirms all 60 first-attempt
+passes and the clean native-response audit. No merge or publication.
+
+The new stock `src/app` stranger trial initially missed its time gate at 10m27 because this
+operator's restarted devdock lost both its local R2 process settings and its temporary-file
+loopback hostname. Restore those fixture prerequisites, not SDK code. The exact reader recipe
+then rendered successfully. That interrupted attempt remains a failure of the clean timing gate.
+
+A different fresh read-only Opus reader then used another stock Next 16.3.4 app and the same packed
+SDK code: 21:00:36–21:03:33.624 UTC, **2m58**, including reading, operator execution, actual private
+pixels and positive/negative browser checks. Four reader-authored files; no TypeScript changes or
+manual manifest edits. CLI login/store, a 25,469-byte 960×640 AVIF, authorized HEAD 307/private-no-store,
+anonymous GET 404/private-no-store and app/CDN cookie isolation all pass with zero browser errors.
+This is agent-assisted integration time after infrastructure/install preparation, not a human
+reading-time claim or production-CDN latency benchmark. Evidence and remaining nonblocking README
+questions are recorded in `/tmp/img-stranger-test.md` and `/tmp/img-task2-handover.md`.
+Independent Opus evidence review passes UX and defensive security, with no blocking findings.
+Its low-priority evidence suggestions (record measured boxes/name and the AVIF container brand)
+are included in the production repeat. The stock consumer also builds successfully: the page is
+static, only the private image handler is dynamic, and tsconfig remains byte-identical.
 
 ## Round 4 — active merge gate
 
@@ -47,7 +69,7 @@ round-4 merge gate. Required checks/builds/packs run sequentially before every p
 - [x] Recoverable SDK receipts, CLI list and explicit overwrite; catalog sync only when API2 supports it.
 - [x] Per-breakpoint crop geometry, lazy constrained sizes, receipt presentation dimensions.
 - [x] Safe route diagnostics and inferred Next basePath.
-- [ ] Sequential checks, packed browser proof, security review and green CI.
+- [x] Sequential checks, packed browser proof, security review and green CI.
 - [x] Fresh Opus stranger test against the owned devdock; `/tmp/img-stranger-test.md`.
 
 Correction: production `*.tlcdn.com` uses Bunny and includes the whole query string in its cache
