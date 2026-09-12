@@ -46,6 +46,7 @@ function renderPicture(
     mediaPlaceholderSrc: string
     preload: boolean
     sizes: string
+    style: unknown
   }> = {},
 ): Document {
   const markup = renderToStaticMarkup(
@@ -73,6 +74,28 @@ afterEach(() => {
 })
 
 describe('TransloaditPicture', () => {
+  test('retains asynchronous decoding when a wrapper forwards undefined', () => {
+    const markup = renderToStaticMarkup(
+      <TransloaditPicture
+        alt="Wrapped"
+        decoding={undefined}
+        height={300}
+        model={model}
+        width={400}
+      />,
+    )
+    const document = new DOMParser().parseFromString(markup, 'text/html')
+    expect(document.querySelector('img')?.getAttribute('decoding')).toBe('async')
+  })
+
+  test.each([
+    'color:red',
+    ['color:red'],
+    123,
+  ])('rejects a non-object style from JavaScript: %j', (style) => {
+    expect(() => renderPicture({ style })).toThrow('Image style must be an object')
+  })
+
   test('preserves serializable image attributes without exposing renderer or signing inputs', () => {
     const markup = renderToStaticMarkup(
       Reflect.apply(TransloaditPicture, undefined, [
