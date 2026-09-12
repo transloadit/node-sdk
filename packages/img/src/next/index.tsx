@@ -5,10 +5,12 @@ import type {
   TransloaditImageModel,
   TransloaditImageSourceSet,
 } from '../index.ts'
+import type { ImageAttributes, ImageLoadingProps } from './imageAttributes.ts'
 
 import { preload as preloadResource } from 'react-dom'
 
 import { HydratedTransloaditPicture } from './HydratedTransloaditPicture.tsx'
+import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
 
 const transparentPixel =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
@@ -18,28 +20,25 @@ const mimeTypes = {
   webp: 'image/webp',
 } satisfies Record<TransloaditImageSourceSet['format'], string>
 
-/** Presentation options shared by the signed Server Component and model-only renderer. */
-export interface TransloaditImagePresentationProps {
+interface ImagePresentationProps extends ImageAttributes {
   alt: string
-  className?: string
   deferUntilHydrated?: boolean
-  fetchPriority?: 'auto' | 'high' | 'low'
   height: number
-  loading?: 'eager' | 'lazy'
   media?: string
   /** CSP-compatible placeholder used while `media` is unmatched. Defaults to an inline GIF. */
   mediaPlaceholderSrc?: string
   /** Explicitly handles a display box whose aspect ratio differs from the source image. */
   objectFit?: CSSProperties['objectFit']
-  preload?: boolean
   /** Expected rendered widths. Browsers otherwise assume `100vw` for width-based source sets. */
   sizes?: string
-  style?: CSSProperties
   width: number
 }
 
+/** Serializable native image attributes and layout shared by both Next.js renderers. */
+export type TransloaditImagePresentationProps = ImagePresentationProps & ImageLoadingProps
+
 /** Props for rendering an already-signed framework-neutral image model. */
-export interface TransloaditPictureProps extends TransloaditImagePresentationProps {
+export type TransloaditPictureProps = TransloaditImagePresentationProps & {
   model: TransloaditImageModel
 }
 
@@ -75,8 +74,8 @@ function escapeSourceSetUrl(url: string): string {
 
 function preloadImage(
   source: TransloaditImageSourceSet,
-  sizes: string | undefined,
-  fetchPriority?: 'auto' | 'high' | 'low',
+  sizes: string,
+  { crossOrigin, fetchPriority, referrerPolicy }: ImageAttributes,
 ): void {
   const firstCandidate = source.candidates[0]
   if (firstCandidate === undefined) {
@@ -85,43 +84,13 @@ function preloadImage(
 
   preloadResource(firstCandidate.url, {
     as: 'image',
+    crossOrigin,
     fetchPriority,
     imageSizes: sizes,
     imageSrcSet: getSourceSet(source.candidates),
+    referrerPolicy,
     type: getMimeType(source.format),
   })
-}
-
-function OriginalImage({
-  alt,
-  className,
-  fetchPriority,
-  height,
-  loading,
-  objectFit,
-  src,
-  style,
-  width,
-}: Pick<
-  TransloaditImagePresentationProps,
-  'alt' | 'className' | 'fetchPriority' | 'height' | 'loading' | 'objectFit' | 'style' | 'width'
-> & {
-  src?: string
-}): ReactNode {
-  return (
-    // biome-ignore lint/performance/noImgElement: This package is the image optimizer.
-    <img
-      alt={alt}
-      className={className}
-      decoding="async"
-      fetchPriority={fetchPriority}
-      height={height}
-      loading={loading}
-      src={src}
-      style={objectFit === undefined ? style : { ...style, objectFit }}
-      width={width}
-    />
-  )
 }
 
 /**
@@ -129,50 +98,48 @@ function OriginalImage({
  * viewport inert; the caller controls whether its layout still reserves space in that viewport.
  * `deferUntilHydrated` avoids WebKit parser-to-hydration request replay.
  */
-export function TransloaditPicture({
-  alt,
-  className,
-  deferUntilHydrated = false,
-  fetchPriority,
-  height,
-  loading,
-  media,
-  mediaPlaceholderSrc,
-  model,
-  objectFit,
-  preload = false,
-  sizes,
-  style,
-  width,
-}: TransloaditPictureProps): ReactNode {
+export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
+  const {
+    deferUntilHydrated = false,
+    loading,
+    media,
+    mediaPlaceholderSrc,
+    model,
+    objectFit,
+    preload = false,
+    sizes = '100vw',
+  } = props
   if (deferUntilHydrated && (loading === 'eager' || preload)) {
     throw new Error('An eager or preloaded Transloadit image cannot be deferred until hydration')
   }
-  if (preload && loading === 'lazy') {
-    throw new Error('A preloaded Transloadit image cannot use lazy loading')
-  }
+  snapshotImageLoading(props)
   if (preload && media !== undefined) {
     // React 19's responsive-preload identity omits media and can silently collapse art direction.
     throw new Error('A media-gated Transloadit image cannot be preloaded')
   }
   const resolvedLoading = loading ?? (preload ? 'eager' : 'lazy')
+  const automaticSizes = /^auto(?:\s*,|\s*$)/i.test(sizes.trimStart())
+  if (automaticSizes && resolvedLoading !== 'lazy') {
+    throw new Error('Automatic image sizes require lazy loading')
+  }
   if (model.sources.length === 0) {
     throw new Error('Cannot render a Transloadit image without a source')
   }
 
+  const attributes = snapshotImageAttributes(props)
   const original = (
-    <OriginalImage
-      alt={alt}
-      className={className}
-      fetchPriority={fetchPriority}
-      height={height}
+    // biome-ignore lint/performance/noImgElement: This package is the image optimizer.
+    <img
+      decoding="async"
+      {...attributes}
+      alt={props.alt}
       loading={resolvedLoading}
-      objectFit={objectFit}
+      // Without img srcset, only lazy auto sizing is valid here. Fallback lengths stay on source.
+      sizes={automaticSizes ? 'auto' : undefined}
       // The default avoids a request and broken-image UI. Strict img-src policies can supply a
       // same-origin transparent asset; a matching <source> takes precedence over either fallback.
       src={media ? (mediaPlaceholderSrc ?? transparentPixel) : model.fallbackUrl}
-      style={style}
-      width={width}
+      style={objectFit === undefined ? attributes.style : { ...attributes.style, objectFit }}
     />
   )
   const fallback = media ? (
@@ -189,7 +156,7 @@ export function TransloaditPicture({
     if (preferredSource === undefined) {
       throw new Error('Cannot preload a Transloadit image without a source')
     }
-    preloadImage(preferredSource, sizes, fetchPriority)
+    preloadImage(preferredSource, sizes, attributes)
   }
 
   const picture = (

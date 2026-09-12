@@ -19,6 +19,7 @@ import { Suspense } from 'react'
 
 import { createTransloaditImageModel, transloaditStoragePreviewTemplate } from '../index.ts'
 import { validateStoragePath, validateStoragePathPrefix } from '../storagePath.ts'
+import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
 import { TransloaditPicture } from './index.tsx'
 
 const defaultStorageExpiresInMs = 60 * 60 * 1000
@@ -86,14 +87,8 @@ export interface TransloaditRedirectImageConfiguration extends TransloaditImageC
   }
 }
 
-interface CommonTransloaditImageProps extends TransloaditImagePresentationProps {
-  /** Advanced candidate override. Defaults to a conservative ladder capped at `width`. */
-  widths?: readonly number[]
-}
-
 /** Props for a private Transloadit Storage preview. */
-export interface TransloaditImageProps
-  extends Omit<CommonTransloaditImageProps, 'media' | 'mediaPlaceholderSrc'> {
+export type TransloaditImageProps = TransloaditImagePresentationProps & {
   /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
   fallbackQuality?: number
   formats?: StoragePreviewFormats
@@ -103,7 +98,12 @@ export interface TransloaditImageProps
   src: string
   /** Static shell used only while direct request-time signing is suspended. */
   suspenseFallback?: ReactNode
+  /** Advanced candidate override. Defaults to a conservative ladder capped at `width`. */
+  widths?: readonly number[]
 }
+
+/** Redirect images render synchronously and have no signing suspension to replace. */
+export type TransloaditRedirectImageProps = TransloaditImageProps & { suspenseFallback?: never }
 
 /** One configured Next.js Server Component for Transloadit Storage objects. */
 export type TransloaditImageComponent = (props: TransloaditImageProps) => ReactNode
@@ -117,7 +117,8 @@ export interface TransloaditImageIntegration {
 }
 
 /** Redirect-delivery integration with a route handler for private Storage images. */
-export interface TransloaditRedirectImageIntegration extends TransloaditImageIntegration {
+export interface TransloaditRedirectImageIntegration {
+  Image: (props: TransloaditRedirectImageProps) => ReactNode
   storageRoute: TransloaditStorageRoute
 }
 
@@ -319,19 +320,15 @@ function snapshotStorageImageProps(
   path: string,
 ): TransloaditImageProps {
   return {
+    ...snapshotImageAttributes(props),
+    ...snapshotImageLoading(props),
     alt: props.alt,
-    className: props.className,
     deferUntilHydrated: props.deferUntilHydrated,
     fallbackQuality: props.fallbackQuality,
-    fetchPriority: props.fetchPriority,
     formats: props.formats === undefined ? undefined : { ...props.formats },
     height: props.height,
-    loading: props.loading,
     objectFit: props.objectFit,
-    preload: props.preload,
-    sizes: props.sizes,
     src: path,
-    style: props.style === undefined ? undefined : { ...props.style },
     suspenseFallback: props.suspenseFallback,
     width: props.width,
     widths: Array.isArray(props.widths) ? [...props.widths] : props.widths,
@@ -346,27 +343,10 @@ function getStoragePath(src: unknown): string {
 }
 
 function renderPicture(
-  props: CommonTransloaditImageProps,
+  props: TransloaditImagePresentationProps,
   model: Parameters<typeof TransloaditPicture>[0]['model'],
 ): ReactNode {
-  return (
-    <TransloaditPicture
-      alt={props.alt}
-      className={props.className}
-      deferUntilHydrated={props.deferUntilHydrated}
-      fetchPriority={props.fetchPriority}
-      height={props.height}
-      loading={props.loading}
-      media={props.media}
-      mediaPlaceholderSrc={props.mediaPlaceholderSrc}
-      model={model}
-      objectFit={props.objectFit}
-      preload={props.preload}
-      sizes={props.sizes}
-      style={props.style}
-      width={props.width}
-    />
-  )
+  return <TransloaditPicture {...props} model={model} />
 }
 
 function getStorageTransform(request: SmartCdnImageSignRequest): StorageImageTransform {

@@ -98,10 +98,54 @@ describe('createTransloaditImage', () => {
     )
     const source = document.querySelector('source')
 
-    expect(source?.hasAttribute('sizes')).toBe(false)
+    expect(source?.getAttribute('sizes')).toBe('100vw')
     expect(source?.getAttribute('srcset')).toContain('200w')
     expect(source?.getAttribute('srcset')).toContain('400w')
     expect(source?.getAttribute('srcset')).toContain('800w')
+  })
+
+  test.each([
+    'direct',
+    'redirect',
+  ])('preserves native attributes and descriptions in %s delivery', async (delivery) => {
+    const { Image } = createTransloaditImage({
+      ...baseConfiguration,
+      storage: {
+        ...baseConfiguration.storage,
+        delivery:
+          delivery === 'direct'
+            ? 'direct'
+            : { authorize: () => true, route: '/api/private-images' },
+      },
+    })
+    const document = parseMarkup(
+      await renderAsync(
+        <figure>
+          <Image
+            alt="Report preview"
+            aria-describedby="report-caption"
+            data-document="report"
+            height={600}
+            id="report-preview"
+            role="img"
+            sizes="auto, 100vw"
+            src="documents/report.pdf"
+            title="Annual report"
+            width={800}
+          />
+          <figcaption id="report-caption">The annual report</figcaption>
+        </figure>,
+      ),
+    )
+    const image = document.getElementById('report-preview')
+    expect(image?.getAttribute('aria-describedby')).toBe('report-caption')
+    expect(
+      document.getElementById(image?.getAttribute('aria-describedby') ?? '')?.textContent,
+    ).toBe('The annual report')
+    expect(image?.getAttribute('title')).toBe('Annual report')
+    expect(image?.getAttribute('role')).toBe('img')
+    expect(image?.getAttribute('data-document')).toBe('report')
+    expect(image?.getAttribute('sizes')).toBe('auto')
   })
 
   test('rejects coercible Storage sources before signing', () => {
@@ -189,10 +233,12 @@ describe('createTransloaditImage', () => {
   test('snapshots direct Storage props before crossing the request boundary', async () => {
     const { Image } = createTransloaditImage(baseConfiguration)
     let height = 300
+    let id = 'original-id'
     let path = 'documents/report.pdf'
     let width = 400
     connection.mockImplementationOnce(() => {
       height = 0
+      id = 'mutated-id'
       path = 'private/secret.pdf'
       width = 0
       return Promise.resolve(undefined)
@@ -201,6 +247,9 @@ describe('createTransloaditImage', () => {
       alt: 'Snapshotted',
       get height() {
         return height
+      },
+      get id() {
+        return id
       },
       get src() {
         return path
@@ -219,6 +268,7 @@ describe('createTransloaditImage', () => {
     expect(candidate.input).toBe('documents/report.pdf')
     expect(candidate.urlParams.h).toBe('300')
     expect(candidate.urlParams.w).toBe('400')
+    expect(document.querySelector('img')?.id).toBe('original-id')
   })
 
   test('renders opaque authorized-route capabilities without request I/O or credentials', () => {
@@ -501,13 +551,15 @@ describe('createTransloaditImage', () => {
     })
 
     expect(() =>
-      Image({
-        alt: 'No suspension',
-        height: 300,
-        src: 'documents/report.pdf',
-        suspenseFallback: 'Loading',
-        width: 400,
-      }),
+      Reflect.apply(Image, undefined, [
+        {
+          alt: 'No suspension',
+          height: 300,
+          src: 'documents/report.pdf',
+          suspenseFallback: 'Loading',
+          width: 400,
+        },
+      ]),
     ).toThrow('suspenseFallback is only used by direct Storage delivery')
   })
 

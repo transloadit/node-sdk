@@ -5,7 +5,7 @@ import type { Root } from 'react-dom/client'
 
 import type { TransloaditImageModel } from '../src/index.ts'
 
-import { act } from 'react'
+import { act, createElement } from 'react'
 import { hydrateRoot } from 'react-dom/client'
 import { renderToStaticMarkup, renderToString } from 'react-dom/server'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -45,20 +45,25 @@ function renderPicture(
     media: string
     mediaPlaceholderSrc: string
     preload: boolean
+    sizes: string
   }> = {},
 ): Document {
   const markup = renderToStaticMarkup(
-    <TransloaditPicture
-      alt="A canal house"
-      className="photo"
-      fetchPriority="high"
-      height={300}
-      loading="lazy"
-      model={model}
-      sizes="(min-width: 800px) 640px, 100vw"
-      width={400}
-      {...overrides}
-    />,
+    // Intentionally allow invalid JS prop combinations to exercise runtime guards too.
+    Reflect.apply(createElement, undefined, [
+      TransloaditPicture,
+      {
+        alt: 'A canal house',
+        className: 'photo',
+        fetchPriority: 'high',
+        height: 300,
+        loading: 'lazy',
+        model,
+        sizes: '(min-width: 800px) 640px, 100vw',
+        width: 400,
+        ...overrides,
+      },
+    ]),
   )
   return new DOMParser().parseFromString(markup, 'text/html')
 }
@@ -68,6 +73,86 @@ afterEach(() => {
 })
 
 describe('TransloaditPicture', () => {
+  test('preserves serializable image attributes without exposing renderer or signing inputs', () => {
+    const markup = renderToStaticMarkup(
+      Reflect.apply(TransloaditPicture, undefined, [
+        {
+          alt: 'A canal house',
+          'aria-describedby': 'photo-caption',
+          authSecret: 'must-stay-private',
+          crossOrigin: 'anonymous',
+          'data-photo': 'canal',
+          'data-nonserializable': { privateValue: 'must-stay-private' },
+          decoding: 'sync',
+          height: 300,
+          id: 'canal-photo',
+          model,
+          onLoad: () => undefined,
+          referrerPolicy: 'no-referrer',
+          role: 'img',
+          src: '/untrusted-original.jpg',
+          srcSet: '/untrusted-candidate.jpg 320w',
+          title: 'Amsterdam',
+          urlParams: { sig: 'must-stay-private' },
+          width: 400,
+        },
+      ]),
+    )
+    const document = new DOMParser().parseFromString(markup, 'text/html')
+    const image = document.getElementById('canal-photo')
+
+    expect(image?.getAttribute('aria-describedby')).toBe('photo-caption')
+    expect(image?.getAttribute('title')).toBe('Amsterdam')
+    expect(image?.getAttribute('role')).toBe('img')
+    expect(image?.getAttribute('data-photo')).toBe('canal')
+    expect(image?.getAttribute('decoding')).toBe('sync')
+    expect(image?.getAttribute('crossorigin')).toBe('anonymous')
+    expect(image?.getAttribute('referrerpolicy')).toBe('no-referrer')
+    expect(image?.getAttribute('src')).toBe(model.fallbackUrl)
+    expect(image?.hasAttribute('srcset')).toBe(false)
+    expect(markup).not.toContain('must-stay-private')
+    expect(markup).not.toContain('untrusted')
+    expect(image?.hasAttribute('model')).toBe(false)
+    expect(image?.hasAttribute('onload')).toBe(false)
+    expect(image?.hasAttribute('data-nonserializable')).toBe(false)
+  })
+
+  test('emits the browser default size explicitly when sizes is omitted', () => {
+    const document = renderPicture({ sizes: undefined })
+    expect([...document.querySelectorAll('source')].map((source) => source.sizes)).toEqual([
+      '100vw',
+      '100vw',
+    ])
+    expect(document.querySelector('img')?.hasAttribute('sizes')).toBe(false)
+  })
+
+  test.each([
+    'auto',
+    'auto, 100vw',
+    'AUTO, 400px',
+  ])('activates lazy automatic sizing for %s', (sizes) => {
+    const document = renderPicture({ sizes })
+    expect([...document.querySelectorAll('source')].map((source) => source.sizes)).toEqual([
+      sizes,
+      sizes,
+    ])
+    expect(document.querySelector('img')?.getAttribute('sizes')).toBe('auto')
+    expect(document.querySelector('img')?.getAttribute('loading')).toBe('lazy')
+  })
+
+  test.each([
+    'auto',
+    'auto, 100vw',
+    'AUTO, 400px',
+  ])('rejects eager automatic sizing for %s', (sizes) => {
+    expect(() => renderPicture({ loading: 'eager', sizes })).toThrow(
+      'Automatic image sizes require lazy loading',
+    )
+    expect(() => renderPicture({ loading: undefined, preload: true, sizes })).toThrow(
+      'Automatic image sizes require lazy loading',
+    )
+  })
+
   test('renders native picture sources and the supplied fallback', () => {
     const document = renderPicture()
     const sources = [...document.querySelectorAll('source')]
@@ -130,6 +215,31 @@ describe('TransloaditPicture', () => {
     expect(preload?.getAttribute('type')).toBe('image/avif')
     expect(sources).toHaveLength(2)
     expect(image?.getAttribute('src')).toBe(model.fallbackUrl)
+  })
+
+  test('uses the same request policy on the preload and the image', () => {
+    const document = new DOMParser().parseFromString(
+      renderToStaticMarkup(
+        <TransloaditPicture
+          alt="A canal house"
+          crossOrigin="use-credentials"
+          height={300}
+          model={model}
+          preload
+          referrerPolicy="no-referrer"
+          width={400}
+        />,
+      ),
+      'text/html',
+    )
+    const preload = document.querySelector('link[rel="preload"]')
+    const image = document.querySelector('img')
+
+    expect(preload?.getAttribute('crossorigin')).toBe('use-credentials')
+    expect(preload?.getAttribute('referrerpolicy')).toBe('no-referrer')
+    expect(preload?.getAttribute('imagesizes')).toBe('100vw')
+    expect(image?.getAttribute('crossorigin')).toBe('use-credentials')
+    expect(image?.getAttribute('referrerpolicy')).toBe('no-referrer')
   })
 
   test('rejects a media-gated preload instead of letting React deduplicate it incorrectly', () => {
