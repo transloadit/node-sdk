@@ -10,6 +10,11 @@ interface StorageObject {
   etag?: string
 }
 
+/** Reads only the public HTTP status, never upstream response bodies or signed request details. */
+export const storageS3ErrorSchema = z.object({
+  $metadata: z.object({ httpStatusCode: z.number().optional() }),
+})
+
 /** Keeps workspace discovery, signing credentials and the trusted endpoint together for S3 reads. */
 export async function withStorageS3<T>(
   options: { endpoint?: string; workspace?: string },
@@ -58,9 +63,7 @@ export async function withStorageS3<T>(
       throw new Error('Could not determine one workspace; supply --workspace explicitly')
     return await operation(client, workspace)
   } catch (error) {
-    const remote = z
-      .object({ $metadata: z.object({ httpStatusCode: z.number().optional() }) })
-      .safeParse(error)
+    const remote = storageS3ErrorSchema.safeParse(error)
     if (remote.success) {
       throw new Error(
         `${failure} failed${remote.data.$metadata.httpStatusCode === undefined ? '' : ` (HTTP ${remote.data.$metadata.httpStatusCode})`}. Check that the Storage S3 API is enabled and that you are using the correct workspace and a read-scoped Auth Key.`,

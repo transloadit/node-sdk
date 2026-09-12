@@ -11,7 +11,7 @@ import { z } from 'zod'
 
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
 import { updateStorageReceipts } from '../storageReceipts.ts'
-import { listStorageObjects, withStorageS3 } from '../storageS3.ts'
+import { listStorageObjects, storageS3ErrorSchema, withStorageS3 } from '../storageS3.ts'
 import {
   nextAppRoot,
   storageImageEnvBlock,
@@ -216,10 +216,17 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
             const objects = await listStorageObjects(client, workspace, this.prefix)
             const paths = new Set<string>()
             for (const { path } of objects) {
-              validateStoragePath(path)
+              try {
+                validateStoragePath(path)
+              } catch (error) {
+                throw new Error(
+                  `Storage image ${JSON.stringify(path)} has an unsupported path: ${ensureError(error).message}`,
+                  { cause: error },
+                )
+              }
               if (!path.startsWith(this.prefix) || paths.has(path))
                 throw new Error(
-                  'Storage returned a duplicate path or one outside the requested prefix',
+                  `Storage returned a duplicate path or one outside the requested prefix: ${JSON.stringify(path)}`,
                 )
               paths.add(path)
             }
@@ -227,9 +234,16 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
             const entries = await pMap(
               objects,
               async ({ path }) => {
-                const head = await client.send(
-                  new HeadObjectCommand({ Bucket: workspace, Key: path }),
-                )
+                const head = await client
+                  .send(new HeadObjectCommand({ Bucket: workspace, Key: path }))
+                  .catch((error: unknown) => {
+                    const remote = storageS3ErrorSchema.safeParse(error)
+                    const status = remote.success ? remote.data.$metadata.httpStatusCode : undefined
+                    throw new Error(
+                      `Storage HEAD failed for ${JSON.stringify(path)}${status === undefined ? '' : ` (HTTP ${status})`}. The object may have changed or access may be denied; check it and retry the sync.`,
+                      { cause: error },
+                    )
+                  })
                 const dimensions = imageMetadataSchema.safeParse(head.Metadata)
                 if (!dimensions.success)
                   throw new Error(

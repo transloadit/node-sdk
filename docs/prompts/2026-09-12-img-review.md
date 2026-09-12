@@ -14,8 +14,9 @@ only where the ETag represents it. Missing asset IDs do not block rendering reco
       Rebuild rendering sources, not fabricated upload-integrity receipts; preserve unrelated entries
       and fail safely on missing/malformed image metadata or interrupted listings.
 - [x] Prove the actual packed command against the owned devdock.
-- [ ] Run sequential checks, council review, packed browser verification and exact-head green CI.
-- [ ] Replace the obsolete public-HEAD gap in README/dogfood/PR body, record the separate API2
+- [x] Run sequential checks, council review, packed browser verification and implementation CI.
+      `e41f1b1` is green; final diagnostic follow-up status lives in #500's exact-head checks.
+- [x] Replace the obsolete public-HEAD gap in README/dogfood/PR body, record the separate API2
       EXIF finding honestly, and stop owned services/remove credential copies after verification.
 
 Live result at API2 `b4aba072ee`: listing and current/versioned HEAD/GET pass for the existing
@@ -42,6 +43,30 @@ Three images recovered at 1024×683 with matching original MD5s; endpoint overri
 results and the missing-old-metadata error all preserve the prior file as specified. Evidence:
 `/tmp/img-sync2-{unit-red,unit-green,live-red,live-green,head}.log` and clone17's
 `tmp/img-sync2-cli-result.json`. No live EXIF-correctness claim is made.
+
+Independent council reviewed the whole stack and returned two valid P3 diagnostics: identify
+invalid listed keys and distinguish per-object HEAD failures from endpoint/credential failures.
+Four assertions failed first, then all 61 targeted CLI tests passed. The sweep also added the
+offending key to duplicate/out-of-prefix errors; dimension errors already identified their key.
+HEAD diagnostics retain only the escaped path and HTTP status, never upstream bodies or signed
+request details. These are message-only refinements, not a change to selection or file atomicity.
+
+The initial implementation passed sequential root `yarn check`, `verify:full`, eight packed seed
+cases and 60 first-attempt browser cases (58.2s/56.3s). CI run 34722685485 on `e41f1b1` passed all
+ten checks. Its downloaded artifact independently confirms 60 first-attempt passes (66.5s/60.8s),
+zero retries, skips, flakes or native-response errors. Final diagnostic-refinement checks and
+live package re-verification are recorded in `/tmp/img-sync2-final-*.log`; exact follow-up CI is
+reported by the PR checks and `/tmp/img-task2-handover.md`, not inferred from the initial head.
+Import/store schema hashes remain byte-identical to API2 (2a4d398a / 5b70f12c). No release or merge.
+The final packed CLI was installed normally again and all live recovery/endpoint/error checks passed.
+Cleanup: the owned devdock is stopped and the temporary credential context removed; local fixture
+keys, objects and red/green evidence are retained. Other worktrees/services were not touched.
+Post-council sequential `yarn check`, `verify:full` and the packed browser fixture pass again:
+Node 407 plus one existing skip, img 203, utils 54; eight seeds and 60 first-attempt browser cases.
+Strict type-checking of the three affected CLI test files also passes with the repository's
+existing json-to-ast ambient declaration. An extra, non-CI whole-test-project type check reports
+errors in untouched older test files; no new Storage test/source diagnostics. Its output is retained
+at `/tmp/img-sync2-test-types.log`, separately from the passing required checks and focused typing.
 
 Clarification: rebuilding a rendering catalog only needs path/display width/display height.
 The previous full asset-ID/MD5 receipt requirement is not needed for that task; retain the

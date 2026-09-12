@@ -251,20 +251,25 @@ test.each([
   await runSync()
   expect(process.exitCode).toBe(1)
   expect(api.isDone()).toBe(true)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining(JSON.stringify(path)),
+  )
   expect(await readdir(directory)).toEqual(['credentials'])
 })
 
-test('reports a HEAD failure safely and preserves the entire previous catalog', async () => {
+test.each([
+  403, 404,
+])('identifies a failed HEAD (HTTP %i) safely and preserves the entire previous catalog', async (status) => {
   const previous = '{"keep":true}'
   await writeFile('images.json', previous)
   const api = listed()
     .head('/storage/my-app/website/a.jpg')
-    .reply(403, '', { 'x-amz-error-message': 'local-secret' })
+    .reply(status, '', { 'x-amz-error-message': 'local-secret' })
   await runSync()
   expect(process.exitCode).toBe(1)
   expect(api.isDone()).toBe(true)
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-    expect.stringMatching(/Storage receipt sync failed \(HTTP 403\)/),
+    expect.stringContaining(`Storage HEAD failed for "website/a.jpg" (HTTP ${status})`),
   )
   expect(vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join(' ')).not.toContain(
     'local-secret',
