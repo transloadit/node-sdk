@@ -12,46 +12,81 @@ depend on it from npm yet.
 
 ## Seed your first image
 
-This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app. The
+This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app with
+Yarn 4's `node-modules` linker (`nodeLinker: node-modules`). The
 workspace must have Transloadit Storage writes enabled; package installation does not enable them.
 Start with an opaque JPEG or PNG. The current preview Built-in does not promise alpha preservation.
 
+The server entry point needs the **Node.js runtime**, not Edge: it uses `node:crypto` and `Buffer`.
+The examples use root `app/` and `lib/` directories; adjust their relative imports for `src/app/`.
+For the shown `.ts`/`.tsx` imports, enable `allowImportingTsExtensions` and `noEmit` in your app's
+`tsconfig.json`; enable `resolveJsonModule` for the saved receipt. See the
+[TypeScript import-extension reference](https://www.typescriptlang.org/tsconfig/allowImportingTsExtensions.html).
+Keep your app's Node/React type dependencies; with TypeScript 6, include `node` in
+`compilerOptions.types` when checking the seed outside Next's generated environment declarations.
+
 ### Install the local packages
 
-From this SDK checkout, install its locked dependencies and pack the local artifacts:
+Use a clean checkout of [transloadit/node-sdk](https://github.com/transloadit/node-sdk), at the
+reviewed revision of [PR #500](https://github.com/transloadit/node-sdk/pull/500). For example,
+`gh pr checkout 500` selects that PR; record `git rev-parse HEAD` before packing. From that SDK
+checkout, install its locked dependencies and pack into your own temporary directory:
 
 ```bash
 corepack yarn install --immutable
-corepack yarn workspace @transloadit/img pack --out /tmp/transloadit-img.tgz
-corepack yarn workspace @transloadit/node pack --out /tmp/transloadit-node.tgz
-corepack yarn workspace @transloadit/types pack --out /tmp/transloadit-types.tgz
-corepack yarn workspace @transloadit/utils pack --out /tmp/transloadit-utils.tgz
+img_pack_dir=$(mktemp -d)
+corepack yarn workspace @transloadit/img pack --out "$img_pack_dir/transloadit-img.tgz"
+corepack yarn workspace @transloadit/node pack --out "$img_pack_dir/transloadit-node.tgz"
+corepack yarn workspace @transloadit/types pack --out "$img_pack_dir/transloadit-types.tgz"
+corepack yarn workspace @transloadit/utils pack --out "$img_pack_dir/transloadit-utils.tgz"
+printf '%s\n' "$img_pack_dir"
 ```
 
-Then, from your Next.js app, install those tarballs. Include local `utils` so the app exercises the
-same signing code as the SDK checkout:
+In the same terminal, switch to your Next.js app. Merge this field into its root `package.json`,
+replacing `/ABSOLUTE_PACK_DIR` with the directory just printed:
+
+```json
+{
+  "resolutions": {
+    "@transloadit/utils": "file:/ABSOLUTE_PACK_DIR/transloadit-utils.tgz"
+  }
+}
+```
+
+This [Yarn resolution](https://yarnpkg.com/configuration/manifest#resolutions) makes img and the
+seed client use the reviewed local signing package. Adding a root `file:` dependency alone can
+leave a second registry copy nested under img. Then install the four tarballs:
 
 ```bash
-corepack yarn add @transloadit/img@file:/tmp/transloadit-img.tgz @transloadit/node@file:/tmp/transloadit-node.tgz @transloadit/utils@file:/tmp/transloadit-utils.tgz
-corepack yarn add -D @transloadit/types@file:/tmp/transloadit-types.tgz
+corepack yarn add "@transloadit/img@file:$img_pack_dir/transloadit-img.tgz" "@transloadit/utils@file:$img_pack_dir/transloadit-utils.tgz"
+corepack yarn add -D "@transloadit/node@file:$img_pack_dir/transloadit-node.tgz" "@transloadit/types@file:$img_pack_dir/transloadit-types.tgz"
 ```
 
-The Assembly client and instruction types are only needed by the seed script; `@transloadit/img`
-does not add them to the browser or require an Assembly for each render.
+The Assembly client and instruction types are seed-only development dependencies. Utils is a real
+runtime dependency of img; the local tarball override is specific to this unpublished walkthrough.
+Img does not add the Assembly client to the browser or create an Assembly for each render. Keep
+the tarballs available for reinstalls; do not commit machine-specific paths as a production setup.
 
 ### Configure the two key purposes
 
-Use credentials from the **same workspace**, in server-only environment configuration such as an
-untracked `.env.local`:
+Use credentials from the **same workspace**, but separate write access from rendering. Add both
+`.env.seed.local` and `.env.local` to the app's `.gitignore` before creating them:
 
 - `TRANSLOADIT_ASSEMBLY_KEY` and `TRANSLOADIT_ASSEMBLY_SECRET`: an **Assembly Auth Key** and its
-  secret, used to sign the one-time upload/store Assembly.
+  secret, used to sign the one-time upload/store Assembly. Put these in **`.env.seed.local`**,
+  loaded only by the seed command below.
 - `TRANSLOADIT_SMART_CDN_KEY` and `TRANSLOADIT_SMART_CDN_SECRET`: a **Smart CDN Auth Key** and its
-  secret, used to sign delivery URLs. An Assembly-only key cannot replace this key.
-- `TRANSLOADIT_WORKSPACE`: that workspace's URL slug.
+  secret, used to sign delivery URLs. Put these in **`.env.local`** for Next.js. An Assembly-only
+  key cannot replace this key.
+- `TRANSLOADIT_WORKSPACE`: put the workspace's URL slug in `.env.local` too. In a Console URL such
+  as `/c/my-workspace/`, the slug is `my-workspace`, not a key or workspace ID.
 
 Do not use a `NEXT_PUBLIC_` prefix or commit credentials. The rendering application only needs
-the Smart CDN credentials; keep the write-capable Assembly credentials in the seeding environment.
+the Smart CDN credentials. Next.js loads `.env.local`, so it is **not** an isolated place for the
+write-capable Assembly credentials. `.env.seed.local` is outside Next's normal env-file names.
+
+`TRANSLOADIT_ASSEMBLY_ENDPOINT` is an optional seed-only override. Omit it for the SDK default,
+`https://api2.transloadit.com`; the local-devdock case is explained below.
 
 ### Store one image and keep its verified metadata
 
@@ -153,8 +188,14 @@ if (import.meta.main) {
 Run it once for an image you want to store, keeping the printed record as app data:
 
 ```bash
-node --env-file=.env.local seed.ts ./canal-house.jpg > image.json
+node --env-file=.env.seed.local seed.ts ./canal-house.jpg > image.json
 ```
+
+The single-quoted `'website/${file.url_name}'` in the script is a literal Assembly interpolation
+expression. Transloadit, not JavaScript, substitutes the input's URL-safe filename. Node 24 detects
+ES module syntax when `package.json` has no `type`; explicit `"type": "commonjs"` is different.
+For this native TypeScript seed, use `"type": "module"` in the app's package manifest. No tsx or
+ts-node runner is needed. See [Node's module detection](https://nodejs.org/download/release/v24.11.0/docs/api/packages.html#syntax-detection).
 
 Proceed only when the command exits successfully. `conflict_strategy: 'error'` makes a repeated
 upload to the same path fail rather than silently replacing an asset. Choose a different filename
@@ -166,10 +207,36 @@ alongside your content or in your application's database; rendering needs no met
 The `asset_id` identifies the stored asset, while the returned `path` is the component's `src`.
 Only the dimensions and path need to enter image markup.
 
+### Create the server-only factory
+
+Save this complete module as `lib/transloaditImage.tsx`. The explicit factory does not read env
+files or variables itself; the application passes its rendering credentials and allowed paths:
+
+```tsx
+import { createTransloaditImage } from '@transloadit/img/next/server'
+
+const authKey = process.env.TRANSLOADIT_SMART_CDN_KEY
+const authSecret = process.env.TRANSLOADIT_SMART_CDN_SECRET
+const workspace = process.env.TRANSLOADIT_WORKSPACE
+
+if (!authKey || !authSecret || !workspace) {
+  throw new Error('Transloadit image credentials are required')
+}
+
+export const { Image } = createTransloaditImage({
+  authKey,
+  authSecret,
+  storage: { allowedPathPrefixes: ['website/'] },
+  workspace,
+})
+```
+
+The Auth Secret stays in the server module and never enters rendered markup or a client bundle.
+Signed browser URLs contain the public Auth Key identifier, as required by Smart CDN verification.
+
 ### Render the stored image
 
-Create the server-only `lib/transloaditImage.tsx` module shown below, then use the saved record
-(this example keeps `image.json` in the app root):
+Use that factory and the saved record in `app/page.tsx` (with `image.json` in the app root):
 
 ```tsx
 import image from '../image.json'
@@ -205,32 +272,11 @@ Normal Smart CDN delivery needs neither local override.
 
 ## Next.js
 
-The server entry point targets the Next.js 16 App Router with `cacheComponents: true` in
-`next.config.ts`.
-
-Create one server-only application module. The factory does not read environment variables:
-
-```tsx
-import { createTransloaditImage } from '@transloadit/img/next/server'
-
-const authKey = process.env.TRANSLOADIT_SMART_CDN_KEY
-const authSecret = process.env.TRANSLOADIT_SMART_CDN_SECRET
-const workspace = process.env.TRANSLOADIT_WORKSPACE
-
-if (!authKey || !authSecret || !workspace) {
-  throw new Error('Transloadit image credentials are required')
-}
-
-export const { Image } = createTransloaditImage({
-  authKey,
-  authSecret,
-  storage: { allowedPathPrefixes: ['website/'] },
-  workspace,
-})
-```
-
-The Auth Secret stays in the server module and never enters rendered markup or a client bundle.
-Signed browser URLs contain the public Auth Key identifier, as required by Smart CDN verification.
+The production fixture tests Next.js **16.3.0** with React **19.2.8**, with `cacheComponents: true`
+in `next.config.ts` **and with that option omitted**. Cache Components is not required: direct
+delivery remains request-rendered via `connection()` in either mode. With Cache Components on,
+the direct image also gets a safe partial-prerender shell. The native browser suite exercises
+Chromium and WebKit against both production configurations.
 
 Use a relative Storage object path as `src` and provide the source's intrinsic dimensions:
 
@@ -270,6 +316,9 @@ For a 400×400 avatar source displayed in a 48px box, limit the candidates to 1�
   widths={[48, 96]}
 />
 ```
+
+This limits the modern source candidates, not the JPEG fallback: the fallback still uses the
+capped intrinsic source width, **400px for this avatar**, even with `widths={[48, 96]}`.
 
 `storage.allowedPathPrefixes` is a hard workspace boundary, not object authorization. Prefixes must
 be relative directories ending in `/`. The default is deny-all; `['']` deliberately allows the
@@ -325,7 +374,9 @@ export const { Image, storageRoute } = createTransloaditImage({
 })
 ```
 
-Export the handler from that exact App Router path:
+Export the handler from **`app/api/private-images/route.ts`** (or
+`src/app/api/private-images/route.ts` with a `src/lib/` factory). `basePath: '/app'` only changes
+the browser URL to `/app/api/private-images`; it does not add another filesystem directory:
 
 ```ts
 export { storageRoute as GET } from '../../../lib/transloaditImage.tsx'
@@ -352,6 +403,11 @@ after an earlier CDN URL has expired, provided application authorization continu
 Revoking application access denies **new redirect grants**. It does not invalidate signed CDN URLs
 already handed to a browser: those remain valid until their expiry. Downloaded bytes cannot be
 recalled. Shorter grants bound this remaining access window; they do not provide instant revocation.
+
+A 403/404 is a native image-load failure: depending on the browser, users may see alt text or a
+broken-image indicator. The package adds no error UI or callback. Suspense handles pending
+server-side signing, not later image-download failures, and the JPEG fallback is format selection,
+not automatic recovery from a failed AVIF/WebP HTTP request.
 
 | Property | Direct, the default | Authorized redirect |
 | --- | --- | --- |
@@ -394,6 +450,17 @@ for a lazy image whose size should come from its CSS box. Automatic sizes cannot
 - Keep `width`/`height` in the source's proportions. Transforms use `r: 'pad'`; CSS `objectFit`
   controls cropping in a display box but cannot undo padding already encoded in the image.
 - `fallbackQuality` changes the signed JPEG fallback quality.
+
+The preview Built-in owns padding and its background. Its resize default is **white**, and integer
+candidate heights are rounded from the source ratio. Proportional sizing minimizes padding but
+does not promise absent bars, pixel-exact ratios at every candidate width, or alpha preservation.
+
+For a full-cover box, `sizes` may need to exceed `100vw`. With source dimensions `Ws × Hs` and
+a rendered box `Wb × Hb`, cover scaling needs an equivalent uncropped CSS width of
+`max(Wb, Hb * Ws / Hs)`. Describe that width in `sizes` (divide by viewport width and multiply by
+100 for `vw`), at each relevant breakpoint; the browser applies device pixel ratio itself. The
+Content construction hero needed **382vw** on small screens because the tall box cropped a wide
+source. Source dimensions alone cannot determine a container's layout or this cover requirement.
 
 Private signature lifetimes default to at least one hour in stable five-minute rotation windows.
 Their sum cannot exceed 48 hours:
@@ -444,10 +511,17 @@ corepack yarn workspace @transloadit/img check
 corepack yarn test:img:fixture
 ```
 
-The fixture packs the image, SDK, instruction-type, and signing artifacts and installs them into a
-clean Next.js 16 App Router app. It executes this exact seed recipe against mocked Assembly receipts
-without network access, compiles it against the packed SDK/types, builds partially prerendered and
-dynamic routes, starts the production server, probes route
-authorization and capability tampering, checks for secret leakage, and reports direct-versus-
-redirect HTML size and route work for 1, 20, and 100 images. Size measurements are deterministic;
-wall-clock measurements are diagnostic and do not create flaky CI thresholds.
+The fixture packs all four local artifacts and installs them with its pinned **npm** lockfile into
+a clean Next.js app. It executes this exact seed recipe against mocked Assembly receipts without
+network access and compiles it against the packed SDK/types. It builds and serves both production
+Cache Components configurations, then runs 36 Chromium/WebKit cases: native cookie authorization,
+separate app/CDN hosts, responsive hero/avatar geometry, decoding before application JavaScript,
+hydration, JPEG fallback, original-capability renewal, revocation, expiry and tampering. The owned
+local image origin independently verifies signatures/expiry and serves real encoded bytes; it
+never receives the application's session cookie. Secret scans cover the rendered/client artifacts.
+
+The test records browser evidence and direct-versus-redirect HTML size and route work for 1, 20,
+and 100 images. Wall-clock measurements are diagnostic, not CI performance thresholds. This local
+proof does not measure production CDN latency/caching or alpha preservation. The npm fixture is
+not proof of the exact Yarn commands above; those are also verified separately in a clean Yarn
+consumer, including the local utils resolution.

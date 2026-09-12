@@ -9,6 +9,7 @@ import sharp from 'sharp'
 import { imageConfiguration } from './app/imageConfiguration.ts'
 import { startFixtureCdn } from './browser-cdn.ts'
 import { revokedAccessFile } from './browser-policy.ts'
+import { startScriptGate } from './script-gate.ts'
 
 declare global {
   interface Window {
@@ -27,7 +28,7 @@ interface ImageEvidence {
 interface BrowserAudit {
   expectedFailures: Map<string, number>
   images: ImageEvidence[]
-  observePage(page: Page): Promise<void>
+  holdApplicationScripts(): Promise<Awaited<ReturnType<typeof startScriptGate>>>
   loadNativeImage(url: string): Promise<{
     loaded: boolean
     status: number
@@ -41,12 +42,40 @@ assert(cdnOrigin, 'The packed fixture must provide its own CDN origin')
 let cdn: Awaited<ReturnType<typeof startFixtureCdn>>
 
 const test = base.extend<{ audit: BrowserAudit }>({
+  // WebKit can carry stalled animation frames between contexts; each case needs a fresh browser.
+  context: async (
+    {
+      baseURL,
+      browserName,
+      contextOptions,
+      headless,
+      javaScriptEnabled,
+      launchOptions,
+      playwright,
+      viewport,
+    },
+    use,
+  ) => {
+    const browser = await playwright[browserName].launch({ ...launchOptions, headless })
+    try {
+      const context = await browser.newContext({
+        ...contextOptions,
+        baseURL,
+        javaScriptEnabled,
+        viewport,
+      })
+      await use(context)
+    } finally {
+      await browser.close()
+    }
+  },
   audit: [
     async ({ page, context, browserName }, use, info) => {
       const expectedFailures = new Map<string, number>()
       const images: ImageEvidence[] = []
       const errors: string[] = []
       const reads: Promise<void>[] = []
+      const scriptGates: Awaited<ReturnType<typeof startScriptGate>>[] = []
       // The empty scaffold intentionally has no favicon; it is not an image delivery failure.
       expectedFailures.set(new URL('/favicon.ico', info.project.use.baseURL).href, 404)
       await rm(revokedAccessFile, { force: true })
@@ -121,7 +150,12 @@ const test = base.extend<{ audit: BrowserAudit }>({
       await use({
         expectedFailures,
         images,
-        observePage: observe,
+        async holdApplicationScripts() {
+          assert(info.project.use.baseURL)
+          const gate = await startScriptGate(info.project.use.baseURL)
+          scriptGates.push(gate)
+          return gate
+        },
         async loadNativeImage(url) {
           const browser = context.browser()
           assert(browser)
@@ -174,6 +208,7 @@ const test = base.extend<{ audit: BrowserAudit }>({
           }
         },
       })
+      for (const gate of scriptGates) await gate.close()
       await Promise.all(reads)
       await info.attach('native-image-responses', {
         body: JSON.stringify({ images, errors, expectedFailures: [...expectedFailures] }, null, 2),
@@ -292,57 +327,22 @@ for (const delivery of ['direct', 'redirect']) {
   for (const width of [1200, 390]) {
     test(`${delivery} hero and avatar decode before application JS and hydrate at ${width}px`, async ({
       audit,
-      baseURL,
-      browser,
       browserName,
       page,
     }, info) => {
       await page.setViewportSize({ width, height: 1000 })
       const afterHero = page.getByText('After the hero', { exact: true })
       const afterAvatar = page.getByText('After the avatar', { exact: true })
-      let pending:
+      let beforeHydration:
         | {
             hero: Awaited<ReturnType<Locator['boundingBox']>>
             avatar: Awaited<ReturnType<Locator['boundingBox']>>
           }
         | undefined
-      if (delivery === 'direct' && process.env.IMG_FIXTURE_CACHE_COMPONENTS === 'enabled') {
-        const shellContext = await browser.newContext({ viewport: { width, height: 1000 } })
-        try {
-          const shellPage = await shellContext.newPage()
-          await audit.observePage(shellPage)
-          const shell = await readFile('.next/server/app/storage-image.html', 'utf8')
-          expect(shell).not.toContain('builtin%2Fstorage-preview')
-          // Keep fake bootstrap responses out of the real page's module cache (notably WebKit).
-          await shellPage.route('**/fixture/storage-image', (route) =>
-            route.fulfill({ contentType: 'text/html', body: shell }),
-          )
-          const emptyScript = (route: Route): Promise<void> =>
-            route.fulfill({
-              contentType: 'text/javascript',
-              body: '',
-              headers: { 'Cache-Control': 'no-store' },
-            })
-          await shellPage.route('**/_next/**/*.js*', emptyScript)
-          await shellPage.goto(new URL('/fixture/storage-image', baseURL).href)
-          pending = {
-            hero: await shellPage.getByText('After the hero', { exact: true }).boundingBox(),
-            avatar: await shellPage.getByText('After the avatar', { exact: true }).boundingBox(),
-          }
-          await info.attach('prerendered-shell', {
-            body: await shellPage.screenshot(),
-            contentType: 'image/png',
-          })
-        } finally {
-          await shellContext.close()
-        }
-      }
-      const scripts = Promise.withResolvers<void>()
-      let scriptsWaiting = 0
+      const scripts = await audit.holdApplicationScripts()
       await page.route('**/_next/**/*.js*', async (route) => {
-        scriptsWaiting += 1
-        await scripts.promise
-        await route.continue()
+        const url = new URL(route.request().url())
+        await route.continue({ url: new URL(`${url.pathname}${url.search}`, scripts.origin).href })
       })
       const started = performance.now()
       const requestOffset = cdn.requests.length
@@ -360,10 +360,10 @@ for (const delivery of ['direct', 'redirect']) {
         })
         await decode(hero)
         await decode(avatar)
-        expect(scriptsWaiting).toBeGreaterThan(0)
-        if (pending) {
-          expectSameBox(await afterHero.boundingBox(), pending.hero)
-          expectSameBox(await afterAvatar.boundingBox(), pending.avatar)
+        expect(scripts.waiting).toBeGreaterThan(0)
+        beforeHydration = {
+          hero: await afterHero.boundingBox(),
+          avatar: await afterAvatar.boundingBox(),
         }
         expect((await hero.boundingBox())?.width).toBe(Math.min(960, width - 16))
         expect((await avatar.boundingBox())?.width).toBe(48)
@@ -402,15 +402,47 @@ for (const delivery of ['direct', 'redirect']) {
           contentType: 'application/json',
         })
       } finally {
-        scripts.resolve()
+        scripts.release()
       }
       await page.getByRole('button', { name: 'Hydration count: 0' }).click()
       await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
-      if (pending) {
-        expectSameBox(await afterHero.boundingBox(), pending.hero)
-        expectSameBox(await afterAvatar.boundingBox(), pending.avatar)
-      }
       await info.attach('hydrated', { body: await page.screenshot(), contentType: 'image/png' })
+      if (delivery === 'direct' && process.env.IMG_FIXTURE_CACHE_COMPONENTS === 'enabled') {
+        assert(beforeHydration)
+        const hydrated = {
+          hero: await afterHero.boundingBox(),
+          avatar: await afterAvatar.boundingBox(),
+        }
+        const shell = await readFile('.next/server/app/storage-image.html', 'utf8')
+        expect(shell).not.toContain('builtin%2Fstorage-preview')
+        // Use this window only after the real page is finished: fake bootstrap responses must
+        // not contaminate its module cache, and extra windows can disturb WebKit rendering.
+        await page.route('**/fixture/storage-image', (route) =>
+          route.fulfill({ contentType: 'text/html', body: shell }),
+        )
+        const emptyScript = (route: Route): Promise<void> =>
+          route.fulfill({
+            contentType: 'text/javascript',
+            body: '',
+            headers: { 'Cache-Control': 'no-store' },
+          })
+        await page.route('**/_next/**/*.js*', emptyScript)
+        const requestsBeforeShell = cdn.requests.length
+        await page.goto('/fixture/storage-image')
+        const pending = {
+          hero: await afterHero.boundingBox(),
+          avatar: await afterAvatar.boundingBox(),
+        }
+        expectSameBox(beforeHydration.hero, pending.hero)
+        expectSameBox(beforeHydration.avatar, pending.avatar)
+        expectSameBox(hydrated.hero, pending.hero)
+        expectSameBox(hydrated.avatar, pending.avatar)
+        expect(cdn.requests).toHaveLength(requestsBeforeShell)
+        await info.attach('prerendered-shell', {
+          body: await page.screenshot(),
+          contentType: 'image/png',
+        })
+      }
     })
   }
 }

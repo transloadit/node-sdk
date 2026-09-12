@@ -14,6 +14,15 @@ async function readManifest(path: string): Promise<PackageManifest> {
   return JSON.parse(await readFile(path, 'utf8'))
 }
 
+test('keeps seed credentials outside Next and defines the factory before its first render', async () => {
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  expect.soft(/^node --env-file=(\S+) seed\.ts /m.exec(readme)?.[1]).toBe('.env.seed.local')
+  const factory = readme.indexOf('export const { Image } = ')
+  const firstRender = readme.indexOf("import { Image } from '../lib/transloaditImage.tsx'")
+  expect(factory).toBeGreaterThan(0)
+  expect.soft(firstRender).toBeGreaterThan(factory)
+})
+
 test('locks every external runtime dependency of the packed image package', async () => {
   const repoRoot = resolve(import.meta.dirname, '..')
   const imageManifest = await readManifest(resolve(repoRoot, 'packages/img/package.json'))

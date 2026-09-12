@@ -71,7 +71,7 @@ edits to credential files. Council remains orchestrator-owned. Four follow-up co
 
 - [x] Browser proof: production Cache Components enabled and omitted, distinct app/CDN hostnames,
       host-wide HttpOnly cookie exclusion at the CDN, JPEG fallback, and WebKit if inexpensive.
-- [ ] Sequential first-image walkthrough: close all eleven reader questions and document the
+- [x] Sequential first-image walkthrough: close all eleven reader questions and document the
       full-cover `sizes` rule. Match the literal tested seed and repeat the Yarn consumer install.
 - [ ] SDK `storeImage` plus receipt-as-`src`: stream the checksum, validate the one completed
       receipt, preserve cancellation/progress, ship packed exports and legacy wrapper. Snapshot
@@ -101,3 +101,41 @@ context so fake empty bootstrap modules cannot contaminate the real page's WebKi
 The benchmark route uses an ordinary Suspense boundary instead of the Cache-Components-only
 `instant` setting. Both direct and private hero/avatar images decode before application JavaScript
 is released; the subsequent button interaction verifies hydration in both browsers.
+
+The browser-extension commit `73f8dc2` passed all ten GitHub checks, with three expected skips:
+https://github.com/transloadit/node-sdk/actions/runs/34688893602.
+
+The README now orders checkout/pack/install, separated credentials, seed, factory and rendering.
+Its sequence regression failed first for `.env.local` seeding and use before factory definition;
+all six focused fixture tests pass after the documentation fix. All eleven reader questions,
+the full-cover `382vw` sizing lesson and the existing JPEG fallback policy are documented.
+
+A separate clean Yarn 4/node-modules app installed all four tarballs with the literal commands.
+An explicit root utils resolution prevents a nested registry copy. The six offline seed cases,
+TypeScript compilation of the exact seed/factory/render snippets, and public model execution
+passed; the lockfile and both img/node resolutions point to the same local utils artifact.
+This is separate evidence from the npm-based production fixture, not a second live Storage write.
+Logs: `/tmp/img-round2-2-{red,green,yarn-install,yarn-proof,yarn-types}.log`.
+
+Repeated pre-push verification exposed a WebKit harness fault: pausing intercepted script requests
+could stop animation frames despite a visible, focused document. React's streamed images then
+stayed hidden until the held bundles resumed. Window order, navigation readiness, viewport setup
+and a newer browser did not reliably fix it; all of those experiments were discarded.
+
+A loopback gate instead holds real HTTP responses for only the app's static JavaScript. Routing
+continues immediately, and explicit release still waits until native images have decoded. This
+passed 40 focused WebKit repetitions, including the original viewport and shell-window order.
+The gate cannot fetch arbitrary origins or image/API paths; its servers close after each test.
+The combined suite also exposed cross-context WebKit frame stalls, so cases own fresh browser
+processes. Capture the shell in the same window after the real page is finished, comparing its
+geometry against both the saved pre-hydration and hydrated values. The full 18-case enabled suite
+then passed in 54.9s, followed by 36/36 cases in a double repeat (1.9 minutes). The final sequential
+root check, img check (87 tests plus types), full verification and packed fixture all passed;
+the packed fixture passed 36/36 across both configurations (55.3s and 54.9s).
+All original assertions, timeouts and dependencies remain, without retries, skips or fake frames.
+An intentional failure in the temporary fixture confirmed that the fresh-browser fixture still
+captures failure screenshots and traces. No intentionally failing test is part of the PR.
+Final logs: `/tmp/img-round2-2-isolated-{check,img-check,verify,fixture}.log`;
+repeat evidence: `/tmp/img-browser-isolated-repeat.log`.
+Evidence: `/tmp/img-webkit-{scriptgate,gate-original}.log`; retained failing traces and probes are
+under `/tmp/img-round2-webkit-red.d8oxnW` and `/tmp/img-webkit-debug.log`.
