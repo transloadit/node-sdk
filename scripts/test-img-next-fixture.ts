@@ -137,7 +137,8 @@ function getFirstPictureCandidates(html: string): string[] {
   const candidates: string[] = []
   for (const picture of pictures) {
     const sourceSet = /<source\b[^>]*\bsrcset="([^"]+)"/i.exec(picture)?.[1]
-    assert(sourceSet !== undefined, 'Expected every benchmark picture to contain a source set')
+    // Streamed HTML also contains source-free Suspense placeholders; count only resolved images.
+    if (sourceSet === undefined) continue
     const decoded = decodeHtmlAttribute(sourceSet)
     const separator = decoded.indexOf(' ')
     assert(separator > 0, 'Expected every benchmark candidate to have a width descriptor')
@@ -267,6 +268,10 @@ async function main(): Promise<void> {
       'Expected redirect-delivery markup to prerender',
     )
     const storageShell = await readFile(resolve(appOutput, 'storage-image.html'), 'utf8')
+    assert(
+      /<picture><img\b/.test(storageShell),
+      'Storage placeholder does not retain picture-based CSS selectors',
+    )
     assert(
       storageShell.includes('visibility:hidden'),
       'Storage shell does not reserve image layout',

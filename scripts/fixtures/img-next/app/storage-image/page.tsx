@@ -7,11 +7,11 @@ export default function Page(): ReactNode {
     <main>
       <TransloaditImage
         alt="Storage hero"
+        className="hero"
         height={1600}
         id="hero"
         sizes="(min-width: 960px) 960px, 100vw"
         src="documents/hero.jpg"
-        style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
         width={2400}
       />
       <p>After the hero</p>
