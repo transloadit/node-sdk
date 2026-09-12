@@ -8,7 +8,7 @@ or publishing. Council remains orchestrator-owned. Checks, builds and packs run 
 - [x] Safe seed receipt replacement; bounded JPEG fallback; required prefix configuration.
 - [x] StorageImage factory export and ordinary Next.js consumer imports/install instructions.
 - [x] Accurate lazy-loading wording, opt-in bounded private redirect caching and HTML benchmark.
-- [ ] A: CLI `storage store` with atomic keyed receipts and existing credential resolution.
+- [x] A: CLI `storage store` with atomic keyed receipts and existing credential resolution.
 - [ ] B: Constrained/fixed/fill layout derivation, signed fillcrop, native browser proofs.
 - [ ] C: Development-only, deduplicated diagnostics and optional image error fallback.
 - [ ] D: User-upload ingest, notification and receipt persistence documentation.
@@ -17,6 +17,11 @@ or publishing. Council remains orchestrator-owned. Checks, builds and packs run 
 - [ ] Push, monitor #500, record evidence and remaining release gates.
 
 API2's import schema must stay byte-identical; server-side platform changes remain with Kevin.
+
+A: `storage store` reproduced nine failing CLI cases before implementation. Its ten focused tests
+now pass; Node package check passes 322 tests with one existing skip. Reuses AuthenticatedCommand
+and storeImage; sibling lock prevents lost updates and rename preserves receipts on failures.
+No schema changes. Generated legacy parity and the packed CLI help are in final verification.
 
 Part1: nine runtime failures and an unused type-error expectation reproduced first; all 136 img
 tests/types now pass. The documented seed command separately reproduced receipt truncation, then

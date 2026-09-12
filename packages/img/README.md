@@ -8,6 +8,7 @@ image optimizer. Sources are Storage paths or saved receipts, not arbitrary remo
 
 ```bash
 yarn add @transloadit/img
+yarn add -D @transloadit/node
 ```
 
 Use an existing Next.js 16 App Router app with React 19 and the Node.js server runtime, not Edge.
@@ -35,10 +36,22 @@ Use a **Smart CDN Auth Key**, not an Assembly-only key. The slug is the workspac
 
 ### Store an original
 
-Use `client.storeImage(filePath, { path: 'website/hero.jpg' })` with an **Assembly Auth Key** from
-the same workspace. This write credential is separate from the rendering application's key.
-The [local SDK seed recipe](../../docs/img-dogfood.md#store-one-image-and-keep-its-verified-metadata)
-saves `image.json` atomically, preserving a prior receipt if a repeated upload fails.
+The CLI uses an **Assembly Auth Key** from the same workspace. Its existing credential resolution
+checks `TRANSLOADIT_KEY` + `TRANSLOADIT_SECRET` in shell environment, the current directory's `.env`,
+then `~/.transloadit/credentials` (or `TRANSLOADIT_CREDENTIALS_FILE`). Keep this write credential in
+your CLI credentials file or seed-only shell, not the rendering app's env files: Next loads `.env`
+too. A Smart CDN-only key cannot store images. `--endpoint` is an optional trusted API override.
+
+```bash
+yarn transloadit storage store ./hero.jpg website/hero.jpg --receipts images.json
+```
+
+The command wraps `client.storeImage()`, appends a record keyed by `website/hero.jpg`, and prints
+a JSX snippet. It atomically replaces `images.json` only on success, preserving previous receipts
+on conflicts, missing credentials and write failures. Parent directories must already exist.
+A sibling lock prevents two writers from losing each other's records; after an interrupted
+process, remove its `.lock` only after confirming no writer is still running. The Assembly client
+is a seed-only development dependency, not part of image rendering or the browser bundle.
 
 The helper waits for completion and verifies `asset_id`, exact `path`, byte count, MD5 and positive
 image dimensions. `/transloadit/store` annotates `results[':original']`, not `results.stored`.
@@ -61,14 +74,14 @@ export const { StorageImage } = createTransloaditImageFromEnv({
 Then in `app/page.tsx`:
 
 ```tsx
-import image from '../image.json'
+import images from '../images.json'
 import { StorageImage } from '../lib/storageImage'
 
 export default function Page() {
   return (
     <StorageImage
       alt="A canal house"
-      src={image}
+      src={images['website/hero.jpg']}
       sizes="(min-width: 960px) 960px, 100vw"
       style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
       preload

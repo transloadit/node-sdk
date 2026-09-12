@@ -272,6 +272,10 @@ async function main(): Promise<void> {
       cwd: fixtureDir,
       stdio: 'inherit',
     })
+    const cliHelp = await execa('npx', ['--no-install', 'transloadit', 'storage', 'store', '--help'], {
+      cwd: fixtureDir,
+    })
+    assert(cliHelp.stdout.includes('--receipts'), 'The packed CLI must expose storage store')
     const playwright = resolve(fixtureDir, 'node_modules/@playwright/test/cli.js')
     await execa(
       process.execPath,

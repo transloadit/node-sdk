@@ -16,6 +16,7 @@ import { SignatureCommand, SmartCdnSignatureCommand, TokenCommand } from './auth
 import { BillsGetCommand } from './bills.ts'
 import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
+import { StorageStoreCommand } from './storage.ts'
 import {
   TemplatesCreateCommand,
   TemplatesDeleteCommand,
@@ -66,6 +67,7 @@ export function createCli(): Cli {
 
   // Uploads commands
   cli.register(UploadCommand)
+  cli.register(StorageStoreCommand)
 
   // Prompt-to-Assembly-Instructions commands
   cli.register(AssemblyInstructionsCompileCommand)
