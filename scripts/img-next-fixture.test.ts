@@ -1,7 +1,9 @@
-import { readFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 
-import { expect, test } from 'vitest'
+import { execa } from 'execa'
+import { expect, onTestFinished, test } from 'vitest'
 
 interface PackageManifest {
   dependencies?: Record<string, string>
@@ -27,4 +29,63 @@ test('locks every external runtime dependency of the packed image package', asyn
     if (range.startsWith('workspace:')) continue
     expect(fixtureDependencies[name], `${name} must be pinned in the fixture`).toMatch(/^\d/)
   }
+})
+
+test.each([
+  ['scripts/fixtures/img-next/package.json', 'scripts/fixtures/img-next/package-lock.json', 0],
+  ['scripts/fixtures/img-next/package.json', 'yarn.lock', 1],
+  ['package.json', 'scripts/fixtures/img-next/package-lock.json', 1],
+  ['package.json', 'yarn.lock', 0],
+])('guards dependency changes in %s with %s (exit %i)', async (manifest, lockfile, exitCode) => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'img-lockfile-test-'))
+  onTestFinished(() => rm(directory, { recursive: true, force: true }))
+  const git = (...args: string[]) => execa('git', args, { cwd: directory })
+  await git('init', '--quiet')
+  await git('config', 'user.name', 'Fixture')
+  await git('config', 'user.email', 'fixture@example.invalid')
+  await mkdir(resolve(directory, 'scripts/fixtures/img-next'), { recursive: true })
+  const initial = `${JSON.stringify({ dependencies: { react: '19.2.0' } })}\n`
+  await writeFile(resolve(directory, 'package.json'), initial)
+  await writeFile(resolve(directory, 'scripts/fixtures/img-next/package.json'), initial)
+  await git('add', '.')
+  await git(
+    '-c',
+    'core.hooksPath=/dev/null',
+    'commit',
+    '--quiet',
+    '--no-gpg-sign',
+    '-m',
+    'Baseline',
+  )
+  const { stdout: base } = await git('rev-parse', 'HEAD')
+  await writeFile(
+    resolve(directory, manifest),
+    `${JSON.stringify({ dependencies: { react: '19.2.1' } })}\n`,
+  )
+  await writeFile(resolve(directory, lockfile), 'Updated dependency lock\n')
+  await git('add', '.')
+  await git(
+    '-c',
+    'core.hooksPath=/dev/null',
+    'commit',
+    '--quiet',
+    '--no-gpg-sign',
+    '-m',
+    'Dependency change',
+  )
+  const { stdout: head } = await git('rev-parse', 'HEAD')
+
+  // Exercise the actual legacy inline guard, not a duplicate implementation of its lockfile policy.
+  const workflow = await readFile(
+    resolve(import.meta.dirname, '../.github/workflows/ci.yml'),
+    'utf8',
+  )
+  const guard = workflow.split("node <<'NODE'\n")[1]?.split('\n          NODE')[0]
+  if (guard === undefined) throw new Error('CI lockfile guard was not found')
+  const result = await execa(process.execPath, ['--input-type=commonjs', '--eval', guard], {
+    cwd: directory,
+    env: { BASE_SHA: base, HEAD_SHA: head },
+    reject: false,
+  })
+  expect(result.exitCode, result.stderr).toBe(exitCode)
 })

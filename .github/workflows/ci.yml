@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Ensure yarn.lock matches dependency changes
+      - name: Ensure each package's lockfile matches dependency changes
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.sha }}
@@ -59,13 +59,11 @@ jobs:
             }
             return !file.startsWith('docs/fingerprint/')
           })
-          const lockfileChanged = diffNames.includes('yarn.lock')
-
           if (packageFiles.length === 0) {
             process.exit(0)
           }
 
-          const hasDependencyChanges = packageFiles.some((file) => {
+          const changedPackages = packageFiles.filter((file) => {
             let before = {}
             let after = {}
             try {
@@ -85,8 +83,15 @@ jobs:
             })
           })
 
-          if (hasDependencyChanges && !lockfileChanged) {
-            console.error('yarn.lock must be updated when dependency ranges change in package.json.')
+          // The packed Next app is a standalone npm consumer, outside the Yarn workspaces.
+          const missingLockfiles = new Set(changedPackages
+            .map((file) => file === 'scripts/fixtures/img-next/package.json'
+              ? 'scripts/fixtures/img-next/package-lock.json'
+              : 'yarn.lock')
+            .filter((lockfile) => !diffNames.includes(lockfile)))
+
+          if (missingLockfiles.size > 0) {
+            console.error(`${[...missingLockfiles].join(', ')} must be updated when dependency ranges change.`)
             process.exit(1)
           }
           NODE

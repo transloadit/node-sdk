@@ -10,6 +10,199 @@ belong to the configured Transloadit Storage workspace.
 This workspace remains private at version `0.0.0` while the API and production dogfood soak. Do not
 depend on it from npm yet.
 
+## Seed your first image
+
+This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app. The
+workspace must have Transloadit Storage writes enabled; package installation does not enable them.
+Start with an opaque JPEG or PNG. The current preview Built-in does not promise alpha preservation.
+
+### Install the local packages
+
+From this SDK checkout, install its locked dependencies and pack the local artifacts:
+
+```bash
+corepack yarn install --immutable
+corepack yarn workspace @transloadit/img pack --out /tmp/transloadit-img.tgz
+corepack yarn workspace @transloadit/node pack --out /tmp/transloadit-node.tgz
+corepack yarn workspace @transloadit/types pack --out /tmp/transloadit-types.tgz
+corepack yarn workspace @transloadit/utils pack --out /tmp/transloadit-utils.tgz
+```
+
+Then, from your Next.js app, install those tarballs. Include local `utils` so the app exercises the
+same signing code as the SDK checkout:
+
+```bash
+corepack yarn add @transloadit/img@file:/tmp/transloadit-img.tgz @transloadit/node@file:/tmp/transloadit-node.tgz @transloadit/utils@file:/tmp/transloadit-utils.tgz
+corepack yarn add -D @transloadit/types@file:/tmp/transloadit-types.tgz
+```
+
+The Assembly client and instruction types are only needed by the seed script; `@transloadit/img`
+does not add them to the browser or require an Assembly for each render.
+
+### Configure the two key purposes
+
+Use credentials from the **same workspace**, in server-only environment configuration such as an
+untracked `.env.local`:
+
+- `TRANSLOADIT_ASSEMBLY_KEY` and `TRANSLOADIT_ASSEMBLY_SECRET`: an **Assembly Auth Key** and its
+  secret, used to sign the one-time upload/store Assembly.
+- `TRANSLOADIT_SMART_CDN_KEY` and `TRANSLOADIT_SMART_CDN_SECRET`: a **Smart CDN Auth Key** and its
+  secret, used to sign delivery URLs. An Assembly-only key cannot replace this key.
+- `TRANSLOADIT_WORKSPACE`: that workspace's URL slug.
+
+Do not use a `NEXT_PUBLIC_` prefix or commit credentials. The rendering application only needs
+the Smart CDN credentials; keep the write-capable Assembly credentials in the seeding environment.
+
+### Store one image and keep its verified metadata
+
+Save this as `seed.ts` in the app. `createAssembly()` signs with the Assembly secret. The `stored`
+export step annotates its input: the receipt is in **`results[':original']`**, not `results.stored`.
+This recipe checks completion, a typed `asset_id`, the returned path, byte count, MD5, and positive
+image dimensions against the uploaded file. Those fields were verified in a real Storage canary.
+
+```ts
+import type { InterpolatableRobotTransloaditStoreInstructions } from '@transloadit/types/robots'
+
+import { createHash } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
+
+import { Transloadit } from '@transloadit/node'
+
+/** An application-owned record saved once after upload, not fetched during rendering. */
+export interface StoredImageReceipt {
+  asset_id: string
+  height: number
+  md5hash: string
+  path: string
+  size: number
+  width: number
+}
+
+/** Seed one image with an Assembly key and verify its returned Storage receipt. */
+export async function seedStorageImage(
+  client: Transloadit,
+  filePath: string,
+): Promise<StoredImageReceipt> {
+  const bytes = await readFile(filePath)
+  const expectedMd5 = createHash('md5').update(bytes).digest('hex')
+  const stored = {
+    conflict_strategy: 'error',
+    path: 'website/${file.url_name}',
+    robot: '/transloadit/store',
+    use: ':original',
+  } satisfies InterpolatableRobotTransloaditStoreInstructions
+  const assembly = await client.createAssembly({
+    files: { photo: filePath },
+    params: { steps: { stored } },
+    waitForCompletion: true,
+  })
+  const result = assembly.results?.[':original']?.[0]
+  const width = result?.meta?.width
+  const height = result?.meta?.height
+  if (
+    assembly.ok !== 'ASSEMBLY_COMPLETED' ||
+    typeof result?.asset_id !== 'string' ||
+    result.asset_id === '' ||
+    typeof result.path !== 'string' ||
+    !result.path.startsWith('website/') ||
+    result.size !== bytes.length ||
+    bytes.length === 0 ||
+    result.md5hash !== expectedMd5 ||
+    typeof width !== 'number' ||
+    !Number.isSafeInteger(width) ||
+    width <= 0 ||
+    typeof height !== 'number' ||
+    !Number.isSafeInteger(height) ||
+    height <= 0
+  ) {
+    throw new Error('The Assembly did not return a matching Storage image receipt')
+  }
+  return {
+    asset_id: result.asset_id,
+    height,
+    md5hash: result.md5hash,
+    path: result.path,
+    size: result.size,
+    width,
+  }
+}
+
+async function main(): Promise<void> {
+  const authKey = process.env.TRANSLOADIT_ASSEMBLY_KEY
+  const authSecret = process.env.TRANSLOADIT_ASSEMBLY_SECRET
+  const filePath = process.argv[2]
+  if (!authKey || !authSecret || !filePath) {
+    throw new Error('Provide an Assembly key/secret and run: node seed.ts ./image.jpg')
+  }
+  const client = new Transloadit({
+    authKey,
+    authSecret,
+    endpoint: process.env.TRANSLOADIT_ASSEMBLY_ENDPOINT,
+  })
+  console.log(JSON.stringify(await seedStorageImage(client, filePath), null, 2))
+}
+
+if (import.meta.main) {
+  main().catch((error: unknown) => {
+    console.error(error)
+    process.exitCode = 1
+  })
+}
+```
+
+Run it once for an image you want to store, keeping the printed record as app data:
+
+```bash
+node --env-file=.env.local seed.ts ./canal-house.jpg > image.json
+```
+
+Proceed only when the command exits successfully. `conflict_strategy: 'error'` makes a repeated
+upload to the same path fail rather than silently replacing an asset. Choose a different filename
+or an intentional conflict policy for another upload. This small recipe reads the image into
+memory to verify its checksum; it is not a bulk-ingestion tool.
+
+The resulting JSON contains `asset_id`, `path`, `size`, `md5hash`, `width`, and `height`. Keep it
+alongside your content or in your application's database; rendering needs no metadata request.
+The `asset_id` identifies the stored asset, while the returned `path` is the component's `src`.
+Only the dimensions and path need to enter image markup.
+
+### Render the stored image
+
+Create the server-only `lib/transloaditImage.tsx` module shown below, then use the saved record
+(this example keeps `image.json` in the app root):
+
+```tsx
+import image from '../image.json'
+import { Image } from '../lib/transloaditImage.tsx'
+
+export default function Page() {
+  return (
+    <Image
+      alt="A canal house"
+      height={image.height}
+      sizes="(min-width: 960px) 960px, 100vw"
+      src={image.path}
+      style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
+      width={image.width}
+    />
+  )
+}
+```
+
+The dimensions come from the receipt, not the display box. The CSS preserves those proportions
+and caps the displayed width at 960px. This uses direct delivery; choose the authorized-redirect
+configuration below instead if the page may outlive a signature.
+
+### Direct devdock origin
+
+For a local devdock seed only, set `TRANSLOADIT_ASSEMBLY_ENDPOINT` to your trusted Assembly API
+endpoint. This is separate from the Smart CDN origin. For direct devdock image delivery, configure
+the image factory with the trusted URL Transform `baseUrl` (including its `{workspace}` placeholder)
+and `urlParams: { cdn: 'required' }`. This supplies API2's explicit `cdn: required` acknowledgment
+because native image requests cannot attach a custom header. It does **not** install a CDN or
+bypass signatures. Keep the Smart CDN key and secret, and never take either override from a request.
+Normal Smart CDN delivery needs neither local override.
+
 ## Next.js
 
 The server entry point targets the Next.js 16 App Router with `cacheComponents: true` in
@@ -20,8 +213,8 @@ Create one server-only application module. The factory does not read environment
 ```tsx
 import { createTransloaditImage } from '@transloadit/img/next/server'
 
-const authKey = process.env.TRANSLOADIT_KEY
-const authSecret = process.env.TRANSLOADIT_SECRET
+const authKey = process.env.TRANSLOADIT_SMART_CDN_KEY
+const authSecret = process.env.TRANSLOADIT_SMART_CDN_SECRET
 const workspace = process.env.TRANSLOADIT_WORKSPACE
 
 if (!authKey || !authSecret || !workspace) {
@@ -250,8 +443,10 @@ corepack yarn workspace @transloadit/img check
 corepack yarn test:img:fixture
 ```
 
-The fixture packs the published artifacts, installs them into a clean Next.js 16 App Router app,
-builds partially prerendered and dynamic routes, starts the production server, probes route
+The fixture packs the image, SDK, instruction-type, and signing artifacts and installs them into a
+clean Next.js 16 App Router app. It executes this exact seed recipe against mocked Assembly receipts
+without network access, compiles it against the packed SDK/types, builds partially prerendered and
+dynamic routes, starts the production server, probes route
 authorization and capability tampering, checks for secret leakage, and reports direct-versus-
 redirect HTML size and route work for 1, 20, and 100 images. Size measurements are deterministic;
 wall-clock measurements are diagnostic and do not create flaky CI thresholds.

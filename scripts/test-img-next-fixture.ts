@@ -200,6 +200,12 @@ async function runImageBenchmark(
 
 async function main(): Promise<void> {
   const repoRoot = resolve(import.meta.dirname, '..')
+  const seed = await readFile(resolve(import.meta.dirname, 'fixtures/img-next/seed.ts'), 'utf8')
+  const readme = await readFile(resolve(repoRoot, 'packages/img/README.md'), 'utf8')
+  assert(
+    readme.includes(`\`\`\`ts\n${seed}\`\`\``),
+    'The documented seed recipe differs from the tested fixture',
+  )
   const temporaryRoot = await mkdtemp(resolve(tmpdir(), 'transloadit-img-next-'))
   const fixtureDir = resolve(temporaryRoot, 'fixture')
   const packDir = resolve(temporaryRoot, 'pack')
@@ -210,32 +216,20 @@ async function main(): Promise<void> {
       cp(resolve(import.meta.dirname, 'fixtures/img-next'), fixtureDir, { recursive: true }),
       mkdir(packDir),
     ])
-    await execa(
-      'corepack',
-      [
-        'yarn',
-        'workspace',
-        '@transloadit/img',
-        'pack',
-        '--out',
-        resolve(packDir, 'transloadit-img-0.0.0.tgz'),
-      ],
-      { cwd: repoRoot, stdio: 'inherit' },
-    )
-    await execa(
-      'npm',
-      ['pack', resolve(repoRoot, 'packages/utils'), '--pack-destination', packDir],
-      {
-        cwd: repoRoot,
-        stdio: 'inherit',
-      },
-    )
-    const tarballs = (await readdir(packDir)).filter((name) => name.endsWith('.tgz'))
-    assert(tarballs.length === 2, `Expected two package tarballs, found ${tarballs.length}`)
-    const imageTarball = tarballs.find((name) => name.startsWith('transloadit-img-'))
-    const utilsTarball = tarballs.find((name) => name.startsWith('transloadit-utils-'))
-    assert(imageTarball !== undefined, 'Expected an @transloadit/img package tarball')
-    assert(utilsTarball !== undefined, 'Expected an @transloadit/utils package tarball')
+    const tarballs: string[] = []
+    // Package builds share dependencies, so pack sequentially to avoid racing their dist cleanup.
+    for (const name of ['img', 'node', 'types', 'utils']) {
+      const tarball = resolve(packDir, `transloadit-${name}.tgz`)
+      await execa(
+        'corepack',
+        ['yarn', 'workspace', `@transloadit/${name}`, 'pack', '--out', tarball],
+        {
+          cwd: repoRoot,
+          stdio: 'inherit',
+        },
+      )
+      tarballs.push(tarball)
+    }
     await execa('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], {
       cwd: fixtureDir,
       stdio: 'inherit',
@@ -250,11 +244,11 @@ async function main(): Promise<void> {
         '--no-save',
         '--prefer-offline',
         '--package-lock=false',
-        resolve(packDir, utilsTarball),
-        resolve(packDir, imageTarball),
+        ...tarballs,
       ],
       { cwd: fixtureDir, stdio: 'inherit' },
     )
+    await execa(process.execPath, ['--test', 'seed.test.ts'], { cwd: fixtureDir, stdio: 'inherit' })
     await execa('npm', ['run', 'build'], { cwd: fixtureDir, stdio: 'inherit' })
 
     const appOutput = resolve(fixtureDir, '.next/server/app')

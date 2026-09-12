@@ -660,6 +660,7 @@ export type AssemblyStatusUploads = z.infer<typeof assemblyStatusUploadsSchema>
 export const assemblyStatusResultSchema = z
   .object({
     id: z.string().optional(),
+    asset_id: z.string().optional(),
     basename: z.string().nullable().optional(),
     field: z.string().nullable().optional(),
     md5hash: z.string().nullable().optional(),
