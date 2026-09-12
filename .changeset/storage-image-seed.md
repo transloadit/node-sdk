@@ -7,4 +7,5 @@
 ---
 
 Include the Transloadit Storage import and store Robots in the offline catalog and generated
-instructions, and type the optional `asset_id` in Assembly results.
+instructions, and type the optional `asset_id` in Assembly results. Recognize Storage import/store
+error codes in response validation and terminal-status helpers, preserving API errors while polling.

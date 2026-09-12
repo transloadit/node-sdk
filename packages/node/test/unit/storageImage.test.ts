@@ -67,7 +67,40 @@ test('stores one original at the exact destination and returns only the verified
   })
 })
 
-test.each([
+test.each<[string | number | null | undefined, number, number]>([
+  [undefined, 450, 600],
+  [null, 450, 600],
+  ['Horizontal (normal)', 450, 600],
+  ['Mirror horizontal', 450, 600],
+  ['Rotate 180', 450, 600],
+  ['Mirror vertical', 450, 600],
+  ['Mirror horizontal and rotate 270 CW', 600, 450],
+  ['Rotate 90 CW', 600, 450],
+  ['Mirror horizontal and rotate 90 CW', 600, 450],
+  ['Rotate 270 CW', 600, 450],
+  [1, 450, 600],
+  [2, 450, 600],
+  [3, 450, 600],
+  [4, 450, 600],
+  [5, 600, 450],
+  [6, 600, 450],
+  [7, 600, 450],
+  [8, 600, 450],
+])('returns display dimensions for EXIF orientation %j', async (orientation, width, height) => {
+  // API2's file-info/rotated_8.jpg.json reports 450×600 with "Rotate 90 CW".
+  const meta = { width: 450, height: 600, orientation }
+  const { client } = fixture({
+    ...completed,
+    results: { ':original': [{ ...receipt, meta }] },
+  })
+  await expect(client.storeImage(filePath, { path: receipt.path })).resolves.toMatchObject({
+    width,
+    height,
+  })
+  expect(meta).toEqual({ width: 450, height: 600, orientation })
+})
+
+test.each<[string, AssemblyStatus]>([
   ['missing results', { ...completed, results: undefined }],
   ['missing original', { ...completed, results: { stored: [receipt] } }],
   ['empty original', { ...completed, results: { ':original': [] } }],
@@ -155,7 +188,7 @@ test('preserves upload/polling options without permitting replacement instructio
 test('preserves conflict and timeout errors from the existing Assembly client', async () => {
   const { client, create } = fixture()
   const conflict = new ApiError({
-    body: { error: 'STORAGE_PATH_CONFLICT', assembly_id: 'conflict' },
+    body: { error: 'TRANSLOADIT_STORE_CONFLICT', assembly_id: 'conflict' },
   })
   create.mockImplementationOnce(() => {
     throw conflict

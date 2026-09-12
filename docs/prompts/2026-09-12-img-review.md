@@ -1,5 +1,51 @@
 # Storage image onboarding review
 
+## Final round-2 council
+
+The orchestrator supplied `/tmp/img-pr500-final-council.md` against `0f214f8`.
+Keep these fixes in #500, with no merge/publication or duplicate council round.
+Latest `origin/main` is already an ancestor of this branch.
+
+- [x] Return EXIF-oriented receipt dimensions, covering rotated and unchanged inputs red-first.
+- [x] Add the eight Storage error codes without copying the divergent status schema wholesale;
+      reproduce strict-response polling and terminal-status failures first.
+- [x] Fix the test table's widened `ok` type and verify its diagnostic disappears.
+- [x] Explain that module-scoped rendering credentials are needed during `next build` and runtime.
+- [x] Keep the import schema byte-identical (`a2fb4693f48ffb5c7f56c62fda065c391b7bc919`);
+      document the API2-owned `recursive`/`files_per_page` gap in the PR body.
+
+Run sequential affected-package, root, full and packed-fixture checks before pushing; monitor
+the resulting head on #500. The final CI result and head are recorded in the PR body and
+`/tmp/img-pr500-final-council-result.md`, with resume context in `/tmp/img-task2-handover.md`.
+
+The focused runtime run failed 18 cases before implementation, then passed 88 cases with one
+existing skip. The packed regression also failed first: a real 450×600 EXIF-6 JPEG, with metadata
+matching API2's `rotated_8.jpg` fixture, returned width 450 instead of its oriented width 600.
+That test also checks the receipt-to-model 320×240 candidate against a real auto-oriented decode.
+The unit table covers all eight numeric EXIF orientations and their
+[ExifTool labels](https://github.com/exiftool/exiftool/blob/master/lib/Image/ExifTool/Exif.pm), plus
+absent/null orientation. The original metadata is not mutated.
+
+The status schema gets only the eight targeted enum entries, confirmed against API2's canonical
+status schema and `damStoreErrors.ts`. HTTP polling with `validateResponses: true` now retains
+`TRANSLOADIT_STORE_CONFLICT`; `createAssembly({ waitForCompletion: true })` exposes `ApiError.code`.
+The old mocked `STORAGE_PATH_CONFLICT` spelling was corrected in the existing preservation test.
+
+The standalone Node test tsconfig had 37 existing diagnostics on the review head, including the
+reported table error. After the fix it has 36: only this PR's table diagnostic disappeared, with
+no new diagnostics. Do not confuse that broader non-required test config with the passing package
+build/typecheck. The affected Node package check passes 312 tests with one existing skip.
+Unrelated generated intent-document drift from that package check was removed byte-for-byte.
+Logs: `/tmp/img-final-council-{red,green,packed-red,types-red,types-after,node-check}.log`.
+
+Final local verification passed sequentially: generated legacy wrapper, img package (126 tests
+plus public types), root `yarn check`, `yarn verify:full`, and the packed production fixture.
+All seven offline seed tests pass, including the EXIF JPEG. Both browser configurations passed
+18/18 (55.9s enabled, 52.7s omitted); all 36 have response-audit attachments and zero retries,
+skips or flaky results. The 36 remaining standalone test-config diagnostics are in eleven files
+unchanged by #500. No browser harness, import schema, API2 implementation or credential file changed.
+Logs: `/tmp/img-final-council-{legacy,img-check,check,verify,fixture}.log`.
+
 ## Why
 
 Finish the complete Storage image DX in one reviewable PR, node-sdk #500 against `main`.

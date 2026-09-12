@@ -165,6 +165,8 @@ steps or enables overwrite. Use `createAssembly()` for multi-file or transformat
 
 The resulting JSON contains `asset_id`, `path`, `size`, `md5hash`, `width`, and `height`. Keep it
 alongside your content or in your application's database; rendering needs no metadata request.
+The dimensions account for EXIF orientation, matching Storage preview's automatic rotation:
+a stored 450×600 photo tagged “Rotate 90 CW” returns a 600×450 display size.
 The `asset_id` identifies the stored asset. Pass the whole receipt as `src`; only its `path`,
 `width` and `height` are used. No receipt ID, checksum or other ancillary fields enter markup or
 signing, and the rendering package does not import the Assembly client.
@@ -181,6 +183,9 @@ export const { Image } = createTransloaditImageFromEnv({
   storage: { allowedPathPrefixes: ['website/'] },
 })
 ```
+
+All three rendering variables must be available at build time (`next build`) as well as at runtime,
+because Next evaluates this module-scoped factory when building routes that import it.
 
 The Auth Secret stays in the server module and never enters rendered markup or a client bundle.
 Signed browser URLs contain the public Auth Key identifier, as required by Smart CDN verification.

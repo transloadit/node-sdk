@@ -21,6 +21,7 @@ test('keeps seed credentials outside Next and defines the factory before its fir
   const firstRender = readme.indexOf("import { Image } from '../lib/transloaditImage.tsx'")
   expect(factory).toBeGreaterThan(0)
   expect.soft(firstRender).toBeGreaterThan(factory)
+  expect.soft(readme.slice(factory, firstRender)).toMatch(/build time \(`next build`\).*runtime/s)
 })
 
 test('locks every external runtime dependency of the packed image package', async () => {

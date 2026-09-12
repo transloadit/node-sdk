@@ -7,7 +7,10 @@ import { z } from 'zod'
 
 import InconsistentResponseError from './InconsistentResponseError.ts'
 
-/** Verified Storage metadata that can be saved and passed directly to an image renderer. */
+/**
+ * Verified Storage metadata that can be saved and passed directly to an image renderer.
+ * Width and height reflect EXIF auto-orientation, matching Storage preview delivery.
+ */
 export interface StoredImageReceipt {
   readonly asset_id: string
   readonly height: number
@@ -28,6 +31,17 @@ export interface StoreImageOptions
 }
 
 const positiveIntegerSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
+// API2 exposes EXIFTool's orientation labels; numeric EXIF tags use the same axis swap.
+const dimensionSwappingOrientations = new Set<string | number>([
+  5,
+  6,
+  7,
+  8,
+  'Mirror horizontal and rotate 270 CW',
+  'Rotate 90 CW',
+  'Mirror horizontal and rotate 90 CW',
+  'Rotate 270 CW',
+])
 const completedImageSchema = z.object({
   ok: z.literal('ASSEMBLY_COMPLETED'),
   results: z.object({
@@ -38,7 +52,11 @@ const completedImageSchema = z.object({
           .min(1)
           .refine((value) => value.trim() === value),
         md5hash: z.string(),
-        meta: z.object({ height: positiveIntegerSchema, width: positiveIntegerSchema }),
+        meta: z.object({
+          height: positiveIntegerSchema,
+          orientation: z.union([z.string(), z.number()]).nullable().optional(),
+          width: positiveIntegerSchema,
+        }),
         path: z.string(),
         size: positiveIntegerSchema,
       }),
@@ -107,12 +125,14 @@ export async function storeImage(
       },
     )
   }
+  const { height, orientation, width } = result.meta
+  const swapDimensions = orientation != null && dimensionSwappingOrientations.has(orientation)
   return {
     asset_id: result.asset_id,
-    height: result.meta.height,
+    height: swapDimensions ? width : height,
     md5hash,
     path,
     size,
-    width: result.meta.width,
+    width: swapDimensions ? height : width,
   }
 }
