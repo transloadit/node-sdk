@@ -17,7 +17,7 @@ The orchestrator supplied the whole-stack council review; do not duplicate that 
 - [x] Dogfood one local Content consumer against the isolated canary devdock using the packed
       README recipe, then run the fresh-reader user test. Record `/tmp/img-dogfood-round1.md`.
 - [x] Add the approved native-browser proof in this same PR after dogfood and the user test.
-- [ ] Monitor the browser-proof commit's GitHub checks; keep README feedback for the next brief.
+- [x] Monitor the browser-proof commit's GitHub checks; keep README feedback for the next brief.
 
 The two P3 fixes belong at the top of the existing `img-onboard` branch. No rebase or force push
 is needed. Transparency, package publication, API2 implementation, and production access remain
@@ -62,3 +62,42 @@ production CDN caching, transparency, other browsers, or improved production lat
 
 Logs: `/tmp/img-task2-e-{check,verify,img-check,final-fixture}.log`.
 Local browser evidence: `test-results/img-next/results.json` (ignored build artifact).
+
+## Round 2
+
+The accepted brief is `/tmp/img-task2-round2-brief.md`; the linked independent Codex triage was
+read in full. Keep all work in #500 with no merge, release, production access, API2 changes, or
+edits to credential files. Council remains orchestrator-owned. Four follow-up commits:
+
+- [x] Browser proof: production Cache Components enabled and omitted, distinct app/CDN hostnames,
+      host-wide HttpOnly cookie exclusion at the CDN, JPEG fallback, and WebKit if inexpensive.
+- [ ] Sequential first-image walkthrough: close all eleven reader questions and document the
+      full-cover `sizes` rule. Match the literal tested seed and repeat the Yarn consumer install.
+- [ ] SDK `storeImage` plus receipt-as-`src`: stream the checksum, validate the one completed
+      receipt, preserve cancellation/progress, ship packed exports and legacy wrapper. Snapshot
+      source geometry before suspension without weakening loading or authorization contracts.
+- [ ] Explicit-policy env factory: read the three rendering variables once, require `storage`,
+      retain deny-all/redirect overloads, reject invalid environment without exposing secrets.
+
+Before each push, run affected package checks, `yarn verify:full`, and the packed fixture
+sequentially. Keep image layout APIs, CLI Storage commands, default-delivery changes, JPEG fallback
+sizing changes, alpha preservation and production deployment outside this round.
+
+Round-2 browser verification passed 36/36 cases: Chromium and WebKit with Cache Components
+enabled (55.0s) and omitted (51.5s), no skips/retries. `yarn check`, the img package checks, and
+`yarn verify:full` passed before the final packed run. Logs: `/tmp/img-round2-1-*.log`.
+Evidence now lives under `test-results/img-next/{enabled,omitted}/results.json`.
+
+The hostname regression failed first: a host-wide cookie reached the old same-host CDN. Next
+now uses `127.0.0.1`, the CDN uses `localhost`, and no CDN request receives the session cookie.
+Chromium's explicit loopback permission is fixture-origin-only; fulfilled HTML otherwise lacks
+network address-space classification. The JPEG test disables modern sources before HTML parsing,
+not through failed HTTP responses, and verifies the existing source-width fallback policy.
+
+Fresh cookie-cloned browsing contexts exercise new grant requests: WebKit may reuse an image it
+already decoded without HTTP, which is not new authorization and does not recall downloaded bytes.
+The original lazy capability stays untouched in the main page. Prerender screenshots use another
+context so fake empty bootstrap modules cannot contaminate the real page's WebKit module cache.
+The benchmark route uses an ordinary Suspense boundary instead of the Cache-Components-only
+`instant` setting. Both direct and private hero/avatar images decode before application JavaScript
+is released; the subsequent button interaction verifies hydration in both browsers.

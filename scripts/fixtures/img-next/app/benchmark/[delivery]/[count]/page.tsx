@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 import { notFound } from 'next/navigation.js'
+import { Suspense } from 'react'
 
 import { TransloaditImage } from '../../../TransloaditImage.tsx'
 import { TransloaditRedirectImage } from '../../../TransloaditRedirectImage.tsx'
@@ -11,9 +12,7 @@ interface PageProps {
 
 const benchmarkCounts = new Set([1, 20, 100])
 
-export const instant = false
-
-export default async function Page({ params }: PageProps): Promise<ReactNode> {
+async function Benchmark({ params }: PageProps): Promise<ReactNode> {
   const { count: countValue, delivery } = await params
   const count = Number(countValue)
   if (!benchmarkCounts.has(count) || (delivery !== 'direct' && delivery !== 'redirect')) {
@@ -35,4 +34,12 @@ export default async function Page({ params }: PageProps): Promise<ReactNode> {
     )
   }
   return <main>{images}</main>
+}
+
+export default function Page({ params }: PageProps): ReactNode {
+  return (
+    <Suspense fallback={null}>
+      <Benchmark params={params} />
+    </Suspense>
+  )
 }

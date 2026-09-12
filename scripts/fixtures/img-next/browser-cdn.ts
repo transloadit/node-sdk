@@ -18,7 +18,7 @@ interface FixtureCdn {
 /** An owned origin with independent HMAC validation and real AVIF/WebP/JPEG response bytes. */
 export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
   const endpoint = new URL(origin)
-  assert.equal(endpoint.hostname, '127.0.0.1')
+  assert.equal(endpoint.hostname, 'localhost')
   assert.equal(endpoint.protocol, 'http:')
   const requests: { url: string; status: number; cookie: string | undefined }[] = []
   const errors: unknown[] = []
@@ -86,7 +86,7 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
       response.writeHead(500).end()
     })
   })
-  server.listen(Number(endpoint.port), endpoint.hostname)
+  server.listen(Number(endpoint.port), '127.0.0.1')
   await once(server, 'listening')
   return {
     requests,

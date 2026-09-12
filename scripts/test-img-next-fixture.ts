@@ -65,6 +65,7 @@ async function fetchWhenReady(url: string, signal?: AbortSignal): Promise<Respon
 async function withFixtureServer(
   fixtureDir: string,
   cdnOrigin: string,
+  cacheComponents: string,
   verify: (baseUrl: string) => Promise<void>,
 ): Promise<void> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -84,7 +85,10 @@ async function withFixtureServer(
       ],
       {
         cwd: fixtureDir,
-        env: { IMG_FIXTURE_CDN_ORIGIN: cdnOrigin },
+        env: {
+          IMG_FIXTURE_CDN_ORIGIN: cdnOrigin,
+          IMG_FIXTURE_CACHE_COMPONENTS: cacheComponents,
+        },
         reject: false,
       },
     )
@@ -212,7 +216,7 @@ async function main(): Promise<void> {
   const temporaryRoot = await mkdtemp(resolve(tmpdir(), 'transloadit-img-next-'))
   const fixtureDir = resolve(temporaryRoot, 'fixture')
   const packDir = resolve(temporaryRoot, 'pack')
-  const cdnOrigin = `http://127.0.0.1:${await getFreePort()}`
+  const cdnOrigin = `http://localhost:${await getFreePort()}`
 
   try {
     // Keep the entire external execution graph reviewable and age-gated in the repository.
@@ -253,154 +257,167 @@ async function main(): Promise<void> {
       { cwd: fixtureDir, stdio: 'inherit' },
     )
     await execa(process.execPath, ['--test', 'seed.test.ts'], { cwd: fixtureDir, stdio: 'inherit' })
-    await execa('npm', ['run', 'build'], {
-      cwd: fixtureDir,
-      env: { IMG_FIXTURE_CDN_ORIGIN: cdnOrigin },
-      stdio: 'inherit',
-    })
-
-    const appOutput = resolve(fixtureDir, '.next/server/app')
-    const outputNames = await readdir(appOutput, { recursive: true })
-    assert(
-      outputNames.includes('storage-image.html'),
-      'Expected a safe partial-prerender Storage shell',
+    const playwright = resolve(fixtureDir, 'node_modules/@playwright/test/cli.js')
+    await execa(
+      process.execPath,
+      [
+        playwright,
+        'install',
+        ...(process.env.CI && process.platform === 'linux' ? ['--with-deps'] : []),
+        'chromium',
+        'webkit',
+      ],
+      { cwd: fixtureDir, stdio: 'inherit' },
     )
-    assert(
-      outputNames.includes('storage-redirect.html'),
-      'Expected redirect-delivery markup to prerender',
-    )
-    const storageShell = await readFile(resolve(appOutput, 'storage-image.html'), 'utf8')
-    assert(
-      /<picture><img\b/.test(storageShell),
-      'Storage placeholder does not retain picture-based CSS selectors',
-    )
-    assert(
-      storageShell.includes('visibility:hidden'),
-      'Storage shell does not reserve image layout',
-    )
-    assert(
-      storageShell.includes('width="2400"') && storageShell.includes('height="1600"'),
-      'Hero source dimensions are absent',
-    )
-    assert(
-      storageShell.includes('height:auto;max-width:960px;width:100%'),
-      'Hero responsive CSS is absent',
-    )
-    assert(storageShell.includes('height:48px;width:48px'), 'Avatar CSS box is absent')
-    assert(
-      !storageShell.includes('builtin%2Fstorage-preview%400.0.1'),
-      'A signed Storage URL leaked into the prerendered shell',
-    )
-    await assertTreeExcludes(resolve(fixtureDir, '.next/static'), fixtureSecret)
-    await assertTreeExcludes(appOutput, fixtureSecret)
-
-    await withFixtureServer(fixtureDir, cdnOrigin, async (baseUrl) => {
-      const storageHtml = await (await fetchWhenReady(`${baseUrl}/fixture/storage-image`)).text()
-      const redirectResponse = await fetchWhenReady(`${baseUrl}/fixture/storage-redirect`)
-      const redirectLinkHeader = redirectResponse.headers.get('link') ?? ''
-      const redirectHtml = await redirectResponse.text()
-      const imagePreloads = (redirectHtml.match(/<link\b[^>]*>/g) ?? []).filter(
-        (tag) => tag.includes('rel="preload"') && tag.includes('as="image"'),
-      )
-      assert(
-        imagePreloads.length === 1,
-        `Expected one responsive image preload; HTML=${JSON.stringify(imagePreloads)} Link=${redirectLinkHeader}`,
-      )
-      const headEnd = redirectHtml.indexOf('</head>')
-      assert(
-        headEnd > 0 && imagePreloads.every((tag) => redirectHtml.indexOf(tag) < headEnd),
-        'Responsive image preloads were not hoisted into the document head',
-      )
-      assert(imagePreloads[0]?.includes('imageSrcSet='), 'Responsive preload srcset is absent')
-      assert(
-        storageHtml.includes('builtin%2Fstorage-preview%400.0.1'),
-        'Storage Built-in is absent',
-      )
-      assert(storageHtml.includes('r=pad'), 'Storage preview does not preserve exact dimensions')
-      assert(storageHtml.includes('q=45'), 'Storage preview does not apply format-specific quality')
-      assert(
-        redirectHtml.includes('/fixture/api/private-images?'),
-        'Authorized Storage route is absent',
-      )
-      assert(
-        !redirectHtml.includes('builtin%2Fstorage-preview%400.0.1'),
-        'Redirect markup contains a direct signed Storage URL',
-      )
-      assert(!storageHtml.includes(fixtureSecret), 'Secret leaked into Storage output')
-      assert(!redirectHtml.includes(fixtureSecret), 'Secret leaked into redirect output')
-      assert(
-        storageHtml.includes(' 48w') && storageHtml.includes(' 96w'),
-        'Avatar candidates are absent',
-      )
-      assert(storageHtml.includes('sizes="48px"'), 'Avatar sizes are absent')
-
-      const routeCandidate = getFirstPictureCandidates(redirectHtml)[0]
-      assert(routeCandidate !== undefined, 'Expected a redirect route candidate')
-      const routeUrl = new URL(routeCandidate, baseUrl)
-      const beforeAuthorization = Date.now()
-      const allowed = await fetch(routeUrl, {
-        headers: { Cookie: 'fixture-session=fixture' },
-        redirect: 'manual',
-      })
-      assert(allowed.status === 307, 'Authorized Storage route did not redirect')
-      assert((await allowed.text()) === '', 'Authorized Storage route must not proxy image bytes')
-      const location = allowed.headers.get('location')
-      assert(location !== null, 'Authorized Storage route has no target')
-      const expiresAt = Number(new URL(location).searchParams.get('exp'))
-      assert(
-        expiresAt >= beforeAuthorization + 5 * 60 * 1000 && expiresAt <= Date.now() + 330_000,
-        'Redirect fixture did not use the documented five-minute plus 30-second grant',
-      )
-      assert(
-        allowed.headers.get('location')?.startsWith(`${cdnOrigin}/`) === true,
-        'Authorized Storage route did not target Smart CDN',
-      )
-      const allowedHead = await fetch(routeUrl, {
-        headers: { Cookie: 'fixture-session=fixture' },
-        method: 'HEAD',
-        redirect: 'manual',
-      })
-      assert(allowedHead.status === 307, 'Authorized Storage route did not support HEAD')
-      assert((await allowedHead.text()) === '', 'Authorized HEAD response contained a body')
-      const denied = await fetch(routeUrl, { redirect: 'manual' })
-      assert(denied.status === 404, 'Unauthorized Storage route did not conceal the object')
-      const capability = routeUrl.searchParams.get('cap')
-      assert(capability !== null, 'Authorized Storage route capability is absent')
-      const replacement = capability.endsWith('A') ? 'B' : 'A'
-      routeUrl.searchParams.set('cap', `${capability.slice(0, -1)}${replacement}`)
-      const altered = await fetch(routeUrl, {
-        headers: { Cookie: 'fixture-session=fixture' },
-        redirect: 'manual',
-      })
-      assert(altered.status === 404, 'Storage route accepted an altered transform capability')
-
-      const benchmarks: ImageBenchmarkResult[] = []
-      for (const count of benchmarkCounts) {
-        benchmarks.push(await runImageBenchmark(baseUrl, cdnOrigin, count, 'direct'))
-        benchmarks.push(await runImageBenchmark(baseUrl, cdnOrigin, count, 'redirect'))
-      }
-      console.table(benchmarks)
-      const playwright = resolve(fixtureDir, 'node_modules/@playwright/test/cli.js')
-      await execa(
-        process.execPath,
-        [
-          playwright,
-          'install',
-          ...(process.env.CI && process.platform === 'linux' ? ['--with-deps'] : []),
-          'chromium',
-        ],
-        { cwd: fixtureDir, stdio: 'inherit' },
-      )
-      await execa(process.execPath, [playwright, 'test'], {
+    for (const cacheComponents of ['enabled', 'omitted']) {
+      console.log(`Production fixture: cacheComponents ${cacheComponents}`)
+      await execa('npm', ['run', 'build'], {
         cwd: fixtureDir,
         env: {
-          IMG_FIXTURE_BASE_URL: baseUrl,
           IMG_FIXTURE_CDN_ORIGIN: cdnOrigin,
-          IMG_FIXTURE_OUTPUT_DIR: resolve(repoRoot, 'test-results/img-next'),
+          IMG_FIXTURE_CACHE_COMPONENTS: cacheComponents,
         },
         stdio: 'inherit',
       })
-    })
+
+      const appOutput = resolve(fixtureDir, '.next/server/app')
+      const outputNames = await readdir(appOutput, { recursive: true })
+      assert(
+        outputNames.includes('storage-image.html') === (cacheComponents === 'enabled'),
+        'Only Cache Components should emit a partial-prerender Storage shell',
+      )
+      assert(
+        outputNames.includes('storage-redirect.html'),
+        'Expected redirect-delivery markup to prerender',
+      )
+      if (cacheComponents === 'enabled') {
+        const storageShell = await readFile(resolve(appOutput, 'storage-image.html'), 'utf8')
+        assert(
+          /<picture><img\b/.test(storageShell),
+          'Storage placeholder does not retain picture-based CSS selectors',
+        )
+        assert(
+          storageShell.includes('visibility:hidden'),
+          'Storage shell does not reserve image layout',
+        )
+        assert(
+          storageShell.includes('width="2400"') && storageShell.includes('height="1600"'),
+          'Hero source dimensions are absent',
+        )
+        assert(
+          storageShell.includes('height:auto;max-width:960px;width:100%'),
+          'Hero responsive CSS is absent',
+        )
+        assert(storageShell.includes('height:48px;width:48px'), 'Avatar CSS box is absent')
+        assert(
+          !storageShell.includes('builtin%2Fstorage-preview%400.0.1'),
+          'A signed Storage URL leaked into the prerendered shell',
+        )
+      }
+      await assertTreeExcludes(resolve(fixtureDir, '.next/static'), fixtureSecret)
+      await assertTreeExcludes(appOutput, fixtureSecret)
+
+      await withFixtureServer(fixtureDir, cdnOrigin, cacheComponents, async (baseUrl) => {
+        const storageHtml = await (await fetchWhenReady(`${baseUrl}/fixture/storage-image`)).text()
+        const redirectResponse = await fetchWhenReady(`${baseUrl}/fixture/storage-redirect`)
+        const redirectLinkHeader = redirectResponse.headers.get('link') ?? ''
+        const redirectHtml = await redirectResponse.text()
+        const imagePreloads = (redirectHtml.match(/<link\b[^>]*>/g) ?? []).filter(
+          (tag) => tag.includes('rel="preload"') && tag.includes('as="image"'),
+        )
+        assert(
+          imagePreloads.length === 1,
+          `Expected one responsive image preload; HTML=${JSON.stringify(imagePreloads)} Link=${redirectLinkHeader}`,
+        )
+        const headEnd = redirectHtml.indexOf('</head>')
+        assert(
+          headEnd > 0 && imagePreloads.every((tag) => redirectHtml.indexOf(tag) < headEnd),
+          'Responsive image preloads were not hoisted into the document head',
+        )
+        assert(imagePreloads[0]?.includes('imageSrcSet='), 'Responsive preload srcset is absent')
+        assert(
+          storageHtml.includes('builtin%2Fstorage-preview%400.0.1'),
+          'Storage Built-in is absent',
+        )
+        assert(storageHtml.includes('r=pad'), 'Storage preview does not preserve exact dimensions')
+        assert(
+          storageHtml.includes('q=45'),
+          'Storage preview does not apply format-specific quality',
+        )
+        assert(
+          redirectHtml.includes('/fixture/api/private-images?'),
+          'Authorized Storage route is absent',
+        )
+        assert(
+          !redirectHtml.includes('builtin%2Fstorage-preview%400.0.1'),
+          'Redirect markup contains a direct signed Storage URL',
+        )
+        assert(!storageHtml.includes(fixtureSecret), 'Secret leaked into Storage output')
+        assert(!redirectHtml.includes(fixtureSecret), 'Secret leaked into redirect output')
+        assert(
+          storageHtml.includes(' 48w') && storageHtml.includes(' 96w'),
+          'Avatar candidates are absent',
+        )
+        assert(storageHtml.includes('sizes="48px"'), 'Avatar sizes are absent')
+
+        const routeCandidate = getFirstPictureCandidates(redirectHtml)[0]
+        assert(routeCandidate !== undefined, 'Expected a redirect route candidate')
+        const routeUrl = new URL(routeCandidate, baseUrl)
+        const beforeAuthorization = Date.now()
+        const allowed = await fetch(routeUrl, {
+          headers: { Cookie: 'fixture-session=fixture' },
+          redirect: 'manual',
+        })
+        assert(allowed.status === 307, 'Authorized Storage route did not redirect')
+        assert((await allowed.text()) === '', 'Authorized Storage route must not proxy image bytes')
+        const location = allowed.headers.get('location')
+        assert(location !== null, 'Authorized Storage route has no target')
+        const expiresAt = Number(new URL(location).searchParams.get('exp'))
+        assert(
+          expiresAt >= beforeAuthorization + 5 * 60 * 1000 && expiresAt <= Date.now() + 330_000,
+          'Redirect fixture did not use the documented five-minute plus 30-second grant',
+        )
+        assert(
+          allowed.headers.get('location')?.startsWith(`${cdnOrigin}/`) === true,
+          'Authorized Storage route did not target Smart CDN',
+        )
+        const allowedHead = await fetch(routeUrl, {
+          headers: { Cookie: 'fixture-session=fixture' },
+          method: 'HEAD',
+          redirect: 'manual',
+        })
+        assert(allowedHead.status === 307, 'Authorized Storage route did not support HEAD')
+        assert((await allowedHead.text()) === '', 'Authorized HEAD response contained a body')
+        const denied = await fetch(routeUrl, { redirect: 'manual' })
+        assert(denied.status === 404, 'Unauthorized Storage route did not conceal the object')
+        const capability = routeUrl.searchParams.get('cap')
+        assert(capability !== null, 'Authorized Storage route capability is absent')
+        const replacement = capability.endsWith('A') ? 'B' : 'A'
+        routeUrl.searchParams.set('cap', `${capability.slice(0, -1)}${replacement}`)
+        const altered = await fetch(routeUrl, {
+          headers: { Cookie: 'fixture-session=fixture' },
+          redirect: 'manual',
+        })
+        assert(altered.status === 404, 'Storage route accepted an altered transform capability')
+
+        const benchmarks: ImageBenchmarkResult[] = []
+        for (const count of benchmarkCounts) {
+          benchmarks.push(await runImageBenchmark(baseUrl, cdnOrigin, count, 'direct'))
+          benchmarks.push(await runImageBenchmark(baseUrl, cdnOrigin, count, 'redirect'))
+        }
+        console.table(benchmarks)
+        await execa(process.execPath, [playwright, 'test'], {
+          cwd: fixtureDir,
+          env: {
+            IMG_FIXTURE_BASE_URL: baseUrl,
+            IMG_FIXTURE_CDN_ORIGIN: cdnOrigin,
+            IMG_FIXTURE_CACHE_COMPONENTS: cacheComponents,
+            IMG_FIXTURE_OUTPUT_DIR: resolve(repoRoot, 'test-results/img-next', cacheComponents),
+          },
+          stdio: 'inherit',
+        })
+      })
+    }
   } finally {
     await rm(temporaryRoot, { force: true, recursive: true })
   }

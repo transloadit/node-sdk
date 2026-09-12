@@ -12,7 +12,7 @@ import { revokedAccessFile } from './browser-policy.ts'
 
 declare global {
   interface Window {
-    fixtureLcpMs: number
+    fixtureLcpMs: number | null
   }
 }
 
@@ -27,6 +27,13 @@ interface ImageEvidence {
 interface BrowserAudit {
   expectedFailures: Map<string, number>
   images: ImageEvidence[]
+  observePage(page: Page): Promise<void>
+  loadNativeImage(url: string): Promise<{
+    loaded: boolean
+    status: number
+    headers: Record<string, string>
+    bodyLength: number | undefined
+  }>
 }
 
 const cdnOrigin = process.env.IMG_FIXTURE_CDN_ORIGIN
@@ -35,7 +42,7 @@ let cdn: Awaited<ReturnType<typeof startFixtureCdn>>
 
 const test = base.extend<{ audit: BrowserAudit }>({
   audit: [
-    async ({ page, context }, use, info) => {
+    async ({ page, context, browserName }, use, info) => {
       const expectedFailures = new Map<string, number>()
       const images: ImageEvidence[] = []
       const errors: string[] = []
@@ -48,58 +55,125 @@ const test = base.extend<{ audit: BrowserAudit }>({
           name: 'fixture-session',
           value: 'fixture',
           domain: '127.0.0.1',
-          path: '/fixture',
+          path: '/',
           httpOnly: true,
           sameSite: 'Strict',
         },
       ])
-      await page.addInitScript(() => {
-        window.fixtureLcpMs = 0
-        new PerformanceObserver((list) => {
-          for (const entry of list.getEntries()) window.fixtureLcpMs = entry.startTime
-        }).observe({ buffered: true, type: 'largest-contentful-paint' })
-      })
-      await page.route('**/*', (route) => {
-        const url = new URL(route.request().url())
-        if (url.origin === cdnOrigin || url.origin === info.project.use.baseURL)
-          return route.continue()
-        errors.push(`Unexpected external request: ${url.origin}`)
-        return route.abort('blockedbyclient')
-      })
-      page.on('pageerror', (error) => errors.push(error.message))
-      page.on('console', (message) => {
-        if (message.type() !== 'error') return
-        const status = expectedFailures.get(message.location().url)
-        if (status !== undefined && message.text().includes(String(status))) return
-        errors.push(message.text())
-      })
-      page.on('requestfailed', (request) => {
-        if (!expectedFailures.has(request.url())) errors.push(`Failed request: ${request.url()}`)
-      })
-      page.on('response', (response) => {
-        if (
-          response.status() >= 400 &&
-          expectedFailures.get(response.url()) !== response.status()
-        ) {
-          errors.push(`HTTP ${response.status()}: ${response.url()}`)
-        }
-        if (response.ok() && response.request().resourceType() === 'image') {
-          reads.push(
-            (async () => {
-              const bytes = await response.body()
-              const metadata = await sharp(bytes).metadata()
-              images.push({
-                bytes: bytes.length,
-                contentType: response.headers()['content-type'],
-                height: metadata.height,
-                width: metadata.width,
-                url: response.url(),
+      if (browserName === 'chromium') {
+        // Fulfilled HTML has no network address-space classification. Explicitly grant access
+        // to our loopback fixture even in the no-JavaScript format-fallback scenario.
+        await context.grantPermissions(['local-network-access'], {
+          origin: info.project.use.baseURL,
+        })
+      }
+      async function observe(page: Page): Promise<void> {
+        await page.addInitScript(() => {
+          window.fixtureLcpMs = null
+          if (PerformanceObserver.supportedEntryTypes.includes('largest-contentful-paint')) {
+            new PerformanceObserver((list) => {
+              for (const entry of list.getEntries()) window.fixtureLcpMs = entry.startTime
+            }).observe({ buffered: true, type: 'largest-contentful-paint' })
+          }
+        })
+        await page.route('**/*', (route) => {
+          const url = new URL(route.request().url())
+          if (url.origin === cdnOrigin || url.origin === info.project.use.baseURL)
+            return route.continue()
+          errors.push(`Unexpected external request: ${url.origin}`)
+          return route.abort('blockedbyclient')
+        })
+        page.on('pageerror', (error) => errors.push(error.message))
+        page.on('console', (message) => {
+          if (message.type() !== 'error') return
+          const status = expectedFailures.get(message.location().url)
+          if (status !== undefined && message.text().includes(String(status))) return
+          errors.push(message.text())
+        })
+        page.on('requestfailed', (request) => {
+          if (!expectedFailures.has(request.url())) errors.push(`Failed request: ${request.url()}`)
+        })
+        page.on('response', (response) => {
+          if (
+            response.status() >= 400 &&
+            expectedFailures.get(response.url()) !== response.status()
+          ) {
+            errors.push(`HTTP ${response.status()}: ${response.url()}`)
+          }
+          if (response.ok() && response.request().resourceType() === 'image') {
+            reads.push(
+              (async () => {
+                const bytes = await response.body()
+                const metadata = await sharp(bytes).metadata()
+                images.push({
+                  bytes: bytes.length,
+                  contentType: response.headers()['content-type'],
+                  height: metadata.height,
+                  width: metadata.width,
+                  url: response.url(),
+                })
+              })(),
+            )
+          }
+        })
+      }
+      await observe(page)
+      await use({
+        expectedFailures,
+        images,
+        observePage: observe,
+        async loadNativeImage(url) {
+          const browser = context.browser()
+          assert(browser)
+          // An existing WebKit document may reuse its already-decoded image without HTTP.
+          // A separate browsing session proves a new grant, without changing the original URL.
+          const probeContext = await browser.newContext({
+            storageState: { cookies: await context.cookies(), origins: [] },
+          })
+          try {
+            if (browserName === 'chromium') {
+              await probeContext.grantPermissions(['local-network-access'], {
+                origin: info.project.use.baseURL,
               })
-            })(),
-          )
-        }
+            }
+            const probe = await probeContext.newPage()
+            await observe(probe)
+            await probe.route('**/fixture/native-probe', (route) =>
+              route.fulfill({
+                contentType: 'text/html',
+                body: '<!doctype html><title>Native image probe</title>',
+              }),
+            )
+            await probe.goto(new URL('/fixture/native-probe', page.url()).href)
+            const sourceResponses: Response[] = []
+            probe.on('response', (response) => {
+              if (response.url() === url) sourceResponses.push(response)
+            })
+            const loaded = await probe.evaluate(async (src) => {
+              const image = new Image()
+              image.src = src
+              try {
+                await image.decode()
+                return true
+              } catch {
+                return false
+              }
+            }, url)
+            const sourceResponse = sourceResponses[0]
+            assert(sourceResponse, 'The native probe must make an actual HTTP request')
+            await Promise.all(reads)
+            return {
+              loaded,
+              status: sourceResponse.status(),
+              headers: sourceResponse.headers(),
+              bodyLength:
+                sourceResponse.status() >= 400 ? (await sourceResponse.body()).length : undefined,
+            }
+          } finally {
+            await probeContext.close()
+          }
+        },
       })
-      await use({ expectedFailures, images })
       await Promise.all(reads)
       await info.attach('native-image-responses', {
         body: JSON.stringify({ images, errors, expectedFailures: [...expectedFailures] }, null, 2),
@@ -171,19 +245,6 @@ function expectSameBox(
   expect(actual.y).toBeCloseTo(expected.y, 0)
 }
 
-function loadNativeImage(page: Page, url: string): Promise<boolean> {
-  return page.evaluate(async (src) => {
-    const image = new Image()
-    image.src = src
-    try {
-      await image.decode()
-      return true
-    } catch {
-      return false
-    }
-  }, url)
-}
-
 function redirectResponse(page: Page, capability: string): Promise<Response> {
   return page.waitForResponse(
     (response) => response.url() === capability && response.request().resourceType() === 'image',
@@ -198,6 +259,8 @@ async function waitForExpiry(url: string): Promise<void> {
 }
 
 test('native image requests authorize with an HttpOnly session cookie, without Bearer headers', async ({
+  baseURL,
+  browserName,
   context,
   page,
 }) => {
@@ -209,7 +272,10 @@ test('native image requests authorize with an HttpOnly session cookie, without B
   await page.goto('/fixture/storage-redirect')
   const response = await imageResponse
   expect(response.request().headers().authorization).toBeUndefined()
-  expect(await response.request().headerValue('cookie')).toBe('fixture-session=fixture')
+  // WebKit's protocol omits the Cookie header. The cookie-only authorizer and logged-out
+  // rejection below verify its server-side effect in both engines.
+  if (browserName === 'chromium')
+    expect(await response.request().headerValue('cookie')).toBe('fixture-session=fixture')
   expect(response.status()).toBe(307)
   expect(response.headers()['cache-control']).toBe('private, no-store')
   await decode(page.getByRole('img', { name: 'Authorized Storage fixture' }))
@@ -218,93 +284,170 @@ test('native image requests authorize with an HttpOnly session cookie, without B
   ).toBe(true)
   expect(await page.evaluate(() => document.cookie)).toBe('')
   expect(await page.content()).not.toContain(imageConfiguration.authSecret)
+  assert(baseURL)
+  expect(new URL(cdnOrigin).hostname).not.toBe(new URL(baseURL).hostname)
 })
 
-for (const width of [1200, 390]) {
-  test(`hero and avatar reserve layout before signing and hydrate with delayed JS at ${width}px`, async ({
+for (const delivery of ['direct', 'redirect']) {
+  for (const width of [1200, 390]) {
+    test(`${delivery} hero and avatar decode before application JS and hydrate at ${width}px`, async ({
+      audit,
+      baseURL,
+      browser,
+      browserName,
+      page,
+    }, info) => {
+      await page.setViewportSize({ width, height: 1000 })
+      const afterHero = page.getByText('After the hero', { exact: true })
+      const afterAvatar = page.getByText('After the avatar', { exact: true })
+      let pending:
+        | {
+            hero: Awaited<ReturnType<Locator['boundingBox']>>
+            avatar: Awaited<ReturnType<Locator['boundingBox']>>
+          }
+        | undefined
+      if (delivery === 'direct' && process.env.IMG_FIXTURE_CACHE_COMPONENTS === 'enabled') {
+        const shellContext = await browser.newContext({ viewport: { width, height: 1000 } })
+        try {
+          const shellPage = await shellContext.newPage()
+          await audit.observePage(shellPage)
+          const shell = await readFile('.next/server/app/storage-image.html', 'utf8')
+          expect(shell).not.toContain('builtin%2Fstorage-preview')
+          // Keep fake bootstrap responses out of the real page's module cache (notably WebKit).
+          await shellPage.route('**/fixture/storage-image', (route) =>
+            route.fulfill({ contentType: 'text/html', body: shell }),
+          )
+          const emptyScript = (route: Route): Promise<void> =>
+            route.fulfill({
+              contentType: 'text/javascript',
+              body: '',
+              headers: { 'Cache-Control': 'no-store' },
+            })
+          await shellPage.route('**/_next/**/*.js*', emptyScript)
+          await shellPage.goto(new URL('/fixture/storage-image', baseURL).href)
+          pending = {
+            hero: await shellPage.getByText('After the hero', { exact: true }).boundingBox(),
+            avatar: await shellPage.getByText('After the avatar', { exact: true }).boundingBox(),
+          }
+          await info.attach('prerendered-shell', {
+            body: await shellPage.screenshot(),
+            contentType: 'image/png',
+          })
+        } finally {
+          await shellContext.close()
+        }
+      }
+      const scripts = Promise.withResolvers<void>()
+      let scriptsWaiting = 0
+      await page.route('**/_next/**/*.js*', async (route) => {
+        scriptsWaiting += 1
+        await scripts.promise
+        await route.continue()
+      })
+      const started = performance.now()
+      const requestOffset = cdn.requests.length
+      const hero = page.getByRole('img', {
+        name: delivery === 'direct' ? 'Storage hero' : 'Private hero',
+        exact: true,
+      })
+      const avatar = page.getByRole('img', {
+        name: delivery === 'direct' ? 'Storage avatar' : 'Private avatar',
+        exact: true,
+      })
+      try {
+        await page.goto(delivery === 'direct' ? '/fixture/storage-image' : '/fixture/browser', {
+          waitUntil: 'commit',
+        })
+        await decode(hero)
+        await decode(avatar)
+        expect(scriptsWaiting).toBeGreaterThan(0)
+        if (pending) {
+          expectSameBox(await afterHero.boundingBox(), pending.hero)
+          expectSameBox(await afterAvatar.boundingBox(), pending.avatar)
+        }
+        expect((await hero.boundingBox())?.width).toBe(Math.min(960, width - 16))
+        expect((await avatar.boundingBox())?.width).toBe(48)
+        expect((await avatar.boundingBox())?.height).toBe(48)
+        const currentSrc = await hero.evaluate((element) => {
+          if (!(element instanceof HTMLImageElement)) throw new Error('Expected image')
+          return element.currentSrc
+        })
+        const heroRequests = cdn.requests
+          .slice(requestOffset)
+          .filter((request) =>
+            decodeURIComponent(new URL(request.url).pathname).endsWith('/documents/hero.jpg'),
+          )
+        expect(heroRequests).toHaveLength(1)
+        const heroRequest = heroRequests[0]
+        assert(heroRequest)
+        expect(new URL(heroRequest.url).searchParams.get('w')).toBe(width === 1200 ? '960' : '640')
+        await expect(avatar).toHaveJSProperty('naturalWidth', 48)
+        // WebKit has no CDP compositor API; its ordinary screenshot waits for the deliberately
+        // held document load. Geometry is checked now in both engines; both capture after hydration.
+        if (browserName === 'chromium')
+          await info.attach('before-application-js', {
+            body: await captureBeforeJavaScript(page),
+            contentType: 'image/png',
+          })
+        await info.attach('load-diagnostics', {
+          body: JSON.stringify({
+            viewportWidth: width,
+            imageReadyMs: performance.now() - started,
+            currentSrc,
+            browser: await page.evaluate(() => ({
+              lcpMs: window.fixtureLcpMs,
+              navigation: performance.getEntriesByType('navigation')[0]?.toJSON(),
+            })),
+          }),
+          contentType: 'application/json',
+        })
+      } finally {
+        scripts.resolve()
+      }
+      await page.getByRole('button', { name: 'Hydration count: 0' }).click()
+      await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
+      if (pending) {
+        expectSameBox(await afterHero.boundingBox(), pending.hero)
+        expectSameBox(await afterAvatar.boundingBox(), pending.avatar)
+      }
+      await info.attach('hydrated', { body: await page.screenshot(), contentType: 'image/png' })
+    })
+  }
+}
+
+test.describe('JPEG fallback', () => {
+  test.use({ javaScriptEnabled: false })
+  test('native fallback decodes without modern sources and keeps its source-width policy', async ({
     page,
-  }, info) => {
-    await page.setViewportSize({ width, height: 1000 })
-    const shell = await readFile('.next/server/app/storage-image.html', 'utf8')
-    expect(shell).not.toContain('builtin%2Fstorage-preview')
-    // Render the actual production prerender artifact, then compare with a real streamed request.
-    await page.route('**/fixture/storage-image', (route) =>
-      route.fulfill({ contentType: 'text/html', body: shell }),
-    )
-    const emptyScript = (route: Route): Promise<void> =>
-      route.fulfill({ contentType: 'text/javascript', body: '' })
-    await page.route('**/_next/**/*.js*', emptyScript)
-    await page.goto('/fixture/storage-image')
-    const afterHero = page.getByText('After the hero', { exact: true })
-    const afterAvatar = page.getByText('After the avatar', { exact: true })
-    const pendingHero = await afterHero.boundingBox()
-    const pendingAvatar = await afterAvatar.boundingBox()
-    await info.attach('prerendered-shell', {
-      body: await page.screenshot(),
-      contentType: 'image/png',
+  }) => {
+    await page.route('**/fixture/browser', async (route) => {
+      const response = await route.fetch()
+      expect(response.ok()).toBe(true)
+      // Simulate unsupported picture sources before parsing. This is format fallback, not
+      // recovery from an HTTP failure; no hydration may restore the original source attributes.
+      const html = (await response.text())
+        .replaceAll(/<source\b/g, '<source media="not all"')
+        .replaceAll(/<link\b(?=[^>]*rel="(?:preload|modulepreload)")[^>]*>/g, '')
+      await route.fulfill({ response, body: html, headers: { ...response.headers(), link: '' } })
     })
-    await page.unroute('**/fixture/storage-image')
-    await page.unroute('**/_next/**/*.js*', emptyScript)
-    const scripts = Promise.withResolvers<void>()
-    let scriptsWaiting = 0
-    await page.route('**/_next/**/*.js*', async (route) => {
-      scriptsWaiting += 1
-      await scripts.promise
-      await route.continue()
-    })
-    const started = performance.now()
-    try {
-      await page.goto('/fixture/storage-image', { waitUntil: 'commit' })
-      await decode(page.getByRole('img', { name: 'Storage hero' }))
-      await decode(page.getByRole('img', { name: 'Storage avatar' }))
-      expect(scriptsWaiting).toBeGreaterThan(0)
-      expectSameBox(await afterHero.boundingBox(), pendingHero)
-      expectSameBox(await afterAvatar.boundingBox(), pendingAvatar)
-      const hero = page.getByRole('img', { name: 'Storage hero' })
-      const currentSrc = await hero.evaluate((element) => {
-        if (!(element instanceof HTMLImageElement)) throw new Error('Expected image')
-        return element.currentSrc
-      })
-      expect(new URL(currentSrc).searchParams.get('w')).toBe(width === 1200 ? '960' : '640')
-      await expect(page.getByRole('img', { name: 'Storage avatar' })).toHaveJSProperty(
-        'naturalWidth',
-        48,
-      )
-      await info.attach('before-application-js', {
-        body: await captureBeforeJavaScript(page),
-        contentType: 'image/png',
-      })
-      await info.attach('load-diagnostics', {
-        body: JSON.stringify({
-          viewportWidth: width,
-          imageReadyMs: performance.now() - started,
-          currentSrc,
-          browser: await page.evaluate(() => ({
-            lcpMs: window.fixtureLcpMs,
-            navigation: performance.getEntriesByType('navigation')[0]?.toJSON(),
-          })),
-        }),
-        contentType: 'application/json',
-      })
-    } finally {
-      scripts.resolve()
-    }
-    await page.getByRole('button', { name: 'Hydration count: 0' }).click()
-    await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
-    expectSameBox(await afterHero.boundingBox(), pendingHero)
-    expectSameBox(await afterAvatar.boundingBox(), pendingAvatar)
+    const requestOffset = cdn.requests.length
     await page.goto('/fixture/browser')
     await decode(page.getByRole('img', { name: 'Private hero', exact: true }))
-    await decode(page.getByRole('img', { name: 'Private avatar', exact: true }))
-    await expect(page.getByRole('img', { name: 'Private avatar', exact: true })).toHaveJSProperty(
-      'naturalWidth',
-      48,
-    )
+    const avatar = page.getByRole('img', { name: 'Private avatar', exact: true })
+    await decode(avatar)
+    await decode(page.getByRole('img', { name: 'Late private preview' }))
+    await expect(avatar).toHaveJSProperty('naturalWidth', 400)
+    expect((await avatar.boundingBox())?.width).toBe(48)
+    const images = cdn.requests.slice(requestOffset).map((request) => new URL(request.url))
+    // Browsers disable native lazy loading when JavaScript is disabled.
+    expect(images).toHaveLength(3)
+    expect(images.every((url) => url.searchParams.get('f') === 'jpg')).toBe(true)
   })
-}
+})
 
 test('an original lazy capability gets a new grant after its earlier target expires', async ({
   page,
+  audit,
 }) => {
   await page.goto('/fixture/browser')
   await decode(page.getByRole('img', { name: 'Private hero', exact: true }))
@@ -314,9 +457,10 @@ test('an original lazy capability gets a new grant after its earlier target expi
   )
   assert(candidate)
   const capability = new URL(candidate, page.url()).href
-  const initial = redirectResponse(page, capability)
-  expect(await loadNativeImage(page, capability)).toBe(true)
-  const oldTarget = (await initial).headers().location
+  const initial = await audit.loadNativeImage(capability)
+  expect(initial.loaded).toBe(true)
+  expect(initial.status).toBe(307)
+  const oldTarget = initial.headers.location
   assert(oldTarget)
   await expect(lazy).toHaveJSProperty('naturalWidth', 0)
   await waitForExpiry(oldTarget)
@@ -351,19 +495,18 @@ test('revocation denies new grants but an issued CDN target works until its own 
   assert(target)
   await writeFile(revokedAccessFile, 'revoked\n')
   audit.expectedFailures.set(capability, 404)
-  const deniedResponse = redirectResponse(page, capability)
   const requestsBefore = cdn.requests.length
-  expect(await loadNativeImage(page, capability)).toBe(false)
-  const denied = await deniedResponse
-  expect(denied.status()).toBe(404)
-  expect(denied.headers()['cache-control']).toBe('private, no-store')
-  expect(denied.headers().location).toBeUndefined()
-  expect(await denied.body()).toHaveLength(0)
+  const denied = await audit.loadNativeImage(capability)
+  expect(denied.loaded).toBe(false)
+  expect(denied.status).toBe(404)
+  expect(denied.headers['cache-control']).toBe('private, no-store')
+  expect(denied.headers.location).toBeUndefined()
+  expect(denied.bodyLength).toBe(0)
   expect(cdn.requests).toHaveLength(requestsBefore)
-  expect(await loadNativeImage(page, target)).toBe(true)
+  expect((await audit.loadNativeImage(target)).loaded).toBe(true)
   await waitForExpiry(target)
   audit.expectedFailures.set(target, 403)
-  expect(await loadNativeImage(page, target)).toBe(false)
+  expect((await audit.loadNativeImage(target)).loaded).toBe(false)
   expect(cdn.requests.at(-1)?.status).toBe(403)
 })
 
@@ -383,12 +526,12 @@ test('native requests cannot use altered capabilities or CDN signatures', async 
   assert(cap)
   altered.searchParams.set('cap', `${cap[0] === 'A' ? 'B' : 'A'}${cap.slice(1)}`)
   audit.expectedFailures.set(altered.href, 404)
-  expect(await loadNativeImage(page, altered.href)).toBe(false)
+  expect((await audit.loadNativeImage(altered.href)).loaded).toBe(false)
   const target = new URL(issued.headers().location ?? '')
   target.searchParams.set('sig', `sha256:${'0'.repeat(64)}`)
   audit.expectedFailures.set(target.href, 403)
-  expect(await loadNativeImage(page, target.href)).toBe(false)
+  expect((await audit.loadNativeImage(target.href)).loaded).toBe(false)
   await context.clearCookies()
   audit.expectedFailures.set(issued.url(), 404)
-  expect(await loadNativeImage(page, issued.url())).toBe(false)
+  expect((await audit.loadNativeImage(issued.url())).loaded).toBe(false)
 })

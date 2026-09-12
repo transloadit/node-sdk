@@ -30,7 +30,7 @@ export default function Page(): ReactNode {
       <section style={{ marginTop: 10_000 }}>
         <BrowserImage
           alt="Late private preview"
-          formats={{ avif: 45 }}
+          formats={{ webp: 45 }}
           height={300}
           sizes="400px"
           src="documents/late.jpg"
