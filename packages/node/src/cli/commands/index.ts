@@ -15,8 +15,10 @@ import {
 import { SignatureCommand, SmartCdnSignatureCommand, TokenCommand } from './auth.ts'
 import { BillsGetCommand } from './bills.ts'
 import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
+import { ImageInitCommand } from './image.ts'
+import { AuthLoginCommand } from './login.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
-import { StorageStoreCommand } from './storage.ts'
+import { StorageListCommand, StorageStoreCommand } from './storage.ts'
 import {
   TemplatesCreateCommand,
   TemplatesDeleteCommand,
@@ -42,6 +44,7 @@ export function createCli(): Cli {
   cli.register(SignatureCommand)
   cli.register(SmartCdnSignatureCommand)
   cli.register(TokenCommand)
+  cli.register(AuthLoginCommand)
 
   // Assemblies commands
   cli.register(AssembliesCreateCommand)
@@ -68,6 +71,8 @@ export function createCli(): Cli {
   // Uploads commands
   cli.register(UploadCommand)
   cli.register(StorageStoreCommand)
+  cli.register(StorageListCommand)
+  cli.register(ImageInitCommand)
 
   // Prompt-to-Assembly-Instructions commands
   cli.register(AssemblyInstructionsCompileCommand)

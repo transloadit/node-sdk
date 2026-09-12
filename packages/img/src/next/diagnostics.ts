@@ -10,6 +10,9 @@ async function probe(url: string): Promise<void> {
       signal: AbortSignal.timeout(5000),
     })
     if (response.ok && response.headers.get('content-type')?.startsWith('image/')) return
+    // A manual HEAD cannot establish whether the browser's redirect target is a valid image.
+    if ([301, 302, 303, 307, 308].includes(response.status) && response.headers.has('location'))
+      return
     const hints =
       response.status === 401 || response.status === 403
         ? 'Use a Smart CDN-enabled Auth Key, not an Assembly-only key; check its workspace and the signature secret, expiry and server clock.'

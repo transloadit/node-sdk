@@ -1,18 +1,28 @@
 import type { CSSProperties } from 'react'
 
-import type { TransloaditImageSource, TransloaditImageSourceProps } from '../imageSource.ts'
+import type { TransloaditImageSource } from '../imageSource.ts'
 
 import { snapshotImageSource } from '../imageSource.ts'
 
+type PresentationSourceProps =
+  | { src: string; width: number; height: number }
+  | { src: TransloaditImageSource; width?: number; height?: number }
+
+/** Crop ratios selected by viewport width; default is required for all other viewports. */
+export type StorageImageAspectRatio =
+  | string
+  | number
+  | Readonly<{ default: string | number } & Record<string, string | number>>
+
 /** Optional layout convenience; explicit source geometry remains unchanged without a mode. */
 export type StorageImageLayoutProps =
-  | (TransloaditImageSourceProps & {
+  | (PresentationSourceProps & {
       layout?: never
       maxWidth?: never
       fit?: never
       aspectRatio?: never
     })
-  | (TransloaditImageSourceProps & {
+  | (PresentationSourceProps & {
       layout: 'constrained'
       maxWidth: number
       fit?: never
@@ -34,7 +44,7 @@ export type StorageImageLayoutProps =
       height?: never
       maxWidth?: never
     } & (
-      | { fit: 'cover'; aspectRatio: string | number }
+      | { fit: 'cover'; aspectRatio: StorageImageAspectRatio }
       | { fit?: 'contain'; aspectRatio?: string | number }
     ))
 
@@ -43,6 +53,7 @@ interface ResolvedImageLayout {
   width: number
   height: number
   cropAspectRatio?: number
+  artDirection?: readonly { media: string; cropAspectRatio: number }[]
   fallbackWidth?: number
   maximumWidth?: number
   sizes?: string
@@ -79,15 +90,31 @@ export function resolveImageLayout(
   props: StorageImageLayoutProps & { widths?: readonly number[] },
 ): ResolvedImageLayout {
   const layout = props.layout
-  const sourceProps = layout === 'fixed' ? { src: props.src } : props
-  if (layout === 'fixed' && typeof sourceProps.src === 'string') {
+  const src = props.src
+  if ((layout === 'fixed' || layout === 'fill') && typeof src === 'string') {
     throw new TypeError(
-      'fixed layout requires a receipt source with intrinsic dimensions; width and height describe the display box',
+      `${layout} layout requires a receipt source with intrinsic dimensions${layout === 'fixed' ? '; width and height describe the display box' : ''}`,
     )
   }
-  const source = snapshotImageSource(sourceProps)
+  const source = snapshotImageSource(
+    typeof src === 'string' ? { src, width: props.width, height: props.height } : { src },
+  )
+  const presentationWidth = typeof src === 'string' ? undefined : props.width
+  const presentationHeight = typeof src === 'string' ? undefined : props.height
+  const width =
+    presentationWidth === undefined
+      ? presentationHeight === undefined
+        ? source.width
+        : Math.max(1, Math.round((presentationHeight * source.width) / source.height))
+      : boxDimension(presentationWidth, 'width')
+  const height =
+    presentationHeight === undefined
+      ? presentationWidth === undefined
+        ? source.height
+        : Math.max(1, Math.round((presentationWidth * source.height) / source.width))
+      : boxDimension(presentationHeight, 'height')
   const widths = Array.isArray(props.widths) ? [...props.widths] : props.widths
-  const base = { source, width: source.width, height: source.height, widths }
+  const base = { source, width, height, widths }
   if (layout === undefined) return base
   if (layout === 'constrained') {
     const maxWidth = boxDimension(props.maxWidth, 'maxWidth')
@@ -101,8 +128,8 @@ export function resolveImageLayout(
   const fit = props.fit ?? 'contain'
   if (fit !== 'contain' && fit !== 'cover') throw new TypeError('fit must be contain or cover')
   if (layout === 'fixed') {
-    const width = boxDimension(props.width, 'width')
-    const height = boxDimension(props.height, 'height')
+    const width = boxDimension(presentationWidth, 'width')
+    const height = boxDimension(presentationHeight, 'height')
     return {
       ...base,
       width,
@@ -115,13 +142,37 @@ export function resolveImageLayout(
     }
   }
   if (layout === 'fill') {
-    const ratio =
-      props.aspectRatio === undefined && fit !== 'cover'
+    const aspectRatio = props.aspectRatio
+    const breakpoints =
+      typeof aspectRatio === 'object' && aspectRatio !== null ? aspectRatio : undefined
+    if (
+      breakpoints !== undefined &&
+      (fit !== 'cover' || Array.isArray(breakpoints) || Object.keys(breakpoints).length > 9)
+    ) {
+      throw new TypeError(
+        'Art direction requires fill cover with default and up to eight width breakpoints',
+      )
+    }
+    const artDirection =
+      breakpoints === undefined
         ? undefined
-        : parseAspectRatio(props.aspectRatio)
+        : Object.entries(breakpoints)
+            .filter(([media]) => media !== 'default')
+            .map(([media, ratio]) => {
+              if (!/^\((?:min|max)-width:\s*\d+(?:\.\d+)?(?:px|em|rem)\)$/.test(media))
+                throw new TypeError(
+                  'Art direction keys must be width breakpoints, for example (max-width: 639px)',
+                )
+              return { media, cropAspectRatio: parseAspectRatio(ratio) }
+            })
+    const ratio =
+      aspectRatio === undefined && fit !== 'cover'
+        ? undefined
+        : parseAspectRatio(typeof aspectRatio === 'object' ? breakpoints?.default : aspectRatio)
     return {
       ...base,
       cropAspectRatio: fit === 'cover' ? ratio : undefined,
+      artDirection,
       style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: fit },
     }
   }

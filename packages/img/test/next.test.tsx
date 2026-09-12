@@ -6,7 +6,7 @@ import type { Root } from 'react-dom/client'
 import type { TransloaditImageModel } from '../src/index.ts'
 
 import { act, createElement } from 'react'
-import { hydrateRoot } from 'react-dom/client'
+import { createRoot, hydrateRoot } from 'react-dom/client'
 import { renderToStaticMarkup, renderToString } from 'react-dom/server'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
@@ -75,13 +75,54 @@ afterEach(() => {
 })
 
 describe('TransloaditPicture', () => {
-  test.each([
-    'after hydration',
-    'before hydration',
-  ])('optional fallback handles a failed image %s without replacing SSR markup', async (timing) => {
+  test('resets a failed media placeholder when only its source changes', async () => {
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false)
     const container = document.createElement('div')
     document.body.append(container)
-    const props = { alt: 'Photo', height: 300, width: 400, model }
+    const root = createRoot(container)
+    const props = {
+      alt: 'Photo',
+      errorFallback: <p role="status">Image unavailable</p>,
+      height: 300,
+      media: '(min-width: 1000px)',
+      model,
+      width: 400,
+    }
+    await act(() => root.render(<TransloaditPicture {...props} mediaPlaceholderSrc="/old.gif" />))
+    await act(() => {
+      container.querySelector('img')?.dispatchEvent(new Event('error'))
+    })
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('Image unavailable')
+    await act(() => root.render(<TransloaditPicture {...props} mediaPlaceholderSrc="/new.gif" />))
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('/new.gif')
+    expect(container.querySelector('[role="status"]')).toBeNull()
+    act(() => root.unmount())
+    container.remove()
+  })
+
+  test.each([
+    { timing: 'after hydration', artDirection: false, changeCandidates: false },
+    { timing: 'before hydration', artDirection: false, changeCandidates: false },
+    { timing: 'after hydration', artDirection: true, changeCandidates: false },
+    { timing: 'before hydration', artDirection: true, changeCandidates: false },
+    { timing: 'after hydration', artDirection: false, changeCandidates: true },
+    { timing: 'after hydration', artDirection: true, changeCandidates: true },
+  ])('optional fallback handles a failed image $timing (art direction: $artDirection) without replacing SSR markup', async ({
+    timing,
+    artDirection,
+    changeCandidates,
+  }) => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const props = {
+      alt: 'Photo',
+      height: 300,
+      width: 400,
+      preload: artDirection,
+      model: artDirection
+        ? { ...model, artDirection: [{ media: '(max-width: 639px)', model }] }
+        : model,
+    }
     const picture = (
       <TransloaditPicture {...props} errorFallback={<p role="status">Image unavailable</p>} />
     )
@@ -110,7 +151,12 @@ describe('TransloaditPicture', () => {
     expect(container.querySelector('picture')).toBeNull()
     expect(recoverableErrors).toEqual([])
     complete.mockReturnValue(false)
-    const replacement = { ...model, fallbackUrl: 'https://assets.example/replacement.jpg' }
+    const changedModel = { ...model, sources: model.sources.slice(1) }
+    const replacement = changeCandidates
+      ? artDirection
+        ? { ...model, artDirection: [{ media: '(max-width: 639px)', model: changedModel }] }
+        : changedModel
+      : { ...model, fallbackUrl: 'https://assets.example/replacement.jpg' }
     await act(() => {
       root?.render(
         <TransloaditPicture

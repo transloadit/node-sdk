@@ -1,5 +1,96 @@
 # Storage image onboarding review
 
+## Round 4 — active merge gate
+
+Source: `/tmp/img-task2-round4-brief.md` and `/tmp/img-round4-inputs.md`. All work stays in
+#500 on `img-onboard`; no merge or publication. Round-3 head `1e9f575` is green, not the
+round-4 merge gate. Required checks/builds/packs run sequentially before every push.
+
+- [x] Correct the production Bunny cache contract; default rotation to the expiry interval.
+- [x] First-pixel CLI/login/init, complete snippets, README order, fail-fast prefixes, no Image alias.
+- [x] Explicit public-prefix caching, named private factory, dynamic warning, bounded template migration.
+- [x] Recoverable SDK receipts, CLI list and explicit overwrite; catalog sync only when API2 supports it.
+- [x] Per-breakpoint crop geometry, lazy constrained sizes, receipt presentation dimensions.
+- [x] Safe route diagnostics and inferred Next basePath.
+- [ ] Sequential checks, packed browser proof, security review and green CI.
+- [x] Fresh Opus stranger test against the owned devdock; `/tmp/img-stranger-test.md`.
+
+Correction: production `*.tlcdn.com` uses Bunny and includes the whole query string in its cache
+key. The round-3 CloudFront/NoCacheSigExp production claim below is superseded. Changing expiry
+or signature makes a new CDN cache entry. Shared Docker/production infrastructure stays outside
+this task. Receipt catalog dimensions are API2-owned; keep schemas canonical. `storage receipts
+sync` is deferred: the new catalog dimensions are not yet exposed together with asset ID and MD5
+by the public S3 listing. `doctor` is deferred; the package now supplies scoped development hints.
+
+Migration acceptance uses an explicit absolute UTC cutoff, `previousTemplatesUntil`, so restarting
+a process never extends the grace period. Within that window the prior Built-in version defaults
+to 0.0.1; `previousTemplates: []` disables acceptance immediately at the handler. Already-issued
+and cached grants retain their own bounded lifetimes. Default rotation equals the one-hour minimum
+grant lifetime, giving stable URLs within a bucket and one-to-two hours of remaining validity.
+
+The first final check cycle passed Node353/img196 cases plus public types, root check/full verify,
+eight packed seed cases and 60 first-attempt browser cases. Every case has an error-free native
+response audit. Real art-direction bytes match the mobile/desktop crops; preload links must remain
+outside picture or Chromium starts a speculative JPEG. Cache Components enabled/omitted pass.
+
+The required council found six valid items: retain verified receipts after save failures, preserve
+catalog mode, reset errorFallback on candidate changes, distinguish cancellation, avoid false HEAD
+redirect warnings, and explain fill's receipt requirement. The fresh read-only Opus reader found an
+additional real login failure with API2's punctuation-bearing fixture secret. Twelve regressions
+failed first, then all 254 focused cases passed. Docs also clarify app-root paths, Web Request,
+404 denial, private-factory overrides and CLI endpoint naming.
+
+The stock Next16.3.0 consumer's pre-existing critical advisories triggered a test dependency update
+to16.3.4 (the patched release allowed by the repository's two-day dependency age gate). The separate
+scratch app uses16.3.5, installed normally; npm audit there reports zero vulnerabilities. No age-gate
+bypass or manual consumer package/tsconfig change. Final checks are repeated after these changes.
+
+Owned API2clone17 is now5235a3605f on its existing internal-only Docker network, with no route to
+external services. Workspace-specific offline caches restored guest dependencies without weakening
+that isolation. The ordinary system canary passes. After applying only the canonical local
+dimensions migration, the actual packed storeImage plus getStoredImageReceipt flow passes:
+Assembly0b15a6e51c904d61896bbdc7601b2702, receipt1024×683/92,230B, identical recovered metadata.
+This technical check is distinct from the still-pending stranger browser trial and production CDN.
+
+Post-review verification now passes Node 365 cases (one existing skip), img 200 cases/public
+types, eight seed cases and all 60 packed Chromium/WebKit cases on patched Next 16.3.4. The new
+production build exposed an existing fallback assumption: Flight can outline the picture as a
+lazy React reference. Normalize it with React's Children API before cloning; candidate changes
+still reset fallback state, without a new wrapper or dependency. Both cache configurations pass.
+
+Opus confirmed the public/private cache, migration, receipt and diagnostic boundaries. Its valid
+login finding now has a shell-only write destination and refuses app env filenames before asking
+for credentials. Public-prefix errors name the correct setting, and temp-cleanup failures no
+longer strand the receipts lock. Five new regressions failed first, then all 160 focused cases
+passed. Existing documented project-env endpoint trust is unchanged; no new trust is inferred.
+
+The first fresh-reader attempt found the real opaque-secret login bug; its corrected live run
+took 6m31 and rendered a 25,469-byte AVIF with no browser errors or cookie leakage. Anonymous
+access returned 404; authorized HEAD returned 307 with no body, both private/no-store. A second
+fresh reader and stock consumer are being tested after the fixes, not reusing that reader's
+knowledge. The new cold-reader run passed in 3m05 (19:35:13–19:38:17 UTC), with the same real
+private pixels, anonymous denial and cookie isolation. The four reader-authored files were applied
+verbatim in a stock Next 16.3.4 app; npm was the only manifest editor and tsconfig stayed identical.
+The read-only-reader/operator protocol, initial failure, ten required concepts and remaining
+reading friction are explicit in /tmp/img-stranger-test.md; this is not a human usability timing.
+
+The final source-change sweep covers the standalone renderer's media-placeholder source too
+(red-first), bringing img to 201 passing cases. Defensive post-fix review passes; its one stale
+partial-snapshot finding was cleared against the complete current source copy. Documentation now
+states the default private route, npm invocation, literal capability/grant distinction and the
+optional standalone seed path. No security boundary was relaxed to obtain the onboarding pass.
+
+Use the repo-pinned Biome for workspace checks. Without the root node_modules/.bin on PATH,
+the Node workspace can pick up the host's newer global Biome and report unrelated fixture SVG
+rules/formatting. Those accidental formatting edits were removed; no fixture lint was suppressed.
+
+Final sequential local checks pass: img 201/public types, legacy generation/parity, root check,
+full verification, eight seed cases and 60 native browser cases (56.6s/57.3s). Every browser case
+has exactly one passing attempt and an error-free native-response audit, with no skips/flakes.
+The final packed image package was installed normally into the stranger consumer and independently
+rechecked against the real devdock at 19:48:45 UTC: the same pixels, cookie boundary and 307/404
+results pass. The original timed result is preserved separately as result-timed.json.
+
 ## Final round-3 council
 
 Source: `/tmp/img-pr500-r3-council.md`, against #500 head `0ce8c14`. Five bounded fixes remain

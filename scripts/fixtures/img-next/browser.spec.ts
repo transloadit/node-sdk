@@ -323,6 +323,73 @@ test('native image requests authorize with an HttpOnly session cookie, without B
   expect(new URL(cdnOrigin).hostname).not.toBe(new URL(baseURL).hostname)
 })
 
+test('GET and HEAD share private authorization while explicit public prefixes are cacheable', async ({
+  context,
+  page,
+}) => {
+  await page.goto('/fixture/delivery')
+  await expect(page.getByRole('heading', { name: 'Static and private delivery' })).toBeVisible()
+  const publicImage = page.getByRole('img', { name: 'Public website image' })
+  const privateImage = page.getByRole('img', { name: 'Private account image' })
+  await decode(publicImage)
+  await decode(privateImage)
+  const publicUrl = await publicImage.getAttribute('src')
+  const privateUrl = await privateImage.getAttribute('src')
+  assert(publicUrl)
+  assert(privateUrl)
+  const get = await context.request.get(privateUrl, { maxRedirects: 0 })
+  const head = await context.request.head(privateUrl, { maxRedirects: 0 })
+  expect(get.status()).toBe(307)
+  expect(head.status()).toBe(307)
+  expect(head.headers().location).toBe(get.headers().location)
+  expect(head.headers()['cache-control']).toBe('private, no-store')
+  expect(await head.body()).toHaveLength(0)
+  await context.clearCookies()
+  const deniedGet = await context.request.get(privateUrl, { maxRedirects: 0 })
+  const deniedHead = await context.request.head(privateUrl, { maxRedirects: 0 })
+  expect(deniedGet.status()).toBe(404)
+  expect(deniedHead.status()).toBe(404)
+  expect(deniedHead.headers()['cache-control']).toBe('private, no-store')
+  const publicGet = await context.request.get(publicUrl, { maxRedirects: 0 })
+  const publicHead = await context.request.head(publicUrl, { maxRedirects: 0 })
+  expect(publicGet.status()).toBe(307)
+  expect(publicHead.status()).toBe(307)
+  expect(publicGet.headers()['cache-control']).toMatch(
+    /^public, max-age=0, s-maxage=\d+, stale-while-revalidate=60$/,
+  )
+})
+
+for (const width of [390, 1200]) {
+  test(`art direction downloads only the matching real crop at ${width}px`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width, height: 1000 })
+    const offset = cdn.requests.length
+    await page.goto('/fixture/art-direction')
+    await expect(page.getByRole('heading', { name: 'Art-directed hero' })).toBeVisible()
+    const image = page.getByRole('img', { name: 'Viewport crop' })
+    await decode(image)
+    const box = await image.boundingBox()
+    assert(box)
+    expect(box.width / box.height).toBeCloseTo(width === 390 ? 9 / 16 : 16 / 9, 2)
+    const requests = cdn.requests.slice(offset)
+    expect(requests).toHaveLength(1)
+    assert(requests[0])
+    const query = new URL(requests[0].url).searchParams
+    expect(query.get('r')).toBe('fillcrop')
+    expect(query.get('w')).toBe(width === 390 ? '640' : '960')
+    expect(query.get('h')).toBe(width === 390 ? '1138' : '540')
+    // Native dimensions are density-corrected for the selected CSS slot; the audit separately
+    // decodes the downloaded bytes and checks their actual 640×1138 / 960×540 pixels.
+    await expect(image).toHaveJSProperty('naturalWidth', width === 390 ? 390 : 960)
+    await expect(image).toHaveJSProperty('naturalHeight', width === 390 ? 693 : 540)
+    await info.attach('art-directed-hero', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+}
+
 for (const delivery of ['direct', 'redirect']) {
   for (const width of [1200, 390]) {
     test(`${delivery} hero and avatar decode and hydrate at ${width}px`, async ({

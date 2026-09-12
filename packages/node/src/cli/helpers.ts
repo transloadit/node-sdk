@@ -41,8 +41,10 @@ function normalizeEnvValue(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined
 }
 
-function getConfiguredCredentialsFilePath(): string {
-  const configuredPath = normalizeEnvValue(process.env.TRANSLOADIT_CREDENTIALS_FILE)
+/** Login accepts only a shell override; existing credential reads retain merged env lookup. */
+export function getConfiguredCredentialsFilePath(source: 'shell' | 'merged' = 'merged'): string {
+  const values = source === 'shell' ? getShellEnvValues() : process.env
+  const configuredPath = normalizeEnvValue(values.TRANSLOADIT_CREDENTIALS_FILE)
   if (configuredPath != null) {
     return path.resolve(configuredPath)
   }

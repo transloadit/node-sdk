@@ -8,7 +8,11 @@ import type {
 
 import { createTransloaditImageModel } from '../src/index.ts'
 import { TransloaditPicture } from '../src/next/index.tsx'
-import { createTransloaditImage, createTransloaditImageFromEnv } from '../src/next/server.tsx'
+import {
+  createPrivateStorageImages,
+  createTransloaditImage,
+  createTransloaditImageFromEnv,
+} from '../src/next/server.tsx'
 
 const modelOptions: TransloaditImageModelOptions = {
   expiresAt: Date.UTC(2030, 0, 1),
@@ -47,8 +51,8 @@ declare const direct: TransloaditImageIntegration
 declare const redirect: TransloaditRedirectImageIntegration
 const model = createTransloaditImageModel(modelOptions, () => '')
 const image = Image(imageProps)
-const directImage = direct.Image(imageProps)
-const redirectedImage = redirect.Image(imageProps)
+const directImage = direct.StorageImage(imageProps)
+const redirectedImage = redirect.StorageImage(imageProps)
 const routeResponse = redirect.storageRoute(new Request('https://app.example/images'))
 const attributedImage = (
   <Image
@@ -68,15 +72,14 @@ const receipt = {
   height: 300,
 } satisfies TransloaditImageSource
 const receiptImage = <Image alt="Receipt" src={receipt} preload />
-const receiptRedirect = <redirect.Image alt="Receipt" src={receipt} loading="lazy" />
+const receiptRedirect = <redirect.StorageImage alt="Receipt" src={receipt} loading="lazy" />
 const receiptModel = createTransloaditImageModel(
   { expiresAt: modelOptions.expiresAt, src: receipt },
   () => '',
 )
 // @ts-expect-error A string source still requires its source dimensions.
 const missingDimensions = <Image alt="Incomplete" src="documents/report.pdf" />
-// @ts-expect-error Receipt geometry cannot be combined with separate dimensions.
-const duplicateDimensions = <Image alt="Ambiguous" src={receipt} width={400} height={300} />
+const duplicateDimensions = <Image alt="Presentation box" src={receipt} width={400} height={300} />
 createTransloaditImageModel(
   // @ts-expect-error The neutral model has the same exclusive source geometry contract.
   { expiresAt: modelOptions.expiresAt, src: receipt, width: 400, height: 300 },
@@ -86,7 +89,7 @@ createTransloaditImageModel(
 const lazyReceiptPreload = <Image alt="Receipt" src={receipt} loading="lazy" preload />
 const receiptRedirectFallback = (
   // @ts-expect-error A receipt does not give redirect delivery a Suspense fallback.
-  <redirect.Image alt="Receipt" src={receipt} suspenseFallback="Loading" />
+  <redirect.StorageImage alt="Receipt" src={receipt} suspenseFallback="Loading" />
 )
 // @ts-expect-error A preloaded image cannot be lazy.
 const lazyPreload = <Image {...imageProps} loading="lazy" preload />
@@ -95,7 +98,7 @@ const lazyPicturePreload = (
   <TransloaditPicture {...imageProps} model={model} loading="lazy" preload />
 )
 // @ts-expect-error A redirect image never suspends for signing.
-const redirectFallback = <redirect.Image {...imageProps} suspenseFallback="Loading" />
+const redirectFallback = <redirect.StorageImage {...imageProps} suspenseFallback="Loading" />
 // @ts-expect-error Event callbacks are not serializable image attributes.
 const callbackImage = <Image {...imageProps} onLoad={() => undefined} />
 // @ts-expect-error Candidate URLs belong to the configured image model.
@@ -110,7 +113,7 @@ const configuredRedirect = createTransloaditImage({
 })
 const configuredRedirectFallback = (
   // @ts-expect-error Factory overloads retain the redirect-specific component contract.
-  <configuredRedirect.Image {...imageProps} suspenseFallback="Loading" />
+  <configuredRedirect.StorageImage {...imageProps} suspenseFallback="Loading" />
 )
 const envDirect = createTransloaditImageFromEnv({
   storage: { allowedPathPrefixes: ['documents/'] },
@@ -142,6 +145,50 @@ const fillImage = (
     sizes="100vw"
   />
 )
+const privateIntegration = createPrivateStorageImages({
+  allowedPathPrefixes: ['documents/'],
+  authorize: ({ path, request }) => path.endsWith('.pdf') && request.method === 'GET',
+  lifetime: 60_000,
+  public: ['documents/public/'],
+  previousTemplatesUntil: Date.UTC(2030, 0, 1),
+})
+const artDirectedImage = (
+  <privateIntegration.StorageImage
+    src={receipt}
+    alt="Art direction"
+    layout="fill"
+    fit="cover"
+    aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}
+    preload
+  />
+)
+const incompleteArtDirection = (
+  <Image
+    src={receipt}
+    alt="Missing default"
+    layout="fill"
+    fit="cover"
+    // @ts-expect-error Every breakpoint map needs a default crop.
+    aspectRatio={{ '(max-width: 639px)': '9/16' }}
+  />
+)
+const nonCroppingArtDirection = (
+  // @ts-expect-error Breakpoint crops require cover, not contain.
+  <Image
+    src={receipt}
+    alt="Contain"
+    layout="fill"
+    fit="contain"
+    aspectRatio={{ default: '16/9' }}
+  />
+)
+// @ts-expect-error Private entry points require an application authorization policy.
+createPrivateStorageImages({ allowedPathPrefixes: ['documents/'] })
+// @ts-expect-error The unpublished Image alias was removed.
+void envDirect.Image
+void artDirectedImage
+void incompleteArtDirection
+void nonCroppingArtDirection
 const incompleteFixed = (
   // @ts-expect-error Fixed layout needs both display-box dimensions.
   <envDirect.StorageImage src={receipt} alt="Avatar" layout="fixed" width={48} />
@@ -177,18 +224,20 @@ const envRedirect = createTransloaditImageFromEnv({
     delivery: { route: '/images', authorize: () => true },
   },
 })
-const envImage = <envDirect.Image alt="Receipt" src={receipt} preload suspenseFallback="Loading" />
-const envRedirectImage = <envRedirect.Image alt="Receipt" src={receipt} preload />
+const envImage = (
+  <envDirect.StorageImage alt="Receipt" src={receipt} preload suspenseFallback="Loading" />
+)
+const envRedirectImage = <envRedirect.StorageImage alt="Receipt" src={receipt} preload />
 const envRoute = envRedirect.storageRoute(new Request('https://app.example/images'))
 // @ts-expect-error The environment helper requires explicit Storage policy, not guessed access.
 createTransloaditImageFromEnv({})
 // @ts-expect-error Direct delivery does not expose an authorization route.
 const envDirectRoute = envDirect.storageRoute
 // @ts-expect-error The env factory preserves the lazy/preload union.
-const envLazyPreload = <envDirect.Image alt="Receipt" src={receipt} loading="lazy" preload />
+const envLazyPreload = <envDirect.StorageImage alt="Receipt" src={receipt} loading="lazy" preload />
 const envRedirectFallback = (
   // @ts-expect-error Redirect delivery has no signing suspension to replace.
-  <envRedirect.Image alt="Receipt" src={receipt} suspenseFallback="Loading" />
+  <envRedirect.StorageImage alt="Receipt" src={receipt} suspenseFallback="Loading" />
 )
 // @ts-expect-error Direct integrations do not expose an authorization route.
 const missingRoute = direct.storageRoute

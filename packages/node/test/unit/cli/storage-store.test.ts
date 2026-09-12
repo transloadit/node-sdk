@@ -1,5 +1,16 @@
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -11,7 +22,12 @@ import { Transloadit } from '../../../src/Transloadit.ts'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const original = await importOriginal<typeof import('node:fs/promises')>()
-  return { ...original, readFile: vi.fn(original.readFile) }
+  return {
+    ...original,
+    readFile: vi.fn(original.readFile),
+    rename: vi.fn(original.rename),
+    rm: vi.fn(original.rm),
+  }
 })
 
 const originalCwd = process.cwd()
@@ -28,6 +44,7 @@ const receipt = {
 let directory: string
 
 beforeEach(async () => {
+  vi.mocked(rm).mockReset()
   directory = await mkdtemp(join(tmpdir(), 'cli-storage-store-'))
   await writeFile(join(directory, 'credentials'), '')
   process.chdir(directory)
@@ -62,6 +79,89 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('releases the writer lock even when temporary-file cleanup fails', async () => {
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const remove = vi.mocked(rm).getMockImplementation()
+    if (remove === undefined) throw new Error('Expected the real filesystem mock implementation')
+    vi.mocked(rm).mockImplementation((path, options) => {
+      if (typeof path === 'string' && path.endsWith('.tmp'))
+        throw new Error('EPERM: cleanup denied')
+      return remove(path, options)
+    })
+    await runStore()
+    expect(process.exitCode).toBe(1)
+    expect(await readdir(directory)).not.toContain('images.json.lock')
+    expect(JSON.parse(await readFile('images.json', 'utf8'))[receipt.path]).toEqual(receipt)
+  })
+
+  test('retains the complete receipt and previous catalog when atomic replacement fails', async () => {
+    const previous = JSON.stringify({ 'website/earlier.jpg': receipt })
+    await writeFile('images.json', previous)
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.mocked(rename).mockRejectedValueOnce(
+      Object.assign(new Error('EACCES: rename denied'), { code: 'EACCES' }),
+    )
+    await runStore()
+    expect(process.exitCode).toBe(1)
+    expect(await readFile('images.json', 'utf8')).toBe(previous)
+    const temporary = (await readdir(directory)).find((name) => name.endsWith('.tmp'))
+    expect(temporary).toBeDefined()
+    if (temporary === undefined) throw new Error('Expected retained verified receipt')
+    expect(JSON.parse(await readFile(temporary, 'utf8'))[receipt.path]).toEqual(receipt)
+    const error = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+    expect(error).toContain(temporary)
+    expect(error).toContain('Do not re-upload')
+    expect(error).toContain('EACCES')
+    expect(await readdir(directory)).not.toContain('images.json.lock')
+  })
+
+  test('preserves an existing catalog mode across its atomic replacement', async () => {
+    await writeFile('images.json', '{}')
+    await chmod('images.json', 0o640)
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    expect((await stat('images.json')).mode & 0o777).toBe(0o640)
+  })
+
+  test('prints imports and filenames for a src/app consumer', async () => {
+    await mkdir('src/app', { recursive: true })
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(snippet).toContain('src/lib/storageImage.ts:')
+    expect(snippet).toContain('src/app/page.tsx:')
+    expect(snippet).toContain('import images from "../../images.json"')
+  })
+
+  test('keeps receipts imports relative when the receipts live beside the page', async () => {
+    await mkdir('app')
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main(['storage', 'store', './hero.jpg', receipt.path, '--receipts', 'app/images.json'])
+    expect(process.exitCode).toBeUndefined()
+    expect(vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]).toContain(
+      'import images from "./images.json"',
+    )
+  })
+
+  test('overwrites only when explicitly requested', async () => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      receipt.path,
+      '--receipts',
+      'images.json',
+      '--overwrite',
+    ])
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledExactlyOnceWith('./hero.jpg', {
+      path: receipt.path,
+      overwrite: true,
+    })
+  })
   test('prints recovery details for a malformed receipt after the write and preserves saved receipts', async () => {
     const bytes = Buffer.from('image')
     await writeFile('hero.jpg', bytes)
@@ -156,6 +256,14 @@ describe('storage store', () => {
       expect.stringContaining('<StorageImage src={images["website/hero.jpg"]}'),
       receipt,
     )
+    const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(snippet).toContain('createTransloaditImageFromEnv')
+    expect(snippet).toContain('allowedPathPrefixes: ["website/"]')
+    expect(snippet).toContain("import { StorageImage } from '../lib/storageImage'")
+    expect(snippet).toContain('import images from "../images.json"')
+    expect(snippet).toContain('export default function Page()')
+    expect(snippet).toContain('For private images, use createPrivateStorageImages')
+    expect(snippet).toContain('#ship-it-privately')
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   })
 

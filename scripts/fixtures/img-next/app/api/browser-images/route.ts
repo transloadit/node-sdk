@@ -1,1 +1,1 @@
-export { browserStorageRoute as GET } from '../../browser/BrowserImage'
+export { browserStorageRoute as GET, browserStorageRoute as HEAD } from '../../browser/BrowserImage'

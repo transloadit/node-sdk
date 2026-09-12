@@ -15,3 +15,13 @@ Assembly credentials. Atomically append keyed receipts, preserve previous data o
 reject concurrent writers, then print a ready-to-render StorageImage snippet.
 When receipt validation fails after writing, print the destination and Assembly ID for recovery.
 Keep receipts-file filesystem errors distinct from JSON validation failures, with the file path.
+Retain a completed temporary catalog on local replacement failures, print the verified receipt,
+and preserve an existing catalog's permissions.
+
+Add `getStoredImageReceipt({ assemblyId, expected })` to recover the same verified metadata after
+a trusted upload notification or a local file error. Add explicit `store --overwrite` and
+read-scoped `storage ls <prefix>`; overwriting is never implicit.
+
+Add hidden-input `auth login` for owner-only CLI credentials and `image init --next [--private]`
+for application scaffolding without env-file writes. Complete store snippets recognize `src/app`
+and ordinary relative receipt imports.

@@ -45,6 +45,8 @@ export interface TransloaditImageSourceSet {
 
 /** Serializable data consumed by framework renderers. */
 export interface TransloaditImageModel {
+  /** Ordered viewport-specific crops; each includes its own JPEG fallback. */
+  artDirection?: readonly { media: string; model: TransloaditImageModel }[]
   /** Fixed URL expiry. Omitted when an adapter resolves fresh URLs after browser authorization. */
   expiresAt?: number
   fallbackUrl: string

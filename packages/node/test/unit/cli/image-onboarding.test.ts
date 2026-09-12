@@ -1,0 +1,185 @@
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { homedir, tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+
+import { readCliInput, resolveCliConfig } from '../../../src/cli/helpers.ts'
+import OutputCtl from '../../../src/cli/OutputCtl.ts'
+import { main } from '../../../src/cli.ts'
+
+vi.mock('../../../src/cli/helpers.ts', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../src/cli/helpers.ts')>()
+  return { ...original, readCliInput: vi.fn(original.readCliInput) }
+})
+
+vi.mock('node:os', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:os')>()
+  return { ...original, homedir: vi.fn(original.homedir) }
+})
+
+const originalCwd = process.cwd()
+const stdoutListeners = process.stdout.listeners('error')
+const stderrListeners = process.stderr.listeners('error')
+let directory: string
+
+beforeEach(async () => {
+  vi.mocked(readCliInput).mockClear()
+  directory = await mkdtemp(join(tmpdir(), 'img-onboarding-'))
+  process.chdir(directory)
+  vi.mocked(homedir).mockReturnValue(join(directory, 'fake-home'))
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', join(directory, 'credentials'))
+  for (const name of [
+    'TRANSLOADIT_KEY',
+    'TRANSLOADIT_SECRET',
+    'TRANSLOADIT_AUTH_KEY',
+    'TRANSLOADIT_AUTH_SECRET',
+    'TRANSLOADIT_AUTH_TOKEN',
+  ])
+    vi.stubEnv(name, '')
+  vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+  vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
+  vi.mocked(readCliInput).mockResolvedValue({
+    content: 'TRANSLOADIT_KEY=write-key\nTRANSLOADIT_SECRET=hidden-secret\n',
+    isStdin: true,
+  })
+})
+
+afterEach(async () => {
+  process.chdir(originalCwd)
+  process.exitCode = undefined
+  vi.restoreAllMocks()
+  vi.unstubAllEnvs()
+  for (const listener of process.stdout.listeners('error')) {
+    if (!stdoutListeners.includes(listener)) process.stdout.off('error', listener)
+  }
+  for (const listener of process.stderr.listeners('error')) {
+    if (!stderrListeners.includes(listener)) process.stderr.off('error', listener)
+  }
+  await rm(directory, { force: true, recursive: true })
+})
+
+test('auth login saves owner-only credentials in the existing lookup without leaking secrets', async () => {
+  await main(['auth', 'login', '--stdin'])
+  expect(process.exitCode).toBeUndefined()
+  expect((await stat('credentials')).mode & 0o777).toBe(0o600)
+  expect(resolveCliConfig().credentials).toEqual({
+    authKey: 'write-key',
+    authSecret: 'hidden-secret',
+  })
+  expect(await readdir(directory)).toEqual(['credentials'])
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
+    'hidden-secret',
+  )
+})
+
+test('project dotenv cannot redirect newly entered credentials into the application', async () => {
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', '')
+  await writeFile('.env', 'TRANSLOADIT_CREDENTIALS_FILE=public/credentials.txt\n')
+  await main(['auth', 'login', '--stdin'])
+  expect(process.exitCode).toBeUndefined()
+  expect(await readFile('fake-home/.transloadit/credentials', 'utf8')).toContain('write-key')
+  await expect(stat('public/credentials.txt')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test.each(['.env', '.env.local'])('auth login never replaces app env file %s', async (file) => {
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', join(directory, file))
+  await writeFile(file, 'APP_SETTING=preserved\n')
+  await main(['auth', 'login', '--stdin', '--replace'])
+  expect(process.exitCode).toBe(1)
+  expect(await readFile(file, 'utf8')).toBe('APP_SETTING=preserved\n')
+  expect(readCliInput).not.toHaveBeenCalled()
+})
+
+test.each([
+  'opaque;secret/*:value',
+  'with # punctuation',
+  'quote"value',
+  "quote'value",
+  'literal\\nvalue',
+])('auth login preserves opaque secret %j through the existing credential lookup', async (secret) => {
+  vi.mocked(readCliInput).mockResolvedValue({
+    content: `TRANSLOADIT_KEY=write-key\nTRANSLOADIT_SECRET='${secret}'\n`,
+    isStdin: true,
+  })
+  await main(['auth', 'login', '--stdin'])
+  expect(process.exitCode).toBeUndefined()
+  expect(resolveCliConfig().credentials?.authSecret).toBe(secret)
+})
+
+test('auth login does not overwrite existing credentials without explicit replacement', async () => {
+  await writeFile('credentials', 'previous\n')
+  await main(['auth', 'login', '--stdin'])
+  expect(process.exitCode).toBe(1)
+  expect(await readFile('credentials', 'utf8')).toBe('previous\n')
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('--replace'))
+})
+
+test('auth login rejects malformed input without echoing it or saving a file', async () => {
+  vi.mocked(readCliInput).mockResolvedValue({
+    content: 'TRANSLOADIT_KEY=hidden-secret\n',
+    isStdin: true,
+  })
+  await main(['auth', 'login', '--stdin'])
+  expect(process.exitCode).toBe(1)
+  expect(await readdir(directory)).toEqual([])
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls)).not.toContain(
+    'hidden-secret',
+  )
+})
+
+test.each([
+  'app',
+  'src/app',
+])('image init creates a direct factory for %s and prints only rendering env names', async (app) => {
+  await mkdir(app, { recursive: true })
+  await main(['image', 'init', '--next', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  const root = app === 'app' ? '' : 'src/'
+  const factory = await readFile(`${root}lib/storageImage.ts`, 'utf8')
+  expect(factory).toContain('createTransloaditImageFromEnv')
+  expect(factory).toContain('allowedPathPrefixes: ["website/"]')
+  expect(factory).toContain("delivery: 'direct'")
+  expect(await readdir(app)).toEqual([])
+  const printed = JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)
+  expect(printed).toContain('TRANSLOADIT_WORKSPACE=')
+  expect(printed).toContain('TRANSLOADIT_SMART_CDN_KEY=')
+  expect(printed).toContain('TRANSLOADIT_SMART_CDN_SECRET=')
+  expect(printed).not.toContain('TRANSLOADIT_SECRET=')
+  expect(await readdir(directory)).not.toContain('.env.local')
+})
+
+test('private init creates GET and HEAD with a fail-closed authorization placeholder', async () => {
+  await mkdir('app')
+  await main(['image', 'init', '--next', '--private', 'accounts/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('authorize: () => false')
+  expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toContain(
+    'storageRoute as GET, storageRoute as HEAD',
+  )
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toContain('authorization')
+})
+
+test('init refuses to replace application code and leaves no partial scaffold', async () => {
+  await mkdir('app/api/storage-images', { recursive: true })
+  await writeFile('app/api/storage-images/route.ts', 'existing\n')
+  await main(['image', 'init', '--next', '--private', 'accounts/'])
+  expect(process.exitCode).toBe(1)
+  expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toBe('existing\n')
+  await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test.each([
+  '../',
+  '/website/',
+  'website',
+  'a//',
+  'a/../',
+  '',
+])('init rejects unsafe or implicit root prefix %j before writing', async (prefix) => {
+  await mkdir('app')
+  await main(['image', 'init', '--next', prefix])
+  expect(process.exitCode).toBe(1)
+  expect(await readdir(directory)).toEqual(['app'])
+})

@@ -7,6 +7,7 @@ import type {
 } from '../index.ts'
 import type { ImageAttributes, ImageLoadingProps } from './imageAttributes.ts'
 
+import { Fragment } from 'react'
 import { preload as preloadResource } from 'react-dom'
 
 import { HydratedTransloaditPicture } from './HydratedTransloaditPicture.tsx'
@@ -135,6 +136,9 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
   }
 
   const attributes = snapshotImageAttributes(props)
+  const artDirection = model.artDirection ?? []
+  if (media !== undefined && artDirection.length > 0)
+    throw new Error('Art direction cannot be combined with a media-gated picture')
   const original = (
     // biome-ignore lint/performance/noImgElement: This package is the image optimizer.
     <img
@@ -159,7 +163,7 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
     original
   )
 
-  if (preload) {
+  if (preload && artDirection.length === 0) {
     const preferredSource = model.sources[0]
     if (preferredSource === undefined) {
       throw new Error('Cannot preload a Transloadit image without a source')
@@ -167,8 +171,55 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
     preloadImage(preferredSource, sizes, attributes)
   }
 
+  const preloads =
+    preload && artDirection.length > 0
+      ? [...artDirection, { media: undefined, model }].map((variant, index) => {
+          const preferred = variant.model.sources[0]
+          if (preferred === undefined) throw new Error('Cannot preload an empty art direction')
+          const prior = artDirection.slice(0, index).map((source) => source.media)
+          const unmatched = prior.length === 0 ? undefined : `not (${prior.join(' or ')})`
+          const condition =
+            variant.media === undefined
+              ? unmatched
+              : unmatched === undefined
+                ? variant.media
+                : `${variant.media} and (${unmatched})`
+          return (
+            <link
+              key={variant.media ?? 'default'}
+              rel="preload"
+              as="image"
+              media={condition}
+              imageSrcSet={getSourceSet(preferred.candidates)}
+              imageSizes={sizes}
+              type={getMimeType(preferred.format)}
+              crossOrigin={attributes.crossOrigin}
+              referrerPolicy={attributes.referrerPolicy}
+              fetchPriority={attributes.fetchPriority}
+            />
+          )
+        })
+      : null
   const picture = (
     <picture>
+      {artDirection.map((variant) => (
+        <Fragment key={variant.media}>
+          {variant.model.sources.map((source) => (
+            <source
+              key={source.format}
+              media={variant.media}
+              sizes={sizes}
+              srcSet={getSourceSet(source.candidates)}
+              type={getMimeType(source.format)}
+            />
+          ))}
+          <source
+            media={variant.media}
+            srcSet={escapeSourceSetUrl(variant.model.fallbackUrl)}
+            type="image/jpeg"
+          />
+        </Fragment>
+      ))}
       {model.sources.map((source) => (
         <source
           key={source.format}
@@ -187,13 +238,27 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
     props.errorFallback === undefined ? (
       picture
     ) : (
-      <StorageImageErrorBoundary key={model.fallbackUrl} fallback={props.errorFallback}>
+      <StorageImageErrorBoundary
+        key={JSON.stringify([
+          model.fallbackUrl,
+          model.sources,
+          model.artDirection,
+          media,
+          mediaPlaceholderSrc,
+        ])}
+        fallback={props.errorFallback}
+      >
         {picture}
       </StorageImageErrorBoundary>
     )
-  return deferUntilHydrated ? (
-    <HydratedTransloaditPicture fallback={fallback}>{resolved}</HydratedTransloaditPicture>
-  ) : (
-    resolved
+  return (
+    <>
+      {preloads}
+      {deferUntilHydrated ? (
+        <HydratedTransloaditPicture fallback={fallback}>{resolved}</HydratedTransloaditPicture>
+      ) : (
+        resolved
+      )}
+    </>
   )
 }

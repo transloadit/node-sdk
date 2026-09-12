@@ -10,12 +10,26 @@ interface PackageManifest {
   devDependencies?: Record<string, string>
 }
 
+test.each([
+  'private-images',
+  'browser-images',
+])('explicitly exports both GET and HEAD for the %s fixture', async (route) => {
+  const source = await readFile(
+    resolve(import.meta.dirname, `fixtures/img-next/app/api/${route}/route.ts`),
+    'utf8',
+  )
+  expect(source).toContain('as GET,')
+  expect(source).toContain('as HEAD')
+})
+
 test('documents the pinned alpha pipeline, cache-key policy and server-enforced key separation', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   expect(readme).toContain('builtin/storage-preview@0.0.2')
   expect(readme).toContain('fallbackBackground')
   expect(readme).toContain('#00000000')
-  expect(readme).toContain('NoCacheSigExp')
+  expect(readme).toContain('Production Smart CDN uses Bunny')
+  expect(readme).toContain('whole query string')
+  expect(readme).not.toContain('NoCacheSigExp')
   expect(readme).toContain('by design')
 })
 
@@ -40,19 +54,41 @@ test('keeps seed credentials outside Next and defines the factory before its fir
     )
 })
 
-test('leads private apps with authorization and documents trusted user-upload receipt ingestion', async () => {
+test('gets to the first image before teaching the security model and keeps the private recipe complete', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   const firstFactory = readme.slice(
     readme.indexOf('export const { StorageImage'),
     readme.indexOf('Then in `app/page.tsx`'),
   )
-  expect(firstFactory).toContain('authorize:')
-  expect(firstFactory).toContain('storageRoute as GET')
+  expect(firstFactory).toContain("delivery: 'direct'")
+  expect(firstFactory).not.toContain('authorize:')
+  const login = readme.indexOf('yarn transloadit auth login')
+  const store = readme.indexOf('yarn transloadit storage store')
+  const page = readme.indexOf('export default function Page()')
+  const privacy = readme.indexOf('## Ship it privately')
+  expect(login).toBeGreaterThan(0)
+  expect(store).toBeGreaterThan(login)
+  expect(page).toBeGreaterThan(store)
+  expect(privacy).toBeGreaterThan(page)
+  expect(readme.slice(0, page)).not.toContain('Assembly-only')
+  expect(readme).toContain('## Under the hood')
+  expect(readme).toContain('storageRoute as GET, storageRoute as HEAD')
+  expect(readme).not.toContain('loading="eager"')
+  expect(readme).toContain('Chrome 126+ and Firefox; not Safari')
   expect(readme).toContain('Uppy')
   expect(readme).toContain('"robot": "/transloadit/store"')
   expect(readme).toContain('notification')
   expect(readme).toContain('EXIF')
   expect(readme).toContain('asset_id')
+  expect(readme).toContain('Run from your app root')
+  expect(readme).toContain('standard Web `Request`')
+  expect(readme).toContain('denied requests return `404`')
+  expect(readme).toContain('All three factories')
+  expect(readme).toContain('TRANSLOADIT_ENDPOINT')
+  expect(readme).toContain('https://github.com/transloadit/node-sdk/blob/main/docs/img-dogfood.md')
+  expect(readme).not.toContain('](../../docs/')
+  expect(readme).toContain('The default route is `/api/storage-images`')
+  expect(readme).toContain('capability has no independent expiry')
 })
 
 test('locks every external runtime dependency of the packed image package', async () => {

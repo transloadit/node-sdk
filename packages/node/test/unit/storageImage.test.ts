@@ -40,6 +40,85 @@ function fixture(response: AssemblyStatus = completed) {
 
 afterEach(() => vi.restoreAllMocks())
 
+test('reports canceled Assemblies distinctly when storing or recovering receipts', async () => {
+  const canceled = { ...completed, ok: 'ASSEMBLY_CANCELED', results: {} } satisfies AssemblyStatus
+  const { client } = fixture(canceled)
+  vi.spyOn(client, 'getAssembly').mockResolvedValue(canceled)
+  const expected = { path: receipt.path, size: receipt.size, md5hash: receipt.md5hash }
+  await expect(client.storeImage(filePath, { path: receipt.path })).rejects.toMatchObject({
+    message: expect.stringContaining('ASSEMBLY_CANCELED'),
+    cause: { assemblyId: completed.assembly_id },
+  })
+  await expect(
+    client.getStoredImageReceipt({ assemblyId: 'completed-assembly', expected }),
+  ).rejects.toMatchObject({
+    message: expect.stringContaining('ASSEMBLY_CANCELED'),
+    cause: { assemblyId: completed.assembly_id },
+  })
+})
+
+test('retrieves a verified receipt from a completed Assembly without uploading again', async () => {
+  const { client, create } = fixture()
+  const get = vi.spyOn(client, 'getAssembly').mockResolvedValue(completed)
+  await expect(
+    client.getStoredImageReceipt({
+      assemblyId: 'completed-assembly',
+      expected: { path: receipt.path, size: receipt.size, md5hash: receipt.md5hash },
+    }),
+  ).resolves.toEqual({
+    asset_id: receipt.asset_id,
+    path: receipt.path,
+    size: receipt.size,
+    md5hash: receipt.md5hash,
+    width: 100,
+    height: 100,
+  })
+  expect(get).toHaveBeenCalledExactlyOnceWith('completed-assembly')
+  expect(create).not.toHaveBeenCalled()
+})
+
+test('explicit overwrite changes only the Storage conflict policy', async () => {
+  const { client, create } = fixture()
+  await client.storeImage(filePath, { path: receipt.path, overwrite: true })
+  expect(create.mock.calls[0]?.[0]?.params?.steps).toEqual({
+    stored: {
+      robot: '/transloadit/store',
+      use: ':original',
+      path: receipt.path,
+      conflict_strategy: 'overwrite',
+    },
+  })
+})
+
+test.each(['path', 'size', 'md5hash'])('recovery rejects an unexpected %s', async (field) => {
+  const { client } = fixture()
+  vi.spyOn(client, 'getAssembly').mockResolvedValue(completed)
+  const expected = {
+    path: receipt.path,
+    size: receipt.size,
+    md5hash: receipt.md5hash,
+    [field]: field === 'size' ? 1 : field === 'path' ? 'other.jpg' : '0'.repeat(32),
+  }
+  await expect(
+    client.getStoredImageReceipt({ assemblyId: 'completed-assembly', expected }),
+  ).rejects.toMatchObject({
+    name: 'InconsistentResponseError',
+    cause: { assemblyId: 'completed-assembly' },
+  })
+})
+
+test('recovery refuses malformed expectations before fetching', async () => {
+  const { client } = fixture()
+  const get = vi.spyOn(client, 'getAssembly')
+  await expect(
+    client.getStoredImageReceipt({
+      assemblyId: 'completed-assembly',
+      expected: { path: '../escape', size: -1, md5hash: 'invalid' },
+    }),
+  ).rejects.toThrow()
+  expect(get).not.toHaveBeenCalled()
+})
+
 test('stores one original at the exact destination and returns only the verified image receipt', async () => {
   const { client, create } = fixture()
   const result = await client.storeImage(filePath, { path: receipt.path })
@@ -98,6 +177,16 @@ test.each<[string | number | null | undefined, number, number]>([
     height,
   })
   expect(meta).toEqual({ width: 450, height: 600, orientation })
+  vi.spyOn(client, 'getAssembly').mockResolvedValue({
+    ...completed,
+    results: { ':original': [{ ...receipt, meta }] },
+  })
+  await expect(
+    client.getStoredImageReceipt({
+      assemblyId: 'completed-assembly',
+      expected: { path: receipt.path, size: receipt.size, md5hash: receipt.md5hash },
+    }),
+  ).resolves.toMatchObject({ width, height })
 })
 
 test.each<[string, AssemblyStatus]>([
@@ -135,6 +224,16 @@ test.each([
     InconsistentResponseError,
   )
   expect(create).toHaveBeenCalledOnce()
+  vi.spyOn(client, 'getAssembly').mockResolvedValue({
+    ...completed,
+    results: { ':original': [invalid] },
+  })
+  await expect(
+    client.getStoredImageReceipt({
+      assemblyId: 'completed-assembly',
+      expected: { path: receipt.path, size: receipt.size, md5hash: receipt.md5hash },
+    }),
+  ).rejects.toThrow(InconsistentResponseError)
 })
 
 test.each([

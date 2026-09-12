@@ -1,3 +1,4 @@
+import type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 import type { CreateAssemblyOptions, Transloadit } from './Transloadit.ts'
 
 import { createHash } from 'node:crypto'
@@ -28,9 +29,32 @@ export interface StoreImageOptions
   > {
   /** Complete relative Storage filename. Directories and interpolation expressions are rejected. */
   path: string
+  /** Explicit opt-in replacement of an existing path; defaults to false. */
+  overwrite?: boolean
+}
+
+/** Trusted upload facts used to correlate a stored result with an application-owned upload. */
+export interface StoredImageExpectation {
+  path: string
+  size: number
+  md5hash: string
+}
+
+/** Recovers one original's receipt without re-uploading or trusting notification payloads. */
+export interface GetStoredImageReceiptOptions {
+  assemblyId: string
+  expected: StoredImageExpectation
 }
 
 const positiveIntegerSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
+const receiptRequestSchema = z.object({
+  assemblyId: z.string().regex(/^[A-Za-z0-9_-]+$/),
+  expected: z.object({
+    path: z.string(),
+    size: positiveIntegerSchema,
+    md5hash: z.string().regex(/^[a-f0-9]{32}$/),
+  }),
+})
 // API2 exposes EXIFTool's orientation labels; numeric EXIF tags use the same axis swap.
 const dimensionSwappingOrientations = new Set<string | number>([
   5,
@@ -84,8 +108,11 @@ export async function storeImage(
   filePath: string,
   options: StoreImageOptions,
 ): Promise<StoredImageReceipt> {
-  const { path, chunkSize, onAssemblyProgress, onUploadProgress, signal, timeout } = options
+  const { path, chunkSize, onAssemblyProgress, onUploadProgress, overwrite, signal, timeout } =
+    options
   validateDestination(path)
+  if (overwrite !== undefined && typeof overwrite !== 'boolean')
+    throw new TypeError('overwrite must be a boolean')
   signal?.throwIfAborted()
   const checksum = createHash('md5')
   let size = 0
@@ -103,13 +130,47 @@ export async function storeImage(
     onUploadProgress,
     params: {
       steps: {
-        stored: { robot: '/transloadit/store', use: ':original', path, conflict_strategy: 'error' },
+        stored: {
+          robot: '/transloadit/store',
+          use: ':original',
+          path,
+          conflict_strategy: overwrite === true ? 'overwrite' : 'error',
+        },
       },
     },
     signal,
     timeout,
     waitForCompletion: true,
   })
+  return validateReceipt(assembly, { path, size, md5hash })
+}
+
+/** Fetches authoritative Assembly status and applies the same validation as a local image store. */
+export async function getStoredImageReceipt(
+  client: Transloadit,
+  options: GetStoredImageReceiptOptions,
+): Promise<StoredImageReceipt> {
+  const { assemblyId, expected } = receiptRequestSchema.parse(options)
+  validateDestination(expected.path)
+  const assembly = await client.getAssembly(assemblyId)
+  if (assembly.assembly_id !== assemblyId) {
+    throw new InconsistentResponseError('The response did not match the requested Assembly', {
+      cause: { assemblyId },
+    })
+  }
+  return validateReceipt(assembly, expected)
+}
+
+function validateReceipt(
+  assembly: AssemblyStatus,
+  expected: StoredImageExpectation,
+): StoredImageReceipt {
+  const { path, size, md5hash } = expected
+  if (assembly.ok === 'ASSEMBLY_CANCELED') {
+    throw new InconsistentResponseError('The Storage Assembly ended with ASSEMBLY_CANCELED', {
+      cause: { assemblyId: assembly.assembly_id },
+    })
+  }
   const parsed = completedImageSchema.safeParse(assembly)
   const result = parsed.success ? parsed.data.results[':original'][0] : undefined
   if (

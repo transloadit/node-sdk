@@ -11,7 +11,6 @@ export const { StorageImage: BrowserImage, storageRoute: browserStorageRoute } =
       allowedPathPrefixes: ['documents/'],
       delivery: {
         authorize: authorizeFixtureImage,
-        basePath: '/fixture',
         route: '/api/browser-images',
       },
       expiresInMs: 10_000,

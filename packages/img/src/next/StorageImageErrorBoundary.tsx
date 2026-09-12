@@ -1,11 +1,11 @@
 'use client'
 
-import type { ComponentProps, ReactElement, ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 
-import { cloneElement, useEffect, useRef, useState } from 'react'
+import { Children, cloneElement, isValidElement, useEffect, useRef, useState } from 'react'
 
 interface StorageImageErrorBoundaryProps {
-  children: ReactElement<ComponentProps<'picture'>>
+  children: ReactNode
   fallback: ReactNode
 }
 
@@ -21,12 +21,21 @@ export function StorageImageErrorBoundary({
     // The browser can finish (and fail) a native image request before hydration attaches events.
     if (image?.complete && image.currentSrc !== '' && image.naturalWidth === 0) setFailed(true)
   }, [])
-  return failed
-    ? fallback
-    : cloneElement(children, {
-        ref: picture,
-        onErrorCapture(event) {
-          if (event.target instanceof HTMLImageElement) setFailed(true)
-        },
-      })
+  if (failed) return fallback
+  // Flight can deliver children as a lazy reference, not a directly cloneable React element.
+  const elements = Children.toArray(children)
+  const element = elements[0]
+  if (
+    elements.length !== 1 ||
+    !isValidElement<ComponentProps<'picture'>>(element) ||
+    element.type !== 'picture'
+  ) {
+    throw new Error('Storage image error fallback requires one picture')
+  }
+  return cloneElement(element, {
+    ref: picture,
+    onErrorCapture(event) {
+      if (event.target instanceof HTMLImageElement) setFailed(true)
+    },
+  })
 }

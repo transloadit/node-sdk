@@ -314,6 +314,10 @@ async function main(): Promise<void> {
         outputNames.includes('storage-redirect.html'),
         'Expected redirect-delivery markup to prerender',
       )
+      assert(
+        outputNames.includes('delivery.html'),
+        'Public/private redirect markup must stay static',
+      )
       if (cacheComponents === 'enabled') {
         const storageShell = await readFile(resolve(appOutput, 'storage-image.html'), 'utf8')
         assert(

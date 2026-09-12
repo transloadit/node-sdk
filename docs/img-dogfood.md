@@ -15,8 +15,7 @@ depend on it from npm yet.
 
 ## Seed your first image
 
-This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app with
-Yarn 4's `node-modules` linker (`nodeLinker: node-modules`). The
+This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app. The
 workspace must have Transloadit Storage writes enabled; package installation does not enable them.
 The backend must provide `builtin/storage-preview@0.0.2` for this package revision: use API2
 #9057 at `a15af5ed96a4605cd500587cf002bd249534fe62` or newer in an owned devdock until that PR is
@@ -25,8 +24,7 @@ field needed by alpha-preserving candidates and the opaque JPEG fallback.
 
 The server entry point needs the **Node.js runtime**, not Edge: it uses `node:crypto` and `Buffer`.
 The examples use root `app/` and `lib/` directories; adjust their relative imports for `src/app/`.
-Keep your app's Node/React type dependencies; with TypeScript 6, include `node` in
-`compilerOptions.types` when checking the seed outside Next's generated environment declarations.
+Keep the app's stock Next.js TypeScript configuration and Node/React type dependencies.
 
 ### Install the local packages
 
@@ -45,33 +43,27 @@ corepack yarn workspace @transloadit/utils pack --out "$img_pack_dir/transloadit
 printf '%s\n' "$img_pack_dir"
 ```
 
-In the same terminal, switch to your Next.js app. Merge this field into its root `package.json`,
-replacing `/ABSOLUTE_PACK_DIR` with the directory just printed:
-
-```json
-{
-  "resolutions": {
-    "@transloadit/utils": "file:/ABSOLUTE_PACK_DIR/transloadit-utils.tgz"
-  }
-}
-```
-
-This [Yarn resolution](https://yarnpkg.com/configuration/manifest#resolutions) makes img and the
-seed client use the reviewed local signing package. Adding a root `file:` dependency alone can
-leave a second registry copy nested under img. Then install the four tarballs:
+In the same terminal, switch to a stock Next.js app created with npm and install all four local
+tarballs. npm deduplicates the matching local workspace versions without a manual manifest edit:
 
 ```bash
-corepack yarn add "@transloadit/img@file:$img_pack_dir/transloadit-img.tgz" "@transloadit/utils@file:$img_pack_dir/transloadit-utils.tgz"
-corepack yarn add -D "@transloadit/node@file:$img_pack_dir/transloadit-node.tgz" "@transloadit/types@file:$img_pack_dir/transloadit-types.tgz"
+npm install "$img_pack_dir/transloadit-img.tgz" "$img_pack_dir/transloadit-utils.tgz"
+npm install -D "$img_pack_dir/transloadit-node.tgz" "$img_pack_dir/transloadit-types.tgz"
 ```
 
 The Assembly client is a seed-only development dependency. The optional instruction types are used
 by the packed recipe's tests and by advanced `createAssembly()` calls, not the seed helper. Utils is a real
-runtime dependency of img; the local tarball override is specific to this unpublished walkthrough.
+runtime dependency of img; the local tarballs are specific to this unpublished walkthrough.
 Img does not add the Assembly client to the browser or create an Assembly for each render. Keep
 the tarballs available for reinstalls; do not commit machine-specific paths as a production setup.
 
-### Configure the two key purposes
+For the ordinary first-image flow, return to the package README and use `npx --no transloadit` in place
+of `yarn transloadit`. The explicit SDK seed below is an advanced maintainer alternative, not a
+prerequisite for `auth login`, `storage store` or `image init`.
+
+### Advanced alternative: configure a standalone seed script
+
+Skip this section when using `auth login` and `storage store`; those commands already seed the image.
 
 Use credentials from the **same workspace**, but separate write access from rendering. Add both
 `.env.seed.local` and `.env.local` to the app's `.gitignore` before creating them:
@@ -161,12 +153,12 @@ The helper requires the full filename, not a directory or an interpolation expre
 `createAssembly()` instructions can use the single-quoted `'website/${file.url_name}'` literal:
 Transloadit, not JavaScript, substitutes the input's URL-safe filename in that expression. Node 24 detects
 ES module syntax when `package.json` has no `type`; explicit `"type": "commonjs"` is different.
-For this native TypeScript seed, use `"type": "module"` in the app's package manifest. No tsx or
+The stock create-next-app manifest needs no change for this native TypeScript seed. No tsx or
 ts-node runner is needed. See [Node's module detection](https://nodejs.org/download/release/v24.11.0/docs/api/packages.html#syntax-detection).
 
 Proceed only when the command exits successfully. `conflict_strategy: 'error'` makes a repeated
 upload to the same path fail rather than silently replacing an asset. Choose a different filename
-or use `createAssembly()` for an intentional conflict policy. Do not modify the input file while
+or explicitly set `overwrite: true` (CLI: `--overwrite`). Do not modify the input file while
 it is being checksummed and uploaded. Receipt validation happens **after the Storage write**:
 a validation error is not a rollback, and retrying the same path can encounter the stored object.
 An `InconsistentResponseError` retains `cause.assemblyId` for investigation without copying the
@@ -174,7 +166,7 @@ Assembly response. Existing API, timeout and cancellation errors propagate uncha
 
 The helper also accepts `signal`, `chunkSize`, `onUploadProgress`, `onAssemblyProgress` and the
 existing Assembly `timeout` (upload/polling, not local checksum time). It never accepts replacement
-steps or enables overwrite. Use `createAssembly()` for multi-file or transformation workflows.
+steps. Overwrite remains opt-in. Use `createAssembly()` for multi-file or transformation workflows.
 
 The resulting JSON contains `asset_id`, `path`, `size`, `md5hash`, `width`, and `height`. Keep it
 alongside your content or in your application's database; rendering needs no metadata request.
@@ -193,9 +185,12 @@ and `urlParams: { cdn: 'required' }`. This supplies API2's explicit `cdn: requir
 because native image requests cannot attach a custom header. It does **not** install a CDN or
 bypass signatures. Keep the Smart CDN key and secret, and never take either override from a request.
 Normal Smart CDN delivery needs neither local override.
+`createPrivateStorageImages` accepts these same `baseUrl` and `urlParams` fields directly,
+alongside `allowedPathPrefixes` and `authorize`.
 
 The factory now exports `StorageImage`; Content no longer needs to alias it against `next/image`.
-The deprecated `Image` alias remains for existing integrations. See the package README for layout
+The unpublished `Image` alias is removed; update the Content dogfood branch to destructure
+`StorageImage` when installing the round-4 package. See the package README for layout
 and authorization policy; this document only covers maintainer setup.
 
 ## Verification
@@ -208,7 +203,8 @@ corepack yarn test:img:fixture
 The fixture packs all four local artifacts and installs them with its pinned **npm** lockfile into
 a clean Next.js app. It executes this exact seed recipe against mocked Assembly receipts without
 network access and compiles it against the packed SDK/types. It builds and serves both production
-Cache Components configurations, then runs 48 Chromium/WebKit cases: native cookie authorization,
+Cache Components configurations, then runs 60 Chromium/WebKit cases: native cookie authorization,
+GET/HEAD parity, explicit public-prefix caching, responsive art direction with real cropped bytes,
 separate app/CDN hosts, constrained hero/fixed avatar geometry, portrait fillcrop, optional error
 fallback, private-redirect decoding before application JavaScript, hydration, bounded JPEG fallback,
 original-capability renewal, revocation, expiry and tampering. Chromium
@@ -222,6 +218,5 @@ it does not execute API2's transformation pipeline. Secret scans cover rendered/
 
 The test records browser evidence and direct-versus-redirect HTML size and route work for 1, 20,
 and 100 images. Wall-clock measurements are diagnostic, not CI performance thresholds. This local
-proof does not measure production CDN latency/caching or prove the deployed API2 pipeline. The npm fixture is
-not proof of the exact Yarn commands above; those are also verified separately in a clean Yarn
-consumer, including the local utils resolution.
+proof does not measure production CDN latency/caching or prove the deployed API2 pipeline.
+The fixture checks the packed dependency graph independently of the own-devdock consumer test.

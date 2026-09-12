@@ -39,7 +39,11 @@ import type {
   LintAssemblyInstructionsInput,
   LintAssemblyInstructionsResult,
 } from './lintAssemblyInstructions.ts'
-import type { StoredImageReceipt, StoreImageOptions } from './storageImage.ts'
+import type {
+  GetStoredImageReceiptOptions,
+  StoredImageReceipt,
+  StoreImageOptions,
+} from './storageImage.ts'
 import type { Stream, UploadBehavior } from './tus.ts'
 
 import * as assert from 'node:assert'
@@ -67,7 +71,7 @@ import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
-import { storeImage } from './storageImage.ts'
+import { getStoredImageReceipt, storeImage } from './storageImage.ts'
 import { sendTusRequest } from './tus.ts'
 
 export type {
@@ -96,7 +100,12 @@ export type {
   RobotListResult,
   RobotParamHelp,
 } from './robots.ts'
-export type { StoredImageReceipt, StoreImageOptions } from './storageImage.ts'
+export type {
+  GetStoredImageReceiptOptions,
+  StoredImageExpectation,
+  StoredImageReceipt,
+  StoreImageOptions,
+} from './storageImage.ts'
 
 export {
   buildCompileAssemblyInstructionsSystemPrompt,
@@ -460,6 +469,11 @@ export class Transloadit {
   /** Stores one local original at an explicit path and returns its verified image metadata. */
   storeImage(filePath: string, options: StoreImageOptions): Promise<StoredImageReceipt> {
     return storeImage(this, filePath, options)
+  }
+
+  /** Reconstructs a verified receipt from authoritative Assembly status and trusted upload facts. */
+  getStoredImageReceipt(options: GetStoredImageReceiptOptions): Promise<StoredImageReceipt> {
+    return getStoredImageReceipt(this, options)
   }
 
   /**
