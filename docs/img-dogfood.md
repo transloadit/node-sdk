@@ -193,6 +193,37 @@ The unpublished `Image` alias is removed; update the Content dogfood branch to d
 `StorageImage` when installing the round-4 package. See the package README for layout
 and authorization policy; this document only covers maintainer setup.
 
+### Live Storage listing and recovery boundary
+
+The owned clone17 canary at API2 `5235a3605f` was tested against its actual Storage S3 controller
+with the packed SDK implementation from `3cc783a`. Only that internal-only, port-free devdock's
+`env.sh` custom overrides enable `API2_STORAGE_S3_ENABLED=true`. Production remains unchanged.
+
+`transloadit storage ls website/ --json` discovers the workspace and lists all six existing images,
+including `website/stranger4.jpg` from the accepted stranger trial. Its 92,230-byte size and ETag
+match the saved receipt. The command succeeds using the endpoint saved with ordinary read-scoped
+Auth Key credentials, even with an unrelated bearer token present. An explicit `--endpoint`
+overrides a saved local decoy; without that override the same decoy is reached. An unmatched prefix
+returns an empty list, a different workspace returns 404, and unsigned HEAD returns 403.
+These are real signed HTTP requests to API2, not mocked listing responses or new Storage writes.
+
+The first disabled-controller probe failed with HTTP 403. After enabling it, the canary's special
+Assembly-admin shortcut was rejected with `InvalidAccessKeyId`; an existing normal read-scoped
+workspace Auth Key works. No key was created or broadened, and Smart CDN credentials are not used
+for listing. This local fixture distinction does not require an SDK authentication workaround.
+
+The public S3 HEAD for that image returns HTTP 200, size, ETag, MIME and version ID, but no user
+metadata or asset ID. A separate read-only HEAD through the internal object-store adapter proves
+the backing object has `dam-width=1024` and `dam-height=683`. The gap is in the public controller:
+`api2/lib/uploader/storage-s3/objects.ts` builds fixed catalog headers without forwarding those
+dimensions. A version ID is not an asset ID. Do not reconstruct partial receipts or require
+customers to hold private backing-store credentials. Keep committing `images.json` until API2
+exposes a complete recovery contract. No API2 implementation or canonical schema was changed.
+
+Local evidence: `/tmp/img-storage-ls-result.md`, `/tmp/img-s3-live-readkey.log`, and clone17's
+`tmp/img-s3-live-result.json`. The existing five endpoint/pagination/error regression tests pass;
+their earlier red-first SDK correction is unchanged by this documentation-only follow-up.
+
 ## Verification
 
 ```console

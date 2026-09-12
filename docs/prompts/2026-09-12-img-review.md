@@ -1,5 +1,34 @@
 # Storage image onboarding review
 
+## Live Storage S3 follow-up
+
+Source: `/tmp/img-storage-ls-devdock.md`. Continue after the six council fixes in #500;
+no merge, publication, production access, or API2 implementation changes. Latest main is
+already an ancestor, and GitHub has no review threads. Only the owned clone17 devdock may
+enable `API2_STORAGE_S3_ENABLED=true` through its `env.sh` custom overrides.
+
+- [x] Reproduce the disabled-controller failure before enabling and restarting locally.
+- [x] List `website/`, including the stranger-test original, through the real signed endpoint.
+- [x] Prove the credential-bound endpoint and explicit override against that endpoint.
+- [x] Check real HEAD metadata for dimensions and the complete receipt recovery contract.
+      Implement sync red-first only if that public surface provides the required metadata;
+      otherwise retain the committed receipt recommendation and report the API2 boundary.
+- [x] Record evidence and run sequential checks/fixture; track exact-head CI in #500.
+- [x] Stop owned services and remove temporary credential copies after verification.
+
+Live probe at 2026-09-12T21:35:26.051Z passes: six existing images, saved credential endpoint,
+explicit override with an untouched decoy, unmatched-prefix result and cross-workspace/unsigned denial.
+The backing object has 1024×683 metadata; public HEAD omits it and the asset ID. Per the brief,
+do not patch API2 or add partial sync. README keeps `commit images.json` and names the exact gap.
+The only fixture correction beyond the feature flag is using an existing ordinary read-scoped
+key instead of the Assembly-only internal admin shortcut. No key permissions or SDK runtime
+changed. Full details: `docs/img-dogfood.md` and `/tmp/img-storage-ls-result.md`.
+Sequential root check/full verify and the packed fixture pass: eight seed cases and 60
+first-attempt Chromium/WebKit cases, no retries, skips, flakes or native-response errors.
+The follow-up changes documentation only; the prior runtime council findings remain resolved.
+Exact-head CI is recorded in the PR checks and the local result/handover, not inferred from
+the earlier commit's green status. Owned services are stopped and temporary credentials removed.
+
 ## Final round-4 council — active follow-up
 
 Source: `/tmp/img-pr500-r4-council.md`, reviewed against `888c4e0`. Work continues in #500;
