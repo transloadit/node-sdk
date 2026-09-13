@@ -7,7 +7,8 @@ export function normalizeStoragePublicPrefix(prefix: string): string {
     throw new TypeError('A public prefix must name a non-root directory')
   const normalized = prefix.endsWith('/') ? prefix : `${prefix}/`
   validateStoragePathPrefix(normalized, 0, 'public prefix')
-  if (normalized.length > 512) throw new TypeError('A public prefix must be at most 512 characters')
+  if (new TextEncoder().encode(normalized).byteLength > 512)
+    throw new TypeError('A public prefix must be at most 512 UTF-8 bytes')
   return normalized
 }
 

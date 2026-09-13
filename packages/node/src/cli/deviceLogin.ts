@@ -62,7 +62,7 @@ export async function deviceLogin(
   try {
     const response = await got
       .post(`${endpoint}/cli/device_authorizations`, {
-        json: { client: 'transloadit-cli', hostname: hostname() },
+        form: { client: 'transloadit-cli', hostname: hostname() },
         responseType: 'json',
         retry: { limit: 0 },
         followRedirect: false,
@@ -112,7 +112,7 @@ export async function deviceLogin(
       await delay(intervalMs, undefined, { signal })
       const token = await got
         .post(`${endpoint}/cli/device_authorizations/token`, {
-          json: { device_code: device.device_code },
+          form: { device_code: device.device_code },
           responseType: 'json',
           retry: { limit: 0 },
           followRedirect: false,

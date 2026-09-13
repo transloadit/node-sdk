@@ -13,6 +13,8 @@ images without proxying image bytes through Next.
   signatures, native-cookie authorization and opaque redirect capabilities.
 - Browser CLI login saves a server-only Auth Key and workspace; init creates a runnable example
   and catalog. Store validates upload evidence; sync preserves it only when the MD5 agrees.
+- Device creation and token polling send form-urlencoded fields; approval uses signed API params.
+  Public directory declarations are bounded to 512 UTF-8 bytes, including their trailing slash.
 - Public delivery requires the matching API2 public-prefix contract and public Built-ins.
   API2 and Console implementation are separate work; test SDK boundaries with contract fakes
   until the owned devdock is updated.

@@ -97,6 +97,23 @@ function createDevice(response = created): nock.Scope {
     .reply(200, response)
 }
 
+test('device creation and token polling send form-encoded fields, not JSON', async () => {
+  const api = nock(origin, {
+    reqheaders: { 'content-type': 'application/x-www-form-urlencoded' },
+  })
+    .post(
+      '/cli/device_authorizations',
+      (body) => body.client === 'transloadit-cli' && typeof body.hostname === 'string',
+    )
+    .reply(200, created)
+    .post('/cli/device_authorizations/token', { device_code: created.device_code })
+    .reply(200, authorized)
+  await login(['--no-browser'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(resolveCliConfig().credentialsWorkspace).toBe(authorized.workspace)
+})
+
 test.each([
   false,
   true,

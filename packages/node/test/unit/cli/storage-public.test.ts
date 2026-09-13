@@ -200,6 +200,24 @@ test('init publishes first and reuses the saved login without any terminal input
   )
 })
 
+test('public prefix limits count UTF-8 bytes before making a request', async () => {
+  await main(['storage', 'publish', 'é'.repeat(256)])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'A public prefix must be at most 512 UTF-8 bytes',
+  )
+})
+
+test('a public prefix at exactly 512 UTF-8 bytes is accepted', async () => {
+  const prefix = `${'é'.repeat(255)}a/`
+  const api = nock(origin)
+    .post('/storage/public_prefixes')
+    .reply(200, { ...declared, prefix })
+  await main(['storage', 'publish', prefix])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+})
+
 test('init checks local conflicts before publishing and leaves existing files untouched', async () => {
   await mkdir('app')
   await writeFile('.env.local', 'existing\n')
