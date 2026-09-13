@@ -47,7 +47,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
 
   stdin = Option.Boolean('--stdin', false, {
     description:
-      'Read TRANSLOADIT_KEY, TRANSLOADIT_SECRET and optional TRANSLOADIT_WORKSPACE in dotenv format',
+      'Read TRANSLOADIT_KEY, TRANSLOADIT_SECRET and optional TRANSLOADIT_WORKSPACE in dotenv format; combined Smart CDN keys also need TRANSLOADIT_SIGNATURE_ALGORITHM=sha256',
   })
   noBrowser = Option.Boolean('--no-browser', false, {
     description: 'Print the device approval URL without launching a browser',
@@ -118,7 +118,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
         })
         await client.listTemplates({ pagesize: 1 }).catch((error: unknown) => {
           throw new Error(
-            `Could not verify these credentials. Check the endpoint, key/secret and read scope at https://transloadit.com/c/${credentials.workspace ?? '<workspace>'}/template-credentials/. Nothing was saved.`,
+            `Could not verify these credentials. Check the endpoint, key/secret and read scope at https://transloadit.com/c/${credentials.workspace ?? '<workspace>'}/template-credentials/. Combined Smart CDN keys need TRANSLOADIT_SIGNATURE_ALGORITHM=sha256 in the stdin input. Nothing was saved.`,
             { cause: error },
           )
         })

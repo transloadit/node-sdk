@@ -60,6 +60,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         throw new Error('Run image init in a Next.js project containing app/ or src/app/')
       let environment: string | undefined
       const login = this.writeEnv ? resolveCliConfig('login') : undefined
+      if (login?.loadError !== undefined) throw new Error(login.loadError)
       if (this.writeEnv) {
         const value = z
           .string()

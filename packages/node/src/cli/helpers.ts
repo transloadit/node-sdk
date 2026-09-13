@@ -224,7 +224,9 @@ function getSourceValue(source: CliEnvSource, keys: string[]): string | undefine
   return undefined
 }
 
-function getSourceCredentials(source: CliEnvSource): CliKeySecretCredentials | undefined {
+function getSourceCredentials(
+  source: CliEnvSource,
+): CliKeySecretCredentials | { loadError: string } | undefined {
   const authKey = getSourceValue(source, ['TRANSLOADIT_KEY', 'TRANSLOADIT_AUTH_KEY'])
   const authSecret = getSourceValue(source, ['TRANSLOADIT_SECRET', 'TRANSLOADIT_AUTH_SECRET'])
   if (authKey == null || authSecret == null) return undefined
@@ -233,7 +235,7 @@ function getSourceCredentials(source: CliEnvSource): CliKeySecretCredentials | u
     .optional()
     .safeParse(getSourceValue(source, ['TRANSLOADIT_SIGNATURE_ALGORITHM']))
   if (!algorithm.success)
-    throw new TypeError('Unsupported TRANSLOADIT_SIGNATURE_ALGORITHM in CLI credentials')
+    return { loadError: 'Unsupported TRANSLOADIT_SIGNATURE_ALGORITHM in CLI credentials' }
   return {
     authKey,
     authSecret,
@@ -266,6 +268,7 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
     const saved = readEnvFile(getConfiguredCredentialsFilePath('shell'))
     if (!saved?.ok) return saved === null ? {} : { loadError: saved.error }
     const credentials = getSourceCredentials(saved.source)
+    if (credentials !== undefined && 'loadError' in credentials) return credentials
     const endpoint = getSourceValue(saved.source, ['TRANSLOADIT_ENDPOINT'])
     return {
       auth: credentials,
@@ -282,13 +285,16 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
   let credentialsSource: CliEnvSource | undefined
 
   for (const source of sources) {
+    if (auth != null && credentials != null) break
+    const sourceCredentials = getSourceCredentials(source)
+    if (sourceCredentials !== undefined && 'loadError' in sourceCredentials)
+      return sourceCredentials
     if (auth == null) {
       const authToken = getSourceAuthToken(source)
       if (authToken != null) {
         auth = authToken
         authSource = source
       } else {
-        const sourceCredentials = getSourceCredentials(source)
         if (sourceCredentials != null) {
           auth = sourceCredentials
           authSource = source
@@ -298,7 +304,6 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
 
     if (credentials != null) continue
 
-    const sourceCredentials = getSourceCredentials(source)
     if (sourceCredentials != null) {
       credentials = sourceCredentials
       credentialsSource = source

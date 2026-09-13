@@ -91,7 +91,18 @@ test('auth login rejects failed verification without saving credentials or echoi
   const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
   expect(message).toContain('https://transloadit.com/c/<workspace>/template-credentials/')
   expect(message).toContain('verify')
+  expect(message).toContain('TRANSLOADIT_SIGNATURE_ALGORITHM=sha256')
   expect(message).not.toContain('hidden-secret')
+})
+
+test('auth login help documents the stdin algorithm needed for a combined Smart CDN key', async () => {
+  await main(['auth', 'login', '--help'])
+  expect(process.exitCode).toBeUndefined()
+  const help = vi
+    .mocked(process.stdout.write)
+    .mock.calls.map(([chunk]) => String(chunk))
+    .join('')
+  expect(help).toContain('TRANSLOADIT_SIGNATURE_ALGORITHM=sha256')
 })
 
 test('auth login verifies only against the explicit endpoint and saves that binding', async () => {

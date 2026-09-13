@@ -1,4 +1,4 @@
-import type { Locator, Page, Response, Route } from '@playwright/test'
+import type { Locator, Page, Request, Response, Route } from '@playwright/test'
 
 import assert from 'node:assert/strict'
 import { readFile, rm, writeFile } from 'node:fs/promises'
@@ -26,6 +26,7 @@ interface ImageEvidence {
 }
 
 interface BrowserAudit {
+  committedRefreshes: Set<Request>
   expectedFailures: Map<string, number>
   images: ImageEvidence[]
   loadNativeImage(url: string): Promise<{
@@ -46,6 +47,9 @@ const test = base.extend<{ audit: BrowserAudit }>({
       const expectedFailures = new Map<string, number>()
       const images: ImageEvidence[] = []
       const errors: string[] = []
+      const failedRequests: Request[] = []
+      const committedRefreshes = new Set<Request>()
+      const cancelledRefreshes: string[] = []
       const reads: Promise<void>[] = []
       // The empty scaffold intentionally has no favicon; it is not an image delivery failure.
       expectedFailures.set(new URL('/favicon.ico', info.project.use.baseURL).href, 404)
@@ -91,7 +95,7 @@ const test = base.extend<{ audit: BrowserAudit }>({
           errors.push(message.text())
         })
         page.on('requestfailed', (request) => {
-          if (!expectedFailures.has(request.url())) errors.push(`Failed request: ${request.url()}`)
+          failedRequests.push(request)
         })
         page.on('response', (response) => {
           if (
@@ -131,6 +135,7 @@ const test = base.extend<{ audit: BrowserAudit }>({
       }
       await observe(page)
       await use({
+        committedRefreshes,
         expectedFailures,
         images,
         async loadNativeImage(url) {
@@ -186,8 +191,25 @@ const test = base.extend<{ audit: BrowserAudit }>({
         },
       })
       await Promise.all(reads)
+      for (const request of failedRequests) {
+        if (expectedFailures.has(request.url())) continue
+        // Chromium may cancel Flight after React commits. Only the exact successful refresh
+        // whose UI, decoded image and preserved client state the test verified is exempt.
+        if (
+          committedRefreshes.has(request) &&
+          request.failure()?.errorText === 'net::ERR_ABORTED'
+        ) {
+          cancelledRefreshes.push(request.url())
+          continue
+        }
+        errors.push(`Failed request: ${request.url()}`)
+      }
       await info.attach('native-image-responses', {
-        body: JSON.stringify({ images, errors, expectedFailures: [...expectedFailures] }, null, 2),
+        body: JSON.stringify(
+          { images, errors, cancelledRefreshes, expectedFailures: [...expectedFailures] },
+          null,
+          2,
+        ),
         contentType: 'application/json',
       })
       expect(errors).toEqual([])
@@ -593,19 +615,15 @@ test('an opted-in fallback replaces a denied private image without leaking its c
     const url = new URL(response.url())
     return url.pathname === '/fixture/image-error' && url.searchParams.has('_rsc')
   })
-  // Next 16.3 can leave a committed Flight stream open even on an image-free page. Buffer
-  // this real response so teardown is deterministic; image traffic and authorization stay native.
-  await page.route('**/fixture/image-error?_rsc=*', async (route) => {
-    const response = await route.fetch()
-    expect(response.ok()).toBe(true)
-    await route.fulfill({ response })
-  })
   await page.getByRole('button', { name: 'Sign in and refresh' }).click()
-  expect(await (await refreshed).finished()).toBeNull()
+  expect((await refreshed).ok()).toBe(true)
+  // Flight can stay open after React commits. Verify the completed user interaction below,
+  // without buffering or waiting for EOF on the framework's streaming response.
   await expect(page.getByRole('button', { name: 'Sign in and refresh' })).toBeEnabled()
   await decode(page.getByRole('img', { name: 'Private preview' }))
   await expect(page.getByRole('status')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
+  audit.committedRefreshes.add((await refreshed).request())
 })
 
 test('the public catalog hero has stock-CSS geometry and no application image requests', async ({

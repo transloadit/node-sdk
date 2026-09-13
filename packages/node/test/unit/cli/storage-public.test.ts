@@ -121,6 +121,34 @@ test('lists public prefixes through signed GET, not the S3 controller', async ()
   )
 })
 
+test('an invalid signing algorithm uses normal CLI error reporting without a stack or raw input', async () => {
+  await writeFile(
+    'credentials',
+    'TRANSLOADIT_KEY=combined-key\nTRANSLOADIT_SECRET=local-secret\nTRANSLOADIT_SIGNATURE_ALGORITHM=invalid-private-value\n',
+  )
+  await main(['storage', 'public', '--json'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledExactlyOnceWith(
+    'Unsupported TRANSLOADIT_SIGNATURE_ALGORITHM in CLI credentials',
+  )
+  expect(JSON.stringify(vi.mocked(process.stdout.write).mock.calls)).not.toMatch(
+    /TypeError|helpers\.ts|invalid-private-value|local-secret/,
+  )
+})
+
+test('write-env reports the saved credentials read failure before asking for another login', async () => {
+  await mkdir('app')
+  const unreadable = join(directory, 'unreadable-credentials')
+  await mkdir(unreadable)
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', unreadable)
+  await main(['image', 'init', 'website/', '--public', '--write-env'])
+  expect(process.exitCode).toBe(1)
+  const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+  expect(message).toContain(`Failed to read ${unreadable}`)
+  expect(message).not.toContain('auth login first')
+  expect(await readdir(directory)).toEqual(['app', 'credentials', 'unreadable-credentials'])
+})
+
 test('missing Smart CDN enablement links to the workspace key settings without echoing upstream content', async () => {
   const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(403, {
     error: 'STORAGE_PUBLIC_PREFIX_NEEDS_SMART_CDN_KEY',
