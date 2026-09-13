@@ -152,6 +152,8 @@ keys. Applications using that same key stop working too. Imported (`--stdin`) an
 are only forgotten locally; use `auth logout --revoke` to explicitly revoke those shared keys.
 If revocation fails, the file remains so you can retry. `DELETE /auth_keys/self` identifies
 the signing key on the server; no stored key ID or broad key-management scope is needed.
+Revocation propagates through API caches asynchronously; logout is not an instantaneous global
+cutoff. `--no-revoke` is rejected without changing the key or credentials file.
 After saving, login makes one bounded signed `GET /storage/public_prefixes` to verify `dam:write`
 and catalog access without publishing anything. Failure preserves the login and prints a Console
 link plus a retry command. Success does not prove worker/object-store upload availability.

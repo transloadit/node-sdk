@@ -166,6 +166,18 @@ test('browser logout does not require key-id metadata', async () => {
   await expect(stat('credentials')).rejects.toMatchObject({ code: 'ENOENT' })
 })
 
+test('logout rejects --no-revoke without silently revoking a browser-login key', async () => {
+  createDevice().post('/cli/device_authorizations/token').reply(200, authorized)
+  await login(['--no-browser'])
+  const before = await readFile('credentials', 'utf8')
+  const api = nock(origin).delete('/auth_keys/self').reply(200, { ok: 'AUTH_KEY_DELETED' })
+  await main(['auth', 'logout', '--no-revoke'])
+  expect(process.exitCode).toBe(1)
+  expect(api.isDone()).toBe(false)
+  expect(await readFile('credentials', 'utf8')).toBe(before)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('--no-revoke'))
+})
+
 test('login preflights Storage with the issued key and algorithm, without publishing anything', async () => {
   vi.mocked(Transloadit.prototype.listPublicStoragePrefixes).mockRestore()
   const api = createDevice()

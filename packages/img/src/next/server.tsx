@@ -72,9 +72,11 @@ export interface TransloaditStorageRedirectDelivery {
 export type StorageImageLifetime = number | `${number}${'ms' | 's' | 'm' | 'h' | 'd'}`
 
 interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = undefined> {
-  /** Trusted explicit overrides; otherwise resolved from the server environment on first use. */
+  /** Trusted key override; otherwise resolved from the server environment on first use. */
   authKey?: string
+  /** Trusted secret override; otherwise resolved from the server environment on first use. */
   authSecret?: string
+  /** Catalog/explicit workspace fallback; TRANSLOADIT_WORKSPACE overrides it on first use. */
   workspace?: string
   /** A surrounding request-authorized page may sign private URLs directly. */
   delivery?: 'direct'

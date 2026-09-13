@@ -268,8 +268,25 @@ function resolveEndpointForSource(
   return getSourceValue(source, ['TRANSLOADIT_ENDPOINT'])
 }
 
+function isSavedLoginSource(source: CliEnvSource): boolean {
+  return (
+    source.name === 'credentialsFile' &&
+    getConfiguredCredentialsFilePath() === getConfiguredCredentialsFilePath('shell')
+  )
+}
+
+function hasVerifiedWorkspace(source: CliEnvSource, shell: CliEnvSource): boolean {
+  // A project-selected file or changed endpoint cannot inherit the login-time ownership proof.
+  return (
+    isSavedLoginSource(source) &&
+    getSourceValue(source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true' &&
+    resolveEndpointForSource(source, shell) === getSourceValue(source, ['TRANSLOADIT_ENDPOINT'])
+  )
+}
+
 function credentialSourceName(source: CliEnvSource, shell: CliEnvSource, auth: CliAuth): string {
-  if (source.name === 'credentialsFile') return 'saved login'
+  if (source.name === 'credentialsFile')
+    return isSavedLoginSource(source) ? 'saved login' : 'project-selected credentials file'
   const fields =
     'authToken' in auth
       ? [['TRANSLOADIT_AUTH_TOKEN']]
@@ -367,12 +384,7 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
           auth,
           authSource: credentialSourceName(authSource, shellEnvSource, auth),
           authWorkspace: getSourceValue(authSource, ['TRANSLOADIT_WORKSPACE']),
-          authWorkspaceVerified:
-            authSource.name === 'credentialsFile' &&
-            getSourceValue(authSource, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true' &&
-            // A shell endpoint override invalidates the login-time ownership proof.
-            resolveEndpointForSource(authSource, shellEnvSource) ===
-              getSourceValue(authSource, ['TRANSLOADIT_ENDPOINT']),
+          authWorkspaceVerified: hasVerifiedWorkspace(authSource, shellEnvSource),
         }
       : {}),
     ...(credentials != null ? { credentials } : {}),
@@ -387,9 +399,7 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
               ? undefined
               : credentialSourceName(credentialsSource, shellEnvSource, credentials),
           credentialsWorkspace: getSourceValue(credentialsSource, ['TRANSLOADIT_WORKSPACE']),
-          credentialsWorkspaceVerified:
-            credentialsSource.name === 'credentialsFile' &&
-            getSourceValue(credentialsSource, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
+          credentialsWorkspaceVerified: hasVerifiedWorkspace(credentialsSource, shellEnvSource),
         }
       : {}),
     ...(credentialsError != null || loadError != null

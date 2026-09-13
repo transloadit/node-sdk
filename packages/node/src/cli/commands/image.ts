@@ -151,7 +151,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           )
         if (this.publicDelivery) {
           const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
-            throw new Error(storagePublicError(cause), { cause })
+            throw new Error(storagePublicError(cause, workspace), { cause })
           })
           published = result.prefix
         }

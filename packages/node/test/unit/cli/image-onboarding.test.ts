@@ -131,6 +131,33 @@ test('legacy credentials without login provenance are forgotten without revoking
   })
 })
 
+test.each([
+  'TRANSLOADIT_AUTH_TOKEN=legacy-token\n',
+  'TRANSLOADIT_KEY=legacy-key\nTRANSLOADIT_SECRET=legacy-secret\nTRANSLOADIT_SIGNATURE_ALGORITHM=unsupported\n',
+])('local-only logout can remove unusable legacy credentials: %j', async (contents) => {
+  await writeFile('credentials', contents)
+  const revocation = vi.spyOn(Transloadit.prototype, 'revokeOwnAuthKey')
+  await main(['auth', 'logout'])
+  expect(process.exitCode).toBeUndefined()
+  expect(revocation).not.toHaveBeenCalled()
+  await expect(stat('credentials')).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(expect.any(String), {
+    revoked: false,
+    removed: true,
+  })
+})
+
+test('explicit revocation still requires usable signing credentials and preserves an invalid file', async () => {
+  const contents =
+    'TRANSLOADIT_KEY=legacy-key\nTRANSLOADIT_SECRET=legacy-secret\nTRANSLOADIT_SIGNATURE_ALGORITHM=unsupported\n'
+  await writeFile('credentials', contents)
+  const revocation = vi.spyOn(Transloadit.prototype, 'revokeOwnAuthKey')
+  await main(['auth', 'logout', '--revoke'])
+  expect(process.exitCode).toBe(1)
+  expect(revocation).not.toHaveBeenCalled()
+  expect(await readFile('credentials', 'utf8')).toBe(contents)
+})
+
 test('auth login rejects failed verification without saving credentials or echoing upstream errors', async () => {
   vi.mocked(Transloadit.prototype.listTemplates).mockRejectedValue(
     new Error('remote hidden-secret'),

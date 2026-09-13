@@ -54,7 +54,7 @@ export class StoragePublishCommand extends StorageProjectCommand {
       await updateStorageReceipts(this.receipts, async (previous) => {
         const workspace = await resolveStorageWorkspace(this, this.cliConfig, previous?.workspace)
         const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
-          throw new Error(storagePublicError(cause), { cause })
+          throw new Error(storagePublicError(cause, workspace), { cause })
         })
         this.output.print(
           `Published ${result.prefix}. Files under this directory can be served without signatures.`,
@@ -95,7 +95,7 @@ export class StorageUnpublishCommand extends StorageProjectCommand {
       await updateStorageReceipts(this.receipts, async (previous) => {
         const workspace = await resolveStorageWorkspace(this, this.cliConfig, previous?.workspace)
         const result = await this.client.unpublishStoragePrefix(prefix).catch((cause: unknown) => {
-          throw new Error(storagePublicError(cause), { cause })
+          throw new Error(storagePublicError(cause, workspace), { cause })
         })
         this.output.print(
           `Unpublished ${result.prefix}; already cached or downloaded bytes cannot be recalled.`,
@@ -140,7 +140,7 @@ export class StoragePublicationsCommand extends AuthenticatedCommand {
       )
       return undefined
     } catch (error) {
-      this.output.error(storagePublicError(error))
+      this.output.error(storagePublicError(error, this.cliConfig.authWorkspace))
       return 1
     }
   }

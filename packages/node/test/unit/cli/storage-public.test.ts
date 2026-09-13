@@ -6,6 +6,7 @@ import { signParamsSync } from '@transloadit/utils/node'
 import nock from 'nock'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import { resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 
@@ -70,6 +71,65 @@ function signedPrefix(body: string): boolean {
   expect(signature).toBe(signParamsSync(params, 'local-secret'))
   return true
 }
+
+test.each([
+  'publish',
+  'unpublish',
+])('%s revalidates project-selected credential files instead of trusting their login marker', async (command) => {
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', '')
+  await writeFile('.env', 'TRANSLOADIT_CREDENTIALS_FILE=credentials\n')
+  const catalog = { workspace: 'my-app', public: ['website/'], images: {} }
+  await writeFile('transloadit.images.json', JSON.stringify(catalog))
+  const discovery = nock(origin)
+    .get('/storage/')
+    .query(true)
+    .reply(
+      200,
+      '<ListAllMyBucketsResult><Buckets><Bucket><Name>other-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
+    )
+  const publication = nock(origin).post('/storage/public_prefixes').reply(200, declared)
+  const revocation = nock(origin).delete('/storage/public_prefixes').reply(200, {
+    ok: 'STORAGE_PUBLIC_PREFIX_REVOKED',
+    prefix: 'website/',
+    deleted: true,
+  })
+  await main(['storage', command, 'website/'])
+  expect(discovery.isDone()).toBe(true)
+  expect(publication.isDone()).toBe(false)
+  expect(revocation.isDone()).toBe(false)
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Project uses my-app; the selected credentials belong to other-app. Nothing uploaded.',
+  )
+  expect(resolveCliConfig()).toMatchObject({
+    authSource: 'project-selected credentials file',
+    credentialsSource: 'project-selected credentials file',
+    authWorkspaceVerified: false,
+    credentialsWorkspaceVerified: false,
+  })
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
+})
+
+test('init recovery advice follows the selected saved login, not unrelated shell credentials', async () => {
+  await mkdir('app')
+  vi.stubEnv('TRANSLOADIT_KEY', 'shell-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'shell-secret')
+  vi.stubEnv('TRANSLOADIT_WORKSPACE', 'other-app')
+  const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(403, {
+    error: 'STORAGE_PUBLIC_PREFIX_NEEDS_SMART_CDN_KEY',
+    message: 'unsafe local-secret',
+  })
+  await main(['image', 'init', 'website/', '--public'])
+  expect(process.exitCode).toBe(1)
+  expect(api.isDone()).toBe(true)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('https://transloadit.com/c/my-app/template-credentials/'),
+  )
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls)).not.toMatch(
+    /other-app|local-secret|shell-secret/,
+  )
+  expect(await readdir(directory)).toEqual(['app', 'credentials'])
+})
 
 test('revalidates the saved workspace after a shell endpoint override before publication', async () => {
   await writeFile(

@@ -241,11 +241,15 @@ export class AuthLogoutCommand extends UnauthenticatedCommand {
     category: 'Authentication',
     description: 'Remove saved credentials; browser-login keys are also revoked',
   })
-  revoke = Option.Boolean('--revoke', false, {
+  revoke = Option.Boolean('--revoke', {
     description: 'Also revoke an imported Auth Key; other applications using it will stop working',
   })
   protected async run(): Promise<number | undefined> {
     try {
+      if (this.revoke === false)
+        throw new Error(
+          '--no-revoke is not supported. Nothing was changed; browser-login logout revokes its key.',
+        )
       const file = getConfiguredCredentialsFilePath('shell')
       if (/^\.env(?:\.|$)/i.test(basename(file)))
         throw new Error('Logout never removes application env files')
@@ -254,13 +258,16 @@ export class AuthLogoutCommand extends UnauthenticatedCommand {
         throw new Error('Logout requires a regular credentials file, not a symlink or directory')
       const before = await readFile(file, 'utf8')
       // Imported and legacy keys may be shared with applications; never infer disposability.
-      const revoke = this.revoke || parse(before).TRANSLOADIT_LOGIN_METHOD === 'device'
-      const config = resolveCliConfig('login')
-      if (config.credentials === undefined) throw new Error(config.loadError ?? 'Not logged in')
-      const endpoint = config.credentialsEndpoint ?? 'https://api2.transloadit.com'
-      if (this.endpoint !== undefined && new URL(this.endpoint).origin !== new URL(endpoint).origin)
-        throw new Error('Logout must use the saved login endpoint; no credentials were sent')
+      const revoke = this.revoke === true || parse(before).TRANSLOADIT_LOGIN_METHOD === 'device'
       if (revoke) {
+        const config = resolveCliConfig('login')
+        if (config.credentials === undefined) throw new Error(config.loadError ?? 'Not logged in')
+        const endpoint = config.credentialsEndpoint ?? 'https://api2.transloadit.com'
+        if (
+          this.endpoint !== undefined &&
+          new URL(this.endpoint).origin !== new URL(endpoint).origin
+        )
+          throw new Error('Logout must use the saved login endpoint; no credentials were sent')
         await new Transloadit({ ...config.credentials, endpoint, maxRetries: 0, timeout: 10_000 })
           .revokeOwnAuthKey()
           .catch((cause: unknown) => {
@@ -278,7 +285,7 @@ export class AuthLogoutCommand extends UnauthenticatedCommand {
       this.output.print(
         revoke
           ? 'CLI key revoked and saved credentials removed.'
-          : 'Saved credentials removed. The imported Auth Key was not revoked.',
+          : 'Saved credentials removed. Remote credentials were not revoked.',
         {
           revoked: revoke,
           removed: true,

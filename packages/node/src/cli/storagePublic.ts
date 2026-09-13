@@ -1,10 +1,8 @@
 import { ApiError } from '../ApiError.ts'
-import { resolveCliConfig } from './helpers.ts'
 
 /** Actionable CLI advice without printing remote response bodies or credentials. */
-export function storagePublicError(error: unknown): string {
+export function storagePublicError(error: unknown, workspace?: string): string {
   if (error instanceof ApiError && error.code === 'STORAGE_PUBLIC_PREFIX_NEEDS_SMART_CDN_KEY') {
-    const workspace = resolveCliConfig().credentialsWorkspace
     const slug =
       workspace !== undefined && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(workspace)
         ? workspace

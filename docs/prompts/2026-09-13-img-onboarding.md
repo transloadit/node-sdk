@@ -59,5 +59,13 @@ keys. Docs warn that applications sharing a browser-login key also lose access o
 tests cover provenance spoofing in stdin, imported opt-in, legacy files, failed cleanup preserving
 publication warnings, and actionable bearer-token advice. Actual runtime smoke tests showed JSON
 import attributes need Node 20.10.0, beyond AbortSignal.any's 20.3.0 floor; both CLI manifests agree.
+The next review's project-selected credential-file bypass is closed for both ownership flags;
+only the shell-selected login path can retain verified provenance. Local-only logout can forget
+unusable legacy credentials, but explicit revocation still requires a valid signing key.
+`--no-revoke` is rejected rather than silently ignored. Recovery links use the command's actual
+workspace. Red-first cases cover these boundaries; workspace-option precedence is documented.
+Live logout also exposed the documented asynchronous API2 cache boundary: explicit revocation
+soft-deletes immediately, while this daemon-free test uploader denied reads after 116 seconds.
+The failed immediate-denial assumption is preserved; this is not a production revocation SLA.
 No merge, package publication, Content changes, Thumbhash or origin version selector in this round.
 Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-task2-round8-report.md`.
