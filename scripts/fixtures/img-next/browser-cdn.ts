@@ -99,16 +99,17 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
       return
     }
     const avatar = decodeURIComponent(url.pathname).endsWith('/documents/avatar.jpg')
+    const small = decodeURIComponent(url.pathname).endsWith('/website/small.jpg')
     const transparent = decodeURIComponent(url.pathname).endsWith('/documents/alpha.png')
-    const key = `${avatar}/${transparent}/${width}/${height}/${format}/${strategy}/${background}`
+    const key = `${avatar}/${small}/${transparent}/${width}/${height}/${format}/${strategy}/${background}`
     let bytes = images.get(key)
     if (bytes === undefined) {
       const source = transparent
         ? sharp(transparentSource)
         : sharp({
             create: {
-              width: avatar ? 400 : 2400,
-              height: avatar ? 300 : 1600,
+              width: small ? 320 : avatar ? 400 : 2400,
+              height: small ? 240 : avatar ? 300 : 1600,
               channels: 3,
               background: { r: 45, g: 110, b: 160 },
             },

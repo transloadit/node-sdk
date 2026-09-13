@@ -645,6 +645,27 @@ test('the public catalog hero has stock-CSS geometry and no application image re
   expect(await hero.getAttribute('src')).not.toMatch(/auth_key=|sig=|exp=/)
 })
 
+for (const viewportWidth of [390, 1200]) {
+  test(`a small public original stays within its native width at ${viewportWidth}px`, async ({
+    page,
+    audit,
+  }) => {
+    await page.setViewportSize({ width: viewportWidth, height: 850 })
+    await page.goto('/fixture/public-image')
+    const image = page.getByRole('img', { name: 'Small public original', exact: true })
+    await decode(image)
+    expect((await image.boundingBox())?.width).toBe(320)
+    expect((await image.boundingBox())?.height).toBe(240)
+    await expect
+      .poll(() =>
+        audit.images.find((image) =>
+          decodeURIComponent(new URL(image.url).pathname).endsWith('/website/small.jpg'),
+        ),
+      )
+      .toMatchObject({ width: 320, height: 240 })
+  })
+}
+
 test('the generated empty catalog page works before the first upload', async ({ page }) => {
   await page.goto('/fixture/cli-empty/app/storage-image-example')
   await expect(

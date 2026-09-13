@@ -130,7 +130,7 @@ export function resolveImageLayout(
   const base = { source, width, height, widths }
   if (layout === undefined) return base
   if (layout === 'constrained') {
-    const maxWidth = boxDimension(props.maxWidth, 'maxWidth')
+    const maxWidth = Math.min(boxDimension(props.maxWidth, 'maxWidth'), source.width)
     return {
       ...base,
       maximumWidth: widths === undefined ? 2 * maxWidth : undefined,

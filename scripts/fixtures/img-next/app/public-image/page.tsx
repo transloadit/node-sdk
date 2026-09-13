@@ -11,6 +11,7 @@ const images = {
     height: 1600,
     md5hash: 'd41d8cd98f00b204e9800998ecf8427e',
   },
+  'website/small.jpg': { path: 'website/small.jpg', width: 320, height: 240 },
 }
 
 const { StorageImage } = createStorageImages({
@@ -26,6 +27,13 @@ export default function Page(): ReactNode {
       <StorageImage
         src="website/hero.jpg"
         alt="Public hero"
+        layout="constrained"
+        maxWidth={960}
+        preload
+      />
+      <StorageImage
+        src="website/small.jpg"
+        alt="Small public original"
         layout="constrained"
         maxWidth={960}
         preload

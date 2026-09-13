@@ -12,8 +12,12 @@ PR: https://github.com/transloadit/node-sdk/pull/500
 - [x] Print bounded, constrained JSX from store and disclose the selected credential source.
 - [x] Rename the policy listing command, normalize init prefixes and preflight Storage after login.
 - [x] Keep the quickstart focused and reference details separate; qualify test and byte counts.
-- [ ] Run sequential package/repository/browser checks, review and exact-head CI.
-- [ ] Test the real login key with List + HEAD sync and a fresh public-only Next app in devdock.
+- [x] Run sequential package/repository/browser checks and council/Opus reviews.
+- [x] Test the real login key with List + HEAD sync and a fresh public-only Next app in devdock.
+
+Council's source-width clamp is covered red-first and in the packed browser matrix: a 320px
+original cannot stretch to a larger constrained maxWidth. Final exact-head CI remains a merge
+gate; package checks count executed parameterized cases, not test declarations.
 
 No merge or publication in this round. No blur placeholder, origin version selector, workspace
 picker or logout implementation. API2 owns the S3 eligibility and error-header changes; Console

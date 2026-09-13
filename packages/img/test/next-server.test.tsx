@@ -431,6 +431,30 @@ describe('createStorageImages', () => {
     expect(source?.srcset).not.toContain('2400w')
   })
 
+  test.each([
+    160, 320, 960,
+  ])('constrained maxWidth %d never enlarges a 320px original', async (maxWidth) => {
+    const { StorageImage } = createStorageImages(baseConfiguration)
+    const document = parseMarkup(
+      await renderAsync(
+        <StorageImage
+          alt="Small original"
+          src={{ path: 'documents/small.jpg', width: 320, height: 240 }}
+          layout="constrained"
+          maxWidth={maxWidth}
+          preload
+        />,
+      ),
+    )
+    const limit = Math.min(320, maxWidth)
+    expect(document.querySelector('img')?.style.maxWidth).toBe(`${limit}px`)
+    expect(document.querySelector('source')?.sizes).toBe(
+      `(min-width: ${limit}px) ${limit}px, 100vw`,
+    )
+    expect(document.querySelector('source')?.srcset).toContain('320w')
+    expect(document.querySelector('source')?.srcset).not.toContain('640w')
+  })
+
   test('fixed cover uses receipt geometry for a signed 48px crop and a 1x JPEG fallback', async () => {
     const { StorageImage, storageRoute } = createStorageImages({
       ...baseConfiguration,
