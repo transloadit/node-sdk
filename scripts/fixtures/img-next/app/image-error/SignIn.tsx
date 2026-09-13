@@ -17,6 +17,7 @@ export function SignIn(): ReactNode {
         startTransition(async () => {
           const response = await fetch('/fixture/api/fixture-session', { method: 'POST' })
           if (!response.ok) throw new Error('Fixture sign-in failed')
+          await response.text()
           router.refresh()
         })
       }

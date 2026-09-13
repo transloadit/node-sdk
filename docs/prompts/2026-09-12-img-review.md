@@ -10,15 +10,17 @@ push. The earlier sync work below is complete, but does not substitute for proof
 - [x] A2: catalog-typed sources, inferred scope, one flat factory configuration.
 - [x] A3: stable Built-in capabilities, custom-template binding, no migration-window API.
 - [x] A4: lifetime is a maximum, with rotation inside that maximum.
-- [ ] B5–6: constrained CLI hero, correct private/public setup, receipts and integration defaults,
+- [x] B5–6: constrained CLI hero, correct private/public setup, receipts and integration defaults,
       explicit `allowWorkspaceRoot` instead of an empty-string prefix.
 - [x] B7–8: verified login, opt-in rendering env file, lazy credential validation.
-- [ ] B9: deliberate/session-key image error recovery, tested through sign-in and refresh.
-- [ ] B10: precise browser/attribute wording, measured HTML/route-work table, short PR changelog.
+- [x] B9: deliberate/session-key image error recovery, tested through sign-in and refresh.
+- [x] B10: precise browser/attribute wording, measured HTML/route-work table, short PR changelog.
 - [x] C11: repeat List + HEAD sync on owned API2 `b4aba072ee`, refresh live evidence.
-- [ ] C12: Content clone10 on this package, StorageImage fill/cover breakpoint ratios, geometry
+- [x] C12: Content clone10 on this package, StorageImage fill/cover breakpoint ratios, geometry
       and CLS proof in `/tmp/img-dogfood-round2.md`.
-- [ ] C13: fresh stranger test, council/UX/security review, final checks and green CI.
+- [x] C13: fresh stranger test, council/UX/security review and final local checks.
+      Exact-head CI is tracked by #500's checks and `/tmp/img-task2-handover.md`, not inferred
+      from an older green run or encoded as a permanently current status in this commit.
 
 Design boundaries: importing a lazy factory and building a request-rendered page need no signing
 secret at build time. Actually prerendering signed public URLs does require it at build time;
@@ -29,18 +31,46 @@ EXIF catalog mismatch visible unless independently demonstrated fixed on a new s
 
 Round-5 implementation check-in: 16 new factory/runtime cases failed first; generic consumer
 type checks cover catalog typos and DB receipts. Img now expands to 219 test cases; Node to
-415 passed plus one existing skip. Root check and verify:full pass. Nine packed seed/CLI cases
-pass, including compiling the exact printed constrained page; final browser iteration is pending.
+416 passed plus one existing skip after council's source-file permission regression. Root check
+and verify:full pass; the post-council repeat remains the final gate. Nine packed seed/CLI cases
+pass, including compiling the exact printed constrained page. The Node24 production matrix has
+64 passes:16 expanded cases ×2 engines ×2 Cache Components settings. The login/Flight proof avoids
+request interception while retaining origin/status/error auditing and waiting for the actual RSC
+response to finish. Forty focused first-attempt repetitions pass (10×2 engines×2 configurations).
+Earlier intercepted-refresh and Node26 hangs remain in local logs; no production code, retry or
+error-suppression workaround was added. The final sequential Node24 check, verify:full and complete
+packed matrix pass:32+32 first attempts (51.6s/51.4s), zero retries/skips/flakes or native-response
+errors. The JSON artifact audit independently confirms every case carries its clean response audit.
+Img arithmetic is42 model+118 server+43 rendering+16 factory =219. Logs:
+`/tmp/img-r5-ready-{check,verify,fixture}.log`, `/tmp/img-r5-ready-audit.json`.
 List/HEAD/current/versioned GET and the actual new packed receipts-sync CLI pass again on b4.
 Evidence: `/tmp/img-r5-{head,sync}.log`. The EXIF and missing-old-metadata boundaries remain.
 
 Content clone10's current-head canary uses catalog-typed `StorageImage` fill/cover, breakpoint
-ratios and no handwritten sizes/382vw. Six new baseline versus six Storage samples have exactly
+ratios and no handwritten sizes/382vw. Twelve new baseline versus twelve Storage samples have exactly
 equal hero/heading boxes and CLS. Native AVIF bodies are 56,554 B desktop and 16,633 B mobile,
-versus 410,398 B original (local devdock, no production latency claim). Browser/retina and
-independent UX review evidence will be recorded in `/tmp/img-dogfood-round2.md`.
+versus 410,398 B original (local devdock, no production latency claim). Four viewports1440/390/640/768
+and two extra DPR2 probes are recorded in `/tmp/img-dogfood-round2.md`. Independent Opus visual
+review passes, while identifying tablet underfetch beneath the existing overlay:4/3 is wider than
+the content-driven box, causing1.64×/1.46× enlargement at640/768. Framing and geometry match;
+the photo-only sharpness loss is not visibly apparent under that overlay. Adjust authored crop/
+sizing before a production-wide Content migration; this canary does not claim universal ratios.
 The local Yarn consumer needs a utilities tarball resolution until coherent versions are released;
 do not publish img with an old utilities dependency minimum. No Content production migration yet.
+
+Fresh read-only Opus stranger reader + stock src/app consumer: real private native pixel and
+access-denial proof within3m33 of reading start. The later strict type check needed only an
+operator-local font-style annotation fix, not image/config/tsconfig changes. Auth login performs
+one actual cheap read for each wrong/correct secret, saves only verified credentials with0600,
+and the request trace confirms no app Cookie/Authorization header reaches the image origin.
+Separate defensive Opus review passes. Details and honest timing/setup boundaries:
+`/tmp/img-stranger-test.md`, `/tmp/img-r5-security-final.md`.
+
+Round5 council returns one valid P2: source files generated by image init must use ordinary
+umask-controlled permissions, not0600; only the opt-in secrets file is owner-only. A new test
+failed first and passes after the narrow fix. README clarifies src/app imports, opt-in env prompts
+and that store's public/private switches select the printed integration, not Storage object ACLs.
+No canonical robot schema changes, API2 implementation edits, npm release or merge in this round.
 
 ## Catalog-backed render receipt sync
 

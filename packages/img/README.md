@@ -42,6 +42,9 @@ the separate rendering key and writes the factory and owner-only `.env.local`, w
 existing files. `--public` explicitly declares `website/` public. Store prints the complete factory
 and page below; keep the factory init already created. **Commit images.json**, never `.env.local`.
 Both store and receipts sync default to `images.json`; `--receipts` selects another catalog.
+Store's `--public`/`--private` flags select the printed integration; they do not change a Storage
+object's permissions. The factory's explicit `public` policy controls delivery. Init prompts for
+rendering values only with `--write-env`; omit it when your runtime already supplies those values.
 
 ### Create your component
 
@@ -74,6 +77,9 @@ export default function Page() {
   )
 }
 ```
+
+For stock `src/app`, put the factory in `src/lib/storageImage.ts` and import the root catalog
+from `'../../images.json'`. The page's `'../lib/storageImage'` import stays the same.
 
 Without `--write-env`, add the three rendering values to your gitignored `.env.local`, then start Next:
 

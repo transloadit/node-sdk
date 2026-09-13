@@ -123,7 +123,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       ]
       for (const file of files) {
         await mkdir(dirname(file.path), { recursive: true })
-        const handle = await open(file.path, 'wx', 0o600)
+        const handle = await open(file.path, 'wx', file.path === '.env.local' ? 0o600 : 0o666)
         created.push(file.path)
         try {
           await handle.writeFile(file.content)

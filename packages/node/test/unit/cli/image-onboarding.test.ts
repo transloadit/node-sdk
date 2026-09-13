@@ -206,6 +206,22 @@ test('init never overwrites an existing rendering env file, even with --write-en
   await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
 })
 
+test('generated source files use normal permissions while rendering secrets remain owner-only', async () => {
+  await mkdir('app')
+  vi.mocked(readCliInput).mockResolvedValue({
+    content:
+      'TRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_SMART_CDN_KEY=render-key\nTRANSLOADIT_SMART_CDN_SECRET=render-secret\n',
+    isStdin: true,
+  })
+  await main(['image', 'init', 'website/', '--private', '--write-env', '--stdin'])
+  expect(process.exitCode).toBeUndefined()
+  expect((await stat('lib/storageImage.ts')).mode & 0o777).toBe(0o666 & ~process.umask())
+  expect((await stat('app/api/storage-images/route.ts')).mode & 0o777).toBe(
+    0o666 & ~process.umask(),
+  )
+  expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
+})
+
 test('public and private scaffold declarations cannot be combined', async () => {
   await mkdir('app')
   await main(['image', 'init', 'website/', '--public', '--private'])
