@@ -1,5 +1,35 @@
 # Storage image onboarding review
 
+## EXIF catalog follow-up — API2 `07ec5abc2b`
+
+Kevin supplied `07ec5abc2b71d449a7474391c8eeef4934ef3589` to close the rotated-photo finding.
+This is a live verification and documentation follow-up in #500, not an SDK/API2 implementation
+change, release, or merge. The earlier failing upload/HEAD result remains the red evidence.
+
+- [x] Fast-forward owned clone17 to that exact head, preserving local changes.
+- [x] Store both rotated fixtures at fresh paths; compare independently read EXIF, SDK receipts,
+      current/version catalog rows, backing metadata, current/versioned public HEAD/GET and sync.
+- [x] Remove the current normalization caveat after proof, preserving the older-metadata boundary.
+- [x] Run sequential checks and the packed fixture, audit the artifacts, and clean up.
+      The resulting commit's CI is tracked in #500's checks and `/tmp/img-task2-handover.md`.
+
+Live PASS at 2026-09-13T01:20:12.868Z on API2 `07ec5abc2b`, using normally packed/installed
+SDK `c855236` (complete compiled Node dist compared byte-for-byte). Both EXIF-6 fixtures pass:
+450×600 → 600×450 and 616×800 → 800×616. SDK receipts, catalog asset/version dimensions,
+backing object metadata and current/versioned public HEAD/GET match; GET retains exact original
+bytes. Actual `storage receipts sync` rebuilds both display sizes and original MD5s with no
+asset IDs. New unique paths preserve the historical failing object. The old construction image
+still lacks dimensions; its separate backfill boundary remains. Evidence: `/tmp/img-exif-live.log`,
+clone17 `tmp/img-exif-sync-result.json` and `/tmp/img-sync-head-result.md`.
+
+Node24.20 `check` and `verify:full` pass. The unchanged packed fixture passes all nine seed/CLI
+cases and 64 first-attempt browser cases (32+32, 51.3s/50.8s); the saved artifact audit confirms
+zero retries, skips, flakes or unexpected errors. Logs: `/tmp/img-exif-{check,verify,fixture}.log`,
+`/tmp/img-exif-local-audit.json`. The first fixture invocation failed before browser tests because
+an outer `npm exec -c` polluted nested `npx` options; running with Node24 directly on PATH fixed
+the command, without a source/test workaround. Owned devdock/services are stopped and temporary
+credentials removed. Previous council findings are unaffected by this documentation-only diff.
+
 ## Round 5 — active merge gate
 
 Kevin approved `/tmp/img-task2-round5-brief.md`, all in #500. Start from `aa59c0d`; no
@@ -26,8 +56,8 @@ Design boundaries: importing a lazy factory and building a request-rendered page
 secret at build time. Actually prerendering signed public URLs does require it at build time;
 do not claim those two cases are equivalent. Catalog inference must never make one root-level
 file authorize the whole workspace. Public access remains an explicit developer declaration.
-API2 implementation/schema changes and production activation are out of scope. Keep the known
-EXIF catalog mismatch visible unless independently demonstrated fixed on a new supplied head.
+API2 implementation/schema changes and production activation are out of scope. The EXIF catalog
+mismatch recorded during this round is independently verified fixed in the follow-up above.
 
 Round-5 implementation check-in: 16 new factory/runtime cases failed first; generic consumer
 type checks cover catalog typos and DB receipts. Img now expands to 219 test cases; Node to
@@ -44,7 +74,8 @@ errors. The JSON artifact audit independently confirms every case carries its cl
 Img arithmetic is42 model+118 server+43 rendering+16 factory =219. Logs:
 `/tmp/img-r5-ready-{check,verify,fixture}.log`, `/tmp/img-r5-ready-audit.json`.
 List/HEAD/current/versioned GET and the actual new packed receipts-sync CLI pass again on b4.
-Evidence: `/tmp/img-r5-{head,sync}.log`. The EXIF and missing-old-metadata boundaries remain.
+Evidence: `/tmp/img-r5-{head,sync}.log`. These b4 results predate the EXIF fix verified above;
+the separate missing-old-metadata boundary remains.
 
 Content clone10's current-head canary uses catalog-typed `StorageImage` fill/cover, breakpoint
 ratios and no handwritten sizes/382vw. Twelve new baseline versus twelve Storage samples have exactly
@@ -114,10 +145,10 @@ only where the ETag represents it. Missing asset IDs do not block rendering reco
 
 Live result at API2 `b4aba072ee`: listing and current/versioned HEAD/GET pass for the existing
 1024×683 stranger image. The real `rotated_8.jpg` upload returns an SDK rendering receipt of
-600×450, but public HEAD reports 450×600. The positive geometry assertion fails. Catalog
-registration currently persists raw dimensions without EXIF normalization; the public headers
-cannot reconstruct orientation. Sync will trust catalog dimensions as requested; API2 still owns
-normalizing those dimensions. Do not claim the EXIF case is fixed or patch API2 here.
+600×450, but public HEAD reported 450×600. The positive geometry assertion failed because catalog
+registration persisted raw dimensions. This is historical red evidence: the `07ec5abc2b` follow-up
+above independently proves the corrected catalog/object/HEAD dimensions and actual sync for new
+uploads, with no SDK workaround or API2 patch in this PR.
 An older `website/construction.jpg` also has no dimensions and needs explicit missing-metadata
 handling, not silent omission. Evidence: `/tmp/img-sync-head-result.md` and clone17's
 `tmp/img-sync-oriented-receipt.json`. No API2 implementation or canonical schema edits.
@@ -135,7 +166,7 @@ at 2026-09-12T22:22:14.120Z after normal package installation in the accepted st
 Three images recovered at 1024×683 with matching original MD5s; endpoint override/decoy, empty-prefix
 results and the missing-old-metadata error all preserve the prior file as specified. Evidence:
 `/tmp/img-sync2-{unit-red,unit-green,live-red,live-green,head}.log` and clone17's
-`tmp/img-sync2-cli-result.json`. No live EXIF-correctness claim is made.
+`tmp/img-sync2-cli-result.json`. Live EXIF correctness was verified later on `07ec5abc2b`, above.
 
 Independent council reviewed the whole stack and returned two valid P3 diagnostics: identify
 invalid listed keys and distinguish per-object HEAD failures from endpoint/credential failures.

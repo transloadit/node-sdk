@@ -18,7 +18,7 @@ depend on it from npm yet.
 This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app. The
 workspace must have Transloadit Storage writes enabled; package installation does not enable them.
 The backend must provide `builtin/storage-preview@0.0.2` for this package revision: use API2
-#9057 at `b4aba072ee9cbeba0dda56dbdfaf2883e56ede06` or newer in an owned devdock until that PR is
+#9057 at `07ec5abc2b71d449a7474391c8eeef4934ef3589` or newer in an owned devdock until that PR is
 deployed. Version 0.0.1 stays unchanged and flattens transparency; 0.0.2 accepts the signed `bg`
 field needed by alpha-preserving candidates and the opaque JPEG fallback.
 
@@ -200,7 +200,7 @@ and the dependent minimum versions together; publishing img against the old mini
 
 ### Live Storage listing and rendering receipt recovery
 
-The owned clone17 canary now runs API2 `b4aba072ee9cbeba0dda56dbdfaf2883e56ede06`. Only that internal-only, port-free devdock's
+The owned clone17 canary now runs API2 `07ec5abc2b71d449a7474391c8eeef4934ef3589`. Only that internal-only, port-free devdock's
 `env.sh` custom overrides enable `API2_STORAGE_S3_ENABLED=true`. Production remains unchanged.
 
 `transloadit storage ls website/ --json` discovers the workspace and lists the existing images,
@@ -224,17 +224,22 @@ recover path/width/height and an MD5 only when its ETag is compatible. No origin
 Assemblies, private backing-store credentials or fabricated upload-integrity fields are needed.
 Keep committing the generated JSON before building; it is now recoverable from catalog metadata.
 
-The two separate server-data boundaries remain visible. Older `website/construction.jpg` has no
-dimensions, so an image-prefix sync containing it must fail without replacing the existing file.
-The real `rotated_8.jpg` upload at `website/img-sync-oriented-b4.jpg` returns a verified SDK receipt
-of 600×450, but public HEAD returns 450×600. API2 must normalize those catalog dimensions (including
-existing versions), or expose orientation; the SDK cannot infer rotation from two numbers. Sync
-uses the catalog contract as requested, and does not claim this API2 EXIF case is corrected.
-No API2 implementation or canonical schema was changed.
+The rotated-photo discrepancy is fixed and independently verified on `07ec5abc2b`. Two fresh
+uploads preserve their original bytes while reporting display-oriented dimensions everywhere:
+`rotated_8.jpg` is encoded 450×600 and displays at 600×450; `receipt-exif-orientation.jpg` is encoded
+616×800 and displays at 800×616. Both carry EXIF orientation 6, independently read with ExifTool.
+SDK receipts, current asset/version rows, backing object metadata, current/versioned public
+HEAD/GET and the actual packed receipts-sync CLI all agree. The recovered JSON has both expected
+display sizes and original MD5s, without fabricated asset IDs.
 
-Current HEAD evidence: `/tmp/img-sync2-head.log`, clone17's `tmp/img-sync-metadata-readback.json`
-and `tmp/img-sync-oriented-receipt.json`. The earlier disabled-controller and endpoint proof is
-retained in `/tmp/img-storage-ls-result.md` as historical evidence, not the current recovery status.
+Older `website/construction.jpg` still has no dimensions, so a sync containing it must fail without
+replacing the existing file. New uploads used fresh paths; this proof does not backfill historical
+objects. No API2 implementation or canonical schema was changed by this SDK follow-up.
+
+Current oriented proof: `/tmp/img-exif-live.log`, clone17's `tmp/img-exif-sync-result.json`
+(2026-09-13T01:20:12.868Z). The earlier failed `b4aba072ee` upload/HEAD assertion remains in
+`tmp/img-sync-oriented-receipt.json`; listing/endpoint proofs remain in `/tmp/img-sync2-head.log`
+and `/tmp/img-storage-ls-result.md` as historical evidence.
 
 The actual packed `storage receipts sync website/stranger --receipts images.json --json` failed
 first on the old package, then passed after normal installation of the new SDK tarball. It

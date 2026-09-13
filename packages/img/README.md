@@ -430,8 +430,8 @@ if your application needs their asset IDs or upload-integrity evidence.
 Sync adds or refreshes matching paths and never prunes unmatched entries. Any missing/invalid
 dimensions, failed HEAD or incomplete listing leaves the existing file intact; a failed atomic
 replacement retains the complete temporary catalog for recovery. Choose an image-only prefix;
-older objects without dimensions need a catalog backfill. Dimensions are used as returned by
-Storage: EXIF-rotated originals need display-oriented catalog dimensions before receipt recovery.
+older objects without dimensions need a catalog backfill. Storage records EXIF-oriented display
+dimensions for new image uploads, so sync matches `storeImage` receipts for rotated photos too.
 Commit `images.json` before building so rendering needs no runtime metadata lookup; it can now
 be regenerated from Storage rather than being the only copy of rendering metadata.
 
