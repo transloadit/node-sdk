@@ -30,7 +30,13 @@ preserve unmatched records and the entire previous file on metadata, listing or 
 
 Add hidden-input `auth login` with one signed read before saving owner-only CLI credentials.
 Keep newly entered credentials independent from project dotenv endpoint settings; save an explicit
-trusted endpoint with the key. Add `image init [--public | --private]`, with optional `--next` and
+trusted endpoint with the key. Add `image init [--public | --private]`, with
 opt-in private `.env.local` scaffolding via `--write-env`. Never overwrite existing application files.
-Default store/sync catalogs to `images.json`. Complete store snippets recognize `src/app`, typed
-catalog paths, constrained hero geometry and ordinary relative receipt imports.
+Default store/sync catalogs to `images.json`. Init writes an empty catalog and a runnable example
+for `app` or `src/app`, preserving existing files. Store prints only the saved path and component
+usage; its snippet-only public/private flags and init's dead next flag are removed. Keep upload
+asset IDs and sizes on sync only when the HEAD MD5 still matches the stored receipt.
+
+Consolidate the unpublished Next factories into `createStorageImages`; select `public`, `authorize`,
+or `delivery: 'direct'` explicitly. The authorize overload retains its typed redirect handler.
+Require Next 16.3.3 or newer in the peer range.

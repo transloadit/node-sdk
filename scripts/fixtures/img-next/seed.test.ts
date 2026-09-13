@@ -28,7 +28,7 @@ const receipt = {
   size: bytes.length,
 }
 
-test('the packed CLI generates the actual constrained public page used by the browser proof', async (t) => {
+test('the packed CLI scaffolds an empty catalog and the actual constrained page used by the browser proof', async (t) => {
   const originalCwd = process.cwd()
   const directory = join(originalCwd, 'app/cli-image')
   await mkdir(join(directory, 'app'), { recursive: true })
@@ -58,14 +58,14 @@ test('the packed CLI generates the actual constrained public page used by the br
   }))
   await cli.main(['image', 'init', 'documents/', '--public'])
   assert.equal(process.exitCode, undefined)
-  await cli.main(['storage', 'store', './hero.jpg', 'documents/hero.jpg', '--public'])
+  assert.deepEqual(JSON.parse(await readFile('images.json', 'utf8')), {})
+  await cli.main(['storage', 'store', './hero.jpg', 'documents/hero.jpg'])
   assert.equal(process.exitCode, undefined)
   const printed = output.join('')
-  const page = printed.match(/app\/page.tsx:\n([\s\S]*?)\nRendering environment/)?.[1]
-  assert(page, 'Expected a complete CLI page')
+  const page = await readFile('app/storage-image-example/page.tsx', 'utf8')
   assert(page.includes('layout="constrained" maxWidth={960} preload'))
-  assert(page.includes('src={"documents/hero.jpg"}'))
-  await writeFile('app/page.tsx', `${page}\n`)
+  assert(printed.includes('Render it with <StorageImage src={"documents/hero.jpg"}'))
+  assert(!printed.includes('export default function Page'))
   const factory = await readFile('lib/storageImage.ts', 'utf8')
   assert(factory.includes('public: ["documents/"]'))
   // Only the delivery origin changes for this offline fixture; the generated page is verbatim.

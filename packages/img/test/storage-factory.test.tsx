@@ -18,11 +18,7 @@ vi.mock('../src/index.ts', async (importOriginal) => ({
   },
 }))
 
-import {
-  createPrivateStorageImages,
-  createStorageImages,
-  createTransloaditImage,
-} from '../src/next/server.tsx'
+import { createStorageImages } from '../src/next/server.tsx'
 
 const images = {
   'website/hero.jpg': { path: 'website/hero.jpg', width: 2400, height: 1600 },
@@ -58,6 +54,31 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
+test('requires an explicit delivery choice, naming all three alternatives', () => {
+  expect(() => createStorageImages({ images })).toThrow(
+    new TypeError("Choose public, authorize, or delivery: 'direct' for Storage images"),
+  )
+})
+
+test('one factory accepts explicit credentials and retains the redirect overload', async () => {
+  const { StorageImage, storageRoute } = createStorageImages({
+    images,
+    authKey: 'explicit-key',
+    authSecret: 'explicit-secret',
+    workspace: 'explicit-app',
+    authorize: () => true,
+  })
+  const url = firstUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />))
+  const location = (await storageRoute(new Request(url))).headers.get('location')
+  expect(location).not.toBeNull()
+  expect(new URL(location ?? '').hostname).toBe('explicit-app.tlcdn.com')
+})
+
+test('exports only the single Next.js factory, not the unpublished aliases', async () => {
+  const exports = await import('../src/next/server.tsx')
+  expect(Object.keys(exports)).toEqual(['createStorageImages'])
+})
+
 test('public catalog images are static with long-lived direct URLs and no signing shell', () => {
   const { StorageImage } = createStorageImages({ images, public: ['website/'], lifetime: '365d' })
   const markup = renderToStaticMarkup(
@@ -91,7 +112,7 @@ test('declared public images default to a year without a dynamic-delivery warnin
 })
 
 test('catalog directories accept DB receipts, but root entries do not authorize the workspace', () => {
-  const { StorageImage } = createPrivateStorageImages({ images, authorize: () => true })
+  const { StorageImage } = createStorageImages({ images, authorize: () => true })
   expect(renderToStaticMarkup(<StorageImage src="logo.png" alt="Logo" />)).toContain('width="64"')
   expect(
     renderToStaticMarkup(
@@ -104,7 +125,11 @@ test('catalog directories accept DB receipts, but root entries do not authorize 
 })
 
 test('explicit scope still limits catalog paths and public declarations', () => {
-  const { StorageImage } = createStorageImages({ images, allowedPathPrefixes: [] })
+  const { StorageImage } = createStorageImages({
+    images,
+    allowedPathPrefixes: [],
+    delivery: 'direct',
+  })
   expect(() => StorageImage({ src: 'website/hero.jpg', alt: 'Denied' })).toThrow(/allowed/)
   expect(() => createStorageImages({ images, public: ['private/'] })).toThrow(/public.*allowed/)
 })
@@ -113,7 +138,7 @@ test('catalog keys must agree with their receipt paths and unknown keys never fa
   expect(() =>
     createStorageImages({ images: { 'public.jpg': images['website/hero.jpg'] } }),
   ).toThrow(/catalog.*path/)
-  const { StorageImage } = createStorageImages({ images })
+  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
   expect(() =>
     Reflect.apply(StorageImage, undefined, [
       { src: 'website/typo.jpg', alt: 'Typo', width: 300, height: 200 },
@@ -123,7 +148,7 @@ test('catalog keys must agree with their receipt paths and unknown keys never fa
 
 test('workspace-root access requires the named acknowledgment, never an empty prefix', () => {
   expect(() => createStorageImages({ allowedPathPrefixes: [''] })).toThrow(/allowWorkspaceRoot/)
-  const { StorageImage } = createPrivateStorageImages({
+  const { StorageImage } = createStorageImages({
     allowWorkspaceRoot: true,
     authorize: () => true,
   })
@@ -137,11 +162,11 @@ test.each([
   'toString',
   '__proto__',
 ])('requires an own catalog entry for %s without excluding an explicitly stored file', (path) => {
-  const missing = createStorageImages({ images })
+  const missing = createStorageImages({ images, delivery: 'direct' })
   expect(() =>
     Reflect.apply(missing.StorageImage, undefined, [{ src: path, alt: 'Missing image' }]),
   ).toThrow('Storage image path is not in the configured catalog')
-  const present = createPrivateStorageImages({
+  const present = createStorageImages({
     images: { [path]: { path, width: 64, height: 64 } },
     authorize: () => true,
   })
@@ -154,7 +179,7 @@ test.each([
   30_001, 59_999, 60_000,
 ])('rejects a rotation interval of %i that leaves less than half the lifetime for delivery', (rotationIntervalMs) => {
   expect(() =>
-    createPrivateStorageImages({
+    createStorageImages({
       images,
       authorize: () => true,
       lifetime: 60_000,
@@ -168,7 +193,7 @@ test.each([
 
 test('rotation margin also applies to the private cap in a long-lived public factory', () => {
   expect(() =>
-    createPrivateStorageImages({
+    createStorageImages({
       images,
       authorize: () => true,
       public: ['website/'],
@@ -181,7 +206,7 @@ test('rotation margin also applies to the private cap in a long-lived public fac
 test.each([
   0, 1, 29_999, 30_000, 59_999, 60_000,
 ])('lifetime bounds an issued grant at offset %i', async (offset) => {
-  const { StorageImage, storageRoute } = createPrivateStorageImages({
+  const { StorageImage, storageRoute } = createStorageImages({
     images,
     authorize: () => true,
     lifetime: 60_000,
@@ -197,7 +222,7 @@ test.each([
 })
 
 test('an explicit half-lifetime rotation retains its margin just before the boundary', async () => {
-  const { StorageImage, storageRoute } = createPrivateStorageImages({
+  const { StorageImage, storageRoute } = createStorageImages({
     images,
     authorize: () => true,
     lifetime: 60_000,
@@ -211,7 +236,7 @@ test('an explicit half-lifetime rotation retains its margin just before the boun
 })
 
 test('long public lifetimes never lengthen private grants beyond 48 hours', async () => {
-  const { StorageImage, storageRoute } = createPrivateStorageImages({
+  const { StorageImage, storageRoute } = createStorageImages({
     images,
     authorize: () => true,
     public: ['website/'],
@@ -221,30 +246,30 @@ test('long public lifetimes never lengthen private grants beyond 48 hours', asyn
   const location = (await storageRoute(new Request(url))).headers.get('location')
   if (location === null) throw new Error('Expected a redirect')
   expect(expiry(new URL(location)) - Date.now()).toBeLessThanOrEqual(48 * 3_600_000)
-  expect(() =>
-    createPrivateStorageImages({ images, authorize: () => true, lifetime: '365d' }),
-  ).toThrow(/48 hours/)
+  expect(() => createStorageImages({ images, authorize: () => true, lifetime: '365d' })).toThrow(
+    /48 hours/,
+  )
 })
 
 test('a Built-in bump preserves old markup and signs with the new Built-in', async () => {
   const configuration = { images, authorize: vi.fn(() => true) }
-  const old = createPrivateStorageImages(configuration)
+  const old = createStorageImages(configuration)
   const url = firstUrl(renderToStaticMarkup(<old.StorageImage src="website/hero.jpg" alt="Hero" />))
   builtin.template = 'builtin/storage-preview@0.0.3'
-  const current = createPrivateStorageImages(configuration)
+  const current = createStorageImages(configuration)
   const response = await current.storageRoute(new Request(url))
   expect(response.status).toBe(307)
   expect(configuration.authorize).toHaveBeenCalledOnce()
   const location = response.headers.get('location')
   if (location === null) throw new Error('Expected a redirect')
   expect(parseSmartCdnUrl(location).template).toBe('builtin/storage-preview@0.0.3')
-  const custom = createPrivateStorageImages({ ...configuration, template: 'my-custom-preview' })
+  const custom = createStorageImages({ ...configuration, template: 'my-custom-preview' })
   expect((await custom.storageRoute(new Request(url))).status).toBe(404)
 })
 
 test('direct factory imports need no credentials; first use validates them lazily', async () => {
   vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', undefined)
-  const { StorageImage } = createStorageImages({ images })
+  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
   const onError = vi.fn()
   const stream = await renderToReadableStream(<StorageImage src="website/hero.jpg" alt="Hero" />, {
     onError,
@@ -258,7 +283,7 @@ test('direct factory imports need no credentials; first use validates them lazil
 })
 
 test('explicit credentials use the same flat catalog configuration', () => {
-  const { StorageImage } = createTransloaditImage({
+  const { StorageImage } = createStorageImages({
     authKey: 'explicit-key',
     authSecret: 'explicit-secret',
     workspace: 'explicit-app',

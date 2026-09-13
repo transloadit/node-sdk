@@ -18,7 +18,7 @@ function relativeImport(path: string): string {
   return path.startsWith('./') || path.startsWith('../') ? path : `./${path}`
 }
 
-/** One catalog-typed Next.js factory, shared by storage store and image init. */
+/** One catalog-typed Next.js factory for image init. */
 export function storageImageFactory({
   prefix,
   privateDelivery = false,
@@ -28,10 +28,10 @@ export function storageImageFactory({
   const catalogImport = `import images from ${JSON.stringify(relativeImport(receiptsImport))}`
   if (privateDelivery) {
     return [
-      "import { createPrivateStorageImages } from '@transloadit/img/next/server'",
+      "import { createStorageImages } from '@transloadit/img/next/server'",
       catalogImport,
       '',
-      'export const { StorageImage, storageRoute } = createPrivateStorageImages({',
+      'export const { StorageImage, storageRoute } = createStorageImages({',
       '  images,',
       `  allowedPathPrefixes: [${JSON.stringify(prefix)}],`,
       '  // Replace with your application session and per-object authorization.',
@@ -47,20 +47,25 @@ export function storageImageFactory({
     'export const { StorageImage } = createStorageImages({',
     '  images,',
     `  allowedPathPrefixes: [${JSON.stringify(prefix)}],`,
-    ...(publicDelivery ? [`  public: [${JSON.stringify(prefix)}],`] : []),
+    ...(publicDelivery ? [`  public: [${JSON.stringify(prefix)}],`] : ["  delivery: 'direct',"]),
     '})',
     '',
   ].join('\n')
 }
 
-/** Prints a complete receipt-consuming page using ordinary Next.js imports. */
-export function storageImagePage(path: string): string {
+/** A scaffold that can render before the first upload, then displays the first catalog image. */
+export function storageImagePage(receiptsImport: string): string {
   return [
-    "import { StorageImage } from '../lib/storageImage'",
+    "import type { TransloaditImageSource } from '@transloadit/img'",
+    "import { StorageImage } from '../../lib/storageImage'",
+    `import images from ${JSON.stringify(relativeImport(receiptsImport))}`,
     '',
     'export default function Page() {',
+    '  const catalog: Record<string, TransloaditImageSource> = images',
+    '  const image = Object.values(catalog)[0]',
+    '  if (image === undefined) return <p>Add an image with transloadit storage store to see it here.</p>',
     '  return (',
-    `    <StorageImage src={${JSON.stringify(path)}} alt="Describe this image" layout="constrained" maxWidth={960} preload />`,
+    '    <StorageImage src={image} alt="Describe this image" layout="constrained" maxWidth={960} preload />',
     '  )',
     '}',
     '',

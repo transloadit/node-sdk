@@ -1,4 +1,4 @@
-import { mkdir, open, rm } from 'node:fs/promises'
+import { mkdir, open, rm, stat } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 
 import { validateStoragePathPrefix } from '@transloadit/utils'
@@ -8,8 +8,13 @@ import { z } from 'zod'
 
 import { readCliInput } from '../helpers.ts'
 import { promptSecretInput } from '../secretInput.ts'
-import { nextAppRoot, storageImageEnvBlock, storageImageFactory } from '../storageSnippets.ts'
-import { ensureError } from '../types.ts'
+import {
+  nextAppRoot,
+  storageImageEnvBlock,
+  storageImageFactory,
+  storageImagePage,
+} from '../storageSnippets.ts'
+import { ensureError, isErrnoException } from '../types.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
 /** Scaffolds the Node-runtime Next.js integration without overwriting code or env files. */
@@ -18,10 +23,9 @@ export class ImageInitCommand extends UnauthenticatedCommand {
   static override usage = Command.Usage({
     category: 'Storage',
     description: 'Create a Next.js StorageImage factory and print rendering environment names',
-    examples: [['Set up website images', 'transloadit image init --next website/']],
+    examples: [['Set up website images', 'transloadit image init website/ --public']],
   })
 
-  next = Option.Boolean('--next', false)
   privateDelivery = Option.Boolean('--private', false, {
     description: 'Also generate a redirect route; denies access until you supply authorization',
   })
@@ -97,6 +101,11 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           })
           .join('')
       }
+      const catalogExists = await stat(this.receipts).catch((error: unknown) => {
+        if (isErrnoException(error) && error.code === 'ENOENT') return undefined
+        throw error
+      })
+      const pageDirectory = `${root}app/storage-image-example`
       const files = [
         {
           path: `${root}lib/storageImage.ts`,
@@ -109,6 +118,13 @@ export class ImageInitCommand extends UnauthenticatedCommand {
               '/',
             ),
           }),
+        },
+        ...(catalogExists === undefined ? [{ path: this.receipts, content: '{}\n' }] : []),
+        {
+          path: `${pageDirectory}/page.tsx`,
+          content: storageImagePage(
+            relative(resolve(pageDirectory), resolve(this.receipts)).replaceAll('\\', '/'),
+          ),
         },
         ...(this.privateDelivery
           ? [
@@ -137,7 +153,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           ? 'Public images prerender with long-lived direct URLs. Rebuild before expiry; revocation requires key rotation and a rebuild.'
           : 'Private direct images render at request time. Use --public only for a public directory, or --private for request-authorized redirects.'
       this.output.print(
-        `Created ${created.join(', ')}\n${instruction}\nCreate ${this.receipts} with storage store before building; commit the catalog.\n${this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${storageImageEnvBlock}`}`,
+        `Created ${created.join(', ')}\n${instruction}\nAdd an image with storage store and open /storage-image-example. Commit ${this.receipts}.\n${this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${storageImageEnvBlock}`}`,
         { files: created, environment: storageImageEnvBlock },
       )
       return undefined

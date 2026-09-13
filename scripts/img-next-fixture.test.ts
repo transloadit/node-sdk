@@ -37,16 +37,16 @@ async function readManifest(path: string): Promise<PackageManifest> {
   return JSON.parse(await readFile(path, 'utf8'))
 }
 
-test('keeps seed credentials outside Next and defines the factory before its first render', async () => {
+test('keeps the maintainer seed configuration separate and scaffolds the factory before first render', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   const dogfood = await readFile(resolve(import.meta.dirname, '../docs/img-dogfood.md'), 'utf8')
   expect.soft(dogfood).not.toContain('allowImportingTsExtensions')
   expect.soft(/^\s*node --env-file=(\S+) seed\.ts /m.exec(dogfood)?.[1]).toBe('.env.seed.local')
-  const factory = readme.indexOf('export const { StorageImage')
+  const factory = readme.indexOf('yarn transloadit image init')
   const firstRender = readme.indexOf("import { StorageImage } from '../lib/storageImage'")
   expect(factory).toBeGreaterThan(0)
   expect.soft(firstRender).toBeGreaterThan(factory)
-  expect.soft(readme).toMatch(/`next build`.*runtime/s)
+  expect.soft(readme).toContain('build-time secret')
   expect
     .soft(readme)
     .not.toMatch(
@@ -56,23 +56,25 @@ test('keeps seed credentials outside Next and defines the factory before its fir
 
 test('gets to the first image before teaching the security model and keeps the private recipe complete', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
-  const firstFactory = readme.slice(
-    readme.indexOf('export const { StorageImage'),
-    readme.indexOf('Then in `app/page.tsx`'),
-  )
-  expect(firstFactory).toContain("public: ['website/']")
-  expect(firstFactory).toContain('createStorageImages')
-  expect(firstFactory).not.toContain('authorize:')
+  const quickstart = readme
+    .slice(readme.indexOf('## Quickstart'), readme.indexOf('## Responsive'))
+    .trim()
+  expect(quickstart.split('\n').length).toBeLessThanOrEqual(40)
+  expect(quickstart).toContain('image init website/ --public --write-env')
+  expect(quickstart).toContain('app/storage-image-example/page.tsx')
+  expect(quickstart).toContain('images.json')
+  expect(quickstart).not.toContain('authorize:')
   const login = readme.indexOf('yarn transloadit auth login')
   const store = readme.indexOf('yarn transloadit storage store')
-  const page = readme.indexOf('export default function Page()')
-  const privacy = readme.indexOf('## Ship it privately')
+  const page = readme.indexOf('<StorageImage src=')
+  const privacy = readme.indexOf('## Private')
   expect(login).toBeGreaterThan(0)
   expect(store).toBeGreaterThan(login)
   expect(page).toBeGreaterThan(store)
   expect(privacy).toBeGreaterThan(page)
   expect(readme.slice(0, page)).not.toContain('Assembly-only')
-  expect(readme).toContain('## Under the hood')
+  expect(readme.indexOf('## When it breaks')).toBeGreaterThan(privacy)
+  expect(readme.indexOf('## Reference')).toBeGreaterThan(readme.indexOf('## When it breaks'))
   expect(readme).toContain('storageRoute as GET, storageRoute as HEAD')
   expect(readme).not.toContain('loading="eager"')
   expect(readme).toContain('Firefox 150+')
@@ -82,10 +84,11 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(readme).toContain('notification')
   expect(readme).toContain('EXIF')
   expect(readme).toContain('asset_id')
-  expect(readme).toContain('Run from your app root')
+  expect(readme).toContain('Run beside `package.json`')
   expect(readme).toContain('standard Web `Request`')
   expect(readme).toContain('denied requests return `404`')
-  expect(readme).toContain('All three factories')
+  expect(readme).toContain('One factory owns both modes')
+  expect(readme).not.toMatch(/\bcreatePrivateStorageImages\b|\bcreateTransloaditImage\b|--next/)
   expect(readme).toContain('TRANSLOADIT_ENDPOINT')
   expect(readme).toContain('https://github.com/transloadit/node-sdk/blob/main/docs/img-dogfood.md')
   expect(readme).not.toContain('](../../docs/')

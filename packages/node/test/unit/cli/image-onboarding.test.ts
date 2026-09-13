@@ -165,7 +165,12 @@ test.each([
   expect(factory).toContain('allowedPathPrefixes: ["website/"]')
   expect(factory).toContain('public: ["website/"]')
   expect(factory).toContain('images,')
-  expect(await readdir(app)).toEqual([])
+  expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({})
+  const page = await readFile(`${app}/storage-image-example/page.tsx`, 'utf8')
+  expect(page).toContain("from '../../lib/storageImage'")
+  expect(page).toContain('Object.values(catalog)')
+  expect(page).toContain('<StorageImage')
+  expect(page).toContain('storage store')
   const printed = JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)
   expect(printed).toContain('TRANSLOADIT_WORKSPACE=')
   expect(printed).toContain('TRANSLOADIT_SMART_CDN_KEY=')
@@ -231,7 +236,7 @@ test('public and private scaffold declarations cannot be combined', async () => 
 
 test('private init creates GET and HEAD with a fail-closed authorization placeholder', async () => {
   await mkdir('app')
-  await main(['image', 'init', '--next', '--private', 'accounts/'])
+  await main(['image', 'init', '--private', 'accounts/'])
   expect(process.exitCode).toBeUndefined()
   expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('authorize: () => false')
   expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toContain(
@@ -243,7 +248,7 @@ test('private init creates GET and HEAD with a fail-closed authorization placeho
 test('init refuses to replace application code and leaves no partial scaffold', async () => {
   await mkdir('app/api/storage-images', { recursive: true })
   await writeFile('app/api/storage-images/route.ts', 'existing\n')
-  await main(['image', 'init', '--next', '--private', 'accounts/'])
+  await main(['image', 'init', '--private', 'accounts/'])
   expect(process.exitCode).toBe(1)
   expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toBe('existing\n')
   await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
@@ -263,10 +268,42 @@ test.each([
   '',
 ])('init rejects unsafe or implicit root prefix %j before writing', async (prefix) => {
   await mkdir('app')
-  await main(['image', 'init', '--next', prefix])
+  await main(['image', 'init', prefix])
   expect(process.exitCode).toBe(1)
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
     'Provide one safe relative directory prefix ending in /, for example website/',
   )
+  expect(await readdir(directory)).toEqual(['app'])
+})
+
+test('init preserves an existing catalog and refuses to overwrite the example page', async () => {
+  await mkdir('app/storage-image-example', { recursive: true })
+  const catalog = '{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}\n'
+  await writeFile('images.json', catalog)
+  await writeFile('app/storage-image-example/page.tsx', 'existing\n')
+  await main(['image', 'init', 'website/', '--public'])
+  expect(process.exitCode).toBe(1)
+  expect(await readFile('images.json', 'utf8')).toBe(catalog)
+  expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toBe('existing\n')
+  await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('init accepts an existing catalog without replacing its data', async () => {
+  await mkdir('src/app', { recursive: true })
+  await mkdir('catalog')
+  const catalog = '{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}\n'
+  await writeFile('catalog/images.json', catalog)
+  await main(['image', 'init', 'website/', '--public', '--receipts', 'catalog/images.json'])
+  expect(process.exitCode).toBeUndefined()
+  expect(await readFile('catalog/images.json', 'utf8')).toBe(catalog)
+  expect(await readFile('src/app/storage-image-example/page.tsx', 'utf8')).toContain(
+    '../../../catalog/images.json',
+  )
+})
+
+test('init rejects the removed --next flag before writing', async () => {
+  await mkdir('app')
+  await main(['image', 'init', 'website/', '--next'])
+  expect(process.exitCode).toBe(1)
   expect(await readdir(directory)).toEqual(['app'])
 })

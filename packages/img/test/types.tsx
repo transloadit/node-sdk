@@ -8,11 +8,7 @@ import type {
 
 import { createTransloaditImageModel } from '../src/index.ts'
 import { TransloaditPicture } from '../src/next/index.tsx'
-import {
-  createPrivateStorageImages,
-  createStorageImages,
-  createTransloaditImage,
-} from '../src/next/server.tsx'
+import { createStorageImages } from '../src/next/server.tsx'
 
 const modelOptions: TransloaditImageModelOptions = {
   expiresAt: Date.UTC(2030, 0, 1),
@@ -105,7 +101,7 @@ const callbackImage = <Image {...imageProps} onLoad={() => undefined} />
 const customSourceSet = <Image {...imageProps} srcSet="https://untrusted.example/a.jpg 320w" />
 // @ts-expect-error Signing policy belongs to the server-only factory.
 const perImageSecret = <Image {...imageProps} authSecret="secret" />
-const configuredRedirect = createTransloaditImage({
+const configuredRedirect = createStorageImages({
   authKey: 'key',
   authSecret: 'secret',
   workspace: 'app',
@@ -119,6 +115,7 @@ const configuredRedirectFallback = (
 )
 const envDirect = createStorageImages({
   allowedPathPrefixes: ['documents/'],
+  delivery: 'direct',
 })
 const images = {
   'website/hero.jpg': { path: 'website/hero.jpg', width: 2400, height: 1600 },
@@ -152,7 +149,7 @@ const catalogUnknown = (
   // @ts-expect-error Explicit geometry does not bypass the catalog-key contract.
   <catalog.StorageImage src="website/other.jpg" alt="Other" width={100} height={100} />
 )
-const privateCatalog = createPrivateStorageImages({ images, authorize: () => true })
+const privateCatalog = createStorageImages({ images, authorize: () => true })
 // @ts-expect-error The private factory retains the same exact catalog keys.
 const privateTypo = <privateCatalog.StorageImage src="website/heor.jpg" alt="Typo" />
 void [
@@ -191,7 +188,7 @@ const fillImage = (
     sizes="100vw"
   />
 )
-const privateIntegration = createPrivateStorageImages({
+const privateIntegration = createStorageImages({
   allowedPathPrefixes: ['documents/'],
   authorize: ({ path, request }) => path.endsWith('.pdf') && request.method === 'GET',
   lifetime: 60_000,
@@ -227,8 +224,8 @@ const nonCroppingArtDirection = (
     aspectRatio={{ default: '16/9' }}
   />
 )
-// @ts-expect-error Private entry points require an application authorization policy.
-createPrivateStorageImages({ allowedPathPrefixes: ['documents/'] })
+// @ts-expect-error Only an authorize callback opts into a redirect handler.
+void envDirect.storageRoute
 // @ts-expect-error The unpublished Image alias was removed.
 void envDirect.Image
 void artDirectedImage

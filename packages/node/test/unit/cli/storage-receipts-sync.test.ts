@@ -248,6 +248,37 @@ test.each([
   expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({})
 })
 
+test.each([
+  md5,
+  md5.toUpperCase(),
+])('preserves upload evidence when the HEAD MD5 still matches %s', async (previousHash) => {
+  const receipt = {
+    path: 'website/a.jpg',
+    width: 600,
+    height: 800,
+    md5hash: previousHash,
+    asset_id: 'verified-asset',
+    size: 123,
+  }
+  await writeFile('images.json', JSON.stringify({ [receipt.path]: receipt }))
+  const api = listed()
+    .head('/storage/my-app/website/a.jpg')
+    .reply(200, '', { ...metadata, etag: `"${md5}"` })
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(JSON.parse(await readFile('images.json', 'utf8'))[receipt.path]).toEqual({
+    ...receipt,
+    width: 800,
+    height: 600,
+    md5hash: md5,
+  })
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringContaining('Upload evidence is kept only when the HEAD MD5 matches'),
+    expect.anything(),
+  )
+})
+
 test('refreshes matched entries without stale upload fields and preserves unmatched records verbatim', async () => {
   const previous = {
     ['__proto__']: { path: '__proto__' },

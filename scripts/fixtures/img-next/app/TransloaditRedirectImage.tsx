@@ -1,9 +1,9 @@
-import { createTransloaditImage } from '@transloadit/img/next/server'
+import { createStorageImages } from '@transloadit/img/next/server'
 
 import { authorizeFixtureImage } from '../browser-policy'
 import { imageConfiguration } from './imageConfiguration'
 
-const { StorageImage, storageRoute } = createTransloaditImage({
+const { StorageImage, storageRoute } = createStorageImages({
   ...imageConfiguration,
   allowedPathPrefixes: ['documents/'],
   authorize: authorizeFixtureImage,

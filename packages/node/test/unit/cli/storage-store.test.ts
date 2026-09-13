@@ -82,17 +82,12 @@ describe('storage store', () => {
   test.each([
     '--private',
     '--public',
-  ])('defaults to images.json and prints a constrained, catalog-typed hero (%s)', async (delivery) => {
-    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+  ])('refuses the removed snippet-only flag %s before uploading', async (delivery) => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await main(['storage', 'store', './hero.jpg', receipt.path, delivery])
-    expect(process.exitCode).toBeUndefined()
-    expect(JSON.parse(await readFile('images.json', 'utf8'))[receipt.path]).toEqual(receipt)
-    const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
-    expect(snippet).toContain('layout="constrained" maxWidth={960} preload')
-    expect(snippet).toContain('src={"website/hero.jpg"}')
-    expect(snippet).toContain(
-      delivery === '--private' ? 'createPrivateStorageImages' : 'public: ["website/"]',
-    )
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    await expect(stat('images.json')).rejects.toMatchObject({ code: 'ENOENT' })
   })
   test('stores a root object without implicitly generating workspace-wide authorization', async () => {
     const rootReceipt = { ...receipt, path: 'hero.jpg' }
@@ -101,8 +96,7 @@ describe('storage store', () => {
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('images.json', 'utf8'))['hero.jpg']).toEqual(rootReceipt)
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
-    expect(snippet).toContain('workspace root')
-    expect(snippet).toContain('choose an explicit directory prefix')
+    expect(snippet).toContain('Render it with <StorageImage src={"hero.jpg"}')
     expect(snippet).not.toContain('createStorageImages')
     expect(snippet).not.toContain('allowedPathPrefixes: [""]')
   })
@@ -152,27 +146,26 @@ describe('storage store', () => {
     expect((await stat('images.json')).mode & 0o777).toBe(0o640)
   })
 
-  test('prints imports and filenames for a src/app consumer', async () => {
+  test('prints only the changed receipt for a src/app consumer', async () => {
     await mkdir('src/app', { recursive: true })
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
-    expect(snippet).toContain('src/lib/storageImage.ts:')
-    expect(snippet).toContain('src/app/page.tsx:')
-    expect(snippet).toContain('import images from "../../images.json"')
+    expect(snippet).toContain('Saved website/hero.jpg in images.json.')
+    expect(snippet).not.toContain('import ')
   })
 
   test.each([
     'images.json',
     '.images.json',
-  ])('keeps %s imports relative beside the page', async (name) => {
+  ])('stores a catalog named %s without printing an import', async (name) => {
     await mkdir('app')
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await main(['storage', 'store', './hero.jpg', receipt.path, '--receipts', `app/${name}`])
     expect(process.exitCode).toBeUndefined()
     expect(vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]).toContain(
-      `import images from "../app/${name}"`,
+      `Saved website/hero.jpg in app/${name}.`,
     )
   })
 
@@ -288,13 +281,9 @@ describe('storage store', () => {
       receipt,
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
-    expect(snippet).toContain('createStorageImages')
-    expect(snippet).toContain('allowedPathPrefixes: ["website/"]')
-    expect(snippet).toContain("import { StorageImage } from '../lib/storageImage'")
-    expect(snippet).toContain('import images from "../images.json"')
-    expect(snippet).toContain('export default function Page()')
-    expect(snippet).toContain('--private for request-authorized redirects')
-    expect(snippet).toContain('#ship-it-privately')
+    expect(snippet).toBe(
+      'Saved website/hero.jpg in images.json. Commit this receipt file.\nRender it with <StorageImage src={"website/hero.jpg"} alt="Describe this image" />',
+    )
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   })
 

@@ -185,7 +185,7 @@ and `urlParams: { cdn: 'required' }`. This supplies API2's explicit `cdn: requir
 because native image requests cannot attach a custom header. It does **not** install a CDN or
 bypass signatures. Keep the Smart CDN key and secret, and never take either override from a request.
 Normal Smart CDN delivery needs neither local override.
-`createPrivateStorageImages` accepts these same `baseUrl` and `urlParams` fields directly,
+`createStorageImages` accepts these same `baseUrl` and `urlParams` fields directly,
 alongside `allowedPathPrefixes` and `authorize`.
 
 The factory exports `StorageImage`. Round 5 uses one flat `createStorageImages({ images, public })`

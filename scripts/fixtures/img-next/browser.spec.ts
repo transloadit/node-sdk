@@ -610,7 +610,7 @@ test('the public catalog hero has stock-CSS geometry and no application image re
     if (request.resourceType() === 'image' && request.url().includes('/api/'))
       applicationImages.push(request.url())
   })
-  await page.goto('/fixture/cli-image/app')
+  await page.goto('/fixture/cli-image/app/storage-image-example')
   const hero = page.getByRole('img', { name: 'Describe this image' })
   await decode(hero)
   const viewport = page.viewportSize()

@@ -2,7 +2,7 @@ import type { HeadObjectCommandOutput } from '@aws-sdk/client-s3'
 
 import type { StoredImageReceipt } from '../../storageImage.ts'
 
-import { relative, resolve } from 'node:path'
+import { resolve } from 'node:path'
 
 import { validateStoragePath } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
@@ -17,12 +17,6 @@ import {
   storageS3ErrorSchema,
   withStorageS3,
 } from '../storageS3.ts'
-import {
-  nextAppRoot,
-  storageImageEnvBlock,
-  storageImageFactory,
-  storageImagePage,
-} from '../storageSnippets.ts'
 import { ensureError } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
@@ -55,19 +49,11 @@ export class StorageStoreCommand extends AuthenticatedCommand {
   receipts = Option.String('--receipts', 'images.json', {
     description: 'JSON receipts file to append to atomically, for example images.json',
   })
-  privateDelivery = Option.Boolean('--private', false, {
-    description: 'Print the request-authorized private integration',
-  })
-  publicDelivery = Option.Boolean('--public', false, {
-    description: 'Declare the destination directory public in the printed static integration',
-  })
 
   protected async run(): Promise<number | undefined> {
     const file = resolve(this.receipts)
     let verifiedReceipt: StoredImageReceipt | undefined
     try {
-      if (this.privateDelivery && this.publicDelivery)
-        throw new Error('Choose either --private or --public, not both')
       if (file === resolve(this.file))
         throw new Error('The receipts file cannot be the input image')
       await updateStorageReceipts(file, async (receipts) => {
@@ -79,17 +65,8 @@ export class StorageStoreCommand extends AuthenticatedCommand {
       })
       if (verifiedReceipt === undefined) throw new Error('Storage did not return a receipt')
       const receipt = verifiedReceipt
-      const prefix = receipt.path.slice(0, receipt.path.lastIndexOf('/') + 1)
-      const root = nextAppRoot() ?? ''
-      if (prefix === '') {
-        this.output.print(
-          `Saved ${this.receipts}. Commit this receipt file.\n\nThis image is at the workspace root, so no factory is printed. For scoped delivery, choose an explicit directory prefix when storing images. To allow the entire workspace deliberately, configure allowWorkspaceRoot: true.`,
-          receipt,
-        )
-        return undefined
-      }
       this.output.print(
-        `Saved ${this.receipts}. Commit this receipt file.\n\n${root}lib/storageImage.ts:\n${storageImageFactory({ prefix, privateDelivery: this.privateDelivery, publicDelivery: this.publicDelivery, receiptsImport: relative(resolve(`${root}lib`), file).replaceAll('\\', '/') })}\n${root}app/page.tsx:\n${storageImagePage(receipt.path)}\nRendering environment (.env.local):\n${storageImageEnvBlock}\n${this.publicDelivery ? 'Public images prerender with long-lived direct URLs. Rebuild before expiry; revocation requires key rotation and a rebuild.' : this.privateDelivery ? 'Export storageRoute as GET and HEAD; configure your application authorization before enabling access.' : 'Private direct images render at request time. Choose --public for explicitly public static images or --private for request-authorized redirects.'}\nhttps://github.com/transloadit/node-sdk/tree/main/packages/img#ship-it-privately`,
+        `Saved ${receipt.path} in ${this.receipts}. Commit this receipt file.\nRender it with <StorageImage src={${JSON.stringify(receipt.path)}} alt="Describe this image" />`,
         receipt,
       )
       return undefined
@@ -175,6 +152,12 @@ const imageMetadataSchema = z.object({
   'dam-height': dimensionSchema,
 })
 
+const uploadEvidenceSchema = z.object({
+  md5hash: z.string().regex(/^[a-f0-9]{32}$/i),
+  asset_id: z.string().min(1).optional(),
+  size: z.number().int().nonnegative().optional(),
+})
+
 function md5FromHead(head: HeadObjectCommandOutput): string | undefined {
   // S3's multipart, SSE-KMS and SSE-C ETags are not original-byte MD5 checksums.
   if (
@@ -195,8 +178,8 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
     description: 'Rebuild saved rendering metadata from the Storage catalog',
     details: `
       Uses the same read-scoped Auth Key, endpoint and workspace discovery as storage ls.
-      Adds or refreshes matched paths; never prunes unmatched local entries. Matched entries become
-      path/width/height and an MD5 when the HEAD ETag supports it, not full upload-integrity receipts.
+      Adds or refreshes matched paths; never prunes unmatched local entries. Keeps existing upload
+      asset_id/size only when the HEAD MD5 matches; otherwise replaces with rendering metadata.
       All listed images must expose valid dam-width/dam-height metadata. Any failure preserves the
       previous file. No Assembly, original download or remote write is performed.
     `,
@@ -268,9 +251,19 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
                     `Storage image ${JSON.stringify(path)} needs positive integer dam-width and dam-height metadata. Select an image-only prefix and backfill missing catalog dimensions before retrying.`,
                   )
                 const md5hash = md5FromHead(head)
+                const evidence = uploadEvidenceSchema.safeParse(
+                  Object.hasOwn(previous, path) ? previous[path] : undefined,
+                )
+                const retained =
+                  md5hash !== undefined &&
+                  evidence.success &&
+                  evidence.data.md5hash.toLowerCase() === md5hash
+                    ? evidence.data
+                    : {}
                 return [
                   path,
                   {
+                    ...retained,
                     path,
                     width: dimensions.data['dam-width'],
                     height: dimensions.data['dam-height'],
@@ -288,7 +281,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
         return { ...previous, ...synced }
       })
       this.output.print(
-        `Synced ${count} rendering receipts to ${this.receipts}. Unmatched entries were preserved. Commit this file before building.`,
+        `Synced ${count} rendering receipts to ${this.receipts}. Upload evidence is kept only when the HEAD MD5 matches; otherwise matched entries are replaced. Unmatched entries were preserved. Commit this file before building.`,
         synced,
       )
       return undefined

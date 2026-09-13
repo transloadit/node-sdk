@@ -68,6 +68,12 @@ export interface TransloaditStorageRedirectDelivery {
 export type StorageImageLifetime = number | `${number}${'ms' | 's' | 'm' | 'h' | 'd'}`
 
 interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = undefined> {
+  /** Trusted explicit overrides; otherwise resolved from the server environment on first use. */
+  authKey?: string
+  authSecret?: string
+  workspace?: string
+  /** A surrounding request-authorized page may sign private URLs directly. */
+  delivery?: 'direct'
   /** Catalog keys become typed src references; values provide intrinsic geometry. */
   images?: Catalog
   /** Allowed directories. Defaults to catalog directories plus exact root-level catalog paths. */
@@ -415,6 +421,14 @@ function getStoragePolicy(
     if (!resolvedPrefixes.some((allowed) => prefix.startsWith(allowed)))
       throw new TypeError('public prefixes must be within allowedPathPrefixes')
   }
+  if (
+    configuration.authorize === undefined &&
+    publicPrefixes.length === 0 &&
+    configuration.delivery !== 'direct'
+  )
+    throw new TypeError("Choose public, authorize, or delivery: 'direct' for Storage images")
+  if (configuration.delivery !== undefined && configuration.delivery !== 'direct')
+    throw new TypeError("delivery must be 'direct'; provide authorize to enable redirects")
   const lifetime = parseLifetime(configuration.lifetime)
   if (lifetime !== undefined && lifetime > maximumStorageLifetimeMs && publicPrefixes.length === 0)
     throw new RangeError(
@@ -802,30 +816,11 @@ function createStorageRoute(
   }
 }
 
-/** Creates one credentialed Next.js image integration without reading application environment. */
-export function createTransloaditImage<Catalog extends StorageImageCatalog | undefined = undefined>(
-  configuration: TransloaditRedirectImageConfiguration<Catalog>,
-): TransloaditRedirectImageIntegration<Catalog>
-export function createTransloaditImage<Catalog extends StorageImageCatalog | undefined = undefined>(
-  configuration: TransloaditImageConfiguration<Catalog>,
-): TransloaditImageIntegration<Catalog>
-export function createTransloaditImage<Catalog extends StorageImageCatalog | undefined = undefined>(
-  configuration: TransloaditImageConfiguration<Catalog>,
-): TransloaditImageIntegration<Catalog> | TransloaditRedirectImageIntegration<Catalog> {
-  const authKey = configuration.authKey
-  const authSecret = configuration.authSecret
-  const workspace = configuration.workspace
-  validateRequiredConfiguration(authKey, 'authKey')
-  validateRequiredConfiguration(authSecret, 'authSecret')
-  validateRequiredConfiguration(workspace, 'workspace')
-  return createImageIntegration(configuration, () => ({ authKey, authSecret, workspace }))
-}
-
 function createImageIntegration<Catalog extends StorageImageCatalog | undefined>(
   configuration: StorageImagesConfiguration<Catalog>,
+  storagePolicy: ResolvedStoragePolicy,
   getCredentials: () => { authKey: string; authSecret: string; workspace: string },
 ): TransloaditImageIntegration<Catalog> | TransloaditRedirectImageIntegration<Catalog> {
-  const storagePolicy = getStoragePolicy(configuration)
   const baseUrl = configuration.baseUrl
   const storageTemplate = configuration.template ?? transloaditStoragePreviewTemplate
   const customTemplate = configuration.template
@@ -997,12 +992,21 @@ export function createStorageImages<Catalog extends StorageImageCatalog | undefi
 export function createStorageImages<Catalog extends StorageImageCatalog | undefined = undefined>(
   configuration: StorageImagesConfiguration<Catalog>,
 ): TransloaditImageIntegration<Catalog> | TransloaditRedirectImageIntegration<Catalog> {
+  const policy = getStoragePolicy(configuration)
+  const explicit = {
+    authKey: configuration.authKey,
+    authSecret: configuration.authSecret,
+    workspace: configuration.workspace,
+  }
+  for (const [name, value] of Object.entries(explicit)) {
+    if (value !== undefined) validateRequiredConfiguration(value, name)
+  }
   let credentials: { authKey: string; authSecret: string; workspace: string } | undefined
-  return createImageIntegration(configuration, () => {
+  return createImageIntegration(configuration, policy, () => {
     if (credentials === undefined) {
-      const authKey = process.env.TRANSLOADIT_SMART_CDN_KEY
-      const authSecret = process.env.TRANSLOADIT_SMART_CDN_SECRET
-      const workspace = process.env.TRANSLOADIT_WORKSPACE
+      const authKey = explicit.authKey ?? process.env.TRANSLOADIT_SMART_CDN_KEY
+      const authSecret = explicit.authSecret ?? process.env.TRANSLOADIT_SMART_CDN_SECRET
+      const workspace = explicit.workspace ?? process.env.TRANSLOADIT_WORKSPACE
       validateRequiredConfiguration(authKey, 'TRANSLOADIT_SMART_CDN_KEY')
       validateRequiredConfiguration(authSecret, 'TRANSLOADIT_SMART_CDN_SECRET')
       validateRequiredConfiguration(workspace, 'TRANSLOADIT_WORKSPACE')
@@ -1010,15 +1014,4 @@ export function createStorageImages<Catalog extends StorageImageCatalog | undefi
     }
     return credentials
   })
-}
-
-/** Creates a private StorageImage and GET/HEAD handler from the three rendering environment values. */
-export function createPrivateStorageImages<
-  Catalog extends StorageImageCatalog | undefined = undefined,
->(
-  configuration: PrivateStorageImagesConfiguration<Catalog>,
-): TransloaditRedirectImageIntegration<Catalog> {
-  if (typeof configuration.authorize !== 'function')
-    throw new TypeError('authorize must be a function')
-  return createStorageImages(configuration)
 }
