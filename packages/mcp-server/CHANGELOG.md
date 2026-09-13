@@ -1,5 +1,13 @@
 # @transloadit/mcp-server
 
+## 0.3.31
+
+### Patch Changes
+
+- 5fe9706: Support GPT-6 Astra and Claude Fable 5.1, and use Astra for automatic chat and assembly-instruction compilation. Assembly compilation retains medium reasoning effort. Existing model identifiers remain supported.
+- Updated dependencies [5fe9706]
+  - @transloadit/node@4.12.0
+
 ## 0.3.30
 
 ### Patch Changes
