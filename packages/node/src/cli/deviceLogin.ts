@@ -35,6 +35,15 @@ const authorizedSchema = z.object({
     .min(1)
     .max(4096)
     .regex(/^[^\r\n\0]+$/),
+  auth_key_id: z
+    .string()
+    .regex(/^[a-zA-Z0-9_-]{1,128}$/)
+    .optional(),
+  auth_key_description: z
+    .string()
+    .max(512)
+    .regex(/^[^\r\n\0]*$/)
+    .optional(),
 })
 const pendingSchema = z.object({
   ok: z.literal('CLI_DEVICE_AUTHORIZATION_PENDING'),
@@ -47,6 +56,8 @@ const expiredMessage =
 /** Browser-approved credentials; the one-time device code never leaves this module. */
 export interface DeviceLoginCredentials extends CliKeySecretCredentials {
   workspace: string
+  authKeyId?: string
+  description?: string
 }
 
 /** Obtain a combined Auth Key using the API's single-use device authorization contract. */
@@ -107,6 +118,8 @@ export async function deviceLogin(
         })
       })
     }
+    if (!noBrowser && process.platform === 'win32')
+      output.print('On Windows, open the verification URL printed above.', { browserOpened: false })
     let intervalMs = device.interval * 1000
     while (true) {
       await delay(intervalMs, undefined, { signal })
@@ -157,6 +170,8 @@ export async function deviceLogin(
         authSecret: authorized.data.auth_secret,
         signatureAlgorithm: authorized.data.signature_algo,
         workspace: authorized.data.workspace,
+        authKeyId: authorized.data.auth_key_id,
+        description: authorized.data.auth_key_description,
       }
     }
   } catch (cause) {

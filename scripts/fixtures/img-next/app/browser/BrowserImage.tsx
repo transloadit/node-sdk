@@ -9,7 +9,8 @@ export const { StorageImage: BrowserImage, storageRoute: browserStorageRoute } =
     ...imageConfiguration,
     allowedPathPrefixes: ['documents/'],
     authorize: authorizeFixtureImage,
+    basePath: '/fixture',
     route: '/api/browser-images',
     lifetime: 10_000,
-    rotationIntervalMs: 1_000,
+    rotationInterval: '1s',
   })

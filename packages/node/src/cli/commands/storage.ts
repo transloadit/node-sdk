@@ -2,7 +2,7 @@ import type { HeadObjectCommandOutput } from '@aws-sdk/client-s3'
 
 import type { StoredImageReceipt } from '../../storageImage.ts'
 
-import { resolve } from 'node:path'
+import { basename, resolve } from 'node:path'
 
 import { validateStoragePath } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
@@ -10,11 +10,18 @@ import pMap from 'p-map'
 import { z } from 'zod'
 
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
+import { normalizeStoragePublicPrefix } from '../../storagePublicPrefixes.ts'
 import { describeCliCredentialSource } from '../helpers.ts'
 import { storagePublicError } from '../storagePublic.ts'
-import { updateStorageReceipts } from '../storageReceipts.ts'
+import {
+  assertStorageWorkspace,
+  defaultStorageCatalog,
+  readStorageCatalog,
+  updateStorageReceipts,
+} from '../storageReceipts.ts'
 import {
   listStorageObjects,
+  resolveStorageWorkspace,
   storageS3ConnectionErrorSchema,
   storageS3ErrorSchema,
   withStorageS3,
@@ -22,8 +29,18 @@ import {
 import { ensureError } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
+abstract class StorageProjectCommand extends AuthenticatedCommand {
+  receipts = Option.String('--receipts', defaultStorageCatalog, {
+    description: 'Committed project catalog with workspace, public prefixes and image receipts',
+  })
+  workspace = Option.String('--workspace', {
+    description:
+      'Explicit workspace override; a different workspace never changes this project catalog',
+  })
+}
+
 /** Publishes an explicit directory, independently of uploads or local snippet generation. */
-export class StoragePublishCommand extends AuthenticatedCommand {
+export class StoragePublishCommand extends StorageProjectCommand {
   static override paths = [['storage', 'publish']]
   static override usage = Command.Usage({
     category: 'Storage',
@@ -33,21 +50,38 @@ export class StoragePublishCommand extends AuthenticatedCommand {
   protected async run(): Promise<number | undefined> {
     try {
       this.output.notice(describeCliCredentialSource(this.cliConfig))
-      const result = await this.client.publishStoragePrefix(this.prefix)
-      this.output.print(
-        `Published ${result.prefix}. Files under this directory can be served without signatures.`,
-        result,
-      )
+      const prefix = normalizeStoragePublicPrefix(this.prefix)
+      await updateStorageReceipts(this.receipts, async (previous) => {
+        const workspace = await resolveStorageWorkspace(this, this.cliConfig, previous?.workspace)
+        const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
+          throw new Error(storagePublicError(cause), { cause })
+        })
+        this.output.print(
+          `Published ${result.prefix}. Files under this directory can be served without signatures.`,
+          result,
+        )
+        if (previous !== undefined && previous.workspace !== workspace) {
+          this.output.notice(
+            `Catalog ${this.receipts} was not changed; it belongs to ${previous.workspace}.`,
+          )
+          return undefined
+        }
+        return {
+          workspace,
+          public: [...new Set([...(previous?.public ?? []), result.prefix])],
+          images: previous?.images ?? {},
+        }
+      })
       return undefined
     } catch (error) {
-      this.output.error(storagePublicError(error))
+      this.output.error(ensureError(error).message)
       return 1
     }
   }
 }
 
 /** Revokes a public prefix at the origin without promising to recall cached bytes. */
-export class StorageUnpublishCommand extends AuthenticatedCommand {
+export class StorageUnpublishCommand extends StorageProjectCommand {
   static override paths = [['storage', 'unpublish']]
   static override usage = Command.Usage({
     category: 'Storage',
@@ -57,14 +91,31 @@ export class StorageUnpublishCommand extends AuthenticatedCommand {
   protected async run(): Promise<number | undefined> {
     try {
       this.output.notice(describeCliCredentialSource(this.cliConfig))
-      const result = await this.client.unpublishStoragePrefix(this.prefix)
-      this.output.print(
-        `Unpublished ${result.prefix}; already cached or downloaded bytes cannot be recalled.`,
-        result,
-      )
+      const prefix = normalizeStoragePublicPrefix(this.prefix)
+      await updateStorageReceipts(this.receipts, async (previous) => {
+        const workspace = await resolveStorageWorkspace(this, this.cliConfig, previous?.workspace)
+        const result = await this.client.unpublishStoragePrefix(prefix).catch((cause: unknown) => {
+          throw new Error(storagePublicError(cause), { cause })
+        })
+        this.output.print(
+          `Unpublished ${result.prefix}; already cached or downloaded bytes cannot be recalled.`,
+          result,
+        )
+        if (previous !== undefined && previous.workspace !== workspace) {
+          this.output.notice(
+            `Catalog ${this.receipts} was not changed; it belongs to ${previous.workspace}.`,
+          )
+          return undefined
+        }
+        return {
+          workspace,
+          public: (previous?.public ?? []).filter((prefix) => prefix !== result.prefix),
+          images: previous?.images ?? {},
+        }
+      })
       return undefined
     } catch (error) {
-      this.output.error(storagePublicError(error))
+      this.output.error(ensureError(error).message)
       return 1
     }
   }
@@ -95,70 +146,99 @@ export class StoragePublicationsCommand extends AuthenticatedCommand {
   }
 }
 
-/** Stores one image and atomically appends its verified receipt for application imports. */
-export class StorageStoreCommand extends AuthenticatedCommand {
+/** Stores originals in order, checkpointing each verified receipt before the next upload. */
+export class StorageStoreCommand extends StorageProjectCommand {
   static override paths = [['storage', 'store']]
 
   static override usage = Command.Usage({
     category: 'Storage',
-    description: 'Store one original image and save its verified metadata for StorageImage',
+    description: 'Store original images and save verified metadata for StorageImage',
     details: `
       Uses the CLI's Assembly credentials (environment, .env or ~/.transloadit/credentials).
       Storage writes must be enabled. Existing Storage paths conflict unless --overwrite is explicit.
-      The receipts file is a JSON object keyed by complete Storage path, replaced atomically only
-      after success. Do not run two writers against the same receipts file.
+      The project catalog binds workspace, published prefixes and image receipts. Each successful
+      upload is saved atomically before the next. Do not run two writers against the same catalog.
     `,
     examples: [
-      [
-        'Store a hero image',
-        'transloadit storage store ./hero.jpg website/hero.jpg --receipts images.json',
-      ],
+      ['Store a hero image', 'transloadit storage store ./hero.jpg website/hero.jpg'],
+      ['Store a directory of originals', 'transloadit storage store ./images/*.jpg website/'],
     ],
   })
 
-  file = Option.String({ required: true })
+  files = Option.Rest({ required: 1 })
   destination = Option.String({ required: true })
   overwrite = Option.Boolean('--overwrite', false, {
     description: 'Explicitly replace an existing Storage path',
   })
-  receipts = Option.String('--receipts', 'images.json', {
-    description: 'JSON receipts file to append to atomically, for example images.json',
-  })
-
   protected async run(): Promise<number | undefined> {
     const file = resolve(this.receipts)
-    let verifiedReceipt: StoredImageReceipt | undefined
+    let stored: { receipt?: StoredImageReceipt } = {}
+    let destination = this.destination
+    let workspace: string | undefined
     try {
       this.output.notice(describeCliCredentialSource(this.cliConfig))
-      if (file === resolve(this.file))
-        throw new Error('The receipts file cannot be the input image')
-      await updateStorageReceipts(file, async (receipts) => {
-        verifiedReceipt = await this.client.storeImage(this.file, {
-          path: this.destination,
-          ...(this.overwrite ? { overwrite: true } : {}),
+      if (this.files.length > 1 && !this.destination.endsWith('/'))
+        throw new Error('Multiple images need a directory destination ending in /')
+      const inputs = this.files.map((input) => ({
+        file: input,
+        path: this.destination.endsWith('/')
+          ? `${this.destination}${basename(input)}`
+          : this.destination,
+      }))
+      for (const input of inputs) {
+        if (file === resolve(input.file))
+          throw new Error('The receipts file cannot be the input image')
+        validateStoragePath(input.path)
+      }
+      if (new Set(inputs.map((input) => input.path)).size !== inputs.length)
+        throw new Error(
+          'Input image basenames collide in the destination directory; rename them first',
+        )
+      for (const input of inputs) {
+        destination = input.path
+        stored = {}
+        let saved = false
+        await updateStorageReceipts(file, async (receipts) => {
+          workspace ??= await resolveStorageWorkspace(this, this.cliConfig, receipts?.workspace)
+          assertStorageWorkspace(workspace, receipts?.workspace, this.workspace)
+          stored.receipt = await this.client.storeImage(input.file, {
+            path: destination,
+            ...(this.overwrite ? { overwrite: true } : {}),
+          })
+          if (receipts !== undefined && receipts.workspace !== workspace) {
+            this.output.notice(
+              `Catalog ${this.receipts} was not changed; it belongs to ${receipts.workspace}. Use --receipts for a separate catalog.`,
+            )
+            return undefined
+          }
+          saved = true
+          return {
+            workspace,
+            public: receipts?.public ?? [],
+            images: { ...receipts?.images, [stored.receipt.path]: stored.receipt },
+          }
         })
-        return { ...receipts, [verifiedReceipt.path]: verifiedReceipt }
-      })
-      if (verifiedReceipt === undefined) throw new Error('Storage did not return a receipt')
-      const receipt = verifiedReceipt
-      const src = receipt.path
-        .replaceAll('&', '&amp;')
-        .replaceAll('"', '&quot;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-      this.output.print(
-        `Saved ${receipt.path} in ${this.receipts}. Commit this receipt file.\nRender it with <StorageImage src="${src}" alt="Describe this image" layout="constrained" maxWidth={${Math.min(receipt.width, 960)}} />`,
-        receipt,
-      )
+        if (stored.receipt === undefined) throw new Error('Storage did not return a receipt')
+        const receipt = stored.receipt
+        const src = receipt.path
+          .replaceAll('&', '&amp;')
+          .replaceAll('"', '&quot;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+        this.output.print(
+          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this receipt file.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="" width={${Math.min(receipt.width, 960)}} />\n{/* Empty alt is decorative; replace it for an informative image. */}`,
+          receipt,
+        )
+      }
       return undefined
     } catch (error) {
       const failure = ensureError(error)
-      if (verifiedReceipt !== undefined) {
+      if (stored.receipt !== undefined) {
         this.output.error(
           [
             failure.message,
             'The object was stored successfully. Do not re-upload; recover the verified receipt below.',
-            `Receipt: ${JSON.stringify(verifiedReceipt)}`,
+            `Receipt: ${JSON.stringify(stored.receipt)}`,
           ].join('\n'),
         )
         return 1
@@ -171,7 +251,7 @@ export class StorageStoreCommand extends AuthenticatedCommand {
         this.output.error(
           [
             failure.message,
-            `Destination: ${JSON.stringify(this.destination)}`,
+            `Destination: ${JSON.stringify(destination)}`,
             `Assembly ID: ${JSON.stringify(recovery.data.assemblyId)}`,
             "The object may already exist. A retry with conflict_strategy: 'error' will conflict if the destination is occupied. Inspect it before retrying.",
           ].join('\n'),
@@ -199,11 +279,19 @@ export class StorageListCommand extends UnauthenticatedCommand {
   workspace = Option.String('--workspace', {
     description: 'Explicit workspace slug (otherwise discovered from this Auth Key)',
   })
+  receipts = Option.String('--receipts', defaultStorageCatalog, {
+    description: 'Project catalog whose workspace must match the selected credentials',
+  })
 
   protected async run(): Promise<number | undefined> {
     try {
+      const catalog = await readStorageCatalog(this.receipts)
       const objects = await withStorageS3(
-        this,
+        {
+          endpoint: this.endpoint,
+          workspace: this.workspace,
+          projectWorkspace: catalog?.workspace,
+        },
         (client, workspace) => listStorageObjects(client, workspace, this.prefix),
         'Storage listing',
         this.output,
@@ -277,7 +365,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
   workspace = Option.String('--workspace', {
     description: 'Explicit workspace slug (otherwise discovered from this Auth Key)',
   })
-  receipts = Option.String('--receipts', 'images.json', {
+  receipts = Option.String('--receipts', defaultStorageCatalog, {
     description: 'JSON rendering catalog to update atomically, for example images.json',
   })
 
@@ -285,10 +373,17 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
     try {
       let count = 0
       let synced: Record<string, unknown> = {}
+      let catalogUpdated = false
       await updateStorageReceipts(resolve(this.receipts), async (previous) => {
+        let actualWorkspace: string | undefined
         synced = await withStorageS3(
-          this,
+          {
+            endpoint: this.endpoint,
+            workspace: this.workspace,
+            projectWorkspace: previous?.workspace,
+          },
           async (client, workspace) => {
+            actualWorkspace = workspace
             const objects = await listStorageObjects(client, workspace, this.prefix)
             const paths = new Set<string>()
             for (const { path } of objects) {
@@ -334,7 +429,9 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
                   )
                 const md5hash = md5FromHead(head)
                 const evidence = uploadEvidenceSchema.safeParse(
-                  Object.hasOwn(previous, path) ? previous[path] : undefined,
+                  previous?.workspace === workspace && Object.hasOwn(previous.images, path)
+                    ? previous.images[path]
+                    : undefined,
                 )
                 const retained =
                   md5hash !== undefined &&
@@ -361,10 +458,24 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
           'Storage receipt sync',
           this.output,
         )
-        return { ...previous, ...synced }
+        if (actualWorkspace === undefined) throw new Error('Storage did not identify a workspace')
+        if (previous !== undefined && previous.workspace !== actualWorkspace) {
+          this.output.notice(
+            `Catalog ${this.receipts} was not changed; it belongs to ${previous.workspace}. Use --receipts for a separate catalog.`,
+          )
+          return undefined
+        }
+        catalogUpdated = true
+        return {
+          workspace: actualWorkspace,
+          public: previous?.public ?? [],
+          images: { ...previous?.images, ...synced },
+        }
       })
       this.output.print(
-        `Synced ${count} rendering receipts to ${this.receipts}. Upload evidence is kept only when the HEAD MD5 matches; otherwise matched entries are replaced. Unmatched entries were preserved. Commit this file before building.`,
+        catalogUpdated
+          ? `Synced ${count} rendering receipts to ${this.receipts}. Upload evidence is kept only when the HEAD MD5 matches; otherwise matched entries are replaced. Unmatched entries were preserved. Commit this file before building.`
+          : `Read ${count} rendering receipts. Catalog unchanged because it belongs to another workspace.`,
         synced,
       )
       return undefined

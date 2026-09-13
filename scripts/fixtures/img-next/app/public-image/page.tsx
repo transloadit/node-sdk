@@ -15,6 +15,7 @@ const images = {
 }
 
 const { StorageImage } = createStorageImages({
+  workspace: 'fixture',
   images,
   public: ['website/'],
   baseUrl: imageConfiguration.baseUrl,
@@ -24,20 +25,8 @@ export default function Page(): ReactNode {
   return (
     <main>
       <h1>Static public image</h1>
-      <StorageImage
-        src="website/hero.jpg"
-        alt="Public hero"
-        layout="constrained"
-        maxWidth={960}
-        preload
-      />
-      <StorageImage
-        src="website/small.jpg"
-        alt="Small public original"
-        layout="constrained"
-        maxWidth={960}
-        preload
-      />
+      <StorageImage src="website/hero.jpg" alt="Public hero" width={960} priority />
+      <StorageImage src="website/small.jpg" alt="Small public original" width={960} priority />
     </main>
   )
 }

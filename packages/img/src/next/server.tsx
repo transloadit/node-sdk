@@ -12,7 +12,7 @@ import type { DiagnoseStorageImage } from './diagnostics.ts'
 import type { TransloaditImageLayoutProps, TransloaditImagePresentationProps } from './index.tsx'
 import type { StorageImageCatalog, StorageImageLayoutProps } from './layout.ts'
 
-import { hkdfSync } from 'node:crypto'
+import { createHash, hkdfSync } from 'node:crypto'
 
 import { gcmsiv } from '@noble/ciphers/aes.js'
 import { validateStoragePath, validateStoragePathPrefix } from '@transloadit/utils'
@@ -28,6 +28,7 @@ import {
   transloaditStoragePreviewTemplate,
 } from '../index.ts'
 import { createImageDiagnostics } from './diagnostics.ts'
+import { ImageSizeDiagnostics } from './ImageSizeDiagnostics.tsx'
 import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
 import { TransloaditPicture } from './index.tsx'
 import { resolveImageLayout } from './layout.ts'
@@ -91,10 +92,14 @@ interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = 
   route?: string
   basePath?: string
   /** Opt-in private browser caching, capped at rotation and remaining grant age. */
+  cacheMaxAge?: StorageImageLifetime
+  /** @deprecated Use cacheMaxAge with a duration such as '1m'. */
   cacheMaxAgeMs?: number
   /** Maximum private CDN grant age, at most 48h; defaults to 1h. Public URLs never expire. */
   lifetime?: StorageImageLifetime
   /** Stable signature bucket, at most half the private lifetime. Defaults to min(lifetime / 2, one hour). */
+  rotationInterval?: StorageImageLifetime
+  /** @deprecated Use rotationInterval with a duration such as '30m'. */
   rotationIntervalMs?: number
   /** Trusted development endpoint override; never derive this from request data. */
   baseUrl?: string
@@ -132,8 +137,6 @@ export type TransloaditImageProps<Catalog extends StorageImageCatalog | undefine
       /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
       fallbackQuality?: number
       formats?: StoragePreviewFormats
-      media?: never
-      mediaPlaceholderSrc?: never
       /** Static shell used only while direct request-time signing is suspended. */
       suspenseFallback?: ReactNode
       /** Advanced candidate override. Defaults to a conservative ladder capped at `width`. */
@@ -201,6 +204,8 @@ type ResolvedStorageImageProps = TransloaditImagePresentationProps & {
   source: ReturnType<typeof resolveImageLayout>['source']
   cropAspectRatio?: number
   artDirection?: ReturnType<typeof resolveImageLayout>['artDirection']
+  frame?: ReturnType<typeof resolveImageLayout>['frame']
+  diagnoseSize?: boolean
   fallbackWidth?: number
   maximumWidth?: number
   fallbackBackground?: string
@@ -218,16 +223,18 @@ function StorageImagePlaceholder({ props }: TransloaditStorageImageRequestProps)
     Object.entries(attributes).filter(([name]) => name !== 'id' && !name.startsWith('aria-')),
   )
   return (
-    <picture>
-      <img
-        {...placeholderAttributes}
-        alt=""
-        aria-hidden="true"
-        inert
-        sizes={undefined}
-        style={{ ...attributes.style, visibility: 'hidden' }}
-      />
-    </picture>
+    <StorageImageFrame props={props}>
+      <picture>
+        <img
+          {...placeholderAttributes}
+          alt=""
+          aria-hidden="true"
+          inert
+          sizes={undefined}
+          style={{ ...attributes.style, visibility: 'hidden' }}
+        />
+      </picture>
+    </StorageImageFrame>
   )
 }
 
@@ -329,23 +336,26 @@ function matchesStorageRoute(path: string, delivery: TransloaditStorageRedirectD
   )
 }
 
-function parseLifetime(lifetime: StorageImageLifetime | undefined): number | undefined {
+function parseLifetime(
+  lifetime: StorageImageLifetime | undefined,
+  name = 'lifetime',
+): number | undefined {
   if (lifetime === undefined) return undefined
   const units = { ms: 1, s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }
   if (typeof lifetime === 'number') {
-    validateDuration(lifetime, 'lifetime')
+    validateDuration(lifetime, name)
     return lifetime
   }
   if (typeof lifetime !== 'string')
-    throw new TypeError('lifetime must be milliseconds or a duration such as "1h"')
+    throw new TypeError(`${name} must be milliseconds or a duration such as "1h"`)
   const parts = /^(\d+(?:\.\d+)?)(ms|s|m|h|d)$/.exec(lifetime)
   const unit = parts?.[2]
   if (parts === null || unit === undefined || !(unit in units))
-    throw new TypeError('lifetime must be milliseconds or a duration such as "1h"')
+    throw new TypeError(`${name} must be milliseconds or a duration such as "1h"`)
   const multiplier = Object.entries(units).find(([name]) => name === unit)?.[1]
   if (multiplier === undefined) throw new TypeError('Unsupported lifetime unit')
   const duration = Number(parts[1]) * multiplier
-  validateDuration(duration, 'lifetime')
+  validateDuration(duration, name)
   return duration
 }
 
@@ -425,7 +435,21 @@ function getStoragePolicy(
     throw new RangeError(
       'Private Storage image lifetime must not exceed 48 hours; public URLs do not use lifetime',
     )
-  const rotationIntervalMs = configuration.rotationIntervalMs
+  if (
+    configuration.rotationInterval !== undefined &&
+    configuration.rotationIntervalMs !== undefined
+  )
+    throw new TypeError('Use rotationInterval or rotationIntervalMs, not both')
+  if (configuration.cacheMaxAge !== undefined && configuration.cacheMaxAgeMs !== undefined)
+    throw new TypeError('Use cacheMaxAge or cacheMaxAgeMs, not both')
+  const rotationIntervalMs = parseLifetime(
+    configuration.rotationInterval ?? configuration.rotationIntervalMs,
+    'rotationInterval',
+  )
+  const cacheMaxAgeMs = parseLifetime(
+    configuration.cacheMaxAge ?? configuration.cacheMaxAgeMs,
+    'cacheMaxAge',
+  )
   if (rotationIntervalMs !== undefined) {
     validateDuration(rotationIntervalMs, 'rotationIntervalMs')
     if (
@@ -436,35 +460,27 @@ function getStoragePolicy(
         'rotationIntervalMs must not exceed half the private lifetime (capped at 48 hours)',
       )
   }
-  // Next 16 inlines this build-time value for bundled server modules. Externalized consumers
-  // without it can still supply basePath explicitly.
-  const basePath =
-    configuration.authorize !== undefined
-      ? (configuration.basePath ?? (process.env.__NEXT_ROUTER_BASEPATH || undefined))
-      : undefined
+  const basePath = configuration.authorize !== undefined ? configuration.basePath : undefined
   let delivery: ResolvedStoragePolicy['delivery'] = 'direct'
   if (configuration.authorize !== undefined) {
     // An authorizer overrides a shared direct-delivery default; private access stays gated.
     const route = configuration.route ?? '/api/storage-images'
     validateStorageRoute(route)
     validateStorageBasePath(basePath)
-    if (configuration.cacheMaxAgeMs !== undefined) {
-      validateDuration(configuration.cacheMaxAgeMs, 'cacheMaxAgeMs')
-    }
     if (typeof configuration.authorize !== 'function') {
       throw new TypeError('authorize must be a function')
     }
     delivery = {
       authorize: configuration.authorize,
       basePath,
-      cacheMaxAgeMs: configuration.cacheMaxAgeMs,
+      cacheMaxAgeMs,
       public: publicPrefixes,
       route,
     }
   } else if (
     configuration.route !== undefined ||
     configuration.basePath !== undefined ||
-    configuration.cacheMaxAgeMs !== undefined
+    cacheMaxAgeMs !== undefined
   ) {
     throw new TypeError('route, basePath and cacheMaxAgeMs require an authorize function')
   }
@@ -519,13 +535,14 @@ function snapshotStorageImageProps(
 ): ResolvedStorageImageProps {
   const attributes = snapshotImageAttributes(props)
   const loading = snapshotImageLoading(props)
-  const lazy = loading.loading !== 'eager' && loading.preload !== true
+  const lazy = loading.loading !== 'eager' && loading.priority !== true
   return {
     ...attributes,
     ...loading,
     artDirection: layout.artDirection,
+    frame: layout.frame,
+    diagnoseSize: process.env.NODE_ENV === 'development' && props.sizes === undefined,
     cropAspectRatio: layout.cropAspectRatio,
-    deferUntilHydrated: props.deferUntilHydrated,
     errorFallback: props.errorFallback,
     retryKey: props.retryKey,
     fallbackBackground: props.fallbackBackground,
@@ -538,7 +555,9 @@ function snapshotStorageImageProps(
     source: layout.source,
     sizes:
       attributes.sizes ??
-      (props.layout === 'constrained' && lazy && layout.sizes !== undefined
+      ((props.layout === undefined || props.layout === 'constrained') &&
+      lazy &&
+      layout.sizes !== undefined
         ? `auto, ${layout.sizes}`
         : layout.sizes),
     style: { ...layout.style, ...attributes.style },
@@ -549,10 +568,44 @@ function snapshotStorageImageProps(
 }
 
 function renderPicture(
-  props: TransloaditImagePresentationProps,
+  props: ResolvedStorageImageProps,
   model: Parameters<typeof TransloaditPicture>[0]['model'],
 ): ReactNode {
-  return <TransloaditPicture {...props} model={model} />
+  const picture = (
+    <StorageImageFrame props={props}>
+      <TransloaditPicture {...props} model={model} />
+    </StorageImageFrame>
+  )
+  return props.diagnoseSize ? <ImageSizeDiagnostics>{picture}</ImageSizeDiagnostics> : picture
+}
+
+interface StorageImageFrameProps {
+  props: ResolvedStorageImageProps
+  children: ReactNode
+}
+
+function StorageImageFrame({ props, children }: StorageImageFrameProps): ReactNode {
+  const frame = props.frame
+  if (frame === undefined) return children
+  // Values are validated numeric ratios/width queries, never arbitrary caller CSS. Reverse the
+  // rules so overlapping breakpoints follow picture's first-matching-source precedence.
+  const name = `tli-${createHash('sha256').update(JSON.stringify(frame)).digest('hex').slice(0, 16)}`
+  const selector = `.${name}`
+  const css = `${selector}{display:block;position:relative;width:100%;aspect-ratio:${frame.ratio}}${[
+    ...frame.variants,
+  ]
+    .reverse()
+    .map(
+      ({ media, cropAspectRatio }) =>
+        `@media ${media}{${selector}{aspect-ratio:${cropAspectRatio}}}`,
+    )
+    .join('')}`
+  return (
+    <>
+      <style nonce={props.nonce}>{css}</style>
+      <span className={name}>{children}</span>
+    </>
+  )
 }
 
 function getStorageTransform(
@@ -933,9 +986,6 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
 
   function StorageImage(props: TransloaditImageProps<Catalog>): ReactNode {
     const layout = resolveImageLayout(props, storagePolicy.images)
-    if (props.media !== undefined) {
-      throw new TypeError('Storage image previews do not support media conditions')
-    }
     assertAllowedStoragePath(layout.source.path, storagePolicy)
     const storageProps = snapshotStorageImageProps(props, layout)
     const publicPrefix = storagePolicy.public.find((prefix) =>
@@ -1030,7 +1080,7 @@ export function createStorageImages<Catalog extends StorageImageCatalog | undefi
   let workspace: string | undefined
   function getWorkspace(): string {
     if (workspace === undefined) {
-      const value = explicit.workspace ?? process.env.TRANSLOADIT_WORKSPACE
+      const value = process.env.TRANSLOADIT_WORKSPACE || explicit.workspace
       validateRequiredConfiguration(value, 'TRANSLOADIT_WORKSPACE')
       workspace = value
     }

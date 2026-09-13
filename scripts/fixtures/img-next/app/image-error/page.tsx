@@ -13,7 +13,7 @@ async function PrivatePreview(): Promise<ReactNode> {
       alt="Private preview"
       src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
       layout="constrained"
-      maxWidth={960}
+      width={960}
       retryKey={signedIn ? 'signed-in' : 'anonymous'}
       errorFallback={<p role="status">Sign in to see this image</p>}
     />

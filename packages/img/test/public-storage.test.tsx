@@ -45,7 +45,7 @@ afterEach(() => {
 test('public receipt images render permanent versioned URLs without any signing credentials', () => {
   const { StorageImage } = createStorageImages({ images, public: ['website/'] })
   const markup = renderToStaticMarkup(
-    <StorageImage src="website/hero.jpg" alt="Hero" layout="constrained" maxWidth={960} preload />,
+    <StorageImage src="website/hero.jpg" alt="Hero" layout="constrained" width={960} priority />,
   )
   const parsed = parseSmartCdnUrl(imageUrl(markup))
   expect(parsed.template).toBe('builtin/public-preview@0.0.1')

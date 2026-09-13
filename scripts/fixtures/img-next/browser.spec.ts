@@ -635,7 +635,7 @@ test('the public catalog hero has stock-CSS geometry and no application image re
       applicationImages.push(request.url())
   })
   await page.goto('/fixture/cli-image/app/storage-image-example')
-  const hero = page.getByRole('img', { name: 'Describe this image' })
+  const hero = page.getByRole('presentation')
   await decode(hero)
   const viewport = page.viewportSize()
   if (viewport === null) throw new Error('Expected a fixed viewport')
@@ -643,6 +643,8 @@ test('the public catalog hero has stock-CSS geometry and no application image re
   expect(applicationImages).toEqual([])
   expect(await hero.getAttribute('src')).toContain(cdnOrigin)
   expect(await hero.getAttribute('src')).not.toMatch(/auth_key=|sig=|exp=/)
+  await expect(hero).toHaveAttribute('loading', 'eager')
+  await expect(hero).toHaveAttribute('fetchpriority', 'high')
 })
 
 for (const viewportWidth of [390, 1200]) {

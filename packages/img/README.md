@@ -5,7 +5,7 @@ browser, never through Next's image optimizer. Sources are Storage paths or rece
 
 ## Quickstart
 
-**Unpublished, private dogfood:** use [local packages](https://github.com/transloadit/node-sdk/blob/main/docs/img-dogfood.md) until release.
+**Unpublished, private dogfood:** use [local packages](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md) until release.
 The published install will be `yarn add @transloadit/img && yarn add -D @transloadit/node`.
 Use Next.js 16.3.3+ App Router, React 19 and the default Node.js runtime (not Edge).
 
@@ -13,72 +13,83 @@ Run beside `package.json`, using a Storage-enabled workspace:
 
 ```bash
 yarn transloadit auth login
-yarn transloadit image init website/ --public --write-env
+yarn transloadit image init website/ --public
 yarn transloadit storage store ./hero.jpg website/hero.jpg
 yarn dev
 ```
 
-Open `/storage-image-example`. Login opens browser approval. Init publishes the directory,
+Open `/storage-image-example`. Login opens browser approval (on Windows, open the printed URL). Init publishes the directory,
 creates an empty catalog and a runnable page; store adds the first image. With `src/app`,
 source files go under `src/`; the catalog stays at the root:
 
 ```text
 lib/storageImage.ts
 app/storage-image-example/page.tsx
-images.json                         # commit
-.env.local                          # workspace only for --public; never commit
+transloadit.images.json              # commit; workspace, public prefixes and image receipts
 ```
 
 Use the generated component in another Server Component:
 
 ```tsx
 import { StorageImage } from '../lib/storageImage'
-<StorageImage src="website/hero.jpg" alt="A canal house" layout="constrained" maxWidth={960} preload />
+<StorageImage src="website/hero.jpg" alt="A canal house" width={960} priority />
 ```
 
 Catalog paths autocomplete. Native props are serializable attributes (`className`, `aria-*`,
-`data-*`), not callbacks or refs. `preload` implies eager; other images default to native lazy loading.
-Public means **no secret in the app**: rendering never reads or validates signing credentials.
+`data-*`), not callbacks or refs. `priority` means eager loading, a responsive preload and high
+fetch priority; other images default to native lazy loading. Public means **no app environment**:
+the generated factory calls `createStorageImages(catalog)` with the committed catalog and
+never reads or validates signing credentials.
+
+## Deploy
+
+For public images, commit `transloadit.images.json` and the generated code, then deploy normally.
+There is no `.env.local` to create and nothing to set in the hosting dashboard. CLI publication
+commands maintain the catalog's `public` field; do not edit it by hand. `TRANSLOADIT_WORKSPACE`
+is an advanced override, not a requirement.
+
+For private images, set `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET` in your host's server-only
+build and runtime environment. Use the same pair for the page build and deployed route handler;
+never expose either as `NEXT_PUBLIC_`. The catalog supplies the workspace. See [Private](#private).
 
 ## Responsive
 
-`constrained` and `fixed` follow Astro's layout vocabulary; `fill` follows Next.js.
-Constrained layout derives proportional CSS and responsive sizes, bounded by `maxWidth` and the
-original. Fixed layout describes a display box; the receipt supplies the original dimensions:
+Catalog paths and receipts are constrained by default: `width` sets the maximum display width,
+deriving proportional CSS, responsive sizes and candidates bounded by the original.
+Fixed layout describes a display box; the receipt supplies the original dimensions:
 
 ```tsx
 <StorageImage src="website/avatar.jpg" alt="Your profile photo" layout="fixed" width={48} height={48} fit="cover" />
 ```
 
-Fill occupies an already-sized, positioned parent. Cover requests an actual Smart CDN crop:
+Fill with an aspect ratio creates its own responsive box. Cover requests a real Smart CDN crop:
 
 ```tsx
-<div style={{ position: 'relative', aspectRatio: '9/16' }}>
-  <StorageImage src="website/hero.jpg" alt="A canal house" layout="fill" fit="cover" aspectRatio="9/16" sizes="100vw" />
-</div>
+<StorageImage src="website/hero.jpg" alt="A canal house" layout="fill" fit="cover" aspectRatio="9/16" sizes="100vw" />
 ```
 
-Match the crop to the actual container. For different mobile/desktop crops, pass
-`aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}` and match those ratios in your CSS.
+For different mobile/desktop crops, pass
+`aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}` once: it controls both box and crop.
+Use `frame={false}` when your app already owns the positioned box.
 Explicit `sizes`, `widths` and styles remain overrides. See [layout and art direction](./docs/reference.md#responsive).
 
 ## Private
 
 Keep private uploads under a never-published directory such as `uploads/`. Removing `public` from
-JavaScript does not revoke server policy or recall cached bytes. Supply the login's workspace,
-key and secret as server-only build/runtime environment values; never use `NEXT_PUBLIC_`.
+JavaScript does not revoke server policy or recall cached bytes. Supply the login's
+key and secret as described in [Deploy](#deploy).
 
 Replace the factory with request authorization using your application's own session and
 per-object permission checks:
 
 ```ts
 import { createStorageImages } from '@transloadit/img/next/server'
-import images from '../images.json'
+import catalog from '../transloadit.images.json'
 import { authenticate, canReadStorageObject } from './authorization'
 
 export const { StorageImage, storageRoute } = createStorageImages({
-  images,
-  cacheMaxAgeMs: 60_000,
+  ...catalog,
+  cacheMaxAge: '1m',
   authorize: async ({ path, request }) => {
     const user = await authenticate(request)
     return user !== null && (await canReadStorageObject(user, path))
@@ -97,10 +108,12 @@ The default route is `/api/storage-images`. The page stays unchanged; denied req
 Each uncached image load is one function invocation. This example caches its private `307`
 redirect for up to a minute, trading repeat-load cost for delayed reauthorization. Already-issued
 CDN links remain usable until their expiry. Image bytes always bypass the application.
-Omit `cacheMaxAgeMs` for the default `private, no-store` behavior.
+Omit `cacheMaxAge` for the default `private, no-store` behavior. CDN grants have 30–60 minutes
+remaining by default; redirect caching and downstream grant expiry are separate limits.
 
 `image init uploads/ --private --write-env` generates this route with a fail-closed authorization
-placeholder. Add `public: ['website/']` to a mixed factory; those images remain unsigned and
+placeholder in a fresh project. To upgrade an existing public project, edit its factory and add
+the route above; init never overwrites files. Catalog public paths remain unsigned and
 make no application image requests. See [publication policy](./docs/reference.md#mixed-public-and-private-images).
 
 ## When it breaks
@@ -114,8 +127,7 @@ suggests `transloadit storage publish website/`; a generic 400 does not identify
 <StorageImage
   src="website/hero.jpg"
   alt="A canal house"
-  layout="constrained"
-  maxWidth={960}
+  width={960}
   errorFallback={<p role="status">Image unavailable</p>}
 />
 ```
@@ -124,14 +136,18 @@ The optional client boundary replaces a failed native image; without it, native 
 behavior remains. JPEG format fallback does not recover HTTP failures.
 
 Storage commands print which credential source wins: shell → project `.env` → saved login.
-`init --write-env` deliberately uses the saved login, so remove stale overrides before storing.
+Init deliberately uses the saved login. Store, list, sync and publication verify the winning
+key's workspace against the catalog and refuse mismatches before acting. Use `--workspace`
+explicitly for another workspace, with `--receipts` for its separate catalog.
 Login checks Storage policy access without publishing; if unavailable, it links to the
 [workspace Console](https://transloadit.com/c/<workspace>/template-credentials/).
 Recover the committed catalog without downloading originals:
 
 ```bash
 yarn transloadit storage ls website/
-yarn transloadit storage receipts sync website/ --receipts images.json
+yarn transloadit storage receipts sync website/
+yarn transloadit auth status
+yarn transloadit auth logout
 ```
 
 ## Reference

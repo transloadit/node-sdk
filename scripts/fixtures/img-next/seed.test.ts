@@ -4,7 +4,7 @@ import type { InterpolatableRobotTransloaditStoreInstructions } from '@transload
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -36,7 +36,7 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   const credentials = join(loginDirectory, 'credentials')
   await writeFile(
     credentials,
-    'TRANSLOADIT_KEY=assembly-key\nTRANSLOADIT_SECRET=assembly-secret\nTRANSLOADIT_WORKSPACE=fixture\n',
+    'TRANSLOADIT_KEY=assembly-key\nTRANSLOADIT_SECRET=assembly-secret\nTRANSLOADIT_WORKSPACE=fixture\nTRANSLOADIT_WORKSPACE_VERIFIED=true\n',
     { mode: 0o600 },
   )
   await mkdir(join(directory, 'app'), { recursive: true })
@@ -76,32 +76,34 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
     created_at: '2026-09-13',
     created: true,
   }))
-  await cli.main(['image', 'init', 'website', '--public', '--write-env'])
+  await cli.main(['image', 'init', 'website', '--public'])
   assert.equal(process.exitCode, undefined)
-  assert.equal(await readFile('.env.local', 'utf8'), 'TRANSLOADIT_WORKSPACE="fixture"\n')
-  assert.deepEqual(JSON.parse(await readFile('images.json', 'utf8')), {})
+  await assert.rejects(stat('.env.local'), { code: 'ENOENT' })
+  assert.deepEqual(JSON.parse(await readFile('transloadit.images.json', 'utf8')), {
+    workspace: 'fixture',
+    public: ['website/'],
+    images: {},
+  })
   // Keep the genuine post-init/pre-upload state in the Next build and browser matrix too.
   await cp(directory, join(originalCwd, 'app/cli-empty'), { recursive: true })
   await cli.main(['storage', 'store', './hero.jpg', 'website/hero.jpg'])
   assert.equal(process.exitCode, undefined)
   const printed = output.join('')
   const page = await readFile('app/storage-image-example/page.tsx', 'utf8')
-  assert(page.includes('layout="constrained" maxWidth={960} preload'))
+  assert(page.includes('width={960} priority'))
   assert(
-    printed.includes(
-      'Render it with <StorageImage src="website/hero.jpg" alt="Describe this image" layout="constrained" maxWidth={960} />',
-    ),
+    printed.includes('Render it with <StorageImage src="website/hero.jpg" alt="" width={960} />'),
   )
   assert(!printed.includes('export default function Page'))
   const factory = await readFile('lib/storageImage.ts', 'utf8')
-  assert(factory.includes('public: ["website/"]'))
+  assert(factory.includes('createStorageImages(catalog)'))
   assert(!factory.includes('allowedPathPrefixes'))
   // Only the delivery origin changes for this offline fixture; the generated page is verbatim.
   await writeFile(
     'lib/storageImage.ts',
     factory.replace(
-      '  images,',
-      '  images,\n  baseUrl: `${process.env.IMG_FIXTURE_CDN_ORIGIN}/file/{workspace}`,',
+      'createStorageImages(catalog)',
+      'createStorageImages({ ...catalog, baseUrl: `${process.env.IMG_FIXTURE_CDN_ORIGIN}/file/{workspace}` })',
     ),
   )
 })

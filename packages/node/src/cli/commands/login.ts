@@ -1,7 +1,7 @@
 import type { CliKeySecretCredentials } from '../helpers.ts'
 
 import { randomUUID } from 'node:crypto'
-import { lstat, mkdir, rename, rm, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname } from 'node:path'
 
 import { Command, Option } from 'clipanion'
@@ -14,6 +14,7 @@ import {
   cliSignatureAlgorithmSchema,
   getConfiguredCredentialsFilePath,
   readCliInput,
+  resolveCliConfig,
 } from '../helpers.ts'
 import { quoteCredential } from '../secretInput.ts'
 import { ensureError, isErrnoException } from '../types.ts'
@@ -93,7 +94,11 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           'Login endpoint must be an HTTPS API origin (HTTP is allowed only on loopback)',
         )
       const origin = endpoint.origin
-      let credentials: CliKeySecretCredentials & { workspace?: string }
+      let credentials: CliKeySecretCredentials & {
+        workspace?: string
+        authKeyId?: string
+        description?: string
+      }
       if (this.stdin) {
         const input = credentialsSchema.safeParse(
           parse((await readCliInput({ inputPath: '-' })).content ?? ''),
@@ -123,7 +128,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           )
         })
       } else credentials = await deviceLogin(origin, this.output, this.noBrowser)
-      const data = `TRANSLOADIT_KEY=${quoteCredential(credentials.authKey)}\nTRANSLOADIT_SECRET=${quoteCredential(credentials.authSecret)}\n${credentials.workspace === undefined ? '' : `TRANSLOADIT_WORKSPACE=${quoteCredential(credentials.workspace)}\n`}${credentials.signatureAlgorithm === undefined ? '' : `TRANSLOADIT_SIGNATURE_ALGORITHM=${quoteCredential(credentials.signatureAlgorithm)}\n`}${this.endpoint === undefined ? '' : `TRANSLOADIT_ENDPOINT=${quoteCredential(origin)}\n`}`
+      const data = `TRANSLOADIT_KEY=${quoteCredential(credentials.authKey)}\nTRANSLOADIT_SECRET=${quoteCredential(credentials.authSecret)}\n${credentials.workspace === undefined ? '' : `TRANSLOADIT_WORKSPACE=${quoteCredential(credentials.workspace)}\n`}${this.stdin ? '' : 'TRANSLOADIT_WORKSPACE_VERIFIED=true\n'}${credentials.signatureAlgorithm === undefined ? '' : `TRANSLOADIT_SIGNATURE_ALGORITHM=${quoteCredential(credentials.signatureAlgorithm)}\n`}${this.endpoint === undefined ? '' : `TRANSLOADIT_ENDPOINT=${quoteCredential(origin)}\n`}${credentials.authKeyId === undefined ? '' : `TRANSLOADIT_AUTH_KEY_ID=${quoteCredential(credentials.authKeyId)}\n`}${credentials.description === undefined ? '' : `TRANSLOADIT_AUTH_KEY_DESCRIPTION=${quoteCredential(credentials.description)}\n`}`
       await mkdir(dirname(file), { recursive: true, mode: 0o700 })
       if (this.replace) {
         const info = await lstat(file).catch((error: unknown) => {
@@ -186,6 +191,80 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
       return 1
     } finally {
       if (ownsTemporary) await rm(temporary, { force: true })
+    }
+  }
+}
+
+/** Shows the saved CLI login, never a signing key or secret. */
+export class AuthStatusCommand extends UnauthenticatedCommand {
+  static override paths = [['auth', 'status']]
+  static override usage = Command.Usage({
+    category: 'Authentication',
+    description: 'Show the saved CLI workspace and key description',
+  })
+  protected run(): Promise<number | undefined> {
+    const config = resolveCliConfig('login')
+    if (config.credentials === undefined) {
+      this.output.error(config.loadError ?? 'Not logged in. Run transloadit auth login.')
+      return Promise.resolve(1)
+    }
+    const workspace = config.credentialsWorkspace ?? 'not recorded'
+    const description =
+      config.credentialsDescription ?? 'Existing Auth Key (description not recorded)'
+    this.output.print(
+      `Saved login: ${workspace}\n${description}\nStorage commands report any shell or project credential override before use.`,
+      { workspace, description },
+    )
+    return Promise.resolve(undefined)
+  }
+}
+
+/** Revokes only the saved login key, then removes its owner-only credential file. */
+export class AuthLogoutCommand extends UnauthenticatedCommand {
+  static override paths = [['auth', 'logout']]
+  static override usage = Command.Usage({
+    category: 'Authentication',
+    description: 'Revoke the saved CLI login key and remove its credentials',
+  })
+  protected async run(): Promise<number | undefined> {
+    try {
+      const file = getConfiguredCredentialsFilePath('shell')
+      if (/^\.env(?:\.|$)/i.test(basename(file)))
+        throw new Error('Logout never removes application env files')
+      const info = await lstat(file)
+      if (!info.isFile())
+        throw new Error('Logout requires a regular credentials file, not a symlink or directory')
+      const before = await readFile(file, 'utf8')
+      const config = resolveCliConfig('login')
+      if (config.credentials === undefined) throw new Error(config.loadError ?? 'Not logged in')
+      const endpoint = config.credentialsEndpoint ?? 'https://api2.transloadit.com'
+      if (this.endpoint !== undefined && new URL(this.endpoint).origin !== new URL(endpoint).origin)
+        throw new Error('Logout must use the saved login endpoint; no credentials were sent')
+      await new Transloadit({ ...config.credentials, endpoint, maxRetries: 0, timeout: 10_000 })
+        .revokeOwnAuthKey()
+        .catch((cause: unknown) => {
+          throw new Error(
+            'The CLI key was not revoked. Check connectivity and Console key permissions, then retry; the credentials file was kept.',
+            { cause },
+          )
+        })
+      if (!(await lstat(file)).isFile() || (await readFile(file, 'utf8')) !== before)
+        throw new Error(
+          'The key was revoked, but the credentials file changed during logout and was preserved',
+        )
+      await rm(file)
+      this.output.print('CLI key revoked and saved credentials removed.', {
+        revoked: true,
+        removed: true,
+      })
+      return undefined
+    } catch (error) {
+      this.output.error(
+        isErrnoException(error) && error.code === 'ENOENT'
+          ? 'Not logged in; no saved credentials file.'
+          : ensureError(error).message,
+      )
+      return 1
     }
   }
 }

@@ -9,7 +9,7 @@ export default function Page(): ReactNode {
         alt="Storage hero"
         id="hero"
         layout="constrained"
-        maxWidth={960}
+        width={960}
         src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
       />
       <p>After the hero</p>

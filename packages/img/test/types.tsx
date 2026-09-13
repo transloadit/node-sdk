@@ -46,6 +46,25 @@ declare const Image: TransloaditImageComponent
 declare const direct: TransloaditImageIntegration
 declare const redirect: TransloaditRedirectImageIntegration
 const model = createTransloaditImageModel(modelOptions, () => '')
+// @ts-expect-error Images are immediately browser-discoverable; hydration deferral was removed.
+const deferredImage = <Image {...imageProps} deferUntilHydrated />
+const gatedPicture = (
+  // @ts-expect-error Art direction is modeled with aspectRatio, not viewport activation props.
+  <TransloaditPicture alt="" model={model} width={400} height={300} media="(min-width: 800px)" />
+)
+const placeholderPicture = (
+  <TransloaditPicture
+    alt=""
+    model={model}
+    width={400}
+    height={300}
+    // @ts-expect-error A removed media gate has no placeholder option.
+    mediaPlaceholderSrc="/placeholder.gif"
+  />
+)
+void deferredImage
+void gatedPicture
+void placeholderPicture
 const image = Image(imageProps)
 const directImage = direct.StorageImage(imageProps)
 const redirectedImage = redirect.StorageImage(imageProps)
@@ -60,14 +79,14 @@ const attributedImage = (
     role="img"
   />
 )
-const eagerImage = <Image {...imageProps} loading="eager" preload />
-const lazyImage = <Image {...imageProps} loading="lazy" preload={false} />
+const eagerImage = <Image {...imageProps} loading="eager" priority />
+const lazyImage = <Image {...imageProps} loading="lazy" priority={false} />
 const receipt = {
   path: 'documents/report.pdf',
   width: 400,
   height: 300,
 } satisfies TransloaditImageSource
-const receiptImage = <Image alt="Receipt" src={receipt} preload />
+const receiptImage = <Image alt="Receipt" src={receipt} priority />
 const receiptRedirect = <redirect.StorageImage alt="Receipt" src={receipt} loading="lazy" />
 const receiptModel = createTransloaditImageModel(
   { expiresAt: modelOptions.expiresAt, src: receipt },
@@ -82,16 +101,16 @@ createTransloaditImageModel(
   () => '',
 )
 // @ts-expect-error A receipt does not weaken the lazy/preload union.
-const lazyReceiptPreload = <Image alt="Receipt" src={receipt} loading="lazy" preload />
+const lazyReceiptPreload = <Image alt="Receipt" src={receipt} loading="lazy" priority />
 const receiptRedirectFallback = (
   // @ts-expect-error A receipt does not give redirect delivery a Suspense fallback.
   <redirect.StorageImage alt="Receipt" src={receipt} suspenseFallback="Loading" />
 )
 // @ts-expect-error A preloaded image cannot be lazy.
-const lazyPreload = <Image {...imageProps} loading="lazy" preload />
+const lazyPreload = <Image {...imageProps} loading="lazy" priority />
 const lazyPicturePreload = (
   // @ts-expect-error The model-only renderer also rejects a lazy preload.
-  <TransloaditPicture {...imageProps} model={model} loading="lazy" preload />
+  <TransloaditPicture {...imageProps} model={model} loading="lazy" priority />
 )
 // @ts-expect-error A redirect image never suspends for signing.
 const redirectFallback = <redirect.StorageImage {...imageProps} suspenseFallback="Loading" />
@@ -126,8 +145,8 @@ const catalogHero = (
     src="website/hero.jpg"
     alt="Hero"
     layout="constrained"
-    maxWidth={960}
-    preload
+    width={960}
+    priority
   />
 )
 const catalogAvatar = (
@@ -176,7 +195,7 @@ const fixedImage = (
   />
 )
 const constrainedImage = (
-  <envDirect.StorageImage src={receipt} alt="Hero" layout="constrained" maxWidth={960} />
+  <envDirect.StorageImage src={receipt} alt="Hero" layout="constrained" width={960} />
 )
 const fillImage = (
   <envDirect.StorageImage
@@ -201,7 +220,7 @@ const artDirectedImage = (
     layout="fill"
     fit="cover"
     aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}
-    preload
+    priority
   />
 )
 const incompleteArtDirection = (
@@ -236,7 +255,6 @@ const incompleteFixed = (
   <envDirect.StorageImage src={receipt} alt="Avatar" layout="fixed" width={48} />
 )
 const incompleteConstrained = (
-  // @ts-expect-error Constrained layout needs an explicit maximum display width.
   <envDirect.StorageImage src={receipt} alt="Hero" layout="constrained" />
 )
 void fixedImage
@@ -266,16 +284,18 @@ const envRedirect = createStorageImages({
   authorize: () => true,
 })
 const envImage = (
-  <envDirect.StorageImage alt="Receipt" src={receipt} preload suspenseFallback="Loading" />
+  <envDirect.StorageImage alt="Receipt" src={receipt} priority suspenseFallback="Loading" />
 )
-const envRedirectImage = <envRedirect.StorageImage alt="Receipt" src={receipt} preload />
+const envRedirectImage = <envRedirect.StorageImage alt="Receipt" src={receipt} priority />
 const envRoute = envRedirect.storageRoute(new Request('https://app.example/images'))
 // @ts-expect-error The environment helper requires explicit Storage policy, not guessed access.
 createStorageImages({})
 // @ts-expect-error Direct delivery does not expose an authorization route.
 const envDirectRoute = envDirect.storageRoute
-// @ts-expect-error The env factory preserves the lazy/preload union.
-const envLazyPreload = <envDirect.StorageImage alt="Receipt" src={receipt} loading="lazy" preload />
+const envLazyPreload = (
+  // @ts-expect-error The env factory preserves the lazy/priority union.
+  <envDirect.StorageImage alt="Receipt" src={receipt} loading="lazy" priority />
+)
 const envRedirectFallback = (
   // @ts-expect-error Redirect delivery has no signing suspension to replace.
   <envRedirect.StorageImage alt="Receipt" src={receipt} suspenseFallback="Loading" />

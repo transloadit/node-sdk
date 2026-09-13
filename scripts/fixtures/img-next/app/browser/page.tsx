@@ -8,9 +8,9 @@ export default function Page(): ReactNode {
       <h1>Private image lifecycle</h1>
       <BrowserImage
         alt="Private hero"
-        preload
+        priority
         layout="constrained"
-        maxWidth={960}
+        width={960}
         src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
       />
       <p>After the hero</p>

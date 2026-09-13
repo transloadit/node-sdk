@@ -6,7 +6,7 @@ Start with the [Quickstart](../README.md). This reference covers policy, advance
 
 The `constrained` and `fixed` layout names follow Astro; `fill` follows Next.js.
 
-`layout="constrained" maxWidth={960}` derives proportional responsive CSS, the
+`width={960}` on a catalog path or receipt derives proportional responsive CSS, the
 `auto, (min-width: 960px) 960px, 100vw` sizes expression for lazy images and a ladder capped at
 1920px and the source. Eager/preloaded images omit `auto`. Explicit `sizes` remains your override.
 
@@ -27,24 +27,22 @@ It derives `sizes="48px"`, 48/96px candidates and a 48px JPEG fallback. `fit="co
 The default `fit="contain"` keeps the source proportions with CSS letterboxing.
 
 ```tsx
-<div style={{ position: 'relative', aspectRatio: '9/16' }}>
-  <StorageImage
-    src="website/hero.jpg"
-    alt="A canal house"
-    layout="fill"
-    fit="cover"
-    aspectRatio="9/16"
-    sizes="100vw"
-  />
-</div>
+<StorageImage
+  src="website/hero.jpg"
+  alt="A canal house"
+  layout="fill"
+  fit="cover"
+  aspectRatio="9/16"
+  sizes="100vw"
+/>
 ```
 
-Fill layout occupies an already-sized, positioned parent. Cover requires its aspect ratio: the
-source cannot tell us the container's shape. Smart CDN crops to that ratio, eliminating the
-oversized `sizes` arithmetic needed for CSS-only cover. Match `aspectRatio` to the actual box.
+Fill with `aspectRatio` emits a positioned container with that ratio and crops to match it.
+Use `frame={false}` when your application already owns the box, matching its CSS to the crop.
+Fill without a ratio requires an already-sized, positioned parent; cover always needs the ratio.
 All layout modes preserve explicit `sizes`, `widths`, `style` and `objectFit` overrides. Source
 and backend limits still apply. `widths` overrides even the constrained mode's default 2× cap.
-Without `layout`, the explicit API remains available; its encoding strategy stays `pad`.
+`layout="none"` retains presentation-only width/height; its encoding strategy stays `pad`.
 
 For different mobile and desktop crops, pass width breakpoints in priority order and a default:
 
@@ -56,11 +54,11 @@ For different mobile and desktop crops, pass width breakpoints in priority order
   fit="cover"
   aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}
   sizes="(min-width: 960px) 960px, 100vw"
-  preload
+  priority
 />
 ```
 
-Size the positioned parent to those same ratios in your responsive CSS. Each breakpoint gets
+The same map sizes the emitted container; no duplicate responsive CSS is needed. Each breakpoint gets
 real `fillcrop` candidates and its own JPEG fallback; preloads select only the matching crop.
 Use up to eight `(min-width: …)` or `(max-width: …)` conditions with px, em or rem. No oversized
 viewport-width arithmetic is needed. Receipts always supply intrinsic signing geometry;
@@ -69,11 +67,12 @@ dimension derives the other proportionally.
 
 ## Mixed public and private images
 
-Add `public: ['website/']` alongside `authorize` to share one factory. Published paths always emit
+Spread the committed catalog alongside `authorize` to share one factory. Published paths always emit
 direct unsigned URLs, with zero application image requests; private paths still emit capabilities
 and use the authorizer. Public prefixes are also allowed prefixes when no explicit `allowedPathPrefixes` is supplied,
 including for an empty catalog. An explicit allowed policy still bounds public prefixes; the workspace
-root cannot be declared public. Local `public` is an assertion of server policy, not a substitute for publishing:
+root cannot be declared public. CLI commands maintain `public` in `transloadit.images.json` after
+updating server policy; do not edit that field manually:
 
 ```bash
 yarn transloadit storage publish website/
@@ -95,8 +94,8 @@ diagnostic requests. Restart development to retry a failed check or after changi
 
 Denied redirect routes also emit one development-only hint per reason: route/basePath mismatch,
 invalid or stale capability (secret/Template changes), disallowed prefix, or failed authorization.
-These messages contain no requested path, URL or secret. Next's bundled server modules infer
-`basePath` from its build configuration; supply it explicitly for externalized integrations.
+These messages contain no requested path, URL or secret. Set `basePath` explicitly in the factory
+if your Next.js app uses one; no internal Next environment variable is consulted.
 Private direct delivery logs once per factory that it makes the route dynamic; public direct does not.
 
 An unsigned public HEAD with `Transloadit-Error: NO_SIGNATURE_FIELD` (HTTP 400) gets a
@@ -112,8 +111,7 @@ The probe can trigger one cold transformation in development; it does not weaken
 <StorageImage
   src="website/hero.jpg"
   alt="A canal house"
-  layout="constrained"
-  maxWidth={960}
+  width={960}
   errorFallback={<p role="status">Image unavailable</p>}
 />
 ```
@@ -134,7 +132,8 @@ format fallback, which does not recover failed AVIF/WebP requests.
 ### Login and credentials
 
 `auth login` creates a short-lived device authorization, prints its code and verification URL,
-opens your browser and polls until you approve the workspace. `--no-browser` only skips the
+opens your browser on macOS/Linux and polls until you approve the workspace. On Windows, open the
+printed URL. `--no-browser` only skips the
 browser launch. Ctrl-C cancels polling without saving anything. Secrets never pass through the
 browser URL or a localhost callback.
 
@@ -147,6 +146,10 @@ Login saves `TRANSLOADIT_WORKSPACE`, `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET` 
 `~/.transloadit/credentials` with owner-only permissions. A shell `TRANSLOADIT_CREDENTIALS_FILE`
 override is supported; project dotenv cannot redirect newly authorized credentials.
 Existing credentials require `--replace`; app env files and symlinks are refused.
+`auth status` prints the saved workspace and key description without secrets. `auth logout`
+revokes that saved CLI key before removing the credentials file, ignoring stale shell/project
+keys. If revocation fails, the file remains so you can retry. `DELETE /auth_keys/self` identifies
+the signing key on the server; no stored key ID or broad key-management scope is needed.
 After saving, login makes one bounded signed `GET /storage/public_prefixes` to verify `dam:write`
 and catalog access without publishing anything. Failure preserves the login and prints a Console
 link plus a retry command. Success does not prove worker/object-store upload availability.
@@ -156,20 +159,23 @@ The login also saves its API signing algorithm. For combined keys this is SHA-25
 it for subsequent API requests. With `--stdin`, include `TRANSLOADIT_SIGNATURE_ALGORITHM=sha256`
 for such a key. Existing credentials without this value retain the SDK's SHA-384 default.
 
-`image init --write-env` reads the login file explicitly, keeping its key, workspace and endpoint
-together even if the shell or project contains older credentials. Public init writes only
-`TRANSLOADIT_WORKSPACE`; private init writes the workspace, key and secret. It creates an owner-only
-`.env.local`, never overwriting it or prompting for another key. Omit it to leave env files untouched.
-All keys are **server-only**, never `NEXT_PUBLIC_`. Public-only rendering needs just the workspace
-slug (or explicit `workspace`); it never reads or validates signing credentials. Private capability
+`image init` requires `--public` or `--private` and prefers the saved login, keeping its key,
+workspace and endpoint together even with stale shell/project credentials. The catalog carries
+`{ workspace, public, images }`; public init creates no app env file. Private `--write-env` creates
+an owner-only `.env.local` containing only key and secret, never overwriting it. Omit that flag to
+leave env files untouched. All keys are **server-only**, never `NEXT_PUBLIC_`.
+Public-only rendering reads workspace and policy from the catalog, not signing credentials. Private capability
 prerenders need a build-time secret; request-only direct rendering can defer it to runtime.
 Supply the same private credentials to the deployed route handler.
 
 CLI lookup is shell environment, current-directory `.env`, then the credentials file.
 Ordinary commands retain this order. Storage commands print the selected credential source to
 stderr before operating, including mixed shell/project credentials and any declared workspace.
-A declared workspace is not proof of key ownership. Remove stale overrides before uploading to
-the new login's workspace; login and `init --write-env` do not overwrite those settings.
+A declared env workspace is not proof of key ownership. Storage commands verify it through one
+read for env/legacy keys or use the workspace verified during device login. A mismatch stops the
+operation: `Project uses <slug>; the selected credentials belong to <other>. Nothing uploaded.`
+`--workspace` explicitly selects another workspace but never mixes its records into the existing
+catalog; use `--receipts` with a separate file. Login/init do not overwrite shell/project settings.
 Login uses production unless `--endpoint` selects an explicit trusted API origin; this binding is
 saved alongside the credential. Ordinary commands honor `TRANSLOADIT_ENDPOINT` under the same
 lookup rules. Rendering never loads CLI credential files. The Assembly client is an upload-side
@@ -178,8 +184,8 @@ dependency, not part of rendering or the browser.
 Init detects `app/` or `src/app/` and checks existing files before publishing. If a later local
 write fails after publication, it reports that the prefix remains public. Do not unpublish shared
 directories merely to retry a local scaffold. For manual setup, import the catalog into
-`createStorageImages({ images, public: ['website/'] })`; `src/lib` imports the root catalog from
-`../../images.json`. See [local dogfood](https://github.com/transloadit/node-sdk/blob/main/docs/img-dogfood.md)
+`createStorageImages(catalog)`; `src/lib` imports the root catalog from
+`../../transloadit.images.json`. See [local dogfood](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md)
 for trusted devdock endpoint overrides and the required CDN acknowledgment.
 
 ## Redirect lifetime and caching
@@ -196,7 +202,7 @@ again at the handler. Key/route/custom-Template or capability-contract changes c
 Only cached redirects and already-issued CDN grants delay revocation.
 
 Default `Cache-Control: private, no-store` rechecks every redirect request. To trade faster repeat
-loads for delayed reauthorization, opt in with `cacheMaxAgeMs: 30_000`. The `307` uses
+loads for delayed reauthorization, opt in with `cacheMaxAge: '30s'`. The `307` uses
 `private, max-age=30` (HTTP seconds), capped at the rotation interval and signed lifetime. Errors
 remain `no-store`. Cached redirects may grant access without a new app check until that age elapses.
 CDN URLs already issued remain usable until their own expiry; downloaded bytes cannot be recalled.
@@ -204,7 +210,7 @@ CDN URLs already issued remain usable until their own expiry; downloaded bytes c
 Production Smart CDN uses Bunny for `*.tlcdn.com`: hostname and the whole query string form the
 cache key. Format-specific URLs avoid unkeyed Accept negotiation. A representative constrained
 hero has roughly 140-character URLs × 11 image candidates (five AVIF, five WebP, one JPEG), plus
-five preload candidates. Rendering `my-app/website/hero.jpg` (2400×1600, maxWidth 960) measured
+five preload candidates. Rendering `my-app/website/hero.jpg` (2400×1600, display width 960) measured
 3,174 bytes: **~3 KB of uncompressed HTML**, depending on path and attributes.
 That is markup overhead, not transferred image bytes; compression and full-page RSC data vary. Private expiry/signature rotation creates new cache entries (30 minutes by default).
 Public URLs have no signature or expiry. They are cache-busted, not immutable origin identities:
@@ -291,17 +297,21 @@ as a public override, even when its input directory is published.
 It defaults to one hour and cannot exceed 48 hours, including in mixed factories. Public URLs
 ignore lifetime and rotation and never need an expiry-driven rebuild.
 Private rotation defaults to half the lifetime, capped at one hour. The default grant therefore
-has 30–60 minutes remaining, never 60–120. `rotationIntervalMs` cannot exceed half the private
+has 30–60 minutes remaining, never 60–120. `rotationInterval` cannot exceed half the private
 lifetime, preserving a delivery margin; smaller buckets reduce variation but fragment the cache.
+
+`cacheMaxAge` and `rotationInterval` accept milliseconds or the same strings as `lifetime`, for
+example `'1m'` and `'30m'`. `cacheMaxAgeMs` and `rotationIntervalMs` are deprecated numeric aliases;
+do not supply both spellings. In development, an image without explicit `sizes` warns if its
+chosen candidate exceeds twice its rendered CSS width; production does no size diagnostics.
 
 Without `errorFallback`, HTTP failure uses native broken-image/alt behavior. JPEG is a format
 fallback, not HTTP-error recovery.
 
 ### Experimental browser recovery controls
 
-`deferUntilHydrated` (and the lower-level `HydratedTransloaditPicture`) is an experimental opt-in
-delay for noncritical images; leave it off unless addressing an observed browser replay issue.
-`retryKey` is also experimental. Prefer the native behavior or `errorFallback` alone unless a
+`retryKey` is experimental, retained for the native-cookie sign-in recovery browser fixture.
+Prefer the native behavior or `errorFallback` alone unless a
 same-page sign-in/refresh needs an explicit retry identity. See [When it breaks](#when-it-breaks).
 
 ### Receipt integrity and recovery
@@ -310,7 +320,12 @@ The store command wraps `client.storeImage()`, waits for completion and validate
 exact path, byte count, MD5 and positive EXIF-oriented display dimensions. The receipt lands in
 `results[':original']`, not `results.stored`. Rendering requires no metadata lookup.
 
-The CLI atomically appends to the JSON object keyed by Storage path, preserving earlier receipts
+`storage store ./images/*.jpg website/` accepts shell-expanded files and a directory destination.
+Each successful upload is checkpointed before the next; a later failure preserves earlier receipts.
+Duplicate destination basenames are refused before uploading. The printed snippet uses a
+decorative empty alt with a reminder to describe informative images.
+
+The CLI atomically appends to the catalog's `images` object keyed by Storage path, preserving earlier receipts
 on failure. Parent directories must exist. A sibling lock prevents concurrent writers from losing
 each other's records; remove an interrupted process's lock only after confirming it has stopped.
 New catalogs use ordinary file permissions derived from your umask; existing modes are preserved.
@@ -334,7 +349,7 @@ an overwrite.
 Recover or refresh a rendering catalog without re-uploading or downloading originals:
 
 ```console
-yarn transloadit storage receipts sync website/ --receipts images.json
+yarn transloadit storage receipts sync website/
 ```
 
 This uses paginated List + HEAD with the same `read` or `dam:write` credentials, `--workspace` and
@@ -351,7 +366,7 @@ dimensions, failed HEAD or incomplete listing leaves the existing file intact; a
 replacement retains the complete temporary catalog for recovery. Choose an image-only prefix;
 older objects without dimensions need a catalog backfill. Storage records EXIF-oriented display
 dimensions for new image uploads, so sync matches `storeImage` receipts for rotated photos too.
-Commit `images.json` before building so rendering needs no runtime metadata lookup; it can now
+Commit `transloadit.images.json` before building so rendering needs no runtime metadata lookup; it can now
 be regenerated from Storage rather than being the only copy of rendering metadata.
 
 ### Images uploaded by your users
@@ -406,7 +421,7 @@ receipt with your owner/project ID; never persist a browser-supplied receipt wit
 Read the saved receipt in an authorized Server Component and pass it as `src`:
 
 ```tsx
-<StorageImage src={savedImage} alt={savedImage.description} layout="constrained" maxWidth={960} />
+<StorageImage src={savedImage} alt={savedImage.description} width={960} />
 ```
 
 `savedImage` is the application's validated database record; owner and asset IDs are never forwarded. A public receipt MD5 contributes only the `v` cache tag;

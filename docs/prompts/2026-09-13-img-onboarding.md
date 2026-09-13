@@ -22,3 +22,25 @@ gate; package checks count executed parameterized cases, not test declarations.
 No merge or publication in this round. No blur placeholder, origin version selector, workspace
 picker or logout implementation. API2 owns the S3 eligibility and error-header changes; Console
 owns real browser approval. Local canaries do not establish production Bunny latency.
+
+## Round 8
+
+Why: a public project needs one committed source of truth and familiar image props; the CLI
+must not silently write into a different workspace than the application renders.
+
+- [x] Commit workspace, public prefixes and receipts in `transloadit.images.json`; keep explicit
+  `--receipts` paths, and require `--public` or `--private` at init.
+- [x] Verify project/workspace binding before store, list, sync, publish and unpublish.
+- [x] Default catalog/receipt images to constrained `width`; make `priority` eager/preload/high.
+- [x] Derive art-direction container ratios from the same map as crop candidates.
+- [x] Unify duration units, isolate experimental props, document explicit basePath and diagnose
+  oversized candidates only in development.
+- [x] Add scoped logout/status, multiple-file storage and copy-safe alt/Windows instructions.
+- [x] Document deployment and release dependencies; remove unmeasured performance claims.
+- [ ] Run red-first tests, sequential package/full/browser checks, council, local UX/security,
+  the live zero-env/mismatch/logout canary and exact-head green CI.
+
+API2 4a9fd4abbb supplies `DELETE /auth_keys/self`; logout proves possession of only its saved key,
+without broad Auth Key management rights or requiring a legacy key ID. Token description metadata
+is coordinated separately. No merge, package publication, Content changes, Thumbhash or origin
+version selector in this round. Detailed local receipts: `/tmp/img-task2-round8-report.md`.

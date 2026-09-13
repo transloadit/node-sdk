@@ -10,7 +10,6 @@ export function nextAppRoot(): '' | 'src/' | undefined {
 interface StorageImageSnippetOptions {
   prefix: string
   privateDelivery?: boolean
-  publicDelivery?: boolean
   receiptsImport: string
 }
 
@@ -22,17 +21,16 @@ function relativeImport(path: string): string {
 export function storageImageFactory({
   prefix,
   privateDelivery = false,
-  publicDelivery = false,
   receiptsImport,
 }: StorageImageSnippetOptions): string {
-  const catalogImport = `import images from ${JSON.stringify(relativeImport(receiptsImport))}`
+  const catalogImport = `import catalog from ${JSON.stringify(relativeImport(receiptsImport))}`
   if (privateDelivery) {
     return [
       "import { createStorageImages } from '@transloadit/img/next/server'",
       catalogImport,
       '',
       'export const { StorageImage, storageRoute } = createStorageImages({',
-      '  images,',
+      '  ...catalog,',
       `  allowedPathPrefixes: [${JSON.stringify(prefix)}],`,
       '  // Replace with your application session and per-object authorization.',
       '  authorize: () => false,',
@@ -44,12 +42,7 @@ export function storageImageFactory({
     "import { createStorageImages } from '@transloadit/img/next/server'",
     catalogImport,
     '',
-    'export const { StorageImage } = createStorageImages({',
-    '  images,',
-    ...(publicDelivery
-      ? [`  public: [${JSON.stringify(prefix)}],`]
-      : [`  allowedPathPrefixes: [${JSON.stringify(prefix)}],`, "  delivery: 'direct',"]),
-    '})',
+    'export const { StorageImage } = createStorageImages(catalog)',
     '',
   ].join('\n')
 }
@@ -59,14 +52,15 @@ export function storageImagePage(receiptsImport: string): string {
   return [
     "import type { TransloaditImageSource } from '@transloadit/img'",
     "import { StorageImage } from '../../lib/storageImage'",
-    `import images from ${JSON.stringify(relativeImport(receiptsImport))}`,
+    `import catalog from ${JSON.stringify(relativeImport(receiptsImport))}`,
     '',
     'export default function Page() {',
-    '  const catalog: Record<string, TransloaditImageSource> = images',
-    '  const image = Object.values(catalog)[0]',
+    '  const images: Record<string, TransloaditImageSource> = catalog.images',
+    '  const image = Object.values(images)[0]',
     '  if (image === undefined) return <p>Add an image with transloadit storage store to see it here.</p>',
     '  return (',
-    '    <StorageImage src={image} alt="Describe this image" layout="constrained" maxWidth={960} preload />',
+    '    // Empty alt is decorative; replace it for an informative image.',
+    '    <StorageImage src={image} alt="" width={960} priority />',
     '  )',
     '}',
     '',
@@ -75,5 +69,5 @@ export function storageImagePage(receiptsImport: string): string {
 
 /** Rendering-only variable names; values belong in the application's secret configuration. */
 export function storageImageEnvBlock(publicOnly: boolean): string {
-  return `TRANSLOADIT_WORKSPACE=\n${publicOnly ? '' : 'TRANSLOADIT_KEY=\nTRANSLOADIT_SECRET=\n'}`
+  return publicOnly ? '' : 'TRANSLOADIT_KEY=\nTRANSLOADIT_SECRET=\n'
 }

@@ -102,6 +102,70 @@ function createDevice(response = created): nock.Scope {
     .reply(200, response)
 }
 
+test('status reports saved login identity and logout revokes only that key before removing the file', async () => {
+  const authKeyId = '12345678901234567890123456789012'
+  const api = createDevice()
+    .post('/cli/device_authorizations/token')
+    .reply(200, {
+      ...authorized,
+      auth_key_id: authKeyId,
+      auth_key_description: 'Transloadit CLI on canary',
+    })
+    .delete('/auth_keys/self', (body: string) => {
+      const params = /name="params"\r\n\r\n([^\r\n]+)/.exec(body)?.[1]
+      expect(params).toBeDefined()
+      if (params === undefined) return false
+      expect(JSON.parse(params).auth.key).toBe(authorized.auth_key)
+      return true
+    })
+    .reply(200, { ok: 'AUTH_KEY_DELETED' })
+  await login(['--no-browser'])
+  expect(process.exitCode).toBeUndefined()
+  await main(['auth', 'status'])
+  expect(process.exitCode).toBeUndefined()
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringContaining('Transloadit CLI on canary'),
+    expect.objectContaining({ workspace: 'my-app' }),
+  )
+  vi.stubEnv('TRANSLOADIT_KEY', 'unrelated-shell-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'unrelated-shell-secret')
+  vi.stubEnv('TRANSLOADIT_ENDPOINT', 'http://untrusted.invalid')
+  await main(['auth', 'logout'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  await expect(stat('credentials')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('a refused logout keeps the credential file and never claims remote revocation', async () => {
+  const authKeyId = '12345678901234567890123456789012'
+  createDevice()
+    .post('/cli/device_authorizations/token')
+    .reply(200, { ...authorized, auth_key_id: authKeyId })
+  await login(['--no-browser'])
+  const before = await readFile('credentials', 'utf8')
+  const api = nock(origin)
+    .delete('/auth_keys/self')
+    .reply(403, { error: 'AUTH_KEY_NOT_DELETED', message: 'unsafe never-print-this-secret' })
+  await main(['auth', 'logout'])
+  expect(process.exitCode).toBe(1)
+  expect(api.isDone()).toBe(true)
+  expect(await readFile('credentials', 'utf8')).toBe(before)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('not revoked'))
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls)).not.toContain(
+    'never-print-this-secret',
+  )
+})
+
+test('logout also revokes a legacy saved login without key-id metadata', async () => {
+  createDevice().post('/cli/device_authorizations/token').reply(200, authorized)
+  await login(['--no-browser'])
+  const api = nock(origin).delete('/auth_keys/self').reply(200, { ok: 'AUTH_KEY_DELETED' })
+  await main(['auth', 'logout'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  await expect(stat('credentials')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
 test('login preflights Storage with the issued key and algorithm, without publishing anything', async () => {
   vi.mocked(Transloadit.prototype.listPublicStoragePrefixes).mockRestore()
   const api = createDevice()

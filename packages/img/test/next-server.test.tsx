@@ -357,7 +357,7 @@ describe('createStorageImages', () => {
           alt="Override"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="constrained"
-          maxWidth={960}
+          width={960}
           widths={[2400]}
           sizes="50vw"
           style={{ maxWidth: 1200 }}
@@ -389,7 +389,7 @@ describe('createStorageImages', () => {
 
   test.each([
     { layout: 'fixed', width: 0, height: 48 },
-    { layout: 'constrained', maxWidth: Number.NaN },
+    { layout: 'constrained', width: Number.NaN },
     { layout: 'fill', fit: 'cover' },
     { layout: 'fill', fit: 'cover', aspectRatio: '9/0' },
     { layout: 'fixed', width: 48, height: 48, fit: 'stretch' },
@@ -416,7 +416,7 @@ describe('createStorageImages', () => {
           alt="Hero"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="constrained"
-          maxWidth={960}
+          width={960}
         />,
       ),
     )
@@ -424,7 +424,7 @@ describe('createStorageImages', () => {
     expect(image?.style.cssText).toBe(
       'display: block; max-width: 960px; width: 100%; height: auto;',
     )
-    expect(image?.getAttribute('width')).toBe('2400')
+    expect(image?.getAttribute('width')).toBe('960')
     const source = document.querySelector('source')
     expect(source?.sizes).toBe('auto, (min-width: 960px) 960px, 100vw')
     expect(source?.srcset).toContain('1920w')
@@ -441,8 +441,8 @@ describe('createStorageImages', () => {
           alt="Small original"
           src={{ path: 'documents/small.jpg', width: 320, height: 240 }}
           layout="constrained"
-          maxWidth={maxWidth}
-          preload
+          width={maxWidth}
+          priority
         />,
       ),
     )
@@ -539,6 +539,7 @@ describe('createStorageImages', () => {
       src: { path: 'documents/report.pdf', width: 400, height: 300 },
     }
     await renderAsync(Image(props))
+    await renderAsync(ExplicitImage(props))
     vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', 'changed-key')
     vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', 'changed-secret')
     vi.stubEnv('TRANSLOADIT_WORKSPACE', 'changed-workspace')
@@ -639,7 +640,7 @@ describe('createStorageImages', () => {
         cacheMaxAgeMs,
         route: '/images',
       }),
-    ).toThrow('cacheMaxAgeMs must be a positive safe integer')
+    ).toThrow('cacheMaxAge must be a positive safe integer')
   })
 
   test.each(
@@ -682,11 +683,11 @@ describe('createStorageImages', () => {
 })
 
 describe('createStorageImages', () => {
-  test('infers the Next basePath while preserving an explicit override', () => {
+  test('ignores Next internals and uses only the explicit basePath', () => {
     vi.stubEnv('__NEXT_ROUTER_BASEPATH', '/inferred')
     try {
       const { url } = getStorageRouteCandidate()
-      expect(url.pathname).toBe('/inferred/api/private-images')
+      expect(url.pathname).toBe('/api/private-images')
       const { StorageImage } = createStorageImages({
         ...baseConfiguration,
         authorize: () => true,
@@ -725,7 +726,7 @@ describe('createStorageImages', () => {
           fit="cover"
           aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}
           widths={[320, 640]}
-          preload
+          priority
         />,
       ),
     )
@@ -754,7 +755,7 @@ describe('createStorageImages', () => {
           alt="Column"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="constrained"
-          maxWidth={960}
+          width={960}
           loading={loading}
         />,
       ),
@@ -762,12 +763,13 @@ describe('createStorageImages', () => {
     expect(document.querySelector('source')?.getAttribute('sizes')).toBe(sizes)
   })
 
-  test('a receipt keeps intrinsic signing geometry while explicit dimensions describe presentation', async () => {
+  test('layout none keeps intrinsic signing geometry while explicit dimensions describe presentation', async () => {
     const { StorageImage } = createStorageImages(baseConfiguration)
     const document = parseMarkup(
       await renderAsync(
         <StorageImage
           alt="Sized receipt"
+          layout="none"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           width={480}
           height={320}
@@ -999,7 +1001,7 @@ describe('createStorageImages', () => {
       authSecret: 'secret-from-receipt',
       id: 'not-an-attribute',
     }
-    const received = parseMarkup(await renderAsync(Image({ alt: 'Report', src })))
+    const received = parseMarkup(await renderAsync(Image({ alt: 'Report', src, layout: 'none' })))
     const expected = parseMarkup(
       await renderAsync(Image({ alt: 'Report', src: src.path, width: 400, height: 300 })),
     )
@@ -1124,7 +1126,7 @@ describe('createStorageImages', () => {
           aria-labelledby="hero hero-caption"
           className="hero"
           id="hero"
-          preload
+          priority
           sizes="(min-width: 960px) 960px, 100vw"
           src={{ path: 'documents/hero.jpg', height: 1600, width: 2400 }}
           style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
@@ -1158,7 +1160,7 @@ describe('createStorageImages', () => {
     // Consumer selectors such as picture > img must apply before signing resolves too.
     expect(placeholder?.parentElement?.tagName).toBe('PICTURE')
     expect(placeholder?.getAttribute('style')).toBe(
-      'display:block;height:auto;max-width:960px;width:100%;visibility:hidden',
+      'display:block;max-width:960px;width:100%;height:auto;visibility:hidden',
     )
     expect(placeholder?.getAttribute('aria-hidden')).toBe('true')
     expect(placeholder?.hasAttribute('inert')).toBe(true)
@@ -1167,7 +1169,7 @@ describe('createStorageImages', () => {
     expect(shell).not.toContain('imageSrcSet')
     expect(shell).toContain('Following content')
     expect(image?.getAttribute('style')).toBe(
-      'display:block;height:auto;max-width:960px;width:100%',
+      'display:block;max-width:960px;width:100%;height:auto',
     )
     expect(image?.getAttribute('width')).toBe('2400')
     expect(image?.getAttribute('height')).toBe('1600')

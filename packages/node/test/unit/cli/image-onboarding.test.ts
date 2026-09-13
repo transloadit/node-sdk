@@ -179,6 +179,8 @@ describe('image init', () => {
       auth: credentials,
       credentials,
       credentialsWorkspace: 'my-app',
+      authWorkspace: 'my-app',
+      authWorkspaceVerified: true,
     })
     vi.spyOn(Transloadit.prototype, 'publishStoragePrefix').mockResolvedValue({
       ok: 'STORAGE_PUBLIC_PREFIX_DECLARED',
@@ -199,43 +201,42 @@ describe('image init', () => {
     const factory = await readFile(`${root}lib/storageImage.ts`, 'utf8')
     expect(factory).toContain('createStorageImages')
     expect(factory).not.toContain('allowedPathPrefixes')
-    expect(factory).toContain('public: ["website/"]')
-    expect(factory).toContain('images,')
-    expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({})
+    expect(factory).toContain('createStorageImages(catalog)')
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+      workspace: 'my-app',
+      public: ['website/'],
+      images: {},
+    })
     const page = await readFile(`${app}/storage-image-example/page.tsx`, 'utf8')
     expect(page).toContain("from '../../lib/storageImage'")
-    expect(page).toContain('Object.values(catalog)')
+    expect(page).toContain('Object.values(images)')
     expect(page).toContain('<StorageImage')
     expect(page).toContain('storage store')
     const printed = JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)
-    expect(printed).toContain('TRANSLOADIT_WORKSPACE=')
+    expect(printed).not.toContain('TRANSLOADIT_WORKSPACE=')
     expect(printed).not.toContain('TRANSLOADIT_KEY=')
     expect(printed).not.toContain('TRANSLOADIT_SECRET=')
     expect(printed).not.toContain('TRANSLOADIT_SMART_CDN_SECRET=')
     expect(await readdir(directory)).not.toContain('.env.local')
   })
 
-  test('public init writes only the workspace, privately and only when explicitly requested', async () => {
+  test('public init needs no env even with the old --write-env option', async () => {
     await mkdir('app')
     await main(['image', 'init', 'website/', '--public', '--write-env'])
     expect(process.exitCode).toBeUndefined()
-    expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
-    expect(await readFile('.env.local', 'utf8')).toBe('TRANSLOADIT_WORKSPACE="my-app"\n')
+    await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
     expect(readCliInput).not.toHaveBeenCalled()
     expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
       'render-secret',
     )
   })
 
-  test.each([
-    '--private',
-    undefined,
-  ])('private init (%s) still writes all three rendering values', async (mode) => {
+  test('private init keeps keys in env and workspace in the catalog', async () => {
     await mkdir('app')
-    await main(['image', 'init', 'accounts/', '--write-env', ...(mode === undefined ? [] : [mode])])
+    await main(['image', 'init', 'accounts/', '--write-env', '--private'])
     expect(process.exitCode).toBeUndefined()
     expect(await readFile('.env.local', 'utf8')).toBe(
-      'TRANSLOADIT_WORKSPACE="my-app"\nTRANSLOADIT_KEY="combined-key"\nTRANSLOADIT_SECRET="render-secret"\n',
+      'TRANSLOADIT_KEY="combined-key"\nTRANSLOADIT_SECRET="render-secret"\n',
     )
   })
 
@@ -244,13 +245,15 @@ describe('image init', () => {
     await main(['image', 'init', 'website', '--public'])
     expect(process.exitCode).toBeUndefined()
     expect(Transloadit.prototype.publishStoragePrefix).toHaveBeenCalledExactlyOnceWith('website/')
-    expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('public: ["website/"]')
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).public).toEqual([
+      'website/',
+    ])
   })
 
   test('init never overwrites an existing rendering env file, even with --write-env', async () => {
     await mkdir('app')
     await writeFile('.env.local', 'APP_SETTING=preserved\n')
-    await main(['image', 'init', 'website/', '--write-env'])
+    await main(['image', 'init', 'website/', '--private', '--write-env'])
     expect(process.exitCode).toBe(1)
     expect(await readFile('.env.local', 'utf8')).toBe('APP_SETTING=preserved\n')
     await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
@@ -309,7 +312,7 @@ describe('image init', () => {
     '',
   ])('init rejects unsafe or implicit root prefix %j before writing', async (prefix) => {
     await mkdir('app')
-    await main(['image', 'init', prefix])
+    await main(['image', 'init', prefix, '--public'])
     expect(process.exitCode).toBe(1)
     expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
       'Provide one safe relative directory prefix ending in /, for example website/',
@@ -319,12 +322,13 @@ describe('image init', () => {
 
   test('init preserves an existing catalog and refuses to overwrite the example page', async () => {
     await mkdir('app/storage-image-example', { recursive: true })
-    const catalog = '{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}\n'
-    await writeFile('images.json', catalog)
+    const catalog =
+      '{"workspace":"my-app","public":[],"images":{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}}\n'
+    await writeFile('transloadit.images.json', catalog)
     await writeFile('app/storage-image-example/page.tsx', 'existing\n')
     await main(['image', 'init', 'website/', '--public'])
     expect(process.exitCode).toBe(1)
-    expect(await readFile('images.json', 'utf8')).toBe(catalog)
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(catalog)
     expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toBe('existing\n')
     await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
   })
@@ -332,11 +336,15 @@ describe('image init', () => {
   test('init accepts an existing catalog without replacing its data', async () => {
     await mkdir('src/app', { recursive: true })
     await mkdir('catalog')
-    const catalog = '{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}\n'
+    const catalog =
+      '{"workspace":"my-app","public":[],"images":{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}}\n'
     await writeFile('catalog/images.json', catalog)
     await main(['image', 'init', 'website/', '--public', '--receipts', 'catalog/images.json'])
     expect(process.exitCode).toBeUndefined()
-    expect(await readFile('catalog/images.json', 'utf8')).toBe(catalog)
+    expect(JSON.parse(await readFile('catalog/images.json', 'utf8'))).toEqual({
+      ...JSON.parse(catalog),
+      public: ['website/'],
+    })
     expect(await readFile('src/app/storage-image-example/page.tsx', 'utf8')).toContain(
       '../../../catalog/images.json',
     )

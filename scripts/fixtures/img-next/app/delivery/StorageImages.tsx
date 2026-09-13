@@ -6,6 +6,7 @@ import { imageConfiguration } from '../imageConfiguration'
 export const { StorageImage: DeliveryImage, storageRoute: deliveryRoute } = createStorageImages({
   allowedPathPrefixes: ['documents/'],
   authorize: authorizeFixtureImage,
+  basePath: '/fixture',
   baseUrl: imageConfiguration.baseUrl,
   public: ['documents/public/'],
 })

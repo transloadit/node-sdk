@@ -39,10 +39,14 @@ export type ResolvedCliConfig = {
   auth?: CliAuth
   authSource?: string
   authWorkspace?: string
+  authWorkspaceVerified?: boolean
   credentials?: CliKeySecretCredentials
   credentialsSource?: string
   credentialsEndpoint?: string
   credentialsWorkspace?: string
+  credentialsWorkspaceVerified?: boolean
+  credentialsAuthKeyId?: string
+  credentialsDescription?: string
   endpoint?: string
   loadError?: string
 }
@@ -311,9 +315,15 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
       auth: credentials,
       authSource: 'saved login',
       authWorkspace: getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE']),
+      authWorkspaceVerified:
+        getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
       credentials,
       credentialsSource: 'saved login',
       credentialsWorkspace: getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE']),
+      credentialsWorkspaceVerified:
+        getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
+      credentialsAuthKeyId: getSourceValue(saved.source, ['TRANSLOADIT_AUTH_KEY_ID']),
+      credentialsDescription: getSourceValue(saved.source, ['TRANSLOADIT_AUTH_KEY_DESCRIPTION']),
       credentialsEndpoint: endpoint,
       endpoint,
     }
@@ -356,6 +366,9 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
           auth,
           authSource: credentialSourceName(authSource, shellEnvSource, auth),
           authWorkspace: getSourceValue(authSource, ['TRANSLOADIT_WORKSPACE']),
+          authWorkspaceVerified:
+            authSource.name === 'credentialsFile' &&
+            getSourceValue(authSource, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
         }
       : {}),
     ...(credentials != null ? { credentials } : {}),
@@ -370,6 +383,9 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
               ? undefined
               : credentialSourceName(credentialsSource, shellEnvSource, credentials),
           credentialsWorkspace: getSourceValue(credentialsSource, ['TRANSLOADIT_WORKSPACE']),
+          credentialsWorkspaceVerified:
+            credentialsSource.name === 'credentialsFile' &&
+            getSourceValue(credentialsSource, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
         }
       : {}),
     ...(loadError != null ? { loadError } : {}),

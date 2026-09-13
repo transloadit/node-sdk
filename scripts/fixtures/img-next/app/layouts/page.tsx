@@ -11,6 +11,7 @@ export default function Page(): ReactNode {
           alt="Portrait cover"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="fill"
+          frame={false}
           fit="cover"
           aspectRatio="9/16"
           sizes="390px"

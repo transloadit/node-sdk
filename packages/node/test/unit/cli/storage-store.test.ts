@@ -14,6 +14,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import nock from 'nock'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
@@ -58,6 +59,15 @@ beforeEach(async () => {
   vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'notice').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
+  nock.disableNetConnect()
+  nock('https://api2.transloadit.com')
+    .persist()
+    .get('/storage/')
+    .query(true)
+    .reply(
+      200,
+      '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
+    )
 })
 
 afterEach(async () => {
@@ -65,6 +75,8 @@ afterEach(async () => {
   process.exitCode = undefined
   vi.restoreAllMocks()
   vi.unstubAllEnvs()
+  nock.cleanAll()
+  nock.enableNetConnect()
   // OutputCtl installs stream listeners per CLI invocation; do not leak them between tests.
   for (const listener of process.stdout.listeners('error')) {
     if (!stdoutErrorListeners.includes(listener)) process.stdout.off('error', listener)
@@ -80,6 +92,70 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('refuses a stale workspace label on env credentials before uploading', async () => {
+    vi.stubEnv('TRANSLOADIT_WORKSPACE', 'project-app')
+    await writeFile(
+      'transloadit.images.json',
+      JSON.stringify({ workspace: 'project-app', public: [], images: {} }),
+    )
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main(['storage', 'store', './hero.jpg', receipt.path])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      'Project uses project-app; the selected credentials belong to my-app. Nothing uploaded.',
+    )
+  })
+
+  test('checkpoints earlier multi-file uploads if a later upload fails', async () => {
+    const store = vi
+      .spyOn(Transloadit.prototype, 'storeImage')
+      .mockResolvedValueOnce({ ...receipt, path: 'website/a.jpg' })
+      .mockRejectedValueOnce(new Error('Second upload failed'))
+    await main(['storage', 'store', './a.jpg', './b.jpg', 'website/'])
+    expect(process.exitCode).toBe(1)
+    expect(store).toHaveBeenCalledTimes(2)
+    const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
+    expect(Object.keys(catalog.images)).toEqual(['website/a.jpg'])
+  })
+
+  test('refuses duplicate destination basenames before the first upload', async () => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main(['storage', 'store', './a/hero.jpg', './b/hero.jpg', 'website/'])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+  })
+  test('stores multiple originals in a directory and commits both receipts', async () => {
+    const store = vi
+      .spyOn(Transloadit.prototype, 'storeImage')
+      .mockImplementation(async (_file, options) => ({ ...receipt, path: options.path }))
+    await main(['storage', 'store', './a.jpg', './b.jpg', 'website/'])
+    expect(process.exitCode).toBeUndefined()
+    expect(store.mock.calls).toEqual([
+      ['./a.jpg', { path: 'website/a.jpg' }],
+      ['./b.jpg', { path: 'website/b.jpg' }],
+    ])
+    const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
+    expect(catalog.workspace).toBe('my-app')
+    expect(Object.keys(catalog.images)).toEqual(['website/a.jpg', 'website/b.jpg'])
+  })
+
+  test('refuses ambiguous multi-file destinations before uploading', async () => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main(['storage', 'store', './a.jpg', './b.jpg', 'website/hero.jpg'])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('directory'))
+  })
+
+  test('the printed alt is explicitly decorative until the developer supplies meaningful text', async () => {
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(text).toContain('alt=""')
+    expect(text).toContain('decorative')
+    expect(text).not.toContain('Describe this image')
+  })
   test.each([
     { source: 'shell environment', setup: 'shell' },
     { source: 'project .env', setup: 'project' },
@@ -137,7 +213,9 @@ describe('storage store', () => {
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(rootReceipt)
     await runStore(rootReceipt.path)
     expect(process.exitCode).toBeUndefined()
-    expect(JSON.parse(await readFile('images.json', 'utf8'))['hero.jpg']).toEqual(rootReceipt)
+    expect(JSON.parse(await readFile('images.json', 'utf8')).images['hero.jpg']).toEqual(
+      rootReceipt,
+    )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toContain('Render it with <StorageImage src="hero.jpg"')
     expect(snippet).not.toContain('createStorageImages')
@@ -155,9 +233,7 @@ describe('storage store', () => {
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
-      expect.stringContaining(
-        `<StorageImage src="website/hero.jpg" alt="Describe this image" layout="constrained" maxWidth={${maxWidth}} />`,
-      ),
+      expect.stringContaining(`<StorageImage src="website/hero.jpg" alt="" width={${maxWidth}} />`),
       { ...receipt, width },
     )
   })
@@ -185,11 +261,11 @@ describe('storage store', () => {
     await runStore()
     expect(process.exitCode).toBe(1)
     expect(await readdir(directory)).not.toContain('images.json.lock')
-    expect(JSON.parse(await readFile('images.json', 'utf8'))[receipt.path]).toEqual(receipt)
+    expect(JSON.parse(await readFile('images.json', 'utf8')).images[receipt.path]).toEqual(receipt)
   })
 
   test('retains the complete receipt and previous catalog when atomic replacement fails', async () => {
-    const previous = JSON.stringify({ 'website/earlier.jpg': receipt })
+    const previous = catalogJson({ 'website/earlier.jpg': receipt })
     await writeFile('images.json', previous)
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     vi.mocked(rename).mockRejectedValueOnce(
@@ -201,7 +277,7 @@ describe('storage store', () => {
     const temporary = (await readdir(directory)).find((name) => name.endsWith('.tmp'))
     expect(temporary).toBeDefined()
     if (temporary === undefined) throw new Error('Expected retained verified receipt')
-    expect(JSON.parse(await readFile(temporary, 'utf8'))[receipt.path]).toEqual(receipt)
+    expect(JSON.parse(await readFile(temporary, 'utf8')).images[receipt.path]).toEqual(receipt)
     const error = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
     expect(error).toContain(temporary)
     expect(error).toContain('Do not re-upload')
@@ -210,7 +286,7 @@ describe('storage store', () => {
   })
 
   test('preserves an existing catalog mode across its atomic replacement', async () => {
-    await writeFile('images.json', '{}')
+    await writeFile('images.json', catalogJson({}))
     await chmod('images.json', 0o640)
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await runStore()
@@ -261,7 +337,7 @@ describe('storage store', () => {
   test('prints recovery details for a malformed receipt after the write and preserves saved receipts', async () => {
     const bytes = Buffer.from('image')
     await writeFile('hero.jpg', bytes)
-    const previous = JSON.stringify({ 'website/earlier.jpg': receipt })
+    const previous = catalogJson({ 'website/earlier.jpg': receipt })
     await writeFile('images.json', previous)
     const assemblyId = 'assembly-missing-metadata'
     const create = vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
@@ -291,7 +367,7 @@ describe('storage store', () => {
   })
 
   test('keeps a receipts-file permission error and names the file before uploading', async () => {
-    const previous = JSON.stringify({ [receipt.path]: receipt })
+    const previous = catalogJson({ [receipt.path]: receipt })
     await writeFile('images.json', previous)
     const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     // Inject the OS error so this also exercises EACCES when the test process runs as root.
@@ -327,10 +403,10 @@ describe('storage store', () => {
 
   test('preserves every existing path, including ordinary JSON prototype-looking keys', async () => {
     const earlier = { ...receipt, path: '__proto__' }
-    await writeFile('images.json', JSON.stringify({ [earlier.path]: earlier }))
+    await writeFile('images.json', catalogJson({ [earlier.path]: earlier }))
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await runStore()
-    expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({
+    expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({
       [earlier.path]: earlier,
       [receipt.path]: receipt,
     })
@@ -338,12 +414,12 @@ describe('storage store', () => {
 
   test('uses storeImage and appends a keyed receipt with a ready-to-render snippet', async () => {
     const earlier = { ...receipt, path: 'website/earlier.jpg' }
-    await writeFile('images.json', JSON.stringify({ [earlier.path]: earlier }))
+    await writeFile('images.json', catalogJson({ [earlier.path]: earlier }))
     const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(store).toHaveBeenCalledExactlyOnceWith('./hero.jpg', { path: receipt.path })
-    expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({
+    expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({
       [earlier.path]: earlier,
       [receipt.path]: receipt,
     })
@@ -354,7 +430,7 @@ describe('storage store', () => {
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toBe(
-      'Saved website/hero.jpg in images.json. Commit this receipt file.\nRender it with <StorageImage src="website/hero.jpg" alt="Describe this image" layout="constrained" maxWidth={800} />',
+      'Saved website/hero.jpg in images.json. Commit this receipt file.\nRender it with <StorageImage src="website/hero.jpg" alt="" width={800} />\n{/* Empty alt is decorative; replace it for an informative image. */}',
     )
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   })
@@ -396,7 +472,7 @@ describe('storage store', () => {
     const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
     expect(message).toContain(join(directory, 'images.json'))
     expect(message).toContain(
-      previous === '' || previous === '{' ? 'invalid JSON' : 'expected a JSON object',
+      previous === '' || previous === '{' ? 'invalid JSON' : 'expected a project catalog',
     )
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   })
@@ -430,7 +506,7 @@ describe('storage store', () => {
     vi.stubEnv('TRANSLOADIT_SECRET', '')
     vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', 'delivery-key')
     vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', 'delivery-secret')
-    const previous = JSON.stringify({ [receipt.path]: receipt })
+    const previous = catalogJson({ [receipt.path]: receipt })
     await writeFile('images.json', previous)
     const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await runStore()
@@ -439,3 +515,7 @@ describe('storage store', () => {
     expect(await readFile('images.json', 'utf8')).toBe(previous)
   })
 })
+
+function catalogJson(images: Record<string, unknown>): string {
+  return `${JSON.stringify({ workspace: 'my-app', public: [], images })}\n`
+}

@@ -4,6 +4,11 @@
 "@transloadit/mcp-server": patch
 ---
 
+Release gate: publish this minor release only after transloadit/api2#9057 and
+transloadit/content#5973 are deployed. Device login, public delivery and safe CLI-key revocation
+depend on that coordinated backend/Console rollout. The image package remains private dogfood.
+At publication, switch preview-branch documentation links to their then-merged main locations.
+
 Add `client.storeImage(filePath, { path })` for one original Storage image without overwriting.
 Stream the checksum and verify the completed receipt, including path, asset ID, bytes and
 EXIF-oriented display dimensions.
@@ -33,7 +38,7 @@ owner-only credential persistence. Keep `--stdin` for an existing Auth Key, veri
 Keep newly entered credentials independent from project dotenv endpoint settings; save an explicit
 trusted endpoint with the key. Add `image init [--public | --private]`, with
 opt-in private `.env.local` scaffolding via `--write-env`. Never overwrite existing application files.
-Default store/sync catalogs to `images.json`. Init writes an empty catalog and a runnable example
+Default store/sync catalogs to `transloadit.images.json`. Init writes an empty catalog and a runnable example
 for `app` or `src/app`, preserving existing files. Store prints only the saved path and component
 usage; its snippet-only public/private flags and init's dead next flag are removed. Keep upload
 asset IDs and sizes on sync only when the HEAD MD5 still matches the stored receipt.
@@ -52,7 +57,10 @@ Add `signatureAlgorithm` to SDK client options while retaining the legacy SHA-38
 explicit per-call overrides. Init's env setup uses the saved key/workspace/endpoint together,
 independently of stale project or shell credentials. Public/private Template overrides are separate.
 
-Public init writes only the workspace to the app environment, infers allowed directories from
+Public init stores workspace and published prefixes in the committed catalog, with no app env file.
+Require public/private intent and bind Storage operations to the selected key's verified workspace.
+Support multi-file store, auth status and server-side auth logout before removing credentials.
+Infer allowed directories from
 public policy even with an empty catalog, and accepts a missing trailing slash. Storage commands
 report the winning credential source without showing credentials; store prints constrained JSX
 bounded to the receipt width. Login makes a bounded read-only Storage policy preflight and gives

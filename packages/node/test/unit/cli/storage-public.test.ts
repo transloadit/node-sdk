@@ -26,7 +26,7 @@ beforeEach(async () => {
   process.chdir(directory)
   await writeFile(
     'credentials',
-    `TRANSLOADIT_KEY=combined-key\nTRANSLOADIT_SECRET=local-secret\nTRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_ENDPOINT=${origin}\n`,
+    `TRANSLOADIT_KEY=combined-key\nTRANSLOADIT_SECRET=local-secret\nTRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_WORKSPACE_VERIFIED=true\nTRANSLOADIT_ENDPOINT=${origin}\n`,
     { mode: 0o600 },
   )
   vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', join(directory, 'credentials'))
@@ -70,6 +70,74 @@ function signedPrefix(body: string): boolean {
   expect(signature).toBe(signParamsSync(params, 'local-secret'))
   return true
 }
+
+test('public init commits the whole project catalog without creating an env file', async () => {
+  await mkdir('app')
+  const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(200, declared)
+  await main(['image', 'init', 'website', '--public'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+    workspace: 'my-app',
+    public: ['website/'],
+    images: {},
+  })
+  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('createStorageImages(catalog)')
+  await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
+    'TRANSLOADIT_WORKSPACE',
+  )
+})
+
+test('init requires an explicit public or private choice before creating anything', async () => {
+  await mkdir('app')
+  await main(['image', 'init', 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith('Choose either --public or --private')
+  expect(await readdir(directory)).toEqual(['app', 'credentials'])
+})
+
+test.each([
+  'publish',
+  'unpublish',
+])('%s refuses a different project workspace before remote writes', async (command) => {
+  const catalog = { workspace: 'project-app', public: [], images: {} }
+  await writeFile('transloadit.images.json', `${JSON.stringify(catalog)}\n`)
+  await main(['storage', command, 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Project uses project-app; the selected credentials belong to my-app. Nothing uploaded.',
+  )
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
+})
+
+test('publish and unpublish update the committed policy without losing image receipts', async () => {
+  const images = { 'website/hero.jpg': { path: 'website/hero.jpg', width: 100, height: 80 } }
+  await writeFile(
+    'transloadit.images.json',
+    JSON.stringify({ workspace: 'my-app', public: [], images }),
+  )
+  const api = nock(origin)
+    .post('/storage/public_prefixes', signedPrefix)
+    .reply(200, declared)
+    .delete('/storage/public_prefixes', signedPrefix)
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIX_REVOKED', prefix: 'website/', deleted: true })
+  await main(['storage', 'publish', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+    workspace: 'my-app',
+    public: ['website/'],
+    images,
+  })
+  await main(['storage', 'unpublish', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+    workspace: 'my-app',
+    public: [],
+    images,
+  })
+})
 
 test.each([
   'website',
@@ -190,10 +258,13 @@ test('init publishes first and reuses the saved login without any terminal input
     JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls),
   ).toBeUndefined()
   expect(api.isDone()).toBe(true)
-  expect(await readFile('.env.local', 'utf8')).toBe('TRANSLOADIT_WORKSPACE="my-app"\n')
-  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('public: ["website/"]')
-  expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({})
-  expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
+  await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('createStorageImages(catalog)')
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+    workspace: 'my-app',
+    public: ['website/'],
+    images: {},
+  })
   expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
     'local-secret',
   )
@@ -217,13 +288,15 @@ test('a public prefix at exactly 512 UTF-8 bytes is accepted', async () => {
   expect(api.isDone()).toBe(true)
 })
 
-test('init checks local conflicts before publishing and leaves existing files untouched', async () => {
+test('public init leaves existing env untouched and checks code conflicts before publishing', async () => {
   await mkdir('app')
+  await mkdir('lib')
+  await writeFile('lib/storageImage.ts', 'existing code\n')
   await writeFile('.env.local', 'existing\n')
   await main(['image', 'init', 'website/', '--public', '--write-env'])
   expect(process.exitCode).toBe(1)
   expect(await readFile('.env.local', 'utf8')).toBe('existing\n')
-  expect(await readdir(directory)).toEqual(['.env.local', 'app', 'credentials'])
+  expect(await readdir(directory)).toEqual(['.env.local', 'app', 'credentials', 'lib'])
 })
 
 test('write-env and publication use the saved login together despite stale project or shell credentials', async () => {
@@ -238,10 +311,10 @@ test('write-env and publication use the saved login together despite stale proje
   await main(['image', 'init', 'website/', '--public', '--write-env'])
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
-  const env = await readFile('.env.local', 'utf8')
-  expect(env).not.toContain('TRANSLOADIT_KEY=')
-  expect(env).toContain('TRANSLOADIT_WORKSPACE="my-app"')
-  expect(env).not.toMatch(/project-|shell-/)
+  await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
+  const catalog = await readFile('transloadit.images.json', 'utf8')
+  expect(JSON.parse(catalog).workspace).toBe('my-app')
+  expect(catalog).not.toMatch(/project-|shell-|local-secret/)
 })
 
 test('a refused public declaration leaves no misleading factory or env file', async () => {

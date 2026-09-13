@@ -19,19 +19,13 @@ export type StorageImageAspectRatio =
   | number
   | Readonly<{ default: string | number } & Record<string, string | number>>
 
-/** Optional layout convenience; explicit source geometry remains unchanged without a mode. */
+/** Receipt sources are responsive by default; none leaves presentation sizing to the caller. */
 export type StorageImageLayoutProps<Catalog extends StorageImageCatalog | undefined = undefined> =
   | (PresentationSourceProps<Catalog> & {
-      layout?: never
-      maxWidth?: never
+      layout?: 'constrained' | 'none'
       fit?: never
       aspectRatio?: never
-    })
-  | (PresentationSourceProps<Catalog> & {
-      layout: 'constrained'
-      maxWidth: number
-      fit?: never
-      aspectRatio?: never
+      frame?: never
     })
   | {
       layout: 'fixed'
@@ -39,15 +33,16 @@ export type StorageImageLayoutProps<Catalog extends StorageImageCatalog | undefi
       width: number
       height: number
       fit?: 'contain' | 'cover'
-      maxWidth?: never
       aspectRatio?: never
+      frame?: never
     }
   | ({
       layout: 'fill'
       src: CatalogSource<Catalog>
       width?: never
       height?: never
-      maxWidth?: never
+      /** Opt out when the app already owns the positioned box and its responsive ratios. */
+      frame?: false
     } & (
       | { fit: 'cover'; aspectRatio: StorageImageAspectRatio }
       | { fit?: 'contain'; aspectRatio?: string | number }
@@ -64,6 +59,7 @@ interface ResolvedImageLayout {
   sizes?: string
   style?: CSSProperties
   widths?: readonly number[]
+  frame?: { ratio: number; variants: readonly { media: string; cropAspectRatio: number }[] }
 }
 
 function boxDimension(value: number | undefined, name: string): number {
@@ -95,7 +91,6 @@ export function resolveImageLayout(
   props: StorageImageLayoutProps<StorageImageCatalog> & { widths?: readonly number[] },
   images?: StorageImageCatalog,
 ): ResolvedImageLayout {
-  const layout = props.layout
   const input = props.src
   const src =
     typeof input === 'string' && images !== undefined
@@ -104,6 +99,7 @@ export function resolveImageLayout(
         : undefined
       : input
   if (src === undefined) throw new TypeError('Storage image path is not in the configured catalog')
+  const layout = props.layout ?? (typeof src === 'string' ? 'none' : 'constrained')
   if ((layout === 'fixed' || layout === 'fill') && typeof src === 'string') {
     throw new TypeError(
       `${layout} layout requires a receipt source with intrinsic dimensions${layout === 'fixed' ? '; width and height describe the display box' : ''}`,
@@ -128,11 +124,16 @@ export function resolveImageLayout(
       : boxDimension(presentationHeight, 'height')
   const widths = Array.isArray(props.widths) ? [...props.widths] : props.widths
   const base = { source, width, height, widths }
-  if (layout === undefined) return base
+  if (layout === 'none') return base
   if (layout === 'constrained') {
-    const maxWidth = Math.min(boxDimension(props.maxWidth, 'maxWidth'), source.width)
+    const maxWidth = Math.min(
+      boxDimension(presentationWidth ?? source.width, 'width'),
+      source.width,
+    )
     return {
       ...base,
+      width: maxWidth,
+      height: Math.max(1, Math.round((maxWidth * source.height) / source.width)),
       maximumWidth: widths === undefined ? 2 * maxWidth : undefined,
       sizes: `(min-width: ${maxWidth}px) ${maxWidth}px, 100vw`,
       style: { display: 'block', maxWidth, width: '100%', height: 'auto' },
@@ -186,8 +187,12 @@ export function resolveImageLayout(
       ...base,
       cropAspectRatio: fit === 'cover' ? ratio : undefined,
       artDirection,
+      frame:
+        props.frame === false || ratio === undefined
+          ? undefined
+          : { ratio, variants: artDirection ?? [] },
       style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: fit },
     }
   }
-  throw new TypeError('layout must be constrained, fixed or fill')
+  throw new TypeError('layout must be constrained, fixed, fill or none')
 }

@@ -111,20 +111,20 @@ export function snapshotImageAttributes(props: ImageAttributes): ImageAttributes
 
 /** A preload is eager; explicitly lazy images must not issue preload requests. */
 export type ImageLoadingProps =
-  | { loading?: 'eager'; preload: true }
-  | { loading?: 'eager' | 'lazy'; preload?: false }
+  | { loading?: 'eager'; priority: true }
+  | { loading?: 'eager' | 'lazy'; priority?: false }
 
 /** Retains runtime validation for JavaScript callers as well as the discriminated public type. */
 export function snapshotImageLoading({
   loading,
-  preload,
+  priority,
 }: {
   loading?: 'eager' | 'lazy'
-  preload?: boolean
+  priority?: boolean
 }): ImageLoadingProps {
-  if (preload) {
-    if (loading === 'lazy') throw new Error('A preloaded Transloadit image cannot use lazy loading')
-    return { loading, preload }
+  if (priority) {
+    if (loading === 'lazy') throw new Error('A priority Transloadit image cannot use lazy loading')
+    return { loading: 'eager', priority }
   }
-  return { loading, preload }
+  return { loading, priority }
 }

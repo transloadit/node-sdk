@@ -1,5 +1,6 @@
 import type { S3Client } from '@aws-sdk/client-s3'
 
+import type { ResolvedCliConfig } from './helpers.ts'
 import type { IOutputCtl } from './OutputCtl.ts'
 
 import { z } from 'zod'
@@ -9,6 +10,7 @@ import {
   describeCliCredentialSource,
   resolveCliConfig,
 } from './helpers.ts'
+import { assertStorageWorkspace } from './storageReceipts.ts'
 
 interface StorageObject {
   path: string
@@ -29,12 +31,12 @@ export const storageS3ConnectionErrorSchema = z.union([
 
 /** Keeps workspace discovery, signing credentials and the trusted endpoint together for S3 reads. */
 export async function withStorageS3<T>(
-  options: { endpoint?: string; workspace?: string },
+  options: { endpoint?: string; workspace?: string; projectWorkspace?: string },
   operation: (client: S3Client, workspace: string) => Promise<T>,
   failure: string,
   output?: Pick<IOutputCtl, 'notice'>,
+  config: ResolvedCliConfig = resolveCliConfig(),
 ): Promise<T> {
-  const config = resolveCliConfig()
   if (config.credentials === undefined)
     throw new Error(config.loadError ?? buildMissingCredentialsMessage())
   output?.notice(describeCliCredentialSource(config, 'credentials'))
@@ -74,16 +76,22 @@ export async function withStorageS3<T>(
   try {
     // Smithy's request timer stops at response headers; the signal also bounds body reads/retries.
     const buckets =
-      options.workspace === undefined
+      options.workspace === undefined || options.projectWorkspace !== undefined
         ? (
             await client.send(new ListBucketsCommand({}), {
               abortSignal: AbortSignal.timeout(60_000),
             })
           ).Buckets
         : undefined
-    const workspace = options.workspace ?? (buckets?.length === 1 ? buckets[0]?.Name : undefined)
+    const workspace =
+      buckets === undefined
+        ? options.workspace
+        : buckets.length === 1
+          ? buckets[0]?.Name
+          : undefined
     if (!workspace)
       throw new Error('Could not determine one workspace; supply --workspace explicitly')
+    assertStorageWorkspace(workspace, options.projectWorkspace, options.workspace)
     return await operation(client, workspace)
   } catch (error) {
     if (storageS3ConnectionErrorSchema.safeParse(error).success)
@@ -103,6 +111,38 @@ export async function withStorageS3<T>(
     client.destroy()
   }
 }
+
+/** Verify writes against the selected key, not an unverified workspace label in shell dotenv. */
+export async function resolveStorageWorkspace(
+  options: { endpoint?: string; workspace?: string },
+  config: ResolvedCliConfig,
+  projectWorkspace?: string,
+): Promise<string> {
+  if (config.auth === undefined || !('authKey' in config.auth))
+    throw new Error('Storage project binding requires an Auth Key; run transloadit auth login.')
+  const sameEndpoint =
+    options.endpoint === undefined ||
+    new URL(options.endpoint).origin ===
+      new URL(config.endpoint ?? 'https://api2.transloadit.com').origin
+  const workspace =
+    config.authWorkspaceVerified && sameEndpoint && config.authWorkspace !== undefined
+      ? storageWorkspaceSchema.parse(config.authWorkspace)
+      : await withStorageS3(
+          { endpoint: options.endpoint },
+          async (_client, actual) => storageWorkspaceSchema.parse(actual),
+          'Workspace verification',
+          undefined,
+          {
+            credentials: config.auth,
+            credentialsEndpoint: config.endpoint,
+            credentialsSource: config.authSource,
+          },
+        )
+  assertStorageWorkspace(workspace, projectWorkspace, options.workspace)
+  return workspace
+}
+
+const storageWorkspaceSchema = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/)
 
 /** Completes every listing page or fails; callers must never persist a silently partial catalog. */
 export async function listStorageObjects(

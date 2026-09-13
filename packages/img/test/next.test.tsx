@@ -42,11 +42,8 @@ const model: TransloaditImageModel = {
 function renderPicture(
   overrides: Partial<{
     alt: unknown
-    deferUntilHydrated: boolean
     loading: 'eager' | 'lazy'
-    media: string
-    mediaPlaceholderSrc: string
-    preload: boolean
+    priority: boolean
     sizes: string
     style: unknown
   }> = {},
@@ -76,6 +73,26 @@ afterEach(() => {
 })
 
 describe('TransloaditPicture', () => {
+  test.each([
+    ['/images/my photo.jpg', '/images/my%20photo.jpg'],
+    ['/images/photo,,', '/images/photo%2C%2C'],
+    [',,/images/photo.jpg', '%2C%2C/images/photo.jpg'],
+    ['data:image/gif;base64,AAAA', 'data:image/gif;base64,AAAA'],
+  ])('escapes an art-direction JPEG fallback %s without changing its URL semantics', (fallbackUrl, expected) => {
+    const markup = renderToStaticMarkup(
+      <TransloaditPicture
+        alt=""
+        height={300}
+        width={400}
+        model={{
+          ...model,
+          artDirection: [{ media: '(max-width: 639px)', model: { ...model, fallbackUrl } }],
+        }}
+      />,
+    )
+    const parsed = new DOMParser().parseFromString(markup, 'text/html')
+    expect(parsed.querySelector('source[type="image/jpeg"]')?.getAttribute('srcset')).toBe(expected)
+  })
   test('a session-dependent retry key recovers the same failed URL without an automatic retry loop', async () => {
     vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false)
     const container = document.createElement('div')
@@ -122,31 +139,6 @@ describe('TransloaditPicture', () => {
     expect(boundary.key).not.toContain('https://')
   })
 
-  test('resets a failed media placeholder when only its source changes', async () => {
-    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false)
-    const container = document.createElement('div')
-    document.body.append(container)
-    const root = createRoot(container)
-    const props = {
-      alt: 'Photo',
-      errorFallback: <p role="status">Image unavailable</p>,
-      height: 300,
-      media: '(min-width: 1000px)',
-      model,
-      width: 400,
-    }
-    await act(() => root.render(<TransloaditPicture {...props} mediaPlaceholderSrc="/old.gif" />))
-    await act(() => {
-      container.querySelector('img')?.dispatchEvent(new Event('error'))
-    })
-    expect(container.querySelector('[role="status"]')?.textContent).toBe('Image unavailable')
-    await act(() => root.render(<TransloaditPicture {...props} mediaPlaceholderSrc="/new.gif" />))
-    expect(container.querySelector('img')?.getAttribute('src')).toBe('/new.gif')
-    expect(container.querySelector('[role="status"]')).toBeNull()
-    act(() => root.unmount())
-    container.remove()
-  })
-
   test.each([
     { timing: 'after hydration', artDirection: false, changeCandidates: false },
     { timing: 'before hydration', artDirection: false, changeCandidates: false },
@@ -165,7 +157,7 @@ describe('TransloaditPicture', () => {
       alt: 'Photo',
       height: 300,
       width: 400,
-      preload: artDirection,
+      priority: artDirection,
       model: artDirection
         ? { ...model, artDirection: [{ media: '(max-width: 639px)', model }] }
         : model,
@@ -328,7 +320,7 @@ describe('TransloaditPicture', () => {
     expect(() => renderPicture({ loading: 'eager', sizes })).toThrow(
       'Automatic image sizes require lazy loading',
     )
-    expect(() => renderPicture({ loading: undefined, preload: true, sizes })).toThrow(
+    expect(() => renderPicture({ loading: undefined, priority: true, sizes })).toThrow(
       'Automatic image sizes require lazy loading',
     )
   })
@@ -383,7 +375,7 @@ describe('TransloaditPicture', () => {
   test('preloads only the preferred source', () => {
     const document = renderPicture({
       loading: 'eager',
-      preload: true,
+      priority: true,
     })
     const preload = document.querySelector('link[rel="preload"]')
     const sources = [...document.querySelectorAll<HTMLSourceElement>('picture source')]
@@ -405,7 +397,7 @@ describe('TransloaditPicture', () => {
           crossOrigin="use-credentials"
           height={300}
           model={model}
-          preload
+          priority
           referrerPolicy="no-referrer"
           width={400}
         />,
@@ -422,120 +414,13 @@ describe('TransloaditPicture', () => {
     expect(image?.getAttribute('referrerpolicy')).toBe('no-referrer')
   })
 
-  test('rejects a media-gated preload instead of letting React deduplicate it incorrectly', () => {
-    expect(() =>
-      renderPicture({ loading: 'eager', media: '(min-width: 768px)', preload: true }),
-    ).toThrow('A media-gated Transloadit image cannot be preloaded')
-  })
-
-  test('escapes whitespace in a media-gated fallback srcset URL', () => {
-    const document = new DOMParser().parseFromString(
-      renderToStaticMarkup(
-        <TransloaditPicture
-          alt="A canal house"
-          height={300}
-          media="(min-width: 768px)"
-          model={{ ...model, fallbackUrl: '/images/my photo.jpg' }}
-          sizes="400px"
-          width={400}
-        />,
-      ),
-      'text/html',
-    )
-
-    expect(document.querySelectorAll('source').item(2).getAttribute('srcset')).toBe(
-      '/images/my%20photo.jpg',
-    )
-  })
-
-  test('encodes trailing commas in a media-gated fallback srcset URL', () => {
-    const document = new DOMParser().parseFromString(
-      renderToStaticMarkup(
-        <TransloaditPicture
-          alt="A canal house"
-          height={300}
-          media="(min-width: 768px)"
-          model={{ ...model, fallbackUrl: '/images/photo,,' }}
-          sizes="400px"
-          width={400}
-        />,
-      ),
-      'text/html',
-    )
-
-    expect(document.querySelectorAll('source').item(2).getAttribute('srcset')).toBe(
-      '/images/photo%2C%2C',
-    )
-  })
-
-  test('encodes leading commas in a media-gated fallback srcset URL', () => {
-    const document = new DOMParser().parseFromString(
-      renderToStaticMarkup(
-        <TransloaditPicture
-          alt="A canal house"
-          height={300}
-          media="(min-width: 768px)"
-          model={{ ...model, fallbackUrl: ',,/images/photo.jpg' }}
-          sizes="400px"
-          width={400}
-        />,
-      ),
-      'text/html',
-    )
-
-    expect(document.querySelectorAll('source').item(2).getAttribute('srcset')).toBe(
-      '%2C%2C/images/photo.jpg',
-    )
-  })
-
-  test('preserves the payload delimiter in a media-gated data URL fallback', () => {
-    const fallbackUrl = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
-    const document = new DOMParser().parseFromString(
-      renderToStaticMarkup(
-        <TransloaditPicture
-          alt="A canal house"
-          height={300}
-          media="(min-width: 768px)"
-          model={{ ...model, fallbackUrl }}
-          sizes="400px"
-          width={400}
-        />,
-      ),
-      'text/html',
-    )
-
-    expect(document.querySelectorAll('source').item(2).getAttribute('srcset')).toBe(fallbackUrl)
-  })
-
-  test('uses a neutral inline fallback while a media condition is unmatched', () => {
-    const document = renderPicture({ media: '(min-width: 768px)' })
-
-    expect(document.querySelector('img')?.getAttribute('src')).toMatch(/^data:image\/gif;base64,/)
-  })
-
-  test('accepts a CSP-compatible media placeholder', () => {
-    const document = renderPicture({
-      media: '(min-width: 768px)',
-      mediaPlaceholderSrc: '/images/transparent.gif',
-    })
-
-    expect(document.querySelector('img')?.getAttribute('src')).toBe('/images/transparent.gif')
-  })
-
   test('makes preload eager by default and rejects an explicitly lazy preload', () => {
-    const preloaded = renderPicture({ loading: undefined, preload: true })
+    const preloaded = renderPicture({ loading: undefined, priority: true })
 
     expect(preloaded.querySelector('img')?.getAttribute('loading')).toBe('eager')
-    expect(() => renderPicture({ loading: 'lazy', preload: true })).toThrow(
-      'A preloaded Transloadit image cannot use lazy loading',
+    expect(() => renderPicture({ loading: 'lazy', priority: true })).toThrow(
+      'A priority Transloadit image cannot use lazy loading',
     )
-  })
-
-  test('keeps deferred candidate elements out of server markup', () => {
-    const document = renderPicture({ deferUntilHydrated: true })
-
-    expect(document.querySelector('noscript img')?.getAttribute('src')).toBe(model.fallbackUrl)
-    expect(document.querySelectorAll('source')).toHaveLength(0)
   })
 
   test('rejects a renderer model with an empty candidate set', () => {
@@ -550,59 +435,5 @@ describe('TransloaditPicture', () => {
         />,
       ),
     ).toThrow('Cannot render an empty Transloadit image source')
-  })
-
-  const deferredLoadingCases: Array<{ loading: 'eager' | 'lazy'; preload: boolean }> = [
-    { loading: 'eager', preload: false },
-    { loading: 'lazy', preload: true },
-  ]
-
-  test.each(deferredLoadingCases)('rejects deferring an $loading image with preload=$preload', ({
-    loading,
-    preload,
-  }) => {
-    expect(() => renderPicture({ deferUntilHydrated: true, loading, preload })).toThrow(
-      'An eager or preloaded Transloadit image cannot be deferred until hydration',
-    )
-  })
-
-  test('hydrates one deferred picture without a recoverable error', async () => {
-    function DeferredPicture(): ReactNode {
-      return (
-        <TransloaditPicture
-          alt="A canal house"
-          deferUntilHydrated
-          height={300}
-          model={model}
-          sizes="400px"
-          width={400}
-        />
-      )
-    }
-
-    const container = document.createElement('div')
-    const recoverableErrors: unknown[] = []
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    container.innerHTML = renderToString(<DeferredPicture />)
-    document.body.append(container)
-    let root: Root | undefined
-
-    expect(container.querySelector('noscript')).not.toBeNull()
-    expect(container.querySelector('picture')).toBeNull()
-
-    await act(async () => {
-      root = hydrateRoot(container, <DeferredPicture />, {
-        onRecoverableError: (error) => recoverableErrors.push(error),
-      })
-      await Promise.resolve()
-    })
-
-    expect(container.querySelector('noscript')).toBeNull()
-    expect(container.querySelector('picture')).not.toBeNull()
-    expect(recoverableErrors).toEqual([])
-    expect(consoleError).not.toHaveBeenCalled()
-
-    act(() => root?.unmount())
-    container.remove()
   })
 })

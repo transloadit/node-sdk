@@ -10,12 +10,9 @@ import type { ImageAttributes, ImageLoadingProps } from './imageAttributes.ts'
 import { Fragment } from 'react'
 import { preload as preloadResource } from 'react-dom'
 
-import { HydratedTransloaditPicture } from './HydratedTransloaditPicture.tsx'
 import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
 import { StorageImageErrorBoundary } from './StorageImageErrorBoundary.tsx'
 
-const transparentPixel =
-  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
 const mimeTypes = {
   avif: 'image/avif',
   png: 'image/png',
@@ -24,14 +21,10 @@ const mimeTypes = {
 
 interface ImagePresentationProps extends Omit<ImageAttributes, 'height' | 'width'> {
   alt: string
-  deferUntilHydrated?: boolean
   /** Optional client-side image-load fallback. Does not replace the server-rendered picture. */
   errorFallback?: ReactNode
-  /** Change deliberately after signing in or retrying to reset a failed image with stable URLs. */
+  /** @experimental Change after signing in to reset a failed image with stable URLs. */
   retryKey?: string | number
-  media?: string
-  /** CSP-compatible placeholder used while `media` is unmatched. Defaults to an inline GIF. */
-  mediaPlaceholderSrc?: string
   /** Explicitly handles a display box whose aspect ratio differs from the source image. */
   objectFit?: CSSProperties['objectFit']
   /** Expected rendered widths. Browsers otherwise assume `100vw` for width-based source sets. */
@@ -63,20 +56,8 @@ function getMimeType(format: TransloaditImageSourceSet['format']): string {
   return mimeTypes[format]
 }
 
-function getImageRecoveryKey({
-  model,
-  media,
-  mediaPlaceholderSrc,
-  retryKey,
-}: TransloaditPictureProps): string {
-  const identity = JSON.stringify([
-    model.fallbackUrl,
-    model.sources,
-    model.artDirection,
-    media,
-    mediaPlaceholderSrc,
-    retryKey,
-  ])
+function getImageRecoveryKey({ model, retryKey }: TransloaditPictureProps): string {
+  const identity = JSON.stringify([model.fallbackUrl, model.sources, model.artDirection, retryKey])
   // FNV-1a is only a remount identity, never an authorization hash. Keep all candidate URLs out
   // of the Flight key without requiring Node crypto or asynchronous rendering in this component.
   let hash = 0xcbf29ce484222325n
@@ -126,30 +107,10 @@ function preloadImage(
   })
 }
 
-/**
- * Renders browser-selected responsive candidates with one fallback. `media` keeps an unmatched
- * viewport inert; the caller controls whether its layout still reserves space in that viewport.
- * `deferUntilHydrated` avoids WebKit parser-to-hydration request replay.
- */
+/** Renders immediately discoverable, browser-selected candidates with a JPEG fallback. */
 export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
-  const {
-    deferUntilHydrated = false,
-    loading,
-    media,
-    mediaPlaceholderSrc,
-    model,
-    objectFit,
-    preload = false,
-    sizes: explicitSizes,
-  } = props
-  if (deferUntilHydrated && (loading === 'eager' || preload)) {
-    throw new Error('An eager or preloaded Transloadit image cannot be deferred until hydration')
-  }
+  const { loading, model, objectFit, priority: preload = false, sizes: explicitSizes } = props
   snapshotImageLoading(props)
-  if (preload && media !== undefined) {
-    // React 19's responsive-preload identity omits media and can silently collapse art direction.
-    throw new Error('A media-gated Transloadit image cannot be preloaded')
-  }
   const resolvedLoading = loading ?? (preload ? 'eager' : 'lazy')
   const sizes = explicitSizes ?? (resolvedLoading === 'lazy' ? 'auto, 100vw' : '100vw')
   const automaticSizes = /^auto(?:\s*,|\s*$)/i.test(sizes.trimStart())
@@ -161,9 +122,8 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
   }
 
   const attributes = snapshotImageAttributes(props)
+  if (preload) attributes.fetchPriority = 'high'
   const artDirection = model.artDirection ?? []
-  if (media !== undefined && artDirection.length > 0)
-    throw new Error('Art direction cannot be combined with a media-gated picture')
   const original = (
     // biome-ignore lint/performance/noImgElement: This package is the image optimizer.
     <img
@@ -173,19 +133,9 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
       loading={resolvedLoading}
       // Without img srcset, only lazy auto sizing is valid here. Fallback lengths stay on source.
       sizes={automaticSizes ? 'auto' : undefined}
-      // The default avoids a request and broken-image UI. Strict img-src policies can supply a
-      // same-origin transparent asset; a matching <source> takes precedence over either fallback.
-      src={media ? (mediaPlaceholderSrc ?? transparentPixel) : model.fallbackUrl}
+      src={model.fallbackUrl}
       style={objectFit === undefined ? attributes.style : { ...attributes.style, objectFit }}
     />
-  )
-  const fallback = media ? (
-    <picture>
-      <source media={media} srcSet={escapeSourceSetUrl(model.fallbackUrl)} />
-      {original}
-    </picture>
-  ) : (
-    original
   )
 
   if (preload && artDirection.length === 0) {
@@ -248,13 +198,11 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
       {model.sources.map((source) => (
         <source
           key={source.format}
-          media={media}
           sizes={sizes}
           srcSet={getSourceSet(source.candidates)}
           type={getMimeType(source.format)}
         />
       ))}
-      {media ? <source media={media} srcSet={escapeSourceSetUrl(model.fallbackUrl)} /> : null}
       {original}
     </picture>
   )
@@ -270,11 +218,7 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
   return (
     <>
       {preloads}
-      {deferUntilHydrated ? (
-        <HydratedTransloaditPicture fallback={fallback}>{resolved}</HydratedTransloaditPicture>
-      ) : (
-        resolved
-      )}
+      {resolved}
     </>
   )
 }

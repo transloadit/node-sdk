@@ -54,6 +54,121 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
+test('the committed project catalog renders public images with no environment configuration', () => {
+  vi.stubEnv('TRANSLOADIT_WORKSPACE', undefined)
+  vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', undefined)
+  vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', undefined)
+  const catalog = { workspace: 'catalog-app', public: ['website/'], images }
+  const { StorageImage } = createStorageImages(catalog)
+  expect(
+    firstUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)).hostname,
+  ).toBe('catalog-app.tlcdn.com')
+  expect(connection).not.toHaveBeenCalled()
+})
+
+test('workspace environment is an explicit override of committed project identity', () => {
+  vi.stubEnv('TRANSLOADIT_WORKSPACE', 'override-app')
+  const { StorageImage } = createStorageImages({
+    workspace: 'catalog-app',
+    public: ['website/'],
+    images,
+  })
+  expect(
+    firstUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)).hostname,
+  ).toBe('override-app.tlcdn.com')
+})
+
+test('width is constrained by default and priority reserves an eager high-priority preload', () => {
+  const { StorageImage } = createStorageImages({
+    workspace: 'my-app',
+    public: ['website/'],
+    images,
+  })
+  const document = new DOMParser().parseFromString(
+    renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" width={960} priority />),
+    'text/html',
+  )
+  const image = document.querySelector('img')
+  expect(image?.style.maxWidth).toBe('960px')
+  expect(image?.style.width).toBe('100%')
+  expect(image?.getAttribute('loading')).toBe('eager')
+  expect(image?.getAttribute('fetchpriority')).toBe('high')
+  expect(document.querySelector('link[rel="preload"]')?.getAttribute('fetchpriority')).toBe('high')
+  expect(document.querySelector('source')?.getAttribute('sizes')).toBe(
+    '(min-width: 960px) 960px, 100vw',
+  )
+})
+
+test('the default width never enlarges a small receipt', () => {
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const markup = renderToStaticMarkup(
+    <StorageImage
+      src={{ path: 'website/small.jpg', width: 320, height: 240 }}
+      alt="Small"
+      width={960}
+    />,
+  )
+  expect(markup).toContain('max-width:320px')
+  expect(markup).toContain('width="320"')
+  expect(markup).toContain('height="240"')
+})
+
+test('duration strings and millisecond aliases issue identical capabilities and redirects', async () => {
+  const short = createStorageImages({
+    images,
+    authorize: () => true,
+    cacheMaxAge: '1m',
+    rotationInterval: '10m',
+    lifetime: '1h',
+  })
+  const legacy = createStorageImages({
+    images,
+    authorize: () => true,
+    cacheMaxAgeMs: 60_000,
+    rotationIntervalMs: 600_000,
+    lifetime: 3_600_000,
+  })
+  const url = firstUrl(
+    renderToStaticMarkup(<short.StorageImage src="website/hero.jpg" alt="Hero" />),
+  )
+  expect(
+    firstUrl(renderToStaticMarkup(<legacy.StorageImage src="website/hero.jpg" alt="Hero" />)),
+  ).toEqual(url)
+  const response = await short.storageRoute(new Request(url))
+  expect(response.headers.get('cache-control')).toBe('private, max-age=60')
+  expect(response.headers.get('location')).toBe(
+    (await legacy.storageRoute(new Request(url))).headers.get('location'),
+  )
+})
+
+test('art direction derives a responsive box and permits an externally owned fill box', () => {
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const aspectRatio = { '(max-width: 639px)': '9/16', default: '16/9' }
+  const markup = renderToStaticMarkup(
+    <StorageImage
+      src="website/hero.jpg"
+      alt="Hero"
+      layout="fill"
+      fit="cover"
+      aspectRatio={aspectRatio}
+    />,
+  )
+  expect(markup).toContain('aspect-ratio:1.7777777777777777')
+  expect(markup).toContain('@media (max-width: 639px)')
+  expect(markup).toContain('aspect-ratio:0.5625')
+  const external = renderToStaticMarkup(
+    <StorageImage
+      src="website/hero.jpg"
+      alt="Hero"
+      layout="fill"
+      fit="cover"
+      aspectRatio={aspectRatio}
+      frame={false}
+    />,
+  )
+  expect(external).not.toContain('aspect-ratio')
+})
+
 test('requires an explicit delivery choice, naming all three alternatives', () => {
   expect(() => createStorageImages({ images })).toThrow(
     new TypeError("Choose public, authorize, or delivery: 'direct' for Storage images"),
@@ -61,6 +176,7 @@ test('requires an explicit delivery choice, naming all three alternatives', () =
 })
 
 test('one factory accepts explicit credentials and retains the redirect overload', async () => {
+  vi.stubEnv('TRANSLOADIT_WORKSPACE', undefined)
   const { StorageImage, storageRoute } = createStorageImages({
     images,
     authKey: 'explicit-key',
@@ -82,7 +198,7 @@ test('exports only the single Next.js factory, not the unpublished aliases', asy
 test('public catalog images are static with unsigned direct URLs and no signing shell', () => {
   const { StorageImage } = createStorageImages({ images, public: ['website/'] })
   const markup = renderToStaticMarkup(
-    <StorageImage src="website/hero.jpg" alt="Hero" layout="constrained" maxWidth={960} preload />,
+    <StorageImage src="website/hero.jpg" alt="Hero" layout="constrained" width={960} priority />,
   )
   const url = firstUrl(markup)
   expect(url.hostname).toBe('my-app.tlcdn.com')
@@ -284,6 +400,7 @@ test('direct factory imports need no credentials; first use validates them lazil
 })
 
 test('explicit credentials use the same flat catalog configuration', () => {
+  vi.stubEnv('TRANSLOADIT_WORKSPACE', undefined)
   const { StorageImage } = createStorageImages({
     authKey: 'explicit-key',
     authSecret: 'explicit-secret',

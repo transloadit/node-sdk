@@ -8,6 +8,12 @@ import { z } from 'zod'
 import { describeCliCredentialSource, resolveCliConfig } from '../helpers.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import {
+  defaultStorageCatalog,
+  readStorageCatalog,
+  updateStorageReceipts,
+} from '../storageReceipts.ts'
+import { resolveStorageWorkspace } from '../storageS3.ts'
+import {
   nextAppRoot,
   storageImageEnvBlock,
   storageImageFactory,
@@ -31,13 +37,16 @@ export class ImageInitCommand extends UnauthenticatedCommand {
   publicDelivery = Option.Boolean('--public', false, {
     description: 'Publish this directory on the server and use permanent unsigned image URLs',
   })
-  receipts = Option.String('--receipts', 'images.json', {
+  receipts = Option.String('--receipts', defaultStorageCatalog, {
     description: 'Rendering catalog imported by the factory',
   })
   writeEnv = Option.Boolean('--write-env', false, {
     description: 'Reuse the saved login in an owner-only .env.local; never overwrite it',
   })
   prefix = Option.String({ required: true })
+  workspace = Option.String('--workspace', {
+    description: 'Workspace expected for the selected credentials',
+  })
 
   protected async run(): Promise<number | undefined> {
     const created: string[] = []
@@ -45,6 +54,8 @@ export class ImageInitCommand extends UnauthenticatedCommand {
     try {
       if (this.privateDelivery && this.publicDelivery)
         throw new Error('Choose either --private or --public, not both')
+      if (!this.privateDelivery && !this.publicDelivery)
+        throw new Error('Choose either --public or --private')
       const prefix =
         this.prefix.endsWith('/') || this.prefix === '' ? this.prefix : `${this.prefix}/`
       try {
@@ -60,21 +71,20 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       if (root === undefined)
         throw new Error('Run image init in a Next.js project containing app/ or src/app/')
       let environment: string | undefined
-      const login = this.writeEnv ? resolveCliConfig('login') : undefined
-      if (login?.loadError !== undefined) throw new Error(login.loadError)
-      if (this.writeEnv) {
+      const saved = resolveCliConfig('login')
+      if (saved.loadError !== undefined) throw new Error(saved.loadError)
+      const login = saved.auth === undefined ? resolveCliConfig() : saved
+      if (!this.setupClient(login)) return 1
+      this.output.notice(describeCliCredentialSource(login))
+      if (this.writeEnv && this.privateDelivery) {
         const value = z
           .string()
           .min(1)
           .max(4096)
           .regex(/^[^\s][^\r\n\0]*$/)
           .refine((text) => text.trim() === text)
-        const workspace = z.object({ TRANSLOADIT_WORKSPACE: value })
-        const renderingValues = this.publicDelivery
-          ? workspace
-          : workspace.extend({ TRANSLOADIT_KEY: value, TRANSLOADIT_SECRET: value })
+        const renderingValues = z.object({ TRANSLOADIT_KEY: value, TRANSLOADIT_SECRET: value })
         const parsed = renderingValues.safeParse({
-          TRANSLOADIT_WORKSPACE: login?.credentialsWorkspace,
           TRANSLOADIT_KEY: login?.credentials?.authKey,
           TRANSLOADIT_SECRET: login?.credentials?.authSecret,
         })
@@ -94,12 +104,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           })
           .join('')
       }
-      const catalogExists = await lstat(this.receipts).catch((error: unknown) => {
-        if (isErrnoException(error) && error.code === 'ENOENT') return undefined
-        throw error
-      })
-      if (catalogExists !== undefined && !catalogExists.isFile())
-        throw new Error('The rendering catalog must be a regular file')
+      const catalog = await readStorageCatalog(this.receipts)
       const pageDirectory = `${root}app/storage-image-example`
       const files = [
         {
@@ -107,14 +112,12 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           content: storageImageFactory({
             prefix,
             privateDelivery: this.privateDelivery,
-            publicDelivery: this.publicDelivery,
             receiptsImport: relative(resolve(`${root}lib`), resolve(this.receipts)).replaceAll(
               '\\',
               '/',
             ),
           }),
         },
-        ...(catalogExists === undefined ? [{ path: this.receipts, content: '{}\n' }] : []),
         {
           path: `${pageDirectory}/page.tsx`,
           content: storageImagePage(
@@ -140,16 +143,30 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         })
         if (existing !== undefined) throw new Error(`Refusing to overwrite ${file.path}`)
       }
-      if (this.publicDelivery) {
-        if (!this.setupClient(login)) return 1
-        this.output.notice(describeCliCredentialSource(this.cliConfig))
-        const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
-          throw new Error(storagePublicError(cause), { cause })
-        })
-        published = result.prefix
-      }
-      if (!this.publicDelivery && login !== undefined)
-        this.output.notice(describeCliCredentialSource(login))
+      await updateStorageReceipts(this.receipts, async (previous) => {
+        const workspace = await resolveStorageWorkspace(this, login, previous?.workspace)
+        if (previous !== undefined && previous.workspace !== workspace)
+          throw new Error(
+            'Use --receipts with a separate catalog when initializing another workspace. Nothing was written.',
+          )
+        if (this.publicDelivery) {
+          const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
+            throw new Error(storagePublicError(cause), { cause })
+          })
+          published = result.prefix
+        }
+        return {
+          workspace,
+          public: [
+            ...new Set([
+              ...(previous?.public ?? []),
+              ...(published === undefined ? [] : [published]),
+            ]),
+          ],
+          images: previous?.images ?? {},
+        }
+      })
+      if (catalog === undefined) created.push(this.receipts)
       for (const file of files) {
         await mkdir(dirname(file.path), { recursive: true })
         const handle = await open(file.path, 'wx', file.path === '.env.local' ? 0o600 : 0o666)
@@ -162,12 +179,10 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       }
       const instruction = this.privateDelivery
         ? 'Connect your application session and per-object authorization in storageImage.ts; the generated handler denies access until then.'
-        : this.publicDelivery
-          ? 'The directory is published. Public images use permanent unsigned CDN URLs; cached bytes cannot be recalled.'
-          : 'Private direct images render at request time. Use --public only for a public directory, or --private for request-authorized redirects.'
+        : 'The directory is published. Public images use permanent unsigned CDN URLs; cached bytes cannot be recalled.'
       const envBlock = storageImageEnvBlock(this.publicDelivery)
       this.output.print(
-        `Created ${created.join(', ')}\n${instruction}\nAdd an image with storage store and open /storage-image-example. Commit ${this.receipts}.\n${this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
+        `Created ${created.join(', ')}\n${instruction}\nAdd an image with storage store and open /storage-image-example. Commit ${this.receipts}.\n${this.publicDelivery ? 'Public rendering needs no environment variables, locally or on your host.' : this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
         { files: created, environment: envBlock },
       )
       return undefined

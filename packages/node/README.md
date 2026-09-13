@@ -110,30 +110,32 @@ Most commands can authenticate with either `TRANSLOADIT_AUTH_TOKEN` or `TRANSLOA
 ### Storage images for Next.js
 
 `@transloadit/img` is currently an unpublished, private preview. Follow the
-[local package instructions](https://github.com/transloadit/node-sdk/blob/main/docs/img-dogfood.md)
+[local package instructions](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md)
 until release. In a Next.js 16.3.3+ App Router project with Storage enabled, run:
 
 ```bash
 yarn transloadit auth login
-yarn transloadit image init website/ --public --write-env
+yarn transloadit image init website/ --public
 yarn transloadit storage store ./hero.jpg website/hero.jpg
 yarn dev
 ```
 
-Open `/storage-image-example`. Login opens browser approval and saves one combined Auth Key,
+Open `/storage-image-example`. Login opens browser approval (on Windows, open the printed URL) and saves one combined Auth Key,
 workspace and signing algorithm in the owner-only credentials file. `--no-browser` prints the
 approval URL; `--stdin` accepts dotenv credentials for automation. Existing credentials require
 `--replace`. Login also checks Storage policy access with a bounded read-only request; if that
 fails, it saves the login and prints a Console link. This check does not prove upload availability.
 
-Init declares `website/` public, creates the image factory, an empty `images.json` and an example
-page. Public `--write-env` writes only `TRANSLOADIT_WORKSPACE` to a new `.env.local`: no secret
-enters the app. Private init (`image init uploads/ --private --write-env`) writes all three
+Init requires `--public` or `--private`. Public init declares `website/` public and creates a
+factory, an empty `transloadit.images.json` catalog and a runnable example page. The catalog carries
+workspace, public prefixes and image receipts: no app env file or hosting variables are needed.
+Private init (`image init uploads/ --private --write-env`) writes the key and secret
 rendering values and a route that denies access until you connect per-object authorization.
 Existing code/env files are never overwritten. Missing trailing directory slashes are accepted.
 
-Store uploads one original and appends a validated receipt to `images.json`; commit this catalog.
-It prints a ready-to-paste constrained image using the receipt width, capped at 960 pixels.
+Store uploads originals and appends validated receipts to `transloadit.images.json`; commit it.
+`storage store ./images/*.jpg website/` stores shell-expanded files, checkpointing each success.
+It prints `width={960}` (bounded by the original) with an empty decorative alt and a reminder.
 An occupied path conflicts unless `--overwrite` is explicit; use immutable filenames where possible.
 Publication is separate from storing:
 
@@ -142,7 +144,9 @@ yarn transloadit storage publish website/
 yarn transloadit storage publications
 yarn transloadit storage unpublish website/
 yarn transloadit storage ls website/
-yarn transloadit storage receipts sync website/ --receipts images.json
+yarn transloadit storage receipts sync website/
+yarn transloadit auth status
+yarn transloadit auth logout
 ```
 
 Unpublishing stops origin access but cannot recall cached/downloaded bytes. List and sync use
@@ -151,8 +155,11 @@ Sync rebuilds dimensions via List + HEAD without downloading originals. Upload e
 retained only when the original MD5 still matches; failures preserve the existing catalog.
 
 Storage commands report the selected credential source on stderr before operating. Ordinary
-commands retain shell → project `.env` → saved login precedence; init with `--write-env` uses the
-saved login explicitly. Remove stale overrides to avoid uploading into a different workspace.
+commands retain shell → project `.env` → saved login precedence; init prefers the saved login.
+Store, list, sync and publication verify the selected key against the catalog workspace and stop
+before acting on a mismatch. An explicit `--workspace` opts out, but never mixes catalogs: use
+`--receipts` for a separate workspace's catalog. Status shows the saved workspace/key description;
+logout revokes that key before deleting the credentials file and preserves it if revocation fails.
 The endpoint stays bound to those credentials unless explicitly overridden. JSON result output
 stays on stdout; credentials are never printed. See the
 [image Quickstart](https://github.com/transloadit/node-sdk/blob/main/packages/img/README.md)
@@ -1988,5 +1995,3 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
-
-

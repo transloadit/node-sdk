@@ -4,6 +4,7 @@ import { basename, dirname, join } from 'node:path'
 
 import { z } from 'zod'
 
+import { normalizeStoragePublicPrefix } from '../storagePublicPrefixes.ts'
 import { ensureError, isErrnoException } from './types.ts'
 
 // Keep every JSON key verbatim: a Storage filename may be "__proto__", which z.record strips.
@@ -11,32 +12,68 @@ const receiptsSchema = z.custom<Record<string, unknown>>(
   (value: unknown) => typeof value === 'object' && value !== null && !Array.isArray(value),
 )
 
+/** Nonsecret project identity and rendering metadata, committed together. */
+export const storageCatalogSchema = z.object({
+  workspace: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/),
+  public: z.array(
+    z.string().refine((prefix) => {
+      try {
+        return normalizeStoragePublicPrefix(prefix) === prefix
+      } catch {
+        return false
+      }
+    }, 'Expected a normalized public directory'),
+  ),
+  images: receiptsSchema,
+})
+export type StorageProjectCatalog = z.infer<typeof storageCatalogSchema>
+
+/** Default project catalog; --receipts can select a separate project explicitly. */
+export const defaultStorageCatalog = 'transloadit.images.json'
+
 async function readReceipts(
   file: string,
-): Promise<{ receipts: Record<string, unknown>; mode?: number }> {
+): Promise<{ catalog?: StorageProjectCatalog; mode?: number }> {
   try {
     const info = await lstat(file)
     if (!info.isFile()) throw new Error('Expected a regular JSON file, not a symlink or directory')
     return {
-      receipts: receiptsSchema.parse(JSON.parse(await readFile(file, 'utf8'))),
+      catalog: storageCatalogSchema.parse(JSON.parse(await readFile(file, 'utf8'))),
       mode: info.mode & 0o777,
     }
   } catch (error) {
-    if (isErrnoException(error) && error.code === 'ENOENT') return { receipts: {} }
+    if (isErrnoException(error) && error.code === 'ENOENT') return {}
     const reason =
       error instanceof SyntaxError
         ? 'invalid JSON'
         : error instanceof z.ZodError
-          ? 'expected a JSON object keyed by Storage path'
+          ? 'expected a project catalog with workspace, public and images'
           : ensureError(error).message
     throw new Error(`Cannot read receipts ${JSON.stringify(file)}: ${reason}`, { cause: error })
   }
 }
 
+/** Read a project binding without creating a catalog or making a network request. */
+export async function readStorageCatalog(file: string): Promise<StorageProjectCatalog | undefined> {
+  return (await readReceipts(file)).catalog
+}
+
+/** A workspace override selects another workspace, never another key or implicit project rebinding. */
+export function assertStorageWorkspace(actual: string, project?: string, requested?: string): void {
+  if (requested !== undefined && requested !== actual)
+    throw new Error(`Selected credentials belong to ${actual}, not ${requested}. Nothing uploaded.`)
+  if (project !== undefined && project !== actual && requested === undefined)
+    throw new Error(
+      `Project uses ${project}; the selected credentials belong to ${actual}. Nothing uploaded.`,
+    )
+}
+
 /** Serializes CLI receipt writers and replaces a catalog only after the complete update succeeds. */
 export async function updateStorageReceipts(
   file: string,
-  update: (receipts: Record<string, unknown>) => Promise<Record<string, unknown>>,
+  update: (
+    catalog: StorageProjectCatalog | undefined,
+  ) => Promise<StorageProjectCatalog | undefined>,
 ): Promise<void> {
   const lockPath = `${file}.lock`
   const temporary = join(dirname(file), `.${basename(file)}.${randomUUID()}.tmp`)
@@ -52,8 +89,10 @@ export async function updateStorageReceipts(
   })
   let retainTemporary = false
   try {
-    const { receipts, mode } = await readReceipts(file)
-    const updated = await update(receipts)
+    const { catalog, mode } = await readReceipts(file)
+    const updated = await update(catalog)
+    // An explicit one-off workspace override must not mix two workspaces in one catalog.
+    if (updated === undefined) return
     // New catalogs are ordinary source files: let the kernel apply umask, without reading it.
     await writeFile(temporary, `${JSON.stringify(updated, null, 2)}\n`, {
       flag: 'wx',

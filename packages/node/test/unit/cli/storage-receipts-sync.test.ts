@@ -99,15 +99,67 @@ function listed(path = 'website/a.jpg'): nock.Scope {
     )
 }
 
-test('defaults the rendering catalog to images.json', async () => {
+test('defaults the rendering catalog to transloadit.images.json', async () => {
   const api = listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
   await main(['storage', 'receipts', 'sync', 'website/'])
   expect(process.exitCode).toBeUndefined()
-  expect(JSON.parse(await readFile('images.json', 'utf8'))['website/a.jpg']).toMatchObject({
+  expect(
+    JSON.parse(await readFile('transloadit.images.json', 'utf8')).images['website/a.jpg'],
+  ).toMatchObject({
     width: 800,
     height: 600,
   })
   expect(api.isDone()).toBe(true)
+})
+
+test.each([
+  { command: ['ls'] },
+  { command: ['receipts', 'sync'] },
+])('storage $command refuses a different key workspace before listing objects', async ({
+  command,
+}) => {
+  await writeFile(
+    'transloadit.images.json',
+    JSON.stringify({ workspace: 'project-app', public: [], images: {} }),
+  )
+  const discovery = storageApi()
+  await main(['storage', ...command, 'website/'])
+  expect(discovery.isDone()).toBe(true)
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Project uses project-app; the selected credentials belong to my-app. Nothing uploaded.',
+  )
+  expect(OutputCtl.prototype.print).not.toHaveBeenCalled()
+})
+
+test('an explicit other workspace never retains upload evidence or claims to update the project catalog', async () => {
+  const previous = JSON.stringify({
+    workspace: 'other-app',
+    public: ['website/'],
+    images: {
+      'website/a.jpg': {
+        path: 'website/a.jpg',
+        width: 800,
+        height: 600,
+        md5hash: md5,
+        asset_id: 'other-workspace-id',
+        size: 123,
+      },
+    },
+  })
+  await writeFile('images.json', previous)
+  const api = listed()
+    .head('/storage/my-app/website/a.jpg')
+    .reply(200, '', { ...metadata, etag: `"${md5}"` })
+  await runSync(['--workspace', 'my-app'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(await readFile('images.json', 'utf8')).toBe(previous)
+  const printed = vi.mocked(OutputCtl.prototype.print).mock.calls[0]
+  expect(printed?.[1]).toEqual({
+    'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600, md5hash: md5 },
+  })
+  expect(printed?.[0]).toContain('Catalog unchanged')
 })
 
 test('rebuilds a rendering catalog from paginated List + HEAD without asset IDs or image GETs', async () => {
@@ -142,7 +194,7 @@ test('rebuilds a rendering catalog from paginated List + HEAD without asset IDs 
     'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600, md5hash: md5 },
     'website/b.jpg': { path: 'website/b.jpg', width: 1200, height: 900 },
   }
-  expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual(expected)
+  expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual(expected)
   expect(await readFile('images.json', 'utf8')).toMatch(/\n$/)
   expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
@@ -202,7 +254,7 @@ test.each([
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('Expected a local port')
-  const previous = '{"other.jpg":{"owner":"app"}}\n'
+  const previous = catalogJson({ 'other.jpg': { owner: 'app' } })
   await writeFile('images.json', previous)
   const options = [
     '--endpoint',
@@ -246,7 +298,7 @@ test.each([
   await runSync(endpoint === undefined ? [] : ['--endpoint', endpoint])
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
-  expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({})
+  expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({})
 })
 
 test.each([
@@ -261,14 +313,14 @@ test.each([
     asset_id: 'verified-asset',
     size: 123,
   }
-  await writeFile('images.json', JSON.stringify({ [receipt.path]: receipt }))
+  await writeFile('images.json', catalogJson({ [receipt.path]: receipt }))
   const api = listed()
     .head('/storage/my-app/website/a.jpg')
     .reply(200, '', { ...metadata, etag: `"${md5}"` })
   await runSync()
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
-  expect(JSON.parse(await readFile('images.json', 'utf8'))[receipt.path]).toEqual({
+  expect(JSON.parse(await readFile('images.json', 'utf8')).images[receipt.path]).toEqual({
     ...receipt,
     width: 800,
     height: 600,
@@ -287,13 +339,13 @@ test('refreshes matched entries without stale upload fields and preserves unmatc
     'website/deleted.jpg': { kept: true },
     'website/a.jpg': { asset_id: 'old', size: 999, md5hash: 'stale' },
   }
-  await writeFile('images.json', JSON.stringify(previous))
+  await writeFile('images.json', catalogJson(previous))
   await chmod('images.json', 0o640)
   const api = listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
   await runSync()
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
-  expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({
+  expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({
     ...previous,
     'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600 },
   })
@@ -316,7 +368,7 @@ test.each([
   await runSync()
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
-  const receipt = JSON.parse(await readFile('images.json', 'utf8'))['website/a.jpg']
+  const receipt = JSON.parse(await readFile('images.json', 'utf8')).images['website/a.jpg']
   expect(receipt.md5hash).toBe(expectedMd5)
   expect(receipt).not.toHaveProperty('asset_id')
 })
@@ -332,7 +384,7 @@ test.each([
   '1e3',
   '9007199254740992',
 ])('fails atomically for missing/invalid image dimensions %j', async (width) => {
-  const previous = '{"unrelated":{"keep":true}}\n'
+  const previous = catalogJson({ unrelated: { keep: true } })
   await writeFile('images.json', previous)
   const api = listed()
     .head('/storage/my-app/website/a.jpg')
@@ -354,7 +406,7 @@ test.each([
   '<IsTruncated>true</IsTruncated>',
   '<IsTruncated>true</IsTruncated><NextContinuationToken>loop</NextContinuationToken>',
 ])('rejects incomplete/repeated pagination before changing the file', async (cursor) => {
-  const previous = '{"keep":true}'
+  const previous = catalogJson({ keep: true })
   await writeFile('images.json', previous)
   const api = storageApi()
     .get('/storage/my-app/')
@@ -385,7 +437,7 @@ test.each([
 test.each([
   403, 404,
 ])('identifies a failed HEAD (HTTP %i) safely and preserves the entire previous catalog', async (status) => {
-  const previous = '{"keep":true}'
+  const previous = catalogJson({ keep: true })
   await writeFile('images.json', previous)
   const api = listed()
     .head('/storage/my-app/website/a.jpg')
@@ -403,7 +455,7 @@ test.each([
 })
 
 test('does not save an earlier successful HEAD when a later image lacks height', async () => {
-  const previous = '{"keep":true}'
+  const previous = catalogJson({ keep: true })
   await writeFile('images.json', previous)
   const api = storageApi()
     .get('/storage/my-app/')
@@ -458,7 +510,7 @@ test.each([
 })
 
 test('retains the new complete catalog and releases its lock if atomic replacement fails', async () => {
-  const previous = '{"keep":true}'
+  const previous = catalogJson({ keep: true })
   await writeFile('images.json', previous)
   vi.mocked(rename).mockRejectedValueOnce(new Error('EACCES: rename denied'))
   const api = listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
@@ -471,9 +523,13 @@ test('retains the new complete catalog and releases its lock if atomic replaceme
   const temporary = files.find((name) => name.endsWith('.tmp'))
   expect(temporary).toBeDefined()
   if (temporary === undefined) throw new Error('Expected retained complete catalog')
-  expect(JSON.parse(await readFile(temporary, 'utf8'))).toEqual({
+  expect(JSON.parse(await readFile(temporary, 'utf8')).images).toEqual({
     keep: true,
     'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600 },
   })
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining(temporary))
 })
+
+function catalogJson(images: Record<string, unknown>): string {
+  return `${JSON.stringify({ workspace: 'my-app', public: [], images })}\n`
+}

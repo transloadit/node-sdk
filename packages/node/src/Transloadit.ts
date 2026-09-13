@@ -67,6 +67,7 @@ import got, { HTTPError, RequestError } from 'got'
 import intoStream from 'into-stream'
 import { isReadableStream, isStream } from 'is-stream'
 import pMap from 'p-map'
+import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
 import { ApiError } from './ApiError.ts'
@@ -1241,6 +1242,16 @@ export class Transloadit {
       urlSuffix: `/templates/${templateId}`,
       method: 'delete',
     })
+  }
+
+  /** Revoke the signing Auth Key itself, without granting access to other workspace keys. */
+  async revokeOwnAuthKey(): Promise<void> {
+    const result = await this._remoteJson({
+      urlSuffix: '/auth_keys/self',
+      method: 'delete',
+    })
+    checkResult(result)
+    z.object({ ok: z.literal('AUTH_KEY_DELETED') }).parse(result)
   }
 
   /**

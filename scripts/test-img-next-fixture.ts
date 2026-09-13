@@ -409,8 +409,8 @@ async function main(): Promise<void> {
           'Storage shell does not reserve image layout',
         )
         assert(
-          storageShell.includes('width="2400"') && storageShell.includes('height="1600"'),
-          'Hero source dimensions are absent',
+          storageShell.includes('width="960"') && storageShell.includes('height="640"'),
+          'Constrained hero display dimensions are absent',
         )
         assert(
           storageShell.includes('height:auto;max-width:960px;width:100%'),
