@@ -23,7 +23,7 @@ const deviceSchema = z.object({
 })
 const authorizedSchema = z.object({
   ok: z.literal('CLI_DEVICE_AUTHORIZED'),
-  signature_algo: cliSignatureAlgorithmSchema,
+  signature_algo: cliSignatureAlgorithmSchema.nullable(),
   workspace: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/),
   auth_key: z
     .string()
@@ -168,7 +168,7 @@ export async function deviceLogin(
       return {
         authKey: authorized.data.auth_key,
         authSecret: authorized.data.auth_secret,
-        signatureAlgorithm: authorized.data.signature_algo,
+        signatureAlgorithm: authorized.data.signature_algo ?? undefined,
         workspace: authorized.data.workspace,
         authKeyId: authorized.data.auth_key_id,
         description: authorized.data.description,

@@ -102,6 +102,24 @@ function createDevice(response = created): nock.Scope {
     .reply(200, response)
 }
 
+test('device login accepts API2 unrestricted keys with a null signature algorithm', async () => {
+  const api = createDevice()
+    .post('/cli/device_authorizations/token')
+    .reply(200, {
+      ...authorized,
+      signature_algo: null,
+    })
+  await login(['--no-browser'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  const credentials = resolveCliConfig('login').credentials
+  expect(credentials?.signatureAlgorithm).toBeUndefined()
+  if (credentials === undefined) throw new Error('Expected saved unrestricted credentials')
+  const signed = new Transloadit(credentials).calcSignature({ steps: {} })
+  expect(signed.signature).toBe(signParamsSync(signed.params, authorized.auth_secret, 'sha384'))
+  expect(await readFile('credentials', 'utf8')).not.toContain('SIGNATURE_ALGORITHM')
+})
+
 test('status reports saved login identity and logout revokes only that key before removing the file', async () => {
   const authKeyId = '12345678901234567890123456789012'
   const api = createDevice()

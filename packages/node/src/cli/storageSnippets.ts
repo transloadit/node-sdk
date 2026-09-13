@@ -31,7 +31,7 @@ export function storageImageFactory({
       '',
       'export const { StorageImage, storageRoute } = createStorageImages({',
       '  ...catalog,',
-      `  allowedPathPrefixes: [${JSON.stringify(prefix)}],`,
+      `  allowedPathPrefixes: [${JSON.stringify(prefix)}, ...catalog.public],`,
       '  // Replace with your application session and per-object authorization.',
       '  authorize: () => false,',
       '})',
@@ -47,8 +47,8 @@ export function storageImageFactory({
   ].join('\n')
 }
 
-/** A scaffold that can render before the first upload, then displays the first catalog image. */
-export function storageImagePage(receiptsImport: string): string {
+/** An empty-safe scaffold showing the first receipt in the initialized directory. */
+export function storageImagePage(receiptsImport: string, prefix: string): string {
   return [
     "import type { TransloaditImageSource } from '@transloadit/img'",
     "import { StorageImage } from '../../lib/storageImage'",
@@ -56,7 +56,7 @@ export function storageImagePage(receiptsImport: string): string {
     '',
     'export default function Page() {',
     '  const images: Record<string, TransloaditImageSource> = catalog.images',
-    '  const image = Object.values(images)[0]',
+    `  const image = Object.values(images).find((image) => image.path.startsWith(${JSON.stringify(prefix)}))`,
     '  if (image === undefined) return <p>Add an image with transloadit storage store to see it here.</p>',
     '  return (',
     '    // Empty alt is decorative; replace it for an informative image.',

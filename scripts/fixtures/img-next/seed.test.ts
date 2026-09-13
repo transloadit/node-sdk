@@ -88,6 +88,26 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   await cp(directory, join(originalCwd, 'app/cli-empty'), { recursive: true })
   await cli.main(['storage', 'store', './hero.jpg', 'website/hero.jpg'])
   assert.equal(process.exitCode, undefined)
+  const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
+  const mixedCatalog = {
+    ...catalog,
+    images: {
+      'accounts/avatar.jpg': { path: 'accounts/avatar.jpg', width: 200, height: 200 },
+      ...catalog.images,
+    },
+  }
+  // An unrelated private entry must not become the generated public example's first image.
+  await writeFile('transloadit.images.json', `${JSON.stringify(mixedCatalog)}\n`)
+
+  const privateDirectory = join(originalCwd, 'app/cli-private')
+  await mkdir(join(privateDirectory, 'app'), { recursive: true })
+  process.chdir(privateDirectory)
+  await writeFile('transloadit.images.json', `${JSON.stringify(mixedCatalog)}\n`)
+  await cli.main(['image', 'init', 'uploads/', '--private'])
+  assert.equal(process.exitCode, undefined)
+  // The generated factory must import successfully with preserved public policy, and its
+  // example must stay empty when the catalog has images only outside uploads/.
+  process.chdir(directory)
   const printed = output.join('')
   const page = await readFile('app/storage-image-example/page.tsx', 'utf8')
   assert(page.includes('width={960} priority'))

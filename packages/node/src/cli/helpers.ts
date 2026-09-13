@@ -2,7 +2,7 @@ import type { Readable } from 'node:stream'
 
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { homedir, userInfo } from 'node:os'
 import path from 'node:path'
 
 import { parse as parseDotenv } from 'dotenv'
@@ -27,7 +27,9 @@ type CliEnvSource = {
 let loadedProjectDotenvPath: string | undefined
 let projectDotenvInjectedValues: Record<string, string> | undefined
 let projectDotenvPreviousValues: Record<string, string | undefined> | undefined
-let shellEnvBeforeProjectDotenv: Record<string, string | undefined> | undefined
+let shellEnvBeforeProjectDotenv:
+  | { values: Record<string, string | undefined>; homeDirectory: string }
+  | undefined
 
 type LoadCliEnvSourcesResult = {
   loadError?: string
@@ -56,6 +58,11 @@ function normalizeEnvValue(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined
 }
 
+function credentialHomeDirectory(): string {
+  // Node returns an empty directory for HOME=""; credentials must not become repo-relative.
+  return homedir() || userInfo().homedir
+}
+
 /** Login and its env scaffold accept only a shell path override; ordinary reads retain merged lookup. */
 export function getConfiguredCredentialsFilePath(source: 'shell' | 'merged' = 'merged'): string {
   const values = source === 'shell' ? getShellEnvValues() : process.env
@@ -64,7 +71,12 @@ export function getConfiguredCredentialsFilePath(source: 'shell' | 'merged' = 'm
     return path.resolve(configuredPath)
   }
 
-  return path.join(homedir(), '.transloadit', 'credentials')
+  // HOME/USERPROFILE from project dotenv must not redirect the login's default destination.
+  const shellHome =
+    source === 'shell' && loadedProjectDotenvPath === getProjectDotenvPath()
+      ? shellEnvBeforeProjectDotenv?.homeDirectory
+      : undefined
+  return path.join(shellHome ?? credentialHomeDirectory(), '.transloadit', 'credentials')
 }
 
 function getProjectDotenvPath(): string {
@@ -129,7 +141,10 @@ export function loadProjectDotenvIntoProcessEnv(): string | undefined {
   const projectDotenvPath = getProjectDotenvPath()
   if (loadedProjectDotenvPath !== projectDotenvPath) {
     restoreProjectDotenvFromProcessEnv()
-    shellEnvBeforeProjectDotenv = { ...process.env }
+    shellEnvBeforeProjectDotenv = {
+      values: { ...process.env },
+      homeDirectory: credentialHomeDirectory(),
+    }
     loadedProjectDotenvPath = projectDotenvPath
   }
 
@@ -161,7 +176,7 @@ export function loadProjectDotenvIntoProcessEnv(): string | undefined {
 
 function getShellEnvValues(): Record<string, string | undefined> {
   if (loadedProjectDotenvPath === getProjectDotenvPath() && shellEnvBeforeProjectDotenv != null) {
-    return shellEnvBeforeProjectDotenv
+    return shellEnvBeforeProjectDotenv.values
   }
 
   return { ...process.env }

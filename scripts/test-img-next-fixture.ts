@@ -360,6 +360,16 @@ async function main(): Promise<void> {
       )
 
       const appOutput = resolve(fixtureDir, '.next/server/app')
+      const generatedPrivateHtml = await readFile(
+        resolve(appOutput, 'cli-private/app/storage-image-example.html'),
+        'utf8',
+      )
+      assert(
+        generatedPrivateHtml.includes(
+          'Add an image with transloadit storage store to see it here.',
+        ),
+        'The private scaffold must preserve public policy and ignore images outside its directory',
+      )
       const outputNames = await readdir(appOutput, { recursive: true })
       assert(
         outputNames.includes('public-image.html'),

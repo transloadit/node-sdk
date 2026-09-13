@@ -122,6 +122,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           path: `${pageDirectory}/page.tsx`,
           content: storageImagePage(
             relative(resolve(pageDirectory), resolve(this.receipts)).replaceAll('\\', '/'),
+            prefix,
           ),
         },
         ...(this.privateDelivery

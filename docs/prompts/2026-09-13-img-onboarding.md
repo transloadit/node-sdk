@@ -67,5 +67,10 @@ workspace. Red-first cases cover these boundaries; workspace-option precedence i
 Live logout also exposed the documented asynchronous API2 cache boundary: explicit revocation
 soft-deletes immediately, while this daemon-free test uploader denied reads after 116 seconds.
 The failed immediate-denial assumption is preserved; this is not a production revocation SLA.
+Additional reviewed onboarding edges are covered red-first: nullable API2 signature algorithms,
+private initialization beside existing public directories, and examples choosing only a receipt
+under the requested directory. The packed fixture now builds these actual mixed-catalog outputs.
+Login also snapshots its default home before dotenv injection, with an OS-user fallback for
+Node's empty-HOME result, so a project cannot redirect new credentials through HOME/USERPROFILE.
 No merge, package publication, Content changes, Thumbhash or origin version selector in this round.
 Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-task2-round8-report.md`.

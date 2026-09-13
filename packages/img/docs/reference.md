@@ -162,12 +162,15 @@ verifying one signed Template read. Never pass secrets as CLI arguments.
 The login also saves its API signing algorithm. For combined keys this is SHA-256; the CLI uses
 it for subsequent API requests. With `--stdin`, include `TRANSLOADIT_SIGNATURE_ALGORITHM=sha256`
 for such a key. Existing credentials without this value retain the SDK's SHA-384 default.
+Unrestricted keys (`signature_algo: null`) also retain that default for API requests.
 
 `image init` requires `--public` or `--private` and prefers the saved login, keeping its key,
 workspace and endpoint together even with stale shell/project credentials. The catalog carries
 `{ workspace, public, images }`; public init creates no app env file. Private `--write-env` creates
 an owner-only `.env.local` containing only key and secret, never overwriting it. Omit that flag to
 leave env files untouched. All keys are **server-only**, never `NEXT_PUBLIC_`.
+Private initialization preserves already-published directories; it does not unpublish them.
+The generated example selects a receipt in the initialized directory, or shows the empty state.
 Public-only rendering reads workspace and policy from the catalog, not signing credentials. Private capability
 prerenders need a build-time secret; request-only direct rendering can defer it to runtime.
 Supply the same private credentials to the deployed route handler.

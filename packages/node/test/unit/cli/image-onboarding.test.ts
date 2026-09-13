@@ -1,10 +1,14 @@
 import { mkdir, mkdtemp, open, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
-import { homedir, tmpdir } from 'node:os'
+import { homedir, tmpdir, userInfo } from 'node:os'
 import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest'
 
-import { readCliInput, resolveCliConfig } from '../../../src/cli/helpers.ts'
+import {
+  getConfiguredCredentialsFilePath,
+  readCliInput,
+  resolveCliConfig,
+} from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
@@ -198,6 +202,48 @@ test('project dotenv cannot redirect newly entered credentials into the applicat
   await expect(stat('public/credentials.txt')).rejects.toMatchObject({ code: 'ENOENT' })
 })
 
+test('project HOME cannot redirect newly entered credentials when the shell has no HOME', async () => {
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', '')
+  vi.stubEnv('HOME', undefined)
+  const originalHome = join(directory, 'fake-home')
+  // Model os.homedir's POSIX HOME lookup without ever touching a real home directory.
+  vi.mocked(homedir).mockImplementation(() => process.env.HOME ?? originalHome)
+  await writeFile('.env', `HOME=${join(directory, 'public')}\n`)
+  await main(['auth', 'login', '--stdin'])
+  expect(process.exitCode).toBeUndefined()
+  expect(await readFile('fake-home/.transloadit/credentials', 'utf8')).toContain('write-key')
+  await expect(stat('public/.transloadit/credentials')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('project HOME cannot turn a repository credential file into a verified saved login', async () => {
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', '')
+  vi.stubEnv('HOME', undefined)
+  const originalHome = join(directory, 'fake-home')
+  vi.mocked(homedir).mockImplementation(() => process.env.HOME ?? originalHome)
+  await mkdir('public/.transloadit', { recursive: true })
+  await writeFile('.env', `HOME=${join(directory, 'public')}\n`)
+  await writeFile(
+    'public/.transloadit/credentials',
+    'TRANSLOADIT_KEY=repo-key\nTRANSLOADIT_SECRET=repo-secret\nTRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_WORKSPACE_VERIFIED=true\n',
+  )
+  await main(['auth', 'status'])
+  expect(process.exitCode).toBe(1)
+  expect(resolveCliConfig()).toMatchObject({
+    authSource: 'project-selected credentials file',
+    authWorkspaceVerified: false,
+    credentialsWorkspaceVerified: false,
+  })
+})
+
+test('an empty HOME cannot make the default credential path relative to the repository', () => {
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', '')
+  vi.mocked(homedir).mockReturnValue('')
+  // Only resolve the path; never read or write the real account's credentials in this test.
+  expect(getConfiguredCredentialsFilePath('shell')).toBe(
+    join(userInfo().homedir, '.transloadit', 'credentials'),
+  )
+})
+
 test.each(['.env', '.env.local'])('auth login never replaces app env file %s', async (file) => {
   vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', join(directory, file))
   await writeFile(file, 'APP_SETTING=preserved\n')
@@ -340,6 +386,38 @@ describe('image init', () => {
     expect(process.exitCode).toBeUndefined()
     expect(await readFile('.env.local', 'utf8')).toBe(
       'TRANSLOADIT_KEY="combined-key"\nTRANSLOADIT_SECRET="render-secret"\n',
+    )
+  })
+
+  test('private init preserves existing public directories within the generated allowed policy', async () => {
+    await mkdir('app')
+    const catalog = { workspace: 'my-app', public: ['website/'], images: {} }
+    await writeFile('transloadit.images.json', JSON.stringify(catalog))
+    await main(['image', 'init', 'uploads/', '--private'])
+    expect(process.exitCode).toBeUndefined()
+    expect(await readFile('lib/storageImage.ts', 'utf8')).toContain(
+      'allowedPathPrefixes: ["uploads/", ...catalog.public]',
+    )
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
+  })
+
+  test('the generated example selects a receipt under the initialized directory', async () => {
+    await mkdir('app')
+    await writeFile(
+      'transloadit.images.json',
+      JSON.stringify({
+        workspace: 'my-app',
+        public: [],
+        images: {
+          'accounts/avatar.jpg': { path: 'accounts/avatar.jpg', width: 200, height: 200 },
+          'website/hero.jpg': { path: 'website/hero.jpg', width: 800, height: 600 },
+        },
+      }),
+    )
+    await main(['image', 'init', 'website/', '--public'])
+    expect(process.exitCode).toBeUndefined()
+    expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
+      'Object.values(images).find((image) => image.path.startsWith("website/"))',
     )
   })
 
