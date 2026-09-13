@@ -72,6 +72,27 @@ failed first and passes after the narrow fix. README clarifies src/app imports, 
 and that store's public/private switches select the printed integration, not Storage object ACLs.
 No canonical robot schema changes, API2 implementation edits, npm release or merge in this round.
 
+### Round5 CI follow-up: separate image recovery from a Next Flight stream lifecycle
+
+Initial dee1b17 CI34727983281 passes nine checks but fails Chromium's post-login Flight EOF wait
+on Node24.20.0. A bare Next page using only cookies/Suspense/sign-in text (no image component)
+reproduces the same hang after Signed in is visible. Replaying the actual request returns the
+complete7100-byte response in14ms. Neither older-Node green repetitions nor disabling browser
+interception established a robust fix; dropping the EOF wait alone still reports teardown aborts.
+
+The correction buffers only this test's real Flight response via route.fetch/fulfill, without
+inventing a payload or changing authorization. Initial HTML and all image traffic remain native;
+the test still verifies response completion, transition, decoded image, fallback removal and
+retained client state. Standard origin interception is restored. No ignored cancellation, retry,
+timeout increase, runtime downgrade or production code change. Twenty focused Node24.20 cases
+pass (10Chromium+10WebKit); complete sequential verification and exact-head CI follow.
+Evidence and the isolated framework reproducer: /tmp/img-r5-next-flight-finding.md.
+Post-correction sequential checks and the full packed matrix also pass on Node24.20.0:
+32+32 first attempts (53.7s/51.6s), no retries/skips/flakes or unexpected native-response errors.
+Logs /tmp/img-r5-flight-{check,verify,fixture}.log; independent JSON audit
+/tmp/img-r5-flight-audit.json. The next commit changes only the browser harness and this record;
+all previously dogfooded image-package runtime bytes remain unchanged.
+
 ## Catalog-backed render receipt sync
 
 Kevin supplied API2 `b4aba072ee9cbeba0dda56dbdfaf2883e56ede06`: public HEAD/GET now expose

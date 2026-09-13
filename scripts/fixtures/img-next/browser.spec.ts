@@ -83,11 +83,6 @@ const test = base.extend<{ audit: BrowserAudit }>({
           errors.push(`Unexpected external request: ${url.origin}`)
           return route.abort('blockedbyclient')
         })
-        page.on('request', (request) => {
-          const url = new URL(request.url())
-          if (url.origin !== cdnOrigin && url.origin !== info.project.use.baseURL)
-            errors.push(`Unexpected external request: ${url.origin}`)
-        })
         page.on('pageerror', (error) => errors.push(error.message))
         page.on('console', (message) => {
           if (message.type() !== 'error') return
@@ -578,11 +573,9 @@ test('an opted-in fallback replaces a denied private image without leaking its c
   audit,
 }) => {
   await context.clearCookies()
-  // Keep the login/Flight fetches native. Origin, response and failure auditing remain active.
-  await page.unrouteAll({ behavior: 'wait' })
-  page.on('request', (request) => {
-    if (new URL(request.url()).pathname === '/fixture/api/browser-images')
-      audit.expectedFailures.set(request.url(), 404)
+  await page.route('**/api/browser-images?*', async (route) => {
+    audit.expectedFailures.set(route.request().url(), 404)
+    await route.continue()
   })
   await page.goto('/fixture/image-error')
   await expect(page.getByRole('status')).toHaveText('Sign in to see this image')
@@ -593,6 +586,13 @@ test('an opted-in fallback replaces a denied private image without leaking its c
   const refreshed = page.waitForResponse((response) => {
     const url = new URL(response.url())
     return url.pathname === '/fixture/image-error' && url.searchParams.has('_rsc')
+  })
+  // Next 16.3 can leave a committed Flight stream open even on an image-free page. Buffer
+  // this real response so teardown is deterministic; image traffic and authorization stay native.
+  await page.route('**/fixture/image-error?_rsc=*', async (route) => {
+    const response = await route.fetch()
+    expect(response.ok()).toBe(true)
+    await route.fulfill({ response })
   })
   await page.getByRole('button', { name: 'Sign in and refresh' }).click()
   expect(await (await refreshed).finished()).toBeNull()
