@@ -366,7 +366,7 @@ async function main(): Promise<void> {
       )
       assert(
         generatedPrivateHtml.includes(
-          'Add an image with transloadit storage store to see it here.',
+          'Add an image under uploads/ with transloadit storage store to see it here.',
         ),
         'The private scaffold must preserve public policy and ignore images outside its directory',
       )

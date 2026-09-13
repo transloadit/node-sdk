@@ -235,9 +235,30 @@ test('project HOME cannot turn a repository credential file into a verified save
   })
 })
 
-test('an empty HOME cannot make the default credential path relative to the repository', () => {
+test('the generated empty page and init instruction name the initialized directory', async () => {
+  await mkdir('app')
+  await writeFile(
+    'credentials',
+    'TRANSLOADIT_KEY=write-key\nTRANSLOADIT_SECRET=hidden-secret\nTRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_WORKSPACE_VERIFIED=true\n',
+  )
+  await main(['image', 'init', 'uploads/', '--private'])
+  expect(process.exitCode).toBeUndefined()
+  expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
+    'Add an image under uploads/ with transloadit storage store to see it here.',
+  )
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringContaining('Add an image under uploads/ with storage store'),
+    expect.any(Object),
+  )
+})
+
+test.each([
+  '',
+  ' ',
+  './public',
+])('HOME=%j cannot make the default credential path repository-relative', (home) => {
   vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', '')
-  vi.mocked(homedir).mockReturnValue('')
+  vi.mocked(homedir).mockReturnValue(home)
   // Only resolve the path; never read or write the real account's credentials in this test.
   expect(getConfiguredCredentialsFilePath('shell')).toBe(
     join(userInfo().homedir, '.transloadit', 'credentials'),

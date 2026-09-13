@@ -334,7 +334,10 @@ decorative empty alt with a reminder to describe informative images.
 
 The CLI atomically appends to the catalog's `images` object keyed by Storage path, preserving earlier receipts
 on failure. Parent directories must exist. A sibling lock prevents concurrent writers from losing
-each other's records; remove an interrupted process's lock only after confirming it has stopped.
+each other's records. Ctrl-C cancels active uploads and S3 reads, releases the lock, and checkpoints
+any receipt that already returned before stopping. An accepted Assembly may still finish remotely:
+check Storage or sync receipts before retrying a write. A forced exit or crash can leave a lock;
+remove it only after confirming the writer has stopped.
 New catalogs use ordinary file permissions derived from your umask; existing modes are preserved.
 The credentials file remains private (`0600`).
 Receipt validation occurs after the Storage write, not as a rollback. A failed receipt may mean

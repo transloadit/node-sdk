@@ -57,7 +57,7 @@ export function storageImagePage(receiptsImport: string, prefix: string): string
     'export default function Page() {',
     '  const images: Record<string, TransloaditImageSource> = catalog.images',
     `  const image = Object.values(images).find((image) => image.path.startsWith(${JSON.stringify(prefix)}))`,
-    '  if (image === undefined) return <p>Add an image with transloadit storage store to see it here.</p>',
+    `  if (image === undefined) return <p>{${JSON.stringify(`Add an image under ${prefix} with transloadit storage store to see it here.`)}}</p>`,
     '  return (',
     '    // Empty alt is decorative; replace it for an informative image.',
     '    <StorageImage src={image} alt="" width={960} priority />',

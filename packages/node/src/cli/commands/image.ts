@@ -144,8 +144,8 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         })
         if (existing !== undefined) throw new Error(`Refusing to overwrite ${file.path}`)
       }
-      await updateStorageReceipts(this.receipts, async (previous) => {
-        const workspace = await resolveStorageWorkspace(this, login, previous?.workspace)
+      await updateStorageReceipts(this.receipts, async (previous, signal) => {
+        const workspace = await resolveStorageWorkspace(this, login, previous?.workspace, signal)
         if (previous !== undefined && previous.workspace !== workspace)
           throw new Error(
             'Use --receipts with a separate catalog when initializing another workspace. Nothing was written.',
@@ -183,7 +183,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         : 'The directory is published. Public images use permanent unsigned CDN URLs; cached bytes cannot be recalled.'
       const envBlock = storageImageEnvBlock(this.publicDelivery)
       this.output.print(
-        `Created ${created.join(', ')}\n${instruction}\nAdd an image with storage store and open /storage-image-example. Commit ${this.receipts}.\n${this.publicDelivery ? 'Public rendering needs no environment variables, locally or on your host.' : this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
+        `Created ${created.join(', ')}\n${instruction}\nAdd an image under ${prefix} with storage store and open /storage-image-example. Commit ${this.receipts}.\n${this.publicDelivery ? 'Public rendering needs no environment variables, locally or on your host.' : this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
         { files: created, environment: envBlock },
       )
       return undefined

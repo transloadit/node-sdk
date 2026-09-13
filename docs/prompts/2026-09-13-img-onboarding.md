@@ -72,5 +72,12 @@ private initialization beside existing public directories, and examples choosing
 under the requested directory. The packed fixture now builds these actual mixed-catalog outputs.
 Login also snapshots its default home before dotenv injection, with an OS-user fallback for
 Node's empty-HOME result, so a project cannot redirect new credentials through HOME/USERPROFILE.
+The final lifecycle review restores explicit expiry at the signed-candidate boundary, detaches
+long-lived browser openers and adds cooperative interrupt cleanup to the existing atomic catalog
+writer. Active uploads/discovery/list/HEAD cancel; completed receipts checkpoint before exit.
+An accepted Assembly may still finish remotely, and forced exits/crashes still need lock inspection.
+Relative HOME values also fall back to the OS account directory. Empty examples and init output
+now name the initialized directory. These cases are red-first and covered by real loopback S3
+requests plus the packed fixture; the latest full `yarn check` passes.
 No merge, package publication, Content changes, Thumbhash or origin version selector in this round.
 Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-task2-round8-report.md`.

@@ -59,8 +59,9 @@ function normalizeEnvValue(value: string | undefined): string | undefined {
 }
 
 function credentialHomeDirectory(): string {
-  // Node returns an empty directory for HOME=""; credentials must not become repo-relative.
-  return homedir() || userInfo().homedir
+  // Node trusts HOME verbatim; an empty or relative default must never put secrets in a repo.
+  const home = homedir()
+  return path.isAbsolute(home) ? home : userInfo().homedir
 }
 
 /** Login and its env scaffold accept only a shell path override; ordinary reads retain merged lookup. */

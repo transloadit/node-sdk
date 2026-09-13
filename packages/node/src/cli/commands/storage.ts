@@ -51,8 +51,13 @@ export class StoragePublishCommand extends StorageProjectCommand {
     try {
       this.output.notice(describeCliCredentialSource(this.cliConfig))
       const prefix = normalizeStoragePublicPrefix(this.prefix)
-      await updateStorageReceipts(this.receipts, async (previous) => {
-        const workspace = await resolveStorageWorkspace(this, this.cliConfig, previous?.workspace)
+      await updateStorageReceipts(this.receipts, async (previous, signal) => {
+        const workspace = await resolveStorageWorkspace(
+          this,
+          this.cliConfig,
+          previous?.workspace,
+          signal,
+        )
         const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
           throw new Error(storagePublicError(cause, workspace), { cause })
         })
@@ -92,8 +97,13 @@ export class StorageUnpublishCommand extends StorageProjectCommand {
     try {
       this.output.notice(describeCliCredentialSource(this.cliConfig))
       const prefix = normalizeStoragePublicPrefix(this.prefix)
-      await updateStorageReceipts(this.receipts, async (previous) => {
-        const workspace = await resolveStorageWorkspace(this, this.cliConfig, previous?.workspace)
+      await updateStorageReceipts(this.receipts, async (previous, signal) => {
+        const workspace = await resolveStorageWorkspace(
+          this,
+          this.cliConfig,
+          previous?.workspace,
+          signal,
+        )
         const result = await this.client.unpublishStoragePrefix(prefix).catch((cause: unknown) => {
           throw new Error(storagePublicError(cause, workspace), { cause })
         })
@@ -198,11 +208,18 @@ export class StorageStoreCommand extends StorageProjectCommand {
         destination = input.path
         stored = {}
         let saved = false
-        await updateStorageReceipts(file, async (receipts) => {
-          workspace ??= await resolveStorageWorkspace(this, this.cliConfig, receipts?.workspace)
+        await updateStorageReceipts(file, async (receipts, signal) => {
+          workspace ??= await resolveStorageWorkspace(
+            this,
+            this.cliConfig,
+            receipts?.workspace,
+            signal,
+          )
           assertStorageWorkspace(workspace, receipts?.workspace, this.workspace)
+          signal.throwIfAborted()
           stored.receipt = await this.client.storeImage(input.file, {
             path: destination,
+            signal,
             ...(this.overwrite ? { overwrite: true } : {}),
           })
           if (receipts !== undefined && receipts.workspace !== workspace) {
@@ -374,17 +391,18 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
       let count = 0
       let synced: Record<string, unknown> = {}
       let catalogUpdated = false
-      await updateStorageReceipts(resolve(this.receipts), async (previous) => {
+      await updateStorageReceipts(resolve(this.receipts), async (previous, signal) => {
         let actualWorkspace: string | undefined
         synced = await withStorageS3(
           {
             endpoint: this.endpoint,
             workspace: this.workspace,
             projectWorkspace: previous?.workspace,
+            signal,
           },
           async (client, workspace) => {
             actualWorkspace = workspace
-            const objects = await listStorageObjects(client, workspace, this.prefix)
+            const objects = await listStorageObjects(client, workspace, this.prefix, signal)
             const paths = new Set<string>()
             for (const { path } of objects) {
               try {
@@ -407,9 +425,10 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
               async ({ path }) => {
                 const head = await client
                   .send(new HeadObjectCommand({ Bucket: workspace, Key: path }), {
-                    abortSignal: AbortSignal.timeout(60_000),
+                    abortSignal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
                   })
                   .catch((error: unknown) => {
+                    signal.throwIfAborted()
                     if (storageS3ConnectionErrorSchema.safeParse(error).success)
                       throw new Error(
                         `Storage HEAD for ${JSON.stringify(path)} timed out or lost its connection. Check the Storage endpoint and retry the sync.`,
@@ -450,7 +469,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
                   },
                 ]
               },
-              { concurrency: 5 },
+              { concurrency: 5, signal },
             )
             count = entries.length
             return Object.fromEntries(entries)

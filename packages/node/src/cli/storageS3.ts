@@ -31,7 +31,12 @@ export const storageS3ConnectionErrorSchema = z.union([
 
 /** Keeps workspace discovery, signing credentials and the trusted endpoint together for S3 reads. */
 export async function withStorageS3<T>(
-  options: { endpoint?: string; workspace?: string; projectWorkspace?: string },
+  options: {
+    endpoint?: string
+    workspace?: string
+    projectWorkspace?: string
+    signal?: AbortSignal
+  },
   operation: (client: S3Client, workspace: string) => Promise<T>,
   failure: string,
   output?: Pick<IOutputCtl, 'notice'>,
@@ -80,7 +85,10 @@ export async function withStorageS3<T>(
       options.workspace === undefined || options.projectWorkspace !== undefined
         ? ((
             await client.send(new ListBucketsCommand({}), {
-              abortSignal: AbortSignal.timeout(60_000),
+              abortSignal: AbortSignal.any([
+                AbortSignal.timeout(60_000),
+                ...(options.signal === undefined ? [] : [options.signal]),
+              ]),
             })
           ).Buckets ?? [])
         : undefined
@@ -95,8 +103,10 @@ export async function withStorageS3<T>(
         'Expected one workspace from Storage discovery; verify the endpoint and Auth Key.',
       )
     assertStorageWorkspace(workspace, options.projectWorkspace, options.workspace)
+    options.signal?.throwIfAborted()
     return await operation(client, workspace)
   } catch (error) {
+    options.signal?.throwIfAborted()
     if (storageS3ConnectionErrorSchema.safeParse(error).success)
       throw new Error(
         `${failure} timed out or lost its connection. Check the Storage endpoint and retry.`,
@@ -120,7 +130,9 @@ export async function resolveStorageWorkspace(
   options: { endpoint?: string; workspace?: string },
   config: ResolvedCliConfig,
   projectWorkspace?: string,
+  signal?: AbortSignal,
 ): Promise<string> {
+  signal?.throwIfAborted()
   if (config.auth === undefined || !('authKey' in config.auth))
     throw new Error(
       'Storage project binding requires an Auth Key. Unset TRANSLOADIT_AUTH_TOKEN to use key credentials; run transloadit auth login if needed.',
@@ -133,7 +145,7 @@ export async function resolveStorageWorkspace(
     config.authWorkspaceVerified && sameEndpoint && config.authWorkspace !== undefined
       ? storageWorkspaceSchema.parse(config.authWorkspace)
       : await withStorageS3(
-          { endpoint: options.endpoint },
+          { endpoint: options.endpoint, signal },
           async (_client, actual) => storageWorkspaceSchema.parse(actual),
           'Workspace verification',
           undefined,
@@ -144,6 +156,7 @@ export async function resolveStorageWorkspace(
           },
         )
   assertStorageWorkspace(workspace, projectWorkspace, options.workspace)
+  signal?.throwIfAborted()
   return workspace
 }
 
@@ -154,6 +167,7 @@ export async function listStorageObjects(
   client: S3Client,
   workspace: string,
   prefix: string,
+  signal?: AbortSignal,
 ): Promise<StorageObject[]> {
   const { ListObjectsV2Command } = await import('@aws-sdk/client-s3')
   const objects: StorageObject[] = []
@@ -162,7 +176,12 @@ export async function listStorageObjects(
   do {
     const page = await client.send(
       new ListObjectsV2Command({ Bucket: workspace, Prefix: prefix, ContinuationToken: cursor }),
-      { abortSignal: AbortSignal.timeout(60_000) },
+      {
+        abortSignal: AbortSignal.any([
+          AbortSignal.timeout(60_000),
+          ...(signal === undefined ? [] : [signal]),
+        ]),
+      },
     )
     for (const object of page.Contents ?? []) {
       if (

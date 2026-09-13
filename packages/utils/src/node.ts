@@ -129,8 +129,11 @@ export function getSignedSmartCdnImageCandidates(
     throw new TypeError('authSecret is required')
   }
 
-  return createSmartCdnImageCandidates(opts, (request) =>
-    getSignedSmartCdnUrl({
+  return createSmartCdnImageCandidates(opts, (request) => {
+    // Unsigned candidates share this core; signed callers must choose their lifetime explicitly.
+    if (request.expiresAt === undefined)
+      throw new TypeError('expiresAt is required for signed image candidates')
+    return getSignedSmartCdnUrl({
       authKey,
       authSecret,
       expiresAt: request.expiresAt,
@@ -138,8 +141,8 @@ export function getSignedSmartCdnImageCandidates(
       template: request.template,
       urlParams: { ...request.urlParams },
       workspace,
-    }),
-  )
+    })
+  })
 }
 
 // ── storage grants ───────────────────────────────────────────────────────────

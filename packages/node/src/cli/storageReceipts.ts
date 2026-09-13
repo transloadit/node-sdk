@@ -1,3 +1,5 @@
+import type { FileHandle } from 'node:fs/promises'
+
 import { randomUUID } from 'node:crypto'
 import { chmod, lstat, open, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
@@ -73,26 +75,40 @@ export async function updateStorageReceipts(
   file: string,
   update: (
     catalog: StorageProjectCatalog | undefined,
+    signal: AbortSignal,
   ) => Promise<StorageProjectCatalog | undefined>,
 ): Promise<void> {
   const lockPath = `${file}.lock`
   const temporary = join(dirname(file), `.${basename(file)}.${randomUUID()}.tmp`)
-  // A crashed writer's lock is not stolen: the operator must first confirm it has stopped.
-  const lock = await open(lockPath, 'wx', 0o600).catch((error: unknown) => {
-    if (isErrnoException(error) && error.code === 'EEXIST') {
-      throw new Error(
-        `The receipts file is locked by another storage store or receipts sync. Remove ${lockPath} only after confirming no writer is running.`,
-        { cause: error },
-      )
-    }
-    throw error
-  })
+  const cancellation = new AbortController()
+  const cancel = (): void =>
+    cancellation.abort(
+      new Error('Storage command canceled. Check Storage before retrying a write.'),
+    )
+  // The first interrupt is cooperative; a forced exit/crash still leaves a lock for inspection.
+  process.once('SIGINT', cancel)
+  process.once('SIGTERM', cancel)
+  let lock: FileHandle | undefined
   let retainTemporary = false
   try {
+    lock = await open(lockPath, 'wx', 0o600).catch((error: unknown) => {
+      if (isErrnoException(error) && error.code === 'EEXIST') {
+        throw new Error(
+          `The receipts file is locked by another storage store or receipts sync. Remove ${lockPath} only after confirming no writer is running.`,
+          { cause: error },
+        )
+      }
+      throw error
+    })
+    cancellation.signal.throwIfAborted()
     const { catalog, mode } = await readReceipts(file)
-    const updated = await update(catalog)
+    const updated = await update(catalog, cancellation.signal)
     // An explicit one-off workspace override must not mix two workspaces in one catalog.
-    if (updated === undefined) return
+    if (updated === undefined) {
+      cancellation.signal.throwIfAborted()
+      return
+    }
+    // Once a remote write returned a receipt, finish its atomic checkpoint even if interrupted.
     // New catalogs are ordinary source files: let the kernel apply umask, without reading it.
     await writeFile(temporary, `${JSON.stringify(updated, null, 2)}\n`, {
       flag: 'wx',
@@ -102,6 +118,7 @@ export async function updateStorageReceipts(
     if (mode !== undefined) await chmod(temporary, mode)
     await rename(temporary, file)
     retainTemporary = false
+    cancellation.signal.throwIfAborted()
   } catch (error) {
     if (retainTemporary)
       throw new Error(
@@ -110,8 +127,15 @@ export async function updateStorageReceipts(
       )
     throw error
   } finally {
-    await lock.close()
-    await rm(lockPath, { force: true })
-    if (!retainTemporary) await rm(temporary, { force: true })
+    try {
+      if (lock !== undefined) {
+        await lock.close()
+        await rm(lockPath, { force: true })
+        if (!retainTemporary) await rm(temporary, { force: true })
+      }
+    } finally {
+      process.off('SIGINT', cancel)
+      process.off('SIGTERM', cancel)
+    }
   }
 }

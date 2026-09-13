@@ -99,6 +99,59 @@ function listed(path = 'website/a.jpg'): nock.Scope {
     )
 }
 
+test.each([
+  'discovery',
+  'listing',
+  'HEAD',
+])('Ctrl-C cancels a stalled %s and releases the catalog lock', async (stage) => {
+  nock.enableNetConnect('127.0.0.1')
+  const listeners = process.listeners('SIGINT')
+  const registrations = vi.spyOn(process, 'once')
+  const previous = catalogJson({ 'other.jpg': { retained: true } })
+  await writeFile('images.json', previous)
+  let stalled = false
+  const server = createServer((request, response) => {
+    if (stage !== 'discovery' && request.url?.split('?')[0] === '/storage/') {
+      response.end(
+        '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
+      )
+      return
+    }
+    if (stage === 'HEAD' && request.method === 'GET') {
+      response.end(
+        '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/a.jpg</Key><Size>123</Size></Contents></ListBucketResult>',
+      )
+      return
+    }
+    stalled = true
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address()
+  if (address === null || typeof address === 'string') throw new Error('Expected a local port')
+  const pending = runSync(['--endpoint', `http://127.0.0.1:${address.port}`])
+  try {
+    await expect.poll(() => stalled).toBe(true)
+    const cancel = registrations.mock.calls.find(([event]) => event === 'SIGINT')?.[1]
+    expect(cancel).toBeTypeOf('function')
+    process.emit('SIGINT')
+    expect(await Promise.race([pending.then(() => 'finished'), delay(3000, 'stalled')])).toBe(
+      'finished',
+    )
+    expect(process.exitCode).toBe(1)
+    expect(await readFile('images.json', 'utf8')).toBe(previous)
+    expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
+    // The CLI's first dynamic imports may add a dependency's own process listeners.
+    expect(process.listeners('SIGINT')).toEqual(expect.arrayContaining(listeners))
+    expect(process.listeners('SIGINT')).not.toContain(cancel)
+    expect(process.listeners('SIGTERM')).not.toContain(cancel)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('canceled'))
+  } finally {
+    server.closeAllConnections()
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+    await pending
+  }
+})
+
 test('defaults the rendering catalog to transloadit.images.json', async () => {
   const api = listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
   await main(['storage', 'receipts', 'sync', 'website/'])

@@ -13,7 +13,9 @@ import { main } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
 
 const { waits } = vi.hoisted((): { waits: number[] } => ({ waits: [] }))
-vi.mock('execa', () => ({ execa: vi.fn(async () => undefined) }))
+vi.mock('execa', () => ({
+  execa: vi.fn(() => Object.assign(Promise.resolve(undefined), { unref: vi.fn() })),
+}))
 vi.mock('node:timers/promises', async (importOriginal) => {
   const original = await importOriginal<typeof import('node:timers/promises')>()
   return {
@@ -118,6 +120,34 @@ test('device login accepts API2 unrestricted keys with a null signature algorith
   const signed = new Transloadit(credentials).calcSignature({ steps: {} })
   expect(signed.signature).toBe(signParamsSync(signed.params, authorized.auth_secret, 'sha384'))
   expect(await readFile('credentials', 'utf8')).not.toContain('SIGNATURE_ALGORITHM')
+})
+
+test('login does not await or kill a successfully launched long-lived browser', async () => {
+  const api = createDevice().post('/cli/device_authorizations/token').reply(200, authorized)
+  let finishBrowser: (() => void) | undefined
+  const browser = Object.assign(
+    new Promise<void>((resolve) => {
+      finishBrowser = resolve
+    }),
+    { unref: vi.fn() },
+  )
+  // @ts-expect-error The fake models promise/unref, not unrelated Execa process fields.
+  vi.mocked(execa).mockImplementationOnce(() => browser)
+  const pending = login()
+  try {
+    await expect.poll(() => api.isDone(), { timeout: 500 }).toBe(true)
+  } finally {
+    finishBrowser?.()
+    await pending
+  }
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(browser.unref).toHaveBeenCalledOnce()
+  expect(execa).toHaveBeenCalledWith(expect.any(String), [created.verification_url], {
+    stdio: 'ignore',
+    detached: true,
+    cleanup: false,
+  })
 })
 
 test('status reports saved login identity and logout revokes only that key before removing the file', async () => {

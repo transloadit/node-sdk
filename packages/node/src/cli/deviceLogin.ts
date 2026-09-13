@@ -112,7 +112,14 @@ export async function deviceLogin(
       process.platform === 'darwin' ? 'open' : process.platform === 'linux' ? 'xdg-open' : undefined
     // On platforms without an opener, the printed URL is the manual approval path.
     if (!noBrowser && opener !== undefined) {
-      await execa(opener, [target.href], { stdio: 'ignore', timeout: 5000 }).catch(() => {
+      // xdg-open may live as long as the browser; launching it must not delay or cancel polling.
+      const browser = execa(opener, [target.href], {
+        stdio: 'ignore',
+        detached: true,
+        cleanup: false,
+      })
+      browser.unref()
+      void browser.catch(() => {
         output.print('Could not open the browser. Open the verification URL printed above.', {
           browserOpened: false,
         })

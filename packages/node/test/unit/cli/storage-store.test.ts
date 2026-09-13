@@ -92,6 +92,46 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('Ctrl-C aborts an active upload, releases its lock and preserves the previous catalog', async () => {
+    const listeners = process.listeners('SIGINT')
+    const previous = catalogJson({ 'website/earlier.jpg': receipt })
+    await writeFile('images.json', previous)
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockImplementation((_file, options) => {
+      process.emit('SIGINT')
+      expect(options.signal?.aborted).toBe(true)
+      options.signal?.throwIfAborted()
+      return Promise.resolve(receipt)
+    })
+    await runStore()
+    expect(process.exitCode).toBe(1)
+    expect(await readFile('images.json', 'utf8')).toBe(previous)
+    expect(await readdir(directory)).not.toContain('images.json.lock')
+    expect(process.listeners('SIGINT')).toEqual(listeners)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('canceled'))
+  })
+
+  test('Ctrl-C during atomic replacement preserves the completed receipt and stops the next upload', async () => {
+    const listeners = process.listeners('SIGINT')
+    const replace = vi.mocked(rename).getMockImplementation()
+    if (replace === undefined) throw new Error('Expected real rename implementation')
+    vi.mocked(rename).mockImplementationOnce(async (from, to) => {
+      process.emit('SIGINT')
+      await replace(from, to)
+    })
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main(['storage', 'store', './hero.jpg', './next.jpg', 'website/'])
+    expect(process.exitCode).toBe(1)
+    expect(store).toHaveBeenCalledTimes(1)
+    expect(
+      JSON.parse(await readFile('transloadit.images.json', 'utf8')).images[receipt.path],
+    ).toEqual(receipt)
+    expect(await readdir(directory)).not.toContain('transloadit.images.json.lock')
+    expect(process.listeners('SIGINT')).toEqual(listeners)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('Do not re-upload'),
+    )
+  })
+
   test('refuses a stale workspace label on env credentials before uploading', async () => {
     vi.stubEnv('TRANSLOADIT_WORKSPACE', 'project-app')
     await writeFile(
@@ -132,8 +172,8 @@ describe('storage store', () => {
     await main(['storage', 'store', './a.jpg', './b.jpg', 'website/'])
     expect(process.exitCode).toBeUndefined()
     expect(store.mock.calls).toEqual([
-      ['./a.jpg', { path: 'website/a.jpg' }],
-      ['./b.jpg', { path: 'website/b.jpg' }],
+      ['./a.jpg', { path: 'website/a.jpg', signal: expect.any(AbortSignal) }],
+      ['./b.jpg', { path: 'website/b.jpg', signal: expect.any(AbortSignal) }],
     ])
     const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
     expect(catalog.workspace).toBe('my-app')
@@ -331,6 +371,7 @@ describe('storage store', () => {
     expect(process.exitCode).toBeUndefined()
     expect(store).toHaveBeenCalledExactlyOnceWith('./hero.jpg', {
       path: receipt.path,
+      signal: expect.any(AbortSignal),
       overwrite: true,
     })
   })
@@ -418,7 +459,10 @@ describe('storage store', () => {
     const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await runStore()
     expect(process.exitCode).toBeUndefined()
-    expect(store).toHaveBeenCalledExactlyOnceWith('./hero.jpg', { path: receipt.path })
+    expect(store).toHaveBeenCalledExactlyOnceWith('./hero.jpg', {
+      path: receipt.path,
+      signal: expect.any(AbortSignal),
+    })
     expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({
       [earlier.path]: earlier,
       [receipt.path]: receipt,

@@ -671,7 +671,9 @@ for (const viewportWidth of [390, 1200]) {
 test('the generated empty catalog page works before the first upload', async ({ page }) => {
   await page.goto('/fixture/cli-empty/app/storage-image-example')
   await expect(
-    page.getByText('Add an image with transloadit storage store to see it here.', { exact: true }),
+    page.getByText('Add an image under website/ with transloadit storage store to see it here.', {
+      exact: true,
+    }),
   ).toBeVisible()
   await expect(page.getByRole('img')).toHaveCount(0)
 })
