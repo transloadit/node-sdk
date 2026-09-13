@@ -242,6 +242,17 @@ test.each([
   )
   let stalledRequests = 0
   const server = createServer((request, response) => {
+    // Bound catalogs discover ownership before listing, even with an explicit workspace.
+    if (
+      operation.startsWith('sync-') &&
+      operation !== 'sync-discovery' &&
+      request.url?.split('?')[0] === '/storage/'
+    ) {
+      response.end(
+        '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
+      )
+      return
+    }
     if (operation === 'sync-head' && request.method === 'GET') {
       response.end(
         '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/a.jpg</Key><Size>123</Size></Contents></ListBucketResult>',

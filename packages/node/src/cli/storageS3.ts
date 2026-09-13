@@ -74,14 +74,15 @@ export async function withStorageS3<T>(
     },
   })
   try {
+    // Each API2 Auth Key belongs to one workspace; empty discovery is not an unverified override.
     // Smithy's request timer stops at response headers; the signal also bounds body reads/retries.
     const buckets =
       options.workspace === undefined || options.projectWorkspace !== undefined
-        ? (
+        ? ((
             await client.send(new ListBucketsCommand({}), {
               abortSignal: AbortSignal.timeout(60_000),
             })
-          ).Buckets
+          ).Buckets ?? [])
         : undefined
     const workspace =
       buckets === undefined
@@ -90,7 +91,9 @@ export async function withStorageS3<T>(
           ? buckets[0]?.Name
           : undefined
     if (!workspace)
-      throw new Error('Could not determine one workspace; supply --workspace explicitly')
+      throw new Error(
+        'Expected one workspace from Storage discovery; verify the endpoint and Auth Key.',
+      )
     assertStorageWorkspace(workspace, options.projectWorkspace, options.workspace)
     return await operation(client, workspace)
   } catch (error) {

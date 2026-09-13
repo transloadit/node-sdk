@@ -71,6 +71,54 @@ function signedPrefix(body: string): boolean {
   return true
 }
 
+test('revalidates the saved workspace after a shell endpoint override before publication', async () => {
+  await writeFile(
+    'transloadit.images.json',
+    JSON.stringify({ workspace: 'my-app', public: [], images: {} }),
+  )
+  vi.stubEnv('TRANSLOADIT_ENDPOINT', 'http://override.invalid')
+  const discovery = nock('http://override.invalid')
+    .get('/storage/')
+    .query(true)
+    .reply(
+      200,
+      '<ListAllMyBucketsResult><Buckets><Bucket><Name>other-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
+    )
+  const publication = nock('http://override.invalid')
+    .post('/storage/public_prefixes')
+    .reply(200, declared)
+  await main(['storage', 'publish', 'website/'])
+  expect(discovery.isDone()).toBe(true)
+  expect(publication.isDone()).toBe(false)
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Project uses my-app; the selected credentials belong to other-app. Nothing uploaded.',
+  )
+})
+
+test('private write-env requires the saved login instead of persisting transient shell secrets', async () => {
+  await mkdir('app')
+  await writeFile('credentials', '')
+  vi.stubEnv('TRANSLOADIT_KEY', 'shell-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'shell-secret')
+  vi.stubEnv('TRANSLOADIT_ENDPOINT', origin)
+  const discovery = nock(origin)
+    .get('/storage/')
+    .query(true)
+    .reply(
+      200,
+      '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
+    )
+  await main(['image', 'init', 'website/', '--private', '--write-env'])
+  expect(process.exitCode).toBe(1)
+  expect(discovery.isDone()).toBe(false)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Run transloadit auth login first to save your workspace and Auth Key. Nothing was written.',
+  )
+  await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await readdir(directory)).toEqual(['app', 'credentials'])
+})
+
 test('public init commits the whole project catalog without creating an env file', async () => {
   await mkdir('app')
   const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(200, declared)

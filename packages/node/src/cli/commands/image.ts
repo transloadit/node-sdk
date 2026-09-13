@@ -85,8 +85,8 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           .refine((text) => text.trim() === text)
         const renderingValues = z.object({ TRANSLOADIT_KEY: value, TRANSLOADIT_SECRET: value })
         const parsed = renderingValues.safeParse({
-          TRANSLOADIT_KEY: login?.credentials?.authKey,
-          TRANSLOADIT_SECRET: login?.credentials?.authSecret,
+          TRANSLOADIT_KEY: saved.credentials?.authKey,
+          TRANSLOADIT_SECRET: saved.credentials?.authSecret,
         })
         if (!parsed.success)
           throw new Error(

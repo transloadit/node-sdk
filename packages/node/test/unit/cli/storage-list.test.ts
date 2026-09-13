@@ -85,6 +85,37 @@ test.each([
   expect(unrelated.isDone()).toBe(false)
 })
 
+test.each([
+  '<ListAllMyBucketsResult/>',
+  '<ListAllMyBucketsResult><Buckets/></ListAllMyBucketsResult>',
+  '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket><Bucket><Name>other-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
+])('refuses incomplete or ambiguous workspace discovery even with an override: %s', async (body) => {
+  await writeFile(
+    'transloadit.images.json',
+    JSON.stringify({ workspace: 'my-app', public: [], images: {} }),
+  )
+  const discovery = nock('http://storage.invalid').get('/storage/').query(true).reply(200, body)
+  const listing = nock('http://storage.invalid')
+    .get('/storage/my-app/')
+    .query(true)
+    .reply(200, '<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>')
+  await main([
+    'storage',
+    'ls',
+    'website/',
+    '--workspace',
+    'my-app',
+    '--endpoint',
+    'http://storage.invalid',
+  ])
+  expect(discovery.isDone()).toBe(true)
+  expect(listing.isDone()).toBe(false)
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Expected one workspace from Storage discovery; verify the endpoint and Auth Key.',
+  )
+})
+
 test('lists the key workspace and follows signed S3 continuation tokens without an Assembly', async () => {
   const api = nock('http://storage.invalid', {
     reqheaders: {

@@ -49,5 +49,9 @@ Council's large-original, height-only and bearer-token/fallback-credential findi
 red-first and fixed. UX review found no blockers. The mismatch wording is Kevin's explicit
 contract; JSON-quoted generated imports deliberately escape arbitrary receipt-file paths safely.
 CLI next-step wording is usable but could be more copy-paste-oriented in a later polish pass.
+Security review's empty-discovery and endpoint-provenance edges are covered red-first; a changed
+shell endpoint requires fresh workspace discovery. API2 keys are workspace-scoped, so ambiguous
+multi-bucket responses fail closed with endpoint/key advice, not an ineffective override suggestion.
+Private `--write-env` only persists the saved login, never transient shell fallback credentials.
 No merge, package publication, Content changes, Thumbhash or origin version selector in this round.
 Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-task2-round8-report.md`.

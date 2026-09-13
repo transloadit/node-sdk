@@ -369,7 +369,10 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
           authWorkspace: getSourceValue(authSource, ['TRANSLOADIT_WORKSPACE']),
           authWorkspaceVerified:
             authSource.name === 'credentialsFile' &&
-            getSourceValue(authSource, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
+            getSourceValue(authSource, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true' &&
+            // A shell endpoint override invalidates the login-time ownership proof.
+            resolveEndpointForSource(authSource, shellEnvSource) ===
+              getSourceValue(authSource, ['TRANSLOADIT_ENDPOINT']),
         }
       : {}),
     ...(credentials != null ? { credentials } : {}),
