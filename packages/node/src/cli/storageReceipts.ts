@@ -13,7 +13,7 @@ const receiptsSchema = z.custom<Record<string, unknown>>(
 
 async function readReceipts(
   file: string,
-): Promise<{ receipts: Record<string, unknown>; mode: number }> {
+): Promise<{ receipts: Record<string, unknown>; mode?: number }> {
   try {
     const info = await lstat(file)
     if (!info.isFile()) throw new Error('Expected a regular JSON file, not a symlink or directory')
@@ -22,7 +22,7 @@ async function readReceipts(
       mode: info.mode & 0o777,
     }
   } catch (error) {
-    if (isErrnoException(error) && error.code === 'ENOENT') return { receipts: {}, mode: 0o600 }
+    if (isErrnoException(error) && error.code === 'ENOENT') return { receipts: {} }
     const reason =
       error instanceof SyntaxError
         ? 'invalid JSON'
@@ -54,9 +54,13 @@ export async function updateStorageReceipts(
   try {
     const { receipts, mode } = await readReceipts(file)
     const updated = await update(receipts)
-    await writeFile(temporary, `${JSON.stringify(updated, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
+    // New catalogs are ordinary source files: let the kernel apply umask, without reading it.
+    await writeFile(temporary, `${JSON.stringify(updated, null, 2)}\n`, {
+      flag: 'wx',
+      mode: mode === undefined ? 0o666 : 0o600,
+    })
     retainTemporary = true
-    await chmod(temporary, mode)
+    if (mode !== undefined) await chmod(temporary, mode)
     await rename(temporary, file)
     retainTemporary = false
   } catch (error) {

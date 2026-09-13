@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import nock from 'nock'
 import { afterEach, expect, onTestFinished, test, vi } from 'vitest'
 
 import { ApiError, InconsistentResponseError, Transloadit } from '../../src/Transloadit.ts'
@@ -38,7 +39,63 @@ function fixture(response: AssemblyStatus = completed) {
   return { client, create }
 }
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  nock.cleanAll()
+})
+
+test.each([
+  'TRANSLOADIT_STORE_CONFLICT',
+  'TRANSLOADIT_STORE_UNAVAILABLE',
+] as const)('preserves %s when recovering a failed Assembly status', async (error) => {
+  const failed = {
+    assembly_id: completed.assembly_id,
+    assembly_ssl_url: 'https://api2.transloadit.com/assemblies/completed-assembly',
+    assembly_url: 'http://api2.transloadit.com/assemblies/completed-assembly',
+    error,
+    message: 'Storage write failed',
+    reason: 'The requested destination could not be written',
+  } satisfies AssemblyStatus
+  const { client, create } = fixture()
+  const api = nock('http://127.0.0.1:9')
+    .get('/assemblies/completed-assembly')
+    .query(true)
+    .reply(200, failed)
+  await expect(
+    client.getStoredImageReceipt({
+      assemblyId: 'completed-assembly',
+      expected: { path: receipt.path, size: receipt.size, md5hash: receipt.md5hash },
+    }),
+  ).rejects.toMatchObject({
+    name: 'ApiError',
+    code: error,
+    assemblyId: completed.assembly_id,
+    assemblySslUrl: failed.assembly_ssl_url,
+    rawMessage: failed.message,
+    reason: failed.reason,
+  })
+  expect(create).not.toHaveBeenCalled()
+  expect(api.isDone()).toBe(true)
+})
+
+test.each([
+  'ASSEMBLY_UPLOADING',
+  'ASSEMBLY_EXECUTING',
+  'ASSEMBLY_REPLAYING',
+] as const)('distinguishes %s from a malformed completed receipt', async (ok) => {
+  const { client } = fixture()
+  vi.spyOn(client, 'getAssembly').mockResolvedValue({ ...completed, ok, results: {} })
+  await expect(
+    client.getStoredImageReceipt({
+      assemblyId: 'completed-assembly',
+      expected: { path: receipt.path, size: receipt.size, md5hash: receipt.md5hash },
+    }),
+  ).rejects.toMatchObject({
+    name: 'InconsistentResponseError',
+    message: `The Storage Assembly is not complete (${ok})`,
+    cause: { assemblyId: completed.assembly_id },
+  })
+})
 
 test('reports canceled Assemblies distinctly when storing or recovering receipts', async () => {
   const canceled = { ...completed, ok: 'ASSEMBLY_CANCELED', results: {} } satisfies AssemblyStatus

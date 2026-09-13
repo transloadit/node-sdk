@@ -9,11 +9,14 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { setTimeout } from 'node:timers'
+import { setTimeout as delay } from 'node:timers/promises'
 
 import nock from 'nock'
-import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, onTestFinished, test, vi } from 'vitest'
 
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
@@ -140,12 +143,91 @@ test('rebuilds a rendering catalog from paginated List + HEAD without asset IDs 
   }
   expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual(expected)
   expect(await readFile('images.json', 'utf8')).toMatch(/\n$/)
-  expect((await stat('images.json')).mode & 0o777).toBe(0o600)
   expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
     expect.stringContaining('Synced 2'),
     expected,
   )
+})
+
+test.each([
+  0o022, 0o077,
+])('creates a catalog using umask %i without changing credentials', async (mask) => {
+  // This CLI suite runs in a separate process, just like its existing chdir-based fixtures.
+  const setMask = process.umask
+  const previousMask = setMask(mask)
+  onTestFinished(() => {
+    setMask(previousMask)
+  })
+  const maskRead = vi.spyOn(process, 'umask')
+  await chmod('credentials', 0o600)
+  const api = listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect((await stat('images.json')).mode & 0o777).toBe(0o666 & ~mask)
+  expect((await stat('credentials')).mode & 0o777).toBe(0o600)
+  expect(maskRead).not.toHaveBeenCalled()
+})
+
+test.each([
+  'ls',
+  'ls-body',
+  'sync-discovery',
+  'sync-list',
+  'sync-body',
+  'sync-head',
+])('aborts stalled %s requests and releases the catalog lock without replacing its contents', async (operation) => {
+  nock.enableNetConnect('127.0.0.1')
+  // Exercise Smithy's real HTTP handler and retries with accelerated header/body deadlines.
+  vi.spyOn(globalThis, 'setTimeout').mockImplementation((callback, timeout, ...args) =>
+    setTimeout(callback, timeout === 30_000 ? 100 : timeout, ...args),
+  )
+  const deadline = AbortSignal.timeout
+  vi.spyOn(AbortSignal, 'timeout').mockImplementation((timeout) =>
+    deadline(timeout === 60_000 ? 1000 : timeout),
+  )
+  let stalledRequests = 0
+  const server = createServer((request, response) => {
+    if (operation === 'sync-head' && request.method === 'GET') {
+      response.end(
+        '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/a.jpg</Key><Size>123</Size></Contents></ListBucketResult>',
+      )
+      return
+    }
+    if (operation.endsWith('-body')) response.write('<ListBucketResult>')
+    stalledRequests += 1
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address()
+  if (address === null || typeof address === 'string') throw new Error('Expected a local port')
+  const previous = '{"other.jpg":{"owner":"app"}}\n'
+  await writeFile('images.json', previous)
+  const options = [
+    '--endpoint',
+    `http://127.0.0.1:${address.port}`,
+    ...(operation === 'sync-discovery' ? [] : ['--workspace', 'my-app']),
+  ]
+  const command = operation.startsWith('ls')
+    ? main(['storage', 'ls', 'website/', ...options])
+    : runSync(options)
+  try {
+    expect(await Promise.race([command.then(() => 'finished'), delay(3000, 'stalled')])).toBe(
+      'finished',
+    )
+    expect(process.exitCode).toBe(1)
+    expect(stalledRequests).toBe(operation.endsWith('-body') ? 1 : 2)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('timed out or lost its connection'),
+    )
+    expect(OutputCtl.prototype.print).not.toHaveBeenCalled()
+    expect(await readFile('images.json', 'utf8')).toBe(previous)
+    expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
+  } finally {
+    server.closeAllConnections()
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+    await command
+  }
 })
 
 test.each([

@@ -15,6 +15,12 @@ export const storageS3ErrorSchema = z.object({
   $metadata: z.object({ httpStatusCode: z.number().optional() }),
 })
 
+/** Timeout/deadline failures need network advice; other network errors retain existing handling. */
+export const storageS3ConnectionErrorSchema = z.union([
+  z.object({ name: z.enum(['TimeoutError', 'AbortError']) }),
+  z.object({ code: z.enum(['ETIMEDOUT', 'ECONNRESET']) }),
+])
+
 /** Keeps workspace discovery, signing credentials and the trusted endpoint together for S3 reads. */
 export async function withStorageS3<T>(
   options: { endpoint?: string; workspace?: string },
@@ -51,18 +57,32 @@ export async function withStorageS3<T>(
     forcePathStyle: true,
     maxAttempts: 2,
     region: 'us-east-1',
-    requestHandler: { connectionTimeout: 10_000, requestTimeout: 30_000 },
+    requestHandler: {
+      connectionTimeout: 10_000,
+      requestTimeout: 30_000,
+      throwOnRequestTimeout: true,
+    },
   })
   try {
+    // Smithy's request timer stops at response headers; the signal also bounds body reads/retries.
     const buckets =
       options.workspace === undefined
-        ? (await client.send(new ListBucketsCommand({}))).Buckets
+        ? (
+            await client.send(new ListBucketsCommand({}), {
+              abortSignal: AbortSignal.timeout(60_000),
+            })
+          ).Buckets
         : undefined
     const workspace = options.workspace ?? (buckets?.length === 1 ? buckets[0]?.Name : undefined)
     if (!workspace)
       throw new Error('Could not determine one workspace; supply --workspace explicitly')
     return await operation(client, workspace)
   } catch (error) {
+    if (storageS3ConnectionErrorSchema.safeParse(error).success)
+      throw new Error(
+        `${failure} timed out or lost its connection. Check the Storage endpoint and retry.`,
+        { cause: error },
+      )
     const remote = storageS3ErrorSchema.safeParse(error)
     if (remote.success) {
       throw new Error(
@@ -89,6 +109,7 @@ export async function listStorageObjects(
   do {
     const page = await client.send(
       new ListObjectsV2Command({ Bucket: workspace, Prefix: prefix, ContinuationToken: cursor }),
+      { abortSignal: AbortSignal.timeout(60_000) },
     )
     for (const object of page.Contents ?? []) {
       if (

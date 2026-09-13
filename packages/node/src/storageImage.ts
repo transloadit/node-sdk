@@ -6,6 +6,7 @@ import { createReadStream } from 'node:fs'
 
 import { z } from 'zod'
 
+import { ApiError } from './ApiError.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 
 /**
@@ -166,8 +167,18 @@ function validateReceipt(
   expected: StoredImageExpectation,
 ): StoredImageReceipt {
   const { path, size, md5hash } = expected
+  if (typeof assembly.error === 'string') throw new ApiError({ body: assembly })
   if (assembly.ok === 'ASSEMBLY_CANCELED') {
     throw new InconsistentResponseError('The Storage Assembly ended with ASSEMBLY_CANCELED', {
+      cause: { assemblyId: assembly.assembly_id },
+    })
+  }
+  if (
+    assembly.ok === 'ASSEMBLY_UPLOADING' ||
+    assembly.ok === 'ASSEMBLY_EXECUTING' ||
+    assembly.ok === 'ASSEMBLY_REPLAYING'
+  ) {
+    throw new InconsistentResponseError(`The Storage Assembly is not complete (${assembly.ok})`, {
       cause: { assemblyId: assembly.assembly_id },
     })
   }

@@ -341,8 +341,10 @@ factory. Defaults: one hour for private paths, one year for explicitly public pa
 grants never exceed 48 hours, including in a mixed factory with a longer public lifetime.
 The default rotation interval is half the lifetime, capped at one hour. For the private default,
 a newly issued grant has 30–60 minutes remaining, never 60–120. Advanced `rotationIntervalMs`
-chooses a stable bucket inside the maximum; smaller buckets reduce variation but fragment the
-CDN cache more. Public direct URLs use the factory's captured time, so rebuild before they expire.
+chooses a stable bucket no greater than half the effective private lifetime (at most 24 hours),
+including in mixed public/private factories. This reserves at least half the lifetime for delivery;
+smaller buckets reduce variation but fragment the CDN cache more. Public direct URLs use the
+factory's captured time, so rebuild before they expire.
 Without `errorFallback`, a 403/404 uses native broken-image/alt behavior. JPEG is a format
 fallback, not HTTP-error recovery. Opt-in `deferUntilHydrated` delays noncritical images; leave it
 off unless addressing an observed WebKit replay issue.
@@ -399,11 +401,16 @@ exact path, byte count, MD5 and positive EXIF-oriented display dimensions. The r
 The CLI atomically appends to the JSON object keyed by Storage path, preserving earlier receipts
 on failure. Parent directories must exist. A sibling lock prevents concurrent writers from losing
 each other's records; remove an interrupted process's lock only after confirming it has stopped.
+New catalogs use ordinary file permissions derived from your umask; existing modes are preserved.
+The credentials file remains private (`0600`).
 Receipt validation occurs after the Storage write, not as a rollback. A failed receipt may mean
 the object already exists. Existing paths conflict by default.
 
 `storage ls website/` lists the current workspace using its read-scoped Auth Key and the existing
 S3-compatible read API, without an Assembly. `--workspace` overrides automatic workspace discovery.
+S3 allows 30 seconds to receive headers and at most two attempts per request. A 60-second deadline
+also covers retries and response-body reads; failed syncs release the catalog lock and leave the
+existing catalog intact.
 It uses the endpoint saved with those key credentials; `--endpoint` is an explicit trusted override
 and accepts the API origin, not a bucket URL. The rendering factory's `baseUrl` is unrelated.
 The Storage S3 API must be enabled separately: successful Assembly-based storage or image delivery
@@ -475,6 +482,9 @@ is Uppy → store step → notification → `getStoredImageReceipt` → persist.
 `storeImage`'s exact one-original/path/size/MD5/asset_id validation and EXIF orientation handling.
 For transformed or multiple inputs, correlate and validate the appropriate annotated result step
 yourself. The helper deliberately handles one original only.
+Failed Assemblies retain their `ApiError` code, such as `TRANSLOADIT_STORE_CONFLICT`. An unfinished
+Assembly raises `InconsistentResponseError` naming its current status; retry recovery after it
+finishes. A completed Assembly with mismatched receipt data remains an integrity error.
 
 The same call recovers a local receipts-file failure: get the completed Assembly ID from the CLI
 error or Console, supply the original file's trusted path/size/MD5, and append the returned receipt

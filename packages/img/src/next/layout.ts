@@ -97,7 +97,12 @@ export function resolveImageLayout(
 ): ResolvedImageLayout {
   const layout = props.layout
   const input = props.src
-  const src = typeof input === 'string' && images !== undefined ? images[input] : input
+  const src =
+    typeof input === 'string' && images !== undefined
+      ? Object.hasOwn(images, input)
+        ? images[input]
+        : undefined
+      : input
   if (src === undefined) throw new TypeError('Storage image path is not in the configured catalog')
   if ((layout === 'fixed' || layout === 'fill') && typeof src === 'string') {
     throw new TypeError(

@@ -1,5 +1,78 @@
 # Storage image onboarding review
 
+## Post-round-5 council — five corrective fixes
+
+Kevin supplied `/tmp/img-pr500-r5-council.md` against `c855236`; the starting head here is
+`47e4069` (only the verified EXIF documentation follow-up since that council). All five fixes
+remain in #500, red-first. No merge, publication, API2 or Content implementation changes.
+
+- [x] Abort stalled S3 requests and release the catalog lock without replacing the old catalog.
+- [x] Preserve failed-Assembly API error codes; identify unfinished receipt recovery separately.
+- [x] Reserve at least half the effective lifetime for delivery at every rotation boundary.
+- [x] Use umask-derived permissions for new catalogs and preserve existing catalog modes.
+- [x] Resolve only own catalog entries, including explicitly stored prototype-named files.
+- [x] Review, then run sequential checks and the packed browser fixture before pushing.
+- [x] Prepare the ten-line PR changelog and since-last-council summary.
+
+The remaining external gate is commit/push and exact-head CI monitoring. Its changing outcome is
+tracked by #500's checks and `/tmp/img-task2-handover.md`; do not infer new CI from an older run.
+
+Every finding failed first for its intended reason. The HTTP-200 failed-Assembly tests exercise
+the actual SDK status fetch, preserving error code, reason and Assembly IDs; uploading/executing/
+replaying now identify unfinished recovery rather than reporting malformed completed receipts.
+Both umask `022` and `077`, existing `0640` catalogs, private credentials, missing prototype names
+and explicitly stored prototype-named files are covered. Rotation rejects intervals greater than
+half the effective private lifetime, including the 48-hour cap in mixed public/private factories;
+boundary tests verify the remaining lifetime, not just the configuration error.
+
+The timeout sweep found that Smithy clears its request timer at response headers. Merely enabling
+`throwOnRequestTimeout` therefore left a second hang in response-body reads, also reproduced red.
+Six real loopback-server cases now pass: listing, workspace discovery, sync List/HEAD, and stalled
+bodies in listing/sync. Only the configured timers are accelerated; sockets, Smithy retries and
+body parsing are real. A 30-second header timer aborts rather than warns; a fresh 60-second signal
+per S3 command also bounds body reads and retries. No total-duration limit is imposed on a healthy
+multi-page sync. Failure preserves the old catalog and releases its lock.
+
+Initial root `check` passes: img 227, Node 429 passing plus one existing skip. Optional broad Node
+test-project type checking still reports the same 36 diagnostics in 11 unchanged test files, none
+in these changed tests; required source/image type checks pass. Red logs:
+`/tmp/img-r5-council-red-{node,img,http,body}.log`; local verification:
+`/tmp/img-r5-council-{check,verify,fixture}.log`. The last two gates are tracked below when finished.
+
+Sequential Node24.20 `check`, `verify:full` and the packed fixture now pass. Nine seed/CLI cases
+and all 64 production browser cases pass on their first attempt (52.7s enabled, 50.8s omitted).
+The independent artifact audit confirms zero retries, skips, flakes or unexpected errors:
+`/tmp/img-r5-council-local-audit.json`. Reviewers receive this unchanged tested source diff and
+sanitized local browser evidence; no new Content migration or production behavior is claimed.
+
+Council and Opus independently identified the same two refinements: preserve useful network
+failure messages instead of suggesting credential changes, and let the kernel apply umask during
+new-file creation. Both failed first in the existing behavior tests, then passed. Timeout, abort
+and reset errors receive sanitized transport advice; upstream HTTP errors keep their status and
+access guidance. Real process-isolated umask `022`/`077` tests replace the earlier getter mock,
+asserting that catalog creation does not call the deprecated no-argument getter. See
+[Node's umask contract](https://nodejs.org/docs/latest-v24.x/api/process.html#processumask).
+The secondary suggestion to clamp a deliberately permissive operator umask was not adopted:
+catalogs follow ordinary source-file permissions, just like generated image integration sources;
+credentials retain `0600`, and existing catalog modes are preserved even under a different umask.
+
+Opus's local access-control/credential/grant verdict is PASS, with these refinements and explicit
+scope limits. The earlier hydrated screenshots show only the button after scrolling past the
+fixture's 10,000px spacer, not image delivery. The same run's before-application-JavaScript
+captures do show the private hero/avatar and are included in the corrected evidence packet;
+measured responses, decoded dimensions and asserted authorization outcomes were unaffected.
+Reports: `/tmp/img-r5-council-followup-review.log`, `/tmp/img-r5-council-security-review.md`,
+`/tmp/img-r5-council-refinements-{red,green}.log`. The targeted Opus follow-up confirms both fixes
+and corrected screenshot provenance: `/tmp/img-r5-council-security-final.md` (PASS). Broader
+diagnostics for pre-existing DNS/refused-connection failures remain outside this timeout fix;
+no new scope/credential advice regression remains in the six new timeout cases.
+
+Final sequential checks after these refinements pass: `/tmp/img-r5-council-final-{check,verify,fixture}.log`.
+Img has 227 passing cases, Node 429 passing plus one pre-existing skip, utils 54; nine packed
+seed/CLI cases and all 64 browser cases pass without retries, skips, flakes or unexpected errors.
+The independent audit is `/tmp/img-r5-council-final-audit.json`. Source changes since the review
+and these checks are only clarifying comments/documentation; the package/browser runtime is unchanged.
+
 ## EXIF catalog follow-up — API2 `07ec5abc2b`
 
 Kevin supplied `07ec5abc2b71d449a7474391c8eeef4934ef3589` to close the rotated-photo finding.

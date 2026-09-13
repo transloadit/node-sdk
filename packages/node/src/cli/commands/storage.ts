@@ -11,7 +11,12 @@ import { z } from 'zod'
 
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
 import { updateStorageReceipts } from '../storageReceipts.ts'
-import { listStorageObjects, storageS3ErrorSchema, withStorageS3 } from '../storageS3.ts'
+import {
+  listStorageObjects,
+  storageS3ConnectionErrorSchema,
+  storageS3ErrorSchema,
+  withStorageS3,
+} from '../storageS3.ts'
 import {
   nextAppRoot,
   storageImageEnvBlock,
@@ -241,8 +246,15 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
               objects,
               async ({ path }) => {
                 const head = await client
-                  .send(new HeadObjectCommand({ Bucket: workspace, Key: path }))
+                  .send(new HeadObjectCommand({ Bucket: workspace, Key: path }), {
+                    abortSignal: AbortSignal.timeout(60_000),
+                  })
                   .catch((error: unknown) => {
+                    if (storageS3ConnectionErrorSchema.safeParse(error).success)
+                      throw new Error(
+                        `Storage HEAD for ${JSON.stringify(path)} timed out or lost its connection. Check the Storage endpoint and retry the sync.`,
+                        { cause: error },
+                      )
                     const remote = storageS3ErrorSchema.safeParse(error)
                     const status = remote.success ? remote.data.$metadata.httpStatusCode : undefined
                     throw new Error(

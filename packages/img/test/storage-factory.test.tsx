@@ -133,6 +133,52 @@ test('workspace-root access requires the named acknowledgment, never an empty pr
 })
 
 test.each([
+  'constructor',
+  'toString',
+  '__proto__',
+])('requires an own catalog entry for %s without excluding an explicitly stored file', (path) => {
+  const missing = createStorageImages({ images })
+  expect(() =>
+    Reflect.apply(missing.StorageImage, undefined, [{ src: path, alt: 'Missing image' }]),
+  ).toThrow('Storage image path is not in the configured catalog')
+  const present = createPrivateStorageImages({
+    images: { [path]: { path, width: 64, height: 64 } },
+    authorize: () => true,
+  })
+  expect(renderToStaticMarkup(<present.StorageImage src={path} alt="Stored image" />)).toContain(
+    'width="64"',
+  )
+})
+
+test.each([
+  30_001, 59_999, 60_000,
+])('rejects a rotation interval of %i that leaves less than half the lifetime for delivery', (rotationIntervalMs) => {
+  expect(() =>
+    createPrivateStorageImages({
+      images,
+      authorize: () => true,
+      lifetime: 60_000,
+      rotationIntervalMs,
+    }),
+  ).toThrow(/rotationIntervalMs.*half/)
+  expect(() =>
+    createStorageImages({ images, public: ['website/'], lifetime: 60_000, rotationIntervalMs }),
+  ).toThrow(/rotationIntervalMs.*half/)
+})
+
+test('rotation margin also applies to the private cap in a long-lived public factory', () => {
+  expect(() =>
+    createPrivateStorageImages({
+      images,
+      authorize: () => true,
+      public: ['website/'],
+      lifetime: '365d',
+      rotationIntervalMs: 24 * 3_600_000 + 1,
+    }),
+  ).toThrow(/rotationIntervalMs.*half/)
+})
+
+test.each([
   0, 1, 29_999, 30_000, 59_999, 60_000,
 ])('lifetime bounds an issued grant at offset %i', async (offset) => {
   const { StorageImage, storageRoute } = createPrivateStorageImages({
@@ -146,8 +192,22 @@ test.each([
   const location = response.headers.get('location')
   if (location === null) throw new Error('Expected a redirect')
   const remaining = expiry(new URL(location)) - Date.now()
-  expect(remaining).toBeGreaterThan(0)
+  expect(remaining).toBeGreaterThanOrEqual(30_000)
   expect(remaining).toBeLessThanOrEqual(60_000)
+})
+
+test('an explicit half-lifetime rotation retains its margin just before the boundary', async () => {
+  const { StorageImage, storageRoute } = createPrivateStorageImages({
+    images,
+    authorize: () => true,
+    lifetime: 60_000,
+    rotationIntervalMs: 30_000,
+  })
+  const url = firstUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />))
+  vi.setSystemTime(Date.now() + 29_999)
+  const location = (await storageRoute(new Request(url))).headers.get('location')
+  if (location === null) throw new Error('Expected a redirect')
+  expect(expiry(new URL(location)) - Date.now()).toBe(30_001)
 })
 
 test('long public lifetimes never lengthen private grants beyond 48 hours', async () => {

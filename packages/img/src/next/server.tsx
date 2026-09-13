@@ -85,7 +85,7 @@ interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = 
   cacheMaxAgeMs?: number
   /** Maximum CDN grant age. Defaults to one year for public paths, one hour for private paths. */
   lifetime?: StorageImageLifetime
-  /** Stable signature bucket, inside lifetime. Defaults to min(lifetime / 2, one hour). */
+  /** Stable signature bucket, at most half the private lifetime. Defaults to min(lifetime / 2, one hour). */
   rotationIntervalMs?: number
   /** Trusted development endpoint override; never derive this from request data. */
   baseUrl?: string
@@ -424,10 +424,11 @@ function getStoragePolicy(
   if (rotationIntervalMs !== undefined) {
     validateDuration(rotationIntervalMs, 'rotationIntervalMs')
     if (
-      rotationIntervalMs > Math.min(lifetime ?? defaultStorageExpiresInMs, maximumStorageLifetimeMs)
+      rotationIntervalMs >
+      Math.min(lifetime ?? defaultStorageExpiresInMs, maximumStorageLifetimeMs) / 2
     )
       throw new RangeError(
-        'rotationIntervalMs must not exceed the private lifetime (at most 48 hours)',
+        'rotationIntervalMs must not exceed half the private lifetime (capped at 48 hours)',
       )
   }
   // Next 16 inlines this build-time value for bundled server modules. Externalized consumers
