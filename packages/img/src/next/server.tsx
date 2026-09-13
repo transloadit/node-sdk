@@ -100,6 +100,8 @@ interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = 
   baseUrl?: string
   /** Trusted compatible signed Template override for Storage previews. */
   template?: string
+  /** Trusted unsigned public Template override; independent of the private Template. */
+  publicTemplate?: string
   /** Trusted transport parameters appended to every signed URL, such as `cdn=required`. */
   urlParams?: SmartCdnUrlParams
 }
@@ -441,6 +443,7 @@ function getStoragePolicy(
       : undefined
   let delivery: ResolvedStoragePolicy['delivery'] = 'direct'
   if (configuration.authorize !== undefined) {
+    // An authorizer overrides a shared direct-delivery default; private access stays gated.
     const route = configuration.route ?? '/api/storage-images'
     validateStorageRoute(route)
     validateStorageBasePath(basePath)
@@ -838,7 +841,8 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
       template: request.template,
       urlParams: { ...urlParams, ...request.urlParams },
     })
-  const publicTemplate = customTemplate ?? transloaditPublicStoragePreviewTemplate
+  const publicTemplate = configuration.publicTemplate ?? transloaditPublicStoragePreviewTemplate
+  validateTemplate(publicTemplate, 'publicTemplate')
   const buildPublicUrl = (
     request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
     md5hash?: string,

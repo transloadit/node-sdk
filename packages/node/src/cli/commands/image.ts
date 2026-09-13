@@ -59,8 +59,8 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       if (root === undefined)
         throw new Error('Run image init in a Next.js project containing app/ or src/app/')
       let environment: string | undefined
+      const login = this.writeEnv ? resolveCliConfig('login') : undefined
       if (this.writeEnv) {
-        const config = resolveCliConfig()
         const value = z
           .string()
           .min(1)
@@ -74,9 +74,9 @@ export class ImageInitCommand extends UnauthenticatedCommand {
             TRANSLOADIT_SECRET: value,
           })
           .safeParse({
-            TRANSLOADIT_WORKSPACE: config.credentialsWorkspace,
-            TRANSLOADIT_KEY: config.credentials?.authKey,
-            TRANSLOADIT_SECRET: config.credentials?.authSecret,
+            TRANSLOADIT_WORKSPACE: login?.credentialsWorkspace,
+            TRANSLOADIT_KEY: login?.credentials?.authKey,
+            TRANSLOADIT_SECRET: login?.credentials?.authSecret,
           })
         if (!parsed.success)
           throw new Error(
@@ -141,7 +141,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         if (existing !== undefined) throw new Error(`Refusing to overwrite ${file.path}`)
       }
       if (this.publicDelivery) {
-        if (!this.setupClient()) return 1
+        if (!this.setupClient(login)) return 1
         const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
           throw new Error(storagePublicError(cause), { cause })
         })

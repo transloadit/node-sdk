@@ -1,3 +1,4 @@
+import type { CliKeySecretCredentials } from './helpers.ts'
 import type { IOutputCtl } from './OutputCtl.ts'
 
 import { hostname } from 'node:os'
@@ -7,6 +8,8 @@ import { execa } from 'execa'
 import got from 'got'
 import { z } from 'zod'
 
+import { cliSignatureAlgorithmSchema } from './helpers.ts'
+
 const deviceSchema = z.object({
   ok: z.literal('CLI_DEVICE_AUTHORIZATION_CREATED'),
   device_code: z.string().min(1).max(4096),
@@ -14,11 +17,13 @@ const deviceSchema = z.object({
     .string()
     .regex(/^[BCDFGHJKLMNPQRSTVWXZ23456789]{4}-[BCDFGHJKLMNPQRSTVWXZ23456789]{4}$/),
   verification_url: z.string().url(),
+  // The agreed device contract is bounded to 15 minutes; reject incompatible server responses.
   expires_in: z.number().int().positive().max(900),
   interval: z.number().int().positive().max(900),
 })
 const authorizedSchema = z.object({
   ok: z.literal('CLI_DEVICE_AUTHORIZED'),
+  signature_algo: cliSignatureAlgorithmSchema,
   workspace: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/),
   auth_key: z
     .string()
@@ -40,9 +45,7 @@ const expiredMessage =
   'Device authorization expired or was already used. Run transloadit auth login again.'
 
 /** Browser-approved credentials; the one-time device code never leaves this module. */
-export interface DeviceLoginCredentials {
-  authKey: string
-  authSecret: string
+export interface DeviceLoginCredentials extends CliKeySecretCredentials {
   workspace: string
 }
 
@@ -96,6 +99,7 @@ export async function deviceLogin(
     })
     const opener =
       process.platform === 'darwin' ? 'open' : process.platform === 'linux' ? 'xdg-open' : undefined
+    // On platforms without an opener, the printed URL is the manual approval path.
     if (!noBrowser && opener !== undefined) {
       await execa(opener, [target.href], { stdio: 'ignore', timeout: 5000 }).catch(() => {
         output.print('Could not open the browser. Open the verification URL printed above.', {
@@ -151,6 +155,7 @@ export async function deviceLogin(
       return {
         authKey: authorized.data.auth_key,
         authSecret: authorized.data.auth_secret,
+        signatureAlgorithm: authorized.data.signature_algo,
         workspace: authorized.data.workspace,
       }
     }

@@ -628,7 +628,7 @@ test('the public catalog hero has stock-CSS geometry and no application image re
 })
 
 test('the generated empty catalog page works before the first upload', async ({ page }) => {
-  await page.goto('/cli-empty/app/storage-image-example')
+  await page.goto('/fixture/cli-empty/app/storage-image-example')
   await expect(
     page.getByText('Add an image with transloadit storage store to see it here.', { exact: true }),
   ).toBeVisible()

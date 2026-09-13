@@ -23,6 +23,7 @@ async function main(): Promise<void> {
   const client = new Transloadit({
     authKey,
     authSecret,
+    signatureAlgorithm: 'sha256',
     endpoint: process.env.TRANSLOADIT_ASSEMBLY_ENDPOINT,
   })
   console.log(JSON.stringify(await seedStorageImage(client, filePath, path), null, 2))

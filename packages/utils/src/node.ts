@@ -7,7 +7,7 @@ import { Buffer } from 'node:buffer'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { finishSmartCdnUrl, getSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
-import { createSmartCdnImageCandidates } from './smartCdnImage.ts'
+import { createSmartCdnImageCandidates, smartCdnImageMaxDimension } from './smartCdnImage.ts'
 import { parseStorageGrantClaims } from './storageGrant.ts'
 
 export type { SignatureAlgorithm } from './index.ts'
@@ -64,14 +64,29 @@ export function getSmartCdnImageCandidates(
 ): SmartCdnImageCandidates {
   const { workspace, baseUrl } = opts
   const urlParams = { ...opts.urlParams }
-  return createSmartCdnImageCandidates({ ...opts, expiresAt: undefined }, (request) =>
-    getSmartCdnUrl({
-      workspace,
-      baseUrl,
-      template: request.template,
-      input: request.input,
-      urlParams: { ...urlParams, ...request.urlParams },
-    }),
+  const sourceDimensions =
+    opts.sourceDimensions === undefined ? undefined : { ...opts.sourceDimensions }
+  return createSmartCdnImageCandidates(
+    { ...opts, sourceDimensions, expiresAt: undefined },
+    (request) => {
+      const width = request.urlParams.w
+      if (typeof width !== 'number') throw new TypeError('Image candidates require a numeric width')
+      return getSmartCdnUrl({
+        workspace,
+        baseUrl,
+        template: request.template,
+        input: request.input,
+        urlParams: {
+          ...urlParams,
+          ...request.urlParams,
+          // Preview Templates have a default height; width-only fit can silently cap the bitmap.
+          h:
+            sourceDimensions === undefined
+              ? smartCdnImageMaxDimension
+              : Math.max(1, Math.ceil((width * sourceDimensions.height) / sourceDimensions.width)),
+        },
+      })
+    },
   )
 }
 

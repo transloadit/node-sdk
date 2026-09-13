@@ -72,6 +72,10 @@ on the combined-key API2 revision; separate keys remain optional. This advanced 
 explicit Assembly variable names to avoid accidentally loading a local endpoint into Next. Add both
 `.env.seed.local` and `.env.local` to the app's `.gitignore` before creating them:
 
+The seed below selects `signatureAlgorithm: 'sha256'` for a combined key. A legacy Assembly-only
+key may require `'sha384'` instead; match the algorithm configured on that key. CLI browser login
+stores this metadata automatically for subsequent CLI requests.
+
 - `TRANSLOADIT_ASSEMBLY_KEY` and `TRANSLOADIT_ASSEMBLY_SECRET`: an **Assembly Auth Key** and its
   secret, used to sign the one-time upload/store Assembly. Put these in **`.env.seed.local`**,
   loaded only by the seed command below.
@@ -126,6 +130,7 @@ async function main(): Promise<void> {
   const client = new Transloadit({
     authKey,
     authSecret,
+    signatureAlgorithm: 'sha256',
     endpoint: process.env.TRANSLOADIT_ASSEMBLY_ENDPOINT,
   })
   console.log(JSON.stringify(await seedStorageImage(client, filePath, path), null, 2))

@@ -178,8 +178,9 @@ These messages contain no requested path, URL or secret. Next's bundled server m
 `basePath` from its build configuration; supply it explicitly for externalized integrations.
 Private direct delivery logs once per factory that it makes the route dynamic; public direct does not.
 
-An unsigned public HEAD denied with `NO_SIGNATURE_FIELD` gets a `transloadit storage publish`
-hint. A 200 image response with `immutable` confirms the public delivery/cache contract.
+An unsigned public HEAD returning 401/403 gets a `transloadit storage publish` hint. That status
+alone cannot distinguish `NO_SIGNATURE_FIELD` from other denials. A 200 image response with
+`immutable` confirms the public delivery/cache contract.
 Other hints cover Smart CDN enablement, workspace/path/Template setup, expiry, clock and connectivity. A generic 403 cannot tell us
 which of those is wrong. Neither raw responses, errors, signed URLs nor secrets are logged.
 The probe can trigger one cold transformation in development; it does not weaken authorization.
@@ -226,8 +227,12 @@ override is supported; project dotenv cannot redirect newly authorized credentia
 Existing credentials require `--replace`; app env files and symlinks are refused.
 `auth login --stdin` retains automation with dotenv input (workspace optional, but needed by init),
 verifying one signed Template read. Never pass secrets as CLI arguments.
+The login also saves its API signing algorithm. For combined keys this is SHA-256; the CLI uses
+it for subsequent API requests. With `--stdin`, include `TRANSLOADIT_SIGNATURE_ALGORITHM=sha256`
+for such a key. Existing credentials without this value retain the SDK's SHA-384 default.
 
-`image init --write-env` reuses the saved login to create an owner-only `.env.local`, never
+`image init --write-env` reads the login file explicitly, keeping its key, workspace and endpoint
+together even if the shell or project contains older credentials. It creates an owner-only `.env.local`, never
 overwriting it or prompting for another key. Omit it to leave env files untouched.
 All keys are **server-only**, never `NEXT_PUBLIC_`. Public-only rendering needs just the workspace
 slug (or explicit `workspace`); it never reads or validates signing credentials. Private capability
@@ -235,6 +240,8 @@ prerenders need a build-time secret; request-only direct rendering can defer it 
 Supply the same private credentials to the deployed route handler.
 
 CLI lookup is shell environment, current-directory `.env`, then the credentials file.
+Ordinary commands retain this order: remove stale credential overrides before uploading to the
+new login's workspace. Login and `init --write-env` do not overwrite those settings.
 Login uses production unless `--endpoint` selects an explicit trusted API origin; this binding is
 saved alongside the credential. Ordinary commands honor `TRANSLOADIT_ENDPOINT` under the same
 lookup rules. Rendering never loads CLI credential files. The Assembly client is an upload-side
@@ -342,6 +349,9 @@ digits ending in `ff`). Named colors and transparent JPEG backgrounds are reject
 Pass raw hex colors: URL signing encodes `#` as `%23`. `bg` cannot be overridden through global
 `urlParams`. A custom Template must support the same background field contract.
 `formats` sets per-format quality; `fallbackQuality` sets JPEG quality.
+`template` overrides only private previews; `publicTemplate` independently overrides public
+delivery and must accept unsigned requests with the same fields. A private Built-in cannot serve
+as a public override, even when its input directory is published.
 
 `lifetime` is a **private-grant maximum**, in milliseconds or a duration such as `'1h'`.
 It defaults to one hour and cannot exceed 48 hours, including in mixed factories. Public URLs

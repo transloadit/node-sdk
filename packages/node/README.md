@@ -1490,6 +1490,9 @@ The `options` object can contain the following keys:
 
 - `authKey` **(required)** - see [requirements](#requirements)
 - `authSecret` **(required)** - see [requirements](#requirements)
+- `signatureAlgorithm` (default `'sha384'`) - API signing algorithm configured on this Auth Key.
+  Use `'sha256'` for combined Smart CDN-enabled keys. Browser CLI login saves and applies this
+  setting automatically; explicit `calcSignature(params, algorithm)` calls still override it.
 - `endpoint` (default `'https://api2.transloadit.com'`)
 - `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `gotRetry` (default `0`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
@@ -1934,7 +1937,6 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
-
 
 
 

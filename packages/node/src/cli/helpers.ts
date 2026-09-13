@@ -6,10 +6,17 @@ import { homedir } from 'node:os'
 import path from 'node:path'
 
 import { parse as parseDotenv } from 'dotenv'
+import { z } from 'zod'
 
 import { isAPIError } from './types.ts'
 
-export type CliKeySecretCredentials = { authKey: string; authSecret: string }
+/** API signing algorithms supported by CLI credentials and device authorization. */
+export const cliSignatureAlgorithmSchema = z.enum(['sha1', 'sha256', 'sha384', 'sha512'])
+export type CliKeySecretCredentials = {
+  authKey: string
+  authSecret: string
+  signatureAlgorithm?: z.infer<typeof cliSignatureAlgorithmSchema>
+}
 export type CliAuthToken = { authToken: string }
 export type CliAuth = CliKeySecretCredentials | CliAuthToken
 type CliEnvSource = {
@@ -42,7 +49,7 @@ function normalizeEnvValue(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined
 }
 
-/** Login accepts only a shell override; existing credential reads retain merged env lookup. */
+/** Login and its env scaffold accept only a shell path override; ordinary reads retain merged lookup. */
 export function getConfiguredCredentialsFilePath(source: 'shell' | 'merged' = 'merged'): string {
   const values = source === 'shell' ? getShellEnvValues() : process.env
   const configuredPath = normalizeEnvValue(values.TRANSLOADIT_CREDENTIALS_FILE)
@@ -222,7 +229,16 @@ function getSourceCredentials(source: CliEnvSource): CliKeySecretCredentials | u
   const authSecret = getSourceValue(source, ['TRANSLOADIT_SECRET', 'TRANSLOADIT_AUTH_SECRET'])
   if (authKey == null || authSecret == null) return undefined
 
-  return { authKey, authSecret }
+  const algorithm = cliSignatureAlgorithmSchema
+    .optional()
+    .safeParse(getSourceValue(source, ['TRANSLOADIT_SIGNATURE_ALGORITHM']))
+  if (!algorithm.success)
+    throw new TypeError('Unsupported TRANSLOADIT_SIGNATURE_ALGORITHM in CLI credentials')
+  return {
+    authKey,
+    authSecret,
+    ...(algorithm.data === undefined ? {} : { signatureAlgorithm: algorithm.data }),
+  }
 }
 
 function getSourceAuthToken(source: CliEnvSource): CliAuthToken | undefined {
@@ -243,7 +259,22 @@ function resolveEndpointForSource(
   return getSourceValue(source, ['TRANSLOADIT_ENDPOINT'])
 }
 
-export function resolveCliConfig(): ResolvedCliConfig {
+export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliConfig {
+  if (source === 'login') {
+    // Match auth login's destination and keep its key, workspace, algorithm and endpoint together.
+    // Project dotenv and stale shell credentials must not redirect this onboarding operation.
+    const saved = readEnvFile(getConfiguredCredentialsFilePath('shell'))
+    if (!saved?.ok) return saved === null ? {} : { loadError: saved.error }
+    const credentials = getSourceCredentials(saved.source)
+    const endpoint = getSourceValue(saved.source, ['TRANSLOADIT_ENDPOINT'])
+    return {
+      auth: credentials,
+      credentials,
+      credentialsWorkspace: getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE']),
+      credentialsEndpoint: endpoint,
+      endpoint,
+    }
+  }
   const { loadError, shellEnvSource, sources } = loadCliEnvSources()
   let auth: CliAuth | undefined
   let authSource: CliEnvSource | undefined

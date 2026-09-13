@@ -1,3 +1,5 @@
+import type { CliKeySecretCredentials } from '../helpers.ts'
+
 import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname } from 'node:path'
@@ -8,7 +10,11 @@ import { z } from 'zod'
 
 import { Transloadit } from '../../Transloadit.ts'
 import { deviceLogin } from '../deviceLogin.ts'
-import { getConfiguredCredentialsFilePath, readCliInput } from '../helpers.ts'
+import {
+  cliSignatureAlgorithmSchema,
+  getConfiguredCredentialsFilePath,
+  readCliInput,
+} from '../helpers.ts'
 import { quoteCredential } from '../secretInput.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
@@ -20,6 +26,7 @@ const credentialSchema = z
   .max(4096)
   .regex(/^[^\r\n\0]+$/)
 const credentialsSchema = z.object({
+  TRANSLOADIT_SIGNATURE_ALGORITHM: cliSignatureAlgorithmSchema.optional(),
   TRANSLOADIT_KEY: credentialSchema,
   TRANSLOADIT_SECRET: credentialSchema,
   TRANSLOADIT_WORKSPACE: z
@@ -86,7 +93,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           'Login endpoint must be an HTTPS API origin (HTTP is allowed only on loopback)',
         )
       const origin = endpoint.origin
-      let credentials: { authKey: string; authSecret: string; workspace?: string }
+      let credentials: CliKeySecretCredentials & { workspace?: string }
       if (this.stdin) {
         const input = credentialsSchema.safeParse(
           parse((await readCliInput({ inputPath: '-' })).content ?? ''),
@@ -99,10 +106,12 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           authKey: input.data.TRANSLOADIT_KEY,
           authSecret: input.data.TRANSLOADIT_SECRET,
           workspace: input.data.TRANSLOADIT_WORKSPACE,
+          ...(input.data.TRANSLOADIT_SIGNATURE_ALGORITHM === undefined
+            ? {}
+            : { signatureAlgorithm: input.data.TRANSLOADIT_SIGNATURE_ALGORITHM }),
         }
         const client = new Transloadit({
-          authKey: credentials.authKey,
-          authSecret: credentials.authSecret,
+          ...credentials,
           endpoint: origin,
           maxRetries: 0,
           timeout: 10_000,
@@ -114,7 +123,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           )
         })
       } else credentials = await deviceLogin(origin, this.output, this.noBrowser)
-      const data = `TRANSLOADIT_KEY=${quoteCredential(credentials.authKey)}\nTRANSLOADIT_SECRET=${quoteCredential(credentials.authSecret)}\n${credentials.workspace === undefined ? '' : `TRANSLOADIT_WORKSPACE=${quoteCredential(credentials.workspace)}\n`}${this.endpoint === undefined ? '' : `TRANSLOADIT_ENDPOINT=${quoteCredential(origin)}\n`}`
+      const data = `TRANSLOADIT_KEY=${quoteCredential(credentials.authKey)}\nTRANSLOADIT_SECRET=${quoteCredential(credentials.authSecret)}\n${credentials.workspace === undefined ? '' : `TRANSLOADIT_WORKSPACE=${quoteCredential(credentials.workspace)}\n`}${credentials.signatureAlgorithm === undefined ? '' : `TRANSLOADIT_SIGNATURE_ALGORITHM=${quoteCredential(credentials.signatureAlgorithm)}\n`}${this.endpoint === undefined ? '' : `TRANSLOADIT_ENDPOINT=${quoteCredential(origin)}\n`}`
       await mkdir(dirname(file), { recursive: true, mode: 0o700 })
       if (this.replace) {
         const info = await lstat(file).catch((error: unknown) => {

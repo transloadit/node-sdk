@@ -1,3 +1,4 @@
+import type { ResolvedCliConfig } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 
 import { Command, Option } from 'clipanion'
@@ -31,8 +32,7 @@ abstract class BaseCommand extends Command {
     })
   }
 
-  protected setupClient(): boolean {
-    const config = resolveCliConfig()
+  protected setupClient(config: ResolvedCliConfig = resolveCliConfig()): boolean {
     if (config.auth == null) {
       this.output.error(config.loadError ?? buildMissingAuthMessage())
       return false

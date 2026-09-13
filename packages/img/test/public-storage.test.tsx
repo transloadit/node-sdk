@@ -172,6 +172,42 @@ test('the existing Smart CDN key pair remains a deliberate override', async () =
   expect(parseSmartCdnUrl(target).auth?.key).toBe('render-key')
 })
 
+test('pinning a private Template does not replace the public Built-in', () => {
+  const { StorageImage } = createStorageImages({
+    images,
+    public: ['website/'],
+    template: 'builtin/storage-preview@0.0.2',
+  })
+  const url = imageUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />))
+  expect(parseSmartCdnUrl(url).template).toBe('builtin/public-preview@0.0.1')
+  expect(parseSmartCdnUrl(url).auth).toBeUndefined()
+})
+
+test('custom public and private Templates can be selected independently in a mixed factory', async () => {
+  vi.stubEnv('TRANSLOADIT_KEY', 'combined-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'combined-secret')
+  const { StorageImage, storageRoute } = createStorageImages({
+    images,
+    public: ['website/'],
+    authorize: () => true,
+    template: 'private-preview',
+    publicTemplate: 'public-preview',
+  })
+  const publicUrl = imageUrl(
+    renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />),
+  )
+  expect(parseSmartCdnUrl(publicUrl).template).toBe('public-preview')
+  expect(parseSmartCdnUrl(publicUrl).auth).toBeUndefined()
+  const privateUrl = imageUrl(
+    renderToStaticMarkup(<StorageImage src="private/avatar.png" alt="Private" />),
+  )
+  const response = await storageRoute(new Request(new URL(privateUrl, 'https://app.example')))
+  const target = response.headers.get('location')
+  if (target === null) throw new Error('Expected a signed private redirect')
+  expect(parseSmartCdnUrl(target).template).toBe('private-preview')
+  expect(parseSmartCdnUrl(target).auth?.key).toBe('combined-key')
+})
+
 test('private lifetime stays capped at 48 hours even in a mixed factory', () => {
   expect(() =>
     createStorageImages({ images, public: ['website/'], authorize: () => true, lifetime: '365d' }),

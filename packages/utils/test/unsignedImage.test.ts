@@ -36,3 +36,41 @@ test('unsigned candidates preserve trusted baseUrl and cannot override validated
   expect(new URL(result.sources[0]?.candidates[0]?.url ?? '').hostname).toBe('localhost')
   expect(new URL(result.sources[0]?.candidates[0]?.url ?? '').searchParams.get('w')).toBe('400')
 })
+
+test('unsigned Storage previews do not inherit the Built-in 300px default height', () => {
+  const result = getSmartCdnImageCandidates({
+    workspace: 'my-app',
+    template: 'builtin/public-preview@0.0.1',
+    input: 'website/hero.jpg',
+    sourceDimensions: { width: 2400, height: 1600 },
+    widths: [960, 1920],
+    formats: { webp: 75 },
+    fallbackUrl: '/fallback.jpg',
+    urlParams: { h: 300 },
+  })
+  const candidates = result.sources[0]?.candidates
+  expect(candidates).toHaveLength(2)
+  for (const candidate of candidates ?? []) {
+    const query = new URL(candidate.url).searchParams
+    const scale = Math.min(Number(query.get('w')) / 2400, Number(query.get('h') ?? 300) / 1600)
+    expect(Math.round(2400 * scale)).toBe(candidate.width)
+  }
+})
+
+test('fit rounds its height upward so a panorama is not narrower than its width descriptor', () => {
+  const result = getSmartCdnImageCandidates({
+    workspace: 'my-app',
+    template: 'builtin/public-preview@0.0.1',
+    input: 'website/panorama.jpg',
+    sourceDimensions: { width: 2400, height: 10 },
+    widths: [1000],
+    formats: { webp: 75 },
+    fallbackUrl: '/fallback.jpg',
+  })
+  const candidate = result.sources[0]?.candidates[0]
+  expect(candidate).toBeDefined()
+  if (candidate === undefined) throw new Error('Expected the panorama candidate')
+  const query = new URL(candidate.url).searchParams
+  const scale = Math.min(Number(query.get('w')) / 2400, Number(query.get('h')) / 10)
+  expect(Math.round(2400 * scale)).toBe(candidate.width)
+})

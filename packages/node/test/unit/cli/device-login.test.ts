@@ -2,6 +2,7 @@ import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { signParamsSync } from '@transloadit/utils/node'
 import { execa } from 'execa'
 import nock from 'nock'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -9,6 +10,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
+import { Transloadit } from '../../../src/Transloadit.ts'
 
 const { waits } = vi.hoisted((): { waits: number[] } => ({ waits: [] }))
 vi.mock('execa', () => ({ execa: vi.fn(async () => undefined) }))
@@ -140,6 +142,45 @@ test('expired device authorization never saves credentials', async () => {
   expect(JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls)).not.toContain(
     'unsafe device secret',
   )
+})
+
+test('the saved browser credential signs the next API request with its required algorithm', async () => {
+  const api = createDevice()
+    .post('/cli/device_authorizations/token')
+    .reply(200, authorized)
+    .post('/storage/public_prefixes')
+    .reply((_uri, body) => {
+      const encoded = String(body)
+      const params = /name="params"\r\n\r\n([^\r\n]+)/.exec(encoded)?.[1]
+      const signature = /name="signature"\r\n\r\n([^\r\n]+)/.exec(encoded)?.[1]
+      const accepted =
+        params !== undefined &&
+        signature === signParamsSync(params, authorized.auth_secret, 'sha256')
+      return accepted
+        ? [
+            200,
+            {
+              ok: 'STORAGE_PUBLIC_PREFIX_DECLARED',
+              prefix: 'website/',
+              created_at: '2026-09-13',
+              created: true,
+            },
+          ]
+        : [400, { error: 'INVALID_SIGNATURE' }]
+    })
+  await login(['--no-browser'])
+  expect(process.exitCode).toBeUndefined()
+  await main(['storage', 'publish', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(resolveCliConfig().credentials).toMatchObject({ signatureAlgorithm: 'sha256' })
+  const credentials = resolveCliConfig().credentials
+  if (credentials === undefined) throw new Error('Expected the saved combined key')
+  const client = new Transloadit(credentials)
+  const signed = client.calcSignature({ steps: {} })
+  expect(signed.signature).toBe(signParamsSync(signed.params, authorized.auth_secret, 'sha256'))
+  const override = client.calcSignature({ steps: {} }, 'sha512')
+  expect(override.signature).toBe(signParamsSync(override.params, authorized.auth_secret, 'sha512'))
 })
 
 test('rate limiting slows subsequent polls and honors Retry-After', async () => {

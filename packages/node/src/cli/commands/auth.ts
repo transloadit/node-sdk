@@ -110,10 +110,10 @@ function parseJsonObject<TSchema extends z.ZodTypeAny>(
 // Core logic for signature generation
 function generateSignature(
   input: string,
-  credentials: { authKey: string; authSecret: string },
+  credentials: CliKeySecretCredentials,
   algorithm?: string,
 ): OutputResult {
-  const { authKey, authSecret } = credentials
+  const { authKey } = credentials
   let params: CliSignatureParams
 
   if (input === '') {
@@ -136,7 +136,7 @@ function generateSignature(
     }
   }
 
-  const client = new Transloadit({ authKey, authSecret })
+  const client = new Transloadit(credentials)
   try {
     const signature = client.calcSignature(params as OptionalAuthParams, algorithm)
     return { ok: true, output: JSON.stringify(signature) }

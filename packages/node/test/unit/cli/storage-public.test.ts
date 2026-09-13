@@ -181,6 +181,24 @@ test('init checks local conflicts before publishing and leaves existing files un
   expect(await readdir(directory)).toEqual(['.env.local', 'app', 'credentials'])
 })
 
+test('write-env and publication use the saved login together despite stale project or shell credentials', async () => {
+  await mkdir('app')
+  await writeFile(
+    '.env',
+    'TRANSLOADIT_KEY=project-key\nTRANSLOADIT_SECRET=project-secret\nTRANSLOADIT_ENDPOINT=http://127.0.0.1:9\n',
+  )
+  vi.stubEnv('TRANSLOADIT_KEY', 'shell-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'shell-secret')
+  const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(200, declared)
+  await main(['image', 'init', 'website/', '--public', '--write-env'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  const env = await readFile('.env.local', 'utf8')
+  expect(env).toContain('TRANSLOADIT_KEY="combined-key"')
+  expect(env).toContain('TRANSLOADIT_WORKSPACE="my-app"')
+  expect(env).not.toMatch(/project-|shell-/)
+})
+
 test('a refused public declaration leaves no misleading factory or env file', async () => {
   await mkdir('app')
   const api = nock(origin)

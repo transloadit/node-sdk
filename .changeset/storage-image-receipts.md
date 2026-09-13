@@ -46,3 +46,8 @@ Reuse the login workspace and combined Auth Key for optional env scaffolding wit
 Add signed public-prefix declaration, revocation and listing methods with `storage publish`,
 `storage unpublish` and `storage public`. Public image init declares server policy before writing
 files and explains that already cached public bytes cannot be recalled.
+
+Preserve the device key's signing algorithm in CLI credentials and subsequent API requests.
+Add `signatureAlgorithm` to SDK client options while retaining the legacy SHA-384 default and
+explicit per-call overrides. Init's env setup uses the saved key/workspace/endpoint together,
+independently of stale project or shell credentials. Public/private Template overrides are separate.

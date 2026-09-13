@@ -4,6 +4,7 @@ import type {
   CompileAssemblyInstructionsOptions,
   CompileAssemblyInstructionsResult,
 } from '@transloadit/utils'
+import type { SignatureAlgorithm } from '@transloadit/utils/node'
 import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
 import type { Input as IntoStreamInput } from 'into-stream'
 
@@ -411,6 +412,8 @@ type AuthToken = {
 }
 
 type BaseOptions = {
+  /** API signature algorithm required by this Auth Key; defaults to sha384 for existing keys. */
+  signatureAlgorithm?: SignatureAlgorithm
   endpoint?: string
   maxRetries?: number
   timeout?: number
@@ -422,6 +425,7 @@ type BaseOptions = {
 export type Options = BaseOptions & (AuthKeySecret | AuthToken)
 
 export class Transloadit {
+  #signatureAlgorithm: SignatureAlgorithm
   private _authKey: string
 
   private _authSecret: string
@@ -462,6 +466,7 @@ export class Transloadit {
 
     this._authKey = opts.authKey ?? ''
     this._authSecret = opts.authSecret ?? ''
+    this.#signatureAlgorithm = opts.signatureAlgorithm ?? 'sha384'
     this._authToken = hasToken ? rawToken : null
     this._endpoint = opts.endpoint || 'https://api2.transloadit.com'
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
@@ -1342,7 +1347,7 @@ export class Transloadit {
     })
   }
 
-  private _calcSignature(toSign: string, algorithm = 'sha384'): string {
+  private _calcSignature(toSign: string, algorithm: string = this.#signatureAlgorithm): string {
     if (!this._authSecret) {
       throw new Error('Cannot sign params without authSecret.')
     }
