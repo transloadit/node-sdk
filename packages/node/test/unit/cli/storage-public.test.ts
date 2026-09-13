@@ -43,6 +43,7 @@ beforeEach(async () => {
   vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'notice').mockImplementation(() => {})
   nock.disableNetConnect()
 })
 
@@ -112,7 +113,7 @@ test('lists public prefixes through signed GET, not the S3 controller', async ()
       return true
     })
     .reply(200, listed)
-  await main(['storage', 'public'])
+  await main(['storage', 'publications'])
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
   expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
@@ -126,7 +127,7 @@ test('an invalid signing algorithm uses normal CLI error reporting without a sta
     'credentials',
     'TRANSLOADIT_KEY=combined-key\nTRANSLOADIT_SECRET=local-secret\nTRANSLOADIT_SIGNATURE_ALGORITHM=invalid-private-value\n',
   )
-  await main(['storage', 'public', '--json'])
+  await main(['storage', 'publications', '--json'])
   expect(process.exitCode).toBe(1)
   expect(OutputCtl.prototype.error).toHaveBeenCalledExactlyOnceWith(
     'Unsupported TRANSLOADIT_SIGNATURE_ALGORITHM in CLI credentials',
@@ -189,9 +190,7 @@ test('init publishes first and reuses the saved login without any terminal input
     JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls),
   ).toBeUndefined()
   expect(api.isDone()).toBe(true)
-  expect(await readFile('.env.local', 'utf8')).toContain('TRANSLOADIT_WORKSPACE="my-app"')
-  expect(await readFile('.env.local', 'utf8')).toContain('TRANSLOADIT_KEY="combined-key"')
-  expect(await readFile('.env.local', 'utf8')).toContain('TRANSLOADIT_SECRET="local-secret"')
+  expect(await readFile('.env.local', 'utf8')).toBe('TRANSLOADIT_WORKSPACE="my-app"\n')
   expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('public: ["website/"]')
   expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({})
   expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
@@ -240,7 +239,7 @@ test('write-env and publication use the saved login together despite stale proje
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
   const env = await readFile('.env.local', 'utf8')
-  expect(env).toContain('TRANSLOADIT_KEY="combined-key"')
+  expect(env).not.toContain('TRANSLOADIT_KEY=')
   expect(env).toContain('TRANSLOADIT_WORKSPACE="my-app"')
   expect(env).not.toMatch(/project-|shell-/)
 })

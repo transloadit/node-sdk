@@ -46,8 +46,9 @@ export function storageImageFactory({
     '',
     'export const { StorageImage } = createStorageImages({',
     '  images,',
-    `  allowedPathPrefixes: [${JSON.stringify(prefix)}],`,
-    ...(publicDelivery ? [`  public: [${JSON.stringify(prefix)}],`] : ["  delivery: 'direct',"]),
+    ...(publicDelivery
+      ? [`  public: [${JSON.stringify(prefix)}],`]
+      : [`  allowedPathPrefixes: [${JSON.stringify(prefix)}],`, "  delivery: 'direct',"]),
     '})',
     '',
   ].join('\n')
@@ -73,5 +74,6 @@ export function storageImagePage(receiptsImport: string): string {
 }
 
 /** Rendering-only variable names; values belong in the application's secret configuration. */
-export const storageImageEnvBlock =
-  'TRANSLOADIT_WORKSPACE=\nTRANSLOADIT_KEY=\nTRANSLOADIT_SECRET=\n'
+export function storageImageEnvBlock(publicOnly: boolean): string {
+  return `TRANSLOADIT_WORKSPACE=\n${publicOnly ? '' : 'TRANSLOADIT_KEY=\nTRANSLOADIT_SECRET=\n'}`
+}

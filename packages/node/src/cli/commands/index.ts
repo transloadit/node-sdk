@@ -20,7 +20,7 @@ import { AuthLoginCommand } from './login.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
 import {
   StorageListCommand,
-  StoragePublicCommand,
+  StoragePublicationsCommand,
   StoragePublishCommand,
   StorageReceiptsSyncCommand,
   StorageStoreCommand,
@@ -79,7 +79,7 @@ export function createCli(): Cli {
   cli.register(UploadCommand)
   cli.register(StorageStoreCommand)
   cli.register(StorageListCommand)
-  cli.register(StoragePublicCommand)
+  cli.register(StoragePublicationsCommand)
   cli.register(StoragePublishCommand)
   cli.register(StorageUnpublishCommand)
   cli.register(StorageReceiptsSyncCommand)

@@ -6,8 +6,13 @@ import { execa } from 'execa'
 import { expect, onTestFinished, test } from 'vitest'
 
 interface PackageManifest {
+  files?: string[]
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
+}
+
+async function imageDocumentation(): Promise<string> {
+  return `${await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')}\n${await readFile(resolve(import.meta.dirname, '../packages/img/docs/reference.md'), 'utf8')}`
 }
 
 test.each([
@@ -23,7 +28,7 @@ test.each([
 })
 
 test('documents the pinned alpha pipeline, public cache policy and combined credential contract', async () => {
-  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  const readme = await imageDocumentation()
   expect(readme).toContain('builtin/storage-preview@0.0.2')
   expect(readme).toContain('fallbackBackground')
   expect(readme).toContain('#00000000')
@@ -42,7 +47,7 @@ async function readManifest(path: string): Promise<PackageManifest> {
 }
 
 test('keeps the maintainer seed configuration separate and scaffolds the factory before first render', async () => {
-  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  const readme = await imageDocumentation()
   const dogfood = await readFile(resolve(import.meta.dirname, '../docs/img-dogfood.md'), 'utf8')
   expect.soft(dogfood).not.toContain('allowImportingTsExtensions')
   expect.soft(/^\s*node --env-file=(\S+) seed\.ts /m.exec(dogfood)?.[1]).toBe('.env.seed.local')
@@ -59,7 +64,7 @@ test('keeps the maintainer seed configuration separate and scaffolds the factory
 })
 
 test('gets to the first image before teaching the security model and keeps the private recipe complete', async () => {
-  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  const readme = await imageDocumentation()
   const quickstart = readme
     .slice(readme.indexOf('## Quickstart'), readme.indexOf('## Responsive'))
     .trim()
@@ -98,6 +103,28 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(readme).not.toContain('](../../docs/')
   expect(readme).toContain('The default route is `/api/storage-images`')
   expect(readme).toContain('capability has no independent expiry')
+})
+
+test('ships a focused secretless quickstart and the detailed reference it links to', async () => {
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  const reference = await readFile(
+    resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
+    'utf8',
+  )
+  const manifest = await readManifest(resolve(import.meta.dirname, '../packages/img/package.json'))
+  expect(manifest.files).toContain('docs')
+  expect(readme).toContain('](./docs/reference.md')
+  expect(readme.split('\n').length).toBeLessThan(200)
+  expect(readme).toContain('16.3.3')
+  expect(readme).toContain('cacheMaxAgeMs: 60_000')
+  expect(readme).not.toMatch(/rotationIntervalMs|delivery: 'direct'|deferUntilHydrated|retryKey/)
+  expect(reference).toContain('Experimental')
+  expect(reference).toContain('~3 KB')
+  expect(reference).toContain('storage publications')
+  const node = await readFile(resolve(import.meta.dirname, '../packages/node/README.md'), 'utf8')
+  expect(node).toContain('auth login')
+  expect(node).toContain('image init website/ --public --write-env')
+  expect(node).toContain('storage receipts sync website/')
 })
 
 test('locks every external runtime dependency of the packed image package', async () => {

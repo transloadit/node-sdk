@@ -56,6 +56,7 @@ beforeEach(async () => {
   vi.stubEnv('TRANSLOADIT_AUTH_SECRET', '')
   vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'notice').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
 })
 
@@ -80,6 +81,48 @@ function runStore(path = receipt.path): Promise<void> {
 
 describe('storage store', () => {
   test.each([
+    { source: 'shell environment', setup: 'shell' },
+    { source: 'project .env', setup: 'project' },
+    { source: 'saved login', setup: 'saved' },
+    { source: 'shell environment + project .env', setup: 'mixed' },
+  ])('discloses the winning $source credentials before uploading, without secrets', async ({
+    source,
+    setup,
+  }) => {
+    await writeFile(
+      'credentials',
+      'TRANSLOADIT_KEY=saved-key\nTRANSLOADIT_SECRET=saved-secret\nTRANSLOADIT_WORKSPACE=saved-workspace\n',
+    )
+    if (setup !== 'shell') {
+      vi.stubEnv('TRANSLOADIT_KEY', setup === 'mixed' ? 'assembly-key' : '')
+      vi.stubEnv('TRANSLOADIT_SECRET', '')
+    }
+    if (setup === 'project' || setup === 'mixed')
+      await writeFile(
+        '.env',
+        'TRANSLOADIT_KEY=project-key\nTRANSLOADIT_SECRET=project-secret\nTRANSLOADIT_WORKSPACE=project-workspace\n',
+      )
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockImplementation(() => {
+      expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
+        expect.stringContaining(`Credentials: ${source}`),
+      )
+      return Promise.resolve(receipt)
+    })
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    const notice = JSON.stringify(vi.mocked(OutputCtl.prototype.notice).mock.calls)
+    expect(notice).not.toMatch(
+      /assembly-key|assembly-secret|saved-key|saved-secret|project-key|project-secret/,
+    )
+    expect(notice).toContain(
+      setup === 'saved'
+        ? 'saved-workspace'
+        : setup === 'shell'
+          ? 'workspace not declared'
+          : 'project-workspace',
+    )
+  })
+  test.each([
     '--private',
     '--public',
   ])('refuses the removed snippet-only flag %s before uploading', async (delivery) => {
@@ -96,9 +139,38 @@ describe('storage store', () => {
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('images.json', 'utf8'))['hero.jpg']).toEqual(rootReceipt)
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
-    expect(snippet).toContain('Render it with <StorageImage src={"hero.jpg"}')
+    expect(snippet).toContain('Render it with <StorageImage src="hero.jpg"')
     expect(snippet).not.toContain('createStorageImages')
     expect(snippet).not.toContain('allowedPathPrefixes: [""]')
+  })
+
+  test.each([
+    { width: 800, maxWidth: 800 },
+    { width: 2400, maxWidth: 960 },
+  ])('prints constrained JSX bounded to $maxWidth pixels for a $width pixel receipt', async ({
+    width,
+    maxWidth,
+  }) => {
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue({ ...receipt, width })
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+      expect.stringContaining(
+        `<StorageImage src="website/hero.jpg" alt="Describe this image" layout="constrained" maxWidth={${maxWidth}} />`,
+      ),
+      { ...receipt, width },
+    )
+  })
+
+  test('printed JSX preserves special characters in Storage paths', async () => {
+    const path = 'website/a&"b.jpg'
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue({ ...receipt, path })
+    await runStore(path)
+    expect(process.exitCode).toBeUndefined()
+    expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+      expect.stringContaining('src="website/a&amp;&quot;b.jpg"'),
+      { ...receipt, path },
+    )
   })
 
   test('releases the writer lock even when temporary-file cleanup fails', async () => {
@@ -277,12 +349,12 @@ describe('storage store', () => {
     })
     expect(await readFile('images.json', 'utf8')).toMatch(/\n$/)
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
-      expect.stringContaining('<StorageImage src={"website/hero.jpg"}'),
+      expect.stringContaining('<StorageImage src="website/hero.jpg"'),
       receipt,
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toBe(
-      'Saved website/hero.jpg in images.json. Commit this receipt file.\nRender it with <StorageImage src={"website/hero.jpg"} alt="Describe this image" />',
+      'Saved website/hero.jpg in images.json. Commit this receipt file.\nRender it with <StorageImage src="website/hero.jpg" alt="Describe this image" layout="constrained" maxWidth={800} />',
     )
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   })

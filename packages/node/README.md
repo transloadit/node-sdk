@@ -107,6 +107,57 @@ Most commands can authenticate with either `TRANSLOADIT_AUTH_TOKEN` or `TRANSLOA
 `TRANSLOADIT_SECRET`. Commands that mint bearer tokens or generate signatures still require
 `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET`.
 
+### Storage images for Next.js
+
+`@transloadit/img` is currently an unpublished, private preview. Follow the
+[local package instructions](https://github.com/transloadit/node-sdk/blob/main/docs/img-dogfood.md)
+until release. In a Next.js 16.3.3+ App Router project with Storage enabled, run:
+
+```bash
+yarn transloadit auth login
+yarn transloadit image init website/ --public --write-env
+yarn transloadit storage store ./hero.jpg website/hero.jpg
+yarn dev
+```
+
+Open `/storage-image-example`. Login opens browser approval and saves one combined Auth Key,
+workspace and signing algorithm in the owner-only credentials file. `--no-browser` prints the
+approval URL; `--stdin` accepts dotenv credentials for automation. Existing credentials require
+`--replace`. Login also checks Storage policy access with a bounded read-only request; if that
+fails, it saves the login and prints a Console link. This check does not prove upload availability.
+
+Init declares `website/` public, creates the image factory, an empty `images.json` and an example
+page. Public `--write-env` writes only `TRANSLOADIT_WORKSPACE` to a new `.env.local`: no secret
+enters the app. Private init (`image init uploads/ --private --write-env`) writes all three
+rendering values and a route that denies access until you connect per-object authorization.
+Existing code/env files are never overwritten. Missing trailing directory slashes are accepted.
+
+Store uploads one original and appends a validated receipt to `images.json`; commit this catalog.
+It prints a ready-to-paste constrained image using the receipt width, capped at 960 pixels.
+An occupied path conflicts unless `--overwrite` is explicit; use immutable filenames where possible.
+Publication is separate from storing:
+
+```bash
+yarn transloadit storage publish website/
+yarn transloadit storage publications
+yarn transloadit storage unpublish website/
+yarn transloadit storage ls website/
+yarn transloadit storage receipts sync website/ --receipts images.json
+```
+
+Unpublishing stops origin access but cannot recall cached/downloaded bytes. List and sync use
+the S3-compatible read API with the login key (`dam:write` also allows reads), not an Assembly.
+Sync rebuilds dimensions via List + HEAD without downloading originals. Upload evidence is
+retained only when the original MD5 still matches; failures preserve the existing catalog.
+
+Storage commands report the selected credential source on stderr before operating. Ordinary
+commands retain shell → project `.env` → saved login precedence; init with `--write-env` uses the
+saved login explicitly. Remove stale overrides to avoid uploading into a different workspace.
+The endpoint stays bound to those credentials unless explicitly overridden. JSON result output
+stays on stdout; credentials are never printed. See the
+[image Quickstart](https://github.com/transloadit/node-sdk/blob/main/packages/img/README.md)
+and [reference](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md).
+
 ### Minting Bearer Tokens (Hosted MCP)
 
 If you want to connect an agent to the Transloadit-hosted MCP endpoint, mint a short-lived bearer
@@ -1937,7 +1988,5 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
-
-
 
 

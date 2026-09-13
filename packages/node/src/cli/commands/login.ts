@@ -140,12 +140,38 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
       } else {
         await writeFile(file, data, { flag: 'wx', mode: 0o600 })
       }
-      this.output.print(
+      // A signed read checks dam:write access and catalog readiness without publishing anything.
+      // It does not prove that the worker's object store can accept a later upload.
+      const storagePolicyAccess = await new Transloadit({
+        ...credentials,
+        endpoint: origin,
+        maxRetries: 0,
+        timeout: 10_000,
+      })
+        .listPublicStoragePrefixes()
+        .then(
+          () => true,
+          () => false,
+        )
+      if (!storagePolicyAccess) {
+        const workspace =
+          credentials.workspace !== undefined &&
+          /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(credentials.workspace)
+            ? credentials.workspace
+            : '<workspace>'
+        this.output.warn(
+          `Login saved, but Storage policy access could not be verified. Before uploading, check Storage availability and the Auth Key dam:write scope at https://transloadit.com/c/${workspace}/template-credentials/. A temporary network failure can also prevent this check; retry with transloadit storage publications.`,
+        )
+      }
+      const message =
         credentials.workspace === undefined
           ? `Verified one signed Template read and saved CLI credentials to ${file}. Application env files were not changed.`
-          : `Logged in to workspace ${credentials.workspace}`,
+          : `Logged in to workspace ${credentials.workspace}`
+      this.output.print(
+        `${message}${storagePolicyAccess ? '\nStorage policy access verified; upload availability is checked when storing an image.' : ''}`,
         {
           saved: file,
+          storagePolicyAccess,
           verified: true,
           ...(credentials.workspace === undefined ? {} : { workspace: credentials.workspace }),
         },

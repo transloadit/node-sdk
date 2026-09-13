@@ -130,7 +130,9 @@ test('explicit scope still limits catalog paths and public declarations', () => 
     delivery: 'direct',
   })
   expect(() => StorageImage({ src: 'website/hero.jpg', alt: 'Denied' })).toThrow(/allowed/)
-  expect(() => createStorageImages({ images, public: ['private/'] })).toThrow(/public.*allowed/)
+  expect(() =>
+    createStorageImages({ images, allowedPathPrefixes: ['website/'], public: ['private/'] }),
+  ).toThrow(/public.*allowed/)
 })
 
 test('catalog keys must agree with their receipt paths and unknown keys never fall through', () => {

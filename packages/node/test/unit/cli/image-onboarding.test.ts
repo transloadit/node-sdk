@@ -44,8 +44,13 @@ beforeEach(async () => {
     vi.stubEnv(name, '')
   vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'notice').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
   vi.spyOn(Transloadit.prototype, 'listTemplates').mockResolvedValue({ items: [], count: 0 })
+  vi.spyOn(Transloadit.prototype, 'listPublicStoragePrefixes').mockResolvedValue({
+    ok: 'STORAGE_PUBLIC_PREFIXES_LISTED',
+    public_prefixes: [],
+  })
   vi.mocked(readCliInput).mockResolvedValue({
     content: 'TRANSLOADIT_KEY=write-key\nTRANSLOADIT_SECRET=hidden-secret\n',
     isStdin: true,
@@ -193,7 +198,7 @@ describe('image init', () => {
     const root = app === 'app' ? '' : 'src/'
     const factory = await readFile(`${root}lib/storageImage.ts`, 'utf8')
     expect(factory).toContain('createStorageImages')
-    expect(factory).toContain('allowedPathPrefixes: ["website/"]')
+    expect(factory).not.toContain('allowedPathPrefixes')
     expect(factory).toContain('public: ["website/"]')
     expect(factory).toContain('images,')
     expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({})
@@ -204,24 +209,42 @@ describe('image init', () => {
     expect(page).toContain('storage store')
     const printed = JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)
     expect(printed).toContain('TRANSLOADIT_WORKSPACE=')
-    expect(printed).toContain('TRANSLOADIT_KEY=')
-    expect(printed).toContain('TRANSLOADIT_SECRET=')
+    expect(printed).not.toContain('TRANSLOADIT_KEY=')
+    expect(printed).not.toContain('TRANSLOADIT_SECRET=')
     expect(printed).not.toContain('TRANSLOADIT_SMART_CDN_SECRET=')
     expect(await readdir(directory)).not.toContain('.env.local')
   })
 
-  test('init writes rendering env only when explicitly requested, privately and without printing it', async () => {
+  test('public init writes only the workspace, privately and only when explicitly requested', async () => {
     await mkdir('app')
     await main(['image', 'init', 'website/', '--public', '--write-env'])
     expect(process.exitCode).toBeUndefined()
     expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
-    expect(await readFile('.env.local', 'utf8')).toContain('TRANSLOADIT_SECRET=')
-    expect(await readFile('.env.local', 'utf8')).toContain('render-secret')
-    expect(await readFile('.env.local', 'utf8')).not.toContain('TRANSLOADIT_SMART_CDN_SECRET=')
+    expect(await readFile('.env.local', 'utf8')).toBe('TRANSLOADIT_WORKSPACE="my-app"\n')
     expect(readCliInput).not.toHaveBeenCalled()
     expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
       'render-secret',
     )
+  })
+
+  test.each([
+    '--private',
+    undefined,
+  ])('private init (%s) still writes all three rendering values', async (mode) => {
+    await mkdir('app')
+    await main(['image', 'init', 'accounts/', '--write-env', ...(mode === undefined ? [] : [mode])])
+    expect(process.exitCode).toBeUndefined()
+    expect(await readFile('.env.local', 'utf8')).toBe(
+      'TRANSLOADIT_WORKSPACE="my-app"\nTRANSLOADIT_KEY="combined-key"\nTRANSLOADIT_SECRET="render-secret"\n',
+    )
+  })
+
+  test('init normalizes a directory without its trailing slash', async () => {
+    await mkdir('app')
+    await main(['image', 'init', 'website', '--public'])
+    expect(process.exitCode).toBeUndefined()
+    expect(Transloadit.prototype.publishStoragePrefix).toHaveBeenCalledExactlyOnceWith('website/')
+    expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('public: ["website/"]')
   })
 
   test('init never overwrites an existing rendering env file, even with --write-env', async () => {
@@ -276,7 +299,6 @@ describe('image init', () => {
   test.each([
     '../',
     '/website/',
-    'website',
     'a//',
     'a/../',
     ' website/',

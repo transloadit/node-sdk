@@ -53,6 +53,7 @@ beforeEach(async () => {
   vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'notice').mockImplementation(() => {})
   nock.disableNetConnect()
 })
 

@@ -79,7 +79,7 @@ interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = 
   delivery?: 'direct'
   /** Catalog keys become typed src references; values provide intrinsic geometry. */
   images?: Catalog
-  /** Allowed directories. Defaults to catalog directories plus exact root-level catalog paths. */
+  /** Defaults to public and catalog directories, plus exact root-level catalog paths. */
   allowedPathPrefixes?: readonly string[]
   /** Explicitly allow every object in the workspace, including root-level paths. */
   allowWorkspaceRoot?: boolean
@@ -400,12 +400,12 @@ function getStoragePolicy(
       else inferredPrefixes.add(path.slice(0, separator + 1))
     }
   }
+  const publicPrefixes = validatePrefixes(configuration.public ?? [], 'public')
   const allowedPathPrefixes = validatePrefixes(
-    configuration.allowedPathPrefixes ?? [...inferredPrefixes],
+    configuration.allowedPathPrefixes ?? [...inferredPrefixes, ...publicPrefixes],
     'allowedPathPrefixes',
   )
   const resolvedPrefixes = configuration.allowWorkspaceRoot === true ? [''] : allowedPathPrefixes
-  const publicPrefixes = validatePrefixes(configuration.public ?? [], 'public')
   for (const prefix of publicPrefixes) {
     if (new TextEncoder().encode(prefix).byteLength > 512)
       throw new TypeError('public prefixes must not exceed 512 UTF-8 bytes')

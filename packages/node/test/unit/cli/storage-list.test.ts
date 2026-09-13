@@ -30,6 +30,7 @@ beforeEach(async () => {
   vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'notice').mockImplementation(() => {})
   nock.disableNetConnect()
 })
 
@@ -160,6 +161,6 @@ test('sanitizes remote list errors without exposing signed requests', async () =
   expect(api.isDone()).toBe(true)
   expect(process.exitCode).toBe(1)
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-    'Storage listing failed (HTTP 403). Check that the Storage S3 API is enabled and that you are using the correct workspace and a read-scoped Auth Key.',
+    'Storage listing failed (HTTP 403). Check that the Storage S3 API is enabled and that you are using the correct workspace and an Auth Key with read or dam:write scope.',
   )
 })

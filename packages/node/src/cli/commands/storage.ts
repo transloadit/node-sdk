@@ -10,6 +10,7 @@ import pMap from 'p-map'
 import { z } from 'zod'
 
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
+import { describeCliCredentialSource } from '../helpers.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import { updateStorageReceipts } from '../storageReceipts.ts'
 import {
@@ -31,6 +32,7 @@ export class StoragePublishCommand extends AuthenticatedCommand {
   prefix = Option.String({ required: true })
   protected async run(): Promise<number | undefined> {
     try {
+      this.output.notice(describeCliCredentialSource(this.cliConfig))
       const result = await this.client.publishStoragePrefix(this.prefix)
       this.output.print(
         `Published ${result.prefix}. Files under this directory can be served without signatures.`,
@@ -54,6 +56,7 @@ export class StorageUnpublishCommand extends AuthenticatedCommand {
   prefix = Option.String({ required: true })
   protected async run(): Promise<number | undefined> {
     try {
+      this.output.notice(describeCliCredentialSource(this.cliConfig))
       const result = await this.client.unpublishStoragePrefix(this.prefix)
       this.output.print(
         `Unpublished ${result.prefix}; already cached or downloaded bytes cannot be recalled.`,
@@ -68,14 +71,15 @@ export class StorageUnpublishCommand extends AuthenticatedCommand {
 }
 
 /** Lists explicit publication policy using the signed API, not S3 discovery. */
-export class StoragePublicCommand extends AuthenticatedCommand {
-  static override paths = [['storage', 'public']]
+export class StoragePublicationsCommand extends AuthenticatedCommand {
+  static override paths = [['storage', 'publications']]
   static override usage = Command.Usage({
     category: 'Storage',
     description: 'List explicitly public Storage directories',
   })
   protected async run(): Promise<number | undefined> {
     try {
+      this.output.notice(describeCliCredentialSource(this.cliConfig))
       const result = await this.client.listPublicStoragePrefixes()
       this.output.print(
         result.public_prefixes.length === 0
@@ -125,6 +129,7 @@ export class StorageStoreCommand extends AuthenticatedCommand {
     const file = resolve(this.receipts)
     let verifiedReceipt: StoredImageReceipt | undefined
     try {
+      this.output.notice(describeCliCredentialSource(this.cliConfig))
       if (file === resolve(this.file))
         throw new Error('The receipts file cannot be the input image')
       await updateStorageReceipts(file, async (receipts) => {
@@ -136,8 +141,13 @@ export class StorageStoreCommand extends AuthenticatedCommand {
       })
       if (verifiedReceipt === undefined) throw new Error('Storage did not return a receipt')
       const receipt = verifiedReceipt
+      const src = receipt.path
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
       this.output.print(
-        `Saved ${receipt.path} in ${this.receipts}. Commit this receipt file.\nRender it with <StorageImage src={${JSON.stringify(receipt.path)}} alt="Describe this image" />`,
+        `Saved ${receipt.path} in ${this.receipts}. Commit this receipt file.\nRender it with <StorageImage src="${src}" alt="Describe this image" layout="constrained" maxWidth={${Math.min(receipt.width, 960)}} />`,
         receipt,
       )
       return undefined
@@ -181,7 +191,7 @@ export class StorageListCommand extends UnauthenticatedCommand {
     category: 'Storage',
     description: 'List stored paths, sizes and ETags without creating an Assembly',
     details:
-      'Uses an Auth Key with read scope and the S3-compatible Storage API. Infers the workspace from ListBuckets unless --workspace is supplied. --endpoint accepts the API origin, not a bucket URL.',
+      'Uses an Auth Key with read or dam:write scope and the S3-compatible Storage API. Infers the workspace from ListBuckets unless --workspace is supplied. --endpoint accepts the API origin, not a bucket URL.',
     examples: [['List website images', 'transloadit storage ls website/']],
   })
 
@@ -196,6 +206,7 @@ export class StorageListCommand extends UnauthenticatedCommand {
         this,
         (client, workspace) => listStorageObjects(client, workspace, this.prefix),
         'Storage listing',
+        this.output,
       )
       this.output.print(
         objects.length === 0
@@ -248,7 +259,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
     category: 'Storage',
     description: 'Rebuild saved rendering metadata from the Storage catalog',
     details: `
-      Uses the same read-scoped Auth Key, endpoint and workspace discovery as storage ls.
+      Uses the same Auth Key with read or dam:write scope, endpoint and workspace discovery as storage ls.
       Adds or refreshes matched paths; never prunes unmatched local entries. Keeps existing upload
       asset_id/size only when the HEAD MD5 matches; otherwise replaces with rendering metadata.
       All listed images must expose valid dam-width/dam-height metadata. Any failure preserves the
@@ -348,6 +359,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
             return Object.fromEntries(entries)
           },
           'Storage receipt sync',
+          this.output,
         )
         return { ...previous, ...synced }
       })

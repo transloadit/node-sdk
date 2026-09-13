@@ -318,7 +318,7 @@ async function main(): Promise<void> {
           {
             cwd: publicDir,
             env: {
-              TRANSLOADIT_WORKSPACE: 'fixture',
+              TRANSLOADIT_WORKSPACE: undefined,
               TRANSLOADIT_KEY: undefined,
               TRANSLOADIT_SECRET: undefined,
               TRANSLOADIT_SMART_CDN_KEY: undefined,

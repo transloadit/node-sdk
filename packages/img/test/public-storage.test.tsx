@@ -55,6 +55,26 @@ test('public receipt images render permanent versioned URLs without any signing 
   expect(connection).not.toHaveBeenCalled()
 })
 
+test('an empty catalog can declare public directories before its first upload', () => {
+  const { StorageImage } = createStorageImages({ images: {}, public: ['website/'] })
+  const markup = renderToStaticMarkup(<StorageImage src={images['website/hero.jpg']} alt="Hero" />)
+  expect(parseSmartCdnUrl(imageUrl(markup)).auth).toBeUndefined()
+  expect(() => StorageImage({ src: images['private/avatar.png'], alt: 'Private' })).toThrow(
+    /outside the configured allowed prefixes/,
+  )
+})
+
+test.each([
+  { allowedPathPrefixes: [] },
+  { allowedPathPrefixes: ['private/'] },
+])('public declarations cannot widen an explicit allowed policy $allowedPathPrefixes', ({
+  allowedPathPrefixes,
+}) => {
+  expect(() =>
+    createStorageImages({ images: {}, allowedPathPrefixes, public: ['website/'] }),
+  ).toThrow(/public prefixes must be within allowedPathPrefixes/)
+})
+
 test('public rendering never validates unused secret env and is independent of clock and private lifetime', () => {
   vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', ' invalid ')
   vi.stubEnv('TRANSLOADIT_SECRET', ' invalid ')
@@ -227,7 +247,7 @@ test('a denied unsigned development HEAD gives the publish command without block
   vi.stubEnv('NODE_ENV', 'development')
   const fetch = vi.fn<typeof globalThis.fetch>(
     async () =>
-      new Response(null, { status: 403, headers: { 'transloadit-error': 'NO_SIGNATURE_FIELD' } }),
+      new Response(null, { status: 400, headers: { 'Transloadit-Error': 'NO_SIGNATURE_FIELD' } }),
   )
   vi.stubGlobal('fetch', fetch)
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -243,4 +263,32 @@ test('a denied unsigned development HEAD gives the publish command without block
   const url = fetch.mock.calls[0]?.[0]
   expect(typeof url).toBe('string')
   expect(String(url)).not.toContain('sig=')
+})
+
+test.each([
+  { status: 400, code: undefined, hint: 'Check the delivery endpoint and Template' },
+  { status: 400, code: 'INVALID_SIGNATURE', hint: 'Check the delivery endpoint and Template' },
+  { status: 404, code: 'TEMPLATE_NOT_FOUND', hint: 'Check the workspace slug' },
+  { status: 403, code: undefined, hint: 'Check the delivery endpoint and Template' },
+])('does not mistake HTTP $status ($code) for an unpublished prefix', async ({
+  status,
+  code,
+  hint,
+}) => {
+  vi.stubEnv('NODE_ENV', 'development')
+  vi.stubGlobal(
+    'fetch',
+    vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response(null, {
+          status,
+          headers: code === undefined ? {} : { 'Transloadit-Error': code },
+        }),
+    ),
+  )
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)
+  await vi.waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining(hint)))
+  expect(warn.mock.calls.flat().join('\n')).not.toContain('transloadit storage publish')
 })

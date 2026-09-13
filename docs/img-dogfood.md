@@ -19,9 +19,10 @@ This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Rout
 workspace must have Transloadit Storage writes enabled; package installation does not enable them.
 Private delivery requires `builtin/storage-preview@0.0.2`. Public delivery additionally requires
 `builtin/public-preview@0.0.1` and server-declared public prefixes. Browser login and combined
-credentials require the matching API2 #9057 and Console changes; the historical canary revision
-below predates these additions. Until the server owner confirms readiness, these additions are
-tested against contract fakes only. Private preview 0.0.1 stays unchanged and flattens transparency;
+credentials require the matching API2 #9057 and Console changes; the older canary revisions
+below predate these additions. Later owned devdock checks verified actual public delivery and
+device login with scripted signed approval. They did not test the Console UI or production Bunny.
+Private preview 0.0.1 stays unchanged and flattens transparency;
 0.0.2 accepts `bg` for alpha-preserving candidates and the opaque JPEG fallback.
 
 The server entry point needs the **Node.js runtime**, not Edge: it uses `node:crypto` and `Buffer`.

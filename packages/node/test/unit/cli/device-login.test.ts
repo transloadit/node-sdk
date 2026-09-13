@@ -65,9 +65,14 @@ beforeEach(async () => {
   vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'warn').mockImplementation(() => {})
   vi.mocked(execa).mockClear()
   waits.length = 0
   nock.disableNetConnect()
+  vi.spyOn(Transloadit.prototype, 'listPublicStoragePrefixes').mockResolvedValue({
+    ok: 'STORAGE_PUBLIC_PREFIXES_LISTED',
+    public_prefixes: [],
+  })
 })
 
 afterEach(async () => {
@@ -96,6 +101,61 @@ function createDevice(response = created): nock.Scope {
     )
     .reply(200, response)
 }
+
+test('login preflights Storage with the issued key and algorithm, without publishing anything', async () => {
+  vi.mocked(Transloadit.prototype.listPublicStoragePrefixes).mockRestore()
+  const api = createDevice()
+    .post('/cli/device_authorizations/token')
+    .reply(200, authorized)
+    .get('/storage/public_prefixes')
+    .query((query) => {
+      if (typeof query.params !== 'string') return false
+      expect(JSON.parse(query.params).auth.key).toBe(authorized.auth_key)
+      expect(query.signature).toBe(signParamsSync(query.params, authorized.auth_secret, 'sha256'))
+      return true
+    })
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIXES_LISTED', public_prefixes: [] })
+  await login(['--no-browser'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringContaining('Storage policy access verified'),
+    expect.objectContaining({ storagePolicyAccess: true }),
+  )
+})
+
+test.each([
+  403, 503,
+])('a denied or unavailable Storage preflight (HTTP %s) saves the login but prints a Console link', async (status) => {
+  vi.mocked(Transloadit.prototype.listPublicStoragePrefixes).mockRestore()
+  const api = createDevice()
+    .post('/cli/device_authorizations/token')
+    .reply(200, authorized)
+    .get('/storage/public_prefixes')
+    .query(true)
+    .reply(status, {
+      error: 'DAM_STORAGE_UNAVAILABLE',
+      message: 'unsafe upstream never-print-this-secret',
+    })
+  await login(['--no-browser'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect((await stat('credentials')).mode & 0o777).toBe(0o600)
+  expect(OutputCtl.prototype.warn).toHaveBeenCalledWith(
+    expect.stringContaining('https://transloadit.com/c/my-app/'),
+  )
+  const output = JSON.stringify([
+    ...vi.mocked(OutputCtl.prototype.warn).mock.calls,
+    ...vi.mocked(OutputCtl.prototype.print).mock.calls,
+  ])
+  expect(output).not.toMatch(
+    /unsafe upstream|never-print-this-secret|Storage policy access verified/,
+  )
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.any(String),
+    expect.objectContaining({ storagePolicyAccess: false }),
+  )
+})
 
 test('device creation and token polling send form-encoded fields, not JSON', async () => {
   const api = nock(origin, {

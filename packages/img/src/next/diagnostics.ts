@@ -23,15 +23,16 @@ async function probe(url: string, publicPrefix?: string): Promise<void> {
     if ([301, 302, 303, 307, 308].includes(response.status) && response.headers.has('location'))
       return
     const hints =
-      response.status === 401 || response.status === 403
-        ? publicPrefix !== undefined
-          ? `For unsigned public delivery, run transloadit storage publish ${/^[a-zA-Z0-9/_-]+$/.test(publicPrefix) ? publicPrefix : '<your-public-prefix>/'}. If already published, check its workspace and public Built-in; a generic 403 cannot identify the cause.`
-          : 'Enable Smart CDN on the Auth Key; check its workspace and the signature secret, expiry and server clock.'
-        : response.status === 404
-          ? 'Check the workspace slug, that the Storage path exists there, and the configured Template.'
-          : response.ok
-            ? 'Expected an image Content-Type. Check the configured Template and delivery endpoint.'
-            : 'Check the delivery endpoint and Template, then retry after restarting the development server.'
+      response.status === 404
+        ? 'Check the workspace slug, that the Storage path exists there, and the configured Template.'
+        : publicPrefix !== undefined &&
+            response.headers.get('Transloadit-Error') === 'NO_SIGNATURE_FIELD'
+          ? `For unsigned public delivery, run transloadit storage publish ${/^[a-zA-Z0-9/_-]+$/.test(publicPrefix) ? publicPrefix : '<your-public-prefix>/'}. If already published, check its workspace and public Built-in.`
+          : publicPrefix === undefined && (response.status === 401 || response.status === 403)
+            ? 'Enable Smart CDN on the Auth Key; check its workspace and the signature secret, expiry and server clock.'
+            : response.ok
+              ? 'Expected an image Content-Type. Check the configured Template and delivery endpoint.'
+              : 'Check the delivery endpoint and Template, then retry after restarting the development server.'
     console.warn(`[StorageImage] Development HEAD returned HTTP ${response.status}. ${hints}`)
   } catch {
     // Error messages can include a credential-bearing URL. A HEAD failure does not establish

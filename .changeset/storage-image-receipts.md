@@ -44,10 +44,16 @@ Require Next 16.3.3 or newer in the peer range.
 
 Reuse the login workspace and combined Auth Key for optional env scaffolding without extra prompts.
 Add signed public-prefix declaration, revocation and listing methods with `storage publish`,
-`storage unpublish` and `storage public`. Public image init declares server policy before writing
+`storage unpublish` and `storage publications`. Public image init declares server policy before writing
 files and explains that already cached public bytes cannot be recalled.
 
 Preserve the device key's signing algorithm in CLI credentials and subsequent API requests.
 Add `signatureAlgorithm` to SDK client options while retaining the legacy SHA-384 default and
 explicit per-call overrides. Init's env setup uses the saved key/workspace/endpoint together,
 independently of stale project or shell credentials. Public/private Template overrides are separate.
+
+Public init writes only the workspace to the app environment, infers allowed directories from
+public policy even with an empty catalog, and accepts a missing trailing slash. Storage commands
+report the winning credential source without showing credentials; store prints constrained JSX
+bounded to the receipt width. Login makes a bounded read-only Storage policy preflight and gives
+Console advice when unavailable. Keep the image quickstart concise and ship its detailed reference.

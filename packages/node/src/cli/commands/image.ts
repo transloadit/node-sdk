@@ -5,7 +5,7 @@ import { validateStoragePathPrefix } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
 import { z } from 'zod'
 
-import { resolveCliConfig } from '../helpers.ts'
+import { describeCliCredentialSource, resolveCliConfig } from '../helpers.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import {
   nextAppRoot,
@@ -45,7 +45,8 @@ export class ImageInitCommand extends UnauthenticatedCommand {
     try {
       if (this.privateDelivery && this.publicDelivery)
         throw new Error('Choose either --private or --public, not both')
-      const prefix = this.prefix
+      const prefix =
+        this.prefix.endsWith('/') || this.prefix === '' ? this.prefix : `${this.prefix}/`
       try {
         validateStoragePathPrefix(prefix, 0, 'prefix')
         if (prefix === '') throw new Error('Image scaffolds must name a directory')
@@ -68,17 +69,15 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           .max(4096)
           .regex(/^[^\s][^\r\n\0]*$/)
           .refine((text) => text.trim() === text)
-        const parsed = z
-          .object({
-            TRANSLOADIT_WORKSPACE: value,
-            TRANSLOADIT_KEY: value,
-            TRANSLOADIT_SECRET: value,
-          })
-          .safeParse({
-            TRANSLOADIT_WORKSPACE: login?.credentialsWorkspace,
-            TRANSLOADIT_KEY: login?.credentials?.authKey,
-            TRANSLOADIT_SECRET: login?.credentials?.authSecret,
-          })
+        const workspace = z.object({ TRANSLOADIT_WORKSPACE: value })
+        const renderingValues = this.publicDelivery
+          ? workspace
+          : workspace.extend({ TRANSLOADIT_KEY: value, TRANSLOADIT_SECRET: value })
+        const parsed = renderingValues.safeParse({
+          TRANSLOADIT_WORKSPACE: login?.credentialsWorkspace,
+          TRANSLOADIT_KEY: login?.credentials?.authKey,
+          TRANSLOADIT_SECRET: login?.credentials?.authSecret,
+        })
         if (!parsed.success)
           throw new Error(
             'Run transloadit auth login first to save your workspace and Auth Key. Nothing was written.',
@@ -143,11 +142,14 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       }
       if (this.publicDelivery) {
         if (!this.setupClient(login)) return 1
+        this.output.notice(describeCliCredentialSource(this.cliConfig))
         const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
           throw new Error(storagePublicError(cause), { cause })
         })
         published = result.prefix
       }
+      if (!this.publicDelivery && login !== undefined)
+        this.output.notice(describeCliCredentialSource(login))
       for (const file of files) {
         await mkdir(dirname(file.path), { recursive: true })
         const handle = await open(file.path, 'wx', file.path === '.env.local' ? 0o600 : 0o666)
@@ -163,9 +165,10 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         : this.publicDelivery
           ? 'The directory is published. Public images use permanent unsigned CDN URLs; cached bytes cannot be recalled.'
           : 'Private direct images render at request time. Use --public only for a public directory, or --private for request-authorized redirects.'
+      const envBlock = storageImageEnvBlock(this.publicDelivery)
       this.output.print(
-        `Created ${created.join(', ')}\n${instruction}\nAdd an image with storage store and open /storage-image-example. Commit ${this.receipts}.\n${this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${storageImageEnvBlock}`}`,
-        { files: created, environment: storageImageEnvBlock },
+        `Created ${created.join(', ')}\n${instruction}\nAdd an image with storage store and open /storage-image-example. Commit ${this.receipts}.\n${this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
+        { files: created, environment: envBlock },
       )
       return undefined
     } catch (error) {

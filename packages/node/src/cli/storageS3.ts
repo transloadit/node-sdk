@@ -1,8 +1,14 @@
 import type { S3Client } from '@aws-sdk/client-s3'
 
+import type { IOutputCtl } from './OutputCtl.ts'
+
 import { z } from 'zod'
 
-import { buildMissingCredentialsMessage, resolveCliConfig } from './helpers.ts'
+import {
+  buildMissingCredentialsMessage,
+  describeCliCredentialSource,
+  resolveCliConfig,
+} from './helpers.ts'
 
 interface StorageObject {
   path: string
@@ -26,10 +32,12 @@ export async function withStorageS3<T>(
   options: { endpoint?: string; workspace?: string },
   operation: (client: S3Client, workspace: string) => Promise<T>,
   failure: string,
+  output?: Pick<IOutputCtl, 'notice'>,
 ): Promise<T> {
   const config = resolveCliConfig()
   if (config.credentials === undefined)
     throw new Error(config.loadError ?? buildMissingCredentialsMessage())
+  output?.notice(describeCliCredentialSource(config, 'credentials'))
   const endpoint = new URL(
     options.endpoint ?? config.credentialsEndpoint ?? 'https://api2.transloadit.com',
   )
@@ -86,7 +94,7 @@ export async function withStorageS3<T>(
     const remote = storageS3ErrorSchema.safeParse(error)
     if (remote.success) {
       throw new Error(
-        `${failure} failed${remote.data.$metadata.httpStatusCode === undefined ? '' : ` (HTTP ${remote.data.$metadata.httpStatusCode})`}. Check that the Storage S3 API is enabled and that you are using the correct workspace and a read-scoped Auth Key.`,
+        `${failure} failed${remote.data.$metadata.httpStatusCode === undefined ? '' : ` (HTTP ${remote.data.$metadata.httpStatusCode})`}. Check that the Storage S3 API is enabled and that you are using the correct workspace and an Auth Key with read or dam:write scope.`,
         { cause: error },
       )
     }

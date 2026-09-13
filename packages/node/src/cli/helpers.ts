@@ -37,7 +37,10 @@ type LoadCliEnvSourcesResult = {
 
 export type ResolvedCliConfig = {
   auth?: CliAuth
+  authSource?: string
+  authWorkspace?: string
   credentials?: CliKeySecretCredentials
+  credentialsSource?: string
   credentialsEndpoint?: string
   credentialsWorkspace?: string
   endpoint?: string
@@ -261,6 +264,40 @@ function resolveEndpointForSource(
   return getSourceValue(source, ['TRANSLOADIT_ENDPOINT'])
 }
 
+function credentialSourceName(source: CliEnvSource, shell: CliEnvSource, auth: CliAuth): string {
+  if (source.name === 'credentialsFile') return 'saved login'
+  const fields =
+    'authToken' in auth
+      ? [['TRANSLOADIT_AUTH_TOKEN']]
+      : [
+          ['TRANSLOADIT_KEY', 'TRANSLOADIT_AUTH_KEY'],
+          ['TRANSLOADIT_SECRET', 'TRANSLOADIT_AUTH_SECRET'],
+        ]
+  const fromShell = fields.filter((aliases) => {
+    const name = aliases.find((name) => normalizeEnvValue(source.values[name]) !== undefined)
+    return (
+      name !== undefined &&
+      normalizeEnvValue(shell.values[name]) === normalizeEnvValue(source.values[name])
+    )
+  }).length
+  if (fromShell === fields.length) return 'shell environment'
+  return fromShell === 0 ? 'project .env' : 'shell environment + project .env'
+}
+
+/** Describes the selected credential source, never the credential or a claim of verified ownership. */
+export function describeCliCredentialSource(
+  config: ResolvedCliConfig,
+  kind: 'auth' | 'credentials' = 'auth',
+): string {
+  const source = kind === 'auth' ? config.authSource : config.credentialsSource
+  const workspace = kind === 'auth' ? config.authWorkspace : config.credentialsWorkspace
+  const label =
+    workspace !== undefined && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(workspace)
+      ? `workspace declared as ${workspace}`
+      : 'workspace not declared'
+  return `Credentials: ${source ?? 'configured credentials'} (${label}). Shell environment and project .env override saved login for ordinary Storage commands.`
+}
+
 export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliConfig {
   if (source === 'login') {
     // Match auth login's destination and keep its key, workspace, algorithm and endpoint together.
@@ -272,7 +309,10 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
     const endpoint = getSourceValue(saved.source, ['TRANSLOADIT_ENDPOINT'])
     return {
       auth: credentials,
+      authSource: 'saved login',
+      authWorkspace: getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE']),
       credentials,
+      credentialsSource: 'saved login',
       credentialsWorkspace: getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE']),
       credentialsEndpoint: endpoint,
       endpoint,
@@ -311,7 +351,13 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
   }
 
   return {
-    ...(auth != null ? { auth } : {}),
+    ...(auth != null && authSource != null
+      ? {
+          auth,
+          authSource: credentialSourceName(authSource, shellEnvSource, auth),
+          authWorkspace: getSourceValue(authSource, ['TRANSLOADIT_WORKSPACE']),
+        }
+      : {}),
     ...(credentials != null ? { credentials } : {}),
     ...(authSource != null
       ? { endpoint: resolveEndpointForSource(authSource, shellEnvSource) }
@@ -319,6 +365,10 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
     ...(credentialsSource != null
       ? {
           credentialsEndpoint: resolveEndpointForSource(credentialsSource, shellEnvSource),
+          credentialsSource:
+            credentials === undefined
+              ? undefined
+              : credentialSourceName(credentialsSource, shellEnvSource, credentials),
           credentialsWorkspace: getSourceValue(credentialsSource, ['TRANSLOADIT_WORKSPACE']),
         }
       : {}),
