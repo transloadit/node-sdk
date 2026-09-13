@@ -407,7 +407,8 @@ function getStoragePolicy(
   const resolvedPrefixes = configuration.allowWorkspaceRoot === true ? [''] : allowedPathPrefixes
   const publicPrefixes = validatePrefixes(configuration.public ?? [], 'public')
   for (const prefix of publicPrefixes) {
-    if (prefix.length > 512) throw new TypeError('public prefixes must not exceed 512 characters')
+    if (new TextEncoder().encode(prefix).byteLength > 512)
+      throw new TypeError('public prefixes must not exceed 512 UTF-8 bytes')
     if (!resolvedPrefixes.some((allowed) => prefix.startsWith(allowed)))
       throw new TypeError('public prefixes must be within allowedPathPrefixes')
   }

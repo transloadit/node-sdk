@@ -94,11 +94,20 @@ test('a geometry-only receipt uses the ordinary public cache policy without inve
   expect(url.searchParams.has('sig')).toBe(false)
 })
 
-test('public directories cannot exceed the server contract limit', () => {
-  const prefix = `${'a'.repeat(512)}/`
+test.each([
+  `${'a'.repeat(512)}/`,
+  `${'é'.repeat(256)}/`,
+])('rejects an oversized public directory %s', (prefix) => {
   expect(() => createStorageImages({ allowedPathPrefixes: [prefix], public: [prefix] })).toThrow(
     /512/,
   )
+})
+
+test('public directories can contain exactly 512 UTF-8 bytes', () => {
+  const prefix = `${'é'.repeat(255)}a/`
+  expect(() =>
+    createStorageImages({ allowedPathPrefixes: [prefix], public: [prefix] }),
+  ).not.toThrow()
 })
 
 test('an explicit key cannot silently borrow an environment secret from another credential', () => {
