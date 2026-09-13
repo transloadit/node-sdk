@@ -53,5 +53,11 @@ Security review's empty-discovery and endpoint-provenance edges are covered red-
 shell endpoint requires fresh workspace discovery. API2 keys are workspace-scoped, so ambiguous
 multi-bucket responses fail closed with endpoint/key advice, not an ineffective override suggestion.
 Private `--write-env` only persists the saved login, never transient shell fallback credentials.
+The follow-up council caught imported application-key revocation: login now records its method;
+logout forgets imported/legacy keys unless `--revoke` is explicit, and still revokes browser-login
+keys. Docs warn that applications sharing a browser-login key also lose access on logout. Red-first
+tests cover provenance spoofing in stdin, imported opt-in, legacy files, failed cleanup preserving
+publication warnings, and actionable bearer-token advice. Actual runtime smoke tests showed JSON
+import attributes need Node 20.10.0, beyond AbortSignal.any's 20.3.0 floor; both CLI manifests agree.
 No merge, package publication, Content changes, Thumbhash or origin version selector in this round.
 Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-task2-round8-report.md`.

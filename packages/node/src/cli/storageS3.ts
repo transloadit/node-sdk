@@ -122,7 +122,9 @@ export async function resolveStorageWorkspace(
   projectWorkspace?: string,
 ): Promise<string> {
   if (config.auth === undefined || !('authKey' in config.auth))
-    throw new Error('Storage project binding requires an Auth Key; run transloadit auth login.')
+    throw new Error(
+      'Storage project binding requires an Auth Key. Unset TRANSLOADIT_AUTH_TOKEN to use key credentials; run transloadit auth login if needed.',
+    )
   const sameEndpoint =
     options.endpoint === undefined ||
     new URL(options.endpoint).origin ===

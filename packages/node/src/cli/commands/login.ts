@@ -128,7 +128,22 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           )
         })
       } else credentials = await deviceLogin(origin, this.output, this.noBrowser)
-      const data = `TRANSLOADIT_KEY=${quoteCredential(credentials.authKey)}\nTRANSLOADIT_SECRET=${quoteCredential(credentials.authSecret)}\n${credentials.workspace === undefined ? '' : `TRANSLOADIT_WORKSPACE=${quoteCredential(credentials.workspace)}\n`}${this.stdin ? '' : 'TRANSLOADIT_WORKSPACE_VERIFIED=true\n'}${credentials.signatureAlgorithm === undefined ? '' : `TRANSLOADIT_SIGNATURE_ALGORITHM=${quoteCredential(credentials.signatureAlgorithm)}\n`}${this.endpoint === undefined ? '' : `TRANSLOADIT_ENDPOINT=${quoteCredential(origin)}\n`}${credentials.authKeyId === undefined ? '' : `TRANSLOADIT_AUTH_KEY_ID=${quoteCredential(credentials.authKeyId)}\n`}${credentials.description === undefined ? '' : `TRANSLOADIT_AUTH_KEY_DESCRIPTION=${quoteCredential(credentials.description)}\n`}`
+      const fields = {
+        TRANSLOADIT_KEY: credentials.authKey,
+        TRANSLOADIT_SECRET: credentials.authSecret,
+        TRANSLOADIT_WORKSPACE: credentials.workspace,
+        TRANSLOADIT_WORKSPACE_VERIFIED: this.stdin ? undefined : 'true',
+        TRANSLOADIT_LOGIN_METHOD: this.stdin ? 'stdin' : 'device',
+        TRANSLOADIT_SIGNATURE_ALGORITHM: credentials.signatureAlgorithm,
+        TRANSLOADIT_ENDPOINT: this.endpoint === undefined ? undefined : origin,
+        TRANSLOADIT_AUTH_KEY_ID: credentials.authKeyId,
+        TRANSLOADIT_AUTH_KEY_DESCRIPTION: credentials.description,
+      }
+      const data = `${Object.entries(fields)
+        .flatMap(([name, value]) =>
+          value === undefined ? [] : [`${name}=${quoteCredential(value)}`],
+        )
+        .join('\n')}\n`
       await mkdir(dirname(file), { recursive: true, mode: 0o700 })
       if (this.replace) {
         const info = await lstat(file).catch((error: unknown) => {
@@ -219,12 +234,15 @@ export class AuthStatusCommand extends UnauthenticatedCommand {
   }
 }
 
-/** Revokes only the saved login key, then removes its owner-only credential file. */
+/** Revokes browser-login keys; imported application keys need explicit revocation consent. */
 export class AuthLogoutCommand extends UnauthenticatedCommand {
   static override paths = [['auth', 'logout']]
   static override usage = Command.Usage({
     category: 'Authentication',
-    description: 'Revoke the saved CLI login key and remove its credentials',
+    description: 'Remove saved credentials; browser-login keys are also revoked',
+  })
+  revoke = Option.Boolean('--revoke', false, {
+    description: 'Also revoke an imported Auth Key; other applications using it will stop working',
   })
   protected async run(): Promise<number | undefined> {
     try {
@@ -235,28 +253,37 @@ export class AuthLogoutCommand extends UnauthenticatedCommand {
       if (!info.isFile())
         throw new Error('Logout requires a regular credentials file, not a symlink or directory')
       const before = await readFile(file, 'utf8')
+      // Imported and legacy keys may be shared with applications; never infer disposability.
+      const revoke = this.revoke || parse(before).TRANSLOADIT_LOGIN_METHOD === 'device'
       const config = resolveCliConfig('login')
       if (config.credentials === undefined) throw new Error(config.loadError ?? 'Not logged in')
       const endpoint = config.credentialsEndpoint ?? 'https://api2.transloadit.com'
       if (this.endpoint !== undefined && new URL(this.endpoint).origin !== new URL(endpoint).origin)
         throw new Error('Logout must use the saved login endpoint; no credentials were sent')
-      await new Transloadit({ ...config.credentials, endpoint, maxRetries: 0, timeout: 10_000 })
-        .revokeOwnAuthKey()
-        .catch((cause: unknown) => {
-          throw new Error(
-            'The CLI key was not revoked. Check connectivity and Console key permissions, then retry; the credentials file was kept.',
-            { cause },
-          )
-        })
+      if (revoke) {
+        await new Transloadit({ ...config.credentials, endpoint, maxRetries: 0, timeout: 10_000 })
+          .revokeOwnAuthKey()
+          .catch((cause: unknown) => {
+            throw new Error(
+              'The CLI key was not revoked. Check connectivity and Console key permissions, then retry; the credentials file was kept.',
+              { cause },
+            )
+          })
+      }
       if (!(await lstat(file)).isFile() || (await readFile(file, 'utf8')) !== before)
         throw new Error(
-          'The key was revoked, but the credentials file changed during logout and was preserved',
+          `${revoke ? 'The key was revoked, but the' : 'The'} credentials file changed during logout and was preserved`,
         )
       await rm(file)
-      this.output.print('CLI key revoked and saved credentials removed.', {
-        revoked: true,
-        removed: true,
-      })
+      this.output.print(
+        revoke
+          ? 'CLI key revoked and saved credentials removed.'
+          : 'Saved credentials removed. The imported Auth Key was not revoked.',
+        {
+          revoked: revoke,
+          removed: true,
+        },
+      )
       return undefined
     } catch (error) {
       this.output.error(

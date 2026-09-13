@@ -8,6 +8,9 @@ Release gate: publish this minor release only after transloadit/api2#9057 and
 transloadit/content#5973 are deployed. Device login, public delivery and safe CLI-key revocation
 depend on that coordinated backend/Console rollout. The image package remains private dogfood.
 At publication, switch preview-branch documentation links to their then-merged main locations.
+Require Node 20.10.0+ for JSON import attributes and composed AbortSignal cancellation. Logout
+only forgets imported and legacy application keys unless revocation is explicitly requested
+with `--revoke`.
 
 Add `client.storeImage(filePath, { path })` for one original Storage image without overwriting.
 Stream the checksum and verify the completed receipt, including path, asset ID, bytes and

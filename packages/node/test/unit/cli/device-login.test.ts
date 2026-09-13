@@ -156,7 +156,7 @@ test('a refused logout keeps the credential file and never claims remote revocat
   )
 })
 
-test('logout also revokes a legacy saved login without key-id metadata', async () => {
+test('browser logout does not require key-id metadata', async () => {
   createDevice().post('/cli/device_authorizations/token').reply(200, authorized)
   await login(['--no-browser'])
   const api = nock(origin).delete('/auth_keys/self').reply(200, { ok: 'AUTH_KEY_DELETED' })

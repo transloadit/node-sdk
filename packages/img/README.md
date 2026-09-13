@@ -150,6 +150,9 @@ yarn transloadit auth status
 yarn transloadit auth logout
 ```
 
+Logout revokes browser-login keys; any application using that same key loses access too.
+Imported and legacy keys are only forgotten locally unless `auth logout --revoke` is explicit.
+
 ## Reference
 
 See the [full reference](./docs/reference.md) for credentials, upload receipts, publication,

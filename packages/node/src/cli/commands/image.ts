@@ -187,7 +187,11 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       )
       return undefined
     } catch (error) {
-      for (const path of created) await rm(path)
+      for (const path of created) {
+        await rm(path).catch(() => {
+          this.output.error(`Could not remove partial scaffold file ${path}; remove it manually.`)
+        })
+      }
       this.output.error(
         `${ensureError(error).message}${published === undefined ? '' : ` The server prefix ${published} remains public; use storage unpublish deliberately if needed.`}`,
       )

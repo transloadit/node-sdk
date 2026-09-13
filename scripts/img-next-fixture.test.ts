@@ -6,10 +6,21 @@ import { execa } from 'execa'
 import { expect, onTestFinished, test } from 'vitest'
 
 interface PackageManifest {
+  engines?: { node?: string }
   files?: string[]
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
 }
+
+test.each([
+  'node',
+  'transloadit',
+])('the %s CLI declares the Node floor for JSON imports and composed cancellation', async (name) => {
+  const manifest = await readManifest(
+    resolve(import.meta.dirname, `../packages/${name}/package.json`),
+  )
+  expect(manifest.engines?.node).toBe('>= 20.10.0')
+})
 
 async function imageDocumentation(): Promise<string> {
   return `${await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')}\n${await readFile(resolve(import.meta.dirname, '../packages/img/docs/reference.md'), 'utf8')}`

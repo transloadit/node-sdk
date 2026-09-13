@@ -96,6 +96,16 @@ test('revalidates the saved workspace after a shell endpoint override before pub
   )
 })
 
+test('an overriding bearer token receives actionable key-selection advice', async () => {
+  vi.stubEnv('TRANSLOADIT_AUTH_TOKEN', 'shell-bearer')
+  await main(['storage', 'publish', 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('Unset TRANSLOADIT_AUTH_TOKEN'),
+  )
+  expect(await readdir(directory)).toEqual(['credentials'])
+})
+
 test('private write-env requires the saved login instead of persisting transient shell secrets', async () => {
   await mkdir('app')
   await writeFile('credentials', '')

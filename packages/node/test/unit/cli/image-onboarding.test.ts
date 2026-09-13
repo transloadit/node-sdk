@@ -1,13 +1,18 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, open, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest'
 
 import { readCliInput, resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:fs/promises')>()
+  return { ...original, open: vi.fn(original.open), rm: vi.fn(original.rm) }
+})
 
 vi.mock('../../../src/cli/helpers.ts', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../../src/cli/helpers.ts')>()
@@ -84,6 +89,46 @@ test('auth login saves owner-only credentials in the existing lookup without lea
   expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
     'hidden-secret',
   )
+})
+
+test.each([
+  false,
+  true,
+])('imported credentials require explicit revocation consent (%s)', async (revoke) => {
+  const revocation = vi
+    .spyOn(Transloadit.prototype, 'revokeOwnAuthKey')
+    .mockResolvedValue(undefined)
+  // Input cannot relabel an imported application key as a disposable browser-login key.
+  vi.mocked(readCliInput).mockResolvedValue({
+    content:
+      'TRANSLOADIT_KEY=write-key\nTRANSLOADIT_SECRET=hidden-secret\nTRANSLOADIT_LOGIN_METHOD=device\n',
+    isStdin: true,
+  })
+  await main(['auth', 'login', '--stdin'])
+  expect(process.exitCode).toBeUndefined()
+  await main(['auth', 'logout', ...(revoke ? ['--revoke'] : [])])
+  expect(process.exitCode).toBeUndefined()
+  expect(revocation).toHaveBeenCalledTimes(revoke ? 1 : 0)
+  await expect(stat('credentials')).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(OutputCtl.prototype.print).toHaveBeenLastCalledWith(expect.any(String), {
+    revoked: revoke,
+    removed: true,
+  })
+})
+
+test('legacy credentials without login provenance are forgotten without revoking a shared key', async () => {
+  await writeFile('credentials', 'TRANSLOADIT_KEY=legacy-key\nTRANSLOADIT_SECRET=legacy-secret\n')
+  const revocation = vi
+    .spyOn(Transloadit.prototype, 'revokeOwnAuthKey')
+    .mockResolvedValue(undefined)
+  await main(['auth', 'logout'])
+  expect(process.exitCode).toBeUndefined()
+  expect(revocation).not.toHaveBeenCalled()
+  await expect(stat('credentials')).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(expect.stringContaining('not revoked'), {
+    revoked: false,
+    removed: true,
+  })
 })
 
 test('auth login rejects failed verification without saving credentials or echoing upstream errors', async () => {
@@ -188,6 +233,37 @@ describe('image init', () => {
       created: true,
       created_at: '2026-09-13',
     })
+  })
+
+  test('a rollback failure keeps the original error and public-prefix warning and continues cleanup', async () => {
+    await mkdir('app')
+    const original = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+    vi.mocked(open).mockImplementation((path, ...options) => {
+      if (path === 'app/storage-image-example/page.tsx')
+        return Promise.reject(new Error('Cannot write example page'))
+      return original.open(path, ...options)
+    })
+    vi.mocked(rm).mockImplementation((path, ...options) => {
+      if (path === 'transloadit.images.json')
+        return Promise.reject(new Error('Cannot remove partial catalog'))
+      return original.rm(path, ...options)
+    })
+    onTestFinished(() => {
+      vi.mocked(open).mockReset()
+      vi.mocked(rm).mockReset()
+    })
+    await main(['image', 'init', 'website/', '--public'])
+    expect(process.exitCode).toBe(1)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringMatching(/Cannot write example page.*remains public/),
+    )
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('transloadit.images.json'),
+    )
+    await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).public).toEqual([
+      'website/',
+    ])
   })
 
   test.each([

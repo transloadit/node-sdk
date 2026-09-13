@@ -24,7 +24,7 @@ This is a **Node.js** SDK to make it easy to talk to the
 
 ## Requirements
 
-- [Node.js](https://nodejs.org/en/) version 20 or newer
+- [Node.js](https://nodejs.org/en/) version 20.10.0 or newer
 - [A Transloadit account](https://transloadit.com/signup/) ([free signup](https://transloadit.com/pricing/))
 - [Your API credentials](https://transloadit.com/c/template-credentials) (`authKey`, `authSecret`)
 
@@ -148,6 +148,9 @@ yarn transloadit storage receipts sync website/
 yarn transloadit auth status
 yarn transloadit auth logout
 ```
+
+Logout revokes browser-login keys, including their use by any application. Imported (`--stdin`)
+and legacy keys are only forgotten locally; `auth logout --revoke` explicitly revokes those too.
 
 Unpublishing stops origin access but cannot recall cached/downloaded bytes. List and sync use
 the S3-compatible read API with the login key (`dam:write` also allows reads), not an Assembly.
