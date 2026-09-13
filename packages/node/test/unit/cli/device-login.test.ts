@@ -109,7 +109,7 @@ test('status reports saved login identity and logout revokes only that key befor
     .reply(200, {
       ...authorized,
       auth_key_id: authKeyId,
-      auth_key_description: 'Transloadit CLI on canary',
+      description: 'Transloadit CLI on canary',
     })
     .delete('/auth_keys/self', (body: string) => {
       const params = /name="params"\r\n\r\n([^\r\n]+)/.exec(body)?.[1]

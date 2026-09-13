@@ -40,7 +40,14 @@ must not silently write into a different workspace than the application renders.
 - [ ] Run red-first tests, sequential package/full/browser checks, council, local UX/security,
   the live zero-env/mismatch/logout canary and exact-head green CI.
 
-API2 4a9fd4abbb supplies `DELETE /auth_keys/self`; logout proves possession of only its saved key,
-without broad Auth Key management rights or requiring a legacy key ID. Token description metadata
-is coordinated separately. No merge, package publication, Content changes, Thumbhash or origin
-version selector in this round. Detailed local receipts: `/tmp/img-task2-round8-report.md`.
+API2 b2264e1767 supplies `DELETE /auth_keys/self` and token `auth_key_id` / `description`. Real
+packed login/status/logout passes in owned devdock17 without broad Auth Key management rights.
+The zero-env public scaffold renders real unsigned images in Chromium/WebKit at desktop/mobile;
+all five bound Storage commands refuse the wrong workspace before acting.
+
+Council's large-original, height-only and bearer-token/fallback-credential findings were reproduced
+red-first and fixed. UX review found no blockers. The mismatch wording is Kevin's explicit
+contract; JSON-quoted generated imports deliberately escape arbitrary receipt-file paths safely.
+CLI next-step wording is usable but could be more copy-paste-oriented in a later polish pass.
+No merge, package publication, Content changes, Thumbhash or origin version selector in this round.
+Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-task2-round8-report.md`.

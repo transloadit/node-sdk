@@ -100,7 +100,9 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(readme).toContain('One factory owns both modes')
   expect(readme).not.toMatch(/\bcreatePrivateStorageImages\b|\bcreateTransloaditImage\b|--next/)
   expect(readme).toContain('TRANSLOADIT_ENDPOINT')
-  expect(readme).toContain('https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md')
+  expect(readme).toContain(
+    'https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md',
+  )
   expect(readme).not.toContain('](../../docs/')
   expect(readme).toContain('The default route is `/api/storage-images`')
   expect(readme).toContain('capability has no independent expiry')

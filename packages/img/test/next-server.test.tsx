@@ -683,6 +683,52 @@ describe('createStorageImages', () => {
 })
 
 describe('createStorageImages', () => {
+  test.each([
+    {
+      sourceWidth: 12000,
+      sourceHeight: 8000,
+      height: undefined,
+      width: 12000,
+      renderedHeight: 8000,
+      candidateLimit: 8000,
+    },
+    {
+      sourceWidth: 2400,
+      sourceHeight: 1600,
+      height: 320,
+      width: 480,
+      renderedHeight: 320,
+      candidateLimit: 960,
+    },
+  ])('constrains a $sourceWidth × $sourceHeight receipt with height $height', ({
+    sourceWidth,
+    sourceHeight,
+    height,
+    width,
+    renderedHeight,
+    candidateLimit,
+  }) => {
+    const { StorageImage } = createStorageImages({
+      workspace: 'my-app',
+      public: ['documents/'],
+      allowedPathPrefixes: ['documents/'],
+    })
+    const document = parseMarkup(
+      renderToStaticMarkup(
+        <StorageImage
+          alt="Original"
+          src={{ path: 'documents/hero.jpg', width: sourceWidth, height: sourceHeight }}
+          height={height}
+        />,
+      ),
+    )
+    expect(document.querySelector('img')?.getAttribute('width')).toBe(String(width))
+    expect(document.querySelector('img')?.getAttribute('height')).toBe(String(renderedHeight))
+    expect(document.querySelector('img')?.style.maxWidth).toBe(`${width}px`)
+    const candidates = document.querySelector('source')?.getAttribute('srcset')?.split(', ')
+    expect(candidates?.at(-1)).toMatch(new RegExp(` ${candidateLimit}w$`))
+  })
+
   test('ignores Next internals and uses only the explicit basePath', () => {
     vi.stubEnv('__NEXT_ROUTER_BASEPATH', '/inferred')
     try {

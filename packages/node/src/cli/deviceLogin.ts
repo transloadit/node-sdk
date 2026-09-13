@@ -39,7 +39,7 @@ const authorizedSchema = z.object({
     .string()
     .regex(/^[a-zA-Z0-9_-]{1,128}$/)
     .optional(),
-  auth_key_description: z
+  description: z
     .string()
     .max(512)
     .regex(/^[^\r\n\0]*$/)
@@ -171,7 +171,7 @@ export async function deviceLogin(
         signatureAlgorithm: authorized.data.signature_algo,
         workspace: authorized.data.workspace,
         authKeyId: authorized.data.auth_key_id,
-        description: authorized.data.auth_key_description,
+        description: authorized.data.description,
       }
     }
   } catch (cause) {

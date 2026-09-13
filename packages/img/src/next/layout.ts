@@ -126,10 +126,8 @@ export function resolveImageLayout(
   const base = { source, width, height, widths }
   if (layout === 'none') return base
   if (layout === 'constrained') {
-    const maxWidth = Math.min(
-      boxDimension(presentationWidth ?? source.width, 'width'),
-      source.width,
-    )
+    // Explicit display dimensions were validated above; an original may exceed the CDN output cap.
+    const maxWidth = Math.min(width, source.width)
     return {
       ...base,
       width: maxWidth,

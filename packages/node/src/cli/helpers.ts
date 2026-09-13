@@ -333,23 +333,24 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
   let authSource: CliEnvSource | undefined
   let credentials: CliKeySecretCredentials | undefined
   let credentialsSource: CliEnvSource | undefined
+  let credentialsError: string | undefined
 
   for (const source of sources) {
     if (auth != null && credentials != null) break
+    const authToken = getSourceAuthToken(source)
+    if (auth == null && authToken != null) {
+      auth = authToken
+      authSource = source
+    }
     const sourceCredentials = getSourceCredentials(source)
-    if (sourceCredentials !== undefined && 'loadError' in sourceCredentials)
-      return sourceCredentials
-    if (auth == null) {
-      const authToken = getSourceAuthToken(source)
-      if (authToken != null) {
-        auth = authToken
-        authSource = source
-      } else {
-        if (sourceCredentials != null) {
-          auth = sourceCredentials
-          authSource = source
-        }
-      }
+    if (sourceCredentials !== undefined && 'loadError' in sourceCredentials) {
+      // Signing failure must not discard a valid bearer token or silently choose a different key.
+      credentialsError = sourceCredentials.loadError
+      break
+    }
+    if (auth == null && sourceCredentials != null) {
+      auth = sourceCredentials
+      authSource = source
     }
 
     if (credentials != null) continue
@@ -388,7 +389,9 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
             getSourceValue(credentialsSource, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
         }
       : {}),
-    ...(loadError != null ? { loadError } : {}),
+    ...(credentialsError != null || loadError != null
+      ? { loadError: credentialsError ?? loadError }
+      : {}),
   }
 }
 
