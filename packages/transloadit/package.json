@@ -39,6 +39,7 @@
     "clipanion": "^4.0.0-rc.4",
     "debug": "^4.4.3",
     "dotenv": "^17.4.2",
+    "execa": "9.6.1",
     "form-data": "^4.0.5",
     "got": "14.6.6",
     "into-stream": "^9.1.0",

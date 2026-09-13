@@ -1,0 +1,165 @@
+import type { IOutputCtl } from './OutputCtl.ts'
+
+import { hostname } from 'node:os'
+import { setTimeout as delay } from 'node:timers/promises'
+
+import { execa } from 'execa'
+import got from 'got'
+import { z } from 'zod'
+
+const deviceSchema = z.object({
+  ok: z.literal('CLI_DEVICE_AUTHORIZATION_CREATED'),
+  device_code: z.string().min(1).max(4096),
+  user_code: z
+    .string()
+    .regex(/^[BCDFGHJKLMNPQRSTVWXZ23456789]{4}-[BCDFGHJKLMNPQRSTVWXZ23456789]{4}$/),
+  verification_url: z.string().url(),
+  expires_in: z.number().int().positive().max(900),
+  interval: z.number().int().positive().max(900),
+})
+const authorizedSchema = z.object({
+  ok: z.literal('CLI_DEVICE_AUTHORIZED'),
+  workspace: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/),
+  auth_key: z
+    .string()
+    .min(1)
+    .max(4096)
+    .regex(/^[^\r\n\0]+$/),
+  auth_secret: z
+    .string()
+    .min(1)
+    .max(4096)
+    .regex(/^[^\r\n\0]+$/),
+})
+const pendingSchema = z.object({
+  ok: z.literal('CLI_DEVICE_AUTHORIZATION_PENDING'),
+  expires_in: z.number().int().nonnegative(),
+})
+const errorSchema = z.object({ error: z.string() })
+const expiredMessage =
+  'Device authorization expired or was already used. Run transloadit auth login again.'
+
+/** Browser-approved credentials; the one-time device code never leaves this module. */
+export interface DeviceLoginCredentials {
+  authKey: string
+  authSecret: string
+  workspace: string
+}
+
+/** Obtain a combined Auth Key using the API's single-use device authorization contract. */
+export async function deviceLogin(
+  endpoint: string,
+  output: IOutputCtl,
+  noBrowser: boolean,
+): Promise<DeviceLoginCredentials> {
+  const cancellation = new AbortController()
+  const cancel = (): void => cancellation.abort()
+  process.once('SIGINT', cancel)
+  let expired: AbortSignal | undefined
+  try {
+    const response = await got
+      .post(`${endpoint}/cli/device_authorizations`, {
+        json: { client: 'transloadit-cli', hostname: hostname() },
+        responseType: 'json',
+        retry: { limit: 0 },
+        followRedirect: false,
+        timeout: { request: 10_000 },
+        signal: cancellation.signal,
+      })
+      .catch((cause: unknown) => {
+        throw new Error(
+          'Could not start browser login. Check the API endpoint and retry; use auth login --stdin for an existing Auth Key.',
+          { cause },
+        )
+      })
+    const parsed = deviceSchema.safeParse(response.body)
+    if (!parsed.success)
+      throw new Error('The API returned an invalid device authorization; nothing was saved')
+    const device = parsed.data
+    const target = new URL(device.verification_url)
+    if (
+      target.username ||
+      target.password ||
+      target.hash ||
+      (target.protocol !== 'https:' &&
+        !(
+          target.protocol === 'http:' &&
+          ['localhost', '127.0.0.1', '[::1]'].includes(target.hostname)
+        ))
+    )
+      throw new Error('The API returned an unsafe verification URL; nothing was opened or saved')
+    expired = AbortSignal.timeout(device.expires_in * 1000)
+    const signal = AbortSignal.any([cancellation.signal, expired])
+    output.print(`Enter code ${device.user_code} at ${target.href}`, {
+      user_code: device.user_code,
+      verification_url: target.href,
+    })
+    const opener =
+      process.platform === 'darwin' ? 'open' : process.platform === 'linux' ? 'xdg-open' : undefined
+    if (!noBrowser && opener !== undefined) {
+      await execa(opener, [target.href], { stdio: 'ignore', timeout: 5000 }).catch(() => {
+        output.print('Could not open the browser. Open the verification URL printed above.', {
+          browserOpened: false,
+        })
+      })
+    }
+    let intervalMs = device.interval * 1000
+    while (true) {
+      await delay(intervalMs, undefined, { signal })
+      const token = await got
+        .post(`${endpoint}/cli/device_authorizations/token`, {
+          json: { device_code: device.device_code },
+          responseType: 'json',
+          retry: { limit: 0 },
+          followRedirect: false,
+          throwHttpErrors: false,
+          timeout: { request: 10_000 },
+          signal,
+        })
+        .catch((cause: unknown) => {
+          throw new Error(
+            'Could not finish browser login. Check connectivity and run transloadit auth login again.',
+            { cause },
+          )
+        })
+      const error = errorSchema.safeParse(token.body)
+      if (token.statusCode === 429 || (error.success && error.data.error === 'slow_down')) {
+        const seconds = Number(token.headers['retry-after'])
+        // Longer waits are pointless after the authorization deadline and can overflow Node's
+        // timer range into 1 ms, accidentally hammering an already rate-limited API.
+        intervalMs = Math.min(
+          device.expires_in * 1000,
+          Math.max(intervalMs + 5000, Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 0),
+        )
+        continue
+      }
+      if (error.success && error.data.error === 'CLI_DEVICE_AUTHORIZATION_NOT_FOUND')
+        throw new Error(expiredMessage)
+      if (token.statusCode < 200 || token.statusCode >= 300)
+        throw new Error(
+          'Browser login was refused. Run transloadit auth login again; nothing was saved.',
+        )
+      const pending = pendingSchema.safeParse(token.body)
+      if (pending.success) {
+        if (pending.data.expires_in === 0) throw new Error(expiredMessage)
+        continue
+      }
+      const authorized = authorizedSchema.safeParse(token.body)
+      if (!authorized.success)
+        throw new Error('The API returned an invalid login result; nothing was saved')
+      signal.throwIfAborted()
+      return {
+        authKey: authorized.data.auth_key,
+        authSecret: authorized.data.auth_secret,
+        workspace: authorized.data.workspace,
+      }
+    }
+  } catch (cause) {
+    if (cancellation.signal.aborted)
+      throw new Error('Login canceled; nothing was saved.', { cause })
+    if (expired?.aborted) throw new Error(expiredMessage, { cause })
+    throw cause
+  } finally {
+    process.off('SIGINT', cancel)
+  }
+}

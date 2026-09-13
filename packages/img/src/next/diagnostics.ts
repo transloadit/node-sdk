@@ -1,7 +1,7 @@
 /** Server-side development probe; errors become static hints, never raw response/URL logs. */
-export type DiagnoseStorageImage = (path: string, url: string) => void
+export type DiagnoseStorageImage = (path: string, url: string, publicPrefix?: string) => void
 
-async function probe(url: string): Promise<void> {
+async function probe(url: string, publicPrefix?: string): Promise<void> {
   try {
     const response = await fetch(url, {
       method: 'HEAD',
@@ -9,13 +9,24 @@ async function probe(url: string): Promise<void> {
       cache: 'no-store',
       signal: AbortSignal.timeout(5000),
     })
-    if (response.ok && response.headers.get('content-type')?.startsWith('image/')) return
+    if (response.ok && response.headers.get('content-type')?.startsWith('image/')) {
+      if (
+        publicPrefix !== undefined &&
+        response.headers.get('cache-control')?.includes('immutable')
+      )
+        console.info(
+          '[StorageImage] Public delivery verified: image response with immutable caching.',
+        )
+      return
+    }
     // A manual HEAD cannot establish whether the browser's redirect target is a valid image.
     if ([301, 302, 303, 307, 308].includes(response.status) && response.headers.has('location'))
       return
     const hints =
       response.status === 401 || response.status === 403
-        ? 'Use a Smart CDN-enabled Auth Key, not an Assembly-only key; check its workspace and the signature secret, expiry and server clock.'
+        ? publicPrefix !== undefined
+          ? `For unsigned public delivery, run transloadit storage publish ${/^[a-zA-Z0-9/_-]+$/.test(publicPrefix) ? publicPrefix : '<your-public-prefix>/'}. If already published, check its workspace and public Built-in; a generic 403 cannot identify the cause.`
+          : 'Enable Smart CDN on the Auth Key; check its workspace and the signature secret, expiry and server clock.'
         : response.status === 404
           ? 'Check the workspace slug, that the Storage path exists there, and the configured Template.'
           : response.ok
@@ -35,10 +46,10 @@ async function probe(url: string): Promise<void> {
 export function createImageDiagnostics(template: string): DiagnoseStorageImage | undefined {
   if (process.env.NODE_ENV !== 'development') return undefined
   const requests = new Set<string>()
-  return (path, url) => {
+  return (path, url, publicPrefix) => {
     const key = JSON.stringify([path, template])
     if (requests.has(key)) return
     requests.add(key)
-    void probe(url)
+    void probe(url, publicPrefix)
   }
 }

@@ -4,7 +4,7 @@ import type { InterpolatableRobotTransloaditStoreInstructions } from '@transload
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -52,22 +52,30 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   })
   t.mock.method(Transloadit.prototype, 'storeImage', async () => ({
     ...receipt,
-    path: 'documents/hero.jpg',
+    path: 'website/hero.jpg',
     width: 2400,
     height: 1600,
   }))
-  await cli.main(['image', 'init', 'documents/', '--public'])
+  t.mock.method(Transloadit.prototype, 'publishStoragePrefix', async () => ({
+    ok: 'STORAGE_PUBLIC_PREFIX_DECLARED',
+    prefix: 'website/',
+    created_at: '2026-09-13',
+    created: true,
+  }))
+  await cli.main(['image', 'init', 'website/', '--public'])
   assert.equal(process.exitCode, undefined)
   assert.deepEqual(JSON.parse(await readFile('images.json', 'utf8')), {})
-  await cli.main(['storage', 'store', './hero.jpg', 'documents/hero.jpg'])
+  // Keep the genuine post-init/pre-upload state in the Next build and browser matrix too.
+  await cp(directory, join(originalCwd, 'app/cli-empty'), { recursive: true })
+  await cli.main(['storage', 'store', './hero.jpg', 'website/hero.jpg'])
   assert.equal(process.exitCode, undefined)
   const printed = output.join('')
   const page = await readFile('app/storage-image-example/page.tsx', 'utf8')
   assert(page.includes('layout="constrained" maxWidth={960} preload'))
-  assert(printed.includes('Render it with <StorageImage src={"documents/hero.jpg"}'))
+  assert(printed.includes('Render it with <StorageImage src={"website/hero.jpg"}'))
   assert(!printed.includes('export default function Page'))
   const factory = await readFile('lib/storageImage.ts', 'utf8')
-  assert(factory.includes('public: ["documents/"]'))
+  assert(factory.includes('public: ["website/"]'))
   // Only the delivery origin changes for this offline fixture; the generated page is verbatim.
   await writeFile(
     'lib/storageImage.ts',

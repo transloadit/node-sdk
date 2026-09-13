@@ -15,7 +15,7 @@ interface FixtureCdn {
   close(): Promise<void>
 }
 
-/** An owned origin with independent HMAC validation and real AVIF/WebP/JPEG response bytes. */
+/** An owned origin with independent signature/public-prefix enforcement and real image bytes. */
 export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
   const endpoint = new URL(origin)
   assert.equal(endpoint.hostname, 'localhost')
@@ -60,11 +60,26 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
     const strategy = url.searchParams.get('r')
     const background = url.searchParams.get('bg') ?? ''
     const mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`
-    const accepted =
+    const path = decodeURIComponent(url.pathname)
+    const publicTemplate = '/file/fixture/builtin/public-preview@0.0.1/'
+    const privateTemplate = '/file/fixture/builtin/storage-preview@0.0.2/'
+    const isPublicTemplate = path.startsWith(publicTemplate)
+    const published =
+      isPublicTemplate &&
+      ['website/', 'documents/public/'].some((prefix) =>
+        path.slice(publicTemplate.length).startsWith(prefix),
+      )
+    const validSignature =
       authenticated &&
-      decodeURIComponent(url.pathname).startsWith('/file/fixture/builtin/storage-preview@0.0.2/') &&
       url.searchParams.get('auth_key') === imageConfiguration.authKey &&
-      Number(url.searchParams.get('exp')) > Date.now() &&
+      Number(url.searchParams.get('exp')) > Date.now()
+    // A supplied bad signature must never fall through to anonymous public delivery.
+    const authorized = signature !== null ? validSignature : published
+    const version = url.searchParams.get('v')
+    const accepted =
+      (isPublicTemplate || path.startsWith(privateTemplate)) &&
+      authorized &&
+      (version === null || (isPublicTemplate && /^[A-Za-z0-9_-]{1,64}$/.test(version))) &&
       Number.isSafeInteger(width) &&
       width > 0 &&
       width <= 2400 &&
@@ -116,7 +131,11 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
     const body = await bytes
     response
       .writeHead(200, {
-        'Cache-Control': 'no-store',
+        'Cache-Control': isPublicTemplate
+          ? version === null
+            ? 'public, max-age=259200, s-maxage=86400'
+            : 'public, max-age=31536000, s-maxage=31536000, immutable'
+          : 'no-store',
         'Content-Type': mime,
         'Content-Length': body.length,
       })

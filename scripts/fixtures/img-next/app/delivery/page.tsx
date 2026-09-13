@@ -8,7 +8,12 @@ export default function Page(): ReactNode {
       <h1>Static and private delivery</h1>
       <DeliveryImage
         alt="Public website image"
-        src={{ path: 'documents/public/hero.jpg', width: 400, height: 300 }}
+        src={{
+          path: 'documents/public/hero.jpg',
+          width: 400,
+          height: 300,
+          md5hash: 'd41d8cd98f00b204e9800998ecf8427e',
+        }}
         preload
       />
       <DeliveryImage

@@ -17,10 +17,12 @@ depend on it from npm yet.
 
 This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app. The
 workspace must have Transloadit Storage writes enabled; package installation does not enable them.
-The backend must provide `builtin/storage-preview@0.0.2` for this package revision: use API2
-#9057 at `07ec5abc2b71d449a7474391c8eeef4934ef3589` or newer in an owned devdock until that PR is
-deployed. Version 0.0.1 stays unchanged and flattens transparency; 0.0.2 accepts the signed `bg`
-field needed by alpha-preserving candidates and the opaque JPEG fallback.
+Private delivery requires `builtin/storage-preview@0.0.2`. Public delivery additionally requires
+`builtin/public-preview@0.0.1` and server-declared public prefixes. Browser login and combined
+credentials require the matching API2 #9057 and Console changes; the historical canary revision
+below predates these additions. Until the server owner confirms readiness, these additions are
+tested against contract fakes only. Private preview 0.0.1 stays unchanged and flattens transparency;
+0.0.2 accepts `bg` for alpha-preserving candidates and the opaque JPEG fallback.
 
 The server entry point needs the **Node.js runtime**, not Edge: it uses `node:crypto` and `Buffer`.
 The examples use root `app/` and `lib/` directories; adjust their relative imports for `src/app/`.
@@ -65,7 +67,9 @@ prerequisite for `auth login`, `storage store` or `image init`.
 
 Skip this section when using `auth login` and `storage store`; those commands already seed the image.
 
-Use credentials from the **same workspace**, but separate write access from rendering. Add both
+Use credentials from the **same workspace**. A Smart CDN-enabled Auth Key can serve both purposes
+on the combined-key API2 revision; separate keys remain optional. This advanced script retains
+explicit Assembly variable names to avoid accidentally loading a local endpoint into Next. Add both
 `.env.seed.local` and `.env.local` to the app's `.gitignore` before creating them:
 
 - `TRANSLOADIT_ASSEMBLY_KEY` and `TRANSLOADIT_ASSEMBLY_SECRET`: an **Assembly Auth Key** and its
@@ -77,9 +81,11 @@ Use credentials from the **same workspace**, but separate write access from rend
 - `TRANSLOADIT_WORKSPACE`: put the workspace's URL slug in `.env.local` too. In a Console URL such
   as `/c/my-workspace/`, the slug is `my-workspace`, not a key or workspace ID.
 
-Do not use a `NEXT_PUBLIC_` prefix or commit credentials. The rendering application only needs
-the Smart CDN credentials. Next.js loads `.env.local`, so it is **not** an isolated place for the
-write-capable Assembly credentials. `.env.seed.local` is outside Next's normal env-file names.
+Do not use a `NEXT_PUBLIC_` prefix or commit credentials. Public-only rendering needs just the
+workspace, not a key. Private rendering accepts `TRANSLOADIT_KEY/SECRET` or the explicit Smart CDN
+override pair above. Next.js loads `.env.local`; all keys placed there must remain server-only.
+`.env.seed.local` is outside Next's normal env-file names. Manage keys in the
+[workspace Console](https://transloadit.com/c/<workspace>/template-credentials/).
 
 `TRANSLOADIT_ASSEMBLY_ENDPOINT` is an optional seed-only override. Omit it for the SDK default,
 `https://api2.transloadit.com`; the local-devdock case is explained below.
@@ -183,12 +189,13 @@ endpoint. This is separate from the Smart CDN origin. For direct devdock image d
 the image factory with the trusted URL Transform `baseUrl` (including its `{workspace}` placeholder)
 and `urlParams: { cdn: 'required' }`. This supplies API2's explicit `cdn: required` acknowledgment
 because native image requests cannot attach a custom header. It does **not** install a CDN or
-bypass signatures. Keep the Smart CDN key and secret, and never take either override from a request.
+bypass access policy. Private URLs still require a Smart CDN-enabled key; public URLs require a
+published prefix. Never take either endpoint override from a request.
 Normal Smart CDN delivery needs neither local override.
 `createStorageImages` accepts these same `baseUrl` and `urlParams` fields directly,
 alongside `allowedPathPrefixes` and `authorize`.
 
-The factory exports `StorageImage`. Round 5 uses one flat `createStorageImages({ images, public })`
+The factory exports `StorageImage`. Use one flat `createStorageImages({ images, public })`
 shape for the public Content hero, with catalog-typed src and fill/cover breakpoint ratios.
 Public direct markup is static; private direct images remain request-rendered. See the package
 README for layout and authorization policy; this document only covers maintainer setup.
@@ -200,7 +207,8 @@ and the dependent minimum versions together; publishing img against the old mini
 
 ### Live Storage listing and rendering receipt recovery
 
-The owned clone17 canary now runs API2 `07ec5abc2b71d449a7474391c8eeef4934ef3589`. Only that internal-only, port-free devdock's
+The historical oriented-receipt canary used API2 `07ec5abc2b71d449a7474391c8eeef4934ef3589`.
+It is stopped while waiting for the public/login revision. Only that internal-only, port-free devdock's
 `env.sh` custom overrides enable `API2_STORAGE_S3_ENABLED=true`. Production remains unchanged.
 
 `transloadit storage ls website/ --json` discovers the workspace and lists the existing images,
@@ -259,20 +267,22 @@ corepack yarn test:img:fixture
 The fixture packs all four local artifacts and installs them with its pinned **npm** lockfile into
 a clean Next.js app. It executes this exact seed recipe against mocked Assembly receipts without
 network access and compiles it against the packed SDK/types. It builds and serves both production
-Cache Components configurations, then runs 64 Chromium/WebKit cases (16 cases × 2 engines ×
+Cache Components configurations, then runs 72 Chromium/WebKit cases (18 cases × 2 engines ×
 2 configurations): native cookie authorization,
 GET/HEAD parity, explicit public-prefix caching, responsive art direction with real cropped bytes,
 separate app/CDN hosts, constrained hero/fixed avatar geometry, portrait fillcrop, optional error
-fallback and same-page sign-in/refresh recovery, the actual CLI-generated constrained public page
+fallback and same-page sign-in/refresh recovery, the actual CLI-generated empty and populated pages,
+unsigned public Built-in policy and immutable versioned responses, the constrained public page
 without a CSS reset, private-redirect decoding before application JavaScript, hydration, bounded JPEG fallback,
 original-capability renewal, revocation, expiry and tampering. Chromium
 also verifies direct streaming before application JavaScript; direct WebKit navigation uses normal
 script loading because holding bundles can stall React's streaming reveal in the test browser.
 That extra WebKit pre-JS scenario remains unverified. The owned
-local image origin independently verifies signatures/expiry and serves real encoded bytes; it
+local image origin independently enforces signatures/expiry and declared public prefixes, then serves real encoded bytes; it
 never receives the application's session cookie. Transparent AVIF/WebP/PNG corners and the signed
 opaque JPEG background are checked at the pixel level. This origin emulates the Built-in contract;
 it does not execute API2's transformation pipeline. Secret scans cover rendered/client artifacts.
+The generated public-only application also builds in both modes with no signing credentials.
 
 The test records browser evidence and direct-versus-redirect HTML size and route work for 1, 20,
 and 100 images. Wall-clock measurements are diagnostic, not CI performance thresholds. This local

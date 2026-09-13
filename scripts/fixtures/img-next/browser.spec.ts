@@ -340,6 +340,7 @@ test('GET and HEAD share private authorization while explicit public prefixes ar
   const get = await context.request.get(privateUrl, { maxRedirects: 0 })
   const head = await context.request.head(privateUrl, { maxRedirects: 0 })
   expect(get.status()).toBe(307)
+  expect(new URL(get.headers().location).searchParams.has('sig')).toBe(true)
   expect(head.status()).toBe(307)
   expect(head.headers().location).toBe(get.headers().location)
   expect(head.headers()['cache-control']).toBe('private, no-store')
@@ -352,11 +353,16 @@ test('GET and HEAD share private authorization while explicit public prefixes ar
   expect(deniedHead.headers()['cache-control']).toBe('private, no-store')
   const publicGet = await context.request.get(publicUrl, { maxRedirects: 0 })
   const publicHead = await context.request.head(publicUrl, { maxRedirects: 0 })
-  expect(publicGet.status()).toBe(307)
-  expect(publicHead.status()).toBe(307)
+  expect(publicGet.status()).toBe(200)
+  expect(publicHead.status()).toBe(200)
+  expect(new URL(publicUrl).searchParams.has('sig')).toBe(false)
+  expect(new URL(publicUrl).searchParams.has('exp')).toBe(false)
+  expect(new URL(publicUrl).searchParams.get('v')).toBe('d41d8cd98f00b204')
   expect(publicGet.headers()['cache-control']).toMatch(
-    /^public, max-age=0, s-maxage=\d+, stale-while-revalidate=60$/,
+    /^public, max-age=31536000, s-maxage=31536000, immutable$/,
   )
+  expect(publicHead.headers()['cache-control']).toBe(publicGet.headers()['cache-control'])
+  expect(await publicHead.body()).toHaveLength(0)
 })
 
 for (const width of [390, 1200]) {
@@ -618,6 +624,39 @@ test('the public catalog hero has stock-CSS geometry and no application image re
   expect((await hero.boundingBox())?.width).toBe(Math.min(960, viewport.width - 16))
   expect(applicationImages).toEqual([])
   expect(await hero.getAttribute('src')).toContain(cdnOrigin)
+  expect(await hero.getAttribute('src')).not.toMatch(/auth_key=|sig=|exp=/)
+})
+
+test('the generated empty catalog page works before the first upload', async ({ page }) => {
+  await page.goto('/cli-empty/app/storage-image-example')
+  await expect(
+    page.getByText('Add an image with transloadit storage store to see it here.', { exact: true }),
+  ).toBeVisible()
+  await expect(page.getByRole('img')).toHaveCount(0)
+})
+
+test('unsigned public Built-ins refuse private paths and private Built-ins never downgrade', async ({
+  context,
+}) => {
+  const publicUrl = new URL(
+    `${cdnOrigin}/file/fixture/builtin%2Fpublic-preview%400.0.1/website%2Fhero.jpg?w=400&h=300&r=pad&f=webp&bg=%2300000000&v=d41d8cd98f00b204`,
+  )
+  expect((await context.request.get(publicUrl.href)).status()).toBe(200)
+  expect((await context.request.head(publicUrl.href)).headers()['cache-control']).toContain(
+    'immutable',
+  )
+  publicUrl.searchParams.set('sig', 'sha256:invalid')
+  expect((await context.request.get(publicUrl.href)).status()).toBe(403)
+  publicUrl.searchParams.delete('sig')
+  publicUrl.searchParams.delete('v')
+  expect((await context.request.head(publicUrl.href)).headers()['cache-control']).toBe(
+    'public, max-age=259200, s-maxage=86400',
+  )
+  publicUrl.pathname =
+    '/file/fixture/builtin%2Fpublic-preview%400.0.1/documents%2Fprivate%2Fhero.jpg'
+  expect((await context.request.get(publicUrl.href)).status()).toBe(403)
+  publicUrl.pathname = '/file/fixture/builtin%2Fstorage-preview%400.0.2/website%2Fhero.jpg'
+  expect((await context.request.get(publicUrl.href)).status()).toBe(403)
 })
 
 test('a portrait fill layout downloads the cropped box rather than an oversized landscape', async ({

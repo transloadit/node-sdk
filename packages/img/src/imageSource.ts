@@ -5,6 +5,8 @@ export interface TransloaditImageSource {
   readonly path: string
   readonly width: number
   readonly height: number
+  /** Original-byte MD5 from a verified receipt or compatible Storage HEAD ETag. */
+  readonly md5hash?: string
 }
 
 /** A path needs separate dimensions; a receipt owns its dimensions. */
@@ -28,6 +30,7 @@ export function snapshotImageSource(props: {
   let path: unknown
   let width: unknown
   let height: unknown
+  let md5hash: unknown
   if (typeof src === 'string') {
     path = src
     width = props.width
@@ -50,10 +53,18 @@ export function snapshotImageSource(props: {
     path = src.path
     width = src.width
     height = src.height
+    md5hash = 'md5hash' in src ? src.md5hash : undefined
   }
   if (typeof path !== 'string') throw new TypeError('Storage image receipt path must be a string')
   validateStoragePath(path)
   validateDimension(width, 'width')
   validateDimension(height, 'height')
-  return { path, width, height }
+  if (md5hash !== undefined && (typeof md5hash !== 'string' || !/^[a-f0-9]{32}$/i.test(md5hash)))
+    throw new TypeError('Storage image md5hash must be a 32-digit hexadecimal checksum')
+  return {
+    path,
+    width,
+    height,
+    ...(typeof md5hash === 'string' ? { md5hash: md5hash.toLowerCase() } : {}),
+  }
 }

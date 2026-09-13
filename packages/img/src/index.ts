@@ -17,6 +17,8 @@ export type { TransloaditImageSource } from './imageSource.ts'
 
 /** Signed Built-in used by default for Transloadit Storage previews. */
 export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.2'
+/** Unsigned Built-in, served only under a server-declared public Storage prefix. */
+export const transloaditPublicStoragePreviewTemplate = 'builtin/public-preview@0.0.1'
 const defaultFallbackQuality = 75
 const defaultResponsiveImageWidths: readonly number[] = [320, 640, 960, 1280, 1920, 2560, 3840]
 const minimumMillisecondTimestamp = 1_000_000_000_000
@@ -53,10 +55,10 @@ export interface TransloaditImageModel {
   sources: readonly TransloaditImageSourceSet[]
 }
 
-interface TransloaditImageModelConfiguration {
+interface TransloaditImageModelConfiguration<Expiry extends number | undefined = number> {
   /** Optional output width/height ratio; requests a server-side fillcrop instead of padding. */
   cropAspectRatio?: number
-  expiresAt: number
+  expiresAt: Expiry
   /** Opaque JPEG background as #rrggbb or #rrggbbff. Defaults to white. */
   fallbackBackground?: string
   /** Optional JPEG width, capped by the resolved candidate ladder. */
@@ -73,8 +75,8 @@ interface TransloaditImageModelConfiguration {
 }
 
 /** Framework-neutral options for a responsive Transloadit Storage preview. */
-export type TransloaditImageModelOptions = TransloaditImageModelConfiguration &
-  TransloaditImageSourceProps
+export type TransloaditImageModelOptions<Expiry extends number | undefined = number> =
+  TransloaditImageModelConfiguration<Expiry> & TransloaditImageSourceProps
 
 function validateDimension(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 1 || value > smartCdnImageMaxDimension) {
@@ -115,9 +117,9 @@ function getResponsiveImageWidths(
 }
 
 /** Creates one signed, serializable responsive preview of a Transloadit Storage object. */
-export function createTransloaditImageModel(
-  options: TransloaditImageModelOptions,
-  sign: SignSmartCdnImageRequest,
+export function createTransloaditImageModel<Expiry extends number | undefined = number>(
+  options: TransloaditImageModelOptions<Expiry>,
+  sign: SignSmartCdnImageRequest<Expiry>,
 ): TransloaditImageModel {
   const { path: src, width, height } = snapshotImageSource(options)
   const expiresAt = options.expiresAt
@@ -130,9 +132,10 @@ export function createTransloaditImageModel(
   const template = options.template ?? transloaditStoragePreviewTemplate
   const widthsSnapshot = Array.isArray(options.widths) ? [...options.widths] : options.widths
 
-  validatePositiveSafeInteger(expiresAt, 'expiresAt')
-  if (expiresAt < minimumMillisecondTimestamp) {
-    throw new RangeError('expiresAt must be a millisecond timestamp')
+  if (expiresAt !== undefined) {
+    validatePositiveSafeInteger(expiresAt, 'expiresAt')
+    if (expiresAt < minimumMillisecondTimestamp)
+      throw new RangeError('expiresAt must be a millisecond timestamp')
   }
   if (typeof sign !== 'function') throw new TypeError('sign must be a function')
   validateQuality(fallbackQuality, 'fallbackQuality')

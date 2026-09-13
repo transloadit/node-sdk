@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { readCliInput, resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
@@ -11,7 +11,11 @@ import { Transloadit } from '../../../src/Transloadit.ts'
 
 vi.mock('../../../src/cli/helpers.ts', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../../src/cli/helpers.ts')>()
-  return { ...original, readCliInput: vi.fn(original.readCliInput) }
+  return {
+    ...original,
+    readCliInput: vi.fn(original.readCliInput),
+    resolveCliConfig: vi.fn(original.resolveCliConfig),
+  }
 })
 
 vi.mock('node:os', async (importOriginal) => {
@@ -85,7 +89,7 @@ test('auth login rejects failed verification without saving credentials or echoi
   expect(process.exitCode).toBe(1)
   expect(await readdir(directory)).toEqual([])
   const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
-  expect(message).toContain('https://transloadit.com/c/template-credentials/')
+  expect(message).toContain('https://transloadit.com/c/<workspace>/template-credentials/')
   expect(message).toContain('verify')
   expect(message).not.toContain('hidden-secret')
 })
@@ -152,158 +156,163 @@ test('auth login rejects malformed input without echoing it or saving a file', a
   )
 })
 
-test.each([
-  'app',
-  'src/app',
-])('image init creates a direct factory for %s and prints only rendering env names', async (app) => {
-  await mkdir(app, { recursive: true })
-  await main(['image', 'init', 'website/', '--public'])
-  expect(process.exitCode).toBeUndefined()
-  const root = app === 'app' ? '' : 'src/'
-  const factory = await readFile(`${root}lib/storageImage.ts`, 'utf8')
-  expect(factory).toContain('createStorageImages')
-  expect(factory).toContain('allowedPathPrefixes: ["website/"]')
-  expect(factory).toContain('public: ["website/"]')
-  expect(factory).toContain('images,')
-  expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({})
-  const page = await readFile(`${app}/storage-image-example/page.tsx`, 'utf8')
-  expect(page).toContain("from '../../lib/storageImage'")
-  expect(page).toContain('Object.values(catalog)')
-  expect(page).toContain('<StorageImage')
-  expect(page).toContain('storage store')
-  const printed = JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)
-  expect(printed).toContain('TRANSLOADIT_WORKSPACE=')
-  expect(printed).toContain('TRANSLOADIT_SMART_CDN_KEY=')
-  expect(printed).toContain('TRANSLOADIT_SMART_CDN_SECRET=')
-  expect(printed).not.toContain('TRANSLOADIT_SECRET=')
-  expect(await readdir(directory)).not.toContain('.env.local')
-})
-
-test('init writes rendering env only when explicitly requested, privately and without printing it', async () => {
-  await mkdir('app')
-  vi.mocked(readCliInput).mockResolvedValue({
-    content:
-      'TRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_SMART_CDN_KEY=render-key\nTRANSLOADIT_SMART_CDN_SECRET=render-secret\n',
-    isStdin: true,
+describe('image init', () => {
+  beforeEach(() => {
+    const credentials = { authKey: 'combined-key', authSecret: 'render-secret' }
+    vi.mocked(resolveCliConfig).mockReturnValue({
+      auth: credentials,
+      credentials,
+      credentialsWorkspace: 'my-app',
+    })
+    vi.spyOn(Transloadit.prototype, 'publishStoragePrefix').mockResolvedValue({
+      ok: 'STORAGE_PUBLIC_PREFIX_DECLARED',
+      prefix: 'website/',
+      created: true,
+      created_at: '2026-09-13',
+    })
   })
-  await main(['image', 'init', 'website/', '--public', '--write-env', '--stdin'])
-  expect(process.exitCode).toBeUndefined()
-  expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
-  expect(await readFile('.env.local', 'utf8')).toContain('TRANSLOADIT_SMART_CDN_SECRET=')
-  expect(await readFile('.env.local', 'utf8')).toContain('render-secret')
-  expect(await readFile('.env.local', 'utf8')).not.toContain('TRANSLOADIT_SECRET=')
-  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
-    'render-secret',
-  )
-})
 
-test('init never overwrites an existing rendering env file, even with --write-env', async () => {
-  await mkdir('app')
-  await writeFile('.env.local', 'APP_SETTING=preserved\n')
-  vi.mocked(readCliInput).mockResolvedValue({
-    content:
-      'TRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_SMART_CDN_KEY=render-key\nTRANSLOADIT_SMART_CDN_SECRET=render-secret\n',
-    isStdin: true,
+  test.each([
+    'app',
+    'src/app',
+  ])('image init creates a direct factory for %s and prints only rendering env names', async (app) => {
+    await mkdir(app, { recursive: true })
+    await main(['image', 'init', 'website/', '--public'])
+    expect(process.exitCode).toBeUndefined()
+    const root = app === 'app' ? '' : 'src/'
+    const factory = await readFile(`${root}lib/storageImage.ts`, 'utf8')
+    expect(factory).toContain('createStorageImages')
+    expect(factory).toContain('allowedPathPrefixes: ["website/"]')
+    expect(factory).toContain('public: ["website/"]')
+    expect(factory).toContain('images,')
+    expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({})
+    const page = await readFile(`${app}/storage-image-example/page.tsx`, 'utf8')
+    expect(page).toContain("from '../../lib/storageImage'")
+    expect(page).toContain('Object.values(catalog)')
+    expect(page).toContain('<StorageImage')
+    expect(page).toContain('storage store')
+    const printed = JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)
+    expect(printed).toContain('TRANSLOADIT_WORKSPACE=')
+    expect(printed).toContain('TRANSLOADIT_KEY=')
+    expect(printed).toContain('TRANSLOADIT_SECRET=')
+    expect(printed).not.toContain('TRANSLOADIT_SMART_CDN_SECRET=')
+    expect(await readdir(directory)).not.toContain('.env.local')
   })
-  await main(['image', 'init', 'website/', '--write-env', '--stdin'])
-  expect(process.exitCode).toBe(1)
-  expect(await readFile('.env.local', 'utf8')).toBe('APP_SETTING=preserved\n')
-  await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
-})
 
-test('generated source files use normal permissions while rendering secrets remain owner-only', async () => {
-  await mkdir('app')
-  vi.mocked(readCliInput).mockResolvedValue({
-    content:
-      'TRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_SMART_CDN_KEY=render-key\nTRANSLOADIT_SMART_CDN_SECRET=render-secret\n',
-    isStdin: true,
+  test('init writes rendering env only when explicitly requested, privately and without printing it', async () => {
+    await mkdir('app')
+    await main(['image', 'init', 'website/', '--public', '--write-env'])
+    expect(process.exitCode).toBeUndefined()
+    expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
+    expect(await readFile('.env.local', 'utf8')).toContain('TRANSLOADIT_SECRET=')
+    expect(await readFile('.env.local', 'utf8')).toContain('render-secret')
+    expect(await readFile('.env.local', 'utf8')).not.toContain('TRANSLOADIT_SMART_CDN_SECRET=')
+    expect(readCliInput).not.toHaveBeenCalled()
+    expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
+      'render-secret',
+    )
   })
-  await main(['image', 'init', 'website/', '--private', '--write-env', '--stdin'])
-  expect(process.exitCode).toBeUndefined()
-  expect((await stat('lib/storageImage.ts')).mode & 0o777).toBe(0o666 & ~process.umask())
-  expect((await stat('app/api/storage-images/route.ts')).mode & 0o777).toBe(
-    0o666 & ~process.umask(),
-  )
-  expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
-})
 
-test('public and private scaffold declarations cannot be combined', async () => {
-  await mkdir('app')
-  await main(['image', 'init', 'website/', '--public', '--private'])
-  expect(process.exitCode).toBe(1)
-  await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
-})
+  test('init never overwrites an existing rendering env file, even with --write-env', async () => {
+    await mkdir('app')
+    await writeFile('.env.local', 'APP_SETTING=preserved\n')
+    await main(['image', 'init', 'website/', '--write-env'])
+    expect(process.exitCode).toBe(1)
+    expect(await readFile('.env.local', 'utf8')).toBe('APP_SETTING=preserved\n')
+    await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+  })
 
-test('private init creates GET and HEAD with a fail-closed authorization placeholder', async () => {
-  await mkdir('app')
-  await main(['image', 'init', '--private', 'accounts/'])
-  expect(process.exitCode).toBeUndefined()
-  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('authorize: () => false')
-  expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toContain(
-    'storageRoute as GET, storageRoute as HEAD',
-  )
-  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toContain('authorization')
-})
+  test('generated source files use normal permissions while rendering secrets remain owner-only', async () => {
+    await mkdir('app')
+    await main(['image', 'init', 'website/', '--private', '--write-env'])
+    expect(process.exitCode).toBeUndefined()
+    expect((await stat('lib/storageImage.ts')).mode & 0o777).toBe(0o666 & ~process.umask())
+    expect((await stat('app/api/storage-images/route.ts')).mode & 0o777).toBe(
+      0o666 & ~process.umask(),
+    )
+    expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
+  })
 
-test('init refuses to replace application code and leaves no partial scaffold', async () => {
-  await mkdir('app/api/storage-images', { recursive: true })
-  await writeFile('app/api/storage-images/route.ts', 'existing\n')
-  await main(['image', 'init', '--private', 'accounts/'])
-  expect(process.exitCode).toBe(1)
-  expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toBe('existing\n')
-  await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
-})
+  test('public and private scaffold declarations cannot be combined', async () => {
+    await mkdir('app')
+    await main(['image', 'init', 'website/', '--public', '--private'])
+    expect(process.exitCode).toBe(1)
+    await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+  })
 
-test.each([
-  '../',
-  '/website/',
-  'website',
-  'a//',
-  'a/../',
-  ' website/',
-  'website/ ',
-  'website/\u0001/',
-  'cafe\u0301/',
-  `${'a'.repeat(1024)}/`,
-  '',
-])('init rejects unsafe or implicit root prefix %j before writing', async (prefix) => {
-  await mkdir('app')
-  await main(['image', 'init', prefix])
-  expect(process.exitCode).toBe(1)
-  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-    'Provide one safe relative directory prefix ending in /, for example website/',
-  )
-  expect(await readdir(directory)).toEqual(['app'])
-})
+  test('private init creates GET and HEAD with a fail-closed authorization placeholder', async () => {
+    await mkdir('app')
+    await main(['image', 'init', '--private', 'accounts/'])
+    expect(process.exitCode).toBeUndefined()
+    expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('authorize: () => false')
+    expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toContain(
+      'storageRoute as GET, storageRoute as HEAD',
+    )
+    expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toContain(
+      'authorization',
+    )
+  })
 
-test('init preserves an existing catalog and refuses to overwrite the example page', async () => {
-  await mkdir('app/storage-image-example', { recursive: true })
-  const catalog = '{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}\n'
-  await writeFile('images.json', catalog)
-  await writeFile('app/storage-image-example/page.tsx', 'existing\n')
-  await main(['image', 'init', 'website/', '--public'])
-  expect(process.exitCode).toBe(1)
-  expect(await readFile('images.json', 'utf8')).toBe(catalog)
-  expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toBe('existing\n')
-  await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
-})
+  test('init refuses to replace application code and leaves no partial scaffold', async () => {
+    await mkdir('app/api/storage-images', { recursive: true })
+    await writeFile('app/api/storage-images/route.ts', 'existing\n')
+    await main(['image', 'init', '--private', 'accounts/'])
+    expect(process.exitCode).toBe(1)
+    expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toBe('existing\n')
+    await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+  })
 
-test('init accepts an existing catalog without replacing its data', async () => {
-  await mkdir('src/app', { recursive: true })
-  await mkdir('catalog')
-  const catalog = '{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}\n'
-  await writeFile('catalog/images.json', catalog)
-  await main(['image', 'init', 'website/', '--public', '--receipts', 'catalog/images.json'])
-  expect(process.exitCode).toBeUndefined()
-  expect(await readFile('catalog/images.json', 'utf8')).toBe(catalog)
-  expect(await readFile('src/app/storage-image-example/page.tsx', 'utf8')).toContain(
-    '../../../catalog/images.json',
-  )
-})
+  test.each([
+    '../',
+    '/website/',
+    'website',
+    'a//',
+    'a/../',
+    ' website/',
+    'website/ ',
+    'website/\u0001/',
+    'cafe\u0301/',
+    `${'a'.repeat(1024)}/`,
+    '',
+  ])('init rejects unsafe or implicit root prefix %j before writing', async (prefix) => {
+    await mkdir('app')
+    await main(['image', 'init', prefix])
+    expect(process.exitCode).toBe(1)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      'Provide one safe relative directory prefix ending in /, for example website/',
+    )
+    expect(await readdir(directory)).toEqual(['app'])
+  })
 
-test('init rejects the removed --next flag before writing', async () => {
-  await mkdir('app')
-  await main(['image', 'init', 'website/', '--next'])
-  expect(process.exitCode).toBe(1)
-  expect(await readdir(directory)).toEqual(['app'])
+  test('init preserves an existing catalog and refuses to overwrite the example page', async () => {
+    await mkdir('app/storage-image-example', { recursive: true })
+    const catalog = '{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}\n'
+    await writeFile('images.json', catalog)
+    await writeFile('app/storage-image-example/page.tsx', 'existing\n')
+    await main(['image', 'init', 'website/', '--public'])
+    expect(process.exitCode).toBe(1)
+    expect(await readFile('images.json', 'utf8')).toBe(catalog)
+    expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toBe('existing\n')
+    await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  test('init accepts an existing catalog without replacing its data', async () => {
+    await mkdir('src/app', { recursive: true })
+    await mkdir('catalog')
+    const catalog = '{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}\n'
+    await writeFile('catalog/images.json', catalog)
+    await main(['image', 'init', 'website/', '--public', '--receipts', 'catalog/images.json'])
+    expect(process.exitCode).toBeUndefined()
+    expect(await readFile('catalog/images.json', 'utf8')).toBe(catalog)
+    expect(await readFile('src/app/storage-image-example/page.tsx', 'utf8')).toContain(
+      '../../../catalog/images.json',
+    )
+  })
+
+  test('init rejects the removed --next flag before writing', async () => {
+    await mkdir('app')
+    await main(['image', 'init', 'website/', '--next'])
+    expect(process.exitCode).toBe(1)
+    expect(await readdir(directory)).toEqual(['app'])
+  })
 })

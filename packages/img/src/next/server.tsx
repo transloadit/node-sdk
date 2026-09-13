@@ -16,21 +16,24 @@ import { hkdfSync } from 'node:crypto'
 
 import { gcmsiv } from '@noble/ciphers/aes.js'
 import { validateStoragePath, validateStoragePathPrefix } from '@transloadit/utils'
-import { getSignedSmartCdnUrl } from '@transloadit/utils/node'
+import { getSignedSmartCdnUrl, getSmartCdnUrl } from '@transloadit/utils/node'
 import { connection } from 'next/server.js'
 import { Suspense } from 'react'
 
 import { isOpaqueImageBackground, transparentImageBackground } from '../imageBackground.ts'
 import { snapshotImageSource } from '../imageSource.ts'
-import { createTransloaditImageModel, transloaditStoragePreviewTemplate } from '../index.ts'
+import {
+  createTransloaditImageModel,
+  transloaditPublicStoragePreviewTemplate,
+  transloaditStoragePreviewTemplate,
+} from '../index.ts'
 import { createImageDiagnostics } from './diagnostics.ts'
 import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
 import { TransloaditPicture } from './index.tsx'
 import { resolveImageLayout } from './layout.ts'
 
 const defaultStorageExpiresInMs = 60 * 60 * 1000
-const defaultPublicLifetimeMs = 365 * 24 * 60 * 60 * 1000
-const imagePolicyParams = new Set(['auth_key', 'bg', 'exp', 'f', 'h', 'q', 'r', 'sig', 'w'])
+const imagePolicyParams = new Set(['auth_key', 'bg', 'exp', 'f', 'h', 'q', 'r', 'sig', 'v', 'w'])
 const maximumImageDimension = 8000
 const maximumStorageLifetimeMs = 48 * 60 * 60 * 1000
 const storageCapabilityAuthenticationBytes = 16
@@ -54,7 +57,7 @@ export type AuthorizeTransloaditStorageImage = (
 /** Request-authorized, byte-pass-through-free Storage delivery through a local route. */
 export interface TransloaditStorageRedirectDelivery {
   authorize: AuthorizeTransloaditStorageImage
-  /** Explicitly public directories: skip authorization and cache their redirects on shared CDNs. */
+  /** Server-declared public directories: use unsigned, direct CDN delivery. */
   public?: readonly string[]
   /** Next.js `basePath` prepended only to browser-facing route URLs. */
   basePath?: string
@@ -80,7 +83,7 @@ interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = 
   allowedPathPrefixes?: readonly string[]
   /** Explicitly allow every object in the workspace, including root-level paths. */
   allowWorkspaceRoot?: boolean
-  /** Explicit public directories. Only these may use long-lived, statically signed direct URLs. */
+  /** Server-declared public directories. These render unsigned URLs without keys or expiry. */
   public?: readonly string[]
   /** Opt into a redirect handler; private objects require this check for every uncached request. */
   authorize?: AuthorizeTransloaditStorageImage
@@ -89,7 +92,7 @@ interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = 
   basePath?: string
   /** Opt-in private browser caching, capped at rotation and remaining grant age. */
   cacheMaxAgeMs?: number
-  /** Maximum CDN grant age. Defaults to one year for public paths, one hour for private paths. */
+  /** Maximum private CDN grant age, at most 48h; defaults to 1h. Public URLs never expire. */
   lifetime?: StorageImageLifetime
   /** Stable signature bucket, at most half the private lifetime. Defaults to min(lifetime / 2, one hour). */
   rotationIntervalMs?: number
@@ -111,23 +114,7 @@ export type StorageImagesConfiguration<
     | { allowWorkspaceRoot: true }
   )
 
-/** Server-only credentials and the same flat Storage policy as createStorageImages. */
-export type TransloaditImageConfiguration<
-  Catalog extends StorageImageCatalog | undefined = undefined,
-> = StorageImagesConfiguration<Catalog> & {
-  authKey: string
-  authSecret: string
-  workspace: string
-}
-
-/** Configuration that opts into a request-authorized Storage route. */
-export type TransloaditRedirectImageConfiguration<
-  Catalog extends StorageImageCatalog | undefined = undefined,
-> = TransloaditImageConfiguration<Catalog> & {
-  authorize: AuthorizeTransloaditStorageImage
-}
-
-/** Environment-backed private delivery with the same configuration shape as direct delivery. */
+/** Request-authorized private delivery with the same flat configuration as direct delivery. */
 export type PrivateStorageImagesConfiguration<
   Catalog extends StorageImageCatalog | undefined = undefined,
 > = StorageImagesConfiguration<Catalog> & {
@@ -418,6 +405,7 @@ function getStoragePolicy(
   const resolvedPrefixes = configuration.allowWorkspaceRoot === true ? [''] : allowedPathPrefixes
   const publicPrefixes = validatePrefixes(configuration.public ?? [], 'public')
   for (const prefix of publicPrefixes) {
+    if (prefix.length > 512) throw new TypeError('public prefixes must not exceed 512 characters')
     if (!resolvedPrefixes.some((allowed) => prefix.startsWith(allowed)))
       throw new TypeError('public prefixes must be within allowedPathPrefixes')
   }
@@ -430,9 +418,9 @@ function getStoragePolicy(
   if (configuration.delivery !== undefined && configuration.delivery !== 'direct')
     throw new TypeError("delivery must be 'direct'; provide authorize to enable redirects")
   const lifetime = parseLifetime(configuration.lifetime)
-  if (lifetime !== undefined && lifetime > maximumStorageLifetimeMs && publicPrefixes.length === 0)
+  if (lifetime !== undefined && lifetime > maximumStorageLifetimeMs)
     throw new RangeError(
-      'Private Storage image lifetime must not exceed 48 hours; long lifetimes require explicit public prefixes',
+      'Private Storage image lifetime must not exceed 48 hours; public URLs do not use lifetime',
     )
   const rotationIntervalMs = configuration.rotationIntervalMs
   if (rotationIntervalMs !== undefined) {
@@ -487,21 +475,16 @@ function getStoragePolicy(
   }
 }
 
-function getGrantPolicy(
-  policy: ResolvedStoragePolicy,
-  isPublic: boolean,
-): { lifetime: number; rotation: number } {
-  const lifetime = isPublic
-    ? (policy.lifetime ?? defaultPublicLifetimeMs)
-    : Math.min(policy.lifetime ?? defaultStorageExpiresInMs, maximumStorageLifetimeMs)
+function getGrantPolicy(policy: ResolvedStoragePolicy): { lifetime: number; rotation: number } {
+  const lifetime = policy.lifetime ?? defaultStorageExpiresInMs
   const rotation =
     policy.rotationIntervalMs ??
     Math.max(1, Math.min(Math.floor(lifetime / 2), defaultStorageExpiresInMs))
   return { lifetime, rotation }
 }
 
-function getStorageExpiresAt(now: number, policy: ResolvedStoragePolicy, isPublic = false): number {
-  const { lifetime, rotation } = getGrantPolicy(policy, isPublic)
+function getStorageExpiresAt(now: number, policy: ResolvedStoragePolicy): number {
+  const { lifetime, rotation } = getGrantPolicy(policy)
   return Math.floor(now / rotation) * rotation + lifetime
 }
 
@@ -568,7 +551,9 @@ function renderPicture(
   return <TransloaditPicture {...props} model={model} />
 }
 
-function getStorageTransform(request: SmartCdnImageSignRequest): StorageImageTransform {
+function getStorageTransform(
+  request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
+): StorageImageTransform {
   const {
     bg: background,
     f: format,
@@ -633,7 +618,7 @@ function getStorageRouteUrl(
   context: string,
   delivery: TransloaditStorageRedirectDelivery,
   key: Buffer,
-  request: SmartCdnImageSignRequest,
+  request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
 ): string {
   const capability = encryptStorageCapability(context, key, getStorageTransform(request))
   return `${getBrowserStorageRoute(delivery)}?${new URLSearchParams({ cap: capability })}`
@@ -732,6 +717,10 @@ function createStorageRoute(
   sign: (request: SmartCdnImageSignRequest) => string,
   template: string,
   diagnose: DiagnoseStorageImage | undefined,
+  buildPublicUrl: (
+    request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
+    md5hash?: string,
+  ) => string,
 ): TransloaditStorageRoute {
   const reasons = {
     route:
@@ -784,30 +773,39 @@ function createStorageRoute(
         w: transform.width,
       },
     }
+    if (isPublic) {
+      const source =
+        policy.images !== undefined && Object.hasOwn(policy.images, path)
+          ? policy.images[path]
+          : undefined
+      const location = buildPublicUrl(signRequest, source?.md5hash)
+      diagnose?.(
+        path,
+        location,
+        policy.public.find((prefix) => path.startsWith(prefix)),
+      )
+      return new Response(null, {
+        status: 307,
+        headers: {
+          Location: location,
+          'Cache-Control': 'public, max-age=0, s-maxage=86400',
+          'Referrer-Policy': 'no-referrer',
+        },
+      })
+    }
     const now = Date.now()
-    const expiresAt = getStorageExpiresAt(now, policy, isPublic)
-    const { rotation } = getGrantPolicy(policy, isPublic)
-    // Even stale public redirects must stop being reusable before their signed grant expires.
+    const expiresAt = getStorageExpiresAt(now, policy)
+    const { rotation } = getGrantPolicy(policy)
     const cacheSeconds = Math.max(
       0,
-      Math.floor(
-        Math.min(
-          isPublic ? rotation : (delivery.cacheMaxAgeMs ?? 0),
-          rotation,
-          expiresAt - now - (isPublic ? 60_000 : 0),
-        ) / 1000,
-      ),
+      Math.floor(Math.min(delivery.cacheMaxAgeMs ?? 0, rotation, expiresAt - now) / 1000),
     )
     const location = sign({ ...signRequest, expiresAt })
     diagnose?.(path, location)
     return new Response(null, {
       headers: {
         'Cache-Control':
-          cacheSeconds > 0
-            ? isPublic
-              ? `public, max-age=0, s-maxage=${cacheSeconds}, stale-while-revalidate=60`
-              : `private, max-age=${cacheSeconds}`
-            : 'private, no-store',
+          cacheSeconds > 0 ? `private, max-age=${cacheSeconds}` : 'private, no-store',
         Location: location,
         'Referrer-Policy': 'no-referrer',
       },
@@ -820,6 +818,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
   configuration: StorageImagesConfiguration<Catalog>,
   storagePolicy: ResolvedStoragePolicy,
   getCredentials: () => { authKey: string; authSecret: string; workspace: string },
+  getWorkspace: () => string,
 ): TransloaditImageIntegration<Catalog> | TransloaditRedirectImageIntegration<Catalog> {
   const baseUrl = configuration.baseUrl
   const storageTemplate = configuration.template ?? transloaditStoragePreviewTemplate
@@ -829,9 +828,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
   validateTemplate(storageTemplate, 'template')
   validateGlobalUrlParams(urlParams)
   const diagnose = createImageDiagnostics(storageTemplate)
-  // A module-level factory is stable across prerenders. Only private direct grants sample the
-  // request clock; public static URLs must be rebuilt before this captured grant expires.
-  const createdAt = Date.now()
+  const privateDirect = configuration.delivery === 'direct'
   const sign = (request: SmartCdnImageSignRequest): string =>
     getSignedSmartCdnUrl({
       ...getCredentials(),
@@ -840,6 +837,22 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
       input: request.input,
       template: request.template,
       urlParams: { ...urlParams, ...request.urlParams },
+    })
+  const publicTemplate = customTemplate ?? transloaditPublicStoragePreviewTemplate
+  const buildPublicUrl = (
+    request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
+    md5hash?: string,
+  ): string =>
+    getSmartCdnUrl({
+      workspace: getWorkspace(),
+      baseUrl,
+      template: publicTemplate,
+      input: request.input,
+      urlParams: {
+        ...urlParams,
+        ...request.urlParams,
+        ...(md5hash === undefined ? {} : { v: md5hash.slice(0, 16) }),
+      },
     })
   const redirectDelivery = storagePolicy.delivery
   let storageCapability: ResolvedStorageCapabilityPolicy | undefined
@@ -856,15 +869,16 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
     }
     return storageCapability
   }
-  const buildStorageUrl = (request: SmartCdnImageSignRequest): string => {
+  const buildStorageUrl = (request: Omit<SmartCdnImageSignRequest, 'expiresAt'>): string => {
     const capability = getCapability()
     return getStorageRouteUrl(capability.context, capability.delivery, capability.key, request)
   }
 
-  function createModel(
+  function createModel<Expiry extends number | undefined>(
     props: ResolvedStorageImageProps,
-    expiresAt: number,
-    resolveUrl: (request: SmartCdnImageSignRequest) => string,
+    expiresAt: Expiry,
+    resolveUrl: (request: SmartCdnImageSignRequest<Expiry>) => string,
+    template = storageTemplate,
   ): TransloaditImageModel {
     const model = createTransloaditImageModel(
       {
@@ -876,7 +890,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
         formats: props.formats,
         maximumWidth: props.maximumWidth,
         src: props.source,
-        template: storageTemplate,
+        template,
         widths: props.widths,
       },
       resolveUrl,
@@ -890,6 +904,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
           { ...props, cropAspectRatio, artDirection: undefined },
           expiresAt,
           resolveUrl,
+          template,
         ),
       })),
     }
@@ -918,17 +933,26 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
     }
     assertAllowedStoragePath(layout.source.path, storagePolicy)
     const storageProps = snapshotStorageImageProps(props, layout)
+    const publicPrefix = storagePolicy.public.find((prefix) =>
+      layout.source.path.startsWith(prefix),
+    )
+    if (publicPrefix !== undefined) {
+      const model = createModel(
+        storageProps,
+        undefined,
+        (request) => buildPublicUrl(request, layout.source.md5hash),
+        publicTemplate,
+      )
+      diagnose?.(
+        layout.source.path,
+        model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl,
+        publicPrefix,
+      )
+      return renderPicture(storageProps, model)
+    }
     if (redirectDelivery === 'direct') {
-      const isPublic = storagePolicy.public.some((prefix) => layout.source.path.startsWith(prefix))
-      if (isPublic) {
-        const model = createModel(
-          storageProps,
-          getStorageExpiresAt(createdAt, storagePolicy, true),
-          sign,
-        )
-        diagnose?.(layout.source.path, model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl)
-        return renderPicture(storageProps, model)
-      }
+      if (!privateDirect)
+        throw new TypeError("Private images require authorize or delivery: 'direct'")
       return (
         <Suspense
           fallback={
@@ -946,11 +970,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
     if (storageProps.suspenseFallback !== undefined) {
       throw new TypeError('suspenseFallback is only used by direct Storage delivery')
     }
-    const resolvedModel = createModel(
-      storageProps,
-      getStorageExpiresAt(createdAt, storagePolicy),
-      buildStorageUrl,
-    )
+    const resolvedModel = createModel(storageProps, undefined, buildStorageUrl)
     const model: TransloaditImageModel = {
       artDirection: resolvedModel.artDirection,
       fallbackUrl: resolvedModel.fallbackUrl,
@@ -975,6 +995,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
           sign,
           storageTemplate,
           diagnose,
+          buildPublicUrl,
         )
       }
       return await route(request)
@@ -998,20 +1019,46 @@ export function createStorageImages<Catalog extends StorageImageCatalog | undefi
     authSecret: configuration.authSecret,
     workspace: configuration.workspace,
   }
-  for (const [name, value] of Object.entries(explicit)) {
-    if (value !== undefined) validateRequiredConfiguration(value, name)
+  if (configuration.authorize !== undefined || configuration.delivery === 'direct')
+    for (const [name, value] of Object.entries(explicit))
+      if (value !== undefined) validateRequiredConfiguration(value, name)
+  let workspace: string | undefined
+  function getWorkspace(): string {
+    if (workspace === undefined) {
+      const value = explicit.workspace ?? process.env.TRANSLOADIT_WORKSPACE
+      validateRequiredConfiguration(value, 'TRANSLOADIT_WORKSPACE')
+      workspace = value
+    }
+    return workspace
   }
   let credentials: { authKey: string; authSecret: string; workspace: string } | undefined
-  return createImageIntegration(configuration, policy, () => {
-    if (credentials === undefined) {
-      const authKey = explicit.authKey ?? process.env.TRANSLOADIT_SMART_CDN_KEY
-      const authSecret = explicit.authSecret ?? process.env.TRANSLOADIT_SMART_CDN_SECRET
-      const workspace = explicit.workspace ?? process.env.TRANSLOADIT_WORKSPACE
-      validateRequiredConfiguration(authKey, 'TRANSLOADIT_SMART_CDN_KEY')
-      validateRequiredConfiguration(authSecret, 'TRANSLOADIT_SMART_CDN_SECRET')
-      validateRequiredConfiguration(workspace, 'TRANSLOADIT_WORKSPACE')
-      credentials = { authKey, authSecret, workspace }
-    }
-    return credentials
-  })
+  return createImageIntegration(
+    configuration,
+    policy,
+    () => {
+      if (credentials === undefined) {
+        const separate =
+          process.env.TRANSLOADIT_SMART_CDN_KEY !== undefined ||
+          process.env.TRANSLOADIT_SMART_CDN_SECRET !== undefined
+        const explicitPair = explicit.authKey !== undefined || explicit.authSecret !== undefined
+        const keyName = explicitPair
+          ? 'authKey'
+          : separate
+            ? 'TRANSLOADIT_SMART_CDN_KEY'
+            : 'TRANSLOADIT_KEY'
+        const secretName = explicitPair
+          ? 'authSecret'
+          : separate
+            ? 'TRANSLOADIT_SMART_CDN_SECRET'
+            : 'TRANSLOADIT_SECRET'
+        const authKey = explicitPair ? explicit.authKey : process.env[keyName]
+        const authSecret = explicitPair ? explicit.authSecret : process.env[secretName]
+        validateRequiredConfiguration(authKey, keyName)
+        validateRequiredConfiguration(authSecret, secretName)
+        credentials = { authKey, authSecret, workspace: getWorkspace() }
+      }
+      return credentials
+    },
+    getWorkspace,
+  )
 }

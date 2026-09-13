@@ -120,7 +120,7 @@ const envDirect = createStorageImages({
 const images = {
   'website/hero.jpg': { path: 'website/hero.jpg', width: 2400, height: 1600 },
 }
-const catalog = createStorageImages({ images, public: ['website/'], lifetime: '365d' })
+const catalog = createStorageImages({ images, public: ['website/'] })
 const catalogHero = (
   <catalog.StorageImage
     src="website/hero.jpg"

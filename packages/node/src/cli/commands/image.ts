@@ -1,13 +1,12 @@
-import { mkdir, open, rm, stat } from 'node:fs/promises'
+import { lstat, mkdir, open, rm } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 
 import { validateStoragePathPrefix } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
-import { parse } from 'dotenv'
 import { z } from 'zod'
 
-import { readCliInput } from '../helpers.ts'
-import { promptSecretInput } from '../secretInput.ts'
+import { resolveCliConfig } from '../helpers.ts'
+import { storagePublicError } from '../storagePublic.ts'
 import {
   nextAppRoot,
   storageImageEnvBlock,
@@ -30,25 +29,22 @@ export class ImageInitCommand extends UnauthenticatedCommand {
     description: 'Also generate a redirect route; denies access until you supply authorization',
   })
   publicDelivery = Option.Boolean('--public', false, {
-    description: 'Declare this directory public and use static, long-lived direct image URLs',
+    description: 'Publish this directory on the server and use permanent unsigned image URLs',
   })
   receipts = Option.String('--receipts', 'images.json', {
     description: 'Rendering catalog imported by the factory',
   })
   writeEnv = Option.Boolean('--write-env', false, {
-    description: 'Prompt for rendering values and create .env.local privately; never overwrite it',
-  })
-  stdin = Option.Boolean('--stdin', false, {
-    description: 'Read the three rendering variables in dotenv format with --write-env',
+    description: 'Reuse the saved login in an owner-only .env.local; never overwrite it',
   })
   prefix = Option.String({ required: true })
 
   protected async run(): Promise<number | undefined> {
     const created: string[] = []
+    let published: string | undefined
     try {
       if (this.privateDelivery && this.publicDelivery)
         throw new Error('Choose either --private or --public, not both')
-      if (this.stdin && !this.writeEnv) throw new Error('--stdin requires --write-env')
       const prefix = this.prefix
       try {
         validateStoragePathPrefix(prefix, 0, 'prefix')
@@ -64,14 +60,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         throw new Error('Run image init in a Next.js project containing app/ or src/app/')
       let environment: string | undefined
       if (this.writeEnv) {
-        const labels = {
-          TRANSLOADIT_WORKSPACE: 'Workspace slug',
-          TRANSLOADIT_SMART_CDN_KEY: 'Smart CDN Auth Key (not the Assembly key)',
-          TRANSLOADIT_SMART_CDN_SECRET: 'Smart CDN Auth Secret',
-        }
-        const input = this.stdin
-          ? parse((await readCliInput({ inputPath: '-' })).content ?? '')
-          : await promptSecretInput(labels)
+        const config = resolveCliConfig()
         const value = z
           .string()
           .min(1)
@@ -81,13 +70,17 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         const parsed = z
           .object({
             TRANSLOADIT_WORKSPACE: value,
-            TRANSLOADIT_SMART_CDN_KEY: value,
-            TRANSLOADIT_SMART_CDN_SECRET: value,
+            TRANSLOADIT_KEY: value,
+            TRANSLOADIT_SECRET: value,
           })
-          .safeParse(input)
+          .safeParse({
+            TRANSLOADIT_WORKSPACE: config.credentialsWorkspace,
+            TRANSLOADIT_KEY: config.credentials?.authKey,
+            TRANSLOADIT_SECRET: config.credentials?.authSecret,
+          })
         if (!parsed.success)
           throw new Error(
-            'Provide TRANSLOADIT_WORKSPACE, TRANSLOADIT_SMART_CDN_KEY and TRANSLOADIT_SMART_CDN_SECRET; nothing was written',
+            'Run transloadit auth login first to save your workspace and Auth Key. Nothing was written.',
           )
         // Next expands $ even in quoted dotenv values. Reject delimiters instead of silently
         // changing an opaque secret; JSON quoting alone is not dotenv/Next escaping.
@@ -101,10 +94,12 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           })
           .join('')
       }
-      const catalogExists = await stat(this.receipts).catch((error: unknown) => {
+      const catalogExists = await lstat(this.receipts).catch((error: unknown) => {
         if (isErrnoException(error) && error.code === 'ENOENT') return undefined
         throw error
       })
+      if (catalogExists !== undefined && !catalogExists.isFile())
+        throw new Error('The rendering catalog must be a regular file')
       const pageDirectory = `${root}app/storage-image-example`
       const files = [
         {
@@ -137,6 +132,21 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           : []),
         ...(environment === undefined ? [] : [{ path: '.env.local', content: environment }]),
       ]
+      // Discover conflicts before changing server policy; exclusive creates still protect races.
+      for (const file of files) {
+        const existing = await lstat(file.path).catch((error: unknown) => {
+          if (isErrnoException(error) && error.code === 'ENOENT') return undefined
+          throw error
+        })
+        if (existing !== undefined) throw new Error(`Refusing to overwrite ${file.path}`)
+      }
+      if (this.publicDelivery) {
+        if (!this.setupClient()) return 1
+        const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
+          throw new Error(storagePublicError(cause), { cause })
+        })
+        published = result.prefix
+      }
       for (const file of files) {
         await mkdir(dirname(file.path), { recursive: true })
         const handle = await open(file.path, 'wx', file.path === '.env.local' ? 0o600 : 0o666)
@@ -150,7 +160,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       const instruction = this.privateDelivery
         ? 'Connect your application session and per-object authorization in storageImage.ts; the generated handler denies access until then.'
         : this.publicDelivery
-          ? 'Public images prerender with long-lived direct URLs. Rebuild before expiry; revocation requires key rotation and a rebuild.'
+          ? 'The directory is published. Public images use permanent unsigned CDN URLs; cached bytes cannot be recalled.'
           : 'Private direct images render at request time. Use --public only for a public directory, or --private for request-authorized redirects.'
       this.output.print(
         `Created ${created.join(', ')}\n${instruction}\nAdd an image with storage store and open /storage-image-example. Commit ${this.receipts}.\n${this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${storageImageEnvBlock}`}`,
@@ -159,7 +169,9 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       return undefined
     } catch (error) {
       for (const path of created) await rm(path)
-      this.output.error(ensureError(error).message)
+      this.output.error(
+        `${ensureError(error).message}${published === undefined ? '' : ` The server prefix ${published} remains public; use storage unpublish deliberately if needed.`}`,
+      )
       return 1
     }
   }

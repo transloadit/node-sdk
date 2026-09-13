@@ -79,21 +79,20 @@ test('exports only the single Next.js factory, not the unpublished aliases', asy
   expect(Object.keys(exports)).toEqual(['createStorageImages'])
 })
 
-test('public catalog images are static with long-lived direct URLs and no signing shell', () => {
-  const { StorageImage } = createStorageImages({ images, public: ['website/'], lifetime: '365d' })
+test('public catalog images are static with unsigned direct URLs and no signing shell', () => {
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
   const markup = renderToStaticMarkup(
     <StorageImage src="website/hero.jpg" alt="Hero" layout="constrained" maxWidth={960} preload />,
   )
   const url = firstUrl(markup)
   expect(url.hostname).toBe('my-app.tlcdn.com')
-  expect(expiry(url) - Date.now()).toBeGreaterThan(364 * 86_400_000)
-  expect(expiry(url) - Date.now()).toBeLessThanOrEqual(365 * 86_400_000)
+  expect(parseSmartCdnUrl(url.href).auth).toBeUndefined()
   expect(markup).not.toContain('visibility:hidden')
   expect(connection).not.toHaveBeenCalled()
   expect(markup).toContain('max-width:960px')
 })
 
-test('declared public images default to a year without a dynamic-delivery warning', () => {
+test('declared public images never expire or emit a dynamic-delivery warning', () => {
   vi.stubEnv('NODE_ENV', 'development')
   vi.stubGlobal(
     'fetch',
@@ -103,7 +102,7 @@ test('declared public images default to a year without a dynamic-delivery warnin
   try {
     const { StorageImage } = createStorageImages({ images, public: ['website/'] })
     const markup = renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)
-    expect(expiry(firstUrl(markup)) - Date.now()).toBeGreaterThan(364 * 86_400_000)
+    expect(parseSmartCdnUrl(firstUrl(markup).href).auth).toBeUndefined()
     expect(info).not.toHaveBeenCalled()
   } finally {
     info.mockRestore()
@@ -191,13 +190,13 @@ test.each([
   ).toThrow(/rotationIntervalMs.*half/)
 })
 
-test('rotation margin also applies to the private cap in a long-lived public factory', () => {
+test('rotation margin also applies at the private cap in a mixed public factory', () => {
   expect(() =>
     createStorageImages({
       images,
       authorize: () => true,
       public: ['website/'],
-      lifetime: '365d',
+      lifetime: '2d',
       rotationIntervalMs: 24 * 3_600_000 + 1,
     }),
   ).toThrow(/rotationIntervalMs.*half/)
@@ -235,12 +234,12 @@ test('an explicit half-lifetime rotation retains its margin just before the boun
   expect(expiry(new URL(location)) - Date.now()).toBe(30_001)
 })
 
-test('long public lifetimes never lengthen private grants beyond 48 hours', async () => {
+test('mixed public factories never lengthen private grants beyond 48 hours', async () => {
   const { StorageImage, storageRoute } = createStorageImages({
     images,
     authorize: () => true,
     public: ['website/'],
-    lifetime: '365d',
+    lifetime: '2d',
   })
   const url = firstUrl(renderToStaticMarkup(<StorageImage src="logo.png" alt="Private logo" />))
   const location = (await storageRoute(new Request(url))).headers.get('location')

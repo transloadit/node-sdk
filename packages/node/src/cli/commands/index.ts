@@ -18,7 +18,14 @@ import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
 import { ImageInitCommand } from './image.ts'
 import { AuthLoginCommand } from './login.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
-import { StorageListCommand, StorageReceiptsSyncCommand, StorageStoreCommand } from './storage.ts'
+import {
+  StorageListCommand,
+  StoragePublicCommand,
+  StoragePublishCommand,
+  StorageReceiptsSyncCommand,
+  StorageStoreCommand,
+  StorageUnpublishCommand,
+} from './storage.ts'
 import {
   TemplatesCreateCommand,
   TemplatesDeleteCommand,
@@ -72,6 +79,9 @@ export function createCli(): Cli {
   cli.register(UploadCommand)
   cli.register(StorageStoreCommand)
   cli.register(StorageListCommand)
+  cli.register(StoragePublicCommand)
+  cli.register(StoragePublishCommand)
+  cli.register(StorageUnpublishCommand)
   cli.register(StorageReceiptsSyncCommand)
   cli.register(ImageInitCommand)
 

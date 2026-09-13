@@ -22,7 +22,7 @@ test.each([
   expect(source).toContain('as HEAD')
 })
 
-test('documents the pinned alpha pipeline, cache-key policy and server-enforced key separation', async () => {
+test('documents the pinned alpha pipeline, public cache policy and combined credential contract', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   expect(readme).toContain('builtin/storage-preview@0.0.2')
   expect(readme).toContain('fallbackBackground')
@@ -30,7 +30,11 @@ test('documents the pinned alpha pipeline, cache-key policy and server-enforced 
   expect(readme).toContain('Production Smart CDN uses Bunny')
   expect(readme).toContain('whole query string')
   expect(readme).not.toContain('NoCacheSigExp')
-  expect(readme).toContain('by design')
+  expect(readme).toContain('builtin/public-preview@0.0.1')
+  expect(readme).toContain('immutable')
+  expect(readme).toContain('TRANSLOADIT_KEY')
+  expect(readme).toContain('TRANSLOADIT_SMART_CDN_KEY/SECRET')
+  expect(readme).not.toContain('by design')
 })
 
 async function readManifest(path: string): Promise<PackageManifest> {
@@ -46,7 +50,7 @@ test('keeps the maintainer seed configuration separate and scaffolds the factory
   const firstRender = readme.indexOf("import { StorageImage } from '../lib/storageImage'")
   expect(factory).toBeGreaterThan(0)
   expect.soft(firstRender).toBeGreaterThan(factory)
-  expect.soft(readme).toContain('build-time secret')
+  expect.soft(readme).toContain('never reads or validates signing credentials')
   expect
     .soft(readme)
     .not.toMatch(

@@ -233,7 +233,7 @@ describe('development delivery diagnostics', () => {
   })
 
   test.each([
-    { status: 403, hint: /Smart CDN-enabled Auth Key.*workspace.*signature/ },
+    { status: 403, hint: /Enable Smart CDN.*Auth Key.*workspace.*signature/ },
     { status: 404, hint: /workspace slug.*Storage path.*Template/ },
     { status: 500, hint: /HTTP 500.*retry/ },
   ])('gives actionable, non-secret hints for HTTP $status without guessing the cause', async ({
@@ -536,7 +536,7 @@ describe('createStorageImages', () => {
     vi.stubEnv(name, value)
     const { StorageImage } = createStorageImages({
       allowedPathPrefixes: ['documents/'],
-      public: ['documents/'],
+      authorize: () => true,
     })
     expect(() =>
       StorageImage({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 }),
@@ -545,20 +545,20 @@ describe('createStorageImages', () => {
     )
   })
 
-  test('never falls back to Assembly credentials or changes the explicit factory', () => {
+  test('does not read undocumented Assembly variable names or change the explicit factory', () => {
     vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', undefined)
     vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', undefined)
     vi.stubEnv('TRANSLOADIT_ASSEMBLY_KEY', 'write-key')
     vi.stubEnv('TRANSLOADIT_ASSEMBLY_SECRET', 'write-secret')
-    vi.stubEnv('TRANSLOADIT_KEY', 'legacy-key')
-    vi.stubEnv('TRANSLOADIT_SECRET', 'legacy-secret')
+    vi.stubEnv('TRANSLOADIT_KEY', undefined)
+    vi.stubEnv('TRANSLOADIT_SECRET', undefined)
     const { StorageImage } = createStorageImages({
       allowedPathPrefixes: ['documents/'],
-      public: ['documents/'],
+      authorize: () => true,
     })
     expect(() =>
       StorageImage({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 }),
-    ).toThrow('TRANSLOADIT_SMART_CDN_KEY')
+    ).toThrow('TRANSLOADIT_KEY')
     expect(() => createStorageImages(baseConfiguration)).not.toThrow()
   })
 
@@ -757,13 +757,19 @@ describe('createStorageImages', () => {
     expect(new URL(fallback).searchParams.get('w')).toBe('2400')
   })
 
-  test('public prefixes bypass authorization only for their exact directory and bound shared cache freshness', async () => {
+  test('old capabilities redirect to unsigned public delivery only within the currently declared prefix', async () => {
     const authorize = vi.fn(() => false)
     const delivery = { authorize, public: ['documents/public/'], route: '/images' }
-    const { StorageImage, storageRoute } = createStorageImages({
+    const { storageRoute } = createStorageImages({
       ...baseConfiguration,
       allowedPathPrefixes: ['documents/'],
       ...delivery,
+    })
+    // Existing private markup remains usable when its directory is deliberately published.
+    const { StorageImage } = createStorageImages({
+      ...baseConfiguration,
+      authorize,
+      route: '/images',
     })
     delivery.public.push('documents/private/')
     const candidate = (path: string): Request =>
@@ -781,9 +787,7 @@ describe('createStorageImages', () => {
       )
     const response = await storageRoute(candidate('documents/public/hero.jpg'))
     expect(response.status).toBe(307)
-    expect(response.headers.get('cache-control')).toBe(
-      'public, max-age=0, s-maxage=3600, stale-while-revalidate=60',
-    )
+    expect(response.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=86400')
     expect(authorize).not.toHaveBeenCalled()
     const denied = await storageRoute(candidate('documents/private/hero.jpg'))
     expect(denied.status).toBe(404)
@@ -793,7 +797,7 @@ describe('createStorageImages', () => {
     vi.setSystemTime('2029-01-01T12:59:59.000Z')
     expect(
       (await storageRoute(candidate('documents/public/hero.jpg'))).headers.get('cache-control'),
-    ).toBe('public, max-age=0, s-maxage=3600, stale-while-revalidate=60')
+    ).toBe('public, max-age=0, s-maxage=86400')
   })
 
   test('rejects public prefixes outside the signing policy', () => {
@@ -967,7 +971,7 @@ describe('createStorageImages', () => {
       width: 400,
       height: 300,
       asset_id: 'private-asset-id',
-      md5hash: 'private-checksum',
+      md5hash: 'd41d8cd98f00b204e9800998ecf8427e',
       authSecret: 'secret-from-receipt',
       id: 'not-an-attribute',
     }
@@ -981,7 +985,7 @@ describe('createStorageImages', () => {
     expect(received.querySelector('img')?.getAttribute('width')).toBe('400')
     expect(received.querySelector('img')?.getAttribute('height')).toBe('300')
     expect(received.documentElement.outerHTML).not.toContain('private-asset-id')
-    expect(received.documentElement.outerHTML).not.toContain('private-checksum')
+    expect(received.documentElement.outerHTML).not.toContain('d41d8cd98f00b204e9800998ecf8427e')
     expect(received.documentElement.outerHTML).not.toContain('secret-from-receipt')
     expect(received.querySelector('img')?.id).toBe('')
   })

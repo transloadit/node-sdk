@@ -10,6 +10,7 @@ import pMap from 'p-map'
 import { z } from 'zod'
 
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
+import { storagePublicError } from '../storagePublic.ts'
 import { updateStorageReceipts } from '../storageReceipts.ts'
 import {
   listStorageObjects,
@@ -19,6 +20,76 @@ import {
 } from '../storageS3.ts'
 import { ensureError } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
+
+/** Publishes an explicit directory, independently of uploads or local snippet generation. */
+export class StoragePublishCommand extends AuthenticatedCommand {
+  static override paths = [['storage', 'publish']]
+  static override usage = Command.Usage({
+    category: 'Storage',
+    description: 'Declare a directory public for unsigned Smart CDN delivery',
+  })
+  prefix = Option.String({ required: true })
+  protected async run(): Promise<number | undefined> {
+    try {
+      const result = await this.client.publishStoragePrefix(this.prefix)
+      this.output.print(
+        `Published ${result.prefix}. Files under this directory can be served without signatures.`,
+        result,
+      )
+      return undefined
+    } catch (error) {
+      this.output.error(storagePublicError(error))
+      return 1
+    }
+  }
+}
+
+/** Revokes a public prefix at the origin without promising to recall cached bytes. */
+export class StorageUnpublishCommand extends AuthenticatedCommand {
+  static override paths = [['storage', 'unpublish']]
+  static override usage = Command.Usage({
+    category: 'Storage',
+    description: 'Revoke public origin access to a directory',
+  })
+  prefix = Option.String({ required: true })
+  protected async run(): Promise<number | undefined> {
+    try {
+      const result = await this.client.unpublishStoragePrefix(this.prefix)
+      this.output.print(
+        `Unpublished ${result.prefix}; already cached or downloaded bytes cannot be recalled.`,
+        result,
+      )
+      return undefined
+    } catch (error) {
+      this.output.error(storagePublicError(error))
+      return 1
+    }
+  }
+}
+
+/** Lists explicit publication policy using the signed API, not S3 discovery. */
+export class StoragePublicCommand extends AuthenticatedCommand {
+  static override paths = [['storage', 'public']]
+  static override usage = Command.Usage({
+    category: 'Storage',
+    description: 'List explicitly public Storage directories',
+  })
+  protected async run(): Promise<number | undefined> {
+    try {
+      const result = await this.client.listPublicStoragePrefixes()
+      this.output.print(
+        result.public_prefixes.length === 0
+          ? 'No Storage directories are public.'
+          : result.public_prefixes.map(({ prefix }) => prefix).join('\n'),
+        result,
+      )
+      return undefined
+    } catch (error) {
+      this.output.error(storagePublicError(error))
+      return 1
+    }
+  }
+}
 
 /** Stores one image and atomically appends its verified receipt for application imports. */
 export class StorageStoreCommand extends AuthenticatedCommand {

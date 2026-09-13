@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
@@ -11,8 +11,10 @@ import { withProcess } from './withProcess.ts'
 
 const fixtureSecret = 'fixture-secret-must-never-reach-the-browser'
 const renderingEnvironment = {
-  TRANSLOADIT_SMART_CDN_KEY: 'fixture-auth-key',
-  TRANSLOADIT_SMART_CDN_SECRET: fixtureSecret,
+  TRANSLOADIT_KEY: 'fixture-auth-key',
+  TRANSLOADIT_SECRET: fixtureSecret,
+  TRANSLOADIT_SMART_CDN_KEY: undefined,
+  TRANSLOADIT_SMART_CDN_SECRET: undefined,
   TRANSLOADIT_WORKSPACE: 'fixture',
 }
 const benchmarkCounts: readonly number[] = [1, 20, 100]
@@ -268,6 +270,18 @@ async function main(): Promise<void> {
       env: { IMG_DOGFOOD_DOC: dogfoodPath },
       stdio: 'inherit',
     })
+    // Build the actual generated public app in isolation: no private routes that could mask a
+    // public-only credential dependency, no custom compiler options, and no secrets in its env.
+    const publicDir = resolve(temporaryRoot, 'public-only')
+    await cp(resolve(fixtureDir, 'app/cli-image'), publicDir, { recursive: true })
+    for (const file of [
+      'package.json',
+      'next.config.ts',
+      'app/layout.tsx',
+      'app/HydrationProbe.tsx',
+    ]) {
+      await cp(resolve(fixtureDir, file), resolve(publicDir, file))
+    }
     await execa('npx', ['--no-install', 'tsc', '--project', 'tsconfig.tooling.json'], {
       cwd: fixtureDir,
       stdio: 'inherit',
@@ -293,16 +307,57 @@ async function main(): Promise<void> {
       { cwd: fixtureDir, stdio: 'inherit' },
     )
     for (const cacheComponents of ['enabled', 'omitted']) {
+      console.log(`Secretless public-only build: cacheComponents ${cacheComponents}`)
+      // Reuse the installed tree without doubling disk usage or requiring a nonstandard
+      // Turbopack root for symlinks. Builds are sequential; restore it before the main fixture.
+      await rename(resolve(fixtureDir, 'node_modules'), resolve(publicDir, 'node_modules'))
+      try {
+        await execa(
+          process.execPath,
+          [resolve(publicDir, 'node_modules/next/dist/bin/next'), 'build'],
+          {
+            cwd: publicDir,
+            env: {
+              TRANSLOADIT_WORKSPACE: 'fixture',
+              TRANSLOADIT_KEY: undefined,
+              TRANSLOADIT_SECRET: undefined,
+              TRANSLOADIT_SMART_CDN_KEY: undefined,
+              TRANSLOADIT_SMART_CDN_SECRET: undefined,
+              IMG_FIXTURE_CDN_ORIGIN: cdnOrigin,
+              IMG_FIXTURE_CACHE_COMPONENTS: cacheComponents,
+            },
+            stdio: 'inherit',
+          },
+        )
+      } finally {
+        await rename(resolve(publicDir, 'node_modules'), resolve(fixtureDir, 'node_modules'))
+      }
+      const generatedPublicHtml = await readFile(
+        resolve(publicDir, '.next/server/app/storage-image-example.html'),
+        'utf8',
+      )
+      assert(
+        generatedPublicHtml.includes('builtin%2Fpublic-preview%400.0.1'),
+        'The secretless app must prerender actual public URLs',
+      )
+      assert(
+        !/auth_key=|sig=|exp=/.test(generatedPublicHtml),
+        'The secretless public app must not sign URLs',
+      )
       console.log(`Production fixture: cacheComponents ${cacheComponents}`)
-      await execa('npm', ['run', 'build'], {
-        cwd: fixtureDir,
-        env: {
-          ...renderingEnvironment,
-          IMG_FIXTURE_CDN_ORIGIN: cdnOrigin,
-          IMG_FIXTURE_CACHE_COMPONENTS: cacheComponents,
+      await execa(
+        process.execPath,
+        [resolve(fixtureDir, 'node_modules/next/dist/bin/next'), 'build'],
+        {
+          cwd: fixtureDir,
+          env: {
+            ...renderingEnvironment,
+            IMG_FIXTURE_CDN_ORIGIN: cdnOrigin,
+            IMG_FIXTURE_CACHE_COMPONENTS: cacheComponents,
+          },
+          stdio: 'inherit',
         },
-        stdio: 'inherit',
-      })
+      )
 
       const appOutput = resolve(fixtureDir, '.next/server/app')
       const outputNames = await readdir(appOutput, { recursive: true })
@@ -312,8 +367,16 @@ async function main(): Promise<void> {
       )
       const publicHtml = await readFile(resolve(appOutput, 'public-image.html'), 'utf8')
       assert(
-        publicHtml.includes('builtin%2Fstorage-preview%400.0.2'),
-        'Public HTML must already contain signed direct URLs',
+        publicHtml.includes('builtin%2Fpublic-preview%400.0.1'),
+        'Public HTML must already contain unsigned direct URLs',
+      )
+      assert(
+        !/auth_key=|sig=|exp=/.test(publicHtml),
+        'Public HTML must not contain signing credentials or expiry',
+      )
+      assert(
+        publicHtml.includes('v=d41d8cd98f00b204'),
+        'Public HTML must use a receipt-derived version',
       )
       assert(
         !publicHtml.includes('visibility:hidden'),

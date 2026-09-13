@@ -6668,6 +6668,7 @@ __metadata:
     clipanion: "npm:^4.0.0-rc.4"
     debug: "npm:^4.4.3"
     dotenv: "npm:^17.4.2"
+    execa: "npm:9.6.1"
     form-data: "npm:^4.0.5"
     got: "npm:14.6.6"
     into-stream: "npm:^9.1.0"

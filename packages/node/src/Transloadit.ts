@@ -44,6 +44,11 @@ import type {
   StoredImageReceipt,
   StoreImageOptions,
 } from './storageImage.ts'
+import type {
+  StoragePublicPrefixDeclared,
+  StoragePublicPrefixes,
+  StoragePublicPrefixRevoked,
+} from './storagePublicPrefixes.ts'
 import type { Stream, UploadBehavior } from './tus.ts'
 
 import * as assert from 'node:assert'
@@ -72,6 +77,12 @@ import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
 import { getStoredImageReceipt, storeImage } from './storageImage.ts'
+import {
+  normalizeStoragePublicPrefix,
+  storagePublicPrefixDeclaredSchema,
+  storagePublicPrefixesSchema,
+  storagePublicPrefixRevokedSchema,
+} from './storagePublicPrefixes.ts'
 import { sendTusRequest } from './tus.ts'
 
 export type {
@@ -106,6 +117,11 @@ export type {
   StoredImageReceipt,
   StoreImageOptions,
 } from './storageImage.ts'
+export type {
+  StoragePublicPrefixDeclared,
+  StoragePublicPrefixes,
+  StoragePublicPrefixRevoked,
+} from './storagePublicPrefixes.ts'
 
 export {
   buildCompileAssemblyInstructionsSystemPrompt,
@@ -1253,6 +1269,35 @@ export class Transloadit {
 
   streamTemplates(params?: ListTemplatesParams): PaginationStream<ListedTemplate> {
     return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
+  }
+
+  /** Declare a directory public for unsigned Storage Built-ins. Requires dam:write scope. */
+  async publishStoragePrefix(prefix: string): Promise<StoragePublicPrefixDeclared> {
+    const result = await this._remoteJson<unknown, OptionalAuthParams & { prefix: string }>({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'post',
+      params: { prefix: normalizeStoragePublicPrefix(prefix) },
+    })
+    checkResult(result)
+    return storagePublicPrefixDeclaredSchema.parse(result)
+  }
+
+  /** Revoke origin access to a public directory; cached or downloaded bytes cannot be recalled. */
+  async unpublishStoragePrefix(prefix: string): Promise<StoragePublicPrefixRevoked> {
+    const result = await this._remoteJson<unknown, OptionalAuthParams & { prefix: string }>({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'delete',
+      params: { prefix: normalizeStoragePublicPrefix(prefix) },
+    })
+    checkResult(result)
+    return storagePublicPrefixRevokedSchema.parse(result)
+  }
+
+  /** List the workspace's explicitly public directories through the ordinary signed API. */
+  async listPublicStoragePrefixes(): Promise<StoragePublicPrefixes> {
+    const result = await this._remoteJson({ urlSuffix: '/storage/public_prefixes', method: 'get' })
+    checkResult(result)
+    return storagePublicPrefixesSchema.parse(result)
   }
 
   /**

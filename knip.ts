@@ -81,6 +81,7 @@ const config: KnipConfig = {
         'clipanion',
         'debug',
         'dotenv',
+        'execa',
         'form-data',
         'got',
         'into-stream',

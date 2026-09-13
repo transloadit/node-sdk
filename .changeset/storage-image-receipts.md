@@ -28,7 +28,8 @@ path/width/height with an optional compatible MD5 ETag, without inventing an ass
 atomic receipt-file writes and credential-bound endpoint resolution with the existing commands;
 preserve unmatched records and the entire previous file on metadata, listing or write failures.
 
-Add hidden-input `auth login` with one signed read before saving owner-only CLI credentials.
+Add browser device authorization for `auth login`, with bounded polling, cancellation and
+owner-only credential persistence. Keep `--stdin` for an existing Auth Key, verified by a signed read.
 Keep newly entered credentials independent from project dotenv endpoint settings; save an explicit
 trusted endpoint with the key. Add `image init [--public | --private]`, with
 opt-in private `.env.local` scaffolding via `--write-env`. Never overwrite existing application files.
@@ -40,3 +41,8 @@ asset IDs and sizes on sync only when the HEAD MD5 still matches the stored rece
 Consolidate the unpublished Next factories into `createStorageImages`; select `public`, `authorize`,
 or `delivery: 'direct'` explicitly. The authorize overload retains its typed redirect handler.
 Require Next 16.3.3 or newer in the peer range.
+
+Reuse the login workspace and combined Auth Key for optional env scaffolding without extra prompts.
+Add signed public-prefix declaration, revocation and listing methods with `storage publish`,
+`storage unpublish` and `storage public`. Public image init declares server policy before writing
+files and explains that already cached public bytes cannot be recalled.

@@ -32,6 +32,7 @@ export type ResolvedCliConfig = {
   auth?: CliAuth
   credentials?: CliKeySecretCredentials
   credentialsEndpoint?: string
+  credentialsWorkspace?: string
   endpoint?: string
   loadError?: string
 }
@@ -280,7 +281,10 @@ export function resolveCliConfig(): ResolvedCliConfig {
       ? { endpoint: resolveEndpointForSource(authSource, shellEnvSource) }
       : {}),
     ...(credentialsSource != null
-      ? { credentialsEndpoint: resolveEndpointForSource(credentialsSource, shellEnvSource) }
+      ? {
+          credentialsEndpoint: resolveEndpointForSource(credentialsSource, shellEnvSource),
+          credentialsWorkspace: getSourceValue(credentialsSource, ['TRANSLOADIT_WORKSPACE']),
+        }
       : {}),
     ...(loadError != null ? { loadError } : {}),
   }

@@ -44,20 +44,22 @@ export interface SmartCdnImageSourceDimensions {
 }
 
 /** One rendition request passed to an injected Smart CDN signer. */
-export interface SmartCdnImageSignRequest {
-  expiresAt: number
+export interface SmartCdnImageSignRequest<Expiry extends number | undefined = number> {
+  expiresAt: Expiry
   input: string
   template: string
   urlParams: Readonly<Record<string, boolean | number | string>>
 }
 
 /** Injected signer that keeps responsive-image policy independent from credentials and runtimes. */
-export type SignSmartCdnImageRequest = (request: SmartCdnImageSignRequest) => string
+export type SignSmartCdnImageRequest<Expiry extends number | undefined = number> = (
+  request: SmartCdnImageSignRequest<Expiry>,
+) => string
 
 /** Framework-neutral options for deterministic Smart CDN image candidates. */
-export interface SmartCdnImagePolicyOptions {
+export interface SmartCdnImagePolicyOptions<Expiry extends number | undefined = number> {
   /** One absolute expiry in milliseconds since UNIX epoch, shared by every candidate. */
-  expiresAt: number
+  expiresAt: Expiry
   /** Browser-safe fallback URL, kept separate from the Template-specific input value. */
   fallbackUrl: string
   /** Formats and their quality values. Defaults to AVIF 45 and WebP 75. */
@@ -179,9 +181,9 @@ export function resolveSmartCdnImageWidths(
  * Creates signed responsive-image candidates while leaving credential storage and HMAC choice to
  * the injected signer.
  */
-export function createSmartCdnImageCandidates(
-  options: SmartCdnImagePolicyOptions,
-  sign: SignSmartCdnImageRequest,
+export function createSmartCdnImageCandidates<Expiry extends number | undefined = number>(
+  options: SmartCdnImagePolicyOptions<Expiry>,
+  sign: SignSmartCdnImageRequest<Expiry>,
 ): SmartCdnImageCandidates {
   const expiresAt = options.expiresAt
   const fallbackUrl = options.fallbackUrl
@@ -197,9 +199,10 @@ export function createSmartCdnImageCandidates(
   const widthOptions = options.widths
   const widthsSnapshot = Array.isArray(widthOptions) ? [...widthOptions] : widthOptions
 
-  validatePositiveSafeInteger(expiresAt, 'expiresAt')
-  if (expiresAt < minimumMillisecondTimestamp) {
-    throw new RangeError('expiresAt must be a millisecond timestamp')
+  if (expiresAt !== undefined) {
+    validatePositiveSafeInteger(expiresAt, 'expiresAt')
+    if (expiresAt < minimumMillisecondTimestamp)
+      throw new RangeError('expiresAt must be a millisecond timestamp')
   }
   validateSmartCdnImageFallbackUrl(fallbackUrl)
   validateSmartCdnImageInput(input)

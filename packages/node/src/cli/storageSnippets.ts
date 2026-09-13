@@ -74,4 +74,4 @@ export function storageImagePage(receiptsImport: string): string {
 
 /** Rendering-only variable names; values belong in the application's secret configuration. */
 export const storageImageEnvBlock =
-  'TRANSLOADIT_WORKSPACE=\nTRANSLOADIT_SMART_CDN_KEY=\nTRANSLOADIT_SMART_CDN_SECRET=\n'
+  'TRANSLOADIT_WORKSPACE=\nTRANSLOADIT_KEY=\nTRANSLOADIT_SECRET=\n'

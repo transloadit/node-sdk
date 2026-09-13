@@ -1,12 +1,12 @@
 import type { SignatureAlgorithm } from './index.ts'
-import type { SmartCdnUrlOptions } from './smartCdn.ts'
+import type { SmartCdnUrlOptions, SmartCdnUrlParams } from './smartCdn.ts'
 import type { SmartCdnImageCandidates, SmartCdnImagePolicyOptions } from './smartCdnImage.ts'
 import type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
 
 import { Buffer } from 'node:buffer'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { finishSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
+import { finishSmartCdnUrl, getSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
 import { createSmartCdnImageCandidates } from './smartCdnImage.ts'
 import { parseStorageGrantClaims } from './storageGrant.ts'
 
@@ -48,6 +48,31 @@ export interface SmartCdnImageCandidatesOptions extends SmartCdnImagePolicyOptio
   authSecret: string
   /** Workspace slug. */
   workspace: string
+}
+
+/** Unsigned candidates for a server-declared public Template/input policy. */
+export interface SmartCdnUnsignedImageCandidatesOptions
+  extends Omit<SmartCdnImagePolicyOptions, 'expiresAt'> {
+  workspace: string
+  baseUrl?: string
+  urlParams?: SmartCdnUrlParams
+}
+
+/** Uses the same format/width core without reading a clock or accepting signing credentials. */
+export function getSmartCdnImageCandidates(
+  opts: SmartCdnUnsignedImageCandidatesOptions,
+): SmartCdnImageCandidates {
+  const { workspace, baseUrl } = opts
+  const urlParams = { ...opts.urlParams }
+  return createSmartCdnImageCandidates({ ...opts, expiresAt: undefined }, (request) =>
+    getSmartCdnUrl({
+      workspace,
+      baseUrl,
+      template: request.template,
+      input: request.input,
+      urlParams: { ...urlParams, ...request.urlParams },
+    }),
+  )
 }
 
 export const signParamsSync = (
