@@ -203,6 +203,41 @@ test('stores one original at the exact destination and returns only the verified
   })
 })
 
+test.each([
+  { size: 71_336, md5hash: 'b'.repeat(32) },
+  { size: bytes.length, md5hash: 'c'.repeat(32) },
+])('returns stored metadata when the workspace transforms the upload: %j', async (stored) => {
+  const { client } = fixture({
+    ...completed,
+    results: { ':original': [{ ...receipt, ...stored, meta: { width: 1200, height: 800 } }] },
+  })
+  await expect(client.storeImage(filePath, { path: receipt.path })).resolves.toEqual({
+    asset_id: receipt.asset_id,
+    path: receipt.path,
+    ...stored,
+    width: 1200,
+    height: 800,
+  })
+})
+
+test('reports input and stored receipt once, without letting an observer hide a completed write', async () => {
+  const { client } = fixture()
+  const onReceipt = vi.fn(() => {
+    throw new Error('observer failed')
+  })
+  await expect(
+    client.storeImage(filePath, { path: receipt.path, onReceipt }),
+  ).resolves.toMatchObject({
+    path: receipt.path,
+    md5hash: receipt.md5hash,
+  })
+  expect(onReceipt).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ asset_id: receipt.asset_id }),
+    { path: receipt.path, size: receipt.size, md5hash: receipt.md5hash },
+    'completed-assembly',
+  )
+})
+
 test.each<[string | number | null | undefined, number, number]>([
   [undefined, 450, 600],
   [null, 450, 600],
@@ -265,9 +300,9 @@ test.each([
   ['empty asset ID', { ...receipt, asset_id: '' }],
   ['whitespace asset ID', { ...receipt, asset_id: '  ' }],
   ['wrong path', { ...receipt, path: 'website/other.jpg' }],
-  ['wrong byte count', { ...receipt, size: bytes.length + 1 }],
+  ['zero byte count', { ...receipt, size: 0 }],
   ['missing checksum', { ...receipt, md5hash: undefined }],
-  ['wrong checksum', { ...receipt, md5hash: 'f'.repeat(32) }],
+  ['malformed checksum', { ...receipt, md5hash: 'not-an-md5' }],
   ['missing metadata', { ...receipt, meta: undefined }],
   ['missing width', { ...receipt, meta: { height: 100 } }],
   ['zero height', { ...receipt, meta: { width: 100, height: 0 } }],

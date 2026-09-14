@@ -58,6 +58,8 @@ beforeEach(async () => {
   vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'notice').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'warn').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'debug').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
   nock.disableNetConnect()
   nock('https://api2.transloadit.com')
@@ -92,6 +94,38 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('saves the Community-plan result and explains changed bytes without suggesting another write', async () => {
+    await writeFile('hero.jpg', Buffer.alloc(78_593, 42))
+    const stored = { ...receipt, size: 71_336, md5hash: 'b'.repeat(32) }
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
+      assembly_id: 'watermarked-assembly',
+      ok: 'ASSEMBLY_COMPLETED',
+      results: {
+        ':original': [{ ...stored, meta: { width: stored.width, height: stored.height } }],
+      },
+    })
+    await main(['storage', 'store', './hero.jpg', receipt.path, '--log-level', 'debug'])
+    expect(process.exitCode).toBeUndefined()
+    expect(
+      JSON.parse(await readFile('transloadit.images.json', 'utf8')).images[receipt.path],
+    ).toEqual(stored)
+    expect(OutputCtl.prototype.warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Stored bytes differ from ./hero.jpg (78,593 → 71,336 bytes); the workspace plan may have transformed the upload',
+      ),
+    )
+    expect(OutputCtl.prototype.debug).toHaveBeenCalledWith(
+      expect.stringContaining('watermarked-assembly'),
+    )
+    expect(OutputCtl.prototype.debug).toHaveBeenCalledWith(
+      expect.stringContaining('"sizeMatches":false'),
+    )
+    expect(OutputCtl.prototype.debug).toHaveBeenCalledWith(
+      expect.stringContaining('"md5Matches":false'),
+    )
+    expect(OutputCtl.prototype.error).not.toHaveBeenCalled()
+  })
+
   test('Ctrl-C aborts an active upload, releases its lock and preserves the previous catalog', async () => {
     const listeners = process.listeners('SIGINT')
     const previous = catalogJson({ 'website/earlier.jpg': receipt })
@@ -180,8 +214,14 @@ describe('storage store', () => {
     await main(['storage', 'store', './a.jpg', './b.jpg', 'website/'])
     expect(process.exitCode).toBeUndefined()
     expect(store.mock.calls).toEqual([
-      ['./a.jpg', { path: 'website/a.jpg', signal: expect.any(AbortSignal) }],
-      ['./b.jpg', { path: 'website/b.jpg', signal: expect.any(AbortSignal) }],
+      [
+        './a.jpg',
+        { path: 'website/a.jpg', signal: expect.any(AbortSignal), onReceipt: expect.any(Function) },
+      ],
+      [
+        './b.jpg',
+        { path: 'website/b.jpg', signal: expect.any(AbortSignal), onReceipt: expect.any(Function) },
+      ],
     ])
     const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
     expect(catalog.workspace).toBe('my-app')
@@ -380,6 +420,7 @@ describe('storage store', () => {
     expect(store).toHaveBeenCalledExactlyOnceWith('./hero.jpg', {
       path: receipt.path,
       signal: expect.any(AbortSignal),
+      onReceipt: expect.any(Function),
       overwrite: true,
     })
   })
@@ -408,9 +449,19 @@ describe('storage store', () => {
     const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
     expect(message).toContain(receipt.path)
     expect(message).toContain(assemblyId)
-    expect(message).toContain('may already exist')
-    expect(message).toMatch(/retry.*conflict_strategy.*error.*conflict/)
+    expect(message).toContain("transloadit storage ls 'website/'")
+    expect(message).toContain(
+      "transloadit storage receipts sync 'website/' --receipts 'images.json'",
+    )
+    expect(message).toContain('Do not re-upload')
+    expect(message).not.toMatch(/may already exist|overwrite|conflict_strategy/)
     expect(message).not.toContain('assembly-secret')
+    expect(OutputCtl.prototype.debug).toHaveBeenCalledWith(
+      expect.stringContaining('"metadataValid":false'),
+    )
+    expect(OutputCtl.prototype.debug).toHaveBeenCalledWith(
+      expect.stringContaining('"originalCount":1'),
+    )
     expect(await readFile('images.json', 'utf8')).toBe(previous)
     expect(await readdir(directory)).toEqual(['credentials', 'hero.jpg', 'images.json'])
   })
@@ -470,6 +521,7 @@ describe('storage store', () => {
     expect(store).toHaveBeenCalledExactlyOnceWith('./hero.jpg', {
       path: receipt.path,
       signal: expect.any(AbortSignal),
+      onReceipt: expect.any(Function),
     })
     expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({
       [earlier.path]: earlier,

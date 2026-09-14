@@ -174,6 +174,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
       Storage writes must be enabled. Existing Storage paths conflict unless --overwrite is explicit.
       The project catalog binds workspace, published prefixes and image receipts. Each successful
       upload is saved atomically before the next. Do not run two writers against the same catalog.
+      The catalog defaults to transloadit.images.json; --receipts selects another file.
     `,
     examples: [
       ['Store a hero image', 'transloadit storage store ./hero.jpg website/hero.jpg'],
@@ -229,6 +230,24 @@ export class StorageStoreCommand extends StorageProjectCommand {
             stored.receipt = await this.client.storeImage(input.file, {
               path: destination,
               signal,
+              onReceipt: (receipt, expected, assemblyId) => {
+                const sizeMatches = receipt.size === expected.size
+                const md5Matches = receipt.md5hash === expected.md5hash
+                this.output.debug(
+                  JSON.stringify({
+                    assemblyId,
+                    result: receipt,
+                    input: expected,
+                    sizeMatches,
+                    md5Matches,
+                  }),
+                )
+                if (!sizeMatches || !md5Matches) {
+                  this.output.warn(
+                    `Stored bytes differ from ${input.file} (${expected.size.toLocaleString('en-US')} → ${receipt.size.toLocaleString('en-US')} bytes); the workspace plan may have transformed the upload (for example, a Community-plan watermark). The receipt describes the stored image.`,
+                  )
+                }
+              },
               ...(this.overwrite ? { overwrite: true } : {}),
             })
             if (receipts !== undefined && receipts.workspace !== workspace) {
@@ -276,15 +295,34 @@ export class StorageStoreCommand extends StorageProjectCommand {
       }
       const recovery =
         failure instanceof InconsistentResponseError
-          ? z.object({ assemblyId: z.string().min(1) }).safeParse(failure.cause)
+          ? z
+              .object({
+                assemblyId: z.string().min(1),
+                receiptCheck: z
+                  .object({
+                    originalCount: z.number().int().nonnegative(),
+                    metadataValid: z.boolean(),
+                    pathMatches: z.boolean().optional(),
+                    sizeMatches: z.boolean().optional(),
+                    md5Matches: z.boolean().optional(),
+                  })
+                  .optional(),
+              })
+              .safeParse(failure.cause)
           : undefined
       if (recovery?.success) {
+        this.output.debug(JSON.stringify(recovery.data))
+        const prefix = destination.slice(0, destination.lastIndexOf('/') + 1)
+        // Copyable POSIX arguments must not execute substitutions in a local filename.
+        const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`
         this.output.error(
           [
             failure.message,
             `Destination: ${JSON.stringify(destination)}`,
             `Assembly ID: ${JSON.stringify(recovery.data.assemblyId)}`,
-            "The object may already exist. A retry with conflict_strategy: 'error' will conflict if the destination is occupied. Inspect it before retrying.",
+            'The Assembly did not return usable receipt metadata. Do not re-upload; inspect the stored object and recover its metadata:',
+            `transloadit storage ls ${quote(prefix)}`,
+            `transloadit storage receipts sync ${quote(prefix)} --receipts ${quote(this.receipts)}`,
           ].join('\n'),
         )
         return 1

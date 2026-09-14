@@ -98,3 +98,23 @@ boundary. Task-owned services are stopped and API2's preexisting working changes
 
 No merge, package publication, Content changes, Thumbhash or origin version selector in this round.
 Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-task2-round8-report.md`.
+
+## Round 8 signup-test addendum
+
+Why: Community uploads are watermarked before Storage runs, so a successful write can differ
+from the local file. The CLI must save authoritative receipt metadata and explain this, not invite
+a destructive retry. Input: `/tmp/img-task2-round8-addendum.md` and the stranger signup report.
+
+- [x] Accept valid single-original Storage results from the requested write despite changed bytes;
+  preserve strict path/asset/dimension validation and separate trusted-fact Assembly recovery.
+- [x] Save the actual receipt, warn about changed bytes/plan transformations, and show bounded
+  debug comparison details. Missing receipts get list/sync recovery advice, never overwrite advice.
+- [x] Make the README npm-first, explain signup/free-plan watermarks and align CLI help examples.
+- [x] Report pending browser approval about once per minute without leaking credentials.
+- [x] Explicit init delivery choice and self-key logout already implemented and covered in round 8.
+- [ ] Red-first tests, focused review, package/full/packed checks and exact-head green CI.
+
+Console signup/redirect/sidebar fixes remain with its owner. No merge, publication or watermark
+policy change is authorized by this addendum.
+API2 `cb23326114` already exempts Storage originals from Community watermarking; qualify that
+warning as compatibility with older deployments. Evidence: `/tmp/img-task2-round8-addendum-report.md`.

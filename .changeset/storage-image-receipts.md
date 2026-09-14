@@ -13,15 +13,19 @@ only forgets imported and legacy application keys unless revocation is explicitl
 with `--revoke`.
 
 Add `client.storeImage(filePath, { path })` for one original Storage image without overwriting.
-Stream the checksum and verify the completed receipt, including path, asset ID, bytes and
-EXIF-oriented display dimensions.
+Stream the input checksum and verify the completed receipt's path, asset ID, stored bytes and
+EXIF-oriented display dimensions. Community-plan transformations may change the stored size/MD5;
+return authoritative result metadata and expose the input comparison through `onReceipt`.
+The CLI warns about changed bytes, saves the receipt and adds bounded debug diagnostics.
 Return typed metadata suitable for saving and rendering without another lookup. Preserve Assembly
 upload progress, cancellation and errors; receipt validation after a write is not a rollback.
 
-Add `transloadit storage store <file> <path> --receipts images.json` using the CLI's existing
+Add `transloadit storage store <file> <path>` using the CLI's existing
 Assembly credentials. Atomically append keyed receipts, preserve previous data on failures and
 reject concurrent writers, then print a ready-to-render StorageImage snippet.
 When receipt validation fails after writing, print the destination and Assembly ID for recovery.
+Point to list/sync, not overwrite or another upload. Report pending browser approval every minute.
+Document npm-first onboarding, browser signup and free-plan watermark behavior.
 Keep receipts-file filesystem errors distinct from JSON validation failures, with the file path.
 Retain a completed temporary catalog on local replacement failures, print the verified receipt,
 and preserve an existing catalog's permissions.

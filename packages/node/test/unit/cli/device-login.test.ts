@@ -68,6 +68,7 @@ beforeEach(async () => {
   vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
   vi.spyOn(OutputCtl.prototype, 'warn').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'notice').mockImplementation(() => {})
   vi.mocked(execa).mockClear()
   waits.length = 0
   nock.disableNetConnect()
@@ -81,6 +82,7 @@ afterEach(async () => {
   process.chdir(originalCwd)
   process.exitCode = undefined
   vi.restoreAllMocks()
+  vi.useRealTimers()
   vi.unstubAllEnvs()
   nock.cleanAll()
   nock.enableNetConnect()
@@ -103,6 +105,39 @@ function createDevice(response = created): nock.Scope {
     )
     .reply(200, response)
 }
+
+test.each([
+  200, 403,
+])('reports a long approval wait on stderr and stops after HTTP %s', async (status) => {
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+  const api = createDevice()
+    .post('/cli/device_authorizations/token')
+    .reply(() => {
+      vi.advanceTimersByTime(60_000)
+      return [200, { ok: 'CLI_DEVICE_AUTHORIZATION_PENDING', expires_in: 840 }]
+    })
+    .post('/cli/device_authorizations/token')
+    .reply(() => {
+      vi.advanceTimersByTime(60_000)
+      return [status, status === 200 ? authorized : { error: 'DENIED' }]
+    })
+  await login(['--no-browser', '--json'])
+  expect(api.isDone()).toBe(true)
+  expect(OutputCtl.prototype.notice).toHaveBeenNthCalledWith(
+    1,
+    'Still waiting for approval, 14 minutes left. Use the verification URL printed above.',
+  )
+  expect(OutputCtl.prototype.notice).toHaveBeenNthCalledWith(
+    2,
+    'Still waiting for approval, 13 minutes left. Use the verification URL printed above.',
+  )
+  vi.advanceTimersByTime(60_000)
+  expect(OutputCtl.prototype.notice).toHaveBeenCalledTimes(2)
+  expect(vi.getTimerCount()).toBe(0)
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.notice).mock.calls)).not.toMatch(
+    /BCDF|fake-device|combined-key|never-print/,
+  )
+})
 
 test('device login accepts API2 unrestricted keys with a null signature algorithm', async () => {
   const api = createDevice()

@@ -64,12 +64,23 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
     output.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString())
     return true
   })
-  t.mock.method(Transloadit.prototype, 'storeImage', async () => ({
+  // Exercise the packed CLI and real receipt validation, including an older backend's
+  // pre-Storage transformation. Only the remote Assembly response is simulated here.
+  const stored = {
     ...receipt,
     path: 'website/hero.jpg',
-    width: 2400,
-    height: 1600,
-  }))
+    size: bytes.length + 27,
+    md5hash: 'b'.repeat(32),
+    meta: { width: 2400, height: 1600 },
+  }
+  const response: AssemblyStatus = {
+    assembly_id: 'fixture-transformed-upload',
+    ok: 'ASSEMBLY_COMPLETED',
+    results: { ':original': [stored] },
+  }
+  t.mock.method(Transloadit.prototype, 'createAssembly', () =>
+    Object.assign(Promise.resolve(response), { assemblyId: response.assembly_id }),
+  )
   t.mock.method(Transloadit.prototype, 'publishStoragePrefix', async () => ({
     ok: 'STORAGE_PUBLIC_PREFIX_DECLARED',
     prefix: 'website/',
@@ -86,9 +97,12 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   })
   // Keep the genuine post-init/pre-upload state in the Next build and browser matrix too.
   await cp(directory, join(originalCwd, 'app/cli-empty'), { recursive: true })
+  await writeFile('hero.jpg', bytes)
   await cli.main(['storage', 'store', './hero.jpg', 'website/hero.jpg'])
   assert.equal(process.exitCode, undefined)
   const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
+  assert.equal(catalog.images[stored.path].md5hash, stored.md5hash)
+  assert.equal(catalog.images[stored.path].size, stored.size)
   const mixedCatalog = {
     ...catalog,
     images: {

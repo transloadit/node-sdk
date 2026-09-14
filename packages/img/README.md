@@ -6,16 +6,18 @@ browser, never through Next's image optimizer. Sources are Storage paths or rece
 ## Quickstart
 
 **Unpublished, private dogfood:** use [local packages](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md) until release.
-The published install will be `yarn add @transloadit/img && yarn add -D @transloadit/node`.
+The published install will be `npm install @transloadit/img && npm install --save-dev @transloadit/node`.
 Use Next.js 16.3.3+ App Router, React 19 and the default Node.js runtime (not Edge).
 
-Run beside `package.json`, using a Storage-enabled workspace:
+Run beside `package.json`. No account yet? `auth login` signs you up in the browser;
+a new free workspace works. Older deployments may watermark Community-plan uploads;
+the CLI reports changed bytes and saves metadata for the stored image.
 
 ```bash
-yarn transloadit auth login
-yarn transloadit image init website/ --public
-yarn transloadit storage store ./hero.jpg website/hero.jpg
-yarn dev
+npx transloadit auth login
+npx transloadit image init website/ --public
+npx transloadit storage store ./hero.jpg website/hero.jpg
+npm run dev
 ```
 
 Open `/storage-image-example`. Login opens browser approval (on Windows, open the printed URL). Init publishes the directory,
@@ -144,10 +146,10 @@ Login checks Storage policy access without publishing; if unavailable, it links 
 Recover the committed catalog without downloading originals:
 
 ```bash
-yarn transloadit storage ls website/
-yarn transloadit storage receipts sync website/
-yarn transloadit auth status
-yarn transloadit auth logout
+npx transloadit storage ls website/
+npx transloadit storage receipts sync website/
+npx transloadit auth status
+npx transloadit auth logout
 ```
 
 Logout revokes browser-login keys; any application using that same key loses access too.

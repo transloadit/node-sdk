@@ -70,6 +70,7 @@ export async function deviceLogin(
   const cancel = (): void => cancellation.abort()
   process.once('SIGINT', cancel)
   let expired: AbortSignal | undefined
+  let heartbeat: ReturnType<typeof setInterval> | undefined
   try {
     const response = await got
       .post(`${endpoint}/cli/device_authorizations`, {
@@ -104,6 +105,15 @@ export async function deviceLogin(
       throw new Error('The API returned an unsafe verification URL; nothing was opened or saved')
     expired = AbortSignal.timeout(device.expires_in * 1000)
     const signal = AbortSignal.any([cancellation.signal, expired])
+    const deadline = Date.now() + device.expires_in * 1000
+    heartbeat = setInterval(() => {
+      const minutes = Math.ceil((deadline - Date.now()) / 60_000)
+      if (signal.aborted || minutes <= 0) return
+      output.notice(
+        `Still waiting for approval, ${minutes} minute${minutes === 1 ? '' : 's'} left. Use the verification URL printed above.`,
+      )
+    }, 60_000)
+    heartbeat.unref()
     output.print(`Enter code ${device.user_code} at ${target.href}`, {
       user_code: device.user_code,
       verification_url: target.href,
@@ -188,6 +198,7 @@ export async function deviceLogin(
     if (expired?.aborted) throw new Error(expiredMessage, { cause })
     throw cause
   } finally {
+    clearInterval(heartbeat)
     process.off('SIGINT', cancel)
   }
 }

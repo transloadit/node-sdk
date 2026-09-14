@@ -329,8 +329,15 @@ same-page sign-in/refresh needs an explicit retry identity. See [When it breaks]
 ### Receipt integrity and recovery
 
 The store command wraps `client.storeImage()`, waits for completion and validates `asset_id`,
-exact path, byte count, MD5 and positive EXIF-oriented display dimensions. The receipt lands in
-`results[':original']`, not `results.stored`. Rendering requires no metadata lookup.
+the exact destination, stored byte count/MD5 and positive EXIF-oriented display dimensions.
+The receipt lands in `results[':original']`, not `results.stored`. Older deployments can apply
+Community-plan watermarks before Storage runs; newer API2 deployments preserve stored originals.
+The receipt describes the stored bytes, not an assumption that they equal the local file.
+The CLI warns about a changed size or checksum and saves that authoritative receipt normally.
+`--log-level debug` adds the Assembly ID, bounded receipt summary and input comparison, never
+raw Assembly responses or credentials. SDK callers can observe `(receipt, input, assemblyId)`
+through the optional `onReceipt` callback; observer exceptions do not discard completed writes.
+Rendering requires no metadata lookup.
 
 `storage store ./images/*.jpg website/` accepts shell-expanded files and a directory destination.
 Each successful upload is checkpointed before the next; a later failure preserves earlier receipts.
@@ -345,8 +352,9 @@ check Storage or sync receipts before retrying a write. A forced exit or crash c
 remove it only after confirming the writer has stopped.
 New catalogs use ordinary file permissions derived from your umask; existing modes are preserved.
 The credentials file remains private (`0600`).
-Receipt validation occurs after the Storage write, not as a rollback. A failed receipt may mean
-the object already exists. Existing paths conflict by default.
+Receipt validation occurs after the Storage write, not as a rollback. If no usable receipt comes
+back, inspect with `storage ls` and recover with `storage receipts sync`, using the same catalog.
+Do not re-upload or use `--overwrite` to fix missing metadata. Existing paths conflict by default.
 
 `storage ls website/` lists the current workspace using its Auth Key with `read` or `dam:write` scope and the existing
 S3-compatible read API, without an Assembly. `--workspace` overrides automatic workspace discovery.
@@ -420,10 +428,12 @@ await saveImage({ ...receipt, ownerId: upload.ownerId })
 ```
 
 Here `upload` is your trusted, server-side upload record, not an unchecked request body. The flow
-is Uppy → store step → notification → `getStoredImageReceipt` → persist. The helper shares
-`storeImage`'s exact one-original/path/size/MD5/asset_id validation and EXIF orientation handling.
+is Uppy → store step → notification → `getStoredImageReceipt` → persist. The helper validates
+one original, its exact path/asset_id and EXIF-oriented dimensions. Unlike the result of a write
+initiated by `storeImage`, recovery from a separate Assembly ID also requires a size/MD5 match
+with your trusted upload record. Community-plan watermarks can break that byte-identity check.
 For transformed or multiple inputs, correlate and validate the appropriate annotated result step
-yourself. The helper deliberately handles one original only.
+yourself; do not replace trusted expectations with unchecked notification fields.
 Failed Assemblies retain their `ApiError` code, such as `TRANSLOADIT_STORE_CONFLICT`. An unfinished
 Assembly raises `InconsistentResponseError` naming its current status; retry recovery after it
 finishes. A completed Assembly with mismatched receipt data remains an integrity error.

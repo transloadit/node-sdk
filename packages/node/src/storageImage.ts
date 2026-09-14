@@ -4,6 +4,7 @@ import type { CreateAssemblyOptions, Transloadit } from './Transloadit.ts'
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 
+import debug from 'debug'
 import { z } from 'zod'
 
 import { ApiError } from './ApiError.ts'
@@ -32,6 +33,12 @@ export interface StoreImageOptions
   path: string
   /** Explicit opt-in replacement of an existing path; defaults to false. */
   overwrite?: boolean
+  /** Observe verified stored metadata and local input facts. Observer errors cannot undo a write. */
+  onReceipt?: (
+    receipt: StoredImageReceipt,
+    input: StoredImageExpectation,
+    assemblyId: string | undefined,
+  ) => void
 }
 
 /** Trusted upload facts used to correlate a stored result with an application-owned upload. */
@@ -76,7 +83,7 @@ const completedImageSchema = z.object({
           .string()
           .min(1)
           .refine((value) => value.trim() === value),
-        md5hash: z.string(),
+        md5hash: z.string().regex(/^[a-f0-9]{32}$/),
         meta: z.object({
           height: positiveIntegerSchema,
           orientation: z.union([z.string(), z.number()]).nullable().optional(),
@@ -109,8 +116,16 @@ export async function storeImage(
   filePath: string,
   options: StoreImageOptions,
 ): Promise<StoredImageReceipt> {
-  const { path, chunkSize, onAssemblyProgress, onUploadProgress, overwrite, signal, timeout } =
-    options
+  const {
+    path,
+    chunkSize,
+    onAssemblyProgress,
+    onUploadProgress,
+    onReceipt,
+    overwrite,
+    signal,
+    timeout,
+  } = options
   validateDestination(path)
   if (overwrite !== undefined && typeof overwrite !== 'boolean')
     throw new TypeError('overwrite must be a boolean')
@@ -143,7 +158,16 @@ export async function storeImage(
     timeout,
     waitForCompletion: true,
   })
-  return validateReceipt(assembly, { path, size, md5hash })
+  const input = { path, size, md5hash }
+  // API2 can watermark uploads before Robots run; this exact write's result describes stored bytes.
+  const receipt = validateReceipt(assembly, input, true)
+  try {
+    onReceipt?.({ ...receipt }, input, assembly.assembly_id)
+  } catch {
+    // Like Assembly progress observers, diagnostics must not hide a successfully stored receipt.
+    debug('transloadit:warn')('Ignored onReceipt observer failure after a completed Storage write')
+  }
+  return receipt
 }
 
 /** Fetches authoritative Assembly status and applies the same validation as a local image store. */
@@ -165,6 +189,7 @@ export async function getStoredImageReceipt(
 function validateReceipt(
   assembly: AssemblyStatus,
   expected: StoredImageExpectation,
+  acceptTransformed = false,
 ): StoredImageReceipt {
   const { path, size, md5hash } = expected
   if (typeof assembly.error === 'string') throw new ApiError({ body: assembly })
@@ -184,16 +209,23 @@ function validateReceipt(
   }
   const parsed = completedImageSchema.safeParse(assembly)
   const result = parsed.success ? parsed.data.results[':original'][0] : undefined
+  const originals = assembly.results?.[':original']
+  const receiptCheck = {
+    originalCount: Array.isArray(originals) ? originals.length : 0,
+    metadataValid: parsed.success,
+    pathMatches: result === undefined ? undefined : result.path === path,
+    sizeMatches: result === undefined ? undefined : result.size === size,
+    md5Matches: result === undefined ? undefined : result.md5hash === md5hash,
+  }
   if (
     result === undefined ||
     result.path !== path ||
-    result.size !== size ||
-    result.md5hash !== md5hash
+    (!acceptTransformed && (!receiptCheck.sizeMatches || !receiptCheck.md5Matches))
   ) {
     throw new InconsistentResponseError(
       'The Assembly did not return a matching Storage image receipt',
       {
-        cause: { assemblyId: assembly.assembly_id },
+        cause: { assemblyId: assembly.assembly_id, receiptCheck },
       },
     )
   }
@@ -202,9 +234,9 @@ function validateReceipt(
   return {
     asset_id: result.asset_id,
     height: swapDimensions ? width : height,
-    md5hash,
-    path,
-    size,
+    md5hash: result.md5hash,
+    path: result.path,
+    size: result.size,
     width: swapDimensions ? height : width,
   }
 }
