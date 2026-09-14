@@ -149,7 +149,7 @@ This addendum does not authorize merging or publishing the private image package
 
 Input: /tmp/img-task2-round9-brief.md and /tmp/img-stranger-signup-report-r2.md (PASS in 6m13,
 against earlier tarballs). “This fires on **every** load of the untouched `image init` page”
-makes F11 the first fix. “A blank page with nothing on it at all” makes scaffold failure UI next.
+makes F11 the first fix. “a blank page with nothing on it at all” makes scaffold failure UI next.
 
 - [x] F11: post-layout, decoded, non-tiny candidate measurements; native dev tests added.
 - [x] F9: generated example displays delivery failures using the existing fallback API.
@@ -157,7 +157,7 @@ makes F11 the first fix. “A blank page with nothing on it at all” makes scaf
 - [x] F2: identify saved credentials safely and show the non-destructive separate-file path.
 - [x] F3: unique auth help from Clipanion definitions; all existing aliases retained.
 - [x] README: short npm/pnpm entry, signup timing, tarballs, delivery override and Credentials label.
-- [ ] Red-first checks, council/Claude review, sequential package/packed checks and green final CI.
+- [x] Red-first checks, council/Claude review and sequential package/packed checks.
 
 Same PR; no merge, publication, production, Console or API2 changes. Keep Refs #270 and the
 unchanged release gates above. Detailed quotes, decisions and evidence: /tmp/img-task2-round9-report.md.
@@ -175,3 +175,39 @@ announcer, and explain an approved-but-unsaved key after concurrent login rather
 also exposed a density-correction false positive; compare CSS-pixel naturalWidth before blaming
 sizes. Native tests cover both unchanged pages and cached-candidate reuse. The final verification
 sequence and second, focused review are pending; initial CI only failed on the alert locator.
+
+### Round 9 verification and handoff
+
+The final local sequence passes: `yarn check`, then img check → verify → packed fixture.
+Counts: 263 img, 560 Node plus one preexisting skip, 59 utils, 22 relay and the root/schema/MCP
+checks. The downloaded/installable packages pass all 92 native Chromium/WebKit cases: 42 with
+Cache Components enabled, 42 omitted and eight on the actual Next development server. An
+independent audit confirms zero retries, skips, flakes and unexpected browser/network errors.
+
+Two-reviewer council closure reports no issues; independent Opus UX and defensive-security reviews
+both PASS. Manual npm-installed desktop/mobile evidence covers working images, cached native
+candidate reuse, visible accessible failure and Fast Refresh recovery without restarting Next.
+Real installed CLI help lists six unique auth commands and refuses to overwrite toy credentials
+while identifying the saved file/workspace/description/date without printing secrets. A losing
+device login explains its approved-but-unsaved key; a losing stdin login never suggests revoking
+the existing application key it merely verified. Both races have red-first no-overwrite coverage.
+
+The first closure CI run passed 91/92 cases: rewriting streamed dev HTML for the tiny-box test
+caused WebKit to reload and cancel a devtools font. The test now changes only CSS after normal
+hydration, verifies 1px → 960px and retained client state. Initial pre-layout timing remains
+unit-tested; untouched native desktop/mobile loads and resize observation remain browser-tested.
+No failed-request exemptions or retries were added. Its test-only Node handle typing error was
+also fixed before the final full local repeat. The report preserves those failed attempts.
+
+Exact-head green CI is the final handoff gate; its current receipt and audited downloaded artifact
+are recorded in the [PR body](https://github.com/transloadit/node-sdk/pull/500) and
+`/tmp/img-task2-round9-report.md`, so this source document does not require a self-referential SHA.
+Local evidence: `/tmp/img-r9-evidence-OWBFjJ/`; final sequential logs: `/tmp/img-r9-final2-*.log`.
+Own manual browsers and servers are stopped; the packed runner cleans its own servers.
+
+The incoming 6m13 stranger-signup duration is not relabeled as a new timing on this head. Round 9
+uses owned localhost contract fakes, not a new API2/Console or Bunny canary. No dependencies,
+schemas, Built-in pins, auth scopes, Content/API2 source, env files or production settings changed.
+The release gates remain: coordinated API2/Console rollout and package release, ordinary registry
+installation, sustained Content dogfood and production Bunny measurements. No merge or publication
+in this round; `@transloadit/img` remains private at 0.0.0 and #270's two follow-ups stay open.

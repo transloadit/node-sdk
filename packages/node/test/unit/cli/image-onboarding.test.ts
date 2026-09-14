@@ -350,6 +350,22 @@ test('auth login does not overwrite existing credentials without explicit replac
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('--replace'))
 })
 
+test('a concurrent stdin login preserves the winner without suggesting revocation of the supplied key', async () => {
+  const winner = 'TRANSLOADIT_KEY=winner-key\nTRANSLOADIT_SECRET=winner-secret\n'
+  vi.mocked(Transloadit.prototype.listTemplates).mockImplementationOnce(async () => {
+    await writeFile('credentials', winner)
+    return { items: [], count: 0 }
+  })
+  await main(['auth', 'login', '--stdin'])
+  expect(process.exitCode).toBe(1)
+  expect(await readFile('credentials', 'utf8')).toBe(winner)
+  const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+  expect(message).toContain('verified Auth Key was not saved')
+  expect(message).toContain('TRANSLOADIT_CREDENTIALS_FILE')
+  expect(message).toContain('No new Auth Key was created')
+  expect(message).not.toMatch(/revoke|winner-key|winner-secret|hidden-secret|write-key/)
+})
+
 test('auth login identifies the saved file and offers a separate login without reading input or overwriting', async () => {
   const contents =
     'TRANSLOADIT_KEY=existing-key\nTRANSLOADIT_SECRET=existing-secret\nTRANSLOADIT_WORKSPACE=existing-workspace\nTRANSLOADIT_AUTH_KEY_DESCRIPTION="Transloadit CLI on old-laptop"\n'

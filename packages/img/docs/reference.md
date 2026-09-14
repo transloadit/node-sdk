@@ -344,8 +344,9 @@ lifetime, preserving a delivery margin; smaller buckets reduce variation but fra
 
 `cacheMaxAge` and `rotationInterval` accept milliseconds or the same strings as `lifetime`, for
 example `'1m'` and `'30m'`. `cacheMaxAgeMs` and `rotationIntervalMs` are deprecated numeric aliases;
-do not supply both spellings. In development, an image without explicit `sizes` warns if its
-chosen candidate exceeds twice its rendered CSS width; production does no size diagnostics.
+do not supply both spellings. In development, an image without explicit `sizes` can warn when
+its decoded, density-corrected width exceeds twice its rendered CSS width. Transient 0/1px boxes
+are ignored; cached/HiDPI resolution alone does not trigger the hint. Production does no size diagnostics.
 
 Without `errorFallback`, HTTP failure uses native broken-image/alt behavior. JPEG is a format
 fallback, not HTTP-error recovery.

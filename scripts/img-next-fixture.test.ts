@@ -144,6 +144,7 @@ test('answers stranger signup and delivery setup questions without a private-doc
   expect(reference).toContain('baseUrl:')
   expect(reference).toContain('urlParams:')
   expect(reference).not.toContain('Restart development to retry')
+  expect(reference).toContain('density-corrected')
 })
 
 test('ships a focused secretless quickstart and the detailed reference it links to', async () => {

@@ -715,24 +715,17 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
       if (message.type() === 'warning' && message.text().includes('[StorageImage]'))
         warnings.push(message.text())
     })
-    await page.route('**/fixture/cli-image/app/storage-image-example', async (route) => {
-      const response = await route.fetch()
-      expect(response.ok()).toBe(true)
-      // Hold a real CSS box at the reader's reported width while native loading/hydration finish.
-      await route.fulfill({
-        response,
-        body: (await response.text()).replace(
-          '</head>',
-          '<style id="pending-layout">picture{display:block;width:1px}</style></head>',
-        ),
-      })
-    })
     await page.goto('/fixture/cli-image/app/storage-image-example')
     const hero = page.getByRole('presentation')
     await decode(hero)
-    expect((await hero.boundingBox())?.width).toBe(1)
     await page.getByRole('button', { name: 'Hydration count: 0' }).click()
     await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
+    // Change only layout: rewriting the dev HTML caused WebKit to reload and cancel resources.
+    // Pre-layout scheduling is covered by unit tests; this proves native resize observation.
+    const pendingLayout = await page.addStyleTag({
+      content: 'picture{display:block;width:1px}',
+    })
+    await expect.poll(async () => (await hero.boundingBox())?.width).toBe(1)
     await page.evaluate(
       () =>
         new Promise<void>((resolve) =>
@@ -740,7 +733,7 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
         ),
     )
     expect(warnings).toEqual([])
-    await page.evaluate(() => document.getElementById('pending-layout')?.remove())
+    await pendingLayout.evaluate((element) => element.parentNode?.removeChild(element))
     await expect.poll(async () => (await hero.boundingBox())?.width).toBe(960)
     await page.evaluate(
       () =>
@@ -748,6 +741,7 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
           requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
         ),
     )
+    await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
     expect(warnings).toEqual([])
   })
 }

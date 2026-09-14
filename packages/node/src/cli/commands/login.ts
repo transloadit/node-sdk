@@ -225,7 +225,9 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           ? [
               await existingLoginMessage(file),
               `This login’s ${this.stdin ? 'verified' : 'approved'} Auth Key was not saved.`,
-              `Review it in Console → Credentials: https://transloadit.com/c/${loginWorkspace ?? '<workspace>'}/template-credentials/; revoke it there if no longer needed.`,
+              this.stdin
+                ? 'No new Auth Key was created. The supplied key may still be used by other applications.'
+                : `Review it in Console → Credentials: https://transloadit.com/c/${loginWorkspace ?? '<workspace>'}/template-credentials/; revoke it there if no longer needed.`,
               'Be careful: auth logout would use the saved login, not this unsaved one.',
             ].join('\n')
           : ensureError(error).message,
