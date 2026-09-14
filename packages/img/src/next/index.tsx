@@ -67,6 +67,8 @@ export type TransloaditImagePresentationProps = TransloaditImageLayoutProps & {
 /** Props for rendering an already-signed framework-neutral image model. */
 export type TransloaditPictureProps = TransloaditImagePresentationProps & {
   model: TransloaditImageModel
+  /** Already decoded on the server; no ThumbHash decoder enters the client graph. */
+  blurDataURL?: string
 }
 
 function getSourceSet(candidates: readonly TransloaditImageCandidate[]): string {
@@ -167,7 +169,18 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
       // Without img srcset, only lazy auto sizing is valid here. Fallback lengths stay on source.
       sizes={automaticSizes ? 'auto' : undefined}
       src={model.fallbackUrl}
-      style={objectFit === undefined ? attributes.style : { ...attributes.style, objectFit }}
+      style={{
+        ...attributes.style,
+        ...(objectFit === undefined ? {} : { objectFit }),
+        ...(props.blurDataURL === undefined
+          ? {}
+          : {
+              backgroundImage: `url("${props.blurDataURL}")`,
+              backgroundPosition: attributes.style?.objectPosition ?? 'center',
+              backgroundRepeat: 'no-repeat',
+              backgroundSize: objectFit ?? attributes.style?.objectFit ?? 'contain',
+            }),
+      }}
     />
   )
 

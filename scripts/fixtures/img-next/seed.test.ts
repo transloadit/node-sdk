@@ -12,14 +12,14 @@ import { test } from 'node:test'
 import { createTransloaditImageModel } from '@transloadit/img'
 import { Transloadit } from '@transloadit/node'
 import sharp from 'sharp'
+import { rgbaToThumbHash } from 'thumbhash'
 
 import { seedStorageImage } from './seed.ts'
 
-// A local 1x1 PNG keeps the seed recipe tests offline; the separate devdock canary uses real API2.
-const bytes = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6nXcAAAAASUVORK5CYII=',
-  'base64',
-)
+// Real local pixels keep the seed/ThumbHash recipe offline; the devdock canary uses real API2.
+const bytes = await sharp({ create: { width: 1, height: 1, channels: 4, background: '#2d6ea0' } })
+  .png()
+  .toBuffer()
 const receipt = {
   asset_id: 'JN6OawlqFmL419U23jUKcg',
   md5hash: createHash('md5').update(bytes).digest('hex'),
@@ -68,6 +68,7 @@ test('the package-first path stores and publishes without image init and emits c
       md5hash: receipt.md5hash,
       width: path === 'website/hero.jpg' ? 2400 : 400,
       height: path === 'website/hero.jpg' ? 1600 : 300,
+      thumbhash: Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 255])).toString('base64'),
     }),
   )
   const cli: { main: (args: string[]) => Promise<void> } = await import(
@@ -87,7 +88,7 @@ test('the package-first path stores and publishes without image init and emits c
   assert(declarations.includes("declare module '@transloadit/img/next'"))
   assert(
     declarations.includes(
-      '"website/hero.jpg": { path: "website/hero.jpg"; width: 2400; height: 1600 }',
+      '"website/hero.jpg": { path: "website/hero.jpg"; width: 2400; height: 1600; thumbhash?: string }',
     ),
   )
   await assert.rejects(stat('lib/storageImage.ts'), { code: 'ENOENT' })
@@ -192,7 +193,7 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   assert.match(page, /width=\{960\}\s+preload/)
   assert(
     printed.includes(
-      'Render it with <StorageImage src="website/hero.jpg" alt="hero" width={960} />',
+      'Render it with <StorageImage src="website/hero.jpg" alt="hero" width={960} placeholder="blur" />',
     ),
   )
   assert(!printed.includes('export default function Page'))
@@ -241,6 +242,7 @@ test('seeds one original and returns verified metadata for rendering without ano
     path: receipt.path,
     size: bytes.length,
     width: 1,
+    thumbhash: Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 255])).toString('base64'),
   })
   const model = createTransloaditImageModel(
     { src: image, expiresAt: Date.UTC(2030, 0, 1) },

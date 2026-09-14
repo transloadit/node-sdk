@@ -2,6 +2,7 @@
 
 import { parseSmartCdnUrl } from '@transloadit/utils/node'
 import { renderToReadableStream, renderToStaticMarkup } from 'react-dom/server'
+import { rgbaToThumbHash, thumbHashToDataURL } from 'thumbhash'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 const { connection, builtin } = vi.hoisted(() => ({
@@ -24,6 +25,88 @@ const images = {
   'website/hero.jpg': { path: 'website/hero.jpg', width: 2400, height: 1600 },
   'logo.png': { path: 'logo.png', width: 64, height: 64 },
 }
+
+const thumbhash = Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 255])).toString('base64')
+
+test('the shortest valid ThumbHash from a narrow original still renders a blur', () => {
+  const pixels = new Uint8Array(100 * 4).fill(255)
+  const bytes = rgbaToThumbHash(1, 100, pixels)
+  expect(bytes).toHaveLength(17)
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const markup = renderToStaticMarkup(
+    <StorageImage
+      src={{
+        path: 'website/hero.jpg',
+        width: 1,
+        height: 100,
+        thumbhash: Buffer.from(bytes).toString('base64'),
+      }}
+      alt="Narrow"
+      placeholder="blur"
+    />,
+  )
+  expect(markup).toContain(thumbHashToDataURL(bytes))
+})
+
+test('public blur decodes the receipt on the server without changing image URLs or native attributes', () => {
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const src = { ...images['website/hero.jpg'], thumbhash }
+  const markup = renderToStaticMarkup(
+    <StorageImage src={src} alt="Blurred hero" placeholder="blur" />,
+  )
+  const doc = new DOMParser().parseFromString(markup, 'text/html')
+  const img = doc.querySelector('img')
+  expect(img?.style.backgroundImage).toContain(thumbHashToDataURL(Buffer.from(thumbhash, 'base64')))
+  expect(img?.style.backgroundSize).toBe('contain')
+  expect(img?.getAttribute('placeholder')).toBeNull()
+  expect(firstUrl(markup)).toEqual(
+    firstUrl(renderToStaticMarkup(<StorageImage src={src} alt="Hero" />)),
+  )
+})
+
+test.each([
+  'production',
+  'development',
+])('blur with no hash is a no-op, with a development-only note (%s)', (environment) => {
+  vi.stubEnv('NODE_ENV', environment)
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async () => new Response(null, { status: 307, headers: { Location: 'https://cdn.example' } }),
+    ),
+  )
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  try {
+    const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+    const markup = renderToStaticMarkup(
+      <StorageImage src="website/hero.jpg" alt="Hero" placeholder="blur" />,
+    )
+    expect(markup).not.toContain('data:image/')
+    if (environment === 'development')
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringMatching(/website\/hero.jpg.*thumbhash.*storage store/),
+      )
+    else expect(warn).not.toHaveBeenCalled()
+  } finally {
+    warn.mockRestore()
+    vi.unstubAllGlobals()
+  }
+})
+
+test('a request-authorized private image never embeds its blurred pixels before authorization', () => {
+  const authorize = vi.fn(() => false)
+  const { StorageImage } = createStorageImages({ images, authorize })
+  const markup = renderToStaticMarkup(
+    <StorageImage
+      src={{ ...images['website/hero.jpg'], thumbhash }}
+      alt="Private"
+      placeholder="blur"
+    />,
+  )
+  expect(markup).not.toContain('data:image/')
+  expect(markup).not.toContain(thumbhash)
+  expect(authorize).not.toHaveBeenCalled()
+})
 
 function firstUrl(markup: string): URL {
   const document = new DOMParser().parseFromString(markup, 'text/html')

@@ -128,6 +128,37 @@ test('a fresh sync recovers the declared delivery policy, not just image dimensi
 })
 
 test.each([
+  true,
+  false,
+])('sync retains a local ThumbHash only while the original MD5 matches (%s)', async (matches) => {
+  const thumbhash = '1QcSHQRnh493V4dIh4eXh1h4kJUI'
+  await writeFile(
+    'images.json',
+    JSON.stringify({
+      workspace: 'my-app',
+      public: ['website/'],
+      images: {
+        'website/a.jpg': {
+          path: 'website/a.jpg',
+          width: 800,
+          height: 600,
+          md5hash: md5,
+          thumbhash,
+        },
+      },
+    }),
+  )
+  listed()
+    .head('/storage/my-app/website/a.jpg')
+    .reply(200, '', { ...metadata, ETag: `"${matches ? md5 : 'a'.repeat(32)}"` })
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  const image = JSON.parse(await readFile('images.json', 'utf8')).images['website/a.jpg']
+  if (matches) expect(image.thumbhash).toBe(thumbhash)
+  else expect(image).not.toHaveProperty('thumbhash')
+})
+
+test.each([
   false,
   true,
 ])('unreadable policy preserves the catalog (existing: %s)', async (existing) => {

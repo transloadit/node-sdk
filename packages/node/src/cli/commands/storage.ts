@@ -346,7 +346,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
             .replaceAll(/[-_]+/g, ' '),
         )
         this.output.print(
-          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}} />\nReplace alt with a description (or an empty string for a decorative image).`,
+          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}} placeholder="blur" />\nReplace alt with a description (or an empty string for a decorative image).`,
           receipt,
         )
       }
@@ -486,6 +486,7 @@ const uploadEvidenceSchema = z.object({
   md5hash: z.string().regex(/^[a-f0-9]{32}$/i),
   asset_id: z.string().min(1).optional(),
   size: z.number().int().nonnegative().optional(),
+  thumbhash: z.string().max(48).optional(),
 })
 
 function md5FromHead(head: HeadObjectCommandOutput): string | undefined {

@@ -362,3 +362,35 @@ an alt reminder, overwrite recovery advice and phrasing-safe development fallbac
 Application authorization exceptions deliberately propagate; callbacks deny by returning false.
 The follow-up council's last P3 was fixed red-first: leading-slash/space variants of a known key
 retain a safely escaped exact-key suggestion, but are still rejected and never yield upload advice.
+
+### Round 13 addendum — scope, blur and compact URLs
+
+Kevin's ordered items 6–9 in /tmp/img-task2-round13-addendum.md, starting at 2779025. GitHub has no
+open review comments and origin/main is already an ancestor. Same checkout and PR; no API2 edits,
+new worktrees, merge or publication. Append evidence to /tmp/img-task2-round13-report.md.
+
+- [x] Prefer smart_cdn:sign in private setup/diagnostics; assemblies:write is also accepted.
+- [ ] Generate bounded ThumbHash receipt metadata on store and server-decoded blur placeholders.
+- [x] Omit verified Built-in defaults, preserve custom-template behavior and explicit delivery.
+- [x] Describe v as an unverified cache-busting tag and recommend immutable filenames.
+- [ ] Verify red-first tests, packed browsers, reviews, checks and exact-head CI.
+
+API2 source confirms storage-preview@0.0.2 defaults f=jpg, q=75, r=pad and bg=#ffffff;
+public-preview@0.0.1 derives from it. Candidate dimensions remain explicit. Cache keys deliberately
+change before public release; transparent formats still need their nondefault background.
+
+ThumbHash encoding/catalog/declarations/server decoding are implemented and unit-tested. Pending
+Kevin's answer: CSS cannot reliably remove an img background on native load, especially for alpha
+images. A tiny load cleanup needs client JS, while the addendum asks for none. The asynchronous
+question proposes only load cleanup; decoding must stay server-side. Do not claim blur complete
+until that choice is resolved and the packed browsers verify the loaded/transparent state.
+Private redirect markup deliberately never embeds blurred pixels before image authorization.
+Encoding is best-effort and bounded (32 MiB encoded, 40 MP decoded, 100×100 hash input, 2s decoder).
+Checksum changes drop the local hash; sync only preserves one with matching MD5.
+
+Local checkpoint: check + img check + verify pass (306 img, 602 Node + one existing skip). Packed
+Chromium/WebKit passes 50 cacheComponents-enabled + 50 omitted + 10 development cases, first
+attempt in the final run. The capture's pending-load screenshot was changed to computed-style
+evidence: Playwright's font-ready screenshot wait deadlocked while the test held image delivery.
+The loaded screenshot remains. All native AVIF/WebP/JPEG, alpha and private-authorization checks
+pass. Full addendum council/Opus review, push and exact-head CI wait for the blur-cleanup decision.

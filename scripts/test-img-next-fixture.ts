@@ -504,7 +504,13 @@ async function main(): Promise<void> {
           storageHtml.includes('builtin%2Fstorage-preview%400.0.2'),
           'Storage Built-in is absent',
         )
-        assert(storageHtml.includes('r=pad'), 'Storage preview does not preserve exact dimensions')
+        const directCandidate = getFirstPictureCandidates(storageHtml)[0]
+        assert(directCandidate !== undefined, 'Expected a direct preview candidate')
+        const directParameters = new URL(directCandidate).searchParams
+        assert(
+          directParameters.has('w') && directParameters.has('h') && !directParameters.has('r'),
+          'Storage preview must keep explicit dimensions and omit the pinned pad default',
+        )
         assert(
           storageHtml.includes('q=45'),
           'Storage preview does not apply format-specific quality',

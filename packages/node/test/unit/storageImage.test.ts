@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import nock from 'nock'
+import sharp from 'sharp'
+import { rgbaToThumbHash, thumbHashToRGBA } from 'thumbhash'
 import { afterEach, expect, onTestFinished, test, vi } from 'vitest'
 
 import { ApiError, InconsistentResponseError, Transloadit } from '../../src/Transloadit.ts'
@@ -186,6 +188,7 @@ test('stores one original at the exact destination and returns only the verified
     path: receipt.path,
     size: bytes.length,
     width: 100,
+    thumbhash: expect.any(String),
   })
   expect(create).toHaveBeenCalledExactlyOnceWith({
     files: { image: filePath },
@@ -201,6 +204,60 @@ test('stores one original at the exact destination and returns only the verified
     },
     waitForCompletion: true,
   })
+})
+
+test('encodes a small, oriented ThumbHash from the same original bytes', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'storage-thumbhash-'))
+  onTestFinished(() => rm(directory, { recursive: true, force: true }))
+  const path = join(directory, 'oriented.jpg')
+  const image = await sharp({
+    create: { width: 160, height: 80, channels: 3, background: '#3172aa' },
+  })
+    .withMetadata({ orientation: 6 })
+    .jpeg()
+    .toBuffer()
+  await writeFile(path, image)
+  const stored = {
+    ...receipt,
+    size: image.length,
+    md5hash: createHash('md5').update(image).digest('hex'),
+    meta: { width: 160, height: 80, orientation: 6 },
+  }
+  const { client } = fixture({ ...completed, results: { ':original': [stored] } })
+  const result = await client.storeImage(path, { path: receipt.path })
+  const { data, info } = await sharp(image)
+    .autoOrient()
+    .resize(100, 100, { fit: 'inside', withoutEnlargement: true })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+  expect(result).toMatchObject({
+    width: 80,
+    height: 160,
+    thumbhash: Buffer.from(rgbaToThumbHash(info.width, info.height, data)).toString('base64'),
+  })
+  const hash = result.thumbhash
+  expect(typeof hash).toBe('string')
+  if (typeof hash !== 'string') throw new Error('Missing ThumbHash')
+  const decoded = thumbHashToRGBA(Buffer.from(hash, 'base64'))
+  expect(decoded.w).toBeLessThan(decoded.h)
+})
+
+test('a locally unsupported decoder does not prevent storing a verified original', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'storage-thumbhash-'))
+  onTestFinished(() => rm(directory, { recursive: true, force: true }))
+  const path = join(directory, 'original.raw')
+  const image = Buffer.from('format only the remote image decoder understands')
+  await writeFile(path, image)
+  const stored = {
+    ...receipt,
+    size: image.length,
+    md5hash: createHash('md5').update(image).digest('hex'),
+  }
+  const { client } = fixture({ ...completed, results: { ':original': [stored] } })
+  const result = await client.storeImage(path, { path: receipt.path })
+  expect(result.md5hash).toBe(stored.md5hash)
+  expect(result).not.toHaveProperty('thumbhash')
 })
 
 test.each([

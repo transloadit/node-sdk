@@ -120,13 +120,14 @@ async function imageDocumentation(): Promise<string> {
   return `${await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')}\n${await readFile(resolve(import.meta.dirname, '../packages/img/docs/reference.md'), 'utf8')}`
 }
 
-test('private setup names the Assembly scope needed to generate image renditions', async () => {
+test('private setup prefers the least-privilege signing scope', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   const privateRecipe = readme.slice(
     readme.indexOf('## Private'),
     readme.indexOf('## When it breaks'),
   )
-  expect(privateRecipe).toContain('assemblies:write')
+  expect(privateRecipe).toContain('smart_cdn:sign')
+  expect(privateRecipe).toMatch(/assemblies:write.*also accepted/)
   expect(privateRecipe).toContain('Assembly')
   const reference = await readFile(
     resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
@@ -134,6 +135,17 @@ test('private setup names the Assembly scope needed to generate image renditions
   )
   expect(reference).toContain('INSUFFICIENT_AUTH_SCOPE')
   expect(reference).not.toContain('A generic 403 cannot tell us')
+})
+
+test('image docs describe the unverified cache tag and recommend immutable names beside upload guidance', async () => {
+  const docs = (await imageDocumentation()).replaceAll(/\s+/g, ' ')
+  expect(docs).toContain(
+    'cache-busting tag derived from the receipt hash; the origin does not verify it, so a cold request after an overwrite can return the replacement',
+  )
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  expect(readme.slice(0, readme.indexOf('## Responsive'))).toContain('immutable filename')
+  expect(docs).toContain('placeholder="blur"')
+  expect(docs).toContain('thumbhash')
 })
 
 test('the leading SDK example selects SHA-256 for combined keys without changing the legacy default', async () => {
@@ -341,7 +353,7 @@ test('ships a focused secretless quickstart and the detailed reference it links 
   expect(readme).not.toContain('maxWidth=')
   expect(readme).not.toMatch(/rotationIntervalMs|delivery: 'direct'|deferUntilHydrated|retryKey/)
   expect(reference).toContain('Experimental')
-  expect(reference).toContain('~3 KB')
+  expect(reference).toContain('This deliberately changes cache keys')
   expect(reference).toContain('storage publications')
   const node = await readFile(resolve(import.meta.dirname, '../packages/node/README.md'), 'utf8')
   expect(node).toContain('auth login')

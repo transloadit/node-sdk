@@ -50,6 +50,8 @@
     "p-map": "^7.0.4",
     "p-queue": "^9.3.0",
     "recursive-readdir": "^2.2.3",
+    "sharp": "0.35.4",
+    "thumbhash": "0.1.1",
     "tus-js-client": "^4.3.1",
     "typanion": "^3.14.0",
     "type-fest": "^5.6.0",

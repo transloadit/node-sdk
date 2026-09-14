@@ -92,6 +92,8 @@ const config: KnipConfig = {
         'p-map',
         'p-queue',
         'recursive-readdir',
+        'sharp',
+        'thumbhash',
         'tus-js-client',
         'typanion',
         'type-fest',

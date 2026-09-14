@@ -91,6 +91,19 @@ warns only in development. Do not combine either with lazy loading. Explicit eag
 uses the fallback lengths without `auto`, with a development warning; bare `auto` falls back to 100vw.
 Other images default to native lazy loading. Props are serializable native attributes, not callbacks or refs.
 
+`placeholder="blur"` uses the receipt's optional base64 `thumbhash`. `storage store` and
+`client.storeImage()` generate it from the checksum read using pinned [ThumbHash](https://github.com/evanw/thumbhash)
+and Sharp, EXIF-oriented and at most 100×100 pixels. Encoding is best-effort: originals over
+32 MiB, over 40 million pixels, unsupported formats or a two-second decoder timeout omit it.
+Origin-side byte changes also omit the hash, since the local preview would no longer match.
+The Server Component decodes the hash; the ThumbHash decoder never enters the client bundle.
+Without a usable hash, the prop is a no-op with a development-only note. Request-authorized
+private redirects also omit it: embedding blurred private pixels would expose them before the
+image request's authorization check. Direct delivery is only for already-authorized page data.
+Receipts sync performs no original download and cannot create a missing ThumbHash.
+ThumbHashes contain a recognizable preview, not just a checksum. Keep catalogs for private images
+in private source control, or remove their `thumbhash` fields before sharing the catalog publicly.
+
 The `constrained` and `fixed` layout names follow Astro; `fill` follows Next.js.
 
 `width={960}` on a catalog path or receipt derives proportional responsive CSS, the
@@ -257,8 +270,8 @@ and configure private delivery; an authorization callback cannot gate a path sti
 Recovery commands target the default catalog unless you add `--receipts <catalog.json>` for your
 custom catalog. With an explicit factory, update its images/public configuration as well.
 The probe reads the `Transloadit-Error` code before choosing advice. `INSUFFICIENT_AUTH_SCOPE`
-specifically requires `assemblies:write`: edit the application key in Console → Credentials,
-with Smart CDN enabled, because generating renditions creates an Assembly. Other safe error-code
+calls for `smart_cdn:sign`: edit the application key in Console → Credentials,
+with Smart CDN enabled (`assemblies:write` is also accepted, but grants broader Assembly access). Other safe error-code
 labels are included in the HEAD result. Only a 403 without a specific code leaves Smart CDN
 enablement, workspace, secret, expiry and clock ambiguous. No response bodies, raw errors,
 signed query strings or secrets are logged.
@@ -300,13 +313,14 @@ the code remains valid for 15 minutes while you verify your email and finish sig
 The approved **Auth Key** appears under the Console's
 **[Credentials](https://transloadit.com/c/<workspace>/template-credentials/)** sidebar item and supports
 Assemblies/Storage writes and Smart CDN. Existing keys used for private rendering also need
-Smart CDN enabled and the `assemblies:write` scope; generating a rendition creates an Assembly.
+Smart CDN enabled and the `smart_cdn:sign` scope (`assemblies:write` is also accepted).
 
 For private deployments, create a **separate application key** in Console → Credentials → New Auth Key
-with Smart CDN on and the `assemblies:write` scope (renditions are produced by an Assembly).
+with Smart CDN on and the `smart_cdn:sign` scope (`assemblies:write` is also accepted).
+The signing-only scope permits URL transforms, not standalone Assembly or Storage writes.
 Set `TRANSLOADIT_SMART_CDN_KEY` and `TRANSLOADIT_SMART_CDN_SECRET` in the host's
 server-only build and runtime environment, using the same pair for the page and route handler.
-If you also use that combined key with `new Transloadit()` from `@transloadit/node`, pass
+If you also grant Assembly access and use that combined key with `new Transloadit()` from `@transloadit/node`, pass
 `signatureAlgorithm: 'sha256'`: new Console-created combined keys use SHA-256, while the SDK keeps
 its SHA-384 default for existing keys. The image component already signs Smart CDN URLs correctly.
 `TRANSLOADIT_SMART_CDN_KEY/SECRET` override the pair, not individual missing fields. Keeping the
@@ -425,21 +439,27 @@ CDN URLs already issued remain usable until their own expiry; downloaded bytes c
 
 After a directory is published, old private capabilities can redirect to its unsigned public URL.
 These compatibility redirects share-cache for at most one minute: their request URL has no receipt
-hash, so a longer cache could retain an old versioned target after an overwrite and catalog refresh.
-New public markup uses direct versioned CDN URLs and does not take this compatibility route.
+hash, so a longer cache could retain an old cache-tagged target after an overwrite and catalog refresh.
+New public markup uses direct cache-tagged CDN URLs and does not take this compatibility route.
+
+### Cache and markup cost
 
 Production Smart CDN uses Bunny, configured on `*.tlcdn.com`: hostname and the whole query string
 form the cache key. This is our pull-zone configuration, not universal Bunny behavior.
 Format-specific URLs avoid unkeyed Accept negotiation. A representative constrained
-hero has roughly 140-character URLs × 11 image candidates (five AVIF, five WebP, one JPEG), plus
-five preload candidates. Rendering `my-app/website/hero.jpg` (2400×1600, display width 960) measured
-3,174 bytes: **~3 KB of uncompressed HTML**, depending on path and attributes.
-That is markup overhead, not transferred image bytes; compression and full-page RSC data vary. Private expiry/signature rotation creates new cache entries (30 minutes by default).
+hero has 11 image candidates (five AVIF, five WebP, one JPEG), plus five preload candidates.
+The pinned Built-ins omit default JPEG format, quality 75, pad resizing and white background;
+transparent formats retain their explicit background. Dimensions stay explicit. Custom Templates
+keep all fields because their defaults are unknown; `cdn` is sent only when delivery configuration
+sets it. This deliberately changes cache keys during unpublished dogfood. Markup overhead is not
+transferred image bytes; compression and full-page RSC data vary. Private expiry/signature rotation
+creates new cache entries (30 minutes by default).
 Public URLs have no signature or expiry. They are cache-busted, not immutable origin identities:
 an old uncached URL can fetch new bytes after a path overwrite. Prefer immutable filenames.
-With a receipt MD5, `v` is its first 16 hex digits and
+`v` is a cache-busting tag derived from the receipt hash; the origin does not verify it, so a cold
+request after an overwrite can return the replacement. With a receipt MD5 it uses the first 16 hex digits and
 responses use `public, max-age=31536000, s-maxage=31536000, immutable`. Changed bytes plus a refreshed
-catalog change the cache key. Without an MD5, no version is invented: the public Built-in uses its
+catalog change the cache key. Without an MD5, no cache tag is invented: the public Built-in uses its
 ordinary three-day browser/one-day shared cache policy. Production Bunny cache hits/cost are a
 separate deployment check, not something the local browser fixture establishes.
 
@@ -606,7 +626,8 @@ rebuild `{ path, width, height }`, which can be passed directly as `StorageImage
 `md5hash` is included only for compatible single-part ETags; multipart, opaque and SSE-KMS/SSE-C
 ETags are not treated as MD5. See [S3's ETag contract](https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html).
 HEAD does not expose `asset_id`: sync recovers rendering metadata, not a verified upload receipt.
-Sync preserves an existing `asset_id` and `size` only when the HEAD MD5 matches the saved hash.
+Sync preserves an existing `asset_id`, `size` and `thumbhash` only when the HEAD MD5 matches the saved hash.
+It cannot generate a ThumbHash from List + HEAD; fresh recovered receipts leave that field absent.
 Otherwise it replaces that entry with rendering metadata, so stale upload evidence is not retained.
 
 Sync adds or refreshes matching paths and never prunes unmatched entries. Any missing/invalid
@@ -674,9 +695,10 @@ Read the saved receipt in an authorized Server Component and pass it as `src`:
 <StorageImage src={savedImage} alt={savedImage.description} width={960} />
 ```
 
-`savedImage` is the application's validated database record; owner and asset IDs are never forwarded. A public receipt MD5 contributes only the `v` cache tag;
-private signing omits it. Delivery resolves the current path. The cache tag is not an origin version selector: even with
-`v`, a cold request for an overwritten path can retrieve new bytes. Prefer immutable paths.
+`savedImage` is the application's validated database record; owner and asset IDs are never forwarded.
+A public receipt's `v` is a cache-busting tag derived from the receipt hash; the origin does not
+verify it, so a cold request after an overwrite can return the replacement. Private signing omits
+the tag. Prefer immutable filenames; see [upload/overwrite guidance](#receipt-integrity-and-recovery).
 The browser never needs the Assembly secret, Smart CDN secret, or a render-time metadata lookup.
 
 ### Credentials and framework adapters

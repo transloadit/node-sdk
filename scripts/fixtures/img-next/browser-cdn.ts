@@ -56,9 +56,10 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
       timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
     const width = Number(url.searchParams.get('w'))
     const height = Number(url.searchParams.get('h'))
-    const format = url.searchParams.get('f')
-    const strategy = url.searchParams.get('r')
-    const background = url.searchParams.get('bg') ?? ''
+    // Mirror the verified defaults of the two pinned API2 preview Built-ins.
+    const format = url.searchParams.get('f') ?? 'jpg'
+    const strategy = url.searchParams.get('r') ?? 'pad'
+    const background = url.searchParams.get('bg') ?? '#ffffff'
     const mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`
     const path = decodeURIComponent(url.pathname)
     const publicTemplate = '/file/fixture/builtin/public-preview@0.0.1/'

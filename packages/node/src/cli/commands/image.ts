@@ -233,7 +233,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         }
       }
       const instruction = this.privateDelivery
-        ? 'Connect your application session and per-object authorization in transloadit.authorize.ts; the generated handler denies access until then. Use a separate application key with Smart CDN on and assemblies:write: renditions are produced by an Assembly. Configure it in Console → Credentials.'
+        ? 'Connect your application session and per-object authorization in transloadit.authorize.ts; the generated handler denies access until then. Use a separate application key with Smart CDN on and smart_cdn:sign; assemblies:write is also accepted, but grants broader Assembly access. Configure it in Console → Credentials.'
         : this.publicDelivery
           ? 'The directory is published. Public images use permanent unsigned CDN URLs.'
           : 'Example created using the existing catalog; no publication policy was changed.'

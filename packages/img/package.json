@@ -63,7 +63,8 @@
   "dependencies": {
     "@noble/ciphers": "^1.3.0",
     "@transloadit/utils": "workspace:^",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "thumbhash": "0.1.1"
   },
   "peerDependencies": {
     "next": ">=16.3.3 <17.0.0",

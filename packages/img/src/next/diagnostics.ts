@@ -45,7 +45,7 @@ async function probe(path: string, url: string, publicPrefix?: string): Promise<
       return summary
     const hints =
       code === 'INSUFFICIENT_AUTH_SCOPE'
-        ? 'This key needs assemblies:write to generate image renditions through an Assembly. In Console → Credentials, edit the application key: enable Smart CDN and assemblies:write.'
+        ? 'Grant smart_cdn:sign for image delivery. In Console → Credentials, edit the application key: enable Smart CDN and smart_cdn:sign; assemblies:write is also accepted, but grants broader Assembly access.'
         : response.status === 404
           ? 'Check the workspace slug, that the Storage path exists there, and the configured Template.'
           : publicPrefix !== undefined && code === 'NO_SIGNATURE_FIELD'

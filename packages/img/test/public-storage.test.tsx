@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { parseSmartCdnUrl } from '@transloadit/utils/node'
+import { getSignedSmartCdnUrl, parseSmartCdnUrl } from '@transloadit/utils/node'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -40,6 +40,110 @@ afterEach(() => {
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+})
+
+test('Built-in URLs omit defaults but retain transparent format parameters and explicit dimensions', () => {
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const markup = renderToStaticMarkup(
+    <StorageImage src="website/hero.jpg" alt="Hero" formats={{ avif: 45, webp: 75 }} />,
+  )
+  const fallback = parseSmartCdnUrl(imageUrl(markup))
+  expect(fallback.urlParams).toEqual({ w: '2400', h: '1600', v: hash.slice(0, 16) })
+  const doc = new DOMParser().parseFromString(markup, 'text/html')
+  const webp = doc.querySelector('source[type="image/webp"]')?.getAttribute('srcset')?.split(' ')[0]
+  if (webp === undefined) throw new Error('Missing WebP candidate')
+  expect(parseSmartCdnUrl(webp).urlParams).toEqual({
+    w: '320',
+    h: '213',
+    f: 'webp',
+    bg: '#00000000',
+    v: hash.slice(0, 16),
+  })
+})
+
+test('custom Templates keep every transform field because their defaults are not known', () => {
+  const { StorageImage } = createStorageImages({
+    images,
+    public: ['website/'],
+    publicTemplate: 'customer-preview-template',
+    delivery: { urlParams: { cdn: 'required' } },
+  })
+  const url = imageUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />))
+  expect(parseSmartCdnUrl(url).urlParams).toEqual({
+    w: '2400',
+    h: '1600',
+    f: 'jpg',
+    bg: '#ffffff',
+    r: 'pad',
+    q: '75',
+    cdn: 'required',
+    v: hash.slice(0, 16),
+  })
+})
+
+test('nondefault crop, background and quality remain explicit on compact Built-in URLs', () => {
+  const { StorageImage } = createStorageImages({
+    images,
+    public: ['website/'],
+    delivery: { urlParams: { cdn: 'required' } },
+  })
+  const url = imageUrl(
+    renderToStaticMarkup(
+      <StorageImage
+        src="website/hero.jpg"
+        alt="Hero"
+        layout="fixed"
+        width={200}
+        height={200}
+        fit="cover"
+        fallbackQuality={80}
+        fallbackBackground="#224466"
+      />,
+    ),
+  )
+  expect(parseSmartCdnUrl(url).urlParams).toEqual({
+    w: '200',
+    h: '200',
+    bg: '#224466',
+    r: 'fillcrop',
+    q: '80',
+    cdn: 'required',
+    v: hash.slice(0, 16),
+  })
+})
+
+test('a private redirect signs the compact parameters and retains authentication and expiry', async () => {
+  const authorize = vi.fn(() => true)
+  const { StorageImage, storageRoute } = createStorageImages({
+    images,
+    authorize,
+    authKey: 'signing-key',
+    authSecret: 'signing-secret',
+  })
+  const path = imageUrl(
+    renderToStaticMarkup(<StorageImage src="private/avatar.png" alt="Private" />),
+  )
+  const response = await storageRoute(new Request(new URL(path, 'https://app.example')))
+  expect(response.status).toBe(307)
+  const target = response.headers.get('location')
+  if (target === null) throw new Error('Missing signed redirect')
+  const parsed = parseSmartCdnUrl(target)
+  expect(parsed.urlParams).toEqual({ w: '400', h: '300' })
+  expect(parsed.auth?.expiresAt).toBeGreaterThan(Date.now())
+  if (parsed.auth === undefined) throw new Error('Missing signature')
+  expect(target).toBe(
+    getSignedSmartCdnUrl({
+      workspace: 'my-app',
+      authKey: 'signing-key',
+      authSecret: 'signing-secret',
+      expiresAt: parsed.auth.expiresAt,
+      input: 'private/avatar.png',
+      template: 'builtin/storage-preview@0.0.2',
+      urlParams: { w: 400, h: 300 },
+    }),
+  )
+  expect(authorize).toHaveBeenCalledOnce()
+  expect(await response.text()).toBe('')
 })
 
 test('public receipt images render permanent versioned URLs without any signing credentials', () => {

@@ -15,7 +15,7 @@ const receiptsSchema = z.custom<Record<string, unknown>>(
 )
 const deliveryParameterSchema = z.union([z.string(), z.number(), z.boolean()])
 
-/** Nonsecret project identity and rendering metadata, committed together. */
+/** Project identity and rendering metadata (including optional preview pixels), without credentials. */
 export const storageCatalogSchema = z.object({
   workspace: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/),
   public: z.array(
@@ -74,7 +74,7 @@ function catalogTypes(catalog: StorageProjectCatalog): string {
       if (!dimensions.success) return []
       const { width, height } = dimensions.data
       const name = JSON.stringify(path)
-      return `    ${name}: { path: ${name}; width: ${width}; height: ${height} }`
+      return `    ${name}: { path: ${name}; width: ${width}; height: ${height}; thumbhash?: string }`
     })
   return [
     typesHeader,

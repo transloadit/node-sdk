@@ -220,9 +220,8 @@ const test = base.extend<{ audit: BrowserAudit }>({
         const url = new URL(image.url)
         expect(image.width).toBe(Number(url.searchParams.get('w')))
         expect(image.height).toBe(Number(url.searchParams.get('h')))
-        expect(image.contentType).toBe(
-          `image/${url.searchParams.get('f') === 'jpg' ? 'jpeg' : url.searchParams.get('f')}`,
-        )
+        const format = url.searchParams.get('f') ?? 'jpg'
+        expect(image.contentType).toBe(`image/${format === 'jpg' ? 'jpeg' : format}`)
       }
       await rm(revokedAccessFile, { force: true })
     },
@@ -631,7 +630,7 @@ test.describe('JPEG fallback', () => {
     const images = cdn.requests.slice(requestOffset).map((request) => new URL(request.url))
     // Browsers disable native lazy loading when JavaScript is disabled.
     expect(images).toHaveLength(3)
-    expect(images.every((url) => url.searchParams.get('f') === 'jpg')).toBe(true)
+    expect(images.every((url) => (url.searchParams.get('f') ?? 'jpg') === 'jpg')).toBe(true)
   })
 })
 
@@ -889,6 +888,83 @@ test('unsigned public Built-ins refuse private paths and private Built-ins never
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
   publicUrl.pathname = '/file/fixture/builtin%2Fstorage-preview%400.0.2/website%2Fhero.jpg'
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
+})
+
+test('the packaged public image embeds its blur before native delivery', async ({
+  page,
+}, testInfo) => {
+  const delivery = Promise.withResolvers<void>()
+  await page.route(`${cdnOrigin}/**`, async (route) => {
+    await delivery.promise
+    await route.continue()
+  })
+  try {
+    await page.goto('/fixture/package-public', { waitUntil: 'domcontentloaded' })
+    const image = page.getByRole('img', { name: 'Package public hero', exact: true })
+    await expect(image).toHaveCSS('background-image', /^url\("data:image\/png;base64,/)
+    await testInfo.attach('blur-before-load', {
+      // Screenshots await document.fonts.ready, which can await load while this image is held.
+      body: JSON.stringify(
+        await image.evaluate((element) => ({
+          background: getComputedStyle(element).backgroundImage,
+          width: element.getBoundingClientRect().width,
+          height: element.getBoundingClientRect().height,
+        })),
+      ),
+      contentType: 'application/json',
+    })
+    delivery.resolve()
+    await decode(image)
+    await testInfo.attach('blur-after-load', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  } finally {
+    delivery.resolve()
+  }
+})
+
+test('short public AVIF, WebP and JPEG candidates all decode natively', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/fixture/package-public')
+  const image = page.getByRole('img', { name: 'Package public hero', exact: true })
+  await decode(image)
+  const picture = image.locator('..')
+  const jpeg = await image.getAttribute('src')
+  const avif = (await picture.locator('source[type="image/avif"]').getAttribute('srcset'))?.split(
+    ' ',
+  )[0]
+  const webp = (await picture.locator('source[type="image/webp"]').getAttribute('srcset'))?.split(
+    ' ',
+  )[0]
+  for (const [candidate, mime] of [
+    [avif, 'image/avif'],
+    [webp, 'image/webp'],
+    [jpeg, 'image/jpeg'],
+  ]) {
+    assert(candidate)
+    const url = new URL(candidate)
+    expect(url.searchParams.has('r')).toBe(false)
+    expect(url.searchParams.has('cdn')).toBe(false)
+    if (mime === 'image/jpeg') {
+      expect(url.searchParams.has('f')).toBe(false)
+      expect(url.searchParams.has('bg')).toBe(false)
+      expect(url.searchParams.has('q')).toBe(false)
+    }
+    const response = await context.request.get(url.href)
+    expect(response.status()).toBe(200)
+    expect(response.headers()['content-type']).toBe(mime)
+    const decoded = await page.evaluate(async (url) => {
+      const candidate = new Image()
+      candidate.src = url
+      await candidate.decode()
+      return { width: candidate.naturalWidth, height: candidate.naturalHeight }
+    }, url.href)
+    expect(decoded.width).toBe(Number(url.searchParams.get('w')))
+    expect(decoded.height).toBe(Number(url.searchParams.get('h')))
+  }
 })
 
 test('a portrait fill layout downloads the cropped box rather than an oversized landscape', async ({

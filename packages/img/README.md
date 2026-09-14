@@ -11,8 +11,8 @@ After release: `npm install @transloadit/img && npm install --save-dev @transloa
 pnpm: `pnpm add @transloadit/img && pnpm add -D @transloadit/node`;
 Yarn: `yarn add @transloadit/img && yarn add -D @transloadit/node`.
 
-Run beside `package.json`. No account yet? Sign up in the browser if you're new;
-a new free workspace works. For `./hero.jpg`, use any JPEG you have.
+Run beside `package.json`. No account yet? Sign up in the browser; a new free workspace works.
+For `./hero.jpg`, use any JPEG you have.
 
 ```bash
 npx transloadit auth login
@@ -26,6 +26,9 @@ import { withTransloaditImages } from '@transloadit/img/next/config'
 export default withTransloaditImages({ /* your existing Next config */ })
 ```
 
+Use an immutable filename for long-lived assets: `--overwrite` replaces the current path;
+[a receipt cache tag does not pin old bytes](./docs/reference.md#cache-and-markup-cost).
+
 Render in `app/page.tsx` or any Server Component. If your app has `src/`, prefix the source paths:
 
 ```tsx
@@ -35,23 +38,23 @@ export default function Page() {
 }
 ```
 
-Run `npm run dev` and open `/`. Commit the generated `transloadit.images.json` and
-`transloadit-images.d.ts`, then deploy. Public images need no application secrets.
-The plugin is required: it bundles the catalog; no runtime filesystem lookup is assumed.
+Run `npm run dev` and open `/`. Commit `transloadit.images.json` and `transloadit-images.d.ts`, then deploy.
+Public images need no app secrets. The required plugin bundles the catalog, with no runtime lookup.
 
 ## Responsive
 
 Catalog paths autocomplete. `width` sets a responsive maximum; `preload` makes a hero eager,
 preloads its responsive source and sets high fetch priority. Other images load lazily.
+Add `placeholder="blur"` for an inline preview from the receipt's optional `thumbhash`.
 [Layouts, art direction and the temporary priority alias](./docs/reference.md#responsive).
 
 ## Private
 
 Use your application's session and per-object permissions, with a separate application key:
-Console → Credentials → New Auth Key: Smart CDN on and scope `assemblies:write`
-(renditions are produced by an Assembly). Set `TRANSLOADIT_SMART_CDN_KEY` and
-`TRANSLOADIT_SMART_CDN_SECRET` on your host, not the developer's disposable login key:
-`auth logout` revokes that login key. [Private setup](./docs/reference.md#private).
+Console → Credentials → New Auth Key: Smart CDN on and scope `smart_cdn:sign`
+(`assemblies:write` is also accepted, but grants broader Assembly access).
+Set `TRANSLOADIT_SMART_CDN_KEY` and `TRANSLOADIT_SMART_CDN_SECRET` on your host, not the disposable
+login key that `auth logout` revokes. [Private setup](./docs/reference.md#private).
 
 ## When it breaks
 
@@ -63,5 +66,4 @@ the HEAD result; see the terminal. Non-production login endpoints carry into the
 
 ## Reference
 
-[Full reference](./docs/reference.md) ·
-[Maintainer dogfood setup](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md).
+[Full reference](./docs/reference.md) · [Maintainer dogfood setup](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md).

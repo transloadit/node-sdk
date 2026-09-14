@@ -7,6 +7,8 @@ export interface TransloaditImageSource {
   readonly height: number
   /** Original-byte MD5 from a verified receipt or compatible Storage HEAD ETag. */
   readonly md5hash?: string
+  /** Optional base64 ThumbHash, generated from the original bytes by storage store. */
+  readonly thumbhash?: string
 }
 
 /** A path needs separate dimensions; a receipt owns its dimensions. */
@@ -31,6 +33,7 @@ export function snapshotImageSource(props: {
   let width: unknown
   let height: unknown
   let md5hash: unknown
+  let thumbhash: unknown
   if (typeof src === 'string') {
     path = src
     width = props.width
@@ -54,6 +57,7 @@ export function snapshotImageSource(props: {
     width = src.width
     height = src.height
     md5hash = 'md5hash' in src ? src.md5hash : undefined
+    thumbhash = 'thumbhash' in src ? src.thumbhash : undefined
   }
   if (typeof path !== 'string') throw new TypeError('Storage image receipt path must be a string')
   validateStoragePath(path)
@@ -66,5 +70,6 @@ export function snapshotImageSource(props: {
     width,
     height,
     ...(typeof md5hash === 'string' ? { md5hash: md5hash.toLowerCase() } : {}),
+    ...(typeof thumbhash === 'string' ? { thumbhash } : {}),
   }
 }

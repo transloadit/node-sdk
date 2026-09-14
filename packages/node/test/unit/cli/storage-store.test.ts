@@ -95,6 +95,18 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('saves optional ThumbHash metadata, declares it and prints the blur opt-in', async () => {
+    const blurred = { ...receipt, thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI' }
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(blurred)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    expect(JSON.parse(await readFile('images.json', 'utf8')).images[receipt.path]).toEqual(blurred)
+    expect(await readFile('transloadit-images.d.ts', 'utf8')).toContain('thumbhash?: string')
+    expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+      expect.stringContaining('placeholder="blur"'),
+      blurred,
+    )
+  })
   test('generated declarations cannot overwrite the catalog or input image', async () => {
     const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await main([
@@ -175,7 +187,7 @@ describe('storage store', () => {
     const types = await readFile('transloadit-images.d.ts', 'utf8')
     expect(types).toContain("declare module '@transloadit/img/next'")
     expect(types).toContain(
-      '"website/hero.jpg": { path: "website/hero.jpg"; width: 800; height: 600 }',
+      '"website/hero.jpg": { path: "website/hero.jpg"; width: 800; height: 600; thumbhash?: string }',
     )
     expect(types).not.toMatch(/assembly-key|assembly-secret|stored-asset|md5hash/)
     expect(types).toMatch(/\n$/)
@@ -498,7 +510,7 @@ describe('storage store', () => {
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining(
-        `<StorageImage src="website/hero.jpg" alt="hero" width={${maxWidth}} />`,
+        `<StorageImage src="website/hero.jpg" alt="hero" width={${maxWidth}} placeholder="blur" />`,
       ),
       { ...receipt, width },
     )
@@ -764,7 +776,7 @@ describe('storage store', () => {
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toBe(
-      'Saved website/hero.jpg in images.json. Commit this catalog and transloadit-images.d.ts.\nRender it with <StorageImage src="website/hero.jpg" alt="hero" width={800} />\nReplace alt with a description (or an empty string for a decorative image).',
+      'Saved website/hero.jpg in images.json. Commit this catalog and transloadit-images.d.ts.\nRender it with <StorageImage src="website/hero.jpg" alt="hero" width={800} placeholder="blur" />\nReplace alt with a description (or an empty string for a decorative image).',
     )
     expect(await readdir(directory)).toEqual([
       'credentials',

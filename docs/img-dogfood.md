@@ -86,7 +86,7 @@ stores this metadata automatically for subsequent CLI requests.
   secret, used to sign the one-time upload/store Assembly. Put these in **`.env.seed.local`**,
   loaded only by the seed command below.
 - `TRANSLOADIT_SMART_CDN_KEY` and `TRANSLOADIT_SMART_CDN_SECRET`: a **Smart CDN Auth Key** and its
-  secret, with Smart CDN enabled **and `assemblies:write`**: renditions are produced by an Assembly.
+  secret, with Smart CDN enabled **and `smart_cdn:sign`** (`assemblies:write` is also accepted).
   Put these in **`.env.local`** for Next.js. An Assembly-only key cannot replace this key.
 - `TRANSLOADIT_WORKSPACE`: put the workspace's URL slug in `.env.local` too. In a Console URL such
   as `/c/my-workspace/`, the slug is `my-workspace`, not a key or workspace ID.
@@ -190,8 +190,9 @@ alongside your content or in your application's database; rendering needs no met
 The dimensions account for EXIF orientation, matching Storage preview's automatic rotation:
 a stored 450×600 photo tagged “Rotate 90 CW” returns a 600×450 display size.
 The `asset_id` identifies the stored asset. Pass the whole receipt as `src`; its path and dimensions
-drive rendering. Public URLs also carry an MD5-derived `v` cache tag; that tag is not an immutable
-origin version selector. Receipt IDs and other upload-only fields do not enter markup. The rendering
+drive rendering. Public URLs carry `v`, a cache-busting tag derived from the receipt hash; the origin
+does not verify it, so a cold request after an overwrite can return the replacement. Use immutable
+filenames instead of overwriting published assets. Receipt IDs and other upload-only fields do not enter markup. The rendering
 package does not import the Assembly client.
 
 ### Direct devdock origin

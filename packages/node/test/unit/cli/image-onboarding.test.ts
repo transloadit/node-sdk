@@ -437,7 +437,7 @@ describe('image init', () => {
     expect(process.exitCode).toBeUndefined()
     expect(await readFile('transloadit.authorize.ts', 'utf8')).toContain('export const authorize')
     expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toMatch(
-      /Smart CDN.*assemblies:write.*Assembly/,
+      /Smart CDN.*smart_cdn:sign.*assemblies:write is also accepted/,
     )
     expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toBe(
       "export { GET, HEAD } from '@transloadit/img/next/route'\n",

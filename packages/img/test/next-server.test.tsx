@@ -348,7 +348,7 @@ describe('development delivery diagnostics', () => {
     expect(console.warn).not.toHaveBeenCalled()
   })
 
-  test('diagnoses the required Assembly scope from the origin header without reading its body', async () => {
+  test('diagnoses the least-privilege signing scope from the origin header without reading its body', async () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(authSecret, {
         status: 403,
@@ -360,7 +360,10 @@ describe('development delivery diagnostics', () => {
       await diagnose?.('uploads/hero.jpg', 'https://cdn.example/hero.jpg?sig=private'),
     ).toContain('INSUFFICIENT_AUTH_SCOPE')
     expect(console.warn).toHaveBeenCalledWith(
-      expect.stringMatching(/INSUFFICIENT_AUTH_SCOPE.*assemblies:write.*Console.*Credentials/),
+      expect.stringMatching(/INSUFFICIENT_AUTH_SCOPE.*smart_cdn:sign.*Console.*Credentials/),
+    )
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('assemblies:write is also accepted'),
     )
     expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toMatch(
       /server clock|never-render-this-secret|sig=private/,
@@ -653,7 +656,7 @@ describe('createStorageImages', () => {
     const target = parseSmartCdnUrl(response.headers.get('location') ?? '', {
       baseUrl: baseConfiguration.baseUrl,
     })
-    expect(target.urlParams).toMatchObject({ r: 'fillcrop', w: '48', h: '48', f: 'jpg' })
+    expect(target.urlParams).toEqual({ r: 'fillcrop', w: '48', h: '48' })
   })
 
   test('fill cover signs the declared box ratio and retains explicit layout overrides', async () => {
@@ -1551,7 +1554,7 @@ describe('createStorageImages', () => {
     expect(firstSource.searchParams.get('f')).toBe('webp')
     expect(firstSource.searchParams.get('h')).toBe('150')
     expect(firstSource.searchParams.get('q')).toBe('61')
-    expect(firstFallback.searchParams.get('f')).toBe('jpg')
+    expect(firstFallback.searchParams.has('f')).toBe(false)
     expect(firstDocument.querySelector('img')?.getAttribute('loading')).toBe('lazy')
     expect(firstSource.searchParams.get('exp')).toBe(String(Date.parse('2029-01-01T13:00:00Z')))
 
@@ -1715,7 +1718,7 @@ describe('createStorageImages', () => {
     expect(authorize).toHaveBeenCalledWith({ path: 'documents/report.pdf', request })
     expect(target.template).toBe('builtin/storage-preview@0.0.2')
     expect(target.input).toBe('documents/report.pdf')
-    expect(target.urlParams).toMatchObject({ f: 'avif', h: '240', q: '45', r: 'pad', w: '320' })
+    expect(target.urlParams).toEqual({ bg: '#00000000', f: 'avif', h: '240', q: '45', w: '320' })
     expect(target.auth?.expiresAt).toBe(Date.parse('2029-01-01T13:00:00Z'))
   })
 

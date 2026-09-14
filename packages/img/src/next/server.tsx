@@ -19,6 +19,7 @@ import { validateStoragePath, validateStoragePathPrefix } from '@transloadit/uti
 import { getSignedSmartCdnUrl, getSmartCdnUrl } from '@transloadit/utils/node'
 import { connection } from 'next/server.js'
 import { Suspense, use } from 'react'
+import { thumbHashToDataURL } from 'thumbhash'
 
 import { isOpaqueImageBackground, transparentImageBackground } from '../imageBackground.ts'
 import { snapshotImageSource } from '../imageSource.ts'
@@ -140,6 +141,8 @@ export type TransloaditImageProps<Catalog extends StorageImageCatalog | undefine
       /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
       fallbackQuality?: number
       formats?: StoragePreviewFormats
+      /** Opt-in receipt blur; request-authorized private redirects do not expose placeholder pixels. */
+      placeholder?: 'blur' | 'empty'
       /** Static shell used only while direct request-time signing is suspended. */
       suspenseFallback?: ReactNode
       /** Advanced candidate override. Defaults to a conservative ladder capped at `width`. */
@@ -214,6 +217,7 @@ type ResolvedStorageImageProps = TransloaditImagePresentationProps & {
   fallbackBackground?: string
   fallbackQuality?: number
   formats?: StoragePreviewFormats
+  placeholder?: 'blur' | 'empty'
   suspenseFallback?: ReactNode
   widths?: readonly number[]
 }
@@ -534,6 +538,23 @@ function snapshotUrlParams(
   return snapshot
 }
 
+function previewUrlParams(template: string, parameters: SmartCdnUrlParams): SmartCdnUrlParams {
+  // These exact versions share API2's defaults. Customer templates (and future Built-ins) may not.
+  if (template !== 'builtin/storage-preview@0.0.2' && template !== 'builtin/public-preview@0.0.1')
+    return parameters
+  const defaults: Readonly<Record<string, string | number>> = {
+    bg: '#ffffff',
+    f: 'jpg',
+    q: 75,
+    r: 'pad',
+  }
+  return Object.fromEntries(
+    Object.entries(parameters).filter(
+      ([name, value]) => !Object.hasOwn(defaults, name) || defaults[name] !== value,
+    ),
+  )
+}
+
 function snapshotStorageImageProps(
   props: TransloaditImageProps<StorageImageCatalog>,
   layout: ReturnType<typeof resolveImageLayout>,
@@ -557,6 +578,7 @@ function snapshotStorageImageProps(
     height: layout.height,
     maximumWidth: layout.maximumWidth,
     objectFit: props.objectFit,
+    placeholder: props.placeholder,
     source: layout.source,
     sizes:
       attributes.sizes ??
@@ -584,7 +606,33 @@ function renderPicture(
   props: ResolvedStorageImageProps,
   model: Parameters<typeof TransloaditPicture>[0]['model'],
   diagnostic?: Promise<string>,
+  inlinePixels = false,
 ): ReactNode {
+  let blurDataURL: string | undefined
+  if (props.placeholder === 'blur') {
+    const hash = props.source.thumbhash
+    // Receipt metadata can be hand-edited. Bound decoding and reject malformed base64/geometry.
+    const bytes =
+      typeof hash === 'string' && hash.length <= 48 && /^[A-Za-z0-9+/]+={0,2}$/.test(hash)
+        ? Buffer.from(hash, 'base64')
+        : undefined
+    if (
+      inlinePixels &&
+      bytes !== undefined &&
+      bytes.length >= 17 &&
+      bytes.length <= 25 &&
+      bytes.toString('base64') === hash &&
+      ((bytes[3] ?? 0) & 7) > 0
+    ) {
+      blurDataURL = thumbHashToDataURL(bytes)
+    } else if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        inlinePixels
+          ? `[StorageImage] ${JSON.stringify(props.source.path)} has no usable thumbhash; placeholder="blur" is a no-op. Use storage store with the original bytes to generate it.`
+          : `[StorageImage] ${JSON.stringify(props.source.path)} uses request-authorized private delivery; placeholder="blur" is a no-op so its pixels are not exposed before authorization.`,
+      )
+    }
+  }
   const errorFallback =
     props.errorFallback === undefined || process.env.NODE_ENV !== 'development' ? (
       props.errorFallback
@@ -602,7 +650,12 @@ function renderPicture(
     )
   const picture = (
     <StorageImageFrame props={props}>
-      <TransloaditPicture {...props} model={model} errorFallback={errorFallback} />
+      <TransloaditPicture
+        {...props}
+        model={model}
+        errorFallback={errorFallback}
+        blurDataURL={blurDataURL}
+      />
     </StorageImageFrame>
   )
   return props.diagnoseSize ? <ImageSizeDiagnostics>{picture}</ImageSizeDiagnostics> : picture
@@ -929,7 +982,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
       expiresAt: request.expiresAt,
       input: request.input,
       template: request.template,
-      urlParams: { ...urlParams, ...request.urlParams },
+      urlParams: previewUrlParams(request.template, { ...urlParams, ...request.urlParams }),
     })
   const publicTemplate = configuration.publicTemplate ?? transloaditPublicStoragePreviewTemplate
   validateTemplate(publicTemplate, 'publicTemplate')
@@ -942,11 +995,11 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
       baseUrl,
       template: publicTemplate,
       input: request.input,
-      urlParams: {
+      urlParams: previewUrlParams(publicTemplate, {
         ...urlParams,
         ...request.urlParams,
         ...(md5hash === undefined ? {} : { v: md5hash.slice(0, 16) }),
-      },
+      }),
     })
   const redirectDelivery = storagePolicy.delivery
   let storageCapability: ResolvedStorageCapabilityPolicy | undefined
@@ -1020,7 +1073,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
       props.source.path,
       model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl,
     )
-    return renderPicture(props, model, diagnostic)
+    return renderPicture(props, model, diagnostic, true)
   }
 
   function StorageImage(props: TransloaditImageProps<Catalog>): ReactNode {
@@ -1042,7 +1095,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
         model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl,
         publicPrefix,
       )
-      return renderPicture(storageProps, model, diagnostic)
+      return renderPicture(storageProps, model, diagnostic, true)
     }
     if (redirectDelivery === 'direct') {
       if (!privateDirect)

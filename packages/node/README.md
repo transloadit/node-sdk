@@ -136,8 +136,11 @@ Existing code/env files are never overwritten. Missing trailing directory slashe
 
 Store uploads originals and appends validated receipts to `transloadit.images.json`; commit it.
 `storage store ./images/*.jpg website/` stores shell-expanded files, checkpointing each success.
-It prints `width={960}` (bounded by the original) with a filename-derived alt and a reminder.
+It prints `width={960}` (bounded by the original) and `placeholder="blur"`, with a filename-derived
+alt and a reminder. Store generates an optional base64 `thumbhash` from the original bytes.
 An occupied path conflicts unless `--overwrite` is explicit; use immutable filenames where possible.
+The public image `v` is a cache-busting tag derived from the receipt hash; the origin does not verify
+it, so a cold request after an overwrite can return the replacement.
 Publication can also be managed explicitly:
 
 ```bash
