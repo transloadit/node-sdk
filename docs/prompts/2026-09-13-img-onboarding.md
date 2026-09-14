@@ -328,3 +328,26 @@ Generated types intentionally stay canonical LF; Git handles checkout conversion
 are refreshed after this bounded correction; earlier green CI is not relabeled as its proof.
 
 Report and commit-stamped evidence: `/tmp/img-task2-round12-report.md`.
+
+## Round 13 — truthful setup and actionable diagnostics
+
+Input: /tmp/img-task2-round13-brief.md and both independent Rauch round-9 reports. Their no-init
+public setup passed in 4m14 and 3m03 including signup; these are reader timings, not this round's.
+Stay in Kevin's reserved node-sdk checkout and #500, private 0.0.0. No merge or publication.
+
+- [x] Specify Smart CDN plus assemblies:write for private keys and use the origin's error header.
+- [x] Name unknown paths, nearby catalog matches and fixes; explain unpublish and dev policy changes.
+- [x] Make optional examples use the package import, not a second factory scaffold shape.
+- [x] Show sha256 for combined keys in leading SDK examples; keep the existing default unchanged.
+- [x] Qualify cache/recovery/host claims and list known limits in the PR body.
+- [ ] Red-first regressions, local checks, packed fixture, independent reviews and exact-head CI.
+
+Report: /tmp/img-task2-round13-report.md. Broader API2/Console changes and deferred product ideas
+remain outside this round; no additional clone or worktree is needed.
+
+Red-first contract evidence: scope/header + docs/CLI regressions, safe unknown-path and unpublish
+advice, HMR policy snapshots, package-only scaffold (including custom catalog/owned-code preservation),
+and SHA-256/cache/recovery examples. Focused suites are green; check, img check and verify pass
+(288 img, 594 Node with one pre-existing skip). Owned Next dev/browser desktop/mobile and real
+catalog hot reload pass; /tmp/img-r13-evidence-eGTRmZ contains screenshots and redacted evidence.
+Packed fixture, independent review and exact-head CI are the remaining gates at this checkpoint.

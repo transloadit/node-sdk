@@ -154,6 +154,34 @@ describe('development delivery diagnostics', () => {
     )
   })
 
+  test('a denied private route names its catalog path and the opt-in publication fix', async () => {
+    const { StorageImage, storageRoute } = createStorageImages({
+      ...baseConfiguration,
+      delivery: undefined,
+      public: [],
+      authorize: () => false,
+    })
+    const markup = renderToStaticMarkup(
+      <StorageImage src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} alt="Hero" />,
+    )
+    const url = new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
+    const denied = await storageRoute(new Request(url))
+    expect(denied.status).toBe(404)
+    expect(await denied.text()).toBe('')
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('"documents/hero.jpg"'))
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('not under a public prefix'))
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('If it should be public'))
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('storage publish -- documents/'),
+    )
+    await storageRoute(new Request(url))
+    expect(console.warn).toHaveBeenCalledOnce()
+    expect(fetch).not.toHaveBeenCalled()
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toMatch(
+      /cap=|auth-key|never-render-this-secret/,
+    )
+  })
+
   test('direct images settle before a slow diagnostic, without consuming their grant lifetime', async () => {
     vi.useRealTimers()
     let finishProbe: (response: Response) => void = () => {
@@ -270,6 +298,58 @@ describe('development delivery diagnostics', () => {
     )
     expect(fetch).not.toHaveBeenCalled()
     expect(console.warn).not.toHaveBeenCalled()
+  })
+
+  test('diagnoses the required Assembly scope from the origin header without reading its body', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(authSecret, {
+        status: 403,
+        headers: { 'Transloadit-Error': 'INSUFFICIENT_AUTH_SCOPE' },
+      }),
+    )
+    const diagnose = createImageDiagnostics('scope-test')
+    expect(
+      await diagnose?.('uploads/hero.jpg', 'https://cdn.example/hero.jpg?sig=private'),
+    ).toContain('INSUFFICIENT_AUTH_SCOPE')
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringMatching(/INSUFFICIENT_AUTH_SCOPE.*assemblies:write.*Console.*Credentials/),
+    )
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toMatch(
+      /server clock|never-render-this-secret|sig=private/,
+    )
+    expect(fetch).toHaveBeenCalledExactlyOnceWith(
+      expect.any(String),
+      expect.objectContaining({ method: 'HEAD' }),
+    )
+  })
+
+  test.each([
+    { code: 'INVALID_SIGNATURE', status: 403 },
+    { code: 'AUTH_KEY_NOT_FOUND', status: 401 },
+    { code: 'INTERNAL_SERVER_ERROR', status: 500 },
+  ])('retains origin error code $code in the safe HEAD result and diagnostic', async ({
+    code,
+    status,
+  }) => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(null, { status, headers: { 'Transloadit-Error': code } }),
+    )
+    const diagnose = createImageDiagnostics('code-test')
+    expect(await diagnose?.('uploads/hero.jpg', 'https://cdn.example/hero.jpg')).toContain(code)
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining(code))
+  })
+
+  test('does not echo malformed origin error metadata or a response body', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(authSecret, {
+        status: 403,
+        headers: { 'Transloadit-Error': `INSUFFICIENT_AUTH_SCOPE?secret=${authSecret}` },
+      }),
+    )
+    const diagnose = createImageDiagnostics('unsafe-code-test')
+    const result = await diagnose?.('uploads/hero.jpg', 'https://cdn.example/hero.jpg')
+    expect(result).not.toContain(authSecret)
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain(authSecret)
   })
 
   test.each([

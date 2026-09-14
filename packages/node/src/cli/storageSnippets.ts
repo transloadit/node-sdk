@@ -17,28 +17,16 @@ function sourceString(value: string): string {
   return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('\n', '\\n').replaceAll('\r', '\\r').replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029')}'`
 }
 
-/** One catalog-typed Next.js factory for image init. */
-export function storageImageFactory(receiptsImport: string): string {
-  return [
-    "import { createStorageImages } from '@transloadit/img/next/server'",
-    `import catalog from ${sourceString(relativeImport(receiptsImport))}`,
-    '',
-    'export const { StorageImage } = createStorageImages(catalog)',
-    '',
-  ].join('\n')
-}
-
 /** An empty-safe scaffold showing the first receipt in the initialized directory. */
 export function storageImagePage(
   receiptsImport: string,
   prefix: string,
   receipts?: string,
-  componentImport = '../../lib/storageImage',
 ): string {
   const catalogOption = receipts === undefined ? '' : ` --receipts=${quoteCliArgument(receipts)}`
   const command = `npx transloadit storage store${catalogOption}${prefix.startsWith('-') ? ' --' : ''} ./hero.jpg ${quoteCliArgument(`${prefix}hero.jpg`)}`
   return [
-    `import { StorageImage } from ${sourceString(componentImport)}`,
+    "import { StorageImage } from '@transloadit/img/next'",
     `import catalog from ${sourceString(relativeImport(receiptsImport))}`,
     '',
     'export default function Page() {',

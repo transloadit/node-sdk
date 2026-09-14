@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import type { TransloaditImageSource } from '../imageSource.ts'
 
 import { snapshotImageSource } from '../imageSource.ts'
+import { missingImageHint } from './pathHints.ts'
 
 /** Committed rendering receipts indexed by their exact Storage paths. */
 export type StorageImageCatalog = Readonly<Record<string, TransloaditImageSource>>
@@ -98,7 +99,12 @@ export function resolveImageLayout(
         ? images[input]
         : undefined
       : input
-  if (src === undefined) throw new TypeError('Storage image path is not in the configured catalog')
+  if (src === undefined)
+    throw new TypeError(
+      typeof input === 'string'
+        ? missingImageHint(input, Object.keys(images ?? {}))
+        : 'Storage image src is required',
+    )
   const layout = props.layout ?? (typeof src === 'string' ? 'none' : 'constrained')
   if ((layout === 'fixed' || layout === 'fill') && typeof src === 'string') {
     throw new TypeError(

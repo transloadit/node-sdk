@@ -289,7 +289,9 @@ test('public init commits the whole project catalog without creating an env file
     images: {},
     delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
   })
-  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('createStorageImages(catalog)')
+  expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
+    "from '@transloadit/img/next'",
+  )
   await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
   expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
     'TRANSLOADIT_WORKSPACE',
@@ -470,7 +472,9 @@ test('init publishes first and reuses the saved login without any terminal input
   ).toBeUndefined()
   expect(api.isDone()).toBe(true)
   await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
-  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('createStorageImages(catalog)')
+  expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
+    "from '@transloadit/img/next'",
+  )
   expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
     workspace: 'my-app',
     public: ['website/'],
@@ -501,8 +505,9 @@ test('a public prefix at exactly 512 UTF-8 bytes is accepted', async () => {
 })
 
 test('public init leaves existing env untouched and checks code conflicts before publishing', async () => {
-  await mkdir('app')
+  await mkdir('app/storage-image-example', { recursive: true })
   await mkdir('lib')
+  await writeFile('app/storage-image-example/page.tsx', 'existing page\n')
   await writeFile('lib/storageImage.ts', 'existing code\n')
   await writeFile('.env.local', 'existing\n')
   await main(['image', 'init', 'website/', '--public', '--write-env'])

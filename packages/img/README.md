@@ -48,7 +48,8 @@ preloads its responsive source and sets high fetch priority. Other images load l
 ## Private
 
 Use your application's session and per-object permissions, with a separate application key:
-Console → Credentials → Create Auth Key, Smart CDN on. Set `TRANSLOADIT_SMART_CDN_KEY` and
+Console → Credentials → New Auth Key: Smart CDN on and scope `assemblies:write`
+(renditions are produced by an Assembly). Set `TRANSLOADIT_SMART_CDN_KEY` and
 `TRANSLOADIT_SMART_CDN_SECRET` on your host, not the developer's disposable login key:
 `auth logout` revokes that login key. [Private setup](./docs/reference.md#private).
 
@@ -57,7 +58,7 @@ Console → Credentials → Create Auth Key, Smart CDN on. Set `TRANSLOADIT_SMAR
 Opt into `errorFallback` to show a delivery failure instead of a broken image. Development adds
 the HEAD result; see the terminal. Non-production login endpoints carry into the catalog.
 [`baseUrl` and `urlParams`, diagnostics and recovery](./docs/reference.md#when-it-breaks).
-`storage ls` and `storage receipts sync` require the S3 read API, currently off in production.
+`storage ls` / `storage receipts sync` recovery is unavailable until the S3 read API ships in production.
 [Availability and receipt recovery](./docs/reference.md#receipt-integrity-and-recovery).
 
 ## Reference

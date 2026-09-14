@@ -257,8 +257,12 @@ test('a denied unsigned development HEAD gives the publish command without block
   )
   await vi.waitFor(() =>
     expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('transloadit storage publish website/'),
+      expect.stringContaining('transloadit storage publish -- website/'),
     ),
+  )
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('"website/hero.jpg"'))
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining('no longer be under a published public prefix'),
   )
   const url = fetch.mock.calls[0]?.[0]
   expect(typeof url).toBe('string')

@@ -30,7 +30,9 @@ vi.mock('@transloadit/img/next/authorize', () => ({
     return project.authorize
   },
 }))
-vi.mock('@transloadit/img/next/options', () => ({ default: {} }))
+vi.mock('@transloadit/img/next/options', () => ({
+  default: { diagnosticsId: 'conventional-test' },
+}))
 
 beforeEach(() => {
   vi.resetModules()
@@ -44,10 +46,12 @@ beforeEach(() => {
   ])
     vi.stubEnv(name, undefined)
   project.authorize = undefined
+  project.catalog.public = ['website/']
   project.catalog.delivery = undefined
 })
 afterEach(() => {
   vi.unstubAllEnvs()
+  vi.restoreAllMocks()
 })
 
 test('package StorageImage renders a catalog path with intrinsic dimensions and no secrets', async () => {
@@ -95,6 +99,37 @@ test('the conventional private handler checks each request and never returns ima
   expect(await allowed.text()).toBe('')
   expect(parseSmartCdnUrl(allowed.headers.get('location') ?? '').input).toBe('uploads/avatar.png')
   expect(html).not.toMatch(/app-key|app-secret|auth_key/)
+})
+
+test('a catalog reload names newly private paths once, never in production', async () => {
+  vi.stubEnv('NODE_ENV', 'development')
+  vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', 'app-key')
+  vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', 'app-secret')
+  project.authorize = () => false
+  const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+  const { getProjectImages } = await import('../src/next/project.ts')
+  getProjectImages()
+  expect(info).not.toHaveBeenCalled()
+  project.catalog.public = []
+  vi.resetModules()
+  const refreshed = await import('../src/next/project.ts')
+  refreshed.getProjectImages()
+  refreshed.getProjectImages()
+  expect(info).toHaveBeenCalledExactlyOnceWith(
+    '[StorageImage] Catalog public prefixes changed. These paths now require the private image route and authorization: "website/hero.jpg".',
+  )
+  const { StorageImage } = refreshed.getProjectImages()
+  const html = renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)
+  expect(html).toContain('/api/storage-images?cap=')
+  expect(html).not.toContain('builtin%2Fpublic-preview')
+  project.catalog.public = ['website/']
+  vi.resetModules()
+  ;(await import('../src/next/project.ts')).getProjectImages()
+  vi.stubEnv('NODE_ENV', 'production')
+  project.catalog.public = []
+  vi.resetModules()
+  ;(await import('../src/next/project.ts')).getProjectImages()
+  expect(info).toHaveBeenCalledOnce()
 })
 
 import type { StorageProjectCatalog } from '../src/next/catalog.ts'

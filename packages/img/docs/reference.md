@@ -68,7 +68,8 @@ Use one conventional catalog per app. For several catalogs, keep their explicit
 global declarations. Factories do not require the plugin. They also understand catalog delivery;
 explicit top-level `baseUrl`/`urlParams` override that block.
 
-`image init website/ --example` remains an optional factory/example generator. It uses an existing
+`image init website/ --example` remains an optional page generator using the same package import
+as the README, without `lib/storageImage.ts` or a second factory. It uses an existing
 catalog without login or publication, preserving its workspace and delivery. A saved development
 login cannot redirect that existing catalog; only an explicit `--endpoint` changes its transport.
 Credentialed init (publication or `--write-env`) requires matching login/delivery origins; otherwise
@@ -232,9 +233,14 @@ application authorization; disallowed prefixes fail before any request. Producti
 diagnostic requests. Editing the factory configuration recreates its probes through Next.js Fast
 Refresh; repeated requests to the unchanged factory do not retry a failed check automatically.
 
-Denied redirect routes also emit one development-only hint per reason: route/basePath mismatch,
+Denied redirect routes also emit one development-only hint per reason (and verified path for authorization): route/basePath mismatch,
 invalid or stale capability (secret/Template changes), disallowed prefix, or failed authorization.
-These messages contain no requested path, URL or secret. Set `basePath` explicitly in the factory
+Malformed capabilities never reveal a requested path. After decoding a valid capability, denied
+authorization names the catalog path and offers `storage publish` only if that image should be public;
+it never changes policy. URLs, signatures and secrets are not logged. When the conventional catalog's
+`public` policy changes during development, one server notice lists paths that now require the
+private route and authorization. Unknown catalog keys name the path, suggest a close spelling, and
+show a safely quoted `storage store` command. Set `basePath` explicitly in the factory
 if your Next.js app uses one; no internal Next environment variable is consulted.
 Private direct delivery logs once per factory that it makes the route dynamic; public direct does not.
 
@@ -243,8 +249,12 @@ An unsigned public HEAD with `Transloadit-Error: NO_SIGNATURE_FIELD` (HTTP 400) 
 advice; 404 points to the workspace, path or Template. Older API versions without the header get
 the generic hint, not an inferred publication diagnosis. A 200 image response with
 `immutable` confirms the public delivery/cache contract.
-Other hints cover Smart CDN enablement, workspace/path/Template setup, expiry, clock and connectivity. A generic 403 cannot tell us
-which of those is wrong. Neither raw responses, errors, signed URLs nor secrets are logged.
+The probe reads the `Transloadit-Error` code before choosing advice. `INSUFFICIENT_AUTH_SCOPE`
+specifically requires `assemblies:write`: edit the application key in Console → Credentials,
+with Smart CDN enabled, because generating renditions creates an Assembly. Other safe error-code
+labels are included in the HEAD result. Only a 403 without a specific code leaves Smart CDN
+enablement, workspace, secret, expiry and clock ambiguous. No response bodies, raw errors,
+signed query strings or secrets are logged.
 The probe can trigger one cold transformation in development; it does not weaken authorization.
 
 ```tsx
@@ -282,12 +292,16 @@ the code remains valid for 15 minutes while you verify your email and finish sig
 
 The approved **Auth Key** appears under the Console's
 **[Credentials](https://transloadit.com/c/<workspace>/template-credentials/)** sidebar item and supports
-Assemblies/Storage writes and Smart CDN. Enable Smart CDN on existing keys used for private
-rendering; signing still requires that setting.
+Assemblies/Storage writes and Smart CDN. Existing keys used for private rendering also need
+Smart CDN enabled and the `assemblies:write` scope; generating a rendition creates an Assembly.
 
-For private deployments, create a **separate application key** in Console → Credentials → Create Auth Key
-with Smart CDN on. Set `TRANSLOADIT_SMART_CDN_KEY` and `TRANSLOADIT_SMART_CDN_SECRET` in the host's
+For private deployments, create a **separate application key** in Console → Credentials → New Auth Key
+with Smart CDN on and the `assemblies:write` scope (renditions are produced by an Assembly).
+Set `TRANSLOADIT_SMART_CDN_KEY` and `TRANSLOADIT_SMART_CDN_SECRET` in the host's
 server-only build and runtime environment, using the same pair for the page and route handler.
+If you also use that combined key with `new Transloadit()` from `@transloadit/node`, pass
+`signatureAlgorithm: 'sha256'`: new Console-created combined keys use SHA-256, while the SDK keeps
+its SHA-384 default for existing keys. The image component already signs Smart CDN URLs correctly.
 `TRANSLOADIT_SMART_CDN_KEY/SECRET` override the pair, not individual missing fields. Keeping the
 application key separate prevents a developer's logout from breaking deployed images: `auth logout`
 revokes the browser-login key. Never deploy that disposable login identity as the application's key.
@@ -407,8 +421,9 @@ These compatibility redirects share-cache for at most one minute: their request 
 hash, so a longer cache could retain an old versioned target after an overwrite and catalog refresh.
 New public markup uses direct versioned CDN URLs and does not take this compatibility route.
 
-Production Smart CDN uses Bunny for `*.tlcdn.com`: hostname and the whole query string form the
-cache key. Format-specific URLs avoid unkeyed Accept negotiation. A representative constrained
+Production Smart CDN uses Bunny, configured on `*.tlcdn.com`: hostname and the whole query string
+form the cache key. This is our pull-zone configuration, not universal Bunny behavior.
+Format-specific URLs avoid unkeyed Accept negotiation. A representative constrained
 hero has roughly 140-character URLs × 11 image candidates (five AVIF, five WebP, one JPEG), plus
 five preload candidates. Rendering `my-app/website/hero.jpg` (2400×1600, display width 960) measured
 3,174 bytes: **~3 KB of uncompressed HTML**, depending on path and attributes.

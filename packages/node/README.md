@@ -1441,7 +1441,9 @@ npx transloadit assemblies list -l 7
 
 ## SDK Usage
 
-The following code will upload an image and resize it to a thumbnail:
+The following code will upload an image and resize it to a thumbnail. New Console-created combined
+Smart CDN/Assembly keys use SHA-256, so this example selects it explicitly; the SDK's legacy default
+remains SHA-384 for existing keys.
 
 ```javascript
 import { Transloadit } from '@transloadit/node'
@@ -1449,6 +1451,7 @@ import { Transloadit } from '@transloadit/node'
 const transloadit = new Transloadit({
   authKey: 'YOUR_TRANSLOADIT_KEY',
   authSecret: 'YOUR_TRANSLOADIT_SECRET',
+  signatureAlgorithm: 'sha256',
 })
 
 try {
@@ -1547,6 +1550,17 @@ Table of contents:
 #### constructor(options)
 
 Returns a new instance of the client.
+
+```typescript
+const transloadit = new Transloadit({
+  authKey: 'YOUR_TRANSLOADIT_KEY',
+  authSecret: 'YOUR_TRANSLOADIT_SECRET',
+  signatureAlgorithm: 'sha256',
+})
+```
+
+Select SHA-256 for new Console-created combined Smart CDN/Assembly keys; omitting it retains
+the SHA-384 default for existing keys and can produce `INVALID_SIGNATURE` with a combined key.
 
 The `options` object can contain the following keys:
 

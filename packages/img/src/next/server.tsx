@@ -32,6 +32,7 @@ import { ImageSizeDiagnostics } from './ImageSizeDiagnostics.tsx'
 import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
 import { TransloaditPicture } from './index.tsx'
 import { resolveImageLayout } from './layout.ts'
+import { publishImageHint } from './pathHints.ts'
 
 const defaultStorageExpiresInMs = 60 * 60 * 1000
 const imagePolicyParams = new Set(['auth_key', 'bg', 'exp', 'f', 'h', 'q', 'r', 'sig', 'v', 'w'])
@@ -817,11 +818,16 @@ function createStorageRoute(
     authorization:
       'Application authorization denied this image. Check the session and per-object access policy.',
   }
-  const explained = new Set<keyof typeof reasons>()
-  function notFound(reason: keyof typeof reasons): Response {
-    if (process.env.NODE_ENV === 'development' && !explained.has(reason)) {
-      explained.add(reason)
-      console.warn(`[StorageImage] ${reasons[reason]}`)
+  const explained = new Set<string>()
+  function notFound(reason: keyof typeof reasons, path?: string): Response {
+    const key = JSON.stringify([reason, path])
+    if (process.env.NODE_ENV === 'development' && !explained.has(key)) {
+      explained.add(key)
+      const publication =
+        reason === 'authorization' && path !== undefined
+          ? ` Storage path ${JSON.stringify(path)} is not under a public prefix in this catalog. ${publishImageHint(path)}`
+          : ''
+      console.warn(`[StorageImage] ${reasons[reason]}${publication}`)
     }
     return new Response(null, { headers: { 'Cache-Control': 'private, no-store' }, status: 404 })
   }
@@ -844,7 +850,7 @@ function createStorageRoute(
     const path = transform.path
     const isPublic = delivery.public?.some((prefix) => path.startsWith(prefix)) === true
     if (!isPublic && (await delivery.authorize({ path: transform.path, request })) !== true)
-      return notFound('authorization')
+      return notFound('authorization', path)
 
     const signRequest = {
       input: transform.path,

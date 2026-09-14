@@ -2,7 +2,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { PHASE_PRODUCTION_BUILD, PHASE_PRODUCTION_SERVER } from 'next/constants.js'
+import {
+  PHASE_DEVELOPMENT_SERVER,
+  PHASE_PRODUCTION_BUILD,
+  PHASE_PRODUCTION_SERVER,
+} from 'next/constants.js'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { withTransloaditImages } from '../src/next/config.ts'
@@ -17,6 +21,17 @@ beforeEach(async () => {
 })
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })
+})
+
+test('only development carries a stable catalog identity for hot-reload diagnostics', async () => {
+  const plugin = withTransloaditImages({}, { root })
+  const path = join(root, 'node_modules/.cache/transloadit-images/options.json')
+  plugin(PHASE_DEVELOPMENT_SERVER)
+  expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({
+    diagnosticsId: join(root, 'transloadit.images.json'),
+  })
+  plugin(PHASE_PRODUCTION_BUILD)
+  expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({})
 })
 
 test('binds the conventional catalog and retains unrelated Next configuration', async () => {

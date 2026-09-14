@@ -436,6 +436,9 @@ describe('image init', () => {
     await main(['image', 'init', 'uploads/', '--private'])
     expect(process.exitCode).toBeUndefined()
     expect(await readFile('transloadit.authorize.ts', 'utf8')).toContain('export const authorize')
+    expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toMatch(
+      /Smart CDN.*assemblies:write.*Assembly/,
+    )
     expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toBe(
       "export { GET, HEAD } from '@transloadit/img/next/route'\n",
     )
@@ -452,9 +455,37 @@ describe('image init', () => {
     vi.mocked(resolveCliConfig).mockReturnValue({})
     await main(['image', 'init', 'website/', '--example'])
     expect(process.exitCode).toBeUndefined()
-    expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain('<StorageImage')
+    expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
+      "from '@transloadit/img/next'",
+    )
+    await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toContain(
+      'withTransloaditImages',
+    )
     expect(Transloadit.prototype.publishStoragePrefix).not.toHaveBeenCalled()
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
+  })
+
+  test('a custom-catalog example keeps application factories intact and names the plugin option', async () => {
+    await mkdir('app')
+    await mkdir('lib')
+    await writeFile('lib/storageImage.ts', 'application-owned code\n')
+    await writeFile(
+      'photos.json',
+      JSON.stringify({ workspace: 'my-app', public: ['website/'], images: {} }),
+    )
+    await main(['image', 'init', 'website/', '--example', '--receipts', 'photos.json'])
+    expect(process.exitCode).toBeUndefined()
+    expect(await readFile('lib/storageImage.ts', 'utf8')).toBe('application-owned code\n')
+    expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
+      "from '../../photos.json'",
+    )
+    const output = vi
+      .mocked(OutputCtl.prototype.print)
+      .mock.calls.map(([message]) => message)
+      .join('\n')
+    expect(output).toContain('withTransloaditImages')
+    expect(output).toContain('{ catalog: "photos.json" }')
   })
 
   test.each([
@@ -474,7 +505,9 @@ describe('image init', () => {
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
     if (mode === '--example') {
-      expect(await readFile('lib/storageImage.ts', 'utf8')).not.toContain('127.0.0.1')
+      expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).not.toContain(
+        '127.0.0.1',
+      )
     }
   })
 
@@ -516,7 +549,7 @@ describe('image init', () => {
     ])
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).delivery).toBeUndefined()
-    expect(await readFile('lib/storageImage.ts', 'utf8')).not.toContain('baseUrl:')
+    expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).not.toContain('baseUrl:')
   })
 
   test.each([
@@ -656,22 +689,19 @@ describe('image init', () => {
   test.each([
     'app',
     'src/app',
-  ])('image init creates a direct factory for %s and prints only rendering env names', async (app) => {
+  ])('image init uses the package component for %s without a generated factory or env', async (app) => {
     await mkdir(app, { recursive: true })
     await main(['image', 'init', 'website/', '--public'])
     expect(process.exitCode).toBeUndefined()
     const root = app === 'app' ? '' : 'src/'
-    const factory = await readFile(`${root}lib/storageImage.ts`, 'utf8')
-    expect(factory).toContain('createStorageImages')
-    expect(factory).not.toContain('allowedPathPrefixes')
-    expect(factory).toContain('createStorageImages(catalog)')
+    await expect(stat(`${root}lib/storageImage.ts`)).rejects.toMatchObject({ code: 'ENOENT' })
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
       workspace: 'my-app',
       public: ['website/'],
       images: {},
     })
     const page = await readFile(`${app}/storage-image-example/page.tsx`, 'utf8')
-    expect(page).toContain("from '../../lib/storageImage'")
+    expect(page).toContain("from '@transloadit/img/next'")
     expect(page).toContain('keyof typeof catalog.images')
     expect(page).toContain('<StorageImage')
     expect(page).toContain('errorFallback=')

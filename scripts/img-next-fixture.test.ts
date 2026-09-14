@@ -89,6 +89,7 @@ test('a custom catalog remains the upload destination advertised by image init',
   const command = scaffoldUploadCommand(page)
   const result = await execa('bash', ['-c', `npx() { printf '%s\\n' "$@"; }\n${command}`])
   expect(result.stdout.split('\n')).toContain('--receipts=catalog photos.json')
+  expect(page).toContain("from '@transloadit/img/next'")
 })
 
 test('the generated example is already formatted for the repository Biome configuration', async () => {
@@ -119,9 +120,57 @@ async function imageDocumentation(): Promise<string> {
   return `${await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')}\n${await readFile(resolve(import.meta.dirname, '../packages/img/docs/reference.md'), 'utf8')}`
 }
 
+test('private setup names the Assembly scope needed to generate image renditions', async () => {
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  const privateRecipe = readme.slice(
+    readme.indexOf('## Private'),
+    readme.indexOf('## When it breaks'),
+  )
+  expect(privateRecipe).toContain('assemblies:write')
+  expect(privateRecipe).toContain('Assembly')
+  const reference = await readFile(
+    resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
+    'utf8',
+  )
+  expect(reference).toContain('INSUFFICIENT_AUTH_SCOPE')
+  expect(reference).not.toContain('A generic 403 cannot tell us')
+})
+
+test('the leading SDK example selects SHA-256 for combined keys without changing the legacy default', async () => {
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/node/README.md'), 'utf8')
+  const example = readme
+    .slice(readme.indexOf('const transloadit = new Transloadit('))
+    .split('```')[0]
+  expect(example).toContain("signatureAlgorithm: 'sha256'")
+  const constructorDocs = readme
+    .slice(readme.indexOf('#### constructor(options)'))
+    .split('\n#### ')[0]
+  expect(constructorDocs).toContain("signatureAlgorithm: 'sha256'")
+  expect(constructorDocs).toContain("default `'sha384'`")
+  const reference = await readFile(
+    resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
+    'utf8',
+  )
+  const keyRecipe = reference.slice(
+    reference.indexOf('For private deployments, create'),
+    reference.indexOf('Login saves'),
+  )
+  expect(keyRecipe).toContain("signatureAlgorithm: 'sha256'")
+})
+
+test('cache-key and production recovery limits are stated without implying universal Bunny behavior', async () => {
+  const reference = await readFile(
+    resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
+    'utf8',
+  )
+  expect(reference).toContain('configured on `*.tlcdn.com`')
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  expect(readme).toContain('unavailable until the S3 read API ships in production')
+})
+
 test('private deployment uses an application key rather than the revocable CLI login identity', async () => {
   const documentation = await imageDocumentation()
-  expect(documentation).toContain('Credentials → Create Auth Key')
+  expect(documentation).toContain('Credentials → New Auth Key')
   expect(documentation).toContain('separate application key')
   expect(documentation).toContain('TRANSLOADIT_SMART_CDN_SECRET')
   expect(documentation).not.toContain("Supply the login's")

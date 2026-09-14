@@ -15,12 +15,7 @@ import {
   updateStorageReceipts,
 } from '../storageReceipts.ts'
 import { resolveStorageWorkspace } from '../storageS3.ts'
-import {
-  nextAppRoot,
-  storageImageEnvBlock,
-  storageImageFactory,
-  storageImagePage,
-} from '../storageSnippets.ts'
+import { nextAppRoot, storageImageEnvBlock, storageImagePage } from '../storageSnippets.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'
 
@@ -43,7 +38,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
     description: 'Publish this directory on the server and use permanent unsigned image URLs',
   })
   receipts = Option.String('--receipts', defaultStorageCatalog, {
-    description: 'Rendering catalog imported by the factory',
+    description: 'Rendering catalog selected by withTransloaditImages',
   })
   writeEnv = Option.Boolean('--write-env', false, {
     description: 'Reuse the saved login in an owner-only .env.local; never overwrite it',
@@ -121,16 +116,6 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       const pageDirectory = `${root}app/storage-image-example`
       const example = this.example || this.publicDelivery
       const files = [
-        ...(!this.privateDelivery && example
-          ? [
-              {
-                path: `${root}lib/storageImage.ts`,
-                content: storageImageFactory(
-                  relative(resolve(`${root}lib`), resolve(this.receipts)).replaceAll('\\', '/'),
-                ),
-              },
-            ]
-          : []),
         ...(example
           ? [
               {
@@ -139,7 +124,6 @@ export class ImageInitCommand extends UnauthenticatedCommand {
                   relative(resolve(pageDirectory), resolve(this.receipts)).replaceAll('\\', '/'),
                   prefix,
                   catalogArgument === defaultStorageCatalog ? undefined : catalogArgument,
-                  this.privateDelivery ? '@transloadit/img/next' : undefined,
                 ),
               },
             ]
@@ -238,7 +222,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         }
       }
       const instruction = this.privateDelivery
-        ? 'Connect your application session and per-object authorization in transloadit.authorize.ts; the generated handler denies access until then. Enable withTransloaditImages in next.config.ts.'
+        ? 'Connect your application session and per-object authorization in transloadit.authorize.ts; the generated handler denies access until then. Use a separate application key with Smart CDN on and assemblies:write: renditions are produced by an Assembly. Configure it in Console → Credentials.'
         : this.publicDelivery
           ? 'The directory is published. Public images use permanent unsigned CDN URLs.'
           : 'Example created using the existing catalog; no publication policy was changed.'
@@ -248,8 +232,9 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           { deliveryEndpoint: new URL(deliveryEndpoint).origin },
         )
       const envBlock = storageImageEnvBlock(this.publicDelivery)
+      const plugin = `Enable withTransloaditImages in next.config.ts${catalogArgument === defaultStorageCatalog ? '' : ` with { catalog: ${JSON.stringify(catalogArgument)} }`}.`
       this.output.print(
-        `Created ${created.join(', ')}\n${instruction}\n${example ? `Add an image under ${prefix} with storage store and open /storage-image-example. ` : ''}Commit ${this.receipts} and transloadit-images.d.ts.\n${!this.privateDelivery ? 'Public rendering needs no environment variables, locally or on your host.' : this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
+        `Created ${created.join(', ')}\n${instruction}\n${plugin}\n${example ? `Add an image under ${prefix} with storage store and open /storage-image-example. ` : ''}Commit ${this.receipts} and transloadit-images.d.ts.\n${!this.privateDelivery ? 'Public rendering needs no environment variables, locally or on your host.' : this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
         { files: created, environment: envBlock },
       )
       return undefined

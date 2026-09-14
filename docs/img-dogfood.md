@@ -86,8 +86,8 @@ stores this metadata automatically for subsequent CLI requests.
   secret, used to sign the one-time upload/store Assembly. Put these in **`.env.seed.local`**,
   loaded only by the seed command below.
 - `TRANSLOADIT_SMART_CDN_KEY` and `TRANSLOADIT_SMART_CDN_SECRET`: a **Smart CDN Auth Key** and its
-  secret, used to sign delivery URLs. Put these in **`.env.local`** for Next.js. An Assembly-only
-  key cannot replace this key.
+  secret, with Smart CDN enabled **and `assemblies:write`**: renditions are produced by an Assembly.
+  Put these in **`.env.local`** for Next.js. An Assembly-only key cannot replace this key.
 - `TRANSLOADIT_WORKSPACE`: put the workspace's URL slug in `.env.local` too. In a Console URL such
   as `/c/my-workspace/`, the slug is `my-workspace`, not a key or workspace ID.
 

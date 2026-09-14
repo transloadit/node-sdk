@@ -413,7 +413,7 @@ type AuthToken = {
 }
 
 type BaseOptions = {
-  /** API signature algorithm required by this Auth Key; defaults to sha384 for existing keys. */
+  /** Use signatureAlgorithm: 'sha256' for new combined Smart CDN/Assembly keys; legacy default: sha384. */
   signatureAlgorithm?: SignatureAlgorithm
   endpoint?: string
   maxRetries?: number
@@ -447,6 +447,7 @@ export class Transloadit {
 
   private _validateResponses = false
 
+  /** Create a client; new combined keys require signatureAlgorithm: 'sha256' explicitly. */
   constructor(opts: Options) {
     const rawToken = typeof opts?.authToken === 'string' ? opts.authToken.trim() : ''
     const hasToken = rawToken.length > 0

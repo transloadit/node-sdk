@@ -1,3 +1,7 @@
+import type { StorageProjectCatalog } from './catalog.ts'
+
+import { publishImageHint } from './pathHints.ts'
+
 /** Server-side development probe; logs the target origin/path, never queries or raw errors. */
 export type DiagnoseStorageImage = (
   path: string,
@@ -6,9 +10,9 @@ export type DiagnoseStorageImage = (
 ) => Promise<string>
 
 const deliveryOverrideHint =
-  'If you use a different API or CDN, set baseUrl/urlParams on the factory.'
+  'If you use a different API or CDN, set baseUrl/urlParams in the plugin delivery override or factory.'
 
-async function probe(url: string, publicPrefix?: string): Promise<string> {
+async function probe(path: string, url: string, publicPrefix?: string): Promise<string> {
   const target = new URL(url)
   const safeUrl = `${target.origin}${target.pathname}`
   try {
@@ -18,7 +22,14 @@ async function probe(url: string, publicPrefix?: string): Promise<string> {
       cache: 'no-store',
       signal: AbortSignal.timeout(5000),
     })
-    const summary = `HEAD ${safeUrl}: HTTP ${response.status}`
+    const header = response.headers.get('Transloadit-Error')
+    // The header is an error-code label, never an arbitrary upstream message or response body.
+    const code =
+      header !== null && header.length <= 64 && /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/.test(header)
+        ? header
+        : undefined
+    const status = `HTTP ${response.status}${code === undefined ? '' : ` (${code})`}`
+    const summary = `HEAD ${safeUrl}: ${status}`
     if (response.ok && response.headers.get('content-type')?.startsWith('image/')) {
       if (
         publicPrefix !== undefined &&
@@ -33,19 +44,18 @@ async function probe(url: string, publicPrefix?: string): Promise<string> {
     if ([301, 302, 303, 307, 308].includes(response.status) && response.headers.has('location'))
       return summary
     const hints =
-      response.status === 404
-        ? 'Check the workspace slug, that the Storage path exists there, and the configured Template.'
-        : publicPrefix !== undefined &&
-            response.headers.get('Transloadit-Error') === 'NO_SIGNATURE_FIELD'
-          ? `For unsigned public delivery, run transloadit storage publish ${/^[a-zA-Z0-9/_-]+$/.test(publicPrefix) ? publicPrefix : '<your-public-prefix>/'}. If already published, check its workspace and public Built-in.`
-          : publicPrefix === undefined && (response.status === 401 || response.status === 403)
-            ? 'Enable Smart CDN on the Auth Key; check its workspace and the signature secret, expiry and server clock.'
-            : response.ok
-              ? 'Expected an image Content-Type. Check the configured Template and delivery endpoint.'
-              : `The delivery host did not serve this path as an image. Check the delivery endpoint and Template. ${deliveryOverrideHint}`
-    console.warn(
-      `[StorageImage] Development HEAD ${safeUrl} returned HTTP ${response.status}. ${hints}`,
-    )
+      code === 'INSUFFICIENT_AUTH_SCOPE'
+        ? 'This key needs assemblies:write to generate image renditions through an Assembly. In Console → Credentials, edit the application key: enable Smart CDN and assemblies:write.'
+        : response.status === 404
+          ? 'Check the workspace slug, that the Storage path exists there, and the configured Template.'
+          : publicPrefix !== undefined && code === 'NO_SIGNATURE_FIELD'
+            ? `Storage path ${JSON.stringify(path)} may no longer be under a published public prefix. ${publishImageHint(path, publicPrefix)} If already published, check its workspace and public Built-in.`
+            : publicPrefix === undefined && (response.status === 401 || response.status === 403)
+              ? 'Enable Smart CDN on the Auth Key; check its workspace and the signature secret, expiry and server clock.'
+              : response.ok
+                ? 'Expected an image Content-Type. Check the configured Template and delivery endpoint.'
+                : `The delivery host did not serve this path as an image. Check the delivery endpoint and Template. ${deliveryOverrideHint}`
+    console.warn(`[StorageImage] Development HEAD ${safeUrl} returned ${status}. ${hints}`)
     return summary
   } catch {
     // Error messages can include a credential-bearing URL. A HEAD failure does not establish
@@ -65,8 +75,31 @@ export function createImageDiagnostics(template: string): DiagnoseStorageImage |
     const key = JSON.stringify([path, template])
     const previous = requests.get(key)
     if (previous !== undefined) return previous
-    const result = probe(url, publicPrefix)
+    const result = probe(path, url, publicPrefix)
     requests.set(key, result)
     return result
   }
+}
+
+declare global {
+  var __transloaditImagePublicPolicies: Map<string, readonly string[]> | undefined
+}
+
+/** Keeps only dev policy snapshots across HMR; each project's catalog has a distinct identity. */
+export function diagnosePublicPolicy(catalog: StorageProjectCatalog, id?: string): void {
+  if (process.env.NODE_ENV !== 'development' || id === undefined) return
+  globalThis.__transloaditImagePublicPolicies ??= new Map()
+  const policies = globalThis.__transloaditImagePublicPolicies
+  const previous = policies.get(id)
+  policies.set(id, [...catalog.public])
+  if (previous === undefined) return
+  const privatePaths = Object.keys(catalog.images).filter(
+    (path) =>
+      previous.some((prefix) => path.startsWith(prefix)) &&
+      !catalog.public.some((prefix) => path.startsWith(prefix)),
+  )
+  if (privatePaths.length === 0) return
+  console.info(
+    `[StorageImage] Catalog public prefixes changed. These paths now require the private image route and authorization: ${privatePaths.map((path) => JSON.stringify(path)).join(', ')}.`,
+  )
 }

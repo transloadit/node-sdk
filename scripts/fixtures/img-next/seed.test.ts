@@ -196,17 +196,9 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
     ),
   )
   assert(!printed.includes('export default function Page'))
-  const factory = await readFile('lib/storageImage.ts', 'utf8')
-  assert(factory.includes('createStorageImages(catalog)'))
-  assert(!factory.includes('allowedPathPrefixes'))
-  // Only the delivery origin changes for this offline fixture; the generated page is verbatim.
-  await writeFile(
-    'lib/storageImage.ts',
-    factory.replace(
-      'createStorageImages(catalog)',
-      'createStorageImages({ ...catalog, baseUrl: `${process.env.IMG_FIXTURE_CDN_ORIGIN}/file/{workspace}` })',
-    ),
-  )
+  assert(page.includes("from '@transloadit/img/next'"))
+  await assert.rejects(stat('lib/storageImage.ts'), { code: 'ENOENT' })
+  // The generated page is verbatim; the fixture's Next plugin supplies the local CDN origin.
 })
 
 test('a failed second run of the documented command preserves the first receipt', async (t) => {

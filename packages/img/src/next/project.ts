@@ -7,6 +7,7 @@ import { authorize } from '@transloadit/img/next/authorize'
 import catalog from '@transloadit/img/next/catalog'
 import options from '@transloadit/img/next/options'
 
+import { diagnosePublicPolicy } from './diagnostics.ts'
 import { createStorageImages } from './server.tsx'
 
 type ProjectIntegration =
@@ -20,7 +21,9 @@ export function getProjectImages(): ProjectIntegration {
     throw new Error(
       'Add withTransloaditImages() from @transloadit/img/next/config to next.config.ts, or use createStorageImages with an explicit catalog.',
     )
-  integration ??= createStorageImages({
+  if (integration !== undefined) return integration
+  diagnosePublicPolicy(catalog, options.diagnosticsId)
+  integration = createStorageImages({
     ...catalog,
     ...catalog.delivery,
     ...options.delivery,

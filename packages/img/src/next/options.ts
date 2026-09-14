@@ -4,6 +4,8 @@ import type { StorageImageDelivery } from './catalog.ts'
 export interface StorageImageProjectOptions {
   basePath?: string
   delivery?: StorageImageDelivery
+  /** Development-only identity for deduplicated policy-change notices across hot reloads. */
+  diagnosticsId?: string
 }
 
 const options: StorageImageProjectOptions = {}

@@ -296,6 +296,27 @@ test('catalog keys must agree with their receipt paths and unknown keys never fa
   ).toThrow(/catalog/)
 })
 
+test('a missing catalog path names the typo, nearest key and safe upload command', () => {
+  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
+  expect(() =>
+    Reflect.apply(StorageImage, undefined, [{ src: 'website/herp.jpg', alt: 'Hero' }]),
+  ).toThrow(
+    'Storage image path "website/herp.jpg" is not in the configured catalog. Did you mean "website/hero.jpg"? To upload a new image, run transloadit storage store -- ./image.jpg website/herp.jpg',
+  )
+  expect(() =>
+    Reflect.apply(StorageImage, undefined, [{ src: "-$(whoami)'photo.jpg", alt: 'Unknown' }]),
+  ).toThrow("transloadit storage store -- ./image.jpg '-$(whoami)'\\''photo.jpg'")
+})
+
+test('an empty catalog names the missing path without inventing a suggestion', () => {
+  const { StorageImage } = createStorageImages({ images: {}, delivery: 'direct' })
+  expect(() =>
+    Reflect.apply(StorageImage, undefined, [{ src: 'website/new.jpg', alt: 'New' }]),
+  ).toThrow(
+    'Storage image path "website/new.jpg" is not in the configured catalog. To upload a new image, run transloadit storage store -- ./image.jpg website/new.jpg',
+  )
+})
+
 test('workspace-root access requires the named acknowledgment, never an empty prefix', () => {
   expect(() => createStorageImages({ allowedPathPrefixes: [''] })).toThrow(/allowWorkspaceRoot/)
   const { StorageImage } = createStorageImages({
@@ -315,7 +336,7 @@ test.each([
   const missing = createStorageImages({ images, delivery: 'direct' })
   expect(() =>
     Reflect.apply(missing.StorageImage, undefined, [{ src: path, alt: 'Missing image' }]),
-  ).toThrow('Storage image path is not in the configured catalog')
+  ).toThrow(`Storage image path "${path}" is not in the configured catalog`)
   const present = createStorageImages({
     images: { [path]: { path, width: 64, height: 64 } },
     authorize: () => true,
