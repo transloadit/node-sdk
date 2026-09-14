@@ -124,9 +124,11 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   process.chdir(directory)
   const printed = output.join('')
   const page = await readFile('app/storage-image-example/page.tsx', 'utf8')
-  assert(page.includes('width={960} priority'))
+  assert(page.includes('width={960} preload'))
   assert(
-    printed.includes('Render it with <StorageImage src="website/hero.jpg" alt="" width={960} />'),
+    printed.includes(
+      'Render it with <StorageImage src="website/hero.jpg" alt="hero" width={960} />',
+    ),
   )
   assert(!printed.includes('export default function Page'))
   const factory = await readFile('lib/storageImage.ts', 'utf8')

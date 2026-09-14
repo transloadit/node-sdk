@@ -1,10 +1,14 @@
 /** Server-side development probe; logs the target origin/path, never queries or raw errors. */
-export type DiagnoseStorageImage = (path: string, url: string, publicPrefix?: string) => void
+export type DiagnoseStorageImage = (
+  path: string,
+  url: string,
+  publicPrefix?: string,
+) => Promise<string>
 
 const deliveryOverrideHint =
   'If you use a different API or CDN, set baseUrl/urlParams on the factory.'
 
-async function probe(url: string, publicPrefix?: string): Promise<void> {
+async function probe(url: string, publicPrefix?: string): Promise<string> {
   const target = new URL(url)
   const safeUrl = `${target.origin}${target.pathname}`
   try {
@@ -14,6 +18,7 @@ async function probe(url: string, publicPrefix?: string): Promise<void> {
       cache: 'no-store',
       signal: AbortSignal.timeout(5000),
     })
+    const summary = `HEAD ${safeUrl}: HTTP ${response.status}`
     if (response.ok && response.headers.get('content-type')?.startsWith('image/')) {
       if (
         publicPrefix !== undefined &&
@@ -22,11 +27,11 @@ async function probe(url: string, publicPrefix?: string): Promise<void> {
         console.info(
           `[StorageImage] Public delivery verified at ${safeUrl}: image response with immutable caching.`,
         )
-      return
+      return summary
     }
     // A manual HEAD cannot establish whether the browser's redirect target is a valid image.
     if ([301, 302, 303, 307, 308].includes(response.status) && response.headers.has('location'))
-      return
+      return summary
     const hints =
       response.status === 404
         ? 'Check the workspace slug, that the Storage path exists there, and the configured Template.'
@@ -41,23 +46,27 @@ async function probe(url: string, publicPrefix?: string): Promise<void> {
     console.warn(
       `[StorageImage] Development HEAD ${safeUrl} returned HTTP ${response.status}. ${hints}`,
     )
+    return summary
   } catch {
     // Error messages can include a credential-bearing URL. A HEAD failure does not establish
     // whether the cause is credentials, networking, a cold transformation, or the CDN itself.
     console.warn(
       `[StorageImage] Could not reach Smart CDN at ${safeUrl} within five seconds. Check connectivity to this delivery host. ${deliveryOverrideHint}`,
     )
+    return `HEAD ${safeUrl}: could not reach the delivery host within five seconds`
   }
 }
 
 /** Deduplicates concurrent and repeated probes within one credentialed development integration. */
 export function createImageDiagnostics(template: string): DiagnoseStorageImage | undefined {
   if (process.env.NODE_ENV !== 'development') return undefined
-  const requests = new Set<string>()
+  const requests = new Map<string, Promise<string>>()
   return (path, url, publicPrefix) => {
     const key = JSON.stringify([path, template])
-    if (requests.has(key)) return
-    requests.add(key)
-    void probe(url, publicPrefix)
+    const previous = requests.get(key)
+    if (previous !== undefined) return previous
+    const result = probe(url, publicPrefix)
+    requests.set(key, result)
+    return result
   }
 }

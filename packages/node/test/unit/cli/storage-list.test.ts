@@ -197,6 +197,6 @@ test('sanitizes remote list errors without exposing signed requests', async () =
   expect(api.isDone()).toBe(true)
   expect(process.exitCode).toBe(1)
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-    'Storage listing failed (HTTP 403). Check that the Storage S3 API is enabled and that you are using the correct workspace and an Auth Key with read or dam:write scope.',
+    'Storage listing failed (HTTP 403). The Storage S3 read API is disabled or access is denied. Check the endpoint, workspace and Auth Key read or dam:write scope.',
   )
 })

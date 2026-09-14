@@ -13,6 +13,7 @@ const { connection } = vi.hoisted(() => ({ connection: vi.fn(async () => undefin
 vi.mock('next/server.js', () => ({ connection }))
 vi.mock('server-only', () => ({}))
 
+import { createImageDiagnostics } from '../src/next/diagnostics.ts'
 import { createStorageImages } from '../src/next/server.tsx'
 
 const authSecret = 'never-render-this-secret'
@@ -250,6 +251,15 @@ describe('development delivery diagnostics', () => {
     const other = createStorageImages({ ...baseConfiguration, template: 'another-preview' })
     await renderAsync(<other.StorageImage {...props} />)
     expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  test('shares the bounded HEAD result with the development failure UI, without query credentials', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 403 }))
+    const diagnose = createImageDiagnostics('test-template')
+    const result = diagnose?.('website/hero.jpg', 'https://cdn.example/hero.jpg?sig=private-value')
+    expect(await result).toBe('HEAD https://cdn.example/hero.jpg: HTTP 403')
+    expect(diagnose?.('website/hero.jpg', 'https://cdn.example/hero.jpg?sig=rotated')).toBe(result)
+    expect(fetch).toHaveBeenCalledOnce()
   })
 
   test('never probes from production rendering', async () => {

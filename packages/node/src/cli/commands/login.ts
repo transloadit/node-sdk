@@ -210,7 +210,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           ? `Verified one signed Template read and saved CLI credentials to ${file}. Application env files were not changed.`
           : `Logged in to workspace ${credentials.workspace}`
       this.output.print(
-        `${message}${storagePolicyAccess ? '\nStorage policy access verified; upload availability is checked when storing an image.' : ''}`,
+        `${message}${storagePolicyAccess ? '\nStorage policy access verified.' : ''}`,
         {
           saved: file,
           storagePolicyAccess,

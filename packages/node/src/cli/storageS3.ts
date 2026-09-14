@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 import {
   buildMissingCredentialsMessage,
-  describeCliCredentialSource,
+  noticeCliCredentialSource,
   resolveCliConfig,
 } from './helpers.ts'
 import { assertStorageWorkspace } from './storageReceipts.ts'
@@ -44,7 +44,7 @@ export async function withStorageS3<T>(
 ): Promise<T> {
   if (config.credentials === undefined)
     throw new Error(config.loadError ?? buildMissingCredentialsMessage())
-  output?.notice(describeCliCredentialSource(config, 'credentials'))
+  noticeCliCredentialSource(config, output, 'credentials')
   const endpoint = new URL(
     options.endpoint ?? config.credentialsEndpoint ?? 'https://api2.transloadit.com',
   )
@@ -115,7 +115,7 @@ export async function withStorageS3<T>(
     const remote = storageS3ErrorSchema.safeParse(error)
     if (remote.success) {
       throw new Error(
-        `${failure} failed${remote.data.$metadata.httpStatusCode === undefined ? '' : ` (HTTP ${remote.data.$metadata.httpStatusCode})`}. Check that the Storage S3 API is enabled and that you are using the correct workspace and an Auth Key with read or dam:write scope.`,
+        `${failure} failed${remote.data.$metadata.httpStatusCode === undefined ? '' : ` (HTTP ${remote.data.$metadata.httpStatusCode})`}. ${remote.data.$metadata.httpStatusCode === 403 ? 'The Storage S3 read API is disabled or access is denied.' : 'Check that the Storage S3 read API is enabled.'} Check the endpoint, workspace and Auth Key read or dam:write scope.`,
         { cause: error },
       )
     }

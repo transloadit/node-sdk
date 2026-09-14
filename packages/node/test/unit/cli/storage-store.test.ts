@@ -17,6 +17,7 @@ import { join } from 'node:path'
 import nock from 'nock'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
+import { ApiError } from '../../../src/ApiError.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
@@ -266,12 +267,11 @@ describe('storage store', () => {
     expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('directory'))
   })
 
-  test('the printed alt is explicitly decorative until the developer supplies meaningful text', async () => {
+  test('the printed typed path has a readable filename alt', async () => {
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await runStore()
     const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
-    expect(text).toContain('alt=""')
-    expect(text).toContain('decorative')
+    expect(text).toContain('alt="hero"')
     expect(text).not.toContain('Describe this image')
   })
   test.each([
@@ -297,9 +297,11 @@ describe('storage store', () => {
         'TRANSLOADIT_KEY=project-key\nTRANSLOADIT_SECRET=project-secret\nTRANSLOADIT_WORKSPACE=project-workspace\n',
       )
     vi.spyOn(Transloadit.prototype, 'storeImage').mockImplementation(() => {
-      expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
-        expect.stringContaining(`Credentials: ${source}`),
-      )
+      if (setup === 'saved') expect(OutputCtl.prototype.notice).not.toHaveBeenCalled()
+      else
+        expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
+          expect.stringContaining(`Credentials: ${source}`),
+        )
       return Promise.resolve(receipt)
     })
     await runStore()
@@ -308,13 +310,8 @@ describe('storage store', () => {
     expect(notice).not.toMatch(
       /assembly-key|assembly-secret|saved-key|saved-secret|project-key|project-secret/,
     )
-    expect(notice).toContain(
-      setup === 'saved'
-        ? 'saved-workspace'
-        : setup === 'shell'
-          ? 'workspace not declared'
-          : 'project-workspace',
-    )
+    if (setup !== 'saved')
+      expect(notice).toContain(setup === 'shell' ? 'workspace not declared' : 'project-workspace')
   })
   test.each([
     '--private',
@@ -351,7 +348,9 @@ describe('storage store', () => {
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
-      expect.stringContaining(`<StorageImage src="website/hero.jpg" alt="" width={${maxWidth}} />`),
+      expect.stringContaining(
+        `<StorageImage src="website/hero.jpg" alt="hero" width={${maxWidth}} />`,
+      ),
       { ...receipt, width },
     )
   })
@@ -617,7 +616,7 @@ describe('storage store', () => {
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toBe(
-      'Saved website/hero.jpg in images.json. Commit this receipt file.\nRender it with <StorageImage src="website/hero.jpg" alt="" width={800} />\n{/* Empty alt is decorative; replace it for an informative image. */}',
+      'Saved website/hero.jpg in images.json. Commit this receipt file.\nRender it with <StorageImage src="website/hero.jpg" alt="hero" width={800} />',
     )
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   })
@@ -626,11 +625,14 @@ describe('storage store', () => {
     const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValueOnce(receipt)
     await runStore()
     const previous = await readFile('images.json', 'utf8')
-    store.mockRejectedValueOnce(new Error('TRANSLOADIT_STORE_CONFLICT'))
+    store.mockRejectedValueOnce(new ApiError({ body: { error: 'TRANSLOADIT_STORE_CONFLICT' } }))
     await runStore()
     expect(process.exitCode).toBe(1)
     expect(await readFile('images.json', 'utf8')).toBe(previous)
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      'Storage destination "website/hero.jpg" already exists. Choose a fresh name; use --overwrite only if you deliberately want to replace that object.',
+    )
   })
 
   test('leaves no receipts or temporary files after an upload failure', async () => {

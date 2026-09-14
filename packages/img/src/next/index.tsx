@@ -109,13 +109,22 @@ function preloadImage(
 
 /** Renders immediately discoverable, browser-selected candidates with a JPEG fallback. */
 export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
-  const { loading, model, objectFit, priority: preload = false, sizes: explicitSizes } = props
-  snapshotImageLoading(props)
+  const { model, objectFit, sizes: explicitSizes } = props
+  const { loading, preload = false } = snapshotImageLoading(props)
   const resolvedLoading = loading ?? (preload ? 'eager' : 'lazy')
-  const sizes = explicitSizes ?? (resolvedLoading === 'lazy' ? 'auto, 100vw' : '100vw')
-  const automaticSizes = /^auto(?:\s*,|\s*$)/i.test(sizes.trimStart())
+  let sizes = explicitSizes ?? (resolvedLoading === 'lazy' ? 'auto, 100vw' : '100vw')
+  let automaticSizes = /^auto(?:\s*,|\s*$)/i.test(sizes.trimStart())
   if (automaticSizes && resolvedLoading !== 'lazy') {
-    throw new Error('Automatic image sizes require lazy loading')
+    if (process.env.NODE_ENV === 'development')
+      console.warn(
+        '[StorageImage] auto sizes require lazy loading; using the explicit fallback for this eager image.',
+      )
+    sizes =
+      sizes
+        .trimStart()
+        .replace(/^auto(?:\s*,\s*|\s*$)/i, '')
+        .trim() || '100vw'
+    automaticSizes = false
   }
   if (model.sources.length === 0) {
     throw new Error('Cannot render a Transloadit image without a source')

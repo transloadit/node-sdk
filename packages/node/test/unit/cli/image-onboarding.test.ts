@@ -296,7 +296,7 @@ test('the generated empty page and init instruction name the initialized directo
   await main(['image', 'init', 'uploads/', '--private'])
   expect(process.exitCode).toBeUndefined()
   expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
-    'Add an image under uploads/ with transloadit storage store to see it here.',
+    'npx transloadit storage store ./hero.jpg uploads/hero.jpg',
   )
   expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
     expect.stringContaining('Add an image under uploads/ with storage store'),
@@ -431,6 +431,24 @@ describe('image init', () => {
     })
   })
 
+  test.each([
+    '--public',
+    '--private',
+  ])('init carries a saved non-production endpoint for %s', async (mode) => {
+    await mkdir('app')
+    const saved = resolveCliConfig('login')
+    vi.mocked(resolveCliConfig).mockReturnValue({ ...saved, endpoint: 'http://127.0.0.1:3020' })
+    await main(['image', 'init', 'website/', mode])
+    expect(process.exitCode).toBeUndefined()
+    const factory = await readFile('lib/storageImage.ts', 'utf8')
+    expect(factory).toContain("baseUrl: 'http://127.0.0.1:3020/file/{workspace}'")
+    expect(factory).toContain("urlParams: { cdn: 'required' }")
+    expect(factory).toContain('non-production API selected at login; remove for Smart CDN delivery')
+    expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toContain(
+      'Delivery uses the non-production API',
+    )
+  })
+
   test('a rollback failure keeps the original error and public-prefix warning and continues cleanup', async () => {
     await mkdir('app')
     const original = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
@@ -481,12 +499,14 @@ describe('image init', () => {
     })
     const page = await readFile(`${app}/storage-image-example/page.tsx`, 'utf8')
     expect(page).toContain("from '../../lib/storageImage'")
-    expect(page).toContain('Object.values(images)')
+    expect(page).toContain('keyof typeof catalog.images')
     expect(page).toContain('<StorageImage')
     expect(page).toContain('errorFallback=')
-    expect(page).toContain('role="alert"')
+    expect(page).toContain('role="status"')
     expect(page).toContain('This image could not be loaded.')
-    expect(page).toContain('Empty alt is decorative')
+    expect(page).toContain('alt={alt}')
+    expect(page).toContain('preload')
+    expect(page).not.toContain('priority')
     expect(page).toContain('storage store')
     const printed = JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)
     expect(printed).not.toContain('TRANSLOADIT_WORKSPACE=')
@@ -523,7 +543,7 @@ describe('image init', () => {
     await main(['image', 'init', 'uploads/', '--private'])
     expect(process.exitCode).toBeUndefined()
     expect(await readFile('lib/storageImage.ts', 'utf8')).toContain(
-      'allowedPathPrefixes: ["uploads/", ...catalog.public]',
+      "allowedPathPrefixes: ['uploads/', ...catalog.public]",
     )
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
   })
@@ -544,7 +564,7 @@ describe('image init', () => {
     await main(['image', 'init', 'website/', '--public'])
     expect(process.exitCode).toBeUndefined()
     expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
-      'Object.values(images).find((image) => image.path.startsWith("website/"))',
+      "Object.keys(catalog.images).find((path) => path.startsWith('website/'))",
     )
   })
 

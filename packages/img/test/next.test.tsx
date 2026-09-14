@@ -44,6 +44,7 @@ function renderPicture(
     alt: unknown
     loading: 'eager' | 'lazy'
     priority: boolean
+    preload: boolean
     sizes: string
     style: unknown
   }> = {},
@@ -73,6 +74,35 @@ afterEach(() => {
 })
 
 describe('TransloaditPicture', () => {
+  test('preload names the eager responsive preload macro without emitting a native preload attribute', () => {
+    const doc = renderPicture({ loading: undefined, preload: true })
+    expect(doc.querySelector('img')?.getAttribute('loading')).toBe('eager')
+    expect(doc.querySelector('link[rel="preload"]')?.getAttribute('imagesrcset')).toContain('640w')
+    expect(doc.querySelector('img')?.hasAttribute('preload')).toBe(false)
+    expect(() => renderPicture({ loading: 'lazy', preload: true })).toThrow(
+      'cannot use lazy loading',
+    )
+  })
+
+  test('eager auto sizing drops auto and the priority alias warns only in development', () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const doc = renderPicture({ loading: undefined, priority: true, sizes: 'auto, 80vw' })
+      expect(doc.querySelector('source')?.getAttribute('sizes')).toBe('80vw')
+      expect(doc.querySelector('img')?.hasAttribute('sizes')).toBe(false)
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('priority is deprecated; use preload'),
+      )
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('auto sizes require lazy loading'))
+      warn.mockClear()
+      vi.stubEnv('NODE_ENV', 'production')
+      renderPicture({ loading: undefined, priority: true })
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
   test.each([
     ['/images/my photo.jpg', '/images/my%20photo.jpg'],
     ['/images/photo,,', '/images/photo%2C%2C'],
@@ -313,16 +343,18 @@ describe('TransloaditPicture', () => {
   })
 
   test.each([
-    'auto',
-    'auto, 100vw',
-    'AUTO, 400px',
-  ])('rejects eager automatic sizing for %s', (sizes) => {
-    expect(() => renderPicture({ loading: 'eager', sizes })).toThrow(
-      'Automatic image sizes require lazy loading',
-    )
-    expect(() => renderPicture({ loading: undefined, priority: true, sizes })).toThrow(
-      'Automatic image sizes require lazy loading',
-    )
+    ['auto', '100vw'],
+    ['auto, 100vw', '100vw'],
+    ['AUTO, 400px', '400px'],
+  ])('uses the eager automatic sizing fallback for %s', (sizes, fallback) => {
+    expect(
+      renderPicture({ loading: 'eager', sizes }).querySelector('source')?.getAttribute('sizes'),
+    ).toBe(fallback)
+    expect(
+      renderPicture({ loading: undefined, priority: true, sizes })
+        .querySelector('source')
+        ?.getAttribute('sizes'),
+    ).toBe(fallback)
   })
 
   test('renders native picture sources and the supplied fallback', () => {
@@ -419,7 +451,7 @@ describe('TransloaditPicture', () => {
 
     expect(preloaded.querySelector('img')?.getAttribute('loading')).toBe('eager')
     expect(() => renderPicture({ loading: 'lazy', priority: true })).toThrow(
-      'A priority Transloadit image cannot use lazy loading',
+      'A preloaded Transloadit image cannot use lazy loading',
     )
   })
 

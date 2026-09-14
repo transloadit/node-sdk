@@ -110,21 +110,31 @@ export function snapshotImageAttributes(props: ImageAttributes): ImageAttributes
 }
 
 /** A preload is eager; explicitly lazy images must not issue preload requests. */
-export type ImageLoadingProps =
-  | { loading?: 'eager'; priority: true }
-  | { loading?: 'eager' | 'lazy'; priority?: false }
+export type ImageLoadingProps = {
+  /** @deprecated Use preload; this alias remains for one release. */
+  priority?: boolean
+} & (
+  | { loading?: 'eager'; preload?: boolean }
+  | { loading?: 'eager' | 'lazy'; preload?: false; priority?: false }
+)
 
 /** Retains runtime validation for JavaScript callers as well as the discriminated public type. */
 export function snapshotImageLoading({
   loading,
   priority,
+  preload,
 }: {
   loading?: 'eager' | 'lazy'
   priority?: boolean
+  preload?: boolean
 }): ImageLoadingProps {
-  if (priority) {
-    if (loading === 'lazy') throw new Error('A priority Transloadit image cannot use lazy loading')
-    return { loading: 'eager', priority }
+  if (priority !== undefined && process.env.NODE_ENV === 'development')
+    console.warn(
+      '[StorageImage] priority is deprecated; use preload. The alias will be removed after one release.',
+    )
+  if (preload || priority) {
+    if (loading === 'lazy') throw new Error('A preloaded Transloadit image cannot use lazy loading')
+    return { loading: 'eager', preload: true }
   }
-  return { loading, priority }
+  return { loading, preload }
 }

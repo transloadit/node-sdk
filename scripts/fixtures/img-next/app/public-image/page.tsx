@@ -25,8 +25,8 @@ export default function Page(): ReactNode {
   return (
     <main>
       <h1>Static public image</h1>
-      <StorageImage src="website/hero.jpg" alt="Public hero" width={960} priority />
-      <StorageImage src="website/small.jpg" alt="Small public original" width={960} priority />
+      <StorageImage src="website/hero.jpg" alt="Public hero" width={960} preload />
+      <StorageImage src="website/small.jpg" alt="Small public original" width={960} preload />
     </main>
   )
 }

@@ -1,5 +1,7 @@
 import type { Readable } from 'node:stream'
 
+import type { IOutputCtl } from './OutputCtl.ts'
+
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import { homedir, userInfo } from 'node:os'
@@ -322,17 +324,21 @@ function credentialSourceName(source: CliEnvSource, shell: CliEnvSource, auth: C
 }
 
 /** Describes the selected credential source, never the credential or a claim of verified ownership. */
-export function describeCliCredentialSource(
+export function noticeCliCredentialSource(
   config: ResolvedCliConfig,
+  output: Pick<IOutputCtl, 'notice'> | undefined,
   kind: 'auth' | 'credentials' = 'auth',
-): string {
+): void {
   const source = kind === 'auth' ? config.authSource : config.credentialsSource
+  if (source === undefined || source === 'saved login') return
   const workspace = kind === 'auth' ? config.authWorkspace : config.credentialsWorkspace
   const label =
     workspace !== undefined && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(workspace)
       ? `workspace declared as ${workspace}`
       : 'workspace not declared'
-  return `Credentials: ${source ?? 'configured credentials'} (${label}). Shell environment and project .env override saved login for ordinary Storage commands.`
+  output?.notice(
+    `Credentials: ${source} (${label}). This override takes precedence over the saved login.`,
+  )
 }
 
 export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliConfig {

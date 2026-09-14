@@ -76,6 +76,19 @@ function runSync(extra: string[] = []): Promise<void> {
 }
 
 function storageApi(origin = 'http://storage.invalid'): nock.Scope {
+  nock(origin)
+    .get('/storage/public_prefixes')
+    .query((query) => {
+      // Nock can inspect query matchers before choosing the matching path.
+      if (typeof query.params !== 'string') return false
+      expect(JSON.parse(query.params)).toMatchObject({ auth: { key: 'local-key' } })
+      return true
+    })
+    .optionally()
+    .reply(200, {
+      ok: 'STORAGE_PUBLIC_PREFIXES_LISTED',
+      public_prefixes: [{ prefix: 'website/', created_at: '2026-09-14T00:00:00Z' }],
+    })
   return nock(origin, {
     reqheaders: {
       authorization: (value: string) => value.startsWith('AWS4-HMAC-SHA256 Credential=local-key/'),
@@ -99,10 +112,61 @@ function listed(path = 'website/a.jpg'): nock.Scope {
     )
 }
 
+test('a fresh sync recovers the declared delivery policy, not just image dimensions', async () => {
+  listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({
+    workspace: 'my-app',
+    public: ['website/'],
+    images: { 'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600 } },
+  })
+})
+
+test.each([
+  false,
+  true,
+])('unreadable policy preserves the catalog (existing: %s)', async (existing) => {
+  const previous = catalogJson({ 'older.jpg': { retained: true } })
+  if (existing) await writeFile('images.json', previous)
+  nock('http://storage.invalid')
+    .get('/storage/public_prefixes')
+    .query(true)
+    .reply(403, { error: 'INSUFFICIENT_AUTH_SCOPE', message: 'remote-secret-must-not-leak' })
+  listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+  await runSync()
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('Recovery incomplete: could not read the server public prefixes'),
+  )
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls)).not.toContain(
+    'remote-secret',
+  )
+  if (existing) expect(await readFile('images.json', 'utf8')).toBe(previous)
+  else await expect(readFile('images.json')).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await readdir(directory)).not.toContain('images.json.lock')
+})
+
+test('sync replaces stale local policy with the server declarations, including a private workspace', async () => {
+  await writeFile(
+    'images.json',
+    JSON.stringify({ workspace: 'my-app', public: ['website/'], images: {} }),
+  )
+  nock('http://storage.invalid')
+    .get('/storage/public_prefixes')
+    .query(true)
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIXES_LISTED', public_prefixes: [] })
+  listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  expect(JSON.parse(await readFile('images.json', 'utf8')).public).toEqual([])
+})
+
 test.each([
   'discovery',
   'listing',
   'HEAD',
+  'policy',
 ])('Ctrl-C cancels a stalled %s and releases the catalog lock', async (stage) => {
   nock.enableNetConnect('127.0.0.1')
   const listeners = process.listeners('SIGINT')
@@ -117,7 +181,15 @@ test.each([
       )
       return
     }
-    if (stage === 'HEAD' && request.method === 'GET') {
+    if (stage === 'policy' && request.method === 'HEAD') {
+      response.writeHead(200, metadata).end()
+      return
+    }
+    if (
+      (stage === 'HEAD' || stage === 'policy') &&
+      request.url?.startsWith('/storage/my-app/') &&
+      request.method === 'GET'
+    ) {
       response.end(
         '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/a.jpg</Key><Size>123</Size></Contents></ListBucketResult>',
       )
@@ -391,7 +463,7 @@ test.each([
     md5hash: md5,
   })
   expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
-    expect.stringContaining('Upload evidence is kept only when the HEAD MD5 matches'),
+    expect.stringContaining('Synced 1 rendering receipts and public policy'),
     expect.anything(),
   )
 })

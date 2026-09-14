@@ -97,6 +97,34 @@ function login(args: string[] = []): Promise<void> {
   return main(['auth', 'login', '--endpoint', origin, ...args])
 }
 
+test('a browser denial stops polling immediately and saves no credentials', async () => {
+  const api = createDevice()
+    .post('/cli/device_authorizations/token')
+    .reply(403, { error: 'CLI_DEVICE_AUTHORIZATION_DENIED', message: 'untrusted-secret' })
+  await login(['--no-browser'])
+  expect(api.isDone()).toBe(true)
+  expect(waits).toEqual([5000])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith('The login was denied in the browser.')
+  expect(await readdir(directory)).toEqual([])
+})
+
+test('Windows starts the approval browser with an empty title and a safely passed URL', async () => {
+  vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+  createDevice().post('/cli/device_authorizations/token').reply(200, authorized)
+  await login()
+  expect(process.exitCode).toBeUndefined()
+  expect(execa).toHaveBeenCalledWith(
+    'cmd',
+    ['/d', '/v:off', '/c', 'start', '""', '"%TRANSLOADIT_BROWSER_URL%"'],
+    expect.objectContaining({
+      shell: false,
+      windowsVerbatimArguments: true,
+      env: { TRANSLOADIT_BROWSER_URL: created.verification_url },
+    }),
+  )
+})
+
 function createDevice(response = created): nock.Scope {
   return nock(origin)
     .post(
@@ -221,6 +249,7 @@ test('login does not await or kill a successfully launched long-lived browser', 
   expect(api.isDone()).toBe(true)
   expect(browser.unref).toHaveBeenCalledOnce()
   expect(execa).toHaveBeenCalledWith(expect.any(String), [created.verification_url], {
+    shell: false,
     stdio: 'ignore',
     detached: true,
     cleanup: false,

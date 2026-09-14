@@ -119,15 +119,33 @@ export async function deviceLogin(
       verification_url: target.href,
     })
     const opener =
-      process.platform === 'darwin' ? 'open' : process.platform === 'linux' ? 'xdg-open' : undefined
+      process.platform === 'darwin'
+        ? 'open'
+        : process.platform === 'linux'
+          ? 'xdg-open'
+          : process.platform === 'win32'
+            ? 'cmd'
+            : undefined
     // On platforms without an opener, the printed URL is the manual approval path.
     if (!noBrowser && opener !== undefined) {
       // xdg-open may live as long as the browser; launching it must not delay or cancel polling.
-      const browser = execa(opener, [target.href], {
-        stdio: 'ignore',
-        detached: true,
-        cleanup: false,
-      })
+      // cmd parses metacharacters even with shell:false. A quoted, single-pass env expansion
+      // keeps &, %, and ! in the URL out of command syntax; disable delayed expansion/AutoRun.
+      const browser = execa(
+        opener,
+        opener === 'cmd'
+          ? ['/d', '/v:off', '/c', 'start', '""', '"%TRANSLOADIT_BROWSER_URL%"']
+          : [target.href],
+        {
+          shell: false,
+          ...(opener === 'cmd'
+            ? { windowsVerbatimArguments: true, env: { TRANSLOADIT_BROWSER_URL: target.href } }
+            : {}),
+          stdio: 'ignore',
+          detached: true,
+          cleanup: false,
+        },
+      )
       browser.unref()
       void browser.catch(() => {
         // A wrapper's later failure cannot prove whether its page opened or invalidate login.
@@ -136,8 +154,6 @@ export async function deviceLogin(
         )
       })
     }
-    if (!noBrowser && process.platform === 'win32')
-      output.print('On Windows, open the verification URL printed above.', { browserOpened: false })
     let intervalMs = device.interval * 1000
     while (true) {
       await delay(intervalMs, undefined, { signal })
@@ -158,6 +174,12 @@ export async function deviceLogin(
           )
         })
       const error = errorSchema.safeParse(token.body)
+      if (
+        token.statusCode === 403 &&
+        error.success &&
+        error.data.error === 'CLI_DEVICE_AUTHORIZATION_DENIED'
+      )
+        throw new Error('The login was denied in the browser.')
       if (token.statusCode === 429 || (error.success && error.data.error === 'slow_down')) {
         const seconds = Number(token.headers['retry-after'])
         // Longer waits are pointless after the authorization deadline and can overflow Node's

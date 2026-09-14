@@ -251,3 +251,23 @@ That is the reader's existing timing, not a new measurement by this round.
 Required local checks, packed browser proof, final exact-head CI/artifact receipts and PR-body verification go in
 `/tmp/img-task2-round10-report.md`. Stop after this round: no merge, publication, API2/Content
 changes, environment edits, new reader round or extra product work. img stays private at 0.0.0.
+
+## Round 11 — recovery and reader follow-ups
+
+Input: `/tmp/img-task2-round11-brief.md`, with both independent round-8 Rauch reports read.
+Work remains in #500 on `img-onboard`; no merge, publication or production changes.
+
+- [x] Recover server-declared public policy atomically with receipts; preserve the catalog on
+  policy failure. Never infer publication from a folder name.
+- [x] Document a separate application key for private deployment, not the revocable CLI key.
+- [x] S3 availability/403 handling; non-production init delivery override; dev HEAD fallback.
+- [x] preload vocabulary, typed scaffold and store snippets, concise output, publication dry run.
+- [x] Quickstart-first README and reference accuracy; browser device-denial contract.
+- [ ] Focused reviews, required sequential checks, packed browser proof and exact-head green CI.
+- [ ] Condense the PR body, preserving historical evidence in maintainer documentation.
+
+Pre-review full `yarn check` passes: 267 img and 571 Node tests (one existing skip).
+Native proof and reviews are still pending; details and failed-check receipts remain in the report.
+
+Progress and red/green evidence: `/tmp/img-task2-round11-report.md`. Immutable identity and
+image doctor remain out of scope. `@transloadit/img` stays private at 0.0.0.

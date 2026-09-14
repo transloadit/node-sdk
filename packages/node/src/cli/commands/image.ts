@@ -5,7 +5,7 @@ import { validateStoragePathPrefix } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
 import { z } from 'zod'
 
-import { describeCliCredentialSource, resolveCliConfig } from '../helpers.ts'
+import { noticeCliCredentialSource, resolveCliConfig } from '../helpers.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import {
   defaultStorageCatalog,
@@ -75,7 +75,13 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       if (saved.loadError !== undefined) throw new Error(saved.loadError)
       const login = saved.auth === undefined ? resolveCliConfig() : saved
       if (!this.setupClient(login)) return 1
-      this.output.notice(describeCliCredentialSource(login))
+      noticeCliCredentialSource(login, this.output)
+      const selectedEndpoint = this.endpoint ?? login.endpoint
+      const deliveryEndpoint =
+        selectedEndpoint === undefined ||
+        new URL(selectedEndpoint).origin === 'https://api2.transloadit.com'
+          ? undefined
+          : selectedEndpoint
       if (this.writeEnv && this.privateDelivery) {
         const value = z
           .string()
@@ -112,6 +118,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           content: storageImageFactory({
             prefix,
             privateDelivery: this.privateDelivery,
+            endpoint: deliveryEndpoint,
             receiptsImport: relative(resolve(`${root}lib`), resolve(this.receipts)).replaceAll(
               '\\',
               '/',
@@ -151,6 +158,9 @@ export class ImageInitCommand extends UnauthenticatedCommand {
             'Use --receipts with a separate catalog when initializing another workspace. Nothing was written.',
           )
         if (this.publicDelivery) {
+          this.output.notice(
+            `Publishing ${prefix} recursively: all current and future objects under this prefix will be public.`,
+          )
           const result = await this.client
             .publishStoragePrefix(prefix, { signal })
             .catch((cause: unknown) => {
@@ -183,7 +193,12 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       }
       const instruction = this.privateDelivery
         ? 'Connect your application session and per-object authorization in storageImage.ts; the generated handler denies access until then.'
-        : 'The directory is published. Public images use permanent unsigned CDN URLs; cached bytes cannot be recalled.'
+        : 'The directory is published. Public images use permanent unsigned CDN URLs.'
+      if (deliveryEndpoint !== undefined)
+        this.output.print(
+          `Delivery uses the non-production API ${new URL(deliveryEndpoint).origin}; remove baseUrl/urlParams from storageImage.ts for Smart CDN delivery.`,
+          { deliveryEndpoint: new URL(deliveryEndpoint).origin },
+        )
       const envBlock = storageImageEnvBlock(this.publicDelivery)
       this.output.print(
         `Created ${created.join(', ')}\n${instruction}\nAdd an image under ${prefix} with storage store and open /storage-image-example. Commit ${this.receipts}.\n${this.publicDelivery ? 'Public rendering needs no environment variables, locally or on your host.' : this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,

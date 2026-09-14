@@ -1318,8 +1318,14 @@ export class Transloadit {
   }
 
   /** List the workspace's explicitly public directories through the ordinary signed API. */
-  async listPublicStoragePrefixes(): Promise<StoragePublicPrefixes> {
-    const result = await this._remoteJson({ urlSuffix: '/storage/public_prefixes', method: 'get' })
+  async listPublicStoragePrefixes(options?: {
+    signal?: AbortSignal
+  }): Promise<StoragePublicPrefixes> {
+    const result = await this._remoteJson({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'get',
+      signal: options?.signal,
+    })
     checkResult(result)
     return storagePublicPrefixesSchema.parse(result)
   }

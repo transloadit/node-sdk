@@ -73,6 +73,47 @@ function signedPrefix(body: string): boolean {
   return true
 }
 
+test('publish dry run lists matching objects without publishing or touching the catalog', async () => {
+  const previous = '{"workspace":"my-app","public":[],"images":{}}\n'
+  await writeFile('transloadit.images.json', previous)
+  const api = nock(origin)
+    .get('/storage/')
+    .query(true)
+    .reply(
+      200,
+      '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
+    )
+    .get('/storage/my-app/')
+    .query((query) => query.prefix === 'website/')
+    .reply(
+      200,
+      '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/hero.jpg</Key><Size>123</Size></Contents></ListBucketResult>',
+    )
+  const publish = vi.spyOn(Transloadit.prototype, 'publishStoragePrefix')
+  await main(['storage', 'publish', 'website/', '--dry-run'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(publish).not.toHaveBeenCalled()
+  expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+  expect(await readdir(directory)).toEqual(['credentials', 'transloadit.images.json'])
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringContaining('website/hero.jpg'),
+    expect.any(Object),
+  )
+})
+
+test('public init describes recursive current and future access before publishing', async () => {
+  await mkdir('app')
+  vi.spyOn(Transloadit.prototype, 'publishStoragePrefix').mockImplementation(() => {
+    expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
+      'Publishing website/ recursively: all current and future objects under this prefix will be public.',
+    )
+    return Promise.resolve(declared)
+  })
+  await main(['image', 'init', 'website/', '--public'])
+  expect(process.exitCode).toBeUndefined()
+})
+
 test.each(['publishStoragePrefix', 'unpublishStoragePrefix'] satisfies (keyof Pick<
   Transloadit,
   'publishStoragePrefix' | 'unpublishStoragePrefix'
@@ -247,7 +288,9 @@ test('public init commits the whole project catalog without creating an env file
     public: ['website/'],
     images: {},
   })
-  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('createStorageImages(catalog)')
+  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain(
+    "baseUrl: 'http://127.0.0.1:3020/file/{workspace}'",
+  )
   await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
   expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
     'TRANSLOADIT_WORKSPACE',
@@ -424,7 +467,9 @@ test('init publishes first and reuses the saved login without any terminal input
   ).toBeUndefined()
   expect(api.isDone()).toBe(true)
   await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
-  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('createStorageImages(catalog)')
+  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain(
+    "baseUrl: 'http://127.0.0.1:3020/file/{workspace}'",
+  )
   expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
     workspace: 'my-app',
     public: ['website/'],

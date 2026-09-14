@@ -15,7 +15,7 @@ export default function Page(): ReactNode {
           aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}
           sizes="(min-width: 960px) 960px, 100vw"
           widths={[320, 640, 960]}
-          priority
+          preload
         />
       </div>
     </main>

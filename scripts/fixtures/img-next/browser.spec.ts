@@ -252,7 +252,7 @@ test('response auditing waits for unfinished native body reads during listener c
   })
   try {
     await page.goto('/fixture/cli-image/app/storage-image-example')
-    await decode(page.getByRole('presentation'))
+    await decode(page.getByRole('img', { name: 'hero', exact: true }))
     await started.promise
     let drained = false
     const drain = page.removeAllListeners('response', { behavior: 'wait' }).then(() => {
@@ -675,7 +675,7 @@ test('the public catalog hero has stock-CSS geometry and no application image re
       applicationImages.push(request.url())
   })
   await page.goto('/fixture/cli-image/app/storage-image-example')
-  const hero = page.getByRole('presentation')
+  const hero = page.getByRole('img', { name: 'hero', exact: true })
   await decode(hero)
   const viewport = page.viewportSize()
   if (viewport === null) throw new Error('Expected a fixed viewport')
@@ -698,7 +698,7 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
     })
     await page.setViewportSize({ width: 1200, height: 850 })
     await page.goto('/fixture/cli-image/app/storage-image-example')
-    const hero = page.getByRole('presentation')
+    const hero = page.getByRole('img', { name: 'hero', exact: true })
     await decode(hero)
     await page.setViewportSize({ width: 390, height: 850 })
     await expect.poll(async () => (await hero.boundingBox())?.width).toBe(374)
@@ -733,7 +733,7 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
       })
       await page.setViewportSize({ width: viewportWidth, height: 850 })
       await page.goto('/fixture/cli-image/app/storage-image-example')
-      const hero = page.getByRole('presentation')
+      const hero = page.getByRole('img', { name: 'hero', exact: true })
       await decode(hero)
       expect((await hero.boundingBox())?.width).toBe(Math.min(960, viewportWidth - 16))
       await page.getByRole('button', { name: 'Hydration count: 0' }).click()
@@ -756,7 +756,7 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
         warnings.push(message.text())
     })
     await page.goto('/fixture/cli-image/app/storage-image-example')
-    const hero = page.getByRole('presentation')
+    const hero = page.getByRole('img', { name: 'hero', exact: true })
     await decode(hero)
     await page.getByRole('button', { name: 'Hydration count: 0' }).click()
     await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
@@ -786,7 +786,7 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
   })
 }
 
-test('the generated scaffold shows a delivery failure instead of a blank page', async ({
+test('the generated development scaffold shows a delivery failure instead of a blank page', async ({
   page,
   audit,
 }) => {
@@ -796,9 +796,18 @@ test('the generated scaffold shows a delivery failure instead of a blank page', 
   })
   await page.goto('/fixture/cli-image/app/storage-image-example')
   await expect(
-    page.getByRole('alert').filter({ hasText: 'This image could not be loaded.' }),
+    page.getByRole('status').filter({ hasText: 'This image could not be loaded.' }),
   ).toHaveText('This image could not be loaded. Check the Storage path and delivery configuration.')
-  await expect(page.getByRole('presentation')).toHaveCount(0)
+  await expect(page.getByRole('img', { name: 'hero', exact: true })).toHaveCount(0)
+  if (process.env.IMG_FIXTURE_MODE === 'development') {
+    // The browser-only failure stub does not affect the server's successful HEAD. Show that
+    // precise result, rather than claiming to know why the browser request failed.
+    const result = page.getByText(/^HEAD http.*HTTP 200\. See the terminal for details\.$/)
+    await expect(result).toBeVisible()
+    expect(await result.textContent()).not.toMatch(/[?#]|sig=|auth_key=|fixture-secret/)
+  } else {
+    await expect(page.getByText('See the terminal for details.', { exact: false })).toHaveCount(0)
+  }
 })
 
 for (const viewportWidth of [390, 1200]) {
@@ -825,7 +834,7 @@ for (const viewportWidth of [390, 1200]) {
 test('the generated empty catalog page works before the first upload', async ({ page }) => {
   await page.goto('/fixture/cli-empty/app/storage-image-example')
   await expect(
-    page.getByText('Add an image under website/ with transloadit storage store to see it here.', {
+    page.getByText('npx transloadit storage store ./hero.jpg website/hero.jpg', {
       exact: true,
     }),
   ).toBeVisible()

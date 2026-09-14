@@ -18,7 +18,7 @@ import { gcmsiv } from '@noble/ciphers/aes.js'
 import { validateStoragePath, validateStoragePathPrefix } from '@transloadit/utils'
 import { getSignedSmartCdnUrl, getSmartCdnUrl } from '@transloadit/utils/node'
 import { connection } from 'next/server.js'
-import { Suspense } from 'react'
+import { Suspense, use } from 'react'
 
 import { isOpaqueImageBackground, transparentImageBackground } from '../imageBackground.ts'
 import { snapshotImageSource } from '../imageSource.ts'
@@ -537,7 +537,7 @@ function snapshotStorageImageProps(
 ): ResolvedStorageImageProps {
   const attributes = snapshotImageAttributes(props)
   const loading = snapshotImageLoading(props)
-  const lazy = loading.loading !== 'eager' && loading.priority !== true
+  const lazy = loading.loading !== 'eager' && loading.preload !== true
   return {
     ...attributes,
     ...loading,
@@ -569,13 +569,37 @@ function snapshotStorageImageProps(
   }
 }
 
+interface DevelopmentDeliveryResultProps {
+  result: Promise<string>
+}
+
+function DevelopmentDeliveryResult({ result }: DevelopmentDeliveryResultProps): ReactNode {
+  return <p>{use(result)}. See the terminal for details.</p>
+}
+
 function renderPicture(
   props: ResolvedStorageImageProps,
   model: Parameters<typeof TransloaditPicture>[0]['model'],
+  diagnostic?: Promise<string>,
 ): ReactNode {
+  const errorFallback =
+    props.errorFallback === undefined || process.env.NODE_ENV !== 'development' ? (
+      props.errorFallback
+    ) : (
+      <>
+        {props.errorFallback}
+        {diagnostic === undefined ? (
+          <p>See the terminal for details.</p>
+        ) : (
+          <Suspense fallback={<p>Checking delivery; see the terminal for details.</p>}>
+            <DevelopmentDeliveryResult result={diagnostic} />
+          </Suspense>
+        )}
+      </>
+    )
   const picture = (
     <StorageImageFrame props={props}>
-      <TransloaditPicture {...props} model={model} />
+      <TransloaditPicture {...props} model={model} errorFallback={errorFallback} />
     </StorageImageFrame>
   )
   return props.diagnoseSize ? <ImageSizeDiagnostics>{picture}</ImageSizeDiagnostics> : picture
@@ -984,8 +1008,11 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
       )
     }
     const model = createModel(props, getStorageExpiresAt(Date.now(), storagePolicy), sign)
-    diagnose?.(props.source.path, model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl)
-    return renderPicture(props, model)
+    const diagnostic = diagnose?.(
+      props.source.path,
+      model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl,
+    )
+    return renderPicture(props, model, diagnostic)
   }
 
   function StorageImage(props: TransloaditImageProps<Catalog>): ReactNode {
@@ -1002,12 +1029,12 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
         (request) => buildPublicUrl(request, layout.source.md5hash),
         publicTemplate,
       )
-      diagnose?.(
+      const diagnostic = diagnose?.(
         layout.source.path,
         model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl,
         publicPrefix,
       )
-      return renderPicture(storageProps, model)
+      return renderPicture(storageProps, model, diagnostic)
     }
     if (redirectDelivery === 'direct') {
       if (!privateDirect)

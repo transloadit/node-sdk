@@ -4,6 +4,13 @@ Start with the [Quickstart](../README.md). This reference covers policy, advance
 
 ## Responsive
 
+`preload` is this component's hero macro: eager loading, a responsive preload and high fetch priority.
+Unlike Next.js 16's preload flag (which adds a preload link), it intentionally sets all three.
+Next deprecates priority in favor of preload; our `priority` alias remains for one release and
+warns only in development. Do not combine either with lazy loading. Explicit eager `sizes="auto, …"`
+uses the fallback lengths without `auto`, with a development warning; bare `auto` falls back to 100vw.
+Other images default to native lazy loading. Props are serializable native attributes, not callbacks or refs.
+
 The `constrained` and `fixed` layout names follow Astro; `fill` follows Next.js.
 
 `width={960}` on a catalog path or receipt derives proportional responsive CSS, the
@@ -54,7 +61,7 @@ For different mobile and desktop crops, pass width breakpoints in priority order
   fit="cover"
   aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}
   sizes="(min-width: 960px) 960px, 100vw"
-  priority
+  preload
 />
 ```
 
@@ -64,6 +71,47 @@ Use up to eight `(min-width: …)` or `(max-width: …)` conditions with px, em 
 viewport-width arithmetic is needed. Receipts always supply intrinsic signing geometry;
 separate `width`/`height` props describe presentation, even without fixed layout. One presentation
 dimension derives the other proportionally.
+
+## Private
+
+Keep private uploads in a never-published directory such as `uploads/`. Removing a JavaScript
+public declaration does not revoke server policy or recall cached bytes. Create the separate
+application key described in [Login and credentials](#login-and-credentials), not the CLI login key.
+Set that pair in both the host's server-only build and runtime environments, never as `NEXT_PUBLIC_`.
+
+```ts
+import { createStorageImages } from '@transloadit/img/next/server'
+import catalog from '../transloadit.images.json'
+import { authenticate, canReadStorageObject } from './authorization'
+
+export const { StorageImage, storageRoute } = createStorageImages({
+  ...catalog,
+  cacheMaxAge: '1m',
+  authorize: async ({ path, request }) => {
+    const user = await authenticate(request)
+    return user !== null && (await canReadStorageObject(user, path))
+  },
+})
+```
+
+`request` is a standard Web `Request`; read the browser's native cookie through your session library.
+Export in `app/api/storage-images/route.ts` (prefix source paths with `src/` if your app uses it):
+
+```ts
+export { storageRoute as GET, storageRoute as HEAD } from '../../../lib/storageImage'
+```
+
+The default route is `/api/storage-images`; denied requests return `404`. Each uncached private
+image load invokes the handler once. The example caches its private 307 redirect for up to a
+minute, trading repeat-load cost for delayed reauthorization. Omit `cacheMaxAge` for private,
+no-store responses. Downstream CDN grants have 30–60 minutes remaining by default and are usable
+until expiry, independently of redirect caching. Image bytes always bypass the application.
+
+`image init uploads/ --private` scaffolds a fail-closed authorization placeholder in a fresh project.
+To add private delivery to an existing public project, edit the factory and add the route above;
+init never overwrites application code. The optional `--write-env` copies the saved login key
+for local testing only; replace it with the separate application key before deployment.
+Public-only rendering never reads or validates signing credentials and needs no application env.
 
 ## Mixed public and private images
 
@@ -76,18 +124,24 @@ updating server policy; do not edit that field manually:
 
 ```bash
 npx transloadit storage publish website/
+npx transloadit storage publish website/ --dry-run
 npx transloadit storage publications
 npx transloadit storage unpublish website/
 ```
 
 Publishing is idempotent and requires `dam:write`. `image init website/ --public` performs that
 publication before writing the factory; `storage store` never changes access policy.
+Init prints the recursive current-and-future publication boundary before changing it.
+`--dry-run` only lists current matching objects through the S3 read API; it never publishes or
+changes the local catalog. Future objects under that prefix would also be public after publication.
 Unpublishing stops uncached origin access. Cached or downloaded bytes cannot be recalled.
 
 ## When it breaks
 
 In development only, the server performs one HEAD per unique path/Template per factory, with a
 five-second timeout. The probe runs in the background and never holds up the image or redirect.
+An opted-in development failure fallback shares that same result (origin/path only, no query) and
+points at the terminal; it issues no additional HEAD. Production fallback output is unchanged.
 Concurrent/repeated renders share that probe. Redirects probe only after
 application authorization; disallowed prefixes fail before any request. Production performs no
 diagnostic requests. Editing the factory configuration recreates its probes through Next.js Fast
@@ -133,17 +187,25 @@ format fallback, which does not recover failed AVIF/WebP requests.
 ### Login and credentials
 
 `auth login` creates a short-lived device authorization, prints its code and verification URL,
-opens your browser on macOS/Linux and polls until you approve the workspace. On Windows, open the
-printed URL. `--no-browser` only skips the
+opens your browser on macOS/Linux/Windows and polls until you approve the workspace. Open the
+printed URL manually if opening fails. Windows uses `cmd /c start ""` with a safely quoted URL and no
+AutoRun/delayed expansion. `--no-browser` only skips the
 browser launch. Ctrl-C cancels polling without saving anything. Secrets never pass through the
-browser URL or a localhost callback. The approval page lets you sign up before choosing a workspace;
+browser URL or a localhost callback. A browser denial stops polling immediately and saves nothing.
+The approval page lets you sign up before choosing a workspace;
 the code remains valid for 15 minutes while you verify your email and finish signup.
 
 The approved **Auth Key** appears under the Console's
 **[Credentials](https://transloadit.com/c/<workspace>/template-credentials/)** sidebar item and supports
 Assemblies/Storage writes and Smart CDN. Enable Smart CDN on existing keys used for private
-rendering; signing still requires that setting. Accounts may keep a separate rendering key:
-`TRANSLOADIT_SMART_CDN_KEY/SECRET` override the pair, not individual missing fields.
+rendering; signing still requires that setting.
+
+For private deployments, create a **separate application key** in Console → Credentials → Create Auth Key
+with Smart CDN on. Set `TRANSLOADIT_SMART_CDN_KEY` and `TRANSLOADIT_SMART_CDN_SECRET` in the host's
+server-only build and runtime environment, using the same pair for the page and route handler.
+`TRANSLOADIT_SMART_CDN_KEY/SECRET` override the pair, not individual missing fields. Keeping the
+application key separate prevents a developer's logout from breaking deployed images: `auth logout`
+revokes the browser-login key. Never deploy that disposable login identity as the application's key.
 
 Login saves `TRANSLOADIT_WORKSPACE`, `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET` in
 `~/.transloadit/credentials` with owner-only permissions. A shell `TRANSLOADIT_CREDENTIALS_FILE`
@@ -181,8 +243,8 @@ prerenders need a build-time secret; request-only direct rendering can defer it 
 Supply the same private credentials to the deployed route handler.
 
 CLI lookup is shell environment, current-directory `.env`, then the credentials file.
-Ordinary commands retain this order. Storage commands print the selected credential source to
-stderr before operating, including mixed shell/project credentials and any declared workspace.
+Ordinary commands retain this order. Storage commands print the selected credential source only
+when a shell/project override wins, including mixed credentials and any declared workspace.
 A declared env workspace is not proof of key ownership. Storage commands verify it through one
 read for env/legacy keys or use the workspace verified during device login. A mismatch stops the
 operation: `Project uses <slug>; the selected credentials belong to <other>. Nothing uploaded.`
@@ -192,6 +254,13 @@ Login uses production unless `--endpoint` selects an explicit trusted API origin
 saved alongside the credential. Ordinary commands honor `TRANSLOADIT_ENDPOINT` under the same
 lookup rules. Rendering never loads CLI credential files. The Assembly client is an upload-side
 dependency, not part of rendering or the browser.
+
+`auth login --endpoint <url>` persists that endpoint in the saved login. For a non-production
+login, init also generates `baseUrl: '<endpoint>/file/{workspace}'` and `urlParams: { cdn: 'required' }`.
+It prints the chosen delivery origin. Remove those factory overrides to switch to Smart CDN.
+Production login scaffolds stay secretless and derive the CDN host from the catalog workspace.
+For a separate login, set `TRANSLOADIT_CREDENTIALS_FILE` in your shell before logging in.
+Console → Credentials contains the key; follow its real workspace link printed by the CLI.
 
 Init detects `app/` or `src/app/` and checks existing files before publishing. If a later local
 write fails after publication, it reports that the prefix remains public. Do not unpublish shared
@@ -311,7 +380,8 @@ a catalog or prefix is not an authorization decision. `authorize` adds `storageR
 ### Format, width and lifetime policy
 
 Private delivery pins `builtin/storage-preview@0.0.2`; public delivery pins
-`builtin/public-preview@0.0.1`. AVIF quality 45 and WebP quality
+`builtin/public-preview@0.0.1`, which wraps `builtin/storage-preview@0.0.2`: the public URL pins
+its transformation pipeline version too. AVIF quality 45 and WebP quality
 75 precede a JPEG quality 75 fallback. Formats use separate URLs, not unkeyed Accept negotiation.
 Candidate widths follow 320, 640, 960, 1280, 1920, 2560, 3840 plus intrinsic width, bounded by the
 source and backend dimensions. `widths` overrides the ladder; the JPEG fallback is no larger than
@@ -320,9 +390,8 @@ its largest candidate. For a 48px avatar, `widths={[48, 96]}` also caps JPEG at 
 Explicit `sizes` describes CSS layout; it does not set that layout. Without a derived or explicit
 size, lazy images default to `sizes="auto, 100vw"` (automatic CSS-box sizing where supported,
 viewport fallback otherwise); eager/preloaded images retain `100vw`. Auto sizing is lazy-only:
-Chrome 126+, [Firefox 150+](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Releases/150)
-and [Safari 27 beta](https://webkit.org/blog/17967/news-from-wwdc26-webkit-in-safari-27-beta/#html).
-Older browsers, including Safari 26, use the listed fallback. Keep explicit fallback lengths.
+Chrome 126+ and [Firefox 150+](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Releases/150)
+support it; Safari does not yet. Browsers without support use the listed fallback. Keep explicit fallback lengths.
 `objectFit` controls CSS, while the default `r: 'pad'` preserves source
 proportions in encoded candidates. AVIF/WebP/PNG candidates use `bg: '#00000000'` to preserve
 transparency through both preview and encoding; JPEG uses an opaque background, white by default.
@@ -359,6 +428,9 @@ same-page sign-in/refresh needs an explicit retry identity. See [When it breaks]
 
 ### Receipt integrity and recovery
 
+Older deployments may watermark Community-plan uploads. The CLI reports changed bytes and saves
+metadata for the actual stored image; it does not suggest overwriting that completed upload.
+
 The store command wraps `client.storeImage()`, waits for completion and validates `asset_id`,
 the exact destination, stored byte count/MD5 and positive EXIF-oriented display dimensions.
 The receipt lands in `results[':original']`, not `results.stored`. Older deployments can apply
@@ -388,6 +460,10 @@ Receipt validation occurs after the Storage write, not as a rollback. If no usab
 back, inspect with `storage ls` and recover with `storage receipts sync`, using the same catalog.
 Do not re-upload or use `--overwrite` to fix missing metadata. Existing paths conflict by default.
 
+`storage ls` and `storage receipts sync` require the S3 read API, currently off in production until
+`API2_STORAGE_S3_ENABLED` is deployed. HTTP 403 cannot distinguish a disabled API from denied access;
+check the endpoint and key scope before retrying.
+
 `storage ls website/` lists the current workspace using its Auth Key with `read` or `dam:write` scope and the existing
 S3-compatible read API, without an Assembly. `--workspace` overrides automatic workspace discovery.
 S3 allows 30 seconds to receive headers and at most two attempts per request. A 60-second deadline
@@ -408,7 +484,10 @@ npx transloadit storage receipts sync website/
 ```
 
 This uses paginated List + HEAD with the same `read` or `dam:write` credentials, `--workspace` and
-`--endpoint` options as `storage ls`. HEAD's `x-amz-meta-dam-width` and `x-amz-meta-dam-height`
+`--endpoint` options as `storage ls`. Sync also reads `GET /storage/public_prefixes` with `dam:write`
+scope and commits server-declared public policy and receipts atomically. If policy cannot be read,
+recovery fails without changing the existing file. Folder names never imply public access.
+HEAD's `x-amz-meta-dam-width` and `x-amz-meta-dam-height`
 rebuild `{ path, width, height }`, which can be passed directly as `StorageImage`'s `src`.
 `md5hash` is included only for compatible single-part ETags; multipart, opaque and SSE-KMS/SSE-C
 ETags are not treated as MD5. See [S3's ETag contract](https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html).

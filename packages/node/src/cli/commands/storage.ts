@@ -9,9 +9,11 @@ import { Command, Option } from 'clipanion'
 import pMap from 'p-map'
 import { z } from 'zod'
 
+import { ApiError } from '../../ApiError.ts'
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
 import { normalizeStoragePublicPrefix } from '../../storagePublicPrefixes.ts'
-import { describeCliCredentialSource } from '../helpers.ts'
+import { Transloadit } from '../../Transloadit.ts'
+import { noticeCliCredentialSource, resolveCliConfig } from '../helpers.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import {
   assertStorageWorkspace,
@@ -47,10 +49,32 @@ export class StoragePublishCommand extends StorageProjectCommand {
     description: 'Declare a directory public for unsigned Smart CDN delivery',
   })
   prefix = Option.String({ required: true })
+  dryRun = Option.Boolean('--dry-run', false, {
+    description: 'List matching objects without publishing or changing the catalog',
+  })
   protected async run(): Promise<number | undefined> {
     try {
-      this.output.notice(describeCliCredentialSource(this.cliConfig))
+      noticeCliCredentialSource(this.cliConfig, this.output)
       const prefix = normalizeStoragePublicPrefix(this.prefix)
+      if (this.dryRun) {
+        const catalog = await readStorageCatalog(this.receipts)
+        const objects = await withStorageS3(
+          {
+            endpoint: this.endpoint,
+            workspace: this.workspace,
+            projectWorkspace: catalog?.workspace,
+          },
+          (client, workspace) => listStorageObjects(client, workspace, prefix),
+          'Publication dry run',
+          undefined,
+          this.cliConfig,
+        )
+        this.output.print(
+          `Would publish ${prefix} recursively, including future objects. Nothing changed.\n${objects.length === 0 ? 'No stored objects currently match.' : objects.map(({ path, size }) => `${JSON.stringify(path)}\t${size} bytes`).join('\n')}`,
+          { prefix, objects },
+        )
+        return undefined
+      }
       await updateStorageReceipts(this.receipts, async (previous, signal) => {
         const workspace = await resolveStorageWorkspace(
           this,
@@ -98,7 +122,7 @@ export class StorageUnpublishCommand extends StorageProjectCommand {
   prefix = Option.String({ required: true })
   protected async run(): Promise<number | undefined> {
     try {
-      this.output.notice(describeCliCredentialSource(this.cliConfig))
+      noticeCliCredentialSource(this.cliConfig, this.output)
       const prefix = normalizeStoragePublicPrefix(this.prefix)
       await updateStorageReceipts(this.receipts, async (previous, signal) => {
         const workspace = await resolveStorageWorkspace(
@@ -146,7 +170,7 @@ export class StoragePublicationsCommand extends AuthenticatedCommand {
   })
   protected async run(): Promise<number | undefined> {
     try {
-      this.output.notice(describeCliCredentialSource(this.cliConfig))
+      noticeCliCredentialSource(this.cliConfig, this.output)
       const result = await this.client.listPublicStoragePrefixes()
       this.output.print(
         result.public_prefixes.length === 0
@@ -194,7 +218,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
     let workspace: string | undefined
     let saved = false
     try {
-      this.output.notice(describeCliCredentialSource(this.cliConfig))
+      noticeCliCredentialSource(this.cliConfig, this.output)
       if (this.files.length > 1 && !this.destination.endsWith('/'))
         throw new Error('Multiple images need a directory destination ending in /')
       const inputs = this.files.map((input) => ({
@@ -271,13 +295,20 @@ export class StorageStoreCommand extends StorageProjectCommand {
         )
         if (stored.receipt === undefined) throw new Error('Storage did not return a receipt')
         const receipt = stored.receipt
-        const src = receipt.path
-          .replaceAll('&', '&amp;')
-          .replaceAll('"', '&quot;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;')
+        const attribute = (value: string): string =>
+          value
+            .replaceAll('&', '&amp;')
+            .replaceAll('"', '&quot;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+        const src = attribute(receipt.path)
+        const alt = attribute(
+          basename(receipt.path)
+            .replace(/\.[^.]+$/, '')
+            .replaceAll(/[-_]+/g, ' '),
+        )
         this.output.print(
-          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this receipt file.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="" width={${Math.min(receipt.width, 960)}} />\n{/* Empty alt is decorative; replace it for an informative image. */}`,
+          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this receipt file.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}} />`,
           receipt,
         )
       }
@@ -336,6 +367,12 @@ export class StorageStoreCommand extends StorageProjectCommand {
                   `transloadit storage receipts sync ${quote(destination)} ${options}`,
                 ]),
           ].join('\n'),
+        )
+        return 1
+      }
+      if (failure instanceof ApiError && failure.code === 'TRANSLOADIT_STORE_CONFLICT') {
+        this.output.error(
+          `Storage destination ${JSON.stringify(destination)} already exists. Choose a fresh name; use --overwrite only if you deliberately want to replace that object.`,
         )
         return 1
       }
@@ -429,7 +466,8 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
     category: 'Storage',
     description: 'Rebuild saved rendering metadata from the Storage catalog',
     details: `
-      Uses the same Auth Key with read or dam:write scope, endpoint and workspace discovery as storage ls.
+      Uses the same Auth Key and workspace discovery as storage ls, with dam:write scope to also
+      recover the server's declared public prefixes. Requires the Storage S3 read API.
       Adds or refreshes matched paths; never prunes unmatched local entries. Keeps existing upload
       asset_id/size only when the HEAD MD5 matches; otherwise replaces with rendering metadata.
       All listed images must expose valid dam-width/dam-height metadata. Any failure preserves the
@@ -451,6 +489,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
       let count = 0
       let synced: Record<string, unknown> = {}
       let catalogUpdated = false
+      const config = resolveCliConfig()
       await updateStorageReceipts(resolve(this.receipts), async (previous, signal) => {
         let actualWorkspace: string | undefined
         synced = await withStorageS3(
@@ -536,6 +575,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
           },
           'Storage receipt sync',
           this.output,
+          config,
         )
         if (actualWorkspace === undefined) throw new Error('Storage did not identify a workspace')
         if (previous !== undefined && previous.workspace !== actualWorkspace) {
@@ -544,16 +584,37 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
           )
           return undefined
         }
+        // Recover policy with the same key/endpoint as the S3 reads, never an unrelated bearer
+        // token or a folder-name guess. Neither half is committed if this read fails.
+        if (config.credentials === undefined) throw new Error('Storage credentials are missing')
+        const policyClient = new Transloadit({
+          ...config.credentials,
+          endpoint: new URL(
+            this.endpoint ?? config.credentialsEndpoint ?? 'https://api2.transloadit.com',
+          ).origin,
+          maxRetries: 0,
+        })
+        const policy = await policyClient
+          .listPublicStoragePrefixes({
+            signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
+          })
+          .catch((error: unknown) => {
+            signal.throwIfAborted()
+            throw new Error(
+              'Recovery incomplete: could not read the server public prefixes. Check the API endpoint and Auth Key dam:write scope, then retry. The existing catalog was preserved.',
+              { cause: error },
+            )
+          })
         catalogUpdated = true
         return {
           workspace: actualWorkspace,
-          public: previous?.public ?? [],
+          public: policy.public_prefixes.map(({ prefix }) => prefix),
           images: { ...previous?.images, ...synced },
         }
       })
       this.output.print(
         catalogUpdated
-          ? `Synced ${count} rendering receipts to ${this.receipts}. Upload evidence is kept only when the HEAD MD5 matches; otherwise matched entries are replaced. Unmatched entries were preserved. Commit this file before building.`
+          ? `Synced ${count} rendering receipts and public policy to ${this.receipts}. Unmatched entries were preserved. Commit this file before building.`
           : `Read ${count} rendering receipts. Catalog unchanged because it belongs to another workspace.`,
         synced,
       )

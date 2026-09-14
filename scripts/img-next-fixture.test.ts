@@ -26,6 +26,21 @@ async function imageDocumentation(): Promise<string> {
   return `${await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')}\n${await readFile(resolve(import.meta.dirname, '../packages/img/docs/reference.md'), 'utf8')}`
 }
 
+test('private deployment uses an application key rather than the revocable CLI login identity', async () => {
+  const documentation = await imageDocumentation()
+  expect(documentation).toContain('Credentials → Create Auth Key')
+  expect(documentation).toContain('separate application key')
+  expect(documentation).toContain('TRANSLOADIT_SMART_CDN_SECRET')
+  expect(documentation).not.toContain("Supply the login's")
+})
+
+test('the README is a short invitation, with operational caveats in the reference', async () => {
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  expect(readme.split('\n').length).toBeLessThanOrEqual(70)
+  expect(readme).toContain('width={960} preload')
+  expect(readme).not.toMatch(/Bunny|NEXT_PUBLIC_|--replace|cached bytes|`v`/)
+})
+
 test.each([
   'private-images',
   'browser-images',
@@ -77,7 +92,7 @@ test('keeps the maintainer seed configuration separate and scaffolds the factory
 test('gets to the first image before teaching the security model and keeps the private recipe complete', async () => {
   const readme = await imageDocumentation()
   const quickstart = readme
-    .slice(readme.indexOf('## Quickstart'), readme.indexOf('## Deploy'))
+    .slice(readme.indexOf('## Quickstart'), readme.indexOf('## Responsive'))
     .trim()
   expect(quickstart.split('\n').length).toBeLessThanOrEqual(40)
   expect(quickstart).toContain('image init website/ --public')
@@ -104,7 +119,7 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(readme).not.toContain('yarn transloadit')
   expect(readme).not.toContain('loading="eager"')
   expect(readme).toContain('Firefox 150+')
-  expect(readme).toContain('Safari 27 beta')
+  expect(readme).toContain('Safari does not yet')
   expect(readme).toContain('Uppy')
   expect(readme).toContain('"robot": "/transloadit/store"')
   expect(readme).toContain('notification')
@@ -130,17 +145,17 @@ test('answers stranger signup and delivery setup questions without a private-doc
     resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
     'utf8',
   )
-  const quickstart = readme.slice(readme.indexOf('## Quickstart'), readme.indexOf('## Deploy'))
+  const quickstart = readme.slice(readme.indexOf('## Quickstart'), readme.indexOf('## Responsive'))
   expect(quickstart).toContain('maintainer')
   expect(quickstart).toContain('tarballs')
   expect(quickstart).toContain('pnpm add')
   expect(quickstart).toContain('yarn add')
-  expect(quickstart).toContain('sign up first')
-  expect(quickstart).toContain('15 minutes')
+  expect(quickstart).toContain('Sign up in the browser')
+  expect(reference).toContain('15 minutes')
   expect(quickstart.indexOf('16.3.3')).toBeLessThan(quickstart.indexOf('auth login'))
   expect(readme).toContain('`baseUrl` and `urlParams`')
   expect(readme).toContain('`<workspace>.tlcdn.com`')
-  const troubleshooting = readme.slice(readme.indexOf('## When it breaks'))
+  const troubleshooting = `${readme.slice(readme.indexOf('## When it breaks'))}\n${reference}`
   expect(troubleshooting).toContain('auth login --endpoint <url>')
   expect(troubleshooting).toContain('persists that endpoint')
   expect(troubleshooting).toContain('TRANSLOADIT_CREDENTIALS_FILE')
@@ -166,12 +181,12 @@ test('ships a focused secretless quickstart and the detailed reference it links 
   const manifest = await readManifest(resolve(import.meta.dirname, '../packages/img/package.json'))
   expect(manifest.files).toContain('docs')
   expect(readme).toContain('](./docs/reference.md')
-  expect(readme.split('\n').length).toBeLessThan(200)
+  expect(readme.split('\n').length).toBeLessThanOrEqual(70)
   expect(readme).toContain('16.3.3')
-  expect(readme).toContain("cacheMaxAge: '1m'")
-  expect(readme).toContain('## Deploy')
-  expect(readme).toContain('width={960} priority')
-  expect(readme).toContain('Windows')
+  expect(reference).toContain("cacheMaxAge: '1m'")
+  expect(readme).toContain('then deploy')
+  expect(readme).toContain('width={960} preload')
+  expect(reference).toContain('Windows')
   expect(readme).not.toContain('maxWidth=')
   expect(readme).not.toMatch(/rotationIntervalMs|delivery: 'direct'|deferUntilHydrated|retryKey/)
   expect(reference).toContain('Experimental')

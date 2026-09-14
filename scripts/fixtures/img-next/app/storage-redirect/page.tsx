@@ -8,7 +8,7 @@ export default function Page(): ReactNode {
       alt="Authorized Storage fixture"
       fetchPriority="high"
       height={1600}
-      priority
+      preload
       sizes="(min-width: 960px) 960px, 100vw"
       src="documents/hero.jpg"
       style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}

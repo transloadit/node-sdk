@@ -80,6 +80,11 @@ const attributedImage = (
   />
 )
 const eagerImage = <Image {...imageProps} loading="eager" priority />
+const preloadedImage = <Image {...imageProps} preload />
+// @ts-expect-error A preloaded image cannot also be lazy.
+const lazyPreloadedImage = <Image {...imageProps} loading="lazy" preload />
+void preloadedImage
+void lazyPreloadedImage
 const lazyImage = <Image {...imageProps} loading="lazy" priority={false} />
 const receipt = {
   path: 'documents/report.pdf',
