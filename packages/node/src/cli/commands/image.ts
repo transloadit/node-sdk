@@ -130,6 +130,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           content: storageImagePage(
             relative(resolve(pageDirectory), resolve(this.receipts)).replaceAll('\\', '/'),
             prefix,
+            relative(process.cwd(), resolve(this.receipts)).replaceAll('\\', '/'),
           ),
         },
         ...(this.privateDelivery

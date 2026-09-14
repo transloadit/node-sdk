@@ -160,6 +160,12 @@ test('sync replaces stale local policy with the server declarations, including a
   await runSync()
   expect(process.exitCode).toBeUndefined()
   expect(JSON.parse(await readFile('images.json', 'utf8')).public).toEqual([])
+  expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
+    expect.stringContaining('No public prefixes are declared on the server'),
+  )
+  expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
+    expect.stringMatching(/storage publish.*authorize/),
+  )
 })
 
 test.each([

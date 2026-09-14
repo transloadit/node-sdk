@@ -429,7 +429,9 @@ function getStoragePolicy(
     publicPrefixes.length === 0 &&
     configuration.delivery !== 'direct'
   )
-    throw new TypeError("Choose public, authorize, or delivery: 'direct' for Storage images")
+    throw new TypeError(
+      "No public prefixes are configured. Publish a directory with storage publish only if it should be public; otherwise configure private authorization. Choose public, authorize, or delivery: 'direct' for Storage images.",
+    )
   if (configuration.delivery !== undefined && configuration.delivery !== 'direct')
     throw new TypeError("delivery must be 'direct'; provide authorize to enable redirects")
   const lifetime = parseLifetime(configuration.lifetime)

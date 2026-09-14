@@ -171,8 +171,15 @@ test('art direction derives a responsive box and permits an externally owned fil
 
 test('requires an explicit delivery choice, naming all three alternatives', () => {
   expect(() => createStorageImages({ images })).toThrow(
-    new TypeError("Choose public, authorize, or delivery: 'direct' for Storage images"),
+    /Choose public, authorize, or delivery: 'direct'/,
   )
+})
+
+test('a recovered private catalog explains intentional publication without guessing public access', () => {
+  expect(() => createStorageImages({ workspace: 'my-app', public: [], images })).toThrow(
+    /No public prefixes.*storage publish.*authorize/s,
+  )
+  expect(connection).not.toHaveBeenCalled()
 })
 
 test('one factory accepts explicit credentials and retains the redirect overload', async () => {

@@ -323,7 +323,12 @@ function credentialSourceName(source: CliEnvSource, shell: CliEnvSource, auth: C
   return fromShell === 0 ? 'project .env' : 'shell environment + project .env'
 }
 
-/** Describes the selected credential source, never the credential or a claim of verified ownership. */
+/** Quotes a value in the CLI's copyable POSIX-shell commands without expanding user input. */
+export function quoteCliArgument(value: string): string {
+  return /^[a-zA-Z0-9_./-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`
+}
+
+/** Names credential overrides without exposing values or claiming verified ownership. */
 export function noticeCliCredentialSource(
   config: ResolvedCliConfig,
   output: Pick<IOutputCtl, 'notice'> | undefined,

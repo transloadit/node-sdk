@@ -663,13 +663,23 @@ describe('image init', () => {
     await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  test('init accepts an existing catalog without replacing its data', async () => {
+  test.each([
+    false,
+    true,
+  ])('init keeps the selected catalog portable without replacing its data (absolute: %s)', async (absolute) => {
     await mkdir('src/app', { recursive: true })
     await mkdir('catalog')
     const catalog =
       '{"workspace":"my-app","public":[],"images":{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}}\n'
     await writeFile('catalog/images.json', catalog)
-    await main(['image', 'init', 'website/', '--public', '--receipts', 'catalog/images.json'])
+    await main([
+      'image',
+      'init',
+      'website/',
+      '--public',
+      '--receipts',
+      absolute ? join(process.cwd(), 'catalog/images.json') : 'catalog/images.json',
+    ])
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('catalog/images.json', 'utf8'))).toEqual({
       ...JSON.parse(catalog),
@@ -677,6 +687,12 @@ describe('image init', () => {
     })
     expect(await readFile('src/app/storage-image-example/page.tsx', 'utf8')).toContain(
       '../../../catalog/images.json',
+    )
+    expect(await readFile('src/app/storage-image-example/page.tsx', 'utf8')).toContain(
+      '--receipts=catalog/images.json',
+    )
+    expect(await readFile('src/app/storage-image-example/page.tsx', 'utf8')).not.toContain(
+      process.cwd(),
     )
   })
 

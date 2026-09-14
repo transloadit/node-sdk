@@ -263,11 +263,20 @@ Work remains in #500 on `img-onboard`; no merge, publication or production chang
 - [x] S3 availability/403 handling; non-production init delivery override; dev HEAD fallback.
 - [x] preload vocabulary, typed scaffold and store snippets, concise output, publication dry run.
 - [x] Quickstart-first README and reference accuracy; browser device-denial contract.
-- [ ] Focused reviews, required sequential checks, packed browser proof and exact-head green CI.
-- [ ] Condense the PR body, preserving historical evidence in maintainer documentation.
+- [x] Triage both focused councils and the Opus UX/security review; add red-first regressions.
+- [x] Condense the PR body, preserving historical evidence in maintainer documentation.
 
 Pre-review full `yarn check` passes: 267 img and 571 Node tests (one existing skip).
-Native proof and reviews are still pending; details and failed-check receipts remain in the report.
+Native desktop/mobile proof and independent Opus UX/security reviews pass on the initial head.
+Council's shell-quoting and custom-catalog findings are fixed red-first. The Opus follow-up fixes
+scaffold formatting, stale alt docs and missing empty-policy guidance. The workspace env override
+remains the explicit round-8 contract, now documented. Final packed verification also replaces its
+stale empty-scaffold assertion; that initial local/CI failure is retained in the report.
+The closure council's multiline assertion and portable absolute-catalog follow-up are fixed;
+full `yarn check` now passes with 268 img and 572 Node tests (one existing skip).
+The final handoff gate is img check → verify → packed browser proof → exact-head green CI.
+Its current commit-stamped result is recorded in the report and PR body rather than a
+self-referential docs-only commit. No merge or publication is authorized by passing this gate.
 
 Progress and red/green evidence: `/tmp/img-task2-round11-report.md`. Immutable identity and
 image doctor remain out of scope. `@transloadit/img` stays private at 0.0.0.

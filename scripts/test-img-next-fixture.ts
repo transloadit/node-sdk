@@ -368,9 +368,7 @@ async function main(): Promise<void> {
         'utf8',
       )
       assert(
-        generatedPrivateHtml.includes(
-          'Add an image under uploads/ with transloadit storage store to see it here.',
-        ),
+        generatedPrivateHtml.includes('npx transloadit storage store ./hero.jpg uploads/hero.jpg'),
         'The private scaffold must preserve public policy and ignore images outside its directory',
       )
       const outputNames = await readdir(appOutput, { recursive: true })

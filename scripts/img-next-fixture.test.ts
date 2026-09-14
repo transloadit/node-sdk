@@ -1,9 +1,20 @@
+import type { Node } from 'typescript'
+
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 
 import { execa } from 'execa'
+import {
+  createSourceFile,
+  forEachChild,
+  isStringLiteral,
+  ScriptKind,
+  ScriptTarget,
+} from 'typescript'
 import { expect, onTestFinished, test } from 'vitest'
+
+import { storageImagePage } from '../packages/node/src/cli/storageSnippets.ts'
 
 interface PackageManifest {
   engines?: { node?: string }
@@ -11,6 +22,62 @@ interface PackageManifest {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
 }
+
+function scaffoldUploadCommand(page: string): string {
+  const commands: string[] = []
+  function visit(node: Node): void {
+    if (isStringLiteral(node) && node.text.startsWith('npx transloadit storage store'))
+      commands.push(node.text)
+    forEachChild(node, visit)
+  }
+  visit(createSourceFile('page.tsx', page, ScriptTarget.Latest, true, ScriptKind.TSX))
+  expect(commands).toHaveLength(1)
+  const command = commands[0]
+  if (command === undefined) throw new Error('Expected the generated upload command')
+  return command
+}
+
+test.each([
+  'team photos/',
+  "team'photos/",
+  'cash$IMG_SNIPPET_SENTINEL/',
+])('the scaffold upload command preserves the literal prefix %s in a shell', async (prefix) => {
+  const command = scaffoldUploadCommand(storageImagePage('../../transloadit.images.json', prefix))
+  // A local function captures arguments; no npx process, network request or upload runs.
+  const result = await execa('bash', ['-c', `npx() { printf '%s\\n' "$@"; }\n${command}`], {
+    reject: false,
+    env: { IMG_SNIPPET_SENTINEL: 'must-not-expand' },
+  })
+  expect(result.exitCode).toBe(0)
+  expect(result.stdout.split('\n')).toEqual([
+    'transloadit',
+    'storage',
+    'store',
+    './hero.jpg',
+    `${prefix}hero.jpg`,
+  ])
+})
+
+test('a custom catalog remains the upload destination advertised by image init', async () => {
+  const page = storageImagePage('../../catalog photos.json', 'website/', 'catalog photos.json')
+  const command = scaffoldUploadCommand(page)
+  const result = await execa('bash', ['-c', `npx() { printf '%s\\n' "$@"; }\n${command}`])
+  expect(result.stdout.split('\n')).toContain('--receipts=catalog photos.json')
+})
+
+test('the generated example is already formatted for the repository Biome configuration', async () => {
+  const page = storageImagePage('../../transloadit.images.json', 'website/')
+  const result = await execa(
+    process.execPath,
+    [
+      resolve(import.meta.dirname, '../node_modules/@biomejs/biome/bin/biome'),
+      'format',
+      '--stdin-file-path=app/storage-image-example/page.tsx',
+    ],
+    { input: page, stripFinalNewline: false },
+  )
+  expect(result.stdout).toBe(page)
+})
 
 test.each([
   'node',
@@ -32,6 +99,13 @@ test('private deployment uses an application key rather than the revocable CLI l
   expect(documentation).toContain('separate application key')
   expect(documentation).toContain('TRANSLOADIT_SMART_CDN_SECRET')
   expect(documentation).not.toContain("Supply the login's")
+})
+
+test('the reference describes the generated alt and the deliberate workspace override', async () => {
+  const documentation = await imageDocumentation()
+  expect(documentation).toContain('filename-derived alt')
+  expect(documentation).not.toContain('decorative empty alt')
+  expect(documentation).toContain('`TRANSLOADIT_WORKSPACE` overrides the catalog workspace')
 })
 
 test('the README is a short invitation, with operational caveats in the reference', async () => {

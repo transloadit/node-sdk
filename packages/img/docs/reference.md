@@ -233,7 +233,10 @@ Unrestricted keys (`signature_algo: null`) also retain that default for API requ
 
 `image init` requires `--public` or `--private` and prefers the saved login, keeping its key,
 workspace and endpoint together even with stale shell/project credentials. The catalog carries
-`{ workspace, public, images }`; public init creates no app env file. Private `--write-env` creates
+`{ workspace, public, images }`; public init creates no app env file.
+`TRANSLOADIT_WORKSPACE` overrides the catalog workspace when explicitly set in the app's environment.
+Remove a stale override if image URLs point at another workspace; the factory does not read the CLI's
+saved credentials file. Private `--write-env` creates
 an owner-only `.env.local` containing only key and secret, never overwriting it. Omit that flag to
 leave env files untouched. All keys are **server-only**, never `NEXT_PUBLIC_`.
 Private initialization preserves already-published directories; it does not unpublish them.
@@ -446,7 +449,7 @@ Rendering requires no metadata lookup.
 `storage store ./images/*.jpg website/` accepts shell-expanded files and a directory destination.
 Each successful upload is checkpointed before the next; a later failure preserves earlier receipts.
 Duplicate destination basenames are refused before uploading. The printed snippet uses a
-decorative empty alt with a reminder to describe informative images.
+filename-derived alt; replace it with an accurate description, or an empty alt for a decorative image.
 
 The CLI atomically appends to the catalog's `images` object keyed by Storage path, preserving earlier receipts
 on failure. Parent directories must exist. A sibling lock prevents concurrent writers from losing
@@ -487,6 +490,9 @@ This uses paginated List + HEAD with the same `read` or `dam:write` credentials,
 `--endpoint` options as `storage ls`. Sync also reads `GET /storage/public_prefixes` with `dam:write`
 scope and commits server-declared public policy and receipts atomically. If policy cannot be read,
 recovery fails without changing the existing file. Folder names never imply public access.
+An empty server policy is recovered as `public: []`, not silently republished. For intentionally
+public images run `storage publish` on the intended directory; otherwise configure `authorize`
+for private delivery. The CLI and factory explain this missing delivery choice.
 HEAD's `x-amz-meta-dam-width` and `x-amz-meta-dam-height`
 rebuild `{ path, width, height }`, which can be passed directly as `StorageImage`'s `src`.
 `md5hash` is included only for compatible single-part ETags; multipart, opaque and SSE-KMS/SSE-C

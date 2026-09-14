@@ -478,9 +478,9 @@ describe('storage store', () => {
     const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
     expect(message).toContain(receipt.path)
     expect(message).toContain(assemblyId)
-    expect(message).toContain("transloadit storage ls 'website/hero.jpg' --receipts 'images.json'")
+    expect(message).toContain('transloadit storage ls website/hero.jpg --receipts images.json')
     expect(message).toContain(
-      "transloadit storage receipts sync 'website/hero.jpg' --receipts 'images.json'",
+      'transloadit storage receipts sync website/hero.jpg --receipts images.json',
     )
     expect(message).toContain('Do not re-upload')
     expect(message).not.toMatch(/may already exist|overwrite|conflict_strategy/)
@@ -523,10 +523,9 @@ describe('storage store', () => {
       'custom.json',
     ])
     const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
-    const options =
-      "--receipts 'custom.json' --endpoint 'http://127.0.0.1:32189' --workspace 'my-app'"
-    expect(message).toContain(`transloadit storage ls 'hero.jpg' ${options}`)
-    expect(message).toContain(`transloadit storage receipts sync 'hero.jpg' ${options}`)
+    const options = "--receipts custom.json --endpoint 'http://127.0.0.1:32189' --workspace my-app"
+    expect(message).toContain(`transloadit storage ls hero.jpg ${options}`)
+    expect(message).toContain(`transloadit storage receipts sync hero.jpg ${options}`)
     expect(message).not.toContain("sync ''")
   })
 

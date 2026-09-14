@@ -13,7 +13,7 @@ import { ApiError } from '../../ApiError.ts'
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
 import { normalizeStoragePublicPrefix } from '../../storagePublicPrefixes.ts'
 import { Transloadit } from '../../Transloadit.ts'
-import { noticeCliCredentialSource, resolveCliConfig } from '../helpers.ts'
+import { noticeCliCredentialSource, quoteCliArgument, resolveCliConfig } from '../helpers.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import {
   assertStorageWorkspace,
@@ -346,12 +346,10 @@ export class StorageStoreCommand extends StorageProjectCommand {
           : undefined
       if (recovery?.success) {
         this.output.debug(JSON.stringify(recovery.data))
-        // Copyable POSIX arguments must not execute substitutions in a local filename.
-        const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`
         const options = [
-          `--receipts ${quote(this.receipts)}`,
-          ...(this.endpoint ? [`--endpoint ${quote(this.endpoint)}`] : []),
-          ...(this.workspace ? [`--workspace ${quote(this.workspace)}`] : []),
+          `--receipts ${quoteCliArgument(this.receipts)}`,
+          ...(this.endpoint ? [`--endpoint ${quoteCliArgument(this.endpoint)}`] : []),
+          ...(this.workspace ? [`--workspace ${quoteCliArgument(this.workspace)}`] : []),
         ].join(' ')
         this.output.error(
           [
@@ -363,8 +361,8 @@ export class StorageStoreCommand extends StorageProjectCommand {
               : [
                   'The Assembly did not return usable receipt metadata. Do not re-upload; inspect Storage and recover its metadata:',
                   // A filename prefix also works for root objects without scanning the workspace.
-                  `transloadit storage ls ${quote(destination)} ${options}`,
-                  `transloadit storage receipts sync ${quote(destination)} ${options}`,
+                  `transloadit storage ls ${quoteCliArgument(destination)} ${options}`,
+                  `transloadit storage receipts sync ${quoteCliArgument(destination)} ${options}`,
                 ]),
           ].join('\n'),
         )
@@ -606,6 +604,10 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
             )
           })
         catalogUpdated = true
+        if (policy.public_prefixes.length === 0)
+          this.output.notice(
+            'No public prefixes are declared on the server. For public delivery, deliberately publish a directory with storage publish; otherwise configure authorize for private images. Sync never publishes files.',
+          )
         return {
           workspace: actualWorkspace,
           public: policy.public_prefixes.map(({ prefix }) => prefix),

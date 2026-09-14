@@ -1,5 +1,8 @@
 import { statSync } from 'node:fs'
 
+import { quoteCliArgument } from './helpers.ts'
+import { defaultStorageCatalog } from './storageReceipts.ts'
+
 /** Locate ordinary Next.js app directories without assuming the consumer's source layout. */
 export function nextAppRoot(): '' | 'src/' | undefined {
   if (statSync('app', { throwIfNoEntry: false })?.isDirectory()) return ''
@@ -70,19 +73,39 @@ export function storageImageFactory({
 }
 
 /** An empty-safe scaffold showing the first receipt in the initialized directory. */
-export function storageImagePage(receiptsImport: string, prefix: string): string {
+export function storageImagePage(
+  receiptsImport: string,
+  prefix: string,
+  receipts = defaultStorageCatalog,
+): string {
+  const catalogOption =
+    receipts === defaultStorageCatalog ? '' : ` --receipts=${quoteCliArgument(receipts)}`
+  const command = `npx transloadit storage store${catalogOption}${prefix.startsWith('-') ? ' --' : ''} ./hero.jpg ${quoteCliArgument(`${prefix}hero.jpg`)}`
   return [
     "import { StorageImage } from '../../lib/storageImage'",
     `import catalog from ${sourceString(relativeImport(receiptsImport))}`,
     '',
     'export default function Page() {',
     `  const path = Object.keys(catalog.images).find((path) => path.startsWith(${sourceString(prefix)}))`,
-    `  if (path === undefined) return <p>Run <code>{${sourceString(`npx transloadit storage store ./hero.jpg ${prefix}hero.jpg`)}}</code> to add your first image.</p>`,
+    '  if (path === undefined)',
+    '    return (',
+    '      <p>',
+    `        Run <code>{${sourceString(command)}}</code> to add your`,
+    '        first image.',
+    '      </p>',
+    '    )',
     '  // Object.keys only returns own catalog keys, including when the catalog is still empty.',
     '  const src = path as keyof typeof catalog.images',
-    "  const alt = path.slice(path.lastIndexOf('/') + 1).replace(/\\.[^.]+$/, '').replaceAll(/[-_]+/g, ' ')",
+    '  const alt = path',
+    "    .slice(path.lastIndexOf('/') + 1)",
+    "    .replace(/\\.[^.]+$/, '')",
+    "    .replaceAll(/[-_]+/g, ' ')",
     '  return (',
-    '    <StorageImage src={src} alt={alt} width={960} preload',
+    '    <StorageImage',
+    '      src={src}',
+    '      alt={alt}',
+    '      width={960}',
+    '      preload',
     '      errorFallback={',
     '        <p role="status">',
     '          This image could not be loaded. Check the Storage path and delivery configuration.',
