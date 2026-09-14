@@ -94,6 +94,33 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('sync help recovers the same default catalog that store writes', async () => {
+    await main(['storage', 'receipts', 'sync', '--help'])
+    const output = vi.mocked(process.stdout.write).mock.calls.flat().join(' ')
+    expect(output).toContain('transloadit.images.json')
+    expect(output).toContain('transloadit storage receipts sync website/')
+    expect(output).not.toContain('--receipts images.json')
+  })
+
+  test('names the checksum change when transformed bytes have the same length', async () => {
+    await writeFile('hero.jpg', Buffer.alloc(receipt.size, 42))
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
+      assembly_id: 'same-size-assembly',
+      ok: 'ASSEMBLY_COMPLETED',
+      results: {
+        ':original': [{ ...receipt, meta: { width: receipt.width, height: receipt.height } }],
+      },
+    })
+    await main(['storage', 'store', './hero.jpg', receipt.path])
+    expect(process.exitCode).toBeUndefined()
+    expect(OutputCtl.prototype.warn).toHaveBeenCalledWith(
+      expect.stringContaining('same size, different MD5'),
+    )
+    expect(
+      JSON.parse(await readFile('transloadit.images.json', 'utf8')).images[receipt.path],
+    ).toEqual(receipt)
+  })
+
   test('saves the Community-plan result and explains changed bytes without suggesting another write', async () => {
     await writeFile('hero.jpg', Buffer.alloc(78_593, 42))
     const stored = { ...receipt, size: 71_336, md5hash: 'b'.repeat(32) }
@@ -124,6 +151,9 @@ describe('storage store', () => {
       expect.stringContaining('"md5Matches":false'),
     )
     expect(OutputCtl.prototype.error).not.toHaveBeenCalled()
+    expect(OutputCtl.prototype.warn).toHaveBeenCalledWith(
+      expect.stringContaining('older deployments'),
+    )
   })
 
   test('Ctrl-C aborts an active upload, releases its lock and preserves the previous catalog', async () => {
@@ -449,9 +479,9 @@ describe('storage store', () => {
     const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
     expect(message).toContain(receipt.path)
     expect(message).toContain(assemblyId)
-    expect(message).toContain("transloadit storage ls 'website/'")
+    expect(message).toContain("transloadit storage ls 'website/hero.jpg' --receipts 'images.json'")
     expect(message).toContain(
-      "transloadit storage receipts sync 'website/' --receipts 'images.json'",
+      "transloadit storage receipts sync 'website/hero.jpg' --receipts 'images.json'",
     )
     expect(message).toContain('Do not re-upload')
     expect(message).not.toMatch(/may already exist|overwrite|conflict_strategy/)
@@ -464,6 +494,59 @@ describe('storage store', () => {
     )
     expect(await readFile('images.json', 'utf8')).toBe(previous)
     expect(await readdir(directory)).toEqual(['credentials', 'hero.jpg', 'images.json'])
+  })
+
+  test('recovery advice keeps endpoint, workspace and catalog overrides, even for root objects', async () => {
+    const endpoint = 'http://127.0.0.1:32189'
+    nock(endpoint)
+      .get('/storage/')
+      .query(true)
+      .reply(
+        200,
+        '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
+      )
+    await writeFile('hero.jpg', Buffer.from('image'))
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
+      ok: 'ASSEMBLY_COMPLETED',
+      assembly_id: 'missing-original',
+      results: {},
+    })
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      'hero.jpg',
+      '--endpoint',
+      endpoint,
+      '--workspace',
+      'my-app',
+      '--receipts',
+      'custom.json',
+    ])
+    const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+    const options =
+      "--receipts 'custom.json' --endpoint 'http://127.0.0.1:32189' --workspace 'my-app'"
+    expect(message).toContain(`transloadit storage ls 'hero.jpg' ${options}`)
+    expect(message).toContain(`transloadit storage receipts sync 'hero.jpg' ${options}`)
+    expect(message).not.toContain("sync ''")
+  })
+
+  test.each([
+    'ASSEMBLY_CANCELED',
+    'ASSEMBLY_EXECUTING',
+  ] as const)('does not claim a stored object or metadata recovery for %s', async (ok) => {
+    await writeFile('hero.jpg', Buffer.from('image'))
+    vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
+      ok,
+      assembly_id: 'not-completed',
+      results: {},
+    })
+    await runStore()
+    expect(process.exitCode).toBe(1)
+    const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+    expect(message).toContain(ok)
+    expect(message).toContain('not-completed')
+    expect(message).not.toMatch(/storage ls|receipts sync|Do not re-upload|already exist/)
   })
 
   test('keeps a receipts-file permission error and names the file before uploading', async () => {

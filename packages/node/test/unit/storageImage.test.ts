@@ -238,6 +238,33 @@ test('reports input and stored receipt once, without letting an observer hide a 
   )
 })
 
+test('handles an async receipt observer rejection after returning a verified receipt', async () => {
+  const { client } = fixture()
+  const unhandled: unknown[] = []
+  const observeUnhandled = (reason: unknown): void => {
+    unhandled.push(reason)
+  }
+  process.on('unhandledRejection', observeUnhandled)
+  try {
+    let calls = 0
+    function onReceipt(): Promise<void> {
+      calls += 1
+      return Promise.reject(new Error('async observer failed'))
+    }
+    await expect(
+      client.storeImage(filePath, { path: receipt.path, onReceipt }),
+    ).resolves.toMatchObject({
+      asset_id: receipt.asset_id,
+    })
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    expect(calls).toBe(1)
+    expect(unhandled).toEqual([])
+  } finally {
+    process.off('unhandledRejection', observeUnhandled)
+  }
+})
+
 test.each<[string | number | null | undefined, number, number]>([
   [undefined, 450, 600],
   [null, 450, 600],

@@ -75,9 +75,9 @@ root cannot be declared public. CLI commands maintain `public` in `transloadit.i
 updating server policy; do not edit that field manually:
 
 ```bash
-yarn transloadit storage publish website/
-yarn transloadit storage publications
-yarn transloadit storage unpublish website/
+npx transloadit storage publish website/
+npx transloadit storage publications
+npx transloadit storage unpublish website/
 ```
 
 Publishing is idempotent and requires `dam:write`. `image init website/ --public` performs that
@@ -336,7 +336,8 @@ The receipt describes the stored bytes, not an assumption that they equal the lo
 The CLI warns about a changed size or checksum and saves that authoritative receipt normally.
 `--log-level debug` adds the Assembly ID, bounded receipt summary and input comparison, never
 raw Assembly responses or credentials. SDK callers can observe `(receipt, input, assemblyId)`
-through the optional `onReceipt` callback; observer exceptions do not discard completed writes.
+through the optional `onReceipt` callback. Observers are not awaited; synchronous exceptions and
+asynchronous rejections do not discard completed writes.
 Rendering requires no metadata lookup.
 
 `storage store ./images/*.jpg website/` accepts shell-expanded files and a directory destination.
@@ -372,7 +373,7 @@ an overwrite.
 Recover or refresh a rendering catalog without re-uploading or downloading originals:
 
 ```console
-yarn transloadit storage receipts sync website/
+npx transloadit storage receipts sync website/
 ```
 
 This uses paginated List + HEAD with the same `read` or `dam:write` credentials, `--workspace` and

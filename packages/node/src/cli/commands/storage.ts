@@ -243,8 +243,11 @@ export class StorageStoreCommand extends StorageProjectCommand {
                   }),
                 )
                 if (!sizeMatches || !md5Matches) {
+                  const difference = sizeMatches
+                    ? 'same size, different MD5'
+                    : `${expected.size.toLocaleString('en-US')} → ${receipt.size.toLocaleString('en-US')} bytes`
                   this.output.warn(
-                    `Stored bytes differ from ${input.file} (${expected.size.toLocaleString('en-US')} → ${receipt.size.toLocaleString('en-US')} bytes); the workspace plan may have transformed the upload (for example, a Community-plan watermark). The receipt describes the stored image.`,
+                    `Stored bytes differ from ${input.file} (${difference}); the workspace plan may have transformed the upload (for example, a Community-plan watermark on older deployments). The receipt describes the stored image.`,
                   )
                 }
               },
@@ -312,17 +315,26 @@ export class StorageStoreCommand extends StorageProjectCommand {
           : undefined
       if (recovery?.success) {
         this.output.debug(JSON.stringify(recovery.data))
-        const prefix = destination.slice(0, destination.lastIndexOf('/') + 1)
         // Copyable POSIX arguments must not execute substitutions in a local filename.
         const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`
+        const options = [
+          `--receipts ${quote(this.receipts)}`,
+          ...(this.endpoint ? [`--endpoint ${quote(this.endpoint)}`] : []),
+          ...(this.workspace ? [`--workspace ${quote(this.workspace)}`] : []),
+        ].join(' ')
         this.output.error(
           [
             failure.message,
             `Destination: ${JSON.stringify(destination)}`,
             `Assembly ID: ${JSON.stringify(recovery.data.assemblyId)}`,
-            'The Assembly did not return usable receipt metadata. Do not re-upload; inspect the stored object and recover its metadata:',
-            `transloadit storage ls ${quote(prefix)}`,
-            `transloadit storage receipts sync ${quote(prefix)} --receipts ${quote(this.receipts)}`,
+            ...(recovery.data.receiptCheck === undefined
+              ? []
+              : [
+                  'The Assembly did not return usable receipt metadata. Do not re-upload; inspect Storage and recover its metadata:',
+                  // A filename prefix also works for root objects without scanning the workspace.
+                  `transloadit storage ls ${quote(destination)} ${options}`,
+                  `transloadit storage receipts sync ${quote(destination)} ${options}`,
+                ]),
           ].join('\n'),
         )
         return 1
@@ -423,12 +435,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
       All listed images must expose valid dam-width/dam-height metadata. Any failure preserves the
       previous file. No Assembly, original download or remote write is performed.
     `,
-    examples: [
-      [
-        'Recover website images',
-        'transloadit storage receipts sync website/ --receipts images.json',
-      ],
-    ],
+    examples: [['Recover website images', 'transloadit storage receipts sync website/']],
   })
 
   prefix = Option.String({ required: true })
@@ -436,7 +443,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
     description: 'Explicit workspace slug (otherwise discovered from this Auth Key)',
   })
   receipts = Option.String('--receipts', defaultStorageCatalog, {
-    description: 'JSON rendering catalog to update atomically, for example images.json',
+    description: 'JSON rendering catalog to update atomically (default: transloadit.images.json)',
   })
 
   protected async run(): Promise<number | undefined> {

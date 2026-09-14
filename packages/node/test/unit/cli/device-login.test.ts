@@ -109,10 +109,12 @@ function createDevice(response = created): nock.Scope {
 test.each([
   200, 403,
 ])('reports a long approval wait on stderr and stops after HTTP %s', async (status) => {
-  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date', 'performance'] })
   const api = createDevice()
     .post('/cli/device_authorizations/token')
     .reply(() => {
+      // A laptop clock correction must not extend the advertised authorization lifetime.
+      vi.setSystemTime(Date.now() - 3_600_000)
       vi.advanceTimersByTime(60_000)
       return [200, { ok: 'CLI_DEVICE_AUTHORIZATION_PENDING', expires_in: 840 }]
     })

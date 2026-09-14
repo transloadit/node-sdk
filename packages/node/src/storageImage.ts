@@ -33,12 +33,12 @@ export interface StoreImageOptions
   path: string
   /** Explicit opt-in replacement of an existing path; defaults to false. */
   overwrite?: boolean
-  /** Observe verified stored metadata and local input facts. Observer errors cannot undo a write. */
+  /** Observe verified metadata. Not awaited; sync and async observer errors cannot undo a write. */
   onReceipt?: (
     receipt: StoredImageReceipt,
     input: StoredImageExpectation,
     assemblyId: string | undefined,
-  ) => void
+  ) => void | Promise<void>
 }
 
 /** Trusted upload facts used to correlate a stored result with an application-owned upload. */
@@ -161,11 +161,16 @@ export async function storeImage(
   const input = { path, size, md5hash }
   // API2 can watermark uploads before Robots run; this exact write's result describes stored bytes.
   const receipt = validateReceipt(assembly, input, true)
-  try {
-    onReceipt?.({ ...receipt }, input, assembly.assembly_id)
-  } catch {
-    // Like Assembly progress observers, diagnostics must not hide a successfully stored receipt.
+  const observerFailed = (): void => {
     debug('transloadit:warn')('Ignored onReceipt observer failure after a completed Storage write')
+  }
+  try {
+    // Neither a stalled observer nor its rejection may hide a successfully stored receipt.
+    void Promise.resolve(onReceipt?.({ ...receipt }, input, assembly.assembly_id)).catch(
+      observerFailed,
+    )
+  } catch {
+    observerFailed()
   }
   return receipt
 }

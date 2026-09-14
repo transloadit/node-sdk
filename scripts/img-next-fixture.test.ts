@@ -101,6 +101,7 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(readme.indexOf('## When it breaks')).toBeGreaterThan(privacy)
   expect(readme.indexOf('## Reference')).toBeGreaterThan(readme.indexOf('## When it breaks'))
   expect(readme).toContain('storageRoute as GET, storageRoute as HEAD')
+  expect(readme).not.toContain('yarn transloadit')
   expect(readme).not.toContain('loading="eager"')
   expect(readme).toContain('Firefox 150+')
   expect(readme).toContain('Safari 27 beta')

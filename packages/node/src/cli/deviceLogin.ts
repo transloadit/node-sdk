@@ -105,9 +105,9 @@ export async function deviceLogin(
       throw new Error('The API returned an unsafe verification URL; nothing was opened or saved')
     expired = AbortSignal.timeout(device.expires_in * 1000)
     const signal = AbortSignal.any([cancellation.signal, expired])
-    const deadline = Date.now() + device.expires_in * 1000
+    const deadline = performance.now() + device.expires_in * 1000
     heartbeat = setInterval(() => {
-      const minutes = Math.ceil((deadline - Date.now()) / 60_000)
+      const minutes = Math.ceil((deadline - performance.now()) / 60_000)
       if (signal.aborted || minutes <= 0) return
       output.notice(
         `Still waiting for approval, ${minutes} minute${minutes === 1 ? '' : 's'} left. Use the verification URL printed above.`,
