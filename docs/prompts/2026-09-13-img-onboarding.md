@@ -370,7 +370,7 @@ open review comments and origin/main is already an ancestor. Same checkout and P
 new worktrees, merge or publication. Append evidence to /tmp/img-task2-round13-report.md.
 
 - [x] Prefer smart_cdn:sign in private setup/diagnostics; assemblies:write is also accepted.
-- [ ] Generate bounded ThumbHash receipt metadata on store and server-decoded blur placeholders.
+- [x] Generate bounded ThumbHash receipt metadata on store and server-decoded blur placeholders.
 - [x] Omit verified Built-in defaults, preserve custom-template behavior and explicit delivery.
 - [x] Describe v as an unverified cache-busting tag and recommend immutable filenames.
 - [ ] Verify red-first tests, packed browsers, reviews, checks and exact-head CI.
@@ -379,11 +379,11 @@ API2 source confirms storage-preview@0.0.2 defaults f=jpg, q=75, r=pad and bg=#f
 public-preview@0.0.1 derives from it. Candidate dimensions remain explicit. Cache keys deliberately
 change before public release; transparent formats still need their nondefault background.
 
-ThumbHash encoding/catalog/declarations/server decoding are implemented and unit-tested. Pending
-Kevin's answer: CSS cannot reliably remove an img background on native load, especially for alpha
-images. A tiny load cleanup needs client JS, while the addendum asks for none. The asynchronous
-question proposes only load cleanup; decoding must stay server-side. Do not claim blur complete
-until that choice is resolved and the packed browsers verify the loaded/transparent state.
+ThumbHash encoding/catalog/declarations/server decoding are implemented and unit-tested. Kevin
+decided against any client load handler. Store records hasAlpha: true only for original alpha
+channels. Transparent images omit the blur background and explain why in development; opaque
+images keep it hidden beneath the loaded pixels. The generated types and matching-MD5-only sync
+preserve this metadata. Public browser cases explicitly disable JavaScript for both kinds of image.
 Private redirect markup deliberately never embeds blurred pixels before image authorization.
 Encoding is best-effort and bounded (32 MiB encoded, 40 MP decoded, 100×100 hash input, 2s decoder).
 Checksum changes drop the local hash; sync only preserves one with matching MD5.
@@ -393,4 +393,7 @@ Chromium/WebKit passes 50 cacheComponents-enabled + 50 omitted + 10 development 
 attempt in the final run. The capture's pending-load screenshot was changed to computed-style
 evidence: Playwright's font-ready screenshot wait deadlocked while the test held image delivery.
 The loaded screenshot remains. All native AVIF/WebP/JPEG, alpha and private-authorization checks
-pass. Full addendum council/Opus review, push and exact-head CI wait for the blur-cleanup decision.
+pass. The follow-up alpha regressions failed first (6 failures) and pass after the server-only
+decision. Full addendum council/Opus review, packed confirmation and exact-head CI are the remaining
+gates; see the report and PR Verification section for the current head rather than reusing the
+earlier checkpoint's counts. Do not merge or publish; stop after those gates and documentation.

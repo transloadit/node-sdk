@@ -66,9 +66,10 @@ test('the package-first path stores and publishes without image init and emits c
       path,
       size: bytes.length,
       md5hash: receipt.md5hash,
-      width: path === 'website/hero.jpg' ? 2400 : 400,
-      height: path === 'website/hero.jpg' ? 1600 : 300,
+      width: path === 'website/hero.jpg' ? 2400 : path === 'website/alpha.png' ? 64 : 400,
+      height: path === 'website/hero.jpg' ? 1600 : path === 'website/alpha.png' ? 64 : 300,
       thumbhash: Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 255])).toString('base64'),
+      ...(path === 'website/alpha.png' ? { hasAlpha: true } : {}),
     }),
   )
   const cli: { main: (args: string[]) => Promise<void> } = await import(
@@ -80,6 +81,8 @@ test('the package-first path stores and publishes without image init and emits c
   assert.equal(process.exitCode, undefined)
   await cli.main(['storage', 'store', './avatar.jpg', 'accounts/avatar.jpg'])
   assert.equal(process.exitCode, undefined)
+  await cli.main(['storage', 'store', './hero.jpg', 'website/alpha.png'])
+  assert.equal(process.exitCode, undefined)
   await cli.main(['storage', 'publish', 'documents/public/'])
   assert.equal(process.exitCode, undefined)
   const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
@@ -88,7 +91,7 @@ test('the package-first path stores and publishes without image init and emits c
   assert(declarations.includes("declare module '@transloadit/img/next'"))
   assert(
     declarations.includes(
-      '"website/hero.jpg": { path: "website/hero.jpg"; width: 2400; height: 1600; thumbhash?: string }',
+      '"website/hero.jpg": { path: "website/hero.jpg"; width: 2400; height: 1600; thumbhash?: string; hasAlpha?: boolean }',
     ),
   )
   await assert.rejects(stat('lib/storageImage.ts'), { code: 'ENOENT' })
@@ -237,6 +240,7 @@ test('seeds one original and returns verified metadata for rendering without ano
   const image = await seedStorageImage(client, filePath, receipt.path)
   assert.deepEqual(image, {
     asset_id: receipt.asset_id,
+    hasAlpha: true,
     height: 1,
     md5hash: receipt.md5hash,
     path: receipt.path,

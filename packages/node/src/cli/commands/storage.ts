@@ -487,6 +487,7 @@ const uploadEvidenceSchema = z.object({
   asset_id: z.string().min(1).optional(),
   size: z.number().int().nonnegative().optional(),
   thumbhash: z.string().max(48).optional(),
+  hasAlpha: z.boolean().optional(),
 })
 
 function md5FromHead(head: HeadObjectCommandOutput): string | undefined {

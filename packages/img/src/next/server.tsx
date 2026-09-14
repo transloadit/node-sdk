@@ -618,6 +618,7 @@ function renderPicture(
         : undefined
     if (
       inlinePixels &&
+      props.source.hasAlpha !== true &&
       bytes !== undefined &&
       bytes.length >= 17 &&
       bytes.length <= 25 &&
@@ -627,9 +628,11 @@ function renderPicture(
       blurDataURL = thumbHashToDataURL(bytes)
     } else if (process.env.NODE_ENV === 'development') {
       console.warn(
-        inlinePixels
-          ? `[StorageImage] ${JSON.stringify(props.source.path)} has no usable thumbhash; placeholder="blur" is a no-op. Use storage store with the original bytes to generate it.`
-          : `[StorageImage] ${JSON.stringify(props.source.path)} uses request-authorized private delivery; placeholder="blur" is a no-op so its pixels are not exposed before authorization.`,
+        !inlinePixels
+          ? `[StorageImage] ${JSON.stringify(props.source.path)} uses request-authorized private delivery; placeholder="blur" is a no-op so its pixels are not exposed before authorization.`
+          : props.source.hasAlpha === true
+            ? `[StorageImage] ${JSON.stringify(props.source.path)}: transparent image: no blur placeholder.`
+            : `[StorageImage] ${JSON.stringify(props.source.path)} has no usable thumbhash; placeholder="blur" is a no-op. Use storage store with the original bytes to generate it.`,
       )
     }
   }

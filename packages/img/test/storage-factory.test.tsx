@@ -108,6 +108,39 @@ test('a request-authorized private image never embeds its blurred pixels before 
   expect(authorize).not.toHaveBeenCalled()
 })
 
+test.each([
+  'production',
+  'development',
+])('transparent images omit blur without adding client code (%s)', (environment) => {
+  vi.stubEnv('NODE_ENV', environment)
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response(null, { status: 200 })),
+  )
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  try {
+    const { StorageImage } = createStorageImages({
+      images: { 'website/hero.jpg': { ...images['website/hero.jpg'], thumbhash, hasAlpha: true } },
+      public: ['website/'],
+    })
+    const markup = renderToStaticMarkup(
+      <StorageImage src="website/hero.jpg" alt="Transparent hero" placeholder="blur" />,
+    )
+    const image = new DOMParser().parseFromString(markup, 'text/html').querySelector('img')
+    expect(image?.style.backgroundImage).toBe('')
+    expect(markup).not.toContain('data:image/')
+    expect(image?.getAttribute('onload')).toBeNull()
+    if (environment === 'development')
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('transparent image: no blur placeholder'),
+      )
+    else expect(warn).not.toHaveBeenCalled()
+  } finally {
+    warn.mockRestore()
+    vi.unstubAllGlobals()
+  }
+})
+
 function firstUrl(markup: string): URL {
   const document = new DOMParser().parseFromString(markup, 'text/html')
   const src = document.querySelector('img')?.getAttribute('src')

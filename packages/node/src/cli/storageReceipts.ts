@@ -74,7 +74,7 @@ function catalogTypes(catalog: StorageProjectCatalog): string {
       if (!dimensions.success) return []
       const { width, height } = dimensions.data
       const name = JSON.stringify(path)
-      return `    ${name}: { path: ${name}; width: ${width}; height: ${height}; thumbhash?: string }`
+      return `    ${name}: { path: ${name}; width: ${width}; height: ${height}; thumbhash?: string; hasAlpha?: boolean }`
     })
   return [
     typesHeader,

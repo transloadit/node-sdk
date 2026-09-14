@@ -101,7 +101,9 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
     }
     const avatar = decodeURIComponent(url.pathname).endsWith('/documents/avatar.jpg')
     const small = decodeURIComponent(url.pathname).endsWith('/website/small.jpg')
-    const transparent = decodeURIComponent(url.pathname).endsWith('/documents/alpha.png')
+    const transparent = ['/documents/alpha.png', '/website/alpha.png'].some((suffix) =>
+      path.endsWith(suffix),
+    )
     const key = `${avatar}/${small}/${transparent}/${width}/${height}/${format}/${strategy}/${background}`
     let bytes = images.get(key)
     if (bytes === undefined) {

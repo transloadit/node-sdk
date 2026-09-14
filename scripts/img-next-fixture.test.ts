@@ -146,6 +146,9 @@ test('image docs describe the unverified cache tag and recommend immutable names
   expect(readme.slice(0, readme.indexOf('## Responsive'))).toContain('immutable filename')
   expect(docs).toContain('placeholder="blur"')
   expect(docs).toContain('thumbhash')
+  expect(docs).toContain('hasAlpha: true')
+  expect(docs).toContain('transparent image: no blur placeholder')
+  expect(docs).toContain('no client-side load handler')
 })
 
 test('the leading SDK example selects SHA-256 for combined keys without changing the legacy default', async () => {

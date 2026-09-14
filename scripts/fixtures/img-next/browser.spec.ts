@@ -107,8 +107,8 @@ const test = base.extend<{ audit: BrowserAudit }>({
           if (!response.ok() || response.request().resourceType() !== 'image') return
           const bytes = await response.body()
           const metadata = await sharp(bytes).metadata()
-          const corner = decodeURIComponent(new URL(response.url()).pathname).endsWith(
-            '/documents/alpha.png',
+          const corner = ['/documents/alpha.png', '/website/alpha.png'].some((suffix) =>
+            decodeURIComponent(new URL(response.url()).pathname).endsWith(suffix),
           )
             ? [
                 ...(await sharp(bytes)
@@ -890,38 +890,67 @@ test('unsigned public Built-ins refuse private paths and private Built-ins never
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
 })
 
-test('the packaged public image embeds its blur before native delivery', async ({
-  page,
-}, testInfo) => {
-  const delivery = Promise.withResolvers<void>()
-  await page.route(`${cdnOrigin}/**`, async (route) => {
-    await delivery.promise
-    await route.continue()
-  })
-  try {
-    await page.goto('/fixture/package-public', { waitUntil: 'domcontentloaded' })
-    const image = page.getByRole('img', { name: 'Package public hero', exact: true })
-    await expect(image).toHaveCSS('background-image', /^url\("data:image\/png;base64,/)
-    await testInfo.attach('blur-before-load', {
-      // Screenshots await document.fonts.ready, which can await load while this image is held.
-      body: JSON.stringify(
-        await image.evaluate((element) => ({
-          background: getComputedStyle(element).backgroundImage,
-          width: element.getBoundingClientRect().width,
-          height: element.getBoundingClientRect().height,
-        })),
-      ),
-      contentType: 'application/json',
+test.describe('server-only blur placeholders', () => {
+  test.use({ javaScriptEnabled: false })
+
+  test('the packaged public image embeds its blur before native delivery', async ({
+    page,
+  }, testInfo) => {
+    const delivery = Promise.withResolvers<void>()
+    await page.route(`${cdnOrigin}/**`, async (route) => {
+      await delivery.promise
+      await route.continue()
     })
-    delivery.resolve()
+    try {
+      await page.goto('/fixture/package-public', { waitUntil: 'domcontentloaded' })
+      const image = page.getByRole('img', { name: 'Package public hero', exact: true })
+      await expect(image).toHaveCSS('background-image', /^url\("data:image\/png;base64,/)
+      await expect(image).not.toHaveAttribute('onload')
+      await testInfo.attach('blur-before-load', {
+        // Screenshots await document.fonts.ready, which can await load while this image is held.
+        body: JSON.stringify(
+          await image.evaluate((element) => ({
+            background: getComputedStyle(element).backgroundImage,
+            width: element.getBoundingClientRect().width,
+            height: element.getBoundingClientRect().height,
+          })),
+        ),
+        contentType: 'application/json',
+      })
+      delivery.resolve()
+      await decode(image)
+      await expect(image).toHaveCSS('background-image', /^url\("data:image\/png;base64,/)
+      await testInfo.attach('blur-after-load', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      })
+    } finally {
+      delivery.resolve()
+    }
+  })
+
+  test('a transparent public image never paints a blur behind its alpha pixels', async ({
+    page,
+    audit,
+  }, testInfo) => {
+    await page.goto('/fixture/package-alpha')
+    const image = page.getByRole('img', { name: 'Transparent public image', exact: true })
     await decode(image)
-    await testInfo.attach('blur-after-load', {
+    await expect(image).toHaveCSS('background-image', 'none')
+    await expect(image).not.toHaveAttribute('onload')
+    await expect
+      .poll(
+        () =>
+          audit.images.find((entry) =>
+            decodeURIComponent(new URL(entry.url).pathname).endsWith('/website/alpha.png'),
+          )?.corner?.[3],
+      )
+      .toBe(0)
+    await testInfo.attach('transparent-no-blur', {
       body: await page.screenshot(),
       contentType: 'image/png',
     })
-  } finally {
-    delivery.resolve()
-  }
+  })
 })
 
 test('short public AVIF, WebP and JPEG candidates all decode natively', async ({

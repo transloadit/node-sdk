@@ -96,12 +96,13 @@ function runStore(path = receipt.path): Promise<void> {
 
 describe('storage store', () => {
   test('saves optional ThumbHash metadata, declares it and prints the blur opt-in', async () => {
-    const blurred = { ...receipt, thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI' }
+    const blurred = { ...receipt, hasAlpha: true, thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI' }
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(blurred)
     await runStore()
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('images.json', 'utf8')).images[receipt.path]).toEqual(blurred)
     expect(await readFile('transloadit-images.d.ts', 'utf8')).toContain('thumbhash?: string')
+    expect(await readFile('transloadit-images.d.ts', 'utf8')).toContain('hasAlpha?: boolean')
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining('placeholder="blur"'),
       blurred,
@@ -187,7 +188,7 @@ describe('storage store', () => {
     const types = await readFile('transloadit-images.d.ts', 'utf8')
     expect(types).toContain("declare module '@transloadit/img/next'")
     expect(types).toContain(
-      '"website/hero.jpg": { path: "website/hero.jpg"; width: 800; height: 600; thumbhash?: string }',
+      '"website/hero.jpg": { path: "website/hero.jpg"; width: 800; height: 600; thumbhash?: string; hasAlpha?: boolean }',
     )
     expect(types).not.toMatch(/assembly-key|assembly-secret|stored-asset|md5hash/)
     expect(types).toMatch(/\n$/)

@@ -241,6 +241,43 @@ test('encodes a small, oriented ThumbHash from the same original bytes', async (
   if (typeof hash !== 'string') throw new Error('Missing ThumbHash')
   const decoded = thumbHashToRGBA(Buffer.from(hash, 'base64'))
   expect(decoded.w).toBeLessThan(decoded.h)
+  expect(result).not.toHaveProperty('hasAlpha')
+})
+
+test.each([
+  true,
+  false,
+])('alpha metadata describes the verified stored bytes (unchanged: %s)', async (unchanged) => {
+  const directory = await mkdtemp(join(tmpdir(), 'storage-alpha-'))
+  onTestFinished(() => rm(directory, { recursive: true, force: true }))
+  const path = join(directory, 'transparent.png')
+  const image = await sharp({
+    create: {
+      width: 16,
+      height: 16,
+      channels: 4,
+      background: { r: 45, g: 110, b: 160, alpha: 0.5 },
+    },
+  })
+    .png()
+    .toBuffer()
+  await writeFile(path, image)
+  const stored = {
+    ...receipt,
+    size: image.length,
+    md5hash: unchanged ? createHash('md5').update(image).digest('hex') : 'a'.repeat(32),
+    meta: { width: 16, height: 16 },
+  }
+  const { client } = fixture({ ...completed, results: { ':original': [stored] } })
+  const onReceipt = vi.fn()
+  const result = await client.storeImage(path, { path: receipt.path, onReceipt })
+  if (unchanged) {
+    expect(result).toMatchObject({ hasAlpha: true, thumbhash: expect.any(String) })
+    expect(onReceipt).toHaveBeenCalledWith(result, expect.anything(), completed.assembly_id)
+  } else {
+    expect(result).not.toHaveProperty('hasAlpha')
+    expect(result).not.toHaveProperty('thumbhash')
+  }
 })
 
 test('a locally unsupported decoder does not prevent storing a verified original', async () => {

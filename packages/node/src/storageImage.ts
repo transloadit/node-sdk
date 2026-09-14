@@ -16,6 +16,8 @@ import InconsistentResponseError from './InconsistentResponseError.ts'
  */
 export interface StoredImageReceipt {
   readonly asset_id: string
+  /** Present as true only when the locally decoded original has an alpha channel. */
+  readonly hasAlpha?: boolean
   readonly height: number
   readonly md5hash: string
   readonly path: string
@@ -112,20 +114,28 @@ function validateDestination(path: string): void {
   }
 }
 
-async function imageThumbHash(bytes: Buffer): Promise<string | undefined> {
+async function imagePlaceholderMetadata(
+  bytes: Buffer,
+): Promise<Pick<StoredImageReceipt, 'thumbhash' | 'hasAlpha'> | undefined> {
   try {
     const [{ default: sharp }, { rgbaToThumbHash }] = await Promise.all([
       import('sharp'),
       import('thumbhash'),
     ])
-    const { data, info } = await sharp(bytes, { limitInputPixels: 40_000_000 })
+    const image = sharp(bytes, { limitInputPixels: 40_000_000 })
+    // Read original-channel metadata, not the alpha channel added for ThumbHash's RGBA input.
+    const { hasAlpha } = await image.metadata()
+    const { data, info } = await image
       .autoOrient()
       .resize(100, 100, { fit: 'inside', withoutEnlargement: true })
       .ensureAlpha()
       .raw()
       .timeout({ seconds: 2 })
       .toBuffer({ resolveWithObject: true })
-    return Buffer.from(rgbaToThumbHash(info.width, info.height, data)).toString('base64')
+    return {
+      thumbhash: Buffer.from(rgbaToThumbHash(info.width, info.height, data)).toString('base64'),
+      ...(hasAlpha ? { hasAlpha: true } : {}),
+    }
   } catch {
     // A locally unsupported/oversized image can still be stored and decoded by the origin.
     debug('transloadit:warn')('Omitted optional ThumbHash: local image decoding was unavailable')
@@ -166,8 +176,10 @@ export async function storeImage(
   if (size === 0) throw new Error('Cannot store an empty image')
   const md5hash = checksum.digest('hex')
   signal?.throwIfAborted()
-  const thumbhash =
-    thumbnailChunks === undefined ? undefined : await imageThumbHash(Buffer.concat(thumbnailChunks))
+  const placeholder =
+    thumbnailChunks === undefined
+      ? undefined
+      : await imagePlaceholderMetadata(Buffer.concat(thumbnailChunks))
   thumbnailChunks = undefined
   signal?.throwIfAborted()
   const assembly = await client.createAssembly({
@@ -194,9 +206,9 @@ export async function storeImage(
   const receipt = validateReceipt(assembly, input, true)
   // A watermark or other origin-side rewrite makes the local pixels the wrong placeholder.
   const withPlaceholder =
-    thumbhash === undefined || receipt.md5hash !== md5hash || receipt.size !== size
+    placeholder === undefined || receipt.md5hash !== md5hash || receipt.size !== size
       ? receipt
-      : { ...receipt, thumbhash }
+      : { ...receipt, ...placeholder }
   const observerFailed = (): void => {
     debug('transloadit:warn')('Ignored onReceipt observer failure after a completed Storage write')
   }

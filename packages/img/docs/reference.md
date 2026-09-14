@@ -97,6 +97,10 @@ and Sharp, EXIF-oriented and at most 100×100 pixels. Encoding is best-effort: o
 32 MiB, over 40 million pixels, unsupported formats or a two-second decoder timeout omit it.
 Origin-side byte changes also omit the hash, since the local preview would no longer match.
 The Server Component decodes the hash; the ThumbHash decoder never enters the client bundle.
+Storage writes also record `hasAlpha: true` only when the original has an alpha channel, even if
+all its pixels happen to be opaque. For those images blur is a no-op with the development-only
+note "transparent image: no blur placeholder". For images without alpha, the background remains
+in place, hidden under the loaded opaque image: no client-side load handler is needed or shipped.
 Without a usable hash, the prop is a no-op with a development-only note. Request-authorized
 private redirects also omit it: embedding blurred private pixels would expose them before the
 image request's authorization check. Direct delivery is only for already-authorized page data.
@@ -626,7 +630,8 @@ rebuild `{ path, width, height }`, which can be passed directly as `StorageImage
 `md5hash` is included only for compatible single-part ETags; multipart, opaque and SSE-KMS/SSE-C
 ETags are not treated as MD5. See [S3's ETag contract](https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html).
 HEAD does not expose `asset_id`: sync recovers rendering metadata, not a verified upload receipt.
-Sync preserves an existing `asset_id`, `size` and `thumbhash` only when the HEAD MD5 matches the saved hash.
+Sync preserves an existing `asset_id`, `size`, `thumbhash` and `hasAlpha` only when the HEAD MD5 matches
+the saved hash. A fresh sync has no original bytes and cannot reconstruct ThumbHash or alpha metadata.
 It cannot generate a ThumbHash from List + HEAD; fresh recovered receipts leave that field absent.
 Otherwise it replaces that entry with rendering metadata, so stale upload evidence is not retained.
 
