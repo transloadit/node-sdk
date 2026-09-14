@@ -96,9 +96,9 @@ function validateTemplate(template: string): void {
   }
 }
 
-function validateQuality(quality: number, name: string): void {
-  if (!Number.isInteger(quality) || quality < 1 || quality > 100) {
-    throw new RangeError(`${name} must be an integer from 1 through 100`)
+function validateQuality(quality: number, name: string, maximum = 100): void {
+  if (!Number.isInteger(quality) || quality < 1 || quality > maximum) {
+    throw new RangeError(`${name} must be an integer from 1 through ${maximum}`)
   }
 }
 
@@ -130,6 +130,11 @@ export function createTransloaditImageModel<Expiry extends number | undefined = 
   const fallbackQuality = options.fallbackQuality ?? defaultFallbackQuality
   const formats = options.formats === undefined ? undefined : { ...options.formats }
   const template = options.template ?? transloaditStoragePreviewTemplate
+  // API2's exact public Built-in narrows the private preview's dimensions and quality.
+  // Customer templates and future Built-in versions retain their existing contract.
+  const maxDimension =
+    template === transloaditPublicStoragePreviewTemplate ? 4096 : smartCdnImageMaxDimension
+  const maxQuality = template === transloaditPublicStoragePreviewTemplate ? 85 : 100
   const widthsSnapshot = Array.isArray(options.widths) ? [...options.widths] : options.widths
 
   if (expiresAt !== undefined) {
@@ -138,7 +143,9 @@ export function createTransloaditImageModel<Expiry extends number | undefined = 
       throw new RangeError('expiresAt must be a millisecond timestamp')
   }
   if (typeof sign !== 'function') throw new TypeError('sign must be a function')
-  validateQuality(fallbackQuality, 'fallbackQuality')
+  validateQuality(fallbackQuality, 'fallbackQuality', maxQuality)
+  const resolvedFormats = resolveSmartCdnImageFormats(formats)
+  for (const { quality } of resolvedFormats) validateQuality(quality, 'quality', maxQuality)
   validateTemplate(template)
   if (!isOpaqueImageBackground(fallbackBackground)) {
     throw new TypeError('fallbackBackground must be an opaque #rrggbb or #rrggbbff color')
@@ -158,14 +165,14 @@ export function createTransloaditImageModel<Expiry extends number | undefined = 
   const ratioHeight = cropAspectRatio === undefined ? height : 1
   const heightLimitedWidth =
     cropAspectRatio === undefined
-      ? Number((BigInt(smartCdnImageMaxDimension) * BigInt(width)) / BigInt(height))
-      : Math.floor(smartCdnImageMaxDimension * cropAspectRatio)
+      ? Number((BigInt(maxDimension) * BigInt(width)) / BigInt(height))
+      : Math.floor(maxDimension * cropAspectRatio)
   if (heightLimitedWidth < 1) {
     throw new RangeError('display aspect ratio cannot fit within backend dimensions')
   }
   const maximumWidth = Math.min(
     width,
-    smartCdnImageMaxDimension,
+    maxDimension,
     heightLimitedWidth,
     cropAspectRatio === undefined ? width : Math.floor(height * cropAspectRatio),
     requestedMaximumWidth ?? width,
@@ -179,7 +186,7 @@ export function createTransloaditImageModel<Expiry extends number | undefined = 
     getResponsiveImageWidths(widthsSnapshot, maximumWidth),
     maximumWidth,
   )
-  const sources = resolveSmartCdnImageFormats(formats).map(({ format, quality }) => ({
+  const sources = resolvedFormats.map(({ format, quality }) => ({
     candidates: widths.map((candidateWidth) => ({
       url: sign({
         expiresAt,

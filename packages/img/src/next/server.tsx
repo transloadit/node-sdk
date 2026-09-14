@@ -616,9 +616,11 @@ function renderPicture(
       typeof hash === 'string' && hash.length <= 48 && /^[A-Za-z0-9+/]+={0,2}$/.test(hash)
         ? Buffer.from(hash, 'base64')
         : undefined
+    // Preserve transparency even if a hand-edited receipt lost its original alpha metadata.
+    const hasAlpha = props.source.hasAlpha === true || ((bytes?.[2] ?? 0) & 0x80) !== 0
     if (
       inlinePixels &&
-      props.source.hasAlpha !== true &&
+      !hasAlpha &&
       bytes !== undefined &&
       bytes.length >= 17 &&
       bytes.length <= 25 &&
@@ -630,7 +632,7 @@ function renderPicture(
       console.warn(
         !inlinePixels
           ? `[StorageImage] ${JSON.stringify(props.source.path)} uses request-authorized private delivery; placeholder="blur" is a no-op so its pixels are not exposed before authorization.`
-          : props.source.hasAlpha === true
+          : hasAlpha
             ? `[StorageImage] ${JSON.stringify(props.source.path)}: transparent image: no blur placeholder.`
             : `[StorageImage] ${JSON.stringify(props.source.path)} has no usable thumbhash; placeholder="blur" is a no-op. Use storage store with the original bytes to generate it.`,
       )

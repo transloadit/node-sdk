@@ -1931,6 +1931,9 @@ __metadata:
     typanion: "npm:^3.14.0"
     type-fest: "npm:^5.6.0"
     zod: "npm:3.25.76"
+  dependenciesMeta:
+    sharp:
+      optional: true
   bin:
     transloadit: ./dist/cli.js
   languageName: unknown
@@ -6695,6 +6698,9 @@ __metadata:
     typanion: "npm:^3.14.0"
     type-fest: "npm:^5.6.0"
     zod: "npm:3.25.76"
+  dependenciesMeta:
+    sharp:
+      optional: true
   bin:
     transloadit: ./dist/cli.js
   languageName: unknown

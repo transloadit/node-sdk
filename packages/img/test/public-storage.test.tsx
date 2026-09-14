@@ -42,6 +42,70 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+test.each([
+  { width: 1000, height: 6000 },
+  { width: 6000, height: 1000 },
+])('all public candidates and fallbacks respect both dimension limits (%j)', (dimensions) => {
+  const { StorageImage } = createStorageImages({
+    images: { 'website/large.jpg': { path: 'website/large.jpg', ...dimensions } },
+    public: ['website/'],
+  })
+  const markup = renderToStaticMarkup(
+    <StorageImage src="website/large.jpg" alt="Large" width={960} />,
+  )
+  const document = new DOMParser().parseFromString(markup, 'text/html')
+  const candidates = [...document.querySelectorAll('source')].flatMap(
+    (source) =>
+      source
+        .getAttribute('srcset')
+        ?.split(', ')
+        .map((candidate) => candidate.split(' ')[0]) ?? [],
+  )
+  for (const url of [...candidates, imageUrl(markup)]) {
+    if (url === undefined) throw new Error('Expected a URL')
+    const { urlParams } = parseSmartCdnUrl(url)
+    expect(Number(urlParams?.w)).toBeLessThanOrEqual(4096)
+    expect(Number(urlParams?.h)).toBeLessThanOrEqual(4096)
+  }
+})
+
+test('public art-direction crops and fallback obey the height cap', () => {
+  const { StorageImage } = createStorageImages({
+    images: { 'website/large.jpg': { path: 'website/large.jpg', width: 6000, height: 6000 } },
+    public: ['website/'],
+  })
+  const markup = renderToStaticMarkup(
+    <StorageImage
+      src="website/large.jpg"
+      alt="Crop"
+      layout="fill"
+      fit="cover"
+      aspectRatio={{ default: '1/6', '(min-width: 900px)': '6/1' }}
+    />,
+  )
+  const document = new DOMParser().parseFromString(markup, 'text/html')
+  for (const source of document.querySelectorAll('source')) {
+    for (const candidate of source.getAttribute('srcset')?.split(', ') ?? []) {
+      const url = candidate.split(' ')[0]
+      if (url === undefined) throw new Error('Expected a candidate URL')
+      const { urlParams } = parseSmartCdnUrl(url)
+      expect(Number(urlParams?.w)).toBeLessThanOrEqual(4096)
+      expect(Number(urlParams?.h)).toBeLessThanOrEqual(4096)
+    }
+  }
+  expect(Number(parseSmartCdnUrl(imageUrl(markup)).urlParams?.h)).toBeLessThanOrEqual(4096)
+})
+
+test('public encoding quality rejects unsupported values before emitting unusable URLs', () => {
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  expect(() =>
+    renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" fallbackQuality={86} />),
+  ).toThrow(/quality.*85/i)
+  expect(() =>
+    renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" formats={{ webp: 86 }} />),
+  ).toThrow(/quality.*85/i)
+})
+
 test('Built-in URLs omit defaults but retain transparent format parameters and explicit dimensions', () => {
   const { StorageImage } = createStorageImages({ images, public: ['website/'] })
   const markup = renderToStaticMarkup(

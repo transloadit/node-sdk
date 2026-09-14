@@ -74,6 +74,23 @@ afterEach(() => {
 })
 
 describe('TransloaditPicture', () => {
+  test('the public renderer rejects non-PNG and CSS-bearing blur input', () => {
+    const props = { model, alt: 'Hero', width: 400, height: 300 }
+    expect(() =>
+      renderToStaticMarkup(
+        <TransloaditPicture
+          {...props}
+          blurDataURL={'");background:red;background-image:url(https://example.invalid/'}
+        />,
+      ),
+    ).toThrow(/blurDataURL.*PNG/)
+    expect(() =>
+      renderToStaticMarkup(
+        <TransloaditPicture {...props} blurDataURL="https://example.invalid/preview.png" />,
+      ),
+    ).toThrow(/blurDataURL.*PNG/)
+  })
+
   test('preload names the eager responsive preload macro without emitting a native preload attribute', () => {
     const doc = renderPicture({ loading: undefined, preload: true })
     expect(doc.querySelector('img')?.getAttribute('loading')).toBe('eager')

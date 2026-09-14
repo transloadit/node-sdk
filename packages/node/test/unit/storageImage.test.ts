@@ -297,6 +297,21 @@ test('a locally unsupported decoder does not prevent storing a verified original
   expect(result).not.toHaveProperty('thumbhash')
 })
 
+test('a missing optional Sharp installation does not prevent storing an original', async () => {
+  vi.doMock('sharp', () => {
+    throw new Error('Optional decoder unavailable')
+  })
+  try {
+    const { client } = fixture()
+    const result = await client.storeImage(filePath, { path: receipt.path })
+    expect(result.md5hash).toBe(receipt.md5hash)
+    expect(result).not.toHaveProperty('thumbhash')
+    expect(result).not.toHaveProperty('hasAlpha')
+  } finally {
+    vi.doUnmock('sharp')
+  }
+})
+
 test.each([
   { size: 71_336, md5hash: 'b'.repeat(32) },
   { size: bytes.length, md5hash: 'c'.repeat(32) },

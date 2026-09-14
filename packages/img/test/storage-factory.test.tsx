@@ -57,7 +57,7 @@ test('public blur decodes the receipt on the server without changing image URLs 
   const doc = new DOMParser().parseFromString(markup, 'text/html')
   const img = doc.querySelector('img')
   expect(img?.style.backgroundImage).toContain(thumbHashToDataURL(Buffer.from(thumbhash, 'base64')))
-  expect(img?.style.backgroundSize).toBe('contain')
+  expect(img?.style.backgroundSize).toBe('100% 100%')
   expect(img?.getAttribute('placeholder')).toBeNull()
   expect(firstUrl(markup)).toEqual(
     firstUrl(renderToStaticMarkup(<StorageImage src={src} alt="Hero" />)),
@@ -91,6 +91,39 @@ test.each([
     warn.mockRestore()
     vi.unstubAllGlobals()
   }
+})
+
+test('an alpha-encoded ThumbHash remains a no-op if a receipt omits hasAlpha', () => {
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const hash = Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 128])).toString('base64')
+  const markup = renderToStaticMarkup(
+    <StorageImage
+      src={{ ...images['website/hero.jpg'], thumbhash: hash }}
+      alt="Alpha"
+      placeholder="blur"
+    />,
+  )
+  expect(markup).not.toContain('data:image/')
+})
+
+test.each([
+  'contain',
+  'none',
+  'scale-down',
+] as const)('blur cannot remain beside a letterboxed %s image', (objectFit) => {
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const markup = renderToStaticMarkup(
+    <StorageImage
+      src={{ ...images['website/hero.jpg'], thumbhash }}
+      alt="Letterboxed"
+      placeholder="blur"
+      layout="fixed"
+      width={600}
+      height={400}
+      objectFit={objectFit}
+    />,
+  )
+  expect(markup).not.toContain('data:image/')
 })
 
 test('a request-authorized private image never embeds its blurred pixels before authorization', () => {

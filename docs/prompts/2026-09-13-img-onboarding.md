@@ -373,7 +373,7 @@ new worktrees, merge or publication. Append evidence to /tmp/img-task2-round13-r
 - [x] Generate bounded ThumbHash receipt metadata on store and server-decoded blur placeholders.
 - [x] Omit verified Built-in defaults, preserve custom-template behavior and explicit delivery.
 - [x] Describe v as an unverified cache-busting tag and recommend immutable filenames.
-- [ ] Verify red-first tests, packed browsers, reviews, checks and exact-head CI.
+- [x] Add red-first coverage and repeatable packed checks; reconcile council and Opus findings.
 
 API2 source confirms storage-preview@0.0.2 defaults f=jpg, q=75, r=pad and bg=#ffffff;
 public-preview@0.0.1 derives from it. Candidate dimensions remain explicit. Cache keys deliberately
@@ -394,6 +394,18 @@ attempt in the final run. The capture's pending-load screenshot was changed to c
 evidence: Playwright's font-ready screenshot wait deadlocked while the test held image delivery.
 The loaded screenshot remains. All native AVIF/WebP/JPEG, alpha and private-authorization checks
 pass. The follow-up alpha regressions failed first (6 failures) and pass after the server-only
-decision. Full addendum council/Opus review, packed confirmation and exact-head CI are the remaining
-gates; see the report and PR Verification section for the current head rather than reusing the
-earlier checkpoint's counts. Do not merge or publish; stop after those gates and documentation.
+decision. The report and PR Verification section record each reviewed head and its final packed/CI
+receipt; do not reuse the earlier checkpoint's counts as current evidence. Do not merge or publish;
+stop after the verification gates and documentation.
+
+Review follow-up on 0d8aa74: the strict browser audit exposed Chromium's disabled-script preload
+as a CSP failure, independently reproduced with JavaScript off and an enabled control. Record
+only that same-origin Next script cancellation as expected; image/network errors still fail.
+Council/Opus also exposed quantized ThumbHash ratios leaving permanent bands beside letterboxed
+images. Blur now requires opaque box-filling content and uses 100% 100% sizing; other fits opt out.
+Hash-header alpha provides defense in depth for older/edited receipts. PNG data input is bounded,
+Sharp is optional, and docs explain CSP/data URLs and up to about 6 KB extra inline markup.
+Public Built-in boundaries are enforced at model generation (4096 px in both dimensions, quality
+<=85), including fallbacks and art-direction crops; private/customer templates keep their limits.
+Eleven new regressions failed first, then passed. Repeated checks/review/packed/CI receipts are
+tracked in /tmp/img-task2-round13-report.md and the PR's exact-head Verification section.

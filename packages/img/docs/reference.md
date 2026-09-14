@@ -97,10 +97,18 @@ and Sharp, EXIF-oriented and at most 100×100 pixels. Encoding is best-effort: o
 32 MiB, over 40 million pixels, unsupported formats or a two-second decoder timeout omit it.
 Origin-side byte changes also omit the hash, since the local preview would no longer match.
 The Server Component decodes the hash; the ThumbHash decoder never enters the client bundle.
-Storage writes also record `hasAlpha: true` only when the original has an alpha channel, even if
+Sharp is an optional SDK dependency; an unavailable local decoder omits this metadata without
+blocking the Storage write. Storage writes also record `hasAlpha: true` only when the original has an alpha channel, even if
 all its pixels happen to be opaque. For those images blur is a no-op with the development-only
-note "transparent image: no blur placeholder". For images without alpha, the background remains
-in place, hidden under the loaded opaque image: no client-side load handler is needed or shipped.
+note "transparent image: no blur placeholder". An alpha-encoded hash also suppresses blur when
+the receipt flag is missing. For images without alpha, the background remains in place, hidden
+under the loaded opaque image: no client-side load handler is needed or shipped.
+Blur requires a box-filling image: the default constrained layout, or `object-fit: fill` / `cover`.
+Letterboxed `contain`, `none` and `scale-down` images omit it with a development note, since the
+approximate ThumbHash ratio could otherwise leave a permanent blurred band beside the image.
+Each blur adds up to about 6 KB of inline PNG/base64 markup before HTML compression; opt in only
+where the loading preview is worth that extra HTML. Your CSP must allow `img-src data:` (alongside
+your normal image sources) for the placeholder to display.
 Without a usable hash, the prop is a no-op with a development-only note. Request-authorized
 private redirects also omit it: embedding blurred private pixels would expose them before the
 image request's authorization check. Direct delivery is only for already-authorized page data.
@@ -109,6 +117,10 @@ ThumbHashes contain a recognizable preview, not just a checksum. Keep catalogs f
 in private source control, or remove their `thumbhash` fields before sharing the catalog publicly.
 
 The `constrained` and `fixed` layout names follow Astro; `fill` follows Next.js.
+
+The pinned public Built-in caps both output dimensions at 4096 pixels, including crops and JPEG
+fallbacks; the SDK scales its candidate ladder accordingly. Explicit public quality above 85 is
+rejected before rendering. Private previews retain their 8000-pixel / quality-100 limits.
 
 `width={960}` on a catalog path or receipt derives proportional responsive CSS, the
 `auto, (min-width: 960px) 960px, 100vw` sizes expression for lazy images and a ladder capped at

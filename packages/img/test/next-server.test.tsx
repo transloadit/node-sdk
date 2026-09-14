@@ -861,7 +861,7 @@ describe('createStorageImages', () => {
       height: undefined,
       width: 12000,
       renderedHeight: 8000,
-      candidateLimit: 8000,
+      candidateLimit: 4096,
     },
     {
       sourceWidth: 2400,

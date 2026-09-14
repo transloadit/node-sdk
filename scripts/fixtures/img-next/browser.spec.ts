@@ -44,13 +44,14 @@ let cdn: Awaited<ReturnType<typeof startFixtureCdn>>
 
 const test = base.extend<{ audit: BrowserAudit }>({
   audit: [
-    async ({ page, context, browserName }, use, info) => {
+    async ({ page, context, browserName, javaScriptEnabled }, use, info) => {
       const expectedFailures = new Map<string, number>()
       const images: ImageEvidence[] = []
       const errors: string[] = []
       const failedRequests: Request[] = []
       const committedRefreshes = new Set<Request>()
       const cancelledRefreshes: string[] = []
+      const disabledScriptPreloads: string[] = []
       // The empty scaffold intentionally has no favicon; it is not an image delivery failure.
       expectedFailures.set(new URL('/favicon.ico', info.project.use.baseURL).href, 404)
       await rm(revokedAccessFile, { force: true })
@@ -194,6 +195,21 @@ const test = base.extend<{ audit: BrowserAudit }>({
       await page.removeAllListeners('response', { behavior: 'wait' })
       for (const request of failedRequests) {
         if (expectedFailures.has(request.url())) continue
+        const url = new URL(request.url())
+        // Chromium reports disabled script preloads as CSP failures. Only the deliberate
+        // no-JS scenario's same-origin Next chunks are exempt, never image or network errors.
+        if (
+          javaScriptEnabled === false &&
+          browserName === 'chromium' &&
+          request.resourceType() === 'script' &&
+          request.failure()?.errorText === 'csp' &&
+          url.origin === new URL(info.project.use.baseURL ?? '').origin &&
+          url.pathname.startsWith('/fixture/_next/static/chunks/') &&
+          url.pathname.endsWith('.js')
+        ) {
+          disabledScriptPreloads.push(request.url())
+          continue
+        }
         // Chromium may cancel Flight after React commits. Only the exact successful refresh
         // whose UI, decoded image and preserved client state the test verified is exempt.
         if (
@@ -207,7 +223,13 @@ const test = base.extend<{ audit: BrowserAudit }>({
       }
       await info.attach('native-image-responses', {
         body: JSON.stringify(
-          { images, errors, cancelledRefreshes, expectedFailures: [...expectedFailures] },
+          {
+            images,
+            errors,
+            cancelledRefreshes,
+            disabledScriptPreloads,
+            expectedFailures: [...expectedFailures],
+          },
           null,
           2,
         ),
@@ -946,6 +968,16 @@ test.describe('server-only blur placeholders', () => {
           )?.corner?.[3],
       )
       .toBe(0)
+    const letterbox = page.getByRole('img', { name: 'Letterboxed public image', exact: true })
+    await decode(letterbox)
+    await expect(letterbox).toHaveCSS('background-image', 'none')
+    await expect(letterbox).toHaveCSS('object-fit', 'contain')
+    const letterboxPixels = await sharp(await letterbox.screenshot())
+      .extract({ left: 150, top: 10, width: 1, height: 1 })
+      .removeAlpha()
+      .raw()
+      .toBuffer()
+    expect([...letterboxPixels]).toEqual([255, 255, 255])
     await testInfo.attach('transparent-no-blur', {
       body: await page.screenshot(),
       contentType: 'image/png',

@@ -158,6 +158,30 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
 
   const attributes = snapshotImageAttributes(props)
   if (preload) attributes.fetchPriority = 'high'
+  let blurStyle: CSSProperties | undefined
+  if (props.blurDataURL !== undefined) {
+    if (
+      typeof props.blurDataURL !== 'string' ||
+      props.blurDataURL.length > 6000 ||
+      !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(props.blurDataURL)
+    )
+      throw new TypeError('blurDataURL must be a bounded base64 PNG data URL')
+    const fit = objectFit ?? attributes.style?.objectFit ?? 'fill'
+    // ThumbHash only approximates the source ratio. A retained background must never extend
+    // into letterboxing beside loaded pixels; box-filling images cover it without client JS.
+    if (fit === 'cover' || fit === 'fill') {
+      blurStyle = {
+        backgroundImage: `url("${props.blurDataURL}")`,
+        backgroundPosition: attributes.style?.objectPosition ?? 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: '100% 100%',
+      }
+    } else if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        '[StorageImage] letterboxed image: no blur placeholder. Use the default constrained layout or fit="cover" for a box-filling image.',
+      )
+    }
+  }
   const artDirection = model.artDirection ?? []
   const original = (
     // biome-ignore lint/performance/noImgElement: This package is the image optimizer.
@@ -172,14 +196,7 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
       style={{
         ...attributes.style,
         ...(objectFit === undefined ? {} : { objectFit }),
-        ...(props.blurDataURL === undefined
-          ? {}
-          : {
-              backgroundImage: `url("${props.blurDataURL}")`,
-              backgroundPosition: attributes.style?.objectPosition ?? 'center',
-              backgroundRepeat: 'no-repeat',
-              backgroundSize: objectFit ?? attributes.style?.objectFit ?? 'contain',
-            }),
+        ...blurStyle,
       }}
     />
   )
