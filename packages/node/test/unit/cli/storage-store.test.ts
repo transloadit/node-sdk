@@ -194,6 +194,64 @@ describe('storage store', () => {
     const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(text).not.toContain('is not wrapped yet')
   })
+
+  test('the ESM wrapper advice explains migration from a CommonJS Next config', async () => {
+    const source = 'module.exports = { reactStrictMode: true }\n'
+    await writeFile('next.config.js', source)
+    await writeFile('package.json', '{"type":"commonjs"}\n')
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(text).toContain('For CommonJS, rename next.config.js to next.config.mjs')
+    expect(text).toContain('convert require/module.exports to import/export')
+    expect(await readFile('next.config.js', 'utf8')).toBe(source)
+    await expect(stat('next.config.mjs')).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  test('does not infer destination privacy from a different workspace catalog left unchanged', async () => {
+    const previous = JSON.stringify({ workspace: 'other-app', public: ['website/'], images: {} })
+    await writeFile('images.json', previous)
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      receipt.path,
+      '--receipts',
+      'images.json',
+      '--workspace',
+      'my-app',
+    ])
+    expect(process.exitCode).toBeUndefined()
+    expect(await readFile('images.json', 'utf8')).toBe(previous)
+    const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(text).toContain('the different-workspace project catalog was left unchanged')
+    expect(text).not.toContain('This directory is private.')
+    expect(text).not.toContain('image init')
+    expect(text).not.toContain('placeholder="blur"')
+    expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
+      expect.stringContaining('Use --receipts for a separate catalog.'),
+    )
+  })
+
+  test('prints shared private setup and config advice once for a multi-file upload', async () => {
+    await writeFile('next.config.ts', 'export default {}\n')
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockImplementation(async (_file, options) => ({
+      ...receipt,
+      path: options.path,
+    }))
+    await main(['storage', 'store', './a.jpg', './b.jpg', 'website/'])
+    expect(process.exitCode).toBeUndefined()
+    const output = vi
+      .mocked(OutputCtl.prototype.print)
+      .mock.calls.map(([text]) => text)
+      .join('\n')
+    expect(output).toContain('Saved website/a.jpg')
+    expect(output).toContain('Saved website/b.jpg')
+    expect(output.split('This directory is private.')).toHaveLength(2)
+    expect(output.split('is not wrapped yet')).toHaveLength(2)
+  })
   test('generated declarations cannot overwrite the catalog or input image', async () => {
     const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await main([

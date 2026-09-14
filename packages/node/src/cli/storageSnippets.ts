@@ -17,7 +17,10 @@ export async function storageImageConfigAdvice(): Promise<string> {
     const source = await readFile(file, 'utf8').catch(() => undefined)
     if (source === undefined) continue
     if (source.includes('withTransloaditImages')) return ''
-    return `\n${file} is not wrapped yet. Keep your existing config in nextConfig and wrap its export:\nimport { withTransloaditImages } from '@transloadit/img/next/config'\nexport default withTransloaditImages(nextConfig)`
+    const commonJsAdvice = file.endsWith('.js')
+      ? '\nFor CommonJS, rename next.config.js to next.config.mjs and convert require/module.exports to import/export before using this ESM example.'
+      : ''
+    return `\n${file} is not wrapped yet. Keep your existing config in nextConfig and wrap its export:${commonJsAdvice}\nimport { withTransloaditImages } from '@transloadit/img/next/config'\nexport default withTransloaditImages(nextConfig)`
   }
   return ''
 }
@@ -28,6 +31,7 @@ export function storageImagePrivateAdvice(path: string, receipts?: string): stri
   if (prefix === '')
     return '\nThis object is private. Configure per-object authorization explicitly, or store it under a directory to use image init --private. Set TRANSLOADIT_SMART_CDN_KEY/SECRET for rendering.'
   const catalogOption = receipts === undefined ? '' : ` --receipts=${quoteCliArgument(receipts)}`
+  // Stop option parsing explicitly: Storage paths are data, including names starting with a dash.
   return `\nThis directory is private. Rendering needs transloadit.authorize.ts and ${nextAppRoot() ?? ''}app/api/storage-images/route.ts (npx transloadit image init --private${catalogOption} -- ${quoteCliArgument(prefix)}) and TRANSLOADIT_SMART_CDN_KEY/SECRET. Restart next dev after adding them.`
 }
 

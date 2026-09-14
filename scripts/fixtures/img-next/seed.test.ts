@@ -172,6 +172,8 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
   assert.equal(catalog.images[stored.path].md5hash, stored.md5hash)
   assert.equal(catalog.images[stored.path].size, stored.size)
+  // Changed origin bytes deliberately have no local preview metadata to recommend.
+  assert.equal(catalog.images[stored.path].thumbhash, undefined)
   const mixedCatalog = {
     ...catalog,
     images: {
@@ -196,7 +198,7 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   assert.match(page, /width=\{960\}\s+preload/)
   assert(
     printed.includes(
-      'Render it with <StorageImage src="website/hero.jpg" alt="hero" width={960} placeholder="blur" />',
+      'Render it with <StorageImage src="website/hero.jpg" alt="hero" width={960} />',
     ),
   )
   assert(!printed.includes('export default function Page'))

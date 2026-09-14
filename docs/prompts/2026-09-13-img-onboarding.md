@@ -422,7 +422,8 @@ GitHub has no open review comments. No new product slice, worktree, API2/Console
 - [x] README includes the small private recipe and create-next-app's typed config shape.
 - [x] Store reads Next config to show an absent wrapper, without executing or editing it.
 - [x] S3 403 advice names its endpoint and both disabled/denied possibilities.
-- [ ] Red-first tests, img check, verify, packed fixture, review and exact-head green CI.
+- Validation gates: red-first tests, img check, verify, packed fixture, review and exact-head green
+  CI. Per-run receipts and the final result live in the report and PR body, not a stale badge here.
 
 Evidence and final handoff: /tmp/img-task2-round14-report.md. Keep production S3-read, hosted
 Vercel and real Bunny verification as release gates; do not claim this local polish closes them.
@@ -432,3 +433,24 @@ Check, img check and verify pass (319 img, 615 Node plus one pre-existing skip).
 script guard caught a transitive workspace import during implementation; snippet helpers remain
 usable without built packages. README grows to 91 lines to include the requested private recipe.
 No dependency or lockfile changes. Packed browser, independent review and exact-head CI follow.
+
+The 98bcee8 live Next probes confirmed late-authorizer restart and missing-key messages; owned
+desktop/mobile public/private browser and exploratory checks passed. Opus UX passed. The initial
+packed/CI attempt exposed a stale seed assertion demanding blur for an intentionally transformed
+upload whose receipt has no hash; its JSX assertion now matches the metadata, with an explicit
+absent-hash assertion. Council/Opus's three in-scope refinements were reproduced red-first and fixed:
+explain CommonJS-to-mjs migration before ESM config advice, do not infer destination privacy from a
+foreign catalog left unchanged, and print shared setup once per upload batch. Check, img check and
+verify pass again (319 img, 618 Node plus one pre-existing skip). Full packed and exact-head CI
+results are recorded in /tmp/img-task2-round14-report.md and the PR Verification section.
+
+Deferred outside Kevin's private-message-only scope: council found an existing public-utility bug
+in packages/utils/src/node.ts getSmartCdnImageCandidates (last touched at 3e473f4, not round 14).
+With builtin/public-preview@0.0.1, widths [400] yields h=8000 without dimensions, or h=6000 for a
+400x6000 source, above that Built-in's 4096px limit. Read-only reproduction is in
+/tmp/img-r14-deferred-utility.log. No packages/img or packages/node caller uses this helper;
+StorageImage's separate model already applies public limits. This is real, not fixed or claimed
+safe. Correct the generic helper's template-specific bounds separately before advertising it for
+the public Built-in; preserve custom-template behavior and truthful width descriptors. No extra
+issue or public-delivery implementation was started in this polish round. Also keep the established
+hosted Vercel, registry install and actual Bunny/S3 rollout gates. Stop; do not merge or publish.

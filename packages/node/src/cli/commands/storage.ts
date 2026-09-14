@@ -256,7 +256,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
             this.destination.slice(0, this.destination.lastIndexOf('/') + 1),
           )
         : undefined
-      let configAdvice: string | undefined
+      let setupPrinted = false
       for (const input of inputs) {
         let publicImage = false
         destination = input.path
@@ -339,8 +339,14 @@ export class StorageStoreCommand extends StorageProjectCommand {
         }
         const receipt = stored.receipt
         publicImage ||= published !== undefined && receipt.path.startsWith(published)
-        const blur = publicImage && receipt.thumbhash !== undefined && receipt.hasAlpha !== true
-        configAdvice ??= await storageImageConfigAdvice()
+        const blur =
+          saved && publicImage && receipt.thumbhash !== undefined && receipt.hasAlpha !== true
+        // A foreign catalog says nothing about this destination's policy or rendering setup.
+        const setupAdvice =
+          !saved || setupPrinted
+            ? ''
+            : `${publicImage ? '' : storageImagePrivateAdvice(receipt.path, this.receipts === defaultStorageCatalog ? undefined : this.receipts)}${await storageImageConfigAdvice()}`
+        setupPrinted ||= saved
         const attribute = (value: string): string =>
           value
             .replaceAll('&', '&amp;')
@@ -354,7 +360,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
             .replaceAll(/[-_]+/g, ' '),
         )
         this.output.print(
-          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}}${blur ? ' placeholder="blur"' : ''} />\nReplace alt with a description (or an empty string for a decorative image).${publicImage ? '' : storageImagePrivateAdvice(receipt.path, this.receipts === defaultStorageCatalog ? undefined : this.receipts)}${configAdvice}`,
+          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}}${blur ? ' placeholder="blur"' : ''} />\nReplace alt with a description (or an empty string for a decorative image).${setupAdvice}`,
           receipt,
         )
       }

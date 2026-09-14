@@ -1,3 +1,10 @@
+import type { StorageProjectCatalog } from '../src/next/catalog.ts'
+import type { AuthorizeTransloaditStorageImage } from '../src/next/server.tsx'
+
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { parseSmartCdnUrl } from '@transloadit/utils/node'
 import { Window } from 'happy-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -169,10 +176,3 @@ test('a catalog reload names newly private paths once, never in production', asy
   ;(await import('../src/next/project.ts')).getProjectImages()
   expect(info).toHaveBeenCalledOnce()
 })
-
-import type { StorageProjectCatalog } from '../src/next/catalog.ts'
-import type { AuthorizeTransloaditStorageImage } from '../src/next/server.tsx'
-
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
