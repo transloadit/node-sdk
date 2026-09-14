@@ -2,6 +2,7 @@ import type { Locator, Page, Request, Response, Route } from '@playwright/test'
 
 import assert from 'node:assert/strict'
 import { readFile, rm, writeFile } from 'node:fs/promises'
+import { setImmediate } from 'node:timers/promises'
 
 import { test as base, expect } from '@playwright/test'
 import sharp from 'sharp'
@@ -50,7 +51,6 @@ const test = base.extend<{ audit: BrowserAudit }>({
       const failedRequests: Request[] = []
       const committedRefreshes = new Set<Request>()
       const cancelledRefreshes: string[] = []
-      const reads: Promise<void>[] = []
       // The empty scaffold intentionally has no favicon; it is not an image delivery failure.
       expectedFailures.set(new URL('/favicon.ico', info.project.use.baseURL).href, 404)
       await rm(revokedAccessFile, { force: true })
@@ -97,40 +97,35 @@ const test = base.extend<{ audit: BrowserAudit }>({
         page.on('requestfailed', (request) => {
           failedRequests.push(request)
         })
-        page.on('response', (response) => {
+        page.on('response', async (response) => {
           if (
             response.status() >= 400 &&
             expectedFailures.get(response.url()) !== response.status()
           ) {
             errors.push(`HTTP ${response.status()}: ${response.url()}`)
           }
-          if (response.ok() && response.request().resourceType() === 'image') {
-            reads.push(
-              (async () => {
-                const bytes = await response.body()
-                const metadata = await sharp(bytes).metadata()
-                const corner = decodeURIComponent(new URL(response.url()).pathname).endsWith(
-                  '/documents/alpha.png',
-                )
-                  ? [
-                      ...(await sharp(bytes)
-                        .extract({ left: 0, top: 0, width: 1, height: 1 })
-                        .ensureAlpha()
-                        .raw()
-                        .toBuffer()),
-                    ]
-                  : undefined
-                images.push({
-                  bytes: bytes.length,
-                  corner,
-                  contentType: response.headers()['content-type'],
-                  height: metadata.height,
-                  width: metadata.width,
-                  url: response.url(),
-                })
-              })(),
-            )
-          }
+          if (!response.ok() || response.request().resourceType() !== 'image') return
+          const bytes = await response.body()
+          const metadata = await sharp(bytes).metadata()
+          const corner = decodeURIComponent(new URL(response.url()).pathname).endsWith(
+            '/documents/alpha.png',
+          )
+            ? [
+                ...(await sharp(bytes)
+                  .extract({ left: 0, top: 0, width: 1, height: 1 })
+                  .ensureAlpha()
+                  .raw()
+                  .toBuffer()),
+              ]
+            : undefined
+          images.push({
+            bytes: bytes.length,
+            corner,
+            contentType: response.headers()['content-type'],
+            height: metadata.height,
+            width: metadata.width,
+            url: response.url(),
+          })
         })
       }
       await observe(page)
@@ -177,7 +172,6 @@ const test = base.extend<{ audit: BrowserAudit }>({
             }, url)
             const sourceResponse = sourceResponses[0]
             assert(sourceResponse, 'The native probe must make an actual HTTP request')
-            await Promise.all(reads)
             return {
               loaded,
               status: sourceResponse.status(),
@@ -186,11 +180,18 @@ const test = base.extend<{ audit: BrowserAudit }>({
                 sourceResponse.status() >= 400 ? (await sourceResponse.body()).length : undefined,
             }
           } finally {
-            await probeContext.close()
+            try {
+              for (const probe of probeContext.pages()) {
+                await probe.removeAllListeners('response', { behavior: 'wait' })
+              }
+            } finally {
+              await probeContext.close()
+            }
           }
         },
       })
-      await Promise.all(reads)
+      // Stop accepting reads before draining: Promise.all on a growing array misses late responses.
+      await page.removeAllListeners('response', { behavior: 'wait' })
       for (const request of failedRequests) {
         if (expectedFailures.has(request.url())) continue
         // Chromium may cancel Flight after React commits. Only the exact successful refresh
@@ -231,6 +232,45 @@ const test = base.extend<{ audit: BrowserAudit }>({
 
 test.beforeAll(async () => {
   cdn = await startFixtureCdn(cdnOrigin)
+})
+
+test('response auditing waits for unfinished native body reads during listener cleanup', async ({
+  page,
+  audit,
+}) => {
+  const started = Promise.withResolvers<void>()
+  const release = Promise.withResolvers<void>()
+  page.prependListener('response', (response: Response) => {
+    if (!response.ok() || response.request().resourceType() !== 'image') return
+    const body = response.body.bind(response)
+    // The browser decodes normally; only the audit's own body read is held at the teardown edge.
+    response.body = async () => {
+      started.resolve()
+      await release.promise
+      return body()
+    }
+  })
+  try {
+    await page.goto('/fixture/cli-image/app/storage-image-example')
+    await decode(page.getByRole('presentation'))
+    await started.promise
+    let drained = false
+    const drain = page.removeAllListeners('response', { behavior: 'wait' }).then(() => {
+      drained = true
+    })
+    try {
+      await setImmediate()
+      expect(drained).toBe(false)
+    } finally {
+      release.resolve()
+      await drain
+    }
+    expect(audit.images).toEqual(
+      expect.arrayContaining([expect.objectContaining({ width: 960, height: 640 })]),
+    )
+  } finally {
+    release.resolve()
+  }
 })
 
 test('keeps transparent corners in native AVIF/WebP/PNG and composites JPEG onto its signed color', async ({

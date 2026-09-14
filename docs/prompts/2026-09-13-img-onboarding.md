@@ -211,3 +211,24 @@ schemas, Built-in pins, auth scopes, Content/API2 source, env files or productio
 The release gates remain: coordinated API2/Console rollout and package release, ordinary registry
 installation, sustained Content dogfood and production Bunny measurements. No merge or publication
 in this round; `@transloadit/img` remains private at 0.0.0 and #270's two follow-ups stay open.
+
+### Round 9 follow-up — response-read ownership
+
+Kevin reported `response.body: Test ended.` in run 34788426459 at cd9430a0eb. Its rerun passed,
+but the same listener lifecycle remained at 3b26679: Promise.all snapshots a growing reads array,
+leaving later response handlers unowned during teardown. No product behavior is implicated.
+
+- [x] Reproduce deterministically in both real browser engines by holding the audit's body read
+  while the image decodes normally; old cleanup incorrectly completes before that read is released.
+- [x] Return the response handler's async work to Playwright, then remove/drain those listeners
+  before page/probe closure. Remove the manual reads array; preserve native read failures.
+- [x] Focused council: no issues found. Packed browser matrix: 44 enabled + 44 omitted + 8
+  development cases pass on their first attempts, with all response-audit attachments checked.
+
+The final gate is the required local checks and exact-head CI/artifact verification; their
+commit-stamped receipts live in the report and PR body below, not in a second docs-only CI loop.
+
+Keep this correction test-only. Evidence and current-head CI receipts are appended to
+`/tmp/img-task2-round9-report.md` and the PR body; the red browser artifact is
+`/tmp/img-r9-response-race-red-artifact`. No ignoreErrors, extra retry, timeout increase,
+product change, merge, publication or new framework is part of this fix.
