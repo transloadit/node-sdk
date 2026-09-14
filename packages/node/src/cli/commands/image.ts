@@ -10,6 +10,8 @@ import { storagePublicError } from '../storagePublic.ts'
 import {
   defaultStorageCatalog,
   readStorageCatalog,
+  storageCatalogDelivery,
+  storageTypesPath,
   updateStorageReceipts,
 } from '../storageReceipts.ts'
 import { resolveStorageWorkspace } from '../storageS3.ts'
@@ -27,12 +29,15 @@ export class ImageInitCommand extends UnauthenticatedCommand {
   static override paths = [['image', 'init']]
   static override usage = Command.Usage({
     category: 'Storage',
-    description: 'Create a Next.js StorageImage factory and print rendering environment names',
-    examples: [['Set up website images', 'transloadit image init website/ --public']],
+    description: 'Optionally scaffold a Storage image example or private authorizer',
+    examples: [['Scaffold an example', 'transloadit image init website/ --example']],
   })
 
   privateDelivery = Option.Boolean('--private', false, {
     description: 'Also generate a redirect route; denies access until you supply authorization',
+  })
+  example = Option.Boolean('--example', false, {
+    description: 'Generate an example page; explicit factories remain an optional escape hatch',
   })
   publicDelivery = Option.Boolean('--public', false, {
     description: 'Publish this directory on the server and use permanent unsigned image URLs',
@@ -54,8 +59,8 @@ export class ImageInitCommand extends UnauthenticatedCommand {
     try {
       if (this.privateDelivery && this.publicDelivery)
         throw new Error('Choose either --private or --public, not both')
-      if (!this.privateDelivery && !this.publicDelivery)
-        throw new Error('Choose either --public or --private')
+      if (!this.privateDelivery && !this.publicDelivery && !this.example)
+        throw new Error('Choose --example or --private; normal uploads need only storage store')
       const prefix =
         this.prefix.endsWith('/') || this.prefix === '' ? this.prefix : `${this.prefix}/`
       try {
@@ -70,12 +75,14 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       const root = nextAppRoot()
       if (root === undefined)
         throw new Error('Run image init in a Next.js project containing app/ or src/app/')
+      const catalog = await readStorageCatalog(this.receipts)
+      const needsCredentials = this.publicDelivery || catalog === undefined || this.writeEnv
       let environment: string | undefined
       const saved = resolveCliConfig('login')
-      if (saved.loadError !== undefined) throw new Error(saved.loadError)
+      if (needsCredentials && saved.loadError !== undefined) throw new Error(saved.loadError)
       const login = saved.auth === undefined ? resolveCliConfig() : saved
-      if (!this.setupClient(login)) return 1
-      noticeCliCredentialSource(login, this.output)
+      if (needsCredentials && !this.setupClient(login)) return 1
+      if (needsCredentials) noticeCliCredentialSource(login, this.output)
       const selectedEndpoint = this.endpoint ?? login.endpoint
       const deliveryEndpoint =
         selectedEndpoint === undefined ||
@@ -110,36 +117,54 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           })
           .join('')
       }
-      const catalog = await readStorageCatalog(this.receipts)
       const catalogArgument = relative(process.cwd(), resolve(this.receipts)).replaceAll('\\', '/')
       const pageDirectory = `${root}app/storage-image-example`
+      const example = this.example || this.publicDelivery
       const files = [
-        {
-          path: `${root}lib/storageImage.ts`,
-          content: storageImageFactory({
-            prefix,
-            privateDelivery: this.privateDelivery,
-            endpoint: deliveryEndpoint,
-            receiptsImport: relative(resolve(`${root}lib`), resolve(this.receipts)).replaceAll(
-              '\\',
-              '/',
-            ),
-          }),
-        },
-        {
-          path: `${pageDirectory}/page.tsx`,
-          content: storageImagePage(
-            relative(resolve(pageDirectory), resolve(this.receipts)).replaceAll('\\', '/'),
-            prefix,
-            catalogArgument === defaultStorageCatalog ? undefined : catalogArgument,
-          ),
-        },
+        ...(!this.privateDelivery && example
+          ? [
+              {
+                path: `${root}lib/storageImage.ts`,
+                content: storageImageFactory({
+                  prefix,
+                  privateDelivery: this.privateDelivery,
+                  endpoint: deliveryEndpoint,
+                  receiptsImport: relative(
+                    resolve(`${root}lib`),
+                    resolve(this.receipts),
+                  ).replaceAll('\\', '/'),
+                }),
+              },
+            ]
+          : []),
+        ...(example
+          ? [
+              {
+                path: `${pageDirectory}/page.tsx`,
+                content: storageImagePage(
+                  relative(resolve(pageDirectory), resolve(this.receipts)).replaceAll('\\', '/'),
+                  prefix,
+                  catalogArgument === defaultStorageCatalog ? undefined : catalogArgument,
+                  this.privateDelivery ? '@transloadit/img/next' : undefined,
+                ),
+              },
+            ]
+          : []),
         ...(this.privateDelivery
           ? [
               {
+                path: 'transloadit.authorize.ts',
+                content: [
+                  "import type { AuthorizeTransloaditStorageImage } from '@transloadit/img/next/server'",
+                  '',
+                  '// Replace with your application session and per-object authorization.',
+                  'export const authorize: AuthorizeTransloaditStorageImage = () => false',
+                  '',
+                ].join('\n'),
+              },
+              {
                 path: `${root}app/api/storage-images/route.ts`,
-                content:
-                  "export { storageRoute as GET, storageRoute as HEAD } from '../../../lib/storageImage'\n",
+                content: "export { GET, HEAD } from '@transloadit/img/next/route'\n",
               },
             ]
           : []),
@@ -154,7 +179,10 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         if (existing !== undefined) throw new Error(`Refusing to overwrite ${file.path}`)
       }
       await updateStorageReceipts(this.receipts, async (previous, signal) => {
-        const workspace = await resolveStorageWorkspace(this, login, previous?.workspace, signal)
+        const workspace =
+          !needsCredentials && previous !== undefined
+            ? previous.workspace
+            : await resolveStorageWorkspace(this, login, previous?.workspace, signal)
         if (previous !== undefined && previous.workspace !== workspace)
           throw new Error(
             'Use --receipts with a separate catalog when initializing another workspace. Nothing was written.',
@@ -172,7 +200,9 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           published = result.prefix
         }
         return {
+          ...previous,
           workspace,
+          delivery: previous?.delivery ?? storageCatalogDelivery(deliveryEndpoint),
           public: [
             ...new Set([
               ...(previous?.public ?? []),
@@ -182,7 +212,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           images: previous?.images ?? {},
         }
       })
-      if (catalog === undefined) created.push(this.receipts)
+      if (catalog === undefined) created.push(this.receipts, storageTypesPath(this.receipts))
       for (const file of files) {
         await mkdir(dirname(file.path), { recursive: true })
         const handle = await open(file.path, 'wx', file.path === '.env.local' ? 0o600 : 0o666)
@@ -194,16 +224,18 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         }
       }
       const instruction = this.privateDelivery
-        ? 'Connect your application session and per-object authorization in storageImage.ts; the generated handler denies access until then.'
-        : 'The directory is published. Public images use permanent unsigned CDN URLs.'
+        ? 'Connect your application session and per-object authorization in transloadit.authorize.ts; the generated handler denies access until then. Enable withTransloaditImages in next.config.ts.'
+        : this.publicDelivery
+          ? 'The directory is published. Public images use permanent unsigned CDN URLs.'
+          : 'Example created using the existing catalog; no publication policy was changed.'
       if (deliveryEndpoint !== undefined)
         this.output.print(
-          `Delivery uses the non-production API ${new URL(deliveryEndpoint).origin}; remove baseUrl/urlParams from storageImage.ts for Smart CDN delivery.`,
+          `Delivery uses the non-production API ${new URL(deliveryEndpoint).origin}; remove the catalog delivery block and any factory baseUrl/urlParams for Smart CDN delivery.`,
           { deliveryEndpoint: new URL(deliveryEndpoint).origin },
         )
       const envBlock = storageImageEnvBlock(this.publicDelivery)
       this.output.print(
-        `Created ${created.join(', ')}\n${instruction}\nAdd an image under ${prefix} with storage store and open /storage-image-example. Commit ${this.receipts}.\n${this.publicDelivery ? 'Public rendering needs no environment variables, locally or on your host.' : this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
+        `Created ${created.join(', ')}\n${instruction}\n${example ? `Add an image under ${prefix} with storage store and open /storage-image-example. ` : ''}Commit ${this.receipts} and transloadit-images.d.ts.\n${!this.privateDelivery ? 'Public rendering needs no environment variables, locally or on your host.' : this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
         { files: created, environment: envBlock },
       )
       return undefined

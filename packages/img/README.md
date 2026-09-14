@@ -16,22 +16,28 @@ a new free workspace works. For `./hero.jpg`, use any JPEG you have.
 
 ```bash
 npx transloadit auth login
-npx transloadit image init website/ --public
-npx transloadit storage store ./hero.jpg website/hero.jpg
-npm run dev
+npx transloadit storage store ./hero.jpg website/hero.jpg --public
 ```
 
-Open `/storage-image-example`. Init publishes the directory and creates the factory,
-`app/storage-image-example/page.tsx` and `transloadit.images.json`; store adds the first image.
-If your app has `src/`, prefix the source paths; the catalog stays at the root.
-Use the generated component in any Server Component:
+`--public` publishes the directory recursively, including future uploads. In `next.config.ts`:
+
+```ts
+import { withTransloaditImages } from '@transloadit/img/next/config'
+export default withTransloaditImages({ /* your existing Next config */ })
+```
+
+Render in `app/page.tsx` or any Server Component. If your app has `src/`, prefix the source paths:
 
 ```tsx
-import { StorageImage } from '../lib/storageImage'
-<StorageImage src="website/hero.jpg" alt="A canal house" width={960} preload />
+import { StorageImage } from '@transloadit/img/next'
+export default function Page() {
+  return <StorageImage src="website/hero.jpg" alt="A canal house" width={960} preload />
+}
 ```
 
-Commit the catalog and generated code, then deploy. Public images need no application secrets.
+Run `npm run dev` and open `/`. Commit the generated `transloadit.images.json` and
+`transloadit-images.d.ts`, then deploy. Public images need no application secrets.
+The plugin is required: it bundles the catalog; no runtime filesystem lookup is assumed.
 
 ## Responsive
 
@@ -48,8 +54,8 @@ Console → Credentials → Create Auth Key, Smart CDN on. Set `TRANSLOADIT_SMAR
 
 ## When it breaks
 
-The scaffold shows a delivery failure instead of a blank page. In development it includes
-the HEAD result; see the terminal for details. Non-production login endpoints carry into init.
+Opt into `errorFallback` to show a delivery failure instead of a broken image. Development adds
+the HEAD result; see the terminal. Non-production login endpoints carry into the catalog.
 [`baseUrl` and `urlParams`, diagnostics and recovery](./docs/reference.md#when-it-breaks).
 `storage ls` and `storage receipts sync` require the S3 read API, currently off in production.
 [Availability and receipt recovery](./docs/reference.md#receipt-integrity-and-recovery).

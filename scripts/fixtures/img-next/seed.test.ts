@@ -28,6 +28,71 @@ const receipt = {
   size: bytes.length,
 }
 
+test('the package-first path stores and publishes without image init and emits catalog augmentation', async (t) => {
+  const loginDirectory = await mkdtemp(join(tmpdir(), 'img-package-login-'))
+  t.after(() => rm(loginDirectory, { recursive: true, force: true }))
+  const credentials = join(loginDirectory, 'credentials')
+  await writeFile(
+    credentials,
+    'TRANSLOADIT_KEY=assembly-key\nTRANSLOADIT_SECRET=assembly-secret\nTRANSLOADIT_WORKSPACE=fixture\nTRANSLOADIT_WORKSPACE_VERIFIED=true\n',
+    { mode: 0o600 },
+  )
+  const environment = { ...process.env }
+  t.after(() => {
+    process.env = environment
+    process.exitCode = undefined
+  })
+  for (const name of [
+    'TRANSLOADIT_KEY',
+    'TRANSLOADIT_SECRET',
+    'TRANSLOADIT_AUTH_KEY',
+    'TRANSLOADIT_AUTH_SECRET',
+    'TRANSLOADIT_AUTH_TOKEN',
+  ])
+    delete process.env[name]
+  process.env.TRANSLOADIT_CREDENTIALS_FILE = credentials
+  t.mock.method(process.stdout, 'write', () => true)
+  t.mock.method(Transloadit.prototype, 'publishStoragePrefix', async (prefix: string) => ({
+    ok: 'STORAGE_PUBLIC_PREFIX_DECLARED',
+    prefix,
+    created_at: '2026-09-14',
+    created: false,
+  }))
+  t.mock.method(
+    Transloadit.prototype,
+    'storeImage',
+    async (_file: string, { path }: { path: string }) => ({
+      asset_id: 'fixture-asset',
+      path,
+      size: bytes.length,
+      md5hash: receipt.md5hash,
+      width: path === 'website/hero.jpg' ? 2400 : 400,
+      height: path === 'website/hero.jpg' ? 1600 : 300,
+    }),
+  )
+  const cli: { main: (args: string[]) => Promise<void> } = await import(
+    new URL('./cli.js', import.meta.resolve('@transloadit/node')).href
+  )
+  await cli.main(['storage', 'store', './hero.jpg', 'website/hero.jpg', '--public'])
+  assert.equal(process.exitCode, undefined)
+  await cli.main(['storage', 'store', './avatar.jpg', 'documents/private/hero.jpg'])
+  assert.equal(process.exitCode, undefined)
+  await cli.main(['storage', 'store', './avatar.jpg', 'accounts/avatar.jpg'])
+  assert.equal(process.exitCode, undefined)
+  await cli.main(['storage', 'publish', 'documents/public/'])
+  assert.equal(process.exitCode, undefined)
+  const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
+  assert.deepEqual(catalog.public, ['website/', 'documents/public/'])
+  const declarations = await readFile('transloadit-images.d.ts', 'utf8')
+  assert(declarations.includes("declare module '@transloadit/img/next'"))
+  assert(
+    declarations.includes(
+      '"website/hero.jpg": { path: "website/hero.jpg"; width: 2400; height: 1600 }',
+    ),
+  )
+  await assert.rejects(stat('lib/storageImage.ts'), { code: 'ENOENT' })
+})
+
 test('the packed CLI scaffolds an empty catalog and the actual constrained page used by the browser proof', async (t) => {
   const originalCwd = process.cwd()
   const directory = join(originalCwd, 'app/cli-image')
@@ -117,9 +182,9 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   await mkdir(join(privateDirectory, 'app'), { recursive: true })
   process.chdir(privateDirectory)
   await writeFile('transloadit.images.json', `${JSON.stringify(mixedCatalog)}\n`)
-  await cli.main(['image', 'init', 'uploads/', '--private'])
+  await cli.main(['image', 'init', 'uploads/', '--private', '--example'])
   assert.equal(process.exitCode, undefined)
-  // The generated factory must import successfully with preserved public policy, and its
+  // The conventional private example must import successfully with preserved public policy, and its
   // example must stay empty when the catalog has images only outside uploads/.
   process.chdir(directory)
   const printed = output.join('')

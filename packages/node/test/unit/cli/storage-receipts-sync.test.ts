@@ -120,6 +120,10 @@ test('a fresh sync recovers the declared delivery policy, not just image dimensi
     workspace: 'my-app',
     public: ['website/'],
     images: { 'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600 } },
+    delivery: {
+      baseUrl: 'http://storage.invalid/file/{workspace}',
+      urlParams: { cdn: 'required' },
+    },
   })
 })
 
@@ -327,7 +331,11 @@ test('rebuilds a rendering catalog from paginated List + HEAD without asset IDs 
   }
   expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual(expected)
   expect(await readFile('images.json', 'utf8')).toMatch(/\n$/)
-  expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
+  expect(await readdir(directory)).toEqual([
+    'credentials',
+    'images.json',
+    'transloadit-images.d.ts',
+  ])
   expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
     expect.stringContaining('Synced 2'),
     expected,

@@ -78,8 +78,8 @@ interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = 
   authSecret?: string
   /** Catalog/explicit workspace fallback; TRANSLOADIT_WORKSPACE overrides it on first use. */
   workspace?: string
-  /** A surrounding request-authorized page may sign private URLs directly. */
-  delivery?: 'direct'
+  /** Catalog transport overrides, or direct signing inside a request-authorized page. */
+  delivery?: 'direct' | { baseUrl?: string; urlParams?: SmartCdnUrlParams }
   /** Catalog keys become typed src references; values provide intrinsic geometry. */
   images?: Catalog
   /** Defaults to public and catalog directories, plus exact root-level catalog paths. */
@@ -1099,8 +1099,17 @@ export function createStorageImages<Catalog extends StorageImageCatalog | undefi
   configuration: StorageImagesConfiguration<Catalog>,
 ): TransloaditImageIntegration<Catalog>
 export function createStorageImages<Catalog extends StorageImageCatalog | undefined = undefined>(
-  configuration: StorageImagesConfiguration<Catalog>,
+  input: StorageImagesConfiguration<Catalog>,
 ): TransloaditImageIntegration<Catalog> | TransloaditRedirectImageIntegration<Catalog> {
+  const configuration =
+    typeof input?.delivery === 'object' && input.delivery !== null
+      ? {
+          ...input,
+          baseUrl: input.baseUrl ?? input.delivery.baseUrl,
+          urlParams: input.urlParams ?? input.delivery.urlParams,
+          delivery: undefined,
+        }
+      : input
   const policy = getStoragePolicy(configuration)
   const explicit = {
     authKey: configuration.authKey,

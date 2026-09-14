@@ -172,15 +172,15 @@ async function readManifest(path: string): Promise<PackageManifest> {
   return JSON.parse(await readFile(path, 'utf8'))
 }
 
-test('keeps the maintainer seed configuration separate and scaffolds the factory before first render', async () => {
+test('keeps the maintainer seed separate and uses the package import without default scaffolding', async () => {
   const readme = await imageDocumentation()
   const dogfood = await readFile(resolve(import.meta.dirname, '../docs/img-dogfood.md'), 'utf8')
   expect.soft(dogfood).not.toContain('allowImportingTsExtensions')
   expect.soft(/^\s*node --env-file=(\S+) seed\.ts /m.exec(dogfood)?.[1]).toBe('.env.seed.local')
-  const factory = readme.indexOf('npx transloadit image init')
-  const firstRender = readme.indexOf("import { StorageImage } from '../lib/storageImage'")
-  expect(factory).toBeGreaterThan(0)
-  expect.soft(firstRender).toBeGreaterThan(factory)
+  const store = readme.indexOf('npx transloadit storage store ./hero.jpg website/hero.jpg --public')
+  const firstRender = readme.indexOf("import { StorageImage } from '@transloadit/img/next'")
+  expect(store).toBeGreaterThan(0)
+  expect.soft(firstRender).toBeGreaterThan(store)
   expect.soft(readme).toContain('never reads or validates signing credentials')
   expect
     .soft(readme)
@@ -195,9 +195,11 @@ test('gets to the first image before teaching the security model and keeps the p
     .slice(readme.indexOf('## Quickstart'), readme.indexOf('## Responsive'))
     .trim()
   expect(quickstart.split('\n').length).toBeLessThanOrEqual(40)
-  expect(quickstart).toContain('image init website/ --public')
+  expect(quickstart).not.toContain('image init')
+  expect(quickstart).toContain('withTransloaditImages')
   expect(quickstart).not.toContain('--write-env')
-  expect(quickstart).toContain('app/storage-image-example/page.tsx')
+  expect(quickstart).toContain('app/page.tsx')
+  expect(quickstart).toContain('transloadit-images.d.ts')
   expect(quickstart).toContain('transloadit.images.json')
   expect(quickstart).toContain('No account yet?')
   expect(quickstart).toContain('a new free workspace works')
@@ -294,7 +296,7 @@ test('ships a focused secretless quickstart and the detailed reference it links 
   expect(reference).toContain('storage publications')
   const node = await readFile(resolve(import.meta.dirname, '../packages/node/README.md'), 'utf8')
   expect(node).toContain('auth login')
-  expect(node).toContain('image init website/ --public')
+  expect(node).toContain('storage store ./hero.jpg website/hero.jpg --public')
   expect(node).toContain('auth logout')
   expect(node).toContain('storage receipts sync website/')
 })

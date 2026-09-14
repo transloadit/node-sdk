@@ -1,0 +1,95 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+
+import { withTransloaditImages } from '../src/next/config.ts'
+
+let root: string
+beforeEach(async () => {
+  root = await mkdtemp(join(tmpdir(), 'img-next-config-'))
+  await writeFile(
+    join(root, 'transloadit.images.json'),
+    JSON.stringify({ workspace: 'my-app', public: ['website/'], images: {} }),
+  )
+})
+afterEach(async () => {
+  await rm(root, { recursive: true, force: true })
+})
+
+test('binds the conventional catalog and retains unrelated Next configuration', async () => {
+  const config = withTransloaditImages(
+    {
+      basePath: '/site',
+      outputFileTracingIncludes: { '/*': ['./existing.json'], '/other': ['./other.json'] },
+      turbopack: { resolveAlias: { existing: './existing.ts' } },
+    },
+    { root },
+  )
+  expect(config.basePath).toBe('/site')
+  expect(config.turbopack?.resolveAlias).toMatchObject({
+    existing: './existing.ts',
+    '@transloadit/img/next/catalog': './transloadit.images.json',
+  })
+  expect(config.outputFileTracingIncludes).toMatchObject({
+    '/*': expect.arrayContaining(['./existing.json', './transloadit.images.json']),
+    '/other': ['./other.json'],
+  })
+  expect(
+    JSON.parse(
+      await readFile(join(root, 'node_modules/.cache/transloadit-images/options.json'), 'utf8'),
+    ),
+  ).toEqual({ basePath: '/site' })
+})
+
+test('discovers authorization and allows a custom catalog and delivery without touching the source', async () => {
+  await mkdir(join(root, 'assets'))
+  await writeFile(join(root, 'assets/images.json'), '{}')
+  await writeFile(join(root, 'transloadit.authorize.ts'), 'export const authorize = () => false\n')
+  const delivery = {
+    baseUrl: 'http://127.0.0.1:32189/file/{workspace}',
+    urlParams: { cdn: 'required' },
+  }
+  const config = withTransloaditImages({}, { root, catalog: 'assets/images.json', delivery })
+  expect(config.turbopack?.resolveAlias).toMatchObject({
+    '@transloadit/img/next/catalog': './assets/images.json',
+    '@transloadit/img/next/authorize': './transloadit.authorize.ts',
+  })
+  expect(
+    JSON.parse(
+      await readFile(join(root, 'node_modules/.cache/transloadit-images/options.json'), 'utf8'),
+    ),
+  ).toEqual({ delivery })
+  expect(await readFile(join(root, 'assets/images.json'), 'utf8')).toBe('{}')
+})
+
+test('missing catalog names the upload command, not image init', async () => {
+  await rm(join(root, 'transloadit.images.json'))
+  expect(() => withTransloaditImages({}, { root })).toThrow(/storage store/)
+})
+
+test('the webpack adapter applies exact aliases after preserving the application hook', () => {
+  const upstream = vi.fn(() => ({ resolve: { alias: { other: '/app/other.ts' } }, retained: true }))
+  const config = withTransloaditImages({ webpack: upstream }, { root })
+  if (typeof config.webpack !== 'function') throw new Error('Expected the bundler hook')
+  const input = { name: 'server' }
+  const context = { isServer: true }
+  const output = Reflect.apply(config.webpack, undefined, [input, context])
+  expect(upstream).toHaveBeenCalledExactlyOnceWith(input, context)
+  expect(output).toMatchObject({
+    retained: true,
+    resolve: {
+      alias: {
+        other: '/app/other.ts',
+        '@transloadit/img/next/catalog$': join(root, 'transloadit.images.json'),
+      },
+    },
+  })
+})
+
+test('declines catalog paths outside the app root instead of silently depending on untraced files', () => {
+  expect(() => withTransloaditImages({}, { root, catalog: '../outside.json' })).toThrow(
+    /inside the Next.js app/,
+  )
+})

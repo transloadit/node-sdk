@@ -95,6 +95,140 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('generated declarations cannot overwrite the catalog or input image', async () => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      receipt.path,
+      '--receipts',
+      'transloadit-images.d.ts',
+    ])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    process.exitCode = undefined
+    await main(['storage', 'store', './transloadit-images.d.ts', receipt.path])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+  })
+
+  test('a handwritten declarations file is preserved before any upload', async () => {
+    const previous = "declare module 'my-app' {}\n"
+    await writeFile('transloadit-images.d.ts', previous)
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main(['storage', 'store', './hero.jpg', receipt.path])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(await readFile('transloadit-images.d.ts', 'utf8')).toBe(previous)
+  })
+
+  test('upload output names both generated files to commit', async () => {
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+      expect.stringContaining('transloadit-images.d.ts'),
+      receipt,
+    )
+  })
+
+  test('the first public store creates a catalog and generated types without image init', async () => {
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    const publish = vi
+      .spyOn(Transloadit.prototype, 'publishStoragePrefix')
+      .mockImplementation(() => {
+        expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
+          'Publishing website/ recursively: all current and future objects under this prefix will be public.',
+        )
+        return Promise.resolve({
+          ok: 'STORAGE_PUBLIC_PREFIX_DECLARED',
+          prefix: 'website/',
+          created: false,
+          created_at: '',
+        })
+      })
+    await main(['storage', 'store', './hero.jpg', receipt.path, '--public'])
+    expect(process.exitCode).toBeUndefined()
+    expect(publish).toHaveBeenCalledExactlyOnceWith('website/', { signal: expect.any(AbortSignal) })
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+      workspace: 'my-app',
+      public: ['website/'],
+      images: { [receipt.path]: receipt },
+    })
+    const types = await readFile('transloadit-images.d.ts', 'utf8')
+    expect(types).toContain("declare module '@transloadit/img/next'")
+    expect(types).toContain(
+      '"website/hero.jpg": { path: "website/hero.jpg"; width: 800; height: 600 }',
+    )
+    expect(types).not.toMatch(/assembly-key|assembly-secret|stored-asset|md5hash/)
+    expect(types).toMatch(/\n$/)
+    expect((await stat('transloadit-images.d.ts')).mode & 0o444).toBe(0o444)
+  })
+
+  test('public store rejects a root object before any upload or policy change', async () => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const publish = vi.spyOn(Transloadit.prototype, 'publishStoragePrefix')
+    await main(['storage', 'store', './hero.jpg', 'hero.jpg', '--public'])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(publish).not.toHaveBeenCalled()
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('non-root directory'),
+    )
+  })
+
+  test('catalog writes preserve parameter-only delivery and repeated query values', async () => {
+    const delivery = { urlParams: { cdn: 'required', custom: ['first', 'second'] } }
+    await writeFile(
+      'images.json',
+      JSON.stringify({ workspace: 'my-app', public: [], images: {}, delivery }),
+    )
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    expect(JSON.parse(await readFile('images.json', 'utf8')).delivery).toEqual(delivery)
+  })
+
+  test('public store checkpoints a receipt even when publication is denied', async () => {
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    vi.spyOn(Transloadit.prototype, 'publishStoragePrefix').mockRejectedValue(new Error('denied'))
+    await main(['storage', 'store', './hero.jpg', receipt.path, '--public'])
+    expect(process.exitCode).toBe(1)
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+      workspace: 'my-app',
+      public: [],
+      images: { [receipt.path]: receipt },
+    })
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('Do not re-upload'),
+    )
+  })
+
+  test('stores development delivery in the catalog and preserves it on later writes', async () => {
+    vi.stubEnv('TRANSLOADIT_KEY', '')
+    vi.stubEnv('TRANSLOADIT_SECRET', '')
+    await writeFile(
+      'credentials',
+      'TRANSLOADIT_KEY=saved-key\nTRANSLOADIT_SECRET=saved-secret\nTRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_WORKSPACE_VERIFIED=true\nTRANSLOADIT_ENDPOINT=http://127.0.0.1:32189\n',
+    )
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main(['storage', 'store', './hero.jpg', receipt.path])
+    expect(process.exitCode).toBeUndefined()
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).delivery).toEqual({
+      baseUrl: 'http://127.0.0.1:32189/file/{workspace}',
+      urlParams: { cdn: 'required' },
+    })
+    vi.stubEnv('TRANSLOADIT_KEY', 'assembly-key')
+    vi.stubEnv('TRANSLOADIT_SECRET', 'assembly-secret')
+    await main(['storage', 'store', './hero.jpg', receipt.path])
+    expect(process.exitCode).toBeUndefined()
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).delivery).toEqual({
+      baseUrl: 'http://127.0.0.1:32189/file/{workspace}',
+      urlParams: { cdn: 'required' },
+    })
+  })
+
   test('sync help recovers the same default catalog that store writes', async () => {
     await main(['storage', 'receipts', 'sync', '--help'])
     const output = vi.mocked(process.stdout.write).mock.calls.flat().join(' ')
@@ -315,7 +449,6 @@ describe('storage store', () => {
   })
   test.each([
     '--private',
-    '--public',
   ])('refuses the removed snippet-only flag %s before uploading', async (delivery) => {
     const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await main(['storage', 'store', './hero.jpg', receipt.path, delivery])
@@ -615,9 +748,13 @@ describe('storage store', () => {
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toBe(
-      'Saved website/hero.jpg in images.json. Commit this receipt file.\nRender it with <StorageImage src="website/hero.jpg" alt="hero" width={800} />',
+      'Saved website/hero.jpg in images.json. Commit this catalog and transloadit-images.d.ts.\nRender it with <StorageImage src="website/hero.jpg" alt="hero" width={800} />',
     )
-    expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
+    expect(await readdir(directory)).toEqual([
+      'credentials',
+      'images.json',
+      'transloadit-images.d.ts',
+    ])
   })
 
   test('preserves the first receipt when a second store conflicts', async () => {
@@ -628,7 +765,11 @@ describe('storage store', () => {
     await runStore()
     expect(process.exitCode).toBe(1)
     expect(await readFile('images.json', 'utf8')).toBe(previous)
-    expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
+    expect(await readdir(directory)).toEqual([
+      'credentials',
+      'images.json',
+      'transloadit-images.d.ts',
+    ])
     expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
       'Storage destination "website/hero.jpg" already exists. Choose a fresh name; use --overwrite only if you deliberately want to replace that object.',
     )

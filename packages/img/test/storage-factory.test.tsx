@@ -66,6 +66,32 @@ test('the committed project catalog renders public images with no environment co
   expect(connection).not.toHaveBeenCalled()
 })
 
+test('explicit factories also understand the catalog delivery block, with top-level overrides winning', () => {
+  const catalog = {
+    workspace: 'catalog-app',
+    public: ['website/'],
+    images,
+    delivery: {
+      baseUrl: 'http://127.0.0.1:32189/file/{workspace}',
+      urlParams: { cdn: 'required' },
+    },
+  }
+  const integration = createStorageImages(catalog)
+  const url = firstUrl(
+    renderToStaticMarkup(<integration.StorageImage src="website/hero.jpg" alt="Hero" />),
+  )
+  expect(url.origin).toBe('http://127.0.0.1:32189')
+  expect(url.searchParams.get('cdn')).toBe('required')
+  const overridden = createStorageImages({
+    ...catalog,
+    baseUrl: 'https://images.example/{workspace}',
+  })
+  expect(
+    firstUrl(renderToStaticMarkup(<overridden.StorageImage src="website/hero.jpg" alt="Hero" />))
+      .origin,
+  ).toBe('https://images.example')
+})
+
 test('workspace environment is an explicit override of committed project identity', () => {
   vi.stubEnv('TRANSLOADIT_WORKSPACE', 'override-app')
   const { StorageImage } = createStorageImages({

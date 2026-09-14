@@ -6,12 +6,36 @@ import type {
   TransloaditImageSourceSet,
 } from '../index.ts'
 import type { ImageAttributes, ImageLoadingProps } from './imageAttributes.ts'
+import type { StorageImageCatalog } from './layout.ts'
+import type { TransloaditRedirectImageProps } from './server.tsx'
 
 import { Fragment } from 'react'
 import { preload as preloadResource } from 'react-dom'
 
 import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
 import { StorageImageErrorBoundary } from './StorageImageErrorBoundary.tsx'
+
+/** Augmented by the CLI-generated transloadit-images.d.ts; an absent file keeps string sources. */
+// biome-ignore lint/suspicious/noEmptyInterface: This is the intentional consumer module-augmentation hook.
+export interface RegisteredStorageImages {}
+
+/** The conventional catalog supplies intrinsic dimensions even without generated declarations. */
+export type StorageImageProps = TransloaditRedirectImageProps<
+  keyof RegisteredStorageImages extends never
+    ? StorageImageCatalog
+    : {
+        [Path in keyof RegisteredStorageImages]: RegisteredStorageImages[Path] extends StorageImageCatalog[string]
+          ? RegisteredStorageImages[Path]
+          : never
+      }
+>
+
+/** Available to App Router Server Components through the react-server export condition. */
+export function StorageImage(_props: StorageImageProps): ReactNode {
+  throw new Error(
+    'StorageImage is a Server Component. Render it in an App Router page or server component; use TransloaditPicture for an already resolved model in client code.',
+  )
+}
 
 const mimeTypes = {
   avif: 'image/avif',

@@ -76,11 +76,12 @@ export function storageImagePage(
   receiptsImport: string,
   prefix: string,
   receipts?: string,
+  componentImport = '../../lib/storageImage',
 ): string {
   const catalogOption = receipts === undefined ? '' : ` --receipts=${quoteCliArgument(receipts)}`
   const command = `npx transloadit storage store${catalogOption}${prefix.startsWith('-') ? ' --' : ''} ./hero.jpg ${quoteCliArgument(`${prefix}hero.jpg`)}`
   return [
-    "import { StorageImage } from '../../lib/storageImage'",
+    `import { StorageImage } from ${sourceString(componentImport)}`,
     `import catalog from ${sourceString(relativeImport(receiptsImport))}`,
     '',
     'export default function Page() {',

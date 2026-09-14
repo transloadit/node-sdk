@@ -287,6 +287,7 @@ test('public init commits the whole project catalog without creating an env file
     workspace: 'my-app',
     public: ['website/'],
     images: {},
+    delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
   })
   expect(await readFile('lib/storageImage.ts', 'utf8')).toContain(
     "baseUrl: 'http://127.0.0.1:3020/file/{workspace}'",
@@ -301,7 +302,9 @@ test('init requires an explicit public or private choice before creating anythin
   await mkdir('app')
   await main(['image', 'init', 'website/'])
   expect(process.exitCode).toBe(1)
-  expect(OutputCtl.prototype.error).toHaveBeenCalledWith('Choose either --public or --private')
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Choose --example or --private; normal uploads need only storage store',
+  )
   expect(await readdir(directory)).toEqual(['app', 'credentials'])
 })
 
@@ -336,6 +339,7 @@ test('publish and unpublish update the committed policy without losing image rec
     workspace: 'my-app',
     public: ['website/'],
     images,
+    delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
   })
   await main(['storage', 'unpublish', 'website/'])
   expect(process.exitCode).toBeUndefined()
@@ -344,6 +348,7 @@ test('publish and unpublish update the committed policy without losing image rec
     workspace: 'my-app',
     public: [],
     images,
+    delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
   })
 })
 
@@ -474,6 +479,7 @@ test('init publishes first and reuses the saved login without any terminal input
     workspace: 'my-app',
     public: ['website/'],
     images: {},
+    delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
   })
   expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
     'local-secret',

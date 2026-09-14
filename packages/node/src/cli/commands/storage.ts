@@ -19,6 +19,8 @@ import {
   assertStorageWorkspace,
   defaultStorageCatalog,
   readStorageCatalog,
+  storageCatalogDelivery,
+  storageTypesPath,
   updateStorageReceipts,
 } from '../storageReceipts.ts'
 import {
@@ -99,7 +101,10 @@ export class StoragePublishCommand extends StorageProjectCommand {
           return undefined
         }
         return {
+          ...previous,
           workspace,
+          delivery:
+            previous?.delivery ?? storageCatalogDelivery(this.endpoint ?? this.cliConfig.endpoint),
           public: [...new Set([...(previous?.public ?? []), result.prefix])],
           images: previous?.images ?? {},
         }
@@ -148,6 +153,7 @@ export class StorageUnpublishCommand extends StorageProjectCommand {
           return undefined
         }
         return {
+          ...previous,
           workspace,
           public: (previous?.public ?? []).filter((prefix) => prefix !== result.prefix),
           images: previous?.images ?? {},
@@ -211,12 +217,17 @@ export class StorageStoreCommand extends StorageProjectCommand {
   overwrite = Option.Boolean('--overwrite', false, {
     description: 'Explicitly replace an existing Storage path',
   })
+  publicDelivery = Option.Boolean('--public', false, {
+    description:
+      'Publish the destination directory recursively, including current and future objects',
+  })
   protected async run(): Promise<number | undefined> {
     const file = resolve(this.receipts)
     let stored: { receipt?: StoredImageReceipt } = {}
     let destination = this.destination
     let workspace: string | undefined
     let saved = false
+    let published: string | undefined
     try {
       noticeCliCredentialSource(this.cliConfig, this.output)
       if (this.files.length > 1 && !this.destination.endsWith('/'))
@@ -230,12 +241,19 @@ export class StorageStoreCommand extends StorageProjectCommand {
       for (const input of inputs) {
         if (file === resolve(input.file))
           throw new Error('The receipts file cannot be the input image')
+        if (resolve(storageTypesPath(file)) === resolve(input.file))
+          throw new Error('The generated declarations file cannot be the input image')
         validateStoragePath(input.path)
       }
       if (new Set(inputs.map((input) => input.path)).size !== inputs.length)
         throw new Error(
           'Input image basenames collide in the destination directory; rename them first',
         )
+      const publicPrefix = this.publicDelivery
+        ? normalizeStoragePublicPrefix(
+            this.destination.slice(0, this.destination.lastIndexOf('/') + 1),
+          )
+        : undefined
       for (const input of inputs) {
         destination = input.path
         stored = {}
@@ -284,7 +302,11 @@ export class StorageStoreCommand extends StorageProjectCommand {
               return undefined
             }
             return {
+              ...receipts,
               workspace,
+              delivery:
+                receipts?.delivery ??
+                storageCatalogDelivery(this.endpoint ?? this.cliConfig.endpoint),
               public: receipts?.public ?? [],
               images: { ...receipts?.images, [stored.receipt.path]: stored.receipt },
             }
@@ -294,6 +316,22 @@ export class StorageStoreCommand extends StorageProjectCommand {
           },
         )
         if (stored.receipt === undefined) throw new Error('Storage did not return a receipt')
+        if (publicPrefix !== undefined && published === undefined) {
+          this.output.notice(
+            `Publishing ${publicPrefix} recursively: all current and future objects under this prefix will be public.`,
+          )
+          await updateStorageReceipts(file, async (previous, signal) => {
+            const result = await this.client
+              .publishStoragePrefix(publicPrefix, { signal })
+              .catch((cause: unknown) => {
+                signal.throwIfAborted()
+                throw new Error(storagePublicError(cause, workspace), { cause })
+              })
+            published = result.prefix
+            if (previous === undefined || previous.workspace !== workspace) return undefined
+            return { ...previous, public: [...new Set([...previous.public, result.prefix])] }
+          })
+        }
         const receipt = stored.receipt
         const attribute = (value: string): string =>
           value
@@ -308,7 +346,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
             .replaceAll(/[-_]+/g, ' '),
         )
         this.output.print(
-          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this receipt file.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}} />`,
+          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}} />`,
           receipt,
         )
       }
@@ -319,6 +357,11 @@ export class StorageStoreCommand extends StorageProjectCommand {
         this.output.error(
           [
             failure.message,
+            ...(published === undefined
+              ? []
+              : [
+                  `The server prefix ${published} remains public; use storage unpublish deliberately if needed.`,
+                ]),
             saved
               ? `Receipt saved in ${this.receipts}. No further files were uploaded. Do not re-upload this object.`
               : 'The object was stored successfully. Do not re-upload; recover the verified receipt below.',
@@ -609,7 +652,11 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
             'No public prefixes are declared on the server. For public delivery, deliberately publish a directory with storage publish; otherwise configure authorize for private images. Sync never publishes files.',
           )
         return {
+          ...previous,
           workspace: actualWorkspace,
+          delivery:
+            previous?.delivery ??
+            storageCatalogDelivery(this.endpoint ?? config.credentialsEndpoint),
           public: policy.public_prefixes.map(({ prefix }) => prefix),
           images: { ...previous?.images, ...synced },
         }

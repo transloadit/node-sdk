@@ -2,6 +2,74 @@
 
 Start with the [Quickstart](../README.md). This reference covers policy, advanced layouts and operations.
 
+## Next.js plugin and catalog convention
+
+`StorageImage` from `@transloadit/img/next` is an App Router Server Component. Wrap the existing
+Next config with `withTransloaditImages(nextConfig)` from `@transloadit/img/next/config`.
+The plugin binds `transloadit.images.json` and optional `transloadit.authorize.ts` from the app
+root using build-time aliases for Turbopack and webpack, and adds narrow output tracing includes.
+It preserves existing aliases, tracing rules and webpack hooks. Restart dev after first adding
+the authorizer; ordinary catalog edits participate in the bundler's dependency graph.
+
+This first cut requires the plugin. There is no cwd-based runtime fallback: bundlers and deployment
+hosts differ in which files they trace and where they start a process. The packed fixture verifies
+local `next build` + `next start`, with Cache Components enabled and omitted. Hosted Vercel,
+other serverless adapters and Edge are not claimed as verified; Edge is unsupported.
+
+```ts
+import { withTransloaditImages } from '@transloadit/img/next/config'
+
+export default withTransloaditImages({}, {
+  catalog: 'assets/transloadit.images.json',
+  // Set root: import.meta.dirname when starting Next from a monorepo parent directory.
+  delivery: {
+    baseUrl: 'https://my-storage-api.example/file/{workspace}',
+    urlParams: { cdn: 'required' },
+  },
+})
+```
+
+Catalog overrides must remain inside the app root. The plugin's generated options under
+`node_modules/.cache/transloadit-images/` contain only nonsecret transport/basePath settings, never a
+second catalog or an application key. Its build-time delivery override wins over catalog delivery.
+Rebuild after changing transport, private authorization or deployment keys for prerendered pages.
+
+`storage store` creates the catalog on first use and updates it after each successful upload.
+Run beside `package.json`, or select a catalog explicitly with `--receipts`. The catalog contains
+workspace, server-declared public prefixes and image receipts. A non-production login also writes:
+
+```json
+{
+  "delivery": {
+    "baseUrl": "http://127.0.0.1:3020/file/{workspace}",
+    "urlParams": { "cdn": "required" }
+  }
+}
+```
+
+This is a field within the catalog, not a standalone catalog. Production logins omit it.
+Later writes preserve an existing delivery choice; remove that block deliberately to return to
+production Smart CDN. Neither the catalog nor declarations contain login credentials.
+
+### Generated types and optional scaffolding
+
+CLI catalog writes also derive `transloadit-images.d.ts` beside the catalog. Commit both files.
+Its augmentation of `RegisteredStorageImages` in `@transloadit/img/next` gives `src` exact path
+completion and retains each source's width/height. Next's stock TypeScript include discovers it;
+include the declaration explicitly if your app uses restrictive includes. Without it, `src` is
+`string` and runtime geometry still comes from the JSON. The declaration is metadata, never a
+second runtime source. Recovery regenerates it without another upload.
+
+Use one conventional catalog per app. For several catalogs, keep their explicit
+`createStorageImages(catalog)` factories and inferred JSON keys instead of combining generated
+global declarations. Factories do not require the plugin. They also understand catalog delivery;
+explicit top-level `baseUrl`/`urlParams` override that block.
+
+`image init website/ --example` remains an optional factory/example generator. It uses an existing
+catalog without login or publication. `image init uploads/ --private` creates only the conventional
+authorizer and route below; add `--example` for a page too. The older `image init --public` is an
+explicit publication plus example shortcut, not a prerequisite. No existing source file is overwritten.
+
 ## Responsive
 
 `preload` is this component's hero macro: eager loading, a responsive preload and high fetch priority.
@@ -80,38 +148,45 @@ application key described in [Login and credentials](#login-and-credentials), no
 Set that pair in both the host's server-only build and runtime environments, never as `NEXT_PUBLIC_`.
 
 ```ts
-import { createStorageImages } from '@transloadit/img/next/server'
-import catalog from '../transloadit.images.json'
-import { authenticate, canReadStorageObject } from './authorization'
+// transloadit.authorize.ts, beside next.config.ts
+import type { AuthorizeTransloaditStorageImage } from '@transloadit/img/next/server'
+import { authenticate, canReadStorageObject } from './lib/authorization'
 
-export const { StorageImage, storageRoute } = createStorageImages({
-  ...catalog,
-  cacheMaxAge: '1m',
-  authorize: async ({ path, request }) => {
-    const user = await authenticate(request)
-    return user !== null && (await canReadStorageObject(user, path))
-  },
-})
+export const authorize: AuthorizeTransloaditStorageImage = async ({ path, request }) => {
+  const user = await authenticate(request)
+  return user !== null && (await canReadStorageObject(user, path))
+}
 ```
 
 `request` is a standard Web `Request`; read the browser's native cookie through your session library.
 Export in `app/api/storage-images/route.ts` (prefix source paths with `src/` if your app uses it):
 
 ```ts
-export { storageRoute as GET, storageRoute as HEAD } from '../../../lib/storageImage'
+export { GET, HEAD } from '@transloadit/img/next/route'
 ```
 
 The default route is `/api/storage-images`; denied requests return `404`. Each uncached private
-image load invokes the handler once. The example caches its private 307 redirect for up to a
-minute, trading repeat-load cost for delayed reauthorization. Omit `cacheMaxAge` for private,
-no-store responses. Downstream CDN grants have 30–60 minutes remaining by default and are usable
+image load invokes the handler once. Conventional private redirects use private, no-store responses.
+Downstream CDN grants have 30–60 minutes remaining by default and are usable
 until expiry, independently of redirect caching. Image bytes always bypass the application.
 
-`image init uploads/ --private` scaffolds a fail-closed authorization placeholder in a fresh project.
-To add private delivery to an existing public project, edit the factory and add the route above;
-init never overwrites application code. The optional `--write-env` copies the saved login key
+`image init uploads/ --private` scaffolds those two files with fail-closed authorization, including
+in an existing public project. It never overwrites application code. The optional `--write-env` copies the saved login key
 for local testing only; replace it with the separate application key before deployment.
 Public-only rendering never reads or validates signing credentials and needs no application env.
+
+For custom routing or caching, keep the explicit factory escape hatch:
+
+```ts
+import { createStorageImages } from '@transloadit/img/next/server'
+import catalog from '../transloadit.images.json'
+import { authorize } from '../transloadit.authorize'
+
+export const { StorageImage, storageRoute } = createStorageImages({ ...catalog, authorize, cacheMaxAge: '1m' })
+```
+
+Its route exports `storageRoute as GET, storageRoute as HEAD` from the application factory.
+This optional minute of redirect caching delays reauthorization; omit it for private, no-store.
 
 ## Mixed public and private images
 
@@ -129,9 +204,11 @@ npx transloadit storage publications
 npx transloadit storage unpublish website/
 ```
 
-Publishing is idempotent and requires `dam:write`. `image init website/ --public` performs that
-publication before writing the factory; `storage store` never changes access policy.
-Init prints the recursive current-and-future publication boundary before changing it.
+Publishing is idempotent and requires `dam:write`. `storage store ./hero.jpg website/hero.jpg --public`
+declares the destination directory after checkpointing the upload. It prints the recursive
+current-and-future publication boundary before changing it. If publication fails, the receipt
+remains saved: retry with `storage publish website/`, not another upload. A root object cannot be
+published with --public. Plain `storage store` never changes access policy.
 `--dry-run` only lists current matching objects through the S3 read API; it never publishes or
 changes the local catalog. Future objects under that prefix would also be public after publication.
 Unpublishing stops uncached origin access. Cached or downloaded bytes cannot be recalled.
@@ -231,9 +308,9 @@ it for subsequent API requests. With `--stdin`, include `TRANSLOADIT_SIGNATURE_A
 for such a key. Existing credentials without this value retain the SDK's SHA-384 default.
 Unrestricted keys (`signature_algo: null`) also retain that default for API requests.
 
-`image init` requires `--public` or `--private` and prefers the saved login, keeping its key,
-workspace and endpoint together even with stale shell/project credentials. The catalog carries
-`{ workspace, public, images }`; public init creates no app env file.
+`image init` is optional: `--example` uses an existing catalog without credentials; publication or
+initializing an empty project prefers the saved login, keeping key, workspace and endpoint together.
+The catalog carries `{ workspace, public, images }` and optional non-production `delivery`.
 `TRANSLOADIT_WORKSPACE` overrides the catalog workspace when explicitly set in the app's environment.
 Remove a stale override if image URLs point at another workspace; the factory does not read the CLI's
 saved credentials file. Private `--write-env` creates
@@ -258,10 +335,11 @@ saved alongside the credential. Ordinary commands honor `TRANSLOADIT_ENDPOINT` u
 lookup rules. Rendering never loads CLI credential files. The Assembly client is an upload-side
 dependency, not part of rendering or the browser.
 
-`auth login --endpoint <url>` persists that endpoint in the saved login. For a non-production
-login, init also generates `baseUrl: '<endpoint>/file/{workspace}'` and `urlParams: { cdn: 'required' }`.
-It prints the chosen delivery origin. Remove those factory overrides to switch to Smart CDN.
-Production login scaffolds stay secretless and derive the CDN host from the catalog workspace.
+`auth login --endpoint <url>` persists that endpoint in the saved login. On first catalog creation,
+store records `delivery.baseUrl: '<endpoint>/file/{workspace}'` and `urlParams: { cdn: 'required' }`
+for non-production. Subsequent writes preserve an existing delivery block. Remove it, and any
+explicit plugin/factory overrides, to switch to production Smart CDN. Public rendering stays
+secretless and production derives the CDN host from the catalog workspace.
 For a separate login, set `TRANSLOADIT_CREDENTIALS_FILE` in your shell before logging in.
 Console → Credentials contains the key; follow its real workspace link printed by the CLI.
 
@@ -274,9 +352,9 @@ for trusted devdock endpoint overrides and the required CDN acknowledgment.
 
 ## Delivery overrides
 
-CLI `--endpoint` (saved by login) and `TRANSLOADIT_ENDPOINT` select the Assembly/Storage API;
-they do not change image delivery. A custom CDN or local API2 URL Transform origin is configured
-separately on the generated image factory:
+CLI `--endpoint` (saved by login) and `TRANSLOADIT_ENDPOINT` select the Assembly/Storage API.
+A new non-production catalog records that origin in its delivery block; existing blocks are
+preserved. The plugin accepts an explicit delivery override. The equivalent factory escape hatch is:
 
 ```ts
 import { createStorageImages } from '@transloadit/img/next/server'

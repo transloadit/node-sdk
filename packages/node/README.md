@@ -115,29 +115,30 @@ until release. In a Next.js 16.3.3+ App Router project with Storage enabled, run
 
 ```bash
 yarn transloadit auth login
-yarn transloadit image init website/ --public
-yarn transloadit storage store ./hero.jpg website/hero.jpg
+yarn transloadit storage store ./hero.jpg website/hero.jpg --public
 yarn dev
 ```
 
-Open `/storage-image-example`. Login opens browser approval (on Windows, open the printed URL) and saves one combined Auth Key,
+Follow the image package Quickstart to add its Next plugin and import StorageImage from the package.
+Login opens browser approval (on Windows, open the printed URL) and saves one combined Auth Key,
 workspace and signing algorithm in the owner-only credentials file. `--no-browser` prints the
 approval URL; `--stdin` accepts dotenv credentials for automation. Existing credentials require
 `--replace`. Login also checks Storage policy access with a bounded read-only request; if that
 fails, it saves the login and prints a Console link. This check does not prove upload availability.
 
-Init requires `--public` or `--private`. Public init declares `website/` public and creates a
-factory, an empty `transloadit.images.json` catalog and a runnable example page. The catalog carries
-workspace, public prefixes and image receipts: no app env file or hosting variables are needed.
-Private init (`image init uploads/ --private --write-env`) writes the key and secret
-rendering values and a route that denies access until you connect per-object authorization.
+Store creates `transloadit.images.json` and derived `transloadit-images.d.ts`; commit both. The
+catalog carries workspace, public prefixes and image receipts: no public app env is needed.
+`--public` declares the destination directory recursively, including future uploads, after saving
+the receipt. Plain store never publishes. `image init website/ --example` is an optional example
+generator; private init (`image init uploads/ --private`) creates `transloadit.authorize.ts` and a
+route that denies access until you connect per-object authorization. Use a separate deployment key.
 Existing code/env files are never overwritten. Missing trailing directory slashes are accepted.
 
 Store uploads originals and appends validated receipts to `transloadit.images.json`; commit it.
 `storage store ./images/*.jpg website/` stores shell-expanded files, checkpointing each success.
-It prints `width={960}` (bounded by the original) with an empty decorative alt and a reminder.
+It prints `width={960}` (bounded by the original) with a filename-derived alt and a reminder.
 An occupied path conflicts unless `--overwrite` is explicit; use immutable filenames where possible.
-Publication is separate from storing:
+Publication can also be managed explicitly:
 
 ```bash
 yarn transloadit storage publish website/

@@ -285,10 +285,39 @@ async function main(): Promise<void> {
     ]) {
       await cp(resolve(fixtureDir, file), resolve(publicDir, file))
     }
+    // The isolated, secretless app exercises the README's package import, not a factory.
+    await cp(
+      resolve(fixtureDir, 'app/package-public/page.tsx'),
+      resolve(publicDir, 'app/storage-image-example/page.tsx'),
+    )
     await execa('npx', ['--no-install', 'tsc', '--project', 'tsconfig.tooling.json'], {
       cwd: fixtureDir,
       stdio: 'inherit',
     })
+    await execa(
+      'npx',
+      [
+        '--no-install',
+        'tsc',
+        '--ignoreConfig',
+        '--noEmit',
+        '--skipLibCheck',
+        '--strict',
+        '--jsx',
+        'react-jsx',
+        '--module',
+        'ESNext',
+        '--moduleResolution',
+        'Bundler',
+        '--target',
+        'ES2017',
+        'untyped-consumer.tsx',
+      ],
+      {
+        cwd: fixtureDir,
+        stdio: 'inherit',
+      },
+    )
     const cliHelp = await execa(
       'npx',
       ['--no-install', 'transloadit', 'storage', 'store', '--help'],
@@ -346,6 +375,10 @@ async function main(): Promise<void> {
       assert(
         !/auth_key=|sig=|exp=/.test(generatedPublicHtml),
         'The secretless public app must not sign URLs',
+      )
+      assert(
+        generatedPublicHtml.includes(`${cdnOrigin}/file/fixture/`),
+        'The package import must use the plugin delivery override during the secretless build',
       )
       console.log(`Production fixture: cacheComponents ${cacheComponents}`)
       await execa(

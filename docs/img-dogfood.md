@@ -5,6 +5,11 @@ Use the [package README](../packages/img/README.md) for the application integrat
 
 Responsive previews of Transloadit Storage objects, delivered through Smart CDN.
 
+Round 12's default integration is package-first: login, `storage store ./hero.jpg website/hero.jpg
+--public`, `withTransloaditImages` in Next config, and `StorageImage` imported from
+`@transloadit/img/next`. Commit both `transloadit.images.json` and `transloadit-images.d.ts`.
+`image init` and the explicit SDK/factory recipes below are optional alternatives.
+
 The package renders native `<picture>`, `srcset`, and `<img>` elements. Image bytes travel directly
 from Smart CDN to the browser; they are never optimized or proxied by the Next.js application.
 Remote HTTP URLs are deliberately outside this package's source contract: an image must already
@@ -62,7 +67,7 @@ the tarballs available for reinstalls; do not commit machine-specific paths as a
 
 For the ordinary first-image flow, return to the package README and use `npx --no transloadit` in place
 of `yarn transloadit`. The explicit SDK seed below is an advanced maintainer alternative, not a
-prerequisite for `auth login`, `storage store` or `image init`.
+prerequisite for `auth login` or `storage store`.
 
 ### Advanced alternative: configure a standalone seed script
 

@@ -687,6 +687,32 @@ test('the public catalog hero has stock-CSS geometry and no application image re
   await expect(hero).toHaveAttribute('fetchpriority', 'high')
 })
 
+test('package imports render public and private images with the conventional cookie-authorized handler', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/fixture/package-images')
+  await expect(page.getByRole('heading', { name: 'Images from the package' })).toBeVisible()
+  const hero = page.getByRole('img', { name: 'Package hero', exact: true })
+  const privateImage = page.getByRole('img', { name: 'Package private image', exact: true })
+  await decode(hero)
+  await decode(privateImage)
+  expect(await hero.getAttribute('src')).toContain(cdnOrigin)
+  expect(await hero.getAttribute('src')).not.toMatch(/auth_key=|sig=|exp=/)
+  const privateUrl = await privateImage.getAttribute('src')
+  assert(privateUrl)
+  expect(privateUrl).toMatch(/^\/fixture\/api\/storage-images\?cap=/)
+  const granted = await context.request.head(privateUrl, { maxRedirects: 0 })
+  expect(granted.status()).toBe(307)
+  expect(await granted.body()).toHaveLength(0)
+  await context.clearCookies()
+  expect((await context.request.get(privateUrl, { maxRedirects: 0 })).status()).toBe(404)
+  expect((await context.request.head(privateUrl, { maxRedirects: 0 })).status()).toBe(404)
+  await expect(page.getByRole('button', { name: 'Hydration count: 0' })).toBeVisible()
+  await page.getByRole('button', { name: 'Hydration count: 0' }).click()
+  await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
+})
+
 if (process.env.IMG_FIXTURE_MODE === 'development') {
   test('development scaffold does not blame sizes when a cached desktop candidate is reused on mobile', async ({
     page,

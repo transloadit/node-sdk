@@ -293,7 +293,7 @@ test('the generated empty page and init instruction name the initialized directo
     'credentials',
     'TRANSLOADIT_KEY=write-key\nTRANSLOADIT_SECRET=hidden-secret\nTRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_WORKSPACE_VERIFIED=true\n',
   )
-  await main(['image', 'init', 'uploads/', '--private'])
+  await main(['image', 'init', 'uploads/', '--private', '--example'])
   expect(process.exitCode).toBeUndefined()
   expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
     'npx transloadit storage store ./hero.jpg uploads/hero.jpg',
@@ -431,6 +431,32 @@ describe('image init', () => {
     })
   })
 
+  test('private init scaffolds only the conventional authorizer and package route, not a factory', async () => {
+    await mkdir('app')
+    await main(['image', 'init', 'uploads/', '--private'])
+    expect(process.exitCode).toBeUndefined()
+    expect(await readFile('transloadit.authorize.ts', 'utf8')).toContain('export const authorize')
+    expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toBe(
+      "export { GET, HEAD } from '@transloadit/img/next/route'\n",
+    )
+    await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(stat('app/storage-image-example/page.tsx')).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
+  })
+
+  test('example scaffolding uses an existing catalog without login or implicit publication', async () => {
+    await mkdir('app')
+    const catalog = { workspace: 'my-app', public: ['website/'], images: {} }
+    await writeFile('transloadit.images.json', JSON.stringify(catalog))
+    vi.mocked(resolveCliConfig).mockReturnValue({})
+    await main(['image', 'init', 'website/', '--example'])
+    expect(process.exitCode).toBeUndefined()
+    expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain('<StorageImage')
+    expect(Transloadit.prototype.publishStoragePrefix).not.toHaveBeenCalled()
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
+  })
+
   test.each([
     '--public',
     '--private',
@@ -440,10 +466,10 @@ describe('image init', () => {
     vi.mocked(resolveCliConfig).mockReturnValue({ ...saved, endpoint: 'http://127.0.0.1:3020' })
     await main(['image', 'init', 'website/', mode])
     expect(process.exitCode).toBeUndefined()
-    const factory = await readFile('lib/storageImage.ts', 'utf8')
-    expect(factory).toContain("baseUrl: 'http://127.0.0.1:3020/file/{workspace}'")
-    expect(factory).toContain("urlParams: { cdn: 'required' }")
-    expect(factory).toContain('non-production API selected at login; remove for Smart CDN delivery')
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).delivery).toEqual({
+      baseUrl: 'http://127.0.0.1:3020/file/{workspace}',
+      urlParams: { cdn: 'required' },
+    })
     expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toContain(
       'Delivery uses the non-production API',
     )
@@ -536,15 +562,14 @@ describe('image init', () => {
     )
   })
 
-  test('private init preserves existing public directories within the generated allowed policy', async () => {
+  test('private init preserves existing public directories without creating a second factory policy', async () => {
     await mkdir('app')
     const catalog = { workspace: 'my-app', public: ['website/'], images: {} }
     await writeFile('transloadit.images.json', JSON.stringify(catalog))
     await main(['image', 'init', 'uploads/', '--private'])
     expect(process.exitCode).toBeUndefined()
-    expect(await readFile('lib/storageImage.ts', 'utf8')).toContain(
-      "allowedPathPrefixes: ['uploads/', ...catalog.public]",
-    )
+    expect(await readFile('transloadit.authorize.ts', 'utf8')).toContain('authorize')
+    await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
   })
 
@@ -593,7 +618,7 @@ describe('image init', () => {
     await mkdir('app')
     await main(['image', 'init', 'website/', '--private', '--write-env'])
     expect(process.exitCode).toBeUndefined()
-    expect((await stat('lib/storageImage.ts')).mode & 0o777).toBe(0o666 & ~process.umask())
+    expect((await stat('transloadit.authorize.ts')).mode & 0o777).toBe(0o666 & ~process.umask())
     expect((await stat('app/api/storage-images/route.ts')).mode & 0o777).toBe(
       0o666 & ~process.umask(),
     )
@@ -611,9 +636,9 @@ describe('image init', () => {
     await mkdir('app')
     await main(['image', 'init', '--private', 'accounts/'])
     expect(process.exitCode).toBeUndefined()
-    expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('authorize: () => false')
+    expect(await readFile('transloadit.authorize.ts', 'utf8')).toContain('= () => false')
     expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toContain(
-      'storageRoute as GET, storageRoute as HEAD',
+      "export { GET, HEAD } from '@transloadit/img/next/route'",
     )
     expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toContain(
       'authorization',

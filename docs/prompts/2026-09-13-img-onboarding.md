@@ -283,3 +283,30 @@ self-referential docs-only commit. No merge or publication is authorized by pass
 
 Progress and red/green evidence: `/tmp/img-task2-round11-report.md`. Immutable identity and
 image doctor remain out of scope. `@transloadit/img` stays private at 0.0.0.
+
+## Round 12 — package-first Next.js integration
+
+Kevin's decision: `/tmp/img-task2-round12-brief.md`. Keep #500, private 0.0.0, no
+merge, publication or production changes. Current main is already an ancestor; no open GitHub
+review threads were present at preflight.
+
+- [x] Store owns the catalog, generates committed types, and explicitly publishes with --public.
+- [x] A Next config plugin binds the conventional catalog and private authorizer; direct package
+  import reuses the existing renderer. Do not promise a runtime filesystem fallback without
+  proving tracing and host portability.
+- [x] Generated module augmentation narrows src; without it string sources still use catalog sizes.
+- [x] Private convention exports one authorize function and re-exports the package route handler.
+- [x] Keep explicit factories and opt-in example/private scaffolding working.
+- [x] Quickstart/reference/dogfood and packed fixture exercise both integration paths.
+- [ ] Reconcile council and local UX/security evidence, then img check → verify → packed fixture
+  and exact-head green CI. Update the one-screen PR body and stop.
+
+The implementation was recovered after an external cleanup selected the active checkout. Work
+continues in Kevin's reserved node-sdk checkout, with no new clone or worktree. img check and verify
+pass (277 img, 581 Node plus one existing skip). The packed browser gate remains pending.
+Its initial failure caught Turbopack excluding .next as an import source; generated nonsecret
+options now live under node_modules/.cache, while the catalog stays the single source of truth.
+The generated wrapper README is synchronized. A red-first follow-up aligns CLI catalog transport
+validation with the renderer's parameter-only and repeated-query options.
+
+Report and commit-stamped evidence: `/tmp/img-task2-round12-report.md`.
