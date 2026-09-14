@@ -662,6 +662,14 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
     await decode(hero)
     await page.setViewportSize({ width: 390, height: 850 })
     await expect.poll(async () => (await hero.boundingBox())?.width).toBe(374)
+    // Let native source selection finish before reload can cancel the mobile candidate.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    )
+    await decode(hero)
     await page.reload()
     await decode(hero)
     await page.getByRole('button', { name: 'Hydration count: 0' }).click()
