@@ -130,6 +130,14 @@ describe('storage store', () => {
     expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
       expect.stringContaining('Do not re-upload'),
     )
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Receipt saved in transloadit.images.json. No further files were uploaded.',
+      ),
+    )
+    expect(OutputCtl.prototype.error).not.toHaveBeenCalledWith(
+      expect.stringContaining('recover the verified receipt'),
+    )
   })
 
   test('refuses a stale workspace label on env credentials before uploading', async () => {

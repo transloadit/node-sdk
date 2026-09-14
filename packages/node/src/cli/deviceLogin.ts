@@ -120,9 +120,10 @@ export async function deviceLogin(
       })
       browser.unref()
       void browser.catch(() => {
-        output.print('Could not open the browser. Open the verification URL printed above.', {
-          browserOpened: false,
-        })
+        // A wrapper's later failure cannot prove whether its page opened or invalidate login.
+        output.warn(
+          'The browser opener reported an error. If the page did not open, use the verification URL printed above.',
+        )
       })
     }
     if (!noBrowser && process.platform === 'win32')

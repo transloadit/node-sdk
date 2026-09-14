@@ -859,7 +859,7 @@ describe('createStorageImages', () => {
       )
     const response = await storageRoute(candidate('documents/public/hero.jpg'))
     expect(response.status).toBe(307)
-    expect(response.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=86400')
+    expect(response.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=60')
     expect(authorize).not.toHaveBeenCalled()
     const denied = await storageRoute(candidate('documents/private/hero.jpg'))
     expect(denied.status).toBe(404)
@@ -869,7 +869,24 @@ describe('createStorageImages', () => {
     vi.setSystemTime('2029-01-01T12:59:59.000Z')
     expect(
       (await storageRoute(candidate('documents/public/hero.jpg'))).headers.get('cache-control'),
-    ).toBe('public, max-age=0, s-maxage=86400')
+    ).toBe('public, max-age=0, s-maxage=60')
+    const refreshed = createStorageImages({
+      ...baseConfiguration,
+      authorize,
+      route: '/images',
+      public: ['documents/public/'],
+      images: {
+        'documents/public/hero.jpg': {
+          path: 'documents/public/hero.jpg',
+          width: 400,
+          height: 300,
+          md5hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        },
+      },
+    })
+    const current = await refreshed.storageRoute(candidate('documents/public/hero.jpg'))
+    expect(current.headers.get('location')).toContain('v=bbbbbbbbbbbbbbbb')
+    expect(current.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=60')
   })
 
   test('rejects public prefixes outside the signing policy', () => {

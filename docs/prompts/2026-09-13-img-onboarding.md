@@ -79,5 +79,9 @@ An accepted Assembly may still finish remotely, and forced exits/crashes still n
 Relative HOME values also fall back to the OS account directory. Empty examples and init output
 now name the initialized directory. These cases are red-first and covered by real loopback S3
 requests plus the packed fixture; the latest full `yarn check` passes.
+Final review reconciliation forwards cancellation into publication HTTP calls too (publish,
+unpublish and public init), distinguishes successful checkpoints from failed receipt recovery,
+limits unversioned compatibility redirects to one shared-cache minute and clarifies JSON ETags.
+Opener failures are warnings, not false login results on JSON stdout. All have red-first coverage.
 No merge, package publication, Content changes, Thumbhash or origin version selector in this round.
 Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-task2-round8-report.md`.

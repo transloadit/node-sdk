@@ -9,6 +9,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
+import { Transloadit } from '../../../src/Transloadit.ts'
 
 const origin = 'http://127.0.0.1:3020'
 const originalCwd = process.cwd()
@@ -71,6 +72,52 @@ function signedPrefix(body: string): boolean {
   expect(signature).toBe(signParamsSync(params, 'local-secret'))
   return true
 }
+
+test.each(['publishStoragePrefix', 'unpublishStoragePrefix'] satisfies (keyof Pick<
+  Transloadit,
+  'publishStoragePrefix' | 'unpublishStoragePrefix'
+>)[])('%s forwards a pre-aborted signal without sending a request', async (method) => {
+  const client = new Transloadit({
+    authKey: 'local-key',
+    authSecret: 'local-secret',
+    endpoint: origin,
+  })
+  const controller = new AbortController()
+  controller.abort()
+  const api = nock(origin)
+    .intercept('/storage/public_prefixes', method === 'publishStoragePrefix' ? 'POST' : 'DELETE')
+    .reply(
+      200,
+      method === 'publishStoragePrefix'
+        ? declared
+        : { ok: 'STORAGE_PUBLIC_PREFIX_REVOKED', prefix: 'website/', deleted: true },
+    )
+  await expect(client[method]('website/', { signal: controller.signal })).rejects.toThrow()
+  expect(api.isDone()).toBe(false)
+})
+
+test.each([
+  'publish',
+  'unpublish',
+  'init',
+])('%s forwards the catalog interrupt to the publication operation', async (command) => {
+  await mkdir('app')
+  let signal: AbortSignal | undefined
+  const method = command === 'unpublish' ? 'unpublishStoragePrefix' : 'publishStoragePrefix'
+  vi.spyOn(Transloadit.prototype, method).mockImplementation((_prefix, options) => {
+    signal = options?.signal
+    process.emit('SIGINT')
+    return Promise.reject(new Error('Simulated interrupted publication'))
+  })
+  await main(
+    command === 'init'
+      ? ['image', 'init', 'website/', '--public']
+      : ['storage', command, 'website/'],
+  )
+  expect(signal?.aborted).toBe(true)
+  expect(process.exitCode).toBe(1)
+  expect(await readdir(directory)).toEqual(['app', 'credentials'])
+})
 
 test.each([
   'publish',

@@ -214,6 +214,11 @@ loads for delayed reauthorization, opt in with `cacheMaxAge: '30s'`. The `307` u
 remain `no-store`. Cached redirects may grant access without a new app check until that age elapses.
 CDN URLs already issued remain usable until their own expiry; downloaded bytes cannot be recalled.
 
+After a directory is published, old private capabilities can redirect to its unsigned public URL.
+These compatibility redirects share-cache for at most one minute: their request URL has no receipt
+hash, so a longer cache could retain an old versioned target after an overwrite and catalog refresh.
+New public markup uses direct versioned CDN URLs and does not take this compatibility route.
+
 Production Smart CDN uses Bunny for `*.tlcdn.com`: hostname and the whole query string form the
 cache key. Format-specific URLs avoid unkeyed Accept negotiation. A representative constrained
 hero has roughly 140-character URLs × 11 image candidates (five AVIF, five WebP, one JPEG), plus

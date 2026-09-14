@@ -446,7 +446,9 @@ describe('image init', () => {
     await mkdir('app')
     await main(['image', 'init', 'website', '--public'])
     expect(process.exitCode).toBeUndefined()
-    expect(Transloadit.prototype.publishStoragePrefix).toHaveBeenCalledExactlyOnceWith('website/')
+    expect(Transloadit.prototype.publishStoragePrefix).toHaveBeenCalledExactlyOnceWith('website/', {
+      signal: expect.any(AbortSignal),
+    })
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).public).toEqual([
       'website/',
     ])

@@ -151,9 +151,12 @@ export class ImageInitCommand extends UnauthenticatedCommand {
             'Use --receipts with a separate catalog when initializing another workspace. Nothing was written.',
           )
         if (this.publicDelivery) {
-          const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
-            throw new Error(storagePublicError(cause, workspace), { cause })
-          })
+          const result = await this.client
+            .publishStoragePrefix(prefix, { signal })
+            .catch((cause: unknown) => {
+              signal.throwIfAborted()
+              throw new Error(storagePublicError(cause, workspace), { cause })
+            })
           published = result.prefix
         }
         return {

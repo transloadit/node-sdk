@@ -1288,22 +1288,30 @@ export class Transloadit {
   }
 
   /** Declare a directory public for unsigned Storage Built-ins. Requires dam:write scope. */
-  async publishStoragePrefix(prefix: string): Promise<StoragePublicPrefixDeclared> {
+  async publishStoragePrefix(
+    prefix: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<StoragePublicPrefixDeclared> {
     const result = await this._remoteJson<unknown, OptionalAuthParams & { prefix: string }>({
       urlSuffix: '/storage/public_prefixes',
       method: 'post',
       params: { prefix: normalizeStoragePublicPrefix(prefix) },
+      signal: options?.signal,
     })
     checkResult(result)
     return storagePublicPrefixDeclaredSchema.parse(result)
   }
 
   /** Revoke origin access to a public directory; cached or downloaded bytes cannot be recalled. */
-  async unpublishStoragePrefix(prefix: string): Promise<StoragePublicPrefixRevoked> {
+  async unpublishStoragePrefix(
+    prefix: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<StoragePublicPrefixRevoked> {
     const result = await this._remoteJson<unknown, OptionalAuthParams & { prefix: string }>({
       urlSuffix: '/storage/public_prefixes',
       method: 'delete',
       params: { prefix: normalizeStoragePublicPrefix(prefix) },
+      signal: options?.signal,
     })
     checkResult(result)
     return storagePublicPrefixRevokedSchema.parse(result)

@@ -122,6 +122,22 @@ test('device login accepts API2 unrestricted keys with a null signature algorith
   expect(await readFile('credentials', 'utf8')).not.toContain('SIGNATURE_ALGORITHM')
 })
 
+test('an opener error warns without emitting a false browser result on JSON stdout', async () => {
+  createDevice().post('/cli/device_authorizations/token').reply(200, authorized)
+  const warn = vi.spyOn(OutputCtl.prototype, 'warn').mockImplementation(() => {})
+  // @ts-expect-error The fake models promise/unref, not unrelated Execa subprocess fields.
+  vi.mocked(execa).mockImplementationOnce(() =>
+    Object.assign(Promise.reject(new Error('Local opener exited')), { unref: vi.fn() }),
+  )
+  await login(['--json'])
+  expect(process.exitCode).toBeUndefined()
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('The browser opener reported an error'))
+  expect(OutputCtl.prototype.print).not.toHaveBeenCalledWith(
+    expect.any(String),
+    expect.objectContaining({ browserOpened: false }),
+  )
+})
+
 test('login does not await or kill a successfully launched long-lived browser', async () => {
   const api = createDevice().post('/cli/device_authorizations/token').reply(200, authorized)
   let finishBrowser: (() => void) | undefined

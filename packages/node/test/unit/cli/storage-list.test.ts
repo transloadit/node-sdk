@@ -48,6 +48,11 @@ afterEach(async () => {
   await rm(directory, { force: true, recursive: true })
 })
 
+test('listing help explains that ETags require JSON output', async () => {
+  await main(['storage', 'ls', '--help'])
+  expect(process.stdout.write).toHaveBeenCalledWith(expect.stringContaining('ETags with --json'))
+})
+
 test.each([
   undefined,
   'http://override.invalid',

@@ -847,7 +847,9 @@ function createStorageRoute(
         status: 307,
         headers: {
           Location: location,
-          'Cache-Control': 'public, max-age=0, s-maxage=86400',
+          // Old private capabilities carry no receipt hash; bound stale Locations after overwrite.
+          // Newly rendered public images bypass this compatibility route with versioned CDN URLs.
+          'Cache-Control': 'public, max-age=0, s-maxage=60',
           'Referrer-Policy': 'no-referrer',
         },
       })

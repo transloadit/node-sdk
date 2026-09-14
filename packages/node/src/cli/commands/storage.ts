@@ -58,9 +58,12 @@ export class StoragePublishCommand extends StorageProjectCommand {
           previous?.workspace,
           signal,
         )
-        const result = await this.client.publishStoragePrefix(prefix).catch((cause: unknown) => {
-          throw new Error(storagePublicError(cause, workspace), { cause })
-        })
+        const result = await this.client
+          .publishStoragePrefix(prefix, { signal })
+          .catch((cause: unknown) => {
+            signal.throwIfAborted()
+            throw new Error(storagePublicError(cause, workspace), { cause })
+          })
         this.output.print(
           `Published ${result.prefix}. Files under this directory can be served without signatures.`,
           result,
@@ -104,9 +107,12 @@ export class StorageUnpublishCommand extends StorageProjectCommand {
           previous?.workspace,
           signal,
         )
-        const result = await this.client.unpublishStoragePrefix(prefix).catch((cause: unknown) => {
-          throw new Error(storagePublicError(cause, workspace), { cause })
-        })
+        const result = await this.client
+          .unpublishStoragePrefix(prefix, { signal })
+          .catch((cause: unknown) => {
+            signal.throwIfAborted()
+            throw new Error(storagePublicError(cause, workspace), { cause })
+          })
         this.output.print(
           `Unpublished ${result.prefix}; already cached or downloaded bytes cannot be recalled.`,
           result,
@@ -185,6 +191,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
     let stored: { receipt?: StoredImageReceipt } = {}
     let destination = this.destination
     let workspace: string | undefined
+    let saved = false
     try {
       this.output.notice(describeCliCredentialSource(this.cliConfig))
       if (this.files.length > 1 && !this.destination.endsWith('/'))
@@ -207,34 +214,39 @@ export class StorageStoreCommand extends StorageProjectCommand {
       for (const input of inputs) {
         destination = input.path
         stored = {}
-        let saved = false
-        await updateStorageReceipts(file, async (receipts, signal) => {
-          workspace ??= await resolveStorageWorkspace(
-            this,
-            this.cliConfig,
-            receipts?.workspace,
-            signal,
-          )
-          assertStorageWorkspace(workspace, receipts?.workspace, this.workspace)
-          signal.throwIfAborted()
-          stored.receipt = await this.client.storeImage(input.file, {
-            path: destination,
-            signal,
-            ...(this.overwrite ? { overwrite: true } : {}),
-          })
-          if (receipts !== undefined && receipts.workspace !== workspace) {
-            this.output.notice(
-              `Catalog ${this.receipts} was not changed; it belongs to ${receipts.workspace}. Use --receipts for a separate catalog.`,
+        saved = false
+        await updateStorageReceipts(
+          file,
+          async (receipts, signal) => {
+            workspace ??= await resolveStorageWorkspace(
+              this,
+              this.cliConfig,
+              receipts?.workspace,
+              signal,
             )
-            return undefined
-          }
-          saved = true
-          return {
-            workspace,
-            public: receipts?.public ?? [],
-            images: { ...receipts?.images, [stored.receipt.path]: stored.receipt },
-          }
-        })
+            assertStorageWorkspace(workspace, receipts?.workspace, this.workspace)
+            signal.throwIfAborted()
+            stored.receipt = await this.client.storeImage(input.file, {
+              path: destination,
+              signal,
+              ...(this.overwrite ? { overwrite: true } : {}),
+            })
+            if (receipts !== undefined && receipts.workspace !== workspace) {
+              this.output.notice(
+                `Catalog ${this.receipts} was not changed; it belongs to ${receipts.workspace}. Use --receipts for a separate catalog.`,
+              )
+              return undefined
+            }
+            return {
+              workspace,
+              public: receipts?.public ?? [],
+              images: { ...receipts?.images, [stored.receipt.path]: stored.receipt },
+            }
+          },
+          () => {
+            saved = true
+          },
+        )
         if (stored.receipt === undefined) throw new Error('Storage did not return a receipt')
         const receipt = stored.receipt
         const src = receipt.path
@@ -254,7 +266,9 @@ export class StorageStoreCommand extends StorageProjectCommand {
         this.output.error(
           [
             failure.message,
-            'The object was stored successfully. Do not re-upload; recover the verified receipt below.',
+            saved
+              ? `Receipt saved in ${this.receipts}. No further files were uploaded. Do not re-upload this object.`
+              : 'The object was stored successfully. Do not re-upload; recover the verified receipt below.',
             `Receipt: ${JSON.stringify(stored.receipt)}`,
           ].join('\n'),
         )
@@ -286,7 +300,8 @@ export class StorageListCommand extends UnauthenticatedCommand {
   static override paths = [['storage', 'ls']]
   static override usage = Command.Usage({
     category: 'Storage',
-    description: 'List stored paths, sizes and ETags without creating an Assembly',
+    description:
+      'List stored paths and sizes; include ETags with --json, without creating an Assembly',
     details:
       'Uses an Auth Key with read or dam:write scope and the S3-compatible Storage API. Infers the workspace from ListBuckets unless --workspace is supplied. --endpoint accepts the API origin, not a bucket URL.',
     examples: [['List website images', 'transloadit storage ls website/']],

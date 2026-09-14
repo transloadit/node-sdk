@@ -70,13 +70,17 @@ export function assertStorageWorkspace(actual: string, project?: string, request
     )
 }
 
-/** Serializes CLI receipt writers and replaces a catalog only after the complete update succeeds. */
+/**
+ * Serializes CLI receipt writers and replaces a catalog only after the complete update succeeds.
+ * onCheckpoint observes a completed rename even if interruption or cleanup subsequently fails.
+ */
 export async function updateStorageReceipts(
   file: string,
   update: (
     catalog: StorageProjectCatalog | undefined,
     signal: AbortSignal,
   ) => Promise<StorageProjectCatalog | undefined>,
+  onCheckpoint?: () => void,
 ): Promise<void> {
   const lockPath = `${file}.lock`
   const temporary = join(dirname(file), `.${basename(file)}.${randomUUID()}.tmp`)
@@ -118,6 +122,7 @@ export async function updateStorageReceipts(
     if (mode !== undefined) await chmod(temporary, mode)
     await rename(temporary, file)
     retainTemporary = false
+    onCheckpoint?.()
     cancellation.signal.throwIfAborted()
   } catch (error) {
     if (retainTemporary)
