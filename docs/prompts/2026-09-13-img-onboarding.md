@@ -37,7 +37,7 @@ must not silently write into a different workspace than the application renders.
   oversized candidates only in development.
 - [x] Add scoped logout/status, multiple-file storage and copy-safe alt/Windows instructions.
 - [x] Document deployment and release dependencies; remove unmeasured performance claims.
-- [ ] Run red-first tests, sequential package/full/browser checks, council, local UX/security,
+- [x] Run red-first tests, sequential package/full/browser checks, council, local UX/security,
   the live zero-env/mismatch/logout canary and exact-head green CI.
 
 API2 b2264e1767 supplies `DELETE /auth_keys/self` and token `auth_key_id` / `description`. Real
@@ -83,5 +83,18 @@ Final review reconciliation forwards cancellation into publication HTTP calls to
 unpublish and public init), distinguishes successful checkpoints from failed receipt recovery,
 limits unversioned compatibility redirects to one shared-cache minute and clarifies JSON ETags.
 Opener failures are warnings, not false login results on JSON stdout. All have red-first coverage.
+
+Round 8 source verification is complete on `00f5ec097cb4809878343a31b6f85cb982ee796e`:
+full `yarn check`, then img check → verify → packed fixture pass (258 img, 537 Node plus one
+preexisting skip, 59 utils, 22 relay). Local and downloaded CI artifacts independently confirm
+80 native browser passes with no retries, skips, flakes or unexpected errors. All jobs in
+https://github.com/transloadit/node-sdk/actions/runs/34792479448 are green. Actual SIGINT/SIGTERM
+tests pass across six stalled CLI phases, including publication, and targeted Opus review confirms
+all final council fixes with no blockers. One preexisting Biome warning remains outside this scope.
+The last full real API2/browser canary is explicitly `3e473f4` (20 observations, unrestricted key);
+the final corrections above do not change its direct image byte path. The final report retains
+failed runs, later passes and source hashes separately, including API2's asynchronous revocation
+boundary. Task-owned services are stopped and API2's preexisting working changes are preserved.
+
 No merge, package publication, Content changes, Thumbhash or origin version selector in this round.
 Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-task2-round8-report.md`.
