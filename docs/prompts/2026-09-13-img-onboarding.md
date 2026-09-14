@@ -298,15 +298,24 @@ review threads were present at preflight.
 - [x] Private convention exports one authorize function and re-exports the package route handler.
 - [x] Keep explicit factories and opt-in example/private scaffolding working.
 - [x] Quickstart/reference/dogfood and packed fixture exercise both integration paths.
-- [ ] Reconcile council and local UX/security evidence, then img check → verify → packed fixture
-  and exact-head green CI. Update the one-screen PR body and stop.
+- [x] Reconcile the full council and local Opus UX/security evidence; add red-first regressions
+  for every valid finding. Keep final check receipts and the concise PR body current.
 
 The implementation was recovered after an external cleanup selected the active checkout. Work
-continues in Kevin's reserved node-sdk checkout, with no new clone or worktree. img check and verify
-pass (277 img, 581 Node plus one existing skip). The packed browser gate remains pending.
-Its initial failure caught Turbopack excluding .next as an import source; generated nonsecret
+continues in Kevin's reserved node-sdk checkout, with no new clone or worktree. Before review,
+img check, verify and all 102 packed Chromium/WebKit cases passed; the corresponding CI is green.
+The initial packed failure caught Turbopack excluding .next as an import source; generated nonsecret
 options now live under node_modules/.cache, while the catalog stays the single source of truth.
 The generated wrapper README is synchronized. A red-first follow-up aligns CLI catalog transport
 validation with the renderer's parameter-only and repeated-query options.
+
+Council's four valid findings are fixed red-first: credential-free scaffolding preserves catalog
+delivery and validates an explicit workspace, generated types survive CRLF conversion, and the
+phase-aware Next plugin never regenerates build options during production startup. The packed
+fixture now prunes those options before next start. Opus UX and security both pass; its alt-text
+nudge is added to the CLI output. The corrected full yarn check passes (278 img, 587 Node plus
+one existing skip). Final img check → verify → packed fixture, closure review and exact-head CI
+remain the handoff gate; their receipts live in the report and PR body, without a docs-only SHA loop.
+No merge, publication, API2 restart or new blind-reader round is part of this handoff.
 
 Report and commit-stamped evidence: `/tmp/img-task2-round12-report.md`.

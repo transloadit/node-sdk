@@ -175,7 +175,7 @@ export async function updateStorageReceipts(
       throw new Error(`Expected a regular generated types file: ${typesFile}`)
     if (
       typesInfo !== undefined &&
-      !(await readFile(typesFile, 'utf8')).startsWith(`${typesHeader}\n`)
+      (await readFile(typesFile, 'utf8')).split(/\r?\n/, 1)[0] !== typesHeader
     )
       throw new Error(
         `Refusing to overwrite handwritten declarations in ${typesFile}. Move them to a separate file before retrying.`,

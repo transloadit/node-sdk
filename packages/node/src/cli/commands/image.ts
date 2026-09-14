@@ -83,7 +83,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       const login = saved.auth === undefined ? resolveCliConfig() : saved
       if (needsCredentials && !this.setupClient(login)) return 1
       if (needsCredentials) noticeCliCredentialSource(login, this.output)
-      const selectedEndpoint = this.endpoint ?? login.endpoint
+      const selectedEndpoint = this.endpoint ?? (catalog === undefined ? login.endpoint : undefined)
       const deliveryEndpoint =
         selectedEndpoint === undefined ||
         new URL(selectedEndpoint).origin === 'https://api2.transloadit.com'
@@ -128,7 +128,6 @@ export class ImageInitCommand extends UnauthenticatedCommand {
                 content: storageImageFactory({
                   prefix,
                   privateDelivery: this.privateDelivery,
-                  endpoint: deliveryEndpoint,
                   receiptsImport: relative(
                     resolve(`${root}lib`),
                     resolve(this.receipts),
@@ -183,6 +182,10 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           !needsCredentials && previous !== undefined
             ? previous.workspace
             : await resolveStorageWorkspace(this, login, previous?.workspace, signal)
+        if (this.workspace !== undefined && this.workspace !== workspace)
+          throw new Error(
+            `Project uses ${workspace}, not ${JSON.stringify(this.workspace)}. Nothing was written.`,
+          )
         if (previous !== undefined && previous.workspace !== workspace)
           throw new Error(
             'Use --receipts with a separate catalog when initializing another workspace. Nothing was written.',
@@ -202,7 +205,11 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         return {
           ...previous,
           workspace,
-          delivery: previous?.delivery ?? storageCatalogDelivery(deliveryEndpoint),
+          // An absent delivery block means production, not permission to import another login.
+          delivery:
+            this.endpoint === undefined && previous !== undefined
+              ? previous.delivery
+              : storageCatalogDelivery(selectedEndpoint),
           public: [
             ...new Set([
               ...(previous?.public ?? []),
@@ -230,7 +237,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           : 'Example created using the existing catalog; no publication policy was changed.'
       if (deliveryEndpoint !== undefined)
         this.output.print(
-          `Delivery uses the non-production API ${new URL(deliveryEndpoint).origin}; remove the catalog delivery block and any factory baseUrl/urlParams for Smart CDN delivery.`,
+          `Delivery uses the non-production API ${new URL(deliveryEndpoint).origin}; remove the catalog delivery block for Smart CDN delivery.`,
           { deliveryEndpoint: new URL(deliveryEndpoint).origin },
         )
       const envBlock = storageImageEnvBlock(this.publicDelivery)

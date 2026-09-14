@@ -131,6 +131,22 @@ describe('storage store', () => {
       expect.stringContaining('transloadit-images.d.ts'),
       receipt,
     )
+    expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+      expect.stringContaining('Replace alt with a description'),
+      receipt,
+    )
+  })
+
+  test('accepts generated declarations after a Windows checkout converts them to CRLF', async () => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    const types = await readFile('transloadit-images.d.ts', 'utf8')
+    await writeFile('transloadit-images.d.ts', types.replaceAll('\n', '\r\n'))
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledTimes(2)
+    expect(await readFile('transloadit-images.d.ts', 'utf8')).toBe(types)
   })
 
   test('the first public store creates a catalog and generated types without image init', async () => {
@@ -748,7 +764,7 @@ describe('storage store', () => {
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toBe(
-      'Saved website/hero.jpg in images.json. Commit this catalog and transloadit-images.d.ts.\nRender it with <StorageImage src="website/hero.jpg" alt="hero" width={800} />',
+      'Saved website/hero.jpg in images.json. Commit this catalog and transloadit-images.d.ts.\nRender it with <StorageImage src="website/hero.jpg" alt="hero" width={800} />\nReplace alt with a description (or an empty string for a decorative image).',
     )
     expect(await readdir(directory)).toEqual([
       'credentials',

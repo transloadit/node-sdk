@@ -346,7 +346,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
             .replaceAll(/[-_]+/g, ' '),
         )
         this.output.print(
-          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}} />`,
+          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}} />\nReplace alt with a description (or an empty string for a decorative image).`,
           receipt,
         )
       }

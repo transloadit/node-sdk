@@ -10,6 +10,9 @@ The plugin binds `transloadit.images.json` and optional `transloadit.authorize.t
 root using build-time aliases for Turbopack and webpack, and adds narrow output tracing includes.
 It preserves existing aliases, tracing rules and webpack hooks. Restart dev after first adding
 the authorizer; ordinary catalog edits participate in the bundler's dependency graph.
+The wrapper returns Next's phase-aware config function; make it the outer wrapper when composing
+with plugins that accept only config objects. Generation runs in dev/build, never at `next start`:
+the compiled app does not need the source catalog or generation cache to remain on disk.
 
 This first cut requires the plugin. There is no cwd-based runtime fallback: bundlers and deployment
 hosts differ in which files they trace and where they start a process. The packed fixture verifies
@@ -66,7 +69,9 @@ global declarations. Factories do not require the plugin. They also understand c
 explicit top-level `baseUrl`/`urlParams` override that block.
 
 `image init website/ --example` remains an optional factory/example generator. It uses an existing
-catalog without login or publication. `image init uploads/ --private` creates only the conventional
+catalog without login or publication, preserving its workspace and delivery. A saved development
+login cannot redirect that existing catalog; only an explicit `--endpoint` changes its transport.
+`image init uploads/ --private` creates only the conventional
 authorizer and route below; add `--example` for a page too. The older `image init --public` is an
 explicit publication plus example shortcut, not a prerequisite. No existing source file is overwritten.
 

@@ -458,6 +458,68 @@ describe('image init', () => {
   })
 
   test.each([
+    '--example',
+    '--private',
+  ])('credential-free %s preserves production delivery despite a saved development login', async (mode) => {
+    await mkdir('app')
+    const catalog = { workspace: 'my-app', public: ['website/'], images: {} }
+    await writeFile('transloadit.images.json', JSON.stringify(catalog))
+    const saved = resolveCliConfig('login')
+    vi.mocked(resolveCliConfig).mockReturnValue({
+      ...saved,
+      workspace: 'other-app',
+      endpoint: 'http://127.0.0.1:3020',
+    })
+    await main(['image', 'init', 'website/', mode])
+    expect(process.exitCode).toBeUndefined()
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
+    if (mode === '--example') {
+      expect(await readFile('lib/storageImage.ts', 'utf8')).not.toContain('127.0.0.1')
+    }
+  })
+
+  test.each([
+    '--example',
+    '--private',
+  ])('credential-free %s validates an explicit workspace expectation before writing', async (mode) => {
+    await mkdir('app')
+    const catalog = JSON.stringify({ workspace: 'my-app', public: ['website/'], images: {} })
+    await writeFile('transloadit.images.json', catalog)
+    await main(['image', 'init', 'website/', mode, '--workspace', 'other-app'])
+    expect(process.exitCode).toBe(1)
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(catalog)
+    expect(await readdir('app')).toEqual([])
+    await expect(stat('transloadit.authorize.ts')).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  test('an explicit production endpoint clears catalog transport without a factory override', async () => {
+    await mkdir('app')
+    await writeFile(
+      'transloadit.images.json',
+      JSON.stringify({
+        workspace: 'my-app',
+        public: ['website/'],
+        images: {},
+        delivery: {
+          baseUrl: 'http://127.0.0.1:3020/file/{workspace}',
+          urlParams: { cdn: 'required' },
+        },
+      }),
+    )
+    await main([
+      'image',
+      'init',
+      'website/',
+      '--example',
+      '--endpoint',
+      'https://api2.transloadit.com',
+    ])
+    expect(process.exitCode).toBeUndefined()
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).delivery).toBeUndefined()
+    expect(await readFile('lib/storageImage.ts', 'utf8')).not.toContain('baseUrl:')
+  })
+
+  test.each([
     '--public',
     '--private',
   ])('init carries a saved non-production endpoint for %s', async (mode) => {

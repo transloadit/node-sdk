@@ -289,9 +289,7 @@ test('public init commits the whole project catalog without creating an env file
     images: {},
     delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
   })
-  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain(
-    "baseUrl: 'http://127.0.0.1:3020/file/{workspace}'",
-  )
+  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('createStorageImages(catalog)')
   await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
   expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
     'TRANSLOADIT_WORKSPACE',
@@ -472,9 +470,7 @@ test('init publishes first and reuses the saved login without any terminal input
   ).toBeUndefined()
   expect(api.isDone()).toBe(true)
   await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
-  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain(
-    "baseUrl: 'http://127.0.0.1:3020/file/{workspace}'",
-  )
+  expect(await readFile('lib/storageImage.ts', 'utf8')).toContain('createStorageImages(catalog)')
   expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
     workspace: 'my-app',
     public: ['website/'],

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -76,6 +77,13 @@ async function withFixtureServer(
   verify: (baseUrl: string) => Promise<void>,
   mode: 'development' | 'production' = 'production',
 ): Promise<void> {
+  const generatedOptions = resolve(
+    fixtureDir,
+    'node_modules/.cache/transloadit-images/options.json',
+  )
+  // Deployment caches are disposable. Production startup must use its compiled options and
+  // never try to recreate this file, including on a read-only host.
+  if (mode === 'production') await rm(generatedOptions, { force: true })
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const port = await getFreePort()
     const baseUrl = `http://127.0.0.1:${port}`
@@ -115,6 +123,11 @@ async function withFixtureServer(
           server,
         ])
         if (outcome === undefined) {
+          if (mode === 'production')
+            assert(
+              !existsSync(generatedOptions),
+              'Production start must not regenerate image options',
+            )
           await verify(baseUrl)
           return false
         }

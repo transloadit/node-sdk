@@ -5,6 +5,8 @@ import type { StorageImageDelivery } from './catalog.ts'
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { isAbsolute, relative, resolve } from 'node:path'
 
+import { PHASE_PRODUCTION_SERVER } from 'next/constants.js'
+
 /** Bind a single project catalog; use explicit factories for several independently typed catalogs. */
 export interface TransloaditImagesOptions {
   catalog?: string
@@ -17,7 +19,14 @@ export interface TransloaditImagesOptions {
 export function withTransloaditImages(
   nextConfig: NextConfig = {},
   options: TransloaditImagesOptions = {},
-): NextConfig {
+): (phase: string) => NextConfig {
+  // next start only serves compiled modules. Deployment may prune the generation cache and
+  // source catalog, or mount a read-only filesystem; neither is a runtime prerequisite.
+  return (phase) =>
+    phase === PHASE_PRODUCTION_SERVER ? nextConfig : buildConfiguration(nextConfig, options)
+}
+
+function buildConfiguration(nextConfig: NextConfig, options: TransloaditImagesOptions): NextConfig {
   const root = resolve(options.root ?? process.cwd())
   const catalog = resolve(root, options.catalog ?? 'transloadit.images.json')
   function projectPath(file: string): string {
@@ -48,8 +57,8 @@ export function withTransloaditImages(
           },
         }),
   })}\n`
-  // Next loads its config again for start. Do not rewrite an unchanged generated file on a
-  // read-only deployment. The JSON carries no catalog copy, authorization code or credentials.
+  // Avoid needless invalidation in dev. This build-only JSON carries no catalog copy,
+  // authorization code or credentials.
   if (
     !statSync(configuration, { throwIfNoEntry: false })?.isFile() ||
     readFileSync(configuration, 'utf8') !== value
