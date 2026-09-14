@@ -26,7 +26,15 @@ function editDistance(left: string, right: string, limit: number): number {
 /** Actionable catalog errors; suggestions are bounded to short paths and small spelling errors. */
 export function missingImageHint(path: string, paths: readonly string[]): string {
   // Shell quoting cannot neutralize terminal control characters or bound an oversized log line.
-  validateStoragePath(path)
+  try {
+    validateStoragePath(path)
+  } catch (error) {
+    // A formatting mistake can name an exact existing key without becoming upload advice.
+    const corrected = path.length <= 256 ? path.trim().replace(/^\/+/, '') : undefined
+    if (corrected !== undefined && paths.includes(corrected))
+      return `Storage image path ${JSON.stringify(path)} is invalid. Did you mean ${JSON.stringify(corrected)}? Use the exact catalog key; no upload is needed.`
+    throw error
+  }
   let nearest: string | undefined
   let distance = 4
   if (path.length <= 256) {

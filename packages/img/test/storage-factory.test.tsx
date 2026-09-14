@@ -327,6 +327,18 @@ test('a custom-catalog recovery hint explains where receipts must be written', (
 })
 
 test.each([
+  '/website/hero.jpg',
+  'website/hero.jpg ',
+  ' website/hero.jpg',
+])('an invalid formatting variant %j suggests the exact catalog key without upload advice', (path) => {
+  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
+  const render = () => Reflect.apply(StorageImage, undefined, [{ src: path, alt: 'Hero' }])
+  expect(render).toThrow(`Storage image path ${JSON.stringify(path)} is invalid`)
+  expect(render).toThrow('Did you mean "website/hero.jpg"? Use the exact catalog key')
+  expect(render).not.toThrow('storage store')
+})
+
+test.each([
   { name: 'terminal controls', path: 'website/\u001b[2J.jpg' },
   { name: 'newlines', path: 'website/new\nline.jpg' },
   { name: 'oversized paths', path: `${'a'.repeat(1025)}.jpg` },

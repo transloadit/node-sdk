@@ -360,3 +360,5 @@ custom --receipts option and factory updates, give unsigned failures the right p
 and distinguish factory policy from catalog policy. The review also prompted copy-safe commands,
 an alt reminder, overwrite recovery advice and phrasing-safe development fallback annotations.
 Application authorization exceptions deliberately propagate; callbacks deny by returning false.
+The follow-up council's last P3 was fixed red-first: leading-slash/space variants of a known key
+retain a safely escaped exact-key suggestion, but are still rejected and never yield upload advice.
