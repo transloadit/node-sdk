@@ -274,6 +274,9 @@ remains the explicit round-8 contract, now documented. Final packed verification
 stale empty-scaffold assertion; that initial local/CI failure is retained in the report.
 The closure council's multiline assertion and portable absolute-catalog follow-up are fixed;
 full `yarn check` now passes with 268 img and 572 Node tests (one existing skip).
+Cold-checkout CI then exposed the generator's unnecessary receipt-module import. The CLI now
+owns the default catalog argument, keeping source generation independent of built packages;
+a child-process cold-load regression fails first and passes after the correction.
 The final handoff gate is img check → verify → packed browser proof → exact-head green CI.
 Its current commit-stamped result is recorded in the report and PR body rather than a
 self-referential docs-only commit. No merge or publication is authorized by passing this gate.

@@ -111,6 +111,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           .join('')
       }
       const catalog = await readStorageCatalog(this.receipts)
+      const catalogArgument = relative(process.cwd(), resolve(this.receipts)).replaceAll('\\', '/')
       const pageDirectory = `${root}app/storage-image-example`
       const files = [
         {
@@ -130,7 +131,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           content: storageImagePage(
             relative(resolve(pageDirectory), resolve(this.receipts)).replaceAll('\\', '/'),
             prefix,
-            relative(process.cwd(), resolve(this.receipts)).replaceAll('\\', '/'),
+            catalogArgument === defaultStorageCatalog ? undefined : catalogArgument,
           ),
         },
         ...(this.privateDelivery

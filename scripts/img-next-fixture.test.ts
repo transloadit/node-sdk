@@ -3,6 +3,7 @@ import type { Node } from 'typescript'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { execa } from 'execa'
 import {
@@ -15,6 +16,31 @@ import {
 import { expect, onTestFinished, test } from 'vitest'
 
 import { storageImagePage } from '../packages/node/src/cli/storageSnippets.ts'
+
+test('scaffold helpers load in a cold checkout without built workspace packages', async () => {
+  const source = pathToFileURL(
+    resolve(import.meta.dirname, '../packages/node/src/cli/storageSnippets.ts'),
+  ).href
+  const result = await execa(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      `
+    import { registerHooks } from 'node:module'
+    registerHooks({
+      resolve(specifier, context, nextResolve) {
+        if (specifier.startsWith('@transloadit/')) throw new Error('Workspace packages are not built yet')
+        return nextResolve(specifier, context)
+      },
+    })
+    await import(${JSON.stringify(source)})
+  `,
+    ],
+    { reject: false },
+  )
+  expect(result.exitCode, result.stderr).toBe(0)
+})
 
 interface PackageManifest {
   engines?: { node?: string }

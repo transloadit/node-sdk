@@ -1,7 +1,6 @@
 import { statSync } from 'node:fs'
 
 import { quoteCliArgument } from './helpers.ts'
-import { defaultStorageCatalog } from './storageReceipts.ts'
 
 /** Locate ordinary Next.js app directories without assuming the consumer's source layout. */
 export function nextAppRoot(): '' | 'src/' | undefined {
@@ -76,10 +75,9 @@ export function storageImageFactory({
 export function storageImagePage(
   receiptsImport: string,
   prefix: string,
-  receipts = defaultStorageCatalog,
+  receipts?: string,
 ): string {
-  const catalogOption =
-    receipts === defaultStorageCatalog ? '' : ` --receipts=${quoteCliArgument(receipts)}`
+  const catalogOption = receipts === undefined ? '' : ` --receipts=${quoteCliArgument(receipts)}`
   const command = `npx transloadit storage store${catalogOption}${prefix.startsWith('-') ? ' --' : ''} ./hero.jpg ${quoteCliArgument(`${prefix}hero.jpg`)}`
   return [
     "import { StorageImage } from '../../lib/storageImage'",
