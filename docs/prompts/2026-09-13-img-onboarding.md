@@ -101,7 +101,7 @@ Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-ta
 
 ## Round 8 signup-test addendum
 
-Why: Community uploads are watermarked before Storage runs, so a successful write can differ
+Why: older deployments watermark Community uploads before Storage runs, so a successful write can differ
 from the local file. The CLI must save authoritative receipt metadata and explain this, not invite
 a destructive retry. Input: `/tmp/img-task2-round8-addendum.md` and the stranger signup report.
 
@@ -112,9 +112,35 @@ a destructive retry. Input: `/tmp/img-task2-round8-addendum.md` and the stranger
 - [x] Make the README npm-first, explain signup/free-plan watermarks and align CLI help examples.
 - [x] Report pending browser approval about once per minute without leaking credentials.
 - [x] Explicit init delivery choice and self-key logout already implemented and covered in round 8.
-- [ ] Red-first tests, focused review, package/full/packed checks and exact-head green CI.
+- [x] Red-first tests, focused review, package/full/packed checks and exact-code-head green CI.
 
 Console signup/redirect/sidebar fixes remain with its owner. No merge, publication or watermark
 policy change is authorized by this addendum.
 API2 `cb23326114` already exempts Storage originals from Community watermarking; qualify that
 warning as compatibility with older deployments. Evidence: `/tmp/img-task2-round8-addendum-report.md`.
+
+Completed code head `ce623e261393f41c5c7859ceb601c54daecee6f2`: full `yarn check`, then img check
+and `verify:full` PASS (549 Node + one preexisting skip, 258 img, 59 utils, 22 relay and the
+root/schema/MCP/type checks). All jobs in
+https://github.com/transloadit/node-sdk/actions/runs/34795854316 are green. Its downloaded browser
+artifact independently confirms 80 first-attempt Chromium/WebKit passes in both Cache Components
+modes, zero retries/skips/flakes/unexpected errors. Evidence: `/tmp/img-r8a-final-ci-browser-audit.json`.
+
+The six council findings and three minor Opus suggestions are fixed red-first; both focused Opus
+UX/defensive-security reviews PASS. Recovery commands keep endpoint/workspace/catalog and use a
+filename prefix, canceled/pending Assemblies retain status-specific messages, asynchronous receipt
+observer errors are contained, and approval countdowns use a monotonic clock. Reference and sync
+help now agree with the npm-first Quickstart; checksum-only transformations are explained too.
+
+An ordinary npm-installed tarball of that exact head passes the real local Community canary on
+API2 `b2264e1767`: store, default catalog, listing, receipt sync and byte-identical signed CDN
+delivery. Its original-storage watermark exemption is confirmed. Compatibility with older
+transformed results remains explicitly protocol-fake coverage, not live old-policy proof.
+The failed extra readback was a missing tmp-hostname mapping after restarting the owned devdock;
+only that container mapping was repaired. No API2 source/env, production policy or Console edits.
+Temporary canary keys/credential files were removed, own devdock/S3rver stopped, existing API2
+working changes preserved. The PR retains `Refs #270`, not `Fixes`, and its two open follow-ups.
+
+Next gates remain unchanged: Console signup/redirect ownership, coordinated deployment/release,
+ordinary registry-install and sustained Content dogfood, then production Bunny measurements.
+This addendum does not authorize merging or publishing the private image package.
