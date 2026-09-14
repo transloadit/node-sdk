@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 const project = vi.hoisted<{
   catalog: StorageProjectCatalog
   authorize: AuthorizeTransloaditStorageImage | undefined
+  authorizePath?: string
 }>(() => ({
   catalog: {
     workspace: 'catalog-app',
@@ -31,7 +32,12 @@ vi.mock('@transloadit/img/next/authorize', () => ({
   },
 }))
 vi.mock('@transloadit/img/next/options', () => ({
-  default: { diagnosticsId: 'conventional-test' },
+  default: {
+    diagnosticsId: 'conventional-test',
+    get authorizePath() {
+      return project.authorizePath
+    },
+  },
 }))
 
 beforeEach(() => {
@@ -46,11 +52,13 @@ beforeEach(() => {
   ])
     vi.stubEnv(name, undefined)
   project.authorize = undefined
+  project.authorizePath = undefined
   project.catalog.public = ['website/']
   project.catalog.delivery = undefined
 })
 afterEach(() => {
   vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 
@@ -75,6 +83,36 @@ test('catalog delivery overrides are used without a generated factory', async ()
   const html = renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)
   expect(html).toContain('http://127.0.0.1:32189/file/catalog-app/')
   expect(html).toContain('cdn=required')
+})
+
+test.each([
+  'development',
+  'production',
+])('an authorizer added after bundling gets restart advice only in %s', async (environment) => {
+  vi.stubEnv('NODE_ENV', environment)
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response(null, { status: 200 })),
+  )
+  const directory = await mkdtemp(join(tmpdir(), 'img-late-authorizer-'))
+  project.authorizePath = join(directory, 'transloadit.authorize.ts')
+  try {
+    const { StorageImage } = await import('../src/next/react-server.tsx')
+    const renderPrivate = () =>
+      renderToStaticMarkup(<StorageImage src="uploads/avatar.png" alt="Avatar" />)
+    expect(renderPrivate).toThrow("Private images require authorize or delivery: 'direct'")
+    await writeFile(project.authorizePath, 'export const authorize = () => false\n')
+    expect(renderPrivate).toThrow(
+      environment === 'development'
+        ? 'transloadit.authorize.ts exists but was added after next dev started. Restart next dev to bundle it.'
+        : "Private images require authorize or delivery: 'direct'",
+    )
+    // The late file never changes the bundled policy or blocks already-public delivery.
+    const html = renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)
+    expect(html).toContain('builtin%2Fpublic-preview')
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 })
 
 test('the conventional private handler checks each request and never returns image bytes', async () => {
@@ -134,3 +172,7 @@ test('a catalog reload names newly private paths once, never in production', asy
 
 import type { StorageProjectCatalog } from '../src/next/catalog.ts'
 import type { AuthorizeTransloaditStorageImage } from '../src/next/server.tsx'
+
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'

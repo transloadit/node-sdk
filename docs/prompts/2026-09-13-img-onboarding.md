@@ -409,3 +409,26 @@ Public Built-in boundaries are enforced at model generation (4096 px in both dim
 <=85), including fallbacks and art-direction crops; private/customer templates keep their limits.
 Eleven new regressions failed first, then passed. Repeated checks/review/packed/CI receipts are
 tracked in /tmp/img-task2-round13-report.md and the PR's exact-head Verification section.
+
+### Round 14 — final private-path message polish
+
+Kevin's six items in /tmp/img-task2-round14-brief.md, based on both round-10 reader reports.
+Start at e054145 in /Users/kvz/code/node-sdk, img-onboard, PR #500. Main is already an ancestor;
+GitHub has no open review comments. No new product slice, worktree, API2/Console edit or release.
+
+- [x] Missing credentials name the documented Smart CDN pair and Console preset.
+- [x] A development authorizer added after bundling explains the required restart.
+- [x] Store advice follows known publication/metadata, with private files/key/restart and no blur.
+- [x] README includes the small private recipe and create-next-app's typed config shape.
+- [x] Store reads Next config to show an absent wrapper, without executing or editing it.
+- [x] S3 403 advice names its endpoint and both disabled/denied possibilities.
+- [ ] Red-first tests, img check, verify, packed fixture, review and exact-head green CI.
+
+Evidence and final handoff: /tmp/img-task2-round14-report.md. Keep production S3-read, hosted
+Vercel and real Bunny verification as release gates; do not claim this local polish closes them.
+
+Red-first: 19 intended failures, then a separate HEAD-403 failure; all pass after the fixes.
+Check, img check and verify pass (319 img, 615 Node plus one pre-existing skip). The cold-source
+script guard caught a transitive workspace import during implementation; snippet helpers remain
+usable without built packages. README grows to 91 lines to include the requested private recipe.
+No dependency or lockfile changes. Packed browser, independent review and exact-head CI follow.

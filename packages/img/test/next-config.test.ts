@@ -28,6 +28,7 @@ test('only development carries a stable catalog identity for hot-reload diagnost
   const path = join(root, 'node_modules/.cache/transloadit-images/options.json')
   plugin(PHASE_DEVELOPMENT_SERVER)
   expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({
+    authorizePath: join(root, 'transloadit.authorize.ts'),
     diagnosticsId: join(root, 'transloadit.images.json'),
   })
   plugin(PHASE_PRODUCTION_BUILD)

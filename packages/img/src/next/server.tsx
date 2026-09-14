@@ -1214,6 +1214,10 @@ export function createStorageImages<Catalog extends StorageImageCatalog | undefi
             : 'TRANSLOADIT_SECRET'
         const authKey = explicitPair ? explicit.authKey : process.env[keyName]
         const authSecret = explicitPair ? explicit.authSecret : process.env[secretName]
+        if (!explicitPair && authKey === undefined && authSecret === undefined)
+          throw new TypeError(
+            'Private images need a signing key. Set TRANSLOADIT_SMART_CDN_KEY and TRANSLOADIT_SMART_CDN_SECRET (Console → Credentials → New Auth Key → “Private image delivery”). TRANSLOADIT_KEY/SECRET are also accepted.',
+          )
         validateRequiredConfiguration(authKey, keyName)
         validateRequiredConfiguration(authSecret, secretName)
         credentials = { authKey, authSecret, workspace: getWorkspace() }

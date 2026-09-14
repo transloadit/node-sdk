@@ -28,8 +28,10 @@ import {
   resolveStorageWorkspace,
   storageS3ConnectionErrorSchema,
   storageS3ErrorSchema,
+  storageS3ReadAdvice,
   withStorageS3,
 } from '../storageS3.ts'
+import { storageImageConfigAdvice, storageImagePrivateAdvice } from '../storageSnippets.ts'
 import { ensureError } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
@@ -254,7 +256,9 @@ export class StorageStoreCommand extends StorageProjectCommand {
             this.destination.slice(0, this.destination.lastIndexOf('/') + 1),
           )
         : undefined
+      let configAdvice: string | undefined
       for (const input of inputs) {
+        let publicImage = false
         destination = input.path
         stored = {}
         saved = false
@@ -301,6 +305,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
               )
               return undefined
             }
+            publicImage = receipts?.public.some((prefix) => destination.startsWith(prefix)) ?? false
             return {
               ...receipts,
               workspace,
@@ -333,6 +338,9 @@ export class StorageStoreCommand extends StorageProjectCommand {
           })
         }
         const receipt = stored.receipt
+        publicImage ||= published !== undefined && receipt.path.startsWith(published)
+        const blur = publicImage && receipt.thumbhash !== undefined && receipt.hasAlpha !== true
+        configAdvice ??= await storageImageConfigAdvice()
         const attribute = (value: string): string =>
           value
             .replaceAll('&', '&amp;')
@@ -346,7 +354,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
             .replaceAll(/[-_]+/g, ' '),
         )
         this.output.print(
-          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}} placeholder="blur" />\nReplace alt with a description (or an empty string for a decorative image).`,
+          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}}${blur ? ' placeholder="blur"' : ''} />\nReplace alt with a description (or an empty string for a decorative image).${publicImage ? '' : storageImagePrivateAdvice(receipt.path, this.receipts === defaultStorageCatalog ? undefined : this.receipts)}${configAdvice}`,
           receipt,
         )
       }
@@ -542,7 +550,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
             projectWorkspace: previous?.workspace,
             signal,
           },
-          async (client, workspace) => {
+          async (client, workspace, endpoint) => {
             actualWorkspace = workspace
             const objects = await listStorageObjects(client, workspace, this.prefix, signal)
             const paths = new Set<string>()
@@ -579,7 +587,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
                     const remote = storageS3ErrorSchema.safeParse(error)
                     const status = remote.success ? remote.data.$metadata.httpStatusCode : undefined
                     throw new Error(
-                      `Storage HEAD failed for ${JSON.stringify(path)}${status === undefined ? '' : ` (HTTP ${status})`}. The object may have changed or access may be denied; check it and retry the sync.`,
+                      `Storage HEAD failed for ${JSON.stringify(path)}${status === undefined ? '' : ` (HTTP ${status})`}. ${status === 403 ? storageS3ReadAdvice(endpoint, status) : 'The object may have changed or access may be denied; check it and retry the sync.'}`,
                       { cause: error },
                     )
                   })

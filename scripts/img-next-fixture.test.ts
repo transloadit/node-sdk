@@ -129,6 +129,15 @@ test('private setup prefers the least-privilege signing scope', async () => {
   expect(privateRecipe).toContain('smart_cdn:sign')
   expect(privateRecipe).toMatch(/assemblies:write.*also accepted/)
   expect(privateRecipe).toContain('Assembly')
+  expect(privateRecipe).toContain('// transloadit.authorize.ts')
+  expect(privateRecipe).toContain('getSession')
+  expect(privateRecipe).toContain('canRead(path) === true')
+  expect(privateRecipe).toContain('// app/api/storage-images/route.ts')
+  expect(privateRecipe).toContain("export { GET, HEAD } from '@transloadit/img/next/route'")
+  expect(privateRecipe).toContain('TRANSLOADIT_SMART_CDN_KEY=')
+  expect(privateRecipe).toContain('TRANSLOADIT_SMART_CDN_SECRET=')
+  expect(privateRecipe).toContain('Restart `next dev` after adding the authorizer')
+  expect(privateRecipe).not.toContain('placeholder="blur"')
   const reference = await readFile(
     resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
     'utf8',
@@ -202,8 +211,12 @@ test('the reference describes the generated alt and the deliberate workspace ove
 
 test('the README is a short invitation, with operational caveats in the reference', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
-  expect(readme.split('\n').length).toBeLessThanOrEqual(70)
+  // The private recipe now lives here too; keep both paths concise without hiding setup in a link.
+  expect(readme.split('\n').length).toBeLessThanOrEqual(95)
   expect(readme).toContain('width={960} preload')
+  expect(readme).toContain("import type { NextConfig } from 'next'")
+  expect(readme).toContain('const nextConfig: NextConfig =')
+  expect(readme).toContain('export default withTransloaditImages(nextConfig)')
   expect(readme).not.toMatch(/Bunny|NEXT_PUBLIC_|--replace|cached bytes|`v`/)
 })
 
@@ -349,7 +362,7 @@ test('ships a focused secretless quickstart and the detailed reference it links 
   const manifest = await readManifest(resolve(import.meta.dirname, '../packages/img/package.json'))
   expect(manifest.files).toContain('docs')
   expect(readme).toContain('](./docs/reference.md')
-  expect(readme.split('\n').length).toBeLessThanOrEqual(70)
+  expect(readme.split('\n').length).toBeLessThanOrEqual(95)
   expect(readme).toContain('16.3.3')
   expect(reference).toContain("cacheMaxAge: '1m'")
   expect(readme).toContain('then deploy')

@@ -22,8 +22,10 @@ npx transloadit storage store ./hero.jpg website/hero.jpg --public
 `--public` publishes the directory recursively, including future uploads. In `next.config.ts`:
 
 ```ts
+import type { NextConfig } from 'next'
 import { withTransloaditImages } from '@transloadit/img/next/config'
-export default withTransloaditImages({ /* your existing Next config */ })
+const nextConfig: NextConfig = { /* your existing Next config */ }
+export default withTransloaditImages(nextConfig)
 ```
 
 Use an immutable filename for long-lived assets: `--overwrite` replaces the current path;
@@ -50,11 +52,31 @@ Add `placeholder="blur"` for an inline preview from the receipt's optional `thum
 
 ## Private
 
-Use your application's session and per-object permissions, with a separate application key:
-Console → Credentials → New Auth Key: Smart CDN on and scope `smart_cdn:sign`
-(`assemblies:write` is also accepted, but grants broader Assembly access).
-Set `TRANSLOADIT_SMART_CDN_KEY` and `TRANSLOADIT_SMART_CDN_SECRET` on your host, not the disposable
-login key that `auth logout` revokes. [Private setup](./docs/reference.md#private).
+Wire `getSession` to your application's session and per-object permissions; it is not an SDK helper:
+
+```ts
+// transloadit.authorize.ts, beside next.config.ts
+import type { AuthorizeTransloaditStorageImage } from '@transloadit/img/next/server'
+import { getSession } from './lib/authorization'
+export const authorize: AuthorizeTransloaditStorageImage = async ({ path, request }) =>
+  (await getSession(request))?.canRead(path) === true
+```
+
+```ts
+// app/api/storage-images/route.ts (prefix with src/ if needed)
+export { GET, HEAD } from '@transloadit/img/next/route'
+```
+
+Console → Credentials → New Auth Key → “Private image delivery”: Smart CDN on, `smart_cdn:sign`
+(`assemblies:write` is also accepted, but grants broader Assembly access). Use this application key,
+not the disposable login key that `auth logout` revokes, in `.env.local` and your host's server-only build/runtime env:
+
+```dotenv
+TRANSLOADIT_SMART_CDN_KEY=…
+TRANSLOADIT_SMART_CDN_SECRET=…
+```
+
+Restart `next dev` after adding the authorizer. [Private setup and authorization contract](./docs/reference.md#private).
 
 ## When it breaks
 

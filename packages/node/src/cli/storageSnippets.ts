@@ -1,4 +1,5 @@
 import { statSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 
 import { quoteCliArgument } from './helpers.ts'
 
@@ -7,6 +8,27 @@ export function nextAppRoot(): '' | 'src/' | undefined {
   if (statSync('app', { throwIfNoEntry: false })?.isDirectory()) return ''
   if (statSync('src/app', { throwIfNoEntry: false })?.isDirectory()) return 'src/'
   return undefined
+}
+
+/** Advice only: never execute or rewrite a consumer's Next config after a successful upload. */
+export async function storageImageConfigAdvice(): Promise<string> {
+  for (const file of ['next.config.ts', 'next.config.mjs', 'next.config.js']) {
+    // An unavailable optional hint must not turn a completed Storage write into a CLI failure.
+    const source = await readFile(file, 'utf8').catch(() => undefined)
+    if (source === undefined) continue
+    if (source.includes('withTransloaditImages')) return ''
+    return `\n${file} is not wrapped yet. Keep your existing config in nextConfig and wrap its export:\nimport { withTransloaditImages } from '@transloadit/img/next/config'\nexport default withTransloaditImages(nextConfig)`
+  }
+  return ''
+}
+
+/** Private redirect delivery needs an application authorizer and key, not the CLI login key. */
+export function storageImagePrivateAdvice(path: string, receipts?: string): string {
+  const prefix = path.slice(0, path.lastIndexOf('/') + 1)
+  if (prefix === '')
+    return '\nThis object is private. Configure per-object authorization explicitly, or store it under a directory to use image init --private. Set TRANSLOADIT_SMART_CDN_KEY/SECRET for rendering.'
+  const catalogOption = receipts === undefined ? '' : ` --receipts=${quoteCliArgument(receipts)}`
+  return `\nThis directory is private. Rendering needs transloadit.authorize.ts and ${nextAppRoot() ?? ''}app/api/storage-images/route.ts (npx transloadit image init --private${catalogOption} -- ${quoteCliArgument(prefix)}) and TRANSLOADIT_SMART_CDN_KEY/SECRET. Restart next dev after adding them.`
 }
 
 function relativeImport(path: string): string {

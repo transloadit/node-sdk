@@ -633,8 +633,30 @@ test.each([
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
     expect.stringContaining(`Storage HEAD failed for "website/a.jpg" (HTTP ${status})`),
   )
+  if (status === 403)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'The Storage S3 read API at http://storage.invalid/storage is not enabled or access is denied; HTTP 403 cannot distinguish the two.',
+      ),
+    )
   expect(vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join(' ')).not.toContain(
     'local-secret',
+  )
+  expect(await readFile('images.json', 'utf8')).toBe(previous)
+})
+
+test('a denied S3 listing names the endpoint and both possible causes without changing the catalog', async () => {
+  const previous = catalogJson({ keep: true })
+  await writeFile('images.json', previous)
+  const api = storageApi()
+    .get('/storage/my-app/')
+    .query(true)
+    .reply(403, '<Error><Code>AccessDenied</Code><Message>local-secret</Message></Error>')
+  await runSync()
+  expect(api.isDone()).toBe(true)
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Storage receipt sync failed (HTTP 403). The Storage S3 read API at http://storage.invalid/storage is not enabled or access is denied; HTTP 403 cannot distinguish the two. Check the endpoint, workspace and Auth Key read or dam:write scope.',
   )
   expect(await readFile('images.json', 'utf8')).toBe(previous)
 })

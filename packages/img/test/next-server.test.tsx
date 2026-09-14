@@ -754,7 +754,9 @@ describe('createStorageImages', () => {
     })
     expect(() =>
       StorageImage({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 }),
-    ).toThrow('TRANSLOADIT_KEY')
+    ).toThrow(
+      'Private images need a signing key. Set TRANSLOADIT_SMART_CDN_KEY and TRANSLOADIT_SMART_CDN_SECRET (Console → Credentials → New Auth Key → “Private image delivery”). TRANSLOADIT_KEY/SECRET are also accepted.',
+    )
     expect(() => createStorageImages(baseConfiguration)).not.toThrow()
   })
 

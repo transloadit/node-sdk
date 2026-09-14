@@ -95,7 +95,7 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
-  test('saves optional ThumbHash metadata, declares it and prints the blur opt-in', async () => {
+  test('saves optional ThumbHash metadata without advising blur for a private image', async () => {
     const blurred = { ...receipt, hasAlpha: true, thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI' }
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(blurred)
     await runStore()
@@ -104,9 +104,95 @@ describe('storage store', () => {
     expect(await readFile('transloadit-images.d.ts', 'utf8')).toContain('thumbhash?: string')
     expect(await readFile('transloadit-images.d.ts', 'utf8')).toContain('hasAlpha?: boolean')
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
-      expect.stringContaining('placeholder="blur"'),
+      expect.not.stringContaining('placeholder="blur"'),
       blurred,
     )
+    expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+      expect.stringContaining('This directory is private.'),
+      blurred,
+    )
+  })
+
+  test.each([
+    {
+      prefixes: ['website/'],
+      thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI',
+      hasAlpha: false,
+      blur: true,
+    },
+    { prefixes: ['website/'], thumbhash: undefined, hasAlpha: false, blur: false },
+    {
+      prefixes: ['website/'],
+      thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI',
+      hasAlpha: true,
+      blur: false,
+    },
+    {
+      prefixes: ['website/other/'],
+      thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI',
+      hasAlpha: false,
+      blur: false,
+    },
+  ])('matches rendering advice to existing publication and receipt metadata: %j', async ({
+    prefixes,
+    thumbhash,
+    hasAlpha,
+    blur,
+  }) => {
+    await writeFile(
+      'images.json',
+      JSON.stringify({ workspace: 'my-app', public: prefixes, images: {} }),
+    )
+    const stored = { ...receipt, thumbhash, ...(hasAlpha ? { hasAlpha: true } : {}) }
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(stored)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(text?.includes('placeholder="blur"')).toBe(blur)
+    expect(text?.includes('This directory is private.')).toBe(!prefixes.includes('website/'))
+  })
+
+  test('private next steps name the files, application key and restart, using the custom catalog', async () => {
+    await mkdir('src/app', { recursive: true })
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(text).toContain('transloadit.authorize.ts')
+    expect(text).toContain('src/app/api/storage-images/route.ts')
+    expect(text).toContain(
+      'npx transloadit image init --private --receipts=images.json -- website/',
+    )
+    expect(text).toContain('TRANSLOADIT_SMART_CDN_KEY/SECRET')
+    expect(text).toContain('Restart next dev after adding them.')
+    expect(text).not.toContain('placeholder="blur"')
+  })
+
+  test.each([
+    'ts',
+    'mjs',
+    'js',
+  ])('prints a missing next.config.%s wrapper without executing or editing it', async (extension) => {
+    const file = `next.config.${extension}`
+    const source = 'throw new Error("the CLI must not execute this config")\n'
+    await writeFile(file, source)
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(text).toContain(`${file} is not wrapped yet`)
+    expect(text).toContain("import { withTransloaditImages } from '@transloadit/img/next/config'")
+    expect(text).toContain('export default withTransloaditImages(nextConfig)')
+    expect(await readFile(file, 'utf8')).toBe(source)
+  })
+
+  test('omits wrapper advice when a config already uses the plugin', async () => {
+    await writeFile('next.config.ts', 'export default withTransloaditImages(nextConfig)\n')
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(text).not.toContain('is not wrapped yet')
   })
   test('generated declarations cannot overwrite the catalog or input image', async () => {
     const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
@@ -193,6 +279,9 @@ describe('storage store', () => {
     expect(types).not.toMatch(/assembly-key|assembly-secret|stored-asset|md5hash/)
     expect(types).toMatch(/\n$/)
     expect((await stat('transloadit-images.d.ts')).mode & 0o444).toBe(0o444)
+    const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
+    expect(text).not.toContain('This directory is private.')
+    expect(text).not.toContain('placeholder="blur"')
   })
 
   test('public store rejects a root object before any upload or policy change', async () => {
@@ -511,7 +600,7 @@ describe('storage store', () => {
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining(
-        `<StorageImage src="website/hero.jpg" alt="hero" width={${maxWidth}} placeholder="blur" />`,
+        `<StorageImage src="website/hero.jpg" alt="hero" width={${maxWidth}} />`,
       ),
       { ...receipt, width },
     )
@@ -776,8 +865,8 @@ describe('storage store', () => {
       receipt,
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
-    expect(snippet).toBe(
-      'Saved website/hero.jpg in images.json. Commit this catalog and transloadit-images.d.ts.\nRender it with <StorageImage src="website/hero.jpg" alt="hero" width={800} placeholder="blur" />\nReplace alt with a description (or an empty string for a decorative image).',
+    expect(snippet).toContain(
+      'Saved website/hero.jpg in images.json. Commit this catalog and transloadit-images.d.ts.\nRender it with <StorageImage src="website/hero.jpg" alt="hero" width={800} />\nReplace alt with a description (or an empty string for a decorative image).',
     )
     expect(await readdir(directory)).toEqual([
       'credentials',

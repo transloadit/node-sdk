@@ -51,7 +51,9 @@ function buildConfiguration(
   const generated = resolve(root, 'node_modules/.cache/transloadit-images')
   const configuration = resolve(generated, 'options.json')
   const value = `${JSON.stringify({
-    ...(phase === PHASE_DEVELOPMENT_SERVER ? { diagnosticsId: catalog } : {}),
+    ...(phase === PHASE_DEVELOPMENT_SERVER
+      ? { authorizePath: authorize, diagnosticsId: catalog }
+      : {}),
     ...(nextConfig.basePath ? { basePath: nextConfig.basePath } : {}),
     ...(options.delivery === undefined
       ? {}

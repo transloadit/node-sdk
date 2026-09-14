@@ -29,6 +29,11 @@ export const storageS3ConnectionErrorSchema = z.union([
   z.object({ code: z.enum(['ETIMEDOUT', 'ECONNRESET']) }),
 ])
 
+/** S3's public status cannot tell an endpoint's disabled read API from a permission denial. */
+export function storageS3ReadAdvice(endpoint: string, status?: number): string {
+  return `${status === 403 ? `The Storage S3 read API at ${endpoint} is not enabled or access is denied; HTTP 403 cannot distinguish the two.` : `Check that the Storage S3 read API at ${endpoint} is enabled.`} Check the endpoint, workspace and Auth Key read or dam:write scope.`
+}
+
 /** Keeps workspace discovery, signing credentials and the trusted endpoint together for S3 reads. */
 export async function withStorageS3<T>(
   options: {
@@ -37,7 +42,7 @@ export async function withStorageS3<T>(
     projectWorkspace?: string
     signal?: AbortSignal
   },
-  operation: (client: S3Client, workspace: string) => Promise<T>,
+  operation: (client: S3Client, workspace: string, endpoint: string) => Promise<T>,
   failure: string,
   output?: Pick<IOutputCtl, 'notice'>,
   config: ResolvedCliConfig = resolveCliConfig(),
@@ -104,7 +109,7 @@ export async function withStorageS3<T>(
       )
     assertStorageWorkspace(workspace, options.projectWorkspace, options.workspace)
     options.signal?.throwIfAborted()
-    return await operation(client, workspace)
+    return await operation(client, workspace, endpoint.href)
   } catch (error) {
     options.signal?.throwIfAborted()
     if (storageS3ConnectionErrorSchema.safeParse(error).success)
@@ -115,7 +120,7 @@ export async function withStorageS3<T>(
     const remote = storageS3ErrorSchema.safeParse(error)
     if (remote.success) {
       throw new Error(
-        `${failure} failed${remote.data.$metadata.httpStatusCode === undefined ? '' : ` (HTTP ${remote.data.$metadata.httpStatusCode})`}. ${remote.data.$metadata.httpStatusCode === 403 ? 'The Storage S3 read API is disabled or access is denied.' : 'Check that the Storage S3 read API is enabled.'} Check the endpoint, workspace and Auth Key read or dam:write scope.`,
+        `${failure} failed${remote.data.$metadata.httpStatusCode === undefined ? '' : ` (HTTP ${remote.data.$metadata.httpStatusCode})`}. ${storageS3ReadAdvice(endpoint.href, remote.data.$metadata.httpStatusCode)}`,
         { cause: error },
       )
     }
