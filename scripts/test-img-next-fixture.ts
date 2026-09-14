@@ -74,6 +74,7 @@ async function withFixtureServer(
   cdnOrigin: string,
   cacheComponents: string,
   verify: (baseUrl: string) => Promise<void>,
+  mode: 'development' | 'production' = 'production',
 ): Promise<void> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const port = await getFreePort()
@@ -84,7 +85,7 @@ async function withFixtureServer(
       process.execPath,
       [
         resolve(fixtureDir, 'node_modules/next/dist/bin/next'),
-        'start',
+        mode === 'development' ? 'dev' : 'start',
         '-H',
         '127.0.0.1',
         '-p',
@@ -106,9 +107,11 @@ async function withFixtureServer(
       const abortController = new AbortController()
       try {
         const outcome = await Promise.race([
-          fetchWhenReady(`${baseUrl}/fixture/storage-image`, abortController.signal).then(
-            () => undefined,
-          ),
+          // The empty scaffold has no image probe before Playwright starts its local CDN.
+          fetchWhenReady(
+            `${baseUrl}/fixture/cli-empty/app/storage-image-example`,
+            abortController.signal,
+          ).then(() => undefined),
           server,
         ])
         if (outcome === undefined) {
@@ -536,6 +539,25 @@ async function main(): Promise<void> {
         })
       })
     }
+    console.log('Development scaffold fixture')
+    await withFixtureServer(
+      fixtureDir,
+      cdnOrigin,
+      'omitted',
+      async (baseUrl) => {
+        await execa(process.execPath, [playwright, 'test', '--grep', 'development scaffold'], {
+          cwd: fixtureDir,
+          env: {
+            IMG_FIXTURE_BASE_URL: baseUrl,
+            IMG_FIXTURE_CDN_ORIGIN: cdnOrigin,
+            IMG_FIXTURE_MODE: 'development',
+            IMG_FIXTURE_OUTPUT_DIR: resolve(repoRoot, 'test-results/img-next/development'),
+          },
+          stdio: 'inherit',
+        })
+      },
+      'development',
+    )
   } finally {
     await rm(temporaryRoot, { force: true, recursive: true })
   }

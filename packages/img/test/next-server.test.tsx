@@ -85,6 +85,26 @@ afterEach(() => {
 })
 
 describe('development delivery diagnostics', () => {
+  test.each([
+    'HTTP failure',
+    'network failure',
+  ])('gives actionable %s advice without requiring a development restart', async (failure) => {
+    if (failure === 'HTTP failure') {
+      vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 400 }))
+    } else {
+      vi.mocked(fetch).mockRejectedValue(new Error(`Could not fetch ${authSecret}`))
+    }
+    const { StorageImage } = createStorageImages(baseConfiguration)
+    await renderAsync(
+      <StorageImage alt="Hero" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+    )
+    expect(console.warn).toHaveBeenCalledOnce()
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Check'))
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toMatch(
+      /restart|never-render-this-secret/,
+    )
+  })
+
   test('does not call a redirecting origin a failed image delivery', async () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(null, { status: 307, headers: { Location: 'https://cdn.example/image' } }),
@@ -235,7 +255,7 @@ describe('development delivery diagnostics', () => {
   test.each([
     { status: 403, hint: /Enable Smart CDN.*Auth Key.*workspace.*signature/ },
     { status: 404, hint: /workspace slug.*Storage path.*Template/ },
-    { status: 500, hint: /HTTP 500.*retry/ },
+    { status: 500, hint: /HTTP 500.*Check the delivery endpoint and Template/ },
   ])('gives actionable, non-secret hints for HTTP $status without guessing the cause', async ({
     status,
     hint,

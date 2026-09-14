@@ -5,13 +5,15 @@ browser, never through Next's image optimizer. Sources are Storage paths or rece
 
 ## Quickstart
 
-**Unpublished, private dogfood:** use [local packages](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md) until release.
-The published install will be `npm install @transloadit/img && npm install --save-dev @transloadit/node`.
 Use Next.js 16.3.3+ App Router, React 19 and the default Node.js runtime (not Edge).
+**Unpublished, private dogfood:** ask a maintainer for matching img/utils/node/types tarballs and
+install the supplied files. [Maintainer setup](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md) is optional background, not required access.
+After release: `npm install @transloadit/img && npm install --save-dev @transloadit/node`.
+pnpm: `pnpm add @transloadit/img && pnpm add -D @transloadit/node`;
+Yarn: `yarn add @transloadit/img && yarn add -D @transloadit/node` (also after release).
 
-Run beside `package.json`. No account yet? `auth login` signs you up in the browser;
-a new free workspace works. Older deployments may watermark Community-plan uploads;
-the CLI reports changed bytes and saves metadata for the stored image.
+Run beside `package.json`. No account yet? The browser approval page lets you sign up first;
+the code stays valid for 15 minutes, including email verification, and a new free workspace works.
 
 ```bash
 npx transloadit auth login
@@ -37,24 +39,23 @@ import { StorageImage } from '../lib/storageImage'
 <StorageImage src="website/hero.jpg" alt="A canal house" width={960} priority />
 ```
 
-Catalog paths autocomplete. Native props are serializable attributes (`className`, `aria-*`,
-`data-*`), not callbacks or refs. `priority` means eager loading, a responsive preload and high
-fetch priority; other images default to native lazy loading. Public means **no app environment**:
-the generated factory calls `createStorageImages(catalog)` with the committed catalog and
-never reads or validates signing credentials.
-
 ## Deploy
 
 For public images, commit `transloadit.images.json` and the generated code, then deploy normally.
 There is no `.env.local` to create and nothing to set in the hosting dashboard. CLI publication
 commands maintain the catalog's `public` field; do not edit it by hand. `TRANSLOADIT_WORKSPACE`
-is an advanced override, not a requirement.
+is an advanced override, not a requirement. The factory calls `createStorageImages(catalog)` and
+never reads or validates signing credentials for public-only rendering.
 
 For private images, set `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET` in your host's server-only
 build and runtime environment. Use the same pair for the page build and deployed route handler;
 never expose either as `NEXT_PUBLIC_`. The catalog supplies the workspace. See [Private](#private).
 
 ## Responsive
+
+Catalog paths autocomplete. Native props are serializable attributes (`className`, `aria-*`,
+`data-*`), not callbacks or refs. `priority` means eager loading, a responsive preload and high
+fetch priority; other images default to native lazy loading.
 
 Catalog paths and receipts are constrained by default: `width` sets the maximum display width,
 deriving proportional CSS, responsive sizes and candidates bounded by the original.
@@ -134,15 +135,21 @@ suggests `transloadit storage publish website/`; a generic 400 does not identify
 />
 ```
 
-The optional client boundary replaces a failed native image; without it, native alt/broken-image
-behavior remains. JPEG format fallback does not recover HTTP failures.
+The scaffold already includes a visible `errorFallback`. This optional client boundary replaces a
+failed native image; without it, native alt/broken-image behavior remains. JPEG format fallback
+does not recover HTTP failures.
+
+`baseUrl` and `urlParams` override CDN delivery on the factory, independently of the CLI API
+`--endpoint` / `TRANSLOADIT_ENDPOINT`. Use trusted endpoints only; see [delivery overrides](./docs/reference.md#delivery-overrides).
 
 Storage commands print which credential source wins: shell → project `.env` → saved login.
 Init deliberately uses the saved login. Store, list, sync and publication verify the winning
 key's workspace against the catalog and refuse mismatches before acting. Use `--workspace`
 explicitly for another workspace, with `--receipts` for its separate catalog.
 Login checks Storage policy access without publishing; if unavailable, it links to the
-[workspace Console](https://transloadit.com/c/<workspace>/template-credentials/).
+[Credentials](https://transloadit.com/c/<workspace>/template-credentials/) sidebar page, where the CLI's Auth Key lives.
+Older deployments may watermark Community-plan uploads; the CLI reports changed bytes and saves
+metadata for the stored image instead of suggesting an overwrite.
 Recover the committed catalog without downloading originals:
 
 ```bash

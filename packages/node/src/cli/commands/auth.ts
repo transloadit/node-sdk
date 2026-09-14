@@ -286,6 +286,29 @@ export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<voi
   }
 }
 
+/** Auth group help lists command definitions once while preserving every invocation alias. */
+export class AuthHelpCommand extends Command {
+  // Explicit help paths avoid Clipanion's prefix matching, which lists each alias as a command.
+  static override paths = [['auth', '--help'], ['auth', '-h'], ['auth']]
+
+  override execute(): Promise<void> {
+    const commands = this.cli
+      .definitions()
+      .filter((command) => command.path.startsWith(`${this.cli.binaryName} auth `))
+    this.context.stdout.write(
+      [
+        'Authentication commands',
+        '',
+        ...commands.map((command) => `  ${command.path}\n    ${command.description ?? ''}`),
+        '',
+        'Use <command> --help for options.',
+        '',
+      ].join('\n'),
+    )
+    return Promise.resolve()
+  }
+}
+
 /**
  * Generate a signature for assembly params
  */

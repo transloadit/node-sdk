@@ -36,6 +36,27 @@ const credentialsSchema = z.object({
     .optional(),
 })
 
+async function existingLoginMessage(file: string): Promise<string> {
+  const metadata = await lstat(file)
+    .then(async (info) => {
+      if (!info.isFile()) return 'Saved login metadata unavailable (not a regular file).'
+      const fields = parse(await readFile(file, 'utf8'))
+      // Only identity fields are displayed; JSON quoting keeps saved terminal controls inert.
+      return [
+        `Workspace: ${fields.TRANSLOADIT_WORKSPACE ? JSON.stringify(fields.TRANSLOADIT_WORKSPACE) : 'not recorded'}`,
+        `Description: ${fields.TRANSLOADIT_AUTH_KEY_DESCRIPTION ? JSON.stringify(fields.TRANSLOADIT_AUTH_KEY_DESCRIPTION) : 'not recorded'}`,
+        `File modified: ${info.mtime.toISOString()}`,
+      ].join('\n')
+    })
+    .catch(() => 'Saved login metadata unavailable (could not read the file).')
+  return [
+    `Credentials already exist at ${JSON.stringify(file)}. Nothing was changed.`,
+    metadata,
+    'For a separate login, set TRANSLOADIT_CREDENTIALS_FILE to another file path and run transloadit auth login again.',
+    'Use --replace only if you intend to overwrite this saved login.',
+  ].join('\n')
+}
+
 /** Saves CLI-only credentials without passing secrets through command-line arguments. */
 export class AuthLoginCommand extends UnauthenticatedCommand {
   static override paths = [['auth', 'login']]
@@ -73,8 +94,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           throw new Error(
             'Credentials must be a regular file; symlinks and directories are not replaced',
           )
-        if (!this.replace)
-          throw new Error('Credentials already exist; use --replace to replace them explicitly')
+        if (!this.replace) throw new Error(await existingLoginMessage(file))
       }
       // Never send newly pasted credentials to a project-controlled dotenv endpoint.
       const endpoint = new URL(this.endpoint ?? 'https://api2.transloadit.com')
@@ -200,7 +220,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
     } catch (error) {
       this.output.error(
         isErrnoException(error) && error.code === 'EEXIST'
-          ? 'Credentials already exist; use --replace to replace them explicitly'
+          ? await existingLoginMessage(file)
           : ensureError(error).message,
       )
       return 1

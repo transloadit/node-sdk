@@ -1,4 +1,14 @@
-import { mkdir, mkdtemp, open, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import {
+  mkdir,
+  mkdtemp,
+  open,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  utimes,
+  writeFile,
+} from 'node:fs/promises'
 import { homedir, tmpdir, userInfo } from 'node:os'
 import { join } from 'node:path'
 
@@ -186,6 +196,48 @@ test('auth login help documents the stdin algorithm needed for a combined Smart 
   expect(help).toContain('TRANSLOADIT_SIGNATURE_ALGORITHM=sha256')
 })
 
+test.each([
+  ['--help'],
+  ['-h'],
+  [],
+])('auth help %j lists each command once without treating aliases as ambiguous matches', async (...args) => {
+  await main(['auth', ...args])
+  expect(process.exitCode).toBeUndefined()
+  const help = vi
+    .mocked(process.stdout.write)
+    .mock.calls.map(([chunk]) => String(chunk))
+    .join('')
+  const commands = [
+    ...help.matchAll(/transloadit auth (signature|smart-cdn|token|login|logout|status)\b/g),
+  ].map((match) => match[1])
+  expect(commands.toSorted()).toEqual([
+    'login',
+    'logout',
+    'signature',
+    'smart-cdn',
+    'status',
+    'token',
+  ])
+  expect(help).not.toContain('Multiple commands match')
+})
+
+test.each([
+  ['auth', 'sig'],
+  ['sig'],
+  ['auth', 'smart_cdn'],
+  ['smart_sig'],
+])('auth alias %j still exposes command-specific help', async (...args) => {
+  await main([...args, '--help'])
+  expect(process.exitCode).toBeUndefined()
+  const help = vi
+    .mocked(process.stdout.write)
+    .mock.calls.map(([chunk]) => String(chunk))
+    .join('')
+  expect(help).toContain('Generate')
+  expect(help).toContain('Options')
+  expect(help).not.toContain('Authentication commands')
+})
+
 test('auth login verifies only against the explicit endpoint and saves that binding', async () => {
   await writeFile('.env', 'TRANSLOADIT_ENDPOINT=https://untrusted.invalid\n')
   await main(['auth', 'login', '--stdin', '--endpoint', 'http://127.0.0.1:3020'])
@@ -298,6 +350,40 @@ test('auth login does not overwrite existing credentials without explicit replac
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('--replace'))
 })
 
+test('auth login identifies the saved file and offers a separate login without reading input or overwriting', async () => {
+  const contents =
+    'TRANSLOADIT_KEY=existing-key\nTRANSLOADIT_SECRET=existing-secret\nTRANSLOADIT_WORKSPACE=existing-workspace\nTRANSLOADIT_AUTH_KEY_DESCRIPTION="Transloadit CLI on old-laptop"\n'
+  await writeFile('credentials', contents)
+  await utimes('credentials', new Date('2026-04-14T12:00:00Z'), new Date('2026-04-14T12:00:00Z'))
+  await main(['auth', 'login', '--stdin'])
+  expect(process.exitCode).toBe(1)
+  const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+  expect(message).toContain(join(directory, 'credentials'))
+  expect(message).toContain('existing-workspace')
+  expect(message).toContain('Transloadit CLI on old-laptop')
+  expect(message).toContain('2026-04-14T12:00:00.000Z')
+  expect(message).toContain('TRANSLOADIT_CREDENTIALS_FILE')
+  expect(message).toContain('--replace')
+  expect(message).not.toMatch(/existing-key|existing-secret/)
+  expect(readCliInput).not.toHaveBeenCalled()
+  expect(Transloadit.prototype.listTemplates).not.toHaveBeenCalled()
+  expect(await readFile('credentials', 'utf8')).toBe(contents)
+})
+
+test('existing-login metadata is optional and cannot inject terminal controls into the error', async () => {
+  await writeFile(
+    'credentials',
+    'TRANSLOADIT_SECRET=never-print-me\nTRANSLOADIT_AUTH_KEY_DESCRIPTION="old\u001b[2Jlogin"\n',
+  )
+  await main(['auth', 'login', '--stdin'])
+  const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+  expect(message).toContain('Workspace: not recorded')
+  expect(message).toContain('Description: "old\\u001b[2Jlogin"')
+  expect(message).toContain('TRANSLOADIT_CREDENTIALS_FILE')
+  expect(message).not.toContain('\u001b')
+  expect(message).not.toContain('never-print-me')
+})
+
 test('auth login rejects malformed input without echoing it or saving a file', async () => {
   vi.mocked(readCliInput).mockResolvedValue({
     content: 'TRANSLOADIT_KEY=hidden-secret\n',
@@ -381,6 +467,10 @@ describe('image init', () => {
     expect(page).toContain("from '../../lib/storageImage'")
     expect(page).toContain('Object.values(images)')
     expect(page).toContain('<StorageImage')
+    expect(page).toContain('errorFallback=')
+    expect(page).toContain('role="alert"')
+    expect(page).toContain('This image could not be loaded.')
+    expect(page).toContain('Empty alt is decorative')
     expect(page).toContain('storage store')
     const printed = JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)
     expect(printed).not.toContain('TRANSLOADIT_WORKSPACE=')

@@ -32,13 +32,13 @@ async function probe(url: string, publicPrefix?: string): Promise<void> {
             ? 'Enable Smart CDN on the Auth Key; check its workspace and the signature secret, expiry and server clock.'
             : response.ok
               ? 'Expected an image Content-Type. Check the configured Template and delivery endpoint.'
-              : 'Check the delivery endpoint and Template, then retry after restarting the development server.'
+              : 'Check the delivery endpoint and Template.'
     console.warn(`[StorageImage] Development HEAD returned HTTP ${response.status}. ${hints}`)
   } catch {
     // Error messages can include a credential-bearing URL. A HEAD failure does not establish
     // whether the cause is credentials, networking, a cold transformation, or the CDN itself.
     console.warn(
-      '[StorageImage] Could not reach Smart CDN within five seconds. Check connectivity and the trusted baseUrl; restart development to retry.',
+      '[StorageImage] Could not reach Smart CDN within five seconds. Check connectivity and the trusted baseUrl.',
     )
   }
 }

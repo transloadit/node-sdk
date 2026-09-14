@@ -12,7 +12,12 @@ import {
   AssemblyInstructionsCompileCommand,
   RunCommand,
 } from './assemblies.ts'
-import { SignatureCommand, SmartCdnSignatureCommand, TokenCommand } from './auth.ts'
+import {
+  AuthHelpCommand,
+  SignatureCommand,
+  SmartCdnSignatureCommand,
+  TokenCommand,
+} from './auth.ts'
 import { BillsGetCommand } from './bills.ts'
 import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
 import { ImageInitCommand } from './image.ts'
@@ -48,6 +53,7 @@ export function createCli(): Cli {
   cli.register(Builtins.VersionCommand)
 
   // Auth commands (signature generation)
+  cli.register(AuthHelpCommand)
   cli.register(SignatureCommand)
   cli.register(SmartCdnSignatureCommand)
   cli.register(TokenCommand)

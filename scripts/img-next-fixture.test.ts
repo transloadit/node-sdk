@@ -86,7 +86,7 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(quickstart).toContain('transloadit.images.json')
   expect(quickstart).toContain('No account yet?')
   expect(quickstart).toContain('a new free workspace works')
-  expect(quickstart).toContain('Older deployments may watermark Community-plan uploads')
+  expect(readme).toContain('Older deployments may watermark Community-plan uploads')
   expect(quickstart).toContain('npm run dev')
   expect(quickstart).not.toContain('authorize:')
   const login = readme.indexOf('npx transloadit auth login')
@@ -122,6 +122,28 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(readme).not.toContain('](../../docs/')
   expect(readme).toContain('The default route is `/api/storage-images`')
   expect(readme).toContain('capability has no independent expiry')
+})
+
+test('answers stranger signup and delivery setup questions without a private-doc dead end', async () => {
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  const reference = await readFile(
+    resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
+    'utf8',
+  )
+  const quickstart = readme.slice(readme.indexOf('## Quickstart'), readme.indexOf('## Deploy'))
+  expect(quickstart).toContain('maintainer')
+  expect(quickstart).toContain('tarballs')
+  expect(quickstart).toContain('pnpm add')
+  expect(quickstart).toContain('yarn add')
+  expect(quickstart).toContain('sign up first')
+  expect(quickstart).toContain('15 minutes')
+  expect(quickstart.indexOf('16.3.3')).toBeLessThan(quickstart.indexOf('auth login'))
+  expect(readme).toContain('`baseUrl` and `urlParams`')
+  expect(readme).toContain('Credentials')
+  expect(reference).toContain('## Delivery overrides')
+  expect(reference).toContain('baseUrl:')
+  expect(reference).toContain('urlParams:')
+  expect(reference).not.toContain('Restart development to retry')
 })
 
 test('ships a focused secretless quickstart and the detailed reference it links to', async () => {

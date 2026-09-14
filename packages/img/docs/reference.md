@@ -90,7 +90,8 @@ In development only, the server performs one HEAD per unique path/Template per f
 five-second timeout. The probe runs in the background and never holds up the image or redirect.
 Concurrent/repeated renders share that probe. Redirects probe only after
 application authorization; disallowed prefixes fail before any request. Production performs no
-diagnostic requests. Restart development to retry a failed check or after changing credentials.
+diagnostic requests. Editing the factory configuration recreates its probes through Next.js Fast
+Refresh; repeated requests to the unchanged factory do not retry a failed check automatically.
 
 Denied redirect routes also emit one development-only hint per reason: route/basePath mismatch,
 invalid or stale capability (secret/Template changes), disallowed prefix, or failed authorization.
@@ -135,9 +136,11 @@ format fallback, which does not recover failed AVIF/WebP requests.
 opens your browser on macOS/Linux and polls until you approve the workspace. On Windows, open the
 printed URL. `--no-browser` only skips the
 browser launch. Ctrl-C cancels polling without saving anything. Secrets never pass through the
-browser URL or a localhost callback.
+browser URL or a localhost callback. The approval page lets you sign up before choosing a workspace;
+the code remains valid for 15 minutes while you verify your email and finish signup.
 
-The approved **[Auth Key](https://transloadit.com/c/<workspace>/template-credentials/)** supports
+The approved **Auth Key** appears under the Console's
+**[Credentials](https://transloadit.com/c/<workspace>/template-credentials/)** sidebar item and supports
 Assemblies/Storage writes and Smart CDN. Enable Smart CDN on existing keys used for private
 rendering; signing still requires that setting. Accounts may keep a separate rendering key:
 `TRANSLOADIT_SMART_CDN_KEY/SECRET` override the pair, not individual missing fields.
@@ -145,7 +148,9 @@ rendering; signing still requires that setting. Accounts may keep a separate ren
 Login saves `TRANSLOADIT_WORKSPACE`, `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET` in
 `~/.transloadit/credentials` with owner-only permissions. A shell `TRANSLOADIT_CREDENTIALS_FILE`
 override is supported; project dotenv cannot redirect newly authorized credentials.
-Existing credentials require `--replace`; app env files and symlinks are refused.
+Existing credentials are preserved: login prints their file path, saved workspace/description and
+file modification date in UTC. Set `TRANSLOADIT_CREDENTIALS_FILE` to another file for a separate
+login, or deliberately use `--replace`; app env files and symlinks are refused.
 `auth status` prints the saved workspace and key description without secrets. `auth logout`
 revokes a browser-login key before removing the credentials file, ignoring stale shell/project
 keys. Applications using that same key stop working too. Imported (`--stdin`) and legacy keys
@@ -194,6 +199,31 @@ directories merely to retry a local scaffold. For manual setup, import the catal
 `createStorageImages(catalog)`; `src/lib` imports the root catalog from
 `../../transloadit.images.json`. See [local dogfood](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md)
 for trusted devdock endpoint overrides and the required CDN acknowledgment.
+
+## Delivery overrides
+
+CLI `--endpoint` (saved by login) and `TRANSLOADIT_ENDPOINT` select the Assembly/Storage API;
+they do not change image delivery. A custom CDN or local API2 URL Transform origin is configured
+separately on the generated image factory:
+
+```ts
+import { createStorageImages } from '@transloadit/img/next/server'
+import catalog from '../transloadit.images.json'
+
+export const { StorageImage } = createStorageImages({
+  ...catalog,
+  baseUrl: 'https://api2-devdock.transloadit.dev/file/{workspace}',
+  urlParams: { cdn: 'required' },
+})
+```
+
+This example is for a trusted local devdock, not production configuration. `baseUrl` is the
+delivery base before the Template and image path, with an optional `{workspace}` placeholder;
+it must be an absolute HTTP(S) URL without credentials, query string or fragment. Direct API2
+delivery requires the explicit `cdn: 'required'` acknowledgment. `urlParams` supplies transport
+parameters; it cannot override image geometry, format, background, version or signing fields.
+Never derive either option from browser input: a private delivery origin receives signed URLs.
+Ordinary production delivery needs neither override and uses the workspace's Smart CDN hostname.
 
 ## Redirect lifetime and caching
 

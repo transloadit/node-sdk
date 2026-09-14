@@ -647,6 +647,92 @@ test('the public catalog hero has stock-CSS geometry and no application image re
   await expect(hero).toHaveAttribute('fetchpriority', 'high')
 })
 
+if (process.env.IMG_FIXTURE_MODE === 'development') {
+  for (const viewportWidth of [390, 1200]) {
+    test(`development scaffold does not warn that its untouched image is oversized at ${viewportWidth}px`, async ({
+      page,
+    }) => {
+      const warnings: string[] = []
+      page.on('console', (message) => {
+        if (message.type() === 'warning' && message.text().includes('[StorageImage]'))
+          warnings.push(message.text())
+      })
+      await page.setViewportSize({ width: viewportWidth, height: 850 })
+      await page.goto('/fixture/cli-image/app/storage-image-example')
+      const hero = page.getByRole('presentation')
+      await decode(hero)
+      expect((await hero.boundingBox())?.width).toBe(Math.min(960, viewportWidth - 16))
+      await page.getByRole('button', { name: 'Hydration count: 0' }).click()
+      await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      )
+      expect(warnings).toEqual([])
+    })
+  }
+  test('development scaffold waits for its real box after a temporary 1px layout', async ({
+    page,
+  }) => {
+    const warnings: string[] = []
+    page.on('console', (message) => {
+      if (message.type() === 'warning' && message.text().includes('[StorageImage]'))
+        warnings.push(message.text())
+    })
+    await page.route('**/fixture/cli-image/app/storage-image-example', async (route) => {
+      const response = await route.fetch()
+      expect(response.ok()).toBe(true)
+      // Hold a real CSS box at the reader's reported width while native loading/hydration finish.
+      await route.fulfill({
+        response,
+        body: (await response.text()).replace(
+          '</head>',
+          '<style id="pending-layout">picture{display:block;width:1px}</style></head>',
+        ),
+      })
+    })
+    await page.goto('/fixture/cli-image/app/storage-image-example')
+    const hero = page.getByRole('presentation')
+    await decode(hero)
+    expect((await hero.boundingBox())?.width).toBe(1)
+    await page.getByRole('button', { name: 'Hydration count: 0' }).click()
+    await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    )
+    expect(warnings).toEqual([])
+    await page.evaluate(() => document.getElementById('pending-layout')?.remove())
+    await expect.poll(async () => (await hero.boundingBox())?.width).toBe(960)
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    )
+    expect(warnings).toEqual([])
+  })
+}
+
+test('the generated scaffold shows a delivery failure instead of a blank page', async ({
+  page,
+  audit,
+}) => {
+  await page.route(`${cdnOrigin}/file/**`, (route) => {
+    audit.expectedFailures.set(route.request().url(), 400)
+    return route.fulfill({ status: 400, contentType: 'application/json', body: '{}' })
+  })
+  await page.goto('/fixture/cli-image/app/storage-image-example')
+  await expect(page.getByRole('alert')).toHaveText(
+    'This image could not be loaded. Check the Storage path and delivery configuration.',
+  )
+  await expect(page.getByRole('presentation')).toHaveCount(0)
+})
+
 for (const viewportWidth of [390, 1200]) {
   test(`a small public original stays within its native width at ${viewportWidth}px`, async ({
     page,

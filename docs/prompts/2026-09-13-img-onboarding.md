@@ -144,3 +144,27 @@ working changes preserved. The PR retains `Refs #270`, not `Fixes`, and its two 
 Next gates remain unchanged: Console signup/redirect ownership, coordinated deployment/release,
 ordinary registry-install and sustained Content dogfood, then production Bunny measurements.
 This addendum does not authorize merging or publishing the private image package.
+
+## Round 9 — stranger signup test 2
+
+Input: /tmp/img-task2-round9-brief.md and /tmp/img-stranger-signup-report-r2.md (PASS in 6m13,
+against earlier tarballs). “This fires on **every** load of the untouched `image init` page”
+makes F11 the first fix. “A blank page with nothing on it at all” makes scaffold failure UI next.
+
+- [x] F11: post-layout, decoded, non-tiny candidate measurements; native dev tests added.
+- [x] F9: generated example displays delivery failures using the existing fallback API.
+- [x] F10: remove unnecessary development-server restart advice without promising retries.
+- [x] F2: identify saved credentials safely and show the non-destructive separate-file path.
+- [x] F3: unique auth help from Clipanion definitions; all existing aliases retained.
+- [x] README: short npm/pnpm entry, signup timing, tarballs, delivery override and Credentials label.
+- [ ] Red-first checks, council/Claude review, sequential package/packed checks and green final CI.
+
+Same PR; no merge, publication, production, Console or API2 changes. Keep Refs #270 and the
+unchanged release gates above. Detailed quotes, decisions and evidence: /tmp/img-task2-round9-report.md.
+
+Initial yarn check passes: img 262, node 558 plus one existing skip. Red-first failures cover
+pre-layout diagnostics, missing scaffold fallback, restart advice, login context, duplicated
+help and README entry points. The native dev matrix adds untouched desktop/mobile scaffolds
+and a controlled 1px-to-960px real layout; final browser/review/CI receipts follow below.
+F3 was alias expansion in prefix help, not duplicate command registration. No dependencies,
+schema files, builtin pins or auth scopes changed.
