@@ -168,3 +168,10 @@ help and README entry points. The native dev matrix adds untouched desktop/mobil
 and a controlled 1px-to-960px real layout; final browser/review/CI receipts follow below.
 F3 was alias expansion in prefix help, not duplicate command registration. No dependencies,
 schema files, builtin pins or auth scopes changed.
+
+First council found two valid follow-ups: scope the fallback locator past Next's route
+announcer, and explain an approved-but-unsaved key after concurrent login rather than saying
+“Nothing was changed”. Both are fixed red-first. Interactive desktop-to-mobile browser reuse
+also exposed a density-correction false positive; compare CSS-pixel naturalWidth before blaming
+sizes. Native tests cover both unchanged pages and cached-candidate reuse. The final verification
+sequence and second, focused review are pending; initial CI only failed on the alert locator.

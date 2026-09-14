@@ -648,6 +648,32 @@ test('the public catalog hero has stock-CSS geometry and no application image re
 })
 
 if (process.env.IMG_FIXTURE_MODE === 'development') {
+  test('development scaffold does not blame sizes when a cached desktop candidate is reused on mobile', async ({
+    page,
+  }) => {
+    const warnings: string[] = []
+    page.on('console', (message) => {
+      if (message.type() === 'warning' && message.text().includes('[StorageImage]'))
+        warnings.push(message.text())
+    })
+    await page.setViewportSize({ width: 1200, height: 850 })
+    await page.goto('/fixture/cli-image/app/storage-image-example')
+    const hero = page.getByRole('presentation')
+    await decode(hero)
+    await page.setViewportSize({ width: 390, height: 850 })
+    await expect.poll(async () => (await hero.boundingBox())?.width).toBe(374)
+    await page.reload()
+    await decode(hero)
+    await page.getByRole('button', { name: 'Hydration count: 0' }).click()
+    await expect(page.getByRole('button', { name: 'Hydration count: 1' })).toBeVisible()
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    )
+    expect(warnings).toEqual([])
+  })
   for (const viewportWidth of [390, 1200]) {
     test(`development scaffold does not warn that its untouched image is oversized at ${viewportWidth}px`, async ({
       page,
@@ -727,9 +753,9 @@ test('the generated scaffold shows a delivery failure instead of a blank page', 
     return route.fulfill({ status: 400, contentType: 'application/json', body: '{}' })
   })
   await page.goto('/fixture/cli-image/app/storage-image-example')
-  await expect(page.getByRole('alert')).toHaveText(
-    'This image could not be loaded. Check the Storage path and delivery configuration.',
-  )
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'This image could not be loaded.' }),
+  ).toHaveText('This image could not be loaded. Check the Storage path and delivery configuration.')
   await expect(page.getByRole('presentation')).toHaveCount(0)
 })
 

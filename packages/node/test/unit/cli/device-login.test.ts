@@ -106,6 +106,30 @@ function createDevice(response = created): nock.Scope {
     .reply(200, response)
 }
 
+test('a concurrent login preserves the winner and explains that the approved key was not saved', async () => {
+  const winner =
+    'TRANSLOADIT_KEY=winner-key\nTRANSLOADIT_SECRET=winner-secret\nTRANSLOADIT_WORKSPACE=other-workspace\n'
+  const api = createDevice()
+    .post('/cli/device_authorizations/token')
+    .reply(200, async () => {
+      await writeFile('credentials', winner)
+      return authorized
+    })
+  await login(['--no-browser'])
+  expect(api.isDone()).toBe(true)
+  expect(process.exitCode).toBe(1)
+  expect(await readFile('credentials', 'utf8')).toBe(winner)
+  const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+  expect(message).toContain('approved Auth Key was not saved')
+  expect(message).toContain('https://transloadit.com/c/my-app/template-credentials/')
+  expect(message).toContain('revoke it there')
+  expect(message).toContain('auth logout would use the saved login')
+  expect(message).toContain('TRANSLOADIT_CREDENTIALS_FILE')
+  expect(message).not.toMatch(
+    /Nothing was changed|winner-key|winner-secret|never-print-this-secret|combined-key/,
+  )
+})
+
 test.each([
   200, 403,
 ])('reports a long approval wait on stderr and stops after HTTP %s', async (status) => {

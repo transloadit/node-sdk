@@ -50,7 +50,7 @@ async function existingLoginMessage(file: string): Promise<string> {
     })
     .catch(() => 'Saved login metadata unavailable (could not read the file).')
   return [
-    `Credentials already exist at ${JSON.stringify(file)}. Nothing was changed.`,
+    `Credentials already exist at ${JSON.stringify(file)}. The saved file was preserved.`,
     metadata,
     'For a separate login, set TRANSLOADIT_CREDENTIALS_FILE to another file path and run transloadit auth login again.',
     'Use --replace only if you intend to overwrite this saved login.',
@@ -82,6 +82,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
     const file = getConfiguredCredentialsFilePath('shell')
     const temporary = `${file}.${randomUUID()}.tmp`
     let ownsTemporary = false
+    let loginWorkspace: string | undefined
     try {
       if (/^\.env(?:\.|$)/i.test(basename(file)))
         throw new Error('Credentials destination must not be an app env file')
@@ -148,6 +149,7 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
           )
         })
       } else credentials = await deviceLogin(origin, this.output, this.noBrowser)
+      loginWorkspace = credentials.workspace
       const fields = {
         TRANSLOADIT_KEY: credentials.authKey,
         TRANSLOADIT_SECRET: credentials.authSecret,
@@ -220,7 +222,12 @@ export class AuthLoginCommand extends UnauthenticatedCommand {
     } catch (error) {
       this.output.error(
         isErrnoException(error) && error.code === 'EEXIST'
-          ? await existingLoginMessage(file)
+          ? [
+              await existingLoginMessage(file),
+              `This login’s ${this.stdin ? 'verified' : 'approved'} Auth Key was not saved.`,
+              `Review it in Console → Credentials: https://transloadit.com/c/${loginWorkspace ?? '<workspace>'}/template-credentials/; revoke it there if no longer needed.`,
+              'Be careful: auth logout would use the saved login, not this unsaved one.',
+            ].join('\n')
           : ensureError(error).message,
       )
       return 1

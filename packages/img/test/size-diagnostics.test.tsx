@@ -99,3 +99,35 @@ test.each([
     vi.unstubAllGlobals()
   }
 })
+
+test('a density-corrected or cached larger candidate does not imply missing sizes', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const rootElement = document.createElement('div')
+  const root = createRoot(rootElement)
+  try {
+    await act(async () =>
+      root.render(
+        <ImageSizeDiagnostics>
+          <picture>
+            <source sizes="100vw" srcSet="https://cdn.example/hero 960w" />
+            <img alt="Canal house" />
+          </picture>
+        </ImageSizeDiagnostics>,
+      ),
+    )
+    const image = rootElement.querySelector('img')
+    if (image === null) throw new Error('Expected the rendered hero')
+    vi.spyOn(image, 'currentSrc', 'get').mockReturnValue('https://cdn.example/hero')
+    vi.spyOn(image, 'complete', 'get').mockReturnValue(true)
+    vi.spyOn(image, 'naturalWidth', 'get').mockReturnValue(389)
+    vi.spyOn(image, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 374, 249))
+    image.dispatchEvent(new Event('load'))
+    await act(() => vi.advanceTimersByTimeAsync(20))
+    expect(warning).not.toHaveBeenCalled()
+  } finally {
+    await act(async () => root.unmount())
+    vi.unstubAllGlobals()
+  }
+})

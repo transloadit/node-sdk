@@ -34,6 +34,9 @@ export function ImageSizeDiagnostics({ children }: ImageSizeDiagnosticsProps): R
       const { width: cssWidth, height } = image.getBoundingClientRect()
       // Streamed/hydrating content can temporarily have a 1px box before its real layout.
       if (cssWidth <= 1 || height <= 0) return
+      // naturalWidth is density-corrected CSS pixels. A larger cached/HiDPI candidate alone
+      // does not imply incorrect sizes when its intended display width matches the real box.
+      if (image.naturalWidth <= 2 * cssWidth) return
       const sources = image.closest('picture')?.querySelectorAll('source') ?? []
       // A JPEG fallback has no width descriptor; its decoded natural width is unscaled.
       let width = image.naturalWidth
