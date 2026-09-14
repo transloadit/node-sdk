@@ -94,14 +94,24 @@ describe('development delivery diagnostics', () => {
     } else {
       vi.mocked(fetch).mockRejectedValue(new Error(`Could not fetch ${authSecret}`))
     }
-    const { StorageImage } = createStorageImages(baseConfiguration)
-    await renderAsync(
+    const { StorageImage } = createStorageImages({
+      ...baseConfiguration,
+      baseUrl: 'https://cdn.example:8443/file/{workspace}',
+      urlParams: { token: 'never-log-query-token' },
+    })
+    const markup = await renderAsync(
       <StorageImage alt="Hero" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
     )
+    const target = new URL(getFirstCandidate(parseMarkup(markup)))
+    expect(fetch).toHaveBeenCalledWith(target.href, expect.objectContaining({ method: 'HEAD' }))
     expect(console.warn).toHaveBeenCalledOnce()
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining(`${target.origin}${target.pathname}`),
+    )
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('baseUrl/urlParams'))
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Check'))
     expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toMatch(
-      /restart|never-render-this-secret/,
+      /restart|never-render-this-secret|never-log-query-token|auth-key|\?|sig=|exp=/,
     )
   })
 

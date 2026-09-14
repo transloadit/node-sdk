@@ -1,7 +1,8 @@
 # `@transloadit/img`
 
-Responsive Storage images for Next.js. Native `picture/srcset`; bytes go from Smart CDN to the
-browser, never through Next's image optimizer. Sources are Storage paths or receipts, not URLs.
+Responsive Storage images for Next.js. Native `picture/srcset`; bytes go from Smart CDN
+(`<workspace>.tlcdn.com`, derived from the catalog's `workspace`) to the browser, never through
+Next's image optimizer. Sources are Storage paths or receipts, not URLs.
 
 ## Quickstart
 
@@ -14,6 +15,7 @@ Yarn: `yarn add @transloadit/img && yarn add -D @transloadit/node` (also after r
 
 Run beside `package.json`. No account yet? The browser approval page lets you sign up first;
 the code stays valid for 15 minutes, including email verification, and a new free workspace works.
+For `./hero.jpg`, use any JPEG you have.
 
 ```bash
 npx transloadit auth login
@@ -23,8 +25,8 @@ npm run dev
 ```
 
 Open `/storage-image-example`. Login opens browser approval (on Windows, open the printed URL). Init publishes the directory,
-creates an empty catalog and a runnable page; store adds the first image. With `src/app`,
-source files go under `src/`; the catalog stays at the root:
+creates an empty catalog and a runnable page; store adds the first image.
+If your app has `src/`, prefix the source paths below; the catalog stays at the root:
 
 ```text
 lib/storageImage.ts
@@ -122,7 +124,8 @@ make no application image requests. See [publication policy](./docs/reference.md
 ## When it breaks
 
 Development performs one background HEAD per path/Template, bounded to five seconds. It never
-blocks rendering or logs signed URLs or secrets. A `Transloadit-Error: NO_SIGNATURE_FIELD` response
+blocks rendering; diagnostics name the probed host/path without query values or credentials.
+A `Transloadit-Error: NO_SIGNATURE_FIELD` response
 suggests `transloadit storage publish website/`; a generic 400 does not identify that cause, and
 404 points to the workspace, path or Template. Production performs no diagnostic requests.
 
@@ -141,13 +144,14 @@ does not recover HTTP failures.
 
 `baseUrl` and `urlParams` override CDN delivery on the factory, independently of the CLI API
 `--endpoint` / `TRANSLOADIT_ENDPOINT`. Use trusted endpoints only; see [delivery overrides](./docs/reference.md#delivery-overrides).
+`auth login --endpoint <url>` targets another API and persists that endpoint in the saved login.
 
 Storage commands print which credential source wins: shell → project `.env` → saved login.
 Init deliberately uses the saved login. Store, list, sync and publication verify the winning
 key's workspace against the catalog and refuse mismatches before acting. Use `--workspace`
 explicitly for another workspace, with `--receipts` for its separate catalog.
-Login checks Storage policy access without publishing; if unavailable, it links to the
-[Credentials](https://transloadit.com/c/<workspace>/template-credentials/) sidebar page, where the CLI's Auth Key lives.
+Login checks Storage policy access without publishing; if unavailable, it links to
+Console → Credentials (`/c/<workspace>/template-credentials/`), where the CLI's Auth Key lives.
 Older deployments may watermark Community-plan uploads; the CLI reports changed bytes and saves
 metadata for the stored image instead of suggesting an overwrite.
 Recover the committed catalog without downloading originals:
@@ -160,6 +164,7 @@ npx transloadit auth logout
 ```
 
 Logout revokes browser-login keys; any application using that same key loses access too.
+For a separate login, set `TRANSLOADIT_CREDENTIALS_FILE` in your shell to another file before `auth login`.
 Imported and legacy keys are only forgotten locally unless `auth logout --revoke` is explicit.
 
 ## Reference

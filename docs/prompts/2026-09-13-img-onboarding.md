@@ -232,3 +232,22 @@ Keep this correction test-only. Evidence and current-head CI receipts are append
 `/tmp/img-task2-round9-report.md` and the PR body; the red browser artifact is
 `/tmp/img-r9-response-race-red-artifact`. No ignoreErrors, extra retry, timeout increase,
 product change, merge, publication or new framework is part of this fix.
+
+## Round 10 — final reader residuals
+
+Input: `/tmp/img-task2-round10-brief.md` and `/tmp/img-stranger-signup-report-r3.md`.
+The independent reader passed in 4m58 on 3b26679 (API2 b2264e1767, Content 40210c67f1).
+That is the reader's existing timing, not a new measurement by this round.
+
+- [x] F9: print the actual development HEAD origin/path, stripping query credentials. Explain
+  HTTP failure versus an unreachable host and point non-default setups at baseUrl/urlParams.
+  Preserve the existing publication/auth/404 hints, background timing and production silence.
+- [x] Six README clarifications: workspace-derived delivery host, persisted login endpoint,
+  separate credentials file by the logout warning, Console Credentials path without a placeholder
+  link, optional src/ layout, and bring-your-own hero JPEG. No new onboarding feature.
+- [x] Red-first diagnostic tests: seven failures before the fix, then all 163 affected tests pass.
+  Focused council found only the shell-versus-project-env wording; fixed red-first in the README.
+
+Required local checks, packed browser proof, final exact-head CI/artifact receipts and PR-body verification go in
+`/tmp/img-task2-round10-report.md`. Stop after this round: no merge, publication, API2/Content
+changes, environment edits, new reader round or extra product work. img stays private at 0.0.0.

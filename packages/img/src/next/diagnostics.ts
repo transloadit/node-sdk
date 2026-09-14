@@ -1,7 +1,12 @@
-/** Server-side development probe; errors become static hints, never raw response/URL logs. */
+/** Server-side development probe; logs the target origin/path, never queries or raw errors. */
 export type DiagnoseStorageImage = (path: string, url: string, publicPrefix?: string) => void
 
+const deliveryOverrideHint =
+  'If you use a different API or CDN, set baseUrl/urlParams on the factory.'
+
 async function probe(url: string, publicPrefix?: string): Promise<void> {
+  const target = new URL(url)
+  const safeUrl = `${target.origin}${target.pathname}`
   try {
     const response = await fetch(url, {
       method: 'HEAD',
@@ -15,7 +20,7 @@ async function probe(url: string, publicPrefix?: string): Promise<void> {
         response.headers.get('cache-control')?.includes('immutable')
       )
         console.info(
-          '[StorageImage] Public delivery verified: image response with immutable caching.',
+          `[StorageImage] Public delivery verified at ${safeUrl}: image response with immutable caching.`,
         )
       return
     }
@@ -32,13 +37,15 @@ async function probe(url: string, publicPrefix?: string): Promise<void> {
             ? 'Enable Smart CDN on the Auth Key; check its workspace and the signature secret, expiry and server clock.'
             : response.ok
               ? 'Expected an image Content-Type. Check the configured Template and delivery endpoint.'
-              : 'Check the delivery endpoint and Template.'
-    console.warn(`[StorageImage] Development HEAD returned HTTP ${response.status}. ${hints}`)
+              : `The delivery host did not serve this path as an image. Check the delivery endpoint and Template. ${deliveryOverrideHint}`
+    console.warn(
+      `[StorageImage] Development HEAD ${safeUrl} returned HTTP ${response.status}. ${hints}`,
+    )
   } catch {
     // Error messages can include a credential-bearing URL. A HEAD failure does not establish
     // whether the cause is credentials, networking, a cold transformation, or the CDN itself.
     console.warn(
-      '[StorageImage] Could not reach Smart CDN within five seconds. Check connectivity and the trusted baseUrl.',
+      `[StorageImage] Could not reach Smart CDN at ${safeUrl} within five seconds. Check connectivity to this delivery host. ${deliveryOverrideHint}`,
     )
   }
 }

@@ -290,5 +290,34 @@ test.each([
   const { StorageImage } = createStorageImages({ images, public: ['website/'] })
   renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)
   await vi.waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining(hint)))
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining(
+      'https://my-app.tlcdn.com/builtin%2Fpublic-preview%400.0.1/website%2Fhero.jpg',
+    ),
+  )
   expect(warn.mock.calls.flat().join('\n')).not.toContain('transloadit storage publish')
+})
+
+test('identifies the verified public delivery target without logging query parameters', async () => {
+  vi.stubEnv('NODE_ENV', 'development')
+  vi.stubGlobal(
+    'fetch',
+    vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response(null, {
+          headers: { 'Content-Type': 'image/avif', 'Cache-Control': 'public, immutable' },
+        }),
+    ),
+  )
+  const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)
+  await vi.waitFor(() =>
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'https://my-app.tlcdn.com/builtin%2Fpublic-preview%400.0.1/website%2Fhero.jpg',
+      ),
+    ),
+  )
+  expect(info.mock.calls.flat().join('\n')).not.toContain('?')
 })
