@@ -490,6 +490,32 @@ describe('image init', () => {
 
   test.each([
     '--example',
+    '--public',
+    '--private',
+  ])('init %s rejects an external catalog before any scaffold or publication', async (mode) => {
+    await mkdir('app')
+    await writeFile('photos.json', JSON.stringify({ workspace: 'my-app', public: [], images: {} }))
+    const original = await readFile('photos.json', 'utf8')
+    await mkdir('site/app', { recursive: true })
+    const previousDirectory = process.cwd()
+    process.chdir('site')
+    try {
+      await main(['image', 'init', 'website/', mode, '--receipts', '../photos.json'])
+      expect(process.exitCode).toBe(1)
+      expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+        expect.stringMatching(/outside this Next.js app.*explicit.*createStorageImages/),
+      )
+      expect(Transloadit.prototype.publishStoragePrefix).not.toHaveBeenCalled()
+      expect(await readdir('.')).toEqual(['app'])
+      expect(await readdir('app')).toEqual([])
+      expect(await readFile('../photos.json', 'utf8')).toBe(original)
+    } finally {
+      process.chdir(previousDirectory)
+    }
+  })
+
+  test.each([
+    '--example',
     '--private',
   ])('credential-free %s preserves production delivery despite a saved development login', async (mode) => {
     await mkdir('app')
@@ -708,6 +734,9 @@ describe('image init', () => {
     expect(page).toContain('role="status"')
     expect(page).toContain('This image could not be loaded.')
     expect(page).toContain('alt={alt}')
+    expect(page).toContain(
+      'Replace the filename-derived alt with a description, or an empty string if decorative',
+    )
     expect(page).toContain('preload')
     expect(page).not.toContain('priority')
     expect(page).toContain('storage store')
@@ -862,6 +891,9 @@ describe('image init', () => {
     expect(process.exitCode).toBe(1)
     expect(await readFile('transloadit.images.json', 'utf8')).toBe(catalog)
     expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toBe('existing\n')
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('Move or rename it before rerunning image init'),
+    )
     await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
   })
 

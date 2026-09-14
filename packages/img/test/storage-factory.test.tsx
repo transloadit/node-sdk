@@ -300,9 +300,10 @@ test('a missing catalog path names the typo, nearest key and safe upload command
   const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
   expect(() =>
     Reflect.apply(StorageImage, undefined, [{ src: 'website/herp.jpg', alt: 'Hero' }]),
-  ).toThrow(
-    'Storage image path "website/herp.jpg" is not in the configured catalog. Did you mean "website/hero.jpg"? To upload a new image, run transloadit storage store -- ./image.jpg website/herp.jpg',
-  )
+  ).toThrow(/Storage image path "website\/herp.jpg".*Did you mean "website\/hero.jpg"/)
+  expect(() =>
+    Reflect.apply(StorageImage, undefined, [{ src: 'website/herp.jpg', alt: 'Hero' }]),
+  ).toThrow('npx transloadit storage store -- ./image.jpg website/herp.jpg')
   expect(() =>
     Reflect.apply(StorageImage, undefined, [{ src: "-$(whoami)'photo.jpg", alt: 'Unknown' }]),
   ).toThrow("transloadit storage store -- ./image.jpg '-$(whoami)'\\''photo.jpg'")
@@ -312,9 +313,29 @@ test('an empty catalog names the missing path without inventing a suggestion', (
   const { StorageImage } = createStorageImages({ images: {}, delivery: 'direct' })
   expect(() =>
     Reflect.apply(StorageImage, undefined, [{ src: 'website/new.jpg', alt: 'New' }]),
-  ).toThrow(
-    'Storage image path "website/new.jpg" is not in the configured catalog. To upload a new image, run transloadit storage store -- ./image.jpg website/new.jpg',
-  )
+  ).toThrow(/Storage image path "website\/new.jpg".*To upload a new image/)
+})
+
+test('a custom-catalog recovery hint explains where receipts must be written', () => {
+  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
+  expect(() =>
+    Reflect.apply(StorageImage, undefined, [{ src: 'website/new.jpg', alt: 'New' }]),
+  ).toThrow('For a custom catalog, add --receipts <catalog.json> to the command')
+  expect(() =>
+    Reflect.apply(StorageImage, undefined, [{ src: 'website/new.jpg', alt: 'New' }]),
+  ).toThrow('For an explicit factory, update its images configuration too')
+})
+
+test.each([
+  { name: 'terminal controls', path: 'website/\u001b[2J.jpg' },
+  { name: 'newlines', path: 'website/new\nline.jpg' },
+  { name: 'oversized paths', path: `${'a'.repeat(1025)}.jpg` },
+])('rejects $name before formatting unknown-path shell advice', ({ path }) => {
+  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
+  const render = () => Reflect.apply(StorageImage, undefined, [{ src: path, alt: 'Invalid' }])
+  expect(render).toThrow(/Storage image paths must/)
+  expect(render).not.toThrow(path)
+  expect(render).not.toThrow('storage store')
 })
 
 test('workspace-root access requires the named acknowledgment, never an empty prefix', () => {

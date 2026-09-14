@@ -5,6 +5,8 @@ import type { ReactNode } from 'react'
 import type { StorageImagesConfiguration } from '../src/next/server.tsx'
 
 import { parseSmartCdnUrl } from '@transloadit/utils/node'
+import { act } from 'react'
+import { createRoot } from 'react-dom/client'
 import { renderToReadableStream, renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -154,7 +156,10 @@ describe('development delivery diagnostics', () => {
     )
   })
 
-  test('a denied private route names its catalog path and the opt-in publication fix', async () => {
+  test.each([
+    'GET',
+    'HEAD',
+  ])('a denied private %s route names its path and the opt-in publication fix', async (method) => {
     const { StorageImage, storageRoute } = createStorageImages({
       ...baseConfiguration,
       delivery: undefined,
@@ -165,12 +170,22 @@ describe('development delivery diagnostics', () => {
       <StorageImage src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} alt="Hero" />,
     )
     const url = new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
-    const denied = await storageRoute(new Request(url))
+    const denied = await storageRoute(new Request(url, { method }))
     expect(denied.status).toBe(404)
     expect(await denied.text()).toBe('')
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('"documents/hero.jpg"'))
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('not under a public prefix'))
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('If it should be public'))
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('current image configuration'),
+    )
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('--receipts <catalog.json>'))
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('explicit factory’s public list'),
+    )
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringMatching(/npx transloadit storage publish -- documents\/$/),
+    )
     expect(console.warn).toHaveBeenCalledWith(
       expect.stringContaining('storage publish -- documents/'),
     )
@@ -180,6 +195,39 @@ describe('development delivery diagnostics', () => {
     expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toMatch(
       /cap=|auth-key|never-render-this-secret/,
     )
+  })
+
+  test('an inline image fallback keeps development advice valid inside a paragraph', async () => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+    vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false)
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { StorageImage } = createStorageImages({ ...baseConfiguration, authorize: () => false })
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    try {
+      await act(() =>
+        root.render(
+          <p>
+            <StorageImage
+              src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
+              alt="Inline photo"
+              layout="none"
+              errorFallback={<span role="status">Image unavailable. </span>}
+            />
+          </p>,
+        ),
+      )
+      const image = container.querySelector('img')
+      expect(image).not.toBeNull()
+      await act(() => image?.dispatchEvent(new Event('error')))
+      expect(container.querySelector('[role="status"]')?.textContent).toBe('Image unavailable. ')
+      expect(container.textContent).toContain('See the terminal for details.')
+      expect(errors).not.toHaveBeenCalled()
+    } finally {
+      await act(() => root.unmount())
+      container.remove()
+    }
   })
 
   test('direct images settle before a slow diagnostic, without consuming their grant lifetime', async () => {

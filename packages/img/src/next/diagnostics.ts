@@ -49,7 +49,7 @@ async function probe(path: string, url: string, publicPrefix?: string): Promise<
         : response.status === 404
           ? 'Check the workspace slug, that the Storage path exists there, and the configured Template.'
           : publicPrefix !== undefined && code === 'NO_SIGNATURE_FIELD'
-            ? `Storage path ${JSON.stringify(path)} may no longer be under a published public prefix. ${publishImageHint(path, publicPrefix)} If already published, check its workspace and public Built-in.`
+            ? `Storage path ${JSON.stringify(path)} may no longer be under a published public prefix. If already published, check its workspace and public Built-in. If it should be private, remove its public prefix from the catalog or factory and configure private delivery with application authorization. ${publishImageHint(path, publicPrefix)}`
             : publicPrefix === undefined && (response.status === 401 || response.status === 403)
               ? 'Enable Smart CDN on the Auth Key; check its workspace and the signature secret, expiry and server clock.'
               : response.ok

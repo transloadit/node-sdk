@@ -264,6 +264,12 @@ test('a denied unsigned development HEAD gives the publish command without block
   expect(warn).toHaveBeenCalledWith(
     expect.stringContaining('no longer be under a published public prefix'),
   )
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining('remove its public prefix from the catalog or factory'),
+  )
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining('configure private delivery with application authorization'),
+  )
   const url = fetch.mock.calls[0]?.[0]
   expect(typeof url).toBe('string')
   expect(String(url)).not.toContain('sig=')

@@ -1,3 +1,5 @@
+import { validateStoragePath } from '@transloadit/utils'
+
 function quoteArgument(value: string): string {
   // Copyable POSIX commands must not expand a path containing quotes or shell expressions.
   return /^[a-zA-Z0-9_./-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`
@@ -23,6 +25,8 @@ function editDistance(left: string, right: string, limit: number): number {
 
 /** Actionable catalog errors; suggestions are bounded to short paths and small spelling errors. */
 export function missingImageHint(path: string, paths: readonly string[]): string {
+  // Shell quoting cannot neutralize terminal control characters or bound an oversized log line.
+  validateStoragePath(path)
   let nearest: string | undefined
   let distance = 4
   if (path.length <= 256) {
@@ -35,7 +39,7 @@ export function missingImageHint(path: string, paths: readonly string[]): string
     }
   }
   const suggestion = nearest === undefined ? '' : ` Did you mean ${JSON.stringify(nearest)}?`
-  return `Storage image path ${JSON.stringify(path)} is not in the configured catalog.${suggestion} To upload a new image, run transloadit storage store -- ./image.jpg ${quoteArgument(path)}`
+  return `Storage image path ${JSON.stringify(path)} is not in the configured catalog.${suggestion} For a custom catalog, add --receipts <catalog.json> to the command. For an explicit factory, update its images configuration too. To upload a new image, run:\n  npx transloadit storage store -- ./image.jpg ${quoteArgument(path)}`
 }
 
 /** Publication is an explicit choice, never an automatic remedy for a denied private image. */
@@ -45,5 +49,5 @@ export function publishImageHint(
 ): string {
   if (prefix === '')
     return 'If it should be public, store it in a directory and publish that prefix; workspace-root publication is not supported.'
-  return `If it should be public, run transloadit storage publish -- ${quoteArgument(prefix)}. Otherwise check application authorization.`
+  return `For a custom catalog, add --receipts <catalog.json> to the command. Keep an explicit factory’s public list in sync too. If it should be public, run:\n  npx transloadit storage publish -- ${quoteArgument(prefix)}`
 }

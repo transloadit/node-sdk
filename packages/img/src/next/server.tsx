@@ -51,7 +51,7 @@ export interface TransloaditStorageAuthorizationContext {
   request: Request
 }
 
-/** Application authorization for one exact private Storage object. */
+/** Return true to authorize one private object; thrown application errors propagate, not deny. */
 export type AuthorizeTransloaditStorageImage = (
   context: TransloaditStorageAuthorizationContext,
 ) => boolean | Promise<boolean>
@@ -577,7 +577,7 @@ interface DevelopmentDeliveryResultProps {
 }
 
 function DevelopmentDeliveryResult({ result }: DevelopmentDeliveryResultProps): ReactNode {
-  return <p>{use(result)}. See the terminal for details.</p>
+  return <span>{use(result)}. See the terminal for details.</span>
 }
 
 function renderPicture(
@@ -592,9 +592,9 @@ function renderPicture(
       <>
         {props.errorFallback}
         {diagnostic === undefined ? (
-          <p>See the terminal for details.</p>
+          <span>See the terminal for details.</span>
         ) : (
-          <Suspense fallback={<p>Checking delivery; see the terminal for details.</p>}>
+          <Suspense fallback={<span>Checking delivery; see the terminal for details.</span>}>
             <DevelopmentDeliveryResult result={diagnostic} />
           </Suspense>
         )}
@@ -825,7 +825,7 @@ function createStorageRoute(
       explained.add(key)
       const publication =
         reason === 'authorization' && path !== undefined
-          ? ` Storage path ${JSON.stringify(path)} is not under a public prefix in this catalog. ${publishImageHint(path)}`
+          ? ` Storage path ${JSON.stringify(path)} is not under a public prefix in the current image configuration. ${publishImageHint(path)}`
           : ''
       console.warn(`[StorageImage] ${reasons[reason]}${publication}`)
     }

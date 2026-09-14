@@ -78,6 +78,9 @@ switch delivery with `--endpoint`. Custom CDN overrides can stay in the Next con
 `image init uploads/ --private` creates only the conventional
 authorizer and route below; add `--example` for a page too. The older `image init --public` is an
 explicit publication plus example shortcut, not a prerequisite. No existing source file is overwritten.
+Package-import scaffolding requires a catalog inside the Next.js app; external catalogs are refused
+before writing files or publishing. Use an explicit `createStorageImages` factory for shared catalogs
+outside the app instead.
 
 ## Responsive
 
@@ -249,6 +252,10 @@ An unsigned public HEAD with `Transloadit-Error: NO_SIGNATURE_FIELD` (HTTP 400) 
 advice; 404 points to the workspace, path or Template. Older API versions without the header get
 the generic hint, not an inferred publication diagnosis. A 200 image response with
 `immutable` confirms the public delivery/cache contract.
+If that path should be private, remove its stale public declaration from the catalog or factory
+and configure private delivery; an authorization callback cannot gate a path still declared public.
+Recovery commands target the default catalog unless you add `--receipts <catalog.json>` for your
+custom catalog. With an explicit factory, update its images/public configuration as well.
 The probe reads the `Transloadit-Error` code before choosing advice. `INSUFFICIENT_AUTH_SCOPE`
 specifically requires `assemblies:write`: edit the application key in Console → Credentials,
 with Smart CDN enabled, because generating renditions creates an Assembly. Other safe error-code

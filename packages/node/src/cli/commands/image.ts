@@ -1,5 +1,5 @@
 import { lstat, mkdir, open, rm } from 'node:fs/promises'
-import { dirname, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, relative, resolve } from 'node:path'
 
 import { validateStoragePathPrefix } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
@@ -70,6 +70,15 @@ export class ImageInitCommand extends UnauthenticatedCommand {
       const root = nextAppRoot()
       if (root === undefined)
         throw new Error('Run image init in a Next.js project containing app/ or src/app/')
+      const catalogArgument = relative(process.cwd(), resolve(this.receipts)).replaceAll('\\', '/')
+      if (
+        catalogArgument === '..' ||
+        catalogArgument.startsWith('../') ||
+        isAbsolute(catalogArgument)
+      )
+        throw new Error(
+          `Catalog ${JSON.stringify(this.receipts)} is outside this Next.js app. Move it inside the app for package-import scaffolding, or use an explicit createStorageImages factory for a shared external catalog. Nothing was written or published.`,
+        )
       const catalog = await readStorageCatalog(this.receipts)
       const needsCredentials = this.publicDelivery || catalog === undefined || this.writeEnv
       let environment: string | undefined
@@ -112,7 +121,6 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           })
           .join('')
       }
-      const catalogArgument = relative(process.cwd(), resolve(this.receipts)).replaceAll('\\', '/')
       const pageDirectory = `${root}app/storage-image-example`
       const example = this.example || this.publicDelivery
       const files = [
@@ -154,7 +162,10 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           if (isErrnoException(error) && error.code === 'ENOENT') return undefined
           throw error
         })
-        if (existing !== undefined) throw new Error(`Refusing to overwrite ${file.path}`)
+        if (existing !== undefined)
+          throw new Error(
+            `Refusing to overwrite ${JSON.stringify(file.path)}. Move or rename it before rerunning image init; existing files were left unchanged.`,
+          )
       }
       await updateStorageReceipts(this.receipts, async (previous, signal) => {
         // A verified workspace name is not an environment binding. Publishing or saving keys

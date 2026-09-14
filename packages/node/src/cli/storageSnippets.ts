@@ -40,6 +40,7 @@ export function storageImagePage(
     '    )',
     '  // Object.keys only returns own catalog keys, including when the catalog is still empty.',
     '  const src = path as keyof typeof catalog.images',
+    '  // Replace the filename-derived alt with a description, or an empty string if decorative.',
     '  const alt = path',
     "    .slice(path.lastIndexOf('/') + 1)",
     "    .replace(/\\.[^.]+$/, '')",

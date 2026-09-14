@@ -340,7 +340,10 @@ Stay in Kevin's reserved node-sdk checkout and #500, private 0.0.0. No merge or 
 - [x] Make optional examples use the package import, not a second factory scaffold shape.
 - [x] Show sha256 for combined keys in leading SDK examples; keep the existing default unchanged.
 - [x] Qualify cache/recovery/host claims and list known limits in the PR body.
-- [ ] Red-first regressions, local checks, packed fixture, independent reviews and exact-head CI.
+
+Validation gates: red-first regressions, local checks, packed fixture, independent reviews and
+exact-head CI. The PR's Verification section records the current head and receipts after these
+gates; /tmp/img-task2-round13-report.md records the full local evidence.
 
 Report: /tmp/img-task2-round13-report.md. Broader API2/Console changes and deferred product ideas
 remain outside this round; no additional clone or worktree is needed.
@@ -350,4 +353,10 @@ advice, HMR policy snapshots, package-only scaffold (including custom catalog/ow
 and SHA-256/cache/recovery examples. Focused suites are green; check, img check and verify pass
 (288 img, 594 Node with one pre-existing skip). Owned Next dev/browser desktop/mobile and real
 catalog hot reload pass; /tmp/img-r13-evidence-eGTRmZ contains screenshots and redacted evidence.
-Packed fixture, independent review and exact-head CI are the remaining gates at this checkpoint.
+Initial head 14a50e9 passed all 102 packed cases first attempt and CI run 34870869766. Opus UX and
+security passed. Council's five findings were then reproduced red-first and corrected: reject
+outside-app scaffold catalogs before publication, validate paths before shell advice, name the
+custom --receipts option and factory updates, give unsigned failures the right private remedy,
+and distinguish factory policy from catalog policy. The review also prompted copy-safe commands,
+an alt reminder, overwrite recovery advice and phrasing-safe development fallback annotations.
+Application authorization exceptions deliberately propagate; callbacks deny by returning false.
