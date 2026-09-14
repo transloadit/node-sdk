@@ -9,13 +9,6 @@ export function nextAppRoot(): '' | 'src/' | undefined {
   return undefined
 }
 
-interface StorageImageSnippetOptions {
-  prefix: string
-  privateDelivery?: boolean
-  receiptsImport: string
-  endpoint?: string
-}
-
 function relativeImport(path: string): string {
   return path.startsWith('./') || path.startsWith('../') ? path : `./${path}`
 }
@@ -25,48 +18,12 @@ function sourceString(value: string): string {
 }
 
 /** One catalog-typed Next.js factory for image init. */
-export function storageImageFactory({
-  prefix,
-  privateDelivery = false,
-  receiptsImport,
-  endpoint,
-}: StorageImageSnippetOptions): string {
-  const catalogImport = `import catalog from ${sourceString(relativeImport(receiptsImport))}`
-  const delivery =
-    endpoint === undefined
-      ? []
-      : [
-          '  // non-production API selected at login; remove for Smart CDN delivery',
-          `  baseUrl: ${sourceString(`${new URL(endpoint).origin}/file/{workspace}`)},`,
-          "  urlParams: { cdn: 'required' },",
-        ]
-  if (privateDelivery) {
-    return [
-      "import { createStorageImages } from '@transloadit/img/next/server'",
-      catalogImport,
-      '',
-      'export const { StorageImage, storageRoute } = createStorageImages({',
-      '  ...catalog,',
-      ...delivery,
-      `  allowedPathPrefixes: [${sourceString(prefix)}, ...catalog.public],`,
-      '  // Replace with your application session and per-object authorization.',
-      '  authorize: () => false,',
-      '})',
-      '',
-    ].join('\n')
-  }
+export function storageImageFactory(receiptsImport: string): string {
   return [
     "import { createStorageImages } from '@transloadit/img/next/server'",
-    catalogImport,
+    `import catalog from ${sourceString(relativeImport(receiptsImport))}`,
     '',
-    ...(delivery.length === 0
-      ? ['export const { StorageImage } = createStorageImages(catalog)']
-      : [
-          'export const { StorageImage } = createStorageImages({',
-          '  ...catalog,',
-          ...delivery,
-          '})',
-        ]),
+    'export const { StorageImage } = createStorageImages(catalog)',
     '',
   ].join('\n')
 }

@@ -318,4 +318,13 @@ one existing skip). Final img check → verify → packed fixture, closure revie
 remain the handoff gate; their receipts live in the report and PR body, without a docs-only SHA loop.
 No merge, publication, API2 restart or new blind-reader round is part of this handoff.
 
+The closure council exposed a credentialed variant of the endpoint mismatch: optional init could
+publish on development while preserving a production catalog, or save the wrong environment's
+private key. Four red-first cases cover both origin directions and both side effects; mismatches
+now fail under the catalog lock before publication or credential writes. Explicit endpoint changes
+move publication and delivery together; matching origins still work. The scaffold generator's
+unused private/endpoint branches were removed after confirming it has one public-only caller.
+Generated types intentionally stay canonical LF; Git handles checkout conversion. Final receipts
+are refreshed after this bounded correction; earlier green CI is not relabeled as its proof.
+
 Report and commit-stamped evidence: `/tmp/img-task2-round12-report.md`.

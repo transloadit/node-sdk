@@ -125,14 +125,9 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           ? [
               {
                 path: `${root}lib/storageImage.ts`,
-                content: storageImageFactory({
-                  prefix,
-                  privateDelivery: this.privateDelivery,
-                  receiptsImport: relative(
-                    resolve(`${root}lib`),
-                    resolve(this.receipts),
-                  ).replaceAll('\\', '/'),
-                }),
+                content: storageImageFactory(
+                  relative(resolve(`${root}lib`), resolve(this.receipts)).replaceAll('\\', '/'),
+                ),
               },
             ]
           : []),
@@ -178,6 +173,18 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         if (existing !== undefined) throw new Error(`Refusing to overwrite ${file.path}`)
       }
       await updateStorageReceipts(this.receipts, async (previous, signal) => {
+        // A verified workspace name is not an environment binding. Publishing or saving keys
+        // must not silently cross from the login's API to a different catalog's delivery origin.
+        if (
+          needsCredentials &&
+          this.endpoint === undefined &&
+          previous !== undefined &&
+          new URL(previous.delivery?.baseUrl ?? 'https://api2.transloadit.com').origin !==
+            new URL(login.endpoint ?? 'https://api2.transloadit.com').origin
+        )
+          throw new Error(
+            'The login endpoint does not match this catalog’s delivery. Select matching credentials, a separate --receipts catalog, or --endpoint to deliberately change delivery. Nothing was written.',
+          )
         const workspace =
           !needsCredentials && previous !== undefined
             ? previous.workspace

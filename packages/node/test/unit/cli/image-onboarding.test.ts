@@ -520,6 +520,91 @@ describe('image init', () => {
   })
 
   test.each([
+    { flags: ['--public'], loginEndpoint: 'http://127.0.0.1:3020', catalogEndpoint: undefined },
+    {
+      flags: ['--private', '--write-env'],
+      loginEndpoint: 'http://127.0.0.1:3020',
+      catalogEndpoint: undefined,
+    },
+    { flags: ['--public'], loginEndpoint: undefined, catalogEndpoint: 'http://127.0.0.1:3020' },
+    {
+      flags: ['--private', '--write-env'],
+      loginEndpoint: undefined,
+      catalogEndpoint: 'http://127.0.0.1:3020',
+    },
+  ])('refuses a credential/catalog endpoint mismatch before any write: %j', async ({
+    flags,
+    loginEndpoint,
+    catalogEndpoint,
+  }) => {
+    await mkdir('app')
+    const catalog = JSON.stringify({
+      workspace: 'my-app',
+      public: [],
+      images: {},
+      delivery:
+        catalogEndpoint === undefined
+          ? undefined
+          : {
+              baseUrl: `${catalogEndpoint}/file/{workspace}`,
+              urlParams: { cdn: 'required' },
+            },
+    })
+    await writeFile('transloadit.images.json', catalog)
+    vi.mocked(resolveCliConfig).mockReturnValue({
+      ...resolveCliConfig('login'),
+      endpoint: loginEndpoint,
+    })
+    await main(['image', 'init', 'website/', ...flags])
+    expect(process.exitCode).toBe(1)
+    expect(Transloadit.prototype.publishStoragePrefix).not.toHaveBeenCalled()
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringMatching(/endpoint.*catalog.*Nothing was written/),
+    )
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(catalog)
+    expect(await readdir(directory)).toEqual(['app', 'transloadit.images.json'])
+    expect(await readdir('app')).toEqual([])
+  })
+
+  test('an explicit endpoint deliberately moves publication and catalog delivery together', async () => {
+    await mkdir('app')
+    await writeFile(
+      'transloadit.images.json',
+      JSON.stringify({ workspace: 'my-app', public: [], images: {} }),
+    )
+    const endpoint = 'http://127.0.0.1:3020'
+    vi.mocked(resolveCliConfig).mockReturnValue({ ...resolveCliConfig('login'), endpoint })
+    await main(['image', 'init', 'website/', '--public', '--endpoint', endpoint])
+    expect(process.exitCode).toBeUndefined()
+    expect(Transloadit.prototype.publishStoragePrefix).toHaveBeenCalledOnce()
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toMatchObject({
+      public: ['website/'],
+      delivery: { baseUrl: `${endpoint}/file/{workspace}`, urlParams: { cdn: 'required' } },
+    })
+  })
+
+  test('matching catalog and login origins allow private credential scaffolding', async () => {
+    await mkdir('app')
+    const endpoint = 'http://127.0.0.1:3020'
+    const catalog = {
+      workspace: 'my-app',
+      public: [],
+      images: {},
+      delivery: { baseUrl: `${endpoint}/file/{workspace}`, urlParams: { cdn: 'required' } },
+    }
+    await writeFile('transloadit.images.json', JSON.stringify(catalog))
+    vi.mocked(resolveCliConfig).mockReturnValue({ ...resolveCliConfig('login'), endpoint })
+    await main(['image', 'init', 'uploads/', '--private', '--write-env'])
+    expect(
+      process.exitCode,
+      JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls),
+    ).toBeUndefined()
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
+    expect((await stat('.env.local')).mode & 0o777).toBe(0o600)
+    expect(Transloadit.prototype.publishStoragePrefix).not.toHaveBeenCalled()
+  })
+
+  test.each([
     '--public',
     '--private',
   ])('init carries a saved non-production endpoint for %s', async (mode) => {

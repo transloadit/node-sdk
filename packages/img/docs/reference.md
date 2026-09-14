@@ -71,6 +71,9 @@ explicit top-level `baseUrl`/`urlParams` override that block.
 `image init website/ --example` remains an optional factory/example generator. It uses an existing
 catalog without login or publication, preserving its workspace and delivery. A saved development
 login cannot redirect that existing catalog; only an explicit `--endpoint` changes its transport.
+Credentialed init (publication or `--write-env`) requires matching login/delivery origins; otherwise
+it refuses before any write. Select matching credentials or a separate catalog, or deliberately
+switch delivery with `--endpoint`. Custom CDN overrides can stay in the Next config plugin instead.
 `image init uploads/ --private` creates only the conventional
 authorizer and route below; add `--example` for a page too. The older `image init --public` is an
 explicit publication plus example shortcut, not a prerequisite. No existing source file is overwritten.

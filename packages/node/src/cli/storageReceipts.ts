@@ -64,6 +64,7 @@ export function storageTypesPath(catalog: string): string {
 }
 
 function catalogTypes(catalog: StorageProjectCatalog): string {
+  // Canonical LF keeps generated output deterministic; Git controls checkout-specific EOL conversion.
   const properties = Object.entries(catalog.images)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .flatMap(([path, receipt]) => {
