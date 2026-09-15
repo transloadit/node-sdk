@@ -1064,6 +1064,10 @@ describe('storage store', () => {
     expect(message).toContain(assemblyId)
     expect(message).toContain('transloadit storage ls website/hero.jpg --receipts images.json')
     expect(message).toContain(
+      'The commands below require the Storage read API, not yet enabled in production',
+    )
+    expect(message).toContain('inspect the Assembly in Console')
+    expect(message).toContain(
       'transloadit storage receipts sync website/hero.jpg --receipts images.json',
     )
     expect(message).toContain('Do not re-upload')

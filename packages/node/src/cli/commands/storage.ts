@@ -489,6 +489,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
               ? []
               : [
                   'The Assembly did not return usable receipt metadata. Do not re-upload; inspect Storage and recover its metadata:',
+                  'The commands below require the Storage read API, not yet enabled in production. Until then, inspect the Assembly in Console and restore a verified catalog receipt.',
                   // A filename prefix also works for root objects without scanning the workspace.
                   `transloadit storage ls ${quoteCliArgument(destination)} ${options}`,
                   `transloadit storage receipts sync ${quoteCliArgument(destination)} ${options}`,

@@ -466,8 +466,9 @@ review threads. No other repo changes, new worktrees, merge, release or follow-o
 - [x] Prove same-byte replays skip uploads using a same-workspace catalog and complete checksum/
   size match; changed bytes get another name and short-hash conflicts never overwrite.
 - [x] Move S3 recovery commands out of the README to the explicitly unavailable reference section.
-- [ ] Verify red-first tests, a packed hashed upload rendered in browsers, required checks,
-  focused review and exact-head green CI; update the PR body and report, then stop.
+- Verification gates: red-first tests, a packed hashed upload rendered in browsers, required
+  checks, focused review and exact-head green CI. Final receipts/status live in the report and
+  PR body; do not use an earlier head's CI badge. Stop after these gates, without merging/releasing.
 
 Evidence and final state: /tmp/img-task2-round15-report.md. Existing hosted/release gates and the
 deferred generic public-utility finding above remain unchanged.
@@ -493,3 +494,8 @@ CLI cwd was correctly treated as an untrusted override. Its independent CLI cwd 
 ownership check and copies verified metadata back into the browser app. All 11 seed tests pass in
 the isolated reproduction. Packed builds/browsers and exact-head CI must still pass after these
 fixes; final per-run receipts live in the report and PR body.
+
+Opus post-fix review confirms all four council fixes and the README wording. Its last adjacent
+finding was valid too: the post-write CLI recovery error still printed unavailable S3 commands
+without the prerequisite. A focused regression failed first; the error now names the availability
+limit and points to Console/verified catalog recovery. No new product slice or broad refactor.
