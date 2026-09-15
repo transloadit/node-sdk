@@ -95,6 +95,189 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test.each([
+    ['website/hero.jpg', 'website/hero.HASH.jpg'],
+    ['website/', 'website/local-photo.HASH.jpg'],
+    ['website/v1.2/hero.large.png', 'website/v1.2/hero.large.HASH.png'],
+    ['website/hero', 'website/hero.HASH'],
+    ['website/.hero', 'website/.hero.HASH'],
+  ])('hashes %s before the extension and uses that identity throughout the catalog', async (target, pattern) => {
+    const bytes = Buffer.from('original image bytes')
+    const md5hash = createHash('md5').update(bytes).digest('hex')
+    const path = pattern.replace('HASH', md5hash.slice(0, 8))
+    const stored = { ...receipt, path, md5hash, size: bytes.length }
+    await writeFile('local-photo.jpg', bytes)
+    const create = vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
+      ok: 'ASSEMBLY_COMPLETED',
+      results: { ':original': [{ ...stored, meta: { width: 800, height: 600 } }] },
+    })
+    await main(['storage', 'store', './local-photo.jpg', target, '--hashed'])
+    expect(process.exitCode).toBeUndefined()
+    expect(create).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        params: {
+          steps: {
+            stored: {
+              robot: '/transloadit/store',
+              use: ':original',
+              path,
+              conflict_strategy: 'error',
+            },
+          },
+        },
+      }),
+    )
+    const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
+    expect(catalog.images).toEqual({ [path]: { ...stored, source: 'local-photo.jpg' } })
+    expect(await readFile('transloadit-images.d.ts', 'utf8')).toContain(
+      `"${path}": { path: "${path}";`,
+    )
+    expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+      expect.stringContaining(`<StorageImage src="${path}" alt="local photo"`),
+      { ...stored, source: 'local-photo.jpg' },
+    )
+  })
+
+  test('reuses the same hashed bytes without an upload and gives changed bytes a new name', async () => {
+    const bytes = Buffer.from('first')
+    const changed = Buffer.from('replacement')
+    const md5hash = createHash('md5').update(bytes).digest('hex')
+    const nextHash = createHash('md5').update(changed).digest('hex')
+    const first = {
+      ...receipt,
+      path: `website/hero.${md5hash.slice(0, 8)}.jpg`,
+      md5hash,
+      size: bytes.length,
+      source: 'hero.jpg',
+    }
+    const second = {
+      ...first,
+      path: `website/hero.${nextHash.slice(0, 8)}.jpg`,
+      md5hash: nextHash,
+      size: changed.length,
+    }
+    await writeFile('hero.jpg', bytes)
+    const store = vi
+      .spyOn(Transloadit.prototype, 'storeImage')
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second)
+    const args = ['storage', 'store', './hero.jpg', 'website/', '--hashed']
+    await main(args)
+    expect(process.exitCode).toBeUndefined()
+    const saved = await readFile('transloadit.images.json', 'utf8')
+    await main(args)
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledOnce()
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(saved)
+    expect(OutputCtl.prototype.print).toHaveBeenLastCalledWith(
+      expect.stringContaining(`Unchanged ${first.path}; no upload needed.`),
+      first,
+    )
+    await writeFile('hero.jpg', changed)
+    await main(args)
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledTimes(2)
+    expect(store.mock.calls[1]?.[1]).toMatchObject({ path: second.path })
+    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).images).toEqual({
+      [first.path]: first,
+      [second.path]: second,
+    })
+  })
+
+  test.each([
+    'checksum',
+    'size',
+    'path',
+    'dimensions',
+  ])('does not reuse a hashed receipt with different %s', async (difference) => {
+    const bytes = Buffer.from('original')
+    const md5hash = createHash('md5').update(bytes).digest('hex')
+    const path = `website/hero.${md5hash.slice(0, 8)}.jpg`
+    const old = {
+      ...receipt,
+      path,
+      md5hash,
+      size: bytes.length,
+      ...(difference === 'checksum' ? { md5hash: `${md5hash.slice(0, 8)}${'0'.repeat(24)}` } : {}),
+      ...(difference === 'size' ? { size: bytes.length + 1 } : {}),
+      ...(difference === 'path' ? { path: 'another/path.jpg' } : {}),
+      ...(difference === 'dimensions' ? { width: 0 } : {}),
+    }
+    await writeFile('hero.jpg', bytes)
+    const previous = catalogJson({ [path]: old })
+    await writeFile('transloadit.images.json', previous)
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    await main(['storage', 'store', './hero.jpg', 'website/hero.jpg', '--hashed'])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining(path))
+    expect(OutputCtl.prototype.error).not.toHaveBeenCalledWith(
+      expect.stringContaining('--overwrite'),
+    )
+  })
+
+  test('hashed and overwrite cannot be combined', async () => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    await main(['storage', 'store', './hero.jpg', receipt.path, '--hashed', '--overwrite'])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('--hashed cannot be combined with --overwrite'),
+    )
+  })
+
+  test('hashed destinations with conflicting remote objects never suggest overwriting', async () => {
+    await writeFile('hero.jpg', 'original')
+    const hash = createHash('md5').update('original').digest('hex').slice(0, 8)
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockRejectedValue(
+      new ApiError({ body: { error: 'TRANSLOADIT_STORE_CONFLICT' } }),
+    )
+    await main(['storage', 'store', './hero.jpg', receipt.path, '--hashed'])
+    expect(process.exitCode).toBe(1)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining(`website/hero.${hash}.jpg`),
+    )
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('Restore its catalog receipt'),
+    )
+    expect(OutputCtl.prototype.error).not.toHaveBeenCalledWith(
+      expect.stringContaining('--overwrite'),
+    )
+  })
+
+  test('hashed batches accept equal basenames with different contents', async () => {
+    await mkdir('a')
+    await mkdir('b')
+    await writeFile('a/hero.jpg', 'a')
+    await writeFile('b/hero.jpg', 'b')
+    const store = vi
+      .spyOn(Transloadit.prototype, 'storeImage')
+      .mockImplementation(async (file, options) => ({
+        ...receipt,
+        path: options.path,
+        size: 1,
+        md5hash: createHash('md5')
+          .update(await readFile(file))
+          .digest('hex'),
+      }))
+    await main(['storage', 'store', './a/hero.jpg', './b/hero.jpg', 'website/', '--hashed'])
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledTimes(2)
+    expect(
+      Object.keys(JSON.parse(await readFile('transloadit.images.json', 'utf8')).images),
+    ).toEqual(['website/hero.0cc175b9.jpg', 'website/hero.92eb5ffe.jpg'])
+  })
+
+  test('hash suffixes still respect the maximum Storage path length before uploading', async () => {
+    await writeFile('hero.jpg', 'original')
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    await main(['storage', 'store', './hero.jpg', `${'x'.repeat(1020)}.jpg`, '--hashed'])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('1024'))
+  })
+
   test('saves optional ThumbHash metadata without advising blur for a private image', async () => {
     const blurred = { ...receipt, hasAlpha: true, thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI' }
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(blurred)

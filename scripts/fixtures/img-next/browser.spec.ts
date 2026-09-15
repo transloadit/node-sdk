@@ -912,6 +912,40 @@ test('unsigned public Built-ins refuse private paths and private Built-ins never
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
 })
 
+for (const width of [390, 1200]) {
+  test(`the packed hashed upload decodes at ${width}px with its catalog identity`, async ({
+    page,
+  }, info) => {
+    const { path, receipt, assemblies } = JSON.parse(await readFile('hashed-upload.json', 'utf8'))
+    expect(assemblies).toBe(1)
+    await page.setViewportSize({ width, height: 850 })
+    await page.goto('/fixture/package-hashed')
+    const image = page.getByRole('img', { name: 'Content-addressed hero', exact: true })
+    await decode(image)
+    const current = await image.evaluate((element) => {
+      if (!(element instanceof HTMLImageElement)) throw new Error('Expected the hashed image')
+      return element.currentSrc
+    })
+    const url = new URL(current)
+    expect(decodeURIComponent(url.pathname)).toBe(
+      `/file/fixture/builtin/public-preview@0.0.1/${path}`,
+    )
+    expect(url.searchParams.get('v')).toBe(receipt.md5hash.slice(0, 16))
+    expect(url.searchParams.has('sig')).toBe(false)
+    await info.attach('hashed-upload', {
+      body: JSON.stringify({
+        path,
+        receipt,
+        assemblies,
+        currentSrc: current,
+        viewport: { width, height: 850 },
+      }),
+      contentType: 'application/json',
+    })
+    await info.attach('hashed-image', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+}
+
 test.describe('server-only blur placeholders', () => {
   test.use({ javaScriptEnabled: false })
 

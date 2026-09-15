@@ -454,3 +454,27 @@ safe. Correct the generic helper's template-specific bounds separately before ad
 the public Built-in; preserve custom-template behavior and truthful width descriptors. No extra
 issue or public-delivery implementation was started in this polish round. Also keep the established
 hosted Vercel, registry install and actual Bunny/S3 rollout gates. Stop; do not merge or publish.
+
+### Round 15 — content-addressed upload names and focused recovery docs
+
+Kevin's two items in /tmp/img-task2-round15-brief.md. Starting at c56ec58 in the reserved
+/Users/kvz/code/node-sdk checkout, img-onboard, #500. Latest main is already an ancestor; no GitHub
+review threads. No other repo changes, new worktrees, merge, release or follow-on round.
+
+- [x] Add storage store --hashed: eight MD5 hex digits before the extension; catalog, generated
+  path types and JSX agree, with the original local filename retained as source.
+- [x] Prove same-byte replays skip uploads using a same-workspace catalog and complete checksum/
+  size match; changed bytes get another name and short-hash conflicts never overwrite.
+- [x] Move S3 recovery commands out of the README to the explicitly unavailable reference section.
+- [ ] Verify red-first tests, a packed hashed upload rendered in browsers, required checks,
+  focused review and exact-head green CI; update the PR body and report, then stop.
+
+Evidence and final state: /tmp/img-task2-round15-report.md. Existing hosted/release gates and the
+deferred generic public-utility finding above remain unchanged.
+
+Red-first: 16 failures / 92 passes, then 107 / 108 passed and the remaining replay test exposed
+catalog key reordering. Replays now preserve the original record/object rather than writing the
+schema's reordered projection. CLI hashing uses a bounded preflight read so a repeat can skip the
+SDK/Assembly entirely; fresh uploads retain the SDK's independent checksum/receipt verification.
+No new public SDK options or dependencies. Matching-checksum sync preserves source; the default
+unhashed path and overwrite behavior stay unchanged. No production S3 availability is assumed.

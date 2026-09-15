@@ -471,7 +471,16 @@ sets it. This deliberately changes cache keys during unpublished dogfood. Markup
 transferred image bytes; compression and full-page RSC data vary. Private expiry/signature rotation
 creates new cache entries (30 minutes by default).
 Public URLs have no signature or expiry. They are cache-busted, not immutable origin identities:
-an old uncached URL can fetch new bytes after a path overwrite. Prefer immutable filenames.
+an old uncached URL can fetch new bytes after a path overwrite. Prefer immutable filenames:
+`storage store ./hero.jpg website/ --hashed` inserts the first eight hex digits of the input MD5
+before the extension, for example `website/hero.fce9d56a.jpg`. The catalog key, generated types and
+printed JSX use that name; the receipt's `source` keeps the original local filename for humans.
+The same bytes at the same destination are a no-op when the same-workspace catalog has a verified
+receipt with matching full MD5 and size. Commit the catalog: without that evidence the CLI cannot
+prove a remote conflict is the same object. Restore the receipt or choose another basename; a
+short-hash collision is never overwritten. Changed bytes get a new name, so `--overwrite` is not
+needed and cannot be combined with `--hashed`. Do not modify the input while uploading.
+The `v` tag is then belt-and-braces; hashed naming does not change the origin's versioning contract.
 `v` is a cache-busting tag derived from the receipt hash; the origin does not verify it, so a cold
 request after an overwrite can return the replacement. With a receipt MD5 it uses the first 16 hex digits and
 responses use `public, max-age=31536000, s-maxage=31536000, immutable`. Changed bytes plus a refreshed
@@ -592,7 +601,8 @@ Rendering requires no metadata lookup.
 
 `storage store ./images/*.jpg website/` accepts shell-expanded files and a directory destination.
 Each successful upload is checkpointed before the next; a later failure preserves earlier receipts.
-Duplicate destination basenames are refused before uploading. The printed snippet uses a
+Duplicate destination basenames are refused before uploading unless `--hashed` distinguishes them
+by content (identical bytes reuse the first receipt). The printed snippet uses a
 filename-derived alt; replace it with an accurate description, or an empty alt for a decorative image.
 
 The CLI atomically appends to the catalog's `images` object keyed by Storage path, preserving earlier receipts
@@ -603,9 +613,19 @@ check Storage or sync receipts before retrying a write. A forced exit or crash c
 remove it only after confirming the writer has stopped.
 New catalogs use ordinary file permissions derived from your umask; existing modes are preserved.
 The credentials file remains private (`0600`).
-Receipt validation occurs after the Storage write, not as a rollback. If no usable receipt comes
-back, inspect with `storage ls` and recover with `storage receipts sync`, using the same catalog.
-Do not re-upload or use `--overwrite` to fix missing metadata. Existing paths conflict by default.
+Receipt validation occurs after the Storage write, not as a rollback. Do not re-upload or use
+`--overwrite` to fix missing metadata. Existing paths conflict by default.
+`storage store --overwrite` explicitly replaces an occupied path; it is never the default. Prefer
+[hashed immutable filenames](#cache-and-markup-cost) because delivery resolves paths, not receipt
+hashes, and cached bytes can outlive an overwrite. On older deployments that transform uploaded
+bytes, the CLI still saves the authoritative receipt; a differing checksum prevents a hashed replay
+from being treated as a no-op.
+
+### Recovery (requires the Storage read API, not yet enabled in production)
+
+If no usable receipt comes back, inspect with `storage ls` and recover with `storage receipts sync`,
+using the same catalog. Until this API is enabled, restore the committed catalog or use the
+[Assembly receipt recovery API](#images-uploaded-by-your-users) with trusted upload metadata.
 
 `storage ls` and `storage receipts sync` require the S3 read API, currently off in production until
 `API2_STORAGE_S3_ENABLED` is deployed. HTTP 403 cannot distinguish a disabled API from denied access;
@@ -620,9 +640,6 @@ It uses the endpoint saved with those key credentials; `--endpoint` is an explic
 and accepts the API origin, not a bucket URL. The rendering factory's `baseUrl` is unrelated.
 The Storage S3 API must be enabled separately: successful Assembly-based storage or image delivery
 does not imply that listing is enabled. A disabled S3 API returns HTTP 403, even with valid credentials.
-`storage store --overwrite` explicitly replaces an occupied path; it is never the default. Prefer
-immutable filenames because delivery resolves paths, not receipt hashes, and cached bytes can outlive
-an overwrite.
 
 Recover or refresh a rendering catalog without re-uploading or downloading originals:
 
@@ -642,7 +659,7 @@ rebuild `{ path, width, height }`, which can be passed directly as `StorageImage
 `md5hash` is included only for compatible single-part ETags; multipart, opaque and SSE-KMS/SSE-C
 ETags are not treated as MD5. See [S3's ETag contract](https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html).
 HEAD does not expose `asset_id`: sync recovers rendering metadata, not a verified upload receipt.
-Sync preserves an existing `asset_id`, `size`, `thumbhash` and `hasAlpha` only when the HEAD MD5 matches
+Sync preserves an existing `asset_id`, `size`, `source`, `thumbhash` and `hasAlpha` only when the HEAD MD5 matches
 the saved hash. A fresh sync has no original bytes and cannot reconstruct ThumbHash or alpha metadata.
 It cannot generate a ThumbHash from List + HEAD; fresh recovered receipts leave that field absent.
 Otherwise it replaces that entry with rendering metadata, so stale upload evidence is not retained.

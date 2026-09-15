@@ -145,6 +145,7 @@ test.each([
           md5hash: md5,
           thumbhash,
           hasAlpha: true,
+          source: 'local-photo.png',
         },
       },
     }),
@@ -155,10 +156,11 @@ test.each([
   await runSync()
   expect(process.exitCode).toBeUndefined()
   const image = JSON.parse(await readFile('images.json', 'utf8')).images['website/a.jpg']
-  if (matches) expect(image).toMatchObject({ thumbhash, hasAlpha: true })
+  if (matches) expect(image).toMatchObject({ thumbhash, hasAlpha: true, source: 'local-photo.png' })
   else {
     expect(image).not.toHaveProperty('thumbhash')
     expect(image).not.toHaveProperty('hasAlpha')
+    expect(image).not.toHaveProperty('source')
   }
 })
 

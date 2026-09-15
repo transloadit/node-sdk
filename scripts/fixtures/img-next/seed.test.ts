@@ -97,6 +97,97 @@ test('the package-first path stores and publishes without image init and emits c
   await assert.rejects(stat('lib/storageImage.ts'), { code: 'ENOENT' })
 })
 
+test('the packed CLI stores a hashed image once and renders its exact typed path', async (t) => {
+  const loginDirectory = await mkdtemp(join(tmpdir(), 'img-hashed-login-'))
+  t.after(() => rm(loginDirectory, { recursive: true, force: true }))
+  const credentials = join(loginDirectory, 'credentials')
+  await writeFile(
+    credentials,
+    'TRANSLOADIT_KEY=assembly-key\nTRANSLOADIT_SECRET=assembly-secret\nTRANSLOADIT_WORKSPACE=fixture\nTRANSLOADIT_WORKSPACE_VERIFIED=true\n',
+    { mode: 0o600 },
+  )
+  const previousEnv = { ...process.env }
+  t.after(() => {
+    process.env = previousEnv
+    process.exitCode = undefined
+  })
+  for (const name of [
+    'TRANSLOADIT_KEY',
+    'TRANSLOADIT_SECRET',
+    'TRANSLOADIT_AUTH_KEY',
+    'TRANSLOADIT_AUTH_SECRET',
+    'TRANSLOADIT_AUTH_TOKEN',
+  ])
+    delete process.env[name]
+  process.env.TRANSLOADIT_CREDENTIALS_FILE = credentials
+  const local = await sharp({
+    create: { width: 2400, height: 1600, channels: 3, background: '#2d6ea0' },
+  })
+    .jpeg()
+    .toBuffer()
+  const md5hash = createHash('md5').update(local).digest('hex')
+  const path = `website/hashed-hero.${md5hash.slice(0, 8)}.jpg`
+  const stored = {
+    ...receipt,
+    path,
+    md5hash,
+    size: local.length,
+    meta: { width: 2400, height: 1600 },
+  }
+  await writeFile('hashed-hero.jpg', local)
+  const output: string[] = []
+  t.mock.method(process.stdout, 'write', (chunk: string | Uint8Array) => {
+    output.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString())
+    return true
+  })
+  const create = t.mock.method(
+    Transloadit.prototype,
+    'createAssembly',
+    (options: {
+      params?: { steps?: { stored?: { path?: string; conflict_strategy?: string } } }
+    }) => {
+      assert.equal(options.params?.steps?.stored?.path, path)
+      assert.equal(options.params?.steps?.stored?.conflict_strategy, 'error')
+      const response: AssemblyStatus = {
+        ok: 'ASSEMBLY_COMPLETED',
+        results: { ':original': [stored] },
+      }
+      return Promise.resolve(response)
+    },
+  )
+  const cli: { main: (args: string[]) => Promise<void> } = await import(
+    new URL('./cli.js', import.meta.resolve('@transloadit/node')).href
+  )
+  const args = ['storage', 'store', './hashed-hero.jpg', 'website/', '--hashed']
+  await cli.main(args)
+  assert.equal(process.exitCode, undefined)
+  const originalCatalog = await readFile('transloadit.images.json', 'utf8')
+  await cli.main(args)
+  assert.equal(process.exitCode, undefined)
+  assert.equal(create.mock.callCount(), 1)
+  assert.equal(await readFile('transloadit.images.json', 'utf8'), originalCatalog)
+  const catalog = JSON.parse(originalCatalog)
+  assert.equal(catalog.images[path].source, 'hashed-hero.jpg')
+  assert.equal(catalog.images[path].md5hash, md5hash)
+  assert.equal(catalog.images[path].path, path)
+  assert(
+    (await readFile('transloadit-images.d.ts', 'utf8')).includes(
+      `"${path}": { path: "${path}"; width: 2400; height: 1600;`,
+    ),
+  )
+  assert(output.join('').includes(`<StorageImage src="${path}" alt="hashed hero"`))
+  assert(output.join('').includes(`Unchanged ${path}; no upload needed.`))
+  await mkdir('app/package-hashed', { recursive: true })
+  await writeFile(
+    'app/package-hashed/page.tsx',
+    `import { StorageImage } from '@transloadit/img/next'\nexport default function Page() {\n  return <StorageImage src=${JSON.stringify(path)} alt="Content-addressed hero" width={960} preload />\n}\n`,
+  )
+  await writeFile(
+    'hashed-upload.json',
+    `${JSON.stringify({ path, receipt: catalog.images[path], output, assemblies: create.mock.callCount() }, null, 2)}\n`,
+  )
+})
+
 test('the packed CLI scaffolds an empty catalog and the actual constrained page used by the browser proof', async (t) => {
   const originalCwd = process.cwd()
   const directory = join(originalCwd, 'app/cli-image')

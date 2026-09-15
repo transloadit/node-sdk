@@ -153,6 +153,12 @@ test('image docs describe the unverified cache tag and recommend immutable names
   )
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   expect(readme.slice(0, readme.indexOf('## Responsive'))).toContain('immutable filename')
+  expect(readme.slice(0, readme.indexOf('## Responsive'))).toContain(
+    'Prefer `--hashed` for images you will replace',
+  )
+  expect(docs).toContain('eight hex')
+  expect(docs).toContain('same bytes')
+  expect(docs).toContain('belt-and-braces')
   expect(docs).toContain('placeholder="blur"')
   expect(docs).toContain('thumbhash')
   expect(docs).toContain('hasAlpha: true')
@@ -191,7 +197,18 @@ test('cache-key and production recovery limits are stated without implying unive
   )
   expect(reference).toContain('configured on `*.tlcdn.com`')
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
-  expect(readme).toContain('unavailable until the S3 read API ships in production')
+  expect(readme).not.toMatch(/storage ls|storage receipts sync/)
+  expect(readme).toContain(
+    '](./docs/reference.md#recovery-requires-the-storage-read-api-not-yet-enabled-in-production)',
+  )
+  const recovery = reference.slice(
+    reference.indexOf(
+      '### Recovery (requires the Storage read API, not yet enabled in production)',
+    ),
+  )
+  expect(recovery).toContain('storage ls')
+  expect(recovery).toContain('storage receipts sync')
+  expect(recovery).toContain('HTTP 403 cannot distinguish a disabled API from denied access')
 })
 
 test('private deployment uses an application key rather than the revocable CLI login identity', async () => {

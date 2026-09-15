@@ -2,7 +2,9 @@ import type { HeadObjectCommandOutput } from '@aws-sdk/client-s3'
 
 import type { StoredImageReceipt } from '../../storageImage.ts'
 
-import { basename, resolve } from 'node:path'
+import { createHash } from 'node:crypto'
+import { createReadStream } from 'node:fs'
+import { basename, posix, resolve } from 'node:path'
 
 import { validateStoragePath } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
@@ -194,6 +196,22 @@ export class StoragePublicationsCommand extends AuthenticatedCommand {
   }
 }
 
+async function hashImageFile(
+  file: string,
+  signal: AbortSignal,
+): Promise<{ md5hash: string; size: number }> {
+  const hash = createHash('md5')
+  let size = 0
+  // A bounded preflight lets the CLI skip an upload. storeImage still independently verifies it.
+  for await (const chunk of createReadStream(file, { signal })) {
+    hash.update(chunk)
+    size += chunk.length
+  }
+  if (size === 0) throw new Error('Cannot store an empty image')
+  signal.throwIfAborted()
+  return { md5hash: hash.digest('hex'), size }
+}
+
 /** Stores originals in order, checkpointing each verified receipt before the next upload. */
 export class StorageStoreCommand extends StorageProjectCommand {
   static override paths = [['storage', 'store']]
@@ -204,18 +222,24 @@ export class StorageStoreCommand extends StorageProjectCommand {
     details: `
       Uses the CLI's Assembly credentials (environment, .env or ~/.transloadit/credentials).
       Storage writes must be enabled. Existing Storage paths conflict unless --overwrite is explicit.
+      --hashed inserts eight MD5 hex digits before the extension. Matching catalog receipts skip
+      repeat uploads; changed bytes get a fresh name. --hashed cannot be combined with --overwrite.
       The project catalog binds workspace, published prefixes and image receipts. Each successful
       upload is saved atomically before the next. Do not run two writers against the same catalog.
       The catalog defaults to transloadit.images.json; --receipts selects another file.
     `,
     examples: [
       ['Store a hero image', 'transloadit storage store ./hero.jpg website/hero.jpg'],
+      ['Store a content-addressed image', 'transloadit storage store ./hero.jpg website/ --hashed'],
       ['Store a directory of originals', 'transloadit storage store ./images/*.jpg website/'],
     ],
   })
 
   files = Option.Rest({ required: 1 })
   destination = Option.String({ required: true })
+  hashed = Option.Boolean('--hashed', false, {
+    description: 'Add an eight-digit content hash to the filename; reuse matching catalog receipts',
+  })
   overwrite = Option.Boolean('--overwrite', false, {
     description: 'Explicitly replace an existing Storage path',
   })
@@ -225,13 +249,17 @@ export class StorageStoreCommand extends StorageProjectCommand {
   })
   protected async run(): Promise<number | undefined> {
     const file = resolve(this.receipts)
-    let stored: { receipt?: StoredImageReceipt } = {}
+    let stored: { receipt?: StoredImageReceipt & { source?: string } } = {}
     let destination = this.destination
     let workspace: string | undefined
     let saved = false
     let published: string | undefined
     try {
       noticeCliCredentialSource(this.cliConfig, this.output)
+      if (this.hashed && this.overwrite)
+        throw new Error(
+          '--hashed cannot be combined with --overwrite; changed bytes get a new name',
+        )
       if (this.files.length > 1 && !this.destination.endsWith('/'))
         throw new Error('Multiple images need a directory destination ending in /')
       const inputs = this.files.map((input) => ({
@@ -247,7 +275,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
           throw new Error('The generated declarations file cannot be the input image')
         validateStoragePath(input.path)
       }
-      if (new Set(inputs.map((input) => input.path)).size !== inputs.length)
+      if (!this.hashed && new Set(inputs.map((input) => input.path)).size !== inputs.length)
         throw new Error(
           'Input image basenames collide in the destination directory; rename them first',
         )
@@ -259,6 +287,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
       let setupPrinted = false
       for (const input of inputs) {
         let publicImage = false
+        let unchanged = false
         destination = input.path
         stored = {}
         saved = false
@@ -273,7 +302,30 @@ export class StorageStoreCommand extends StorageProjectCommand {
             )
             assertStorageWorkspace(workspace, receipts?.workspace, this.workspace)
             signal.throwIfAborted()
-            stored.receipt = await this.client.storeImage(input.file, {
+            if (this.hashed) {
+              const { md5hash, size } = await hashImageFile(input.file, signal)
+              const extension = posix.extname(destination)
+              destination = `${destination.slice(0, destination.length - extension.length)}.${md5hash.slice(0, 8)}${extension}`
+              validateStoragePath(destination)
+              if (
+                receipts?.workspace === workspace &&
+                Object.hasOwn(receipts.images, destination)
+              ) {
+                const previous = hashedReceiptSchema.safeParse(receipts.images[destination])
+                if (
+                  !previous.success ||
+                  previous.data.path !== destination ||
+                  previous.data.md5hash !== md5hash ||
+                  previous.data.size !== size
+                )
+                  throw new Error(
+                    `Catalog receipt for ${JSON.stringify(destination)} does not match this file. Restore a verified receipt or choose another destination basename; nothing uploaded.`,
+                  )
+                stored.receipt = previous.data
+                unchanged = true
+              }
+            }
+            stored.receipt ??= await this.client.storeImage(input.file, {
               path: destination,
               signal,
               onReceipt: (receipt, expected, assemblyId) => {
@@ -299,6 +351,8 @@ export class StorageStoreCommand extends StorageProjectCommand {
               },
               ...(this.overwrite ? { overwrite: true } : {}),
             })
+            if (this.hashed && !unchanged)
+              stored.receipt = { ...stored.receipt, source: basename(input.file) }
             if (receipts !== undefined && receipts.workspace !== workspace) {
               this.output.notice(
                 `Catalog ${this.receipts} was not changed; it belongs to ${receipts.workspace}. Use --receipts for a separate catalog.`,
@@ -306,6 +360,8 @@ export class StorageStoreCommand extends StorageProjectCommand {
               return undefined
             }
             publicImage = receipts?.public.some((prefix) => destination.startsWith(prefix)) ?? false
+            // Replays must not reorder fields or discard application metadata from a saved receipt.
+            if (unchanged) return receipts
             return {
               ...receipts,
               workspace,
@@ -355,12 +411,12 @@ export class StorageStoreCommand extends StorageProjectCommand {
             .replaceAll('>', '&gt;')
         const src = attribute(receipt.path)
         const alt = attribute(
-          basename(receipt.path)
+          basename(receipt.source ?? receipt.path)
             .replace(/\.[^.]+$/, '')
             .replaceAll(/[-_]+/g, ' '),
         )
         this.output.print(
-          `${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}}${blur ? ' placeholder="blur"' : ''} />\nReplace alt with a description (or an empty string for a decorative image).${setupAdvice}`,
+          `${unchanged ? `Unchanged ${receipt.path}; no upload needed.\n` : ''}${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}}${blur ? ' placeholder="blur"' : ''} />\nReplace alt with a description (or an empty string for a decorative image).${setupAdvice}`,
           receipt,
         )
       }
@@ -427,7 +483,9 @@ export class StorageStoreCommand extends StorageProjectCommand {
       }
       if (failure instanceof ApiError && failure.code === 'TRANSLOADIT_STORE_CONFLICT') {
         this.output.error(
-          `Storage destination ${JSON.stringify(destination)} already exists. Choose a fresh name; use --overwrite only if you deliberately want to replace that object.`,
+          this.hashed
+            ? `Storage destination ${JSON.stringify(destination)} already exists, but no matching catalog receipt proves its contents. Restore its catalog receipt or choose another destination basename; the object was not replaced.`
+            : `Storage destination ${JSON.stringify(destination)} already exists. Choose a fresh name; use --overwrite only if you deliberately want to replace that object.`,
         )
         return 1
       }
@@ -502,6 +560,13 @@ const uploadEvidenceSchema = z.object({
   size: z.number().int().nonnegative().optional(),
   thumbhash: z.string().max(48).optional(),
   hasAlpha: z.boolean().optional(),
+  source: z.string().optional(),
+})
+
+const hashedReceiptSchema = uploadEvidenceSchema.required({ asset_id: true, size: true }).extend({
+  path: z.string(),
+  width: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  height: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
 })
 
 function md5FromHead(head: HeadObjectCommandOutput): string | undefined {

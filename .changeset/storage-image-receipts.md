@@ -23,6 +23,10 @@ upload progress, cancellation and errors; receipt validation after a write is no
 Add `transloadit storage store <file> <path>` using the CLI's existing
 Assembly credentials. Atomically append keyed receipts, preserve previous data on failures and
 reject concurrent writers, then print a ready-to-render StorageImage snippet.
+Add `storage store --hashed` for content-addressed filenames: eight MD5 hex digits before the
+extension, with catalog keys, generated types and JSX following the stored path. Retain the local
+filename as `source`; reuse matching full-checksum/size receipts without uploading. Never overwrite
+a hash conflict. Keep production-unavailable S3 recovery commands in the image reference only.
 When receipt validation fails after writing, print the destination and Assembly ID for recovery.
 Point to list/sync, not overwrite or another upload. Report pending browser approval every minute.
 Document npm-first onboarding, browser signup and free-plan watermark behavior.
