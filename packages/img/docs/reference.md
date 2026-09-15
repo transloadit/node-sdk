@@ -154,6 +154,8 @@ The default `fit="contain"` keeps the source proportions with CSS letterboxing.
 ```
 
 Fill with `aspectRatio` emits a positioned container with that ratio and crops to match it.
+Native `style` and `className` apply to the image, not that container. Constrain the parent to set
+the frame's maximum width; setting `maxWidth` only on the image leaves the frame full-width.
 Use `frame={false}` when your application already owns the box, matching its CSS to the crop.
 Fill without a ratio requires an already-sized, positioned parent; cover always needs the ratio.
 All layout modes preserve explicit `sizes`, `widths`, `style` and `objectFit` overrides. Source
@@ -163,15 +165,17 @@ and backend limits still apply. `widths` overrides even the constrained mode's d
 For different mobile and desktop crops, pass width breakpoints in priority order and a default:
 
 ```tsx
-<StorageImage
-  src="website/hero.jpg"
-  alt="A canal house"
-  layout="fill"
-  fit="cover"
-  aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}
-  sizes="(min-width: 960px) 960px, 100vw"
-  preload
-/>
+<div style={{ maxWidth: 960 }}>
+  <StorageImage
+    src="website/hero.jpg"
+    alt="A canal house"
+    layout="fill"
+    fit="cover"
+    aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}
+    sizes="(min-width: 960px) 960px, 100vw"
+    preload
+  />
+</div>
 ```
 
 The same map sizes the emitted container; no duplicate responsive CSS is needed. Each breakpoint gets

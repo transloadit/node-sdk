@@ -120,6 +120,8 @@ yarn dev
 ```
 
 Follow the image package Quickstart to add its Next plugin and import StorageImage from the package.
+Start with `auth login` even without an account: choose Sign up in the browser it opens, then approve
+the CLI. For application-server uploads instead of CLI seeding, see [Store an image](#store-an-image).
 Login opens browser approval (on Windows, open the printed URL) and saves one combined Auth Key,
 workspace and signing algorithm in the owner-only credentials file. `--no-browser` prints the
 approval URL; `--stdin` accepts dotenv credentials for automation. Existing credentials require
@@ -1441,6 +1443,45 @@ npx transloadit assemblies list -l 7
 ```
 
 ## SDK Usage
+
+### Store an image
+
+`storeImage()` uploads one local image and returns a verified receipt ready for `StorageImage`.
+Install `@transloadit/node` as a runtime dependency for server uploads; a dev dependency is enough
+when you only use its CLI. Use an Assembly-enabled application key in your server environment,
+not a signing-only image-delivery key or the disposable login key that `auth logout` revokes.
+New combined Smart CDN/Assembly keys use SHA-256, as selected below; use your configured algorithm
+for an existing key.
+
+In an authenticated server handler, `user` is your verified session user and `saveImage` is your
+application's database helper, not an SDK function:
+
+```ts
+import { randomUUID } from 'node:crypto'
+import { Transloadit } from '@transloadit/node'
+
+const { TRANSLOADIT_KEY: authKey, TRANSLOADIT_SECRET: authSecret } = process.env
+if (!authKey || !authSecret) {
+  throw new Error('Set TRANSLOADIT_KEY and TRANSLOADIT_SECRET on the server')
+}
+const client = new Transloadit({
+  authKey,
+  authSecret,
+  signatureAlgorithm: 'sha256',
+})
+const receipt = await client.storeImage('./hero.jpg', {
+  path: `uploads/${randomUUID()}/hero.jpg`,
+})
+await saveImage({ ...receipt, ownerId: user.id })
+```
+
+Choose the destination on the server and save the complete receipt with its owner ID. An occupied
+path is refused unless you explicitly pass `overwrite: true`. This helper does not publish a
+directory or update the CLI's catalog. Pass the saved receipt as `src` in an authorized application;
+see [user uploads, private access and trusted receipt recovery with `getStoredImageReceipt()`](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#images-uploaded-by-your-users)
+for the Uppy/notification flow and recovery without another upload.
+
+### Process an image
 
 The following code will upload an image and resize it to a thumbnail. New Console-created combined
 Smart CDN/Assembly keys use SHA-256, so this example selects it explicitly; the SDK's legacy default

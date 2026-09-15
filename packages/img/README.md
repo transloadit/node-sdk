@@ -11,8 +11,8 @@ After release: `npm install @transloadit/img && npm install --save-dev @transloa
 pnpm: `pnpm add @transloadit/img && pnpm add -D @transloadit/node`;
 Yarn: `yarn add @transloadit/img && yarn add -D @transloadit/node`.
 
-Run beside `package.json`. No account yet? Sign up in the browser; a new free workspace works.
-For `./hero.jpg`, use any JPEG you have.
+Run beside `package.json`. Start with `auth login` even without an account: choose Sign up in the
+browser it opens, create a free workspace, and approve the CLI. For `./hero.jpg`, use any JPEG you have.
 
 Prefer `--hashed` for images you will replace: it generates an immutable filename such as
 `website/hero.fce9d56a.jpg`. Add the flag below and use the printed JSX path; no `--overwrite` is needed.

@@ -499,3 +499,33 @@ Opus post-fix review confirms all four council fixes and the README wording. Its
 finding was valid too: the post-write CLI recovery error still printed unavailable S3 commands
 without the prerequisite. A focused regression failed first; the error now names the availability
 limit and points to Console/verified catalog recovery. No new product slice or broad refactor.
+
+### Independent DX follow-up — 2026-09-15
+
+Kevin approved the three bounded documentation improvements from the fresh Astra review, followed
+by an explicit Uppy replacement-policy check. Preserve the product API; do not restart the reader
+loop or infer merge, publication or production-rollout authority.
+
+- [x] Make CLI login the first action even without an account; signup continues in its browser flow.
+- [x] Add a discoverable application-server `storeImage()` recipe: Assembly-enabled credentials,
+  SHA-256 for new combined keys, server-chosen unique paths and persistence with the verified owner.
+- [x] Explain that fill `style`/`className` target the image, and constrain the parent in the
+  responsive example. Native browser geometry was checked during the independent review.
+- [x] Strictly typecheck the new upload snippet against the packed candidate. The first check caught
+  optional environment values; the explicit missing-credentials guard makes it pass without casts.
+- [x] Verify Uppy store parameters against the local API and read back the resulting bytes. Omitting
+  `overwrite` replaces the original; `error` rejects with `TRANSLOADIT_STORE_CONFLICT` and preserves
+  it; `rename` stores a second file and preserves both. Existing helper tests also pass (5/5).
+
+Application-image recipes should use server-owned unique paths and refuse collisions. The existing
+Uppy user-upload recipe already specifies `conflict_strategy: 'error'`. No manager-mode default was
+changed: choosing replacement as a file-management feature is a separate product decision. This
+was a real Uppy parameter-builder → Assembly → stored-bytes check, not a browser/Companion proof.
+Only disposable local-test assets in the dedicated dev bucket were touched.
+
+The SDK's required check passes (319 img, 636 Node plus one existing skip); README contract tests
+were updated and the legacy wrapper README is regenerated from the canonical source. Final verify
+and exact-head CI receipts belong in the PR Verification section and
+`/tmp/dam-dx-followup.VZ1bC7/report.md`. The independent review remains at
+`/tmp/dam-dx-astra-mZadsP/report.md`. Hosted Content/native-delivery, registry-install and API2
+deployment/S3 rollout gates above remain open; this docs follow-up does not close them.
