@@ -148,6 +148,14 @@
   },
   "overrides": [
     {
+      "includes": ["scripts/fixtures/img-next/app/**"],
+      "linter": {
+        "rules": {
+          "correctness": { "useImportExtensions": "off" }
+        }
+      }
+    },
+    {
       "includes": ["**/package.json"],
       "formatter": {
         "expand": "always"

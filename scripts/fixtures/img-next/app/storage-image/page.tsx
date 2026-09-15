@@ -1,16 +1,28 @@
 import type { ReactNode } from 'react'
 
-import { TransloaditImage } from '../TransloaditImage.tsx'
+import { TransloaditImage } from '../TransloaditImage'
 
 export default function Page(): ReactNode {
   return (
-    <TransloaditImage
-      alt="Storage fixture"
-      height={300}
-      sizes="400px"
-      src="documents/report.pdf"
-      suspenseFallback={<div aria-label="Loading preview" role="status" />}
-      width={400}
-    />
+    <main>
+      <TransloaditImage
+        alt="Storage hero"
+        id="hero"
+        layout="constrained"
+        width={960}
+        src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+      />
+      <p>After the hero</p>
+      <TransloaditImage
+        alt="Storage avatar"
+        id="avatar"
+        layout="fixed"
+        width={48}
+        height={48}
+        fit="cover"
+        src={{ path: 'documents/avatar.jpg', width: 400, height: 300 }}
+      />
+      <p>After the avatar</p>
+    </main>
   )
 }

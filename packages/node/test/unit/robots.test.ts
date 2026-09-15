@@ -3,6 +3,25 @@ import { describe, expect, it } from 'vitest'
 import { getRobotHelp, listRobots } from '../../src/Transloadit.ts'
 
 describe('robot catalog helpers', () => {
+  it.each([
+    '/transloadit/store',
+    '/transloadit/import',
+  ])('documents the Storage robot %s offline', (robotName) => {
+    const help = getRobotHelp({ robotName, detailLevel: 'full' })
+    expect(help.name).toBe(robotName)
+    expect([...help.requiredParams, ...help.optionalParams].map((param) => param.name)).toContain(
+      'path',
+    )
+    expect(help.examples?.length).toBeGreaterThan(0)
+  })
+
+  it('explains a complete destination path for Storage exports', () => {
+    const help = getRobotHelp({ robotName: '/transloadit/store', detailLevel: 'full' })
+    const path = help.optionalParams.find((param) => param.name === 'path')
+    expect(path?.description).toContain('folders and a filename')
+    expect(path?.description).toContain('website/hero.jpg')
+    expect(help.optionalParams.find((param) => param.name === 'conflict_strategy')).toBeDefined()
+  })
   it('lists robots with searchable summaries', () => {
     const { robots, nextCursor } = listRobots({ search: 'image', limit: 3 })
 

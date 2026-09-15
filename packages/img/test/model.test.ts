@@ -21,6 +21,180 @@ function collectSignedRequests(): {
 }
 
 describe('createTransloaditImageModel', () => {
+  test.each([
+    { widths: undefined },
+    { widths: [1, 100] },
+  ])('explains a subpixel source crop before signing (widths $widths)', ({ widths }) => {
+    const { requests, sign } = collectSignedRequests()
+    expect(() =>
+      createTransloaditImageModel(
+        {
+          expiresAt,
+          src: { path: 'website/banner.jpg', width: 1000, height: 10 },
+          cropAspectRatio: 0.01,
+          widths,
+        },
+        sign,
+      ),
+    ).toThrow(/source dimensions.*cropAspectRatio.*one pixel/)
+    expect(requests).toEqual([])
+  })
+
+  test('accepts the one-pixel source crop boundary without upscaling', () => {
+    const { requests, sign } = collectSignedRequests()
+    createTransloaditImageModel(
+      {
+        expiresAt,
+        src: { path: 'website/banner.jpg', width: 1000, height: 10 },
+        cropAspectRatio: 0.1,
+        widths: [1, 100],
+      },
+      sign,
+    )
+    expect(requests.map(({ urlParams }) => [urlParams.w, urlParams.h])).toEqual([
+      [1, 10],
+      [1, 10],
+      [1, 10],
+    ])
+  })
+
+  test.each([
+    undefined,
+    '#224466',
+    '#AABBCCFF',
+  ])('preserves alpha per candidate and gives JPEG an opaque background (%s)', (fallbackBackground) => {
+    const { requests, sign } = collectSignedRequests()
+    createTransloaditImageModel(
+      {
+        expiresAt,
+        src: { path: 'website/logo.png', width: 64, height: 64 },
+        formats: { avif: 45, webp: 75, png: 75 },
+        fallbackBackground,
+        widths: [32, 64],
+      },
+      sign,
+    )
+    expect(requests).toHaveLength(7)
+    expect(requests.map(({ template }) => template)).toEqual(
+      Array(7).fill('builtin/storage-preview@0.0.2'),
+    )
+    expect(requests.slice(0, -1).map(({ urlParams }) => urlParams.bg)).toEqual(
+      Array(6).fill('#00000000'),
+    )
+    expect(requests.at(-1)?.urlParams).toMatchObject({
+      bg: fallbackBackground ?? '#ffffff',
+      f: 'jpg',
+    })
+  })
+
+  test.each([
+    'transparent',
+    '#00000000',
+    '#22446680',
+    '#fff',
+    '#ffffff\n',
+    'ffffff',
+  ])('rejects an invalid or nonopaque JPEG background before signing: %j', (fallbackBackground) => {
+    const { requests, sign } = collectSignedRequests()
+    expect(() =>
+      createTransloaditImageModel(
+        {
+          expiresAt,
+          src: { path: 'website/logo.png', width: 64, height: 64 },
+          fallbackBackground,
+        },
+        sign,
+      ),
+    ).toThrow(/fallbackBackground.*opaque/)
+    expect(requests).toEqual([])
+  })
+
+  test('signs cover crops in the box ratio without upscaling source pixels', () => {
+    const { requests, sign } = collectSignedRequests()
+    const model = createTransloaditImageModel(
+      {
+        expiresAt,
+        src: { path: 'website/hero.jpg', width: 2400, height: 1600 },
+        cropAspectRatio: 9 / 16,
+        widths: [390, 780, 2400],
+        fallbackWidth: 390,
+      },
+      sign,
+    )
+    expect(model.sources[0]?.candidates.map(({ width }) => width)).toEqual([390, 780, 900])
+    expect(requests[0]?.urlParams).toMatchObject({ r: 'fillcrop', w: 390, h: 693 })
+    expect(requests.at(-1)?.urlParams).toMatchObject({ r: 'fillcrop', w: 390, h: 693, f: 'jpg' })
+  })
+
+  test('caps the default ladder at an explicit maximum without changing source proportions', () => {
+    const { requests, sign } = collectSignedRequests()
+    const model = createTransloaditImageModel(
+      {
+        expiresAt,
+        src: { path: 'website/hero.jpg', width: 2400, height: 1600 },
+        maximumWidth: 1920,
+      },
+      sign,
+    )
+    expect(model.sources[0]?.candidates.at(-1)?.width).toBe(1920)
+    expect(requests.at(-1)?.urlParams).toMatchObject({ r: 'pad', w: 1920, h: 1280 })
+  })
+
+  test.each([
+    0,
+    -1,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])('rejects invalid crop aspect ratio %s before signing', (cropAspectRatio) => {
+    const { requests, sign } = collectSignedRequests()
+    expect(() =>
+      createTransloaditImageModel(
+        {
+          expiresAt,
+          src: { path: 'website/hero.jpg', width: 2400, height: 1600 },
+          cropAspectRatio,
+        },
+        sign,
+      ),
+    ).toThrow('cropAspectRatio')
+    expect(requests).toEqual([])
+  })
+
+  test('caps the JPEG fallback at the largest requested candidate', () => {
+    const { requests, sign } = collectSignedRequests()
+    createTransloaditImageModel(
+      {
+        expiresAt,
+        src: { path: 'website/avatar.jpg', width: 400, height: 400 },
+        widths: [96, 48],
+      },
+      sign,
+    )
+    expect(requests.at(-1)?.urlParams).toMatchObject({ f: 'jpg', w: 96, h: 96 })
+  })
+
+  test('uses receipt geometry without forwarding ancillary receipt fields to signing', () => {
+    const src = {
+      path: 'documents/report.pdf',
+      width: 400,
+      height: 300,
+      asset_id: 'private-id',
+      authSecret: 'not-a-signing-option',
+    }
+    const fromReceipt = collectSignedRequests()
+    const fromString = collectSignedRequests()
+    const options = { expiresAt, widths: [200, 400] }
+    expect(createTransloaditImageModel({ ...options, src }, fromReceipt.sign)).toEqual(
+      createTransloaditImageModel(
+        { ...options, src: src.path, width: 400, height: 300 },
+        fromString.sign,
+      ),
+    )
+    expect(fromReceipt.requests).toEqual(fromString.requests)
+    expect(JSON.stringify(fromReceipt.requests)).not.toContain('private-id')
+    expect(JSON.stringify(fromReceipt.requests)).not.toContain('not-a-signing-option')
+  })
+
   test('builds responsive Storage previews and a signed JPEG fallback', () => {
     const { requests, sign } = collectSignedRequests()
     const model = createTransloaditImageModel(
@@ -53,20 +227,20 @@ describe('createTransloaditImageModel', () => {
       {
         expiresAt,
         input: 'documents/report.pdf',
-        template: 'builtin/storage-preview@0.0.1',
-        urlParams: { f: 'webp', h: 150, q: 61, r: 'pad', w: 200 },
+        template: 'builtin/storage-preview@0.0.2',
+        urlParams: { bg: '#00000000', f: 'webp', h: 150, q: 61, r: 'pad', w: 200 },
       },
       {
         expiresAt,
         input: 'documents/report.pdf',
-        template: 'builtin/storage-preview@0.0.1',
-        urlParams: { f: 'webp', h: 300, q: 61, r: 'pad', w: 400 },
+        template: 'builtin/storage-preview@0.0.2',
+        urlParams: { bg: '#00000000', f: 'webp', h: 300, q: 61, r: 'pad', w: 400 },
       },
       {
         expiresAt,
         input: 'documents/report.pdf',
-        template: 'builtin/storage-preview@0.0.1',
-        urlParams: { f: 'jpg', h: 300, q: 68, r: 'pad', w: 400 },
+        template: 'builtin/storage-preview@0.0.2',
+        urlParams: { bg: '#ffffff', f: 'jpg', h: 300, q: 68, r: 'pad', w: 400 },
       },
     ])
   })
@@ -122,7 +296,14 @@ describe('createTransloaditImageModel', () => {
     )
 
     expect(model.sources[0]?.candidates.map(({ width }) => width)).toEqual([200, 400])
-    expect(requests.at(-1)?.urlParams).toEqual({ f: 'jpg', h: 300, q: 75, r: 'pad', w: 400 })
+    expect(requests.at(-1)?.urlParams).toEqual({
+      bg: '#ffffff',
+      f: 'jpg',
+      h: 300,
+      q: 75,
+      r: 'pad',
+      w: 400,
+    })
   })
 
   test('rejects an invalid fallback quality before signing any candidate', () => {
@@ -163,7 +344,14 @@ describe('createTransloaditImageModel', () => {
       [400, 400],
     )
     expect(requests.slice(0, -1).every(({ urlParams }) => urlParams.h === 1200)).toBe(true)
-    expect(requests.at(-1)?.urlParams).toEqual({ f: 'jpg', h: 1200, q: 75, r: 'pad', w: 400 })
+    expect(requests.at(-1)?.urlParams).toEqual({
+      bg: '#ffffff',
+      f: 'jpg',
+      h: 1200,
+      q: 75,
+      r: 'pad',
+      w: 400,
+    })
   })
 
   test.each([

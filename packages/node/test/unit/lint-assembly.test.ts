@@ -3,6 +3,19 @@ import { describe, expect, it } from 'vitest'
 import { lintAssemblyInstructions } from '../../src/lintAssemblyInstructions.ts'
 
 describe('lintAssemblyInstructions', () => {
+  it('accepts recursive Storage folder imports from the canonical Robot schema', async () => {
+    const result = await lintAssemblyInstructions({
+      assemblyInstructions: {
+        steps: {
+          imported: { robot: '/transloadit/import', path: 'photos/', recursive: true },
+          stored: { robot: '/transloadit/store', use: 'imported', path: 'copies/${file.url_name}' },
+        },
+      },
+    })
+    expect(result.success, JSON.stringify(result.issues)).toBe(true)
+    expect(result.issues.filter((issue) => issue.type === 'error')).toEqual([])
+  })
+
   it('wraps steps-only input and respects fatal level', async () => {
     const result = await lintAssemblyInstructions({
       assemblyInstructions: {},

@@ -12,10 +12,25 @@ import {
   AssemblyInstructionsCompileCommand,
   RunCommand,
 } from './assemblies.ts'
-import { SignatureCommand, SmartCdnSignatureCommand, TokenCommand } from './auth.ts'
+import {
+  AuthHelpCommand,
+  SignatureCommand,
+  SmartCdnSignatureCommand,
+  TokenCommand,
+} from './auth.ts'
 import { BillsGetCommand } from './bills.ts'
 import { DocsRobotsGetCommand, DocsRobotsListCommand } from './docs.ts'
+import { ImageInitCommand } from './image.ts'
+import { AuthLoginCommand, AuthLogoutCommand, AuthStatusCommand } from './login.ts'
 import { NotificationsReplayCommand } from './notifications.ts'
+import {
+  StorageListCommand,
+  StoragePublicationsCommand,
+  StoragePublishCommand,
+  StorageReceiptsSyncCommand,
+  StorageStoreCommand,
+  StorageUnpublishCommand,
+} from './storage.ts'
 import {
   TemplatesCreateCommand,
   TemplatesDeleteCommand,
@@ -38,9 +53,13 @@ export function createCli(): Cli {
   cli.register(Builtins.VersionCommand)
 
   // Auth commands (signature generation)
+  cli.register(AuthHelpCommand)
   cli.register(SignatureCommand)
   cli.register(SmartCdnSignatureCommand)
   cli.register(TokenCommand)
+  cli.register(AuthLoginCommand)
+  cli.register(AuthLogoutCommand)
+  cli.register(AuthStatusCommand)
 
   // Assemblies commands
   cli.register(AssembliesCreateCommand)
@@ -66,6 +85,13 @@ export function createCli(): Cli {
 
   // Uploads commands
   cli.register(UploadCommand)
+  cli.register(StorageStoreCommand)
+  cli.register(StorageListCommand)
+  cli.register(StoragePublicationsCommand)
+  cli.register(StoragePublishCommand)
+  cli.register(StorageUnpublishCommand)
+  cli.register(StorageReceiptsSyncCommand)
+  cli.register(ImageInitCommand)
 
   // Prompt-to-Assembly-Instructions commands
   cli.register(AssemblyInstructionsCompileCommand)

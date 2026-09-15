@@ -1,207 +1,91 @@
 # `@transloadit/img`
 
-Responsive previews of Transloadit Storage objects, delivered through Smart CDN.
+Responsive Storage images for Next.js. Native `picture/srcset`; bytes go straight from
+Smart CDN (`<workspace>.tlcdn.com`) to the browser, never through Next's image optimizer.
 
-The package renders native `<picture>`, `srcset`, and `<img>` elements. Image bytes travel directly
-from Smart CDN to the browser; they are never optimized or proxied by the Next.js application.
-Remote HTTP URLs are deliberately outside this package's source contract: an image must already
-belong to the configured Transloadit Storage workspace.
+## Quickstart
 
-This workspace remains private at version `0.0.0` while the API and production dogfood soak. Do not
-depend on it from npm yet.
+Next.js 16.3.3+ App Router, React 19, Node.js runtime.
+**Unpublished dogfood:** ask a maintainer for matching img/utils/node/types tarballs.
+After release: `npm install @transloadit/img && npm install --save-dev @transloadit/node`.
+pnpm: `pnpm add @transloadit/img && pnpm add -D @transloadit/node`;
+Yarn: `yarn add @transloadit/img && yarn add -D @transloadit/node`.
 
-## Next.js
+Run beside `package.json`. Start with `auth login` even without an account: choose Sign up in the
+browser it opens, create a free workspace, and approve the CLI. For `./hero.jpg`, use any JPEG you have.
 
-The server entry point targets the Next.js 16 App Router with `cacheComponents: true` in
-`next.config.ts`.
+Prefer `--hashed` for images you will replace: it generates an immutable filename such as
+`website/hero.fce9d56a.jpg`. Add the flag below and use the printed JSX path; no `--overwrite` is needed.
+[Cache tags do not pin old bytes](./docs/reference.md#cache-and-markup-cost).
 
-Create one server-only application module. The factory does not read environment variables:
-
-```tsx
-import { createTransloaditImage } from '@transloadit/img/next/server'
-
-const authKey = process.env.TRANSLOADIT_KEY
-const authSecret = process.env.TRANSLOADIT_SECRET
-const workspace = process.env.TRANSLOADIT_WORKSPACE
-
-if (!authKey || !authSecret || !workspace) {
-  throw new Error('Transloadit image credentials are required')
-}
-
-export const { Image } = createTransloaditImage({
-  authKey,
-  authSecret,
-  storage: { allowedPathPrefixes: ['website/'] },
-  workspace,
-})
+```bash
+npx transloadit auth login
+npx transloadit storage store ./hero.jpg website/hero.jpg --public
 ```
 
-The Auth Secret stays in the server module and never enters rendered markup or a client bundle.
-Signed browser URLs contain the public Auth Key identifier, as required by Smart CDN verification.
-
-Use a relative Storage object path as `src` and provide the source's intrinsic dimensions:
-
-```tsx
-import { Image } from '../lib/transloaditImage.tsx'
-
-export default function Page() {
-  return (
-    <Image
-      alt="A canal house"
-      height={1600}
-      sizes="(min-width: 1024px) 960px, 100vw"
-      src="website/canal-house.jpg"
-      width={2400}
-    />
-  )
-}
-```
-
-`storage.allowedPathPrefixes` is a hard workspace boundary, not object authorization. Prefixes must
-be relative directories ending in `/`. The default is deny-all; `['']` deliberately allows the
-workspace root. Paths with dot segments, backslashes, empty segments, control characters,
-non-normalized Unicode, or more than 1024 UTF-8 bytes are rejected before signing.
-
-### Direct delivery
-
-Direct delivery is the default and fits image-heavy views that already authorize their data while
-rendering. The component calls Next.js `connection()` before creating short-lived signed URLs. A
-built-in Suspense boundary lets a Cache Components page prerender a shell, but the signed image
-itself is request-rendered and must not be stored in a shared full-page cache.
-`suspenseFallback` customizes that shell.
-
-The browser requests the selected candidate directly from Smart CDN. Lazy loading remains the
-platform default. A candidate first requested after its signature expires can fail on an unusually
-long-lived page; choose an appropriate bounded `expiresInMs`, eagerly load a measured critical
-image, or use authorized redirect delivery.
-
-### Authorized redirects
-
-Redirect delivery keeps markup stable and rechecks application access when the browser loads an
-image:
-
-```tsx
-import { createTransloaditImage } from '@transloadit/img/next/server'
-
-export const { Image, storageRoute } = createTransloaditImage({
-  authKey,
-  authSecret,
-  storage: {
-    allowedPathPrefixes: ['documents/'],
-    delivery: {
-      authorize: async ({ path, request }) => {
-        const user = await authenticate(request)
-        return user !== null && (await canReadStorageObject(user, path))
-      },
-      // Match next.config.ts when the application uses basePath.
-      basePath: '/app',
-      route: '/api/private-images',
-    },
-  },
-  workspace,
-})
-```
-
-Export the handler from that exact App Router path:
+`--public` publishes the directory recursively, including future uploads. In `next.config.ts`:
 
 ```ts
-export { storageRoute as GET } from '../../../lib/transloaditImage.tsx'
+import type { NextConfig } from 'next'
+import { withTransloaditImages } from '@transloadit/img/next/config'
+const nextConfig: NextConfig = { /* your existing Next config */ }
+export default withTransloaditImages(nextConfig)
 ```
 
-The component emits same-origin URLs containing an authenticated-encrypted capability for one
-exact Storage path and transformation. Filenames and credentials stay out of prerendered HTML.
-The handler rejects changed, duplicate, unknown, oversized, or malformed capabilities before
-calling application authorization. `authorize` must return the boolean `true` for the current
-request.
-
-After authorization, the handler returns a private, non-cacheable `307` to a fresh signed Smart CDN
-URL. Image bytes still bypass Next.js. Rotating the Transloadit secret invalidates existing
-capabilities, so redeploy cached static markup at the same time.
-
-| Property | Direct, the default | Authorized redirect |
-| --- | --- | --- |
-| Next.js work per loaded image | None | One authorization + redirect |
-| Image bytes through Next.js | Never | Never |
-| Shared/static image markup | No | Yes |
-| Request-time revocation | No | Yes |
-| Long-lived lazy pages | Signature can expire | Fresh CDN signature per load |
-| Typical fit | Large authorized galleries | Strict ACLs and revocation |
-
-## Responsive policy
-
-Storage previews use signed-only `builtin/storage-preview@0.0.1`. AVIF quality 45 and WebP quality
-75 are emitted in browser preference order, with a JPEG quality 75 fallback. Explicit formats keep
-CDN objects independent from an unkeyed `Accept` header.
-
-The default candidate ladder is 320, 640, 960, 1280, 1920, 2560, and 3840 pixels, capped at the
-declared intrinsic width and backend-safe height. The exact intrinsic width is included between
-steps. `widths` is an advanced per-image override. `sizes` is optional because that is valid HTML,
-but strongly recommended whenever an image is not effectively `100vw`.
+Render in `app/page.tsx` or any Server Component. If your app has `src/`, prefix the source paths:
 
 ```tsx
-<Image
-  alt="Product photo"
-  formats={{ avif: 40, webp: 70 }}
-  height={1200}
-  sizes="(min-width: 1280px) 600px, 50vw"
-  src="website/products/photo.jpg"
-  width={1600}
-  widths={[400, 800, 1200, 1600]}
-/>
-```
-
-- Images are lazy and asynchronously decoded by default.
-- `preload` implies eager loading. Combine it with `fetchPriority="high"` only for a measured LCP
-  image. Explicitly lazy preloads are rejected.
-- `objectFit` is forwarded for deliberate crop or containment behavior.
-- `deferUntilHydrated` avoids WebKit parser-to-hydration replay for non-critical images. It cannot be
-  eager or preloaded and is not a secrecy mechanism.
-- `fallbackQuality` changes the signed JPEG fallback quality.
-
-Private signature lifetimes default to at least one hour in stable five-minute rotation windows.
-Their sum cannot exceed 48 hours:
-
-```tsx
-storage: {
-  allowedPathPrefixes: ['documents/'],
-  expiresInMs: 2 * 60 * 60 * 1000,
-  rotationIntervalMs: 5 * 60 * 1000,
+import { StorageImage } from '@transloadit/img/next'
+export default function Page() {
+  return <StorageImage src="website/hero.jpg" alt="A canal house" width={960} preload />
 }
 ```
 
-## Template override
+Run `npm run dev` and open `/`. Commit `transloadit.images.json` and `transloadit-images.d.ts`, then deploy.
+Public images need no app secrets. The required plugin bundles the catalog, with no runtime lookup.
 
-A compatible workspace Template can replace the Built-in in trusted factory configuration:
+## Responsive
 
-```tsx
-export const { Image } = createTransloaditImage({
-  authKey,
-  authSecret,
-  storage: { allowedPathPrefixes: ['website/'] },
-  template: 'my-storage-preview',
-  workspace,
-})
+Catalog paths autocomplete. `width` sets a responsive maximum; `preload` makes a hero eager,
+preloads its responsive source and sets high fetch priority. Other images load lazily.
+Add `placeholder="blur"` for an inline preview from the receipt's optional `thumbhash`.
+[Layouts, art direction and the temporary priority alias](./docs/reference.md#responsive).
+
+## Private
+
+Wire `getSession` to your application's session and per-object permissions; it is not an SDK helper:
+
+```ts
+// transloadit.authorize.ts, beside next.config.ts
+import type { AuthorizeTransloaditStorageImage } from '@transloadit/img/next/server'
+import { getSession } from './lib/authorization'
+export const authorize: AuthorizeTransloaditStorageImage = async ({ path, request }) =>
+  (await getSession(request))?.canRead(path) === true
 ```
 
-Template selection is unavailable on individual images because the factory owns the signing
-boundary. A replacement must accept the same trusted fields as the Storage preview Built-in.
-
-## Framework-neutral API
-
-`@transloadit/img` exports `createTransloaditImageModel` and serializable model types.
-`@transloadit/img/next` renders an already-resolved model. These lower-level entry points let other
-framework adapters inject a server-side URL resolver while credential and authorization policy stay
-outside the renderer.
-
-## Verification
-
-```console
-corepack yarn workspace @transloadit/img check
-corepack yarn test:img:fixture
+```ts
+// app/api/storage-images/route.ts (prefix with src/ if needed)
+export { GET, HEAD } from '@transloadit/img/next/route'
 ```
 
-The fixture packs the published artifacts, installs them into a clean Next.js 16 App Router app,
-builds partially prerendered and dynamic routes, starts the production server, probes route
-authorization and capability tampering, checks for secret leakage, and reports direct-versus-
-redirect HTML size and route work for 1, 20, and 100 images. Size measurements are deterministic;
-wall-clock measurements are diagnostic and do not create flaky CI thresholds.
+Console → Credentials → New Auth Key → “Private image delivery”: Smart CDN on, `smart_cdn:sign`
+(`assemblies:write` is also accepted, but grants broader Assembly access). Use this application key,
+not the disposable login key that `auth logout` revokes, in `.env.local` and your host's server-only build/runtime env:
+
+```dotenv
+TRANSLOADIT_SMART_CDN_KEY=…
+TRANSLOADIT_SMART_CDN_SECRET=…
+```
+
+Restart `next dev` after adding the authorizer. [Private setup and authorization contract](./docs/reference.md#private).
+
+## When it breaks
+
+Opt into `errorFallback` to show a delivery failure instead of a broken image. Development adds
+the HEAD result; see the terminal. Non-production login endpoints carry into the catalog.
+[`baseUrl` and `urlParams`, diagnostics and recovery](./docs/reference.md#when-it-breaks).
+Lost metadata? First restore the committed catalog; see [recovery options and API availability](./docs/reference.md#recovery-requires-the-storage-read-api-not-yet-enabled-in-production).
+
+## Reference
+
+[Full reference](./docs/reference.md) · [Maintainer dogfood setup](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md).

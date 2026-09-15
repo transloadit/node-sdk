@@ -136,6 +136,18 @@ describe('getSignedSmartCdnImageCandidates', () => {
     expect(workspaceReads).toBe(1)
   })
 
+  it('requires an explicit expiry before signing image candidates', () => {
+    const { expiresAt: _expiresAt, ...withoutExpiry } = baseOptions
+    expect(() =>
+      // @ts-expect-error JavaScript callers must not silently get a default signed lifetime.
+      getSignedSmartCdnImageCandidates(withoutExpiry),
+    ).toThrow('expiresAt is required for signed image candidates')
+    expect(() =>
+      // @ts-expect-error Explicit undefined must fail just like an omitted expiry.
+      getSignedSmartCdnImageCandidates({ ...baseOptions, expiresAt: undefined }),
+    ).toThrow('expiresAt is required for signed image candidates')
+  })
+
   it('rejects values that the Built-in cannot execute safely', () => {
     expect(() => getSignedSmartCdnImageCandidates({ ...baseOptions, widths: [] })).toThrow(
       'widths must contain at least one value',

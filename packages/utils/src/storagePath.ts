@@ -53,7 +53,11 @@ export function validateStoragePath(path: string): void {
 }
 
 /** Validates one directory-boundary prefix; an empty prefix explicitly allows the workspace root. */
-export function validateStoragePathPrefix(prefix: string, index: number): void {
+export function validateStoragePathPrefix(
+  prefix: string,
+  index: number,
+  name = 'storage.allowedPathPrefixes',
+): void {
   if (prefix === '') return
   if (
     typeof prefix !== 'string' ||
@@ -66,8 +70,6 @@ export function validateStoragePathPrefix(prefix: string, index: number): void {
     hasAmbiguousSegments(prefix) ||
     hasInvalidSegments(prefix.slice(0, -1))
   ) {
-    throw new TypeError(
-      `storage.allowedPathPrefixes[${index}] must be empty or one safe relative prefix ending in /`,
-    )
+    throw new TypeError(`${name}[${index}] must be empty or one safe relative prefix ending in /`)
   }
 }

@@ -337,6 +337,14 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'TIGRIS_STORE_WRONG_REGION',
   'TMP_FILE_DOWNLOAD_ERROR',
   'TOKEN_INVALID_CREDENTIALS',
+  'TRANSLOADIT_IMPORT_ACCESS_DENIED',
+  'TRANSLOADIT_IMPORT_FAILURE',
+  'TRANSLOADIT_IMPORT_NOT_FOUND',
+  'TRANSLOADIT_IMPORT_VALIDATION',
+  'TRANSLOADIT_STORE_CONFLICT',
+  'TRANSLOADIT_STORE_FAILURE',
+  'TRANSLOADIT_STORE_UNAVAILABLE',
+  'TRANSLOADIT_STORE_VALIDATION',
   'TUS_STORE_VALIDATION',
   'USER_COMMAND_ERROR',
   'VERIFIED_EMAIL_REQUIRED',
@@ -660,6 +668,7 @@ export type AssemblyStatusUploads = z.infer<typeof assemblyStatusUploadsSchema>
 export const assemblyStatusResultSchema = z
   .object({
     id: z.string().optional(),
+    asset_id: z.string().optional(),
     basename: z.string().nullable().optional(),
     field: z.string().nullable().optional(),
     md5hash: z.string().nullable().optional(),

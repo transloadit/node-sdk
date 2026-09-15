@@ -24,7 +24,7 @@ This is a **Node.js** SDK to make it easy to talk to the
 
 ## Requirements
 
-- [Node.js](https://nodejs.org/en/) version 20 or newer
+- [Node.js](https://nodejs.org/en/) version 20.10.0 or newer
 - [A Transloadit account](https://transloadit.com/signup/) ([free signup](https://transloadit.com/pricing/))
 - [Your API credentials](https://transloadit.com/c/template-credentials) (`authKey`, `authSecret`)
 
@@ -106,6 +106,71 @@ If you want to use a different path, set `TRANSLOADIT_CREDENTIALS_FILE=/abs/path
 Most commands can authenticate with either `TRANSLOADIT_AUTH_TOKEN` or `TRANSLOADIT_KEY` +
 `TRANSLOADIT_SECRET`. Commands that mint bearer tokens or generate signatures still require
 `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET`.
+
+### Storage images for Next.js
+
+`@transloadit/img` is currently an unpublished, private preview. Follow the
+[local package instructions](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md)
+until release. In a Next.js 16.3.3+ App Router project with Storage enabled, run:
+
+```bash
+yarn transloadit auth login
+yarn transloadit storage store ./hero.jpg website/hero.jpg --public
+yarn dev
+```
+
+Follow the image package Quickstart to add its Next plugin and import StorageImage from the package.
+Start with `auth login` even without an account: choose Sign up in the browser it opens, then approve
+the CLI. For application-server uploads instead of CLI seeding, see [Store an image](#store-an-image).
+Login opens browser approval (on Windows, open the printed URL) and saves one combined Auth Key,
+workspace and signing algorithm in the owner-only credentials file. `--no-browser` prints the
+approval URL; `--stdin` accepts dotenv credentials for automation. Existing credentials require
+`--replace`. Login also checks Storage policy access with a bounded read-only request; if that
+fails, it saves the login and prints a Console link. This check does not prove upload availability.
+
+Store creates `transloadit.images.json` and derived `transloadit-images.d.ts`; commit both. The
+catalog carries workspace, public prefixes and image receipts: no public app env is needed.
+`--public` declares the destination directory recursively, including future uploads, after saving
+the receipt. Plain store never publishes. `image init website/ --example` is an optional example
+generator; private init (`image init uploads/ --private`) creates `transloadit.authorize.ts` and a
+route that denies access until you connect per-object authorization. Use a separate deployment key.
+Existing code/env files are never overwritten. Missing trailing directory slashes are accepted.
+
+Store uploads originals and appends validated receipts to `transloadit.images.json`; commit it.
+`storage store ./images/*.jpg website/` stores shell-expanded files, checkpointing each success.
+It prints `width={960}` (bounded by the original) and `placeholder="blur"`, with a filename-derived
+alt and a reminder. Store generates an optional base64 `thumbhash` from the original bytes.
+An occupied path conflicts unless `--overwrite` is explicit; prefer `--hashed` for immutable
+filenames. Matching receipts skip repeat uploads; changed bytes get a new name.
+The public image `v` is a cache-busting tag derived from the receipt hash; the origin does not verify
+it, so a cold request after an overwrite can return the replacement.
+Publication can also be managed explicitly:
+
+```bash
+yarn transloadit storage publish website/
+yarn transloadit storage publications
+yarn transloadit storage unpublish website/
+yarn transloadit auth status
+yarn transloadit auth logout
+```
+
+Logout revokes browser-login keys, including their use by any application. Imported (`--stdin`)
+and legacy keys are only forgotten locally; `auth logout --revoke` explicitly revokes those too.
+
+Unpublishing stops origin access but cannot recall cached/downloaded bytes. For lost metadata,
+restore the committed catalog. Listing and sync need the Storage read API, not yet enabled in
+production; see [Recovery options and prerequisites](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#recovery-requires-the-storage-read-api-not-yet-enabled-in-production).
+
+Storage commands report the selected credential source on stderr before operating. Ordinary
+commands retain shell → project `.env` → saved login precedence; init prefers the saved login.
+Store, list, sync and publication verify the selected key against the catalog workspace and stop
+before acting on a mismatch. An explicit `--workspace` opts out, but never mixes catalogs: use
+`--receipts` for a separate workspace's catalog. Status shows the saved workspace/key description;
+logout revokes that key before deleting the credentials file and preserves it if revocation fails.
+The endpoint stays bound to those credentials unless explicitly overridden. JSON result output
+stays on stdout; credentials are never printed. See the
+[image Quickstart](https://github.com/transloadit/node-sdk/blob/main/packages/img/README.md)
+and [reference](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md).
 
 ### Minting Bearer Tokens (Hosted MCP)
 
@@ -1379,7 +1444,48 @@ npx transloadit assemblies list -l 7
 
 ## SDK Usage
 
-The following code will upload an image and resize it to a thumbnail:
+### Store an image
+
+`storeImage()` uploads one local image and returns a verified receipt ready for `StorageImage`.
+Install `@transloadit/node` as a runtime dependency for server uploads; a dev dependency is enough
+when you only use its CLI. Use an Assembly-enabled application key in your server environment,
+not a signing-only image-delivery key or the disposable login key that `auth logout` revokes.
+New combined Smart CDN/Assembly keys use SHA-256, as selected below; use your configured algorithm
+for an existing key.
+
+In an authenticated server handler, `user` is your verified session user and `saveImage` is your
+application's database helper, not an SDK function:
+
+```ts
+import { randomUUID } from 'node:crypto'
+import { Transloadit } from '@transloadit/node'
+
+const { TRANSLOADIT_KEY: authKey, TRANSLOADIT_SECRET: authSecret } = process.env
+if (!authKey || !authSecret) {
+  throw new Error('Set TRANSLOADIT_KEY and TRANSLOADIT_SECRET on the server')
+}
+const client = new Transloadit({
+  authKey,
+  authSecret,
+  signatureAlgorithm: 'sha256',
+})
+const receipt = await client.storeImage('./hero.jpg', {
+  path: `uploads/${randomUUID()}/hero.jpg`,
+})
+await saveImage({ ...receipt, ownerId: user.id })
+```
+
+Choose the destination on the server and save the complete receipt with its owner ID. An occupied
+path is refused unless you explicitly pass `overwrite: true`. This helper does not publish a
+directory or update the CLI's catalog. Pass the saved receipt as `src` in an authorized application;
+see [user uploads, private access and trusted receipt recovery with `getStoredImageReceipt()`](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#images-uploaded-by-your-users)
+for the Uppy/notification flow and recovery without another upload.
+
+### Process an image
+
+The following code will upload an image and resize it to a thumbnail. New Console-created combined
+Smart CDN/Assembly keys use SHA-256, so this example selects it explicitly; the SDK's legacy default
+remains SHA-384 for existing keys.
 
 ```javascript
 import { Transloadit } from '@transloadit/node'
@@ -1387,6 +1493,7 @@ import { Transloadit } from '@transloadit/node'
 const transloadit = new Transloadit({
   authKey: 'YOUR_TRANSLOADIT_KEY',
   authSecret: 'YOUR_TRANSLOADIT_SECRET',
+  signatureAlgorithm: 'sha256',
 })
 
 try {
@@ -1486,10 +1593,24 @@ Table of contents:
 
 Returns a new instance of the client.
 
+```typescript
+const transloadit = new Transloadit({
+  authKey: 'YOUR_TRANSLOADIT_KEY',
+  authSecret: 'YOUR_TRANSLOADIT_SECRET',
+  signatureAlgorithm: 'sha256',
+})
+```
+
+Select SHA-256 for new Console-created combined Smart CDN/Assembly keys; omitting it retains
+the SHA-384 default for existing keys and can produce `INVALID_SIGNATURE` with a combined key.
+
 The `options` object can contain the following keys:
 
 - `authKey` **(required)** - see [requirements](#requirements)
 - `authSecret` **(required)** - see [requirements](#requirements)
+- `signatureAlgorithm` (default `'sha384'`) - API signing algorithm configured on this Auth Key.
+  Use `'sha256'` for combined Smart CDN-enabled keys. Browser CLI login saves and applies this
+  setting automatically; explicit `calcSignature(params, algorithm)` calls still override it.
 - `endpoint` (default `'https://api2.transloadit.com'`)
 - `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `gotRetry` (default `0`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
@@ -1934,8 +2055,3 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
-
-
-
-
-

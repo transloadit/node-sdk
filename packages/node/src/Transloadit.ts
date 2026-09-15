@@ -4,7 +4,9 @@ import type {
   CompileAssemblyInstructionsOptions,
   CompileAssemblyInstructionsResult,
 } from '@transloadit/utils'
+import type { SignatureAlgorithm } from '@transloadit/utils/node'
 import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
+import type { Input as IntoStreamInput } from 'into-stream'
 
 import type { TransloaditErrorResponseBody } from './ApiError.ts'
 import type {
@@ -38,6 +40,16 @@ import type {
   LintAssemblyInstructionsInput,
   LintAssemblyInstructionsResult,
 } from './lintAssemblyInstructions.ts'
+import type {
+  GetStoredImageReceiptOptions,
+  StoredImageReceipt,
+  StoreImageOptions,
+} from './storageImage.ts'
+import type {
+  StoragePublicPrefixDeclared,
+  StoragePublicPrefixes,
+  StoragePublicPrefixRevoked,
+} from './storagePublicPrefixes.ts'
 import type { Stream, UploadBehavior } from './tus.ts'
 
 import * as assert from 'node:assert'
@@ -52,9 +64,10 @@ import { getSignedSmartCdnUrl, signParamsSync } from '@transloadit/utils/node'
 import debug from 'debug'
 import FormData from 'form-data'
 import got, { HTTPError, RequestError } from 'got'
-import intoStream, { type Input as IntoStreamInput } from 'into-stream'
+import intoStream from 'into-stream'
 import { isReadableStream, isStream } from 'is-stream'
 import pMap from 'p-map'
+import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
 import { ApiError } from './ApiError.ts'
@@ -65,6 +78,13 @@ import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
+import { getStoredImageReceipt, storeImage } from './storageImage.ts'
+import {
+  normalizeStoragePublicPrefix,
+  storagePublicPrefixDeclaredSchema,
+  storagePublicPrefixesSchema,
+  storagePublicPrefixRevokedSchema,
+} from './storagePublicPrefixes.ts'
 import { sendTusRequest } from './tus.ts'
 
 export type {
@@ -93,6 +113,17 @@ export type {
   RobotListResult,
   RobotParamHelp,
 } from './robots.ts'
+export type {
+  GetStoredImageReceiptOptions,
+  StoredImageExpectation,
+  StoredImageReceipt,
+  StoreImageOptions,
+} from './storageImage.ts'
+export type {
+  StoragePublicPrefixDeclared,
+  StoragePublicPrefixes,
+  StoragePublicPrefixRevoked,
+} from './storagePublicPrefixes.ts'
 
 export {
   buildCompileAssemblyInstructionsSystemPrompt,
@@ -382,6 +413,8 @@ type AuthToken = {
 }
 
 type BaseOptions = {
+  /** Use signatureAlgorithm: 'sha256' for new combined Smart CDN/Assembly keys; legacy default: sha384. */
+  signatureAlgorithm?: SignatureAlgorithm
   endpoint?: string
   maxRetries?: number
   timeout?: number
@@ -393,6 +426,7 @@ type BaseOptions = {
 export type Options = BaseOptions & (AuthKeySecret | AuthToken)
 
 export class Transloadit {
+  #signatureAlgorithm: SignatureAlgorithm
   private _authKey: string
 
   private _authSecret: string
@@ -413,6 +447,7 @@ export class Transloadit {
 
   private _validateResponses = false
 
+  /** Create a client; new combined keys require signatureAlgorithm: 'sha256' explicitly. */
   constructor(opts: Options) {
     const rawToken = typeof opts?.authToken === 'string' ? opts.authToken.trim() : ''
     const hasToken = rawToken.length > 0
@@ -433,6 +468,7 @@ export class Transloadit {
 
     this._authKey = opts.authKey ?? ''
     this._authSecret = opts.authSecret ?? ''
+    this.#signatureAlgorithm = opts.signatureAlgorithm ?? 'sha384'
     this._authToken = hasToken ? rawToken : null
     this._endpoint = opts.endpoint || 'https://api2.transloadit.com'
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
@@ -451,6 +487,16 @@ export class Transloadit {
 
   setDefaultTimeout(timeout: number): void {
     this._defaultTimeout = timeout
+  }
+
+  /** Stores one local original at an explicit path and returns its verified image metadata. */
+  storeImage(filePath: string, options: StoreImageOptions): Promise<StoredImageReceipt> {
+    return storeImage(this, filePath, options)
+  }
+
+  /** Reconstructs a verified receipt from authoritative Assembly status and trusted upload facts. */
+  getStoredImageReceipt(options: GetStoredImageReceiptOptions): Promise<StoredImageReceipt> {
+    return getStoredImageReceipt(this, options)
   }
 
   /**
@@ -1199,6 +1245,16 @@ export class Transloadit {
     })
   }
 
+  /** Revoke the signing Auth Key itself, without granting access to other workspace keys. */
+  async revokeOwnAuthKey(): Promise<void> {
+    const result = await this._remoteJson({
+      urlSuffix: '/auth_keys/self',
+      method: 'delete',
+    })
+    checkResult(result)
+    z.object({ ok: z.literal('AUTH_KEY_DELETED') }).parse(result)
+  }
+
   /**
    * Get an Assembly Template
    *
@@ -1230,6 +1286,49 @@ export class Transloadit {
 
   streamTemplates(params?: ListTemplatesParams): PaginationStream<ListedTemplate> {
     return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
+  }
+
+  /** Declare a directory public for unsigned Storage Built-ins. Requires dam:write scope. */
+  async publishStoragePrefix(
+    prefix: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<StoragePublicPrefixDeclared> {
+    const result = await this._remoteJson<unknown, OptionalAuthParams & { prefix: string }>({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'post',
+      params: { prefix: normalizeStoragePublicPrefix(prefix) },
+      signal: options?.signal,
+    })
+    checkResult(result)
+    return storagePublicPrefixDeclaredSchema.parse(result)
+  }
+
+  /** Revoke origin access to a public directory; cached or downloaded bytes cannot be recalled. */
+  async unpublishStoragePrefix(
+    prefix: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<StoragePublicPrefixRevoked> {
+    const result = await this._remoteJson<unknown, OptionalAuthParams & { prefix: string }>({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'delete',
+      params: { prefix: normalizeStoragePublicPrefix(prefix) },
+      signal: options?.signal,
+    })
+    checkResult(result)
+    return storagePublicPrefixRevokedSchema.parse(result)
+  }
+
+  /** List the workspace's explicitly public directories through the ordinary signed API. */
+  async listPublicStoragePrefixes(options?: {
+    signal?: AbortSignal
+  }): Promise<StoragePublicPrefixes> {
+    const result = await this._remoteJson({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'get',
+      signal: options?.signal,
+    })
+    checkResult(result)
+    return storagePublicPrefixesSchema.parse(result)
   }
 
   /**
@@ -1274,7 +1373,7 @@ export class Transloadit {
     })
   }
 
-  private _calcSignature(toSign: string, algorithm = 'sha384'): string {
+  private _calcSignature(toSign: string, algorithm: string = this.#signatureAlgorithm): string {
     if (!this._authSecret) {
       throw new Error('Cannot sign params without authSecret.')
     }

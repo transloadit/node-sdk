@@ -102,6 +102,8 @@ export const robotNames = z.enum([
   'TextSpeakRobot',
   'TextTranslateRobot',
   'FilePreviewRobot',
+  'TransloaditImportRobot',
+  'TransloaditStoreRobot',
   'TusStoreRobot',
   'ProgressSimulateRobot',
 ])

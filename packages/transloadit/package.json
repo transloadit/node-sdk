@@ -29,15 +29,17 @@
   "author": "Tim Koschuetzki <tim@transloadit.com>",
   "packageManager": "yarn@4.12.0",
   "engines": {
-    "node": ">= 20"
+    "node": ">= 20.10.0"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1073.0",
     "@transloadit/sev-logger": "^0.1.9",
     "@transloadit/utils": "^4.8.1",
     "cacheable-lookup": "^7.0.0",
     "clipanion": "^4.0.0-rc.4",
     "debug": "^4.4.3",
     "dotenv": "^17.4.2",
+    "execa": "9.6.1",
     "form-data": "^4.0.5",
     "got": "14.6.6",
     "into-stream": "^9.1.0",
@@ -48,10 +50,14 @@
     "p-map": "^7.0.4",
     "p-queue": "^9.3.0",
     "recursive-readdir": "^2.2.3",
+    "thumbhash": "0.1.1",
     "tus-js-client": "^4.3.1",
     "typanion": "^3.14.0",
     "type-fest": "^5.6.0",
     "zod": "3.25.76"
+  },
+  "optionalDependencies": {
+    "sharp": "0.35.4"
   },
   "devDependencies": {
     "@types/debug": "^4.1.13",

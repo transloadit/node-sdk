@@ -110,10 +110,10 @@ function parseJsonObject<TSchema extends z.ZodTypeAny>(
 // Core logic for signature generation
 function generateSignature(
   input: string,
-  credentials: { authKey: string; authSecret: string },
+  credentials: CliKeySecretCredentials,
   algorithm?: string,
 ): OutputResult {
-  const { authKey, authSecret } = credentials
+  const { authKey } = credentials
   let params: CliSignatureParams
 
   if (input === '') {
@@ -136,7 +136,7 @@ function generateSignature(
     }
   }
 
-  const client = new Transloadit({ authKey, authSecret })
+  const client = new Transloadit(credentials)
   try {
     const signature = client.calcSignature(params as OptionalAuthParams, algorithm)
     return { ok: true, output: JSON.stringify(signature) }
@@ -283,6 +283,29 @@ export async function runSmartSig(options: RunSmartSigOptions = {}): Promise<voi
   } else {
     console.error(result.error)
     process.exitCode = 1
+  }
+}
+
+/** Auth group help lists command definitions once while preserving every invocation alias. */
+export class AuthHelpCommand extends Command {
+  // Explicit help paths avoid Clipanion's prefix matching, which lists each alias as a command.
+  static override paths = [['auth', '--help'], ['auth', '-h'], ['auth']]
+
+  override execute(): Promise<void> {
+    const commands = this.cli
+      .definitions()
+      .filter((command) => command.path.startsWith(`${this.cli.binaryName} auth `))
+    this.context.stdout.write(
+      [
+        'Authentication commands',
+        '',
+        ...commands.map((command) => `  ${command.path}\n    ${command.description ?? ''}`),
+        '',
+        'Use <command> --help for options.',
+        '',
+      ].join('\n'),
+    )
+    return Promise.resolve()
   }
 }
 

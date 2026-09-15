@@ -1,0 +1,531 @@
+# Round 7 onboarding review
+
+Why: the public-image quickstart must remain secretless from login through the first image,
+and errors must describe the API's actual wire contract.
+
+PR: https://github.com/transloadit/node-sdk/pull/500
+
+- [x] Diagnose unpublished paths via `Transloadit-Error: NO_SIGNATURE_FIELD`; retain generic
+  HTTP 400 advice and path/template advice for 404.
+- [x] Infer allowed public prefixes with an empty catalog; preserve explicit deny-all policies.
+- [x] Public init writes only the workspace; private init retains rendering credentials.
+- [x] Print bounded, constrained JSX from store and disclose the selected credential source.
+- [x] Rename the policy listing command, normalize init prefixes and preflight Storage after login.
+- [x] Keep the quickstart focused and reference details separate; qualify test and byte counts.
+- [x] Run sequential package/repository/browser checks and council/Opus reviews.
+- [x] Test the real login key with List + HEAD sync and a fresh public-only Next app in devdock.
+
+Council's source-width clamp is covered red-first and in the packed browser matrix: a 320px
+original cannot stretch to a larger constrained maxWidth. Final exact-head CI remains a merge
+gate; package checks count executed parameterized cases, not test declarations.
+
+No merge or publication in this round. No blur placeholder, origin version selector, workspace
+picker or logout implementation. API2 owns the S3 eligibility and error-header changes; Console
+owns real browser approval. Local canaries do not establish production Bunny latency.
+
+## Round 8
+
+Why: a public project needs one committed source of truth and familiar image props; the CLI
+must not silently write into a different workspace than the application renders.
+
+- [x] Commit workspace, public prefixes and receipts in `transloadit.images.json`; keep explicit
+  `--receipts` paths, and require `--public` or `--private` at init.
+- [x] Verify project/workspace binding before store, list, sync, publish and unpublish.
+- [x] Default catalog/receipt images to constrained `width`; make `priority` eager/preload/high.
+- [x] Derive art-direction container ratios from the same map as crop candidates.
+- [x] Unify duration units, isolate experimental props, document explicit basePath and diagnose
+  oversized candidates only in development.
+- [x] Add scoped logout/status, multiple-file storage and copy-safe alt/Windows instructions.
+- [x] Document deployment and release dependencies; remove unmeasured performance claims.
+- [x] Run red-first tests, sequential package/full/browser checks, council, local UX/security,
+  the live zero-env/mismatch/logout canary and exact-head green CI.
+
+API2 b2264e1767 supplies `DELETE /auth_keys/self` and token `auth_key_id` / `description`. Real
+packed login/status/logout passes in owned devdock17 without broad Auth Key management rights.
+The zero-env public scaffold renders real unsigned images in Chromium/WebKit at desktop/mobile;
+all five bound Storage commands refuse the wrong workspace before acting.
+
+Council's large-original, height-only and bearer-token/fallback-credential findings were reproduced
+red-first and fixed. UX review found no blockers. The mismatch wording is Kevin's explicit
+contract; JSON-quoted generated imports deliberately escape arbitrary receipt-file paths safely.
+CLI next-step wording is usable but could be more copy-paste-oriented in a later polish pass.
+Security review's empty-discovery and endpoint-provenance edges are covered red-first; a changed
+shell endpoint requires fresh workspace discovery. API2 keys are workspace-scoped, so ambiguous
+multi-bucket responses fail closed with endpoint/key advice, not an ineffective override suggestion.
+Private `--write-env` only persists the saved login, never transient shell fallback credentials.
+The follow-up council caught imported application-key revocation: login now records its method;
+logout forgets imported/legacy keys unless `--revoke` is explicit, and still revokes browser-login
+keys. Docs warn that applications sharing a browser-login key also lose access on logout. Red-first
+tests cover provenance spoofing in stdin, imported opt-in, legacy files, failed cleanup preserving
+publication warnings, and actionable bearer-token advice. Actual runtime smoke tests showed JSON
+import attributes need Node 20.10.0, beyond AbortSignal.any's 20.3.0 floor; both CLI manifests agree.
+The next review's project-selected credential-file bypass is closed for both ownership flags;
+only the shell-selected login path can retain verified provenance. Local-only logout can forget
+unusable legacy credentials, but explicit revocation still requires a valid signing key.
+`--no-revoke` is rejected rather than silently ignored. Recovery links use the command's actual
+workspace. Red-first cases cover these boundaries; workspace-option precedence is documented.
+Live logout also exposed the documented asynchronous API2 cache boundary: explicit revocation
+soft-deletes immediately, while this daemon-free test uploader denied reads after 116 seconds.
+The failed immediate-denial assumption is preserved; this is not a production revocation SLA.
+Additional reviewed onboarding edges are covered red-first: nullable API2 signature algorithms,
+private initialization beside existing public directories, and examples choosing only a receipt
+under the requested directory. The packed fixture now builds these actual mixed-catalog outputs.
+Login also snapshots its default home before dotenv injection, with an OS-user fallback for
+Node's empty-HOME result, so a project cannot redirect new credentials through HOME/USERPROFILE.
+The final lifecycle review restores explicit expiry at the signed-candidate boundary, detaches
+long-lived browser openers and adds cooperative interrupt cleanup to the existing atomic catalog
+writer. Active uploads/discovery/list/HEAD cancel; completed receipts checkpoint before exit.
+An accepted Assembly may still finish remotely, and forced exits/crashes still need lock inspection.
+Relative HOME values also fall back to the OS account directory. Empty examples and init output
+now name the initialized directory. These cases are red-first and covered by real loopback S3
+requests plus the packed fixture; the latest full `yarn check` passes.
+Final review reconciliation forwards cancellation into publication HTTP calls too (publish,
+unpublish and public init), distinguishes successful checkpoints from failed receipt recovery,
+limits unversioned compatibility redirects to one shared-cache minute and clarifies JSON ETags.
+Opener failures are warnings, not false login results on JSON stdout. All have red-first coverage.
+
+Round 8 source verification is complete on `00f5ec097cb4809878343a31b6f85cb982ee796e`:
+full `yarn check`, then img check → verify → packed fixture pass (258 img, 537 Node plus one
+preexisting skip, 59 utils, 22 relay). Local and downloaded CI artifacts independently confirm
+80 native browser passes with no retries, skips, flakes or unexpected errors. All jobs in
+https://github.com/transloadit/node-sdk/actions/runs/34792479448 are green. Actual SIGINT/SIGTERM
+tests pass across six stalled CLI phases, including publication, and targeted Opus review confirms
+all final council fixes with no blockers. One preexisting Biome warning remains outside this scope.
+The last full real API2/browser canary is explicitly `3e473f4` (20 observations, unrestricted key);
+the final corrections above do not change its direct image byte path. The final report retains
+failed runs, later passes and source hashes separately, including API2's asynchronous revocation
+boundary. Task-owned services are stopped and API2's preexisting working changes are preserved.
+
+No merge, package publication, Content changes, Thumbhash or origin version selector in this round.
+Detailed local receipts, review reconciliation and remaining gates: `/tmp/img-task2-round8-report.md`.
+
+## Round 8 signup-test addendum
+
+Why: older deployments watermark Community uploads before Storage runs, so a successful write can differ
+from the local file. The CLI must save authoritative receipt metadata and explain this, not invite
+a destructive retry. Input: `/tmp/img-task2-round8-addendum.md` and the stranger signup report.
+
+- [x] Accept valid single-original Storage results from the requested write despite changed bytes;
+  preserve strict path/asset/dimension validation and separate trusted-fact Assembly recovery.
+- [x] Save the actual receipt, warn about changed bytes/plan transformations, and show bounded
+  debug comparison details. Missing receipts get list/sync recovery advice, never overwrite advice.
+- [x] Make the README npm-first, explain signup/free-plan watermarks and align CLI help examples.
+- [x] Report pending browser approval about once per minute without leaking credentials.
+- [x] Explicit init delivery choice and self-key logout already implemented and covered in round 8.
+- [x] Red-first tests, focused review, package/full/packed checks and exact-code-head green CI.
+
+Console signup/redirect/sidebar fixes remain with its owner. No merge, publication or watermark
+policy change is authorized by this addendum.
+API2 `cb23326114` already exempts Storage originals from Community watermarking; qualify that
+warning as compatibility with older deployments. Evidence: `/tmp/img-task2-round8-addendum-report.md`.
+
+Completed code head `ce623e261393f41c5c7859ceb601c54daecee6f2`: full `yarn check`, then img check
+and `verify:full` PASS (549 Node + one preexisting skip, 258 img, 59 utils, 22 relay and the
+root/schema/MCP/type checks). All jobs in
+https://github.com/transloadit/node-sdk/actions/runs/34795854316 are green. Its downloaded browser
+artifact independently confirms 80 first-attempt Chromium/WebKit passes in both Cache Components
+modes, zero retries/skips/flakes/unexpected errors. Evidence: `/tmp/img-r8a-final-ci-browser-audit.json`.
+
+The six council findings and three minor Opus suggestions are fixed red-first; both focused Opus
+UX/defensive-security reviews PASS. Recovery commands keep endpoint/workspace/catalog and use a
+filename prefix, canceled/pending Assemblies retain status-specific messages, asynchronous receipt
+observer errors are contained, and approval countdowns use a monotonic clock. Reference and sync
+help now agree with the npm-first Quickstart; checksum-only transformations are explained too.
+
+An ordinary npm-installed tarball of that exact head passes the real local Community canary on
+API2 `b2264e1767`: store, default catalog, listing, receipt sync and byte-identical signed CDN
+delivery. Its original-storage watermark exemption is confirmed. Compatibility with older
+transformed results remains explicitly protocol-fake coverage, not live old-policy proof.
+The failed extra readback was a missing tmp-hostname mapping after restarting the owned devdock;
+only that container mapping was repaired. No API2 source/env, production policy or Console edits.
+Temporary canary keys/credential files were removed, own devdock/S3rver stopped, existing API2
+working changes preserved. The PR retains `Refs #270`, not `Fixes`, and its two open follow-ups.
+
+Next gates remain unchanged: Console signup/redirect ownership, coordinated deployment/release,
+ordinary registry-install and sustained Content dogfood, then production Bunny measurements.
+This addendum does not authorize merging or publishing the private image package.
+
+## Round 9 — stranger signup test 2
+
+Input: /tmp/img-task2-round9-brief.md and /tmp/img-stranger-signup-report-r2.md (PASS in 6m13,
+against earlier tarballs). “This fires on **every** load of the untouched `image init` page”
+makes F11 the first fix. “a blank page with nothing on it at all” makes scaffold failure UI next.
+
+- [x] F11: post-layout, decoded, non-tiny candidate measurements; native dev tests added.
+- [x] F9: generated example displays delivery failures using the existing fallback API.
+- [x] F10: remove unnecessary development-server restart advice without promising retries.
+- [x] F2: identify saved credentials safely and show the non-destructive separate-file path.
+- [x] F3: unique auth help from Clipanion definitions; all existing aliases retained.
+- [x] README: short npm/pnpm entry, signup timing, tarballs, delivery override and Credentials label.
+- [x] Red-first checks, council/Claude review and sequential package/packed checks.
+
+Same PR; no merge, publication, production, Console or API2 changes. Keep Refs #270 and the
+unchanged release gates above. Detailed quotes, decisions and evidence: /tmp/img-task2-round9-report.md.
+
+Initial yarn check passes: img 262, node 558 plus one existing skip. Red-first failures cover
+pre-layout diagnostics, missing scaffold fallback, restart advice, login context, duplicated
+help and README entry points. The native dev matrix adds untouched desktop/mobile scaffolds
+and a controlled 1px-to-960px real layout; final browser/review/CI receipts follow below.
+F3 was alias expansion in prefix help, not duplicate command registration. No dependencies,
+schema files, builtin pins or auth scopes changed.
+
+First council found two valid follow-ups: scope the fallback locator past Next's route
+announcer, and explain an approved-but-unsaved key after concurrent login rather than saying
+“Nothing was changed”. Both are fixed red-first. Interactive desktop-to-mobile browser reuse
+also exposed a density-correction false positive; compare CSS-pixel naturalWidth before blaming
+sizes. Native tests cover both unchanged pages and cached-candidate reuse. The final verification
+sequence and second, focused review are pending; initial CI only failed on the alert locator.
+
+### Round 9 verification and handoff
+
+The final local sequence passes: `yarn check`, then img check → verify → packed fixture.
+Counts: 263 img, 560 Node plus one preexisting skip, 59 utils, 22 relay and the root/schema/MCP
+checks. The downloaded/installable packages pass all 92 native Chromium/WebKit cases: 42 with
+Cache Components enabled, 42 omitted and eight on the actual Next development server. An
+independent audit confirms zero retries, skips, flakes and unexpected browser/network errors.
+
+Two-reviewer council closure reports no issues; independent Opus UX and defensive-security reviews
+both PASS. Manual npm-installed desktop/mobile evidence covers working images, cached native
+candidate reuse, visible accessible failure and Fast Refresh recovery without restarting Next.
+Real installed CLI help lists six unique auth commands and refuses to overwrite toy credentials
+while identifying the saved file/workspace/description/date without printing secrets. A losing
+device login explains its approved-but-unsaved key; a losing stdin login never suggests revoking
+the existing application key it merely verified. Both races have red-first no-overwrite coverage.
+
+The first closure CI run passed 91/92 cases: rewriting streamed dev HTML for the tiny-box test
+caused WebKit to reload and cancel a devtools font. The test now changes only CSS after normal
+hydration, verifies 1px → 960px and retained client state. Initial pre-layout timing remains
+unit-tested; untouched native desktop/mobile loads and resize observation remain browser-tested.
+No failed-request exemptions or retries were added. Its test-only Node handle typing error was
+also fixed before the final full local repeat. The report preserves those failed attempts.
+
+Exact-head green CI is the final handoff gate; its current receipt and audited downloaded artifact
+are recorded in the [PR body](https://github.com/transloadit/node-sdk/pull/500) and
+`/tmp/img-task2-round9-report.md`, so this source document does not require a self-referential SHA.
+Local evidence: `/tmp/img-r9-evidence-OWBFjJ/`; final sequential logs: `/tmp/img-r9-final2-*.log`.
+Own manual browsers and servers are stopped; the packed runner cleans its own servers.
+
+The incoming 6m13 stranger-signup duration is not relabeled as a new timing on this head. Round 9
+uses owned localhost contract fakes, not a new API2/Console or Bunny canary. No dependencies,
+schemas, Built-in pins, auth scopes, Content/API2 source, env files or production settings changed.
+The release gates remain: coordinated API2/Console rollout and package release, ordinary registry
+installation, sustained Content dogfood and production Bunny measurements. No merge or publication
+in this round; `@transloadit/img` remains private at 0.0.0 and #270's two follow-ups stay open.
+
+### Round 9 follow-up — response-read ownership
+
+Kevin reported `response.body: Test ended.` in run 34788426459 at cd9430a0eb. Its rerun passed,
+but the same listener lifecycle remained at 3b26679: Promise.all snapshots a growing reads array,
+leaving later response handlers unowned during teardown. No product behavior is implicated.
+
+- [x] Reproduce deterministically in both real browser engines by holding the audit's body read
+  while the image decodes normally; old cleanup incorrectly completes before that read is released.
+- [x] Return the response handler's async work to Playwright, then remove/drain those listeners
+  before page/probe closure. Remove the manual reads array; preserve native read failures.
+- [x] Focused council: no issues found. Packed browser matrix: 44 enabled + 44 omitted + 8
+  development cases pass on their first attempts, with all response-audit attachments checked.
+
+The final gate is the required local checks and exact-head CI/artifact verification; their
+commit-stamped receipts live in the report and PR body below, not in a second docs-only CI loop.
+
+Keep this correction test-only. Evidence and current-head CI receipts are appended to
+`/tmp/img-task2-round9-report.md` and the PR body; the red browser artifact is
+`/tmp/img-r9-response-race-red-artifact`. No ignoreErrors, extra retry, timeout increase,
+product change, merge, publication or new framework is part of this fix.
+
+## Round 10 — final reader residuals
+
+Input: `/tmp/img-task2-round10-brief.md` and `/tmp/img-stranger-signup-report-r3.md`.
+The independent reader passed in 4m58 on 3b26679 (API2 b2264e1767, Content 40210c67f1).
+That is the reader's existing timing, not a new measurement by this round.
+
+- [x] F9: print the actual development HEAD origin/path, stripping query credentials. Explain
+  HTTP failure versus an unreachable host and point non-default setups at baseUrl/urlParams.
+  Preserve the existing publication/auth/404 hints, background timing and production silence.
+- [x] Six README clarifications: workspace-derived delivery host, persisted login endpoint,
+  separate credentials file by the logout warning, Console Credentials path without a placeholder
+  link, optional src/ layout, and bring-your-own hero JPEG. No new onboarding feature.
+- [x] Red-first diagnostic tests: seven failures before the fix, then all 163 affected tests pass.
+  Focused council found only the shell-versus-project-env wording; fixed red-first in the README.
+
+Required local checks, packed browser proof, final exact-head CI/artifact receipts and PR-body verification go in
+`/tmp/img-task2-round10-report.md`. Stop after this round: no merge, publication, API2/Content
+changes, environment edits, new reader round or extra product work. img stays private at 0.0.0.
+
+## Round 11 — recovery and reader follow-ups
+
+Input: `/tmp/img-task2-round11-brief.md`, with both independent round-8 Rauch reports read.
+Work remains in #500 on `img-onboard`; no merge, publication or production changes.
+
+- [x] Recover server-declared public policy atomically with receipts; preserve the catalog on
+  policy failure. Never infer publication from a folder name.
+- [x] Document a separate application key for private deployment, not the revocable CLI key.
+- [x] S3 availability/403 handling; non-production init delivery override; dev HEAD fallback.
+- [x] preload vocabulary, typed scaffold and store snippets, concise output, publication dry run.
+- [x] Quickstart-first README and reference accuracy; browser device-denial contract.
+- [x] Triage both focused councils and the Opus UX/security review; add red-first regressions.
+- [x] Condense the PR body, preserving historical evidence in maintainer documentation.
+
+Pre-review full `yarn check` passes: 267 img and 571 Node tests (one existing skip).
+Native desktop/mobile proof and independent Opus UX/security reviews pass on the initial head.
+Council's shell-quoting and custom-catalog findings are fixed red-first. The Opus follow-up fixes
+scaffold formatting, stale alt docs and missing empty-policy guidance. The workspace env override
+remains the explicit round-8 contract, now documented. Final packed verification also replaces its
+stale empty-scaffold assertion; that initial local/CI failure is retained in the report.
+The closure council's multiline assertion and portable absolute-catalog follow-up are fixed;
+full `yarn check` now passes with 268 img and 572 Node tests (one existing skip).
+Cold-checkout CI then exposed the generator's unnecessary receipt-module import. The CLI now
+owns the default catalog argument, keeping source generation independent of built packages;
+a child-process cold-load regression fails first and passes after the correction.
+The final handoff gate is img check → verify → packed browser proof → exact-head green CI.
+Its current commit-stamped result is recorded in the report and PR body rather than a
+self-referential docs-only commit. No merge or publication is authorized by passing this gate.
+
+Progress and red/green evidence: `/tmp/img-task2-round11-report.md`. Immutable identity and
+image doctor remain out of scope. `@transloadit/img` stays private at 0.0.0.
+
+## Round 12 — package-first Next.js integration
+
+Kevin's decision: `/tmp/img-task2-round12-brief.md`. Keep #500, private 0.0.0, no
+merge, publication or production changes. Current main is already an ancestor; no open GitHub
+review threads were present at preflight.
+
+- [x] Store owns the catalog, generates committed types, and explicitly publishes with --public.
+- [x] A Next config plugin binds the conventional catalog and private authorizer; direct package
+  import reuses the existing renderer. Do not promise a runtime filesystem fallback without
+  proving tracing and host portability.
+- [x] Generated module augmentation narrows src; without it string sources still use catalog sizes.
+- [x] Private convention exports one authorize function and re-exports the package route handler.
+- [x] Keep explicit factories and opt-in example/private scaffolding working.
+- [x] Quickstart/reference/dogfood and packed fixture exercise both integration paths.
+- [x] Reconcile the full council and local Opus UX/security evidence; add red-first regressions
+  for every valid finding. Keep final check receipts and the concise PR body current.
+
+The implementation was recovered after an external cleanup selected the active checkout. Work
+continues in Kevin's reserved node-sdk checkout, with no new clone or worktree. Before review,
+img check, verify and all 102 packed Chromium/WebKit cases passed; the corresponding CI is green.
+The initial packed failure caught Turbopack excluding .next as an import source; generated nonsecret
+options now live under node_modules/.cache, while the catalog stays the single source of truth.
+The generated wrapper README is synchronized. A red-first follow-up aligns CLI catalog transport
+validation with the renderer's parameter-only and repeated-query options.
+
+Council's four valid findings are fixed red-first: credential-free scaffolding preserves catalog
+delivery and validates an explicit workspace, generated types survive CRLF conversion, and the
+phase-aware Next plugin never regenerates build options during production startup. The packed
+fixture now prunes those options before next start. Opus UX and security both pass; its alt-text
+nudge is added to the CLI output. The corrected full yarn check passes (278 img, 587 Node plus
+one existing skip). Final img check → verify → packed fixture, closure review and exact-head CI
+remain the handoff gate; their receipts live in the report and PR body, without a docs-only SHA loop.
+No merge, publication, API2 restart or new blind-reader round is part of this handoff.
+
+The closure council exposed a credentialed variant of the endpoint mismatch: optional init could
+publish on development while preserving a production catalog, or save the wrong environment's
+private key. Four red-first cases cover both origin directions and both side effects; mismatches
+now fail under the catalog lock before publication or credential writes. Explicit endpoint changes
+move publication and delivery together; matching origins still work. The scaffold generator's
+unused private/endpoint branches were removed after confirming it has one public-only caller.
+Generated types intentionally stay canonical LF; Git handles checkout conversion. Final receipts
+are refreshed after this bounded correction; earlier green CI is not relabeled as its proof.
+
+Report and commit-stamped evidence: `/tmp/img-task2-round12-report.md`.
+
+## Round 13 — truthful setup and actionable diagnostics
+
+Input: /tmp/img-task2-round13-brief.md and both independent Rauch round-9 reports. Their no-init
+public setup passed in 4m14 and 3m03 including signup; these are reader timings, not this round's.
+Stay in Kevin's reserved node-sdk checkout and #500, private 0.0.0. No merge or publication.
+
+- [x] Specify Smart CDN plus assemblies:write for private keys and use the origin's error header.
+- [x] Name unknown paths, nearby catalog matches and fixes; explain unpublish and dev policy changes.
+- [x] Make optional examples use the package import, not a second factory scaffold shape.
+- [x] Show sha256 for combined keys in leading SDK examples; keep the existing default unchanged.
+- [x] Qualify cache/recovery/host claims and list known limits in the PR body.
+
+Validation gates: red-first regressions, local checks, packed fixture, independent reviews and
+exact-head CI. The PR's Verification section records the current head and receipts after these
+gates; /tmp/img-task2-round13-report.md records the full local evidence.
+
+Report: /tmp/img-task2-round13-report.md. Broader API2/Console changes and deferred product ideas
+remain outside this round; no additional clone or worktree is needed.
+
+Red-first contract evidence: scope/header + docs/CLI regressions, safe unknown-path and unpublish
+advice, HMR policy snapshots, package-only scaffold (including custom catalog/owned-code preservation),
+and SHA-256/cache/recovery examples. Focused suites are green; check, img check and verify pass
+(288 img, 594 Node with one pre-existing skip). Owned Next dev/browser desktop/mobile and real
+catalog hot reload pass; /tmp/img-r13-evidence-eGTRmZ contains screenshots and redacted evidence.
+Initial head 14a50e9 passed all 102 packed cases first attempt and CI run 34870869766. Opus UX and
+security passed. Council's five findings were then reproduced red-first and corrected: reject
+outside-app scaffold catalogs before publication, validate paths before shell advice, name the
+custom --receipts option and factory updates, give unsigned failures the right private remedy,
+and distinguish factory policy from catalog policy. The review also prompted copy-safe commands,
+an alt reminder, overwrite recovery advice and phrasing-safe development fallback annotations.
+Application authorization exceptions deliberately propagate; callbacks deny by returning false.
+The follow-up council's last P3 was fixed red-first: leading-slash/space variants of a known key
+retain a safely escaped exact-key suggestion, but are still rejected and never yield upload advice.
+
+### Round 13 addendum — scope, blur and compact URLs
+
+Kevin's ordered items 6–9 in /tmp/img-task2-round13-addendum.md, starting at 2779025. GitHub has no
+open review comments and origin/main is already an ancestor. Same checkout and PR; no API2 edits,
+new worktrees, merge or publication. Append evidence to /tmp/img-task2-round13-report.md.
+
+- [x] Prefer smart_cdn:sign in private setup/diagnostics; assemblies:write is also accepted.
+- [x] Generate bounded ThumbHash receipt metadata on store and server-decoded blur placeholders.
+- [x] Omit verified Built-in defaults, preserve custom-template behavior and explicit delivery.
+- [x] Describe v as an unverified cache-busting tag and recommend immutable filenames.
+- [x] Add red-first coverage and repeatable packed checks; reconcile council and Opus findings.
+
+API2 source confirms storage-preview@0.0.2 defaults f=jpg, q=75, r=pad and bg=#ffffff;
+public-preview@0.0.1 derives from it. Candidate dimensions remain explicit. Cache keys deliberately
+change before public release; transparent formats still need their nondefault background.
+
+ThumbHash encoding/catalog/declarations/server decoding are implemented and unit-tested. Kevin
+decided against any client load handler. Store records hasAlpha: true only for original alpha
+channels. Transparent images omit the blur background and explain why in development; opaque
+images keep it hidden beneath the loaded pixels. The generated types and matching-MD5-only sync
+preserve this metadata. Public browser cases explicitly disable JavaScript for both kinds of image.
+Private redirect markup deliberately never embeds blurred pixels before image authorization.
+Encoding is best-effort and bounded (32 MiB encoded, 40 MP decoded, 100×100 hash input, 2s decoder).
+Checksum changes drop the local hash; sync only preserves one with matching MD5.
+
+Local checkpoint: check + img check + verify pass (306 img, 602 Node + one existing skip). Packed
+Chromium/WebKit passes 50 cacheComponents-enabled + 50 omitted + 10 development cases, first
+attempt in the final run. The capture's pending-load screenshot was changed to computed-style
+evidence: Playwright's font-ready screenshot wait deadlocked while the test held image delivery.
+The loaded screenshot remains. All native AVIF/WebP/JPEG, alpha and private-authorization checks
+pass. The follow-up alpha regressions failed first (6 failures) and pass after the server-only
+decision. The report and PR Verification section record each reviewed head and its final packed/CI
+receipt; do not reuse the earlier checkpoint's counts as current evidence. Do not merge or publish;
+stop after the verification gates and documentation.
+
+Review follow-up on 0d8aa74: the strict browser audit exposed Chromium's disabled-script preload
+as a CSP failure, independently reproduced with JavaScript off and an enabled control. Record
+only that same-origin Next script cancellation as expected; image/network errors still fail.
+Council/Opus also exposed quantized ThumbHash ratios leaving permanent bands beside letterboxed
+images. Blur now requires opaque box-filling content and uses 100% 100% sizing; other fits opt out.
+Hash-header alpha provides defense in depth for older/edited receipts. PNG data input is bounded,
+Sharp is optional, and docs explain CSP/data URLs and up to about 6 KB extra inline markup.
+Public Built-in boundaries are enforced at model generation (4096 px in both dimensions, quality
+<=85), including fallbacks and art-direction crops; private/customer templates keep their limits.
+Eleven new regressions failed first, then passed. Repeated checks/review/packed/CI receipts are
+tracked in /tmp/img-task2-round13-report.md and the PR's exact-head Verification section.
+
+### Round 14 — final private-path message polish
+
+Kevin's six items in /tmp/img-task2-round14-brief.md, based on both round-10 reader reports.
+Start at e054145 in /Users/kvz/code/node-sdk, img-onboard, PR #500. Main is already an ancestor;
+GitHub has no open review comments. No new product slice, worktree, API2/Console edit or release.
+
+- [x] Missing credentials name the documented Smart CDN pair and Console preset.
+- [x] A development authorizer added after bundling explains the required restart.
+- [x] Store advice follows known publication/metadata, with private files/key/restart and no blur.
+- [x] README includes the small private recipe and create-next-app's typed config shape.
+- [x] Store reads Next config to show an absent wrapper, without executing or editing it.
+- [x] S3 403 advice names its endpoint and both disabled/denied possibilities.
+- Validation gates: red-first tests, img check, verify, packed fixture, review and exact-head green
+  CI. Per-run receipts and the final result live in the report and PR body, not a stale badge here.
+
+Evidence and final handoff: /tmp/img-task2-round14-report.md. Keep production S3-read, hosted
+Vercel and real Bunny verification as release gates; do not claim this local polish closes them.
+
+Red-first: 19 intended failures, then a separate HEAD-403 failure; all pass after the fixes.
+Check, img check and verify pass (319 img, 615 Node plus one pre-existing skip). The cold-source
+script guard caught a transitive workspace import during implementation; snippet helpers remain
+usable without built packages. README grows to 91 lines to include the requested private recipe.
+No dependency or lockfile changes. Packed browser, independent review and exact-head CI follow.
+
+The 98bcee8 live Next probes confirmed late-authorizer restart and missing-key messages; owned
+desktop/mobile public/private browser and exploratory checks passed. Opus UX passed. The initial
+packed/CI attempt exposed a stale seed assertion demanding blur for an intentionally transformed
+upload whose receipt has no hash; its JSX assertion now matches the metadata, with an explicit
+absent-hash assertion. Council/Opus's three in-scope refinements were reproduced red-first and fixed:
+explain CommonJS-to-mjs migration before ESM config advice, do not infer destination privacy from a
+foreign catalog left unchanged, and print shared setup once per upload batch. Check, img check and
+verify pass again (319 img, 618 Node plus one pre-existing skip). Full packed and exact-head CI
+results are recorded in /tmp/img-task2-round14-report.md and the PR Verification section.
+
+Deferred outside Kevin's private-message-only scope: council found an existing public-utility bug
+in packages/utils/src/node.ts getSmartCdnImageCandidates (last touched at 3e473f4, not round 14).
+With builtin/public-preview@0.0.1, widths [400] yields h=8000 without dimensions, or h=6000 for a
+400x6000 source, above that Built-in's 4096px limit. Read-only reproduction is in
+/tmp/img-r14-deferred-utility.log. No packages/img or packages/node caller uses this helper;
+StorageImage's separate model already applies public limits. This is real, not fixed or claimed
+safe. Correct the generic helper's template-specific bounds separately before advertising it for
+the public Built-in; preserve custom-template behavior and truthful width descriptors. No extra
+issue or public-delivery implementation was started in this polish round. Also keep the established
+hosted Vercel, registry install and actual Bunny/S3 rollout gates. Stop; do not merge or publish.
+
+### Round 15 — content-addressed upload names and focused recovery docs
+
+Kevin's two items in /tmp/img-task2-round15-brief.md. Starting at c56ec58 in the reserved
+/Users/kvz/code/node-sdk checkout, img-onboard, #500. Latest main is already an ancestor; no GitHub
+review threads. No other repo changes, new worktrees, merge, release or follow-on round.
+
+- [x] Add storage store --hashed: eight MD5 hex digits before the extension; catalog, generated
+  path types and JSX agree, with the original local filename retained as source.
+- [x] Prove same-byte replays skip uploads using a same-workspace catalog and complete checksum/
+  size match; changed bytes get another name and short-hash conflicts never overwrite.
+- [x] Move S3 recovery commands out of the README to the explicitly unavailable reference section.
+- Verification gates: red-first tests, a packed hashed upload rendered in browsers, required
+  checks, focused review and exact-head green CI. Final receipts/status live in the report and
+  PR body; do not use an earlier head's CI badge. Stop after these gates, without merging/releasing.
+
+Evidence and final state: /tmp/img-task2-round15-report.md. Existing hosted/release gates and the
+deferred generic public-utility finding above remain unchanged.
+
+Red-first: 16 failures / 92 passes, then 107 / 108 passed and the remaining replay test exposed
+catalog key reordering. Replays now preserve the original record/object rather than writing the
+schema's reordered projection. CLI hashing uses a bounded preflight read so a repeat can skip the
+SDK/Assembly entirely; fresh uploads retain the SDK's independent checksum/receipt verification.
+No new public SDK options or dependencies. Matching-checksum sync preserves source; the default
+unhashed path and overwrite behavior stay unchanged. No production S3 availability is assumed.
+
+Review follow-up on 222aff3: council identified same-slug cross-API replay, repeated uploads under
+an explicit foreign-workspace override, transformed-receipt retry advice and misleading S3 examples
+in both SDK READMEs. Twelve assertions failed first. Hashed receipts now record apiOrigin and only
+skip in that API environment; a per-invocation verified-receipt map also deduplicates override
+batches without changing foreign catalogs. Transformed/colliding bytes fail without writing and
+explain why restoring that same receipt cannot help. SDK README examples now link to gated recovery;
+the legacy wrapper is regenerated, not hand-edited. Opus's valid wording fix distinguishes Git
+recovery from the unavailable S3 commands; hash advice precedes the first upload.
+
+The packed seed's initial CI failure was test isolation: a new credentials-file path in the same
+CLI cwd was correctly treated as an untrusted override. Its independent CLI cwd preserves the
+ownership check and copies verified metadata back into the browser app. All 11 seed tests pass in
+the isolated reproduction. Packed builds/browsers and exact-head CI must still pass after these
+fixes; final per-run receipts live in the report and PR body.
+
+Opus post-fix review confirms all four council fixes and the README wording. Its last adjacent
+finding was valid too: the post-write CLI recovery error still printed unavailable S3 commands
+without the prerequisite. A focused regression failed first; the error now names the availability
+limit and points to Console/verified catalog recovery. No new product slice or broad refactor.
+
+### Independent DX follow-up — 2026-09-15
+
+Kevin approved the three bounded documentation improvements from the fresh Astra review, followed
+by an explicit Uppy replacement-policy check. Preserve the product API; do not restart the reader
+loop or infer merge, publication or production-rollout authority.
+
+- [x] Make CLI login the first action even without an account; signup continues in its browser flow.
+- [x] Add a discoverable application-server `storeImage()` recipe: Assembly-enabled credentials,
+  SHA-256 for new combined keys, server-chosen unique paths and persistence with the verified owner.
+- [x] Explain that fill `style`/`className` target the image, and constrain the parent in the
+  responsive example. Native browser geometry was checked during the independent review.
+- [x] Strictly typecheck the new upload snippet against the packed candidate. The first check caught
+  optional environment values; the explicit missing-credentials guard makes it pass without casts.
+- [x] Verify Uppy store parameters against the local API and read back the resulting bytes. Omitting
+  `overwrite` replaces the original; `error` rejects with `TRANSLOADIT_STORE_CONFLICT` and preserves
+  it; `rename` stores a second file and preserves both. Existing helper tests also pass (5/5).
+
+Application-image recipes should use server-owned unique paths and refuse collisions. The existing
+Uppy user-upload recipe already specifies `conflict_strategy: 'error'`. No manager-mode default was
+changed: choosing replacement as a file-management feature is a separate product decision. This
+was a real Uppy parameter-builder → Assembly → stored-bytes check, not a browser/Companion proof.
+Only disposable local-test assets in the dedicated dev bucket were touched.
+
+The SDK's required check passes (319 img, 636 Node plus one existing skip); README contract tests
+were updated and the legacy wrapper README is regenerated from the canonical source. Final verify
+and exact-head CI receipts belong in the PR Verification section and
+`/tmp/dam-dx-followup.VZ1bC7/report.md`. The independent review remains at
+`/tmp/dam-dx-astra-mZadsP/report.md`. Hosted Content/native-delivery, registry-install and API2
+deployment/S3 rollout gates above remain open; this docs follow-up does not close them.

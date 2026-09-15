@@ -1,3 +1,4 @@
+import type { ResolvedCliConfig } from '../helpers.ts'
 import type { IOutputCtl } from '../OutputCtl.ts'
 
 import { Command, Option } from 'clipanion'
@@ -22,6 +23,7 @@ abstract class BaseCommand extends Command {
 
   protected output!: IOutputCtl
   protected client!: TransloaditClient
+  protected cliConfig!: ResolvedCliConfig
 
   protected setupOutput(): void {
     const logLevel = this.logLevelOption ? parseLogLevel(this.logLevelOption) : LOG_LEVEL_DEFAULT
@@ -31,8 +33,8 @@ abstract class BaseCommand extends Command {
     })
   }
 
-  protected setupClient(): boolean {
-    const config = resolveCliConfig()
+  protected setupClient(config: ResolvedCliConfig = resolveCliConfig()): boolean {
+    this.cliConfig = config
     if (config.auth == null) {
       this.output.error(config.loadError ?? buildMissingAuthMessage())
       return false

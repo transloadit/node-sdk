@@ -74,12 +74,14 @@ const config: KnipConfig = {
       ignore: [...sharedIgnore, alphalibIgnore],
       ignoreDependencies: [
         // Used by generated compatibility package sources that are absent in fresh CI checkouts.
+        '@aws-sdk/client-s3',
         '@transloadit/sev-logger',
         '@transloadit/utils',
         'cacheable-lookup',
         'clipanion',
         'debug',
         'dotenv',
+        'execa',
         'form-data',
         'got',
         'into-stream',
@@ -90,6 +92,8 @@ const config: KnipConfig = {
         'p-map',
         'p-queue',
         'recursive-readdir',
+        'sharp',
+        'thumbhash',
         'tus-js-client',
         'typanion',
         'type-fest',
