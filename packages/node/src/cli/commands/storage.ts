@@ -196,6 +196,11 @@ export class StoragePublicationsCommand extends AuthenticatedCommand {
   }
 }
 
+interface CliStoredImageReceipt extends StoredImageReceipt {
+  source?: string
+  apiOrigin?: string
+}
+
 async function hashImageFile(
   file: string,
   signal: AbortSignal,
@@ -249,7 +254,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
   })
   protected async run(): Promise<number | undefined> {
     const file = resolve(this.receipts)
-    let stored: { receipt?: StoredImageReceipt & { source?: string } } = {}
+    let stored: { receipt?: CliStoredImageReceipt } = {}
     let destination = this.destination
     let workspace: string | undefined
     let saved = false
@@ -260,6 +265,10 @@ export class StorageStoreCommand extends StorageProjectCommand {
         throw new Error(
           '--hashed cannot be combined with --overwrite; changed bytes get a new name',
         )
+      const apiOrigin = this.hashed
+        ? new URL(this.endpoint ?? this.cliConfig.endpoint ?? 'https://api2.transloadit.com').origin
+        : undefined
+      const uploaded = new Map<string, CliStoredImageReceipt>()
       if (this.files.length > 1 && !this.destination.endsWith('/'))
         throw new Error('Multiple images need a directory destination ending in /')
       const inputs = this.files.map((input) => ({
@@ -307,19 +316,25 @@ export class StorageStoreCommand extends StorageProjectCommand {
               const extension = posix.extname(destination)
               destination = `${destination.slice(0, destination.length - extension.length)}.${md5hash.slice(0, 8)}${extension}`
               validateStoragePath(destination)
-              if (
-                receipts?.workspace === workspace &&
-                Object.hasOwn(receipts.images, destination)
-              ) {
-                const previous = hashedReceiptSchema.safeParse(receipts.images[destination])
-                if (
-                  !previous.success ||
-                  previous.data.path !== destination ||
-                  previous.data.md5hash !== md5hash ||
-                  previous.data.size !== size
-                )
+              // Explicit workspace overrides leave the catalog alone; still deduplicate this batch.
+              const candidate =
+                uploaded.get(destination) ??
+                (receipts?.workspace === workspace && Object.hasOwn(receipts.images, destination)
+                  ? receipts.images[destination]
+                  : undefined)
+              if (candidate !== undefined) {
+                const previous = hashedReceiptSchema.safeParse(candidate)
+                if (!previous.success || previous.data.path !== destination)
                   throw new Error(
                     `Catalog receipt for ${JSON.stringify(destination)} does not match this file. Restore a verified receipt or choose another destination basename; nothing uploaded.`,
+                  )
+                if (previous.data.apiOrigin !== apiOrigin)
+                  throw new Error(
+                    `Cannot verify that ${JSON.stringify(destination)} was stored at ${apiOrigin}. Use --receipts for a separate catalog for this API environment; nothing uploaded.`,
+                  )
+                if (previous.data.md5hash !== md5hash || previous.data.size !== size)
+                  throw new Error(
+                    `Stored bytes for ${JSON.stringify(destination)} differ from this file. An older deployment may have transformed the upload, or the short hashes collided. Restoring the same receipt will not help; choose another destination basename. Nothing uploaded or replaced.`,
                   )
                 stored.receipt = previous.data
                 unchanged = true
@@ -352,7 +367,8 @@ export class StorageStoreCommand extends StorageProjectCommand {
               ...(this.overwrite ? { overwrite: true } : {}),
             })
             if (this.hashed && !unchanged)
-              stored.receipt = { ...stored.receipt, source: basename(input.file) }
+              stored.receipt = { ...stored.receipt, source: basename(input.file), apiOrigin }
+            if (this.hashed) uploaded.set(destination, stored.receipt)
             if (receipts !== undefined && receipts.workspace !== workspace) {
               this.output.notice(
                 `Catalog ${this.receipts} was not changed; it belongs to ${receipts.workspace}. Use --receipts for a separate catalog.`,
@@ -561,6 +577,7 @@ const uploadEvidenceSchema = z.object({
   thumbhash: z.string().max(48).optional(),
   hasAlpha: z.boolean().optional(),
   source: z.string().optional(),
+  apiOrigin: z.string().url().optional(),
 })
 
 const hashedReceiptSchema = uploadEvidenceSchema.required({ asset_id: true, size: true }).extend({

@@ -478,3 +478,18 @@ schema's reordered projection. CLI hashing uses a bounded preflight read so a re
 SDK/Assembly entirely; fresh uploads retain the SDK's independent checksum/receipt verification.
 No new public SDK options or dependencies. Matching-checksum sync preserves source; the default
 unhashed path and overwrite behavior stay unchanged. No production S3 availability is assumed.
+
+Review follow-up on 222aff3: council identified same-slug cross-API replay, repeated uploads under
+an explicit foreign-workspace override, transformed-receipt retry advice and misleading S3 examples
+in both SDK READMEs. Twelve assertions failed first. Hashed receipts now record apiOrigin and only
+skip in that API environment; a per-invocation verified-receipt map also deduplicates override
+batches without changing foreign catalogs. Transformed/colliding bytes fail without writing and
+explain why restoring that same receipt cannot help. SDK README examples now link to gated recovery;
+the legacy wrapper is regenerated, not hand-edited. Opus's valid wording fix distinguishes Git
+recovery from the unavailable S3 commands; hash advice precedes the first upload.
+
+The packed seed's initial CI failure was test isolation: a new credentials-file path in the same
+CLI cwd was correctly treated as an untrusted override. Its independent CLI cwd preserves the
+ownership check and copies verified metadata back into the browser app. All 11 seed tests pass in
+the isolated reproduction. Packed builds/browsers and exact-head CI must still pass after these
+fixes; final per-run receipts live in the report and PR body.

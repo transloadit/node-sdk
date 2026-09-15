@@ -128,13 +128,15 @@ describe('storage store', () => {
       }),
     )
     const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
-    expect(catalog.images).toEqual({ [path]: { ...stored, source: 'local-photo.jpg' } })
+    expect(catalog.images).toEqual({
+      [path]: { ...stored, source: 'local-photo.jpg', apiOrigin: 'https://api2.transloadit.com' },
+    })
     expect(await readFile('transloadit-images.d.ts', 'utf8')).toContain(
       `"${path}": { path: "${path}";`,
     )
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining(`<StorageImage src="${path}" alt="local photo"`),
-      { ...stored, source: 'local-photo.jpg' },
+      { ...stored, source: 'local-photo.jpg', apiOrigin: 'https://api2.transloadit.com' },
     )
   })
 
@@ -149,6 +151,7 @@ describe('storage store', () => {
       md5hash,
       size: bytes.length,
       source: 'hero.jpg',
+      apiOrigin: 'https://api2.transloadit.com',
     }
     const second = {
       ...first,
@@ -195,6 +198,7 @@ describe('storage store', () => {
     const path = `website/hero.${md5hash.slice(0, 8)}.jpg`
     const old = {
       ...receipt,
+      apiOrigin: 'https://api2.transloadit.com',
       path,
       md5hash,
       size: bytes.length,
@@ -224,6 +228,94 @@ describe('storage store', () => {
     expect(store).not.toHaveBeenCalled()
     expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
       expect.stringContaining('--hashed cannot be combined with --overwrite'),
+    )
+  })
+
+  test.each([
+    'https://api2-devdock.transloadit.dev',
+    undefined,
+  ])('never reuses same-slug receipts from an unverified API origin (%s)', async (apiOrigin) => {
+    const bytes = Buffer.from('original')
+    const md5hash = createHash('md5').update(bytes).digest('hex')
+    const path = `website/hero.${md5hash.slice(0, 8)}.jpg`
+    const previous = catalogJson({
+      [path]: { ...receipt, path, md5hash, size: bytes.length, apiOrigin },
+    })
+    await writeFile('hero.jpg', bytes)
+    await writeFile('transloadit.images.json', previous)
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    await main(['storage', 'store', './hero.jpg', receipt.path, '--hashed'])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+    expect(OutputCtl.prototype.print).not.toHaveBeenCalled()
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('https://api2.transloadit.com'),
+    )
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('--receipts'))
+  })
+
+  test('deduplicates a hashed batch even when an explicit workspace override leaves the catalog unchanged', async () => {
+    const bytes = Buffer.from('original')
+    const md5hash = createHash('md5').update(bytes).digest('hex')
+    const path = `website/hero.${md5hash.slice(0, 8)}.jpg`
+    const previous = JSON.stringify({ workspace: 'other-app', public: [], images: {} })
+    await writeFile('transloadit.images.json', previous)
+    await mkdir('a')
+    await mkdir('b')
+    await writeFile('a/hero.jpg', bytes)
+    await writeFile('b/hero.jpg', bytes)
+    const store = vi
+      .spyOn(Transloadit.prototype, 'storeImage')
+      .mockResolvedValueOnce({ ...receipt, path, md5hash, size: bytes.length })
+      .mockRejectedValueOnce(new ApiError({ body: { error: 'TRANSLOADIT_STORE_CONFLICT' } }))
+    await main([
+      'storage',
+      'store',
+      './a/hero.jpg',
+      './b/hero.jpg',
+      'website/',
+      '--hashed',
+      '--workspace',
+      'my-app',
+    ])
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledOnce()
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+    expect(OutputCtl.prototype.print).toHaveBeenLastCalledWith(
+      expect.stringContaining(`Unchanged ${path}; no upload needed.`),
+      expect.objectContaining({ path }),
+    )
+  })
+
+  test('explains why restoring the same transformed receipt cannot make a hashed replay succeed', async () => {
+    const bytes = Buffer.from('original')
+    const hash = createHash('md5').update(bytes).digest('hex').slice(0, 8)
+    const path = `website/hero.${hash}.jpg`
+    const stored = {
+      ...receipt,
+      path,
+      size: bytes.length + 27,
+      md5hash: 'b'.repeat(32),
+      source: 'hero.jpg',
+      apiOrigin: 'https://api2.transloadit.com',
+    }
+    const previous = catalogJson({ [path]: stored })
+    await writeFile('hero.jpg', bytes)
+    await writeFile('transloadit.images.json', previous)
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    await main(['storage', 'store', './hero.jpg', receipt.path, '--hashed'])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('transformed the upload'),
+    )
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('Restoring the same receipt will not help'),
+    )
+    expect(OutputCtl.prototype.error).not.toHaveBeenCalledWith(
+      expect.stringContaining('--overwrite'),
     )
   })
 

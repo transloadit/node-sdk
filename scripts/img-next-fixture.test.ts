@@ -156,6 +156,9 @@ test('image docs describe the unverified cache tag and recommend immutable names
   expect(readme.slice(0, readme.indexOf('## Responsive'))).toContain(
     'Prefer `--hashed` for images you will replace',
   )
+  expect(readme.indexOf('Prefer `--hashed`')).toBeLessThan(
+    readme.indexOf('npx transloadit storage store'),
+  )
   expect(docs).toContain('eight hex')
   expect(docs).toContain('same bytes')
   expect(docs).toContain('belt-and-braces')
@@ -198,6 +201,8 @@ test('cache-key and production recovery limits are stated without implying unive
   expect(reference).toContain('configured on `*.tlcdn.com`')
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   expect(readme).not.toMatch(/storage ls|storage receipts sync/)
+  expect(readme).toContain('restore the committed catalog')
+  expect(readme).not.toContain('[Recovery requires the Storage read API')
   expect(readme).toContain(
     '](./docs/reference.md#recovery-requires-the-storage-read-api-not-yet-enabled-in-production)',
   )
@@ -209,6 +214,14 @@ test('cache-key and production recovery limits are stated without implying unive
   expect(recovery).toContain('storage ls')
   expect(recovery).toContain('storage receipts sync')
   expect(recovery).toContain('HTTP 403 cannot distinguish a disabled API from denied access')
+  const node = await readFile(resolve(import.meta.dirname, '../packages/node/README.md'), 'utf8')
+  const legacy = await readFile(
+    resolve(import.meta.dirname, '../packages/transloadit/README.md'),
+    'utf8',
+  )
+  expect(node).toContain('#recovery-requires-the-storage-read-api-not-yet-enabled-in-production')
+  expect(node.replaceAll(/\s+/g, ' ')).toContain('not yet enabled in production')
+  expect(legacy).toContain('#recovery-requires-the-storage-read-api-not-yet-enabled-in-production')
 })
 
 test('private deployment uses an application key rather than the revocable CLI login identity', async () => {
@@ -394,7 +407,8 @@ test('ships a focused secretless quickstart and the detailed reference it links 
   expect(node).toContain('auth login')
   expect(node).toContain('storage store ./hero.jpg website/hero.jpg --public')
   expect(node).toContain('auth logout')
-  expect(node).toContain('storage receipts sync website/')
+  expect(node).not.toMatch(/storage ls website\/|storage receipts sync website\//)
+  expect(node).toContain('Recovery options and prerequisites')
 })
 
 test('locks every external runtime dependency of the packed image package', async () => {

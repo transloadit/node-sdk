@@ -476,7 +476,10 @@ an old uncached URL can fetch new bytes after a path overwrite. Prefer immutable
 before the extension, for example `website/hero.fce9d56a.jpg`. The catalog key, generated types and
 printed JSX use that name; the receipt's `source` keeps the original local filename for humans.
 The same bytes at the same destination are a no-op when the same-workspace catalog has a verified
-receipt with matching full MD5 and size. Commit the catalog: without that evidence the CLI cannot
+receipt with matching full MD5, size and API origin. Hashed receipts record `apiOrigin` so a dev
+workspace cannot stand in for production just because their slugs match. A missing or different
+origin stops the command; use a separate `--receipts` catalog for that environment.
+Commit the catalog: without that evidence the CLI cannot
 prove a remote conflict is the same object. Restore the receipt or choose another basename; a
 short-hash collision is never overwritten. Changed bytes get a new name, so `--overwrite` is not
 needed and cannot be combined with `--hashed`. Do not modify the input while uploading.
@@ -602,7 +605,8 @@ Rendering requires no metadata lookup.
 `storage store ./images/*.jpg website/` accepts shell-expanded files and a directory destination.
 Each successful upload is checkpointed before the next; a later failure preserves earlier receipts.
 Duplicate destination basenames are refused before uploading unless `--hashed` distinguishes them
-by content (identical bytes reuse the first receipt). The printed snippet uses a
+by content (identical bytes reuse the first receipt, even during an explicit workspace override).
+The printed snippet uses a
 filename-derived alt; replace it with an accurate description, or an empty alt for a decorative image.
 
 The CLI atomically appends to the catalog's `images` object keyed by Storage path, preserving earlier receipts
@@ -618,8 +622,10 @@ Receipt validation occurs after the Storage write, not as a rollback. Do not re-
 `storage store --overwrite` explicitly replaces an occupied path; it is never the default. Prefer
 [hashed immutable filenames](#cache-and-markup-cost) because delivery resolves paths, not receipt
 hashes, and cached bytes can outlive an overwrite. On older deployments that transform uploaded
-bytes, the CLI still saves the authoritative receipt; a differing checksum prevents a hashed replay
-from being treated as a no-op.
+bytes, the CLI still saves the authoritative receipt; a differing checksum makes a hashed replay
+fail without uploading or replacing anything. Restoring that same transformed receipt cannot fix
+the mismatch. Choose a fresh destination basename; hashed replay requires an origin that preserves
+the uploaded bytes. The same refusal protects against a short-hash collision.
 
 ### Recovery (requires the Storage read API, not yet enabled in production)
 
@@ -659,7 +665,7 @@ rebuild `{ path, width, height }`, which can be passed directly as `StorageImage
 `md5hash` is included only for compatible single-part ETags; multipart, opaque and SSE-KMS/SSE-C
 ETags are not treated as MD5. See [S3's ETag contract](https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html).
 HEAD does not expose `asset_id`: sync recovers rendering metadata, not a verified upload receipt.
-Sync preserves an existing `asset_id`, `size`, `source`, `thumbhash` and `hasAlpha` only when the HEAD MD5 matches
+Sync preserves an existing `asset_id`, `size`, `source`, `apiOrigin`, `thumbhash` and `hasAlpha` only when the HEAD MD5 matches
 the saved hash. A fresh sync has no original bytes and cannot reconstruct ThumbHash or alpha metadata.
 It cannot generate a ThumbHash from List + HEAD; fresh recovered receipts leave that field absent.
 Otherwise it replaces that entry with rendering metadata, so stale upload evidence is not retained.

@@ -138,7 +138,8 @@ Store uploads originals and appends validated receipts to `transloadit.images.js
 `storage store ./images/*.jpg website/` stores shell-expanded files, checkpointing each success.
 It prints `width={960}` (bounded by the original) and `placeholder="blur"`, with a filename-derived
 alt and a reminder. Store generates an optional base64 `thumbhash` from the original bytes.
-An occupied path conflicts unless `--overwrite` is explicit; use immutable filenames where possible.
+An occupied path conflicts unless `--overwrite` is explicit; prefer `--hashed` for immutable
+filenames. Matching receipts skip repeat uploads; changed bytes get a new name.
 The public image `v` is a cache-busting tag derived from the receipt hash; the origin does not verify
 it, so a cold request after an overwrite can return the replacement.
 Publication can also be managed explicitly:
@@ -147,8 +148,6 @@ Publication can also be managed explicitly:
 yarn transloadit storage publish website/
 yarn transloadit storage publications
 yarn transloadit storage unpublish website/
-yarn transloadit storage ls website/
-yarn transloadit storage receipts sync website/
 yarn transloadit auth status
 yarn transloadit auth logout
 ```
@@ -156,10 +155,9 @@ yarn transloadit auth logout
 Logout revokes browser-login keys, including their use by any application. Imported (`--stdin`)
 and legacy keys are only forgotten locally; `auth logout --revoke` explicitly revokes those too.
 
-Unpublishing stops origin access but cannot recall cached/downloaded bytes. List and sync use
-the S3-compatible read API with the login key (`dam:write` also allows reads), not an Assembly.
-Sync rebuilds dimensions via List + HEAD without downloading originals. Upload evidence is
-retained only when the original MD5 still matches; failures preserve the existing catalog.
+Unpublishing stops origin access but cannot recall cached/downloaded bytes. For lost metadata,
+restore the committed catalog. Listing and sync need the Storage read API, not yet enabled in
+production; see [Recovery options and prerequisites](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#recovery-requires-the-storage-read-api-not-yet-enabled-in-production).
 
 Storage commands report the selected credential source on stderr before operating. Ordinary
 commands retain shell → project `.env` → saved login precedence; init prefers the saved login.

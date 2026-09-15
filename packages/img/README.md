@@ -14,6 +14,10 @@ Yarn: `yarn add @transloadit/img && yarn add -D @transloadit/node`.
 Run beside `package.json`. No account yet? Sign up in the browser; a new free workspace works.
 For `./hero.jpg`, use any JPEG you have.
 
+Prefer `--hashed` for images you will replace: it generates an immutable filename such as
+`website/hero.fce9d56a.jpg`. Add the flag below and use the printed JSX path; no `--overwrite` is needed.
+[Cache tags do not pin old bytes](./docs/reference.md#cache-and-markup-cost).
+
 ```bash
 npx transloadit auth login
 npx transloadit storage store ./hero.jpg website/hero.jpg --public
@@ -27,10 +31,6 @@ import { withTransloaditImages } from '@transloadit/img/next/config'
 const nextConfig: NextConfig = { /* your existing Next config */ }
 export default withTransloaditImages(nextConfig)
 ```
-
-Prefer `--hashed` for images you will replace: it generates an immutable filename such as
-`website/hero.fce9d56a.jpg`. Use the printed JSX path; no `--overwrite` is needed.
-[a receipt cache tag does not pin old bytes](./docs/reference.md#cache-and-markup-cost).
 
 Render in `app/page.tsx` or any Server Component. If your app has `src/`, prefix the source paths:
 
@@ -84,7 +84,7 @@ Restart `next dev` after adding the authorizer. [Private setup and authorization
 Opt into `errorFallback` to show a delivery failure instead of a broken image. Development adds
 the HEAD result; see the terminal. Non-production login endpoints carry into the catalog.
 [`baseUrl` and `urlParams`, diagnostics and recovery](./docs/reference.md#when-it-breaks).
-[Recovery requires the Storage read API, not yet enabled in production](./docs/reference.md#recovery-requires-the-storage-read-api-not-yet-enabled-in-production).
+Lost metadata? First restore the committed catalog; see [recovery options and API availability](./docs/reference.md#recovery-requires-the-storage-read-api-not-yet-enabled-in-production).
 
 ## Reference
 

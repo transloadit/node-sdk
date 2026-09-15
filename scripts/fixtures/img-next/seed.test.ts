@@ -98,6 +98,15 @@ test('the package-first path stores and publishes without image init and emits c
 })
 
 test('the packed CLI stores a hashed image once and renders its exact typed path', async (t) => {
+  const originalCwd = process.cwd()
+  const directory = await mkdtemp(join(tmpdir(), 'img-hashed-app-'))
+  t.after(async () => {
+    process.chdir(originalCwd)
+    await rm(directory, { recursive: true, force: true })
+  })
+  // Each app gets its own CLI environment snapshot, just as a fresh CLI process would.
+  await cp(join(originalCwd, 'transloadit.images.json'), join(directory, 'transloadit.images.json'))
+  process.chdir(directory)
   const loginDirectory = await mkdtemp(join(tmpdir(), 'img-hashed-login-'))
   t.after(() => rm(loginDirectory, { recursive: true, force: true }))
   const credentials = join(loginDirectory, 'credentials')
@@ -168,6 +177,7 @@ test('the packed CLI stores a hashed image once and renders its exact typed path
   assert.equal(await readFile('transloadit.images.json', 'utf8'), originalCatalog)
   const catalog = JSON.parse(originalCatalog)
   assert.equal(catalog.images[path].source, 'hashed-hero.jpg')
+  assert.equal(catalog.images[path].apiOrigin, 'https://api2.transloadit.com')
   assert.equal(catalog.images[path].md5hash, md5hash)
   assert.equal(catalog.images[path].path, path)
   assert(
@@ -177,6 +187,9 @@ test('the packed CLI stores a hashed image once and renders its exact typed path
   )
   assert(output.join('').includes(`<StorageImage src="${path}" alt="hashed hero"`))
   assert(output.join('').includes(`Unchanged ${path}; no upload needed.`))
+  await cp('transloadit.images.json', join(originalCwd, 'transloadit.images.json'))
+  await cp('transloadit-images.d.ts', join(originalCwd, 'transloadit-images.d.ts'))
+  process.chdir(originalCwd)
   await mkdir('app/package-hashed', { recursive: true })
   await writeFile(
     'app/package-hashed/page.tsx',
