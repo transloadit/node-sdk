@@ -115,11 +115,12 @@ until release. In a Next.js 16.3.3+ App Router project with Storage enabled, run
 
 ```bash
 yarn transloadit auth login
-yarn transloadit storage store ./hero.jpg website/hero.jpg --public
+yarn transloadit storage store ./hero.jpg website/hero.jpg --public --hashed
 yarn dev
 ```
 
 Follow the image package Quickstart to add its Next plugin and import StorageImage from the package.
+`--hashed` creates an immutable filename; use the printed JSX path, including its content hash.
 Start with `auth login` even without an account: choose Sign up in the browser it opens, then approve
 the CLI. For application-server uploads instead of CLI seeding, see [Store an image](#store-an-image).
 Login opens browser approval (on Windows, open the printed URL) and saves one combined Auth Key,

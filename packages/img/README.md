@@ -15,12 +15,11 @@ Run beside `package.json`. Start with `auth login` even without an account: choo
 browser it opens, create a free workspace, and approve the CLI. For `./hero.jpg`, use any JPEG you have.
 
 Prefer `--hashed` for images you will replace: it generates an immutable filename such as
-`website/hero.fce9d56a.jpg`. Add the flag below and use the printed JSX path; no `--overwrite` is needed.
-[Cache tags do not pin old bytes](./docs/reference.md#cache-and-markup-cost).
+`website/hero.fce9d56a.jpg`. The command below includes it; use the printed JSX path, with no `--overwrite`.
 
 ```bash
 npx transloadit auth login
-npx transloadit storage store ./hero.jpg website/hero.jpg --public
+npx transloadit storage store ./hero.jpg website/hero.jpg --public --hashed
 ```
 
 `--public` publishes the directory recursively, including future uploads. In `next.config.ts`:
@@ -33,11 +32,12 @@ export default withTransloaditImages(nextConfig)
 ```
 
 Render in `app/page.tsx` or any Server Component. If your app has `src/`, prefix the source paths:
+Use the path printed by your upload as `src`; the hash below is only an example.
 
 ```tsx
 import { StorageImage } from '@transloadit/img/next'
 export default function Page() {
-  return <StorageImage src="website/hero.jpg" alt="A canal house" width={960} preload />
+  return <StorageImage src="website/hero.fce9d56a.jpg" alt="A canal house" width={960} preload />
 }
 ```
 
@@ -88,4 +88,6 @@ Lost metadata? First restore the committed catalog; see [recovery options and AP
 
 ## Reference
 
-[Full reference](./docs/reference.md) · [Maintainer dogfood setup](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md).
+[Store an image from your application server](https://github.com/transloadit/node-sdk/blob/main/packages/node/README.md#store-an-image).
+
+[Full reference](./docs/reference.md) · [Cache tags do not pin old bytes](./docs/reference.md#cache-and-markup-cost) · [Maintainer dogfood setup](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md).

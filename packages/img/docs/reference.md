@@ -733,10 +733,56 @@ error or Console, supply the original file's trusted path/size/MD5, and append t
 to your saved app data. Do not rerun the write merely to recover metadata. Persist the complete
 receipt with your owner/project ID; never persist a browser-supplied receipt without verification.
 
-Read the saved receipt in an authorized Server Component and pass it as `src`:
+Dynamic receipts need an explicit factory: the Quickstart's package component infers its allowed
+directories from the catalog and will reject `uploads/` when only `website/` was seeded. Keep that
+public catalog unchanged. This separate private factory does not need the CLI catalog or a rebuild for each upload.
+Use your workspace slug in place of `your-workspace` and the server-only application signing key
+from [Private setup](#private); an uploads-only app needs no `withTransloaditImages` plugin.
+The examples use `app/`; when using `src/app/`, put the factory in `src/app/` and helpers in `src/lib/`.
+
+```ts
+// app/upload-images.ts
+import { createStorageImages } from '@transloadit/img/next/server'
+import { getSession } from '../lib/authorization'
+
+export const { StorageImage, storageRoute } = createStorageImages({
+  workspace: 'your-workspace',
+  allowedPathPrefixes: ['uploads/'],
+  route: '/api/upload-images',
+  authorize: async ({ path, request }) =>
+    (await getSession(request))?.canRead(path) === true,
+})
+```
+
+```ts
+// app/api/upload-images/route.ts
+export { storageRoute as GET, storageRoute as HEAD } from '../../upload-images'
+```
+
+`getSession`, `canRead` and `getAuthorizedImage` below are your application's helpers, not SDK helpers.
+`canRead(path)` must check the current user's permission for that exact stored object, not merely
+whether they are logged in or the path starts with `uploads/`. Keep `uploads/` private; do not publish
+it or allow the workspace root. This route has its own path so it can coexist with the Quickstart route.
+
+Read the saved receipt in an authorized Server Component and import this factory's component, not
+the catalog-bound package component. `getAuthorizedImage(id)` must authenticate the viewer, check
+ownership and return the validated database receipt (or stop with a not-found/denied response):
 
 ```tsx
-<StorageImage src={savedImage} alt={savedImage.description} width={960} />
+// app/uploads/[id]/page.tsx
+import type { ReactNode } from 'react'
+import { getAuthorizedImage } from '../../../lib/images'
+import { StorageImage } from '../../upload-images'
+
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default async function Page({ params }: PageProps): Promise<ReactNode> {
+  const { id } = await params
+  const savedImage = await getAuthorizedImage(id)
+  return <StorageImage src={savedImage} alt={savedImage.description} width={960} />
+}
 ```
 
 `savedImage` is the application's validated database record; owner and asset IDs are never forwarded.

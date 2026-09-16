@@ -1,8 +1,8 @@
 import type { Node } from 'typescript'
 
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { execa } from 'execa'
@@ -159,6 +159,15 @@ test('image docs describe the unverified cache tag and recommend immutable names
   expect(readme.indexOf('Prefer `--hashed`')).toBeLessThan(
     readme.indexOf('npx transloadit storage store'),
   )
+  const quickstart = readme.slice(0, readme.indexOf('## Responsive'))
+  expect(quickstart).toContain(
+    'npx transloadit storage store ./hero.jpg website/hero.jpg --public --hashed',
+  )
+  expect(quickstart).toContain('use the printed JSX path')
+  expect(quickstart).toContain(
+    'Use the path printed by your upload as `src`; the hash below is only an example',
+  )
+  expect(quickstart).toContain('src="website/hero.fce9d56a.jpg"')
   expect(docs).toContain('eight hex')
   expect(docs).toContain('same bytes')
   expect(docs).toContain('belt-and-braces')
@@ -170,6 +179,97 @@ test('image docs describe the unverified cache tag and recommend immutable names
   expect(docs).toContain('img-src data:')
   expect(docs).toContain('6 KB')
 })
+
+test('server-upload docs connect verified receipts to an explicit private rendering factory', async () => {
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  expect(readme).toContain(
+    '](https://github.com/transloadit/node-sdk/blob/main/packages/node/README.md#store-an-image)',
+  )
+  const node = await readFile(resolve(import.meta.dirname, '../packages/node/README.md'), 'utf8')
+  expect(node).toContain('storage store ./hero.jpg website/hero.jpg --public --hashed')
+  expect(node).toContain('use the printed JSX path')
+  const reference = await readFile(
+    resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
+    'utf8',
+  )
+  const uploads = reference.slice(
+    reference.indexOf('### Images uploaded by your users'),
+    reference.indexOf('### Credentials and framework adapters'),
+  )
+  expect(uploads).toContain("import { createStorageImages } from '@transloadit/img/next/server'")
+  expect(uploads).toContain('export const { StorageImage, storageRoute } = createStorageImages({')
+  expect(uploads).toContain("allowedPathPrefixes: ['uploads/']")
+  expect(uploads).toContain('canRead(path) === true')
+  expect(uploads).toContain('// app/api/upload-images/route.ts')
+  expect(uploads).toContain("route: '/api/upload-images'")
+  expect(uploads).toContain(
+    "export { storageRoute as GET, storageRoute as HEAD } from '../../upload-images'",
+  )
+  expect(uploads).toContain("import { StorageImage } from '../../upload-images'")
+  expect(uploads).toContain('<StorageImage src={savedImage}')
+  expect(uploads).toContain('getAuthorizedImage')
+  expect(uploads).toContain('not SDK helpers')
+  expect(uploads).toContain('does not need the CLI catalog or a rebuild for each upload')
+  expect(uploads).not.toContain('allowWorkspaceRoot: true')
+  expect(uploads).not.toContain("public: ['uploads/']")
+})
+
+test('the documented upload factory, route and receipt page typecheck together', async () => {
+  const repoRoot = resolve(import.meta.dirname, '..')
+  const reference = await readFile(resolve(repoRoot, 'packages/img/docs/reference.md'), 'utf8')
+  const uploads = reference.slice(
+    reference.indexOf('### Images uploaded by your users'),
+    reference.indexOf('### Credentials and framework adapters'),
+  )
+  const directory = await mkdtemp(resolve(tmpdir(), 'img-upload-recipe-'))
+  onTestFinished(() => rm(directory, { recursive: true, force: true }))
+  await symlink(resolve(repoRoot, 'node_modules'), resolve(directory, 'node_modules'), 'dir')
+  const files: string[] = []
+  for (const block of uploads.split('```')) {
+    const match = block.match(/^tsx?\n\/\/ (app\/[^\n]+)\n([\s\S]*)$/)
+    if (match?.[1] === undefined || match[2] === undefined) continue
+    const file = resolve(directory, match[1])
+    await mkdir(dirname(file), { recursive: true })
+    await writeFile(file, match[2])
+    files.push(file)
+  }
+  expect(files).toHaveLength(3)
+  await mkdir(resolve(directory, 'lib'))
+  // These are application-owned boundaries; the documented SDK and framework imports stay real.
+  await writeFile(
+    resolve(directory, 'lib/authorization.ts'),
+    'export declare function getSession(request: Request): Promise<{ canRead(path: string): boolean } | null>\n',
+  )
+  await writeFile(
+    resolve(directory, 'lib/images.ts'),
+    "import type { StoredImageReceipt } from '@transloadit/node'\nexport declare function getAuthorizedImage(id: string): Promise<StoredImageReceipt & { description: string; ownerId: string }>\n",
+  )
+  const result = await execa(
+    process.execPath,
+    [
+      resolve(repoRoot, 'node_modules/typescript/bin/tsc'),
+      '--ignoreConfig',
+      '--noEmit',
+      '--strict',
+      // Check the recipe against real package declarations without rechecking dependency internals.
+      '--skipLibCheck',
+      '--target',
+      'es2022',
+      '--module',
+      'esnext',
+      '--moduleResolution',
+      'bundler',
+      '--jsx',
+      'react-jsx',
+      '--esModuleInterop',
+      '--types',
+      'node,react',
+      ...files,
+    ],
+    { cwd: directory, reject: false, timeout: 25_000 },
+  )
+  expect(result.exitCode, result.stdout || result.stderr).toBe(0)
+}, 30_000)
 
 test('the leading SDK example selects SHA-256 for combined keys without changing the legacy default', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/node/README.md'), 'utf8')
