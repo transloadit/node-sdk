@@ -1,8 +1,8 @@
 import type { Node } from 'typescript'
 
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { execa } from 'execa'
@@ -213,63 +213,6 @@ test('server-upload docs connect verified receipts to an explicit private render
   expect(uploads).not.toContain('allowWorkspaceRoot: true')
   expect(uploads).not.toContain("public: ['uploads/']")
 })
-
-test('the documented upload factory, route and receipt page typecheck together', async () => {
-  const repoRoot = resolve(import.meta.dirname, '..')
-  const reference = await readFile(resolve(repoRoot, 'packages/img/docs/reference.md'), 'utf8')
-  const uploads = reference.slice(
-    reference.indexOf('### Images uploaded by your users'),
-    reference.indexOf('### Credentials and framework adapters'),
-  )
-  const directory = await mkdtemp(resolve(tmpdir(), 'img-upload-recipe-'))
-  onTestFinished(() => rm(directory, { recursive: true, force: true }))
-  await symlink(resolve(repoRoot, 'node_modules'), resolve(directory, 'node_modules'), 'dir')
-  const files: string[] = []
-  for (const block of uploads.split('```')) {
-    const match = block.match(/^tsx?\n\/\/ (app\/[^\n]+)\n([\s\S]*)$/)
-    if (match?.[1] === undefined || match[2] === undefined) continue
-    const file = resolve(directory, match[1])
-    await mkdir(dirname(file), { recursive: true })
-    await writeFile(file, match[2])
-    files.push(file)
-  }
-  expect(files).toHaveLength(3)
-  await mkdir(resolve(directory, 'lib'))
-  // These are application-owned boundaries; the documented SDK and framework imports stay real.
-  await writeFile(
-    resolve(directory, 'lib/authorization.ts'),
-    'export declare function getSession(request: Request): Promise<{ canRead(path: string): boolean } | null>\n',
-  )
-  await writeFile(
-    resolve(directory, 'lib/images.ts'),
-    "import type { StoredImageReceipt } from '@transloadit/node'\nexport declare function getAuthorizedImage(id: string): Promise<StoredImageReceipt & { description: string; ownerId: string }>\n",
-  )
-  const result = await execa(
-    process.execPath,
-    [
-      resolve(repoRoot, 'node_modules/typescript/bin/tsc'),
-      '--ignoreConfig',
-      '--noEmit',
-      '--strict',
-      // Check the recipe against real package declarations without rechecking dependency internals.
-      '--skipLibCheck',
-      '--target',
-      'es2022',
-      '--module',
-      'esnext',
-      '--moduleResolution',
-      'bundler',
-      '--jsx',
-      'react-jsx',
-      '--esModuleInterop',
-      '--types',
-      'node,react',
-      ...files,
-    ],
-    { cwd: directory, reject: false, timeout: 25_000 },
-  )
-  expect(result.exitCode, result.stdout || result.stderr).toBe(0)
-}, 30_000)
 
 test('the leading SDK example selects SHA-256 for combined keys without changing the legacy default', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/node/README.md'), 'utf8')

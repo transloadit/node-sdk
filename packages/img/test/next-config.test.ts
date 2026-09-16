@@ -1,6 +1,8 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { promisify } from 'node:util'
 
 import {
   PHASE_DEVELOPMENT_SERVER,
@@ -22,6 +24,62 @@ beforeEach(async () => {
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
+
+test('the documented upload factory, route and receipt page typecheck together', async () => {
+  const repoRoot = resolve(import.meta.dirname, '../../..')
+  const reference = await readFile(resolve(repoRoot, 'packages/img/docs/reference.md'), 'utf8')
+  const uploads = reference.slice(
+    reference.indexOf('### Images uploaded by your users'),
+    reference.indexOf('### Credentials and framework adapters'),
+  )
+  // This package's test command builds its declarations; root script tests run before that build.
+  await symlink(resolve(repoRoot, 'node_modules'), join(root, 'node_modules'), 'dir')
+  const files: string[] = []
+  for (const block of uploads.split('```')) {
+    const match = block.match(/^tsx?\n\/\/ (app\/[^\n]+)\n([\s\S]*)$/)
+    if (match?.[1] === undefined || match[2] === undefined) continue
+    const file = join(root, match[1])
+    await mkdir(dirname(file), { recursive: true })
+    await writeFile(file, match[2])
+    files.push(file)
+  }
+  expect(files).toHaveLength(3)
+  await mkdir(join(root, 'lib'))
+  // Only application-owned helpers are declared; SDK/framework imports use real declarations.
+  await writeFile(
+    join(root, 'lib/authorization.ts'),
+    'export declare function getSession(request: Request): Promise<{ canRead(path: string): boolean } | null>\n',
+  )
+  await writeFile(
+    join(root, 'lib/images.ts'),
+    "import type { TransloaditImageSource } from '@transloadit/img'\nexport declare function getAuthorizedImage(id: string): Promise<TransloaditImageSource & { description: string; ownerId: string }>\n",
+  )
+  const result = await promisify(execFile)(
+    process.execPath,
+    [
+      resolve(repoRoot, 'node_modules/typescript/bin/tsc'),
+      '--ignoreConfig',
+      '--noEmit',
+      '--strict',
+      // Check the recipe without rechecking dependency internals.
+      '--skipLibCheck',
+      '--target',
+      'es2022',
+      '--module',
+      'esnext',
+      '--moduleResolution',
+      'bundler',
+      '--jsx',
+      'react-jsx',
+      '--esModuleInterop',
+      '--types',
+      'node,react',
+      ...files,
+    ],
+    { cwd: root, timeout: 25_000 },
+  )
+  expect(result.stdout).toBe('')
+}, 30_000)
 
 test('only development carries a stable catalog identity for hot-reload diagnostics', async () => {
   const plugin = withTransloaditImages({}, { root })
