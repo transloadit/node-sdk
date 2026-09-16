@@ -1,15 +1,16 @@
-# `@transloadit/img`
+# `@transloadit/viewer`
 
-Responsive Storage images for Next.js. Native `picture/srcset`; bytes go straight from
+Responsive images from Transloadit Storage or your existing HTTP/S3 assets, for Next.js.
+Native `picture/srcset`; bytes go straight from
 Smart CDN (`<workspace>.tlcdn.com`) to the browser, never through Next's image optimizer.
 
 ## Quickstart
 
 Next.js 16.3.3+ App Router, React 19, Node.js runtime.
-**Unpublished dogfood:** ask a maintainer for matching img/utils/node/types tarballs.
-After release: `npm install @transloadit/img && npm install --save-dev @transloadit/node`.
-pnpm: `pnpm add @transloadit/img && pnpm add -D @transloadit/node`;
-Yarn: `yarn add @transloadit/img && yarn add -D @transloadit/node`.
+**Unpublished dogfood:** ask a maintainer for matching viewer/utils/node/types tarballs.
+After release: `npm install @transloadit/viewer && npm install --save-dev @transloadit/node`.
+pnpm: `pnpm add @transloadit/viewer && pnpm add -D @transloadit/node`;
+Yarn: `yarn add @transloadit/viewer && yarn add -D @transloadit/node`.
 
 Run beside `package.json`. Start with `auth login` even without an account: choose Sign up in the
 browser it opens, create a free workspace, and approve the CLI. For `./hero.jpg`, use any JPEG you have.
@@ -26,7 +27,7 @@ npx transloadit storage store ./hero.jpg website/hero.jpg --public --hashed
 
 ```ts
 import type { NextConfig } from 'next'
-import { withTransloaditImages } from '@transloadit/img/next/config'
+import { withTransloaditImages } from '@transloadit/viewer/next/config'
 const nextConfig: NextConfig = { /* your existing Next config */ }
 export default withTransloaditImages(nextConfig)
 ```
@@ -35,9 +36,9 @@ Render in `app/page.tsx` or any Server Component. If your app has `src/`, prefix
 Use the path printed by your upload as `src`; the hash below is only an example.
 
 ```tsx
-import { StorageImage } from '@transloadit/img/next'
+import { Image } from '@transloadit/viewer/next'
 export default function Page() {
-  return <StorageImage src="website/hero.fce9d56a.jpg" alt="A canal house" width={960} preload />
+  return <Image storage src="website/hero.fce9d56a.jpg" alt="A canal house" width={960} preload />
 }
 ```
 
@@ -51,21 +52,35 @@ preloads its responsive source and sets high fetch priority. Other images load l
 Add `placeholder="blur"` for an inline preview from the receipt's optional `thumbhash`.
 [Layouts, art direction and the temporary priority alias](./docs/reference.md#responsive).
 
+## Existing HTTP or S3 assets
+
+Use a [compatible Template](./docs/reference.md#custom-templates) that pins your origin or bucket:
+
+```tsx
+<Image workspace="my-shop" template="products" src="chairs/oak.jpg" alt="An oak chair" width={1200} height={800} />
+```
+
+No Storage upload or catalog. Supply intrinsic dimensions and that workspace's server-only signing
+key. For private assets, authorize in the calling Server Component or use the per-request route
+below, checking workspace, template and path. [Setup, metadata and defaults](./docs/reference.md#custom-templates).
+
 ## Private
 
 Wire `getSession` to your application's session and per-object permissions; it is not an SDK helper:
 
 ```ts
 // transloadit.authorize.ts, beside next.config.ts
-import type { AuthorizeTransloaditStorageImage } from '@transloadit/img/next/server'
+import type { AuthorizeTransloaditImage } from '@transloadit/viewer/next/server'
+import { transloaditStoragePreviewTemplate } from '@transloadit/viewer'
 import { getSession } from './lib/authorization'
-export const authorize: AuthorizeTransloaditStorageImage = async ({ path, request }) =>
+export const authorize: AuthorizeTransloaditImage = async ({ path, request, template }) =>
+  template === transloaditStoragePreviewTemplate &&
   (await getSession(request))?.canRead(path) === true
 ```
 
 ```ts
 // app/api/storage-images/route.ts (prefix with src/ if needed)
-export { GET, HEAD } from '@transloadit/img/next/route'
+export { GET, HEAD } from '@transloadit/viewer/next/route'
 ```
 
 Console → Credentials → New Auth Key → “Private image delivery”: Smart CDN on, `smart_cdn:sign`

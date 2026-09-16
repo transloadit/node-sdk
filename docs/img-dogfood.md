@@ -1,4 +1,4 @@
-# `@transloadit/img` local dogfood and verification
+# `@transloadit/viewer` local dogfood and verification
 
 These are maintainer-only packing, SDK seed and devdock notes, not consumer prerequisites.
 Use the [package README](../packages/img/README.md) for the application integration.
@@ -6,14 +6,15 @@ Use the [package README](../packages/img/README.md) for the application integrat
 Responsive previews of Transloadit Storage objects, delivered through Smart CDN.
 
 Round 12's default integration is package-first: login, `storage store ./hero.jpg website/hero.jpg
---public`, `withTransloaditImages` in Next config, and `StorageImage` imported from
-`@transloadit/img/next`. Commit both `transloadit.images.json` and `transloadit-images.d.ts`.
+--public`, `withTransloaditImages` in Next config, and `Image` imported from
+`@transloadit/viewer/next`. Commit both `transloadit.images.json` and `transloadit-images.d.ts`.
 `image init` and the explicit SDK/factory recipes below are optional alternatives.
 
 The package renders native `<picture>`, `srcset`, and `<img>` elements. Image bytes travel directly
 from Smart CDN to the browser; they are never optimized or proxied by the Next.js application.
-Remote HTTP URLs are deliberately outside this package's source contract: an image must already
-belong to the configured Transloadit Storage workspace.
+Storage uses relative catalog paths; custom HTTP/S3 Templates accept relative inputs with trusted
+intrinsic dimensions. Their fixed origins and import credentials belong in the Template, not JSX.
+See the package reference's custom Template recipe; the historical canaries below cover Storage.
 
 This workspace remains private at version `0.0.0` while the API and production dogfood soak. Do not
 depend on it from npm yet.
@@ -44,7 +45,7 @@ checkout, install its locked dependencies and pack into your own temporary direc
 ```bash
 corepack yarn install --immutable
 img_pack_dir=$(mktemp -d)
-corepack yarn workspace @transloadit/img pack --out "$img_pack_dir/transloadit-img.tgz"
+corepack yarn workspace @transloadit/viewer pack --out "$img_pack_dir/transloadit-viewer.tgz"
 corepack yarn workspace @transloadit/node pack --out "$img_pack_dir/transloadit-node.tgz"
 corepack yarn workspace @transloadit/types pack --out "$img_pack_dir/transloadit-types.tgz"
 corepack yarn workspace @transloadit/utils pack --out "$img_pack_dir/transloadit-utils.tgz"
@@ -55,7 +56,7 @@ In the same terminal, switch to a stock Next.js app created with npm and install
 tarballs. npm deduplicates the matching local workspace versions without a manual manifest edit:
 
 ```bash
-npm install "$img_pack_dir/transloadit-img.tgz" "$img_pack_dir/transloadit-utils.tgz"
+npm install "$img_pack_dir/transloadit-viewer.tgz" "$img_pack_dir/transloadit-utils.tgz"
 npm install -D "$img_pack_dir/transloadit-node.tgz" "$img_pack_dir/transloadit-types.tgz"
 ```
 
@@ -205,10 +206,10 @@ because native image requests cannot attach a custom header. It does **not** ins
 bypass access policy. Private URLs still require a Smart CDN-enabled key; public URLs require a
 published prefix. Never take either endpoint override from a request.
 Normal Smart CDN delivery needs neither local override.
-`createStorageImages` accepts these same `baseUrl` and `urlParams` fields directly,
+`createImages` accepts these same `baseUrl` and `urlParams` fields directly,
 alongside `allowedPathPrefixes` and `authorize`.
 
-The factory exports `StorageImage`. Use one flat `createStorageImages({ images, public })`
+The factory exports `Image`. Use one flat `createImages({ images, public })`
 shape for the public Content hero, with catalog-typed src and fill/cover breakpoint ratios.
 Public direct markup is static; private direct images remain request-rendered. See the package
 README for layout and authorization policy; this document only covers maintainer setup.
@@ -273,7 +274,7 @@ clone17's `tmp/img-sync2-cli-result.json` (2026-09-12T22:22:14.120Z).
 ## Verification
 
 ```console
-corepack yarn workspace @transloadit/img check
+corepack yarn workspace @transloadit/viewer check
 corepack yarn test:img:fixture
 ```
 
@@ -311,7 +312,7 @@ checks, not a claim that they ran on the latest head. Current round-11 receipts 
 
 Source verification on `00f5ec0` (all review findings reconciled):
 
-- `@transloadit/img check`: 258 tests plus type checks pass.
+- `@transloadit/viewer check`: 258 tests plus type checks pass.
 - Full repository verification including knip/types: 537 Node tests pass (one preexisting skip),
   plus the image, utils, schema and relay checks.
 - Packed native Chromium/WebKit fixture: 80 first-attempt passes with Cache Components enabled
@@ -414,7 +415,7 @@ One preexisting lint warning and Node unit skip remain. Own services are stopped
 is clean. The incoming **6m13** signup result remains the earlier reader's measurement.
 
 No merge/publication, dependency/schema/Built-in/auth-scope changes, API2/Content edits, env-file
-edits or production changes in round 9. `@transloadit/img` is still private at 0.0.0.
+edits or production changes in round 9. `@transloadit/viewer` is still private at 0.0.0.
 
 ### Round 9 follow-up — response-read ownership
 
@@ -459,4 +460,4 @@ fixed red-first. README stays at 180 lines, Quickstart at 36. No other product w
   independent reader's measurement on 3b26679/API2 b2264e1767/Content 40210c67f1, not this head.
 
 Stop after this round. No new reader round, merge, publication, production requests,
-API2/Content edits or environment changes; `@transloadit/img` remains private at 0.0.0.
+API2/Content edits or environment changes; `@transloadit/viewer` remains private at 0.0.0.

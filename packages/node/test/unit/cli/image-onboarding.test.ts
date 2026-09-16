@@ -435,12 +435,14 @@ describe('image init', () => {
     await mkdir('app')
     await main(['image', 'init', 'uploads/', '--private'])
     expect(process.exitCode).toBeUndefined()
-    expect(await readFile('transloadit.authorize.ts', 'utf8')).toContain('export const authorize')
+    const authorizer = await readFile('transloadit.authorize.ts', 'utf8')
+    expect(authorizer).toContain('export const authorize')
+    expect(authorizer).toContain('workspace, template and path')
     expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toMatch(
       /Smart CDN.*smart_cdn:sign.*assemblies:write is also accepted/,
     )
     expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toBe(
-      "export { GET, HEAD } from '@transloadit/img/next/route'\n",
+      "export { GET, HEAD } from '@transloadit/viewer/next/route'\n",
     )
     await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(stat('app/storage-image-example/page.tsx')).rejects.toMatchObject({
@@ -456,7 +458,7 @@ describe('image init', () => {
     await main(['image', 'init', 'website/', '--example'])
     expect(process.exitCode).toBeUndefined()
     expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
-      "from '@transloadit/img/next'",
+      "from '@transloadit/viewer/next'",
     )
     await expect(stat('lib/storageImage.ts')).rejects.toMatchObject({ code: 'ENOENT' })
     expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toContain(
@@ -503,7 +505,7 @@ describe('image init', () => {
       await main(['image', 'init', 'website/', mode, '--receipts', '../photos.json'])
       expect(process.exitCode).toBe(1)
       expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-        expect.stringMatching(/outside this Next.js app.*explicit.*createStorageImages/),
+        expect.stringMatching(/outside this Next.js app.*explicit.*createImages/),
       )
       expect(Transloadit.prototype.publishStoragePrefix).not.toHaveBeenCalled()
       expect(await readdir('.')).toEqual(['app'])
@@ -727,9 +729,9 @@ describe('image init', () => {
       images: {},
     })
     const page = await readFile(`${app}/storage-image-example/page.tsx`, 'utf8')
-    expect(page).toContain("from '@transloadit/img/next'")
+    expect(page).toContain("from '@transloadit/viewer/next'")
     expect(page).toContain('keyof typeof catalog.images')
-    expect(page).toContain('<StorageImage')
+    expect(page).toContain('<Image')
     expect(page).toContain('errorFallback=')
     expect(page).toContain('role="status"')
     expect(page).toContain('This image could not be loaded.')
@@ -844,7 +846,7 @@ describe('image init', () => {
     expect(process.exitCode).toBeUndefined()
     expect(await readFile('transloadit.authorize.ts', 'utf8')).toContain('= () => false')
     expect(await readFile('app/api/storage-images/route.ts', 'utf8')).toContain(
-      "export { GET, HEAD } from '@transloadit/img/next/route'",
+      "export { GET, HEAD } from '@transloadit/viewer/next/route'",
     )
     expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).toContain(
       'authorization',

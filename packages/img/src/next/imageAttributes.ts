@@ -130,7 +130,7 @@ export function snapshotImageLoading({
 }): ImageLoadingProps {
   if (priority !== undefined && process.env.NODE_ENV === 'development')
     console.warn(
-      '[StorageImage] priority is deprecated; use preload. The alias will be removed after one release.',
+      '[Image] priority is deprecated; use preload. The alias will be removed after one release.',
     )
   if (preload || priority) {
     if (loading === 'lazy') throw new Error('A preloaded Transloadit image cannot use lazy loading')

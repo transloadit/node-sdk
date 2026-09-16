@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 
-import type { StorageImagesConfiguration } from '../src/next/server.tsx'
+import type { ImageConfiguration } from '../src/next/server.tsx'
 
 import { parseSmartCdnUrl } from '@transloadit/utils/node'
 import { act } from 'react'
@@ -16,7 +16,7 @@ vi.mock('next/server.js', () => ({ connection }))
 vi.mock('server-only', () => ({}))
 
 import { createImageDiagnostics } from '../src/next/diagnostics.ts'
-import { createStorageImages } from '../src/next/server.tsx'
+import { createImages } from '../src/next/server.tsx'
 
 const authSecret = 'never-render-this-secret'
 const baseConfiguration = {
@@ -26,7 +26,7 @@ const baseConfiguration = {
   baseUrl: 'https://cdn.example/file/{workspace}',
   allowedPathPrefixes: ['documents/'],
   workspace: 'my-app',
-} satisfies StorageImagesConfiguration
+} satisfies ImageConfiguration
 
 async function renderAsync(node: ReactNode): Promise<string> {
   const stream = await renderToReadableStream(node)
@@ -48,14 +48,14 @@ function getFirstCandidate(document: Document): string {
 
 function getStorageRouteCandidate(): {
   authorize: ReturnType<typeof vi.fn>
-  storageRoute: (request: Request) => Promise<Response>
+  imageRoute: (request: Request) => Promise<Response>
   url: URL
 } {
   const authorize = vi.fn(
     ({ path, request }: { path: string; request: Request }): boolean =>
       path === 'documents/report.pdf' && request.headers.get('authorization') === 'Bearer allowed',
   )
-  const { StorageImage: Image, storageRoute } = createStorageImages({
+  const { Image, imageRoute } = createImages({
     ...baseConfiguration,
     allowedPathPrefixes: ['documents/'],
     authorize,
@@ -72,7 +72,7 @@ function getStorageRouteCandidate(): {
   )
   return {
     authorize,
-    storageRoute,
+    imageRoute,
     url: new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example'),
   }
 }
@@ -88,6 +88,29 @@ afterEach(() => {
 })
 
 describe('development delivery diagnostics', () => {
+  test('a successful custom Template response must still honor the requested format', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(null, {
+        status: 200,
+        headers: { 'Content-Type': 'image/png' },
+      }),
+    )
+    const { Image } = createImages({ ...baseConfiguration, template: 'website-images' })
+    await renderAsync(
+      <Image
+        alt="Photo"
+        src={{ path: 'documents/photo.jpg', width: 800, height: 600 }}
+        formats={{ webp: 75 }}
+      />,
+    )
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringMatching(/image\/png.*image\/webp.*Template/),
+    )
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toMatch(
+      /auth-key|never-render-this-secret|sig=|exp=/,
+    )
+  })
+
   test.each([
     'HTTP failure',
     'network failure',
@@ -97,13 +120,13 @@ describe('development delivery diagnostics', () => {
     } else {
       vi.mocked(fetch).mockRejectedValue(new Error(`Could not fetch ${authSecret}`))
     }
-    const { StorageImage } = createStorageImages({
+    const { Image } = createImages({
       ...baseConfiguration,
       baseUrl: 'https://cdn.example:8443/file/{workspace}',
       urlParams: { token: 'never-log-query-token' },
     })
     const markup = await renderAsync(
-      <StorageImage alt="Hero" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+      <Image alt="Hero" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
     )
     const target = new URL(getFirstCandidate(parseMarkup(markup)))
     expect(fetch).toHaveBeenCalledWith(target.href, expect.objectContaining({ method: 'HEAD' }))
@@ -122,23 +145,23 @@ describe('development delivery diagnostics', () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(null, { status: 307, headers: { Location: 'https://cdn.example/image' } }),
     )
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     await renderAsync(
-      <StorageImage alt="Hero" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+      <Image alt="Hero" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
     )
     expect(fetch).toHaveBeenCalledOnce()
     expect(console.warn).not.toHaveBeenCalled()
   })
   test('explains denied route boundaries with static, deduplicated reasons only', async () => {
-    const { storageRoute, url } = getStorageRouteCandidate()
+    const { imageRoute, url } = getStorageRouteCandidate()
     const wrongRoute = new URL(url)
     wrongRoute.pathname = '/wrong-route'
-    expect((await storageRoute(new Request(wrongRoute))).status).toBe(404)
+    expect((await imageRoute(new Request(wrongRoute))).status).toBe(404)
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('route/basePath'))
     const malformed = new URL(url)
     malformed.searchParams.set('cap', 'secret-sentinel')
-    expect((await storageRoute(new Request(malformed))).status).toBe(404)
-    expect((await storageRoute(new Request(malformed))).status).toBe(404)
+    expect((await imageRoute(new Request(malformed))).status).toBe(404)
+    expect((await imageRoute(new Request(malformed))).status).toBe(404)
     expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(/secret.*template/))
     expect(console.warn).toHaveBeenCalledTimes(2)
     expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain('secret-sentinel')
@@ -147,12 +170,12 @@ describe('development delivery diagnostics', () => {
   })
 
   test('explains direct rendering once per integration, without logging credentials or URLs', async () => {
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const props = { alt: 'Hero', src: { path: 'documents/hero.jpg', width: 400, height: 300 } }
-    await renderAsync(<StorageImage {...props} />)
-    await renderAsync(<StorageImage {...props} />)
+    await renderAsync(<Image {...props} />)
+    await renderAsync(<Image {...props} />)
     expect(console.info).toHaveBeenCalledExactlyOnceWith(
-      'StorageImage (direct) makes this route dynamic; use redirect delivery for static pages',
+      'Image (direct) makes this route dynamic; use redirect delivery for static pages',
     )
   })
 
@@ -160,17 +183,17 @@ describe('development delivery diagnostics', () => {
     'GET',
     'HEAD',
   ])('a denied private %s route names its path and the opt-in publication fix', async (method) => {
-    const { StorageImage, storageRoute } = createStorageImages({
+    const { Image, imageRoute } = createImages({
       ...baseConfiguration,
       delivery: undefined,
       public: [],
       authorize: () => false,
     })
     const markup = renderToStaticMarkup(
-      <StorageImage src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} alt="Hero" />,
+      <Image src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} alt="Hero" />,
     )
     const url = new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
-    const denied = await storageRoute(new Request(url, { method }))
+    const denied = await imageRoute(new Request(url, { method }))
     expect(denied.status).toBe(404)
     expect(await denied.text()).toBe('')
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('"documents/hero.jpg"'))
@@ -189,7 +212,7 @@ describe('development delivery diagnostics', () => {
     expect(console.warn).toHaveBeenCalledWith(
       expect.stringContaining('storage publish -- documents/'),
     )
-    await storageRoute(new Request(url))
+    await imageRoute(new Request(url))
     expect(console.warn).toHaveBeenCalledOnce()
     expect(fetch).not.toHaveBeenCalled()
     expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toMatch(
@@ -201,7 +224,7 @@ describe('development delivery diagnostics', () => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
     vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false)
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { StorageImage } = createStorageImages({ ...baseConfiguration, authorize: () => false })
+    const { Image } = createImages({ ...baseConfiguration, authorize: () => false })
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
@@ -209,7 +232,7 @@ describe('development delivery diagnostics', () => {
       await act(() =>
         root.render(
           <p>
-            <StorageImage
+            <Image
               src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
               alt="Inline photo"
               layout="none"
@@ -239,13 +262,13 @@ describe('development delivery diagnostics', () => {
       finishProbe = resolve
     })
     vi.mocked(fetch).mockReturnValue(probe)
-    const { StorageImage } = createStorageImages({
+    const { Image } = createImages({
       ...baseConfiguration,
       lifetime: 5000,
       rotationIntervalMs: 1000,
     })
     const rendered = renderAsync(
-      <StorageImage alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+      <Image alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
     )
     try {
       await vi.waitFor(async () => {
@@ -272,10 +295,8 @@ describe('development delivery diagnostics', () => {
       failProbe = reject
     })
     vi.mocked(fetch).mockReturnValue(probe)
-    const { storageRoute, url } = getStorageRouteCandidate()
-    const response = storageRoute(
-      new Request(url, { headers: { Authorization: 'Bearer allowed' } }),
-    )
+    const { imageRoute, url } = getStorageRouteCandidate()
+    const response = imageRoute(new Request(url, { headers: { Authorization: 'Bearer allowed' } }))
     try {
       await vi.waitFor(async () => {
         const result = await Promise.race([response, Promise.resolve(undefined)])
@@ -295,7 +316,7 @@ describe('development delivery diagnostics', () => {
     vi.stubEnv('NODE_ENV', 'development')
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(null, { headers: { 'Content-Type': 'image/jpeg' } })),
+      vi.fn(async () => new Response(null, { headers: { 'Content-Type': 'image/avif' } })),
     )
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'info').mockImplementation(() => {})
@@ -307,11 +328,11 @@ describe('development delivery diagnostics', () => {
   })
 
   test('checks one HEAD per path/template per configured integration', async () => {
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const props = { alt: 'Preview', src: { path: 'documents/hero.jpg', width: 400, height: 300 } }
     await Promise.all([
-      renderAsync(<StorageImage {...props} />),
-      renderAsync(<StorageImage {...props} widths={[100]} />),
+      renderAsync(<Image {...props} />),
+      renderAsync(<Image {...props} widths={[100]} />),
     ])
     expect(fetch).toHaveBeenCalledOnce()
     expect(fetch).toHaveBeenCalledWith(
@@ -324,8 +345,8 @@ describe('development delivery diagnostics', () => {
       }),
     )
     expect(console.warn).not.toHaveBeenCalled()
-    const other = createStorageImages({ ...baseConfiguration, template: 'another-preview' })
-    await renderAsync(<other.StorageImage {...props} />)
+    const other = createImages({ ...baseConfiguration, template: 'another-preview' })
+    await renderAsync(<other.Image {...props} />)
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 
@@ -340,9 +361,9 @@ describe('development delivery diagnostics', () => {
 
   test('never probes from production rendering', async () => {
     vi.stubEnv('NODE_ENV', 'production')
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     await renderAsync(
-      <StorageImage alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+      <Image alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
     )
     expect(fetch).not.toHaveBeenCalled()
     expect(console.warn).not.toHaveBeenCalled()
@@ -405,7 +426,7 @@ describe('development delivery diagnostics', () => {
 
   test.each([
     { status: 403, hint: /Enable Smart CDN.*Auth Key.*workspace.*signature/ },
-    { status: 404, hint: /workspace slug.*Storage path.*Template/ },
+    { status: 404, hint: /workspace slug.*source path.*Template/ },
     { status: 500, hint: /HTTP 500.*Check the delivery endpoint and Template/ },
   ])('gives actionable, non-secret hints for HTTP $status without guessing the cause', async ({
     status,
@@ -414,10 +435,10 @@ describe('development delivery diagnostics', () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(authSecret, { status, headers: { 'x-secret': authSecret } }),
     )
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const props = { alt: 'Preview', src: { path: 'documents/hero.jpg', width: 400, height: 300 } }
-    await renderAsync(<StorageImage {...props} />)
-    await renderAsync(<StorageImage {...props} />)
+    await renderAsync(<Image {...props} />)
+    await renderAsync(<Image {...props} />)
     expect(console.warn).toHaveBeenCalledOnce()
     expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(hint))
     expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain(authSecret)
@@ -426,9 +447,9 @@ describe('development delivery diagnostics', () => {
 
   test('sanitizes network failures while preserving native rendering', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error(`Failed at secret URL ${authSecret}`))
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const markup = await renderAsync(
-      <StorageImage alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+      <Image alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
     )
     expect(markup).toContain('<picture>')
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('reach Smart CDN'))
@@ -437,40 +458,37 @@ describe('development delivery diagnostics', () => {
 
   test('never diagnoses an unauthorized redirect or a path outside policy', async () => {
     const authorize = vi.fn(() => false)
-    const { StorageImage, storageRoute } = createStorageImages({
+    const { Image, imageRoute } = createImages({
       ...baseConfiguration,
       route: '/images',
       authorize,
     })
     expect(() =>
-      StorageImage({ alt: 'Denied', src: { path: 'private/hero.jpg', width: 400, height: 300 } }),
+      Image({ alt: 'Denied', src: { path: 'private/hero.jpg', width: 400, height: 300 } }),
     ).toThrow(/allowed prefixes/)
     const document = parseMarkup(
       renderToStaticMarkup(
-        <StorageImage
-          alt="Preview"
-          src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
-        />,
+        <Image alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
       ),
     )
     const request = new Request(new URL(getFirstCandidate(document), 'https://app.example'))
-    expect((await storageRoute(request)).status).toBe(404)
+    expect((await imageRoute(request)).status).toBe(404)
     expect(fetch).not.toHaveBeenCalled()
     authorize.mockReturnValue(true)
-    expect((await storageRoute(request)).status).toBe(307)
+    expect((await imageRoute(request)).status).toBe(307)
     expect(fetch).toHaveBeenCalledOnce()
   })
 })
 
-describe('createStorageImages', () => {
+describe('createImages', () => {
   test.each([
     'direct',
     'redirect',
   ])('binds transparent candidates and the configured JPEG background through %s delivery', async (delivery) => {
     const integration =
       delivery === 'direct'
-        ? createStorageImages(baseConfiguration)
-        : createStorageImages({
+        ? createImages(baseConfiguration)
+        : createImages({
             ...baseConfiguration,
             allowedPathPrefixes: ['documents/'],
             route: '/images',
@@ -478,7 +496,7 @@ describe('createStorageImages', () => {
           })
     const document = parseMarkup(
       await renderAsync(
-        <integration.StorageImage
+        <integration.Image
           alt="Transparent logo"
           src={{ path: 'documents/logo.png', width: 64, height: 64 }}
           fallbackBackground="#224466"
@@ -494,9 +512,9 @@ describe('createStorageImages', () => {
     ]) {
       if (source === undefined) throw new Error('Expected a candidate URL')
       const location =
-        'storageRoute' in integration
+        'imageRoute' in integration
           ? (
-              await integration.storageRoute(new Request(new URL(source, 'https://app.example')))
+              await integration.imageRoute(new Request(new URL(source, 'https://app.example')))
             ).headers.get('location')
           : source
       if (location === null) throw new Error('Expected a redirect')
@@ -513,7 +531,7 @@ describe('createStorageImages', () => {
 
   test('rejects a global background override before it can flatten alpha or make JPEG transparent', () => {
     expect(() =>
-      createStorageImages({
+      createImages({
         ...baseConfiguration,
         urlParams: { bg: '#00000000' },
       }),
@@ -521,10 +539,10 @@ describe('createStorageImages', () => {
   })
 
   test('layout defaults leave explicit sizes, widths and styles in control', async () => {
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const document = parseMarkup(
       await renderAsync(
-        <StorageImage
+        <Image
           alt="Override"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="constrained"
@@ -544,10 +562,10 @@ describe('createStorageImages', () => {
     'fixed',
     'fill',
   ])('explains that %s layout needs receipt geometry rather than a string source', (layout) => {
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     expect(() =>
       // @ts-expect-error JavaScript callers can pass a string where fixed layout requires a receipt.
-      StorageImage({
+      Image({
         alt: 'Avatar',
         src: 'documents/avatar.jpg',
         layout,
@@ -566,9 +584,9 @@ describe('createStorageImages', () => {
     { layout: 'fixed', width: 48, height: 48, fit: 'stretch' },
     { layout: 'other' },
   ])('rejects invalid layout before rendering %j', (layout) => {
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     expect(() =>
-      Reflect.apply(StorageImage, undefined, [
+      Reflect.apply(Image, undefined, [
         {
           alt: 'Invalid',
           src: { path: 'documents/hero.jpg', width: 400, height: 300 },
@@ -580,10 +598,10 @@ describe('createStorageImages', () => {
   })
 
   test('derives constrained layout and caps its candidates at twice maxWidth', async () => {
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const document = parseMarkup(
       await renderAsync(
-        <StorageImage
+        <Image
           alt="Hero"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="constrained"
@@ -605,10 +623,10 @@ describe('createStorageImages', () => {
   test.each([
     160, 320, 960,
   ])('constrained maxWidth %d never enlarges a 320px original', async (maxWidth) => {
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const document = parseMarkup(
       await renderAsync(
-        <StorageImage
+        <Image
           alt="Small original"
           src={{ path: 'documents/small.jpg', width: 320, height: 240 }}
           layout="constrained"
@@ -627,14 +645,14 @@ describe('createStorageImages', () => {
   })
 
   test('fixed cover uses receipt geometry for a signed 48px crop and a 1x JPEG fallback', async () => {
-    const { StorageImage, storageRoute } = createStorageImages({
+    const { Image, imageRoute } = createImages({
       ...baseConfiguration,
       route: '/images',
       authorize: () => true,
     })
     const document = parseMarkup(
       renderToStaticMarkup(
-        <StorageImage
+        <Image
           alt="Avatar"
           src={{ path: 'documents/avatar.jpg', width: 400, height: 300 }}
           layout="fixed"
@@ -650,7 +668,7 @@ describe('createStorageImages', () => {
     expect(document.querySelector('source')?.sizes).toBe('48px')
     expect(document.querySelector('source')?.srcset).toContain('96w')
     expect(document.querySelector('source')?.srcset).not.toContain('400w')
-    const response = await storageRoute(
+    const response = await imageRoute(
       new Request(new URL(image?.getAttribute('src') ?? '', 'https://app.example')),
     )
     const target = parseSmartCdnUrl(response.headers.get('location') ?? '', {
@@ -660,10 +678,10 @@ describe('createStorageImages', () => {
   })
 
   test('fill cover signs the declared box ratio and retains explicit layout overrides', async () => {
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const document = parseMarkup(
       await renderAsync(
-        <StorageImage
+        <Image
           alt="Portrait crop"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="fill"
@@ -684,10 +702,10 @@ describe('createStorageImages', () => {
     expect(target.urlParams).toMatchObject({ r: 'fillcrop', w: '390', h: '693' })
   })
 
-  test('exports an unambiguous StorageImage component', () => {
-    const integration = createStorageImages(baseConfiguration)
-    expect(integration.StorageImage).toBeTypeOf('function')
-    expect(Object.keys(integration)).toEqual(['StorageImage'])
+  test('exports an unambiguous Image component', () => {
+    const integration = createImages(baseConfiguration)
+    expect(integration.Image).toBeTypeOf('function')
+    expect(Object.keys(integration)).toEqual(['Image'])
   })
 
   beforeEach(() => {
@@ -699,12 +717,12 @@ describe('createStorageImages', () => {
   afterEach(() => vi.unstubAllEnvs())
 
   test('snapshots rendering environment on first use and delegates to the explicit factory', async () => {
-    const { StorageImage: Image } = createStorageImages({
+    const { Image } = createImages({
       baseUrl: baseConfiguration.baseUrl,
       allowedPathPrefixes: baseConfiguration.allowedPathPrefixes,
       delivery: 'direct',
     })
-    const { StorageImage: ExplicitImage } = createStorageImages(baseConfiguration)
+    const { Image: ExplicitImage } = createImages(baseConfiguration)
     const props = {
       alt: 'Snapshot',
       src: { path: 'documents/report.pdf', width: 400, height: 300 },
@@ -730,12 +748,12 @@ describe('createStorageImages', () => {
     ),
   )('rejects missing or invalid $name without exposing its value', ({ name, value }) => {
     vi.stubEnv(name, value)
-    const { StorageImage } = createStorageImages({
+    const { Image } = createImages({
       allowedPathPrefixes: ['documents/'],
       authorize: () => true,
     })
     expect(() =>
-      StorageImage({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 }),
+      Image({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 }),
     ).toThrowError(
       new TypeError(`${name} must be a non-empty string without surrounding whitespace`),
     )
@@ -748,21 +766,19 @@ describe('createStorageImages', () => {
     vi.stubEnv('TRANSLOADIT_ASSEMBLY_SECRET', 'write-secret')
     vi.stubEnv('TRANSLOADIT_KEY', undefined)
     vi.stubEnv('TRANSLOADIT_SECRET', undefined)
-    const { StorageImage } = createStorageImages({
+    const { Image } = createImages({
       allowedPathPrefixes: ['documents/'],
       authorize: () => true,
     })
-    expect(() =>
-      StorageImage({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 }),
-    ).toThrow(
+    expect(() => Image({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 })).toThrow(
       'Private images need a signing key. Set TRANSLOADIT_SMART_CDN_KEY and TRANSLOADIT_SMART_CDN_SECRET (Console → Credentials → New Auth Key → “Private image delivery”). TRANSLOADIT_KEY/SECRET are also accepted.',
     )
-    expect(() => createStorageImages(baseConfiguration)).not.toThrow()
+    expect(() => createImages(baseConfiguration)).not.toThrow()
   })
 
   test('still requires explicit scope and retains deny-all without path prefixes', () => {
-    expect(() => Reflect.apply(createStorageImages, undefined, [{}])).toThrow(/allowedPathPrefixes/)
-    const { StorageImage: Image } = createStorageImages({
+    expect(() => Reflect.apply(createImages, undefined, [{}])).toThrow(/allowedPathPrefixes/)
+    const { Image } = createImages({
       allowedPathPrefixes: [],
       delivery: 'direct',
     })
@@ -778,7 +794,7 @@ describe('createStorageImages', () => {
     { cacheMaxAgeMs: 120_000, expected: 'private, max-age=30' },
   ])('bounds opt-in redirect caching ($cacheMaxAgeMs ms)', async ({ cacheMaxAgeMs, expected }) => {
     const delivery = { authorize: vi.fn(() => true), cacheMaxAgeMs, route: '/images' }
-    const { StorageImage: Image, storageRoute } = createStorageImages({
+    const { Image, imageRoute } = createImages({
       ...baseConfiguration,
       ...delivery,
       rotationIntervalMs: 30_000,
@@ -790,11 +806,11 @@ describe('createStorageImages', () => {
       ),
     )
     const request = new Request(new URL(getFirstCandidate(document), 'https://app.example'))
-    const response = await storageRoute(request)
+    const response = await imageRoute(request)
     expect(response.status).toBe(307)
     expect(response.headers.get('Cache-Control')).toBe(expected)
     delivery.authorize.mockReturnValue(false)
-    const denied = await storageRoute(request)
+    const denied = await imageRoute(request)
     expect(denied.status).toBe(404)
     expect(denied.headers.get('Cache-Control')).toBe('private, no-store')
   })
@@ -807,7 +823,7 @@ describe('createStorageImages', () => {
     1.5,
   ])('rejects invalid redirect cache duration %s', (cacheMaxAgeMs) => {
     expect(() =>
-      createStorageImages({
+      createImages({
         ...baseConfiguration,
         authorize: () => true,
         cacheMaxAgeMs,
@@ -819,14 +835,14 @@ describe('createStorageImages', () => {
   test.each(
     [undefined, null, false, 'documents/', []].map((configuration) => ({ configuration })),
   )('rejects invalid configuration $configuration', ({ configuration }) => {
-    expect(() => Reflect.apply(createStorageImages, undefined, [configuration])).toThrowError(
+    expect(() => Reflect.apply(createImages, undefined, [configuration])).toThrowError(
       new TypeError('Storage images require an explicit configuration object'),
     )
   })
 
   test('retains trusted template, transport and authorization settings for redirect delivery', async () => {
     const authorize = vi.fn(() => true)
-    const { StorageImage: Image, storageRoute } = createStorageImages({
+    const { Image, imageRoute } = createImages({
       baseUrl: baseConfiguration.baseUrl,
       template: 'website/preview',
       urlParams: { cdn: 'required' },
@@ -843,7 +859,7 @@ describe('createStorageImages', () => {
     const url = new URL(getFirstCandidate(document), 'https://app.example')
     expect(url.pathname).toBe('/app/images')
     expect(connection).not.toHaveBeenCalled()
-    const response = await storageRoute(new Request(url))
+    const response = await imageRoute(new Request(url))
     expect(response.status).toBe(307)
     expect(authorize).toHaveBeenCalledOnce()
     const location = response.headers.get('location')
@@ -855,7 +871,7 @@ describe('createStorageImages', () => {
   })
 })
 
-describe('createStorageImages', () => {
+describe('createImages', () => {
   test.each([
     {
       sourceWidth: 12000,
@@ -881,14 +897,14 @@ describe('createStorageImages', () => {
     renderedHeight,
     candidateLimit,
   }) => {
-    const { StorageImage } = createStorageImages({
+    const { Image } = createImages({
       workspace: 'my-app',
       public: ['documents/'],
       allowedPathPrefixes: ['documents/'],
     })
     const document = parseMarkup(
       renderToStaticMarkup(
-        <StorageImage
+        <Image
           alt="Original"
           src={{ path: 'documents/hero.jpg', width: sourceWidth, height: sourceHeight }}
           height={height}
@@ -907,7 +923,7 @@ describe('createStorageImages', () => {
     try {
       const { url } = getStorageRouteCandidate()
       expect(url.pathname).toBe('/api/private-images')
-      const { StorageImage } = createStorageImages({
+      const { Image } = createImages({
         ...baseConfiguration,
         authorize: () => true,
         route: '/images',
@@ -917,7 +933,7 @@ describe('createStorageImages', () => {
         getFirstCandidate(
           parseMarkup(
             renderToStaticMarkup(
-              <StorageImage
+              <Image
                 alt="Base path"
                 src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
               />,
@@ -931,14 +947,14 @@ describe('createStorageImages', () => {
   })
 
   test('renders real per-breakpoint crops with a JPEG fallback for each art direction', () => {
-    const { StorageImage } = createStorageImages({
+    const { Image } = createImages({
       ...baseConfiguration,
       authorize: () => true,
       route: '/images',
     })
     const document = parseMarkup(
       renderToStaticMarkup(
-        <StorageImage
+        <Image
           alt="Art-directed hero"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="fill"
@@ -963,14 +979,14 @@ describe('createStorageImages', () => {
     ['lazy', 'auto, (min-width: 960px) 960px, 100vw'],
     ['eager', '(min-width: 960px) 960px, 100vw'],
   ])('derives %s constrained sizes without overestimating narrow columns', (loading, sizes) => {
-    const { StorageImage } = createStorageImages({
+    const { Image } = createImages({
       ...baseConfiguration,
       authorize: () => true,
       route: '/images',
     })
     const document = parseMarkup(
       renderToStaticMarkup(
-        <StorageImage
+        <Image
           alt="Column"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="constrained"
@@ -983,10 +999,10 @@ describe('createStorageImages', () => {
   })
 
   test('layout none keeps intrinsic signing geometry while explicit dimensions describe presentation', async () => {
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const document = parseMarkup(
       await renderAsync(
-        <StorageImage
+        <Image
           alt="Sized receipt"
           layout="none"
           src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
@@ -1005,13 +1021,13 @@ describe('createStorageImages', () => {
   test('old capabilities redirect to unsigned public delivery only within the currently declared prefix', async () => {
     const authorize = vi.fn(() => false)
     const delivery = { authorize, public: ['documents/public/'], route: '/images' }
-    const { storageRoute } = createStorageImages({
+    const { imageRoute } = createImages({
       ...baseConfiguration,
       allowedPathPrefixes: ['documents/'],
       ...delivery,
     })
     // Existing private markup remains usable when its directory is deliberately published.
-    const { StorageImage } = createStorageImages({
+    const { Image } = createImages({
       ...baseConfiguration,
       authorize,
       route: '/images',
@@ -1022,28 +1038,26 @@ describe('createStorageImages', () => {
         new URL(
           getFirstCandidate(
             parseMarkup(
-              renderToStaticMarkup(
-                <StorageImage alt="Preview" src={{ path, width: 400, height: 300 }} />,
-              ),
+              renderToStaticMarkup(<Image alt="Preview" src={{ path, width: 400, height: 300 }} />),
             ),
           ),
           'https://app.example',
         ),
       )
-    const response = await storageRoute(candidate('documents/public/hero.jpg'))
+    const response = await imageRoute(candidate('documents/public/hero.jpg'))
     expect(response.status).toBe(307)
     expect(response.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=60')
     expect(authorize).not.toHaveBeenCalled()
-    const denied = await storageRoute(candidate('documents/private/hero.jpg'))
+    const denied = await imageRoute(candidate('documents/private/hero.jpg'))
     expect(denied.status).toBe(404)
     expect(denied.headers.get('cache-control')).toBe('private, no-store')
-    expect((await storageRoute(candidate('documents/publicity/hero.jpg'))).status).toBe(404)
+    expect((await imageRoute(candidate('documents/publicity/hero.jpg'))).status).toBe(404)
     expect(authorize).toHaveBeenCalledTimes(2)
     vi.setSystemTime('2029-01-01T12:59:59.000Z')
     expect(
-      (await storageRoute(candidate('documents/public/hero.jpg'))).headers.get('cache-control'),
+      (await imageRoute(candidate('documents/public/hero.jpg'))).headers.get('cache-control'),
     ).toBe('public, max-age=0, s-maxage=60')
-    const refreshed = createStorageImages({
+    const refreshed = createImages({
       ...baseConfiguration,
       authorize,
       route: '/images',
@@ -1057,14 +1071,14 @@ describe('createStorageImages', () => {
         },
       },
     })
-    const current = await refreshed.storageRoute(candidate('documents/public/hero.jpg'))
+    const current = await refreshed.imageRoute(candidate('documents/public/hero.jpg'))
     expect(current.headers.get('location')).toContain('v=bbbbbbbbbbbbbbbb')
     expect(current.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=60')
   })
 
   test('rejects public prefixes outside the signing policy', () => {
     expect(() =>
-      createStorageImages({
+      createImages({
         ...baseConfiguration,
         allowedPathPrefixes: ['documents/'],
         route: '/images',
@@ -1073,7 +1087,7 @@ describe('createStorageImages', () => {
       }),
     ).toThrow('public[0]')
     expect(() =>
-      createStorageImages({
+      createImages({
         ...baseConfiguration,
         route: '/images',
         authorize: () => true,
@@ -1085,7 +1099,7 @@ describe('createStorageImages', () => {
   test('binds explicit custom templates, still authorizes, and revokes on key rotation', async () => {
     const authorize = vi.fn(() => true)
     const storage = { ...baseConfiguration, route: '/images', authorize }
-    const old = createStorageImages({
+    const old = createImages({
       ...baseConfiguration,
       template: 'my-custom-preview',
       ...storage,
@@ -1094,7 +1108,7 @@ describe('createStorageImages', () => {
       getFirstCandidate(
         parseMarkup(
           renderToStaticMarkup(
-            <old.StorageImage
+            <old.Image
               alt="Old preview"
               src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
             />,
@@ -1103,40 +1117,40 @@ describe('createStorageImages', () => {
       ),
       'https://app.example',
     )
-    const current = createStorageImages({
+    const current = createImages({
       ...baseConfiguration,
       ...storage,
       template: 'my-custom-preview',
     })
-    const response = await current.storageRoute(new Request(url))
+    const response = await current.imageRoute(new Request(url))
     expect(response.status).toBe(307)
     expect(decodeURIComponent(response.headers.get('location') ?? '')).toContain(
       'my-custom-preview',
     )
     authorize.mockReturnValue(false)
-    expect((await current.storageRoute(new Request(url))).status).toBe(404)
+    expect((await current.imageRoute(new Request(url))).status).toBe(404)
     authorize.mockReturnValue(true)
-    const revoked = createStorageImages({
+    const revoked = createImages({
       ...baseConfiguration,
       ...storage,
       template: 'another-custom-preview',
     })
-    expect((await revoked.storageRoute(new Request(url))).status).toBe(404)
-    const rotated = createStorageImages({
+    expect((await revoked.imageRoute(new Request(url))).status).toBe(404)
+    const rotated = createImages({
       ...baseConfiguration,
       ...storage,
       authSecret: 'rotated',
       template: 'my-custom-preview',
     })
-    expect((await rotated.storageRoute(new Request(url))).status).toBe(404)
+    expect((await rotated.imageRoute(new Request(url))).status).toBe(404)
     vi.setSystemTime(Date.now() + 365 * 86_400_000)
-    expect((await current.storageRoute(new Request(url))).status).toBe(307)
-    const restarted = createStorageImages({
+    expect((await current.imageRoute(new Request(url))).status).toBe(307)
+    const restarted = createImages({
       ...baseConfiguration,
       ...storage,
       template: 'my-custom-preview',
     })
-    expect((await restarted.storageRoute(new Request(url))).status).toBe(307)
+    expect((await restarted.imageRoute(new Request(url))).status).toBe(307)
   })
 
   test('the named private factory uses rendering env, redirects and a single lifetime knob', async () => {
@@ -1144,7 +1158,7 @@ describe('createStorageImages', () => {
     vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', baseConfiguration.authSecret)
     vi.stubEnv('TRANSLOADIT_WORKSPACE', baseConfiguration.workspace)
     try {
-      const { StorageImage, storageRoute } = createStorageImages({
+      const { Image, imageRoute } = createImages({
         allowedPathPrefixes: ['documents/'],
         authorize: () => true,
         lifetime: 600_000,
@@ -1153,17 +1167,14 @@ describe('createStorageImages', () => {
         getFirstCandidate(
           parseMarkup(
             renderToStaticMarkup(
-              <StorageImage
-                alt="Private"
-                src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
-              />,
+              <Image alt="Private" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
             ),
           ),
         ),
         'https://app.example',
       )
       expect(url.pathname).toBe('/api/storage-images')
-      const response = await storageRoute(new Request(url))
+      const response = await imageRoute(new Request(url))
       const location = response.headers.get('location')
       expect(response.status).toBe(307)
       expect(location).not.toBeNull()
@@ -1179,23 +1190,23 @@ describe('createStorageImages', () => {
 
   test('rejects a missing prefix policy at factory time for untyped callers', () => {
     expect(() =>
-      Reflect.apply(createStorageImages, undefined, [
+      Reflect.apply(createImages, undefined, [
         { ...baseConfiguration, allowedPathPrefixes: undefined },
       ]),
     ).toThrow('images, allowedPathPrefixes or allowWorkspaceRoot: true is required')
   })
 
-  test('exports only the named StorageImage component, not the unpublished Image alias', () => {
-    expect(Object.keys(createStorageImages(baseConfiguration))).toEqual(['StorageImage'])
+  test('exports only the named Image component, not the unpublished Image alias', () => {
+    expect(Object.keys(createImages(baseConfiguration))).toEqual(['Image'])
   })
 
   test('shares CDN URLs throughout the default expiry bucket, then rotates at its boundary', async () => {
-    const { StorageImage } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const render = async (): Promise<string> =>
       getFirstCandidate(
         parseMarkup(
           await renderAsync(
-            <StorageImage
+            <Image
               alt="Hourly preview"
               src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
             />,
@@ -1210,13 +1221,11 @@ describe('createStorageImages', () => {
   })
 
   test('shares redirect targets throughout the default expiry bucket while still authorizing', async () => {
-    const { authorize, storageRoute, url } = getStorageRouteCandidate()
+    const { authorize, imageRoute, url } = getStorageRouteCandidate()
     const request = new Request(url, { headers: { Authorization: 'Bearer allowed' } })
-    const first = await storageRoute(request)
+    const first = await imageRoute(request)
     vi.setSystemTime('2029-01-01T12:29:59.999Z')
-    expect((await storageRoute(request)).headers.get('location')).toBe(
-      first.headers.get('location'),
-    )
+    expect((await imageRoute(request)).headers.get('location')).toBe(first.headers.get('location'))
     expect(authorize).toHaveBeenCalledTimes(2)
   })
 
@@ -1224,7 +1233,7 @@ describe('createStorageImages', () => {
     'direct',
     'redirect',
   ])('renders a receipt exactly like its string equivalent with %s delivery', async (delivery) => {
-    const { StorageImage: Image } = createStorageImages({
+    const { Image } = createImages({
       ...baseConfiguration,
       ...(delivery === 'direct' ? {} : { route: '/images', authorize: () => true }),
     })
@@ -1267,13 +1276,13 @@ describe('createStorageImages', () => {
       { path: 'documents/report.pdf', width: Number.MAX_SAFE_INTEGER + 1, height: 300 },
     ].map((src) => ({ src })),
   )('rejects malformed or unauthorized receipt $src before request I/O', ({ src }) => {
-    const { StorageImage: Image } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     expect(() => Reflect.apply(Image, undefined, [{ alt: 'Invalid', src }])).toThrow()
     expect(connection).not.toHaveBeenCalled()
   })
 
   test('rejects invalid presentation dimensions from JavaScript callers', () => {
-    const { StorageImage: Image } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     expect(() =>
       Reflect.apply(Image, undefined, [
         {
@@ -1288,7 +1297,7 @@ describe('createStorageImages', () => {
   })
 
   test('snapshots receipt geometry and path before request-time mutation', async () => {
-    const { StorageImage: Image } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const src = { path: 'documents/report.pdf', width: 400, height: 300 }
     connection.mockImplementationOnce(() => {
       Object.assign(src, { path: 'private/changed.pdf', width: 0, height: 0 })
@@ -1307,7 +1316,7 @@ describe('createStorageImages', () => {
     'string',
     'receipt',
   ])('snapshots %s dimensions before reading other attributes in redirect delivery', async (kind) => {
-    const { StorageImage: Image, storageRoute } = createStorageImages({
+    const { Image, imageRoute } = createImages({
       ...baseConfiguration,
       route: '/images',
       authorize: () => true,
@@ -1332,7 +1341,7 @@ describe('createStorageImages', () => {
     })
     const markup = renderToStaticMarkup(Image(sourceProps))
     const document = parseMarkup(markup)
-    const response = await storageRoute(
+    const response = await imageRoute(
       new Request(new URL(getFirstCandidate(document), 'https://app.example')),
     )
     expect(response.status).toBe(307)
@@ -1353,7 +1362,7 @@ describe('createStorageImages', () => {
       resolveConnection = resolve
     })
     connection.mockImplementationOnce(() => pending)
-    const { StorageImage: Image } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const stream = await renderToReadableStream(
       <main>
         <Image
@@ -1420,7 +1429,7 @@ describe('createStorageImages', () => {
       resolveConnection = resolve
     })
     connection.mockImplementationOnce(() => pending)
-    const { StorageImage: Image } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const stream = await renderToReadableStream(
       <main>
         <Image
@@ -1444,7 +1453,7 @@ describe('createStorageImages', () => {
   })
 
   test('allows explicit widths while making sizes optional', async () => {
-    const { StorageImage: Image } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const document = parseMarkup(
       await renderAsync(
         <Image
@@ -1468,7 +1477,7 @@ describe('createStorageImages', () => {
     'direct',
     'redirect',
   ])('preserves native attributes and descriptions in %s delivery', async (delivery) => {
-    const { StorageImage: Image } = createStorageImages({
+    const { Image } = createImages({
       ...baseConfiguration,
       ...(delivery === 'direct' ? {} : { authorize: () => true, route: '/api/private-images' }),
     })
@@ -1506,7 +1515,7 @@ describe('createStorageImages', () => {
     'direct',
     'redirect',
   ])('rejects non-string alt before rendering in %s delivery', (delivery) => {
-    const { StorageImage: Image } = createStorageImages({
+    const { Image } = createImages({
       ...baseConfiguration,
       ...(delivery === 'direct' ? {} : { authorize: () => true, route: '/api/private-images' }),
     })
@@ -1518,7 +1527,7 @@ describe('createStorageImages', () => {
   })
 
   test('rejects coercible Storage sources before signing', () => {
-    const { StorageImage: Image } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const stringConversion = vi.fn(() => 'https://assets.example/photo.jpg')
 
     expect(() =>
@@ -1530,7 +1539,7 @@ describe('createStorageImages', () => {
   })
 
   test('request-renders direct Storage previews with bounded stable signatures', async () => {
-    const { StorageImage: Image } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     const render = async (): Promise<Document> => {
       const markup = await renderAsync(
         <Image
@@ -1574,11 +1583,11 @@ describe('createStorageImages', () => {
   })
 
   test('denies private paths by default and matches explicit directory boundaries', () => {
-    const { StorageImage: denyAllImage } = createStorageImages({
+    const { Image: denyAllImage } = createImages({
       ...baseConfiguration,
       allowedPathPrefixes: [],
     })
-    const { StorageImage: Image } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
 
     expect(() =>
       denyAllImage({
@@ -1600,7 +1609,7 @@ describe('createStorageImages', () => {
   })
 
   test('snapshots direct Storage props before crossing the request boundary', async () => {
-    const { StorageImage: Image } = createStorageImages(baseConfiguration)
+    const { Image } = createImages(baseConfiguration)
     let height = 300
     let id = 'original-id'
     let path = 'documents/report.pdf'
@@ -1655,7 +1664,7 @@ describe('createStorageImages', () => {
   })
 
   test('prepends basePath while accepting Next.js stripped handler paths', async () => {
-    const { StorageImage: Image, storageRoute } = createStorageImages({
+    const { Image, imageRoute } = createImages({
       ...baseConfiguration,
       allowedPathPrefixes: ['documents/'],
       authorize: () => true,
@@ -1668,11 +1677,11 @@ describe('createStorageImages', () => {
     const externalUrl = new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
     const internalUrl = new URL(externalUrl)
     internalUrl.pathname = '/api/private-images'
-    const internalResponse = await storageRoute(new Request(internalUrl))
-    const externalResponse = await storageRoute(new Request(externalUrl))
+    const internalResponse = await imageRoute(new Request(internalUrl))
+    const externalResponse = await imageRoute(new Request(externalUrl))
     const trailingSlashUrl = new URL(externalUrl)
     trailingSlashUrl.pathname = `${trailingSlashUrl.pathname}/`
-    const trailingSlashResponse = await storageRoute(new Request(trailingSlashUrl))
+    const trailingSlashResponse = await imageRoute(new Request(trailingSlashUrl))
 
     expect(externalUrl.pathname).toBe('/app/api/private-images')
     expect(internalResponse.status).toBe(307)
@@ -1687,7 +1696,7 @@ describe('createStorageImages', () => {
         return 'false'
       },
     })
-    const { StorageImage: Image, storageRoute } = createStorageImages({
+    const { Image, imageRoute } = createImages({
       ...baseConfiguration,
       allowedPathPrefixes: ['documents/'],
       authorize: malformedAuthorize,
@@ -1698,13 +1707,13 @@ describe('createStorageImages', () => {
     )
     const routeUrl = new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
 
-    expect(await storageRoute(new Request(routeUrl))).toMatchObject({ status: 404 })
+    expect(await imageRoute(new Request(routeUrl))).toMatchObject({ status: 404 })
   })
 
   test('authorizes one exact route request and redirects without proxying image bytes', async () => {
-    const { authorize, storageRoute, url } = getStorageRouteCandidate()
+    const { authorize, imageRoute, url } = getStorageRouteCandidate()
     const request = new Request(url, { headers: { Authorization: 'Bearer allowed' } })
-    const response = await storageRoute(request)
+    const response = await imageRoute(request)
     const location = response.headers.get('location')
     if (location === null) throw new Error('Expected a redirect location')
     const target = parseSmartCdnUrl(location, {
@@ -1717,7 +1726,12 @@ describe('createStorageImages', () => {
     expect(response.headers.get('cache-control')).toBe('private, no-store')
     expect(response.headers.get('referrer-policy')).toBe('no-referrer')
     expect(authorize).toHaveBeenCalledOnce()
-    expect(authorize).toHaveBeenCalledWith({ path: 'documents/report.pdf', request })
+    expect(authorize).toHaveBeenCalledWith({
+      path: 'documents/report.pdf',
+      request,
+      workspace: 'my-app',
+      template: 'builtin/storage-preview@0.0.2',
+    })
     expect(target.template).toBe('builtin/storage-preview@0.0.2')
     expect(target.input).toBe('documents/report.pdf')
     expect(target.urlParams).toEqual({ bg: '#00000000', f: 'avif', h: '240', q: '45', w: '320' })
@@ -1725,7 +1739,7 @@ describe('createStorageImages', () => {
   })
 
   test('keeps cached capabilities valid while rotating only their redirect targets', async () => {
-    const { StorageImage: Image, storageRoute } = createStorageImages({
+    const { Image, imageRoute } = createImages({
       ...baseConfiguration,
       allowedPathPrefixes: ['documents/'],
       authorize: () => true,
@@ -1738,12 +1752,12 @@ describe('createStorageImages', () => {
       return new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
     }
     const first = render()
-    const firstRedirect = await storageRoute(new Request(first))
+    const firstRedirect = await imageRoute(new Request(first))
 
     vi.setSystemTime('2029-01-01T13:00:00Z')
     const second = render()
-    const secondRedirect = await storageRoute(new Request(second))
-    const cachedRedirect = await storageRoute(new Request(first))
+    const secondRedirect = await imageRoute(new Request(second))
+    const cachedRedirect = await imageRoute(new Request(first))
 
     expect(second.href).toBe(first.href)
     expect(secondRedirect.headers.get('location')).not.toBe(firstRedirect.headers.get('location'))
@@ -1754,7 +1768,7 @@ describe('createStorageImages', () => {
 
   test('refreshes an expired target from cached markup, then denies new grants after revocation', async () => {
     const authorize = vi.fn(() => true)
-    const { StorageImage: Image, storageRoute } = createStorageImages({
+    const { Image, imageRoute } = createImages({
       ...baseConfiguration,
       allowedPathPrefixes: ['documents/'],
       authorize,
@@ -1768,14 +1782,14 @@ describe('createStorageImages', () => {
       ),
     )
     const originalCapability = new URL(getFirstCandidate(document), 'https://app.example')
-    const firstResponse = await storageRoute(new Request(originalCapability))
+    const firstResponse = await imageRoute(new Request(originalCapability))
     const firstLocation = firstResponse.headers.get('location')
     if (firstLocation === null) throw new Error('Expected the first authorized target')
     const originalExpiry = Number(new URL(firstLocation).searchParams.get('exp'))
     expect(originalExpiry).toBe(Date.parse('2029-01-01T12:07:00Z'))
 
     vi.setSystemTime(originalExpiry + 1)
-    const renewed = await storageRoute(new Request(originalCapability))
+    const renewed = await imageRoute(new Request(originalCapability))
     const renewedLocation = renewed.headers.get('location')
     if (renewedLocation === null) throw new Error('Expected a renewed authorized target')
     expect(renewed.status).toBe(307)
@@ -1787,7 +1801,7 @@ describe('createStorageImages', () => {
     expect(await renewed.text()).toBe('')
 
     authorize.mockReturnValue(false)
-    const denied = await storageRoute(new Request(originalCapability))
+    const denied = await imageRoute(new Request(originalCapability))
     expect(denied.status).toBe(404)
     expect(denied.headers.get('location')).toBeNull()
     expect(denied.headers.get('cache-control')).toBe('private, no-store')
@@ -1811,7 +1825,7 @@ describe('createStorageImages', () => {
       storageTemplate?: string
       workspace?: string
     } = {}) =>
-      createStorageImages({
+      createImages({
         ...baseConfiguration,
         authSecret: candidateSecret,
         allowedPathPrefixes: ['documents/'],
@@ -1820,7 +1834,7 @@ describe('createStorageImages', () => {
         route,
         template: storageTemplate,
         workspace,
-      }).storageRoute
+      }).imageRoute
     const otherRouteUrl = new URL(url)
     otherRouteUrl.pathname = '/api/other-images'
     const basePathUrl = new URL(url)
@@ -1829,32 +1843,32 @@ describe('createStorageImages', () => {
       {
         label: 'secret',
         requestUrl: url,
-        storageRoute: createBoundRoute({ authSecret: 'another-secret' }),
+        imageRoute: createBoundRoute({ authSecret: 'another-secret' }),
       },
       {
         label: 'workspace',
         requestUrl: url,
-        storageRoute: createBoundRoute({ workspace: 'another-app' }),
+        imageRoute: createBoundRoute({ workspace: 'another-app' }),
       },
       {
         label: 'Template',
         requestUrl: url,
-        storageRoute: createBoundRoute({ storageTemplate: 'customer/storage-preview' }),
+        imageRoute: createBoundRoute({ storageTemplate: 'customer/storage-preview' }),
       },
       {
         label: 'route',
         requestUrl: otherRouteUrl,
-        storageRoute: createBoundRoute({ route: '/api/other-images' }),
+        imageRoute: createBoundRoute({ route: '/api/other-images' }),
       },
       {
         label: 'basePath',
         requestUrl: basePathUrl,
-        storageRoute: createBoundRoute({ basePath: '/app' }),
+        imageRoute: createBoundRoute({ basePath: '/app' }),
       },
     ]
 
-    for (const { label, requestUrl, storageRoute } of attempts) {
-      const response = await storageRoute(
+    for (const { label, requestUrl, imageRoute } of attempts) {
+      const response = await imageRoute(
         new Request(requestUrl, { headers: { Authorization: 'Bearer allowed' } }),
       )
       expect(response.status, label).toBe(404)
@@ -1916,9 +1930,9 @@ describe('createStorageImages', () => {
     ]
 
     for (const { label, mutate } of mutations) {
-      const { authorize, storageRoute, url } = getStorageRouteCandidate()
+      const { authorize, imageRoute, url } = getStorageRouteCandidate()
       mutate(url)
-      const response = await storageRoute(
+      const response = await imageRoute(
         new Request(url, { headers: { Authorization: 'Bearer allowed' } }),
       )
       expect(response.status, label).toBe(404)
@@ -1929,12 +1943,12 @@ describe('createStorageImages', () => {
   })
 
   test('conceals failed application authorization and disallows other methods', async () => {
-    const { authorize, storageRoute, url } = getStorageRouteCandidate()
-    const denied = await storageRoute(new Request(url))
-    const post = await storageRoute(
+    const { authorize, imageRoute, url } = getStorageRouteCandidate()
+    const denied = await imageRoute(new Request(url))
+    const post = await imageRoute(
       new Request(url, { headers: { Authorization: 'Bearer allowed' }, method: 'POST' }),
     )
-    const head = await storageRoute(
+    const head = await imageRoute(
       new Request(url, { headers: { Authorization: 'Bearer allowed' }, method: 'HEAD' }),
     )
 
@@ -1948,7 +1962,7 @@ describe('createStorageImages', () => {
   })
 
   test('rejects direct-only suspense props in static redirect mode', () => {
-    const { StorageImage: Image } = createStorageImages({
+    const { Image } = createImages({
       ...baseConfiguration,
       allowedPathPrefixes: ['documents/'],
       authorize: () => true,
@@ -1979,7 +1993,7 @@ describe('createStorageImages', () => {
     'w',
   ])('reserves image-policy parameter %s from global URL parameters', (parameter) => {
     expect(() =>
-      createStorageImages({
+      createImages({
         ...baseConfiguration,
         urlParams: { [parameter]: 'caller-controlled' },
       }),
@@ -1987,14 +2001,14 @@ describe('createStorageImages', () => {
   })
 
   test('validates credentials, route configuration, and bounded expiry', () => {
-    expect(() => createStorageImages({ ...baseConfiguration, authKey: '' })).toThrow(
+    expect(() => createImages({ ...baseConfiguration, authKey: '' })).toThrow(
       'authKey must be a non-empty string',
     )
+    expect(() => createImages({ ...baseConfiguration, baseUrl: 'ftp://cdn.example/file' })).toThrow(
+      'baseUrl must be an absolute HTTP(S) URL',
+    )
     expect(() =>
-      createStorageImages({ ...baseConfiguration, baseUrl: 'ftp://cdn.example/file' }),
-    ).toThrow('baseUrl must be an absolute HTTP(S) URL')
-    expect(() =>
-      createStorageImages({
+      createImages({
         ...baseConfiguration,
         allowedPathPrefixes: ['documents/'],
         lifetime: 48 * 60 * 60 * 1000 + 1,
@@ -2002,7 +2016,7 @@ describe('createStorageImages', () => {
       }),
     ).toThrow('must not exceed 48 hours')
     expect(() =>
-      createStorageImages({
+      createImages({
         ...baseConfiguration,
         allowedPathPrefixes: ['documents/'],
         authorize: () => true,
@@ -2010,7 +2024,7 @@ describe('createStorageImages', () => {
       }),
     ).toThrow('route must be one absolute application path')
     expect(() =>
-      createStorageImages({
+      createImages({
         ...baseConfiguration,
         allowedPathPrefixes: ['documents/'],
         authorize: () => true,
@@ -2019,7 +2033,7 @@ describe('createStorageImages', () => {
       }),
     ).toThrow('basePath must be one absolute path without a trailing slash')
     expect(() =>
-      Reflect.apply(createStorageImages, undefined, [
+      Reflect.apply(createImages, undefined, [
         {
           ...baseConfiguration,
           allowedPathPrefixes: ['documents/'],
@@ -2031,7 +2045,7 @@ describe('createStorageImages', () => {
   })
 
   test('keeps template selection in trusted factory configuration', async () => {
-    const { StorageImage: Image } = createStorageImages({
+    const { Image } = createImages({
       ...baseConfiguration,
       template: 'my-storage-preview',
     })

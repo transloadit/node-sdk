@@ -687,13 +687,14 @@ test('an opted-in fallback replaces a denied private image without leaking its c
   audit.committedRefreshes.add((await refreshed).request())
 })
 
-test('source model experiment decodes three sources with scoped templates and no image proxy', async ({
+test('package Image decodes Storage and HTTP/S3 templates without an image-byte proxy', async ({
   page,
+  context,
   audit,
-}) => {
+}, info) => {
   await page.setViewportSize({ width: 1200, height: 1000 })
   await page.goto('/fixture/source-model')
-  await expect(page.getByRole('heading', { name: 'Source model experiment' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Image sources' })).toBeVisible()
   await decode(page.getByRole('img', { name: 'Storage experiment', exact: true }))
   await decode(page.getByRole('img', { name: 'HTTP experiment', exact: true }))
   await decode(page.getByRole('img', { name: 'S3 experiment', exact: true }))
@@ -707,26 +708,61 @@ test('source model experiment decodes three sources with scoped templates and no
         url: image.currentSrc,
         leakedMode:
           image.hasAttribute('source') ||
+          image.hasAttribute('workspace') ||
           image.hasAttribute('storage') ||
           image.hasAttribute('template'),
       }
     }),
   )
   expect(selected.every((image) => image.width === 320 && !image.leakedMode)).toBe(true)
-  expect(selected.map((image) => decodeURIComponent(new URL(image.url).pathname))).toEqual([
+  expect(
+    selected.map((image) => decodeURIComponent(new URL(image.url, page.url()).pathname)),
+  ).toEqual([
     '/file/fixture/builtin/public-preview@0.0.1/website/hero.jpg',
-    '/file/fixture/fixture-http/website/hero.jpg',
-    '/file/fixture/fixture-s3/products/hero.jpg',
-    '/file/fixture/fixture-http/website/hero.jpg',
+    '/fixture/api/storage-images',
+    '/fixture/api/storage-images',
+    '/fixture/api/storage-images',
   ])
-  expect(selected.every((image) => new URL(image.url).origin === cdnOrigin)).toBe(true)
-  expect(selected.map((image) => new URL(image.url).searchParams.has('sig'))).toEqual([
-    false,
-    true,
-    true,
-    true,
-  ])
-  expect(audit.images.length).toBeGreaterThanOrEqual(3)
+  expect(
+    selected.slice(1).map((image) => new URL(image.url, page.url()).searchParams.get('template')),
+  ).toEqual(['fixture-http', 'fixture-s3', 'fixture-http'])
+  await expect
+    .poll(() => audit.images.filter((image) => new URL(image.url).origin === cdnOrigin).length)
+    .toBeGreaterThanOrEqual(3)
+  expect(
+    audit.images
+      .filter((image) => new URL(image.url).origin === cdnOrigin)
+      .map((image) => decodeURIComponent(new URL(image.url).pathname)),
+  ).toEqual(
+    expect.arrayContaining([
+      '/file/fixture/builtin/public-preview@0.0.1/website/hero.jpg',
+      '/file/fixture/fixture-http/website/hero.jpg',
+      '/file/fixture/fixture-s3/products/hero.jpg',
+    ]),
+  )
+  const privateImage = selected.find((image) => image.alt === 'HTTP experiment')
+  assert(privateImage)
+  const privateUrl = new URL(privateImage.url, page.url())
+  const allowed = await page.request.get(privateUrl.href, { maxRedirects: 0 })
+  expect(allowed.status()).toBe(307)
+  expect(allowed.headers()['cache-control']).toBe('private, no-store')
+  expect((await allowed.body()).length).toBe(0)
+  await info.attach('image-sources', {
+    body: await page.screenshot({ animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+  const wrongTemplate = new URL(privateUrl)
+  wrongTemplate.searchParams.set('template', 'fixture-s3')
+  expect((await page.request.get(wrongTemplate.href, { maxRedirects: 0 })).status()).toBe(404)
+  const wrongWorkspace = new URL(privateUrl)
+  wrongWorkspace.searchParams.set('workspace', 'other-workspace')
+  expect((await page.request.get(wrongWorkspace.href, { maxRedirects: 0 })).status()).toBe(404)
+  await context.clearCookies()
+  expect((await page.request.get(privateUrl.href, { maxRedirects: 0 })).status()).toBe(404)
+  await info.attach('source-authorization', {
+    body: JSON.stringify({ allowed: 307, wrongTemplate: 404, wrongWorkspace: 404, anonymous: 404 }),
+    contentType: 'application/json',
+  })
 })
 
 test('the public catalog hero has stock-CSS geometry and no application image requests', async ({
@@ -782,7 +818,7 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
   }) => {
     const warnings: string[] = []
     page.on('console', (message) => {
-      if (message.type() === 'warning' && message.text().includes('[StorageImage]'))
+      if (message.type() === 'warning' && message.text().includes('[Image]'))
         warnings.push(message.text())
     })
     await page.setViewportSize({ width: 1200, height: 850 })
@@ -817,7 +853,7 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
     }) => {
       const warnings: string[] = []
       page.on('console', (message) => {
-        if (message.type() === 'warning' && message.text().includes('[StorageImage]'))
+        if (message.type() === 'warning' && message.text().includes('[Image]'))
           warnings.push(message.text())
       })
       await page.setViewportSize({ width: viewportWidth, height: 850 })
@@ -841,7 +877,7 @@ if (process.env.IMG_FIXTURE_MODE === 'development') {
   }) => {
     const warnings: string[] = []
     page.on('console', (message) => {
-      if (message.type() === 'warning' && message.text().includes('[StorageImage]'))
+      if (message.type() === 'warning' && message.text().includes('[Image]'))
         warnings.push(message.text())
     })
     await page.goto('/fixture/cli-image/app/storage-image-example')

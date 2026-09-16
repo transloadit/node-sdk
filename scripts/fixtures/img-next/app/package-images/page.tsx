@@ -1,11 +1,12 @@
-import { StorageImage } from '@transloadit/img/next'
+import { Image } from '@transloadit/viewer/next'
 
 export default function Page() {
   return (
     <main>
       <h1>Images from the package</h1>
-      <StorageImage src="website/hero.jpg" alt="Package hero" width={960} preload />
-      <StorageImage
+      <Image storage src="website/hero.jpg" alt="Package hero" width={960} preload />
+      <Image
+        storage
         src="documents/private/hero.jpg"
         alt="Package private image"
         width={96}

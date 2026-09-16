@@ -1,7 +1,7 @@
 {
-  "name": "@transloadit/img",
+  "name": "@transloadit/viewer",
   "version": "0.0.0",
-  "description": "Responsive Transloadit Storage previews powered by Smart CDN",
+  "description": "Native responsive images from Transloadit Storage and Smart CDN Templates",
   "private": true,
   "type": "module",
   "license": "MIT",

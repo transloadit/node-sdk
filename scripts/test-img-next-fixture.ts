@@ -251,7 +251,7 @@ async function main(): Promise<void> {
     ])
     const tarballs: string[] = []
     // Package builds share dependencies, so pack sequentially to avoid racing their dist cleanup.
-    for (const name of ['img', 'node', 'types', 'utils']) {
+    for (const name of ['viewer', 'node', 'types', 'utils']) {
       const tarball = resolve(packDir, `transloadit-${name}.tgz`)
       await execa(
         'corepack',

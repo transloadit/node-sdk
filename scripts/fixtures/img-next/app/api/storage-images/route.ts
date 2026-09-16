@@ -1,1 +1,1 @@
-export { GET, HEAD } from '@transloadit/img/next/route'
+export { GET, HEAD } from '@transloadit/viewer/next/route'

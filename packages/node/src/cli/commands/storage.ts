@@ -223,7 +223,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
 
   static override usage = Command.Usage({
     category: 'Storage',
-    description: 'Store original images and save verified metadata for StorageImage',
+    description: 'Store original images and save verified metadata for Image',
     details: `
       Uses the CLI's Assembly credentials (environment, .env or ~/.transloadit/credentials).
       Storage writes must be enabled. Existing Storage paths conflict unless --overwrite is explicit.
@@ -431,8 +431,11 @@ export class StorageStoreCommand extends StorageProjectCommand {
             .replace(/\.[^.]+$/, '')
             .replaceAll(/[-_]+/g, ' '),
         )
+        const renderAdvice = saved
+          ? `Render it with <Image storage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}}${blur ? ' placeholder="blur"' : ''} />\nReplace alt with a description (or an empty string for a decorative image).${setupAdvice}`
+          : 'Use --receipts for a separate catalog before rendering images from this workspace.'
         this.output.print(
-          `${unchanged ? `Unchanged ${receipt.path}; no upload needed.\n` : ''}${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\nRender it with <StorageImage src="${src}" alt="${alt}" width={${Math.min(receipt.width, 960)}}${blur ? ' placeholder="blur"' : ''} />\nReplace alt with a description (or an empty string for a decorative image).${setupAdvice}`,
+          `${unchanged ? `Unchanged ${receipt.path}; no upload needed.\n` : ''}${saved ? `Saved ${receipt.path} in ${this.receipts}. Commit this catalog and ${storageTypesPath(this.receipts)}.` : `Stored ${receipt.path}; the different-workspace project catalog was left unchanged.`}\n${renderAdvice}`,
           receipt,
         )
       }

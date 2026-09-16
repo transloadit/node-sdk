@@ -31,12 +31,26 @@ async function probe(path: string, url: string, publicPrefix?: string): Promise<
     const status = `HTTP ${response.status}${code === undefined ? '' : ` (${code})`}`
     const summary = `HEAD ${safeUrl}: ${status}`
     if (response.ok && response.headers.get('content-type')?.startsWith('image/')) {
+      const format = target.searchParams.get('f')
+      const expectedType =
+        format === 'jpg'
+          ? 'image/jpeg'
+          : format === 'webp' || format === 'avif' || format === 'png'
+            ? `image/${format}`
+            : undefined
+      const actualType = response.headers.get('content-type')?.split(';')[0]?.trim()
+      if (expectedType !== undefined && actualType !== expectedType) {
+        console.warn(
+          `[Image] Development HEAD ${safeUrl} returned ${actualType}, expected ${expectedType}. The configured Template must honor the requested image format (f); use the compatible image Template recipe.`,
+        )
+        return `${summary}; received ${actualType}, expected ${expectedType}`
+      }
       if (
         publicPrefix !== undefined &&
         response.headers.get('cache-control')?.includes('immutable')
       )
         console.info(
-          `[StorageImage] Public delivery verified at ${safeUrl}: image response with immutable caching.`,
+          `[Image] Public delivery verified at ${safeUrl}: image response with immutable caching.`,
         )
       return summary
     }
@@ -47,7 +61,7 @@ async function probe(path: string, url: string, publicPrefix?: string): Promise<
       code === 'INSUFFICIENT_AUTH_SCOPE'
         ? 'Grant smart_cdn:sign for image delivery. In Console → Credentials, edit the application key: enable Smart CDN and smart_cdn:sign; assemblies:write is also accepted, but grants broader Assembly access.'
         : response.status === 404
-          ? 'Check the workspace slug, that the Storage path exists there, and the configured Template.'
+          ? 'Check the workspace slug, that the source path exists, and the configured Template.'
           : publicPrefix !== undefined && code === 'NO_SIGNATURE_FIELD'
             ? `Storage path ${JSON.stringify(path)} may no longer be under a published public prefix. If already published, check its workspace and public Built-in. If it should be private, remove its public prefix from the catalog or factory and configure private delivery with application authorization. ${publishImageHint(path, publicPrefix)}`
             : publicPrefix === undefined && (response.status === 401 || response.status === 403)
@@ -55,13 +69,13 @@ async function probe(path: string, url: string, publicPrefix?: string): Promise<
               : response.ok
                 ? 'Expected an image Content-Type. Check the configured Template and delivery endpoint.'
                 : `The delivery host did not serve this path as an image. Check the delivery endpoint and Template. ${deliveryOverrideHint}`
-    console.warn(`[StorageImage] Development HEAD ${safeUrl} returned ${status}. ${hints}`)
+    console.warn(`[Image] Development HEAD ${safeUrl} returned ${status}. ${hints}`)
     return summary
   } catch {
     // Error messages can include a credential-bearing URL. A HEAD failure does not establish
     // whether the cause is credentials, networking, a cold transformation, or the CDN itself.
     console.warn(
-      `[StorageImage] Could not reach Smart CDN at ${safeUrl} within five seconds. Check connectivity to this delivery host. ${deliveryOverrideHint}`,
+      `[Image] Could not reach Smart CDN at ${safeUrl} within five seconds. Check connectivity to this delivery host. ${deliveryOverrideHint}`,
     )
     return `HEAD ${safeUrl}: could not reach the delivery host within five seconds`
   }
@@ -100,6 +114,6 @@ export function diagnosePublicPolicy(catalog: StorageProjectCatalog, id?: string
   )
   if (privatePaths.length === 0) return
   console.info(
-    `[StorageImage] Catalog public prefixes changed. These paths now require the private image route and authorization: ${privatePaths.map((path) => JSON.stringify(path)).join(', ')}.`,
+    `[Image] Catalog public prefixes changed. These paths now require the private image route and authorization: ${privatePaths.map((path) => JSON.stringify(path)).join(', ')}.`,
   )
 }

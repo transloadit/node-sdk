@@ -22,7 +22,7 @@ upload progress, cancellation and errors; receipt validation after a write is no
 
 Add `transloadit storage store <file> <path>` using the CLI's existing
 Assembly credentials. Atomically append keyed receipts, preserve previous data on failures and
-reject concurrent writers, then print a ready-to-render StorageImage snippet.
+reject concurrent writers, then print a ready-to-render Image storage snippet.
 Add `storage store --hashed` for content-addressed filenames: eight MD5 hex digits before the
 extension, with catalog keys, generated types and JSX following the stored path. Retain the local
 filename as `source`; reuse matching full-checksum/size receipts without uploading. Never overwrite
@@ -54,7 +54,12 @@ for `app` or `src/app`, preserving existing files. Store prints only the saved p
 usage; its snippet-only public/private flags and init's dead next flag are removed. Keep upload
 asset IDs and sizes on sync only when the HEAD MD5 still matches the stored receipt.
 
-Consolidate the unpublished Next factories into `createStorageImages`; select `public`, `authorize`,
+Rename the unpublished image package to `@transloadit/viewer` and expose `Image` with mutually
+exclusive `storage` and `template` selectors and a separate `workspace` prop. Custom HTTP/S3
+Templates do not require a Storage catalog or inherit its publication policy. Keep credentials
+server-only and authorize the full workspace, Template and path identity for private redirects.
+
+Consolidate the unpublished Next factories into `createImages`; select `public`, `authorize`,
 or `delivery: 'direct'` explicitly. The authorize overload retains its typed redirect handler.
 Require Next 16.3.3 or newer in the peer range.
 

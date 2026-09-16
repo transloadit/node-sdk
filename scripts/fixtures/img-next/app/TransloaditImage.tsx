@@ -1,11 +1,11 @@
-import { createStorageImages } from '@transloadit/img/next/server'
+import { createImages } from '@transloadit/viewer/next/server'
 
 import { imageConfiguration } from './imageConfiguration'
 
-const { StorageImage } = createStorageImages({
+const { Image } = createImages({
   baseUrl: imageConfiguration.baseUrl,
   allowedPathPrefixes: ['documents/'],
   delivery: 'direct',
 })
 
-export { StorageImage as TransloaditImage }
+export { Image as TransloaditImage }

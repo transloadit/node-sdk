@@ -10,6 +10,8 @@ import { PHASE_DEVELOPMENT_SERVER, PHASE_PRODUCTION_SERVER } from 'next/constant
 /** Bind a single project catalog; use explicit factories for several independently typed catalogs. */
 export interface TransloaditImagesOptions {
   catalog?: string
+  /** Default workspace; selecting another Storage catalog's workspace is an error, never a rebind. */
+  workspace?: string
   delivery?: StorageImageDelivery
   /** The Next.js app directory, for commands started from a monorepo's parent directory. */
   root?: string
@@ -42,7 +44,8 @@ function buildConfiguration(
     return `./${path}`
   }
   const catalogPath = projectPath(catalog)
-  if (!statSync(catalog, { throwIfNoEntry: false })?.isFile())
+  const hasCatalog = statSync(catalog, { throwIfNoEntry: false })?.isFile() === true
+  if (!hasCatalog && options.catalog !== undefined)
     throw new Error(
       `Missing Storage image catalog ${catalogPath}. Run transloadit storage store ./hero.jpg website/hero.jpg first (add --public only for public images), or select an existing catalog in withTransloaditImages.`,
     )
@@ -51,6 +54,7 @@ function buildConfiguration(
   const generated = resolve(root, 'node_modules/.cache/transloadit-images')
   const configuration = resolve(generated, 'options.json')
   const value = `${JSON.stringify({
+    ...(options.workspace === undefined ? {} : { workspace: options.workspace }),
     ...(phase === PHASE_DEVELOPMENT_SERVER
       ? { authorizePath: authorize, diagnosticsId: catalog }
       : {}),
@@ -74,10 +78,10 @@ function buildConfiguration(
     writeFileSync(configuration, value)
   }
   const aliases: Record<string, string> = {
-    '@transloadit/img/next/catalog': catalogPath,
-    '@transloadit/img/next/options': projectPath(configuration),
+    ...(hasCatalog ? { '@transloadit/viewer/next/catalog': catalogPath } : {}),
+    '@transloadit/viewer/next/options': projectPath(configuration),
     ...(statSync(authorize, { throwIfNoEntry: false })?.isFile()
-      ? { '@transloadit/img/next/authorize': projectPath(authorize) }
+      ? { '@transloadit/viewer/next/authorize': projectPath(authorize) }
       : {}),
   }
   return {

@@ -52,7 +52,7 @@ test('the documented upload factory, route and receipt page typecheck together',
   )
   await writeFile(
     join(root, 'lib/images.ts'),
-    "import type { TransloaditImageSource } from '@transloadit/img'\nexport declare function getAuthorizedImage(id: string): Promise<TransloaditImageSource & { description: string; ownerId: string }>\n",
+    "import type { TransloaditImageSource } from '@transloadit/viewer'\nexport declare function getAuthorizedImage(id: string): Promise<TransloaditImageSource & { description: string; ownerId: string }>\n",
   )
   const result = await promisify(execFile)(
     process.execPath,
@@ -105,7 +105,7 @@ test('binds the conventional catalog and retains unrelated Next configuration', 
   expect(config.basePath).toBe('/site')
   expect(config.turbopack?.resolveAlias).toMatchObject({
     existing: './existing.ts',
-    '@transloadit/img/next/catalog': './transloadit.images.json',
+    '@transloadit/viewer/next/catalog': './transloadit.images.json',
   })
   expect(config.outputFileTracingIncludes).toMatchObject({
     '/*': expect.arrayContaining(['./existing.json', './transloadit.images.json']),
@@ -131,8 +131,8 @@ test('discovers authorization and allows a custom catalog and delivery without t
     { root, catalog: 'assets/images.json', delivery },
   )(PHASE_PRODUCTION_BUILD)
   expect(config.turbopack?.resolveAlias).toMatchObject({
-    '@transloadit/img/next/catalog': './assets/images.json',
-    '@transloadit/img/next/authorize': './transloadit.authorize.ts',
+    '@transloadit/viewer/next/catalog': './assets/images.json',
+    '@transloadit/viewer/next/authorize': './transloadit.authorize.ts',
   })
   expect(
     JSON.parse(
@@ -142,9 +142,24 @@ test('discovers authorization and allows a custom catalog and delivery without t
   expect(await readFile(join(root, 'assets/images.json'), 'utf8')).toBe('{}')
 })
 
-test('missing catalog names the upload command, not image init', async () => {
+test('an explicitly selected missing catalog names the upload command, not image init', async () => {
   await rm(join(root, 'transloadit.images.json'))
-  expect(() => withTransloaditImages({}, { root })(PHASE_PRODUCTION_BUILD)).toThrow(/storage store/)
+  expect(() =>
+    withTransloaditImages({}, { root, catalog: 'transloadit.images.json' })(PHASE_PRODUCTION_BUILD),
+  ).toThrow(/storage store/)
+})
+
+test('custom-template projects need no Storage catalog and can configure a default workspace', async () => {
+  await rm(join(root, 'transloadit.images.json'))
+  const config = withTransloaditImages(
+    {},
+    { root, workspace: 'custom-shop' },
+  )(PHASE_PRODUCTION_BUILD)
+  expect(config.turbopack?.resolveAlias).not.toHaveProperty('@transloadit/viewer/next/catalog')
+  const options = JSON.parse(
+    await readFile(join(root, 'node_modules/.cache/transloadit-images/options.json'), 'utf8'),
+  )
+  expect(options.workspace).toBe('custom-shop')
 })
 
 test('production start requires neither a source catalog nor regenerating a pruned cache', async () => {
@@ -170,7 +185,7 @@ test('the webpack adapter applies exact aliases after preserving the application
     resolve: {
       alias: {
         other: '/app/other.ts',
-        '@transloadit/img/next/catalog$': join(root, 'transloadit.images.json'),
+        '@transloadit/viewer/next/catalog$': join(root, 'transloadit.images.json'),
       },
     },
   })

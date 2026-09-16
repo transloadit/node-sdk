@@ -7,8 +7,8 @@ import type {
 } from '../src/next/server.tsx'
 
 import { createTransloaditImageModel } from '../src/index.ts'
-import { TransloaditPicture } from '../src/next/index.tsx'
-import { createStorageImages } from '../src/next/server.tsx'
+import { Image as ProjectImage, TransloaditPicture } from '../src/next/index.tsx'
+import { createImages } from '../src/next/server.tsx'
 
 const modelOptions: TransloaditImageModelOptions = {
   expiresAt: Date.UTC(2030, 0, 1),
@@ -26,6 +26,12 @@ const imageProps = {
   src: 'documents/report.pdf',
   width: 400,
 } satisfies TransloaditImageProps
+
+const templateSuspense = (
+  // @ts-expect-error Conventional Templates can use redirects; use an explicit direct factory for Suspense.
+  <ProjectImage template="products" {...imageProps} suspenseFallback="Loading" />
+)
+void templateSuspense
 
 // @ts-expect-error Storage preview formats use format-specific quality values, not a tuple.
 const modelWithTuple: TransloaditImageModelOptions = { ...modelOptions, formats: ['webp'] }
@@ -66,9 +72,9 @@ void deferredImage
 void gatedPicture
 void placeholderPicture
 const image = Image(imageProps)
-const directImage = direct.StorageImage(imageProps)
-const redirectedImage = redirect.StorageImage(imageProps)
-const routeResponse = redirect.storageRoute(new Request('https://app.example/images'))
+const directImage = direct.Image(imageProps)
+const redirectedImage = redirect.Image(imageProps)
+const routeResponse = redirect.imageRoute(new Request('https://app.example/images'))
 const attributedImage = (
   <Image
     {...imageProps}
@@ -92,7 +98,7 @@ const receipt = {
   height: 300,
 } satisfies TransloaditImageSource
 const receiptImage = <Image alt="Receipt" src={receipt} priority />
-const receiptRedirect = <redirect.StorageImage alt="Receipt" src={receipt} loading="lazy" />
+const receiptRedirect = <redirect.Image alt="Receipt" src={receipt} loading="lazy" />
 const receiptModel = createTransloaditImageModel(
   { expiresAt: modelOptions.expiresAt, src: receipt },
   () => '',
@@ -109,7 +115,7 @@ createTransloaditImageModel(
 const lazyReceiptPreload = <Image alt="Receipt" src={receipt} loading="lazy" priority />
 const receiptRedirectFallback = (
   // @ts-expect-error A receipt does not give redirect delivery a Suspense fallback.
-  <redirect.StorageImage alt="Receipt" src={receipt} suspenseFallback="Loading" />
+  <redirect.Image alt="Receipt" src={receipt} suspenseFallback="Loading" />
 )
 // @ts-expect-error A preloaded image cannot be lazy.
 const lazyPreload = <Image {...imageProps} loading="lazy" priority />
@@ -118,14 +124,14 @@ const lazyPicturePreload = (
   <TransloaditPicture {...imageProps} model={model} loading="lazy" priority />
 )
 // @ts-expect-error A redirect image never suspends for signing.
-const redirectFallback = <redirect.StorageImage {...imageProps} suspenseFallback="Loading" />
+const redirectFallback = <redirect.Image {...imageProps} suspenseFallback="Loading" />
 // @ts-expect-error Event callbacks are not serializable image attributes.
 const callbackImage = <Image {...imageProps} onLoad={() => undefined} />
 // @ts-expect-error Candidate URLs belong to the configured image model.
 const customSourceSet = <Image {...imageProps} srcSet="https://untrusted.example/a.jpg 320w" />
 // @ts-expect-error Signing policy belongs to the server-only factory.
 const perImageSecret = <Image {...imageProps} authSecret="secret" />
-const configuredRedirect = createStorageImages({
+const configuredRedirect = createImages({
   authKey: 'key',
   authSecret: 'secret',
   workspace: 'app',
@@ -135,47 +141,35 @@ const configuredRedirect = createStorageImages({
 })
 const configuredRedirectFallback = (
   // @ts-expect-error Factory overloads retain the redirect-specific component contract.
-  <configuredRedirect.StorageImage {...imageProps} suspenseFallback="Loading" />
+  <configuredRedirect.Image {...imageProps} suspenseFallback="Loading" />
 )
-const envDirect = createStorageImages({
+const envDirect = createImages({
   allowedPathPrefixes: ['documents/'],
   delivery: 'direct',
 })
 const images = {
   'website/hero.jpg': { path: 'website/hero.jpg', width: 2400, height: 1600 },
 }
-const catalog = createStorageImages({ images, public: ['website/'] })
+const catalog = createImages({ images, public: ['website/'] })
 const catalogHero = (
-  <catalog.StorageImage
-    src="website/hero.jpg"
-    alt="Hero"
-    layout="constrained"
-    width={960}
-    priority
-  />
+  <catalog.Image src="website/hero.jpg" alt="Hero" layout="constrained" width={960} priority />
 )
 const catalogAvatar = (
-  <catalog.StorageImage src="website/hero.jpg" alt="Avatar" layout="fixed" width={48} height={48} />
+  <catalog.Image src="website/hero.jpg" alt="Avatar" layout="fixed" width={48} height={48} />
 )
 const catalogFill = (
-  <catalog.StorageImage
-    src="website/hero.jpg"
-    alt="Cover"
-    layout="fill"
-    fit="cover"
-    aspectRatio="9/16"
-  />
+  <catalog.Image src="website/hero.jpg" alt="Cover" layout="fill" fit="cover" aspectRatio="9/16" />
 )
-const catalogReceipt = <catalog.StorageImage src={receipt} alt="DB receipt" />
+const catalogReceipt = <catalog.Image src={receipt} alt="DB receipt" />
 // @ts-expect-error Catalog references are exact keys, not unchecked paths.
-const catalogTypo = <catalog.StorageImage src="website/heor.jpg" alt="Typo" />
+const catalogTypo = <catalog.Image src="website/heor.jpg" alt="Typo" />
 const catalogUnknown = (
   // @ts-expect-error Explicit geometry does not bypass the catalog-key contract.
-  <catalog.StorageImage src="website/other.jpg" alt="Other" width={100} height={100} />
+  <catalog.Image src="website/other.jpg" alt="Other" width={100} height={100} />
 )
-const privateCatalog = createStorageImages({ images, authorize: () => true })
+const privateCatalog = createImages({ images, authorize: () => true })
 // @ts-expect-error The private factory retains the same exact catalog keys.
-const privateTypo = <privateCatalog.StorageImage src="website/heor.jpg" alt="Typo" />
+const privateTypo = <privateCatalog.Image src="website/heor.jpg" alt="Typo" />
 void [
   catalogHero,
   catalogAvatar,
@@ -186,24 +180,17 @@ void [
   privateTypo,
 ]
 // @ts-expect-error Callers must explicitly choose the allowed prefixes, including deny-all [].
-createStorageImages({})
-const namedStorageImage = <envDirect.StorageImage alt="Receipt" src={receipt} loading="lazy" />
+createImages({})
+const namedStorageImage = <envDirect.Image alt="Receipt" src={receipt} loading="lazy" />
 void namedStorageImage
 const fixedImage = (
-  <envDirect.StorageImage
-    src={receipt}
-    alt="Avatar"
-    layout="fixed"
-    width={48}
-    height={48}
-    fit="cover"
-  />
+  <envDirect.Image src={receipt} alt="Avatar" layout="fixed" width={48} height={48} fit="cover" />
 )
 const constrainedImage = (
-  <envDirect.StorageImage src={receipt} alt="Hero" layout="constrained" width={960} />
+  <envDirect.Image src={receipt} alt="Hero" layout="constrained" width={960} />
 )
 const fillImage = (
-  <envDirect.StorageImage
+  <envDirect.Image
     src={receipt}
     alt="Cover"
     layout="fill"
@@ -212,14 +199,14 @@ const fillImage = (
     sizes="100vw"
   />
 )
-const privateIntegration = createStorageImages({
+const privateIntegration = createImages({
   allowedPathPrefixes: ['documents/'],
   authorize: ({ path, request }) => path.endsWith('.pdf') && request.method === 'GET',
   lifetime: 60_000,
   public: ['documents/public/'],
 })
 const artDirectedImage = (
-  <privateIntegration.StorageImage
+  <privateIntegration.Image
     src={receipt}
     alt="Art direction"
     layout="fill"
@@ -249,19 +236,17 @@ const nonCroppingArtDirection = (
   />
 )
 // @ts-expect-error Only an authorize callback opts into a redirect handler.
-void envDirect.storageRoute
-// @ts-expect-error The unpublished Image alias was removed.
+void envDirect.imageRoute
+// A configured factory returns the same renderer name as the package-first API.
 void envDirect.Image
 void artDirectedImage
 void incompleteArtDirection
 void nonCroppingArtDirection
 const incompleteFixed = (
   // @ts-expect-error Fixed layout needs both display-box dimensions.
-  <envDirect.StorageImage src={receipt} alt="Avatar" layout="fixed" width={48} />
+  <envDirect.Image src={receipt} alt="Avatar" layout="fixed" width={48} />
 )
-const incompleteConstrained = (
-  <envDirect.StorageImage src={receipt} alt="Hero" layout="constrained" />
-)
+const incompleteConstrained = <envDirect.Image src={receipt} alt="Hero" layout="constrained" />
 void fixedImage
 void constrainedImage
 void fillImage
@@ -269,44 +254,36 @@ void incompleteFixed
 void incompleteConstrained
 const missingFillRatio = (
   // @ts-expect-error A fill crop needs the container ratio; it cannot be inferred from the source.
-  <envDirect.StorageImage src={receipt} alt="Cover" layout="fill" fit="cover" />
+  <envDirect.Image src={receipt} alt="Cover" layout="fill" fit="cover" />
 )
 const fixedString = (
   // @ts-expect-error Fixed width and height describe the box, so the source must carry its dimensions.
-  <envDirect.StorageImage
-    src="documents/report.pdf"
-    alt="Cover"
-    layout="fixed"
-    width={48}
-    height={48}
-  />
+  <envDirect.Image src="documents/report.pdf" alt="Cover" layout="fixed" width={48} height={48} />
 )
 void missingFillRatio
 void fixedString
-const envRedirect = createStorageImages({
+const envRedirect = createImages({
   allowedPathPrefixes: ['documents/'],
   route: '/images',
   authorize: () => true,
 })
-const envImage = (
-  <envDirect.StorageImage alt="Receipt" src={receipt} priority suspenseFallback="Loading" />
-)
-const envRedirectImage = <envRedirect.StorageImage alt="Receipt" src={receipt} priority />
-const envRoute = envRedirect.storageRoute(new Request('https://app.example/images'))
+const envImage = <envDirect.Image alt="Receipt" src={receipt} priority suspenseFallback="Loading" />
+const envRedirectImage = <envRedirect.Image alt="Receipt" src={receipt} priority />
+const envRoute = envRedirect.imageRoute(new Request('https://app.example/images'))
 // @ts-expect-error The environment helper requires explicit Storage policy, not guessed access.
-createStorageImages({})
+createImages({})
 // @ts-expect-error Direct delivery does not expose an authorization route.
-const envDirectRoute = envDirect.storageRoute
+const envDirectRoute = envDirect.imageRoute
 const envLazyPreload = (
   // @ts-expect-error The env factory preserves the lazy/priority union.
-  <envDirect.StorageImage alt="Receipt" src={receipt} loading="lazy" priority />
+  <envDirect.Image alt="Receipt" src={receipt} loading="lazy" priority />
 )
 const envRedirectFallback = (
   // @ts-expect-error Redirect delivery has no signing suspension to replace.
-  <envRedirect.StorageImage alt="Receipt" src={receipt} suspenseFallback="Loading" />
+  <envRedirect.Image alt="Receipt" src={receipt} suspenseFallback="Loading" />
 )
 // @ts-expect-error Direct integrations do not expose an authorization route.
-const missingRoute = direct.storageRoute
+const missingRoute = direct.imageRoute
 // @ts-expect-error Storage previews always use their signed JPEG fallback.
 const imageWithFallback = <Image {...imageProps} fallbackSrc="/report.jpg" />
 // @ts-expect-error Storage previews do not support viewport-conditional activation.

@@ -30,10 +30,16 @@ export type StorageImageProps = TransloaditRedirectImageProps<
       }
 >
 
-/** Available to App Router Server Components through the react-server export condition. */
-export function StorageImage(_props: StorageImageProps): ReactNode {
+/** Storage catalog paths or explicit custom-template inputs; workspace can use project defaults. */
+export type ImageProps = { workspace?: string } & (
+  | ({ storage: true; template?: never } & StorageImageProps)
+  | ({ storage?: never; template: string } & TransloaditRedirectImageProps)
+)
+
+/** The server implementation selects Storage Built-ins or an explicitly trusted custom Template. */
+export function Image(_props: ImageProps): ReactNode {
   throw new Error(
-    'StorageImage is a Server Component. Render it in an App Router page or server component; use TransloaditPicture for an already resolved model in client code.',
+    'Image is a Server Component. Render it in an App Router page or server component; use TransloaditPicture for an already resolved model in client code.',
   )
 }
 
@@ -143,7 +149,7 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
   if (automaticSizes && resolvedLoading !== 'lazy') {
     if (process.env.NODE_ENV === 'development')
       console.warn(
-        '[StorageImage] auto sizes require lazy loading; using the explicit fallback for this eager image.',
+        '[Image] auto sizes require lazy loading; using the explicit fallback for this eager image.',
       )
     sizes =
       sizes
@@ -178,7 +184,7 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
       }
     } else if (process.env.NODE_ENV === 'development') {
       console.warn(
-        '[StorageImage] letterboxed image: no blur placeholder. Use the default constrained layout or fit="cover" for a box-filling image.',
+        '[Image] letterboxed image: no blur placeholder. Use the default constrained layout or fit="cover" for a box-filling image.',
       )
     }
   }

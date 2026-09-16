@@ -1,1 +1,1 @@
-export { storageRoute as GET, storageRoute as HEAD } from '../../TransloaditRedirectImage'
+export { imageRoute as GET, imageRoute as HEAD } from '../../TransloaditRedirectImage'

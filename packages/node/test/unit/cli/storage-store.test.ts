@@ -135,7 +135,7 @@ describe('storage store', () => {
       `"${path}": { path: "${path}";`,
     )
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
-      expect.stringContaining(`<StorageImage src="${path}" alt="local photo"`),
+      expect.stringContaining(`<Image storage src="${path}" alt="local photo"`),
       { ...stored, source: 'local-photo.jpg', apiOrigin: 'https://api2.transloadit.com' },
     )
   })
@@ -456,7 +456,9 @@ describe('storage store', () => {
     expect(process.exitCode).toBeUndefined()
     const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(text).toContain(`${file} is not wrapped yet`)
-    expect(text).toContain("import { withTransloaditImages } from '@transloadit/img/next/config'")
+    expect(text).toContain(
+      "import { withTransloaditImages } from '@transloadit/viewer/next/config'",
+    )
     expect(text).toContain('export default withTransloaditImages(nextConfig)')
     expect(await readFile(file, 'utf8')).toBe(source)
   })
@@ -502,6 +504,8 @@ describe('storage store', () => {
     expect(await readFile('images.json', 'utf8')).toBe(previous)
     const text = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(text).toContain('the different-workspace project catalog was left unchanged')
+    expect(text).not.toContain('<Image')
+    expect(text).toContain('separate catalog')
     expect(text).not.toContain('This directory is private.')
     expect(text).not.toContain('image init')
     expect(text).not.toContain('placeholder="blur"')
@@ -605,7 +609,7 @@ describe('storage store', () => {
       images: { [receipt.path]: receipt },
     })
     const types = await readFile('transloadit-images.d.ts', 'utf8')
-    expect(types).toContain("declare module '@transloadit/img/next'")
+    expect(types).toContain("declare module '@transloadit/viewer/next'")
     expect(types).toContain(
       '"website/hero.jpg": { path: "website/hero.jpg"; width: 800; height: 600; thumbhash?: string; hasAlpha?: boolean }',
     )
@@ -916,8 +920,8 @@ describe('storage store', () => {
       rootReceipt,
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
-    expect(snippet).toContain('Render it with <StorageImage src="hero.jpg"')
-    expect(snippet).not.toContain('createStorageImages')
+    expect(snippet).toContain('Render it with <Image storage src="hero.jpg"')
+    expect(snippet).not.toContain('createImages')
     expect(snippet).not.toContain('allowedPathPrefixes: [""]')
   })
 
@@ -933,7 +937,7 @@ describe('storage store', () => {
     expect(process.exitCode).toBeUndefined()
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
       expect.stringContaining(
-        `<StorageImage src="website/hero.jpg" alt="hero" width={${maxWidth}} />`,
+        `<Image storage src="website/hero.jpg" alt="hero" width={${maxWidth}} />`,
       ),
       { ...receipt, width },
     )
@@ -1198,12 +1202,12 @@ describe('storage store', () => {
     })
     expect(await readFile('images.json', 'utf8')).toMatch(/\n$/)
     expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
-      expect.stringContaining('<StorageImage src="website/hero.jpg"'),
+      expect.stringContaining('<Image storage src="website/hero.jpg"'),
       receipt,
     )
     const snippet = vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]
     expect(snippet).toContain(
-      'Saved website/hero.jpg in images.json. Commit this catalog and transloadit-images.d.ts.\nRender it with <StorageImage src="website/hero.jpg" alt="hero" width={800} />\nReplace alt with a description (or an empty string for a decorative image).',
+      'Saved website/hero.jpg in images.json. Commit this catalog and transloadit-images.d.ts.\nRender it with <Image storage src="website/hero.jpg" alt="hero" width={800} />\nReplace alt with a description (or an empty string for a decorative image).',
     )
     expect(await readdir(directory)).toEqual([
       'credentials',

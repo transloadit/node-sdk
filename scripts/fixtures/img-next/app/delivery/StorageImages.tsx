@@ -1,9 +1,9 @@
-import { createStorageImages } from '@transloadit/img/next/server'
+import { createImages } from '@transloadit/viewer/next/server'
 
 import { authorizeFixtureImage } from '../../browser-policy'
 import { imageConfiguration } from '../imageConfiguration'
 
-export const { StorageImage: DeliveryImage, storageRoute: deliveryRoute } = createStorageImages({
+export const { Image: DeliveryImage, imageRoute: deliveryRoute } = createImages({
   allowedPathPrefixes: ['documents/'],
   authorize: authorizeFixtureImage,
   basePath: '/fixture',

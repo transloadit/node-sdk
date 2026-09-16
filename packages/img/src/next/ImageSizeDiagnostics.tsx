@@ -49,7 +49,7 @@ export function ImageSizeDiagnostics({ children }: ImageSizeDiagnosticsProps): R
       if (width <= 2 * cssWidth) return
       warned.add(image)
       console.warn(
-        `[StorageImage] The selected ${width}px candidate is more than twice its ${Math.round(cssWidth)}px rendered width. Set sizes to match the image’s CSS width.`,
+        `[Image] The selected ${width}px candidate is more than twice its ${Math.round(cssWidth)}px rendered width. Set sizes to match the image’s CSS width.`,
       )
     }
     schedule()

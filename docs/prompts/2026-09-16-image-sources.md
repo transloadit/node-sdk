@@ -1,5 +1,77 @@
 # Image source model experiment
 
+## Accepted implementation — September 16
+
+Kevin chose separate `workspace` and `template` props, with `Image storage` selecting the
+integrated Storage path. This supersedes the named-source recommendation below, which remains
+as the experiment record. No source registry or qualified workspace/template string is needed.
+
+Active checkouts: node-sdk `img-onboard` (#500), Content `cli-auth-and-combined-keys` (#5973).
+Baseline SDK `5393b4d`, Content `48cf9235f2`. Existing API2 devdock is reused without restart.
+
+- [x] Red-first workspace, selector and cross-source policy tests.
+- [x] Implement the real package API, remove the fixture-only source layer, and rename the
+      unpublished package to `@transloadit/viewer` (images only).
+- [x] Update CLI output, generated declarations, docs and packed-consumer fixtures.
+- [x] Verify actual HTTP/S3 transforms and native browser delivery, including denied access.
+- [x] Update Content's dogfood consumer and verify it with a packed candidate without visual changes.
+- [x] Run security/council reviews and required checks; fix valid findings red-first.
+- [ ] Commit/push the SDK, replace Content's provisional vendor path with that exact commit,
+      and monitor both PR heads. No merge or publication.
+
+Guardrails: explicit workspace beats an environment default, but metadata/credential bindings
+must not cross workspaces. Custom templates never inherit Storage publication policy. Keep
+secrets server-only and reuse the existing image renderer. No merge, npm publication, production
+configuration change or new media renderer is authorized by this slice.
+
+Implementation evidence (local): full SDK `verify:full` passes, including 339 image tests and
+636 Node tests. All 126 Chromium/WebKit packed browser checks pass. Native source selection uses
+the real package exports; the temporary alias wrapper is deleted. A separate live API2 probe
+decodes 100×100 WebP with alpha from both HTTP and S3 imports; its two temporary local Templates
+were deleted afterward. Legacy fixtures still ignore requested formats; the new development
+HEAD diagnostic names a mismatched MIME without exposing the signed query.
+
+Content's actual page renders/decode-checks at 1440px and 390px with the candidate package and
+local API2 bytes: 960×540 and 342×192.375 CSS boxes, eager/high-priority, no console errors. The
+browser alone rewrites that toy asset to devdock; no catalog/env/production delivery policy was
+changed. 121 focused Content tests and 22 CLI approval tests pass. The full check found one missed
+escaped package name in the CLI-copy test (12,016 others pass); it is fixed. A broad rerun passed
+12,015 tests but timed out in two unchanged i18n/alphalib tests under concurrent local load. Both
+pass in isolated reruns without source or timeout changes (including all 48 alphalib-sync tests).
+
+Council/security findings were verified red-first (eight failing behavior checks, plus the type
+check). Custom-template inputs now reject URL escapes/query/fragment delimiters before signing
+and route authorization, while Storage retains literal-key semantics. Both private doc recipes
+scope their authorizer to the Storage template; CLI scaffolding names the complete identity.
+Conventional template props omit configuration-dependent Suspense customization; an explicit
+direct factory remains available. A late authorizer file now gets restart guidance for templates
+too. The remaining root README import was updated.
+
+The project-workspace conflict check is intentionally retained, not changed to silently fall back
+to catalog identity: a configured default must not rebind metadata or signing identity. Its
+misleading JSDoc was corrected and the fail-closed behavior tested. Arbitrary template choices
+remain request-scoped, including diagnostics, rather than accumulating in a global registry.
+An additional catalog-free test now proves cross-workspace capability rejection through the
+cryptographic binding, not merely the default-workspace precheck.
+
+The second security review passes with no actionable security regression. The second council
+found only misleading missing-catalog setup advice: a new failing test reproduced it, and the
+error now names the catalog, upload command, plugin and first-catalog development restart.
+The pending release note now uses the renamed API too. Final root `yarn check` passes, including
+that new regression (340 image / 636 Node tests). The explicit factory's existing custom-template plus public
+prefix combination still requires an explicit compatible public Template; the conventional
+custom path does not accept or inherit public prefixes.
+
+Evidence: `/tmp/viewer-security-20260916/result.json`, `/tmp/viewer-security-review.md`,
+`/tmp/viewer-council.log`, `/tmp/viewer-council-red.log`, `/tmp/viewer-council-green.log`,
+`/tmp/viewer-security-followup.md`, `/tmp/viewer-council-followup.log`,
+`/tmp/viewer-catalog-red.log`, `/tmp/viewer-final-package-check.log`,
+`/tmp/viewer-content-browser-20260916/result.json`. Exact-head repacking, commit/push and hosted
+checks are still pending; these local results do not clear production
+API/CDN availability, registry publication or the existing Content Vercel OOM (#5999) gate.
+
+## Historical experiment (superseded by the accepted implementation above)
+
 September 16, 2026. Recommendation, not a released API. The prototype lives only in the packed
 Next.js fixture in [node-sdk #500](https://github.com/transloadit/node-sdk/pull/500). Production
 exports, package names, Storage behavior and dependencies are unchanged.

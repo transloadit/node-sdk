@@ -109,7 +109,7 @@ Most commands can authenticate with either `TRANSLOADIT_AUTH_TOKEN` or `TRANSLOA
 
 ### Storage images for Next.js
 
-`@transloadit/img` is currently an unpublished, private preview. Follow the
+`@transloadit/viewer` is currently an unpublished, private preview. Follow the
 [local package instructions](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md)
 until release. In a Next.js 16.3.3+ App Router project with Storage enabled, run:
 
@@ -119,7 +119,7 @@ yarn transloadit storage store ./hero.jpg website/hero.jpg --public --hashed
 yarn dev
 ```
 
-Follow the image package Quickstart to add its Next plugin and import StorageImage from the package.
+Follow the image package Quickstart to add its Next plugin and import Image from the package.
 `--hashed` creates an immutable filename; use the printed JSX path, including its content hash.
 Start with `auth login` even without an account: choose Sign up in the browser it opens, then approve
 the CLI. For application-server uploads instead of CLI seeding, see [Store an image](#store-an-image).
@@ -1447,7 +1447,7 @@ npx transloadit assemblies list -l 7
 
 ### Store an image
 
-`storeImage()` uploads one local image and returns a verified receipt ready for `StorageImage`.
+`storeImage()` uploads one local image and returns a verified receipt ready for `Image`.
 Install `@transloadit/node` as a runtime dependency for server uploads; a dev dependency is enough
 when you only use its CLI. Use an Assembly-enabled application key in your server environment,
 not a signing-only image-delivery key or the disposable login key that `auth logout` revokes.

@@ -34,6 +34,7 @@ import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes
 import { TransloaditPicture } from './index.tsx'
 import { resolveImageLayout } from './layout.ts'
 import { publishImageHint } from './pathHints.ts'
+import { isImageSourceSelector } from './source.ts'
 
 const defaultStorageExpiresInMs = 60 * 60 * 1000
 const imagePolicyParams = new Set(['auth_key', 'bg', 'exp', 'f', 'h', 'q', 'r', 'sig', 'v', 'w'])
@@ -44,29 +45,32 @@ const storageCapabilityMaximumLength = 4096
 const storageCapabilityMinimumBytes = storageCapabilityAuthenticationBytes + 1
 const storageCapabilityPattern = /^[A-Za-z0-9_-]+$/
 const storageCapabilityVersion = 1
+// A package rename is not a capability-protocol change; preserve existing Storage route keys.
 const storageRouteKeyDomain = '@transloadit/img/storage-route/v1'
 
 /** Values available to application authorization before a Storage redirect is issued. */
-export interface TransloaditStorageAuthorizationContext {
+export interface TransloaditImageAuthorizationContext {
   path: string
   request: Request
+  workspace: string
+  template: string
 }
 
 /** Return true to authorize one private object; thrown application errors propagate, not deny. */
-export type AuthorizeTransloaditStorageImage = (
-  context: TransloaditStorageAuthorizationContext,
+export type AuthorizeTransloaditImage = (
+  context: TransloaditImageAuthorizationContext,
 ) => boolean | Promise<boolean>
 
 /** Request-authorized, byte-pass-through-free Storage delivery through a local route. */
-export interface TransloaditStorageRedirectDelivery {
-  authorize: AuthorizeTransloaditStorageImage
+export interface TransloaditImageRedirectDelivery {
+  authorize: AuthorizeTransloaditImage
   /** Server-declared public directories: use unsigned, direct CDN delivery. */
   public?: readonly string[]
   /** Next.js `basePath` prepended only to browser-facing route URLs. */
   basePath?: string
   /** Opt-in browser caching; capped at the rotation interval. Delays reauthorization. */
   cacheMaxAgeMs?: number
-  /** Internal App Router path that exports `storageRoute`, for example `/api/private-images`. */
+  /** Internal App Router path that exports `imageRoute`, for example `/api/private-images`. */
   route: string
 }
 
@@ -78,7 +82,7 @@ interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = 
   authKey?: string
   /** Trusted secret override; otherwise resolved from the server environment on first use. */
   authSecret?: string
-  /** Catalog/explicit workspace fallback; TRANSLOADIT_WORKSPACE overrides it on first use. */
+  /** Explicit workspace; otherwise resolved from TRANSLOADIT_WORKSPACE on first use. */
   workspace?: string
   /** Catalog transport overrides, or direct signing inside a request-authorized page. */
   delivery?: 'direct' | { baseUrl?: string; urlParams?: SmartCdnUrlParams }
@@ -91,7 +95,7 @@ interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = 
   /** Server-declared public directories. These render unsigned URLs without keys or expiry. */
   public?: readonly string[]
   /** Opt into a redirect handler; private objects require this check for every uncached request. */
-  authorize?: AuthorizeTransloaditStorageImage
+  authorize?: AuthorizeTransloaditImage
   /** Defaults to /api/storage-images when authorize is provided. */
   route?: string
   basePath?: string
@@ -116,20 +120,19 @@ interface StorageImageOptions<Catalog extends StorageImageCatalog | undefined = 
 }
 
 /** One flat policy with either a catalog, explicit prefixes (including deny-all []), or root access. */
-export type StorageImagesConfiguration<
-  Catalog extends StorageImageCatalog | undefined = undefined,
-> = StorageImageOptions<Catalog> &
-  (
-    | { images: Catalog extends undefined ? never : Catalog }
-    | { allowedPathPrefixes: readonly string[] }
-    | { allowWorkspaceRoot: true }
-  )
+export type ImageConfiguration<Catalog extends StorageImageCatalog | undefined = undefined> =
+  StorageImageOptions<Catalog> &
+    (
+      | { images: Catalog extends undefined ? never : Catalog }
+      | { allowedPathPrefixes: readonly string[] }
+      | { allowWorkspaceRoot: true }
+    )
 
 /** Request-authorized private delivery with the same flat configuration as direct delivery. */
-export type PrivateStorageImagesConfiguration<
+export type AuthorizedImagesConfiguration<
   Catalog extends StorageImageCatalog | undefined = undefined,
-> = StorageImagesConfiguration<Catalog> & {
-  authorize: AuthorizeTransloaditStorageImage
+> = ImageConfiguration<Catalog> & {
+  authorize: AuthorizeTransloaditImage
 }
 
 /** Props for a Transloadit Storage preview, optionally typed from a rendering catalog. */
@@ -159,27 +162,28 @@ export type TransloaditImageComponent<Catalog extends StorageImageCatalog | unde
   (props: TransloaditImageProps<Catalog>) => ReactNode
 
 /** A Next.js route handler that authorizes and redirects one private image request. */
-export type TransloaditStorageRoute = (request: Request) => Promise<Response>
+export type TransloaditImageRoute = (request: Request) => Promise<Response>
 
 /** Direct-delivery integration. Image bytes and requests bypass the Next.js server. */
 export interface TransloaditImageIntegration<
   Catalog extends StorageImageCatalog | undefined = undefined,
 > {
-  StorageImage: TransloaditImageComponent<Catalog>
+  Image: TransloaditImageComponent<Catalog>
 }
 
 /** Redirect-delivery integration with a route handler for private Storage images. */
 export interface TransloaditRedirectImageIntegration<
   Catalog extends StorageImageCatalog | undefined = undefined,
 > {
-  StorageImage: (props: TransloaditRedirectImageProps<Catalog>) => ReactNode
-  storageRoute: TransloaditStorageRoute
+  Image: (props: TransloaditRedirectImageProps<Catalog>) => ReactNode
+  imageRoute: TransloaditImageRoute
 }
 
 interface ResolvedStoragePolicy {
   allowedPathPrefixes: readonly string[]
   allowedPaths: ReadonlySet<string>
-  delivery: 'direct' | TransloaditStorageRedirectDelivery
+  customTemplate: boolean
+  delivery: 'direct' | TransloaditImageRedirectDelivery
   images?: StorageImageCatalog
   lifetime?: number
   public: readonly string[]
@@ -188,7 +192,7 @@ interface ResolvedStoragePolicy {
 
 interface ResolvedStorageCapabilityPolicy {
   context: string
-  delivery: TransloaditStorageRedirectDelivery
+  delivery: TransloaditImageRedirectDelivery
   key: Buffer
 }
 
@@ -282,8 +286,8 @@ function validateBaseUrl(baseUrl: string | undefined): void {
 
 function validateTemplate(template: string | undefined, name: string): void {
   if (template === undefined) return
-  if (typeof template !== 'string' || template === '' || template.trim() !== template) {
-    throw new TypeError(`${name} must be a non-empty string without surrounding whitespace`)
+  if (!isImageSourceSelector(template)) {
+    throw new TypeError(`${name} must be 1–256 characters without surrounding whitespace`)
   }
 }
 
@@ -327,7 +331,7 @@ function validateStorageBasePath(basePath: string | undefined): void {
   if (parsed.origin !== 'https://transloadit.invalid' || parsed.pathname !== basePath) throw error
 }
 
-function getBrowserStorageRoute(delivery: TransloaditStorageRedirectDelivery): string {
+function getBrowserStorageRoute(delivery: TransloaditImageRedirectDelivery): string {
   return `${delivery.basePath ?? ''}${delivery.route}`
 }
 
@@ -335,7 +339,7 @@ function removeTrailingSlash(path: string): string {
   return path === '/' || !path.endsWith('/') ? path : path.slice(0, -1)
 }
 
-function matchesStorageRoute(path: string, delivery: TransloaditStorageRedirectDelivery): boolean {
+function matchesStorageRoute(path: string, delivery: TransloaditImageRedirectDelivery): boolean {
   const normalized = removeTrailingSlash(path)
   return (
     normalized === removeTrailingSlash(delivery.route) ||
@@ -379,7 +383,7 @@ function validatePrefixes(prefixes: readonly string[], name: string): readonly s
 }
 
 function getStoragePolicy(
-  configuration: StorageImagesConfiguration<StorageImageCatalog | undefined>,
+  configuration: ImageConfiguration<StorageImageCatalog | undefined>,
 ): ResolvedStoragePolicy {
   if (typeof configuration !== 'object' || configuration === null || Array.isArray(configuration)) {
     throw new TypeError('Storage images require an explicit configuration object')
@@ -496,6 +500,7 @@ function getStoragePolicy(
   return {
     allowedPathPrefixes: resolvedPrefixes,
     allowedPaths,
+    customTemplate: configuration.template !== undefined,
     delivery,
     images,
     lifetime,
@@ -519,6 +524,12 @@ function getStorageExpiresAt(now: number, policy: ResolvedStoragePolicy): number
 
 function assertAllowedStoragePath(path: string, policy: ResolvedStoragePolicy): void {
   validateStoragePath(path)
+  // Storage keys are literal. A custom importer can interpret URL escapes, queries or fragments
+  // after the application authorized a prefix, so that portable input mode must reject them.
+  if (policy.customTemplate && /[%?#]/.test(path))
+    throw new TypeError(
+      'Template inputs must be literal relative paths without URL escapes, queries or fragments',
+    )
   if (
     !policy.allowedPaths.has(path) &&
     !policy.allowedPathPrefixes.some((prefix) => path.startsWith(prefix))
@@ -631,10 +642,10 @@ function renderPicture(
     } else if (process.env.NODE_ENV === 'development') {
       console.warn(
         !inlinePixels
-          ? `[StorageImage] ${JSON.stringify(props.source.path)} uses request-authorized private delivery; placeholder="blur" is a no-op so its pixels are not exposed before authorization.`
+          ? `[Image] ${JSON.stringify(props.source.path)} uses request-authorized private delivery; placeholder="blur" is a no-op so its pixels are not exposed before authorization.`
           : hasAlpha
-            ? `[StorageImage] ${JSON.stringify(props.source.path)}: transparent image: no blur placeholder.`
-            : `[StorageImage] ${JSON.stringify(props.source.path)} has no usable thumbhash; placeholder="blur" is a no-op. Use storage store with the original bytes to generate it.`,
+            ? `[Image] ${JSON.stringify(props.source.path)}: transparent image: no blur placeholder.`
+            : `[Image] ${JSON.stringify(props.source.path)} has no usable thumbhash; placeholder="blur" is a no-op. Use storage store with the original bytes to generate it.`,
       )
     }
   }
@@ -732,7 +743,7 @@ function createStorageRouteKey(authSecret: string, workspace: string): Buffer {
 }
 
 function getStorageCapabilityContext(
-  delivery: TransloaditStorageRedirectDelivery,
+  delivery: TransloaditImageRedirectDelivery,
   customTemplate: string | undefined,
   workspace: string,
 ): string {
@@ -760,12 +771,13 @@ function encryptStorageCapability(
 
 function getStorageRouteUrl(
   context: string,
-  delivery: TransloaditStorageRedirectDelivery,
+  delivery: TransloaditImageRedirectDelivery,
   key: Buffer,
   request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
+  source?: { workspace: string; template: string },
 ): string {
   const capability = encryptStorageCapability(context, key, getStorageTransform(request))
-  return `${getBrowserStorageRoute(delivery)}?${new URLSearchParams({ cap: capability })}`
+  return `${getBrowserStorageRoute(delivery)}?${new URLSearchParams({ cap: capability, ...source })}`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -847,15 +859,25 @@ function parseStorageRouteTransform(
   url: URL,
   context: string,
   key: Buffer,
+  source?: { workspace: string; template: string },
 ): StorageImageTransform | undefined {
   const parameters = [...url.searchParams.keys()]
-  if (parameters.length !== 1 || url.searchParams.getAll('cap').length !== 1) return undefined
+  if (parameters.length !== (source === undefined ? 1 : 3)) return undefined
+  if (url.searchParams.getAll('cap').length !== 1) return undefined
+  if (
+    source !== undefined &&
+    (url.searchParams.getAll('workspace').length !== 1 ||
+      url.searchParams.get('workspace') !== source.workspace ||
+      url.searchParams.getAll('template').length !== 1 ||
+      url.searchParams.get('template') !== source.template)
+  )
+    return undefined
   return decryptStorageCapability(url.searchParams.get('cap'), context, key)
 }
 
 function createStorageRoute(
   context: string,
-  delivery: TransloaditStorageRedirectDelivery,
+  delivery: TransloaditImageRedirectDelivery,
   key: Buffer,
   policy: ResolvedStoragePolicy,
   sign: (request: SmartCdnImageSignRequest) => string,
@@ -865,7 +887,8 @@ function createStorageRoute(
     request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
     md5hash?: string,
   ) => string,
-): TransloaditStorageRoute {
+  source: { workspace: string; customTemplate?: string },
+): TransloaditImageRoute {
   const reasons = {
     route:
       'Redirect route/basePath differs from this handler. Check the route export and rebuild cached markup.',
@@ -882,14 +905,14 @@ function createStorageRoute(
     if (process.env.NODE_ENV === 'development' && !explained.has(key)) {
       explained.add(key)
       const publication =
-        reason === 'authorization' && path !== undefined
+        reason === 'authorization' && path !== undefined && source.customTemplate === undefined
           ? ` Storage path ${JSON.stringify(path)} is not under a public prefix in the current image configuration. ${publishImageHint(path)}`
           : ''
-      console.warn(`[StorageImage] ${reasons[reason]}${publication}`)
+      console.warn(`[Image] ${reasons[reason]}${publication}`)
     }
     return new Response(null, { headers: { 'Cache-Control': 'private, no-store' }, status: 404 })
   }
-  return async function storageRoute(request: Request): Promise<Response> {
+  return async function imageRoute(request: Request): Promise<Response> {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response(null, {
         headers: { Allow: 'GET, HEAD', 'Cache-Control': 'private, no-store' },
@@ -898,7 +921,14 @@ function createStorageRoute(
     }
     const url = new URL(request.url)
     if (!matchesStorageRoute(url.pathname, delivery)) return notFound('route')
-    const transform = parseStorageRouteTransform(url, context, key)
+    const transform = parseStorageRouteTransform(
+      url,
+      context,
+      key,
+      source.customTemplate === undefined
+        ? undefined
+        : { workspace: source.workspace, template: source.customTemplate },
+    )
     if (transform === undefined) return notFound('capability')
     try {
       assertAllowedStoragePath(transform.path, policy)
@@ -907,7 +937,10 @@ function createStorageRoute(
     }
     const path = transform.path
     const isPublic = delivery.public?.some((prefix) => path.startsWith(prefix)) === true
-    if (!isPublic && (await delivery.authorize({ path: transform.path, request })) !== true)
+    if (
+      !isPublic &&
+      (await delivery.authorize({ path, request, workspace: source.workspace, template })) !== true
+    )
       return notFound('authorization', path)
 
     const signRequest = {
@@ -966,7 +999,7 @@ function createStorageRoute(
 }
 
 function createImageIntegration<Catalog extends StorageImageCatalog | undefined>(
-  configuration: StorageImagesConfiguration<Catalog>,
+  configuration: ImageConfiguration<Catalog>,
   storagePolicy: ResolvedStoragePolicy,
   getCredentials: () => { authKey: string; authSecret: string; workspace: string },
   getWorkspace: () => string,
@@ -1023,7 +1056,15 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
   }
   const buildStorageUrl = (request: Omit<SmartCdnImageSignRequest, 'expiresAt'>): string => {
     const capability = getCapability()
-    return getStorageRouteUrl(capability.context, capability.delivery, capability.key, request)
+    return getStorageRouteUrl(
+      capability.context,
+      capability.delivery,
+      capability.key,
+      request,
+      customTemplate === undefined
+        ? undefined
+        : { workspace: getWorkspace(), template: customTemplate },
+    )
   }
 
   function createModel<Expiry extends number | undefined>(
@@ -1070,7 +1111,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
     if (process.env.NODE_ENV === 'development' && !explainedDirectDelivery) {
       explainedDirectDelivery = true
       console.info(
-        'StorageImage (direct) makes this route dynamic; use redirect delivery for static pages',
+        'Image (direct) makes this route dynamic; use redirect delivery for static pages',
       )
     }
     const model = createModel(props, getStorageExpiresAt(Date.now(), storagePolicy), sign)
@@ -1081,7 +1122,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
     return renderPicture(props, model, diagnostic, true)
   }
 
-  function StorageImage(props: TransloaditImageProps<Catalog>): ReactNode {
+  function Image(props: TransloaditImageProps<Catalog>): ReactNode {
     const layout = resolveImageLayout(props, storagePolicy.images)
     assertAllowedStoragePath(layout.source.path, storagePolicy)
     const storageProps = snapshotStorageImageProps(props, layout)
@@ -1131,12 +1172,12 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
     return renderPicture(storageProps, model)
   }
 
-  const integration: TransloaditImageIntegration<Catalog> = { StorageImage }
+  const integration: TransloaditImageIntegration<Catalog> = { Image }
   if (redirectDelivery === 'direct') return integration
-  let route: TransloaditStorageRoute | undefined
+  let route: TransloaditImageRoute | undefined
   return {
     ...integration,
-    async storageRoute(request) {
+    async imageRoute(request) {
       if (route === undefined) {
         const capability = getCapability()
         route = createStorageRoute(
@@ -1148,6 +1189,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
           storageTemplate,
           diagnose,
           buildPublicUrl,
+          { workspace: getWorkspace(), customTemplate },
         )
       }
       return await route(request)
@@ -1156,14 +1198,14 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
 }
 
 /** Reads rendering credentials once on first render/request, not while importing the factory. */
-export function createStorageImages<Catalog extends StorageImageCatalog | undefined = undefined>(
-  configuration: PrivateStorageImagesConfiguration<Catalog>,
+export function createImages<Catalog extends StorageImageCatalog | undefined = undefined>(
+  configuration: AuthorizedImagesConfiguration<Catalog>,
 ): TransloaditRedirectImageIntegration<Catalog>
-export function createStorageImages<Catalog extends StorageImageCatalog | undefined = undefined>(
-  configuration: StorageImagesConfiguration<Catalog>,
+export function createImages<Catalog extends StorageImageCatalog | undefined = undefined>(
+  configuration: ImageConfiguration<Catalog>,
 ): TransloaditImageIntegration<Catalog>
-export function createStorageImages<Catalog extends StorageImageCatalog | undefined = undefined>(
-  input: StorageImagesConfiguration<Catalog>,
+export function createImages<Catalog extends StorageImageCatalog | undefined = undefined>(
+  input: ImageConfiguration<Catalog>,
 ): TransloaditImageIntegration<Catalog> | TransloaditRedirectImageIntegration<Catalog> {
   const configuration =
     typeof input?.delivery === 'object' && input.delivery !== null
@@ -1186,8 +1228,10 @@ export function createStorageImages<Catalog extends StorageImageCatalog | undefi
   let workspace: string | undefined
   function getWorkspace(): string {
     if (workspace === undefined) {
-      const value = process.env.TRANSLOADIT_WORKSPACE || explicit.workspace
+      const value = explicit.workspace ?? process.env.TRANSLOADIT_WORKSPACE
       validateRequiredConfiguration(value, 'TRANSLOADIT_WORKSPACE')
+      if (!isImageSourceSelector(value))
+        throw new TypeError('workspace must be 1–256 characters without surrounding whitespace')
       workspace = value
     }
     return workspace
@@ -1214,6 +1258,14 @@ export function createStorageImages<Catalog extends StorageImageCatalog | undefi
             : 'TRANSLOADIT_SECRET'
         const authKey = explicitPair ? explicit.authKey : process.env[keyName]
         const authSecret = explicitPair ? explicit.authSecret : process.env[secretName]
+        if (
+          !explicitPair &&
+          process.env.TRANSLOADIT_WORKSPACE !== undefined &&
+          getWorkspace() !== process.env.TRANSLOADIT_WORKSPACE
+        )
+          throw new TypeError(
+            'Signing credentials from the environment belong to a different workspace. Provide explicit authKey and authSecret for the selected workspace.',
+          )
         if (!explicitPair && authKey === undefined && authSecret === undefined)
           throw new TypeError(
             'Private images need a signing key. Set TRANSLOADIT_SMART_CDN_KEY and TRANSLOADIT_SMART_CDN_SECRET (Console → Credentials → New Auth Key → “Private image delivery”). TRANSLOADIT_KEY/SECRET are also accepted.',

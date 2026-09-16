@@ -78,9 +78,9 @@ function catalogTypes(catalog: StorageProjectCatalog): string {
     })
   return [
     typesHeader,
-    "import '@transloadit/img/next'",
+    "import '@transloadit/viewer/next'",
     '',
-    "declare module '@transloadit/img/next' {",
+    "declare module '@transloadit/viewer/next' {",
     '  interface RegisteredStorageImages {',
     ...properties,
     '  }',

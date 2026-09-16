@@ -1,18 +1,20 @@
 import type { ReactNode } from 'react'
 
-import { StorageImage } from '@transloadit/img/next'
+import { Image } from '@transloadit/viewer/next'
 
 export default function Page(): ReactNode {
   return (
     <>
-      <StorageImage
+      <Image
+        storage
         src="website/alpha.png"
         alt="Transparent public image"
         width={64}
         preload
         placeholder="blur"
       />
-      <StorageImage
+      <Image
+        storage
         src="website/hero.jpg"
         alt="Letterboxed public image"
         layout="fixed"

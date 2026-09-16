@@ -19,7 +19,7 @@ vi.mock('../src/index.ts', async (importOriginal) => ({
   },
 }))
 
-import { createStorageImages } from '../src/next/server.tsx'
+import { createImages } from '../src/next/server.tsx'
 
 const images = {
   'website/hero.jpg': { path: 'website/hero.jpg', width: 2400, height: 1600 },
@@ -32,9 +32,9 @@ test('the shortest valid ThumbHash from a narrow original still renders a blur',
   const pixels = new Uint8Array(100 * 4).fill(255)
   const bytes = rgbaToThumbHash(1, 100, pixels)
   expect(bytes).toHaveLength(17)
-  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const { Image } = createImages({ images, public: ['website/'] })
   const markup = renderToStaticMarkup(
-    <StorageImage
+    <Image
       src={{
         path: 'website/hero.jpg',
         width: 1,
@@ -49,19 +49,15 @@ test('the shortest valid ThumbHash from a narrow original still renders a blur',
 })
 
 test('public blur decodes the receipt on the server without changing image URLs or native attributes', () => {
-  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const { Image } = createImages({ images, public: ['website/'] })
   const src = { ...images['website/hero.jpg'], thumbhash }
-  const markup = renderToStaticMarkup(
-    <StorageImage src={src} alt="Blurred hero" placeholder="blur" />,
-  )
+  const markup = renderToStaticMarkup(<Image src={src} alt="Blurred hero" placeholder="blur" />)
   const doc = new DOMParser().parseFromString(markup, 'text/html')
   const img = doc.querySelector('img')
   expect(img?.style.backgroundImage).toContain(thumbHashToDataURL(Buffer.from(thumbhash, 'base64')))
   expect(img?.style.backgroundSize).toBe('100% 100%')
   expect(img?.getAttribute('placeholder')).toBeNull()
-  expect(firstUrl(markup)).toEqual(
-    firstUrl(renderToStaticMarkup(<StorageImage src={src} alt="Hero" />)),
-  )
+  expect(firstUrl(markup)).toEqual(firstUrl(renderToStaticMarkup(<Image src={src} alt="Hero" />)))
 })
 
 test.each([
@@ -77,9 +73,9 @@ test.each([
   )
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
   try {
-    const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+    const { Image } = createImages({ images, public: ['website/'] })
     const markup = renderToStaticMarkup(
-      <StorageImage src="website/hero.jpg" alt="Hero" placeholder="blur" />,
+      <Image src="website/hero.jpg" alt="Hero" placeholder="blur" />,
     )
     expect(markup).not.toContain('data:image/')
     if (environment === 'development')
@@ -94,10 +90,10 @@ test.each([
 })
 
 test('an alpha-encoded ThumbHash remains a no-op if a receipt omits hasAlpha', () => {
-  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const { Image } = createImages({ images, public: ['website/'] })
   const hash = Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 128])).toString('base64')
   const markup = renderToStaticMarkup(
-    <StorageImage
+    <Image
       src={{ ...images['website/hero.jpg'], thumbhash: hash }}
       alt="Alpha"
       placeholder="blur"
@@ -111,9 +107,9 @@ test.each([
   'none',
   'scale-down',
 ] as const)('blur cannot remain beside a letterboxed %s image', (objectFit) => {
-  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const { Image } = createImages({ images, public: ['website/'] })
   const markup = renderToStaticMarkup(
-    <StorageImage
+    <Image
       src={{ ...images['website/hero.jpg'], thumbhash }}
       alt="Letterboxed"
       placeholder="blur"
@@ -128,13 +124,9 @@ test.each([
 
 test('a request-authorized private image never embeds its blurred pixels before authorization', () => {
   const authorize = vi.fn(() => false)
-  const { StorageImage } = createStorageImages({ images, authorize })
+  const { Image } = createImages({ images, authorize })
   const markup = renderToStaticMarkup(
-    <StorageImage
-      src={{ ...images['website/hero.jpg'], thumbhash }}
-      alt="Private"
-      placeholder="blur"
-    />,
+    <Image src={{ ...images['website/hero.jpg'], thumbhash }} alt="Private" placeholder="blur" />,
   )
   expect(markup).not.toContain('data:image/')
   expect(markup).not.toContain(thumbhash)
@@ -152,12 +144,12 @@ test.each([
   )
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
   try {
-    const { StorageImage } = createStorageImages({
+    const { Image } = createImages({
       images: { 'website/hero.jpg': { ...images['website/hero.jpg'], thumbhash, hasAlpha: true } },
       public: ['website/'],
     })
     const markup = renderToStaticMarkup(
-      <StorageImage src="website/hero.jpg" alt="Transparent hero" placeholder="blur" />,
+      <Image src="website/hero.jpg" alt="Transparent hero" placeholder="blur" />,
     )
     const image = new DOMParser().parseFromString(markup, 'text/html').querySelector('img')
     expect(image?.style.backgroundImage).toBe('')
@@ -208,10 +200,10 @@ test('the committed project catalog renders public images with no environment co
   vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', undefined)
   vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', undefined)
   const catalog = { workspace: 'catalog-app', public: ['website/'], images }
-  const { StorageImage } = createStorageImages(catalog)
-  expect(
-    firstUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)).hostname,
-  ).toBe('catalog-app.tlcdn.com')
+  const { Image } = createImages(catalog)
+  expect(firstUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />)).hostname).toBe(
+    'catalog-app.tlcdn.com',
+  )
   expect(connection).not.toHaveBeenCalled()
 })
 
@@ -225,42 +217,41 @@ test('explicit factories also understand the catalog delivery block, with top-le
       urlParams: { cdn: 'required' },
     },
   }
-  const integration = createStorageImages(catalog)
+  const integration = createImages(catalog)
   const url = firstUrl(
-    renderToStaticMarkup(<integration.StorageImage src="website/hero.jpg" alt="Hero" />),
+    renderToStaticMarkup(<integration.Image src="website/hero.jpg" alt="Hero" />),
   )
   expect(url.origin).toBe('http://127.0.0.1:32189')
   expect(url.searchParams.get('cdn')).toBe('required')
-  const overridden = createStorageImages({
+  const overridden = createImages({
     ...catalog,
     baseUrl: 'https://images.example/{workspace}',
   })
   expect(
-    firstUrl(renderToStaticMarkup(<overridden.StorageImage src="website/hero.jpg" alt="Hero" />))
-      .origin,
+    firstUrl(renderToStaticMarkup(<overridden.Image src="website/hero.jpg" alt="Hero" />)).origin,
   ).toBe('https://images.example')
 })
 
-test('workspace environment is an explicit override of committed project identity', () => {
+test('an explicit workspace cannot be replaced by a different environment default', () => {
   vi.stubEnv('TRANSLOADIT_WORKSPACE', 'override-app')
-  const { StorageImage } = createStorageImages({
+  const { Image } = createImages({
     workspace: 'catalog-app',
     public: ['website/'],
     images,
   })
-  expect(
-    firstUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)).hostname,
-  ).toBe('override-app.tlcdn.com')
+  expect(firstUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />)).hostname).toBe(
+    'catalog-app.tlcdn.com',
+  )
 })
 
 test('width is constrained by default and priority reserves an eager high-priority preload', () => {
-  const { StorageImage } = createStorageImages({
+  const { Image } = createImages({
     workspace: 'my-app',
     public: ['website/'],
     images,
   })
   const document = new DOMParser().parseFromString(
-    renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" width={960} priority />),
+    renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" width={960} priority />),
     'text/html',
   )
   const image = document.querySelector('img')
@@ -275,13 +266,9 @@ test('width is constrained by default and priority reserves an eager high-priori
 })
 
 test('the default width never enlarges a small receipt', () => {
-  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const { Image } = createImages({ images, public: ['website/'] })
   const markup = renderToStaticMarkup(
-    <StorageImage
-      src={{ path: 'website/small.jpg', width: 320, height: 240 }}
-      alt="Small"
-      width={960}
-    />,
+    <Image src={{ path: 'website/small.jpg', width: 320, height: 240 }} alt="Small" width={960} />,
   )
   expect(markup).toContain('max-width:320px')
   expect(markup).toContain('width="320"')
@@ -289,50 +276,42 @@ test('the default width never enlarges a small receipt', () => {
 })
 
 test('duration strings and millisecond aliases issue identical capabilities and redirects', async () => {
-  const short = createStorageImages({
+  const short = createImages({
     images,
     authorize: () => true,
     cacheMaxAge: '1m',
     rotationInterval: '10m',
     lifetime: '1h',
   })
-  const legacy = createStorageImages({
+  const legacy = createImages({
     images,
     authorize: () => true,
     cacheMaxAgeMs: 60_000,
     rotationIntervalMs: 600_000,
     lifetime: 3_600_000,
   })
-  const url = firstUrl(
-    renderToStaticMarkup(<short.StorageImage src="website/hero.jpg" alt="Hero" />),
-  )
+  const url = firstUrl(renderToStaticMarkup(<short.Image src="website/hero.jpg" alt="Hero" />))
   expect(
-    firstUrl(renderToStaticMarkup(<legacy.StorageImage src="website/hero.jpg" alt="Hero" />)),
+    firstUrl(renderToStaticMarkup(<legacy.Image src="website/hero.jpg" alt="Hero" />)),
   ).toEqual(url)
-  const response = await short.storageRoute(new Request(url))
+  const response = await short.imageRoute(new Request(url))
   expect(response.headers.get('cache-control')).toBe('private, max-age=60')
   expect(response.headers.get('location')).toBe(
-    (await legacy.storageRoute(new Request(url))).headers.get('location'),
+    (await legacy.imageRoute(new Request(url))).headers.get('location'),
   )
 })
 
 test('art direction derives a responsive box and permits an externally owned fill box', () => {
-  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const { Image } = createImages({ images, public: ['website/'] })
   const aspectRatio = { '(max-width: 639px)': '9/16', default: '16/9' }
   const markup = renderToStaticMarkup(
-    <StorageImage
-      src="website/hero.jpg"
-      alt="Hero"
-      layout="fill"
-      fit="cover"
-      aspectRatio={aspectRatio}
-    />,
+    <Image src="website/hero.jpg" alt="Hero" layout="fill" fit="cover" aspectRatio={aspectRatio} />,
   )
   expect(markup).toContain('aspect-ratio:1.7777777777777777')
   expect(markup).toContain('@media (max-width: 639px)')
   expect(markup).toContain('aspect-ratio:0.5625')
   const external = renderToStaticMarkup(
-    <StorageImage
+    <Image
       src="website/hero.jpg"
       alt="Hero"
       layout="fill"
@@ -345,13 +324,11 @@ test('art direction derives a responsive box and permits an externally owned fil
 })
 
 test('requires an explicit delivery choice, naming all three alternatives', () => {
-  expect(() => createStorageImages({ images })).toThrow(
-    /Choose public, authorize, or delivery: 'direct'/,
-  )
+  expect(() => createImages({ images })).toThrow(/Choose public, authorize, or delivery: 'direct'/)
 })
 
 test('a recovered private catalog explains intentional publication without guessing public access', () => {
-  expect(() => createStorageImages({ workspace: 'my-app', public: [], images })).toThrow(
+  expect(() => createImages({ workspace: 'my-app', public: [], images })).toThrow(
     /No public prefixes.*storage publish.*authorize/s,
   )
   expect(connection).not.toHaveBeenCalled()
@@ -359,28 +336,28 @@ test('a recovered private catalog explains intentional publication without guess
 
 test('one factory accepts explicit credentials and retains the redirect overload', async () => {
   vi.stubEnv('TRANSLOADIT_WORKSPACE', undefined)
-  const { StorageImage, storageRoute } = createStorageImages({
+  const { Image, imageRoute } = createImages({
     images,
     authKey: 'explicit-key',
     authSecret: 'explicit-secret',
     workspace: 'explicit-app',
     authorize: () => true,
   })
-  const url = firstUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />))
-  const location = (await storageRoute(new Request(url))).headers.get('location')
+  const url = firstUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />))
+  const location = (await imageRoute(new Request(url))).headers.get('location')
   expect(location).not.toBeNull()
   expect(new URL(location ?? '').hostname).toBe('explicit-app.tlcdn.com')
 })
 
 test('exports only the single Next.js factory, not the unpublished aliases', async () => {
   const exports = await import('../src/next/server.tsx')
-  expect(Object.keys(exports)).toEqual(['createStorageImages'])
+  expect(Object.keys(exports)).toEqual(['createImages'])
 })
 
 test('public catalog images are static with unsigned direct URLs and no signing shell', () => {
-  const { StorageImage } = createStorageImages({ images, public: ['website/'] })
+  const { Image } = createImages({ images, public: ['website/'] })
   const markup = renderToStaticMarkup(
-    <StorageImage src="website/hero.jpg" alt="Hero" layout="constrained" width={960} priority />,
+    <Image src="website/hero.jpg" alt="Hero" layout="constrained" width={960} priority />,
   )
   const url = firstUrl(markup)
   expect(url.hostname).toBe('my-app.tlcdn.com')
@@ -398,8 +375,8 @@ test('declared public images never expire or emit a dynamic-delivery warning', (
   )
   const info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
   try {
-    const { StorageImage } = createStorageImages({ images, public: ['website/'] })
-    const markup = renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)
+    const { Image } = createImages({ images, public: ['website/'] })
+    const markup = renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />)
     expect(parseSmartCdnUrl(firstUrl(markup).href).auth).toBeUndefined()
     expect(info).not.toHaveBeenCalled()
   } finally {
@@ -409,70 +386,70 @@ test('declared public images never expire or emit a dynamic-delivery warning', (
 })
 
 test('catalog directories accept DB receipts, but root entries do not authorize the workspace', () => {
-  const { StorageImage } = createStorageImages({ images, authorize: () => true })
-  expect(renderToStaticMarkup(<StorageImage src="logo.png" alt="Logo" />)).toContain('width="64"')
+  const { Image } = createImages({ images, authorize: () => true })
+  expect(renderToStaticMarkup(<Image src="logo.png" alt="Logo" />)).toContain('width="64"')
   expect(
     renderToStaticMarkup(
-      <StorageImage src={{ path: 'website/from-db.jpg', width: 300, height: 200 }} alt="DB" />,
+      <Image src={{ path: 'website/from-db.jpg', width: 300, height: 200 }} alt="DB" />,
     ),
   ).toContain('width="300"')
   expect(() =>
-    StorageImage({ src: { path: 'private.jpg', width: 20, height: 20 }, alt: 'Private' }),
+    Image({ src: { path: 'private.jpg', width: 20, height: 20 }, alt: 'Private' }),
   ).toThrow(/allowed/)
 })
 
 test('explicit scope still limits catalog paths and public declarations', () => {
-  const { StorageImage } = createStorageImages({
+  const { Image } = createImages({
     images,
     allowedPathPrefixes: [],
     delivery: 'direct',
   })
-  expect(() => StorageImage({ src: 'website/hero.jpg', alt: 'Denied' })).toThrow(/allowed/)
+  expect(() => Image({ src: 'website/hero.jpg', alt: 'Denied' })).toThrow(/allowed/)
   expect(() =>
-    createStorageImages({ images, allowedPathPrefixes: ['website/'], public: ['private/'] }),
+    createImages({ images, allowedPathPrefixes: ['website/'], public: ['private/'] }),
   ).toThrow(/public.*allowed/)
 })
 
 test('catalog keys must agree with their receipt paths and unknown keys never fall through', () => {
+  expect(() => createImages({ images: { 'public.jpg': images['website/hero.jpg'] } })).toThrow(
+    /catalog.*path/,
+  )
+  const { Image } = createImages({ images, delivery: 'direct' })
   expect(() =>
-    createStorageImages({ images: { 'public.jpg': images['website/hero.jpg'] } }),
-  ).toThrow(/catalog.*path/)
-  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
-  expect(() =>
-    Reflect.apply(StorageImage, undefined, [
+    Reflect.apply(Image, undefined, [
       { src: 'website/typo.jpg', alt: 'Typo', width: 300, height: 200 },
     ]),
   ).toThrow(/catalog/)
 })
 
 test('a missing catalog path names the typo, nearest key and safe upload command', () => {
-  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
+  const { Image } = createImages({ images, delivery: 'direct' })
+  expect(() => Reflect.apply(Image, undefined, [{ src: 'website/herp.jpg', alt: 'Hero' }])).toThrow(
+    /Storage image path "website\/herp.jpg".*Did you mean "website\/hero.jpg"/,
+  )
+  expect(() => Reflect.apply(Image, undefined, [{ src: 'website/herp.jpg', alt: 'Hero' }])).toThrow(
+    'npx transloadit storage store -- ./image.jpg website/herp.jpg',
+  )
   expect(() =>
-    Reflect.apply(StorageImage, undefined, [{ src: 'website/herp.jpg', alt: 'Hero' }]),
-  ).toThrow(/Storage image path "website\/herp.jpg".*Did you mean "website\/hero.jpg"/)
-  expect(() =>
-    Reflect.apply(StorageImage, undefined, [{ src: 'website/herp.jpg', alt: 'Hero' }]),
-  ).toThrow('npx transloadit storage store -- ./image.jpg website/herp.jpg')
-  expect(() =>
-    Reflect.apply(StorageImage, undefined, [{ src: "-$(whoami)'photo.jpg", alt: 'Unknown' }]),
+    Reflect.apply(Image, undefined, [{ src: "-$(whoami)'photo.jpg", alt: 'Unknown' }]),
   ).toThrow("transloadit storage store -- ./image.jpg '-$(whoami)'\\''photo.jpg'")
 })
 
 test('an empty catalog names the missing path without inventing a suggestion', () => {
-  const { StorageImage } = createStorageImages({ images: {}, delivery: 'direct' })
-  expect(() =>
-    Reflect.apply(StorageImage, undefined, [{ src: 'website/new.jpg', alt: 'New' }]),
-  ).toThrow(/Storage image path "website\/new.jpg".*To upload a new image/)
+  const { Image } = createImages({ images: {}, delivery: 'direct' })
+  expect(() => Reflect.apply(Image, undefined, [{ src: 'website/new.jpg', alt: 'New' }])).toThrow(
+    /Storage image path "website\/new.jpg".*To upload a new image/,
+  )
 })
 
 test('a custom-catalog recovery hint explains where receipts must be written', () => {
-  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
-  expect(() =>
-    Reflect.apply(StorageImage, undefined, [{ src: 'website/new.jpg', alt: 'New' }]),
-  ).toThrow('For a custom catalog, add --receipts <catalog.json> to the command')
-  expect(() =>
-    Reflect.apply(StorageImage, undefined, [{ src: 'website/new.jpg', alt: 'New' }]),
-  ).toThrow('For an explicit factory, update its images configuration too')
+  const { Image } = createImages({ images, delivery: 'direct' })
+  expect(() => Reflect.apply(Image, undefined, [{ src: 'website/new.jpg', alt: 'New' }])).toThrow(
+    'For a custom catalog, add --receipts <catalog.json> to the command',
+  )
+  expect(() => Reflect.apply(Image, undefined, [{ src: 'website/new.jpg', alt: 'New' }])).toThrow(
+    'For an explicit factory, update its images configuration too',
+  )
 })
 
 test.each([
@@ -480,8 +457,8 @@ test.each([
   'website/hero.jpg ',
   ' website/hero.jpg',
 ])('an invalid formatting variant %j suggests the exact catalog key without upload advice', (path) => {
-  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
-  const render = () => Reflect.apply(StorageImage, undefined, [{ src: path, alt: 'Hero' }])
+  const { Image } = createImages({ images, delivery: 'direct' })
+  const render = () => Reflect.apply(Image, undefined, [{ src: path, alt: 'Hero' }])
   expect(render).toThrow(`Storage image path ${JSON.stringify(path)} is invalid`)
   expect(render).toThrow('Did you mean "website/hero.jpg"? Use the exact catalog key')
   expect(render).not.toThrow('storage store')
@@ -492,22 +469,20 @@ test.each([
   { name: 'newlines', path: 'website/new\nline.jpg' },
   { name: 'oversized paths', path: `${'a'.repeat(1025)}.jpg` },
 ])('rejects $name before formatting unknown-path shell advice', ({ path }) => {
-  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
-  const render = () => Reflect.apply(StorageImage, undefined, [{ src: path, alt: 'Invalid' }])
+  const { Image } = createImages({ images, delivery: 'direct' })
+  const render = () => Reflect.apply(Image, undefined, [{ src: path, alt: 'Invalid' }])
   expect(render).toThrow(/Storage image paths must/)
   expect(render).not.toThrow(path)
   expect(render).not.toThrow('storage store')
 })
 
 test('workspace-root access requires the named acknowledgment, never an empty prefix', () => {
-  expect(() => createStorageImages({ allowedPathPrefixes: [''] })).toThrow(/allowWorkspaceRoot/)
-  const { StorageImage } = createStorageImages({
+  expect(() => createImages({ allowedPathPrefixes: [''] })).toThrow(/allowWorkspaceRoot/)
+  const { Image } = createImages({
     allowWorkspaceRoot: true,
     authorize: () => true,
   })
-  expect(renderToStaticMarkup(<StorageImage src={images['logo.png']} alt="Logo" />)).toContain(
-    '<picture>',
-  )
+  expect(renderToStaticMarkup(<Image src={images['logo.png']} alt="Logo" />)).toContain('<picture>')
 })
 
 test.each([
@@ -515,15 +490,15 @@ test.each([
   'toString',
   '__proto__',
 ])('requires an own catalog entry for %s without excluding an explicitly stored file', (path) => {
-  const missing = createStorageImages({ images, delivery: 'direct' })
+  const missing = createImages({ images, delivery: 'direct' })
   expect(() =>
-    Reflect.apply(missing.StorageImage, undefined, [{ src: path, alt: 'Missing image' }]),
+    Reflect.apply(missing.Image, undefined, [{ src: path, alt: 'Missing image' }]),
   ).toThrow(`Storage image path "${path}" is not in the configured catalog`)
-  const present = createStorageImages({
+  const present = createImages({
     images: { [path]: { path, width: 64, height: 64 } },
     authorize: () => true,
   })
-  expect(renderToStaticMarkup(<present.StorageImage src={path} alt="Stored image" />)).toContain(
+  expect(renderToStaticMarkup(<present.Image src={path} alt="Stored image" />)).toContain(
     'width="64"',
   )
 })
@@ -532,7 +507,7 @@ test.each([
   30_001, 59_999, 60_000,
 ])('rejects a rotation interval of %i that leaves less than half the lifetime for delivery', (rotationIntervalMs) => {
   expect(() =>
-    createStorageImages({
+    createImages({
       images,
       authorize: () => true,
       lifetime: 60_000,
@@ -540,13 +515,13 @@ test.each([
     }),
   ).toThrow(/rotationIntervalMs.*half/)
   expect(() =>
-    createStorageImages({ images, public: ['website/'], lifetime: 60_000, rotationIntervalMs }),
+    createImages({ images, public: ['website/'], lifetime: 60_000, rotationIntervalMs }),
   ).toThrow(/rotationIntervalMs.*half/)
 })
 
 test('rotation margin also applies at the private cap in a mixed public factory', () => {
   expect(() =>
-    createStorageImages({
+    createImages({
       images,
       authorize: () => true,
       public: ['website/'],
@@ -559,14 +534,14 @@ test('rotation margin also applies at the private cap in a mixed public factory'
 test.each([
   0, 1, 29_999, 30_000, 59_999, 60_000,
 ])('lifetime bounds an issued grant at offset %i', async (offset) => {
-  const { StorageImage, storageRoute } = createStorageImages({
+  const { Image, imageRoute } = createImages({
     images,
     authorize: () => true,
     lifetime: 60_000,
   })
-  const url = firstUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />))
+  const url = firstUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />))
   vi.setSystemTime(Date.now() + offset)
-  const response = await storageRoute(new Request(url))
+  const response = await imageRoute(new Request(url))
   const location = response.headers.get('location')
   if (location === null) throw new Error('Expected a redirect')
   const remaining = expiry(new URL(location)) - Date.now()
@@ -575,56 +550,56 @@ test.each([
 })
 
 test('an explicit half-lifetime rotation retains its margin just before the boundary', async () => {
-  const { StorageImage, storageRoute } = createStorageImages({
+  const { Image, imageRoute } = createImages({
     images,
     authorize: () => true,
     lifetime: 60_000,
     rotationIntervalMs: 30_000,
   })
-  const url = firstUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />))
+  const url = firstUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />))
   vi.setSystemTime(Date.now() + 29_999)
-  const location = (await storageRoute(new Request(url))).headers.get('location')
+  const location = (await imageRoute(new Request(url))).headers.get('location')
   if (location === null) throw new Error('Expected a redirect')
   expect(expiry(new URL(location)) - Date.now()).toBe(30_001)
 })
 
 test('mixed public factories never lengthen private grants beyond 48 hours', async () => {
-  const { StorageImage, storageRoute } = createStorageImages({
+  const { Image, imageRoute } = createImages({
     images,
     authorize: () => true,
     public: ['website/'],
     lifetime: '2d',
   })
-  const url = firstUrl(renderToStaticMarkup(<StorageImage src="logo.png" alt="Private logo" />))
-  const location = (await storageRoute(new Request(url))).headers.get('location')
+  const url = firstUrl(renderToStaticMarkup(<Image src="logo.png" alt="Private logo" />))
+  const location = (await imageRoute(new Request(url))).headers.get('location')
   if (location === null) throw new Error('Expected a redirect')
   expect(expiry(new URL(location)) - Date.now()).toBeLessThanOrEqual(48 * 3_600_000)
-  expect(() => createStorageImages({ images, authorize: () => true, lifetime: '365d' })).toThrow(
+  expect(() => createImages({ images, authorize: () => true, lifetime: '365d' })).toThrow(
     /48 hours/,
   )
 })
 
 test('a Built-in bump preserves old markup and signs with the new Built-in', async () => {
   const configuration = { images, authorize: vi.fn(() => true) }
-  const old = createStorageImages(configuration)
-  const url = firstUrl(renderToStaticMarkup(<old.StorageImage src="website/hero.jpg" alt="Hero" />))
+  const old = createImages(configuration)
+  const url = firstUrl(renderToStaticMarkup(<old.Image src="website/hero.jpg" alt="Hero" />))
   builtin.template = 'builtin/storage-preview@0.0.3'
-  const current = createStorageImages(configuration)
-  const response = await current.storageRoute(new Request(url))
+  const current = createImages(configuration)
+  const response = await current.imageRoute(new Request(url))
   expect(response.status).toBe(307)
   expect(configuration.authorize).toHaveBeenCalledOnce()
   const location = response.headers.get('location')
   if (location === null) throw new Error('Expected a redirect')
   expect(parseSmartCdnUrl(location).template).toBe('builtin/storage-preview@0.0.3')
-  const custom = createStorageImages({ ...configuration, template: 'my-custom-preview' })
-  expect((await custom.storageRoute(new Request(url))).status).toBe(404)
+  const custom = createImages({ ...configuration, template: 'my-custom-preview' })
+  expect((await custom.imageRoute(new Request(url))).status).toBe(404)
 })
 
 test('direct factory imports need no credentials; first use validates them lazily', async () => {
   vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', undefined)
-  const { StorageImage } = createStorageImages({ images, delivery: 'direct' })
+  const { Image } = createImages({ images, delivery: 'direct' })
   const onError = vi.fn()
-  const stream = await renderToReadableStream(<StorageImage src="website/hero.jpg" alt="Hero" />, {
+  const stream = await renderToReadableStream(<Image src="website/hero.jpg" alt="Hero" />, {
     onError,
   })
   await stream.allReady
@@ -637,14 +612,14 @@ test('direct factory imports need no credentials; first use validates them lazil
 
 test('explicit credentials use the same flat catalog configuration', () => {
   vi.stubEnv('TRANSLOADIT_WORKSPACE', undefined)
-  const { StorageImage } = createStorageImages({
+  const { Image } = createImages({
     authKey: 'explicit-key',
     authSecret: 'explicit-secret',
     workspace: 'explicit-app',
     images,
     public: ['website/'],
   })
-  expect(
-    firstUrl(renderToStaticMarkup(<StorageImage src="website/hero.jpg" alt="Hero" />)).hostname,
-  ).toBe('explicit-app.tlcdn.com')
+  expect(firstUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />)).hostname).toBe(
+    'explicit-app.tlcdn.com',
+  )
 })

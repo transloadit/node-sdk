@@ -9,8 +9,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { createTransloaditImageModel } from '@transloadit/img'
 import { Transloadit } from '@transloadit/node'
+import { createTransloaditImageModel } from '@transloadit/viewer'
 import sharp from 'sharp'
 import { rgbaToThumbHash } from 'thumbhash'
 
@@ -88,7 +88,7 @@ test('the package-first path stores and publishes without image init and emits c
   const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
   assert.deepEqual(catalog.public, ['website/', 'documents/public/'])
   const declarations = await readFile('transloadit-images.d.ts', 'utf8')
-  assert(declarations.includes("declare module '@transloadit/img/next'"))
+  assert(declarations.includes("declare module '@transloadit/viewer/next'"))
   assert(
     declarations.includes(
       '"website/hero.jpg": { path: "website/hero.jpg"; width: 2400; height: 1600; thumbhash?: string; hasAlpha?: boolean }',
@@ -185,7 +185,7 @@ test('the packed CLI stores a hashed image once and renders its exact typed path
       `"${path}": { path: "${path}"; width: 2400; height: 1600;`,
     ),
   )
-  assert(output.join('').includes(`<StorageImage src="${path}" alt="hashed hero"`))
+  assert(output.join('').includes(`<Image storage src="${path}" alt="hashed hero"`))
   assert(output.join('').includes(`Unchanged ${path}; no upload needed.`))
   await cp('transloadit.images.json', join(originalCwd, 'transloadit.images.json'))
   await cp('transloadit-images.d.ts', join(originalCwd, 'transloadit-images.d.ts'))
@@ -193,7 +193,7 @@ test('the packed CLI stores a hashed image once and renders its exact typed path
   await mkdir('app/package-hashed', { recursive: true })
   await writeFile(
     'app/package-hashed/page.tsx',
-    `import { StorageImage } from '@transloadit/img/next'\nexport default function Page() {\n  return <StorageImage src=${JSON.stringify(path)} alt="Content-addressed hero" width={960} preload />\n}\n`,
+    `import { Image } from '@transloadit/viewer/next'\nexport default function Page() {\n  return <Image storage src=${JSON.stringify(path)} alt="Content-addressed hero" width={960} preload />\n}\n`,
   )
   await writeFile(
     'hashed-upload.json',
@@ -302,11 +302,11 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   assert.match(page, /width=\{960\}\s+preload/)
   assert(
     printed.includes(
-      'Render it with <StorageImage src="website/hero.jpg" alt="hero" width={960} />',
+      'Render it with <Image storage src="website/hero.jpg" alt="hero" width={960} />',
     ),
   )
   assert(!printed.includes('export default function Page'))
-  assert(page.includes("from '@transloadit/img/next'"))
+  assert(page.includes("from '@transloadit/viewer/next'"))
   await assert.rejects(stat('lib/storageImage.ts'), { code: 'ENOENT' })
   // The generated page is verbatim; the fixture's Next plugin supplies the local CDN origin.
 })

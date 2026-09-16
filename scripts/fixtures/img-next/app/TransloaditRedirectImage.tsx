@@ -1,9 +1,9 @@
-import { createStorageImages } from '@transloadit/img/next/server'
+import { createImages } from '@transloadit/viewer/next/server'
 
 import { authorizeFixtureImage } from '../browser-policy'
 import { imageConfiguration } from './imageConfiguration'
 
-const { StorageImage, storageRoute } = createStorageImages({
+const { Image, imageRoute } = createImages({
   ...imageConfiguration,
   allowedPathPrefixes: ['documents/'],
   authorize: authorizeFixtureImage,
@@ -13,4 +13,4 @@ const { StorageImage, storageRoute } = createStorageImages({
   rotationIntervalMs: 30 * 1000,
 })
 
-export { StorageImage as TransloaditRedirectImage, storageRoute }
+export { Image as TransloaditRedirectImage, imageRoute }

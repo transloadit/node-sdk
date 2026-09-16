@@ -89,7 +89,7 @@ test('a custom catalog remains the upload destination advertised by image init',
   const command = scaffoldUploadCommand(page)
   const result = await execa('bash', ['-c', `npx() { printf '%s\\n' "$@"; }\n${command}`])
   expect(result.stdout.split('\n')).toContain('--receipts=catalog photos.json')
-  expect(page).toContain("from '@transloadit/img/next'")
+  expect(page).toContain("from '@transloadit/viewer/next'")
 })
 
 test('the generated example is already formatted for the repository Biome configuration', async () => {
@@ -133,7 +133,7 @@ test('private setup prefers the least-privilege signing scope', async () => {
   expect(privateRecipe).toContain('getSession')
   expect(privateRecipe).toContain('canRead(path) === true')
   expect(privateRecipe).toContain('// app/api/storage-images/route.ts')
-  expect(privateRecipe).toContain("export { GET, HEAD } from '@transloadit/img/next/route'")
+  expect(privateRecipe).toContain("export { GET, HEAD } from '@transloadit/viewer/next/route'")
   expect(privateRecipe).toContain('TRANSLOADIT_SMART_CDN_KEY=')
   expect(privateRecipe).toContain('TRANSLOADIT_SMART_CDN_SECRET=')
   expect(privateRecipe).toContain('Restart `next dev` after adding the authorizer')
@@ -196,17 +196,17 @@ test('server-upload docs connect verified receipts to an explicit private render
     reference.indexOf('### Images uploaded by your users'),
     reference.indexOf('### Credentials and framework adapters'),
   )
-  expect(uploads).toContain("import { createStorageImages } from '@transloadit/img/next/server'")
-  expect(uploads).toContain('export const { StorageImage, storageRoute } = createStorageImages({')
+  expect(uploads).toContain("import { createImages } from '@transloadit/viewer/next/server'")
+  expect(uploads).toContain('export const { Image, imageRoute } = createImages({')
   expect(uploads).toContain("allowedPathPrefixes: ['uploads/']")
   expect(uploads).toContain('canRead(path) === true')
   expect(uploads).toContain('// app/api/upload-images/route.ts')
   expect(uploads).toContain("route: '/api/upload-images'")
   expect(uploads).toContain(
-    "export { storageRoute as GET, storageRoute as HEAD } from '../../upload-images'",
+    "export { imageRoute as GET, imageRoute as HEAD } from '../../upload-images'",
   )
-  expect(uploads).toContain("import { StorageImage } from '../../upload-images'")
-  expect(uploads).toContain('<StorageImage src={savedImage}')
+  expect(uploads).toContain("import { Image } from '../../upload-images'")
+  expect(uploads).toContain('<Image src={savedImage}')
   expect(uploads).toContain('getAuthorizedImage')
   expect(uploads).toContain('not SDK helpers')
   expect(uploads).toContain('does not need the CLI catalog or a rebuild for each upload')
@@ -275,17 +275,30 @@ test('private deployment uses an application key rather than the revocable CLI l
   expect(documentation).not.toContain("Supply the login's")
 })
 
-test('the reference describes the generated alt and the deliberate workspace override', async () => {
+test('the reference describes the generated alt and isolated workspace selection', async () => {
   const documentation = await imageDocumentation()
   expect(documentation).toContain('filename-derived alt')
   expect(documentation).not.toContain('decorative empty alt')
-  expect(documentation).toContain('`TRANSLOADIT_WORKSPACE` overrides the catalog workspace')
+  expect(documentation).toContain('An explicit `workspace` prop cannot borrow another workspace')
+  expect(documentation).not.toContain('`TRANSLOADIT_WORKSPACE` overrides the catalog workspace')
+})
+
+test('the package index and reference authorizer use the selected source identity', async () => {
+  const root = await readFile(resolve(import.meta.dirname, '../README.md'), 'utf8')
+  expect(root).toContain('`@transloadit/viewer`')
+  expect(root).not.toContain('`@transloadit/img`')
+  const reference = await readFile(
+    resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
+    'utf8',
+  )
+  const recipe = reference.slice(reference.indexOf('import { authenticate, canReadStorageObject }'))
+  expect(recipe).toContain('if (template !== transloaditStoragePreviewTemplate) return false')
 })
 
 test('the README is a short invitation, with operational caveats in the reference', async () => {
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
-  // The private recipe now lives here too; keep both paths concise without hiding setup in a link.
-  expect(readme.split('\n').length).toBeLessThanOrEqual(95)
+  // Keep Storage, private delivery and the short HTTP/S3 entry point out of operations-manual territory.
+  expect(readme.split('\n').length).toBeLessThanOrEqual(110)
   expect(readme).toContain('width={960} preload')
   expect(readme).toContain("import type { NextConfig } from 'next'")
   expect(readme).toContain('const nextConfig: NextConfig =')
@@ -330,7 +343,7 @@ test('keeps the maintainer seed separate and uses the package import without def
   expect.soft(dogfood).not.toContain('allowImportingTsExtensions')
   expect.soft(/^\s*node --env-file=(\S+) seed\.ts /m.exec(dogfood)?.[1]).toBe('.env.seed.local')
   const store = readme.indexOf('npx transloadit storage store ./hero.jpg website/hero.jpg --public')
-  const firstRender = readme.indexOf("import { StorageImage } from '@transloadit/img/next'")
+  const firstRender = readme.indexOf("import { Image } from '@transloadit/viewer/next'")
   expect(store).toBeGreaterThan(0)
   expect.soft(firstRender).toBeGreaterThan(store)
   expect.soft(readme).toContain('never reads or validates signing credentials')
@@ -360,7 +373,7 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(quickstart).not.toContain('authorize:')
   const login = readme.indexOf('npx transloadit auth login')
   const store = readme.indexOf('npx transloadit storage store')
-  const page = readme.indexOf('<StorageImage src=')
+  const page = readme.indexOf('<Image storage src=')
   const privacy = readme.indexOf('## Private')
   expect(login).toBeGreaterThan(0)
   expect(store).toBeGreaterThan(login)
@@ -369,7 +382,7 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(readme.slice(0, page)).not.toContain('Assembly-only')
   expect(readme.indexOf('## When it breaks')).toBeGreaterThan(privacy)
   expect(readme.indexOf('## Reference')).toBeGreaterThan(readme.indexOf('## When it breaks'))
-  expect(readme).toContain('storageRoute as GET, storageRoute as HEAD')
+  expect(readme).toContain('imageRoute as GET, imageRoute as HEAD')
   expect(readme).not.toContain('yarn transloadit')
   expect(readme).not.toContain('loading="eager"')
   expect(readme).toContain('Firefox 150+')
@@ -435,7 +448,7 @@ test('ships a focused secretless quickstart and the detailed reference it links 
   const manifest = await readManifest(resolve(import.meta.dirname, '../packages/img/package.json'))
   expect(manifest.files).toContain('docs')
   expect(readme).toContain('](./docs/reference.md')
-  expect(readme.split('\n').length).toBeLessThanOrEqual(95)
+  expect(readme.split('\n').length).toBeLessThanOrEqual(110)
   expect(readme).toContain('16.3.3')
   expect(reference).toContain("cacheMaxAge: '1m'")
   expect(readme).toContain('then deploy')

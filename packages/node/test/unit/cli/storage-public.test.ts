@@ -290,7 +290,7 @@ test('public init commits the whole project catalog without creating an env file
     delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
   })
   expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
-    "from '@transloadit/img/next'",
+    "from '@transloadit/viewer/next'",
   )
   await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
   expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
@@ -473,7 +473,7 @@ test('init publishes first and reuses the saved login without any terminal input
   expect(api.isDone()).toBe(true)
   await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
   expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
-    "from '@transloadit/img/next'",
+    "from '@transloadit/viewer/next'",
   )
   expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
     workspace: 'my-app',

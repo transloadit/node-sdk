@@ -2,6 +2,8 @@ import type { StorageImageDelivery } from './catalog.ts'
 
 /** Build-time overrides; application keys always stay in the server environment. */
 export interface StorageImageProjectOptions {
+  /** Default workspace; selecting another Storage catalog's workspace is an error, never a rebind. */
+  workspace?: string
   /** Development-only path for explaining an authorizer added after config evaluation. */
   authorizePath?: string
   basePath?: string

@@ -77,7 +77,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         isAbsolute(catalogArgument)
       )
         throw new Error(
-          `Catalog ${JSON.stringify(this.receipts)} is outside this Next.js app. Move it inside the app for package-import scaffolding, or use an explicit createStorageImages factory for a shared external catalog. Nothing was written or published.`,
+          `Catalog ${JSON.stringify(this.receipts)} is outside this Next.js app. Move it inside the app for package-import scaffolding, or use an explicit createImages factory for a shared external catalog. Nothing was written or published.`,
         )
       const catalog = await readStorageCatalog(this.receipts)
       const needsCredentials = this.publicDelivery || catalog === undefined || this.writeEnv
@@ -141,16 +141,16 @@ export class ImageInitCommand extends UnauthenticatedCommand {
               {
                 path: 'transloadit.authorize.ts',
                 content: [
-                  "import type { AuthorizeTransloaditStorageImage } from '@transloadit/img/next/server'",
+                  "import type { AuthorizeTransloaditImage } from '@transloadit/viewer/next/server'",
                   '',
-                  '// Replace with your application session and per-object authorization.',
-                  'export const authorize: AuthorizeTransloaditStorageImage = () => false',
+                  '// Replace with your session and per-object authorization for workspace, template and path.',
+                  'export const authorize: AuthorizeTransloaditImage = () => false',
                   '',
                 ].join('\n'),
               },
               {
                 path: `${root}app/api/storage-images/route.ts`,
-                content: "export { GET, HEAD } from '@transloadit/img/next/route'\n",
+                content: "export { GET, HEAD } from '@transloadit/viewer/next/route'\n",
               },
             ]
           : []),
@@ -233,7 +233,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         }
       }
       const instruction = this.privateDelivery
-        ? 'Connect your application session and per-object authorization in transloadit.authorize.ts; the generated handler denies access until then. Use a separate application key with Smart CDN on and smart_cdn:sign; assemblies:write is also accepted, but grants broader Assembly access. Configure it in Console → Credentials.'
+        ? 'Connect your application session and per-object authorization for workspace, template and path in transloadit.authorize.ts; the generated handler denies access until then. Use a separate application key with Smart CDN on and smart_cdn:sign; assemblies:write is also accepted, but grants broader Assembly access. Configure it in Console → Credentials.'
         : this.publicDelivery
           ? 'The directory is published. Public images use permanent unsigned CDN URLs.'
           : 'Example created using the existing catalog; no publication policy was changed.'

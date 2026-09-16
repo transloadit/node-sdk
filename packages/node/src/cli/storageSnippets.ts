@@ -20,7 +20,7 @@ export async function storageImageConfigAdvice(): Promise<string> {
     const commonJsAdvice = file.endsWith('.js')
       ? '\nFor CommonJS, rename next.config.js to next.config.mjs and convert require/module.exports to import/export before using this ESM example.'
       : ''
-    return `\n${file} is not wrapped yet. Keep your existing config in nextConfig and wrap its export:${commonJsAdvice}\nimport { withTransloaditImages } from '@transloadit/img/next/config'\nexport default withTransloaditImages(nextConfig)`
+    return `\n${file} is not wrapped yet. Keep your existing config in nextConfig and wrap its export:${commonJsAdvice}\nimport { withTransloaditImages } from '@transloadit/viewer/next/config'\nexport default withTransloaditImages(nextConfig)`
   }
   return ''
 }
@@ -52,7 +52,7 @@ export function storageImagePage(
   const catalogOption = receipts === undefined ? '' : ` --receipts=${quoteCliArgument(receipts)}`
   const command = `npx transloadit storage store${catalogOption}${prefix.startsWith('-') ? ' --' : ''} ./hero.jpg ${quoteCliArgument(`${prefix}hero.jpg`)}`
   return [
-    "import { StorageImage } from '@transloadit/img/next'",
+    "import { Image } from '@transloadit/viewer/next'",
     `import catalog from ${sourceString(relativeImport(receiptsImport))}`,
     '',
     'export default function Page() {',
@@ -72,7 +72,8 @@ export function storageImagePage(
     "    .replace(/\\.[^.]+$/, '')",
     "    .replaceAll(/[-_]+/g, ' ')",
     '  return (',
-    '    <StorageImage',
+    '    <Image',
+    '      storage',
     '      src={src}',
     '      alt={alt}',
     '      width={960}',

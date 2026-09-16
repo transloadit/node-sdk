@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next'
 
-import { withTransloaditImages } from '@transloadit/img/next/config'
+import { withTransloaditImages } from '@transloadit/viewer/next/config'
 
 const nextConfig: NextConfig = {
   basePath: '/fixture',

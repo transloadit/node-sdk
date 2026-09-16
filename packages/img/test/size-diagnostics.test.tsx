@@ -89,7 +89,7 @@ test.each([
     image.dispatchEvent(new Event('load'))
     await act(() => vi.advanceTimersByTimeAsync(20))
     expect(warning).toHaveBeenCalledExactlyOnceWith(
-      '[StorageImage] The selected 1200px candidate is more than twice its 300px rendered width. Set sizes to match the image’s CSS width.',
+      '[Image] The selected 1200px candidate is more than twice its 300px rendered width. Set sizes to match the image’s CSS width.',
     )
     image.dispatchEvent(new Event('load'))
     await act(() => vi.advanceTimersByTimeAsync(20))
