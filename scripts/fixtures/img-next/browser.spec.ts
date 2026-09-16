@@ -687,6 +687,48 @@ test('an opted-in fallback replaces a denied private image without leaking its c
   audit.committedRefreshes.add((await refreshed).request())
 })
 
+test('source model experiment decodes three sources with scoped templates and no image proxy', async ({
+  page,
+  audit,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 1000 })
+  await page.goto('/fixture/source-model')
+  await expect(page.getByRole('heading', { name: 'Source model experiment' })).toBeVisible()
+  await decode(page.getByRole('img', { name: 'Storage experiment', exact: true }))
+  await decode(page.getByRole('img', { name: 'HTTP experiment', exact: true }))
+  await decode(page.getByRole('img', { name: 'S3 experiment', exact: true }))
+  await decode(page.getByRole('img', { name: 'Template experiment', exact: true }))
+  const selected = await page.getByRole('img').evaluateAll((images) =>
+    images.map((image) => {
+      if (!(image instanceof HTMLImageElement)) throw new Error('Expected native image')
+      return {
+        alt: image.alt,
+        width: image.getBoundingClientRect().width,
+        url: image.currentSrc,
+        leakedMode:
+          image.hasAttribute('source') ||
+          image.hasAttribute('storage') ||
+          image.hasAttribute('template'),
+      }
+    }),
+  )
+  expect(selected.every((image) => image.width === 320 && !image.leakedMode)).toBe(true)
+  expect(selected.map((image) => decodeURIComponent(new URL(image.url).pathname))).toEqual([
+    '/file/fixture/builtin/public-preview@0.0.1/website/hero.jpg',
+    '/file/fixture/fixture-http/website/hero.jpg',
+    '/file/fixture/fixture-s3/products/hero.jpg',
+    '/file/fixture/fixture-http/website/hero.jpg',
+  ])
+  expect(selected.every((image) => new URL(image.url).origin === cdnOrigin)).toBe(true)
+  expect(selected.map((image) => new URL(image.url).searchParams.has('sig'))).toEqual([
+    false,
+    true,
+    true,
+    true,
+  ])
+  expect(audit.images.length).toBeGreaterThanOrEqual(3)
+})
+
 test('the public catalog hero has stock-CSS geometry and no application image requests', async ({
   page,
 }) => {

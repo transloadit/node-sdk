@@ -64,6 +64,11 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
     const path = decodeURIComponent(url.pathname)
     const publicTemplate = '/file/fixture/builtin/public-preview@0.0.1/'
     const privateTemplate = '/file/fixture/builtin/storage-preview@0.0.2/'
+    // Only these configured source adapters participate in the experiment. This is a delivery
+    // protocol fake with real image bytes, not evidence of HTTP or S3 import execution by API2.
+    const configuredSource =
+      path.startsWith('/file/fixture/fixture-http/website/') ||
+      path.startsWith('/file/fixture/fixture-s3/products/')
     const isPublicTemplate = path.startsWith(publicTemplate)
     const published =
       isPublicTemplate &&
@@ -78,7 +83,7 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
     const authorized = signature !== null ? validSignature : published
     const version = url.searchParams.get('v')
     const accepted =
-      (isPublicTemplate || path.startsWith(privateTemplate)) &&
+      (isPublicTemplate || path.startsWith(privateTemplate) || configuredSource) &&
       authorized &&
       (version === null || (isPublicTemplate && /^[A-Za-z0-9_-]{1,64}$/.test(version))) &&
       Number.isSafeInteger(width) &&
