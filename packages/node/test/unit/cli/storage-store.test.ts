@@ -21,6 +21,7 @@ import { ApiError } from '../../../src/ApiError.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
+import { storagePage, storedAsset } from './storage-fixtures.ts'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const original = await importOriginal<typeof import('node:fs/promises')>()
@@ -36,7 +37,7 @@ const originalCwd = process.cwd()
 const stdoutErrorListeners = process.stdout.listeners('error')
 const stderrErrorListeners = process.stderr.listeners('error')
 const receipt = {
-  asset_id: 'stored-asset',
+  ...storedAsset(),
   height: 600,
   md5hash: 'd41d8cd98f00b204e9800998ecf8427e',
   path: 'website/hero.jpg',
@@ -65,12 +66,9 @@ beforeEach(async () => {
   nock.disableNetConnect()
   nock('https://api2.transloadit.com')
     .persist()
-    .get('/storage/')
+    .get('/dam/assets')
     .query(true)
-    .reply(
-      200,
-      '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-    )
+    .reply(200, storagePage([], { workspace: 'my-app' }))
 })
 
 afterEach(async () => {
@@ -95,6 +93,21 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('never writes a receipt from another Workspace into the verified project catalog', async () => {
+    await writeFile('hero.jpg', Buffer.from('image'))
+    const previous = catalogJson({})
+    await writeFile('images.json', previous)
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue({
+      ...receipt,
+      workspace: 'other-app',
+    })
+    await runStore()
+    expect(process.exitCode).toBe(1)
+    expect(await readFile('images.json', 'utf8')).toBe(previous)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('receipt belongs to Workspace'),
+    )
+  })
   test.each([
     ['website/hero.jpg', 'website/hero.HASH.jpg'],
     ['website/', 'website/local-photo.HASH.jpg'],
@@ -611,7 +624,7 @@ describe('storage store', () => {
     const types = await readFile('transloadit-images.d.ts', 'utf8')
     expect(types).toContain("declare module '@transloadit/viewer/next'")
     expect(types).toContain(
-      '"website/hero.jpg": { path: "website/hero.jpg"; width: 800; height: 600; thumbhash?: string; hasAlpha?: boolean }',
+      `"website/hero.jpg": { path: "website/hero.jpg"; workspace: "my-app"; asset_id: "${receipt.asset_id}"; version_id: "${receipt.version_id}"; width: 800; height: 600; thumbhash?: string; hasAlpha?: boolean }`,
     )
     expect(types).not.toMatch(/assembly-key|assembly-secret|stored-asset|md5hash/)
     expect(types).toMatch(/\n$/)
@@ -1054,6 +1067,7 @@ describe('storage store', () => {
         ':original': [
           {
             ...receipt,
+            height: undefined,
             md5hash: createHash('md5').update(bytes).digest('hex'),
             size: bytes.length,
           },
@@ -1067,9 +1081,7 @@ describe('storage store', () => {
     expect(message).toContain(receipt.path)
     expect(message).toContain(assemblyId)
     expect(message).toContain('transloadit storage ls website/hero.jpg --receipts images.json')
-    expect(message).toContain(
-      'The commands below require the Storage read API, not yet enabled in production',
-    )
+    expect(message).toContain('The commands below require the native Storage catalog API')
     expect(message).toContain('inspect the Assembly in Console')
     expect(message).toContain(
       'transloadit storage receipts sync website/hero.jpg --receipts images.json',
@@ -1090,12 +1102,9 @@ describe('storage store', () => {
   test('recovery advice keeps endpoint, workspace and catalog overrides, even for root objects', async () => {
     const endpoint = 'http://127.0.0.1:32189'
     nock(endpoint)
-      .get('/storage/')
+      .get('/dam/assets')
       .query(true)
-      .reply(
-        200,
-        '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-      )
+      .reply(200, storagePage([], { workspace: 'my-app' }))
     await writeFile('hero.jpg', Buffer.from('image'))
     vi.spyOn(Transloadit.prototype, 'createAssembly').mockResolvedValue({
       ok: 'ASSEMBLY_COMPLETED',

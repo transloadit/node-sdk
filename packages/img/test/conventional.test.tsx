@@ -10,6 +10,12 @@ import { Window } from 'happy-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+const storageReference = vi.hoisted(() => ({
+  workspace: 'catalog-app',
+  asset_id: 'A'.repeat(22),
+  version_id: 'B'.repeat(21) + 'A',
+}))
+
 const project = vi.hoisted<{
   catalog: StorageProjectCatalog
   authorize: AuthorizeTransloaditImage | undefined
@@ -19,8 +25,18 @@ const project = vi.hoisted<{
     workspace: 'catalog-app',
     public: ['website/'],
     images: {
-      'website/hero.jpg': { path: 'website/hero.jpg', width: 1200, height: 800 },
-      'uploads/avatar.png': { path: 'uploads/avatar.png', width: 96, height: 96 },
+      'website/hero.jpg': {
+        ...storageReference,
+        path: 'website/hero.jpg',
+        width: 1200,
+        height: 800,
+      },
+      'uploads/avatar.png': {
+        ...storageReference,
+        path: 'uploads/avatar.png',
+        width: 96,
+        height: 96,
+      },
     },
     delivery: undefined,
   },
@@ -142,7 +158,9 @@ test('the conventional private handler checks each request and never returns ima
   expect(authorize).toHaveBeenCalledTimes(2)
   expect(allowed.status).toBe(307)
   expect(await allowed.text()).toBe('')
-  expect(parseSmartCdnUrl(allowed.headers.get('location') ?? '').input).toBe('uploads/avatar.png')
+  expect(parseSmartCdnUrl(allowed.headers.get('location') ?? '').input).toBe(
+    storageReference.asset_id,
+  )
   expect(html).not.toMatch(/app-key|app-secret|auth_key/)
 })
 

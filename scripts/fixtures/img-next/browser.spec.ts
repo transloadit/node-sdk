@@ -10,6 +10,7 @@ import sharp from 'sharp'
 import { imageConfiguration } from './app/imageConfiguration.ts'
 import { startFixtureCdn } from './browser-cdn.ts'
 import { revokedAccessFile } from './browser-policy.ts'
+import { fixtureStorageIdentity } from './storage-fixtures.ts'
 
 declare global {
   interface Window {
@@ -108,8 +109,8 @@ const test = base.extend<{ audit: BrowserAudit }>({
           if (!response.ok() || response.request().resourceType() !== 'image') return
           const bytes = await response.body()
           const metadata = await sharp(bytes).metadata()
-          const corner = ['/documents/alpha.png', '/website/alpha.png'].some((suffix) =>
-            decodeURIComponent(new URL(response.url()).pathname).endsWith(suffix),
+          const corner = ['documents/alpha.png', 'website/alpha.png'].some((path) =>
+            new URL(response.url()).pathname.endsWith(`/${fixtureStorageIdentity(path).asset_id}`),
           )
             ? [
                 ...(await sharp(bytes)
@@ -440,7 +441,9 @@ test('GET and HEAD share private authorization while explicit public prefixes ar
   expect(publicHead.status()).toBe(200)
   expect(new URL(publicUrl).searchParams.has('sig')).toBe(false)
   expect(new URL(publicUrl).searchParams.has('exp')).toBe(false)
-  expect(new URL(publicUrl).searchParams.get('v')).toBe('d41d8cd98f00b204')
+  expect(new URL(publicUrl).searchParams.get('v')).toBe(
+    fixtureStorageIdentity('documents/public/hero.jpg').version_id,
+  )
   expect(publicGet.headers()['cache-control']).toMatch(
     /^public, max-age=31536000, s-maxage=31536000, immutable$/,
   )
@@ -537,7 +540,9 @@ for (const delivery of ['direct', 'redirect']) {
         const heroRequests = cdn.requests
           .slice(requestOffset)
           .filter((request) =>
-            decodeURIComponent(new URL(request.url).pathname).endsWith('/documents/hero.jpg'),
+            new URL(request.url).pathname.endsWith(
+              `/${fixtureStorageIdentity('documents/hero.jpg').asset_id}`,
+            ),
           )
         expect(heroRequests).toHaveLength(1)
         const heroRequest = heroRequests[0]
@@ -552,7 +557,9 @@ for (const delivery of ['direct', 'redirect']) {
         const avatarRequests = cdn.requests
           .slice(requestOffset)
           .filter((request) =>
-            decodeURIComponent(new URL(request.url).pathname).endsWith('/documents/avatar.jpg'),
+            new URL(request.url).pathname.endsWith(
+              `/${fixtureStorageIdentity('documents/avatar.jpg').asset_id}`,
+            ),
           )
         expect(avatarRequests).toHaveLength(1)
         assert(avatarRequests[0])
@@ -738,7 +745,7 @@ test('package Image decodes Storage and HTTP/S3 templates without an image-byte 
   expect(
     selected.map((image) => decodeURIComponent(new URL(image.url, page.url()).pathname)),
   ).toEqual([
-    '/file/fixture/builtin/public-preview@0.0.1/website/hero.jpg',
+    `/file/fixture/builtin/public-preview@0.0.2/${fixtureStorageIdentity('website/hero.jpg').asset_id}`,
     '/fixture/api/storage-images',
     '/fixture/api/storage-images',
     '/fixture/api/storage-images',
@@ -755,7 +762,7 @@ test('package Image decodes Storage and HTTP/S3 templates without an image-byte 
       .map((image) => decodeURIComponent(new URL(image.url).pathname)),
   ).toEqual(
     expect.arrayContaining([
-      '/file/fixture/builtin/public-preview@0.0.1/website/hero.jpg',
+      `/file/fixture/builtin/public-preview@0.0.2/${fixtureStorageIdentity('website/hero.jpg').asset_id}`,
       '/file/fixture/fixture-http/website/hero.jpg',
       '/file/fixture/fixture-s3/products/hero.jpg',
     ]),
@@ -969,7 +976,9 @@ for (const viewportWidth of [390, 1200]) {
     await expect
       .poll(() =>
         audit.images.find((image) =>
-          decodeURIComponent(new URL(image.url).pathname).endsWith('/website/small.jpg'),
+          new URL(image.url).pathname.endsWith(
+            `/${fixtureStorageIdentity('website/small.jpg').asset_id}`,
+          ),
         ),
       )
       .toMatchObject({ width: 320, height: 240 })
@@ -990,7 +999,7 @@ test('unsigned public Built-ins refuse private paths and private Built-ins never
   context,
 }) => {
   const publicUrl = new URL(
-    `${cdnOrigin}/file/fixture/builtin%2Fpublic-preview%400.0.1/website%2Fhero.jpg?w=400&h=300&r=pad&f=webp&bg=%2300000000&v=d41d8cd98f00b204`,
+    `${cdnOrigin}/file/fixture/builtin%2Fpublic-preview%400.0.2/${fixtureStorageIdentity('website/hero.jpg').asset_id}?w=400&h=300&r=pad&f=webp&bg=%2300000000&v=${fixtureStorageIdentity('website/hero.jpg').version_id}`,
   )
   expect((await context.request.get(publicUrl.href)).status()).toBe(200)
   expect((await context.request.head(publicUrl.href)).headers()['cache-control']).toContain(
@@ -1000,13 +1009,13 @@ test('unsigned public Built-ins refuse private paths and private Built-ins never
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
   publicUrl.searchParams.delete('sig')
   publicUrl.searchParams.delete('v')
-  expect((await context.request.head(publicUrl.href)).headers()['cache-control']).toBe(
-    'public, max-age=259200, s-maxage=86400',
-  )
-  publicUrl.pathname =
-    '/file/fixture/builtin%2Fpublic-preview%400.0.1/documents%2Fprivate%2Fhero.jpg'
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
-  publicUrl.pathname = '/file/fixture/builtin%2Fstorage-preview%400.0.2/website%2Fhero.jpg'
+  publicUrl.searchParams.set('v', fixtureStorageIdentity('documents/private/hero.jpg').version_id)
+  expect((await context.request.get(publicUrl.href)).status()).toBe(403)
+  publicUrl.pathname = `/file/fixture/builtin%2Fpublic-preview%400.0.2/${fixtureStorageIdentity('documents/private/hero.jpg').asset_id}`
+  expect((await context.request.get(publicUrl.href)).status()).toBe(403)
+  publicUrl.pathname = `/file/fixture/builtin%2Fstorage-preview%400.0.3/${fixtureStorageIdentity('website/hero.jpg').asset_id}`
+  publicUrl.searchParams.set('v', fixtureStorageIdentity('website/hero.jpg').version_id)
   expect((await context.request.get(publicUrl.href)).status()).toBe(403)
 })
 
@@ -1026,9 +1035,9 @@ for (const width of [390, 1200]) {
     })
     const url = new URL(current)
     expect(decodeURIComponent(url.pathname)).toBe(
-      `/file/fixture/builtin/public-preview@0.0.1/${path}`,
+      `/file/fixture/builtin/public-preview@0.0.2/${receipt.asset_id}`,
     )
-    expect(url.searchParams.get('v')).toBe(receipt.md5hash.slice(0, 16))
+    expect(url.searchParams.get('v')).toBe(receipt.version_id)
     expect(url.searchParams.has('sig')).toBe(false)
     await info.attach('hashed-upload', {
       body: JSON.stringify({
@@ -1096,7 +1105,9 @@ test.describe('server-only blur placeholders', () => {
       .poll(
         () =>
           audit.images.find((entry) =>
-            decodeURIComponent(new URL(entry.url).pathname).endsWith('/website/alpha.png'),
+            new URL(entry.url).pathname.endsWith(
+              `/${fixtureStorageIdentity('website/alpha.png').asset_id}`,
+            ),
           )?.corner?.[3],
       )
       .toBe(0)

@@ -32,7 +32,6 @@
     "node": ">= 20.10.0"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1073.0",
     "@transloadit/sev-logger": "^0.1.9",
     "@transloadit/utils": "^4.8.1",
     "cacheable-lookup": "^7.0.0",

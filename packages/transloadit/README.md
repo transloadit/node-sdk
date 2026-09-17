@@ -142,8 +142,8 @@ It prints `width={960}` (bounded by the original) and `placeholder="blur"`, with
 alt and a reminder. Store generates an optional base64 `thumbhash` from the original bytes.
 An occupied path conflicts unless `--overwrite` is explicit; prefer `--hashed` for immutable
 filenames. Matching receipts skip repeat uploads; changed bytes get a new name.
-The public image `v` is a cache-busting tag derived from the receipt hash; the origin does not verify
-it, so a cold request after an overwrite can return the replacement.
+Storage receipts pin the returned `asset_id` and `version_id`. The image URL selects that exact
+retained version, including after rename or overwrite; `v` is a real version, not a cache-busting hash.
 Publication can also be managed explicitly:
 
 ```bash
@@ -158,8 +158,8 @@ Logout revokes browser-login keys, including their use by any application. Impor
 and legacy keys are only forgotten locally; `auth logout --revoke` explicitly revokes those too.
 
 Unpublishing stops origin access but cannot recall cached/downloaded bytes. For lost metadata,
-restore the committed catalog. Listing and sync need the Storage read API, not yet enabled in
-production; see [Recovery options and prerequisites](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#recovery-requires-the-storage-read-api-not-yet-enabled-in-production).
+restore the committed catalog or use the signed native catalog API with `dam:read` or `dam:write`.
+Older API deployments may not yet expose these reads; see [Recovery options and prerequisites](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#recovery).
 
 Storage commands report the selected credential source on stderr before operating. Ordinary
 commands retain shell → project `.env` → saved login precedence; init prefers the saved login.
@@ -1480,6 +1480,34 @@ path is refused unless you explicitly pass `overwrite: true`. This helper does n
 directory or update the CLI's catalog. Pass the saved receipt as `src` in an authorized application;
 see [user uploads, private access and trusted receipt recovery with `getStoredImageReceipt()`](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#images-uploaded-by-your-users)
 for the Uppy/notification flow and recovery without another upload.
+
+### Read and reuse stored assets
+
+Save the complete stored result from `results[producingStep][i]` after `ASSEMBLY_COMPLETED`, including
+its Workspace and returned path. Collision handling can rename the requested destination.
+`storeImage()` returns this canonical record plus verified image metadata; other media use the
+same `StoredAsset` contract without requiring image dimensions.
+
+```ts
+const page = await client.listStoredAssets({ prefix: 'uploads/', limit: 100 })
+// Continue with { prefix: 'uploads/', cursor: page.next_cursor } while next_cursor is not null.
+const current = await client.getStoredAsset(receipt.asset_id)
+const pinned = await client.getStoredAsset(receipt.asset_id, { version_id: receipt.version_id })
+```
+
+These signed, bounded metadata reads require `dam:read` or `dam:write`, use the key's Workspace,
+and return checksums and dimensions when available. No S3 credentials or per-file HEADs are needed.
+
+For a later Assembly, choose exactly one `/transloadit/import` selector:
+
+- `{ robot: '/transloadit/import', path: receipt.path }` reads the current bytes at that location.
+- `{ robot: '/transloadit/import', asset_id: receipt.asset_id }` follows the logical asset after moves.
+- `{ robot: '/transloadit/import', asset_id: receipt.asset_id, version_id: receipt.version_id }`
+  selects the exact retained bytes. It never falls back to the current version.
+
+Authenticate for the saved Workspace. Deleting the asset or removing that retained version makes
+the reference unavailable; an ID is neither a backup nor authorization. Use the actual stored IDs,
+not a filename or digest, and keep application ownership associated with the stable asset ID.
 
 ### Process an image
 

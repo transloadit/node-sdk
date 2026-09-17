@@ -1,5 +1,3 @@
-import type { HeadObjectCommandOutput } from '@aws-sdk/client-s3'
-
 import type { StoredImageReceipt } from '../../storageImage.ts'
 
 import { createHash } from 'node:crypto'
@@ -8,14 +6,19 @@ import { basename, posix, resolve } from 'node:path'
 
 import { validateStoragePath } from '@transloadit/utils'
 import { Command, Option } from 'clipanion'
-import pMap from 'p-map'
 import { z } from 'zod'
 
 import { ApiError } from '../../ApiError.ts'
+import { storedAssetSchema } from '../../alphalib/types/storageAsset.ts'
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
 import { normalizeStoragePublicPrefix } from '../../storagePublicPrefixes.ts'
 import { Transloadit } from '../../Transloadit.ts'
 import { noticeCliCredentialSource, quoteCliArgument, resolveCliConfig } from '../helpers.ts'
+import {
+  listStorageAssets,
+  resolveStorageWorkspace,
+  withStorageCatalog,
+} from '../storageCatalog.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import {
   assertStorageWorkspace,
@@ -25,14 +28,6 @@ import {
   storageTypesPath,
   updateStorageReceipts,
 } from '../storageReceipts.ts'
-import {
-  listStorageObjects,
-  resolveStorageWorkspace,
-  storageS3ConnectionErrorSchema,
-  storageS3ErrorSchema,
-  storageS3ReadAdvice,
-  withStorageS3,
-} from '../storageS3.ts'
 import { storageImageConfigAdvice, storageImagePrivateAdvice } from '../storageSnippets.ts'
 import { ensureError } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
@@ -64,13 +59,13 @@ export class StoragePublishCommand extends StorageProjectCommand {
       const prefix = normalizeStoragePublicPrefix(this.prefix)
       if (this.dryRun) {
         const catalog = await readStorageCatalog(this.receipts)
-        const objects = await withStorageS3(
+        const objects = await withStorageCatalog(
           {
             endpoint: this.endpoint,
             workspace: this.workspace,
             projectWorkspace: catalog?.workspace,
           },
-          (client, workspace) => listStorageObjects(client, workspace, prefix),
+          (client, workspace) => listStorageAssets(client, workspace, prefix),
           'Publication dry run',
           undefined,
           this.cliConfig,
@@ -366,6 +361,10 @@ export class StorageStoreCommand extends StorageProjectCommand {
               },
               ...(this.overwrite ? { overwrite: true } : {}),
             })
+            if (stored.receipt.workspace !== workspace)
+              throw new Error(
+                `The stored receipt belongs to Workspace ${stored.receipt.workspace}, not ${workspace}. The project catalog was not changed; inspect the Assembly before retrying.`,
+              )
             if (this.hashed && !unchanged)
               stored.receipt = { ...stored.receipt, source: basename(input.file), apiOrigin }
             if (this.hashed) uploaded.set(destination, stored.receipt)
@@ -492,7 +491,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
               ? []
               : [
                   'The Assembly did not return usable receipt metadata. Do not re-upload; inspect Storage and recover its metadata:',
-                  'The commands below require the Storage read API, not yet enabled in production. Until then, inspect the Assembly in Console and restore a verified catalog receipt.',
+                  'The commands below require the native Storage catalog API. On an older deployment without these routes, inspect the Assembly in Console and restore a verified catalog receipt.',
                   // A filename prefix also works for root objects without scanning the workspace.
                   `transloadit storage ls ${quoteCliArgument(destination)} ${options}`,
                   `transloadit storage receipts sync ${quoteCliArgument(destination)} ${options}`,
@@ -515,15 +514,14 @@ export class StorageStoreCommand extends StorageProjectCommand {
   }
 }
 
-/** Lists the authenticated workspace through Storage's existing, read-only S3 surface. */
+/** Lists version-pinned metadata through the authenticated native Storage catalog. */
 export class StorageListCommand extends UnauthenticatedCommand {
   static override paths = [['storage', 'ls']]
   static override usage = Command.Usage({
     category: 'Storage',
-    description:
-      'List stored paths and sizes; include ETags with --json, without creating an Assembly',
+    description: 'List stored paths and sizes; include asset/version identities with --json',
     details:
-      'Uses an Auth Key with read or dam:write scope and the S3-compatible Storage API. Infers the workspace from ListBuckets unless --workspace is supplied. --endpoint accepts the API origin, not a bucket URL.',
+      'Uses an Auth Key with dam:read or dam:write scope and bounded native catalog pages. Verifies the Workspace against the selected credentials. No Assembly, S3 request or original download is needed.',
     examples: [['List website images', 'transloadit storage ls website/']],
   })
 
@@ -538,13 +536,13 @@ export class StorageListCommand extends UnauthenticatedCommand {
   protected async run(): Promise<number | undefined> {
     try {
       const catalog = await readStorageCatalog(this.receipts)
-      const objects = await withStorageS3(
+      const objects = await withStorageCatalog(
         {
           endpoint: this.endpoint,
           workspace: this.workspace,
           projectWorkspace: catalog?.workspace,
         },
-        (client, workspace) => listStorageObjects(client, workspace, this.prefix),
+        (client, workspace) => listStorageAssets(client, workspace, this.prefix),
         'Storage listing',
         this.output,
       )
@@ -564,57 +562,30 @@ export class StorageListCommand extends UnauthenticatedCommand {
   }
 }
 
-const dimensionSchema = z
-  .string()
-  .regex(/^[1-9]\d*$/)
-  .transform(Number)
-  .pipe(z.number().int().positive().max(Number.MAX_SAFE_INTEGER))
-const imageMetadataSchema = z.object({
-  'dam-width': dimensionSchema,
-  'dam-height': dimensionSchema,
-})
-
-const uploadEvidenceSchema = z.object({
-  md5hash: z.string().regex(/^[a-f0-9]{32}$/i),
-  asset_id: z.string().min(1).optional(),
-  size: z.number().int().nonnegative().optional(),
+const uploadEvidenceSchema = storedAssetSchema.extend({
   thumbhash: z.string().max(48).optional(),
   hasAlpha: z.boolean().optional(),
   source: z.string().optional(),
   apiOrigin: z.string().url().optional(),
 })
 
-const hashedReceiptSchema = uploadEvidenceSchema.required({ asset_id: true, size: true }).extend({
-  path: z.string(),
-  width: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-  height: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+const hashedReceiptSchema = uploadEvidenceSchema.extend({
+  md5hash: storedAssetSchema.shape.md5hash.unwrap(),
+  width: storedAssetSchema.shape.width.unwrap(),
+  height: storedAssetSchema.shape.height.unwrap(),
 })
 
-function md5FromHead(head: HeadObjectCommandOutput): string | undefined {
-  // S3's multipart, SSE-KMS and SSE-C ETags are not original-byte MD5 checksums.
-  if (
-    head.SSECustomerAlgorithm !== undefined ||
-    (head.ServerSideEncryption !== undefined && head.ServerSideEncryption !== 'AES256')
-  )
-    return undefined
-  const etag = head.ETag
-  const hash = etag?.startsWith('"') && etag.endsWith('"') ? etag.slice(1, -1) : etag
-  return hash !== undefined && /^[a-f0-9]{32}$/i.test(hash) ? hash.toLowerCase() : undefined
-}
-
-/** Recovers rendering metadata using signed List + HEAD only, without downloading originals. */
+/** Recovers pinned receipts from bounded native catalog pages without downloading originals. */
 export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
   static override paths = [['storage', 'receipts', 'sync']]
   static override usage = Command.Usage({
     category: 'Storage',
     description: 'Rebuild saved rendering metadata from the Storage catalog',
     details: `
-      Uses the same Auth Key and workspace discovery as storage ls, with dam:write scope to also
-      recover the server's declared public prefixes. Requires the Storage S3 read API.
-      Adds or refreshes matched paths; never prunes unmatched local entries. Keeps existing upload
-      asset_id/size only when the HEAD MD5 matches; otherwise replaces with rendering metadata.
-      All listed images must expose valid dam-width/dam-height metadata. Any failure preserves the
-      previous file. No Assembly, original download or remote write is performed.
+      Uses native catalog pages and dam:write scope to also recover declared public prefixes.
+      Adds or refreshes matched paths; never prunes unmatched entries. Local placeholder metadata
+      survives only for the same retained version. Every matched image must have catalog dimensions.
+      Any failure preserves the previous file. No Assembly, original download or remote write occurs.
     `,
     examples: [['Recover website images', 'transloadit storage receipts sync website/']],
   })
@@ -635,84 +606,35 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
       const config = resolveCliConfig()
       await updateStorageReceipts(resolve(this.receipts), async (previous, signal) => {
         let actualWorkspace: string | undefined
-        synced = await withStorageS3(
+        synced = await withStorageCatalog(
           {
             endpoint: this.endpoint,
             workspace: this.workspace,
             projectWorkspace: previous?.workspace,
             signal,
           },
-          async (client, workspace, endpoint) => {
+          async (client, workspace) => {
             actualWorkspace = workspace
-            const objects = await listStorageObjects(client, workspace, this.prefix, signal)
-            const paths = new Set<string>()
-            for (const { path } of objects) {
-              try {
-                validateStoragePath(path)
-              } catch (error) {
+            const assets = await listStorageAssets(client, workspace, this.prefix, signal)
+            const entries = assets.map((asset) => {
+              if (asset.width === undefined || asset.height === undefined) {
                 throw new Error(
-                  `Storage image ${JSON.stringify(path)} has an unsupported path: ${ensureError(error).message}`,
-                  { cause: error },
+                  `Storage image ${JSON.stringify(asset.path)} needs positive catalog width and height. Select an image-only prefix and backfill missing dimensions before retrying.`,
                 )
               }
-              if (!path.startsWith(this.prefix) || paths.has(path))
-                throw new Error(
-                  `Storage returned a duplicate path or one outside the requested prefix: ${JSON.stringify(path)}`,
-                )
-              paths.add(path)
-            }
-            const { HeadObjectCommand } = await import('@aws-sdk/client-s3')
-            const entries = await pMap(
-              objects,
-              async ({ path }) => {
-                const head = await client
-                  .send(new HeadObjectCommand({ Bucket: workspace, Key: path }), {
-                    abortSignal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
-                  })
-                  .catch((error: unknown) => {
-                    signal.throwIfAborted()
-                    if (storageS3ConnectionErrorSchema.safeParse(error).success)
-                      throw new Error(
-                        `Storage HEAD for ${JSON.stringify(path)} timed out or lost its connection. Check the Storage endpoint and retry the sync.`,
-                        { cause: error },
-                      )
-                    const remote = storageS3ErrorSchema.safeParse(error)
-                    const status = remote.success ? remote.data.$metadata.httpStatusCode : undefined
-                    throw new Error(
-                      `Storage HEAD failed for ${JSON.stringify(path)}${status === undefined ? '' : ` (HTTP ${status})`}. ${status === 403 ? storageS3ReadAdvice(endpoint, status) : 'The object may have changed or access may be denied; check it and retry the sync.'}`,
-                      { cause: error },
-                    )
-                  })
-                const dimensions = imageMetadataSchema.safeParse(head.Metadata)
-                if (!dimensions.success)
-                  throw new Error(
-                    `Storage image ${JSON.stringify(path)} needs positive integer dam-width and dam-height metadata. Select an image-only prefix and backfill missing catalog dimensions before retrying.`,
-                  )
-                const md5hash = md5FromHead(head)
-                const evidence = uploadEvidenceSchema.safeParse(
-                  previous?.workspace === workspace && Object.hasOwn(previous.images, path)
-                    ? previous.images[path]
-                    : undefined,
-                )
-                const retained =
-                  md5hash !== undefined &&
-                  evidence.success &&
-                  evidence.data.md5hash.toLowerCase() === md5hash
-                    ? evidence.data
-                    : {}
-                return [
-                  path,
-                  {
-                    ...retained,
-                    path,
-                    width: dimensions.data['dam-width'],
-                    height: dimensions.data['dam-height'],
-                    ...(md5hash === undefined ? {} : { md5hash }),
-                  },
-                ]
-              },
-              { concurrency: 5, signal },
-            )
+              const evidence = uploadEvidenceSchema.safeParse(
+                previous?.workspace === workspace && Object.hasOwn(previous.images, asset.path)
+                  ? previous.images[asset.path]
+                  : undefined,
+              )
+              const retained =
+                evidence.success &&
+                evidence.data.asset_id === asset.asset_id &&
+                evidence.data.version_id === asset.version_id
+                  ? evidence.data
+                  : {}
+              return [asset.path, { ...retained, ...asset }]
+            })
             count = entries.length
             return Object.fromEntries(entries)
           },
@@ -727,7 +649,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
           )
           return undefined
         }
-        // Recover policy with the same key/endpoint as the S3 reads, never an unrelated bearer
+        // Recover policy with the same key/endpoint as catalog reads, never an unrelated bearer
         // token or a folder-name guess. Neither half is committed if this read fails.
         if (config.credentials === undefined) throw new Error('Storage credentials are missing')
         const policyClient = new Transloadit({

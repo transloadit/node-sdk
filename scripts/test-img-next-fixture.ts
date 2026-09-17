@@ -8,6 +8,7 @@ import { brotliCompressSync, gzipSync } from 'node:zlib'
 
 import { execa } from 'execa'
 
+import { fixtureStorageIdentity } from './fixtures/img-next/storage-fixtures.ts'
 import { withProcess } from './withProcess.ts'
 
 const fixtureSecret = 'fixture-secret-must-never-reach-the-browser'
@@ -382,7 +383,7 @@ async function main(): Promise<void> {
         'utf8',
       )
       assert(
-        generatedPublicHtml.includes('builtin%2Fpublic-preview%400.0.1'),
+        generatedPublicHtml.includes('builtin%2Fpublic-preview%400.0.2'),
         'The secretless app must prerender actual public URLs',
       )
       assert(
@@ -424,7 +425,7 @@ async function main(): Promise<void> {
       )
       const publicHtml = await readFile(resolve(appOutput, 'public-image.html'), 'utf8')
       assert(
-        publicHtml.includes('builtin%2Fpublic-preview%400.0.1'),
+        publicHtml.includes('builtin%2Fpublic-preview%400.0.2'),
         'Public HTML must already contain unsigned direct URLs',
       )
       assert(
@@ -432,8 +433,9 @@ async function main(): Promise<void> {
         'Public HTML must not contain signing credentials or expiry',
       )
       assert(
-        publicHtml.includes('v=d41d8cd98f00b204'),
-        'Public HTML must use a receipt-derived version',
+        publicHtml.includes('/' + fixtureStorageIdentity('website/hero.jpg').asset_id + '?') &&
+          publicHtml.includes(`v=${fixtureStorageIdentity('website/hero.jpg').version_id}`),
+        'Public HTML must select the receipt’s exact asset and version',
       )
       assert(
         !publicHtml.includes('visibility:hidden'),
@@ -475,7 +477,7 @@ async function main(): Promise<void> {
         )
         assert(storageShell.includes('height:48px;width:48px'), 'Avatar CSS box is absent')
         assert(
-          !storageShell.includes('builtin%2Fstorage-preview%400.0.2'),
+          !storageShell.includes('builtin%2Fstorage-preview%400.0.3'),
           'A signed Storage URL leaked into the prerendered shell',
         )
       }
@@ -501,7 +503,7 @@ async function main(): Promise<void> {
         )
         assert(imagePreloads[0]?.includes('imageSrcSet='), 'Responsive preload srcset is absent')
         assert(
-          storageHtml.includes('builtin%2Fstorage-preview%400.0.2'),
+          storageHtml.includes('builtin%2Fstorage-preview%400.0.3'),
           'Storage Built-in is absent',
         )
         const directCandidate = getFirstPictureCandidates(storageHtml)[0]
@@ -520,7 +522,7 @@ async function main(): Promise<void> {
           'Authorized Storage route is absent',
         )
         assert(
-          !redirectHtml.includes('builtin%2Fstorage-preview%400.0.2'),
+          !redirectHtml.includes('builtin%2Fstorage-preview%400.0.3'),
           'Redirect markup contains a direct signed Storage URL',
         )
         assert(!storageHtml.includes(fixtureSecret), 'Secret leaked into Storage output')

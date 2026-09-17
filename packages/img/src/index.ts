@@ -1,6 +1,6 @@
-import type { SignSmartCdnImageRequest, SmartCdnImageFormat } from '@transloadit/utils'
+import type { SmartCdnImageFormat, SmartCdnImageSignRequest } from '@transloadit/utils'
 
-import type { TransloaditImageSourceProps } from './imageSource.ts'
+import type { TransloaditImageSource, TransloaditImageSourceProps } from './imageSource.ts'
 
 import {
   getSmartCdnImageLimits,
@@ -10,16 +10,30 @@ import {
 } from '@transloadit/utils'
 
 import { isOpaqueImageBackground, transparentImageBackground } from './imageBackground.ts'
-import { snapshotImageSource } from './imageSource.ts'
+import { getStorageImageReference, snapshotImageSource } from './imageSource.ts'
 
 export type { SignSmartCdnImageRequest, SmartCdnImageSignRequest } from '@transloadit/utils'
 
 export type { TransloaditImageSource } from './imageSource.ts'
 
 /** Signed Built-in used by default for Transloadit Storage previews. */
-export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.2'
+export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.3'
 /** Unsigned Built-in, served only under a server-declared public Storage prefix. */
-export const transloaditPublicStoragePreviewTemplate = 'builtin/public-preview@0.0.1'
+export const transloaditPublicStoragePreviewTemplate = 'builtin/public-preview@0.0.2'
+
+/** Only these pinned Built-ins accept an asset ID and a real version ID. */
+export function isVersionedStorageTemplate(template: string): boolean {
+  return (
+    template === transloaditStoragePreviewTemplate ||
+    template === transloaditPublicStoragePreviewTemplate
+  )
+}
+
+/** A rendition resolver receives the snapshotted source as context for authorization routes. */
+export type ResolveTransloaditImage<Expiry extends number | undefined = number> = (
+  request: SmartCdnImageSignRequest<Expiry>,
+  source: TransloaditImageSource,
+) => string
 const defaultFallbackQuality = 75
 const defaultResponsiveImageWidths: readonly number[] = [320, 640, 960, 1280, 1920, 2560, 3840]
 const minimumMillisecondTimestamp = 1_000_000_000_000
@@ -69,7 +83,7 @@ interface TransloaditImageModelConfiguration<Expiry extends number | undefined =
   formats?: StoragePreviewFormats
   /** Maximum candidate width, additionally bounded by the source and backend dimensions. */
   maximumWidth?: number
-  /** Trusted compatible signed Template. Defaults to `builtin/storage-preview@0.0.2`. */
+  /** Trusted compatible signed Template. Defaults to `builtin/storage-preview@0.0.3`. */
   template?: string
   /** Requested intrinsic candidate widths. Defaults to a conservative ladder up to the source. */
   widths?: readonly number[]
@@ -120,9 +134,10 @@ function getResponsiveImageWidths(
 /** Creates one signed, serializable responsive preview of a Transloadit Storage object. */
 export function createTransloaditImageModel<Expiry extends number | undefined = number>(
   options: TransloaditImageModelOptions<Expiry>,
-  sign: SignSmartCdnImageRequest<Expiry>,
+  sign: ResolveTransloaditImage<Expiry>,
 ): TransloaditImageModel {
-  const { path: src, width, height } = snapshotImageSource(options)
+  const source = snapshotImageSource(options)
+  const { path: src, width, height } = source
   const expiresAt = options.expiresAt
   const cropAspectRatio = options.cropAspectRatio
   const requestedMaximumWidth = options.maximumWidth
@@ -131,6 +146,10 @@ export function createTransloaditImageModel<Expiry extends number | undefined = 
   const fallbackQuality = options.fallbackQuality ?? defaultFallbackQuality
   const formats = options.formats === undefined ? undefined : { ...options.formats }
   const template = options.template ?? transloaditStoragePreviewTemplate
+  const reference = isVersionedStorageTemplate(template)
+    ? getStorageImageReference(source)
+    : undefined
+  const input = reference?.asset_id ?? src
   const { maxDimension, maxQuality } = getSmartCdnImageLimits(template)
   const widthsSnapshot = Array.isArray(options.widths) ? [...options.widths] : options.widths
 
@@ -185,37 +204,45 @@ export function createTransloaditImageModel<Expiry extends number | undefined = 
   )
   const sources = resolvedFormats.map(({ format, quality }) => ({
     candidates: widths.map((candidateWidth) => ({
-      url: sign({
-        expiresAt,
-        input: src,
-        template,
-        urlParams: {
-          bg: transparentImageBackground,
-          f: format,
-          h: getStorageHeight(candidateWidth, ratioWidth, ratioHeight),
-          q: quality,
-          r: cropAspectRatio === undefined ? 'pad' : 'fillcrop',
-          w: candidateWidth,
+      url: sign(
+        {
+          expiresAt,
+          input,
+          template,
+          urlParams: {
+            ...(reference === undefined ? {} : { v: reference.version_id }),
+            bg: transparentImageBackground,
+            f: format,
+            h: getStorageHeight(candidateWidth, ratioWidth, ratioHeight),
+            q: quality,
+            r: cropAspectRatio === undefined ? 'pad' : 'fillcrop',
+            w: candidateWidth,
+          },
         },
-      }),
+        source,
+      ),
       width: candidateWidth,
     })),
     format,
   }))
   const fallbackWidth = Math.min(requestedFallbackWidth ?? width, Math.max(...widths))
-  const fallbackUrl = sign({
-    expiresAt,
-    input: src,
-    template,
-    urlParams: {
-      bg: fallbackBackground,
-      f: 'jpg',
-      h: getStorageHeight(fallbackWidth, ratioWidth, ratioHeight),
-      q: fallbackQuality,
-      r: cropAspectRatio === undefined ? 'pad' : 'fillcrop',
-      w: fallbackWidth,
+  const fallbackUrl = sign(
+    {
+      expiresAt,
+      input,
+      template,
+      urlParams: {
+        ...(reference === undefined ? {} : { v: reference.version_id }),
+        bg: fallbackBackground,
+        f: 'jpg',
+        h: getStorageHeight(fallbackWidth, ratioWidth, ratioHeight),
+        q: fallbackQuality,
+        r: cropAspectRatio === undefined ? 'pad' : 'fillcrop',
+        w: fallbackWidth,
+      },
     },
-  })
+    source,
+  )
 
   return { expiresAt, fallbackUrl, sources }
 }

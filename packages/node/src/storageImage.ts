@@ -1,4 +1,5 @@
 import type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
+import type { StoredAsset } from './alphalib/types/storageAsset.ts'
 import type { CreateAssemblyOptions, Transloadit } from './Transloadit.ts'
 
 import { createHash } from 'node:crypto'
@@ -8,20 +9,18 @@ import debug from 'debug'
 import { z } from 'zod'
 
 import { ApiError } from './ApiError.ts'
+import { storedAssetSchema } from './alphalib/types/storageAsset.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 
 /**
  * Verified Storage metadata that can be saved and passed directly to an image renderer.
  * Width and height reflect EXIF auto-orientation, matching Storage preview delivery.
  */
-export interface StoredImageReceipt {
-  readonly asset_id: string
+export interface StoredImageReceipt extends Readonly<StoredAsset> {
   /** Present as true only when the locally decoded original has an alpha channel. */
   readonly hasAlpha?: boolean
   readonly height: number
   readonly md5hash: string
-  readonly path: string
-  readonly size: number
   /** Optional base64 ThumbHash of the original pixels, for an inline blur placeholder. */
   readonly thumbhash?: string
   readonly width: number
@@ -67,33 +66,14 @@ const receiptRequestSchema = z.object({
     md5hash: z.string().regex(/^[a-f0-9]{32}$/),
   }),
 })
-// API2 exposes EXIFTool's orientation labels; numeric EXIF tags use the same axis swap.
-const dimensionSwappingOrientations = new Set<string | number>([
-  5,
-  6,
-  7,
-  8,
-  'Mirror horizontal and rotate 270 CW',
-  'Rotate 90 CW',
-  'Mirror horizontal and rotate 90 CW',
-  'Rotate 270 CW',
-])
 const completedImageSchema = z.object({
   ok: z.literal('ASSEMBLY_COMPLETED'),
   results: z.object({
     ':original': z.tuple([
-      z.object({
-        asset_id: z
-          .string()
-          .min(1)
-          .refine((value) => value.trim() === value),
-        md5hash: z.string().regex(/^[a-f0-9]{32}$/),
-        meta: z.object({
-          height: positiveIntegerSchema,
-          orientation: z.union([z.string(), z.number()]).nullable().optional(),
-          width: positiveIntegerSchema,
-        }),
-        path: z.string(),
+      storedAssetSchema.extend({
+        md5hash: storedAssetSchema.shape.md5hash.unwrap(),
+        height: positiveIntegerSchema,
+        width: positiveIntegerSchema,
         size: positiveIntegerSchema,
       }),
     ]),
@@ -282,14 +262,5 @@ function validateReceipt(
       },
     )
   }
-  const { height, orientation, width } = result.meta
-  const swapDimensions = orientation != null && dimensionSwappingOrientations.has(orientation)
-  return {
-    asset_id: result.asset_id,
-    height: swapDimensions ? width : height,
-    md5hash: result.md5hash,
-    path: result.path,
-    size: result.size,
-    width: swapDimensions ? height : width,
-  }
+  return result
 }

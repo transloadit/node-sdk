@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { fixtureStorageIdentity } from '../../storage-fixtures'
 import { BrowserImage } from '../browser/BrowserImage'
 
 export default function Page(): ReactNode {
@@ -9,7 +10,12 @@ export default function Page(): ReactNode {
       <div style={{ maxWidth: 960 }}>
         <BrowserImage
           alt="Viewport crop"
-          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          src={{
+            ...fixtureStorageIdentity('documents/hero.jpg'),
+            path: 'documents/hero.jpg',
+            width: 2400,
+            height: 1600,
+          }}
           layout="fill"
           fit="cover"
           aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}

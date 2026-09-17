@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { fixtureStorageIdentity } from '../../storage-fixtures'
 import { DeliveryImage } from './StorageImages'
 
 export default function Page(): ReactNode {
@@ -9,6 +10,7 @@ export default function Page(): ReactNode {
       <DeliveryImage
         alt="Public website image"
         src={{
+          ...fixtureStorageIdentity('documents/public/hero.jpg'),
           path: 'documents/public/hero.jpg',
           width: 400,
           height: 300,
@@ -18,7 +20,12 @@ export default function Page(): ReactNode {
       />
       <DeliveryImage
         alt="Private account image"
-        src={{ path: 'documents/private/hero.jpg', width: 400, height: 300 }}
+        src={{
+          ...fixtureStorageIdentity('documents/private/hero.jpg'),
+          path: 'documents/private/hero.jpg',
+          width: 400,
+          height: 300,
+        }}
       />
     </main>
   )

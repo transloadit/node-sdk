@@ -131,7 +131,7 @@ test('private setup prefers the least-privilege signing scope', async () => {
   expect(privateRecipe).toContain('Assembly')
   expect(privateRecipe).toContain('// transloadit.authorize.ts')
   expect(privateRecipe).toContain('getSession')
-  expect(privateRecipe).toContain('canRead(path) === true')
+  expect(privateRecipe).toContain('canReadAsset(asset_id) === true')
   expect(privateRecipe).toContain('// app/api/storage-images/route.ts')
   expect(privateRecipe).toContain("export { GET, HEAD } from '@transloadit/viewer/next/route'")
   expect(privateRecipe).toContain('TRANSLOADIT_SMART_CDN_KEY=')
@@ -146,10 +146,10 @@ test('private setup prefers the least-privilege signing scope', async () => {
   expect(reference).not.toContain('A generic 403 cannot tell us')
 })
 
-test('image docs describe the unverified cache tag and recommend immutable names beside upload guidance', async () => {
+test('image docs distinguish version pinning from optional immutable filenames', async () => {
   const docs = (await imageDocumentation()).replaceAll(/\s+/g, ' ')
   expect(docs).toContain(
-    'cache-busting tag derived from the receipt hash; the origin does not verify it, so a cold request after an overwrite can return the replacement',
+    'even a cold request after an overwrite reads that exact retained version, never the replacement',
   )
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   expect(readme.slice(0, readme.indexOf('## Responsive'))).toContain('immutable filename')
@@ -170,7 +170,7 @@ test('image docs describe the unverified cache tag and recommend immutable names
   expect(quickstart).toContain('src="website/hero.fce9d56a.jpg"')
   expect(docs).toContain('eight hex')
   expect(docs).toContain('same bytes')
-  expect(docs).toContain('belt-and-braces')
+  expect(docs).toContain('Hashed filenames remain useful for repository organization')
   expect(docs).toContain('placeholder="blur"')
   expect(docs).toContain('thumbhash')
   expect(docs).toContain('hasAlpha: true')
@@ -199,7 +199,7 @@ test('server-upload docs connect verified receipts to an explicit private render
   expect(uploads).toContain("import { createImages } from '@transloadit/viewer/next/server'")
   expect(uploads).toContain('export const { Image, imageRoute } = createImages({')
   expect(uploads).toContain("allowedPathPrefixes: ['uploads/']")
-  expect(uploads).toContain('canRead(path) === true')
+  expect(uploads).toContain('canReadAsset(asset_id) === true')
   expect(uploads).toContain('// app/api/upload-images/route.ts')
   expect(uploads).toContain("route: '/api/upload-images'")
   expect(uploads).toContain(
@@ -236,7 +236,7 @@ test('the leading SDK example selects SHA-256 for combined keys without changing
   expect(keyRecipe).toContain("signatureAlgorithm: 'sha256'")
 })
 
-test('cache-key and production recovery limits are stated without implying universal Bunny behavior', async () => {
+test('cache keys and native recovery describe the version-pinned contract and deployment prerequisite', async () => {
   const reference = await readFile(
     resolve(import.meta.dirname, '../packages/img/docs/reference.md'),
     'utf8',
@@ -244,27 +244,28 @@ test('cache-key and production recovery limits are stated without implying unive
   expect(reference).toContain('configured on `*.tlcdn.com`')
   const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
   expect(readme).not.toMatch(/storage ls|storage receipts sync/)
-  expect(readme).toContain('restore the committed catalog')
+  expect(readme).toContain('Restore the committed catalog')
   expect(readme).not.toContain('[Recovery requires the Storage read API')
-  expect(readme).toContain(
-    '](./docs/reference.md#recovery-requires-the-storage-read-api-not-yet-enabled-in-production)',
-  )
-  const recovery = reference.slice(
-    reference.indexOf(
-      '### Recovery (requires the Storage read API, not yet enabled in production)',
-    ),
-  )
+  expect(readme).toContain('](./docs/reference.md#recovery)')
+  const recovery = reference.slice(reference.indexOf('### Recovery'))
   expect(recovery).toContain('storage ls')
   expect(recovery).toContain('storage receipts sync')
-  expect(recovery).toContain('HTTP 403 cannot distinguish a disabled API from denied access')
+  expect(recovery).toContain('GET /dam/assets')
+  expect(recovery).toContain('dam:read')
+  expect(recovery).toContain('without S3, per-file HEAD requests')
+  expect(recovery).toContain('HTTP 403 means access was refused')
   const node = await readFile(resolve(import.meta.dirname, '../packages/node/README.md'), 'utf8')
   const legacy = await readFile(
     resolve(import.meta.dirname, '../packages/transloadit/README.md'),
     'utf8',
   )
-  expect(node).toContain('#recovery-requires-the-storage-read-api-not-yet-enabled-in-production')
-  expect(node.replaceAll(/\s+/g, ' ')).toContain('not yet enabled in production')
-  expect(legacy).toContain('#recovery-requires-the-storage-read-api-not-yet-enabled-in-production')
+  expect(node).toContain('reference.md#recovery)')
+  expect(node).toContain('Older API deployments may not yet expose these reads')
+  expect(legacy).toContain('reference.md#recovery)')
+  expect(reference).toContain('`v` is its actual version ID, not a digest or arbitrary cache tag')
+  expect(node).toContain(
+    'client.getStoredAsset(receipt.asset_id, { version_id: receipt.version_id })',
+  )
 })
 
 test('private deployment uses an application key rather than the revocable CLI login identity', async () => {
@@ -320,13 +321,13 @@ test.each([
 
 test('documents the pinned alpha pipeline, public cache policy and combined credential contract', async () => {
   const readme = await imageDocumentation()
-  expect(readme).toContain('builtin/storage-preview@0.0.2')
+  expect(readme).toContain('builtin/storage-preview@0.0.3')
   expect(readme).toContain('fallbackBackground')
   expect(readme).toContain('#00000000')
   expect(readme).toContain('Production Smart CDN uses Bunny')
   expect(readme).toContain('whole query string')
   expect(readme).not.toContain('NoCacheSigExp')
-  expect(readme).toContain('builtin/public-preview@0.0.1')
+  expect(readme).toContain('builtin/public-preview@0.0.2')
   expect(readme).toContain('immutable')
   expect(readme).toContain('TRANSLOADIT_KEY')
   expect(readme).toContain('TRANSLOADIT_SMART_CDN_KEY/SECRET')

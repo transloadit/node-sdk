@@ -48,9 +48,11 @@ Stores each input privately in Transloadit Storage.
 `),
     conflict_strategy: z
       .enum(['error', 'overwrite', 'rename'])
-      .default('rename')
+      .default('error')
       .describe(`
-Chooses how to handle an existing destination.
+Chooses how to handle an existing destination. By default, an occupied path fails. Select
+\`rename\` to allocate a different filename, or \`overwrite\` to create a new version of the
+existing asset. Always save the returned asset identity, version and final path.
 `),
     path: z
       .string()

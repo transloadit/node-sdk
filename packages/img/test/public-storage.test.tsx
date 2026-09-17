@@ -3,6 +3,12 @@ import { getSignedSmartCdnUrl, parseSmartCdnUrl } from '@transloadit/utils/node'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+const storageReference = vi.hoisted(() => ({
+  workspace: 'my-app',
+  asset_id: 'A'.repeat(22),
+  version_id: 'B'.repeat(21) + 'A',
+}))
+
 const { connection } = vi.hoisted(() => ({ connection: vi.fn(async () => undefined) }))
 vi.mock('next/server.js', () => ({ connection }))
 vi.mock('server-only', () => ({}))
@@ -11,8 +17,20 @@ import { createImages } from '../src/next/server.tsx'
 
 const hash = 'd41d8cd98f00b204e9800998ecf8427e'
 const images = {
-  'website/hero.jpg': { path: 'website/hero.jpg', width: 2400, height: 1600, md5hash: hash },
-  'private/avatar.png': { path: 'private/avatar.png', width: 400, height: 300, md5hash: hash },
+  'website/hero.jpg': {
+    ...storageReference,
+    path: 'website/hero.jpg',
+    width: 2400,
+    height: 1600,
+    md5hash: hash,
+  },
+  'private/avatar.png': {
+    ...storageReference,
+    path: 'private/avatar.png',
+    width: 400,
+    height: 300,
+    md5hash: hash,
+  },
 }
 
 function imageUrl(markup: string): string {
@@ -47,7 +65,9 @@ test.each([
   { width: 6000, height: 1000 },
 ])('all public candidates and fallbacks respect both dimension limits (%j)', (dimensions) => {
   const { Image } = createImages({
-    images: { 'website/large.jpg': { path: 'website/large.jpg', ...dimensions } },
+    images: {
+      'website/large.jpg': { ...storageReference, path: 'website/large.jpg', ...dimensions },
+    },
     public: ['website/'],
   })
   const markup = renderToStaticMarkup(<Image src="website/large.jpg" alt="Large" width={960} />)
@@ -69,7 +89,14 @@ test.each([
 
 test('public art-direction crops and fallback obey the height cap', () => {
   const { Image } = createImages({
-    images: { 'website/large.jpg': { path: 'website/large.jpg', width: 6000, height: 6000 } },
+    images: {
+      'website/large.jpg': {
+        ...storageReference,
+        path: 'website/large.jpg',
+        width: 6000,
+        height: 6000,
+      },
+    },
     public: ['website/'],
   })
   const markup = renderToStaticMarkup(
@@ -110,7 +137,7 @@ test('Built-in URLs omit defaults but retain transparent format parameters and e
     <Image src="website/hero.jpg" alt="Hero" formats={{ avif: 45, webp: 75 }} />,
   )
   const fallback = parseSmartCdnUrl(imageUrl(markup))
-  expect(fallback.urlParams).toEqual({ w: '2400', h: '1600', v: hash.slice(0, 16) })
+  expect(fallback.urlParams).toEqual({ w: '2400', h: '1600', v: storageReference.version_id })
   const doc = new DOMParser().parseFromString(markup, 'text/html')
   const webp = doc.querySelector('source[type="image/webp"]')?.getAttribute('srcset')?.split(' ')[0]
   if (webp === undefined) throw new Error('Missing WebP candidate')
@@ -119,7 +146,7 @@ test('Built-in URLs omit defaults but retain transparent format parameters and e
     h: '213',
     f: 'webp',
     bg: '#00000000',
-    v: hash.slice(0, 16),
+    v: storageReference.version_id,
   })
 })
 
@@ -139,7 +166,6 @@ test('custom Templates keep every transform field because their defaults are not
     r: 'pad',
     q: '75',
     cdn: 'required',
-    v: hash.slice(0, 16),
   })
 })
 
@@ -152,7 +178,7 @@ test('nondefault crop, background and quality remain explicit on compact Built-i
   const url = imageUrl(
     renderToStaticMarkup(
       <Image
-        src="website/hero.jpg"
+        src={{ ...storageReference, path: 'website/hero.jpg', width: 200, height: 200 }}
         alt="Hero"
         layout="fixed"
         width={200}
@@ -170,7 +196,7 @@ test('nondefault crop, background and quality remain explicit on compact Built-i
     r: 'fillcrop',
     q: '80',
     cdn: 'required',
-    v: hash.slice(0, 16),
+    v: storageReference.version_id,
   })
 })
 
@@ -188,7 +214,7 @@ test('a private redirect signs the compact parameters and retains authentication
   const target = response.headers.get('location')
   if (target === null) throw new Error('Missing signed redirect')
   const parsed = parseSmartCdnUrl(target)
-  expect(parsed.urlParams).toEqual({ w: '400', h: '300' })
+  expect(parsed.urlParams).toEqual({ w: '400', h: '300', v: storageReference.version_id })
   expect(parsed.auth?.expiresAt).toBeGreaterThan(Date.now())
   if (parsed.auth === undefined) throw new Error('Missing signature')
   expect(target).toBe(
@@ -197,9 +223,9 @@ test('a private redirect signs the compact parameters and retains authentication
       authKey: 'signing-key',
       authSecret: 'signing-secret',
       expiresAt: parsed.auth.expiresAt,
-      input: 'private/avatar.png',
-      template: 'builtin/storage-preview@0.0.2',
-      urlParams: { w: 400, h: 300 },
+      input: storageReference.asset_id,
+      template: 'builtin/storage-preview@0.0.3',
+      urlParams: { w: 400, h: 300, v: storageReference.version_id },
     }),
   )
   expect(authorize).toHaveBeenCalledOnce()
@@ -212,9 +238,9 @@ test('public receipt images render permanent versioned URLs without any signing 
     <Image src="website/hero.jpg" alt="Hero" layout="constrained" width={960} priority />,
   )
   const parsed = parseSmartCdnUrl(imageUrl(markup))
-  expect(parsed.template).toBe('builtin/public-preview@0.0.1')
+  expect(parsed.template).toBe('builtin/public-preview@0.0.2')
   expect(parsed.auth).toBeUndefined()
-  expect(parsed.urlParams.v).toBe(hash.slice(0, 16))
+  expect(parsed.urlParams.v).toBe(storageReference.version_id)
   expect(markup).not.toMatch(/auth_key|sig=|exp=|\/api\/storage-images|visibility:hidden/)
   expect(connection).not.toHaveBeenCalled()
 })
@@ -252,28 +278,26 @@ test('public rendering never validates unused secret env and is independent of c
   expect(render()).toBe(first)
 })
 
-test('changed bytes get a new public cache key; receipt hashes are snapshotted', () => {
+test('a new version gets a new public cache key; receipt identities are snapshotted', () => {
   const catalog = structuredClone(images)
   const { Image } = createImages({ images: catalog, public: ['website/'] })
-  catalog['website/hero.jpg'].md5hash = 'a'.repeat(32)
+  catalog['website/hero.jpg'].version_id = 'C'.repeat(21) + 'A'
   const old = imageUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />))
   const current = createImages({ images: catalog, public: ['website/'] })
   const next = imageUrl(renderToStaticMarkup(<current.Image src="website/hero.jpg" alt="Hero" />))
-  expect(new URL(old).searchParams.get('v')).toBe(hash.slice(0, 16))
-  expect(new URL(next).searchParams.get('v')).toBe('a'.repeat(16))
+  expect(new URL(old).searchParams.get('v')).toBe(storageReference.version_id)
+  expect(new URL(next).searchParams.get('v')).toBe('C'.repeat(21) + 'A')
   expect(next).not.toBe(old)
 })
 
-test('a geometry-only receipt uses the ordinary public cache policy without inventing a version', () => {
+test('a geometry-only Storage receipt requires recovery instead of inventing a version', () => {
   const { Image } = createImages({
     images: { 'website/legacy.jpg': { path: 'website/legacy.jpg', width: 800, height: 600 } },
     public: ['website/'],
   })
-  const url = new URL(
-    imageUrl(renderToStaticMarkup(<Image src="website/legacy.jpg" alt="Legacy" />)),
+  expect(() => renderToStaticMarkup(<Image src="website/legacy.jpg" alt="Legacy" />)).toThrow(
+    /storage receipts sync/,
   )
-  expect(url.searchParams.has('v')).toBe(false)
-  expect(url.searchParams.has('sig')).toBe(false)
 })
 
 test.each([
@@ -333,8 +357,8 @@ test('mixed public/private uses unsigned public delivery and a signed authorized
   const target = response.headers.get('location')
   if (target === null) throw new Error('Expected authorized redirect')
   expect(parseSmartCdnUrl(target).auth?.key).toBe('combined-key')
-  expect(parseSmartCdnUrl(target).template).toBe('builtin/storage-preview@0.0.2')
-  expect(new URL(target).searchParams.has('v')).toBe(false)
+  expect(parseSmartCdnUrl(target).template).toBe('builtin/storage-preview@0.0.3')
+  expect(new URL(target).searchParams.get('v')).toBe(storageReference.version_id)
   expect(authorize).toHaveBeenCalledOnce()
   expect(response.headers.get('cache-control')).toBe('private, no-store')
 })
@@ -357,10 +381,10 @@ test('pinning a private Template does not replace the public Built-in', () => {
   const { Image } = createImages({
     images,
     public: ['website/'],
-    template: 'builtin/storage-preview@0.0.2',
+    template: 'builtin/storage-preview@0.0.3',
   })
   const url = imageUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />))
-  expect(parseSmartCdnUrl(url).template).toBe('builtin/public-preview@0.0.1')
+  expect(parseSmartCdnUrl(url).template).toBe('builtin/public-preview@0.0.2')
   expect(parseSmartCdnUrl(url).auth).toBeUndefined()
 })
 
@@ -450,7 +474,7 @@ test.each([
   await vi.waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining(hint)))
   expect(warn).toHaveBeenCalledWith(
     expect.stringContaining(
-      'https://my-app.tlcdn.com/builtin%2Fpublic-preview%400.0.1/website%2Fhero.jpg',
+      'https://my-app.tlcdn.com/builtin%2Fpublic-preview%400.0.2/AAAAAAAAAAAAAAAAAAAAAA',
     ),
   )
   expect(warn.mock.calls.flat().join('\n')).not.toContain('transloadit storage publish')
@@ -473,7 +497,7 @@ test('identifies the verified public delivery target without logging query param
   await vi.waitFor(() =>
     expect(info).toHaveBeenCalledWith(
       expect.stringContaining(
-        'https://my-app.tlcdn.com/builtin%2Fpublic-preview%400.0.1/website%2Fhero.jpg',
+        'https://my-app.tlcdn.com/builtin%2Fpublic-preview%400.0.2/AAAAAAAAAAAAAAAAAAAAAA',
       ),
     ),
   )

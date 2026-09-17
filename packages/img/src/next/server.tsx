@@ -3,7 +3,9 @@ import 'server-only'
 import type { SmartCdnUrlParams } from '@transloadit/utils/node'
 import type { ReactNode } from 'react'
 
+import type { TransloaditImageSource } from '../imageSource.ts'
 import type {
+  ResolveTransloaditImage,
   SmartCdnImageSignRequest,
   StoragePreviewFormats,
   TransloaditImageModel,
@@ -26,9 +28,14 @@ import { Suspense, use } from 'react'
 import { thumbHashToDataURL } from 'thumbhash'
 
 import { isOpaqueImageBackground, transparentImageBackground } from '../imageBackground.ts'
-import { snapshotImageSource } from '../imageSource.ts'
+import {
+  getStorageImageReference,
+  isStorageIdentifier,
+  snapshotImageSource,
+} from '../imageSource.ts'
 import {
   createTransloaditImageModel,
+  isVersionedStorageTemplate,
   transloaditPublicStoragePreviewTemplate,
   transloaditStoragePreviewTemplate,
 } from '../index.ts'
@@ -48,13 +55,16 @@ const storageCapabilityAuthenticationBytes = 16
 const storageCapabilityMaximumLength = 4096
 const storageCapabilityMinimumBytes = storageCapabilityAuthenticationBytes + 1
 const storageCapabilityPattern = /^[A-Za-z0-9_-]+$/
-const storageCapabilityVersion = 1
+const storageCapabilityVersion = 2
 // A package rename is not a capability-protocol change; preserve existing Storage route keys.
 const storageRouteKeyDomain = '@transloadit/img/storage-route/v1'
 
 /** Values available to application authorization before a Storage redirect is issued. */
 export interface TransloaditImageAuthorizationContext {
   path: string
+  /** Pinned Storage identity; absent for customer HTTP/S3 Template inputs. */
+  asset_id?: string
+  version_id?: string
   request: Request
   workspace: string
   template: string
@@ -204,6 +214,8 @@ interface ResolvedStorageCapabilityPolicy {
 }
 
 interface StorageImageTransform {
+  asset_id?: string
+  version_id?: string
   background?: string
   format: 'avif' | 'jpg' | 'png' | 'webp'
   height: number
@@ -558,8 +570,7 @@ function snapshotUrlParams(
 
 function previewUrlParams(template: string, parameters: SmartCdnUrlParams): SmartCdnUrlParams {
   // These exact versions share API2's defaults. Customer templates (and future Built-ins) may not.
-  if (template !== 'builtin/storage-preview@0.0.2' && template !== 'builtin/public-preview@0.0.1')
-    return parameters
+  if (!isVersionedStorageTemplate(template)) return parameters
   const defaults: Readonly<Record<string, string | number>> = {
     bg: '#ffffff',
     f: 'jpg',
@@ -715,6 +726,7 @@ function StorageImageFrame({ props, children }: StorageImageFrameProps): ReactNo
 
 function getStorageTransform(
   request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
+  source: TransloaditImageSource,
 ): StorageImageTransform {
   const {
     bg: background,
@@ -735,10 +747,13 @@ function getStorageTransform(
     throw new TypeError('Storage image model produced an unsupported transform')
   }
   return {
+    ...(isVersionedStorageTemplate(request.template)
+      ? { asset_id: request.input, version_id: getStorageImageReference(source).version_id }
+      : {}),
     background,
     format,
     height,
-    path: request.input,
+    path: source.path,
     quality,
     width,
     ...(strategy === 'fillcrop' ? { strategy } : {}),
@@ -781,9 +796,10 @@ function getStorageRouteUrl(
   delivery: TransloaditImageRedirectDelivery,
   key: Buffer,
   request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
+  image: TransloaditImageSource,
   source?: { workspace: string; template: string },
 ): string {
-  const capability = encryptStorageCapability(context, key, getStorageTransform(request))
+  const capability = encryptStorageCapability(context, key, getStorageTransform(request, image))
   return `${getBrowserStorageRoute(delivery)}?${new URLSearchParams({ cap: capability, ...source })}`
 }
 
@@ -797,8 +813,11 @@ function isStorageRouteFormat(value: unknown): value is StorageImageTransform['f
 
 function getStorageTransformFromPayload(payload: unknown): StorageImageTransform | undefined {
   if (!isRecord(payload) || payload.version !== storageCapabilityVersion) return undefined
-  const { background, format, height, path, quality, width, strategy } = payload
+  const { asset_id, version_id, background, format, height, path, quality, width, strategy } =
+    payload
   if (
+    ((asset_id !== undefined || version_id !== undefined) &&
+      (!isStorageIdentifier(asset_id) || !isStorageIdentifier(version_id))) ||
     !isStorageRouteFormat(format) ||
     (background !== undefined &&
       (format === 'jpg'
@@ -823,6 +842,9 @@ function getStorageTransformFromPayload(payload: unknown): StorageImageTransform
   }
   validateStoragePath(path)
   return {
+    ...(typeof asset_id === 'string' && typeof version_id === 'string'
+      ? { asset_id, version_id }
+      : {}),
     ...(typeof background === 'string' ? { background } : {}),
     format,
     height,
@@ -890,10 +912,7 @@ function createStorageRoute(
   sign: (request: SmartCdnImageSignRequest) => string,
   template: string,
   diagnose: DiagnoseStorageImage | undefined,
-  buildPublicUrl: (
-    request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
-    md5hash?: string,
-  ) => string,
+  buildPublicUrl: (request: Omit<SmartCdnImageSignRequest, 'expiresAt'>) => string,
   source: { workspace: string; customTemplate?: string; publicTemplate: string },
 ): TransloaditImageRoute {
   const publicLimits = getSmartCdnImageLimits(source.publicTemplate)
@@ -941,6 +960,8 @@ function createStorageRoute(
         : { workspace: source.workspace, template: source.customTemplate },
     )
     if (transform === undefined) return notFound('capability')
+    if (isVersionedStorageTemplate(template) && transform.asset_id === undefined)
+      return notFound('capability')
     try {
       assertAllowedStoragePath(transform.path, policy)
     } catch {
@@ -949,7 +970,7 @@ function createStorageRoute(
     const path = transform.path
     const isPublic = delivery.public?.some((prefix) => path.startsWith(prefix)) === true
     const signRequest = {
-      input: transform.path,
+      input: transform.asset_id ?? transform.path,
       template,
       urlParams: {
         ...(transform.background === undefined ? {} : { bg: transform.background }),
@@ -964,15 +985,20 @@ function createStorageRoute(
     // when the newly public Built-in cannot honor them, rather than break or silently resize it.
     if (
       isPublic &&
+      (!isVersionedStorageTemplate(source.publicTemplate) || transform.asset_id !== undefined) &&
       transform.width <= publicLimits.maxDimension &&
       transform.height <= publicLimits.maxDimension &&
       transform.quality <= publicLimits.maxQuality
     ) {
-      const source =
-        policy.images !== undefined && Object.hasOwn(policy.images, path)
-          ? policy.images[path]
-          : undefined
-      const location = buildPublicUrl(signRequest, source?.md5hash)
+      const versioned = isVersionedStorageTemplate(source.publicTemplate)
+      const location = buildPublicUrl({
+        ...signRequest,
+        input: versioned ? signRequest.input : path,
+        urlParams: {
+          ...signRequest.urlParams,
+          ...(versioned && transform.version_id !== undefined ? { v: transform.version_id } : {}),
+        },
+      })
       diagnose?.(
         path,
         location,
@@ -982,8 +1008,7 @@ function createStorageRoute(
         status: 307,
         headers: {
           Location: location,
-          // Old private capabilities carry no receipt hash; bound stale Locations after overwrite.
-          // Newly rendered public images bypass this compatibility route with versioned CDN URLs.
+          // Bound caching of this policy transition; newly rendered public images go direct.
           'Cache-Control': 'public, max-age=0, s-maxage=60',
           'Referrer-Policy': 'no-referrer',
         },
@@ -992,7 +1017,15 @@ function createStorageRoute(
     // Only unsigned delivery is checked against publication at the CDN. Every signed fallback
     // still needs application authorization, including when local public policy is stale.
     if (
-      (await delivery.authorize({ path, request, workspace: source.workspace, template })) !== true
+      (await delivery.authorize({
+        path,
+        request,
+        workspace: source.workspace,
+        template,
+        ...(transform.asset_id === undefined
+          ? {}
+          : { asset_id: transform.asset_id, version_id: transform.version_id }),
+      })) !== true
     )
       return notFound('authorization', path)
     const now = Date.now()
@@ -1002,7 +1035,14 @@ function createStorageRoute(
       0,
       Math.floor(Math.min(delivery.cacheMaxAgeMs ?? 0, rotation, expiresAt - now) / 1000),
     )
-    const location = sign({ ...signRequest, expiresAt })
+    const location = sign({
+      ...signRequest,
+      expiresAt,
+      urlParams: {
+        ...signRequest.urlParams,
+        ...(transform.version_id === undefined ? {} : { v: transform.version_id }),
+      },
+    })
     diagnose?.(path, location)
     return new Response(null, {
       headers: {
@@ -1042,10 +1082,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
     })
   const publicTemplate = configuration.publicTemplate ?? transloaditPublicStoragePreviewTemplate
   validateTemplate(publicTemplate, 'publicTemplate')
-  const buildPublicUrl = (
-    request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
-    md5hash?: string,
-  ): string =>
+  const buildPublicUrl = (request: Omit<SmartCdnImageSignRequest, 'expiresAt'>): string =>
     getSmartCdnUrl({
       workspace: getWorkspace(),
       baseUrl,
@@ -1054,7 +1091,6 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
       urlParams: previewUrlParams(publicTemplate, {
         ...urlParams,
         ...request.urlParams,
-        ...(md5hash === undefined ? {} : { v: md5hash.slice(0, 16) }),
       }),
     })
   const redirectDelivery = storagePolicy.delivery
@@ -1072,13 +1108,17 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
     }
     return storageCapability
   }
-  const buildStorageUrl = (request: Omit<SmartCdnImageSignRequest, 'expiresAt'>): string => {
+  const buildStorageUrl = (
+    request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
+    image: TransloaditImageSource,
+  ): string => {
     const capability = getCapability()
     return getStorageRouteUrl(
       capability.context,
       capability.delivery,
       capability.key,
       request,
+      image,
       customTemplate === undefined
         ? undefined
         : { workspace: getWorkspace(), template: customTemplate },
@@ -1088,7 +1128,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
   function createModel<Expiry extends number | undefined>(
     props: ResolvedStorageImageProps,
     expiresAt: Expiry,
-    resolveUrl: (request: SmartCdnImageSignRequest<Expiry>) => string,
+    resolveUrl: ResolveTransloaditImage<Expiry>,
     template = storageTemplate,
   ): TransloaditImageModel {
     const model = createTransloaditImageModel(
@@ -1142,18 +1182,16 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
 
   function Image(props: TransloaditImageProps<Catalog>): ReactNode {
     const layout = resolveImageLayout(props, storagePolicy.images)
+    if (customTemplate === undefined || isVersionedStorageTemplate(storageTemplate)) {
+      getStorageImageReference(layout.source, getWorkspace())
+    }
     assertAllowedStoragePath(layout.source.path, storagePolicy)
     const storageProps = snapshotStorageImageProps(props, layout)
     const publicPrefix = storagePolicy.public.find((prefix) =>
       layout.source.path.startsWith(prefix),
     )
     if (publicPrefix !== undefined) {
-      const model = createModel(
-        storageProps,
-        undefined,
-        (request) => buildPublicUrl(request, layout.source.md5hash),
-        publicTemplate,
-      )
+      const model = createModel(storageProps, undefined, buildPublicUrl, publicTemplate)
       const diagnostic = diagnose?.(
         layout.source.path,
         model.sources[0]?.candidates[0]?.url ?? model.fallbackUrl,

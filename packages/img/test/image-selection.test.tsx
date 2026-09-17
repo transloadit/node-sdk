@@ -9,6 +9,12 @@ import { parseSmartCdnUrl } from '@transloadit/utils/node'
 import { renderToReadableStream, renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+const storageReference = vi.hoisted(() => ({
+  workspace: 'catalog-shop',
+  asset_id: 'A'.repeat(22),
+  version_id: 'B'.repeat(21) + 'A',
+}))
+
 const project = vi.hoisted<{
   catalog: StorageProjectCatalog | undefined
   authorize: AuthorizeTransloaditImage | undefined
@@ -48,7 +54,14 @@ beforeEach(() => {
   project.catalog = {
     workspace: 'catalog-shop',
     public: ['website/'],
-    images: { 'website/hero.jpg': { path: 'website/hero.jpg', width: 1200, height: 800 } },
+    images: {
+      'website/hero.jpg': {
+        ...storageReference,
+        path: 'website/hero.jpg',
+        width: 1200,
+        height: 800,
+      },
+    },
   }
 })
 
@@ -87,7 +100,7 @@ test('Image storage takes its workspace and dimensions from the catalog', async 
   )
   const parsed = parseSmartCdnUrl(source(html))
   expect(parsed.workspace).toBe('catalog-shop')
-  expect(parsed.template).toBe('builtin/public-preview@0.0.1')
+  expect(parsed.template).toBe('builtin/public-preview@0.0.2')
   expect(parsed.auth).toBeUndefined()
   expect(html).toContain('height="640"')
 })
@@ -122,11 +135,11 @@ test('Storage still treats URL-like characters as literal object-key text', asyn
   project.catalog = {
     workspace: 'catalog-shop',
     public: ['website/'],
-    images: { [path]: { path, width: 1200, height: 800 } },
+    images: { [path]: { ...storageReference, path, width: 1200, height: 800 } },
   }
   const { Image } = await import('../src/next/react-server.tsx')
   const html = renderToStaticMarkup(<Image storage src={path} alt="Literal filename" />)
-  expect(parseSmartCdnUrl(source(html)).input).toBe(path)
+  expect(parseSmartCdnUrl(source(html)).input).toBe(storageReference.asset_id)
 })
 
 test('a template image does not inherit the Storage catalog or its public prefixes', async () => {
@@ -155,7 +168,7 @@ test('a template image works without a Storage catalog or upload, using trusted 
     <Image
       workspace="cms-shop"
       template="product-images"
-      src={{ path: 'chairs/oak.jpg', width: 1200, height: 800 }}
+      src={{ ...storageReference, path: 'chairs/oak.jpg', width: 1200, height: 800 }}
       width={480}
       alt="Chair"
     />,

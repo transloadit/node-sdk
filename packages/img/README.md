@@ -74,9 +74,9 @@ Wire `getSession` to your application's session and per-object permissions; it i
 import type { AuthorizeTransloaditImage } from '@transloadit/viewer/next/server'
 import { transloaditStoragePreviewTemplate } from '@transloadit/viewer'
 import { getSession } from './lib/authorization'
-export const authorize: AuthorizeTransloaditImage = async ({ path, request, template }) =>
+export const authorize: AuthorizeTransloaditImage = async ({ asset_id, request, template }) =>
   template === transloaditStoragePreviewTemplate &&
-  (await getSession(request))?.canRead(path) === true
+  asset_id !== undefined && (await getSession(request))?.canReadAsset(asset_id) === true
 ```
 
 ```ts
@@ -100,10 +100,10 @@ Restart `next dev` after adding the authorizer. [Private setup and authorization
 Opt into `errorFallback` to show a delivery failure instead of a broken image. Development adds
 the HEAD result; see the terminal. Non-production login endpoints carry into the catalog.
 [`baseUrl` and `urlParams`, diagnostics and recovery](./docs/reference.md#when-it-breaks).
-Lost metadata? First restore the committed catalog; see [recovery options and API availability](./docs/reference.md#recovery-requires-the-storage-read-api-not-yet-enabled-in-production).
+Lost metadata? Restore the committed catalog or [recover it from Storage](./docs/reference.md#recovery).
 
 ## Reference
 
 [Store an image from your application server](https://github.com/transloadit/node-sdk/blob/main/packages/node/README.md#store-an-image).
 
-[Full reference](./docs/reference.md) · [Cache tags do not pin old bytes](./docs/reference.md#cache-and-markup-cost) · [Maintainer dogfood setup](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md).
+[Full reference](./docs/reference.md) · [Version-pinned delivery](./docs/reference.md#cache-and-markup-cost) · [Maintainer dogfood setup](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md).

@@ -15,13 +15,17 @@ import sharp from 'sharp'
 import { rgbaToThumbHash } from 'thumbhash'
 
 import { seedStorageImage } from './seed.ts'
+import { fixtureStorageIdentity } from './storage-fixtures.ts'
 
 // Real local pixels keep the seed/ThumbHash recipe offline; the devdock canary uses real API2.
 const bytes = await sharp({ create: { width: 1, height: 1, channels: 4, background: '#2d6ea0' } })
   .png()
   .toBuffer()
 const receipt = {
-  asset_id: 'JN6OawlqFmL419U23jUKcg',
+  ...fixtureStorageIdentity('website/photo.png'),
+  mime: 'image/png',
+  width: 1,
+  height: 1,
   md5hash: createHash('md5').update(bytes).digest('hex'),
   meta: { height: 1, width: 1 },
   path: 'website/photo.png',
@@ -62,7 +66,8 @@ test('the package-first path stores and publishes without image init and emits c
     Transloadit.prototype,
     'storeImage',
     async (_file: string, { path }: { path: string }) => ({
-      asset_id: 'fixture-asset',
+      ...fixtureStorageIdentity(path),
+      mime: path.endsWith('.png') ? 'image/png' : 'image/jpeg',
       path,
       size: bytes.length,
       md5hash: receipt.md5hash,
@@ -91,7 +96,7 @@ test('the package-first path stores and publishes without image init and emits c
   assert(declarations.includes("declare module '@transloadit/viewer/next'"))
   assert(
     declarations.includes(
-      '"website/hero.jpg": { path: "website/hero.jpg"; width: 2400; height: 1600; thumbhash?: string; hasAlpha?: boolean }',
+      `"website/hero.jpg": { path: "website/hero.jpg"; workspace: "fixture"; asset_id: "${fixtureStorageIdentity('website/hero.jpg').asset_id}"; version_id: "${fixtureStorageIdentity('website/hero.jpg').version_id}"; width: 2400; height: 1600; thumbhash?: string; hasAlpha?: boolean }`,
     ),
   )
   await assert.rejects(stat('lib/storageImage.ts'), { code: 'ENOENT' })
@@ -138,10 +143,12 @@ test('the packed CLI stores a hashed image once and renders its exact typed path
   const path = `website/hashed-hero.${md5hash.slice(0, 8)}.jpg`
   const stored = {
     ...receipt,
+    ...fixtureStorageIdentity(path),
     path,
     md5hash,
     size: local.length,
-    meta: { width: 2400, height: 1600 },
+    width: 2400,
+    height: 1600,
   }
   await writeFile('hashed-hero.jpg', local)
   const output: string[] = []
@@ -182,7 +189,7 @@ test('the packed CLI stores a hashed image once and renders its exact typed path
   assert.equal(catalog.images[path].path, path)
   assert(
     (await readFile('transloadit-images.d.ts', 'utf8')).includes(
-      `"${path}": { path: "${path}"; width: 2400; height: 1600;`,
+      `"${path}": { path: "${path}"; workspace: "fixture"; asset_id: "${stored.asset_id}"; version_id: "${stored.version_id}"; width: 2400; height: 1600;`,
     ),
   )
   assert(output.join('').includes(`<Image storage src="${path}" alt="hashed hero"`))
@@ -241,10 +248,12 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   // pre-Storage transformation. Only the remote Assembly response is simulated here.
   const stored = {
     ...receipt,
+    ...fixtureStorageIdentity('website/hero.jpg'),
     path: 'website/hero.jpg',
     size: bytes.length + 27,
     md5hash: 'b'.repeat(32),
-    meta: { width: 2400, height: 1600 },
+    width: 2400,
+    height: 1600,
   }
   const response: AssemblyStatus = {
     assembly_id: 'fixture-transformed-upload',
@@ -346,6 +355,9 @@ test('seeds one original and returns verified metadata for rendering without ano
   const image = await seedStorageImage(client, filePath, receipt.path)
   assert.deepEqual(image, {
     asset_id: receipt.asset_id,
+    version_id: receipt.version_id,
+    workspace: receipt.workspace,
+    mime: receipt.mime,
     hasAlpha: true,
     height: 1,
     md5hash: receipt.md5hash,
@@ -357,7 +369,7 @@ test('seeds one original and returns verified metadata for rendering without ano
   const model = createTransloaditImageModel(
     { src: image, expiresAt: Date.UTC(2030, 0, 1) },
     ({ input }) => {
-      assert.equal(input, receipt.path)
+      assert.equal(input, receipt.asset_id)
       return `https://cdn.example/${input}`
     },
   )
@@ -402,7 +414,7 @@ test('orients a phone-photo receipt before generating proportional preview candi
     endpoint: 'http://127.0.0.1:9',
   })
   const path = 'website/rotated.jpg'
-  // Match API2's EXIFTool metadata, including the label in its rotated_8.jpg fixture.
+  // API2 projects the oriented version dimensions; the SDK does not reinterpret EXIF metadata.
   const response: AssemblyStatus = {
     ok: 'ASSEMBLY_COMPLETED',
     results: {
@@ -411,6 +423,8 @@ test('orients a phone-photo receipt before generating proportional preview candi
           ...receipt,
           md5hash: createHash('md5').update(rotated).digest('hex'),
           meta: { width, height, orientation: 'Rotate 90 CW' },
+          width: 600,
+          height: 450,
           path,
           size: rotated.length,
         },
@@ -437,7 +451,17 @@ test('orients a phone-photo receipt before generating proportional preview candi
   assert.deepEqual({ width: info.width, height: info.height }, { width: 320, height: 240 })
 })
 
-for (const missing of ['asset_id', 'path', 'size', 'md5hash', 'meta']) {
+for (const missing of [
+  'workspace',
+  'asset_id',
+  'version_id',
+  'path',
+  'size',
+  'mime',
+  'md5hash',
+  'width',
+  'height',
+]) {
   test(`rejects a seed receipt missing ${missing}`, async (t) => {
     const directory = await mkdtemp(join(tmpdir(), 'img-seed-test-'))
     t.after(() => rm(directory, { recursive: true, force: true }))

@@ -186,15 +186,17 @@ The helper also accepts `signal`, `chunkSize`, `onUploadProgress`, `onAssemblyPr
 existing Assembly `timeout` (upload/polling, not local checksum time). It never accepts replacement
 steps. Overwrite remains opt-in. Use `createAssembly()` for multi-file or transformation workflows.
 
-The resulting JSON contains `asset_id`, `path`, `size`, `md5hash`, `width`, and `height`. Keep it
+The resulting JSON contains `workspace`, `asset_id`, `version_id`, final `path`, `size`, `mime`,
+`md5hash`, `width`, and `height`. Keep it
 alongside your content or in your application's database; rendering needs no metadata request.
 The dimensions account for EXIF orientation, matching Storage preview's automatic rotation:
 a stored 450×600 photo tagged “Rotate 90 CW” returns a 600×450 display size.
-The `asset_id` identifies the stored asset. Pass the whole receipt as `src`; its path and dimensions
-drive rendering. Public URLs carry `v`, a cache-busting tag derived from the receipt hash; the origin
-does not verify it, so a cold request after an overwrite can return the replacement. Use immutable
-filenames instead of overwriting published assets. Receipt IDs and other upload-only fields do not enter markup. The rendering
-package does not import the Assembly client.
+The `asset_id` survives rename; `version_id` selects the exact retained bytes even after overwrite.
+Pass the whole receipt as `src`: its IDs drive delivery, its path bounds application authorization,
+and its dimensions drive layout. Public and signed CDN URLs use the asset ID as input and version
+ID as `v`; they are identities, not credentials. Public historical access follows the asset's current
+location and publication policy. Private capabilities seal both IDs until the route authorizes them.
+The rendering package does not import the Assembly client or look up metadata at render time.
 
 ### Direct devdock origin
 
@@ -220,6 +222,11 @@ explicitly resolve that dependency to the same packed utilities. The release mus
 and the dependent minimum versions together; publishing img against the old minimum is unsafe.
 
 ### Live Storage listing and rendering receipt recovery
+
+Historical evidence below describes the earlier S3 List + HEAD implementation, not the current
+native read contract. Current `storage ls` and `storage receipts sync` use signed `/dam/assets`
+pages with real asset/version IDs, no per-object HEAD and no S3 enablement requirement. Re-run
+against an API2 deployment containing that contract before claiming current live verification.
 
 The historical oriented-receipt canary used API2 `07ec5abc2b71d449a7474391c8eeef4934ef3589`.
 It is stopped while waiting for the public/login revision. Only that internal-only, port-free devdock's

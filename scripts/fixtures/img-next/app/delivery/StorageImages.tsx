@@ -4,6 +4,7 @@ import { authorizeFixtureImage } from '../../browser-policy'
 import { imageConfiguration } from '../imageConfiguration'
 
 export const { Image: DeliveryImage, imageRoute: deliveryRoute } = createImages({
+  images: imageConfiguration.images,
   allowedPathPrefixes: ['documents/'],
   authorize: authorizeFixtureImage,
   basePath: '/fixture',

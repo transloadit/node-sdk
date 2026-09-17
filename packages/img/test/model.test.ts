@@ -1,6 +1,12 @@
 import type { SmartCdnImageSignRequest, TransloaditImageModelOptions } from '../src/index.ts'
 
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
+
+const storageReference = vi.hoisted(() => ({
+  workspace: 'my-app',
+  asset_id: 'A'.repeat(22),
+  version_id: 'B'.repeat(21) + 'A',
+}))
 
 import { createTransloaditImageModel } from '../src/index.ts'
 
@@ -30,7 +36,7 @@ describe('createTransloaditImageModel', () => {
       createTransloaditImageModel(
         {
           expiresAt,
-          src: { path: 'website/banner.jpg', width: 1000, height: 10 },
+          src: { ...storageReference, path: 'website/banner.jpg', width: 1000, height: 10 },
           cropAspectRatio: 0.01,
           widths,
         },
@@ -45,7 +51,7 @@ describe('createTransloaditImageModel', () => {
     createTransloaditImageModel(
       {
         expiresAt,
-        src: { path: 'website/banner.jpg', width: 1000, height: 10 },
+        src: { ...storageReference, path: 'website/banner.jpg', width: 1000, height: 10 },
         cropAspectRatio: 0.1,
         widths: [1, 100],
       },
@@ -67,7 +73,7 @@ describe('createTransloaditImageModel', () => {
     createTransloaditImageModel(
       {
         expiresAt,
-        src: { path: 'website/logo.png', width: 64, height: 64 },
+        src: { ...storageReference, path: 'website/logo.png', width: 64, height: 64 },
         formats: { avif: 45, webp: 75, png: 75 },
         fallbackBackground,
         widths: [32, 64],
@@ -76,7 +82,7 @@ describe('createTransloaditImageModel', () => {
     )
     expect(requests).toHaveLength(7)
     expect(requests.map(({ template }) => template)).toEqual(
-      Array(7).fill('builtin/storage-preview@0.0.2'),
+      Array(7).fill('builtin/storage-preview@0.0.3'),
     )
     expect(requests.slice(0, -1).map(({ urlParams }) => urlParams.bg)).toEqual(
       Array(6).fill('#00000000'),
@@ -100,7 +106,7 @@ describe('createTransloaditImageModel', () => {
       createTransloaditImageModel(
         {
           expiresAt,
-          src: { path: 'website/logo.png', width: 64, height: 64 },
+          src: { ...storageReference, path: 'website/logo.png', width: 64, height: 64 },
           fallbackBackground,
         },
         sign,
@@ -114,7 +120,7 @@ describe('createTransloaditImageModel', () => {
     const model = createTransloaditImageModel(
       {
         expiresAt,
-        src: { path: 'website/hero.jpg', width: 2400, height: 1600 },
+        src: { ...storageReference, path: 'website/hero.jpg', width: 2400, height: 1600 },
         cropAspectRatio: 9 / 16,
         widths: [390, 780, 2400],
         fallbackWidth: 390,
@@ -131,7 +137,7 @@ describe('createTransloaditImageModel', () => {
     const model = createTransloaditImageModel(
       {
         expiresAt,
-        src: { path: 'website/hero.jpg', width: 2400, height: 1600 },
+        src: { ...storageReference, path: 'website/hero.jpg', width: 2400, height: 1600 },
         maximumWidth: 1920,
       },
       sign,
@@ -151,7 +157,7 @@ describe('createTransloaditImageModel', () => {
       createTransloaditImageModel(
         {
           expiresAt,
-          src: { path: 'website/hero.jpg', width: 2400, height: 1600 },
+          src: { ...storageReference, path: 'website/hero.jpg', width: 2400, height: 1600 },
           cropAspectRatio,
         },
         sign,
@@ -165,7 +171,7 @@ describe('createTransloaditImageModel', () => {
     createTransloaditImageModel(
       {
         expiresAt,
-        src: { path: 'website/avatar.jpg', width: 400, height: 400 },
+        src: { ...storageReference, path: 'website/avatar.jpg', width: 400, height: 400 },
         widths: [96, 48],
       },
       sign,
@@ -175,10 +181,10 @@ describe('createTransloaditImageModel', () => {
 
   test('uses receipt geometry without forwarding ancillary receipt fields to signing', () => {
     const src = {
+      ...storageReference,
       path: 'documents/report.pdf',
       width: 400,
       height: 300,
-      asset_id: 'private-id',
       authSecret: 'not-a-signing-option',
     }
     const fromReceipt = collectSignedRequests()
@@ -186,12 +192,12 @@ describe('createTransloaditImageModel', () => {
     const options = { expiresAt, widths: [200, 400] }
     expect(createTransloaditImageModel({ ...options, src }, fromReceipt.sign)).toEqual(
       createTransloaditImageModel(
-        { ...options, src: src.path, width: 400, height: 300 },
+        { ...options, src: { ...storageReference, path: src.path, width: 400, height: 300 } },
         fromString.sign,
       ),
     )
     expect(fromReceipt.requests).toEqual(fromString.requests)
-    expect(JSON.stringify(fromReceipt.requests)).not.toContain('private-id')
+    expect(fromReceipt.requests[0]?.input).toBe(storageReference.asset_id)
     expect(JSON.stringify(fromReceipt.requests)).not.toContain('not-a-signing-option')
   })
 
@@ -202,9 +208,9 @@ describe('createTransloaditImageModel', () => {
         expiresAt,
         fallbackQuality: 68,
         formats: { webp: 61 },
-        height: 300,
-        src: 'documents/report.pdf',
-        width: 400,
+
+        src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
+
         widths: [400, 200],
       },
       sign,
@@ -226,21 +232,45 @@ describe('createTransloaditImageModel', () => {
     expect(requests).toEqual([
       {
         expiresAt,
-        input: 'documents/report.pdf',
-        template: 'builtin/storage-preview@0.0.2',
-        urlParams: { bg: '#00000000', f: 'webp', h: 150, q: 61, r: 'pad', w: 200 },
+        input: storageReference.asset_id,
+        template: 'builtin/storage-preview@0.0.3',
+        urlParams: {
+          v: storageReference.version_id,
+          bg: '#00000000',
+          f: 'webp',
+          h: 150,
+          q: 61,
+          r: 'pad',
+          w: 200,
+        },
       },
       {
         expiresAt,
-        input: 'documents/report.pdf',
-        template: 'builtin/storage-preview@0.0.2',
-        urlParams: { bg: '#00000000', f: 'webp', h: 300, q: 61, r: 'pad', w: 400 },
+        input: storageReference.asset_id,
+        template: 'builtin/storage-preview@0.0.3',
+        urlParams: {
+          v: storageReference.version_id,
+          bg: '#00000000',
+          f: 'webp',
+          h: 300,
+          q: 61,
+          r: 'pad',
+          w: 400,
+        },
       },
       {
         expiresAt,
-        input: 'documents/report.pdf',
-        template: 'builtin/storage-preview@0.0.2',
-        urlParams: { bg: '#ffffff', f: 'jpg', h: 300, q: 68, r: 'pad', w: 400 },
+        input: storageReference.asset_id,
+        template: 'builtin/storage-preview@0.0.3',
+        urlParams: {
+          v: storageReference.version_id,
+          bg: '#ffffff',
+          f: 'jpg',
+          h: 300,
+          q: 68,
+          r: 'pad',
+          w: 400,
+        },
       },
     ])
   })
@@ -270,9 +300,8 @@ describe('createTransloaditImageModel', () => {
       {
         expiresAt,
         formats: { webp: 75 },
-        height: 300,
-        src: 'documents/report.pdf',
-        width: 400,
+
+        src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
       },
       sign,
     )
@@ -287,9 +316,9 @@ describe('createTransloaditImageModel', () => {
       {
         expiresAt,
         formats: { webp: 61 },
-        height: 300,
-        src: 'documents/report.pdf',
-        width: 400,
+
+        src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
+
         widths: [200, 800],
       },
       sign,
@@ -297,6 +326,7 @@ describe('createTransloaditImageModel', () => {
 
     expect(model.sources[0]?.candidates.map(({ width }) => width)).toEqual([200, 400])
     expect(requests.at(-1)?.urlParams).toEqual({
+      v: storageReference.version_id,
       bg: '#ffffff',
       f: 'jpg',
       h: 300,
@@ -314,9 +344,9 @@ describe('createTransloaditImageModel', () => {
         {
           expiresAt,
           fallbackQuality: 0,
-          height: 300,
-          src: 'documents/report.pdf',
-          width: 400,
+
+          src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
+
           widths: [200, 400],
         },
         sign,
@@ -331,9 +361,9 @@ describe('createTransloaditImageModel', () => {
       {
         expiresAt,
         formats: { webp: 70, avif: 40 },
-        height: 1200,
-        src: 'portraits/report.pdf',
-        width: 400,
+
+        src: { ...storageReference, path: 'portraits/report.pdf', width: 400, height: 1200 },
+
         widths: [8000],
       },
       sign,
@@ -345,6 +375,7 @@ describe('createTransloaditImageModel', () => {
     )
     expect(requests.slice(0, -1).every(({ urlParams }) => urlParams.h === 1200)).toBe(true)
     expect(requests.at(-1)?.urlParams).toEqual({
+      v: storageReference.version_id,
       bg: '#ffffff',
       f: 'jpg',
       h: 1200,
@@ -417,19 +448,22 @@ describe('createTransloaditImageModel', () => {
     let srcReads = 0
     const options = {
       expiresAt,
-      height: 300,
       get src() {
         srcReads += 1
-        return srcReads === 1 ? 'documents/report.pdf' : 'private/secret.pdf'
+        return {
+          ...storageReference,
+          path: srcReads === 1 ? 'documents/report.pdf' : 'private/secret.pdf',
+          width: 400,
+          height: 300,
+        }
       },
-      width: 400,
       widths: [400],
     } satisfies TransloaditImageModelOptions
 
     createTransloaditImageModel(options, sign)
 
     expect(srcReads).toBe(1)
-    expect(requests.every(({ input }) => input === 'documents/report.pdf')).toBe(true)
+    expect(requests.every(({ input }) => input === storageReference.asset_id)).toBe(true)
   })
 
   test('treats percent escapes as literal catalog key bytes', () => {
@@ -438,15 +472,15 @@ describe('createTransloaditImageModel', () => {
     createTransloaditImageModel(
       {
         expiresAt,
-        height: 300,
-        src: 'documents/%2e%2e/report.pdf',
-        width: 400,
+
+        src: { ...storageReference, path: 'documents/%2e%2e/report.pdf', width: 400, height: 300 },
+
         widths: [400],
       },
       sign,
     )
 
-    expect(requests.every(({ input }) => input === 'documents/%2e%2e/report.pdf')).toBe(true)
+    expect(requests.every(({ input }) => input === storageReference.asset_id)).toBe(true)
   })
 
   test('rejects a seconds-based expiry before signing', () => {
@@ -456,9 +490,9 @@ describe('createTransloaditImageModel', () => {
       createTransloaditImageModel(
         {
           expiresAt: 1_893_456_000,
-          height: 300,
-          src: 'documents/report.pdf',
-          width: 400,
+
+          src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
+
           widths: [400],
         },
         sign,

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { fixtureStorageIdentity } from '../../storage-fixtures'
 import { BrowserImage } from './BrowserImage'
 
 export default function Page(): ReactNode {
@@ -11,7 +12,12 @@ export default function Page(): ReactNode {
         preload
         layout="constrained"
         width={960}
-        src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+        src={{
+          ...fixtureStorageIdentity('documents/hero.jpg'),
+          path: 'documents/hero.jpg',
+          width: 2400,
+          height: 1600,
+        }}
       />
       <p>After the hero</p>
       <BrowserImage
@@ -20,7 +26,12 @@ export default function Page(): ReactNode {
         width={48}
         height={48}
         fit="cover"
-        src={{ path: 'documents/avatar.jpg', width: 400, height: 300 }}
+        src={{
+          ...fixtureStorageIdentity('documents/avatar.jpg'),
+          path: 'documents/avatar.jpg',
+          width: 400,
+          height: 300,
+        }}
       />
       <p>After the avatar</p>
       <section style={{ marginTop: 10_000 }}>

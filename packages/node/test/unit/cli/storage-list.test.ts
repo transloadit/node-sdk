@@ -2,11 +2,13 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { signParamsSync } from '@transloadit/utils/node'
 import nock from 'nock'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
+import { storagePage, storedAsset } from './storage-fixtures.ts'
 
 const originalCwd = process.cwd()
 const stdoutListeners = process.stdout.listeners('error')
@@ -48,9 +50,11 @@ afterEach(async () => {
   await rm(directory, { force: true, recursive: true })
 })
 
-test('listing help explains that ETags require JSON output', async () => {
+test('listing help explains the available asset and version identities', async () => {
   await main(['storage', 'ls', '--help'])
-  expect(process.stdout.write).toHaveBeenCalledWith(expect.stringContaining('ETags with --json'))
+  expect(process.stdout.write).toHaveBeenCalledWith(
+    expect.stringContaining('asset/version identities'),
+  )
 })
 
 test.each([
@@ -65,18 +69,20 @@ test.each([
     'credentials',
     'TRANSLOADIT_KEY=local-key\nTRANSLOADIT_SECRET=local-secret\nTRANSLOADIT_ENDPOINT=http://saved.invalid\n',
   )
-  const intended = nock(endpoint ?? 'http://saved.invalid', {
-    reqheaders: {
-      authorization: (value: string) => value.startsWith('AWS4-HMAC-SHA256 Credential=local-key/'),
-    },
-  })
-    .get('/storage/my-app/')
-    .query(true)
-    .reply(200, '<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>')
+  const intended = nock(endpoint ?? 'http://saved.invalid')
+    .get('/dam/assets')
+    .query((query) => {
+      if (typeof query.params !== 'string') return false
+      expect(JSON.parse(query.params)).toMatchObject({ auth: { key: 'local-key' } })
+      expect(query.signature).toBe(signParamsSync(query.params, 'local-secret'))
+      return true
+    })
+    .twice()
+    .reply(200, storagePage())
   const unrelated = nock('http://token.invalid')
-    .get('/storage/my-app/')
+    .get('/dam/assets')
     .query(true)
-    .reply(403, '<Error><Code>AccessDenied</Code></Error>')
+    .reply(403, { error: 'INSUFFICIENT_AUTH_SCOPE' })
   await main([
     'storage',
     'ls',
@@ -91,19 +97,19 @@ test.each([
 })
 
 test.each([
-  '<ListAllMyBucketsResult/>',
-  '<ListAllMyBucketsResult><Buckets/></ListAllMyBucketsResult>',
-  '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket><Bucket><Name>other-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-])('refuses incomplete or ambiguous workspace discovery even with an override: %s', async (body) => {
+  { ...storagePage(), workspace: undefined },
+  { ...storagePage(), workspace: '' },
+  storagePage([storedAsset({ workspace: 'other-app' })]),
+])('refuses incomplete or inconsistent workspace discovery even with an override: %j', async (body) => {
   await writeFile(
     'transloadit.images.json',
     JSON.stringify({ workspace: 'my-app', public: [], images: {} }),
   )
-  const discovery = nock('http://storage.invalid').get('/storage/').query(true).reply(200, body)
+  const discovery = nock('http://storage.invalid').get('/dam/assets').query(true).reply(200, body)
   const listing = nock('http://storage.invalid')
-    .get('/storage/my-app/')
+    .get('/dam/assets')
     .query(true)
-    .reply(200, '<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>')
+    .reply(200, storagePage())
   await main([
     'storage',
     'ls',
@@ -116,38 +122,25 @@ test.each([
   expect(discovery.isDone()).toBe(true)
   expect(listing.isDone()).toBe(false)
   expect(process.exitCode).toBe(1)
-  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-    'Expected one workspace from Storage discovery; verify the endpoint and Auth Key.',
-  )
+  expect(OutputCtl.prototype.print).not.toHaveBeenCalled()
 })
 
-test('lists the key workspace and follows signed S3 continuation tokens without an Assembly', async () => {
-  const api = nock('http://storage.invalid', {
-    reqheaders: {
-      authorization: (value: string) => value.startsWith('AWS4-HMAC-SHA256 Credential=local-key/'),
-    },
-  })
-    .get('/storage/')
+test('lists the key workspace and follows signed catalog cursors without an Assembly', async () => {
+  const first = storedAsset()
+  const second = storedAsset({ asset_id: 'C'.repeat(21) + 'A', path: 'website/b.jpg', size: 456 })
+  const api = nock('http://storage.invalid')
+    .get('/dam/assets')
     .query(true)
-    .reply(
-      200,
-      '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-    )
-    .get('/storage/my-app/')
-    .query(
-      (query) =>
-        query.prefix === 'website/' && query['list-type'] === '2' && !query['continuation-token'],
-    )
-    .reply(
-      200,
-      '<ListBucketResult><IsTruncated>true</IsTruncated><NextContinuationToken>next-page</NextContinuationToken><Contents><Key>website/a.jpg</Key><Size>123</Size><ETag>"hash-a"</ETag></Contents></ListBucketResult>',
-    )
-    .get('/storage/my-app/')
-    .query((query) => query.prefix === 'website/' && query['continuation-token'] === 'next-page')
-    .reply(
-      200,
-      '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/b.jpg</Key><Size>456</Size></Contents></ListBucketResult>',
-    )
+    .reply(200, storagePage())
+    .get('/dam/assets')
+    .query((query) => {
+      const params = JSON.parse(String(query.params))
+      return params.prefix === 'website/' && params.limit === 500 && params.cursor === undefined
+    })
+    .reply(200, storagePage([first], { next_cursor: first.path }))
+    .get('/dam/assets')
+    .query((query) => JSON.parse(String(query.params)).cursor === first.path)
+    .reply(200, storagePage([second]))
   await main(['storage', 'ls', 'website/', '--endpoint', 'http://storage.invalid'])
   expect(
     process.exitCode,
@@ -155,16 +148,19 @@ test('lists the key workspace and follows signed S3 continuation tokens without 
   ).toBeUndefined()
   expect(api.isDone()).toBe(true)
   expect(OutputCtl.prototype.print).toHaveBeenCalledWith(expect.stringContaining('website/a.jpg'), [
-    { path: 'website/a.jpg', size: 123, etag: '"hash-a"' },
-    { path: 'website/b.jpg', size: 456 },
+    first,
+    second,
   ])
 })
 
-test('rejects a truncated listing with a missing cursor instead of silently showing partial data', async () => {
+test('rejects a cursor inconsistent with its page instead of silently showing partial data', async () => {
   const api = nock('http://storage.invalid')
-    .get('/storage/my-app/')
+    .get('/dam/assets')
     .query(true)
-    .reply(200, '<ListBucketResult><IsTruncated>true</IsTruncated></ListBucketResult>')
+    .reply(200, storagePage())
+    .get('/dam/assets')
+    .query(true)
+    .reply(200, storagePage([storedAsset()], { next_cursor: 'wrong-path' }))
   await main([
     'storage',
     'ls',
@@ -182,9 +178,9 @@ test('rejects a truncated listing with a missing cursor instead of silently show
 
 test('sanitizes remote list errors without exposing signed requests', async () => {
   const api = nock('http://storage.invalid')
-    .get('/storage/my-app/')
+    .get('/dam/assets')
     .query(true)
-    .reply(403, '<Error><Code>AccessDenied</Code><Message>secret-remote-message</Message></Error>')
+    .reply(403, { error: 'INSUFFICIENT_AUTH_SCOPE', message: 'secret-remote-message' })
   await main([
     'storage',
     'ls',
@@ -197,6 +193,6 @@ test('sanitizes remote list errors without exposing signed requests', async () =
   expect(api.isDone()).toBe(true)
   expect(process.exitCode).toBe(1)
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-    'Storage listing failed (HTTP 403). The Storage S3 read API at http://storage.invalid/storage is not enabled or access is denied; HTTP 403 cannot distinguish the two. Check the endpoint, workspace and Auth Key read or dam:write scope.',
+    'Storage listing failed (HTTP 403). Check the Storage API at http://storage.invalid and the Auth Key dam:read or dam:write scope.',
   )
 })

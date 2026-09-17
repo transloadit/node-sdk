@@ -394,7 +394,7 @@ declares the destination directory after checkpointing the upload. It prints the
 current-and-future publication boundary before changing it. If publication fails, the receipt
 remains saved: retry with `storage publish website/`, not another upload. A root object cannot be
 published with --public. Plain `storage store` never changes access policy.
-`--dry-run` only lists current matching objects through the S3 read API; it never publishes or
+`--dry-run` only lists current matching objects through the native catalog API; it never publishes or
 changes the local catalog. Future objects under that prefix would also be public after publication.
 Unpublishing stops uncached origin access. Cached or downloaded bytes cannot be recalled.
 
@@ -583,7 +583,7 @@ Ordinary production delivery needs neither override and uses the workspace's Sma
 
 ## Redirect lifetime and caching
 
-Redirect capabilities hide filenames and bind one path and transformation. Authorization must
+Redirect capabilities hide filenames and bind one asset/version, receipt path and transformation. Authorization must
 return exactly `true`. The handler responds with a fresh signed CDN URL in a `307`; no image bytes
 pass through the app. By default each candidate load makes one app function invocation for
 authorization and redirect — normally one per image per page view, more on candidate changes.
@@ -601,9 +601,9 @@ remain `no-store`. Cached redirects may grant access without a new app check unt
 CDN URLs already issued remain usable until their own expiry; downloaded bytes cannot be recalled.
 
 After a directory is published, old private capabilities can redirect to its unsigned public URL.
-These compatibility redirects share-cache for at most one minute: their request URL has no receipt
-hash, so a longer cache could retain an old cache-tagged target after an overwrite and catalog refresh.
-New public markup uses direct cache-tagged CDN URLs and does not take this compatibility route.
+These compatibility redirects share-cache for at most one minute, bounding the lifetime of the
+cached public-policy decision. The capability still selects its original retained version.
+New public markup uses direct version-pinned CDN URLs and does not take this compatibility route.
 Renditions beyond the public Built-in's dimension or quality limits require application authorization
 and keep their compatible signed delivery and private redirect caching; publishing does not silently
 resize existing markup.
@@ -620,8 +620,10 @@ keep all fields because their defaults are unknown; `cdn` is sent only when deli
 sets it. This deliberately changes cache keys during unpublished dogfood. Markup overhead is not
 transferred image bytes; compression and full-page RSC data vary. Private expiry/signature rotation
 creates new cache entries (30 minutes by default).
-Public URLs have no signature or expiry. They are cache-busted, not immutable origin identities:
-an old uncached URL can fetch new bytes after a path overwrite. Prefer immutable filenames:
+Public URLs have no signature or expiry. Storage receipts pin an `asset_id` and `version_id`:
+even a cold request after an overwrite reads that exact retained version, never the replacement.
+Renaming the asset does not change its identity. Deletion or version removal fails closed; there
+is no fallback to the current path. Hashed filenames remain useful for repository organization:
 `storage store ./hero.jpg website/ --hashed` inserts the first eight hex digits of the input MD5
 before the extension, for example `website/hero.fce9d56a.jpg`. The catalog key, generated types and
 printed JSX use that name; the receipt's `source` keeps the original local filename for humans.
@@ -633,12 +635,13 @@ Commit the catalog: without that evidence the CLI cannot
 prove a remote conflict is the same object. Restore the receipt or choose another basename; a
 short-hash collision is never overwritten. Changed bytes get a new name, so `--overwrite` is not
 needed and cannot be combined with `--hashed`. Do not modify the input while uploading.
-The `v` tag is then belt-and-braces; hashed naming does not change the origin's versioning contract.
-`v` is a cache-busting tag derived from the receipt hash; the origin does not verify it, so a cold
-request after an overwrite can return the replacement. With a receipt MD5 it uses the first 16 hex digits and
-responses use `public, max-age=31536000, s-maxage=31536000, immutable`. Changed bytes plus a refreshed
-catalog change the cache key. Without an MD5, no cache tag is invented: the public Built-in uses its
-ordinary three-day browser/one-day shared cache policy. Production Bunny cache hits/cost are a
+The URL input is the asset ID; `v` is its actual version ID, not a digest or arbitrary cache tag.
+Public version-pinned responses use `public, max-age=31536000, s-maxage=31536000, immutable`.
+Both IDs are required even when no checksum is available. Refreshing a catalog selects the current
+version for new markup; previously minted URLs still select their original retained bytes.
+Public access is checked against the asset's current location and current public-prefix policy.
+Moving it into a private directory stops uncached public delivery, including historical versions;
+already-cached or downloaded bytes cannot be recalled. Production Bunny cache hits/cost remain a
 separate deployment check, not something the local browser fixture establishes.
 
 ### Direct delivery for request-authorized galleries
@@ -674,6 +677,13 @@ There are no `previousTemplates` options or time-window chores for consumers. Th
 factory consolidation requires a one-time consumer update/rebuild; it is not a compatibility
 promise for earlier experimental exports.
 
+The asset/version contract bumps private capabilities to payload version 2: they seal both IDs
+alongside the authorization path. Rebuild old markup once during this migration and recover old
+path-only catalogs with `storage receipts sync`. Later compatible Built-in pipeline upgrades do not
+change the sealed asset/version. For private applications that rename assets, authorize using the
+provided `asset_id` and `version_id`; the path is the receipt's location when markup was rendered,
+not a fresh catalog lookup. Custom Templates retain their path input contract.
+
 An explicitly configured `template` is bound to the capability. Coordinate custom Template changes
 with a cached-markup rebuild. Payload-contract changes also require a capability-version bump and
 rebuild; ordinary Built-in updates do not. Rotating the signing secret invalidates existing
@@ -688,8 +698,8 @@ a catalog or prefix is not an authorization decision. `authorize` adds `imageRou
 
 ### Format, width and lifetime policy
 
-Private delivery pins `builtin/storage-preview@0.0.2`; public delivery pins
-`builtin/public-preview@0.0.1`, which wraps `builtin/storage-preview@0.0.2`: the public URL pins
+Private delivery pins `builtin/storage-preview@0.0.3`; public delivery pins
+`builtin/public-preview@0.0.2`, which wraps `builtin/storage-preview@0.0.3`: the public URL pins
 its transformation pipeline version too. AVIF quality 45 and WebP quality
 75 precede a JPEG quality 75 fallback. Formats use separate URLs, not unkeyed Accept negotiation.
 Candidate widths follow 320, 640, 960, 1280, 1920, 2560, 3840 plus intrinsic width, bounded by the
@@ -761,7 +771,7 @@ filename-derived alt; replace it with an accurate description, or an empty alt f
 
 The CLI atomically appends to the catalog's `images` object keyed by Storage path, preserving earlier receipts
 on failure. Parent directories must exist. A sibling lock prevents concurrent writers from losing
-each other's records. Ctrl-C cancels active uploads and S3 reads, releases the lock, and checkpoints
+each other's records. Ctrl-C cancels active uploads and catalog reads, releases the lock, and checkpoints
 any receipt that already returned before stopping. An accepted Assembly may still finish remotely:
 check Storage or sync receipts before retrying a write. A forced exit or crash can leave a lock;
 remove it only after confirming the writer has stopped.
@@ -770,32 +780,30 @@ The credentials file remains private (`0600`).
 Receipt validation occurs after the Storage write, not as a rollback. Do not re-upload or use
 `--overwrite` to fix missing metadata. Existing paths conflict by default.
 `storage store --overwrite` explicitly replaces an occupied path; it is never the default. Prefer
-[hashed immutable filenames](#cache-and-markup-cost) because delivery resolves paths, not receipt
-hashes, and cached bytes can outlive an overwrite. On older deployments that transform uploaded
+[hashed filenames](#cache-and-markup-cost) for repository organization; delivery pins the actual
+asset version, and cached bytes can outlive deletion or revocation. On older deployments that transform uploaded
 bytes, the CLI still saves the authoritative receipt; a differing checksum makes a hashed replay
 fail without uploading or replacing anything. Restoring that same transformed receipt cannot fix
 the mismatch. Choose a fresh destination basename; hashed replay requires an origin that preserves
 the uploaded bytes. The same refusal protects against a short-hash collision.
 
-### Recovery (requires the Storage read API, not yet enabled in production)
+### Recovery
 
 If no usable receipt comes back, inspect with `storage ls` and recover with `storage receipts sync`,
-using the same catalog. Until this API is enabled, restore the committed catalog or use the
+using the same catalog. These commands require the native catalog API deployment; until then,
+restore the committed catalog or use the
 [Assembly receipt recovery API](#images-uploaded-by-your-users) with trusted upload metadata.
 
-`storage ls` and `storage receipts sync` require the S3 read API, currently off in production until
-`API2_STORAGE_S3_ENABLED` is deployed. HTTP 403 cannot distinguish a disabled API from denied access;
-check the endpoint and key scope before retrying.
-
-`storage ls website/` lists the current workspace using its Auth Key with `read` or `dam:write` scope and the existing
-S3-compatible read API, without an Assembly. `--workspace` overrides automatic workspace discovery.
-S3 allows 30 seconds to receive headers and at most two attempts per request. A 60-second deadline
-also covers retries and response-body reads; failed syncs release the catalog lock and leave the
-existing catalog intact.
+`storage ls website/` reads `GET /dam/assets` with an Auth Key scoped to `dam:read` or `dam:write`.
+It uses signed native metadata pages of at most 500 entries, without S3, per-file HEAD requests or
+Assemblies. `--workspace` must match the Workspace discovered from those credentials. An empty
+catalog still identifies its Workspace. Each request has a 60-second deadline covering headers
+and response-body reads; there are no implicit retries. Failed syncs release the catalog lock and
+leave the existing catalog intact. `--json` includes asset/version IDs and available checksums.
 It uses the endpoint saved with those key credentials; `--endpoint` is an explicit trusted override
 and accepts the API origin, not a bucket URL. The rendering factory's `baseUrl` is unrelated.
-The Storage S3 API must be enabled separately: successful Assembly-based storage or image delivery
-does not imply that listing is enabled. A disabled S3 API returns HTTP 403, even with valid credentials.
+These native reads do not depend on `API2_STORAGE_S3_ENABLED`. A missing route means the selected
+API deployment is too old; HTTP 403 means access was refused. Check the endpoint and key scope.
 
 Recover or refresh a rendering catalog without re-uploading or downloading originals:
 
@@ -803,25 +811,22 @@ Recover or refresh a rendering catalog without re-uploading or downloading origi
 npx transloadit storage receipts sync website/
 ```
 
-This uses paginated List + HEAD with the same `read` or `dam:write` credentials, `--workspace` and
+This uses native catalog pages with the same `dam:read` or `dam:write` credentials, `--workspace` and
 `--endpoint` options as `storage ls`. Sync also reads `GET /storage/public_prefixes` with `dam:write`
 scope and commits server-declared public policy and receipts atomically. If policy cannot be read,
 recovery fails without changing the existing file. Folder names never imply public access.
 An empty server policy is recovered as `public: []`, not silently republished. For intentionally
 public images run `storage publish` on the intended directory; otherwise configure `authorize`
 for private delivery. The CLI and factory explain this missing delivery choice.
-HEAD's `x-amz-meta-dam-width` and `x-amz-meta-dam-height`
-rebuild `{ path, width, height }`, which can be passed directly as `Image`'s `src`.
-`md5hash` is included only for compatible single-part ETags; multipart, opaque and SSE-KMS/SSE-C
-ETags are not treated as MD5. See [S3's ETag contract](https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html).
-HEAD does not expose `asset_id`: sync recovers rendering metadata, not a verified upload receipt.
-Sync preserves an existing `asset_id`, `size`, `source`, `apiOrigin`, `thumbhash` and `hasAlpha` only when the HEAD MD5 matches
-the saved hash. A fresh sync has no original bytes and cannot reconstruct ThumbHash or alpha metadata.
-It cannot generate a ThumbHash from List + HEAD; fresh recovered receipts leave that field absent.
-Otherwise it replaces that entry with rendering metadata, so stale upload evidence is not retained.
+The server returns the same canonical shape as storing: `workspace`, `asset_id`, `version_id`,
+final `path`, `size`, `mime`, available `md5hash`/`sha256`, and version-specific `width`/`height`.
+Sync recovers real version identities, not a path-only approximation. Local `source`, `apiOrigin`,
+`thumbhash` and `hasAlpha` survive only for the same Workspace, asset and retained version.
+A fresh sync has no original bytes and cannot reconstruct ThumbHash or alpha metadata; those
+optional fields remain absent. Changed versions drop stale local evidence even if their MD5 matches.
 
 Sync adds or refreshes matching paths and never prunes unmatched entries. Any missing/invalid
-dimensions, failed HEAD or incomplete listing leaves the existing file intact; a failed atomic
+dimensions, failed page or incomplete listing leaves the existing file intact; a failed atomic
 replacement retains the complete temporary catalog for recovery. Choose an image-only prefix;
 older objects without dimensions need a catalog backfill. Storage records EXIF-oriented display
 dimensions for new image uploads, so sync matches `storeImage` receipts for rotated photos too.
@@ -895,8 +900,8 @@ export const { Image, imageRoute } = createImages({
   workspace: 'your-workspace',
   allowedPathPrefixes: ['uploads/'],
   route: '/api/upload-images',
-  authorize: async ({ path, request }) =>
-    (await getSession(request))?.canRead(path) === true,
+  authorize: async ({ asset_id, request }) =>
+    asset_id !== undefined && (await getSession(request))?.canReadAsset(asset_id) === true,
 })
 ```
 
@@ -905,9 +910,9 @@ export const { Image, imageRoute } = createImages({
 export { imageRoute as GET, imageRoute as HEAD } from '../../upload-images'
 ```
 
-`getSession`, `canRead` and `getAuthorizedImage` below are your application's helpers, not SDK helpers.
-`canRead(path)` must check the current user's permission for that exact stored object, not merely
-whether they are logged in or the path starts with `uploads/`. Keep `uploads/` private; do not publish
+`getSession`, `canReadAsset` and `getAuthorizedImage` below are your application's helpers, not SDK helpers.
+`canReadAsset(asset_id)` checks the current user's permission for that stable asset identity,
+including after a rename. Being logged in or matching `uploads/` is insufficient. Keep `uploads/` private; do not publish
 it or allow the workspace root. This route has its own path so it can coexist with the Quickstart route.
 
 Read the saved receipt in an authorized Server Component and import this factory's component, not
@@ -931,10 +936,10 @@ export default async function Page({ params }: PageProps): Promise<ReactNode> {
 }
 ```
 
-`savedImage` is the application's validated database record; owner and asset IDs are never forwarded.
-A public receipt's `v` is a cache-busting tag derived from the receipt hash; the origin does not
-verify it, so a cold request after an overwrite can return the replacement. Private signing omits
-the tag. Prefer immutable filenames; see [upload/overwrite guidance](#receipt-integrity-and-recovery).
+`savedImage` is the application's validated database record. Owner metadata is never forwarded;
+asset/version IDs identify the bytes in public and signed CDN URLs. IDs are not credentials.
+Private redirect capabilities seal the reference until the route authorizes it. See
+[upload/overwrite guidance](#receipt-integrity-and-recovery) for pinning and recovery.
 The browser never needs the Assembly secret, Smart CDN secret, or a render-time metadata lookup.
 
 ### Credentials and framework adapters

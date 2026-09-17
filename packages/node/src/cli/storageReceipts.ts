@@ -6,6 +6,7 @@ import { basename, dirname, join } from 'node:path'
 
 import { z } from 'zod'
 
+import { storedAssetSchema } from '../alphalib/types/storageAsset.ts'
 import { normalizeStoragePublicPrefix } from '../storagePublicPrefixes.ts'
 import { ensureError, isErrnoException } from './types.ts'
 
@@ -50,7 +51,7 @@ export function storageCatalogDelivery(endpoint?: string): StorageProjectCatalog
   return { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } }
 }
 
-const dimensionsSchema = z.object({
+const imageReceiptSchema = storedAssetSchema.extend({
   width: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   height: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
 })
@@ -68,13 +69,12 @@ function catalogTypes(catalog: StorageProjectCatalog): string {
   const properties = Object.entries(catalog.images)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .flatMap(([path, receipt]) => {
-      const dimensions = dimensionsSchema.safeParse(receipt)
-      // Recovery preserves unmatched legacy records verbatim; only complete image geometry
-      // participates in the generated type catalog. The renderer still validates every source.
+      const dimensions = imageReceiptSchema.safeParse(receipt)
+      // Legacy entries remain on disk, but require native recovery before they are usable sources.
       if (!dimensions.success) return []
-      const { width, height } = dimensions.data
+      const { width, height, asset_id, version_id, workspace } = dimensions.data
       const name = JSON.stringify(path)
-      return `    ${name}: { path: ${name}; width: ${width}; height: ${height}; thumbhash?: string; hasAlpha?: boolean }`
+      return `    ${name}: { path: ${name}; workspace: ${JSON.stringify(workspace)}; asset_id: ${JSON.stringify(asset_id)}; version_id: ${JSON.stringify(version_id)}; width: ${width}; height: ${height}; thumbhash?: string; hasAlpha?: boolean }`
     })
   return [
     typesHeader,

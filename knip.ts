@@ -74,7 +74,6 @@ const config: KnipConfig = {
       ignore: [...sharedIgnore, alphalibIgnore],
       ignoreDependencies: [
         // Used by generated compatibility package sources that are absent in fresh CI checkouts.
-        '@aws-sdk/client-s3',
         '@transloadit/sev-logger',
         '@transloadit/utils',
         'cacheable-lookup',

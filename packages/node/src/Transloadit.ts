@@ -15,6 +15,12 @@ import type {
   AssemblyStatus,
 } from './alphalib/types/assemblyStatus.ts'
 import type {
+  GetStoredAssetOptions,
+  ListStoredAssetsOptions,
+  StoredAsset,
+  StoredAssetsPage,
+} from './alphalib/types/storageAsset.ts'
+import type {
   BaseResponse,
   BillResponse,
   CreateAssemblyParams,
@@ -72,6 +78,13 @@ import { z } from 'zod'
 import packageJson from '../package.json' with { type: 'json' }
 import { ApiError } from './ApiError.ts'
 import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/assemblyStatus.ts'
+import {
+  damAssetFoundResponseSchema,
+  damAssetGetOptionsSchema,
+  damAssetsListedResponseSchema,
+  damAssetsListOptionsSchema,
+  damIdSchema,
+} from './alphalib/types/storageAsset.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import { mintBearerTokenWithCredentials } from './bearerToken.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
@@ -96,6 +109,12 @@ export type {
 } from '@transloadit/utils'
 
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
+export type {
+  GetStoredAssetOptions,
+  ListStoredAssetsOptions,
+  StoredAsset,
+  StoredAssetsPage,
+} from './alphalib/types/storageAsset.ts'
 export type {
   Base64Strategy,
   InputFile,
@@ -497,6 +516,51 @@ export class Transloadit {
   /** Reconstructs a verified receipt from authoritative Assembly status and trusted upload facts. */
   getStoredImageReceipt(options: GetStoredImageReceiptOptions): Promise<StoredImageReceipt> {
     return getStoredImageReceipt(this, options)
+  }
+
+  /** Reads a live asset's current version, or the exact retained version when version_id is set. */
+  async getStoredAsset(
+    assetId: string,
+    options: GetStoredAssetOptions & { signal?: AbortSignal } = {},
+  ): Promise<StoredAsset> {
+    const id = damIdSchema.parse(assetId)
+    const params = damAssetGetOptionsSchema.parse(options)
+    const result = await this._remoteJson<unknown, OptionalAuthParams & GetStoredAssetOptions>({
+      urlSuffix: `/dam/assets/${id}`,
+      method: 'get',
+      params,
+      signal: options.signal,
+    })
+    checkResult(result)
+    const { asset } = damAssetFoundResponseSchema.parse(result)
+    if (
+      asset.asset_id !== id ||
+      (params.version_id !== undefined && asset.version_id !== params.version_id)
+    ) {
+      throw new InconsistentResponseError(
+        'The response did not match the requested Storage reference',
+      )
+    }
+    return asset
+  }
+
+  /** Reads one bounded catalog page without S3 credentials or a HEAD request per object. */
+  async listStoredAssets(
+    options: ListStoredAssetsOptions & { signal?: AbortSignal } = {},
+  ): Promise<StoredAssetsPage> {
+    const params = damAssetsListOptionsSchema.parse(options)
+    const result = await this._remoteJson<unknown, OptionalAuthParams & ListStoredAssetsOptions>({
+      urlSuffix: '/dam/assets',
+      method: 'get',
+      params,
+      signal: options.signal,
+    })
+    checkResult(result)
+    const page = damAssetsListedResponseSchema.parse(result)
+    if (page.assets.some((asset) => asset.workspace !== page.workspace)) {
+      throw new InconsistentResponseError('Storage catalog page contains a different Workspace')
+    }
+    return page
   }
 
   /**

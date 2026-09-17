@@ -12,7 +12,7 @@ export function getSmartCdnImageLimits(template: string): {
   maxQuality: number
 } {
   // Do not assume customer Templates or future Built-in versions share this public contract.
-  return template === 'builtin/public-preview@0.0.1'
+  return template === 'builtin/public-preview@0.0.1' || template === 'builtin/public-preview@0.0.2'
     ? { maxDimension: 4096, maxQuality: 85 }
     : { maxDimension: smartCdnImageMaxDimension, maxQuality: 100 }
 }

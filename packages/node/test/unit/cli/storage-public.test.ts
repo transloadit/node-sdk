@@ -10,6 +10,7 @@ import { resolveCliConfig } from '../../../src/cli/helpers.ts'
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
+import { storagePage, storedAsset } from './storage-fixtures.ts'
 
 const origin = 'http://127.0.0.1:3020'
 const originalCwd = process.cwd()
@@ -77,18 +78,12 @@ test('publish dry run lists matching objects without publishing or touching the 
   const previous = '{"workspace":"my-app","public":[],"images":{}}\n'
   await writeFile('transloadit.images.json', previous)
   const api = nock(origin)
-    .get('/storage/')
+    .get('/dam/assets')
     .query(true)
-    .reply(
-      200,
-      '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-    )
-    .get('/storage/my-app/')
-    .query((query) => query.prefix === 'website/')
-    .reply(
-      200,
-      '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/hero.jpg</Key><Size>123</Size></Contents></ListBucketResult>',
-    )
+    .reply(200, storagePage([], { workspace: 'my-app' }))
+    .get('/dam/assets')
+    .query((query) => JSON.parse(String(query.params)).prefix === 'website/')
+    .reply(200, storagePage([storedAsset({ path: 'website/hero.jpg' })]))
   const publish = vi.spyOn(Transloadit.prototype, 'publishStoragePrefix')
   await main(['storage', 'publish', 'website/', '--dry-run'])
   expect(process.exitCode).toBeUndefined()
@@ -169,12 +164,9 @@ test.each([
   const catalog = { workspace: 'my-app', public: ['website/'], images: {} }
   await writeFile('transloadit.images.json', JSON.stringify(catalog))
   const discovery = nock(origin)
-    .get('/storage/')
+    .get('/dam/assets')
     .query(true)
-    .reply(
-      200,
-      '<ListAllMyBucketsResult><Buckets><Bucket><Name>other-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-    )
+    .reply(200, storagePage([], { workspace: 'other-app' }))
   const publication = nock(origin).post('/storage/public_prefixes').reply(200, declared)
   const revocation = nock(origin).delete('/storage/public_prefixes').reply(200, {
     ok: 'STORAGE_PUBLIC_PREFIX_REVOKED',
@@ -226,12 +218,9 @@ test('revalidates the saved workspace after a shell endpoint override before pub
   )
   vi.stubEnv('TRANSLOADIT_ENDPOINT', 'http://override.invalid')
   const discovery = nock('http://override.invalid')
-    .get('/storage/')
+    .get('/dam/assets')
     .query(true)
-    .reply(
-      200,
-      '<ListAllMyBucketsResult><Buckets><Bucket><Name>other-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-    )
+    .reply(200, storagePage([], { workspace: 'other-app' }))
   const publication = nock('http://override.invalid')
     .post('/storage/public_prefixes')
     .reply(200, declared)
@@ -261,12 +250,9 @@ test('private write-env requires the saved login instead of persisting transient
   vi.stubEnv('TRANSLOADIT_SECRET', 'shell-secret')
   vi.stubEnv('TRANSLOADIT_ENDPOINT', origin)
   const discovery = nock(origin)
-    .get('/storage/')
+    .get('/dam/assets')
     .query(true)
-    .reply(
-      200,
-      '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-    )
+    .reply(200, storagePage([], { workspace: 'my-app' }))
   await main(['image', 'init', 'website/', '--private', '--write-env'])
   expect(process.exitCode).toBe(1)
   expect(discovery.isDone()).toBe(false)

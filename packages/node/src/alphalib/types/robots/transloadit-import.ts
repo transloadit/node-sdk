@@ -2,6 +2,7 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { damIdSchema } from '../storageAsset.ts'
 import { interpolateRobot, recursive, robotBase, robotImport } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
@@ -43,10 +44,24 @@ export const robotTransloaditImportInstructionsSchema = robotBase
   .merge(robotImport)
   .extend({
     robot: z.literal('/transloadit/import').describe(`
-Imports a file from your workspace's Transloadit Storage by its path.
+Imports files from your Workspace's Transloadit Storage. Select a mutable location with
+\`path\`, or a logical asset with \`asset_id\`. Add \`version_id\` to pin the exact stored bytes.
+IDs remain subject to Workspace access and version retention.
 `),
-    path: z.string().describe(`
-The path of the file in Transloadit Storage, for example \`photos/cat.jpg\`.
+    path: z
+      .string()
+      .optional()
+      .describe(`
+The current file or folder location, for example \`photos/cat.jpg\`. Use either \`path\` or
+\`asset_id\`, not both. Renaming makes an old path stale; overwriting changes what it imports.
+`),
+    asset_id: damIdSchema.optional().describe(`
+The stored asset's stable ID. Without \`version_id\`, imports its current version even after
+renaming or moving it. Cannot be combined with \`path\` or recursive folder imports.
+`),
+    version_id: damIdSchema.optional().describe(`
+The exact retained version of \`asset_id\` to import. Requires \`asset_id\`; a missing or deleted
+version never falls back to the current version.
 `),
     recursive: recursive.describe(`
 Whether to import files from subfolders and sub-subfolders when \`path\` is a folder. By default

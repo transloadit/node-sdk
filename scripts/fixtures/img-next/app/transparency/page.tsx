@@ -1,8 +1,14 @@
 import type { ReactNode } from 'react'
 
+import { fixtureStorageIdentity } from '../../storage-fixtures'
 import { BrowserImage } from '../browser/BrowserImage'
 
-const source = { path: 'documents/alpha.png', width: 64, height: 64 }
+const source = {
+  ...fixtureStorageIdentity('documents/alpha.png'),
+  path: 'documents/alpha.png',
+  width: 64,
+  height: 64,
+}
 
 export default function Page(): ReactNode {
   return (

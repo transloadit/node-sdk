@@ -10,6 +10,12 @@ import { createRoot } from 'react-dom/client'
 import { renderToReadableStream, renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
+const storageReference = vi.hoisted(() => ({
+  workspace: 'my-app',
+  asset_id: 'A'.repeat(22),
+  version_id: 'B'.repeat(21) + 'A',
+}))
+
 const { connection } = vi.hoisted(() => ({ connection: vi.fn(async () => undefined) }))
 
 vi.mock('next/server.js', () => ({ connection }))
@@ -19,14 +25,29 @@ import { createImageDiagnostics } from '../src/next/diagnostics.ts'
 import { createImages } from '../src/next/server.tsx'
 
 const authSecret = 'never-render-this-secret'
+const baseImages = {
+  'documents/report.pdf': {
+    ...storageReference,
+    path: 'documents/report.pdf',
+    width: 800,
+    height: 600,
+  },
+  'documents/hero.jpg': {
+    ...storageReference,
+    path: 'documents/hero.jpg',
+    width: 1200,
+    height: 800,
+  },
+}
 const baseConfiguration = {
+  images: baseImages,
   delivery: 'direct',
   authKey: 'auth-key',
   authSecret,
   baseUrl: 'https://cdn.example/file/{workspace}',
   allowedPathPrefixes: ['documents/'],
   workspace: 'my-app',
-} satisfies ImageConfiguration
+} satisfies ImageConfiguration<typeof baseImages>
 
 async function renderAsync(node: ReactNode): Promise<string> {
   const stream = await renderToReadableStream(node)
@@ -66,7 +87,7 @@ function getStorageRouteCandidate(): {
       alt="Report preview"
       height={600}
       sizes="(min-width: 800px) 640px, 100vw"
-      src="documents/report.pdf"
+      src={{ ...storageReference, path: 'documents/report.pdf', width: 800, height: 600 }}
       width={800}
     />,
   )
@@ -99,7 +120,7 @@ describe('development delivery diagnostics', () => {
     await renderAsync(
       <Image
         alt="Photo"
-        src={{ path: 'documents/photo.jpg', width: 800, height: 600 }}
+        src={{ ...storageReference, path: 'documents/photo.jpg', width: 800, height: 600 }}
         formats={{ webp: 75 }}
       />,
     )
@@ -126,7 +147,10 @@ describe('development delivery diagnostics', () => {
       urlParams: { token: 'never-log-query-token' },
     })
     const markup = await renderAsync(
-      <Image alt="Hero" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+      <Image
+        alt="Hero"
+        src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
+      />,
     )
     const target = new URL(getFirstCandidate(parseMarkup(markup)))
     expect(fetch).toHaveBeenCalledWith(target.href, expect.objectContaining({ method: 'HEAD' }))
@@ -147,7 +171,10 @@ describe('development delivery diagnostics', () => {
     )
     const { Image } = createImages(baseConfiguration)
     await renderAsync(
-      <Image alt="Hero" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+      <Image
+        alt="Hero"
+        src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
+      />,
     )
     expect(fetch).toHaveBeenCalledOnce()
     expect(console.warn).not.toHaveBeenCalled()
@@ -171,7 +198,10 @@ describe('development delivery diagnostics', () => {
 
   test('explains direct rendering once per integration, without logging credentials or URLs', async () => {
     const { Image } = createImages(baseConfiguration)
-    const props = { alt: 'Hero', src: { path: 'documents/hero.jpg', width: 400, height: 300 } }
+    const props = {
+      alt: 'Hero',
+      src: { ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 },
+    }
     await renderAsync(<Image {...props} />)
     await renderAsync(<Image {...props} />)
     expect(console.info).toHaveBeenCalledExactlyOnceWith(
@@ -190,7 +220,10 @@ describe('development delivery diagnostics', () => {
       authorize: () => false,
     })
     const markup = renderToStaticMarkup(
-      <Image src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} alt="Hero" />,
+      <Image
+        src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
+        alt="Hero"
+      />,
     )
     const url = new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
     const denied = await imageRoute(new Request(url, { method }))
@@ -233,7 +266,7 @@ describe('development delivery diagnostics', () => {
         root.render(
           <p>
             <Image
-              src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
+              src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
               alt="Inline photo"
               layout="none"
               errorFallback={<span role="status">Image unavailable. </span>}
@@ -268,7 +301,10 @@ describe('development delivery diagnostics', () => {
       rotationIntervalMs: 1000,
     })
     const rendered = renderAsync(
-      <Image alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+      <Image
+        alt="Preview"
+        src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
+      />,
     )
     try {
       await vi.waitFor(async () => {
@@ -329,7 +365,10 @@ describe('development delivery diagnostics', () => {
 
   test('checks one HEAD per path/template per configured integration', async () => {
     const { Image } = createImages(baseConfiguration)
-    const props = { alt: 'Preview', src: { path: 'documents/hero.jpg', width: 400, height: 300 } }
+    const props = {
+      alt: 'Preview',
+      src: { ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 },
+    }
     await Promise.all([
       renderAsync(<Image {...props} />),
       renderAsync(<Image {...props} widths={[100]} />),
@@ -363,7 +402,10 @@ describe('development delivery diagnostics', () => {
     vi.stubEnv('NODE_ENV', 'production')
     const { Image } = createImages(baseConfiguration)
     await renderAsync(
-      <Image alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+      <Image
+        alt="Preview"
+        src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
+      />,
     )
     expect(fetch).not.toHaveBeenCalled()
     expect(console.warn).not.toHaveBeenCalled()
@@ -436,7 +478,10 @@ describe('development delivery diagnostics', () => {
       new Response(authSecret, { status, headers: { 'x-secret': authSecret } }),
     )
     const { Image } = createImages(baseConfiguration)
-    const props = { alt: 'Preview', src: { path: 'documents/hero.jpg', width: 400, height: 300 } }
+    const props = {
+      alt: 'Preview',
+      src: { ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 },
+    }
     await renderAsync(<Image {...props} />)
     await renderAsync(<Image {...props} />)
     expect(console.warn).toHaveBeenCalledOnce()
@@ -449,7 +494,10 @@ describe('development delivery diagnostics', () => {
     vi.mocked(fetch).mockRejectedValue(new Error(`Failed at secret URL ${authSecret}`))
     const { Image } = createImages(baseConfiguration)
     const markup = await renderAsync(
-      <Image alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+      <Image
+        alt="Preview"
+        src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
+      />,
     )
     expect(markup).toContain('<picture>')
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('reach Smart CDN'))
@@ -464,11 +512,17 @@ describe('development delivery diagnostics', () => {
       authorize,
     })
     expect(() =>
-      Image({ alt: 'Denied', src: { path: 'private/hero.jpg', width: 400, height: 300 } }),
+      Image({
+        alt: 'Denied',
+        src: { ...storageReference, path: 'private/hero.jpg', width: 400, height: 300 },
+      }),
     ).toThrow(/allowed prefixes/)
     const document = parseMarkup(
       renderToStaticMarkup(
-        <Image alt="Preview" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+        <Image
+          alt="Preview"
+          src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
+        />,
       ),
     )
     const request = new Request(new URL(getFirstCandidate(document), 'https://app.example'))
@@ -498,7 +552,7 @@ describe('createImages', () => {
       await renderAsync(
         <integration.Image
           alt="Transparent logo"
-          src={{ path: 'documents/logo.png', width: 64, height: 64 }}
+          src={{ ...storageReference, path: 'documents/logo.png', width: 64, height: 64 }}
           fallbackBackground="#224466"
         />,
       ),
@@ -543,7 +597,7 @@ describe('createImages', () => {
     'receipt',
     'catalog',
   ] as const)('%s sources share a responsive constrained default', async (kind) => {
-    const receipt = { path: 'documents/hero.jpg', width: 1200, height: 800 }
+    const receipt = { ...storageReference, path: 'documents/hero.jpg', width: 1200, height: 800 }
     const { Image } = createImages({
       ...baseConfiguration,
       ...(kind === 'catalog' ? { images: { [receipt.path]: receipt } } : {}),
@@ -552,7 +606,7 @@ describe('createImages', () => {
       await renderAsync(
         <Image
           alt="Responsive hero"
-          src={kind === 'receipt' ? receipt : receipt.path}
+          src={kind === 'receipt' ? receipt : 'documents/hero.jpg'}
           width={1200}
           height={800}
         />,
@@ -573,7 +627,7 @@ describe('createImages', () => {
       await renderAsync(
         <Image
           alt="Caller-sized hero"
-          src="documents/hero.jpg"
+          src={{ ...storageReference, path: 'documents/hero.jpg', width: 1200, height: 800 }}
           width={1200}
           height={800}
           layout="none"
@@ -592,7 +646,7 @@ describe('createImages', () => {
       await renderAsync(
         <Image
           alt="Override"
-          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          src={{ ...storageReference, path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="constrained"
           width={960}
           widths={[2400]}
@@ -610,7 +664,7 @@ describe('createImages', () => {
     'fixed',
     'fill',
   ])('explains that %s layout needs receipt geometry rather than a string source', (layout) => {
-    const { Image } = createImages(baseConfiguration)
+    const { Image } = createImages({ ...baseConfiguration, images: undefined })
     expect(() =>
       // @ts-expect-error JavaScript callers can pass a string where fixed layout requires a receipt.
       Image({
@@ -637,7 +691,7 @@ describe('createImages', () => {
       Reflect.apply(Image, undefined, [
         {
           alt: 'Invalid',
-          src: { path: 'documents/hero.jpg', width: 400, height: 300 },
+          src: { ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 },
           ...layout,
         },
       ]),
@@ -651,7 +705,7 @@ describe('createImages', () => {
       await renderAsync(
         <Image
           alt="Hero"
-          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          src={{ ...storageReference, path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="constrained"
           width={960}
         />,
@@ -676,7 +730,7 @@ describe('createImages', () => {
       await renderAsync(
         <Image
           alt="Small original"
-          src={{ path: 'documents/small.jpg', width: 320, height: 240 }}
+          src={{ ...storageReference, path: 'documents/small.jpg', width: 320, height: 240 }}
           layout="constrained"
           width={maxWidth}
           priority
@@ -702,7 +756,7 @@ describe('createImages', () => {
       renderToStaticMarkup(
         <Image
           alt="Avatar"
-          src={{ path: 'documents/avatar.jpg', width: 400, height: 300 }}
+          src={{ ...storageReference, path: 'documents/avatar.jpg', width: 400, height: 300 }}
           layout="fixed"
           width={48}
           height={48}
@@ -722,7 +776,12 @@ describe('createImages', () => {
     const target = parseSmartCdnUrl(response.headers.get('location') ?? '', {
       baseUrl: baseConfiguration.baseUrl,
     })
-    expect(target.urlParams).toEqual({ r: 'fillcrop', w: '48', h: '48' })
+    expect(target.urlParams).toEqual({
+      r: 'fillcrop',
+      w: '48',
+      h: '48',
+      v: storageReference.version_id,
+    })
   })
 
   test('fill cover signs the declared box ratio and retains explicit layout overrides', async () => {
@@ -731,7 +790,7 @@ describe('createImages', () => {
       await renderAsync(
         <Image
           alt="Portrait crop"
-          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          src={{ ...storageReference, path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="fill"
           fit="cover"
           aspectRatio="9/16"
@@ -773,7 +832,7 @@ describe('createImages', () => {
     const { Image: ExplicitImage } = createImages(baseConfiguration)
     const props = {
       alt: 'Snapshot',
-      src: { path: 'documents/report.pdf', width: 400, height: 300 },
+      src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
     }
     await renderAsync(Image(props))
     await renderAsync(ExplicitImage(props))
@@ -801,7 +860,12 @@ describe('createImages', () => {
       authorize: () => true,
     })
     expect(() =>
-      Image({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 }),
+      Image({
+        src: { ...storageReference, path: 'documents/test.png', width: 10, height: 10 },
+        alt: 'Test',
+        width: 10,
+        height: 10,
+      }),
     ).toThrowError(
       new TypeError(`${name} must be a non-empty string without surrounding whitespace`),
     )
@@ -818,7 +882,14 @@ describe('createImages', () => {
       allowedPathPrefixes: ['documents/'],
       authorize: () => true,
     })
-    expect(() => Image({ src: 'documents/test.png', alt: 'Test', width: 10, height: 10 })).toThrow(
+    expect(() =>
+      Image({
+        src: { ...storageReference, path: 'documents/test.png', width: 10, height: 10 },
+        alt: 'Test',
+        width: 10,
+        height: 10,
+      }),
+    ).toThrow(
       'Private images need a signing key. Set TRANSLOADIT_SMART_CDN_KEY and TRANSLOADIT_SMART_CDN_SECRET (Console → Credentials → New Auth Key → “Private image delivery”). TRANSLOADIT_KEY/SECRET are also accepted.',
     )
     expect(() => createImages(baseConfiguration)).not.toThrow()
@@ -831,7 +902,10 @@ describe('createImages', () => {
       delivery: 'direct',
     })
     expect(() =>
-      Image({ alt: 'Denied', src: { path: 'documents/report.pdf', width: 400, height: 300 } }),
+      Image({
+        alt: 'Denied',
+        src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
+      }),
     ).toThrow('outside the configured allowed prefixes')
     expect(connection).not.toHaveBeenCalled()
   })
@@ -850,7 +924,10 @@ describe('createImages', () => {
     delivery.cacheMaxAgeMs = 1
     const document = parseMarkup(
       renderToStaticMarkup(
-        <Image alt="Report" src={{ path: 'documents/report.pdf', width: 400, height: 300 }} />,
+        <Image
+          alt="Report"
+          src={{ ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 }}
+        />,
       ),
     )
     const request = new Request(new URL(getFirstCandidate(document), 'https://app.example'))
@@ -901,7 +978,10 @@ describe('createImages', () => {
     })
     const document = parseMarkup(
       renderToStaticMarkup(
-        Image({ alt: 'Report', src: { path: 'documents/report.pdf', width: 400, height: 300 } }),
+        Image({
+          alt: 'Report',
+          src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
+        }),
       ),
     )
     const url = new URL(getFirstCandidate(document), 'https://app.example')
@@ -954,7 +1034,12 @@ describe('createImages', () => {
       renderToStaticMarkup(
         <Image
           alt="Original"
-          src={{ path: 'documents/hero.jpg', width: sourceWidth, height: sourceHeight }}
+          src={{
+            ...storageReference,
+            path: 'documents/hero.jpg',
+            width: sourceWidth,
+            height: sourceHeight,
+          }}
           height={height}
         />,
       ),
@@ -983,7 +1068,7 @@ describe('createImages', () => {
             renderToStaticMarkup(
               <Image
                 alt="Base path"
-                src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
+                src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
               />,
             ),
           ),
@@ -1004,7 +1089,7 @@ describe('createImages', () => {
       renderToStaticMarkup(
         <Image
           alt="Art-directed hero"
-          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          src={{ ...storageReference, path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="fill"
           fit="cover"
           aspectRatio={{ '(max-width: 639px)': '9/16', default: '16/9' }}
@@ -1036,7 +1121,7 @@ describe('createImages', () => {
       renderToStaticMarkup(
         <Image
           alt="Column"
-          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          src={{ ...storageReference, path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           layout="constrained"
           width={960}
           loading={loading}
@@ -1053,7 +1138,7 @@ describe('createImages', () => {
         <Image
           alt="Sized receipt"
           layout="none"
-          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          src={{ ...storageReference, path: 'documents/hero.jpg', width: 2400, height: 1600 }}
           width={480}
           height={320}
         />,
@@ -1086,7 +1171,12 @@ describe('createImages', () => {
         new URL(
           getFirstCandidate(
             parseMarkup(
-              renderToStaticMarkup(<Image alt="Preview" src={{ path, width: 400, height: 300 }} />),
+              renderToStaticMarkup(
+                <Image
+                  alt="Preview"
+                  src={{ ...storageReference, path, width: 400, height: 300 }}
+                />,
+              ),
             ),
           ),
           'https://app.example',
@@ -1112,6 +1202,7 @@ describe('createImages', () => {
       public: ['documents/public/'],
       images: {
         'documents/public/hero.jpg': {
+          ...storageReference,
           path: 'documents/public/hero.jpg',
           width: 400,
           height: 300,
@@ -1120,7 +1211,9 @@ describe('createImages', () => {
       },
     })
     const current = await refreshed.imageRoute(candidate('documents/public/hero.jpg'))
-    expect(current.headers.get('location')).toContain('v=bbbbbbbbbbbbbbbb')
+    expect(new URL(current.headers.get('location') ?? '').searchParams.get('v')).toBe(
+      storageReference.version_id,
+    )
     expect(current.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=60')
   })
 
@@ -1141,7 +1234,7 @@ describe('createImages', () => {
         renderToStaticMarkup(
           <Image
             alt="Existing private rendition"
-            src={{ path: 'documents/hero.jpg', width, height }}
+            src={{ ...storageReference, path: 'documents/hero.jpg', width, height }}
             widths={[width]}
             formats={{ webp: quality }}
           />,
@@ -1154,7 +1247,7 @@ describe('createImages', () => {
     const location = response.headers.get('location')
     if (location === null) throw new Error('Expected compatible delivery Location')
     const parsed = parseSmartCdnUrl(location, { baseUrl: baseConfiguration.baseUrl })
-    expect(parsed.template).toBe('builtin/storage-preview@0.0.2')
+    expect(parsed.template).toBe('builtin/storage-preview@0.0.3')
     expect(parsed.auth).toBeDefined()
     expect(parsed.urlParams).toMatchObject({
       w: String(width),
@@ -1205,7 +1298,7 @@ describe('createImages', () => {
           renderToStaticMarkup(
             <old.Image
               alt="Old preview"
-              src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
+              src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
             />,
           ),
         ),
@@ -1262,7 +1355,10 @@ describe('createImages', () => {
         getFirstCandidate(
           parseMarkup(
             renderToStaticMarkup(
-              <Image alt="Private" src={{ path: 'documents/hero.jpg', width: 400, height: 300 }} />,
+              <Image
+                alt="Private"
+                src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
+              />,
             ),
           ),
         ),
@@ -1286,7 +1382,7 @@ describe('createImages', () => {
   test('rejects a missing prefix policy at factory time for untyped callers', () => {
     expect(() =>
       Reflect.apply(createImages, undefined, [
-        { ...baseConfiguration, allowedPathPrefixes: undefined },
+        { ...baseConfiguration, allowedPathPrefixes: undefined, images: undefined },
       ]),
     ).toThrow('images, allowedPathPrefixes or allowWorkspaceRoot: true is required')
   })
@@ -1303,7 +1399,7 @@ describe('createImages', () => {
           await renderAsync(
             <Image
               alt="Hourly preview"
-              src={{ path: 'documents/hero.jpg', width: 400, height: 300 }}
+              src={{ ...storageReference, path: 'documents/hero.jpg', width: 400, height: 300 }}
             />,
           ),
         ),
@@ -1328,22 +1424,25 @@ describe('createImages', () => {
     'direct',
     'redirect',
   ])('renders a receipt exactly like its string equivalent with %s delivery', async (delivery) => {
-    const { Image } = createImages({
-      ...baseConfiguration,
-      ...(delivery === 'direct' ? {} : { route: '/images', authorize: () => true }),
-    })
     const src = {
+      ...storageReference,
       path: 'documents/report.pdf',
       width: 400,
       height: 300,
-      asset_id: 'private-asset-id',
       md5hash: 'd41d8cd98f00b204e9800998ecf8427e',
       authSecret: 'secret-from-receipt',
       id: 'not-an-attribute',
     }
+    const { Image } = createImages({
+      ...baseConfiguration,
+      images: { 'documents/report.pdf': src },
+      ...(delivery === 'direct' ? {} : { route: '/images', authorize: () => true }),
+    })
     const received = parseMarkup(await renderAsync(Image({ alt: 'Report', src })))
     const expected = parseMarkup(
-      await renderAsync(Image({ alt: 'Report', src: src.path, width: 400, height: 300 })),
+      await renderAsync(
+        Image({ alt: 'Report', src: 'documents/report.pdf', width: 400, height: 300 }),
+      ),
     )
     expect(received.querySelector('picture')?.isEqualNode(expected.querySelector('picture'))).toBe(
       true,
@@ -1362,13 +1461,23 @@ describe('createImages', () => {
       [],
       {},
       { toString: () => 'documents/report.pdf' },
-      { path: 'documents/../secret.pdf', width: 400, height: 300 },
-      { path: 'private/report.pdf', width: 400, height: 300 },
-      { path: 'documents/report.pdf', width: '400', height: 300 },
-      { path: 'documents/report.pdf', width: 0, height: 300 },
-      { path: 'documents/report.pdf', width: 400, height: 1.5 },
-      { path: 'documents/report.pdf', width: 400, height: Number.POSITIVE_INFINITY },
-      { path: 'documents/report.pdf', width: Number.MAX_SAFE_INTEGER + 1, height: 300 },
+      { ...storageReference, path: 'documents/../secret.pdf', width: 400, height: 300 },
+      { ...storageReference, path: 'private/report.pdf', width: 400, height: 300 },
+      { ...storageReference, path: 'documents/report.pdf', width: '400', height: 300 },
+      { ...storageReference, path: 'documents/report.pdf', width: 0, height: 300 },
+      { ...storageReference, path: 'documents/report.pdf', width: 400, height: 1.5 },
+      {
+        ...storageReference,
+        path: 'documents/report.pdf',
+        width: 400,
+        height: Number.POSITIVE_INFINITY,
+      },
+      {
+        ...storageReference,
+        path: 'documents/report.pdf',
+        width: Number.MAX_SAFE_INTEGER + 1,
+        height: 300,
+      },
     ].map((src) => ({ src })),
   )('rejects malformed or unauthorized receipt $src before request I/O', ({ src }) => {
     const { Image } = createImages(baseConfiguration)
@@ -1382,7 +1491,7 @@ describe('createImages', () => {
       Reflect.apply(Image, undefined, [
         {
           alt: 'Ambiguous',
-          src: { path: 'documents/report.pdf', width: 400, height: 300 },
+          src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
           width: -1,
           height: 300,
         },
@@ -1393,16 +1502,16 @@ describe('createImages', () => {
 
   test('snapshots receipt geometry and path before request-time mutation', async () => {
     const { Image } = createImages(baseConfiguration)
-    const src = { path: 'documents/report.pdf', width: 400, height: 300 }
+    const src = { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 }
     connection.mockImplementationOnce(() => {
-      Object.assign(src, { path: 'private/changed.pdf', width: 0, height: 0 })
+      Object.assign(src, { ...storageReference, path: 'private/changed.pdf', width: 0, height: 0 })
       return Promise.resolve(undefined)
     })
     const document = parseMarkup(
       await renderAsync(Image({ alt: 'Stable receipt', src, widths: [400] })),
     )
     const url = parseSmartCdnUrl(getFirstCandidate(document), baseConfiguration)
-    expect(url.input).toBe('documents/report.pdf')
+    expect(url.input).toBe(storageReference.asset_id)
     expect(url.urlParams).toMatchObject({ h: '300', w: '400' })
     expect(document.querySelector('img')?.getAttribute('width')).toBe('400')
   })
@@ -1416,10 +1525,10 @@ describe('createImages', () => {
       route: '/images',
       authorize: () => true,
     })
-    const source = { path: 'documents/report.pdf', width: 400, height: 300 }
+    const source = { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 }
     const props = {
       alt: 'Stable redirect',
-      src: source.path,
+      src: 'documents/report.pdf' as const,
       width: 400,
       height: 300,
       widths: [400],
@@ -1428,7 +1537,12 @@ describe('createImages', () => {
     Object.defineProperty(sourceProps, 'id', {
       enumerable: true,
       get() {
-        Object.assign(source, { path: 'private/changed.pdf', width: 0, height: 0 })
+        Object.assign(source, {
+          ...storageReference,
+          path: 'private/changed.pdf',
+          width: 0,
+          height: 0,
+        })
         props.width = 0
         props.height = 0
         return 'original-id'
@@ -1443,7 +1557,7 @@ describe('createImages', () => {
     const location = response.headers.get('location')
     if (location === null) throw new Error('Expected an authorized CDN target')
     const candidate = parseSmartCdnUrl(location, baseConfiguration)
-    expect(candidate.input).toBe('documents/report.pdf')
+    expect(candidate.input).toBe(storageReference.asset_id)
     expect(candidate.urlParams).toMatchObject({ h: '300', w: '400' })
     expect(document.querySelector('img')?.getAttribute('width')).toBe('400')
     expect(connection).not.toHaveBeenCalled()
@@ -1468,7 +1582,7 @@ describe('createImages', () => {
           id="hero"
           priority
           sizes="(min-width: 960px) 960px, 100vw"
-          src={{ path: 'documents/hero.jpg', height: 1600, width: 2400 }}
+          src={{ ...storageReference, path: 'documents/hero.jpg', height: 1600, width: 2400 }}
           style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
         />
         <p>Following content</p>
@@ -1530,7 +1644,7 @@ describe('createImages', () => {
         <Image
           alt="Custom shell"
           height={300}
-          src="documents/report.pdf"
+          src={{ ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 }}
           suspenseFallback={<p role="status">Custom preview</p>}
           width={400}
         />
@@ -1554,7 +1668,7 @@ describe('createImages', () => {
         <Image
           alt="Explicit widths"
           height={600}
-          src="documents/report.pdf"
+          src={{ ...storageReference, path: 'documents/report.pdf', width: 800, height: 600 }}
           width={800}
           widths={[200, 400, 800]}
         />,
@@ -1587,7 +1701,7 @@ describe('createImages', () => {
             id="report-preview"
             role="img"
             sizes="auto, 100vw"
-            src="documents/report.pdf"
+            src={{ ...storageReference, path: 'documents/report.pdf', width: 800, height: 600 }}
             title="Annual report"
             width={800}
           />
@@ -1616,7 +1730,12 @@ describe('createImages', () => {
     })
     expect(() =>
       Reflect.apply(Image, undefined, [
-        { alt: { text: 'Report' }, height: 600, src: 'documents/report.pdf', width: 800 },
+        {
+          alt: { text: 'Report' },
+          height: 600,
+          src: { ...storageReference, path: 'documents/report.pdf', width: 800, height: 600 },
+          width: 800,
+        },
       ]),
     ).toThrow('Image alt must be a string')
   })
@@ -1642,7 +1761,7 @@ describe('createImages', () => {
           formats={{ webp: 61 }}
           height={300}
           sizes="400px"
-          src="documents/report.pdf"
+          src={{ ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 }}
           width={400}
           widths={[200, 400]}
         />,
@@ -1656,7 +1775,7 @@ describe('createImages', () => {
     const firstFallback = new URL(firstDocument.querySelector('img')?.getAttribute('src') ?? '')
 
     expect(connection).toHaveBeenCalledOnce()
-    expect(firstSource.pathname).toContain('/builtin%2Fstorage-preview%400.0.2/')
+    expect(firstSource.pathname).toContain('/builtin%2Fstorage-preview%400.0.3/')
     expect(firstSource.searchParams.get('f')).toBe('webp')
     expect(firstSource.searchParams.get('h')).toBe('150')
     expect(firstSource.searchParams.get('q')).toBe('61')
@@ -1688,7 +1807,7 @@ describe('createImages', () => {
       denyAllImage({
         alt: 'Denied',
         height: 300,
-        src: 'documents/report.pdf',
+        src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
         width: 400,
       }),
     ).toThrow('outside the configured allowed prefixes')
@@ -1696,7 +1815,7 @@ describe('createImages', () => {
       Image({
         alt: 'Boundary mismatch',
         height: 300,
-        src: 'documents-private/report.pdf',
+        src: { ...storageReference, path: 'documents-private/report.pdf', width: 400, height: 300 },
         width: 400,
       }),
     ).toThrow('outside the configured allowed prefixes')
@@ -1725,7 +1844,7 @@ describe('createImages', () => {
         return id
       },
       get src() {
-        return path
+        return { ...storageReference, path, width: 800, height: 600 }
       },
       get width() {
         return width
@@ -1738,7 +1857,7 @@ describe('createImages', () => {
       workspace: baseConfiguration.workspace,
     })
 
-    expect(candidate.input).toBe('documents/report.pdf')
+    expect(candidate.input).toBe(storageReference.asset_id)
     expect(candidate.urlParams.h).toBe('300')
     expect(candidate.urlParams.w).toBe('400')
     expect(document.querySelector('img')?.id).toBe('original-id')
@@ -1767,7 +1886,12 @@ describe('createImages', () => {
       route: '/api/private-images',
     })
     const markup = renderToStaticMarkup(
-      <Image alt="Base path" height={300} src="documents/report.pdf" width={400} />,
+      <Image
+        alt="Base path"
+        height={300}
+        src={{ ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 }}
+        width={400}
+      />,
     )
     const externalUrl = new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
     const internalUrl = new URL(externalUrl)
@@ -1798,7 +1922,12 @@ describe('createImages', () => {
       route: '/api/private-images',
     })
     const markup = renderToStaticMarkup(
-      <Image alt="Strict ACL" height={300} src="documents/report.pdf" width={400} />,
+      <Image
+        alt="Strict ACL"
+        height={300}
+        src={{ ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 }}
+        width={400}
+      />,
     )
     const routeUrl = new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
 
@@ -1822,14 +1951,23 @@ describe('createImages', () => {
     expect(response.headers.get('referrer-policy')).toBe('no-referrer')
     expect(authorize).toHaveBeenCalledOnce()
     expect(authorize).toHaveBeenCalledWith({
+      asset_id: storageReference.asset_id,
+      version_id: storageReference.version_id,
       path: 'documents/report.pdf',
       request,
       workspace: 'my-app',
-      template: 'builtin/storage-preview@0.0.2',
+      template: 'builtin/storage-preview@0.0.3',
     })
-    expect(target.template).toBe('builtin/storage-preview@0.0.2')
-    expect(target.input).toBe('documents/report.pdf')
-    expect(target.urlParams).toEqual({ bg: '#00000000', f: 'avif', h: '240', q: '45', w: '320' })
+    expect(target.template).toBe('builtin/storage-preview@0.0.3')
+    expect(target.input).toBe(storageReference.asset_id)
+    expect(target.urlParams).toEqual({
+      bg: '#00000000',
+      f: 'avif',
+      h: '240',
+      q: '45',
+      w: '320',
+      v: storageReference.version_id,
+    })
     expect(target.auth?.expiresAt).toBe(Date.parse('2029-01-01T13:00:00Z'))
   })
 
@@ -1842,7 +1980,12 @@ describe('createImages', () => {
     })
     const render = (): URL => {
       const markup = renderToStaticMarkup(
-        <Image alt="Stable" height={300} src="documents/report.pdf" width={400} />,
+        <Image
+          alt="Stable"
+          height={300}
+          src={{ ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 }}
+          width={400}
+        />,
       )
       return new URL(getFirstCandidate(parseMarkup(markup)), 'https://app.example')
     }
@@ -1873,7 +2016,12 @@ describe('createImages', () => {
     })
     const document = parseMarkup(
       renderToStaticMarkup(
-        <Image alt="Long-lived preview" height={300} src="documents/report.pdf" width={400} />,
+        <Image
+          alt="Long-lived preview"
+          height={300}
+          src={{ ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 }}
+          width={400}
+        />,
       ),
     )
     const originalCapability = new URL(getFirstCandidate(document), 'https://app.example')
@@ -2069,7 +2217,7 @@ describe('createImages', () => {
         {
           alt: 'No suspension',
           height: 300,
-          src: 'documents/report.pdf',
+          src: { ...storageReference, path: 'documents/report.pdf', width: 400, height: 300 },
           suspenseFallback: 'Loading',
           width: 400,
         },
@@ -2146,7 +2294,12 @@ describe('createImages', () => {
     })
     const storageDocument = parseMarkup(
       await renderAsync(
-        <Image alt="Storage" height={600} src="documents/report.pdf" width={800} />,
+        <Image
+          alt="Storage"
+          height={600}
+          src={{ ...storageReference, path: 'documents/report.pdf', width: 800, height: 600 }}
+          width={800}
+        />,
       ),
     )
 

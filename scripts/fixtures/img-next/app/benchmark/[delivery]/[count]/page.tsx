@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { notFound } from 'next/navigation.js'
 import { Suspense } from 'react'
 
+import { fixtureImage } from '../../../../storage-fixtures'
 import { TransloaditImage } from '../../../TransloaditImage'
 import { TransloaditRedirectImage } from '../../../TransloaditRedirectImage'
 
@@ -27,7 +28,7 @@ async function Benchmark({ params }: PageProps): Promise<ReactNode> {
         height={300}
         key={index}
         sizes="200px"
-        src={`documents/benchmark-${index + 1}.jpg`}
+        src={fixtureImage(`documents/benchmark-${index + 1}.jpg`, 400, 300)}
         style={{ display: 'block', height: 'auto', width: 200 }}
         width={400}
       />,

@@ -4,19 +4,9 @@ import { createImages } from '@transloadit/viewer/next/server'
 
 import { imageConfiguration } from '../imageConfiguration'
 
-const images = {
-  'website/hero.jpg': {
-    path: 'website/hero.jpg',
-    width: 2400,
-    height: 1600,
-    md5hash: 'd41d8cd98f00b204e9800998ecf8427e',
-  },
-  'website/small.jpg': { path: 'website/small.jpg', width: 320, height: 240 },
-}
-
 const { Image } = createImages({
   workspace: 'fixture',
-  images,
+  images: imageConfiguration.images,
   public: ['website/'],
   baseUrl: imageConfiguration.baseUrl,
 })

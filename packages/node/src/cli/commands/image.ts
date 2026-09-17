@@ -6,6 +6,7 @@ import { Command, Option } from 'clipanion'
 import { z } from 'zod'
 
 import { noticeCliCredentialSource, resolveCliConfig } from '../helpers.ts'
+import { resolveStorageWorkspace } from '../storageCatalog.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import {
   defaultStorageCatalog,
@@ -14,7 +15,6 @@ import {
   storageTypesPath,
   updateStorageReceipts,
 } from '../storageReceipts.ts'
-import { resolveStorageWorkspace } from '../storageS3.ts'
 import { nextAppRoot, storageImageEnvBlock, storageImagePage } from '../storageSnippets.ts'
 import { ensureError, isErrnoException } from '../types.ts'
 import { UnauthenticatedCommand } from './BaseCommand.ts'

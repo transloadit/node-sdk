@@ -12,7 +12,6 @@ import {
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { setTimeout } from 'node:timers'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import nock from 'nock'
@@ -20,6 +19,7 @@ import { afterEach, beforeEach, expect, onTestFinished, test, vi } from 'vitest'
 
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
+import { storagePage, storedAsset } from './storage-fixtures.ts'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const original = await importOriginal<typeof import('node:fs/promises')>()
@@ -29,8 +29,11 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 const originalCwd = process.cwd()
 const stdoutListeners = process.stdout.listeners('error')
 const stderrListeners = process.stderr.listeners('error')
-const md5 = 'd41d8cd98f00b204e9800998ecf8427e'
-const metadata = { 'x-amz-meta-dam-width': '800', 'x-amz-meta-dam-height': '600' }
+const asset = storedAsset()
+const policy = {
+  ok: 'STORAGE_PUBLIC_PREFIXES_LISTED',
+  public_prefixes: [{ prefix: 'website/', created_at: '2026-09-14T00:00:00Z' }],
+}
 let directory: string
 
 beforeEach(async () => {
@@ -79,94 +82,84 @@ function storageApi(origin = 'http://storage.invalid'): nock.Scope {
   nock(origin)
     .get('/storage/public_prefixes')
     .query((query) => {
-      // Nock can inspect query matchers before choosing the matching path.
       if (typeof query.params !== 'string') return false
       expect(JSON.parse(query.params)).toMatchObject({ auth: { key: 'local-key' } })
       return true
     })
     .optionally()
-    .reply(200, {
-      ok: 'STORAGE_PUBLIC_PREFIXES_LISTED',
-      public_prefixes: [{ prefix: 'website/', created_at: '2026-09-14T00:00:00Z' }],
+    .reply(200, policy)
+  return nock(origin)
+    .get('/dam/assets')
+    .query((query) => {
+      if (typeof query.params !== 'string') return false
+      expect(JSON.parse(query.params)).toMatchObject({ auth: { key: 'local-key' }, limit: 1 })
+      return true
     })
-  return nock(origin, {
-    reqheaders: {
-      authorization: (value: string) => value.startsWith('AWS4-HMAC-SHA256 Credential=local-key/'),
-    },
-  })
-    .get('/storage/')
-    .query(true)
-    .reply(
-      200,
-      '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-    )
+    .reply(200, storagePage())
 }
 
-function listed(path = 'website/a.jpg'): nock.Scope {
+function listed(assets = [asset]): nock.Scope {
   return storageApi()
-    .get('/storage/my-app/')
-    .query((query) => query.prefix === 'website/')
-    .reply(
-      200,
-      `<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>${path}</Key><Size>123</Size></Contents></ListBucketResult>`,
-    )
+    .get('/dam/assets')
+    .query((query) => JSON.parse(String(query.params)).prefix === 'website/')
+    .reply(200, storagePage(assets))
 }
 
-test('a fresh sync recovers the declared delivery policy, not just image dimensions', async () => {
-  listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+function catalogJson(images: Record<string, unknown>): string {
+  return `${JSON.stringify({ workspace: 'my-app', public: [], images })}\n`
+}
+
+test('a fresh sync recovers pinned references and the declared delivery policy', async () => {
+  listed()
   await runSync()
-  expect(process.exitCode).toBeUndefined()
+  expect(
+    process.exitCode,
+    JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls),
+  ).toBeUndefined()
   expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({
     workspace: 'my-app',
     public: ['website/'],
-    images: { 'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600 } },
+    images: { [asset.path]: asset },
     delivery: {
       baseUrl: 'http://storage.invalid/file/{workspace}',
       urlParams: { cdn: 'required' },
     },
   })
+  const types = await readFile('transloadit-images.d.ts', 'utf8')
+  expect(types).toContain(asset.asset_id)
+  expect(types).toContain(asset.version_id)
 })
 
 test.each([
-  true,
-  false,
-])('sync retains a local ThumbHash only while the original MD5 matches (%s)', async (matches) => {
+  'same version',
+  'new version',
+  'new asset',
+])('local placeholders survive only the same retained version: %s', async (kind) => {
   const thumbhash = '1QcSHQRnh493V4dIh4eXh1h4kJUI'
   await writeFile(
     'images.json',
-    JSON.stringify({
-      workspace: 'my-app',
-      public: ['website/'],
-      images: {
-        'website/a.jpg': {
-          path: 'website/a.jpg',
-          width: 800,
-          height: 600,
-          md5hash: md5,
-          thumbhash,
-          hasAlpha: true,
-          source: 'local-photo.png',
-        },
-      },
+    catalogJson({
+      [asset.path]: { ...asset, thumbhash, hasAlpha: true, source: 'local-photo.png' },
     }),
   )
-  listed()
-    .head('/storage/my-app/website/a.jpg')
-    .reply(200, '', { ...metadata, ETag: `"${matches ? md5 : 'a'.repeat(32)}"` })
+  const current = {
+    ...asset,
+    ...(kind === 'new version' ? { version_id: 'C'.repeat(21) + 'A' } : {}),
+    ...(kind === 'new asset' ? { asset_id: 'D'.repeat(21) + 'A' } : {}),
+  }
+  // Matching bytes alone do not prove that this is still the same logical asset/version.
+  listed([current])
   await runSync()
   expect(process.exitCode).toBeUndefined()
-  const image = JSON.parse(await readFile('images.json', 'utf8')).images['website/a.jpg']
-  if (matches) expect(image).toMatchObject({ thumbhash, hasAlpha: true, source: 'local-photo.png' })
-  else {
-    expect(image).not.toHaveProperty('thumbhash')
-    expect(image).not.toHaveProperty('hasAlpha')
-    expect(image).not.toHaveProperty('source')
-  }
+  const image = JSON.parse(await readFile('images.json', 'utf8')).images[asset.path]
+  if (kind === 'same version')
+    expect(image).toEqual({ ...current, thumbhash, hasAlpha: true, source: 'local-photo.png' })
+  else expect(image).toEqual(current)
 })
 
 test.each([
-  false,
   true,
+  false,
 ])('unreadable policy preserves the catalog (existing: %s)', async (existing) => {
   const previous = catalogJson({ 'older.jpg': { retained: true } })
   if (existing) await writeFile('images.json', previous)
@@ -174,7 +167,7 @@ test.each([
     .get('/storage/public_prefixes')
     .query(true)
     .reply(403, { error: 'INSUFFICIENT_AUTH_SCOPE', message: 'remote-secret-must-not-leak' })
-  listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+  listed()
   await runSync()
   expect(process.exitCode).toBe(1)
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
@@ -188,7 +181,7 @@ test.each([
   expect(await readdir(directory)).not.toContain('images.json.lock')
 })
 
-test('sync replaces stale local policy with the server declarations, including a private workspace', async () => {
+test('replaces stale local policy with the server declarations, including a private workspace', async () => {
   await writeFile(
     'images.json',
     JSON.stringify({ workspace: 'my-app', public: ['website/'], images: {} }),
@@ -196,8 +189,8 @@ test('sync replaces stale local policy with the server declarations, including a
   nock('http://storage.invalid')
     .get('/storage/public_prefixes')
     .query(true)
-    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIXES_LISTED', public_prefixes: [] })
-  listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+    .reply(200, { ...policy, public_prefixes: [] })
+  listed()
   await runSync()
   expect(process.exitCode).toBeUndefined()
   expect(JSON.parse(await readFile('images.json', 'utf8')).public).toEqual([])
@@ -212,7 +205,7 @@ test('sync replaces stale local policy with the server declarations, including a
 test.each([
   'discovery',
   'listing',
-  'HEAD',
+  'body',
   'policy',
 ])('Ctrl-C cancels a stalled %s and releases the catalog lock', async (stage) => {
   nock.enableNetConnect('127.0.0.1')
@@ -222,26 +215,14 @@ test.each([
   await writeFile('images.json', previous)
   let stalled = false
   const server = createServer((request, response) => {
-    if (stage !== 'discovery' && request.url?.split('?')[0] === '/storage/') {
-      response.end(
-        '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-      )
-      return
-    }
-    if (stage === 'policy' && request.method === 'HEAD') {
-      response.writeHead(200, metadata).end()
-      return
-    }
-    if (
-      (stage === 'HEAD' || stage === 'policy') &&
-      request.url?.startsWith('/storage/my-app/') &&
-      request.method === 'GET'
-    ) {
-      response.end(
-        '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/a.jpg</Key><Size>123</Size></Contents></ListBucketResult>',
-      )
-      return
-    }
+    const url = new URL(request.url ?? '/', 'http://localhost')
+    const params = JSON.parse(url.searchParams.get('params') ?? '{}')
+    response.setHeader('Content-Type', 'application/json')
+    if (stage !== 'discovery' && params.limit === 1)
+      return void response.end(JSON.stringify(storagePage()))
+    if (stage === 'policy' && url.pathname === '/dam/assets')
+      return void response.end(JSON.stringify(storagePage([asset])))
+    if (stage === 'body') response.write('{"ok":')
     stalled = true
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -259,7 +240,6 @@ test.each([
     expect(process.exitCode).toBe(1)
     expect(await readFile('images.json', 'utf8')).toBe(previous)
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
-    // The CLI's first dynamic imports may add a dependency's own process listeners.
     expect(process.listeners('SIGINT')).toEqual(expect.arrayContaining(listeners))
     expect(process.listeners('SIGINT')).not.toContain(cancel)
     expect(process.listeners('SIGTERM')).not.toContain(cancel)
@@ -272,15 +252,12 @@ test.each([
 })
 
 test('defaults the rendering catalog to transloadit.images.json', async () => {
-  const api = listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+  const api = listed()
   await main(['storage', 'receipts', 'sync', 'website/'])
   expect(process.exitCode).toBeUndefined()
-  expect(
-    JSON.parse(await readFile('transloadit.images.json', 'utf8')).images['website/a.jpg'],
-  ).toMatchObject({
-    width: 800,
-    height: 600,
-  })
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).images[asset.path]).toEqual(
+    asset,
+  )
   expect(api.isDone()).toBe(true)
 })
 
@@ -308,64 +285,40 @@ test('an explicit other workspace never retains upload evidence or claims to upd
   const previous = JSON.stringify({
     workspace: 'other-app',
     public: ['website/'],
-    images: {
-      'website/a.jpg': {
-        path: 'website/a.jpg',
-        width: 800,
-        height: 600,
-        md5hash: md5,
-        asset_id: 'other-workspace-id',
-        size: 123,
-      },
-    },
+    images: { [asset.path]: { ...asset, workspace: 'other-app', source: 'private-photo.jpg' } },
   })
   await writeFile('images.json', previous)
   const api = listed()
-    .head('/storage/my-app/website/a.jpg')
-    .reply(200, '', { ...metadata, etag: `"${md5}"` })
   await runSync(['--workspace', 'my-app'])
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
   expect(await readFile('images.json', 'utf8')).toBe(previous)
-  const printed = vi.mocked(OutputCtl.prototype.print).mock.calls[0]
-  expect(printed?.[1]).toEqual({
-    'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600, md5hash: md5 },
-  })
-  expect(printed?.[0]).toContain('Catalog unchanged')
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringContaining('Catalog unchanged'),
+    { [asset.path]: asset },
+  )
 })
 
-test('rebuilds a rendering catalog from paginated List + HEAD without asset IDs or image GETs', async () => {
+test('rebuilds a pinned rendering catalog from bounded pages without per-file HEAD or image GETs', async () => {
+  const second = storedAsset({
+    asset_id: 'C'.repeat(21) + 'A',
+    path: 'website/b.jpg',
+    width: 1200,
+    height: 900,
+    size: 456,
+    md5hash: undefined,
+  })
   const api = storageApi()
-    .get('/storage/my-app/')
-    .query((query) => query.prefix === 'website/' && !query['continuation-token'])
-    .reply(
-      200,
-      '<ListBucketResult><IsTruncated>true</IsTruncated><NextContinuationToken>next</NextContinuationToken><Contents><Key>website/a.jpg</Key><Size>123</Size><ETag>"stale-list-etag"</ETag></Contents></ListBucketResult>',
-    )
-    .get('/storage/my-app/')
-    .query((query) => query['continuation-token'] === 'next')
-    .reply(
-      200,
-      '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/b.jpg</Key><Size>456</Size></Contents></ListBucketResult>',
-    )
-    .head('/storage/my-app/website/a.jpg')
-    .reply(200, '', { ...metadata, etag: `"${md5}"` })
-    .head('/storage/my-app/website/b.jpg')
-    .reply(200, '', {
-      'x-amz-meta-dam-width': '1200',
-      'x-amz-meta-dam-height': '900',
-      etag: '"multipart-2"',
-    })
+    .get('/dam/assets')
+    .query((query) => JSON.parse(String(query.params)).cursor === undefined)
+    .reply(200, storagePage([asset], { next_cursor: asset.path }))
+    .get('/dam/assets')
+    .query((query) => JSON.parse(String(query.params)).cursor === asset.path)
+    .reply(200, storagePage([second]))
   await runSync()
-  expect(
-    process.exitCode,
-    JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls),
-  ).toBeUndefined()
+  expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
-  const expected = {
-    'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600, md5hash: md5 },
-    'website/b.jpg': { path: 'website/b.jpg', width: 1200, height: 900 },
-  }
+  const expected = { [asset.path]: asset, [second.path]: second }
   expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual(expected)
   expect(await readFile('images.json', 'utf8')).toMatch(/\n$/)
   expect(await readdir(directory)).toEqual([
@@ -382,7 +335,6 @@ test('rebuilds a rendering catalog from paginated List + HEAD without asset IDs 
 test.each([
   0o022, 0o077,
 ])('creates a catalog using umask %i without changing credentials', async (mask) => {
-  // This CLI suite runs in a separate process, just like its existing chdir-based fixtures.
   const setMask = process.umask
   const previousMask = setMask(mask)
   onTestFinished(() => {
@@ -390,7 +342,7 @@ test.each([
   })
   const maskRead = vi.spyOn(process, 'umask')
   await chmod('credentials', 0o600)
-  const api = listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+  const api = listed()
   await runSync()
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
@@ -400,42 +352,25 @@ test.each([
 })
 
 test.each([
-  'ls',
+  'ls-discovery',
   'ls-body',
   'sync-discovery',
   'sync-list',
   'sync-body',
-  'sync-head',
-])('aborts stalled %s requests and releases the catalog lock without replacing its contents', async (operation) => {
+])('aborts stalled %s without replacing the catalog or holding its lock', async (operation) => {
   nock.enableNetConnect('127.0.0.1')
-  // Exercise Smithy's real HTTP handler and retries with accelerated header/body deadlines.
-  vi.spyOn(globalThis, 'setTimeout').mockImplementation((callback, timeout, ...args) =>
-    setTimeout(callback, timeout === 30_000 ? 100 : timeout, ...args),
-  )
   const deadline = AbortSignal.timeout
   vi.spyOn(AbortSignal, 'timeout').mockImplementation((timeout) =>
-    deadline(timeout === 60_000 ? 1000 : timeout),
+    deadline(timeout === 60_000 ? 500 : timeout),
   )
   let stalledRequests = 0
   const server = createServer((request, response) => {
-    // Bound catalogs discover ownership before listing, even with an explicit workspace.
-    if (
-      operation.startsWith('sync-') &&
-      operation !== 'sync-discovery' &&
-      request.url?.split('?')[0] === '/storage/'
-    ) {
-      response.end(
-        '<ListAllMyBucketsResult><Buckets><Bucket><Name>my-app</Name></Bucket></Buckets></ListAllMyBucketsResult>',
-      )
-      return
-    }
-    if (operation === 'sync-head' && request.method === 'GET') {
-      response.end(
-        '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/a.jpg</Key><Size>123</Size></Contents></ListBucketResult>',
-      )
-      return
-    }
-    if (operation.endsWith('-body')) response.write('<ListBucketResult>')
+    const url = new URL(request.url ?? '/', 'http://localhost')
+    const params = JSON.parse(url.searchParams.get('params') ?? '{}')
+    response.setHeader('Content-Type', 'application/json')
+    if (!operation.endsWith('-discovery') && params.limit === 1)
+      return void response.end(JSON.stringify(storagePage()))
+    if (operation.endsWith('-body')) response.write('{"ok":')
     stalledRequests += 1
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -443,11 +378,7 @@ test.each([
   if (address === null || typeof address === 'string') throw new Error('Expected a local port')
   const previous = catalogJson({ 'other.jpg': { owner: 'app' } })
   await writeFile('images.json', previous)
-  const options = [
-    '--endpoint',
-    `http://127.0.0.1:${address.port}`,
-    ...(operation === 'sync-discovery' ? [] : ['--workspace', 'my-app']),
-  ]
+  const options = ['--endpoint', `http://127.0.0.1:${address.port}`]
   const command = operation.startsWith('ls')
     ? main(['storage', 'ls', 'website/', ...options])
     : runSync(options)
@@ -456,7 +387,7 @@ test.each([
       'finished',
     )
     expect(process.exitCode).toBe(1)
-    expect(stalledRequests).toBe(operation.endsWith('-body') ? 1 : 2)
+    expect(stalledRequests).toBe(1)
     expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
       expect.stringContaining('timed out or lost its connection'),
     )
@@ -478,45 +409,27 @@ test.each([
     '.env',
     'TRANSLOADIT_AUTH_TOKEN=unrelated\nTRANSLOADIT_ENDPOINT=http://token.invalid\n',
   )
-  const api = storageApi(endpoint)
-    .get('/storage/my-app/')
-    .query(true)
-    .reply(200, '<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>')
+  const api = storageApi(endpoint).get('/dam/assets').query(true).reply(200, storagePage())
   await runSync(endpoint === undefined ? [] : ['--endpoint', endpoint])
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
   expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({})
 })
 
-test.each([
-  md5,
-  md5.toUpperCase(),
-])('preserves upload evidence when the HEAD MD5 still matches %s', async (previousHash) => {
-  const receipt = {
-    path: 'website/a.jpg',
-    width: 600,
-    height: 800,
-    md5hash: previousHash,
-    asset_id: 'verified-asset',
-    size: 123,
-  }
-  await writeFile('images.json', catalogJson({ [receipt.path]: receipt }))
-  const api = listed()
-    .head('/storage/my-app/website/a.jpg')
-    .reply(200, '', { ...metadata, etag: `"${md5}"` })
+test('canonical version geometry and MIME replace stale local metadata without losing local evidence', async () => {
+  await writeFile(
+    'images.json',
+    catalogJson({
+      [asset.path]: { ...asset, width: 600, height: 800, mime: 'image/png', source: 'photo.jpg' },
+    }),
+  )
+  listed()
   await runSync()
   expect(process.exitCode).toBeUndefined()
-  expect(api.isDone()).toBe(true)
-  expect(JSON.parse(await readFile('images.json', 'utf8')).images[receipt.path]).toEqual({
-    ...receipt,
-    width: 800,
-    height: 600,
-    md5hash: md5,
+  expect(JSON.parse(await readFile('images.json', 'utf8')).images[asset.path]).toEqual({
+    ...asset,
+    source: 'photo.jpg',
   })
-  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
-    expect.stringContaining('Synced 1 rendering receipts and public policy'),
-    expect.anything(),
-  )
 })
 
 test('refreshes matched entries without stale upload fields and preserves unmatched records verbatim', async () => {
@@ -524,82 +437,61 @@ test('refreshes matched entries without stale upload fields and preserves unmatc
     ['__proto__']: { path: '__proto__' },
     'other/a.jpg': { owner: 'app' },
     'website/deleted.jpg': { kept: true },
-    'website/a.jpg': { asset_id: 'old', size: 999, md5hash: 'stale' },
+    [asset.path]: { asset_id: 'old', size: 999, md5hash: 'stale' },
   }
   await writeFile('images.json', catalogJson(previous))
   await chmod('images.json', 0o640)
-  const api = listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+  listed()
   await runSync()
   expect(process.exitCode).toBeUndefined()
-  expect(api.isDone()).toBe(true)
   expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({
     ...previous,
-    'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600 },
+    [asset.path]: asset,
   })
   expect((await stat('images.json')).mode & 0o777).toBe(0o640)
 })
 
 test.each([
-  [{ etag: `"${md5}"` }, md5],
-  [{ etag: md5.toUpperCase() }, md5],
-  [{ etag: `"${md5}"`, 'x-amz-server-side-encryption': 'AES256' }, md5],
-  [{ etag: `"${md5}-2"` }, undefined],
-  [{ etag: `W/"${md5}"` }, undefined],
-  [{ etag: '"opaque"' }, undefined],
-  [{ etag: `"${md5}"`, 'x-amz-server-side-encryption': 'aws:kms' }, undefined],
-  [{ etag: `"${md5}"`, 'x-amz-server-side-encryption-customer-algorithm': 'AES256' }, undefined],
-])('only records a compatible single-part MD5 ETag (%j)', async (headers, expectedMd5) => {
-  const api = listed()
-    .head('/storage/my-app/website/a.jpg')
-    .reply(200, '', { ...metadata, ...headers })
+  undefined,
+  'a'.repeat(32),
+])('retains only the canonical optional MD5, never a fabricated ETag: %s', async (md5hash) => {
+  listed([{ ...asset, md5hash }])
   await runSync()
   expect(process.exitCode).toBeUndefined()
-  expect(api.isDone()).toBe(true)
-  const receipt = JSON.parse(await readFile('images.json', 'utf8')).images['website/a.jpg']
-  expect(receipt.md5hash).toBe(expectedMd5)
-  expect(receipt).not.toHaveProperty('asset_id')
+  expect(JSON.parse(await readFile('images.json', 'utf8')).images[asset.path]).toEqual({
+    ...asset,
+    md5hash,
+  })
 })
 
 test.each([
   undefined,
-  '',
-  '0',
-  '-1',
-  '1.5',
-  'NaN',
-  'Infinity',
-  '1e3',
-  '9007199254740992',
+  0,
+  -1,
+  1.5,
+  Number.MAX_SAFE_INTEGER + 1,
 ])('fails atomically for missing/invalid image dimensions %j', async (width) => {
   const previous = catalogJson({ unrelated: { keep: true } })
   await writeFile('images.json', previous)
-  const api = listed()
-    .head('/storage/my-app/website/a.jpg')
-    .reply(200, '', {
-      'x-amz-meta-dam-height': '600',
-      ...(width === undefined ? {} : { 'x-amz-meta-dam-width': width }),
-    })
+  const api = listed([{ ...asset, width }])
   await runSync()
   expect(process.exitCode).toBe(1)
   expect(api.isDone()).toBe(true)
-  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-    expect.stringMatching(/website\/a.jpg.*dam-width.*dam-height/),
-  )
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('width'))
   expect(await readFile('images.json', 'utf8')).toBe(previous)
   expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
 })
 
 test.each([
-  '<IsTruncated>true</IsTruncated>',
-  '<IsTruncated>true</IsTruncated><NextContinuationToken>loop</NextContinuationToken>',
-])('rejects incomplete/repeated pagination before changing the file', async (cursor) => {
+  '',
+  'loop',
+])('rejects incomplete/repeated pagination before changing the file: %s', async (cursor) => {
   const previous = catalogJson({ keep: true })
   await writeFile('images.json', previous)
   const api = storageApi()
-    .get('/storage/my-app/')
+    .get('/dam/assets')
     .query(true)
-    .times(cursor.includes('loop') ? 2 : 1)
-    .reply(200, `<ListBucketResult>${cursor}</ListBucketResult>`)
+    .reply(200, storagePage([], { next_cursor: cursor }))
   await runSync()
   expect(process.exitCode).toBe(1)
   expect(api.isDone()).toBe(true)
@@ -611,7 +503,7 @@ test.each([
   'other/a.jpg',
   'website/../a.jpg',
 ])('rejects an unexpected or unsafe listed path %s without writing', async (path) => {
-  const api = listed(path)
+  const api = listed([{ ...asset, path }])
   await runSync()
   expect(process.exitCode).toBe(1)
   expect(api.isDone()).toBe(true)
@@ -622,77 +514,38 @@ test.each([
 })
 
 test.each([
-  403, 404,
-])('identifies a failed HEAD (HTTP %i) safely and preserves the entire previous catalog', async (status) => {
+  403, 404, 503,
+])('sanitizes catalog HTTP %i and preserves the entire previous catalog', async (status) => {
   const previous = catalogJson({ keep: true })
   await writeFile('images.json', previous)
-  const api = listed()
-    .head('/storage/my-app/website/a.jpg')
-    .reply(status, '', { 'x-amz-error-message': 'local-secret' })
+  const api = storageApi()
+    .get('/dam/assets')
+    .query(true)
+    .reply(status, { error: 'DAM_READ_FAILED', message: 'local-secret' })
   await runSync()
   expect(process.exitCode).toBe(1)
   expect(api.isDone()).toBe(true)
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-    expect.stringContaining(`Storage HEAD failed for "website/a.jpg" (HTTP ${status})`),
+    `Storage receipt sync failed (HTTP ${status}). Check the Storage API at http://storage.invalid and the Auth Key dam:read or dam:write scope.`,
   )
-  if (status === 403)
-    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'The Storage S3 read API at http://storage.invalid/storage is not enabled or access is denied; HTTP 403 cannot distinguish the two.',
-      ),
-    )
   expect(vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join(' ')).not.toContain(
     'local-secret',
   )
   expect(await readFile('images.json', 'utf8')).toBe(previous)
 })
 
-test('a denied S3 listing names the endpoint and both possible causes without changing the catalog', async () => {
+test('does not save an earlier image when a later image lacks height', async () => {
   const previous = catalogJson({ keep: true })
   await writeFile('images.json', previous)
-  const api = storageApi()
-    .get('/storage/my-app/')
-    .query(true)
-    .reply(403, '<Error><Code>AccessDenied</Code><Message>local-secret</Message></Error>')
-  await runSync()
-  expect(api.isDone()).toBe(true)
-  expect(process.exitCode).toBe(1)
-  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-    'Storage receipt sync failed (HTTP 403). The Storage S3 read API at http://storage.invalid/storage is not enabled or access is denied; HTTP 403 cannot distinguish the two. Check the endpoint, workspace and Auth Key read or dam:write scope.',
-  )
-  expect(await readFile('images.json', 'utf8')).toBe(previous)
-})
-
-test('does not save an earlier successful HEAD when a later image lacks height', async () => {
-  const previous = catalogJson({ keep: true })
-  await writeFile('images.json', previous)
-  const api = storageApi()
-    .get('/storage/my-app/')
-    .query(true)
-    .reply(
-      200,
-      '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/a.jpg</Key><Size>123</Size></Contents><Contents><Key>website/b.jpg</Key><Size>456</Size></Contents></ListBucketResult>',
-    )
-    .head('/storage/my-app/website/a.jpg')
-    .reply(200, '', metadata)
-    .head('/storage/my-app/website/b.jpg')
-    .delay(30)
-    .reply(200, '', { 'x-amz-meta-dam-width': '100' })
+  listed([asset, storedAsset({ path: 'website/b.jpg', height: undefined })])
   await runSync()
   expect(process.exitCode).toBe(1)
-  expect(api.isDone()).toBe(true)
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('website/b.jpg'))
   expect(await readFile('images.json', 'utf8')).toBe(previous)
 })
 
-test('rejects duplicate paths instead of choosing an arbitrary HEAD response', async () => {
-  const api = storageApi()
-    .get('/storage/my-app/')
-    .query(true)
-    .reply(
-      200,
-      '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>website/a.jpg</Key><Size>123</Size></Contents><Contents><Key>website/a.jpg</Key><Size>123</Size></Contents></ListBucketResult>',
-    )
+test('rejects duplicate paths instead of choosing arbitrary version metadata', async () => {
+  const api = listed([asset, asset])
   await runSync()
   expect(process.exitCode).toBe(1)
   expect(api.isDone()).toBe(true)
@@ -722,10 +575,9 @@ test('retains the new complete catalog and releases its lock if atomic replaceme
   const previous = catalogJson({ keep: true })
   await writeFile('images.json', previous)
   vi.mocked(rename).mockRejectedValueOnce(new Error('EACCES: rename denied'))
-  const api = listed().head('/storage/my-app/website/a.jpg').reply(200, '', metadata)
+  listed()
   await runSync()
   expect(process.exitCode).toBe(1)
-  expect(api.isDone()).toBe(true)
   expect(await readFile('images.json', 'utf8')).toBe(previous)
   const files = await readdir(directory)
   expect(files).not.toContain('images.json.lock')
@@ -734,11 +586,7 @@ test('retains the new complete catalog and releases its lock if atomic replaceme
   if (temporary === undefined) throw new Error('Expected retained complete catalog')
   expect(JSON.parse(await readFile(temporary, 'utf8')).images).toEqual({
     keep: true,
-    'website/a.jpg': { path: 'website/a.jpg', width: 800, height: 600 },
+    [asset.path]: asset,
   })
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining(temporary))
 })
-
-function catalogJson(images: Record<string, unknown>): string {
-  return `${JSON.stringify({ workspace: 'my-app', public: [], images })}\n`
-}

@@ -48,7 +48,7 @@ test('the documented upload factory, route and receipt page typecheck together',
   // Only application-owned helpers are declared; SDK/framework imports use real declarations.
   await writeFile(
     join(root, 'lib/authorization.ts'),
-    'export declare function getSession(request: Request): Promise<{ canRead(path: string): boolean } | null>\n',
+    'export declare function getSession(request: Request): Promise<{ canReadAsset(assetId: string): boolean } | null>\n',
   )
   await writeFile(
     join(root, 'lib/images.ts'),

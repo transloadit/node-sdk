@@ -14,10 +14,18 @@ import { ApiError, InconsistentResponseError, Transloadit } from '../../src/Tran
 
 const filePath = resolve(import.meta.dirname, '../e2e/fixtures/sample.jpg')
 const bytes = await readFile(filePath)
+const storedIdentity = {
+  workspace: 'my-app',
+  version_id: 'B'.repeat(21) + 'A',
+  mime: 'image/jpeg',
+}
 const receipt = {
+  ...storedIdentity,
   asset_id: 'JN6OawlqFmL419U23jUKcg',
   md5hash: createHash('md5').update(bytes).digest('hex'),
   meta: { height: 100, width: 100 },
+  width: 100,
+  height: 100,
   path: 'website/photo.jpg',
   size: bytes.length,
 }
@@ -125,6 +133,7 @@ test('retrieves a verified receipt from a completed Assembly without uploading a
       expected: { path: receipt.path, size: receipt.size, md5hash: receipt.md5hash },
     }),
   ).resolves.toEqual({
+    ...storedIdentity,
     asset_id: receipt.asset_id,
     path: receipt.path,
     size: receipt.size,
@@ -182,6 +191,7 @@ test('stores one original at the exact destination and returns only the verified
   const { client, create } = fixture()
   const result = await client.storeImage(filePath, { path: receipt.path })
   expect(result).toEqual({
+    ...storedIdentity,
     asset_id: receipt.asset_id,
     height: 100,
     md5hash: receipt.md5hash,
@@ -222,6 +232,8 @@ test('encodes a small, oriented ThumbHash from the same original bytes', async (
     size: image.length,
     md5hash: createHash('md5').update(image).digest('hex'),
     meta: { width: 160, height: 80, orientation: 6 },
+    width: 80,
+    height: 160,
   }
   const { client } = fixture({ ...completed, results: { ':original': [stored] } })
   const result = await client.storeImage(path, { path: receipt.path })
@@ -267,6 +279,8 @@ test.each([
     size: image.length,
     md5hash: unchanged ? createHash('md5').update(image).digest('hex') : 'a'.repeat(32),
     meta: { width: 16, height: 16 },
+    width: 16,
+    height: 16,
   }
   const { client } = fixture({ ...completed, results: { ':original': [stored] } })
   const onReceipt = vi.fn()
@@ -318,9 +332,10 @@ test.each([
 ])('returns stored metadata when the workspace transforms the upload: %j', async (stored) => {
   const { client } = fixture({
     ...completed,
-    results: { ':original': [{ ...receipt, ...stored, meta: { width: 1200, height: 800 } }] },
+    results: { ':original': [{ ...receipt, ...stored, width: 1200, height: 800 }] },
   })
   await expect(client.storeImage(filePath, { path: receipt.path })).resolves.toEqual({
+    ...storedIdentity,
     asset_id: receipt.asset_id,
     path: receipt.path,
     ...stored,
@@ -393,12 +408,12 @@ test.each<[string | number | null | undefined, number, number]>([
   [6, 600, 450],
   [7, 600, 450],
   [8, 600, 450],
-])('returns display dimensions for EXIF orientation %j', async (orientation, width, height) => {
+])('uses catalog display dimensions without reinterpreting EXIF %j', async (orientation, width, height) => {
   // API2's file-info/rotated_8.jpg.json reports 450×600 with "Rotate 90 CW".
   const meta = { width: 450, height: 600, orientation }
   const { client } = fixture({
     ...completed,
-    results: { ':original': [{ ...receipt, meta }] },
+    results: { ':original': [{ ...receipt, meta, width, height }] },
   })
   await expect(client.storeImage(filePath, { path: receipt.path })).resolves.toMatchObject({
     width,
@@ -407,7 +422,7 @@ test.each<[string | number | null | undefined, number, number]>([
   expect(meta).toEqual({ width: 450, height: 600, orientation })
   vi.spyOn(client, 'getAssembly').mockResolvedValue({
     ...completed,
-    results: { ':original': [{ ...receipt, meta }] },
+    results: { ':original': [{ ...receipt, meta, width, height }] },
   })
   await expect(
     client.getStoredImageReceipt({
@@ -433,19 +448,21 @@ test.each<[string, AssemblyStatus]>([
 
 test.each([
   ['missing asset ID', { ...receipt, asset_id: undefined }],
+  ['missing version ID', { ...receipt, version_id: undefined }],
+  ['invalid version ID', { ...receipt, version_id: 'not-a-version' }],
+  ['missing Workspace', { ...receipt, workspace: undefined }],
   ['empty asset ID', { ...receipt, asset_id: '' }],
   ['whitespace asset ID', { ...receipt, asset_id: '  ' }],
   ['wrong path', { ...receipt, path: 'website/other.jpg' }],
   ['zero byte count', { ...receipt, size: 0 }],
   ['missing checksum', { ...receipt, md5hash: undefined }],
   ['malformed checksum', { ...receipt, md5hash: 'not-an-md5' }],
-  ['missing metadata', { ...receipt, meta: undefined }],
-  ['missing width', { ...receipt, meta: { height: 100 } }],
-  ['zero height', { ...receipt, meta: { width: 100, height: 0 } }],
-  ['negative width', { ...receipt, meta: { width: -1, height: 100 } }],
-  ['fractional height', { ...receipt, meta: { width: 100, height: 1.5 } }],
-  ['unsafe width', { ...receipt, meta: { width: Number.MAX_SAFE_INTEGER + 1, height: 100 } }],
-  ['non-finite height', { ...receipt, meta: { width: 100, height: Number.POSITIVE_INFINITY } }],
+  ['missing width', { ...receipt, width: undefined }],
+  ['zero height', { ...receipt, height: 0 }],
+  ['negative width', { ...receipt, width: -1 }],
+  ['fractional height', { ...receipt, height: 1.5 }],
+  ['unsafe width', { ...receipt, width: Number.MAX_SAFE_INTEGER + 1 }],
+  ['non-finite height', { ...receipt, height: Number.POSITIVE_INFINITY }],
 ])('rejects a receipt with %s after writing', async (_name, invalid) => {
   const { client, create } = fixture({ ...completed, results: { ':original': [invalid] } })
   await expect(client.storeImage(filePath, { path: receipt.path })).rejects.toThrow(

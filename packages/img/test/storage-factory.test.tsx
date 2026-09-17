@@ -5,9 +5,15 @@ import { renderToReadableStream, renderToStaticMarkup } from 'react-dom/server'
 import { rgbaToThumbHash, thumbHashToDataURL } from 'thumbhash'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+const storageReference = vi.hoisted(() => ({
+  workspace: 'my-app',
+  asset_id: 'A'.repeat(22),
+  version_id: 'B'.repeat(21) + 'A',
+}))
+
 const { connection, builtin } = vi.hoisted(() => ({
   connection: vi.fn(async () => undefined),
-  builtin: { template: 'builtin/storage-preview@0.0.2' },
+  builtin: { template: 'builtin/storage-preview@0.0.3' },
 }))
 
 vi.mock('next/server.js', () => ({ connection }))
@@ -22,8 +28,15 @@ vi.mock('../src/index.ts', async (importOriginal) => ({
 import { createImages } from '../src/next/server.tsx'
 
 const images = {
-  'website/hero.jpg': { path: 'website/hero.jpg', width: 2400, height: 1600 },
-  'logo.png': { path: 'logo.png', width: 64, height: 64 },
+  'website/hero.jpg': { ...storageReference, path: 'website/hero.jpg', width: 2400, height: 1600 },
+  'logo.png': { ...storageReference, path: 'logo.png', width: 64, height: 64 },
+}
+
+function imagesForWorkspace(workspace: string): typeof images {
+  return {
+    'website/hero.jpg': { ...images['website/hero.jpg'], workspace },
+    'logo.png': { ...images['logo.png'], workspace },
+  }
 }
 
 const thumbhash = Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 255])).toString('base64')
@@ -36,6 +49,7 @@ test('the shortest valid ThumbHash from a narrow original still renders a blur',
   const markup = renderToStaticMarkup(
     <Image
       src={{
+        ...storageReference,
         path: 'website/hero.jpg',
         width: 1,
         height: 100,
@@ -186,7 +200,7 @@ beforeEach(() => {
   vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', 'render-key')
   vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', 'render-secret')
   vi.stubEnv('TRANSLOADIT_WORKSPACE', 'my-app')
-  builtin.template = 'builtin/storage-preview@0.0.2'
+  builtin.template = 'builtin/storage-preview@0.0.3'
   connection.mockClear()
 })
 
@@ -199,7 +213,11 @@ test('the committed project catalog renders public images with no environment co
   vi.stubEnv('TRANSLOADIT_WORKSPACE', undefined)
   vi.stubEnv('TRANSLOADIT_SMART_CDN_KEY', undefined)
   vi.stubEnv('TRANSLOADIT_SMART_CDN_SECRET', undefined)
-  const catalog = { workspace: 'catalog-app', public: ['website/'], images }
+  const catalog = {
+    workspace: 'catalog-app',
+    public: ['website/'],
+    images: imagesForWorkspace('catalog-app'),
+  }
   const { Image } = createImages(catalog)
   expect(firstUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />)).hostname).toBe(
     'catalog-app.tlcdn.com',
@@ -211,7 +229,7 @@ test('explicit factories also understand the catalog delivery block, with top-le
   const catalog = {
     workspace: 'catalog-app',
     public: ['website/'],
-    images,
+    images: imagesForWorkspace('catalog-app'),
     delivery: {
       baseUrl: 'http://127.0.0.1:32189/file/{workspace}',
       urlParams: { cdn: 'required' },
@@ -237,7 +255,7 @@ test('an explicit workspace cannot be replaced by a different environment defaul
   const { Image } = createImages({
     workspace: 'catalog-app',
     public: ['website/'],
-    images,
+    images: imagesForWorkspace('catalog-app'),
   })
   expect(firstUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />)).hostname).toBe(
     'catalog-app.tlcdn.com',
@@ -268,7 +286,11 @@ test('width is constrained by default and priority reserves an eager high-priori
 test('the default width never enlarges a small receipt', () => {
   const { Image } = createImages({ images, public: ['website/'] })
   const markup = renderToStaticMarkup(
-    <Image src={{ path: 'website/small.jpg', width: 320, height: 240 }} alt="Small" width={960} />,
+    <Image
+      src={{ ...storageReference, path: 'website/small.jpg', width: 320, height: 240 }}
+      alt="Small"
+      width={960}
+    />,
   )
   expect(markup).toContain('max-width:320px')
   expect(markup).toContain('width="320"')
@@ -337,7 +359,7 @@ test('a recovered private catalog explains intentional publication without guess
 test('one factory accepts explicit credentials and retains the redirect overload', async () => {
   vi.stubEnv('TRANSLOADIT_WORKSPACE', undefined)
   const { Image, imageRoute } = createImages({
-    images,
+    images: imagesForWorkspace('explicit-app'),
     authKey: 'explicit-key',
     authSecret: 'explicit-secret',
     workspace: 'explicit-app',
@@ -390,11 +412,17 @@ test('catalog directories accept DB receipts, but root entries do not authorize 
   expect(renderToStaticMarkup(<Image src="logo.png" alt="Logo" />)).toContain('width="64"')
   expect(
     renderToStaticMarkup(
-      <Image src={{ path: 'website/from-db.jpg', width: 300, height: 200 }} alt="DB" />,
+      <Image
+        src={{ ...storageReference, path: 'website/from-db.jpg', width: 300, height: 200 }}
+        alt="DB"
+      />,
     ),
   ).toContain('width="300"')
   expect(() =>
-    Image({ src: { path: 'private.jpg', width: 20, height: 20 }, alt: 'Private' }),
+    Image({
+      src: { ...storageReference, path: 'private.jpg', width: 20, height: 20 },
+      alt: 'Private',
+    }),
   ).toThrow(/allowed/)
 })
 
@@ -495,7 +523,7 @@ test.each([
     Reflect.apply(missing.Image, undefined, [{ src: path, alt: 'Missing image' }]),
   ).toThrow(`Storage image path "${path}" is not in the configured catalog`)
   const present = createImages({
-    images: { [path]: { path, width: 64, height: 64 } },
+    images: { [path]: { ...storageReference, path, width: 64, height: 64 } },
     authorize: () => true,
   })
   expect(renderToStaticMarkup(<present.Image src={path} alt="Stored image" />)).toContain(
@@ -616,7 +644,7 @@ test('explicit credentials use the same flat catalog configuration', () => {
     authKey: 'explicit-key',
     authSecret: 'explicit-secret',
     workspace: 'explicit-app',
-    images,
+    images: imagesForWorkspace('explicit-app'),
     public: ['website/'],
   })
   expect(firstUrl(renderToStaticMarkup(<Image src="website/hero.jpg" alt="Hero" />)).hostname).toBe(

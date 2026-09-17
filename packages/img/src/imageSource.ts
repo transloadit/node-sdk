@@ -1,7 +1,14 @@
 import { validateStoragePath } from '@transloadit/utils'
 
-/** Saved source geometry; structurally compatible with a verified SDK Storage receipt. */
-export interface TransloaditImageSource {
+/** Workspace-scoped identity of one retained Storage version, independent of its path. */
+export interface TransloaditStorageReference {
+  readonly workspace: string
+  readonly asset_id: string
+  readonly version_id: string
+}
+
+/** Saved geometry for Storage receipts or customer-controlled HTTP/S3 Template inputs. */
+export interface TransloaditImageSource extends Partial<TransloaditStorageReference> {
   readonly path: string
   readonly width: number
   readonly height: number
@@ -11,6 +18,35 @@ export interface TransloaditImageSource {
   readonly thumbhash?: string
   /** An original alpha channel disables persistent blur backgrounds, without a client load handler. */
   readonly hasAlpha?: boolean
+}
+
+/** Checks the canonical API2 ID spelling without adding a schema library to browser models. */
+export function isStorageIdentifier(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{21}[AQgw]$/u.test(value)
+}
+
+/** Require a complete pinned receipt before constructing any Storage delivery URL. */
+export function getStorageImageReference(
+  source: Partial<TransloaditStorageReference>,
+  workspace?: string,
+): TransloaditStorageReference {
+  const { asset_id, version_id, workspace: receiptWorkspace } = source
+  if (
+    !isStorageIdentifier(asset_id) ||
+    !isStorageIdentifier(version_id) ||
+    typeof receiptWorkspace !== 'string' ||
+    receiptWorkspace.length === 0
+  ) {
+    throw new TypeError(
+      'Storage needs a version-pinned receipt with workspace, asset_id and version_id. Run transloadit storage receipts sync for this image prefix.',
+    )
+  }
+  if (workspace !== undefined && receiptWorkspace !== workspace) {
+    throw new TypeError(
+      `Storage receipt belongs to Workspace ${receiptWorkspace}, not ${workspace}`,
+    )
+  }
+  return { asset_id, version_id, workspace: receiptWorkspace }
 }
 
 /** A path needs separate dimensions; a receipt owns its dimensions. */
@@ -37,6 +73,7 @@ export function snapshotImageSource(props: {
   let md5hash: unknown
   let thumbhash: unknown
   let hasAlpha: unknown
+  let reference: Partial<TransloaditStorageReference> = {}
   if (typeof src === 'string') {
     path = src
     width = props.width
@@ -62,6 +99,22 @@ export function snapshotImageSource(props: {
     md5hash = 'md5hash' in src ? src.md5hash : undefined
     thumbhash = 'thumbhash' in src ? src.thumbhash : undefined
     hasAlpha = 'hasAlpha' in src ? src.hasAlpha : undefined
+    if ('asset_id' in src || 'version_id' in src || 'workspace' in src) {
+      const asset_id = 'asset_id' in src ? src.asset_id : undefined
+      const version_id = 'version_id' in src ? src.version_id : undefined
+      const workspace = 'workspace' in src ? src.workspace : undefined
+      if (
+        !isStorageIdentifier(asset_id) ||
+        !isStorageIdentifier(version_id) ||
+        typeof workspace !== 'string' ||
+        workspace.length === 0
+      ) {
+        throw new TypeError(
+          'Storage receipt identity is incomplete. Run transloadit storage receipts sync for this image prefix.',
+        )
+      }
+      reference = { asset_id, version_id, workspace }
+    }
   }
   if (typeof path !== 'string') throw new TypeError('Storage image receipt path must be a string')
   validateStoragePath(path)
@@ -70,6 +123,7 @@ export function snapshotImageSource(props: {
   if (md5hash !== undefined && (typeof md5hash !== 'string' || !/^[a-f0-9]{32}$/i.test(md5hash)))
     throw new TypeError('Storage image md5hash must be a 32-digit hexadecimal checksum')
   return {
+    ...reference,
     path,
     width,
     height,

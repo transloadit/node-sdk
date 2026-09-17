@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { fileAsSchema } from './file.ts'
+import { storedAssetSchema } from './storageAsset.ts'
 
 export const assemblyBusyCodeSchema = z.enum([
   'ASSEMBLY_UPLOADING',
@@ -631,6 +632,10 @@ const hlsPlaylistSchema = z.object({
 export const assemblyStatusUploadSchema = z
   .object({
     id: z.string(),
+    asset_id: storedAssetSchema.shape.asset_id.optional(),
+    version_id: storedAssetSchema.shape.version_id.optional(),
+    workspace: storedAssetSchema.shape.workspace.optional(),
+    sha256: storedAssetSchema.shape.sha256,
     name: z.string(),
     basename: z.string(),
     ext: z.string(),
@@ -669,6 +674,9 @@ export const assemblyStatusResultSchema = z
   .object({
     id: z.string().optional(),
     asset_id: z.string().optional(),
+    version_id: storedAssetSchema.shape.version_id.optional(),
+    workspace: storedAssetSchema.shape.workspace.optional(),
+    sha256: storedAssetSchema.shape.sha256,
     basename: z.string().nullable().optional(),
     field: z.string().nullable().optional(),
     md5hash: z.string().nullable().optional(),

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { cookies } from 'next/headers'
 import { Suspense } from 'react'
 
+import { fixtureStorageIdentity } from '../../storage-fixtures'
 import { BrowserImage } from '../browser/BrowserImage'
 import { SignIn } from './SignIn'
 
@@ -11,7 +12,12 @@ async function PrivatePreview(): Promise<ReactNode> {
   return (
     <BrowserImage
       alt="Private preview"
-      src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+      src={{
+        ...fixtureStorageIdentity('documents/hero.jpg'),
+        path: 'documents/hero.jpg',
+        width: 2400,
+        height: 1600,
+      }}
       layout="constrained"
       width={960}
       retryKey={signedIn ? 'signed-in' : 'anonymous'}

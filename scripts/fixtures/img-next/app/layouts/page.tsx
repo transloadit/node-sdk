@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { fixtureStorageIdentity } from '../../storage-fixtures'
 import { BrowserImage } from '../browser/BrowserImage'
 
 export default function Page(): ReactNode {
@@ -9,7 +10,12 @@ export default function Page(): ReactNode {
       <div style={{ position: 'relative', width: 390, aspectRatio: '9/16' }}>
         <BrowserImage
           alt="Portrait cover"
-          src={{ path: 'documents/hero.jpg', width: 2400, height: 1600 }}
+          src={{
+            ...fixtureStorageIdentity('documents/hero.jpg'),
+            path: 'documents/hero.jpg',
+            width: 2400,
+            height: 1600,
+          }}
           layout="fill"
           frame={false}
           fit="cover"
