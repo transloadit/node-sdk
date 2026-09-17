@@ -111,6 +111,46 @@ test.each([
   )
 })
 
+test.each([
+  'publish',
+  'unpublish',
+  'init',
+])('%s preserves an empty catalog bound to another API', async (command) => {
+  await mkdir('app')
+  const previous = JSON.stringify({
+    workspace: 'my-app',
+    apiOrigin: 'https://api2.transloadit.com',
+    public: [],
+    images: {},
+  })
+  await writeFile('transloadit.images.json', previous)
+  const publish = vi
+    .spyOn(Transloadit.prototype, 'publishStoragePrefix')
+    .mockResolvedValue(declared)
+  const unpublish = vi
+    .spyOn(Transloadit.prototype, 'unpublishStoragePrefix')
+    .mockResolvedValue({ ok: 'STORAGE_PUBLIC_PREFIX_REVOKED', prefix: 'website/', deleted: true })
+  await main(
+    command === 'init'
+      ? ['image', 'init', 'website/', '--public', '--endpoint', origin]
+      : ['storage', command, 'website/'],
+  )
+  expect(process.exitCode).toBe(1)
+  expect(publish).not.toHaveBeenCalled()
+  expect(unpublish).not.toHaveBeenCalled()
+  expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+})
+
+test('publishing before the first upload persists API provenance on the empty catalog', async () => {
+  vi.spyOn(Transloadit.prototype, 'publishStoragePrefix').mockResolvedValue(declared)
+  await main(['storage', 'publish', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toMatchObject({
+    apiOrigin: origin,
+    images: {},
+  })
+})
+
 test('publish dry run lists matching objects without publishing or touching the catalog', async () => {
   const previous = '{"workspace":"my-app","public":[],"images":{}}\n'
   await writeFile('transloadit.images.json', previous)
@@ -308,6 +348,7 @@ test('public init commits the whole project catalog without creating an env file
   expect(api.isDone()).toBe(true)
   expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
     workspace: 'my-app',
+    apiOrigin: origin,
     public: ['website/'],
     images: {},
     delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
@@ -362,6 +403,7 @@ test('publish and unpublish update the committed policy without losing image rec
   expect(process.exitCode).toBeUndefined()
   expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
     workspace: 'my-app',
+    apiOrigin: origin,
     public: ['website/'],
     images,
     delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
@@ -371,6 +413,7 @@ test('publish and unpublish update the committed policy without losing image rec
   expect(api.isDone()).toBe(true)
   expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
     workspace: 'my-app',
+    apiOrigin: origin,
     public: [],
     images,
     delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
@@ -502,6 +545,7 @@ test('init publishes first and reuses the saved login without any terminal input
   )
   expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
     workspace: 'my-app',
+    apiOrigin: origin,
     public: ['website/'],
     images: {},
     delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },

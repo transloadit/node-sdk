@@ -55,8 +55,9 @@ workspace, server-declared public prefixes and image receipts. A non-production 
 ```
 
 This is a field within the catalog, not a standalone catalog. Production logins omit it.
-Later writes preserve an existing delivery choice; remove that block deliberately to return to
-production Smart CDN. Neither the catalog nor declarations contain login credentials.
+Later writes preserve an existing delivery choice. API provenance is separate: development asset
+IDs cannot be moved to production by changing the delivery host. Neither the catalog nor declarations
+contain login credentials.
 
 ### Generated types and optional scaffolding
 
@@ -74,11 +75,12 @@ explicit top-level `baseUrl`/`urlParams` override that block.
 
 `image init website/ --example` remains an optional page generator using the same package import
 as the README, without `lib/storageImage.ts` or a second factory. It uses an existing
-catalog without login or publication, preserving its workspace and delivery. A saved development
-login cannot redirect that existing catalog; only an explicit `--endpoint` changes its transport.
-Credentialed init (publication or `--write-env`) requires matching login/delivery origins; otherwise
-it refuses before any write. Select matching credentials or a separate catalog, or deliberately
-switch delivery with `--endpoint`. Custom CDN overrides can stay in the Next config plugin instead.
+catalog without login or publication, preserving its workspace, API provenance and delivery. This
+offline page generation neither reads Storage nor binds existing assets to a saved login.
+Credentialed init (publication or `--write-env`) and explicit `--endpoint` require a matching catalog
+API origin; otherwise they refuse before any write. Select matching credentials or a separate
+`--receipts` file for another environment. Custom CDN delivery hosts are independent from API
+provenance and can be configured in the catalog or Next config plugin.
 `image init uploads/ --private` creates only the conventional
 authorizer and route below; add `--example` for a page too. The older `image init --public` is an
 explicit publication plus example shortcut, not a prerequisite. No existing source file is overwritten.
@@ -514,7 +516,7 @@ Unrestricted keys (`signature_algo: null`) also retain that default for API requ
 
 `image init` is optional: `--example` uses an existing catalog without credentials; publication or
 initializing an empty project prefers the saved login, keeping key, workspace and endpoint together.
-The catalog carries `{ workspace, public, images }` and optional non-production `delivery`.
+The catalog carries `{ workspace, apiOrigin, public, images }` and optional non-production `delivery`.
 An explicit factory workspace takes precedence over `TRANSLOADIT_WORKSPACE`. `Image storage`
 keeps its catalog's identity; a conflicting `workspace` prop or plugin default is rejected before
 using that catalog's paths, metadata or publication policy. Environment signing credentials bound
@@ -543,9 +545,11 @@ dependency, not part of rendering or the browser.
 
 `auth login --endpoint <url>` persists that endpoint in the saved login. On first catalog creation,
 store records `delivery.baseUrl: '<endpoint>/file/{workspace}'` and `urlParams: { cdn: 'required' }`
-for non-production. Subsequent writes preserve an existing delivery block. Remove it, and any
-explicit plugin/factory overrides, to switch to production Smart CDN. Public rendering stays
-secretless and production derives the CDN host from the catalog workspace.
+for non-production. Subsequent writes preserve an existing delivery block. Moving an app to production
+requires uploading or recovering its production assets into a separate catalog with production IDs;
+changing a delivery URL cannot migrate assets. That production catalog needs no development delivery
+block or plugin/factory override. Public rendering stays secretless and production derives the CDN
+host from the catalog workspace.
 For a separate login, set `TRANSLOADIT_CREDENTIALS_FILE` in your shell before logging in.
 Console → Credentials contains the key; follow its real workspace link printed by the CLI.
 
@@ -628,7 +632,8 @@ is no fallback to the current path. Hashed filenames remain useful for repositor
 before the extension, for example `website/hero.fce9d56a.jpg`. The catalog key, generated types and
 printed JSX use that name; the receipt's `source` keeps the original local filename for humans.
 The same bytes at the same destination are a no-op when the same-workspace catalog has a verified
-receipt with matching full MD5, size and API origin. Every CLI upload records `apiOrigin` so a dev
+receipt with matching full MD5, size and API origin. CLI writes record catalog-level `apiOrigin`,
+including publication before the first upload, and each upload records its origin too. A development
 workspace cannot stand in for production just because their slugs match. A missing or different
 origin stops the command; use a separate `--receipts` catalog for another environment. For a
 legacy receipt with a recorded API origin, run `storage receipts sync` against that endpoint to
@@ -823,7 +828,7 @@ public images run `storage publish` on the intended directory; otherwise configu
 for private delivery. The CLI and factory explain this missing delivery choice.
 The server returns the same canonical shape as storing: `workspace`, `asset_id`, `version_id`,
 final `path`, `size`, `mime`, available `md5hash`/`sha256`, and version-specific `width`/`height`.
-Sync records the verified `apiOrigin` on every recovered image and refuses to mix environments.
+Sync records the verified `apiOrigin` on the catalog and every recovered image and refuses to mix environments.
 Unbound legacy catalogs must be recovered into a new `--receipts` file and reviewed before replacing
 the old catalog. A custom delivery host is preserved separately, never treated as API provenance.
 Sync recovers real version identities, not a path-only approximation. Local `source`,

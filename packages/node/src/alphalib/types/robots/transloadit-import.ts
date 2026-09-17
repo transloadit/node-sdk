@@ -3,7 +3,31 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { z } from 'zod'
 
 import { damIdSchema } from '../storageAsset.ts'
-import { interpolateRobot, recursive, robotBase, robotImport } from './_instructions-primitives.ts'
+import { interpolateRobot, interpolationSchemaFull, recursive, robotBase, robotImport } from './_instructions-primitives.ts'
+
+/** Cross-field validation runs after interpolation-aware parsing at the Assembly Step boundary. */
+export function refineTransloaditImportSelector(
+  step: { robot: string; path?: unknown; asset_id?: unknown; version_id?: unknown; recursive?: unknown },
+  context: z.RefinementCtx,
+): void {
+  if (step.robot !== '/transloadit/import') return
+  const hasPath = step.path !== undefined
+  const hasAsset = step.asset_id !== undefined
+  if (hasPath === hasAsset || (step.version_id !== undefined && !hasAsset)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [step.version_id !== undefined && !hasAsset ? 'version_id' : 'asset_id'],
+      message: 'Select either path, or asset_id with an optional version_id.',
+    })
+  }
+  if (hasAsset && step.recursive === true) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['recursive'],
+      message: 'Recursive imports require a path, not an asset_id.',
+    })
+  }
+}
 
 export const meta: RobotMetaInput = {
   bytescount: 10,
@@ -86,7 +110,11 @@ export type RobotTransloaditImportInstructionsWithHiddenFields = z.infer<
 
 export const interpolatableRobotTransloaditImportInstructionsSchema = interpolateRobot(
   robotTransloaditImportInstructionsSchema,
-)
+).extend({
+  // The generic boolean interpolator changes literal false to true. Keep Storage's documented
+  // false default intact; unresolved variables are validated after uploader interpolation.
+  recursive: z.union([recursive, interpolationSchemaFull]),
+})
 export type InterpolatableRobotTransloaditImportInstructions =
   InterpolatableRobotTransloaditImportInstructionsInput
 
@@ -95,7 +123,9 @@ export type InterpolatableRobotTransloaditImportInstructionsInput = z.input<
 >
 
 export const interpolatableRobotTransloaditImportInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotTransloaditImportInstructionsWithHiddenFieldsSchema)
+  interpolateRobot(robotTransloaditImportInstructionsWithHiddenFieldsSchema).extend({
+    recursive: interpolatableRobotTransloaditImportInstructionsSchema.shape.recursive,
+  })
 export type InterpolatableRobotTransloaditImportInstructionsWithHiddenFields =
   InterpolatableRobotTransloaditImportInstructionsWithHiddenFieldsInput
 export type InterpolatableRobotTransloaditImportInstructionsWithHiddenFieldsInput = z.input<

@@ -140,6 +140,24 @@ test('sync preserves an unbound production catalog instead of assuming the selec
   expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
 })
 
+test('sync refuses another API even before the bound catalog contains images', async () => {
+  const previous = JSON.stringify({
+    workspace: 'my-app',
+    apiOrigin: 'https://api2.transloadit.com',
+    public: [],
+    images: {},
+  })
+  await writeFile('transloadit.images.json', previous)
+  discovery().get('/dam/assets').query(true).reply(200, page)
+  nock(origin)
+    .get('/storage/public_prefixes')
+    .query(true)
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIXES_LISTED', public_prefixes: [] })
+  await main(['storage', 'receipts', 'sync', 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+})
+
 test('sync preserves a custom delivery host separately from verified API provenance', async () => {
   const delivery = { baseUrl: 'https://images.example/file/{workspace}' }
   await writeFile(

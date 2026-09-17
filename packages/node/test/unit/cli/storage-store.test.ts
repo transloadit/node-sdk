@@ -480,7 +480,12 @@ describe('storage store', () => {
   }) => {
     await writeFile(
       'images.json',
-      JSON.stringify({ workspace: 'my-app', public: prefixes, images: {} }),
+      JSON.stringify({
+        workspace: 'my-app',
+        apiOrigin: receipt.apiOrigin,
+        public: prefixes,
+        images: {},
+      }),
     )
     const stored = { ...receipt, thumbhash, ...(hasAlpha ? { hasAlpha: true } : {}) }
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(stored)
@@ -669,6 +674,7 @@ describe('storage store', () => {
     expect(publish).toHaveBeenCalledExactlyOnceWith('website/', { signal: expect.any(AbortSignal) })
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
       workspace: 'my-app',
+      apiOrigin: receipt.apiOrigin,
       public: ['website/'],
       images: { [receipt.path]: receipt },
     })
@@ -701,7 +707,13 @@ describe('storage store', () => {
     const delivery = { urlParams: { cdn: 'required', custom: ['first', 'second'] } }
     await writeFile(
       'images.json',
-      JSON.stringify({ workspace: 'my-app', public: [], images: {}, delivery }),
+      JSON.stringify({
+        workspace: 'my-app',
+        apiOrigin: receipt.apiOrigin,
+        public: [],
+        images: {},
+        delivery,
+      }),
     )
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     await runStore()
@@ -716,6 +728,7 @@ describe('storage store', () => {
     expect(process.exitCode).toBe(1)
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
       workspace: 'my-app',
+      apiOrigin: receipt.apiOrigin,
       public: [],
       images: { [receipt.path]: receipt },
     })

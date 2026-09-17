@@ -452,7 +452,22 @@ describe('image init', () => {
 
   test('example scaffolding uses an existing catalog without login or implicit publication', async () => {
     await mkdir('app')
-    const catalog = { workspace: 'my-app', public: ['website/'], images: {} }
+    const catalog = {
+      workspace: 'my-app',
+      public: ['website/'],
+      images: {
+        'website/hero.jpg': {
+          workspace: 'my-app',
+          asset_id: 'AAAAAAAAAAAAAAAAAAAAAA',
+          version_id: 'BBBBBBBBBBBBBBBBBBBBBA',
+          path: 'website/hero.jpg',
+          width: 800,
+          height: 600,
+          size: 123,
+          mime: 'image/jpeg',
+        },
+      },
+    }
     await writeFile('transloadit.images.json', JSON.stringify(catalog))
     vi.mocked(resolveCliConfig).mockReturnValue({})
     await main(['image', 'init', 'website/', '--example'])
@@ -532,6 +547,7 @@ describe('image init', () => {
     await main(['image', 'init', 'website/', mode])
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
+    expect(Transloadit.prototype.publishStoragePrefix).not.toHaveBeenCalled()
     if (mode === '--example') {
       expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).not.toContain(
         '127.0.0.1',
@@ -553,12 +569,13 @@ describe('image init', () => {
     await expect(stat('transloadit.authorize.ts')).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  test('an explicit production endpoint clears catalog transport without a factory override', async () => {
+  test('an explicit endpoint cannot rebind an existing catalog to production', async () => {
     await mkdir('app')
     await writeFile(
       'transloadit.images.json',
       JSON.stringify({
         workspace: 'my-app',
+        apiOrigin: 'http://127.0.0.1:3020',
         public: ['website/'],
         images: {},
         delivery: {
@@ -567,6 +584,7 @@ describe('image init', () => {
         },
       }),
     )
+    const original = await readFile('transloadit.images.json', 'utf8')
     await main([
       'image',
       'init',
@@ -575,9 +593,12 @@ describe('image init', () => {
       '--endpoint',
       'https://api2.transloadit.com',
     ])
-    expect(process.exitCode).toBeUndefined()
-    expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).delivery).toBeUndefined()
-    expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).not.toContain('baseUrl:')
+    expect(process.exitCode).toBe(1)
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(original)
+    expect(await readdir('app')).toEqual([])
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('another API environment'),
+    )
   })
 
   test.each([
@@ -656,6 +677,7 @@ describe('image init', () => {
     const endpoint = 'http://127.0.0.1:3020'
     const catalog = {
       workspace: 'my-app',
+      apiOrigin: endpoint,
       public: [],
       images: {},
       delivery: { baseUrl: `${endpoint}/file/{workspace}`, urlParams: { cdn: 'required' } },
@@ -732,6 +754,7 @@ describe('image init', () => {
     await expect(stat(`${root}lib/storageImage.ts`)).rejects.toMatchObject({ code: 'ENOENT' })
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
       workspace: 'my-app',
+      apiOrigin: 'https://api2.transloadit.com',
       public: ['website/'],
       images: {},
     })
@@ -936,6 +959,7 @@ describe('image init', () => {
     expect(process.exitCode).toBeUndefined()
     expect(JSON.parse(await readFile('catalog/images.json', 'utf8'))).toEqual({
       ...JSON.parse(catalog),
+      apiOrigin: 'https://api2.transloadit.com',
       public: ['website/'],
     })
     expect(await readFile('src/app/storage-image-example/page.tsx', 'utf8')).toContain(

@@ -1,8 +1,26 @@
 import { describe, expect, it } from 'vitest'
 
+import { stepSchema, stepSchemaWithHiddenFields } from '../../src/alphalib/types/template.ts'
 import { getRobotHelp, listRobots } from '../../src/Transloadit.ts'
 
 describe('robot catalog helpers', () => {
+  it.each([
+    {},
+    { path: 'photos/cat.jpg', asset_id: 'AAAAAAAAAAAAAAAAAAAAAA' },
+    { version_id: 'BBBBBBBBBBBBBBBBBBBBBA' },
+    { asset_id: 'AAAAAAAAAAAAAAAAAAAAAA', recursive: true },
+  ])('rejects invalid Storage import selectors: %j', (selector) => {
+    const step = { robot: '/transloadit/import', ...selector }
+    expect(stepSchema.safeParse(step).success).toBe(false)
+    expect(stepSchemaWithHiddenFields.safeParse(step).success).toBe(false)
+  })
+
+  it('keeps nonrecursive ID imports valid after interpolation-aware parsing', () => {
+    const step = { robot: '/transloadit/import', asset_id: '${fields.asset}', recursive: false }
+    expect(stepSchema.parse(step)).toMatchObject(step)
+    expect(stepSchemaWithHiddenFields.parse(step)).toMatchObject(step)
+  })
+
   it.each([
     '/transloadit/store',
     '/transloadit/import',

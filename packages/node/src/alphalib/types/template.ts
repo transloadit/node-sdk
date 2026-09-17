@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { refineTransloaditImportSelector } from './robots/transloadit-import.ts'
 
 import {
   robotsSchema,
@@ -24,6 +25,7 @@ export const stepSchema: z.ZodType<Step> = z
       .describe('Identifier of the [robot](https://transloadit.com/docs/robots/) to execute'),
   })
   .and(robotsSchema)
+  .superRefine(refineTransloaditImportSelector)
 export const stepsSchema: z.ZodType<Steps> = z
   .record(stepSchema)
   .describe('Contains Assembly Instructions.')
@@ -42,6 +44,7 @@ export const stepSchemaWithHiddenFields: z.ZodType<StepWithHiddenFields> = z
       .describe('Identifier of the [robot](https://transloadit.com/docs/robots/) to execute'),
   })
   .and(robotsWithHiddenBotsAndFieldsSchema)
+  .superRefine(refineTransloaditImportSelector)
 export const stepsSchemaWithHiddenFields: z.ZodType<StepsWithHiddenFields> = z
   .record(stepSchemaWithHiddenFields)
   .describe('Contains Assembly Instructions.')

@@ -19,6 +19,7 @@ const deliveryParameterSchema = z.union([z.string(), z.number(), z.boolean()])
 /** Project identity and rendering metadata (including optional preview pixels), without credentials. */
 export const storageCatalogSchema = z.object({
   workspace: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/),
+  apiOrigin: z.string().url().optional(),
   public: z.array(
     z.string().refine((prefix) => {
       try {
@@ -130,7 +131,7 @@ export function assertStorageWorkspace(actual: string, project?: string, request
     )
 }
 
-const receiptOriginSchema = z.object({ apiOrigin: z.string().url() })
+const receiptOriginSchema = z.object({ apiOrigin: z.string().url().optional() })
 
 /** Delivery hosts do not prove provenance; a matching Workspace slug is not an API identity. */
 export function assertStorageCatalogOrigin(
@@ -138,16 +139,35 @@ export function assertStorageCatalogOrigin(
   endpoint: string,
   file: string,
 ): void {
+  const mismatch = (): Error =>
+    new Error(
+      `Catalog ${JSON.stringify(file)} belongs to another API environment. Use --receipts for a separate catalog; the existing file was preserved.`,
+    )
+  if (catalog?.apiOrigin !== undefined && new URL(catalog.apiOrigin).origin !== endpoint)
+    throw mismatch()
+  if (
+    catalog !== undefined &&
+    catalog.apiOrigin === undefined &&
+    Object.keys(catalog.images).length === 0 &&
+    (catalog.public.length > 0 || catalog.delivery !== undefined)
+  )
+    throw new Error(
+      `Catalog ${JSON.stringify(file)} has no verified API origin. Run storage receipts sync into a new --receipts file using the original API --endpoint, then review and replace this catalog. The existing file was preserved.`,
+    )
   for (const [path, value] of Object.entries(catalog?.images ?? {})) {
     const previous = receiptOriginSchema.safeParse(value)
-    if (!previous.success)
+    if (
+      !previous.success ||
+      (previous.data.apiOrigin === undefined && catalog?.apiOrigin === undefined)
+    )
       throw new Error(
         `Catalog ${JSON.stringify(file)} has no verified API origin for ${JSON.stringify(path)}. Run storage receipts sync into a new --receipts file using the original API --endpoint, then review and replace this catalog. The existing file was preserved.`,
       )
-    if (new URL(previous.data.apiOrigin).origin !== endpoint)
-      throw new Error(
-        `Catalog ${JSON.stringify(file)} belongs to another API environment. Use --receipts for a separate catalog; the existing file was preserved.`,
-      )
+    if (
+      previous.data.apiOrigin !== undefined &&
+      new URL(previous.data.apiOrigin).origin !== endpoint
+    )
+      throw mismatch()
   }
 }
 

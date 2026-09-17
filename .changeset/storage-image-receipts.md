@@ -44,7 +44,8 @@ download. Recover canonical Workspace, asset ID, retained version ID, current pa
 MIME and available checksums. Share
 atomic receipt-file writes and credential-bound endpoint resolution with the existing commands;
 preserve unmatched records and the entire previous file on metadata, listing or write failures.
-Record API provenance for every upload, not only hashed uploads. Reject API-environment mismatches
+Record API provenance for every upload, not only hashed uploads, and on the catalog even when
+publication happens before the first upload. Reject API-environment mismatches
 even when Workspace slugs are identical; a custom delivery host is not an API identity. Recover
 unbound legacy receipts into a separate catalog before reviewing and replacing the old file.
 Recovery records the verified API origin so hashed uploads can be reused without uploading.

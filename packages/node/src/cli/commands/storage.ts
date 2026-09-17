@@ -34,6 +34,10 @@ import { ensureError } from '../types.ts'
 import { AuthenticatedCommand, UnauthenticatedCommand } from './BaseCommand.ts'
 
 abstract class StorageProjectCommand extends AuthenticatedCommand {
+  protected get apiOrigin(): string {
+    return new URL(this.endpoint ?? this.cliConfig.endpoint ?? 'https://api2.transloadit.com')
+      .origin
+  }
   receipts = Option.String('--receipts', defaultStorageCatalog, {
     description: 'Committed project catalog with workspace, public prefixes and image receipts',
   })
@@ -85,12 +89,7 @@ export class StoragePublishCommand extends StorageProjectCommand {
           signal,
         )
         if (previous?.workspace === workspace)
-          assertStorageCatalogOrigin(
-            previous,
-            new URL(this.endpoint ?? this.cliConfig.endpoint ?? 'https://api2.transloadit.com')
-              .origin,
-            this.receipts,
-          )
+          assertStorageCatalogOrigin(previous, this.apiOrigin, this.receipts)
         const result = await this.client
           .publishStoragePrefix(prefix, { signal })
           .catch((cause: unknown) => {
@@ -109,6 +108,7 @@ export class StoragePublishCommand extends StorageProjectCommand {
         }
         return {
           ...previous,
+          apiOrigin: this.apiOrigin,
           workspace,
           delivery:
             previous?.delivery ?? storageCatalogDelivery(this.endpoint ?? this.cliConfig.endpoint),
@@ -144,12 +144,7 @@ export class StorageUnpublishCommand extends StorageProjectCommand {
           signal,
         )
         if (previous?.workspace === workspace)
-          assertStorageCatalogOrigin(
-            previous,
-            new URL(this.endpoint ?? this.cliConfig.endpoint ?? 'https://api2.transloadit.com')
-              .origin,
-            this.receipts,
-          )
+          assertStorageCatalogOrigin(previous, this.apiOrigin, this.receipts)
         const result = await this.client
           .unpublishStoragePrefix(prefix, { signal })
           .catch((cause: unknown) => {
@@ -168,6 +163,7 @@ export class StorageUnpublishCommand extends StorageProjectCommand {
         }
         return {
           ...previous,
+          apiOrigin: this.apiOrigin,
           workspace,
           public: (previous?.public ?? []).filter((prefix) => prefix !== result.prefix),
           images: previous?.images ?? {},
@@ -275,9 +271,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
         throw new Error(
           '--hashed cannot be combined with --overwrite; changed bytes get a new name',
         )
-      const apiOrigin = new URL(
-        this.endpoint ?? this.cliConfig.endpoint ?? 'https://api2.transloadit.com',
-      ).origin
+      const apiOrigin = this.apiOrigin
       const uploaded = new Map<string, CliStoredImageReceipt>()
       if (this.files.length > 1 && !this.destination.endsWith('/'))
         throw new Error('Multiple images need a directory destination ending in /')
@@ -401,6 +395,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
             return {
               ...receipts,
               workspace,
+              apiOrigin,
               delivery:
                 receipts?.delivery ??
                 storageCatalogDelivery(this.endpoint ?? this.cliConfig.endpoint),
@@ -629,6 +624,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
       const config = resolveCliConfig()
       await updateStorageReceipts(resolve(this.receipts), async (previous, signal) => {
         let actualWorkspace: string | undefined
+        let apiOrigin: string | undefined
         synced = await withStorageCatalog(
           {
             endpoint: this.endpoint,
@@ -638,6 +634,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
           },
           async (client, workspace, endpoint) => {
             actualWorkspace = workspace
+            apiOrigin = endpoint
             if (previous?.workspace === workspace)
               assertStorageCatalogOrigin(previous, endpoint, this.receipts)
             const assets = await listStorageAssets(client, workspace, this.prefix, signal)
@@ -710,6 +707,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
           )
         return {
           ...previous,
+          apiOrigin,
           workspace: actualWorkspace,
           delivery:
             previous?.delivery ??

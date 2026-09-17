@@ -169,6 +169,8 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           )
       }
       await updateStorageReceipts(this.receipts, async (previous, signal) => {
+        // Offline example/authorizer scaffolding preserves the caller's catalog without reading
+        // remote metadata, publishing, saving credentials or choosing a different API environment.
         if (needsCredentials || this.endpoint !== undefined)
           assertStorageCatalogOrigin(
             previous,
@@ -201,6 +203,11 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         }
         return {
           ...previous,
+          apiOrigin:
+            previous?.apiOrigin ??
+            (needsCredentials || this.endpoint !== undefined
+              ? new URL(this.endpoint ?? login.endpoint ?? 'https://api2.transloadit.com').origin
+              : undefined),
           workspace,
           // An absent delivery block means production, not permission to import another login.
           delivery:

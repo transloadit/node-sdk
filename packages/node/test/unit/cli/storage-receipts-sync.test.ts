@@ -127,6 +127,7 @@ test('a fresh sync recovers pinned references and the declared delivery policy',
   ).toBeUndefined()
   expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({
     workspace: 'my-app',
+    apiOrigin: 'http://storage.invalid',
     public: ['website/'],
     images: { [asset.path]: recovered },
     delivery: {
@@ -199,7 +200,12 @@ test.each([
 test('replaces stale local policy with the server declarations, including a private workspace', async () => {
   await writeFile(
     'images.json',
-    JSON.stringify({ workspace: 'my-app', public: ['website/'], images: {} }),
+    JSON.stringify({
+      workspace: 'my-app',
+      apiOrigin: 'http://storage.invalid',
+      public: ['website/'],
+      images: {},
+    }),
   )
   nock('http://storage.invalid')
     .get('/storage/public_prefixes')
