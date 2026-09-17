@@ -95,6 +95,94 @@ test('ls pages the native catalog and returns identities without S3 requests', a
 })
 
 test.each([
+  'ls',
+  'sync',
+])('%s normalizes decomposed Unicode prefixes before checking returned paths', async (command) => {
+  const normalized = 'café/'
+  const entry = { ...asset, path: `${normalized}a.jpg` }
+  discovery()
+    .get('/dam/assets')
+    .query(true)
+    .reply(200, { ...page, assets: [entry] })
+  nock(origin)
+    .get('/storage/public_prefixes')
+    .query(true)
+    .optionally()
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIXES_LISTED', public_prefixes: [] })
+  await main(
+    command === 'ls'
+      ? ['storage', 'ls', normalized.normalize('NFD')]
+      : ['storage', 'receipts', 'sync', normalized.normalize('NFD')],
+  )
+  expect(
+    process.exitCode,
+    JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls),
+  ).toBeUndefined()
+})
+
+test('sync preserves an unbound production catalog instead of assuming the selected environment', async () => {
+  const previous = JSON.stringify({
+    workspace: 'my-app',
+    public: ['website/'],
+    images: { [asset.path]: asset, 'unmatched.jpg': { ...asset, path: 'unmatched.jpg' } },
+  })
+  await writeFile('transloadit.images.json', previous)
+  discovery().get('/dam/assets').query(true).reply(200, page)
+  nock(origin)
+    .get('/storage/public_prefixes')
+    .query(true)
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIXES_LISTED', public_prefixes: [] })
+  await main(['storage', 'receipts', 'sync', 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringMatching(/API origin.*new.*--receipts/),
+  )
+  expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+})
+
+test('sync preserves a custom delivery host separately from verified API provenance', async () => {
+  const delivery = { baseUrl: 'https://images.example/file/{workspace}' }
+  await writeFile(
+    'transloadit.images.json',
+    JSON.stringify({
+      workspace: 'my-app',
+      public: [],
+      delivery,
+      images: { [asset.path]: { ...asset, apiOrigin: origin } },
+    }),
+  )
+  discovery().get('/dam/assets').query(true).reply(200, page)
+  nock(origin)
+    .get('/storage/public_prefixes')
+    .query(true)
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIXES_LISTED', public_prefixes: [] })
+  await main(['storage', 'receipts', 'sync', 'website/'])
+  expect(
+    process.exitCode,
+    JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls),
+  ).toBeUndefined()
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).delivery).toEqual(delivery)
+})
+
+test('invalid delivery configuration names the catalog and field before making requests', async () => {
+  await writeFile(
+    'transloadit.images.json',
+    JSON.stringify({
+      workspace: 'my-app',
+      public: [],
+      delivery: { baseUrl: '/file/{workspace}' },
+      images: {},
+    }),
+  )
+  discovery()
+  await main(['storage', 'receipts', 'sync', 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringMatching(/transloadit.images.json.*delivery.baseUrl/),
+  )
+})
+
+test.each([
   'website/a|b.jpg',
   'website/photo.jpg ',
 ])('ls preserves the catalog filename %j', async (path) => {
@@ -142,7 +230,7 @@ test('sync refuses another API environment even when its Workspace slug matches'
     workspace: 'my-app',
     public: [],
     delivery: { baseUrl: 'http://other.invalid/file/{workspace}', urlParams: { cdn: 'required' } },
-    images: { [asset.path]: asset },
+    images: { [asset.path]: { ...asset, apiOrigin: 'http://other.invalid' } },
   })
   await writeFile('transloadit.images.json', previous)
   discovery().get('/dam/assets').query(true).reply(200, page)
@@ -162,7 +250,11 @@ test('sync supplies verified endpoint provenance when migrating a legacy hashed 
   const { asset_id: _assetId, version_id: _versionId, workspace: _workspace, ...legacy } = asset
   await writeFile(
     'transloadit.images.json',
-    JSON.stringify({ workspace: 'my-app', public: [], images: { [asset.path]: legacy } }),
+    JSON.stringify({
+      workspace: 'my-app',
+      public: [],
+      images: { [asset.path]: { ...legacy, apiOrigin: origin } },
+    }),
   )
   discovery().get('/dam/assets').query(true).reply(200, page)
   nock(origin)

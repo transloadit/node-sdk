@@ -113,14 +113,15 @@ export async function listStorageAssets(
   prefix: string,
   signal?: AbortSignal,
 ): Promise<StoredAsset[]> {
-  validateCatalogPrefix(prefix)
+  const normalizedPrefix = prefix.normalize('NFC')
+  validateCatalogPrefix(normalizedPrefix)
   const assets: StoredAsset[] = []
   const paths = new Set<string>()
   const cursors = new Set<string>()
   let cursor: string | undefined
   do {
     const page = await client.listStoredAssets({
-      prefix,
+      prefix: normalizedPrefix,
       cursor,
       limit: 500,
       signal: readDeadline(signal),
@@ -136,7 +137,7 @@ export async function listStorageAssets(
           cause: error,
         })
       }
-      if (!asset.path.startsWith(prefix) || paths.has(asset.path)) {
+      if (!asset.path.startsWith(normalizedPrefix) || paths.has(asset.path)) {
         throw new Error(
           `Storage returned a duplicate path or one outside the requested prefix: ${JSON.stringify(asset.path)}`,
         )

@@ -26,7 +26,7 @@ reject concurrent writers, then print a ready-to-render Image storage snippet.
 Add `storage store --hashed` for content-addressed filenames: eight MD5 hex digits before the
 extension, with catalog keys, generated types and JSX following the stored path. Retain the local
 filename as `source`; reuse matching full-checksum/size receipts without uploading. Never overwrite
-a hash conflict. Keep production-unavailable S3 recovery commands in the image reference only.
+a hash conflict. Document native catalog recovery in the image reference.
 When receipt validation fails after writing, print the destination and Assembly ID for recovery.
 Point to list/sync, not overwrite or another upload. Report pending browser approval every minute.
 Document npm-first onboarding, browser signup and free-plan watermark behavior.
@@ -44,8 +44,10 @@ download. Recover canonical Workspace, asset ID, retained version ID, current pa
 MIME and available checksums. Share
 atomic receipt-file writes and credential-bound endpoint resolution with the existing commands;
 preserve unmatched records and the entire previous file on metadata, listing or write failures.
-Reject known API-environment mismatches even when Workspace slugs are identical. Recovery records
-the verified API origin so legacy hashed uploads can be reused after migration without uploading.
+Record API provenance for every upload, not only hashed uploads. Reject API-environment mismatches
+even when Workspace slugs are identical; a custom delivery host is not an API identity. Recover
+unbound legacy receipts into a separate catalog before reviewing and replacing the old file.
+Recovery records the verified API origin so hashed uploads can be reused without uploading.
 Existing rendering catalogs require this recovery before adopting the version-addressed Viewer.
 Redeploy the application to regenerate private capability-v2 URLs; old capability URLs are not
 accepted by the new handler. New Built-ins select actual retained versions, not arbitrary cache tags.

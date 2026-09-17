@@ -9,6 +9,7 @@ import { noticeCliCredentialSource, resolveCliConfig } from '../helpers.ts'
 import { resolveStorageWorkspace } from '../storageCatalog.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import {
+  assertStorageCatalogOrigin,
   defaultStorageCatalog,
   readStorageCatalog,
   storageCatalogDelivery,
@@ -168,17 +169,11 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           )
       }
       await updateStorageReceipts(this.receipts, async (previous, signal) => {
-        // A verified workspace name is not an environment binding. Publishing or saving keys
-        // must not silently cross from the login's API to a different catalog's delivery origin.
-        if (
-          needsCredentials &&
-          this.endpoint === undefined &&
-          previous !== undefined &&
-          new URL(previous.delivery?.baseUrl ?? 'https://api2.transloadit.com').origin !==
-            new URL(login.endpoint ?? 'https://api2.transloadit.com').origin
-        )
-          throw new Error(
-            'The login endpoint does not match this catalog’s delivery. Select matching credentials, a separate --receipts catalog, or --endpoint to deliberately change delivery. Nothing was written.',
+        if (needsCredentials || this.endpoint !== undefined)
+          assertStorageCatalogOrigin(
+            previous,
+            new URL(this.endpoint ?? login.endpoint ?? 'https://api2.transloadit.com').origin,
+            this.receipts,
           )
         const workspace =
           !needsCredentials && previous !== undefined

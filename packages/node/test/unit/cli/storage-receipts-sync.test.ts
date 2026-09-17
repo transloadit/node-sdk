@@ -107,7 +107,15 @@ function listed(assets = [asset]): nock.Scope {
 }
 
 function catalogJson(images: Record<string, unknown>): string {
-  return `${JSON.stringify({ workspace: 'my-app', public: [], images })}\n`
+  const boundImages = Object.fromEntries(
+    Object.entries(images).map(([path, value]) => [
+      path,
+      typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? { apiOrigin: recovered.apiOrigin, ...value }
+        : value,
+    ]),
+  )
+  return `${JSON.stringify({ workspace: 'my-app', public: [], images: boundImages })}\n`
 }
 
 test('a fresh sync recovers pinned references and the declared delivery policy', async () => {
@@ -218,8 +226,6 @@ test.each([
   nock.enableNetConnect('127.0.0.1')
   const listeners = process.listeners('SIGINT')
   const registrations = vi.spyOn(process, 'once')
-  const previous = catalogJson({ 'other.jpg': { retained: true } })
-  await writeFile('images.json', previous)
   let stalled = false
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://localhost')
@@ -235,6 +241,10 @@ test.each([
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('Expected a local port')
+  const previous = catalogJson({
+    'other.jpg': { retained: true, apiOrigin: `http://127.0.0.1:${address.port}` },
+  })
+  await writeFile('images.json', previous)
   const pending = runSync(['--endpoint', `http://127.0.0.1:${address.port}`])
   try {
     await expect.poll(() => stalled).toBe(true)
@@ -386,7 +396,9 @@ test.each([
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('Expected a local port')
-  const previous = catalogJson({ 'other.jpg': { owner: 'app' } })
+  const previous = catalogJson({
+    'other.jpg': { owner: 'app', apiOrigin: `http://127.0.0.1:${address.port}` },
+  })
   await writeFile('images.json', previous)
   const options = ['--endpoint', `http://127.0.0.1:${address.port}`]
   const command = operation.startsWith('ls')
@@ -455,7 +467,7 @@ test('refreshes matched entries without stale upload fields and preserves unmatc
   await runSync()
   expect(process.exitCode).toBeUndefined()
   expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({
-    ...previous,
+    ...JSON.parse(catalogJson(previous)).images,
     [asset.path]: recovered,
   })
   expect((await stat('images.json')).mode & 0o777).toBe(0o640)
@@ -496,7 +508,7 @@ test.each([
   '',
   'loop',
 ])('rejects incomplete/repeated pagination before changing the file: %s', async (cursor) => {
-  const previous = catalogJson({ keep: true })
+  const previous = catalogJson({ keep: { ...recovered, path: 'keep' } })
   await writeFile('images.json', previous)
   const api = storageApi()
     .get('/dam/assets')
@@ -526,7 +538,7 @@ test.each([
 test.each([
   403, 404, 503,
 ])('sanitizes catalog HTTP %i and preserves the entire previous catalog', async (status) => {
-  const previous = catalogJson({ keep: true })
+  const previous = catalogJson({ keep: { ...recovered, path: 'keep' } })
   await writeFile('images.json', previous)
   const api = storageApi()
     .get('/dam/assets')
@@ -545,7 +557,7 @@ test.each([
 })
 
 test('does not save an earlier image when a later image lacks height', async () => {
-  const previous = catalogJson({ keep: true })
+  const previous = catalogJson({ keep: { ...recovered, path: 'keep' } })
   await writeFile('images.json', previous)
   listed([asset, storedAsset({ path: 'website/b.jpg', height: undefined })])
   await runSync()
@@ -582,7 +594,7 @@ test.each([
 })
 
 test('retains the new complete catalog and releases its lock if atomic replacement fails', async () => {
-  const previous = catalogJson({ keep: true })
+  const previous = catalogJson({ keep: { ...recovered, path: 'keep' } })
   await writeFile('images.json', previous)
   vi.mocked(rename).mockRejectedValueOnce(new Error('EACCES: rename denied'))
   listed()
@@ -595,7 +607,7 @@ test('retains the new complete catalog and releases its lock if atomic replaceme
   expect(temporary).toBeDefined()
   if (temporary === undefined) throw new Error('Expected retained complete catalog')
   expect(JSON.parse(await readFile(temporary, 'utf8')).images).toEqual({
-    keep: true,
+    keep: { ...recovered, path: 'keep' },
     [asset.path]: recovered,
   })
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining(temporary))

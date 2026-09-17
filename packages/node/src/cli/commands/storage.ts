@@ -21,6 +21,7 @@ import {
 } from '../storageCatalog.ts'
 import { storagePublicError } from '../storagePublic.ts'
 import {
+  assertStorageCatalogOrigin,
   assertStorageWorkspace,
   defaultStorageCatalog,
   readStorageCatalog,
@@ -83,6 +84,13 @@ export class StoragePublishCommand extends StorageProjectCommand {
           previous?.workspace,
           signal,
         )
+        if (previous?.workspace === workspace)
+          assertStorageCatalogOrigin(
+            previous,
+            new URL(this.endpoint ?? this.cliConfig.endpoint ?? 'https://api2.transloadit.com')
+              .origin,
+            this.receipts,
+          )
         const result = await this.client
           .publishStoragePrefix(prefix, { signal })
           .catch((cause: unknown) => {
@@ -135,6 +143,13 @@ export class StorageUnpublishCommand extends StorageProjectCommand {
           previous?.workspace,
           signal,
         )
+        if (previous?.workspace === workspace)
+          assertStorageCatalogOrigin(
+            previous,
+            new URL(this.endpoint ?? this.cliConfig.endpoint ?? 'https://api2.transloadit.com')
+              .origin,
+            this.receipts,
+          )
         const result = await this.client
           .unpublishStoragePrefix(prefix, { signal })
           .catch((cause: unknown) => {
@@ -260,9 +275,9 @@ export class StorageStoreCommand extends StorageProjectCommand {
         throw new Error(
           '--hashed cannot be combined with --overwrite; changed bytes get a new name',
         )
-      const apiOrigin = this.hashed
-        ? new URL(this.endpoint ?? this.cliConfig.endpoint ?? 'https://api2.transloadit.com').origin
-        : undefined
+      const apiOrigin = new URL(
+        this.endpoint ?? this.cliConfig.endpoint ?? 'https://api2.transloadit.com',
+      ).origin
       const uploaded = new Map<string, CliStoredImageReceipt>()
       if (this.files.length > 1 && !this.destination.endsWith('/'))
         throw new Error('Multiple images need a directory destination ending in /')
@@ -305,6 +320,8 @@ export class StorageStoreCommand extends StorageProjectCommand {
               signal,
             )
             assertStorageWorkspace(workspace, receipts?.workspace, this.workspace)
+            if (receipts?.workspace === workspace)
+              assertStorageCatalogOrigin(receipts, apiOrigin, this.receipts)
             signal.throwIfAborted()
             if (this.hashed) {
               const { md5hash, size } = await hashImageFile(input.file, signal)
@@ -365,8 +382,12 @@ export class StorageStoreCommand extends StorageProjectCommand {
               throw new Error(
                 `The stored receipt belongs to Workspace ${stored.receipt.workspace}, not ${workspace}. The project catalog was not changed; inspect the Assembly before retrying.`,
               )
-            if (this.hashed && !unchanged)
-              stored.receipt = { ...stored.receipt, source: basename(input.file), apiOrigin }
+            if (!unchanged)
+              stored.receipt = {
+                ...stored.receipt,
+                ...(this.hashed ? { source: basename(input.file) } : {}),
+                apiOrigin,
+              }
             if (this.hashed) uploaded.set(destination, stored.receipt)
             if (receipts !== undefined && receipts.workspace !== workspace) {
               this.output.notice(
@@ -397,6 +418,8 @@ export class StorageStoreCommand extends StorageProjectCommand {
             `Publishing ${publicPrefix} recursively: all current and future objects under this prefix will be public.`,
           )
           await updateStorageReceipts(file, async (previous, signal) => {
+            if (previous?.workspace === workspace)
+              assertStorageCatalogOrigin(previous, apiOrigin, this.receipts)
             const result = await this.client
               .publishStoragePrefix(publicPrefix, { signal })
               .catch((cause: unknown) => {
@@ -615,25 +638,8 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
           },
           async (client, workspace, endpoint) => {
             actualWorkspace = workspace
-            // A matching slug is not an environment identity. Preserve custom CDN hosts, but
-            // reject a known API-origin binding before retaining delivery settings or receipts.
-            const configuredBase = previous?.delivery?.baseUrl
-            const deliveryOrigin = configuredBase?.endsWith('/file/{workspace}')
-              ? new URL(configuredBase).origin
-              : undefined
-            const previousOrigins = Object.values(previous?.images ?? {}).flatMap((value) => {
-              const parsed = uploadEvidenceSchema.pick({ apiOrigin: true }).safeParse(value)
-              return parsed.success && parsed.data.apiOrigin !== undefined
-                ? [parsed.data.apiOrigin]
-                : []
-            })
-            if (
-              (deliveryOrigin !== undefined && deliveryOrigin !== endpoint) ||
-              previousOrigins.some((origin) => origin !== endpoint)
-            )
-              throw new Error(
-                'Catalog belongs to another API environment. Use --receipts for a separate catalog; the existing file was preserved.',
-              )
+            if (previous?.workspace === workspace)
+              assertStorageCatalogOrigin(previous, endpoint, this.receipts)
             const assets = await listStorageAssets(client, workspace, this.prefix, signal)
             const entries = assets.map((asset) => {
               try {

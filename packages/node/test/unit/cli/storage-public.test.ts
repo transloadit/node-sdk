@@ -74,6 +74,43 @@ function signedPrefix(body: string): boolean {
   return true
 }
 
+test.each([
+  'publish',
+  'unpublish',
+  'init',
+])('%s does not apply another environment’s policy to a same-slug catalog', async (command) => {
+  await mkdir('app')
+  const previous = JSON.stringify({
+    workspace: 'my-app',
+    public: [],
+    images: {
+      'website/hero.jpg': {
+        ...storedAsset({ path: 'website/hero.jpg' }),
+        apiOrigin: 'https://api2.transloadit.com',
+      },
+    },
+  })
+  await writeFile('transloadit.images.json', previous)
+  const publish = vi
+    .spyOn(Transloadit.prototype, 'publishStoragePrefix')
+    .mockResolvedValue(declared)
+  const unpublish = vi
+    .spyOn(Transloadit.prototype, 'unpublishStoragePrefix')
+    .mockResolvedValue({ ok: 'STORAGE_PUBLIC_PREFIX_REVOKED', prefix: 'website/', deleted: true })
+  await main(
+    command === 'init'
+      ? ['image', 'init', 'website/', '--public', '--endpoint', origin]
+      : ['storage', command, 'website/'],
+  )
+  expect(process.exitCode).toBe(1)
+  expect(publish).not.toHaveBeenCalled()
+  expect(unpublish).not.toHaveBeenCalled()
+  expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringMatching(/API environment.*--receipts/),
+  )
+})
+
 test('publish dry run lists matching objects without publishing or touching the catalog', async () => {
   const previous = '{"workspace":"my-app","public":[],"images":{}}\n'
   await writeFile('transloadit.images.json', previous)
@@ -309,7 +346,9 @@ test.each([
 })
 
 test('publish and unpublish update the committed policy without losing image receipts', async () => {
-  const images = { 'website/hero.jpg': { path: 'website/hero.jpg', width: 100, height: 80 } }
+  const images = {
+    'website/hero.jpg': { path: 'website/hero.jpg', width: 100, height: 80, apiOrigin: origin },
+  }
   await writeFile(
     'transloadit.images.json',
     JSON.stringify({ workspace: 'my-app', public: [], images }),

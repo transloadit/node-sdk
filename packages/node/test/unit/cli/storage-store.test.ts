@@ -38,6 +38,7 @@ const stdoutErrorListeners = process.stdout.listeners('error')
 const stderrErrorListeners = process.stderr.listeners('error')
 const receipt = {
   ...storedAsset(),
+  apiOrigin: 'https://api2.transloadit.com',
   height: 600,
   md5hash: 'd41d8cd98f00b204e9800998ecf8427e',
   path: 'website/hero.jpg',
@@ -93,6 +94,20 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test('plain uploads record API provenance so recovery cannot mix matching Workspace slugs', async () => {
+    vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue({
+      ...storedAsset(),
+      path: receipt.path,
+      width: 800,
+      height: 600,
+    })
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    expect(JSON.parse(await readFile('images.json', 'utf8')).images[receipt.path]).toMatchObject({
+      apiOrigin: 'https://api2.transloadit.com',
+    })
+  })
+
   test('never writes a receipt from another Workspace into the verified project catalog', async () => {
     await writeFile('hero.jpg', Buffer.from('image'))
     const previous = catalogJson({})
@@ -299,7 +314,7 @@ describe('storage store', () => {
     expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
     expect(OutputCtl.prototype.print).not.toHaveBeenCalled()
     expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-      expect.stringContaining('https://api2.transloadit.com'),
+      expect.stringMatching(/API (?:environment|origin).*--receipts/),
     )
     expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining('--receipts'))
   })
@@ -709,7 +724,7 @@ describe('storage store', () => {
     )
   })
 
-  test('stores development delivery in the catalog and preserves it on later writes', async () => {
+  test('stores development delivery and refuses later writes from production credentials', async () => {
     vi.stubEnv('TRANSLOADIT_KEY', '')
     vi.stubEnv('TRANSLOADIT_SECRET', '')
     await writeFile(
@@ -725,8 +740,13 @@ describe('storage store', () => {
     })
     vi.stubEnv('TRANSLOADIT_KEY', 'assembly-key')
     vi.stubEnv('TRANSLOADIT_SECRET', 'assembly-secret')
+    const previous = await readFile('transloadit.images.json', 'utf8')
     await main(['storage', 'store', './hero.jpg', receipt.path])
-    expect(process.exitCode).toBeUndefined()
+    expect(process.exitCode).toBe(1)
+    expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringMatching(/API environment.*--receipts/),
+    )
     expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).delivery).toEqual({
       baseUrl: 'http://127.0.0.1:32189/file/{workspace}',
       urlParams: { cdn: 'required' },
@@ -1305,7 +1325,7 @@ describe('storage store', () => {
     const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
     expect(message).toContain(join(directory, 'images.json'))
     expect(message).toContain(
-      previous === '' || previous === '{' ? 'invalid JSON' : 'expected a project catalog',
+      previous === '' || previous === '{' ? 'invalid JSON' : 'invalid catalog field',
     )
     expect(await readdir(directory)).toEqual(['credentials', 'images.json'])
   })
@@ -1350,5 +1370,13 @@ describe('storage store', () => {
 })
 
 function catalogJson(images: Record<string, unknown>): string {
-  return `${JSON.stringify({ workspace: 'my-app', public: [], images })}\n`
+  const boundImages = Object.fromEntries(
+    Object.entries(images).map(([path, value]) => [
+      path,
+      typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? { apiOrigin: 'https://api2.transloadit.com', ...value }
+        : value,
+    ]),
+  )
+  return `${JSON.stringify({ workspace: 'my-app', public: [], images: boundImages })}\n`
 }

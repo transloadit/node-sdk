@@ -31,7 +31,7 @@ export const storageCatalogSchema = z.object({
   images: receiptsSchema,
   delivery: z
     .object({
-      baseUrl: z.string().optional(),
+      baseUrl: z.string().url().optional(),
       urlParams: z
         .record(z.string(), z.union([deliveryParameterSchema, z.array(deliveryParameterSchema)]))
         .optional(),
@@ -105,7 +105,7 @@ async function readReceipts(
       error instanceof SyntaxError
         ? 'invalid JSON'
         : error instanceof z.ZodError
-          ? 'expected a project catalog with workspace, public and images'
+          ? `invalid catalog field ${error.issues[0]?.path.join('.') || 'workspace/public/images'}`
           : ensureError(error).message
     throw new Error(`Cannot read receipts ${JSON.stringify(file)}: ${reason}`, { cause: error })
   }
@@ -128,6 +128,27 @@ export function assertStorageWorkspace(actual: string, project?: string, request
     throw new Error(
       `Project uses ${project}; the selected credentials belong to ${actual}. Nothing uploaded.`,
     )
+}
+
+const receiptOriginSchema = z.object({ apiOrigin: z.string().url() })
+
+/** Delivery hosts do not prove provenance; a matching Workspace slug is not an API identity. */
+export function assertStorageCatalogOrigin(
+  catalog: StorageProjectCatalog | undefined,
+  endpoint: string,
+  file: string,
+): void {
+  for (const [path, value] of Object.entries(catalog?.images ?? {})) {
+    const previous = receiptOriginSchema.safeParse(value)
+    if (!previous.success)
+      throw new Error(
+        `Catalog ${JSON.stringify(file)} has no verified API origin for ${JSON.stringify(path)}. Run storage receipts sync into a new --receipts file using the original API --endpoint, then review and replace this catalog. The existing file was preserved.`,
+      )
+    if (new URL(previous.data.apiOrigin).origin !== endpoint)
+      throw new Error(
+        `Catalog ${JSON.stringify(file)} belongs to another API environment. Use --receipts for a separate catalog; the existing file was preserved.`,
+      )
+  }
 }
 
 /**

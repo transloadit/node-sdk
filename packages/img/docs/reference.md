@@ -628,11 +628,12 @@ is no fallback to the current path. Hashed filenames remain useful for repositor
 before the extension, for example `website/hero.fce9d56a.jpg`. The catalog key, generated types and
 printed JSX use that name; the receipt's `source` keeps the original local filename for humans.
 The same bytes at the same destination are a no-op when the same-workspace catalog has a verified
-receipt with matching full MD5, size and API origin. Hashed receipts record `apiOrigin` so a dev
+receipt with matching full MD5, size and API origin. Every CLI upload records `apiOrigin` so a dev
 workspace cannot stand in for production just because their slugs match. A missing or different
 origin stops the command; use a separate `--receipts` catalog for another environment. For a
-legacy receipt from the same environment, run `storage receipts sync` against its original API
-endpoint to recover version identity and verified origin before retrying.
+legacy receipt with a recorded API origin, run `storage receipts sync` against that endpoint to
+recover version identity before retrying. If its origin is missing, recover into a new `--receipts`
+file, review the recovered paths and replace the old catalog; sync never guesses its environment.
 Commit the catalog: without that evidence the CLI cannot
 prove a remote conflict is the same object. Recover the receipt or choose another basename; a
 short-hash collision is never overwritten. Changed bytes get a new name, so `--overwrite` is not
@@ -822,7 +823,10 @@ public images run `storage publish` on the intended directory; otherwise configu
 for private delivery. The CLI and factory explain this missing delivery choice.
 The server returns the same canonical shape as storing: `workspace`, `asset_id`, `version_id`,
 final `path`, `size`, `mime`, available `md5hash`/`sha256`, and version-specific `width`/`height`.
-Sync recovers real version identities, not a path-only approximation. Local `source`, `apiOrigin`,
+Sync records the verified `apiOrigin` on every recovered image and refuses to mix environments.
+Unbound legacy catalogs must be recovered into a new `--receipts` file and reviewed before replacing
+the old catalog. A custom delivery host is preserved separately, never treated as API provenance.
+Sync recovers real version identities, not a path-only approximation. Local `source`,
 `thumbhash` and `hasAlpha` survive only for the same Workspace, asset and retained version.
 A fresh sync has no original bytes and cannot reconstruct ThumbHash or alpha metadata; those
 optional fields remain absent. Changed versions drop stale local evidence even if their MD5 matches.

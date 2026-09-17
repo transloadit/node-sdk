@@ -602,7 +602,14 @@ describe('image init', () => {
     const catalog = JSON.stringify({
       workspace: 'my-app',
       public: [],
-      images: {},
+      images: {
+        'website/hero.jpg': {
+          path: 'website/hero.jpg',
+          width: 800,
+          height: 600,
+          apiOrigin: catalogEndpoint ?? 'https://api2.transloadit.com',
+        },
+      },
       delivery:
         catalogEndpoint === undefined
           ? undefined
@@ -620,7 +627,7 @@ describe('image init', () => {
     expect(process.exitCode).toBe(1)
     expect(Transloadit.prototype.publishStoragePrefix).not.toHaveBeenCalled()
     expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
-      expect.stringMatching(/endpoint.*catalog.*Nothing was written/),
+      expect.stringMatching(/API environment.*existing file was preserved/),
     )
     expect(await readFile('transloadit.images.json', 'utf8')).toBe(catalog)
     expect(await readdir(directory)).toEqual(['app', 'transloadit.images.json'])
@@ -789,8 +796,18 @@ describe('image init', () => {
         workspace: 'my-app',
         public: [],
         images: {
-          'accounts/avatar.jpg': { path: 'accounts/avatar.jpg', width: 200, height: 200 },
-          'website/hero.jpg': { path: 'website/hero.jpg', width: 800, height: 600 },
+          'accounts/avatar.jpg': {
+            path: 'accounts/avatar.jpg',
+            width: 200,
+            height: 200,
+            apiOrigin: 'https://api2.transloadit.com',
+          },
+          'website/hero.jpg': {
+            path: 'website/hero.jpg',
+            width: 800,
+            height: 600,
+            apiOrigin: 'https://api2.transloadit.com',
+          },
         },
       }),
     )
@@ -886,7 +903,7 @@ describe('image init', () => {
   test('init preserves an existing catalog and refuses to overwrite the example page', async () => {
     await mkdir('app/storage-image-example', { recursive: true })
     const catalog =
-      '{"workspace":"my-app","public":[],"images":{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}}\n'
+      '{"workspace":"my-app","public":[],"images":{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600,"apiOrigin":"https://api2.transloadit.com"}}}\n'
     await writeFile('transloadit.images.json', catalog)
     await writeFile('app/storage-image-example/page.tsx', 'existing\n')
     await main(['image', 'init', 'website/', '--public'])
@@ -906,7 +923,7 @@ describe('image init', () => {
     await mkdir('src/app', { recursive: true })
     await mkdir('catalog')
     const catalog =
-      '{"workspace":"my-app","public":[],"images":{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600}}}\n'
+      '{"workspace":"my-app","public":[],"images":{"website/hero.jpg":{"path":"website/hero.jpg","width":800,"height":600,"apiOrigin":"https://api2.transloadit.com"}}}\n'
     await writeFile('catalog/images.json', catalog)
     await main([
       'image',
