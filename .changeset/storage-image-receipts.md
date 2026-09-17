@@ -39,10 +39,16 @@ a trusted upload notification or a local file error. Add explicit `store --overw
 read-scoped `storage ls <prefix>`; overwriting is never implicit.
 
 Add `storage receipts sync <prefix> --receipts images.json` to recover rendering metadata from
-signed, paginated List + HEAD reads without an Assembly or original download. Rebuild
-path/width/height with an optional compatible MD5 ETag, without inventing an asset ID. Share
+signed, bounded native catalog pages without per-file HEAD requests, an Assembly or an original
+download. Recover canonical Workspace, asset ID, retained version ID, current path, dimensions,
+MIME and available checksums. Share
 atomic receipt-file writes and credential-bound endpoint resolution with the existing commands;
 preserve unmatched records and the entire previous file on metadata, listing or write failures.
+Reject known API-environment mismatches even when Workspace slugs are identical. Recovery records
+the verified API origin so legacy hashed uploads can be reused after migration without uploading.
+Existing rendering catalogs require this recovery before adopting the version-addressed Viewer.
+Redeploy the application to regenerate private capability-v2 URLs; old capability URLs are not
+accepted by the new handler. New Built-ins select actual retained versions, not arbitrary cache tags.
 
 Add browser device authorization for `auth login`, with bounded polling, cancellation and
 owner-only credential persistence. Keep `--stdin` for an existing Auth Key, verified by a signed read.
@@ -52,7 +58,7 @@ opt-in private `.env.local` scaffolding via `--write-env`. Never overwrite exist
 Default store/sync catalogs to `transloadit.images.json`. Init writes an empty catalog and a runnable example
 for `app` or `src/app`, preserving existing files. Store prints only the saved path and component
 usage; its snippet-only public/private flags and init's dead next flag are removed. Keep upload
-asset IDs and sizes on sync only when the HEAD MD5 still matches the stored receipt.
+local placeholders on sync only when the canonical asset ID and version ID still match.
 
 Rename the unpublished image package to `@transloadit/viewer` and expose `Image` with mutually
 exclusive `storage` and `template` selectors and a separate `workspace` prop. Custom HTTP/S3

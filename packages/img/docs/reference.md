@@ -630,9 +630,11 @@ printed JSX use that name; the receipt's `source` keeps the original local filen
 The same bytes at the same destination are a no-op when the same-workspace catalog has a verified
 receipt with matching full MD5, size and API origin. Hashed receipts record `apiOrigin` so a dev
 workspace cannot stand in for production just because their slugs match. A missing or different
-origin stops the command; use a separate `--receipts` catalog for that environment.
+origin stops the command; use a separate `--receipts` catalog for another environment. For a
+legacy receipt from the same environment, run `storage receipts sync` against its original API
+endpoint to recover version identity and verified origin before retrying.
 Commit the catalog: without that evidence the CLI cannot
-prove a remote conflict is the same object. Restore the receipt or choose another basename; a
+prove a remote conflict is the same object. Recover the receipt or choose another basename; a
 short-hash collision is never overwritten. Changed bytes get a new name, so `--overwrite` is not
 needed and cannot be combined with `--hashed`. Do not modify the input while uploading.
 The URL input is the asset ID; `v` is its actual version ID, not a digest or arbitrary cache tag.

@@ -118,6 +118,10 @@ export async function readStorageCatalog(file: string): Promise<StorageProjectCa
 
 /** A workspace override selects another workspace, never another key or implicit project rebinding. */
 export function assertStorageWorkspace(actual: string, project?: string, requested?: string): void {
+  if (!storageCatalogSchema.shape.workspace.safeParse(actual).success)
+    throw new Error(
+      `Invalid Storage Workspace ${JSON.stringify(actual)}: expected a URL-safe slug beginning with a letter or digit.`,
+    )
   if (requested !== undefined && requested !== actual)
     throw new Error(`Selected credentials belong to ${actual}, not ${requested}. Nothing uploaded.`)
   if (project !== undefined && project !== actual && requested === undefined)
@@ -187,6 +191,10 @@ export async function updateStorageReceipts(
       cancellation.signal.throwIfAborted()
       return
     }
+    if (!storageCatalogSchema.safeParse(updated).success)
+      throw new Error(
+        'Cannot write an invalid Storage catalog; check its Workspace, public prefixes and delivery configuration.',
+      )
     // Once a remote write returned a receipt, finish its atomic checkpoint even if interrupted.
     // New catalogs are ordinary source files: let the kernel apply umask, without reading it.
     await writeFile(temporary, `${JSON.stringify(updated, null, 2)}\n`, {

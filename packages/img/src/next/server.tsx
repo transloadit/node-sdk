@@ -571,6 +571,13 @@ function snapshotUrlParams(
 function previewUrlParams(template: string, parameters: SmartCdnUrlParams): SmartCdnUrlParams {
   // These exact versions share API2's defaults. Customer templates (and future Built-ins) may not.
   if (!isVersionedStorageTemplate(template)) return parameters
+  const allowed = new Set(['bg', 'f', 'q', 'r', 'w', 'h', 'v', 'cdn'])
+  for (const name of Object.keys(parameters)) {
+    if (!allowed.has(name))
+      throw new TypeError(
+        `urlParams parameter ${name} is not supported by the selected Storage Built-in`,
+      )
+  }
   const defaults: Readonly<Record<string, string | number>> = {
     bg: '#ffffff',
     f: 'jpg',
@@ -1182,14 +1189,15 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
 
   function Image(props: TransloaditImageProps<Catalog>): ReactNode {
     const layout = resolveImageLayout(props, storagePolicy.images)
-    if (customTemplate === undefined || isVersionedStorageTemplate(storageTemplate)) {
+    const publicPrefix = storagePolicy.public.find((prefix) =>
+      layout.source.path.startsWith(prefix),
+    )
+    const selectedTemplate = publicPrefix === undefined ? storageTemplate : publicTemplate
+    if (isVersionedStorageTemplate(selectedTemplate)) {
       getStorageImageReference(layout.source, getWorkspace())
     }
     assertAllowedStoragePath(layout.source.path, storagePolicy)
     const storageProps = snapshotStorageImageProps(props, layout)
-    const publicPrefix = storagePolicy.public.find((prefix) =>
-      layout.source.path.startsWith(prefix),
-    )
     if (publicPrefix !== undefined) {
       const model = createModel(storageProps, undefined, buildPublicUrl, publicTemplate)
       const diagnostic = diagnose?.(

@@ -30,6 +30,7 @@ const originalCwd = process.cwd()
 const stdoutListeners = process.stdout.listeners('error')
 const stderrListeners = process.stderr.listeners('error')
 const asset = storedAsset()
+const recovered = { ...asset, apiOrigin: 'http://storage.invalid' }
 const policy = {
   ok: 'STORAGE_PUBLIC_PREFIXES_LISTED',
   public_prefixes: [{ prefix: 'website/', created_at: '2026-09-14T00:00:00Z' }],
@@ -119,7 +120,7 @@ test('a fresh sync recovers pinned references and the declared delivery policy',
   expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual({
     workspace: 'my-app',
     public: ['website/'],
-    images: { [asset.path]: asset },
+    images: { [asset.path]: recovered },
     delivery: {
       baseUrl: 'http://storage.invalid/file/{workspace}',
       urlParams: { cdn: 'required' },
@@ -153,8 +154,14 @@ test.each([
   expect(process.exitCode).toBeUndefined()
   const image = JSON.parse(await readFile('images.json', 'utf8')).images[asset.path]
   if (kind === 'same version')
-    expect(image).toEqual({ ...current, thumbhash, hasAlpha: true, source: 'local-photo.png' })
-  else expect(image).toEqual(current)
+    expect(image).toEqual({
+      ...current,
+      apiOrigin: recovered.apiOrigin,
+      thumbhash,
+      hasAlpha: true,
+      source: 'local-photo.png',
+    })
+  else expect(image).toEqual({ ...current, apiOrigin: recovered.apiOrigin })
 })
 
 test.each([
@@ -256,7 +263,7 @@ test('defaults the rendering catalog to transloadit.images.json', async () => {
   await main(['storage', 'receipts', 'sync', 'website/'])
   expect(process.exitCode).toBeUndefined()
   expect(JSON.parse(await readFile('transloadit.images.json', 'utf8')).images[asset.path]).toEqual(
-    asset,
+    recovered,
   )
   expect(api.isDone()).toBe(true)
 })
@@ -295,7 +302,7 @@ test('an explicit other workspace never retains upload evidence or claims to upd
   expect(await readFile('images.json', 'utf8')).toBe(previous)
   expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
     expect.stringContaining('Catalog unchanged'),
-    { [asset.path]: asset },
+    { [asset.path]: recovered },
   )
 })
 
@@ -318,7 +325,10 @@ test('rebuilds a pinned rendering catalog from bounded pages without per-file HE
   await runSync()
   expect(process.exitCode).toBeUndefined()
   expect(api.isDone()).toBe(true)
-  const expected = { [asset.path]: asset, [second.path]: second }
+  const expected = {
+    [asset.path]: recovered,
+    [second.path]: { ...second, apiOrigin: recovered.apiOrigin },
+  }
   expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual(expected)
   expect(await readFile('images.json', 'utf8')).toMatch(/\n$/)
   expect(await readdir(directory)).toEqual([
@@ -427,7 +437,7 @@ test('canonical version geometry and MIME replace stale local metadata without l
   await runSync()
   expect(process.exitCode).toBeUndefined()
   expect(JSON.parse(await readFile('images.json', 'utf8')).images[asset.path]).toEqual({
-    ...asset,
+    ...recovered,
     source: 'photo.jpg',
   })
 })
@@ -446,7 +456,7 @@ test('refreshes matched entries without stale upload fields and preserves unmatc
   expect(process.exitCode).toBeUndefined()
   expect(JSON.parse(await readFile('images.json', 'utf8')).images).toEqual({
     ...previous,
-    [asset.path]: asset,
+    [asset.path]: recovered,
   })
   expect((await stat('images.json')).mode & 0o777).toBe(0o640)
 })
@@ -459,7 +469,7 @@ test.each([
   await runSync()
   expect(process.exitCode).toBeUndefined()
   expect(JSON.parse(await readFile('images.json', 'utf8')).images[asset.path]).toEqual({
-    ...asset,
+    ...recovered,
     md5hash,
   })
 })
@@ -586,7 +596,7 @@ test('retains the new complete catalog and releases its lock if atomic replaceme
   if (temporary === undefined) throw new Error('Expected retained complete catalog')
   expect(JSON.parse(await readFile(temporary, 'utf8')).images).toEqual({
     keep: true,
-    [asset.path]: asset,
+    [asset.path]: recovered,
   })
   expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringContaining(temporary))
 })

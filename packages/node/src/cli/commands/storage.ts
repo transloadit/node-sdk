@@ -321,7 +321,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
                 const previous = hashedReceiptSchema.safeParse(candidate)
                 if (!previous.success || previous.data.path !== destination)
                   throw new Error(
-                    `Catalog receipt for ${JSON.stringify(destination)} does not match this file. Restore a verified receipt or choose another destination basename; nothing uploaded.`,
+                    `Catalog receipt for ${JSON.stringify(destination)} is incomplete or does not match this file. Run transloadit storage receipts sync ${quoteCliArgument(destination)} --receipts ${quoteCliArgument(this.receipts)}${this.endpoint === undefined ? '' : ` --endpoint ${quoteCliArgument(this.endpoint)}`} to recover version identity from the same API environment, then retry; nothing uploaded.`,
                   )
                 if (previous.data.apiOrigin !== apiOrigin)
                   throw new Error(
@@ -613,10 +613,37 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
             projectWorkspace: previous?.workspace,
             signal,
           },
-          async (client, workspace) => {
+          async (client, workspace, endpoint) => {
             actualWorkspace = workspace
+            // A matching slug is not an environment identity. Preserve custom CDN hosts, but
+            // reject a known API-origin binding before retaining delivery settings or receipts.
+            const configuredBase = previous?.delivery?.baseUrl
+            const deliveryOrigin = configuredBase?.endsWith('/file/{workspace}')
+              ? new URL(configuredBase).origin
+              : undefined
+            const previousOrigins = Object.values(previous?.images ?? {}).flatMap((value) => {
+              const parsed = uploadEvidenceSchema.pick({ apiOrigin: true }).safeParse(value)
+              return parsed.success && parsed.data.apiOrigin !== undefined
+                ? [parsed.data.apiOrigin]
+                : []
+            })
+            if (
+              (deliveryOrigin !== undefined && deliveryOrigin !== endpoint) ||
+              previousOrigins.some((origin) => origin !== endpoint)
+            )
+              throw new Error(
+                'Catalog belongs to another API environment. Use --receipts for a separate catalog; the existing file was preserved.',
+              )
             const assets = await listStorageAssets(client, workspace, this.prefix, signal)
             const entries = assets.map((asset) => {
+              try {
+                validateStoragePath(asset.path)
+              } catch (cause) {
+                throw new Error(
+                  `Storage path ${JSON.stringify(asset.path)} is valid for listing but unsupported by the image renderer. Rename it before recovering an image catalog.`,
+                  { cause },
+                )
+              }
               if (asset.width === undefined || asset.height === undefined) {
                 throw new Error(
                   `Storage image ${JSON.stringify(asset.path)} needs positive catalog width and height. Select an image-only prefix and backfill missing dimensions before retrying.`,
@@ -633,7 +660,7 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
                 evidence.data.version_id === asset.version_id
                   ? evidence.data
                   : {}
-              return [asset.path, { ...retained, ...asset }]
+              return [asset.path, { ...retained, ...asset, apiOrigin: endpoint }]
             })
             count = entries.length
             return Object.fromEntries(entries)

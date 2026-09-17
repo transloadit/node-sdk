@@ -9,6 +9,7 @@ import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 
 const originalCwd = process.cwd()
+const streamListeners = [process.stdout, process.stderr].map((stream) => stream.listeners('error'))
 const origin = 'http://storage.invalid'
 const asset = {
   workspace: 'my-app',
@@ -60,6 +61,9 @@ afterEach(async () => {
   vi.unstubAllEnvs()
   nock.cleanAll()
   nock.enableNetConnect()
+  for (const [index, stream] of [process.stdout, process.stderr].entries())
+    for (const listener of stream.listeners('error'))
+      if (!streamListeners[index]?.includes(listener)) stream.off('error', listener)
   await rm(directory, { recursive: true, force: true })
 })
 
@@ -88,6 +92,88 @@ test('ls pages the native catalog and returns identities without S3 requests', a
     asset,
     { ...asset, path: 'website/b.jpg' },
   ])
+})
+
+test.each([
+  'website/a|b.jpg',
+  'website/photo.jpg ',
+])('ls preserves the catalog filename %j', async (path) => {
+  discovery()
+    .get('/dam/assets')
+    .query(true)
+    .reply(200, { ...page, assets: [{ ...asset, path }] })
+  await main(['storage', 'ls', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(expect.any(String), [{ ...asset, path }])
+})
+
+test.each([
+  'a'.repeat(513),
+  'website/../private/',
+])('reports an invalid prefix as input, not credential failure: %j', async (prefix) => {
+  discovery()
+  await main(['storage', 'ls', prefix])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringMatching(/Invalid Storage prefix.*512.*relative/),
+  )
+})
+
+test('invalid Workspace discovery never writes an unreadable catalog', async () => {
+  nock(origin)
+    .get('/dam/assets')
+    .query(true)
+    .twice()
+    .reply(200, { ...page, workspace: '-demo', assets: [] })
+  nock(origin)
+    .get('/storage/public_prefixes')
+    .query(true)
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIXES_LISTED', public_prefixes: [] })
+  await main(['storage', 'receipts', 'sync', 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('Invalid Storage Workspace'),
+  )
+  expect(await readdir(directory)).not.toContain('transloadit.images.json')
+})
+
+test('sync refuses another API environment even when its Workspace slug matches', async () => {
+  const previous = JSON.stringify({
+    workspace: 'my-app',
+    public: [],
+    delivery: { baseUrl: 'http://other.invalid/file/{workspace}', urlParams: { cdn: 'required' } },
+    images: { [asset.path]: asset },
+  })
+  await writeFile('transloadit.images.json', previous)
+  discovery().get('/dam/assets').query(true).reply(200, page)
+  nock(origin)
+    .get('/storage/public_prefixes')
+    .query(true)
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIXES_LISTED', public_prefixes: [] })
+  await main(['storage', 'receipts', 'sync', 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringMatching(/API environment.*--receipts/),
+  )
+  expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+})
+
+test('sync supplies verified endpoint provenance when migrating a legacy hashed receipt', async () => {
+  const { asset_id: _assetId, version_id: _versionId, workspace: _workspace, ...legacy } = asset
+  await writeFile(
+    'transloadit.images.json',
+    JSON.stringify({ workspace: 'my-app', public: [], images: { [asset.path]: legacy } }),
+  )
+  discovery().get('/dam/assets').query(true).reply(200, page)
+  nock(origin)
+    .get('/storage/public_prefixes')
+    .query(true)
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIXES_LISTED', public_prefixes: [] })
+  await main(['storage', 'receipts', 'sync', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(
+    JSON.parse(await readFile('transloadit.images.json', 'utf8')).images[asset.path],
+  ).toMatchObject({ ...asset, apiOrigin: origin })
 })
 
 test('receipts sync recovers pinned identities, dimensions and public policy in native pages', async () => {

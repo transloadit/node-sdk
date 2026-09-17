@@ -114,6 +114,44 @@ test('Storage rejects missing identity and a receipt from a different Workspace'
   ).toThrow(/Workspace/)
 })
 
+test('a custom private Template does not bypass the public Built-in Workspace boundary', () => {
+  const { Image } = createImages({
+    workspace: 'my-app',
+    template: 'private-custom',
+    public: ['website/'],
+    allowedPathPrefixes: ['website/'],
+  })
+  expect(() =>
+    renderToStaticMarkup(<Image src={{ ...original, workspace: 'other-app' }} alt="Photo" />),
+  ).toThrow(/Workspace/)
+})
+
+test('versioned Built-ins reject unknown global parameters before emitting broken URLs', () => {
+  const { Image } = createImages({
+    workspace: 'my-app',
+    public: ['website/'],
+    allowedPathPrefixes: ['website/'],
+    delivery: { urlParams: { cachebust: 'anything' } },
+  })
+  expect(() => renderToStaticMarkup(<Image src={original} alt="Photo" />)).toThrow(
+    /urlParams.*cachebust.*Built-in/,
+  )
+})
+
+test('customer Templates can still accept their own global parameters', () => {
+  const { Image } = createImages({
+    workspace: 'my-app',
+    template: 'private-custom',
+    publicTemplate: 'public-custom',
+    public: ['website/'],
+    allowedPathPrefixes: ['website/'],
+    delivery: { urlParams: { theme: 'dark' } },
+  })
+  expect(
+    parseSmartCdnUrl(source(renderToStaticMarkup(<Image src={original} alt="Photo" />))).urlParams,
+  ).toHaveProperty('theme', 'dark')
+})
+
 test('customer HTTP/S3 Templates retain path inputs and do not receive invented versions', () => {
   const { Image } = createImages({
     workspace: 'my-app',

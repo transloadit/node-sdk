@@ -23,8 +23,10 @@ depend on it from npm yet.
 
 This walkthrough uses Node.js 24.11 or newer and an existing Next.js 16 App Router app. The
 workspace must have Transloadit Storage writes enabled; package installation does not enable them.
-Private delivery requires `builtin/storage-preview@0.0.2`. Public delivery additionally requires
-`builtin/public-preview@0.0.1` and server-declared public prefixes. Browser login and combined
+Private delivery requires `builtin/storage-preview@0.0.3`. Public delivery additionally requires
+`builtin/public-preview@0.0.2` and server-declared public prefixes. These versions take an asset ID
+and real version ID; recover older catalogs with `storage receipts sync` against their original API
+environment and rebuild the app to regenerate private capability-v2 URLs. Browser login and combined
 credentials require the matching API2 #9057 and Console changes; the older canary revisions
 below predate these additions. Later owned devdock checks verified actual public delivery and
 device login with scripted signed approval. They did not test the Console UI or production Bunny.

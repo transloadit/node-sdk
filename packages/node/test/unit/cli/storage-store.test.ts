@@ -200,6 +200,42 @@ describe('storage store', () => {
     })
   })
 
+  test('native recovery migrates a legacy hashed receipt and enables a no-upload replay', async () => {
+    const bytes = Buffer.from('unchanged legacy upload')
+    const md5hash = createHash('md5').update(bytes).digest('hex')
+    const path = `website/hero.${md5hash.slice(0, 8)}.jpg`
+    const current = { ...receipt, path, md5hash, size: bytes.length }
+    await writeFile('hero.jpg', bytes)
+    await writeFile(
+      'transloadit.images.json',
+      catalogJson({ [path]: { path, md5hash, size: bytes.length, width: 800, height: 600 } }),
+    )
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    const args = ['storage', 'store', './hero.jpg', 'website/', '--hashed']
+    await main(args)
+    expect(process.exitCode).toBe(1)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringMatching(/storage receipts sync.*same API environment/),
+    )
+    process.exitCode = undefined
+    vi.spyOn(Transloadit.prototype, 'listStoredAssets').mockImplementation(async (options) =>
+      storagePage(options?.limit === 1 ? [] : [current]),
+    )
+    vi.spyOn(Transloadit.prototype, 'listPublicStoragePrefixes').mockResolvedValue({
+      ok: 'STORAGE_PUBLIC_PREFIXES_LISTED',
+      public_prefixes: [],
+    })
+    await main(['storage', 'receipts', 'sync', 'website/'])
+    expect(process.exitCode).toBeUndefined()
+    await main(args)
+    expect(process.exitCode).toBeUndefined()
+    expect(store).not.toHaveBeenCalled()
+    expect(OutputCtl.prototype.print).toHaveBeenLastCalledWith(
+      expect.stringContaining('no upload needed'),
+      { ...current, apiOrigin: 'https://api2.transloadit.com' },
+    )
+  })
+
   test.each([
     'checksum',
     'size',

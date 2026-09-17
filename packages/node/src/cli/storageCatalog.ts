@@ -2,10 +2,10 @@ import type { StoredAsset } from '../alphalib/types/storageAsset.ts'
 import type { ResolvedCliConfig } from './helpers.ts'
 import type { IOutputCtl } from './OutputCtl.ts'
 
-import { validateStoragePath } from '@transloadit/utils'
 import { RequestError } from 'got'
 
 import { ApiError } from '../ApiError.ts'
+import { damPathMaxCodePoints } from '../alphalib/types/storageAsset.ts'
 import { Transloadit } from '../Transloadit.ts'
 import {
   buildMissingCredentialsMessage,
@@ -68,6 +68,11 @@ export async function withStorageCatalog<T>(
     options.signal?.throwIfAborted()
     if (error instanceof ApiError) {
       const status = error.cause?.response?.statusCode
+      if (error.code === 'DAM_INVALID_REQUEST' || error.code === 'DAM_INVALID_INPUT')
+        throw new Error(
+          `${failure} received an invalid request. Check the Storage prefix and paging options.`,
+          { cause: error },
+        )
       throw new Error(
         `${failure} failed${status === undefined ? '' : ` (HTTP ${status})`}. Check the Storage API at ${endpoint.origin} and the Auth Key dam:read or dam:write scope.`,
         { cause: error },
@@ -86,6 +91,21 @@ export async function withStorageCatalog<T>(
   }
 }
 
+/** Catalog prefixes allow ordinary filenames that the image renderer intentionally restricts. */
+function validateCatalogPrefix(prefix: string): void {
+  const segments = prefix.replace(/\/$/, '').split('/')
+  if (
+    [...prefix].length > damPathMaxCodePoints ||
+    new TextEncoder().encode(prefix).length > 1024 ||
+    /[\\\p{Cc}\p{Cs}]/u.test(prefix) ||
+    (prefix !== '' &&
+      segments.some((segment) => segment.trim() === '' || segment === '.' || segment === '..'))
+  )
+    throw new Error(
+      'Invalid Storage prefix: use at most 512 characters (1024 UTF-8 bytes) in a relative path without empty, dot, or parent-directory segments.',
+    )
+}
+
 /** Completes every bounded page, refusing wrong-Workspace, duplicate or out-of-prefix metadata. */
 export async function listStorageAssets(
   client: Transloadit,
@@ -93,6 +113,7 @@ export async function listStorageAssets(
   prefix: string,
   signal?: AbortSignal,
 ): Promise<StoredAsset[]> {
+  validateCatalogPrefix(prefix)
   const assets: StoredAsset[] = []
   const paths = new Set<string>()
   const cursors = new Set<string>()
@@ -108,7 +129,8 @@ export async function listStorageAssets(
       throw new Error('Storage changed Workspace while paging the catalog')
     for (const asset of page.assets) {
       try {
-        validateStoragePath(asset.path)
+        validateCatalogPrefix(asset.path)
+        if (asset.path.endsWith('/')) throw new Error('Expected a file path')
       } catch (error) {
         throw new Error(`Storage returned an invalid asset path: ${JSON.stringify(asset.path)}`, {
           cause: error,

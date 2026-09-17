@@ -144,6 +144,7 @@ describe('development delivery diagnostics', () => {
     const { Image } = createImages({
       ...baseConfiguration,
       baseUrl: 'https://cdn.example:8443/file/{workspace}',
+      template: 'website-images',
       urlParams: { token: 'never-log-query-token' },
     })
     const markup = await renderAsync(
