@@ -15,7 +15,11 @@ import type { StorageImageCatalog, StorageImageLayoutProps } from './layout.ts'
 import { createHash, hkdfSync } from 'node:crypto'
 
 import { gcmsiv } from '@noble/ciphers/aes.js'
-import { validateStoragePath, validateStoragePathPrefix } from '@transloadit/utils'
+import {
+  getSmartCdnImageLimits,
+  validateStoragePath,
+  validateStoragePathPrefix,
+} from '@transloadit/utils'
 import { getSignedSmartCdnUrl, getSmartCdnUrl } from '@transloadit/utils/node'
 import { connection } from 'next/server.js'
 import { Suspense, use } from 'react'
@@ -887,8 +891,9 @@ function createStorageRoute(
     request: Omit<SmartCdnImageSignRequest, 'expiresAt'>,
     md5hash?: string,
   ) => string,
-  source: { workspace: string; customTemplate?: string },
+  source: { workspace: string; customTemplate?: string; publicTemplate: string },
 ): TransloaditImageRoute {
+  const publicLimits = getSmartCdnImageLimits(source.publicTemplate)
   const reasons = {
     route:
       'Redirect route/basePath differs from this handler. Check the route export and rebuild cached markup.',
@@ -955,7 +960,14 @@ function createStorageRoute(
         w: transform.width,
       },
     }
-    if (isPublic) {
+    // Old markup promises the private rendition's dimensions and quality. Keep signed delivery
+    // when the newly public Built-in cannot honor them, rather than break or silently resize it.
+    if (
+      isPublic &&
+      transform.width <= publicLimits.maxDimension &&
+      transform.height <= publicLimits.maxDimension &&
+      transform.quality <= publicLimits.maxQuality
+    ) {
       const source =
         policy.images !== undefined && Object.hasOwn(policy.images, path)
           ? policy.images[path]
@@ -1189,7 +1201,7 @@ function createImageIntegration<Catalog extends StorageImageCatalog | undefined>
           storageTemplate,
           diagnose,
           buildPublicUrl,
-          { workspace: getWorkspace(), customTemplate },
+          { workspace: getWorkspace(), customTemplate, publicTemplate },
         )
       }
       return await route(request)

@@ -7,7 +7,7 @@ import { Buffer } from 'node:buffer'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { finishSmartCdnUrl, getSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
-import { createSmartCdnImageCandidates, smartCdnImageMaxDimension } from './smartCdnImage.ts'
+import { createSmartCdnImageCandidates, getSmartCdnImageLimits } from './smartCdnImage.ts'
 import { parseStorageGrantClaims } from './storageGrant.ts'
 
 export type { SignatureAlgorithm } from './index.ts'
@@ -33,6 +33,7 @@ export type {
 
 export { getSmartCdnUrl, parseSmartCdnUrl, stripSmartCdnAuth } from './smartCdn.ts'
 export {
+  getSmartCdnImageLimits,
   resolveSmartCdnImageFormats,
   resolveSmartCdnImageWidths,
   smartCdnImageMaxDimension,
@@ -63,6 +64,7 @@ export function getSmartCdnImageCandidates(
   opts: SmartCdnUnsignedImageCandidatesOptions,
 ): SmartCdnImageCandidates {
   const { workspace, baseUrl } = opts
+  const { maxDimension } = getSmartCdnImageLimits(opts.template)
   const urlParams = { ...opts.urlParams }
   const sourceDimensions =
     opts.sourceDimensions === undefined ? undefined : { ...opts.sourceDimensions }
@@ -82,7 +84,7 @@ export function getSmartCdnImageCandidates(
           // Preview Templates have a default height; width-only fit can silently cap the bitmap.
           h:
             sourceDimensions === undefined
-              ? smartCdnImageMaxDimension
+              ? maxDimension
               : Math.max(1, Math.ceil((width * sourceDimensions.height) / sourceDimensions.width)),
         },
       })

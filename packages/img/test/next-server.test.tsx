@@ -1124,6 +1124,47 @@ describe('createImages', () => {
     expect(current.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=60')
   })
 
+  test.each([
+    { width: 6000, height: 6000, quality: 75 },
+    { width: 1000, height: 6000, quality: 75 },
+    { width: 400, height: 600, quality: 100 },
+  ])('publishing retains signed delivery for existing $width × $height / q=$quality capabilities beyond public limits', async ({
+    width,
+    height,
+    quality,
+  }) => {
+    const authorize = vi.fn(() => false)
+    const configuration = { ...baseConfiguration, authorize, route: '/images' }
+    const { Image } = createImages(configuration)
+    const candidate = getFirstCandidate(
+      parseMarkup(
+        renderToStaticMarkup(
+          <Image
+            alt="Existing private rendition"
+            src={{ path: 'documents/hero.jpg', width, height }}
+            widths={[width]}
+            formats={{ webp: quality }}
+          />,
+        ),
+      ),
+    )
+    const { imageRoute } = createImages({ ...configuration, public: ['documents/'] })
+    const response = await imageRoute(new Request(new URL(candidate, 'https://app.example')))
+    expect(response.status).toBe(307)
+    const location = response.headers.get('location')
+    if (location === null) throw new Error('Expected compatible delivery Location')
+    const parsed = parseSmartCdnUrl(location, { baseUrl: baseConfiguration.baseUrl })
+    expect(parsed.template).toBe('builtin/storage-preview@0.0.2')
+    expect(parsed.auth).toBeDefined()
+    expect(parsed.urlParams).toMatchObject({
+      w: String(width),
+      h: String(height),
+    })
+    expect(parsed.urlParams.q ?? '75').toBe(String(quality))
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+    expect(authorize).not.toHaveBeenCalled()
+  })
+
   test('rejects public prefixes outside the signing policy', () => {
     expect(() =>
       createImages({

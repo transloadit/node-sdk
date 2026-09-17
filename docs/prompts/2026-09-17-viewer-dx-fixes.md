@@ -17,7 +17,13 @@ PR: https://github.com/transloadit/node-sdk/pull/500
 - [x] Lead the general CLI Quick Start with `auth login`; document manual/CI alternatives.
 - [x] Root `yarn check`: 344 image and 641 Node tests pass (one existing Node skip);
   147 targeted layout/list tests pass. The legacy wrapper README is regenerated.
-- [ ] Packed Chromium/WebKit fixture and council review.
+- [x] Initial packed Chromium/WebKit fixture: 126 cases pass; exact-head CI at `6469d83` green.
+- [x] Council findings reproduced red-first: enforce public Built-in limits in low-level unsigned
+  candidates, and retain compatible signed delivery for old private capabilities beyond those
+  limits after publication. Use one shared exact-template limits helper. Replace the mobile
+  assertion loop with collection assertions while preserving fractional-pixel tolerance.
+- [x] Follow-up root check: 347 Viewer, 63 utils and 641 Node tests (one existing Node skip).
+- [ ] Re-run packed fixture and council on the public-limit corrections.
 - [ ] Push and verify applicable CI on the exact head.
 
 ## Cross-repository work

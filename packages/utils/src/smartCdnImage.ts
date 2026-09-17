@@ -3,8 +3,19 @@ const minimumMillisecondTimestamp = 1_000_000_000_000
 const smartCdnImageFormats: readonly SmartCdnImageFormat[] = ['avif', 'webp', 'png']
 const smartCdnImageMaxWidths = 32
 
-/** Maximum requested width or height accepted by the responsive-image Built-ins. */
+/** Default maximum requested width or height; the public Built-in has narrower limits. */
 export const smartCdnImageMaxDimension = 8000
+
+/** Exact Built-in bounds shared by candidate builders and private-to-public delivery adapters. */
+export function getSmartCdnImageLimits(template: string): {
+  maxDimension: number
+  maxQuality: number
+} {
+  // Do not assume customer Templates or future Built-in versions share this public contract.
+  return template === 'builtin/public-preview@0.0.1'
+    ? { maxDimension: 4096, maxQuality: 85 }
+    : { maxDimension: smartCdnImageMaxDimension, maxQuality: 100 }
+}
 
 /** Image formats supported by the responsive-image Built-in. */
 export type SmartCdnImageFormat = 'avif' | 'png' | 'webp'
@@ -90,9 +101,9 @@ function validateSmartCdnImageDimension(value: number, name: string): void {
   }
 }
 
-function validateSmartCdnImageQuality(quality: number): void {
-  if (!Number.isInteger(quality) || quality < 1 || quality > 100) {
-    throw new RangeError('quality must be an integer from 1 through 100')
+function validateSmartCdnImageQuality(quality: number, maximum = 100): void {
+  if (!Number.isInteger(quality) || quality < 1 || quality > maximum) {
+    throw new RangeError(`quality must be an integer from 1 through ${maximum}`)
   }
 }
 
@@ -139,21 +150,21 @@ export function resolveSmartCdnImageFormats(
 
 function getMaximumCandidateWidth(
   sourceDimensions: SmartCdnImageSourceDimensions | undefined,
+  maxDimension: number,
 ): number {
-  if (sourceDimensions === undefined) return smartCdnImageMaxDimension
+  if (sourceDimensions === undefined) return maxDimension
 
   validatePositiveSafeInteger(sourceDimensions.width, 'sourceDimensions.width')
   validatePositiveSafeInteger(sourceDimensions.height, 'sourceDimensions.height')
   const heightLimitedWidth = Number(
-    (BigInt(smartCdnImageMaxDimension) * BigInt(sourceDimensions.width)) /
-      BigInt(sourceDimensions.height),
+    (BigInt(maxDimension) * BigInt(sourceDimensions.width)) / BigInt(sourceDimensions.height),
   )
   if (heightLimitedWidth < 1) {
     // Even a one-pixel-wide rendition would exceed the backend height limit; no truthful candidate
     // can preserve this aspect ratio.
     throw new RangeError('sourceDimensions aspect ratio cannot fit within backend dimensions')
   }
-  return Math.min(smartCdnImageMaxDimension, sourceDimensions.width, heightLimitedWidth)
+  return Math.min(maxDimension, sourceDimensions.width, heightLimitedWidth)
 }
 
 /** Validates, caps, deduplicates, and sorts requested responsive-image widths. */
@@ -210,9 +221,11 @@ export function createSmartCdnImageCandidates<Expiry extends number | undefined 
   if (typeof sign !== 'function') throw new TypeError('sign must be a function')
 
   const formats = resolveSmartCdnImageFormats(formatsSnapshot)
+  const { maxDimension, maxQuality } = getSmartCdnImageLimits(template)
+  for (const { quality } of formats) validateSmartCdnImageQuality(quality, maxQuality)
   const widths = resolveSmartCdnImageWidths(
     widthsSnapshot,
-    getMaximumCandidateWidth(sourceDimensions),
+    getMaximumCandidateWidth(sourceDimensions, maxDimension),
   )
   const sources: SmartCdnImageSource[] = []
 

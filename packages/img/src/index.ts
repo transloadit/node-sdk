@@ -3,6 +3,7 @@ import type { SignSmartCdnImageRequest, SmartCdnImageFormat } from '@transloadit
 import type { TransloaditImageSourceProps } from './imageSource.ts'
 
 import {
+  getSmartCdnImageLimits,
   resolveSmartCdnImageFormats,
   resolveSmartCdnImageWidths,
   smartCdnImageMaxDimension,
@@ -130,11 +131,7 @@ export function createTransloaditImageModel<Expiry extends number | undefined = 
   const fallbackQuality = options.fallbackQuality ?? defaultFallbackQuality
   const formats = options.formats === undefined ? undefined : { ...options.formats }
   const template = options.template ?? transloaditStoragePreviewTemplate
-  // API2's exact public Built-in narrows the private preview's dimensions and quality.
-  // Customer templates and future Built-in versions retain their existing contract.
-  const maxDimension =
-    template === transloaditPublicStoragePreviewTemplate ? 4096 : smartCdnImageMaxDimension
-  const maxQuality = template === transloaditPublicStoragePreviewTemplate ? 85 : 100
+  const { maxDimension, maxQuality } = getSmartCdnImageLimits(template)
   const widthsSnapshot = Array.isArray(options.widths) ? [...options.widths] : options.widths
 
   if (expiresAt !== undefined) {

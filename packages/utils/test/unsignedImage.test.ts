@@ -2,6 +2,54 @@ import { expect, test } from 'vitest'
 
 import { getSmartCdnImageCandidates, parseSmartCdnUrl } from '../src/node.ts'
 
+test.each([
+  { sourceDimensions: undefined, widths: [400], expected: [[400, 4096]] },
+  {
+    sourceDimensions: { width: 6000, height: 6000 },
+    widths: [6000, 4096],
+    expected: [[4096, 4096]],
+  },
+  { sourceDimensions: { width: 6000, height: 12000 }, widths: [6000], expected: [[2048, 4096]] },
+])('public candidates keep truthful descriptors within both dimension limits: $expected', ({
+  sourceDimensions,
+  widths,
+  expected,
+}) => {
+  const result = getSmartCdnImageCandidates({
+    workspace: 'my-app',
+    template: 'builtin/public-preview@0.0.1',
+    input: 'website/hero.jpg',
+    sourceDimensions,
+    widths,
+    formats: { webp: 85 },
+    fallbackUrl: '/fallback.jpg',
+  })
+  expect(
+    result.sources[0]?.candidates.map(({ url, width }) => {
+      const query = new URL(url).searchParams
+      expect(Number(query.get('w'))).toBe(width)
+      return [width, Number(query.get('h'))]
+    }),
+  ).toEqual(expected)
+})
+
+test('the exact public Built-in rejects unsupported quality without restricting customer Templates', () => {
+  const options = {
+    workspace: 'my-app',
+    input: 'website/hero.jpg',
+    widths: [6000],
+    formats: { webp: 100 },
+    fallbackUrl: '/fallback.jpg',
+  }
+  expect(() =>
+    getSmartCdnImageCandidates({ ...options, template: 'builtin/public-preview@0.0.1' }),
+  ).toThrow('quality must be an integer from 1 through 85')
+  const custom = getSmartCdnImageCandidates({ ...options, template: 'customer-preview' })
+  expect(custom.sources[0]?.quality).toBe(100)
+  expect(new URL(custom.sources[0]?.candidates[0]?.url ?? '').searchParams.get('h')).toBe('8000')
+  expect(custom.sources[0]?.candidates[0]?.width).toBe(6000)
+})
+
 test('unsigned candidates share width/format policy but need no credential, expiry or clock', () => {
   const result = getSmartCdnImageCandidates({
     workspace: 'my-app',

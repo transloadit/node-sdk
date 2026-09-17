@@ -724,11 +724,11 @@ test('package Image decodes Storage and HTTP/S3 templates without an image-byte 
       height: image.getBoundingClientRect().height,
     })),
   )
-  expect(mobile).toHaveLength(4)
-  for (const image of mobile) {
-    expect(image.width).toBe(264)
-    expect(image.width / image.height).toBeCloseTo(1.5, 2)
-  }
+  expect(mobile.map((image) => image.width)).toEqual([264, 264, 264, 264])
+  // Integer bitmap heights can differ slightly from the original's exact aspect ratio.
+  expect(mobile.map((image) => Number((image.width / image.height).toFixed(2)))).toEqual([
+    1.5, 1.5, 1.5, 1.5,
+  ])
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(280)
   await info.attach('image-sources-mobile', {
     body: await page.screenshot({ animations: 'disabled' }),

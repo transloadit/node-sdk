@@ -602,6 +602,8 @@ After a directory is published, old private capabilities can redirect to its uns
 These compatibility redirects share-cache for at most one minute: their request URL has no receipt
 hash, so a longer cache could retain an old cache-tagged target after an overwrite and catalog refresh.
 New public markup uses direct cache-tagged CDN URLs and does not take this compatibility route.
+Renditions beyond the public Built-in's dimension or quality limits keep their compatible signed
+delivery and private redirect caching; publishing does not silently resize existing markup.
 
 ### Cache and markup cost
 
