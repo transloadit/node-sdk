@@ -60,7 +60,10 @@ export interface TransloaditImageAuthorizationContext {
   template: string
 }
 
-/** Return true to authorize one private object; thrown application errors propagate, not deny. */
+/**
+ * Return true to authorize a signed rendition. Usually the object is private; legacy capabilities
+ * beyond public rendition limits still need authorization after publication. Thrown errors propagate.
+ */
 export type AuthorizeTransloaditImage = (
   context: TransloaditImageAuthorizationContext,
 ) => boolean | Promise<boolean>
@@ -910,7 +913,10 @@ function createStorageRoute(
     if (process.env.NODE_ENV === 'development' && !explained.has(key)) {
       explained.add(key)
       const publication =
-        reason === 'authorization' && path !== undefined && source.customTemplate === undefined
+        reason === 'authorization' &&
+        path !== undefined &&
+        source.customTemplate === undefined &&
+        !policy.public.some((prefix) => path.startsWith(prefix))
           ? ` Storage path ${JSON.stringify(path)} is not under a public prefix in the current image configuration. ${publishImageHint(path)}`
           : ''
       console.warn(`[Image] ${reasons[reason]}${publication}`)
@@ -942,12 +948,6 @@ function createStorageRoute(
     }
     const path = transform.path
     const isPublic = delivery.public?.some((prefix) => path.startsWith(prefix)) === true
-    if (
-      !isPublic &&
-      (await delivery.authorize({ path, request, workspace: source.workspace, template })) !== true
-    )
-      return notFound('authorization', path)
-
     const signRequest = {
       input: transform.path,
       template,
@@ -989,6 +989,12 @@ function createStorageRoute(
         },
       })
     }
+    // Only unsigned delivery is checked against publication at the CDN. Every signed fallback
+    // still needs application authorization, including when local public policy is stale.
+    if (
+      (await delivery.authorize({ path, request, workspace: source.workspace, template })) !== true
+    )
+      return notFound('authorization', path)
     const now = Date.now()
     const expiresAt = getStorageExpiresAt(now, policy)
     const { rotation } = getGrantPolicy(policy)

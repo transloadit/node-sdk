@@ -23,8 +23,14 @@ PR: https://github.com/transloadit/node-sdk/pull/500
   limits after publication. Use one shared exact-template limits helper. Replace the mobile
   assertion loop with collection assertions while preserving fractional-pixel tolerance.
 - [x] Follow-up root check: 347 Viewer, 63 utils and 641 Node tests (one existing Node skip).
-- [ ] Re-run packed fixture and council on the public-limit corrections.
-- [ ] Push and verify applicable CI on the exact head.
+- [x] Public-limit corrections: packed fixture passes all 126 cases and GitHub CI passes on
+  `d8217df`. A further council found a signed-fallback authorization bypass when local publication
+  policy lags server-side revocation. Reproduce all three out-of-public-range cases red-first,
+  then require authorization for every signed redirect, regardless of local publication.
+- [x] Final authorization fix: root check and all 126 packed browser cases pass. Follow-up council
+  found only callback-documentation ambiguity; document that signed compatibility renditions still
+  call the authorizer after publication and link the mixed-delivery explanation.
+- Exact-head GitHub CI remains a live merge gate; see the current PR checks, not an older green head.
 
 ## Cross-repository work
 

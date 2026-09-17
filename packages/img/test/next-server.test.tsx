@@ -1128,12 +1128,12 @@ describe('createImages', () => {
     { width: 6000, height: 6000, quality: 75 },
     { width: 1000, height: 6000, quality: 75 },
     { width: 400, height: 600, quality: 100 },
-  ])('publishing retains signed delivery for existing $width × $height / q=$quality capabilities beyond public limits', async ({
+  ])('publishing retains authorized signed delivery for existing $width × $height / q=$quality capabilities beyond public limits', async ({
     width,
     height,
     quality,
   }) => {
-    const authorize = vi.fn(() => false)
+    const authorize = vi.fn(() => true)
     const configuration = { ...baseConfiguration, authorize, route: '/images' }
     const { Image } = createImages(configuration)
     const candidate = getFirstCandidate(
@@ -1162,7 +1162,13 @@ describe('createImages', () => {
     })
     expect(parsed.urlParams.q ?? '75').toBe(String(quality))
     expect(response.headers.get('cache-control')).toBe('private, no-store')
-    expect(authorize).not.toHaveBeenCalled()
+    // Local publication configuration can lag behind a server-side revocation.
+    authorize.mockReturnValue(false)
+    const denied = await imageRoute(new Request(new URL(candidate, 'https://app.example')))
+    expect(denied.status).toBe(404)
+    expect(denied.headers.get('location')).toBeNull()
+    expect(denied.headers.get('cache-control')).toBe('private, no-store')
+    expect(authorize).toHaveBeenCalledTimes(2)
   })
 
   test('rejects public prefixes outside the signing policy', () => {

@@ -373,9 +373,11 @@ This optional minute of redirect caching delays reauthorization; omit it for pri
 
 ## Mixed public and private images
 
-Spread the committed catalog alongside `authorize` to share one factory. Published paths always emit
-direct unsigned URLs, with zero application image requests; private paths still emit capabilities
-and use the authorizer. Public prefixes are also allowed prefixes when no explicit `allowedPathPrefixes` is supplied,
+Spread the committed catalog alongside `authorize` to share one factory. Newly rendered published
+paths emit direct unsigned URLs, with zero application image requests; private paths still emit
+capabilities and use the authorizer. Old private capabilities exceeding public rendition limits
+still invoke `authorize` after publication; see [compatibility redirects](#redirect-lifetime-and-caching).
+Public prefixes are also allowed prefixes when no explicit `allowedPathPrefixes` is supplied,
 including for an empty catalog. An explicit allowed policy still bounds public prefixes; the workspace
 root cannot be declared public. CLI commands maintain `public` in `transloadit.images.json` after
 updating server policy; do not edit that field manually:
@@ -602,8 +604,9 @@ After a directory is published, old private capabilities can redirect to its uns
 These compatibility redirects share-cache for at most one minute: their request URL has no receipt
 hash, so a longer cache could retain an old cache-tagged target after an overwrite and catalog refresh.
 New public markup uses direct cache-tagged CDN URLs and does not take this compatibility route.
-Renditions beyond the public Built-in's dimension or quality limits keep their compatible signed
-delivery and private redirect caching; publishing does not silently resize existing markup.
+Renditions beyond the public Built-in's dimension or quality limits require application authorization
+and keep their compatible signed delivery and private redirect caching; publishing does not silently
+resize existing markup.
 
 ### Cache and markup cost
 
