@@ -356,8 +356,9 @@ Downstream CDN grants have 30–60 minutes remaining by default and are usable
 until expiry, independently of redirect caching. Image bytes always bypass the application.
 
 `image init uploads/ --private` scaffolds those two files with fail-closed authorization, including
-in an existing public project. It never overwrites application code. The optional `--write-env` copies the saved login key
-for local testing only; replace it with the separate application key before deployment.
+in an existing public project. It never overwrites application code. The optional `--write-env`
+copies a key imported with `auth login --stdin`; browser/device-login keys are refused because
+`auth logout` revokes them. Prefer a separate application key configured in your app environment.
 Public-only rendering never reads or validates signing credentials and needs no application env.
 
 For custom routing or caching, keep the explicit factory escape hatch:
@@ -521,8 +522,9 @@ An explicit factory workspace takes precedence over `TRANSLOADIT_WORKSPACE`. `Im
 keeps its catalog's identity; a conflicting `workspace` prop or plugin default is rejected before
 using that catalog's paths, metadata or publication policy. Environment signing credentials bound
 to another workspace are rejected; use a factory with an explicit matching key pair instead.
-The factory does not read the CLI's saved credentials file. Private `--write-env` creates
-an owner-only `.env.local` containing only key and secret, never overwriting it. Omit that flag to
+The factory does not read the CLI's saved credentials file. Private `--write-env` can copy an
+imported application key, never a browser/device-login key, into an owner-only `.env.local`
+containing only key and secret, never overwriting it. Omit that flag to
 leave env files untouched. All keys are **server-only**, never `NEXT_PUBLIC_`.
 Private initialization preserves already-published directories; it does not unpublish them.
 The generated example selects a receipt in the initialized directory, or shows the empty state.
@@ -884,8 +886,14 @@ is Uppy → store step → notification → `getStoredImageReceipt` → persist.
 one original, its exact path/asset_id and EXIF-oriented dimensions. Unlike the result of a write
 initiated by `storeImage`, recovery from a separate Assembly ID also requires a size/MD5 match
 with your trusted upload record. Community-plan watermarks can break that byte-identity check.
-For transformed or multiple inputs, correlate and validate the appropriate annotated result step
-yourself; do not replace trusted expectations with unchecked notification fields.
+For transformed or multiple inputs, use `client.getStoredAssemblyResults({ assemblyId: upload.assemblyId,
+workspace: upload.workspace })`. It fetches the authoritative completed Assembly and returns all
+canonical Storage assets with their producing step, result ID and original-input IDs. Register
+those idempotently under your server-owned upload/owner record; it is not an ownership check or
+a replacement for trusted byte expectations when those are required. See the Node SDK's
+[batch, native management and original delivery recipe](../../node/README.md#read-and-reuse-stored-assets).
+Images require positive `width` and `height` before passing their saved asset to the factory below;
+videos/audio do not need fake image dimensions. Generate/store posters or previews separately.
 Failed Assemblies retain their `ApiError` code, such as `TRANSLOADIT_STORE_CONFLICT`. An unfinished
 Assembly raises `InconsistentResponseError` naming its current status; retry recovery after it
 finishes. A completed Assembly with mismatched receipt data remains an integrity error.
@@ -898,6 +906,13 @@ receipt with your owner/project ID; never persist a browser-supplied receipt wit
 Dynamic receipts need an explicit factory: the Quickstart's package component infers its allowed
 directories from the catalog and will reject `uploads/` when only `website/` was seeded. Keep that
 public catalog unchanged. This separate private factory does not need the CLI catalog or a rebuild for each upload.
+
+For fullscreen images, size the preview for its real viewport. For original downloads or native
+video/audio playback, authorize the saved asset/version in an application route and redirect to
+`client.getStoredAssetUrl(asset, { download: true })` (omit `download` for inline playback).
+The browser reads bytes directly from the CDN; the Node SDK's recipe covers expiry, Range and
+attachment filenames. Image previews, compatible playback renditions and originals are separate
+outputs, not interchangeable URLs.
 Use your workspace slug in place of `your-workspace` and the server-only application signing key
 from [Private setup](#private); an uploads-only app needs no `withTransloaditImages` plugin.
 The examples use `app/`; when using `src/app/`, put the factory in `src/app/` and helpers in `src/lib/`.

@@ -99,6 +99,7 @@ test('auth login saves owner-only credentials in the existing lookup without lea
     authKey: 'write-key',
     authSecret: 'hidden-secret',
   })
+  expect(resolveCliConfig('login').credentialsLoginMethod).toBe('stdin')
   expect(await readdir(directory)).toEqual(['credentials'])
   expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
     'hidden-secret',
@@ -450,7 +451,10 @@ describe('image init', () => {
     })
   })
 
-  test('example scaffolding uses an existing catalog without login or implicit publication', async () => {
+  test.each([
+    false,
+    true,
+  ])('example scaffolding uses an existing catalog without login or implicit publication (write-env: %s)', async (writeEnv) => {
     await mkdir('app')
     const catalog = {
       workspace: 'my-app',
@@ -470,7 +474,7 @@ describe('image init', () => {
     }
     await writeFile('transloadit.images.json', JSON.stringify(catalog))
     vi.mocked(resolveCliConfig).mockReturnValue({})
-    await main(['image', 'init', 'website/', '--example'])
+    await main(['image', 'init', 'website/', '--example', ...(writeEnv ? ['--write-env'] : [])])
     expect(process.exitCode).toBeUndefined()
     expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
       "from '@transloadit/viewer/next'",
@@ -789,6 +793,21 @@ describe('image init', () => {
     expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
       'render-secret',
     )
+  })
+
+  test('private init refuses to copy a revocable device-login key into the application', async () => {
+    await mkdir('app')
+    vi.mocked(resolveCliConfig).mockReturnValue({
+      ...resolveCliConfig('login'),
+      credentialsLoginMethod: 'device',
+    })
+    await main(['image', 'init', 'accounts/', '--write-env', '--private'])
+    expect(process.exitCode).toBe(1)
+    expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('separate application key'),
+    )
+    await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(stat('transloadit.authorize.ts')).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   test('private init keeps keys in env and workspace in the catalog', async () => {

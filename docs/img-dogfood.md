@@ -3,6 +3,17 @@
 These are maintainer-only packing, SDK seed and devdock notes, not consumer prerequisites.
 Use the [package README](../packages/img/README.md) for the application integration.
 
+## September 17 consumer release gates
+
+Publish the minor Node/legacy release only after API2 #9057 and Content #5973 are deployed.
+Device login, public delivery and safe CLI-key revocation need that coordinated rollout.
+Apply the CLI approval-key-identity migration before deploying API2; logout now signs explicit
+`action: 'revoke_auth_key'` intent. Native move responses and `builtin/storage-serve@0.0.3` must
+be available before publishing the new consumer helpers. Viewer remains private dogfood.
+At publication, replace preview-branch documentation links with their merged main locations.
+Production Bunny checks, independent backup/restore and app-owned access checks remain gates;
+passing the local private-media fixture is not a production deployment claim.
+
 Responsive previews of Transloadit Storage objects, delivered through Smart CDN.
 
 Round 12's default integration is package-first: login, `storage store ./hero.jpg website/hero.jpg

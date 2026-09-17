@@ -89,3 +89,81 @@ test('refuses mixed-Workspace metadata from a catalog page', async () => {
     })
   await expect(client.listStoredAssets()).rejects.toThrow(/Workspace/)
 })
+
+test('signs original media and attachment delivery for an exact version without geometry', () => {
+  const video = {
+    ...asset,
+    mime: 'video/mp4',
+    path: 'album/été.mp4',
+    width: undefined,
+    height: undefined,
+  }
+  const inline = new URL(client.getStoredAssetUrl(video))
+  expect(decodeURIComponent(inline.pathname)).toContain(
+    `builtin/storage-serve@0.0.3/${video.asset_id}`,
+  )
+  expect(inline.searchParams.get('v')).toBe(video.version_id)
+  expect(inline.searchParams.has('download')).toBe(false)
+  const download = new URL(client.getStoredAssetUrl(video, { download: true }))
+  expect(download.searchParams.get('download')).toBe('été.mp4')
+  expect(download.searchParams.get('sig')).toBeTruthy()
+  expect(() => client.getStoredAssetUrl(video, { download: 'bad\r\nHeader: yes' })).toThrow()
+  expect(() => client.getStoredAssetUrl(video, { lifetimeMs: 0 })).toThrow()
+  expect(() => client.getStoredAssetUrl(video, { lifetimeMs: 48 * 3600_000 + 1 })).toThrow()
+})
+
+test('moves by identity and returns the canonical moved record without a second read', async () => {
+  const request = nock(origin)
+    .patch(`/dam/assets/${asset.asset_id}`, (body) => {
+      const encoded = String(body)
+      const params = /name="params"\r\n\r\n([^\r\n]+)/.exec(encoded)?.[1]
+      if (params === undefined) return false
+      const parsed = JSON.parse(params)
+      return (
+        parsed.filename === 'renamed.jpg' &&
+        parsed.destination_folder_id === null &&
+        encoded.includes('name="signature"')
+      )
+    })
+    .reply(200, { ok: 'DAM_ASSET_MOVED', message: 'Moved', asset })
+  await expect(
+    client.moveStoredAsset(asset.asset_id, {
+      filename: 'renamed.jpg',
+      destination_folder_id: null,
+    }),
+  ).resolves.toEqual(asset)
+  expect(request.isDone()).toBe(true)
+})
+
+test('soft-deletes by identity and returns the deletion receipt', async () => {
+  nock(origin).delete(`/dam/assets/${asset.asset_id}`).reply(200, {
+    ok: 'DAM_ASSET_DELETED',
+    message: 'Deleted',
+    asset_id: asset.asset_id,
+    deleted_at: '2026-09-17T12:00:00.000Z',
+  })
+  await expect(client.deleteStoredAsset(asset.asset_id)).resolves.toEqual({
+    asset_id: asset.asset_id,
+    deleted_at: '2026-09-17T12:00:00.000Z',
+  })
+})
+
+test('rejects an empty move and identifiers before sending a mutation', async () => {
+  await expect(client.moveStoredAsset(asset.asset_id, {})).rejects.toThrow()
+  await expect(client.moveStoredAsset('../escape', { filename: 'photo.jpg' })).rejects.toThrow()
+  await expect(client.moveStoredAsset(asset.asset_id, { filename: '../escape' })).rejects.toThrow()
+  await expect(client.deleteStoredAsset('../escape')).rejects.toThrow()
+})
+
+test('refuses a mutation response for another asset', async () => {
+  nock(origin)
+    .patch(`/dam/assets/${asset.asset_id}`)
+    .reply(200, {
+      ok: 'DAM_ASSET_MOVED',
+      message: 'Moved',
+      asset: { ...asset, asset_id: 'C'.repeat(21) + 'A' },
+    })
+  await expect(client.moveStoredAsset(asset.asset_id, { filename: 'photo.jpg' })).rejects.toThrow(
+    /requested Storage reference/,
+  )
+})

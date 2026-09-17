@@ -17,6 +17,7 @@ import type {
 import type {
   GetStoredAssetOptions,
   ListStoredAssetsOptions,
+  MoveStoredAssetOptions,
   StoredAsset,
   StoredAssetsPage,
 } from './alphalib/types/storageAsset.ts'
@@ -56,6 +57,11 @@ import type {
   StoragePublicPrefixes,
   StoragePublicPrefixRevoked,
 } from './storagePublicPrefixes.ts'
+import type {
+  GetStoredAssemblyResultsOptions,
+  StoredAssemblyResult,
+  StoredAssetUrlOptions,
+} from './storageResults.ts'
 import type { Stream, UploadBehavior } from './tus.ts'
 
 import * as assert from 'node:assert'
@@ -81,9 +87,11 @@ import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/asse
 import {
   damAssetFoundResponseSchema,
   damAssetGetOptionsSchema,
+  damAssetMoveOptionsSchema,
   damAssetsListedResponseSchema,
   damAssetsListOptionsSchema,
   damIdSchema,
+  storedAssetSchema,
 } from './alphalib/types/storageAsset.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import { mintBearerTokenWithCredentials } from './bearerToken.ts'
@@ -98,6 +106,7 @@ import {
   storagePublicPrefixesSchema,
   storagePublicPrefixRevokedSchema,
 } from './storagePublicPrefixes.ts'
+import { getStoredAssemblyResults, getStoredAssetUrl } from './storageResults.ts'
 import { sendTusRequest } from './tus.ts'
 
 export type {
@@ -112,6 +121,7 @@ export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
 export type {
   GetStoredAssetOptions,
   ListStoredAssetsOptions,
+  MoveStoredAssetOptions,
   StoredAsset,
   StoredAssetsPage,
 } from './alphalib/types/storageAsset.ts'
@@ -143,6 +153,11 @@ export type {
   StoragePublicPrefixes,
   StoragePublicPrefixRevoked,
 } from './storagePublicPrefixes.ts'
+export type {
+  GetStoredAssemblyResultsOptions,
+  StoredAssemblyResult,
+  StoredAssetUrlOptions,
+} from './storageResults.ts'
 
 export {
   buildCompileAssemblyInstructionsSystemPrompt,
@@ -518,6 +533,18 @@ export class Transloadit {
     return getStoredImageReceipt(this, options)
   }
 
+  /** Verifies a completed batch's retained media and preserves result/input provenance. */
+  getStoredAssemblyResults(
+    options: GetStoredAssemblyResultsOptions,
+  ): Promise<StoredAssemblyResult[]> {
+    return getStoredAssemblyResults(this, options)
+  }
+
+  /** Signs exact original bytes after your app authorizes the asset. Use a 307 for fresh request-time authorization. */
+  getStoredAssetUrl(asset: StoredAsset, options?: StoredAssetUrlOptions): string {
+    return getStoredAssetUrl(this, asset, options)
+  }
+
   /** Reads a live asset's current version, or the exact retained version when version_id is set. */
   async getStoredAsset(
     assetId: string,
@@ -561,6 +588,59 @@ export class Transloadit {
       throw new InconsistentResponseError('Storage catalog page contains a different Workspace')
     }
     return page
+  }
+
+  /** Moves or renames an asset natively, preserving asset and version identities. */
+  async moveStoredAsset(
+    assetId: string,
+    options: MoveStoredAssetOptions & { signal?: AbortSignal },
+  ): Promise<StoredAsset> {
+    const id = damIdSchema.parse(assetId)
+    const params = damAssetMoveOptionsSchema.parse(options)
+    if (params.filename === undefined && params.destination_folder_id === undefined) {
+      throw new TypeError('Provide filename or destination_folder_id for a Storage move')
+    }
+    const result = await this._remoteJson<unknown, OptionalAuthParams & MoveStoredAssetOptions>({
+      urlSuffix: `/dam/assets/${id}`,
+      method: 'patch',
+      params,
+      signal: options.signal,
+    })
+    checkResult(result)
+    const { asset } = z
+      .object({ ok: z.literal('DAM_ASSET_MOVED'), asset: storedAssetSchema })
+      .parse(result)
+    if (asset.asset_id !== id)
+      throw new InconsistentResponseError(
+        'The response did not match the requested Storage reference',
+      )
+    return asset
+  }
+
+  /** Soft-deletes an asset by identity, making retained versions unavailable for new reads. */
+  async deleteStoredAsset(
+    assetId: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<{ asset_id: string; deleted_at: string }> {
+    const id = damIdSchema.parse(assetId)
+    const result = await this._remoteJson<unknown, OptionalAuthParams>({
+      urlSuffix: `/dam/assets/${id}`,
+      method: 'delete',
+      signal: options.signal,
+    })
+    checkResult(result)
+    const receipt = z
+      .object({
+        ok: z.literal('DAM_ASSET_DELETED'),
+        asset_id: damIdSchema,
+        deleted_at: z.string().datetime(),
+      })
+      .parse(result)
+    if (receipt.asset_id !== id)
+      throw new InconsistentResponseError(
+        'The response did not match the requested Storage reference',
+      )
+    return { asset_id: receipt.asset_id, deleted_at: receipt.deleted_at }
   }
 
   /**
@@ -1311,9 +1391,13 @@ export class Transloadit {
 
   /** Revoke the signing Auth Key itself, without granting access to other workspace keys. */
   async revokeOwnAuthKey(): Promise<void> {
-    const result = await this._remoteJson({
+    const result = await this._remoteJson<
+      unknown,
+      OptionalAuthParams & { action: 'revoke_auth_key' }
+    >({
       urlSuffix: '/auth_keys/self',
       method: 'delete',
+      params: { action: 'revoke_auth_key' },
     })
     checkResult(result)
     z.object({ ok: z.literal('AUTH_KEY_DELETED') }).parse(result)
@@ -1520,7 +1604,7 @@ export class Transloadit {
     url?: string
     isTrustedUrl?: boolean
     timeout?: Delays
-    method?: 'delete' | 'get' | 'post' | 'put'
+    method?: 'delete' | 'get' | 'patch' | 'post' | 'put'
     params?: TParams
     fields?: Fields
     headers?: Headers
@@ -1560,7 +1644,7 @@ export class Transloadit {
     for (let retryCount = 0; ; retryCount++) {
       let form: FormData | undefined
 
-      if (method === 'post' || method === 'put' || method === 'delete') {
+      if (method === 'post' || method === 'patch' || method === 'put' || method === 'delete') {
         form = new FormData()
         this._appendForm(form, params, fields)
       }

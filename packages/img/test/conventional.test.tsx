@@ -109,6 +109,32 @@ test('catalog delivery overrides are used without a generated factory', async ()
 })
 
 test.each([
+  'catalog',
+  'delivery',
+])('extra %s metadata cannot configure the signing factory', async (location) => {
+  const original = project.catalog
+  const metadata = {
+    template: 'custom-template',
+    lifetime: -1,
+    authKey: 'metadata-key',
+    authSecret: 'metadata-secret',
+    allowWorkspaceRoot: true,
+  }
+  project.catalog =
+    location === 'catalog'
+      ? { ...original, ...metadata }
+      : { ...original, delivery: { ...original.delivery, ...metadata } }
+  try {
+    const { Image } = await import('../src/next/react-server.tsx')
+    const html = renderToStaticMarkup(<Image storage src="website/hero.jpg" alt="Hero" />)
+    expect(html).toContain('builtin%2Fpublic-preview%400.0.2')
+    expect(html).not.toMatch(/custom-template|metadata-key|metadata-secret|sig=/)
+  } finally {
+    project.catalog = original
+  }
+})
+
+test.each([
   'development',
   'production',
 ])('an authorizer added after bundling gets restart advice only in %s', async (environment) => {

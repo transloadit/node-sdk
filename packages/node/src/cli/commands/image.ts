@@ -42,7 +42,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
     description: 'Rendering catalog selected by withTransloaditImages',
   })
   writeEnv = Option.Boolean('--write-env', false, {
-    description: 'Reuse the saved login in an owner-only .env.local; never overwrite it',
+    description: 'Copy an imported application key to an owner-only .env.local; never overwrite it',
   })
   prefix = Option.String({ required: true })
   workspace = Option.String('--workspace', {
@@ -81,7 +81,8 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           `Catalog ${JSON.stringify(this.receipts)} is outside this Next.js app. Move it inside the app for package-import scaffolding, or use an explicit createImages factory for a shared external catalog. Nothing was written or published.`,
         )
       const catalog = await readStorageCatalog(this.receipts)
-      const needsCredentials = this.publicDelivery || catalog === undefined || this.writeEnv
+      const needsCredentials =
+        this.publicDelivery || catalog === undefined || (this.writeEnv && this.privateDelivery)
       let environment: string | undefined
       const saved = resolveCliConfig('login')
       if (needsCredentials && saved.loadError !== undefined) throw new Error(saved.loadError)
@@ -95,6 +96,10 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           ? undefined
           : selectedEndpoint
       if (this.writeEnv && this.privateDelivery) {
+        if (saved.credentialsLoginMethod === 'device')
+          throw new Error(
+            'Use a separate application key for private rendering. The device-login key is revoked by auth logout. Omit --write-env and configure TRANSLOADIT_KEY and TRANSLOADIT_SECRET in your application environment. Nothing was written.',
+          )
         const value = z
           .string()
           .min(1)

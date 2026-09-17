@@ -18,6 +18,7 @@ import nock from 'nock'
 import { afterEach, beforeEach, expect, onTestFinished, test, vi } from 'vitest'
 
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
+import { updateStorageReceipts } from '../../../src/cli/storageReceipts.ts'
 import { main } from '../../../src/cli.ts'
 import { storagePage, storedAsset } from './storage-fixtures.ts'
 
@@ -78,6 +79,36 @@ afterEach(async () => {
 function runSync(extra: string[] = []): Promise<void> {
   return main(['storage', 'receipts', 'sync', 'website/', '--receipts', 'images.json', ...extra])
 }
+
+test('an auxiliary recovery catalog cannot replace the active catalog declarations', async () => {
+  await updateStorageReceipts('images.json', async () => ({
+    workspace: asset.workspace,
+    public: [],
+    images: { [asset.path]: recovered },
+  }))
+  const original = await readFile('transloadit-images.d.ts', 'utf8')
+  const update = vi.fn(async () => ({ workspace: asset.workspace, public: [], images: {} }))
+  await expect(updateStorageReceipts('recovery.json', update)).rejects.toThrow(
+    /declarations.*images.json|images.json.*declarations/,
+  )
+  expect(update).not.toHaveBeenCalled()
+  expect(await readFile('transloadit-images.d.ts', 'utf8')).toBe(original)
+  await expect(stat('recovery.json')).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('an update preserves application metadata and the JSON schema link', async () => {
+  const catalog = {
+    workspace: asset.workspace,
+    public: [],
+    images: {},
+    $schema: 'https://example.test/catalog.schema.json',
+    application: { album: 'wedding' },
+    delivery: { baseUrl: 'https://example.test', applicationNote: 'keep' },
+  }
+  await writeFile('images.json', JSON.stringify(catalog))
+  await updateStorageReceipts('images.json', async (previous) => previous)
+  expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual(catalog)
+})
 
 function storageApi(origin = 'http://storage.invalid'): nock.Scope {
   nock(origin)

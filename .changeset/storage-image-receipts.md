@@ -4,13 +4,16 @@
 "@transloadit/mcp-server": patch
 ---
 
-Release gate: publish this minor release only after transloadit/api2#9057 and
-transloadit/content#5973 are deployed. Device login, public delivery and safe CLI-key revocation
-depend on that coordinated backend/Console rollout. The image package remains private dogfood.
-At publication, switch preview-branch documentation links to their then-merged main locations.
 Require Node 20.10.0+ for JSON import attributes and composed AbortSignal cancellation. Logout
 only forgets imported and legacy application keys unless revocation is explicitly requested
 with `--revoke`.
+
+Add `getStoredAssemblyResults()` for verified completed batches of any retained media, with
+Assembly/step/result/input provenance. Add native `moveStoredAsset()` / `deleteStoredAsset()`;
+moves return the canonical transaction snapshot and preserve existing references.
+`getStoredAssetUrl()` signs exact original bytes through `builtin/storage-serve@0.0.3`, with an
+optional safe Unicode attachment filename and a bounded, cache-rotated lifetime. Requires a
+backend with that Built-in and canonical native mutation responses.
 
 Add `client.storeImage(filePath, { path })` for one original Storage image without overwriting.
 Stream the input checksum and verify the completed receipt's path, asset ID, stored bytes and

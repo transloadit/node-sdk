@@ -48,6 +48,21 @@ export const damAssetsListOptionsSchema = z.object({
 /** An omitted version selects the current version; an explicit version never falls back. */
 export const damAssetGetOptionsSchema = z.object({ version_id: damIdSchema.optional() })
 
+/** Omit the destination to rename in place; null moves to the Workspace root. */
+export const damAssetMoveOptionsSchema = z.object({
+  destination_folder_id: damIdSchema.nullable().optional(),
+  filename: z
+    .string()
+    .regex(/^[^/\\\p{Cc}]{1,255}$/u)
+    .refine(
+      (name) => name.trim() === name && name !== '.' && name !== '..',
+      'Use a filename, not a path',
+    )
+    .optional(),
+})
+
+export type MoveStoredAssetOptions = z.input<typeof damAssetMoveOptionsSchema>
+
 /** Native metadata is the same version-pinned shape returned by storing a file. */
 export const damAssetFoundResponseSchema = z
   .object({

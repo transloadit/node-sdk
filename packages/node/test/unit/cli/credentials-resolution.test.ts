@@ -1,5 +1,5 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { tmpdir, userInfo } from 'node:os'
 import path from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -9,6 +9,11 @@ import { requireCliCredentials, resolveCliConfig } from '../../../src/cli/helper
 import OutputCtl from '../../../src/cli/OutputCtl.ts'
 import { main } from '../../../src/cli.ts'
 import { Transloadit } from '../../../src/Transloadit.ts'
+
+vi.mock('node:os', async (original) => {
+  const module = await original<typeof import('node:os')>()
+  return { ...module, userInfo: vi.fn(module.userInfo) }
+})
 
 const originalCwd = process.cwd()
 
@@ -60,6 +65,29 @@ function clearAmbientTransloaditEnv(): void {
 }
 
 describe('cli credential resolution', () => {
+  it('does not need a passwd entry when an explicit credentials file is configured', async () => {
+    const fixture = createCliFixture()
+    clearAmbientTransloaditEnv()
+    vi.stubEnv('HOME', '')
+    vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', fixture.credentialsFilePath)
+    writeFileSync(
+      fixture.credentialsFilePath,
+      'TRANSLOADIT_KEY=local-key\nTRANSLOADIT_SECRET=local-secret\n',
+    )
+    vi.mocked(userInfo).mockImplementation(() => {
+      throw new Error('No passwd entry')
+    })
+    process.chdir(fixture.cwd)
+    vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    try {
+      await main(['auth', 'status'])
+      expect(process.exitCode).toBeUndefined()
+      expect(userInfo).not.toHaveBeenCalled()
+    } finally {
+      fixture.cleanup()
+    }
+  })
   it.each([
     'saved login',
     'project .env',

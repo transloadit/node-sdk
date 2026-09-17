@@ -17,28 +17,31 @@ const receiptsSchema = z.custom<Record<string, unknown>>(
 const deliveryParameterSchema = z.union([z.string(), z.number(), z.boolean()])
 
 /** Project identity and rendering metadata (including optional preview pixels), without credentials. */
-export const storageCatalogSchema = z.object({
-  workspace: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/),
-  apiOrigin: z.string().url().optional(),
-  public: z.array(
-    z.string().refine((prefix) => {
-      try {
-        return normalizeStoragePublicPrefix(prefix) === prefix
-      } catch {
-        return false
-      }
-    }, 'Expected a normalized public directory'),
-  ),
-  images: receiptsSchema,
-  delivery: z
-    .object({
-      baseUrl: z.string().url().optional(),
-      urlParams: z
-        .record(z.string(), z.union([deliveryParameterSchema, z.array(deliveryParameterSchema)]))
-        .optional(),
-    })
-    .optional(),
-})
+export const storageCatalogSchema = z
+  .object({
+    workspace: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/),
+    apiOrigin: z.string().url().optional(),
+    public: z.array(
+      z.string().refine((prefix) => {
+        try {
+          return normalizeStoragePublicPrefix(prefix) === prefix
+        } catch {
+          return false
+        }
+      }, 'Expected a normalized public directory'),
+    ),
+    images: receiptsSchema,
+    delivery: z
+      .object({
+        baseUrl: z.string().url().optional(),
+        urlParams: z
+          .record(z.string(), z.union([deliveryParameterSchema, z.array(deliveryParameterSchema)]))
+          .optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough()
 export type StorageProjectCatalog = z.infer<typeof storageCatalogSchema>
 
 /** Default project catalog; --receipts can select a separate project explicitly. */
@@ -65,7 +68,7 @@ export function storageTypesPath(catalog: string): string {
   return join(dirname(catalog), 'transloadit-images.d.ts')
 }
 
-function catalogTypes(catalog: StorageProjectCatalog): string {
+function catalogTypes(catalog: StorageProjectCatalog, file?: string): string {
   // Canonical LF keeps generated output deterministic; Git controls checkout-specific EOL conversion.
   const properties = Object.entries(catalog.images)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
@@ -79,6 +82,7 @@ function catalogTypes(catalog: StorageProjectCatalog): string {
     })
   return [
     typesHeader,
+    ...(file === undefined ? [] : [`// Catalog: ${JSON.stringify(basename(file))}`]),
     "import '@transloadit/viewer/next'",
     '',
     "declare module '@transloadit/viewer/next' {",
@@ -200,6 +204,7 @@ export async function updateStorageReceipts(
   process.once('SIGINT', cancel)
   process.once('SIGTERM', cancel)
   let lock: FileHandle | undefined
+  let typesLock: FileHandle | undefined
   let retainTemporary = false
   try {
     lock = await open(lockPath, 'wx', 0o600).catch((error: unknown) => {
@@ -212,6 +217,13 @@ export async function updateStorageReceipts(
       throw error
     })
     cancellation.signal.throwIfAborted()
+    // Different catalog filenames still share one ambient type-registration file.
+    typesLock = await open(`${typesFile}.lock`, 'wx', 0o600).catch((error: unknown) => {
+      throw new Error(
+        `Generated declarations are locked: ${typesFile}. Wait for the other catalog writer.`,
+        { cause: error },
+      )
+    })
     const { catalog, mode } = await readReceipts(file)
     const typesInfo = await lstat(typesFile).catch((error: unknown) => {
       if (isErrnoException(error) && error.code === 'ENOENT') return undefined
@@ -226,6 +238,16 @@ export async function updateStorageReceipts(
       throw new Error(
         `Refusing to overwrite handwritten declarations in ${typesFile}. Move them to a separate file before retrying.`,
       )
+    if (typesInfo !== undefined) {
+      const existing = (await readFile(typesFile, 'utf8')).replaceAll('\r\n', '\n')
+      const owner = existing.split('\n')[1]
+      const expectedOwner = `// Catalog: ${JSON.stringify(basename(file))}`
+      // Upgrade older generated files only when they exactly describe this existing catalog.
+      if (owner !== expectedOwner && !(catalog !== undefined && existing === catalogTypes(catalog)))
+        throw new Error(
+          `Generated declarations in ${typesFile} belong to ${owner?.startsWith('// Catalog: ') ? owner.slice(12) : 'another catalog'}. Use --receipts in a separate directory; the active catalog was preserved.`,
+        )
+    }
     const updated = await update(catalog, cancellation.signal)
     // An explicit one-off workspace override must not mix two workspaces in one catalog.
     if (updated === undefined) {
@@ -244,7 +266,7 @@ export async function updateStorageReceipts(
     })
     retainTemporary = true
     if (mode !== undefined) await chmod(temporary, mode)
-    await writeFile(typesTemporary, catalogTypes(updated), { flag: 'wx', mode: 0o666 })
+    await writeFile(typesTemporary, catalogTypes(updated, file), { flag: 'wx', mode: 0o666 })
     if (typesInfo !== undefined) await chmod(typesTemporary, typesInfo.mode & 0o777)
     await rename(temporary, file)
     retainTemporary = false
@@ -267,6 +289,10 @@ export async function updateStorageReceipts(
     throw error
   } finally {
     try {
+      if (typesLock !== undefined) {
+        await typesLock.close()
+        await rm(`${typesFile}.lock`, { force: true })
+      }
       if (lock !== undefined) {
         await lock.close()
         await rm(lockPath, { force: true })

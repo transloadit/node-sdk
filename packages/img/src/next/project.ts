@@ -31,11 +31,12 @@ export function getProjectImages(workspace?: string): ProjectIntegration {
   if (integration !== undefined) return integration
   diagnosePublicPolicy(catalog, options.diagnosticsId)
   integration = createImages({
-    ...catalog,
-    ...catalog.delivery,
-    ...options.delivery,
-    // The catalog's delivery object is transport, not the factory's private direct-delivery mode.
-    delivery: undefined,
+    // Catalog writers preserve application metadata. Only these fields configure delivery.
+    workspace: catalog.workspace,
+    images: catalog.images,
+    public: catalog.public,
+    baseUrl: options.delivery?.baseUrl ?? catalog.delivery?.baseUrl,
+    urlParams: options.delivery?.urlParams ?? catalog.delivery?.urlParams,
     authorize,
     ...(authorize === undefined ? {} : { basePath: options.basePath }),
   })

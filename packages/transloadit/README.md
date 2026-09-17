@@ -1498,6 +1498,70 @@ const pinned = await client.getStoredAsset(receipt.asset_id, { version_id: recei
 These signed, bounded metadata reads require `dam:read` or `dam:write`, use the key's Workspace,
 and return checksums and dimensions when available. No S3 credentials or per-file HEADs are needed.
 
+For a multi-file or mixed-media Assembly, fetch its retained results on your server:
+
+```ts
+// Load this upload from your database after checking the current user's access.
+const outputs = await client.getStoredAssemblyResults({
+  assemblyId: upload.assemblyId,
+  workspace: upload.workspace,
+})
+for (const output of outputs) {
+  // Use a unique database key (assembly_id, step, result_id) so notification retries are harmless.
+  await registerMedia({ ...output, ownerId: upload.ownerId })
+}
+```
+
+Each output contains `asset` (the canonical record), `assembly_id`, `step`, `result_id`, and
+`original_id` when the producing result supplies it. One input can produce an image, video and
+poster; combined inputs can have an array of original IDs. Do not correlate by filename or array
+position. Ordinary temporary results are omitted; malformed or cross-Workspace Storage records
+fail the whole read. Failed/incomplete Assemblies are not reported as successful batches, even
+if some writes already happened. This helper verifies authoritative metadata, **not application
+ownership**: never use an unchecked browser/notification Assembly ID in place of `upload`.
+
+Rename/move with the native API to keep saved asset/version references working:
+
+```ts
+const renamed = await client.moveStoredAsset(receipt.asset_id, { filename: 'ceremony.jpg' })
+// Supply destination_folder_id to change folders; null selects the Workspace root.
+const deletion = await client.deleteStoredAsset(renamed.asset_id)
+```
+
+Mutations need `dam:write`. `moveStoredAsset()` returns the canonical record from the transaction
+(checksums may be omitted), with the same identity and version. It never implements a move as
+S3 copy/delete. A native folder move also keeps its descendants' identities.
+
+### Original media, playback and downloads
+
+`getStoredAssetUrl()` signs **exact original bytes**, not an image preview or a video transcode.
+It accepts the canonical record for any media type, without requiring image dimensions:
+
+```ts
+// In a server route, authenticate and load this exact saved reference from your own database.
+const media = await loadMediaAuthorizedForUser(user, mediaId)
+const url = client.getStoredAssetUrl(media.asset, { download: true })
+return new Response(null, {
+  status: 307,
+  headers: { Location: url, 'Cache-Control': 'private, no-store', Vary: 'Cookie' },
+})
+```
+
+`download: true` uses the receipt's filename; a string overrides it safely. Omit `download` for
+inline playback. The attachment header comes from the CDN response, including for cross-origin
+links: no `fetch().blob()`, application byte proxy or whole-video memory allocation is needed.
+Range requests support seeking when the original format/codecs work in that browser; generate
+and store a separate compatible playback rendition when they do not. Use Viewer for previews.
+
+These URLs use signed `builtin/storage-serve@0.0.3` (deploy the matching API2 version first).
+The signing key needs `smart_cdn:sign` or the Workspace's legacy Smart CDN-enabled key permission.
+`lifetimeMs` defaults to a maximum of five minutes (allowed: one second to 48 hours). Signing
+rotates at most once a minute and never more slowly than half the lifetime, so a new URL retains
+at least half its requested lifetime. Bunny includes the full query in its cache key: each
+rotation starts a separate cache entry. An issued URL remains usable until expiry even if the
+application session is revoked. Reauthorize every redirect; do not cache private redirects in
+a shared cache. A download filename changes the signed URL/cache key but never the selected bytes.
+
 For a later Assembly, choose exactly one `/transloadit/import` selector:
 
 - `{ robot: '/transloadit/import', path: receipt.path }` reads the current bytes at that location.

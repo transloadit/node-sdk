@@ -30,7 +30,7 @@ let loadedProjectDotenvPath: string | undefined
 let projectDotenvInjectedValues: Record<string, string> | undefined
 let projectDotenvPreviousValues: Record<string, string | undefined> | undefined
 let shellEnvBeforeProjectDotenv:
-  | { values: Record<string, string | undefined>; homeDirectory: string }
+  | { values: Record<string, string | undefined>; homeDirectory?: string }
   | undefined
 
 type LoadCliEnvSourcesResult = {
@@ -51,6 +51,7 @@ export type ResolvedCliConfig = {
   credentialsWorkspaceVerified?: boolean
   credentialsAuthKeyId?: string
   credentialsDescription?: string
+  credentialsLoginMethod?: string
   endpoint?: string
   loadError?: string
 }
@@ -62,8 +63,20 @@ function normalizeEnvValue(value: string | undefined): string | undefined {
 
 function credentialHomeDirectory(): string {
   // Node trusts HOME verbatim; an empty or relative default must never put secrets in a repo.
-  const home = homedir()
-  return path.isAbsolute(home) ? home : userInfo().homedir
+  try {
+    const home = homedir()
+    if (path.isAbsolute(home)) return home
+    const fallback = userInfo().homedir
+    if (path.isAbsolute(fallback)) return fallback
+  } catch (error) {
+    throw new Error(
+      'Cannot determine a safe home directory. Set TRANSLOADIT_CREDENTIALS_FILE to an explicit path.',
+      { cause: error },
+    )
+  }
+  throw new Error(
+    'Cannot determine a safe home directory. Set TRANSLOADIT_CREDENTIALS_FILE to an explicit path.',
+  )
 }
 
 /** Login and its env scaffold accept only a shell path override; ordinary reads retain merged lookup. */
@@ -146,7 +159,12 @@ export function loadProjectDotenvIntoProcessEnv(): string | undefined {
     restoreProjectDotenvFromProcessEnv()
     shellEnvBeforeProjectDotenv = {
       values: { ...process.env },
-      homeDirectory: credentialHomeDirectory(),
+      // An explicit file makes OS home discovery unnecessary (e.g. an unmapped container UID).
+      // Otherwise capture it before dotenv can replace HOME and redirect a newly saved login.
+      homeDirectory:
+        normalizeEnvValue(process.env.TRANSLOADIT_CREDENTIALS_FILE) == null
+          ? credentialHomeDirectory()
+          : undefined,
     }
     loadedProjectDotenvPath = projectDotenvPath
   }
@@ -368,6 +386,7 @@ export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliCo
         getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
       credentialsAuthKeyId: getSourceValue(saved.source, ['TRANSLOADIT_AUTH_KEY_ID']),
       credentialsDescription: getSourceValue(saved.source, ['TRANSLOADIT_AUTH_KEY_DESCRIPTION']),
+      credentialsLoginMethod: getSourceValue(saved.source, ['TRANSLOADIT_LOGIN_METHOD']),
       credentialsEndpoint: endpoint,
       endpoint,
     }

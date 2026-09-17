@@ -270,6 +270,7 @@ test('status reports saved login identity and logout revokes only that key befor
       expect(params).toBeDefined()
       if (params === undefined) return false
       expect(JSON.parse(params).auth.key).toBe(authorized.auth_key)
+      expect(JSON.parse(params).action).toBe('revoke_auth_key')
       return true
     })
     .reply(200, { ok: 'AUTH_KEY_DELETED' })
