@@ -274,6 +274,7 @@ test('the packed CLI scaffolds an empty catalog and the actual constrained page 
   await assert.rejects(stat('.env.local'), { code: 'ENOENT' })
   assert.deepEqual(JSON.parse(await readFile('transloadit.images.json', 'utf8')), {
     workspace: 'fixture',
+    apiOrigin: 'https://api2.transloadit.com',
     public: ['website/'],
     images: {},
   })

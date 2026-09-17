@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { refineTransloaditImportSelector } from './robots/transloadit-import.ts'
 
 import {
   robotsSchema,
@@ -10,6 +9,7 @@ import type {
   RobotsWithHiddenBotsAndFields,
 } from './robots/_index.ts'
 import type { RobotUse } from './robots/_instructions-primitives.ts'
+import { refineTransloaditImportSelector } from './robots/transloadit-import.ts'
 
 export type Step = RobotsSchema
 export type StepInput = Step

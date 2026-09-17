@@ -3,11 +3,24 @@ import type { RobotMetaInput } from './_instructions-primitives.ts'
 import { z } from 'zod'
 
 import { damIdSchema } from '../storageAsset.ts'
-import { interpolateRobot, interpolationSchemaFull, recursive, robotBase, robotImport } from './_instructions-primitives.ts'
+import {
+  booleanStringSchema,
+  interpolateRobot,
+  interpolationSchemaFull,
+  recursive,
+  robotBase,
+  robotImport,
+} from './_instructions-primitives.ts'
 
 /** Cross-field validation runs after interpolation-aware parsing at the Assembly Step boundary. */
 export function refineTransloaditImportSelector(
-  step: { robot: string; path?: unknown; asset_id?: unknown; version_id?: unknown; recursive?: unknown },
+  step: {
+    robot: string
+    path?: unknown
+    asset_id?: unknown
+    version_id?: unknown
+    recursive?: unknown
+  },
   context: z.RefinementCtx,
 ): void {
   if (step.robot !== '/transloadit/import') return
@@ -113,7 +126,11 @@ export const interpolatableRobotTransloaditImportInstructionsSchema = interpolat
 ).extend({
   // The generic boolean interpolator changes literal false to true. Keep Storage's documented
   // false default intact; unresolved variables are validated after uploader interpolation.
-  recursive: z.union([recursive, interpolationSchemaFull]),
+  recursive: z.union([
+    recursive,
+    booleanStringSchema.transform((value) => value === 'true'),
+    interpolationSchemaFull,
+  ]),
 })
 export type InterpolatableRobotTransloaditImportInstructions =
   InterpolatableRobotTransloaditImportInstructionsInput

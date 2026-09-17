@@ -5,6 +5,15 @@ import { getRobotHelp, listRobots } from '../../src/Transloadit.ts'
 
 describe('robot catalog helpers', () => {
   it.each([
+    ['true', true],
+    ['false', false],
+  ])('normalizes recursive string %s for Storage path imports', (recursive, expected) => {
+    const step = { robot: '/transloadit/import', path: 'photos/', recursive }
+    expect(stepSchema.parse(step)).toMatchObject({ recursive: expected })
+    expect(stepSchemaWithHiddenFields.parse(step)).toMatchObject({ recursive: expected })
+  })
+
+  it.each([
     {},
     { path: 'photos/cat.jpg', asset_id: 'AAAAAAAAAAAAAAAAAAAAAA' },
     { version_id: 'BBBBBBBBBBBBBBBBBBBBBA' },
