@@ -42,6 +42,11 @@ export function refineTransloaditImportSelector(
   }
 }
 
+const recursiveDescription = `
+Whether to import files from subfolders and sub-subfolders when \`path\` is a folder. By default
+only the folder's own files are imported.
+`
+
 export const meta: RobotMetaInput = {
   bytescount: 10,
   discount_factor: 0.1,
@@ -100,10 +105,7 @@ renaming or moving it. Cannot be combined with \`path\` or recursive folder impo
 The exact retained version of \`asset_id\` to import. Requires \`asset_id\`; a missing or deleted
 version never falls back to the current version.
 `),
-    recursive: recursive.describe(`
-Whether to import files from subfolders and sub-subfolders when \`path\` is a folder. By default
-only the folder's own files are imported.
-`),
+    recursive: recursive.describe(recursiveDescription),
   })
   .strict()
 
@@ -126,11 +128,13 @@ export const interpolatableRobotTransloaditImportInstructionsSchema = interpolat
 ).extend({
   // The generic boolean interpolator changes literal false to true. Keep Storage's documented
   // false default intact; unresolved variables are validated after uploader interpolation.
-  recursive: z.union([
-    recursive,
-    booleanStringSchema.transform((value) => value === 'true'),
-    interpolationSchemaFull,
-  ]),
+  recursive: z
+    .union([
+      recursive,
+      booleanStringSchema.transform((value) => value === 'true'),
+      interpolationSchemaFull,
+    ])
+    .describe(recursiveDescription),
 })
 export type InterpolatableRobotTransloaditImportInstructions =
   InterpolatableRobotTransloaditImportInstructionsInput

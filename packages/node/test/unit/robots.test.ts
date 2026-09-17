@@ -4,6 +4,13 @@ import { stepSchema, stepSchemaWithHiddenFields } from '../../src/alphalib/types
 import { getRobotHelp, listRobots } from '../../src/Transloadit.ts'
 
 describe('robot catalog helpers', () => {
+  it('keeps folder recursion documented in Storage import help', () => {
+    const help = getRobotHelp({ robotName: '/transloadit/import', detailLevel: 'full' })
+    expect(help.optionalParams.find((param) => param.name === 'recursive')?.description).toContain(
+      'Whether to import files from subfolders and sub-subfolders',
+    )
+  })
+
   it.each([
     ['true', true],
     ['false', false],
