@@ -51,6 +51,7 @@ export class ImageInitCommand extends UnauthenticatedCommand {
 
   protected async run(): Promise<number | undefined> {
     const created: string[] = []
+    let createdCatalog = false
     let published: string | undefined
     try {
       if (this.privateDelivery && this.publicDelivery)
@@ -228,7 +229,9 @@ export class ImageInitCommand extends UnauthenticatedCommand {
           images: previous?.images ?? {},
         }
       })
-      if (catalog === undefined) created.push(this.receipts, storageTypesPath(this.receipts))
+      // The catalog is shared Storage state: another command may update it after this lock ends.
+      // Never roll it back when unrelated scaffold-file creation fails.
+      createdCatalog = catalog === undefined
       for (const file of files) {
         await mkdir(dirname(file.path), { recursive: true })
         const handle = await open(file.path, 'wx', file.path === '.env.local' ? 0o600 : 0o666)
@@ -251,12 +254,20 @@ export class ImageInitCommand extends UnauthenticatedCommand {
         )
       const envBlock = storageImageEnvBlock(this.publicDelivery)
       const plugin = `Enable withTransloaditImages in next.config.ts${catalogArgument === defaultStorageCatalog ? '' : ` with { catalog: ${JSON.stringify(catalogArgument)} }`}.`
+      const filesCreated = [
+        ...(createdCatalog ? [this.receipts, storageTypesPath(this.receipts)] : []),
+        ...created,
+      ]
       this.output.print(
-        `Created ${created.join(', ')}\n${instruction}\n${plugin}\n${example ? `Add an image under ${prefix} with storage store and open /storage-image-example. ` : ''}Commit ${this.receipts} and transloadit-images.d.ts.\n${!this.privateDelivery ? 'Public rendering needs no environment variables, locally or on your host.' : this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
-        { files: created, environment: envBlock },
+        `Created ${filesCreated.join(', ')}\n${instruction}\n${plugin}\n${example ? `Add an image under ${prefix} with storage store and open /storage-image-example. ` : ''}Commit ${this.receipts} and transloadit-images.d.ts.\n${!this.privateDelivery ? 'Public rendering needs no environment variables, locally or on your host.' : this.writeEnv ? 'Rendering values were saved privately; never commit .env.local.' : `Add your rendering values to .env.local:\n${envBlock}`}`,
+        { files: filesCreated, environment: envBlock },
       )
       return undefined
     } catch (error) {
+      if (createdCatalog)
+        this.output.error(
+          `The catalog ${JSON.stringify(this.receipts)} and its declarations were preserved; another Storage command may already be using them.`,
+        )
       for (const path of created) {
         await rm(path).catch(() => {
           this.output.error(`Could not remove partial scaffold file ${path}; remove it manually.`)

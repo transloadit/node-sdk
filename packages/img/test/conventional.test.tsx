@@ -108,6 +108,27 @@ test('catalog delivery overrides are used without a generated factory', async ()
   expect(html).toContain('cdn=required')
 })
 
+test('a preserved incomplete legacy receipt does not break another catalog image', async () => {
+  const original = project.catalog
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  project.catalog = {
+    ...original,
+    images: {
+      ...original.images,
+      'legacy/incomplete.jpg': { path: 'legacy/incomplete.jpg', width: 0, height: 0 },
+    },
+  }
+  try {
+    const { Image } = await import('../src/next/react-server.tsx')
+    expect(renderToStaticMarkup(<Image storage src="website/hero.jpg" alt="Hero" />)).toContain(
+      'builtin%2Fpublic-preview',
+    )
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('legacy/incomplete.jpg'))
+  } finally {
+    project.catalog = original
+  }
+})
+
 test.each([
   'catalog',
   'delivery',

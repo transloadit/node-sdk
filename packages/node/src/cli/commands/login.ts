@@ -13,6 +13,7 @@ import { deviceLogin } from '../deviceLogin.ts'
 import {
   cliSignatureAlgorithmSchema,
   getConfiguredCredentialsFilePath,
+  parseCliLoginSnapshot,
   readCliInput,
   resolveCliConfig,
 } from '../helpers.ts'
@@ -289,7 +290,7 @@ export class AuthLogoutCommand extends UnauthenticatedCommand {
       // Imported and legacy keys may be shared with applications; never infer disposability.
       const revoke = this.revoke === true || parse(before).TRANSLOADIT_LOGIN_METHOD === 'device'
       if (revoke) {
-        const config = resolveCliConfig('login')
+        const config = parseCliLoginSnapshot(before)
         if (config.credentials === undefined) throw new Error(config.loadError ?? 'Not logged in')
         const endpoint = config.credentialsEndpoint ?? 'https://api2.transloadit.com'
         if (

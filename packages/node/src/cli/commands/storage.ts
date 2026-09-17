@@ -318,6 +318,8 @@ export class StorageStoreCommand extends StorageProjectCommand {
               assertStorageCatalogOrigin(receipts, apiOrigin, this.receipts)
             signal.throwIfAborted()
             if (this.hashed) {
+              // This pass chooses the path and deduplicates. storeImage independently verifies its
+              // upload input; sharing a caller-supplied checksum would need an immutable-file contract.
               const { md5hash, size } = await hashImageFile(input.file, signal)
               const extension = posix.extname(destination)
               destination = `${destination.slice(0, destination.length - extension.length)}.${md5hash.slice(0, 8)}${extension}`

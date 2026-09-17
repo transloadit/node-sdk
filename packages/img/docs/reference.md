@@ -359,6 +359,9 @@ until expiry, independently of redirect caching. Image bytes always bypass the a
 in an existing public project. It never overwrites application code. The optional `--write-env`
 copies a key imported with `auth login --stdin`; browser/device-login keys are refused because
 `auth logout` revokes them. Prefer a separate application key configured in your app environment.
+If scaffold creation fails after the catalog is initialized, the catalog and its declarations stay
+on disk: another upload may already have added receipts. Incomplete legacy catalog entries are
+excluded from conventional rendering with a path-specific diagnostic, not silently deleted.
 Public-only rendering never reads or validates signing credentials and needs no application env.
 
 For custom routing or caching, keep the explicit factory escape hatch:

@@ -8,6 +8,7 @@ import catalog from '@transloadit/viewer/next/catalog'
 import options from '@transloadit/viewer/next/options'
 import { cache } from 'react'
 
+import { getStorageImageReference, snapshotImageSource } from '../imageSource.ts'
 import { diagnosePublicPolicy } from './diagnostics.ts'
 import { createImages } from './server.tsx'
 
@@ -30,10 +31,26 @@ export function getProjectImages(workspace?: string): ProjectIntegration {
     )
   if (integration !== undefined) return integration
   diagnosePublicPolicy(catalog, options.diagnosticsId)
+  const images = Object.fromEntries(
+    Object.entries(catalog.images).flatMap(([path, value]) => {
+      try {
+        const receipt = snapshotImageSource({ src: value })
+        getStorageImageReference(receipt, selectedWorkspace)
+        if (path !== receipt.path) throw new TypeError('Mismatched catalog path')
+        return [[path, receipt]]
+      } catch {
+        // The CLI preserves old recovery entries but excludes them from its type registration too.
+        console.warn(
+          `[Image] Skipping incomplete catalog image ${JSON.stringify(path)}. Run transloadit storage receipts sync for its prefix or replace that receipt before using it.`,
+        )
+        return []
+      }
+    }),
+  )
   integration = createImages({
     // Catalog writers preserve application metadata. Only these fields configure delivery.
     workspace: catalog.workspace,
-    images: catalog.images,
+    images,
     public: catalog.public,
     baseUrl: options.delivery?.baseUrl ?? catalog.delivery?.baseUrl,
     urlParams: options.delivery?.urlParams ?? catalog.delivery?.urlParams,

@@ -364,32 +364,39 @@ export function noticeCliCredentialSource(
   )
 }
 
+/** Resolve one already-read saved credential snapshot, without consulting the environment again. */
+export function parseCliLoginSnapshot(contents: string): ResolvedCliConfig {
+  return resolveLoginSource({ name: 'credentialsFile', values: parseDotenv(contents) })
+}
+
+function resolveLoginSource(source: CliEnvSource): ResolvedCliConfig {
+  const credentials = getSourceCredentials(source)
+  if (credentials !== undefined && 'loadError' in credentials) return credentials
+  const endpoint = getSourceValue(source, ['TRANSLOADIT_ENDPOINT'])
+  return {
+    auth: credentials,
+    authSource: 'saved login',
+    authWorkspace: getSourceValue(source, ['TRANSLOADIT_WORKSPACE']),
+    authWorkspaceVerified: getSourceValue(source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
+    credentials,
+    credentialsSource: 'saved login',
+    credentialsWorkspace: getSourceValue(source, ['TRANSLOADIT_WORKSPACE']),
+    credentialsWorkspaceVerified:
+      getSourceValue(source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
+    credentialsAuthKeyId: getSourceValue(source, ['TRANSLOADIT_AUTH_KEY_ID']),
+    credentialsDescription: getSourceValue(source, ['TRANSLOADIT_AUTH_KEY_DESCRIPTION']),
+    credentialsLoginMethod: getSourceValue(source, ['TRANSLOADIT_LOGIN_METHOD']),
+    credentialsEndpoint: endpoint,
+    endpoint,
+  }
+}
+
 export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliConfig {
   if (source === 'login') {
-    // Match auth login's destination and keep its key, workspace, algorithm and endpoint together.
-    // Project dotenv and stale shell credentials must not redirect this onboarding operation.
+    // Keep login's key, workspace, algorithm and endpoint together, independent of project dotenv.
     const saved = readEnvFile(getConfiguredCredentialsFilePath('shell'))
     if (!saved?.ok) return saved === null ? {} : { loadError: saved.error }
-    const credentials = getSourceCredentials(saved.source)
-    if (credentials !== undefined && 'loadError' in credentials) return credentials
-    const endpoint = getSourceValue(saved.source, ['TRANSLOADIT_ENDPOINT'])
-    return {
-      auth: credentials,
-      authSource: 'saved login',
-      authWorkspace: getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE']),
-      authWorkspaceVerified:
-        getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
-      credentials,
-      credentialsSource: 'saved login',
-      credentialsWorkspace: getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE']),
-      credentialsWorkspaceVerified:
-        getSourceValue(saved.source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
-      credentialsAuthKeyId: getSourceValue(saved.source, ['TRANSLOADIT_AUTH_KEY_ID']),
-      credentialsDescription: getSourceValue(saved.source, ['TRANSLOADIT_AUTH_KEY_DESCRIPTION']),
-      credentialsLoginMethod: getSourceValue(saved.source, ['TRANSLOADIT_LOGIN_METHOD']),
-      credentialsEndpoint: endpoint,
-      endpoint,
-    }
+    return resolveLoginSource(saved.source)
   }
   const { loadError, shellEnvSource, sources } = loadCliEnvSources()
   let auth: CliAuth | undefined
