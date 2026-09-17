@@ -832,65 +832,65 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@next/env@npm:16.3.0":
-  version: 16.3.0
-  resolution: "@next/env@npm:16.3.0"
-  checksum: 10c0/a1e3fccc76b4e59f0c8a3106ec2dde750b85bb2f1b628caca2067968cd5b28a5d1c33ca268f67564d7374c86dd2d47f733ef105956833b263ad71d6ca44a139f
+"@next/env@npm:16.3.4":
+  version: 16.3.4
+  resolution: "@next/env@npm:16.3.4"
+  checksum: 10c0/6a9adf69b7aaa1d13e255aa158ee7accce81c6c23dfc2c786b3fc6f0f4c5354b3c67e7d60be5521d322d2164ba86fc01b9dc2f3f18282f6162760de99e19fd13
   languageName: node
   linkType: hard
 
-"@next/swc-darwin-arm64@npm:16.3.0":
-  version: 16.3.0
-  resolution: "@next/swc-darwin-arm64@npm:16.3.0"
+"@next/swc-darwin-arm64@npm:16.3.4":
+  version: 16.3.4
+  resolution: "@next/swc-darwin-arm64@npm:16.3.4"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@next/swc-darwin-x64@npm:16.3.0":
-  version: 16.3.0
-  resolution: "@next/swc-darwin-x64@npm:16.3.0"
+"@next/swc-darwin-x64@npm:16.3.4":
+  version: 16.3.4
+  resolution: "@next/swc-darwin-x64@npm:16.3.4"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@next/swc-linux-arm64-gnu@npm:16.3.0":
-  version: 16.3.0
-  resolution: "@next/swc-linux-arm64-gnu@npm:16.3.0"
+"@next/swc-linux-arm64-gnu@npm:16.3.4":
+  version: 16.3.4
+  resolution: "@next/swc-linux-arm64-gnu@npm:16.3.4"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@next/swc-linux-arm64-musl@npm:16.3.0":
-  version: 16.3.0
-  resolution: "@next/swc-linux-arm64-musl@npm:16.3.0"
+"@next/swc-linux-arm64-musl@npm:16.3.4":
+  version: 16.3.4
+  resolution: "@next/swc-linux-arm64-musl@npm:16.3.4"
   conditions: os=linux & cpu=arm64 & libc=musl
   languageName: node
   linkType: hard
 
-"@next/swc-linux-x64-gnu@npm:16.3.0":
-  version: 16.3.0
-  resolution: "@next/swc-linux-x64-gnu@npm:16.3.0"
+"@next/swc-linux-x64-gnu@npm:16.3.4":
+  version: 16.3.4
+  resolution: "@next/swc-linux-x64-gnu@npm:16.3.4"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@next/swc-linux-x64-musl@npm:16.3.0":
-  version: 16.3.0
-  resolution: "@next/swc-linux-x64-musl@npm:16.3.0"
+"@next/swc-linux-x64-musl@npm:16.3.4":
+  version: 16.3.4
+  resolution: "@next/swc-linux-x64-musl@npm:16.3.4"
   conditions: os=linux & cpu=x64 & libc=musl
   languageName: node
   linkType: hard
 
-"@next/swc-win32-arm64-msvc@npm:16.3.0":
-  version: 16.3.0
-  resolution: "@next/swc-win32-arm64-msvc@npm:16.3.0"
+"@next/swc-win32-arm64-msvc@npm:16.3.4":
+  version: 16.3.4
+  resolution: "@next/swc-win32-arm64-msvc@npm:16.3.4"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@next/swc-win32-x64-msvc@npm:16.3.0":
-  version: 16.3.0
-  resolution: "@next/swc-win32-x64-msvc@npm:16.3.0"
+"@next/swc-win32-x64-msvc@npm:16.3.4":
+  version: 16.3.4
+  resolution: "@next/swc-win32-x64-msvc@npm:16.3.4"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -1404,12 +1404,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@swc/helpers@npm:0.5.15":
-  version: 0.5.15
-  resolution: "@swc/helpers@npm:0.5.15"
+"@swc/helpers@npm:0.5.23":
+  version: 0.5.23
+  resolution: "@swc/helpers@npm:0.5.23"
   dependencies:
     tslib: "npm:^2.8.0"
-  checksum: 10c0/33002f74f6f885f04c132960835fdfc474186983ea567606db62e86acd0680ca82f34647e8e610f4e1e422d1c16fce729dde22cd3b797ab1fd9061a825dabca4
+  checksum: 10c0/02da7b4df465693933ecd4851cc193ec729c309939c8a84eccae5ec0010aafc3894e713b8ef8d13a6ba401759f0e900c88e2dcfef5872c27bb91e70f73275cce
   languageName: node
   linkType: hard
 
@@ -1419,33 +1419,6 @@ __metadata:
   checksum: 10c0/4394a4c144cd6426676e0755394f04e18ddacd32d58866e4a3862aaf149f95a60e6809861aede7fb11a146b4a760c81e57eb423dafde7bd7c92f9a7406ab8cd3
   languageName: node
   linkType: hard
-
-"@transloadit/img@workspace:packages/img":
-  version: 0.0.0-use.local
-  resolution: "@transloadit/img@workspace:packages/img"
-  dependencies:
-    "@noble/ciphers": "npm:^1.3.0"
-    "@transloadit/utils": "workspace:^"
-    "@types/react": "npm:^19.2.14"
-    "@types/react-dom": "npm:^19.2.3"
-    happy-dom: "npm:^20.9.0"
-    next: "npm:16.3.0"
-    react: "npm:^19.2.6"
-    react-dom: "npm:^19.2.6"
-    server-only: "npm:^0.0.1"
-  peerDependencies:
-    next: ">=16.0.0 <17.0.0"
-    react: ">=19.0.0 <20.0.0"
-    react-dom: ">=19.0.0 <20.0.0"
-  peerDependenciesMeta:
-    next:
-      optional: true
-    react:
-      optional: true
-    react-dom:
-      optional: true
-  languageName: unknown
-  linkType: soft
 
 "@transloadit/mcp-server@workspace:packages/mcp-server":
   version: 0.0.0-use.local
@@ -1494,10 +1467,15 @@ __metadata:
     p-retry: "npm:^8.0.0"
     recursive-readdir: "npm:^2.2.3"
     rimraf: "npm:^6.1.3"
+    sharp: "npm:0.35.4"
+    thumbhash: "npm:0.1.1"
     tus-js-client: "npm:^4.3.1"
     typanion: "npm:^3.14.0"
     type-fest: "npm:^5.6.0"
     zod: "npm:3.25.76"
+  dependenciesMeta:
+    sharp:
+      optional: true
   bin:
     transloadit: ./dist/cli.js
   languageName: unknown
@@ -1539,6 +1517,34 @@ __metadata:
   resolution: "@transloadit/utils@workspace:packages/utils"
   dependencies:
     "@types/node": "npm:^25.8.0"
+  languageName: unknown
+  linkType: soft
+
+"@transloadit/viewer@workspace:packages/img":
+  version: 0.0.0-use.local
+  resolution: "@transloadit/viewer@workspace:packages/img"
+  dependencies:
+    "@noble/ciphers": "npm:^1.3.0"
+    "@transloadit/utils": "workspace:^"
+    "@types/react": "npm:^19.2.14"
+    "@types/react-dom": "npm:^19.2.3"
+    happy-dom: "npm:^20.9.0"
+    next: "npm:16.3.4"
+    react: "npm:^19.2.6"
+    react-dom: "npm:^19.2.6"
+    server-only: "npm:^0.0.1"
+    thumbhash: "npm:0.1.1"
+  peerDependencies:
+    next: ">=16.3.3 <17.0.0"
+    react: ">=19.0.0 <20.0.0"
+    react-dom: ">=19.0.0 <20.0.0"
+  peerDependenciesMeta:
+    next:
+      optional: true
+    react:
+      optional: true
+    react-dom:
+      optional: true
   languageName: unknown
   linkType: soft
 
@@ -4482,24 +4488,24 @@ __metadata:
   languageName: node
   linkType: hard
 
-"next@npm:16.3.0":
-  version: 16.3.0
-  resolution: "next@npm:16.3.0"
+"next@npm:16.3.4":
+  version: 16.3.4
+  resolution: "next@npm:16.3.4"
   dependencies:
-    "@next/env": "npm:16.3.0"
-    "@next/swc-darwin-arm64": "npm:16.3.0"
-    "@next/swc-darwin-x64": "npm:16.3.0"
-    "@next/swc-linux-arm64-gnu": "npm:16.3.0"
-    "@next/swc-linux-arm64-musl": "npm:16.3.0"
-    "@next/swc-linux-x64-gnu": "npm:16.3.0"
-    "@next/swc-linux-x64-musl": "npm:16.3.0"
-    "@next/swc-win32-arm64-msvc": "npm:16.3.0"
-    "@next/swc-win32-x64-msvc": "npm:16.3.0"
-    "@swc/helpers": "npm:0.5.15"
+    "@next/env": "npm:16.3.4"
+    "@next/swc-darwin-arm64": "npm:16.3.4"
+    "@next/swc-darwin-x64": "npm:16.3.4"
+    "@next/swc-linux-arm64-gnu": "npm:16.3.4"
+    "@next/swc-linux-arm64-musl": "npm:16.3.4"
+    "@next/swc-linux-x64-gnu": "npm:16.3.4"
+    "@next/swc-linux-x64-musl": "npm:16.3.4"
+    "@next/swc-win32-arm64-msvc": "npm:16.3.4"
+    "@next/swc-win32-x64-msvc": "npm:16.3.4"
+    "@swc/helpers": "npm:0.5.23"
     baseline-browser-mapping: "npm:^2.9.19"
     caniuse-lite: "npm:^1.0.30001579"
     postcss: "npm:8.5.23"
-    sharp: "npm:^0.35.3"
+    sharp: "npm:^0.35.4"
     styled-jsx: "npm:5.1.6"
   peerDependencies:
     "@opentelemetry/api": ^1.1.0
@@ -4538,7 +4544,7 @@ __metadata:
       optional: true
   bin:
     next: dist/bin/next
-  checksum: 10c0/f1bf9f608a4604348ea204cd0abd174bbe140813509168a8a4456ad9ce9f2515aff8564821dbca8234f919ba12cb295fad82c0649f73e437417cce146bb1eb39
+  checksum: 10c0/e4f2f079159201c205ba373e34f9517d581947ed0cf67860d24a81073d8e388cb041b5fbc0d4a527e1523f234d14f1d3d17dee13f930ec29f2c23abb406d7508
   languageName: node
   linkType: hard
 
@@ -5688,7 +5694,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sharp@npm:^0.35.3":
+"sharp@npm:0.35.4, sharp@npm:^0.35.4":
   version: 0.35.4
   resolution: "sharp@npm:0.35.4"
   dependencies:
@@ -6153,6 +6159,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"thumbhash@npm:0.1.1":
+  version: 0.1.1
+  resolution: "thumbhash@npm:0.1.1"
+  checksum: 10c0/9a23fe65a32b82400a966968a426f7e8a1bee352eedfc24b5342ebfe63f36e2cf8bba5b93adddf220bba625da2ad819ae5fbb6e9d5caa6f215e9ae274249bf87
+  languageName: node
+  linkType: hard
+
 "tinybench@npm:^2.9.0":
   version: 2.9.0
   resolution: "tinybench@npm:2.9.0"
@@ -6230,6 +6243,7 @@ __metadata:
     clipanion: "npm:^4.0.0-rc.4"
     debug: "npm:^4.4.3"
     dotenv: "npm:^17.4.2"
+    execa: "npm:9.6.1"
     form-data: "npm:^4.0.5"
     got: "npm:14.6.6"
     into-stream: "npm:^9.1.0"
@@ -6240,10 +6254,15 @@ __metadata:
     p-map: "npm:^7.0.4"
     p-queue: "npm:^9.3.0"
     recursive-readdir: "npm:^2.2.3"
+    sharp: "npm:0.35.4"
+    thumbhash: "npm:0.1.1"
     tus-js-client: "npm:^4.3.1"
     typanion: "npm:^3.14.0"
     type-fest: "npm:^5.6.0"
     zod: "npm:3.25.76"
+  dependenciesMeta:
+    sharp:
+      optional: true
   bin:
     transloadit: ./dist/cli.js
   languageName: unknown

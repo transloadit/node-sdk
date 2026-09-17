@@ -1,13 +1,13 @@
 import type { SignatureAlgorithm } from './index.ts'
-import type { SmartCdnUrlOptions } from './smartCdn.ts'
+import type { SmartCdnUrlOptions, SmartCdnUrlParams } from './smartCdn.ts'
 import type { SmartCdnImageCandidates, SmartCdnImagePolicyOptions } from './smartCdnImage.ts'
 import type { StorageGrantClaims, StorageGrantScope } from './storageGrant.ts'
 
 import { Buffer } from 'node:buffer'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { finishSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
-import { createSmartCdnImageCandidates } from './smartCdnImage.ts'
+import { finishSmartCdnUrl, getSmartCdnUrl, prepareSmartCdnUrl } from './smartCdn.ts'
+import { createSmartCdnImageCandidates, getSmartCdnImageLimits } from './smartCdnImage.ts'
 import { parseStorageGrantClaims } from './storageGrant.ts'
 
 export type { SignatureAlgorithm } from './index.ts'
@@ -33,6 +33,7 @@ export type {
 
 export { getSmartCdnUrl, parseSmartCdnUrl, stripSmartCdnAuth } from './smartCdn.ts'
 export {
+  getSmartCdnImageLimits,
   resolveSmartCdnImageFormats,
   resolveSmartCdnImageWidths,
   smartCdnImageMaxDimension,
@@ -48,6 +49,47 @@ export interface SmartCdnImageCandidatesOptions extends SmartCdnImagePolicyOptio
   authSecret: string
   /** Workspace slug. */
   workspace: string
+}
+
+/** Unsigned candidates for a server-declared public Template/input policy. */
+export interface SmartCdnUnsignedImageCandidatesOptions
+  extends Omit<SmartCdnImagePolicyOptions, 'expiresAt'> {
+  workspace: string
+  baseUrl?: string
+  urlParams?: SmartCdnUrlParams
+}
+
+/** Uses the same format/width core without reading a clock or accepting signing credentials. */
+export function getSmartCdnImageCandidates(
+  opts: SmartCdnUnsignedImageCandidatesOptions,
+): SmartCdnImageCandidates {
+  const { workspace, baseUrl } = opts
+  const { maxDimension } = getSmartCdnImageLimits(opts.template)
+  const urlParams = { ...opts.urlParams }
+  const sourceDimensions =
+    opts.sourceDimensions === undefined ? undefined : { ...opts.sourceDimensions }
+  return createSmartCdnImageCandidates(
+    { ...opts, sourceDimensions, expiresAt: undefined },
+    (request) => {
+      const width = request.urlParams.w
+      if (typeof width !== 'number') throw new TypeError('Image candidates require a numeric width')
+      return getSmartCdnUrl({
+        workspace,
+        baseUrl,
+        template: request.template,
+        input: request.input,
+        urlParams: {
+          ...urlParams,
+          ...request.urlParams,
+          // Preview Templates have a default height; width-only fit can silently cap the bitmap.
+          h:
+            sourceDimensions === undefined
+              ? maxDimension
+              : Math.max(1, Math.ceil((width * sourceDimensions.height) / sourceDimensions.width)),
+        },
+      })
+    },
+  )
 }
 
 export const signParamsSync = (
@@ -89,8 +131,11 @@ export function getSignedSmartCdnImageCandidates(
     throw new TypeError('authSecret is required')
   }
 
-  return createSmartCdnImageCandidates(opts, (request) =>
-    getSignedSmartCdnUrl({
+  return createSmartCdnImageCandidates(opts, (request) => {
+    // Unsigned candidates share this core; signed callers must choose their lifetime explicitly.
+    if (request.expiresAt === undefined)
+      throw new TypeError('expiresAt is required for signed image candidates')
+    return getSignedSmartCdnUrl({
       authKey,
       authSecret,
       expiresAt: request.expiresAt,
@@ -98,8 +143,8 @@ export function getSignedSmartCdnImageCandidates(
       template: request.template,
       urlParams: { ...request.urlParams },
       workspace,
-    }),
-  )
+    })
+  })
 }
 
 // ── storage grants ───────────────────────────────────────────────────────────

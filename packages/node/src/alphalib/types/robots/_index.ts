@@ -392,6 +392,16 @@ import {
   meta as tlcdnDeliverMeta,
 } from './tlcdn-deliver.ts'
 import {
+  interpolatableRobotTransloaditImportInstructionsSchema,
+  interpolatableRobotTransloaditImportInstructionsWithHiddenFieldsSchema,
+  meta as transloaditImportMeta,
+} from './transloadit-import.ts'
+import {
+  interpolatableRobotTransloaditStoreInstructionsSchema,
+  interpolatableRobotTransloaditStoreInstructionsWithHiddenFieldsSchema,
+  meta as transloaditStoreMeta,
+} from './transloadit-store.ts'
+import {
   interpolatableRobotTusStoreInstructionsSchema,
   interpolatableRobotTusStoreInstructionsWithHiddenFieldsSchema,
   meta as tusStoreMeta,
@@ -554,6 +564,8 @@ const robotStepsInstructions: RobotSchemaOptions = [
   interpolatableRobotTigrisImportInstructionsSchema,
   interpolatableRobotTigrisStoreInstructionsSchema,
   interpolatableRobotTlcdnDeliverInstructionsSchema,
+  interpolatableRobotTransloaditImportInstructionsSchema,
+  interpolatableRobotTransloaditStoreInstructionsSchema,
   interpolatableRobotTusStoreInstructionsSchema,
   interpolatableRobotUploadHandleInstructionsSchema,
   interpolatableRobotVideoAdaptiveInstructionsSchema,
@@ -651,6 +663,8 @@ const robotStepsInstructionsWithHiddenFields: RobotSchemaOptions = [
   interpolatableRobotTigrisImportInstructionsWithHiddenFieldsSchema,
   interpolatableRobotTigrisStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotTlcdnDeliverInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotTransloaditImportInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotTransloaditStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotTusStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotUploadHandleInstructionsWithHiddenFieldsSchema,
   interpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsSchema,
@@ -808,6 +822,8 @@ export const robotsMeta = {
   tigrisImport,
   tigrisStore,
   tlcdnDeliverMeta,
+  transloaditImportMeta,
+  transloaditStoreMeta,
   tusStoreMeta,
   uploadHandleMeta,
   videoAdaptiveMeta,
@@ -1302,6 +1318,18 @@ export type {
   InterpolatableRobotTlcdnDeliverInstructionsWithHiddenFields,
   InterpolatableRobotTlcdnDeliverInstructionsWithHiddenFieldsInput,
 } from './tlcdn-deliver.ts'
+export type {
+  InterpolatableRobotTransloaditImportInstructions,
+  InterpolatableRobotTransloaditImportInstructionsInput,
+  InterpolatableRobotTransloaditImportInstructionsWithHiddenFields,
+  InterpolatableRobotTransloaditImportInstructionsWithHiddenFieldsInput,
+} from './transloadit-import.ts'
+export type {
+  InterpolatableRobotTransloaditStoreInstructions,
+  InterpolatableRobotTransloaditStoreInstructionsInput,
+  InterpolatableRobotTransloaditStoreInstructionsWithHiddenFields,
+  InterpolatableRobotTransloaditStoreInstructionsWithHiddenFieldsInput,
+} from './transloadit-store.ts'
 export type {
   InterpolatableRobotTusStoreInstructions,
   InterpolatableRobotTusStoreInstructionsInput,
