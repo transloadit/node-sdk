@@ -29,13 +29,16 @@ export default function Page() {
         preload
       />
       <h2>Default workspace</h2>
-      <Image
-        template="fixture-http"
-        src={{ path: 'website/hero.jpg', width: 2400, height: 1600 }}
-        alt="Template experiment"
-        width={320}
-        preload
-      />
+      <div style={{ maxWidth: 320 }}>
+        <Image
+          template="fixture-http"
+          src="website/hero.jpg"
+          alt="Template experiment"
+          width={2400}
+          height={1600}
+          preload
+        />
+      </div>
     </main>
   )
 }

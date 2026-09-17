@@ -715,6 +715,26 @@ test('package Image decodes Storage and HTTP/S3 templates without an image-byte 
     }),
   )
   expect(selected.every((image) => image.width === 320 && !image.leakedMode)).toBe(true)
+  // The string Template source has intrinsic 2400px geometry, but must still fit a narrow box
+  // without app-provided image CSS. Catalog and receipt sources use the same default.
+  await page.setViewportSize({ width: 280, height: 1000 })
+  const mobile = await page.getByRole('img').evaluateAll((images) =>
+    images.map((image) => ({
+      width: image.getBoundingClientRect().width,
+      height: image.getBoundingClientRect().height,
+    })),
+  )
+  expect(mobile).toHaveLength(4)
+  for (const image of mobile) {
+    expect(image.width).toBe(264)
+    expect(image.width / image.height).toBeCloseTo(1.5, 2)
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(280)
+  await info.attach('image-sources-mobile', {
+    body: await page.screenshot({ animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+  await page.setViewportSize({ width: 1200, height: 1000 })
   expect(
     selected.map((image) => decodeURIComponent(new URL(image.url, page.url()).pathname)),
   ).toEqual([

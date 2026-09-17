@@ -538,6 +538,54 @@ describe('createImages', () => {
     ).toThrow(/image policy parameter: bg/)
   })
 
+  test.each([
+    'string',
+    'receipt',
+    'catalog',
+  ] as const)('%s sources share a responsive constrained default', async (kind) => {
+    const receipt = { path: 'documents/hero.jpg', width: 1200, height: 800 }
+    const { Image } = createImages({
+      ...baseConfiguration,
+      ...(kind === 'catalog' ? { images: { [receipt.path]: receipt } } : {}),
+    })
+    const document = parseMarkup(
+      await renderAsync(
+        <Image
+          alt="Responsive hero"
+          src={kind === 'receipt' ? receipt : receipt.path}
+          width={1200}
+          height={800}
+        />,
+      ),
+    )
+    const image = document.querySelector('img')
+    expect(image?.style.cssText).toBe(
+      'display: block; max-width: 1200px; width: 100%; height: auto;',
+    )
+    expect(image?.width).toBe(1200)
+    expect(image?.height).toBe(800)
+    expect(document.querySelector('source')?.sizes).toBe('auto, (min-width: 1200px) 1200px, 100vw')
+  })
+
+  test('an explicit none layout leaves string source presentation to the caller', async () => {
+    const { Image } = createImages(baseConfiguration)
+    const document = parseMarkup(
+      await renderAsync(
+        <Image
+          alt="Caller-sized hero"
+          src="documents/hero.jpg"
+          width={1200}
+          height={800}
+          layout="none"
+          sizes="50vw"
+          style={{ width: 300, height: 'auto' }}
+        />,
+      ),
+    )
+    expect(document.querySelector('img')?.style.cssText).toBe('width: 300px; height: auto;')
+    expect(document.querySelector('source')?.sizes).toBe('50vw')
+  })
+
   test('layout defaults leave explicit sizes, widths and styles in control', async () => {
     const { Image } = createImages(baseConfiguration)
     const document = parseMarkup(
@@ -1246,7 +1294,7 @@ describe('createImages', () => {
       authSecret: 'secret-from-receipt',
       id: 'not-an-attribute',
     }
-    const received = parseMarkup(await renderAsync(Image({ alt: 'Report', src, layout: 'none' })))
+    const received = parseMarkup(await renderAsync(Image({ alt: 'Report', src })))
     const expected = parseMarkup(
       await renderAsync(Image({ alt: 'Report', src: src.path, width: 400, height: 300 })),
     )
@@ -1467,7 +1515,7 @@ describe('createImages', () => {
     )
     const source = document.querySelector('source')
 
-    expect(source?.getAttribute('sizes')).toBe('auto, 100vw')
+    expect(source?.getAttribute('sizes')).toBe('auto, (min-width: 800px) 800px, 100vw')
     expect(source?.getAttribute('srcset')).toContain('200w')
     expect(source?.getAttribute('srcset')).toContain('400w')
     expect(source?.getAttribute('srcset')).toContain('800w')

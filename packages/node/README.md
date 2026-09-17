@@ -51,31 +51,30 @@ This package includes a full-featured CLI for interacting with Transloadit from 
 
 ### Quick Start
 
-Pick one auth setup and then run the CLI.
+Log in through your browser, then run a command:
 
-Use shell env vars:
+```bash
+npx -y @transloadit/node auth login
+npx -y @transloadit/node auth status
+npx -y @transloadit/node --help
+```
+
+No account yet? Choose Sign up in the browser, create your workspace, then approve the code from
+your terminal. Login saves a dedicated CLI key in the owner-only `~/.transloadit/credentials` file.
+Use `auth login --no-browser` to open the printed link yourself; `auth login --stdin` imports dotenv
+credentials without browser approval. Existing saved credentials require `--replace`.
+
+### CI and manual credentials
+
+For automation, provide an appropriately scoped key through your CI secret manager:
 
 ```bash
 export TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
 export TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
 ```
 
-Or create a reusable home credentials file:
-
-```bash
-mkdir -p ~/.transloadit
-cat > ~/.transloadit/credentials <<'EOF'
-TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
-TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
-EOF
-chmod 600 ~/.transloadit/credentials
-```
-
-Then see all available commands:
-
-```bash
-npx -y @transloadit/node --help
-```
+For application servers, provision a separate deployment key rather than copying your CLI login.
+`auth logout` revokes the saved CLI key; it should not interrupt a deployed application.
 
 The CLI binary is still called `transloadit`, so command examples below may use
 `npx transloadit ...`.

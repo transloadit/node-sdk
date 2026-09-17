@@ -61,7 +61,8 @@ Use a [compatible Template](./docs/reference.md#custom-templates) that pins your
 ```
 
 No Storage upload or catalog. Supply intrinsic dimensions and that workspace's server-only signing
-key. For private assets, authorize in the calling Server Component or use the per-request route
+key. Images shrink to fit their container by default; `layout="none"` leaves sizing to your CSS.
+For private assets, authorize in the calling Server Component or use the per-request route
 below, checking workspace, template and path. [Setup, metadata and defaults](./docs/reference.md#custom-templates).
 
 ## Private

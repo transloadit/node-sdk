@@ -243,6 +243,12 @@ in private source control, or remove their `thumbhash` fields before sharing the
 
 The `constrained` and `fixed` layout names follow Astro; `fill` follows Next.js.
 
+Every high-level Image source defaults to `constrained`, including Template string paths with
+explicit intrinsic `width` and `height`. It shrinks to its container without stretching the original.
+For a Template receipt, put intrinsic dimensions in `src` and pass `width` separately to set a
+smaller responsive maximum. `layout="none"` opts out of generated responsive styles and sizes;
+string-source dimensions still describe the original, not an independent crop or display box.
+
 The pinned public Built-in caps both output dimensions at 4096 pixels, including crops and JPEG
 fallbacks; the SDK scales its candidate ladder accordingly. Explicit public quality above 85 is
 rejected before rendering. Private previews retain their 8000-pixel / quality-100 limits.

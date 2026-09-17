@@ -132,9 +132,11 @@ function parseTemplateFieldAssignments(
   return fieldsMap
 }
 
-const AssemblySchema = z.object({
-  id: z.string(),
-})
+const AssemblySchema = z
+  .object({
+    id: z.string(),
+  })
+  .passthrough()
 
 // --- Business logic functions (from assemblies.ts) ---
 
@@ -163,8 +165,14 @@ export function list(
       if (fields == null) {
         output.print(parsed.data.id, assembly)
       } else {
-        const assemblyRecord = assembly as Record<string, unknown>
-        output.print(fields.map((field) => assemblyRecord[field]).join(' '), assembly)
+        const record = parsed.data
+        const selected = fields.filter((field) => Object.hasOwn(record, field))
+        output.print(
+          fields
+            .map((field) => (Object.hasOwn(record, field) ? record[field] : undefined))
+            .join(' '),
+          Object.fromEntries(selected.map((field) => [field, record[field]])),
+        )
       }
     }
   })

@@ -20,7 +20,7 @@ export type StorageImageAspectRatio =
   | number
   | Readonly<{ default: string | number } & Record<string, string | number>>
 
-/** Receipt sources are responsive by default; none leaves presentation sizing to the caller. */
+/** All sources are responsive by default; none leaves presentation sizing to the caller. */
 export type StorageImageLayoutProps<Catalog extends StorageImageCatalog | undefined = undefined> =
   | (PresentationSourceProps<Catalog> & {
       layout?: 'constrained' | 'none'
@@ -105,7 +105,7 @@ export function resolveImageLayout(
         ? missingImageHint(input, Object.keys(images ?? {}))
         : 'Storage image src is required',
     )
-  const layout = props.layout ?? (typeof src === 'string' ? 'none' : 'constrained')
+  const layout = props.layout ?? 'constrained'
   if ((layout === 'fixed' || layout === 'fill') && typeof src === 'string') {
     throw new TypeError(
       `${layout} layout requires a receipt source with intrinsic dimensions${layout === 'fixed' ? '; width and height describe the display box' : ''}`,
