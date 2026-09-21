@@ -1,5 +1,23 @@
 # @transloadit/utils
 
+## 4.9.0
+
+### Minor Changes
+
+- a2c5dd7: Add `getSmartCdnImageCandidates` next to the signed candidate builder on the Node entry point.
+  Share candidate validation and URL encoding while omitting signatures and expiry for genuinely
+  public delivery. Callers can use receipt-derived version tags for stable, immutable cache keys.
+  Include a proportional (rounded-up) fit height, or the backend limit without source metadata,
+  so a Template's default height does not silently invalidate the width descriptors.
+- a2c5dd7: Share Storage path and directory-prefix validation between image integrations and CLI scaffolds.
+  Keep generated image recipes scoped, preserve relative imports for hidden receipt catalogs, and
+  sign Storage listing requests against the endpoint belonging to the selected key credentials.
+
+### Patch Changes
+
+- a2c5dd7: Keep public-preview candidates within their dimension and quality limits, including width-only
+  requests and tall sources. Share the exact Built-in limits with image delivery adapters.
+
 ## 4.8.1
 
 ### Patch Changes
