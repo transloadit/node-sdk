@@ -43,11 +43,28 @@ test('scaffold helpers load in a cold checkout without built workspace packages'
 })
 
 interface PackageManifest {
+  description?: string
   engines?: { node?: string }
   files?: string[]
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
+  private?: boolean
+  publishConfig?: { access?: string; tag?: string }
 }
+
+test('Viewer alpha is publishable with explicit release metadata and registry dependencies', async () => {
+  const manifest = await readManifest(resolve(import.meta.dirname, '../packages/img/package.json'))
+  expect(manifest.private).not.toBe(true)
+  expect(manifest.description).toMatch(/\balpha\b/i)
+  expect(manifest.publishConfig).toEqual({ access: 'public', tag: 'alpha' })
+  expect(manifest.dependencies?.['@transloadit/utils']).toMatch(/^\^\d+\.\d+\.\d+$/)
+  const readme = await readFile(resolve(import.meta.dirname, '../packages/img/README.md'), 'utf8')
+  expect(readme).toContain('Alpha')
+  expect(readme).toContain('API may change')
+  expect(readme).toContain('@transloadit/viewer@alpha')
+  expect(readme).toContain('matching API2 deployment')
+  expect(readme).not.toContain('Unpublished dogfood')
+})
 
 function scaffoldUploadCommand(page: string): string {
   const commands: string[] = []
@@ -399,9 +416,7 @@ test('gets to the first image before teaching the security model and keeps the p
   expect(readme).toContain('One factory owns both modes')
   expect(readme).not.toMatch(/\bcreatePrivateStorageImages\b|\bcreateTransloaditImage\b|--next/)
   expect(readme).toContain('TRANSLOADIT_ENDPOINT')
-  expect(readme).toContain(
-    'https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md',
-  )
+  expect(readme).toContain('https://github.com/transloadit/node-sdk/blob/main/docs/img-dogfood.md')
   expect(readme).not.toContain('](../../docs/')
   expect(readme).toContain('The default route is `/api/storage-images`')
   expect(readme).toContain('capability has no independent expiry')
@@ -414,8 +429,8 @@ test('answers stranger signup and delivery setup questions without a private-doc
     'utf8',
   )
   const quickstart = readme.slice(readme.indexOf('## Quickstart'), readme.indexOf('## Responsive'))
-  expect(quickstart).toContain('maintainer')
-  expect(quickstart).toContain('tarballs')
+  expect(quickstart).toContain('@transloadit/viewer@alpha')
+  expect(quickstart).toContain('matching API2 deployment')
   expect(quickstart).toContain('pnpm add')
   expect(quickstart).toContain('yarn add')
   expect(quickstart).toMatch(/choose Sign up in the\s+browser it opens/)
