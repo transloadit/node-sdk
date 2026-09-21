@@ -116,12 +116,20 @@ Changelog guidance:
 
 Manual fallback (maintainers only):
 
-- `corepack yarn changeset publish`
+- On the generated version PR's merged commit: `corepack yarn release:publish`.
+- This publishes Viewer with its explicit `alpha` tag, then uses `changeset publish` for the
+  remaining packages and `changeset tag` for release discovery. A failed registry lookup stops the
+  release; retries do not republish an existing version.
 
 Notes:
 
 - CI publishing requires npm trusted publishing (OIDC) configured for this repo.
-- Scoped packages now publish to the default `latest` dist-tag unless a workflow explicitly overrides it.
+- Scoped packages publish to `latest`, except `@transloadit/viewer`, which is an alpha and uses
+  `alpha`. Its `publishConfig.tag` alone is insufficient because Changesets passes `--tag latest`.
+- Mark the Viewer GitHub release as a prerelease and verify the npm tags after publishing. On first
+  publication, npm may also assign `latest`; remove that Viewer tag if present.
+- Viewer prepack uses incremental TypeScript builds, like Utils. Do not recursively clean project
+  references there: Changesets can pack dependent packages concurrently.
 - If this was a pre-release, remember to reset the [npm `latest` tag](https://www.npmjs.com/package/transloadit?activeTab=versions) to the previous version (replace `x.y.z` with previous version):
   - `npm dist-tag add transloadit@X.Y.Z latest`
 

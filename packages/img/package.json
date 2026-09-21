@@ -1,10 +1,13 @@
 {
   "name": "@transloadit/viewer",
   "version": "0.0.0",
-  "description": "Native responsive images from Transloadit Storage and Smart CDN Templates",
-  "private": true,
+  "description": "Alpha: native responsive images from Transloadit Storage and Smart CDN Templates",
   "type": "module",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/transloadit/node-sdk",
@@ -54,7 +57,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "../../node_modules/.bin/tsc --build --clean tsconfig.build.json && ../../node_modules/.bin/tsc --build tsconfig.build.json",
+    "build": "../../node_modules/.bin/tsc --build tsconfig.build.json",
     "check": "yarn lint:ts && yarn test:unit",
     "lint:ts": "../../node_modules/.bin/tsc --build tsconfig.build.json && ../../node_modules/.bin/tsc --noEmit --project tsconfig.json",
     "prepack": "yarn build",
@@ -62,7 +65,7 @@
   },
   "dependencies": {
     "@noble/ciphers": "^1.3.0",
-    "@transloadit/utils": "workspace:^",
+    "@transloadit/utils": "^4.8.1",
     "server-only": "^0.0.1",
     "thumbhash": "0.1.1"
   },

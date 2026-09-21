@@ -1,16 +1,17 @@
 # `@transloadit/viewer`
 
-Responsive images from Transloadit Storage or your existing HTTP/S3 assets, for Next.js.
-Native `picture/srcset`; bytes go straight from
-Smart CDN (`<workspace>.tlcdn.com`) to the browser, never through Next's image optimizer.
+**Alpha — API may change between releases. Pin the exact version in production. Images only for now.**
+
+Responsive images from Storage or existing HTTP/S3 assets, for Next.js. Native `picture/srcset`;
+bytes go straight from Smart CDN (`<workspace>.tlcdn.com`) to the browser, never through Next's optimizer.
 
 ## Quickstart
 
 Next.js 16.3.3+ App Router, React 19, Node.js runtime.
-**Unpublished dogfood:** ask a maintainer for matching viewer/utils/node/types tarballs.
-After release: `npm install @transloadit/viewer && npm install --save-dev @transloadit/node`.
-pnpm: `pnpm add @transloadit/viewer && pnpm add -D @transloadit/node`;
-Yarn: `yarn add @transloadit/viewer && yarn add -D @transloadit/node`.
+`npm install @transloadit/viewer@alpha && npm install --save-dev @transloadit/node`.
+pnpm: `pnpm add @transloadit/viewer@alpha && pnpm add -D @transloadit/node`;
+Yarn: `yarn add @transloadit/viewer@alpha && yarn add -D @transloadit/node`.
+Storage needs a matching API2 deployment; [existing HTTP/S3 assets](#existing-http-or-s3-assets) do not.
 
 Run beside `package.json`. Start with `auth login` even without an account: choose Sign up in the
 browser it opens, create a free workspace, and approve the CLI. For `./hero.jpg`, use any JPEG you have.
@@ -105,5 +106,4 @@ Lost metadata? Restore the committed catalog or [recover it from Storage](./docs
 ## Reference
 
 [Store an image from your application server](https://github.com/transloadit/node-sdk/blob/main/packages/node/README.md#store-an-image).
-
-[Full reference](./docs/reference.md) · [Version-pinned delivery](./docs/reference.md#cache-and-markup-cost) · [Maintainer dogfood setup](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md).
+[Full reference](./docs/reference.md) · [Version-pinned delivery](./docs/reference.md#cache-and-markup-cost) · [Maintainer dogfood setup](https://github.com/transloadit/node-sdk/blob/main/docs/img-dogfood.md).
