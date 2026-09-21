@@ -152,9 +152,11 @@ async function deleteTemplates(
 // Export with `delete` alias for external consumers
 export { deleteTemplates as delete }
 
-const TemplateIdSchema = z.object({
-  id: z.string(),
-})
+const TemplateIdSchema = z
+  .object({
+    id: z.string(),
+  })
+  .passthrough()
 
 const INCLUDE_BUILTIN_VALUES = ['all', 'latest', 'exclusively-all', 'exclusively-latest'] as const
 
@@ -190,11 +192,11 @@ async function list(
       const parsed = TemplateIdSchema.safeParse(item)
       if (!parsed.success) continue
 
-      let template: unknown = item
+      let template = parsed.data
       if (includeContent) {
         try {
           const full = await client.getTemplate(parsed.data.id)
-          template = { ...item, content: full.content }
+          template = { ...template, content: full.content }
         } catch (err) {
           output.error(formatAPIError(err))
         }
@@ -203,8 +205,13 @@ async function list(
       if (fields == null) {
         output.print(parsed.data.id, template)
       } else {
-        const templateRecord = template as Record<string, unknown>
-        output.print(fields.map((field) => templateRecord[field]).join(' '), template)
+        const selected = fields.filter((field) => Object.hasOwn(template, field))
+        output.print(
+          fields
+            .map((field) => (Object.hasOwn(template, field) ? template[field] : undefined))
+            .join(' '),
+          Object.fromEntries(selected.map((field) => [field, template[field]])),
+        )
       }
     }
 

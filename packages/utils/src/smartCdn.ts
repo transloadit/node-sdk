@@ -176,11 +176,15 @@ export const prepareSmartCdnUrl = (opts: SmartCdnUrlOptions): PreparedSmartCdnUr
   }
 }
 
-/** Appends the `sig` parameter and returns the final `https://{workspace}.tlcdn.com/…` URL. */
-export const finishSmartCdnUrl = ({ parts }: PreparedSmartCdnUrl, signatureHex: string): string => {
+/** Finishes the common URL grammar, adding a signature only for signed delivery. */
+export const finishSmartCdnUrl = (
+  { parts }: Pick<PreparedSmartCdnUrl, 'parts'>,
+  signatureHex?: string,
+): string => {
   const { baseUrl, templateSlug, inputField, queryParams } = parts
-  queryParams.set('sig', `sha256:${signatureHex}`)
-  return `${baseUrl}/${templateSlug}/${inputField}?${queryParams}`
+  if (signatureHex !== undefined) queryParams.set('sig', `sha256:${signatureHex}`)
+  const query = queryParams.toString()
+  return `${baseUrl}/${templateSlug}/${inputField}${query === '' ? '' : `?${query}`}`
 }
 
 /**
@@ -196,10 +200,15 @@ export const getSmartCdnUrl = (opts: SmartCdnUnsignedUrlOptions): string => {
   // An unsigned builder must not emit fields that make the URL look partially or fully signed.
   for (const param of SIGNATURE_PARAMS) queryParams.delete(param)
   queryParams.sort()
-  const query = queryParams.toString()
-  return `${resolveBaseUrl(opts.baseUrl, workspaceSlug)}/${templateSlug}/${inputField}${
-    query === '' ? '' : `?${query}`
-  }`
+  return finishSmartCdnUrl({
+    parts: {
+      baseUrl: resolveBaseUrl(opts.baseUrl, workspaceSlug),
+      workspaceSlug,
+      templateSlug,
+      inputField,
+      queryParams,
+    },
+  })
 }
 
 const decodeOnce = (value: string, what: string): string => {

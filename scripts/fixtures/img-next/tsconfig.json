@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
     "jsx": "preserve",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "module": "ESNext",
@@ -8,5 +7,15 @@
     "noEmit": true,
     "strict": true,
     "target": "ES2017"
-  }
+  },
+  "include": [
+    "next-env.d.ts",
+    "transloadit-images.d.ts",
+    "catalog-types.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx"
+  ],
+  "exclude": ["node_modules", "app/**/transloadit-images.d.ts"]
 }

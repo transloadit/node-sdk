@@ -9,6 +9,7 @@ import type {
   RobotsWithHiddenBotsAndFields,
 } from './robots/_index.ts'
 import type { RobotUse } from './robots/_instructions-primitives.ts'
+import { refineTransloaditImportSelector } from './robots/transloadit-import.ts'
 
 export type Step = RobotsSchema
 export type StepInput = Step
@@ -24,6 +25,7 @@ export const stepSchema: z.ZodType<Step> = z
       .describe('Identifier of the [robot](https://transloadit.com/docs/robots/) to execute'),
   })
   .and(robotsSchema)
+  .superRefine(refineTransloaditImportSelector)
 export const stepsSchema: z.ZodType<Steps> = z
   .record(stepSchema)
   .describe('Contains Assembly Instructions.')
@@ -42,6 +44,7 @@ export const stepSchemaWithHiddenFields: z.ZodType<StepWithHiddenFields> = z
       .describe('Identifier of the [robot](https://transloadit.com/docs/robots/) to execute'),
   })
   .and(robotsWithHiddenBotsAndFieldsSchema)
+  .superRefine(refineTransloaditImportSelector)
 export const stepsSchemaWithHiddenFields: z.ZodType<StepsWithHiddenFields> = z
   .record(stepSchemaWithHiddenFields)
   .describe('Contains Assembly Instructions.')

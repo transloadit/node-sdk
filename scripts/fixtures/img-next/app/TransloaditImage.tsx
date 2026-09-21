@@ -1,10 +1,12 @@
-import { createTransloaditImage } from '@transloadit/img/next/server'
+import { createImages } from '@transloadit/viewer/next/server'
 
-import { imageConfiguration } from './imageConfiguration.ts'
+import { imageConfiguration } from './imageConfiguration'
 
-const { Image } = createTransloaditImage({
-  ...imageConfiguration,
-  storage: { allowedPathPrefixes: ['documents/'] },
+const { Image } = createImages({
+  images: imageConfiguration.images,
+  baseUrl: imageConfiguration.baseUrl,
+  allowedPathPrefixes: ['documents/'],
+  delivery: 'direct',
 })
 
 export { Image as TransloaditImage }

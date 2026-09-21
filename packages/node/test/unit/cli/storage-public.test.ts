@@ -1,0 +1,615 @@
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { signParamsSync } from '@transloadit/utils/node'
+import nock from 'nock'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+
+import { resolveCliConfig } from '../../../src/cli/helpers.ts'
+import OutputCtl from '../../../src/cli/OutputCtl.ts'
+import { main } from '../../../src/cli.ts'
+import { Transloadit } from '../../../src/Transloadit.ts'
+import { storagePage, storedAsset } from './storage-fixtures.ts'
+
+const origin = 'http://127.0.0.1:3020'
+const originalCwd = process.cwd()
+const stdoutListeners = process.stdout.listeners('error')
+const stderrListeners = process.stderr.listeners('error')
+const declared = {
+  ok: 'STORAGE_PUBLIC_PREFIX_DECLARED',
+  prefix: 'website/',
+  created_at: '2026-09-13T00:00:00Z',
+  created: true,
+}
+let directory: string
+
+beforeEach(async () => {
+  directory = await mkdtemp(join(tmpdir(), 'storage-public-'))
+  process.chdir(directory)
+  await writeFile(
+    'credentials',
+    `TRANSLOADIT_KEY=combined-key\nTRANSLOADIT_SECRET=local-secret\nTRANSLOADIT_WORKSPACE=my-app\nTRANSLOADIT_WORKSPACE_VERIFIED=true\nTRANSLOADIT_ENDPOINT=${origin}\n`,
+    { mode: 0o600 },
+  )
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', join(directory, 'credentials'))
+  for (const name of [
+    'TRANSLOADIT_KEY',
+    'TRANSLOADIT_SECRET',
+    'TRANSLOADIT_AUTH_KEY',
+    'TRANSLOADIT_AUTH_SECRET',
+    'TRANSLOADIT_AUTH_TOKEN',
+    'TRANSLOADIT_WORKSPACE',
+    'TRANSLOADIT_ENDPOINT',
+  ])
+    vi.stubEnv(name, '')
+  vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+  vi.spyOn(OutputCtl.prototype, 'print').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'error').mockImplementation(() => {})
+  vi.spyOn(OutputCtl.prototype, 'notice').mockImplementation(() => {})
+  nock.disableNetConnect()
+})
+
+afterEach(async () => {
+  process.chdir(originalCwd)
+  process.exitCode = undefined
+  vi.restoreAllMocks()
+  vi.unstubAllEnvs()
+  nock.cleanAll()
+  nock.enableNetConnect()
+  for (const listener of process.stdout.listeners('error'))
+    if (!stdoutListeners.includes(listener)) process.stdout.off('error', listener)
+  for (const listener of process.stderr.listeners('error'))
+    if (!stderrListeners.includes(listener)) process.stderr.off('error', listener)
+  await rm(directory, { recursive: true, force: true })
+})
+
+function signedPrefix(body: string): boolean {
+  const params = /name="params"\r\n\r\n([^\r\n]+)/.exec(body)?.[1]
+  const signature = /name="signature"\r\n\r\n([^\r\n]+)/.exec(body)?.[1]
+  expect(params).toBeDefined()
+  if (params === undefined) return false
+  expect(JSON.parse(params)).toMatchObject({ prefix: 'website/', auth: { key: 'combined-key' } })
+  expect(signature).toBe(signParamsSync(params, 'local-secret'))
+  return true
+}
+
+test.each([
+  'publish',
+  'unpublish',
+  'init',
+])('%s does not apply another environment’s policy to a same-slug catalog', async (command) => {
+  await mkdir('app')
+  const previous = JSON.stringify({
+    workspace: 'my-app',
+    public: [],
+    images: {
+      'website/hero.jpg': {
+        ...storedAsset({ path: 'website/hero.jpg' }),
+        apiOrigin: 'https://api2.transloadit.com',
+      },
+    },
+  })
+  await writeFile('transloadit.images.json', previous)
+  const publish = vi
+    .spyOn(Transloadit.prototype, 'publishStoragePrefix')
+    .mockResolvedValue(declared)
+  const unpublish = vi
+    .spyOn(Transloadit.prototype, 'unpublishStoragePrefix')
+    .mockResolvedValue({ ok: 'STORAGE_PUBLIC_PREFIX_REVOKED', prefix: 'website/', deleted: true })
+  await main(
+    command === 'init'
+      ? ['image', 'init', 'website/', '--public', '--endpoint', origin]
+      : ['storage', command, 'website/'],
+  )
+  expect(process.exitCode).toBe(1)
+  expect(publish).not.toHaveBeenCalled()
+  expect(unpublish).not.toHaveBeenCalled()
+  expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringMatching(/API environment.*--receipts/),
+  )
+})
+
+test.each([
+  'publish',
+  'unpublish',
+  'init',
+])('%s preserves an empty catalog bound to another API', async (command) => {
+  await mkdir('app')
+  const previous = JSON.stringify({
+    workspace: 'my-app',
+    apiOrigin: 'https://api2.transloadit.com',
+    public: [],
+    images: {},
+  })
+  await writeFile('transloadit.images.json', previous)
+  const publish = vi
+    .spyOn(Transloadit.prototype, 'publishStoragePrefix')
+    .mockResolvedValue(declared)
+  const unpublish = vi
+    .spyOn(Transloadit.prototype, 'unpublishStoragePrefix')
+    .mockResolvedValue({ ok: 'STORAGE_PUBLIC_PREFIX_REVOKED', prefix: 'website/', deleted: true })
+  await main(
+    command === 'init'
+      ? ['image', 'init', 'website/', '--public', '--endpoint', origin]
+      : ['storage', command, 'website/'],
+  )
+  expect(process.exitCode).toBe(1)
+  expect(publish).not.toHaveBeenCalled()
+  expect(unpublish).not.toHaveBeenCalled()
+  expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+})
+
+test('publishing before the first upload persists API provenance on the empty catalog', async () => {
+  vi.spyOn(Transloadit.prototype, 'publishStoragePrefix').mockResolvedValue(declared)
+  await main(['storage', 'publish', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toMatchObject({
+    apiOrigin: origin,
+    images: {},
+  })
+})
+
+test('publish dry run lists matching objects without publishing or touching the catalog', async () => {
+  const previous = '{"workspace":"my-app","public":[],"images":{}}\n'
+  await writeFile('transloadit.images.json', previous)
+  const api = nock(origin)
+    .get('/dam/assets')
+    .query(true)
+    .reply(200, storagePage([], { workspace: 'my-app' }))
+    .get('/dam/assets')
+    .query((query) => JSON.parse(String(query.params)).prefix === 'website/')
+    .reply(200, storagePage([storedAsset({ path: 'website/hero.jpg' })]))
+  const publish = vi.spyOn(Transloadit.prototype, 'publishStoragePrefix')
+  await main(['storage', 'publish', 'website/', '--dry-run'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(publish).not.toHaveBeenCalled()
+  expect(await readFile('transloadit.images.json', 'utf8')).toBe(previous)
+  expect(await readdir(directory)).toEqual(['credentials', 'transloadit.images.json'])
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringContaining('website/hero.jpg'),
+    expect.any(Object),
+  )
+})
+
+test('public init describes recursive current and future access before publishing', async () => {
+  await mkdir('app')
+  vi.spyOn(Transloadit.prototype, 'publishStoragePrefix').mockImplementation(() => {
+    expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
+      'Publishing website/ recursively: all current and future objects under this prefix will be public.',
+    )
+    return Promise.resolve(declared)
+  })
+  await main(['image', 'init', 'website/', '--public'])
+  expect(process.exitCode).toBeUndefined()
+})
+
+test.each(['publishStoragePrefix', 'unpublishStoragePrefix'] satisfies (keyof Pick<
+  Transloadit,
+  'publishStoragePrefix' | 'unpublishStoragePrefix'
+>)[])('%s forwards a pre-aborted signal without sending a request', async (method) => {
+  const client = new Transloadit({
+    authKey: 'local-key',
+    authSecret: 'local-secret',
+    endpoint: origin,
+  })
+  const controller = new AbortController()
+  controller.abort()
+  const api = nock(origin)
+    .intercept('/storage/public_prefixes', method === 'publishStoragePrefix' ? 'POST' : 'DELETE')
+    .reply(
+      200,
+      method === 'publishStoragePrefix'
+        ? declared
+        : { ok: 'STORAGE_PUBLIC_PREFIX_REVOKED', prefix: 'website/', deleted: true },
+    )
+  await expect(client[method]('website/', { signal: controller.signal })).rejects.toThrow()
+  expect(api.isDone()).toBe(false)
+})
+
+test.each([
+  'publish',
+  'unpublish',
+  'init',
+])('%s forwards the catalog interrupt to the publication operation', async (command) => {
+  await mkdir('app')
+  let signal: AbortSignal | undefined
+  const method = command === 'unpublish' ? 'unpublishStoragePrefix' : 'publishStoragePrefix'
+  vi.spyOn(Transloadit.prototype, method).mockImplementation((_prefix, options) => {
+    signal = options?.signal
+    process.emit('SIGINT')
+    return Promise.reject(new Error('Simulated interrupted publication'))
+  })
+  await main(
+    command === 'init'
+      ? ['image', 'init', 'website/', '--public']
+      : ['storage', command, 'website/'],
+  )
+  expect(signal?.aborted).toBe(true)
+  expect(process.exitCode).toBe(1)
+  expect(await readdir(directory)).toEqual(['app', 'credentials'])
+})
+
+test.each([
+  'publish',
+  'unpublish',
+])('%s revalidates project-selected credential files instead of trusting their login marker', async (command) => {
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', '')
+  await writeFile('.env', 'TRANSLOADIT_CREDENTIALS_FILE=credentials\n')
+  const catalog = { workspace: 'my-app', public: ['website/'], images: {} }
+  await writeFile('transloadit.images.json', JSON.stringify(catalog))
+  const discovery = nock(origin)
+    .get('/dam/assets')
+    .query(true)
+    .reply(200, storagePage([], { workspace: 'other-app' }))
+  const publication = nock(origin).post('/storage/public_prefixes').reply(200, declared)
+  const revocation = nock(origin).delete('/storage/public_prefixes').reply(200, {
+    ok: 'STORAGE_PUBLIC_PREFIX_REVOKED',
+    prefix: 'website/',
+    deleted: true,
+  })
+  await main(['storage', command, 'website/'])
+  expect(discovery.isDone()).toBe(true)
+  expect(publication.isDone()).toBe(false)
+  expect(revocation.isDone()).toBe(false)
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Project uses my-app; the selected credentials belong to other-app. Nothing uploaded.',
+  )
+  expect(resolveCliConfig()).toMatchObject({
+    authSource: 'project-selected credentials file',
+    credentialsSource: 'project-selected credentials file',
+    authWorkspaceVerified: false,
+    credentialsWorkspaceVerified: false,
+  })
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
+})
+
+test('init recovery advice follows the selected saved login, not unrelated shell credentials', async () => {
+  await mkdir('app')
+  vi.stubEnv('TRANSLOADIT_KEY', 'shell-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'shell-secret')
+  vi.stubEnv('TRANSLOADIT_WORKSPACE', 'other-app')
+  const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(403, {
+    error: 'STORAGE_PUBLIC_PREFIX_NEEDS_SMART_CDN_KEY',
+    message: 'unsafe local-secret',
+  })
+  await main(['image', 'init', 'website/', '--public'])
+  expect(process.exitCode).toBe(1)
+  expect(api.isDone()).toBe(true)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('https://transloadit.com/c/my-app/template-credentials/'),
+  )
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls)).not.toMatch(
+    /other-app|local-secret|shell-secret/,
+  )
+  expect(await readdir(directory)).toEqual(['app', 'credentials'])
+})
+
+test('revalidates the saved workspace after a shell endpoint override before publication', async () => {
+  await writeFile(
+    'transloadit.images.json',
+    JSON.stringify({ workspace: 'my-app', public: [], images: {} }),
+  )
+  vi.stubEnv('TRANSLOADIT_ENDPOINT', 'http://override.invalid')
+  const discovery = nock('http://override.invalid')
+    .get('/dam/assets')
+    .query(true)
+    .reply(200, storagePage([], { workspace: 'other-app' }))
+  const publication = nock('http://override.invalid')
+    .post('/storage/public_prefixes')
+    .reply(200, declared)
+  await main(['storage', 'publish', 'website/'])
+  expect(discovery.isDone()).toBe(true)
+  expect(publication.isDone()).toBe(false)
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Project uses my-app; the selected credentials belong to other-app. Nothing uploaded.',
+  )
+})
+
+test('an overriding bearer token receives actionable key-selection advice', async () => {
+  vi.stubEnv('TRANSLOADIT_AUTH_TOKEN', 'shell-bearer')
+  await main(['storage', 'publish', 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringContaining('Unset TRANSLOADIT_AUTH_TOKEN'),
+  )
+  expect(await readdir(directory)).toEqual(['credentials'])
+})
+
+test('private write-env requires the saved login instead of persisting transient shell secrets', async () => {
+  await mkdir('app')
+  await writeFile('credentials', '')
+  vi.stubEnv('TRANSLOADIT_KEY', 'shell-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'shell-secret')
+  vi.stubEnv('TRANSLOADIT_ENDPOINT', origin)
+  const discovery = nock(origin)
+    .get('/dam/assets')
+    .query(true)
+    .reply(200, storagePage([], { workspace: 'my-app' }))
+  await main(['image', 'init', 'website/', '--private', '--write-env'])
+  expect(process.exitCode).toBe(1)
+  expect(discovery.isDone()).toBe(false)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Run transloadit auth login first to save your workspace and Auth Key. Nothing was written.',
+  )
+  await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await readdir(directory)).toEqual(['app', 'credentials'])
+})
+
+test('public init commits the whole project catalog without creating an env file', async () => {
+  await mkdir('app')
+  const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(200, declared)
+  await main(['image', 'init', 'website', '--public'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+    workspace: 'my-app',
+    apiOrigin: origin,
+    public: ['website/'],
+    images: {},
+    delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
+  })
+  expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
+    "from '@transloadit/viewer/next'",
+  )
+  await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
+    'TRANSLOADIT_WORKSPACE',
+  )
+})
+
+test('init requires an explicit public or private choice before creating anything', async () => {
+  await mkdir('app')
+  await main(['image', 'init', 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Choose --example or --private; normal uploads need only storage store',
+  )
+  expect(await readdir(directory)).toEqual(['app', 'credentials'])
+})
+
+test.each([
+  'publish',
+  'unpublish',
+])('%s refuses a different project workspace before remote writes', async (command) => {
+  const catalog = { workspace: 'project-app', public: [], images: {} }
+  await writeFile('transloadit.images.json', `${JSON.stringify(catalog)}\n`)
+  await main(['storage', command, 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'Project uses project-app; the selected credentials belong to my-app. Nothing uploaded.',
+  )
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual(catalog)
+})
+
+test('publish and unpublish update the committed policy without losing image receipts', async () => {
+  const images = {
+    'website/hero.jpg': { path: 'website/hero.jpg', width: 100, height: 80, apiOrigin: origin },
+  }
+  await writeFile(
+    'transloadit.images.json',
+    JSON.stringify({ workspace: 'my-app', public: [], images }),
+  )
+  const api = nock(origin)
+    .post('/storage/public_prefixes', signedPrefix)
+    .reply(200, declared)
+    .delete('/storage/public_prefixes', signedPrefix)
+    .reply(200, { ok: 'STORAGE_PUBLIC_PREFIX_REVOKED', prefix: 'website/', deleted: true })
+  await main(['storage', 'publish', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+    workspace: 'my-app',
+    apiOrigin: origin,
+    public: ['website/'],
+    images,
+    delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
+  })
+  await main(['storage', 'unpublish', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+    workspace: 'my-app',
+    apiOrigin: origin,
+    public: [],
+    images,
+    delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
+  })
+})
+
+test.each([
+  'website',
+  'website/',
+])('publishes the normalized directory %s with an ordinary signed API request', async (prefix) => {
+  const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(200, declared)
+  await main(['storage', 'publish', prefix])
+  expect(
+    process.exitCode,
+    JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls),
+  ).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringContaining('Published website/'),
+    declared,
+  )
+})
+
+test('revokes a prefix while explaining that cached bytes cannot be recalled', async () => {
+  const revoked = { ok: 'STORAGE_PUBLIC_PREFIX_REVOKED', prefix: 'website/', deleted: true }
+  const api = nock(origin).delete('/storage/public_prefixes', signedPrefix).reply(200, revoked)
+  await main(['storage', 'unpublish', 'website/'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringMatching(/cached.*cannot be recalled/),
+    revoked,
+  )
+})
+
+test('lists public prefixes through signed GET, not the S3 controller', async () => {
+  const listed = {
+    ok: 'STORAGE_PUBLIC_PREFIXES_LISTED',
+    public_prefixes: [{ prefix: 'website/', created_at: declared.created_at }],
+  }
+  const api = nock(origin)
+    .get('/storage/public_prefixes')
+    .query((query) => {
+      if (typeof query.params !== 'string') return false
+      expect(query.signature).toBe(signParamsSync(query.params, 'local-secret'))
+      return true
+    })
+    .reply(200, listed)
+  await main(['storage', 'publications'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  expect(OutputCtl.prototype.print).toHaveBeenCalledWith(
+    expect.stringContaining('website/'),
+    listed,
+  )
+})
+
+test('an invalid signing algorithm uses normal CLI error reporting without a stack or raw input', async () => {
+  await writeFile(
+    'credentials',
+    'TRANSLOADIT_KEY=combined-key\nTRANSLOADIT_SECRET=local-secret\nTRANSLOADIT_SIGNATURE_ALGORITHM=invalid-private-value\n',
+  )
+  await main(['storage', 'publications', '--json'])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledExactlyOnceWith(
+    'Unsupported TRANSLOADIT_SIGNATURE_ALGORITHM in CLI credentials',
+  )
+  expect(JSON.stringify(vi.mocked(process.stdout.write).mock.calls)).not.toMatch(
+    /TypeError|helpers\.ts|invalid-private-value|local-secret/,
+  )
+})
+
+test('write-env reports the saved credentials read failure before asking for another login', async () => {
+  await mkdir('app')
+  const unreadable = join(directory, 'unreadable-credentials')
+  await mkdir(unreadable)
+  vi.stubEnv('TRANSLOADIT_CREDENTIALS_FILE', unreadable)
+  await main(['image', 'init', 'website/', '--public', '--write-env'])
+  expect(process.exitCode).toBe(1)
+  const message = vi.mocked(OutputCtl.prototype.error).mock.calls.flat().join('\n')
+  expect(message).toContain(`Failed to read ${unreadable}`)
+  expect(message).not.toContain('auth login first')
+  expect(await readdir(directory)).toEqual(['app', 'credentials', 'unreadable-credentials'])
+})
+
+test('missing Smart CDN enablement links to the workspace key settings without echoing upstream content', async () => {
+  const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(403, {
+    error: 'STORAGE_PUBLIC_PREFIX_NEEDS_SMART_CDN_KEY',
+    message: 'unsafe local-secret',
+  })
+  await main(['storage', 'publish', 'website/'])
+  expect(process.exitCode).toBe(1)
+  expect(api.isDone()).toBe(true)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    expect.stringMatching(
+      /Enable Smart CDN.*https:\/\/transloadit.com\/c\/my-app\/template-credentials\//,
+    ),
+  )
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls)).not.toContain(
+    'local-secret',
+  )
+})
+
+test.each([
+  '',
+  '/',
+  '/website/',
+  '../',
+  'a//b/',
+  `${'a'.repeat(512)}/`,
+])('rejects unsafe public prefix %j before making a request', async (prefix) => {
+  await main(['storage', 'publish', prefix])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(expect.stringMatching(/prefix|directory/))
+})
+
+test('init publishes first and reuses the saved login without any terminal input', async () => {
+  await mkdir('app')
+  const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(200, declared)
+  await main(['image', 'init', 'website/', '--public', '--write-env'])
+  expect(
+    process.exitCode,
+    JSON.stringify(vi.mocked(OutputCtl.prototype.error).mock.calls),
+  ).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await readFile('app/storage-image-example/page.tsx', 'utf8')).toContain(
+    "from '@transloadit/viewer/next'",
+  )
+  expect(JSON.parse(await readFile('transloadit.images.json', 'utf8'))).toEqual({
+    workspace: 'my-app',
+    apiOrigin: origin,
+    public: ['website/'],
+    images: {},
+    delivery: { baseUrl: `${origin}/file/{workspace}`, urlParams: { cdn: 'required' } },
+  })
+  expect(JSON.stringify(vi.mocked(OutputCtl.prototype.print).mock.calls)).not.toContain(
+    'local-secret',
+  )
+})
+
+test('public prefix limits count UTF-8 bytes before making a request', async () => {
+  await main(['storage', 'publish', 'é'.repeat(256)])
+  expect(process.exitCode).toBe(1)
+  expect(OutputCtl.prototype.error).toHaveBeenCalledWith(
+    'A public prefix must be at most 512 UTF-8 bytes',
+  )
+})
+
+test('a public prefix at exactly 512 UTF-8 bytes is accepted', async () => {
+  const prefix = `${'é'.repeat(255)}a/`
+  const api = nock(origin)
+    .post('/storage/public_prefixes')
+    .reply(200, { ...declared, prefix })
+  await main(['storage', 'publish', prefix])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+})
+
+test('public init leaves existing env untouched and checks code conflicts before publishing', async () => {
+  await mkdir('app/storage-image-example', { recursive: true })
+  await mkdir('lib')
+  await writeFile('app/storage-image-example/page.tsx', 'existing page\n')
+  await writeFile('lib/storageImage.ts', 'existing code\n')
+  await writeFile('.env.local', 'existing\n')
+  await main(['image', 'init', 'website/', '--public', '--write-env'])
+  expect(process.exitCode).toBe(1)
+  expect(await readFile('.env.local', 'utf8')).toBe('existing\n')
+  expect(await readdir(directory)).toEqual(['.env.local', 'app', 'credentials', 'lib'])
+})
+
+test('write-env and publication use the saved login together despite stale project or shell credentials', async () => {
+  await mkdir('app')
+  await writeFile(
+    '.env',
+    'TRANSLOADIT_KEY=project-key\nTRANSLOADIT_SECRET=project-secret\nTRANSLOADIT_ENDPOINT=http://127.0.0.1:9\n',
+  )
+  vi.stubEnv('TRANSLOADIT_KEY', 'shell-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'shell-secret')
+  const api = nock(origin).post('/storage/public_prefixes', signedPrefix).reply(200, declared)
+  await main(['image', 'init', 'website/', '--public', '--write-env'])
+  expect(process.exitCode).toBeUndefined()
+  expect(api.isDone()).toBe(true)
+  await expect(stat('.env.local')).rejects.toMatchObject({ code: 'ENOENT' })
+  const catalog = await readFile('transloadit.images.json', 'utf8')
+  expect(JSON.parse(catalog).workspace).toBe('my-app')
+  expect(catalog).not.toMatch(/project-|shell-|local-secret/)
+})
+
+test('a refused public declaration leaves no misleading factory or env file', async () => {
+  await mkdir('app')
+  const api = nock(origin)
+    .post('/storage/public_prefixes', signedPrefix)
+    .reply(403, { error: 'STORAGE_PUBLIC_PREFIX_NEEDS_SMART_CDN_KEY' })
+  await main(['image', 'init', 'website/', '--public', '--write-env'])
+  expect(process.exitCode).toBe(1)
+  expect(api.isDone()).toBe(true)
+  expect(await readdir(directory)).toEqual(['app', 'credentials'])
+})

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { fileAsSchema } from './file.ts'
+import { storedAssetSchema } from './storageAsset.ts'
 
 export const assemblyBusyCodeSchema = z.enum([
   'ASSEMBLY_UPLOADING',
@@ -337,6 +338,14 @@ export const assemblyStatusErrCodeSchema = z.enum([
   'TIGRIS_STORE_WRONG_REGION',
   'TMP_FILE_DOWNLOAD_ERROR',
   'TOKEN_INVALID_CREDENTIALS',
+  'TRANSLOADIT_IMPORT_ACCESS_DENIED',
+  'TRANSLOADIT_IMPORT_FAILURE',
+  'TRANSLOADIT_IMPORT_NOT_FOUND',
+  'TRANSLOADIT_IMPORT_VALIDATION',
+  'TRANSLOADIT_STORE_CONFLICT',
+  'TRANSLOADIT_STORE_FAILURE',
+  'TRANSLOADIT_STORE_UNAVAILABLE',
+  'TRANSLOADIT_STORE_VALIDATION',
   'TUS_STORE_VALIDATION',
   'USER_COMMAND_ERROR',
   'VERIFIED_EMAIL_REQUIRED',
@@ -623,6 +632,10 @@ const hlsPlaylistSchema = z.object({
 export const assemblyStatusUploadSchema = z
   .object({
     id: z.string(),
+    asset_id: storedAssetSchema.shape.asset_id.optional(),
+    version_id: storedAssetSchema.shape.version_id.optional(),
+    workspace: storedAssetSchema.shape.workspace.optional(),
+    sha256: storedAssetSchema.shape.sha256,
     name: z.string(),
     basename: z.string(),
     ext: z.string(),
@@ -660,6 +673,10 @@ export type AssemblyStatusUploads = z.infer<typeof assemblyStatusUploadsSchema>
 export const assemblyStatusResultSchema = z
   .object({
     id: z.string().optional(),
+    asset_id: z.string().optional(),
+    version_id: storedAssetSchema.shape.version_id.optional(),
+    workspace: storedAssetSchema.shape.workspace.optional(),
+    sha256: storedAssetSchema.shape.sha256,
     basename: z.string().nullable().optional(),
     field: z.string().nullable().optional(),
     md5hash: z.string().nullable().optional(),

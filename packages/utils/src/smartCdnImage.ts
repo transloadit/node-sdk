@@ -3,8 +3,19 @@ const minimumMillisecondTimestamp = 1_000_000_000_000
 const smartCdnImageFormats: readonly SmartCdnImageFormat[] = ['avif', 'webp', 'png']
 const smartCdnImageMaxWidths = 32
 
-/** Maximum requested width or height accepted by the responsive-image Built-ins. */
+/** Default maximum requested width or height; the public Built-in has narrower limits. */
 export const smartCdnImageMaxDimension = 8000
+
+/** Exact Built-in bounds shared by candidate builders and private-to-public delivery adapters. */
+export function getSmartCdnImageLimits(template: string): {
+  maxDimension: number
+  maxQuality: number
+} {
+  // Do not assume customer Templates or future Built-in versions share this public contract.
+  return template === 'builtin/public-preview@0.0.1' || template === 'builtin/public-preview@0.0.2'
+    ? { maxDimension: 4096, maxQuality: 85 }
+    : { maxDimension: smartCdnImageMaxDimension, maxQuality: 100 }
+}
 
 /** Image formats supported by the responsive-image Built-in. */
 export type SmartCdnImageFormat = 'avif' | 'png' | 'webp'
@@ -44,20 +55,22 @@ export interface SmartCdnImageSourceDimensions {
 }
 
 /** One rendition request passed to an injected Smart CDN signer. */
-export interface SmartCdnImageSignRequest {
-  expiresAt: number
+export interface SmartCdnImageSignRequest<Expiry extends number | undefined = number> {
+  expiresAt: Expiry
   input: string
   template: string
   urlParams: Readonly<Record<string, boolean | number | string>>
 }
 
 /** Injected signer that keeps responsive-image policy independent from credentials and runtimes. */
-export type SignSmartCdnImageRequest = (request: SmartCdnImageSignRequest) => string
+export type SignSmartCdnImageRequest<Expiry extends number | undefined = number> = (
+  request: SmartCdnImageSignRequest<Expiry>,
+) => string
 
 /** Framework-neutral options for deterministic Smart CDN image candidates. */
-export interface SmartCdnImagePolicyOptions {
+export interface SmartCdnImagePolicyOptions<Expiry extends number | undefined = number> {
   /** One absolute expiry in milliseconds since UNIX epoch, shared by every candidate. */
-  expiresAt: number
+  expiresAt: Expiry
   /** Browser-safe fallback URL, kept separate from the Template-specific input value. */
   fallbackUrl: string
   /** Formats and their quality values. Defaults to AVIF 45 and WebP 75. */
@@ -88,9 +101,9 @@ function validateSmartCdnImageDimension(value: number, name: string): void {
   }
 }
 
-function validateSmartCdnImageQuality(quality: number): void {
-  if (!Number.isInteger(quality) || quality < 1 || quality > 100) {
-    throw new RangeError('quality must be an integer from 1 through 100')
+function validateSmartCdnImageQuality(quality: number, maximum = 100): void {
+  if (!Number.isInteger(quality) || quality < 1 || quality > maximum) {
+    throw new RangeError(`quality must be an integer from 1 through ${maximum}`)
   }
 }
 
@@ -137,21 +150,21 @@ export function resolveSmartCdnImageFormats(
 
 function getMaximumCandidateWidth(
   sourceDimensions: SmartCdnImageSourceDimensions | undefined,
+  maxDimension: number,
 ): number {
-  if (sourceDimensions === undefined) return smartCdnImageMaxDimension
+  if (sourceDimensions === undefined) return maxDimension
 
   validatePositiveSafeInteger(sourceDimensions.width, 'sourceDimensions.width')
   validatePositiveSafeInteger(sourceDimensions.height, 'sourceDimensions.height')
   const heightLimitedWidth = Number(
-    (BigInt(smartCdnImageMaxDimension) * BigInt(sourceDimensions.width)) /
-      BigInt(sourceDimensions.height),
+    (BigInt(maxDimension) * BigInt(sourceDimensions.width)) / BigInt(sourceDimensions.height),
   )
   if (heightLimitedWidth < 1) {
     // Even a one-pixel-wide rendition would exceed the backend height limit; no truthful candidate
     // can preserve this aspect ratio.
     throw new RangeError('sourceDimensions aspect ratio cannot fit within backend dimensions')
   }
-  return Math.min(smartCdnImageMaxDimension, sourceDimensions.width, heightLimitedWidth)
+  return Math.min(maxDimension, sourceDimensions.width, heightLimitedWidth)
 }
 
 /** Validates, caps, deduplicates, and sorts requested responsive-image widths. */
@@ -179,9 +192,9 @@ export function resolveSmartCdnImageWidths(
  * Creates signed responsive-image candidates while leaving credential storage and HMAC choice to
  * the injected signer.
  */
-export function createSmartCdnImageCandidates(
-  options: SmartCdnImagePolicyOptions,
-  sign: SignSmartCdnImageRequest,
+export function createSmartCdnImageCandidates<Expiry extends number | undefined = number>(
+  options: SmartCdnImagePolicyOptions<Expiry>,
+  sign: SignSmartCdnImageRequest<Expiry>,
 ): SmartCdnImageCandidates {
   const expiresAt = options.expiresAt
   const fallbackUrl = options.fallbackUrl
@@ -197,9 +210,10 @@ export function createSmartCdnImageCandidates(
   const widthOptions = options.widths
   const widthsSnapshot = Array.isArray(widthOptions) ? [...widthOptions] : widthOptions
 
-  validatePositiveSafeInteger(expiresAt, 'expiresAt')
-  if (expiresAt < minimumMillisecondTimestamp) {
-    throw new RangeError('expiresAt must be a millisecond timestamp')
+  if (expiresAt !== undefined) {
+    validatePositiveSafeInteger(expiresAt, 'expiresAt')
+    if (expiresAt < minimumMillisecondTimestamp)
+      throw new RangeError('expiresAt must be a millisecond timestamp')
   }
   validateSmartCdnImageFallbackUrl(fallbackUrl)
   validateSmartCdnImageInput(input)
@@ -207,9 +221,11 @@ export function createSmartCdnImageCandidates(
   if (typeof sign !== 'function') throw new TypeError('sign must be a function')
 
   const formats = resolveSmartCdnImageFormats(formatsSnapshot)
+  const { maxDimension, maxQuality } = getSmartCdnImageLimits(template)
+  for (const { quality } of formats) validateSmartCdnImageQuality(quality, maxQuality)
   const widths = resolveSmartCdnImageWidths(
     widthsSnapshot,
-    getMaximumCandidateWidth(sourceDimensions),
+    getMaximumCandidateWidth(sourceDimensions, maxDimension),
   )
   const sources: SmartCdnImageSource[] = []
 

@@ -4,7 +4,9 @@ import type {
   CompileAssemblyInstructionsOptions,
   CompileAssemblyInstructionsResult,
 } from '@transloadit/utils'
+import type { SignatureAlgorithm } from '@transloadit/utils/node'
 import type { Delays, Headers, OptionsOfJSONResponseBody, RetryOptions } from 'got'
+import type { Input as IntoStreamInput } from 'into-stream'
 
 import type { TransloaditErrorResponseBody } from './ApiError.ts'
 import type {
@@ -12,6 +14,13 @@ import type {
   AssemblyIndexItem,
   AssemblyStatus,
 } from './alphalib/types/assemblyStatus.ts'
+import type {
+  GetStoredAssetOptions,
+  ListStoredAssetsOptions,
+  MoveStoredAssetOptions,
+  StoredAsset,
+  StoredAssetsPage,
+} from './alphalib/types/storageAsset.ts'
 import type {
   BaseResponse,
   BillResponse,
@@ -38,6 +47,21 @@ import type {
   LintAssemblyInstructionsInput,
   LintAssemblyInstructionsResult,
 } from './lintAssemblyInstructions.ts'
+import type {
+  GetStoredImageReceiptOptions,
+  StoredImageReceipt,
+  StoreImageOptions,
+} from './storageImage.ts'
+import type {
+  StoragePublicPrefixDeclared,
+  StoragePublicPrefixes,
+  StoragePublicPrefixRevoked,
+} from './storagePublicPrefixes.ts'
+import type {
+  GetStoredAssemblyResultsOptions,
+  StoredAssemblyResult,
+  StoredAssetUrlOptions,
+} from './storageResults.ts'
 import type { Stream, UploadBehavior } from './tus.ts'
 
 import * as assert from 'node:assert'
@@ -52,19 +76,37 @@ import { getSignedSmartCdnUrl, signParamsSync } from '@transloadit/utils/node'
 import debug from 'debug'
 import FormData from 'form-data'
 import got, { HTTPError, RequestError } from 'got'
-import intoStream, { type Input as IntoStreamInput } from 'into-stream'
+import intoStream from 'into-stream'
 import { isReadableStream, isStream } from 'is-stream'
 import pMap from 'p-map'
+import { z } from 'zod'
 
 import packageJson from '../package.json' with { type: 'json' }
 import { ApiError } from './ApiError.ts'
 import { assemblyIndexSchema, assemblyStatusSchema } from './alphalib/types/assemblyStatus.ts'
+import {
+  damAssetFoundResponseSchema,
+  damAssetGetOptionsSchema,
+  damAssetMoveOptionsSchema,
+  damAssetsListedResponseSchema,
+  damAssetsListOptionsSchema,
+  damIdSchema,
+  storedAssetSchema,
+} from './alphalib/types/storageAsset.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import { mintBearerTokenWithCredentials } from './bearerToken.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
 import PollingTimeoutError from './PollingTimeoutError.ts'
+import { getStoredImageReceipt, storeImage } from './storageImage.ts'
+import {
+  normalizeStoragePublicPrefix,
+  storagePublicPrefixDeclaredSchema,
+  storagePublicPrefixesSchema,
+  storagePublicPrefixRevokedSchema,
+} from './storagePublicPrefixes.ts'
+import { getStoredAssemblyResults, getStoredAssetUrl } from './storageResults.ts'
 import { sendTusRequest } from './tus.ts'
 
 export type {
@@ -76,6 +118,13 @@ export type {
 } from '@transloadit/utils'
 
 export type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
+export type {
+  GetStoredAssetOptions,
+  ListStoredAssetsOptions,
+  MoveStoredAssetOptions,
+  StoredAsset,
+  StoredAssetsPage,
+} from './alphalib/types/storageAsset.ts'
 export type {
   Base64Strategy,
   InputFile,
@@ -93,6 +142,22 @@ export type {
   RobotListResult,
   RobotParamHelp,
 } from './robots.ts'
+export type {
+  GetStoredImageReceiptOptions,
+  StoredImageExpectation,
+  StoredImageReceipt,
+  StoreImageOptions,
+} from './storageImage.ts'
+export type {
+  StoragePublicPrefixDeclared,
+  StoragePublicPrefixes,
+  StoragePublicPrefixRevoked,
+} from './storagePublicPrefixes.ts'
+export type {
+  GetStoredAssemblyResultsOptions,
+  StoredAssemblyResult,
+  StoredAssetUrlOptions,
+} from './storageResults.ts'
 
 export {
   buildCompileAssemblyInstructionsSystemPrompt,
@@ -382,6 +447,8 @@ type AuthToken = {
 }
 
 type BaseOptions = {
+  /** Use signatureAlgorithm: 'sha256' for new combined Smart CDN/Assembly keys; legacy default: sha384. */
+  signatureAlgorithm?: SignatureAlgorithm
   endpoint?: string
   maxRetries?: number
   timeout?: number
@@ -393,6 +460,7 @@ type BaseOptions = {
 export type Options = BaseOptions & (AuthKeySecret | AuthToken)
 
 export class Transloadit {
+  #signatureAlgorithm: SignatureAlgorithm
   private _authKey: string
 
   private _authSecret: string
@@ -413,6 +481,7 @@ export class Transloadit {
 
   private _validateResponses = false
 
+  /** Create a client; new combined keys require signatureAlgorithm: 'sha256' explicitly. */
   constructor(opts: Options) {
     const rawToken = typeof opts?.authToken === 'string' ? opts.authToken.trim() : ''
     const hasToken = rawToken.length > 0
@@ -433,6 +502,7 @@ export class Transloadit {
 
     this._authKey = opts.authKey ?? ''
     this._authSecret = opts.authSecret ?? ''
+    this.#signatureAlgorithm = opts.signatureAlgorithm ?? 'sha384'
     this._authToken = hasToken ? rawToken : null
     this._endpoint = opts.endpoint || 'https://api2.transloadit.com'
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
@@ -451,6 +521,126 @@ export class Transloadit {
 
   setDefaultTimeout(timeout: number): void {
     this._defaultTimeout = timeout
+  }
+
+  /** Stores one local original at an explicit path and returns its verified image metadata. */
+  storeImage(filePath: string, options: StoreImageOptions): Promise<StoredImageReceipt> {
+    return storeImage(this, filePath, options)
+  }
+
+  /** Reconstructs a verified receipt from authoritative Assembly status and trusted upload facts. */
+  getStoredImageReceipt(options: GetStoredImageReceiptOptions): Promise<StoredImageReceipt> {
+    return getStoredImageReceipt(this, options)
+  }
+
+  /** Verifies a completed batch's retained media and preserves result/input provenance. */
+  getStoredAssemblyResults(
+    options: GetStoredAssemblyResultsOptions,
+  ): Promise<StoredAssemblyResult[]> {
+    return getStoredAssemblyResults(this, options)
+  }
+
+  /** Signs exact original bytes after your app authorizes the asset. Use a 307 for fresh request-time authorization. */
+  getStoredAssetUrl(asset: StoredAsset, options?: StoredAssetUrlOptions): string {
+    return getStoredAssetUrl(this, asset, options)
+  }
+
+  /** Reads a live asset's current version, or the exact retained version when version_id is set. */
+  async getStoredAsset(
+    assetId: string,
+    options: GetStoredAssetOptions & { signal?: AbortSignal } = {},
+  ): Promise<StoredAsset> {
+    const id = damIdSchema.parse(assetId)
+    const params = damAssetGetOptionsSchema.parse(options)
+    const result = await this._remoteJson<unknown, OptionalAuthParams & GetStoredAssetOptions>({
+      urlSuffix: `/dam/assets/${id}`,
+      method: 'get',
+      params,
+      signal: options.signal,
+    })
+    checkResult(result)
+    const { asset } = damAssetFoundResponseSchema.parse(result)
+    if (
+      asset.asset_id !== id ||
+      (params.version_id !== undefined && asset.version_id !== params.version_id)
+    ) {
+      throw new InconsistentResponseError(
+        'The response did not match the requested Storage reference',
+      )
+    }
+    return asset
+  }
+
+  /** Reads one bounded catalog page without S3 credentials or a HEAD request per object. */
+  async listStoredAssets(
+    options: ListStoredAssetsOptions & { signal?: AbortSignal } = {},
+  ): Promise<StoredAssetsPage> {
+    const params = damAssetsListOptionsSchema.parse(options)
+    const result = await this._remoteJson<unknown, OptionalAuthParams & ListStoredAssetsOptions>({
+      urlSuffix: '/dam/assets',
+      method: 'get',
+      params,
+      signal: options.signal,
+    })
+    checkResult(result)
+    const page = damAssetsListedResponseSchema.parse(result)
+    if (page.assets.some((asset) => asset.workspace !== page.workspace)) {
+      throw new InconsistentResponseError('Storage catalog page contains a different Workspace')
+    }
+    return page
+  }
+
+  /** Moves or renames an asset natively, preserving asset and version identities. */
+  async moveStoredAsset(
+    assetId: string,
+    options: MoveStoredAssetOptions & { signal?: AbortSignal },
+  ): Promise<StoredAsset> {
+    const id = damIdSchema.parse(assetId)
+    const params = damAssetMoveOptionsSchema.parse(options)
+    if (params.filename === undefined && params.destination_folder_id === undefined) {
+      throw new TypeError('Provide filename or destination_folder_id for a Storage move')
+    }
+    const result = await this._remoteJson<unknown, OptionalAuthParams & MoveStoredAssetOptions>({
+      urlSuffix: `/dam/assets/${id}`,
+      method: 'patch',
+      params,
+      signal: options.signal,
+    })
+    checkResult(result)
+    const { asset } = z
+      .object({ ok: z.literal('DAM_ASSET_MOVED'), asset: storedAssetSchema })
+      .parse(result)
+    if (asset.asset_id !== id)
+      throw new InconsistentResponseError(
+        'The response did not match the requested Storage reference',
+      )
+    return asset
+  }
+
+  /** Soft-deletes an asset by identity, making retained versions unavailable for new reads. */
+  async deleteStoredAsset(
+    assetId: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<{ asset_id: string; deleted_at: string }> {
+    const id = damIdSchema.parse(assetId)
+    const result = await this._remoteJson<unknown, OptionalAuthParams>({
+      urlSuffix: `/dam/assets/${id}`,
+      method: 'delete',
+      signal: options.signal,
+    })
+    checkResult(result)
+    const receipt = z
+      .object({
+        ok: z.literal('DAM_ASSET_DELETED'),
+        asset_id: damIdSchema,
+        deleted_at: z.string().datetime(),
+      })
+      .parse(result)
+    if (receipt.asset_id !== id)
+      throw new InconsistentResponseError(
+        'The response did not match the requested Storage reference',
+      )
+    return { asset_id: receipt.asset_id, deleted_at: receipt.deleted_at }
   }
 
   /**
@@ -1199,6 +1389,20 @@ export class Transloadit {
     })
   }
 
+  /** Revoke the signing Auth Key itself, without granting access to other workspace keys. */
+  async revokeOwnAuthKey(): Promise<void> {
+    const result = await this._remoteJson<
+      unknown,
+      OptionalAuthParams & { action: 'revoke_auth_key' }
+    >({
+      urlSuffix: '/auth_keys/self',
+      method: 'delete',
+      params: { action: 'revoke_auth_key' },
+    })
+    checkResult(result)
+    z.object({ ok: z.literal('AUTH_KEY_DELETED') }).parse(result)
+  }
+
   /**
    * Get an Assembly Template
    *
@@ -1230,6 +1434,49 @@ export class Transloadit {
 
   streamTemplates(params?: ListTemplatesParams): PaginationStream<ListedTemplate> {
     return new PaginationStream(async (page) => this.listTemplates({ ...params, page }))
+  }
+
+  /** Declare a directory public for unsigned Storage Built-ins. Requires dam:write scope. */
+  async publishStoragePrefix(
+    prefix: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<StoragePublicPrefixDeclared> {
+    const result = await this._remoteJson<unknown, OptionalAuthParams & { prefix: string }>({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'post',
+      params: { prefix: normalizeStoragePublicPrefix(prefix) },
+      signal: options?.signal,
+    })
+    checkResult(result)
+    return storagePublicPrefixDeclaredSchema.parse(result)
+  }
+
+  /** Revoke origin access to a public directory; cached or downloaded bytes cannot be recalled. */
+  async unpublishStoragePrefix(
+    prefix: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<StoragePublicPrefixRevoked> {
+    const result = await this._remoteJson<unknown, OptionalAuthParams & { prefix: string }>({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'delete',
+      params: { prefix: normalizeStoragePublicPrefix(prefix) },
+      signal: options?.signal,
+    })
+    checkResult(result)
+    return storagePublicPrefixRevokedSchema.parse(result)
+  }
+
+  /** List the workspace's explicitly public directories through the ordinary signed API. */
+  async listPublicStoragePrefixes(options?: {
+    signal?: AbortSignal
+  }): Promise<StoragePublicPrefixes> {
+    const result = await this._remoteJson({
+      urlSuffix: '/storage/public_prefixes',
+      method: 'get',
+      signal: options?.signal,
+    })
+    checkResult(result)
+    return storagePublicPrefixesSchema.parse(result)
   }
 
   /**
@@ -1274,7 +1521,7 @@ export class Transloadit {
     })
   }
 
-  private _calcSignature(toSign: string, algorithm = 'sha384'): string {
+  private _calcSignature(toSign: string, algorithm: string = this.#signatureAlgorithm): string {
     if (!this._authSecret) {
       throw new Error('Cannot sign params without authSecret.')
     }
@@ -1357,7 +1604,7 @@ export class Transloadit {
     url?: string
     isTrustedUrl?: boolean
     timeout?: Delays
-    method?: 'delete' | 'get' | 'post' | 'put'
+    method?: 'delete' | 'get' | 'patch' | 'post' | 'put'
     params?: TParams
     fields?: Fields
     headers?: Headers
@@ -1397,7 +1644,7 @@ export class Transloadit {
     for (let retryCount = 0; ; retryCount++) {
       let form: FormData | undefined
 
-      if (method === 'post' || method === 'put' || method === 'delete') {
+      if (method === 'post' || method === 'patch' || method === 'put' || method === 'delete') {
         form = new FormData()
         this._appendForm(form, params, fields)
       }

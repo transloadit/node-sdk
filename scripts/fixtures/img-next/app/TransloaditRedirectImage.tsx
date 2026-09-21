@@ -1,17 +1,16 @@
-import { createTransloaditImage } from '@transloadit/img/next/server'
+import { createImages } from '@transloadit/viewer/next/server'
 
-import { imageConfiguration } from './imageConfiguration.ts'
+import { authorizeFixtureImage } from '../browser-policy'
+import { imageConfiguration } from './imageConfiguration'
 
-const { Image, storageRoute } = createTransloaditImage({
+const { Image, imageRoute } = createImages({
   ...imageConfiguration,
-  storage: {
-    allowedPathPrefixes: ['documents/'],
-    delivery: {
-      authorize: ({ request }) => request.headers.get('authorization') === 'Bearer fixture',
-      basePath: '/fixture',
-      route: '/api/private-images',
-    },
-  },
+  allowedPathPrefixes: ['documents/'],
+  authorize: authorizeFixtureImage,
+  basePath: '/fixture',
+  route: '/api/private-images',
+  lifetime: 5 * 60 * 1000,
+  rotationIntervalMs: 30 * 1000,
 })
 
-export { Image as TransloaditRedirectImage, storageRoute }
+export { Image as TransloaditRedirectImage, imageRoute }

@@ -24,7 +24,7 @@ This is a **Node.js** SDK to make it easy to talk to the
 
 ## Requirements
 
-- [Node.js](https://nodejs.org/en/) version 20 or newer
+- [Node.js](https://nodejs.org/en/) version 20.10.0 or newer
 - [A Transloadit account](https://transloadit.com/signup/) ([free signup](https://transloadit.com/pricing/))
 - [Your API credentials](https://transloadit.com/c/template-credentials) (`authKey`, `authSecret`)
 
@@ -51,31 +51,30 @@ This package includes a full-featured CLI for interacting with Transloadit from 
 
 ### Quick Start
 
-Pick one auth setup and then run the CLI.
+Log in through your browser, then run a command:
 
-Use shell env vars:
+```bash
+npx -y @transloadit/node auth login
+npx -y @transloadit/node auth status
+npx -y @transloadit/node --help
+```
+
+No account yet? Choose Sign up in the browser, create your workspace, then approve the code from
+your terminal. Login saves a dedicated CLI key in the owner-only `~/.transloadit/credentials` file.
+Use `auth login --no-browser` to open the printed link yourself; `auth login --stdin` imports dotenv
+credentials without browser approval. Existing saved credentials require `--replace`.
+
+### CI and manual credentials
+
+For automation, provide an appropriately scoped key through your CI secret manager:
 
 ```bash
 export TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
 export TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
 ```
 
-Or create a reusable home credentials file:
-
-```bash
-mkdir -p ~/.transloadit
-cat > ~/.transloadit/credentials <<'EOF'
-TRANSLOADIT_KEY="YOUR_TRANSLOADIT_KEY"
-TRANSLOADIT_SECRET="YOUR_TRANSLOADIT_SECRET"
-EOF
-chmod 600 ~/.transloadit/credentials
-```
-
-Then see all available commands:
-
-```bash
-npx -y @transloadit/node --help
-```
+For application servers, provision a separate deployment key rather than copying your CLI login.
+`auth logout` revokes the saved CLI key; it should not interrupt a deployed application.
 
 The CLI binary is still called `transloadit`, so command examples below may use
 `npx transloadit ...`.
@@ -106,6 +105,72 @@ If you want to use a different path, set `TRANSLOADIT_CREDENTIALS_FILE=/abs/path
 Most commands can authenticate with either `TRANSLOADIT_AUTH_TOKEN` or `TRANSLOADIT_KEY` +
 `TRANSLOADIT_SECRET`. Commands that mint bearer tokens or generate signatures still require
 `TRANSLOADIT_KEY` and `TRANSLOADIT_SECRET`.
+
+### Storage images for Next.js
+
+`@transloadit/viewer` is currently an unpublished, private preview. Follow the
+[local package instructions](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md)
+until release. In a Next.js 16.3.3+ App Router project with Storage enabled, run:
+
+```bash
+yarn transloadit auth login
+yarn transloadit storage store ./hero.jpg website/hero.jpg --public --hashed
+yarn dev
+```
+
+Follow the image package Quickstart to add its Next plugin and import Image from the package.
+`--hashed` creates an immutable filename; use the printed JSX path, including its content hash.
+Start with `auth login` even without an account: choose Sign up in the browser it opens, then approve
+the CLI. For application-server uploads instead of CLI seeding, see [Store an image](#store-an-image).
+Login opens browser approval (on Windows, open the printed URL) and saves one combined Auth Key,
+workspace and signing algorithm in the owner-only credentials file. `--no-browser` prints the
+approval URL; `--stdin` accepts dotenv credentials for automation. Existing credentials require
+`--replace`. Login also checks Storage policy access with a bounded read-only request; if that
+fails, it saves the login and prints a Console link. This check does not prove upload availability.
+
+Store creates `transloadit.images.json` and derived `transloadit-images.d.ts`; commit both. The
+catalog carries workspace, public prefixes and image receipts: no public app env is needed.
+`--public` declares the destination directory recursively, including future uploads, after saving
+the receipt. Plain store never publishes. `image init website/ --example` is an optional example
+generator; private init (`image init uploads/ --private`) creates `transloadit.authorize.ts` and a
+route that denies access until you connect per-object authorization. Use a separate deployment key.
+Existing code/env files are never overwritten. Missing trailing directory slashes are accepted.
+
+Store uploads originals and appends validated receipts to `transloadit.images.json`; commit it.
+`storage store ./images/*.jpg website/` stores shell-expanded files, checkpointing each success.
+It prints `width={960}` (bounded by the original) and `placeholder="blur"`, with a filename-derived
+alt and a reminder. Store generates an optional base64 `thumbhash` from the original bytes.
+An occupied path conflicts unless `--overwrite` is explicit; prefer `--hashed` for immutable
+filenames. Matching receipts skip repeat uploads; changed bytes get a new name.
+Storage receipts pin the returned `asset_id` and `version_id`. The image URL selects that exact
+retained version, including after rename or overwrite; `v` is a real version, not a cache-busting hash.
+Publication can also be managed explicitly:
+
+```bash
+yarn transloadit storage publish website/
+yarn transloadit storage publications
+yarn transloadit storage unpublish website/
+yarn transloadit auth status
+yarn transloadit auth logout
+```
+
+Logout revokes browser-login keys, including their use by any application. Imported (`--stdin`)
+and legacy keys are only forgotten locally; `auth logout --revoke` explicitly revokes those too.
+
+Unpublishing stops origin access but cannot recall cached/downloaded bytes. For lost metadata,
+restore the committed catalog or use the signed native catalog API with `dam:read` or `dam:write`.
+Older API deployments may not yet expose these reads; see [Recovery options and prerequisites](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#recovery).
+
+Storage commands report the selected credential source on stderr before operating. Ordinary
+commands retain shell → project `.env` → saved login precedence; init prefers the saved login.
+Store, list, sync and publication verify the selected key against the catalog workspace and stop
+before acting on a mismatch. An explicit `--workspace` opts out, but never mixes catalogs: use
+`--receipts` for a separate workspace's catalog. Status shows the saved workspace/key description;
+logout revokes that key before deleting the credentials file and preserves it if revocation fails.
+The endpoint stays bound to those credentials unless explicitly overridden. JSON result output
+stays on stdout; credentials are never printed. See the
+[image Quickstart](https://github.com/transloadit/node-sdk/blob/main/packages/img/README.md)
+and [reference](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md).
 
 ### Minting Bearer Tokens (Hosted MCP)
 
@@ -1379,7 +1444,140 @@ npx transloadit assemblies list -l 7
 
 ## SDK Usage
 
-The following code will upload an image and resize it to a thumbnail:
+### Store an image
+
+`storeImage()` uploads one local image and returns a verified receipt ready for `Image`.
+Install `@transloadit/node` as a runtime dependency for server uploads; a dev dependency is enough
+when you only use its CLI. Use an Assembly-enabled application key in your server environment,
+not a signing-only image-delivery key or the disposable login key that `auth logout` revokes.
+New combined Smart CDN/Assembly keys use SHA-256, as selected below; use your configured algorithm
+for an existing key.
+
+In an authenticated server handler, `user` is your verified session user and `saveImage` is your
+application's database helper, not an SDK function:
+
+```ts
+import { randomUUID } from 'node:crypto'
+import { Transloadit } from '@transloadit/node'
+
+const { TRANSLOADIT_KEY: authKey, TRANSLOADIT_SECRET: authSecret } = process.env
+if (!authKey || !authSecret) {
+  throw new Error('Set TRANSLOADIT_KEY and TRANSLOADIT_SECRET on the server')
+}
+const client = new Transloadit({
+  authKey,
+  authSecret,
+  signatureAlgorithm: 'sha256',
+})
+const receipt = await client.storeImage('./hero.jpg', {
+  path: `uploads/${randomUUID()}/hero.jpg`,
+})
+await saveImage({ ...receipt, ownerId: user.id })
+```
+
+Choose the destination on the server and save the complete receipt with its owner ID. An occupied
+path is refused unless you explicitly pass `overwrite: true`. This helper does not publish a
+directory or update the CLI's catalog. Pass the saved receipt as `src` in an authorized application;
+see [user uploads, private access and trusted receipt recovery with `getStoredImageReceipt()`](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#images-uploaded-by-your-users)
+for the Uppy/notification flow and recovery without another upload.
+
+### Read and reuse stored assets
+
+Save the complete stored result from `results[producingStep][i]` after `ASSEMBLY_COMPLETED`, including
+its Workspace and returned path. Collision handling can rename the requested destination.
+`storeImage()` returns this canonical record plus verified image metadata; other media use the
+same `StoredAsset` contract without requiring image dimensions.
+
+```ts
+const page = await client.listStoredAssets({ prefix: 'uploads/', limit: 100 })
+// Continue with { prefix: 'uploads/', cursor: page.next_cursor } while next_cursor is not null.
+const current = await client.getStoredAsset(receipt.asset_id)
+const pinned = await client.getStoredAsset(receipt.asset_id, { version_id: receipt.version_id })
+```
+
+These signed, bounded metadata reads require `dam:read` or `dam:write`, use the key's Workspace,
+and return checksums and dimensions when available. No S3 credentials or per-file HEADs are needed.
+
+For a multi-file or mixed-media Assembly, fetch its retained results on your server:
+
+```ts
+// Load this upload from your database after checking the current user's access.
+const outputs = await client.getStoredAssemblyResults({
+  assemblyId: upload.assemblyId,
+  workspace: upload.workspace,
+})
+for (const output of outputs) {
+  // Use a unique database key (assembly_id, step, result_id) so notification retries are harmless.
+  await registerMedia({ ...output, ownerId: upload.ownerId })
+}
+```
+
+Each output contains `asset` (the canonical record), `assembly_id`, `step`, `result_id`, and
+`original_id` when the producing result supplies it. One input can produce an image, video and
+poster; combined inputs can have an array of original IDs. Do not correlate by filename or array
+position. Ordinary temporary results are omitted; malformed or cross-Workspace Storage records
+fail the whole read. Failed/incomplete Assemblies are not reported as successful batches, even
+if some writes already happened. This helper verifies authoritative metadata, **not application
+ownership**: never use an unchecked browser/notification Assembly ID in place of `upload`.
+
+Rename/move with the native API to keep saved asset/version references working:
+
+```ts
+const renamed = await client.moveStoredAsset(receipt.asset_id, { filename: 'ceremony.jpg' })
+// Supply destination_folder_id to change folders; null selects the Workspace root.
+const deletion = await client.deleteStoredAsset(renamed.asset_id)
+```
+
+Mutations need `dam:write`. `moveStoredAsset()` returns the canonical record from the transaction
+(checksums may be omitted), with the same identity and version. It never implements a move as
+S3 copy/delete. A native folder move also keeps its descendants' identities.
+
+### Original media, playback and downloads
+
+`getStoredAssetUrl()` signs **exact original bytes**, not an image preview or a video transcode.
+It accepts the canonical record for any media type, without requiring image dimensions:
+
+```ts
+// In a server route, authenticate and load this exact saved reference from your own database.
+const media = await loadMediaAuthorizedForUser(user, mediaId)
+const url = client.getStoredAssetUrl(media.asset, { download: true })
+return new Response(null, {
+  status: 307,
+  headers: { Location: url, 'Cache-Control': 'private, no-store', Vary: 'Cookie' },
+})
+```
+
+`download: true` uses the receipt's filename; a string overrides it safely. Omit `download` for
+inline playback. The attachment header comes from the CDN response, including for cross-origin
+links: no `fetch().blob()`, application byte proxy or whole-video memory allocation is needed.
+Range requests support seeking when the original format/codecs work in that browser; generate
+and store a separate compatible playback rendition when they do not. Use Viewer for previews.
+
+These URLs use signed `builtin/storage-serve@0.0.3` (deploy the matching API2 version first).
+The signing key needs `smart_cdn:sign` or the Workspace's legacy Smart CDN-enabled key permission.
+`lifetimeMs` defaults to a maximum of five minutes (allowed: one second to 48 hours). Signing
+rotates at most once a minute and never more slowly than half the lifetime, so a new URL retains
+at least half its requested lifetime. Bunny includes the full query in its cache key: each
+rotation starts a separate cache entry. An issued URL remains usable until expiry even if the
+application session is revoked. Reauthorize every redirect; do not cache private redirects in
+a shared cache. A download filename changes the signed URL/cache key but never the selected bytes.
+
+For a later Assembly, choose exactly one `/transloadit/import` selector:
+
+- `{ robot: '/transloadit/import', path: receipt.path }` reads the current bytes at that location.
+- `{ robot: '/transloadit/import', asset_id: receipt.asset_id }` follows the logical asset after moves.
+- `{ robot: '/transloadit/import', asset_id: receipt.asset_id, version_id: receipt.version_id }`
+  selects the exact retained bytes. It never falls back to the current version.
+
+Authenticate for the saved Workspace. Deleting the asset or removing that retained version makes
+the reference unavailable; an ID is neither a backup nor authorization. Use the actual stored IDs,
+not a filename or digest, and keep application ownership associated with the stable asset ID.
+
+### Process an image
+
+The following code will upload an image and resize it to a thumbnail. New Console-created combined
+Smart CDN/Assembly keys use SHA-256, so this example selects it explicitly; the SDK's legacy default
+remains SHA-384 for existing keys.
 
 ```javascript
 import { Transloadit } from '@transloadit/node'
@@ -1387,6 +1585,7 @@ import { Transloadit } from '@transloadit/node'
 const transloadit = new Transloadit({
   authKey: 'YOUR_TRANSLOADIT_KEY',
   authSecret: 'YOUR_TRANSLOADIT_SECRET',
+  signatureAlgorithm: 'sha256',
 })
 
 try {
@@ -1486,10 +1685,24 @@ Table of contents:
 
 Returns a new instance of the client.
 
+```typescript
+const transloadit = new Transloadit({
+  authKey: 'YOUR_TRANSLOADIT_KEY',
+  authSecret: 'YOUR_TRANSLOADIT_SECRET',
+  signatureAlgorithm: 'sha256',
+})
+```
+
+Select SHA-256 for new Console-created combined Smart CDN/Assembly keys; omitting it retains
+the SHA-384 default for existing keys and can produce `INVALID_SIGNATURE` with a combined key.
+
 The `options` object can contain the following keys:
 
 - `authKey` **(required)** - see [requirements](#requirements)
 - `authSecret` **(required)** - see [requirements](#requirements)
+- `signatureAlgorithm` (default `'sha384'`) - API signing algorithm configured on this Auth Key.
+  Use `'sha256'` for combined Smart CDN-enabled keys. Browser CLI login saves and applies this
+  setting automatically; explicit `calcSignature(params, algorithm)` calls still override it.
 - `endpoint` (default `'https://api2.transloadit.com'`)
 - `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `gotRetry` (default `0`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
@@ -1934,8 +2147,3 @@ Thanks to [Ian Hansen](https://github.com/supershabam) for donating the `translo
 ## Development
 
 See [CONTRIBUTING](./CONTRIBUTING.md).
-
-
-
-
-

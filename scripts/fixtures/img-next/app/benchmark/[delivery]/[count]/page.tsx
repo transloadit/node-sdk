@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 
 import { notFound } from 'next/navigation.js'
+import { Suspense } from 'react'
 
-import { TransloaditImage } from '../../../TransloaditImage.tsx'
-import { TransloaditRedirectImage } from '../../../TransloaditRedirectImage.tsx'
+import { fixtureImage } from '../../../../storage-fixtures'
+import { TransloaditImage } from '../../../TransloaditImage'
+import { TransloaditRedirectImage } from '../../../TransloaditRedirectImage'
 
 interface PageProps {
   params: Promise<{ count: string; delivery: string }>
@@ -11,9 +13,7 @@ interface PageProps {
 
 const benchmarkCounts = new Set([1, 20, 100])
 
-export const instant = false
-
-export default async function Page({ params }: PageProps): Promise<ReactNode> {
+async function Benchmark({ params }: PageProps): Promise<ReactNode> {
   const { count: countValue, delivery } = await params
   const count = Number(countValue)
   if (!benchmarkCounts.has(count) || (delivery !== 'direct' && delivery !== 'redirect')) {
@@ -28,10 +28,19 @@ export default async function Page({ params }: PageProps): Promise<ReactNode> {
         height={300}
         key={index}
         sizes="200px"
-        src={`documents/benchmark-${index + 1}.jpg`}
+        src={fixtureImage(`documents/benchmark-${index + 1}.jpg`, 400, 300)}
+        style={{ display: 'block', height: 'auto', width: 200 }}
         width={400}
       />,
     )
   }
   return <main>{images}</main>
+}
+
+export default function Page({ params }: PageProps): ReactNode {
+  return (
+    <Suspense fallback={null}>
+      <Benchmark params={params} />
+    </Suspense>
+  )
 }

@@ -1,17 +1,18 @@
 import type { ReactNode } from 'react'
 
-import { TransloaditRedirectImage } from '../TransloaditRedirectImage.tsx'
+import { TransloaditRedirectImage } from '../TransloaditRedirectImage'
 
 export default function Page(): ReactNode {
   return (
     <TransloaditRedirectImage
       alt="Authorized Storage fixture"
       fetchPriority="high"
-      height={300}
+      height={1600}
       preload
-      sizes="400px"
-      src="documents/report.pdf"
-      width={400}
+      sizes="(min-width: 960px) 960px, 100vw"
+      src="documents/hero.jpg"
+      style={{ display: 'block', height: 'auto', maxWidth: 960, width: '100%' }}
+      width={2400}
     />
   )
 }

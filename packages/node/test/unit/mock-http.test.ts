@@ -139,6 +139,36 @@ describe('Mocked API tests', () => {
     scope.done()
   })
 
+  it('validates a Storage conflict when polling and preserves its code in createAssembly', async () => {
+    const client = getLocalClient({ validateResponses: true })
+    const conflict = {
+      error: 'TRANSLOADIT_STORE_CONFLICT',
+      assembly_id: 'storage-conflict',
+      assembly_url: 'http://localhost/assemblies/storage-conflict',
+      assembly_ssl_url: 'http://localhost/assemblies/storage-conflict',
+      message: 'An asset already exists at this path',
+    }
+    const scope = nock('http://localhost')
+      .get('/assemblies/storage-conflict')
+      .query(true)
+      .reply(200, conflict)
+      .post(createAssemblyRegex)
+      .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_id: 'storage-conflict' })
+      .get('/assemblies/storage-conflict')
+      .query(true)
+      .reply(200, conflict)
+
+    await expect(client.awaitAssemblyCompletion('storage-conflict')).resolves.toMatchObject(
+      conflict,
+    )
+    await expect(client.createAssembly({ waitForCompletion: true })).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'TRANSLOADIT_STORE_CONFLICT',
+      assemblyId: 'storage-conflict',
+    })
+    scope.done()
+  })
+
   it('should return error when GETting a failed assembly', async () => {
     const client = getLocalClient()
 

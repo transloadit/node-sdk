@@ -28,10 +28,12 @@ export * from './assemblyInstructionsCompiler.ts'
 export { getSmartCdnUrl, parseSmartCdnUrl, stripSmartCdnAuth } from './smartCdn.ts'
 export {
   createSmartCdnImageCandidates,
+  getSmartCdnImageLimits,
   resolveSmartCdnImageFormats,
   resolveSmartCdnImageWidths,
   smartCdnImageMaxDimension,
 } from './smartCdnImage.ts'
+export { validateStoragePath, validateStoragePathPrefix } from './storagePath.ts'
 
 const algorithmMap = {
   sha1: 'SHA-1',

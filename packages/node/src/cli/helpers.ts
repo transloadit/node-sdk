@@ -1,15 +1,24 @@
 import type { Readable } from 'node:stream'
 
+import type { IOutputCtl } from './OutputCtl.ts'
+
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { homedir, userInfo } from 'node:os'
 import path from 'node:path'
 
 import { parse as parseDotenv } from 'dotenv'
+import { z } from 'zod'
 
 import { isAPIError } from './types.ts'
 
-export type CliKeySecretCredentials = { authKey: string; authSecret: string }
+/** API signing algorithms supported by CLI credentials and device authorization. */
+export const cliSignatureAlgorithmSchema = z.enum(['sha1', 'sha256', 'sha384', 'sha512'])
+export type CliKeySecretCredentials = {
+  authKey: string
+  authSecret: string
+  signatureAlgorithm?: z.infer<typeof cliSignatureAlgorithmSchema>
+}
 export type CliAuthToken = { authToken: string }
 export type CliAuth = CliKeySecretCredentials | CliAuthToken
 type CliEnvSource = {
@@ -20,7 +29,9 @@ type CliEnvSource = {
 let loadedProjectDotenvPath: string | undefined
 let projectDotenvInjectedValues: Record<string, string> | undefined
 let projectDotenvPreviousValues: Record<string, string | undefined> | undefined
-let shellEnvBeforeProjectDotenv: Record<string, string | undefined> | undefined
+let shellEnvBeforeProjectDotenv:
+  | { values: Record<string, string | undefined>; homeDirectory?: string }
+  | undefined
 
 type LoadCliEnvSourcesResult = {
   loadError?: string
@@ -30,8 +41,17 @@ type LoadCliEnvSourcesResult = {
 
 export type ResolvedCliConfig = {
   auth?: CliAuth
+  authSource?: string
+  authWorkspace?: string
+  authWorkspaceVerified?: boolean
   credentials?: CliKeySecretCredentials
+  credentialsSource?: string
   credentialsEndpoint?: string
+  credentialsWorkspace?: string
+  credentialsWorkspaceVerified?: boolean
+  credentialsAuthKeyId?: string
+  credentialsDescription?: string
+  credentialsLoginMethod?: string
   endpoint?: string
   loadError?: string
 }
@@ -41,13 +61,38 @@ function normalizeEnvValue(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined
 }
 
-function getConfiguredCredentialsFilePath(): string {
-  const configuredPath = normalizeEnvValue(process.env.TRANSLOADIT_CREDENTIALS_FILE)
+function credentialHomeDirectory(): string {
+  // Node trusts HOME verbatim; an empty or relative default must never put secrets in a repo.
+  try {
+    const home = homedir()
+    if (path.isAbsolute(home)) return home
+    const fallback = userInfo().homedir
+    if (path.isAbsolute(fallback)) return fallback
+  } catch (error) {
+    throw new Error(
+      'Cannot determine a safe home directory. Set TRANSLOADIT_CREDENTIALS_FILE to an explicit path.',
+      { cause: error },
+    )
+  }
+  throw new Error(
+    'Cannot determine a safe home directory. Set TRANSLOADIT_CREDENTIALS_FILE to an explicit path.',
+  )
+}
+
+/** Login and its env scaffold accept only a shell path override; ordinary reads retain merged lookup. */
+export function getConfiguredCredentialsFilePath(source: 'shell' | 'merged' = 'merged'): string {
+  const values = source === 'shell' ? getShellEnvValues() : process.env
+  const configuredPath = normalizeEnvValue(values.TRANSLOADIT_CREDENTIALS_FILE)
   if (configuredPath != null) {
     return path.resolve(configuredPath)
   }
 
-  return path.join(homedir(), '.transloadit', 'credentials')
+  // HOME/USERPROFILE from project dotenv must not redirect the login's default destination.
+  const shellHome =
+    source === 'shell' && loadedProjectDotenvPath === getProjectDotenvPath()
+      ? shellEnvBeforeProjectDotenv?.homeDirectory
+      : undefined
+  return path.join(shellHome ?? credentialHomeDirectory(), '.transloadit', 'credentials')
 }
 
 function getProjectDotenvPath(): string {
@@ -112,7 +157,15 @@ export function loadProjectDotenvIntoProcessEnv(): string | undefined {
   const projectDotenvPath = getProjectDotenvPath()
   if (loadedProjectDotenvPath !== projectDotenvPath) {
     restoreProjectDotenvFromProcessEnv()
-    shellEnvBeforeProjectDotenv = { ...process.env }
+    shellEnvBeforeProjectDotenv = {
+      values: { ...process.env },
+      // An explicit file makes OS home discovery unnecessary (e.g. an unmapped container UID).
+      // Otherwise capture it before dotenv can replace HOME and redirect a newly saved login.
+      homeDirectory:
+        normalizeEnvValue(process.env.TRANSLOADIT_CREDENTIALS_FILE) == null
+          ? credentialHomeDirectory()
+          : undefined,
+    }
     loadedProjectDotenvPath = projectDotenvPath
   }
 
@@ -144,7 +197,7 @@ export function loadProjectDotenvIntoProcessEnv(): string | undefined {
 
 function getShellEnvValues(): Record<string, string | undefined> {
   if (loadedProjectDotenvPath === getProjectDotenvPath() && shellEnvBeforeProjectDotenv != null) {
-    return shellEnvBeforeProjectDotenv
+    return shellEnvBeforeProjectDotenv.values
   }
 
   return { ...process.env }
@@ -214,12 +267,23 @@ function getSourceValue(source: CliEnvSource, keys: string[]): string | undefine
   return undefined
 }
 
-function getSourceCredentials(source: CliEnvSource): CliKeySecretCredentials | undefined {
+function getSourceCredentials(
+  source: CliEnvSource,
+): CliKeySecretCredentials | { loadError: string } | undefined {
   const authKey = getSourceValue(source, ['TRANSLOADIT_KEY', 'TRANSLOADIT_AUTH_KEY'])
   const authSecret = getSourceValue(source, ['TRANSLOADIT_SECRET', 'TRANSLOADIT_AUTH_SECRET'])
   if (authKey == null || authSecret == null) return undefined
 
-  return { authKey, authSecret }
+  const algorithm = cliSignatureAlgorithmSchema
+    .optional()
+    .safeParse(getSourceValue(source, ['TRANSLOADIT_SIGNATURE_ALGORITHM']))
+  if (!algorithm.success)
+    return { loadError: 'Unsupported TRANSLOADIT_SIGNATURE_ALGORITHM in CLI credentials' }
+  return {
+    authKey,
+    authSecret,
+    ...(algorithm.data === undefined ? {} : { signatureAlgorithm: algorithm.data }),
+  }
 }
 
 function getSourceAuthToken(source: CliEnvSource): CliAuthToken | undefined {
@@ -240,31 +304,127 @@ function resolveEndpointForSource(
   return getSourceValue(source, ['TRANSLOADIT_ENDPOINT'])
 }
 
-export function resolveCliConfig(): ResolvedCliConfig {
+function isSavedLoginSource(source: CliEnvSource): boolean {
+  return (
+    source.name === 'credentialsFile' &&
+    getConfiguredCredentialsFilePath() === getConfiguredCredentialsFilePath('shell')
+  )
+}
+
+function hasVerifiedWorkspace(source: CliEnvSource, shell: CliEnvSource): boolean {
+  // A project-selected file or changed endpoint cannot inherit the login-time ownership proof.
+  return (
+    isSavedLoginSource(source) &&
+    getSourceValue(source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true' &&
+    resolveEndpointForSource(source, shell) === getSourceValue(source, ['TRANSLOADIT_ENDPOINT'])
+  )
+}
+
+function credentialSourceName(source: CliEnvSource, shell: CliEnvSource, auth: CliAuth): string {
+  if (source.name === 'credentialsFile')
+    return isSavedLoginSource(source) ? 'saved login' : 'project-selected credentials file'
+  const fields =
+    'authToken' in auth
+      ? [['TRANSLOADIT_AUTH_TOKEN']]
+      : [
+          ['TRANSLOADIT_KEY', 'TRANSLOADIT_AUTH_KEY'],
+          ['TRANSLOADIT_SECRET', 'TRANSLOADIT_AUTH_SECRET'],
+        ]
+  const fromShell = fields.filter((aliases) => {
+    const name = aliases.find((name) => normalizeEnvValue(source.values[name]) !== undefined)
+    return (
+      name !== undefined &&
+      normalizeEnvValue(shell.values[name]) === normalizeEnvValue(source.values[name])
+    )
+  }).length
+  if (fromShell === fields.length) return 'shell environment'
+  return fromShell === 0 ? 'project .env' : 'shell environment + project .env'
+}
+
+/** Quotes a value in the CLI's copyable POSIX-shell commands without expanding user input. */
+export function quoteCliArgument(value: string): string {
+  return /^[a-zA-Z0-9_./-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`
+}
+
+/** Names credential overrides without exposing values or claiming verified ownership. */
+export function noticeCliCredentialSource(
+  config: ResolvedCliConfig,
+  output: Pick<IOutputCtl, 'notice'> | undefined,
+  kind: 'auth' | 'credentials' = 'auth',
+): void {
+  const source = kind === 'auth' ? config.authSource : config.credentialsSource
+  if (source === undefined || source === 'saved login') return
+  const workspace = kind === 'auth' ? config.authWorkspace : config.credentialsWorkspace
+  const label =
+    workspace !== undefined && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(workspace)
+      ? `workspace declared as ${workspace}`
+      : 'workspace not declared'
+  output?.notice(
+    `Credentials: ${source} (${label}). This override takes precedence over the saved login.`,
+  )
+}
+
+/** Resolve one already-read saved credential snapshot, without consulting the environment again. */
+export function parseCliLoginSnapshot(contents: string): ResolvedCliConfig {
+  return resolveLoginSource({ name: 'credentialsFile', values: parseDotenv(contents) })
+}
+
+function resolveLoginSource(source: CliEnvSource): ResolvedCliConfig {
+  const credentials = getSourceCredentials(source)
+  if (credentials !== undefined && 'loadError' in credentials) return credentials
+  const endpoint = getSourceValue(source, ['TRANSLOADIT_ENDPOINT'])
+  return {
+    auth: credentials,
+    authSource: 'saved login',
+    authWorkspace: getSourceValue(source, ['TRANSLOADIT_WORKSPACE']),
+    authWorkspaceVerified: getSourceValue(source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
+    credentials,
+    credentialsSource: 'saved login',
+    credentialsWorkspace: getSourceValue(source, ['TRANSLOADIT_WORKSPACE']),
+    credentialsWorkspaceVerified:
+      getSourceValue(source, ['TRANSLOADIT_WORKSPACE_VERIFIED']) === 'true',
+    credentialsAuthKeyId: getSourceValue(source, ['TRANSLOADIT_AUTH_KEY_ID']),
+    credentialsDescription: getSourceValue(source, ['TRANSLOADIT_AUTH_KEY_DESCRIPTION']),
+    credentialsLoginMethod: getSourceValue(source, ['TRANSLOADIT_LOGIN_METHOD']),
+    credentialsEndpoint: endpoint,
+    endpoint,
+  }
+}
+
+export function resolveCliConfig(source: 'all' | 'login' = 'all'): ResolvedCliConfig {
+  if (source === 'login') {
+    // Keep login's key, workspace, algorithm and endpoint together, independent of project dotenv.
+    const saved = readEnvFile(getConfiguredCredentialsFilePath('shell'))
+    if (!saved?.ok) return saved === null ? {} : { loadError: saved.error }
+    return resolveLoginSource(saved.source)
+  }
   const { loadError, shellEnvSource, sources } = loadCliEnvSources()
   let auth: CliAuth | undefined
   let authSource: CliEnvSource | undefined
   let credentials: CliKeySecretCredentials | undefined
   let credentialsSource: CliEnvSource | undefined
+  let credentialsError: string | undefined
 
   for (const source of sources) {
-    if (auth == null) {
-      const authToken = getSourceAuthToken(source)
-      if (authToken != null) {
-        auth = authToken
-        authSource = source
-      } else {
-        const sourceCredentials = getSourceCredentials(source)
-        if (sourceCredentials != null) {
-          auth = sourceCredentials
-          authSource = source
-        }
-      }
+    if (auth != null && credentials != null) break
+    const authToken = getSourceAuthToken(source)
+    if (auth == null && authToken != null) {
+      auth = authToken
+      authSource = source
+    }
+    const sourceCredentials = getSourceCredentials(source)
+    if (sourceCredentials !== undefined && 'loadError' in sourceCredentials) {
+      // Signing failure must not discard a valid bearer token or silently choose a different key.
+      credentialsError = sourceCredentials.loadError
+      break
+    }
+    if (auth == null && sourceCredentials != null) {
+      auth = sourceCredentials
+      authSource = source
     }
 
     if (credentials != null) continue
 
-    const sourceCredentials = getSourceCredentials(source)
     if (sourceCredentials != null) {
       credentials = sourceCredentials
       credentialsSource = source
@@ -272,15 +432,32 @@ export function resolveCliConfig(): ResolvedCliConfig {
   }
 
   return {
-    ...(auth != null ? { auth } : {}),
+    ...(auth != null && authSource != null
+      ? {
+          auth,
+          authSource: credentialSourceName(authSource, shellEnvSource, auth),
+          authWorkspace: getSourceValue(authSource, ['TRANSLOADIT_WORKSPACE']),
+          authWorkspaceVerified: hasVerifiedWorkspace(authSource, shellEnvSource),
+        }
+      : {}),
     ...(credentials != null ? { credentials } : {}),
     ...(authSource != null
       ? { endpoint: resolveEndpointForSource(authSource, shellEnvSource) }
       : {}),
     ...(credentialsSource != null
-      ? { credentialsEndpoint: resolveEndpointForSource(credentialsSource, shellEnvSource) }
+      ? {
+          credentialsEndpoint: resolveEndpointForSource(credentialsSource, shellEnvSource),
+          credentialsSource:
+            credentials === undefined
+              ? undefined
+              : credentialSourceName(credentialsSource, shellEnvSource, credentials),
+          credentialsWorkspace: getSourceValue(credentialsSource, ['TRANSLOADIT_WORKSPACE']),
+          credentialsWorkspaceVerified: hasVerifiedWorkspace(credentialsSource, shellEnvSource),
+        }
       : {}),
-    ...(loadError != null ? { loadError } : {}),
+    ...(credentialsError != null || loadError != null
+      ? { loadError: credentialsError ?? loadError }
+      : {}),
   }
 }
 

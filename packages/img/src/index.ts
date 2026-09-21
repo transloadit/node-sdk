@@ -1,17 +1,39 @@
-import type { SignSmartCdnImageRequest, SmartCdnImageFormat } from '@transloadit/utils'
+import type { SmartCdnImageFormat, SmartCdnImageSignRequest } from '@transloadit/utils'
+
+import type { TransloaditImageSource, TransloaditImageSourceProps } from './imageSource.ts'
 
 import {
+  getSmartCdnImageLimits,
   resolveSmartCdnImageFormats,
   resolveSmartCdnImageWidths,
   smartCdnImageMaxDimension,
 } from '@transloadit/utils'
 
-import { validateStoragePath } from './storagePath.ts'
+import { isOpaqueImageBackground, transparentImageBackground } from './imageBackground.ts'
+import { getStorageImageReference, snapshotImageSource } from './imageSource.ts'
 
 export type { SignSmartCdnImageRequest, SmartCdnImageSignRequest } from '@transloadit/utils'
 
+export type { TransloaditImageSource } from './imageSource.ts'
+
 /** Signed Built-in used by default for Transloadit Storage previews. */
-export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.1'
+export const transloaditStoragePreviewTemplate = 'builtin/storage-preview@0.0.3'
+/** Unsigned Built-in, served only under a server-declared public Storage prefix. */
+export const transloaditPublicStoragePreviewTemplate = 'builtin/public-preview@0.0.2'
+
+/** Only these pinned Built-ins accept an asset ID and a real version ID. */
+export function isVersionedStorageTemplate(template: string): boolean {
+  return (
+    template === transloaditStoragePreviewTemplate ||
+    template === transloaditPublicStoragePreviewTemplate
+  )
+}
+
+/** A rendition resolver receives the snapshotted source as context for authorization routes. */
+export type ResolveTransloaditImage<Expiry extends number | undefined = number> = (
+  request: SmartCdnImageSignRequest<Expiry>,
+  source: TransloaditImageSource,
+) => string
 const defaultFallbackQuality = 75
 const defaultResponsiveImageWidths: readonly number[] = [320, 640, 960, 1280, 1920, 2560, 3840]
 const minimumMillisecondTimestamp = 1_000_000_000_000
@@ -40,29 +62,36 @@ export interface TransloaditImageSourceSet {
 
 /** Serializable data consumed by framework renderers. */
 export interface TransloaditImageModel {
+  /** Ordered viewport-specific crops; each includes its own JPEG fallback. */
+  artDirection?: readonly { media: string; model: TransloaditImageModel }[]
   /** Fixed URL expiry. Omitted when an adapter resolves fresh URLs after browser authorization. */
   expiresAt?: number
   fallbackUrl: string
   sources: readonly TransloaditImageSourceSet[]
 }
 
-/** Framework-neutral options for a responsive Transloadit Storage preview. */
-export interface TransloaditImageModelOptions {
-  expiresAt: number
+interface TransloaditImageModelConfiguration<Expiry extends number | undefined = number> {
+  /** Optional output width/height ratio; requests a server-side fillcrop instead of padding. */
+  cropAspectRatio?: number
+  expiresAt: Expiry
+  /** Opaque JPEG background as #rrggbb or #rrggbbff. Defaults to white. */
+  fallbackBackground?: string
+  /** Optional JPEG width, capped by the resolved candidate ladder. */
+  fallbackWidth?: number
   /** Encoding quality for the signed JPEG fallback. Defaults to 75. */
   fallbackQuality?: number
   formats?: StoragePreviewFormats
-  /** Storage preview aspect-ratio numerator. */
-  height: number
-  /** Relative object path inside the configured Transloadit Storage workspace. */
-  src: string
-  /** Trusted compatible signed Template. Defaults to `builtin/storage-preview@0.0.1`. */
+  /** Maximum candidate width, additionally bounded by the source and backend dimensions. */
+  maximumWidth?: number
+  /** Trusted compatible signed Template. Defaults to `builtin/storage-preview@0.0.3`. */
   template?: string
-  /** Storage preview aspect-ratio denominator and conservative JPEG fallback width. */
-  width: number
   /** Requested intrinsic candidate widths. Defaults to a conservative ladder up to the source. */
   widths?: readonly number[]
 }
+
+/** Framework-neutral options for a responsive Transloadit Storage preview. */
+export type TransloaditImageModelOptions<Expiry extends number | undefined = number> =
+  TransloaditImageModelConfiguration<Expiry> & TransloaditImageSourceProps
 
 function validateDimension(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 1 || value > smartCdnImageMaxDimension) {
@@ -82,9 +111,9 @@ function validateTemplate(template: string): void {
   }
 }
 
-function validateQuality(quality: number, name: string): void {
-  if (!Number.isInteger(quality) || quality < 1 || quality > 100) {
-    throw new RangeError(`${name} must be an integer from 1 through 100`)
+function validateQuality(quality: number, name: string, maximum = 100): void {
+  if (!Number.isInteger(quality) || quality < 1 || quality > maximum) {
+    throw new RangeError(`${name} must be an integer from 1 through ${maximum}`)
   }
 }
 
@@ -103,72 +132,117 @@ function getResponsiveImageWidths(
 }
 
 /** Creates one signed, serializable responsive preview of a Transloadit Storage object. */
-export function createTransloaditImageModel(
-  options: TransloaditImageModelOptions,
-  sign: SignSmartCdnImageRequest,
+export function createTransloaditImageModel<Expiry extends number | undefined = number>(
+  options: TransloaditImageModelOptions<Expiry>,
+  sign: ResolveTransloaditImage<Expiry>,
 ): TransloaditImageModel {
+  const source = snapshotImageSource(options)
+  const { path: src, width, height } = source
   const expiresAt = options.expiresAt
+  const cropAspectRatio = options.cropAspectRatio
+  const requestedMaximumWidth = options.maximumWidth
+  const requestedFallbackWidth = options.fallbackWidth
+  const fallbackBackground = options.fallbackBackground ?? '#ffffff'
   const fallbackQuality = options.fallbackQuality ?? defaultFallbackQuality
   const formats = options.formats === undefined ? undefined : { ...options.formats }
-  const height = options.height
-  const src = options.src
   const template = options.template ?? transloaditStoragePreviewTemplate
-  const width = options.width
+  const reference = isVersionedStorageTemplate(template)
+    ? getStorageImageReference(source)
+    : undefined
+  const input = reference?.asset_id ?? src
+  const { maxDimension, maxQuality } = getSmartCdnImageLimits(template)
   const widthsSnapshot = Array.isArray(options.widths) ? [...options.widths] : options.widths
 
-  validatePositiveSafeInteger(expiresAt, 'expiresAt')
-  if (expiresAt < minimumMillisecondTimestamp) {
-    throw new RangeError('expiresAt must be a millisecond timestamp')
+  if (expiresAt !== undefined) {
+    validatePositiveSafeInteger(expiresAt, 'expiresAt')
+    if (expiresAt < minimumMillisecondTimestamp)
+      throw new RangeError('expiresAt must be a millisecond timestamp')
   }
   if (typeof sign !== 'function') throw new TypeError('sign must be a function')
-  validatePositiveSafeInteger(width, 'width')
-  validatePositiveSafeInteger(height, 'height')
-  validateQuality(fallbackQuality, 'fallbackQuality')
-  validateStoragePath(src)
+  validateQuality(fallbackQuality, 'fallbackQuality', maxQuality)
+  const resolvedFormats = resolveSmartCdnImageFormats(formats)
+  for (const { quality } of resolvedFormats) validateQuality(quality, 'quality', maxQuality)
   validateTemplate(template)
+  if (!isOpaqueImageBackground(fallbackBackground)) {
+    throw new TypeError('fallbackBackground must be an opaque #rrggbb or #rrggbbff color')
+  }
+  if (
+    cropAspectRatio !== undefined &&
+    (!Number.isFinite(cropAspectRatio) || cropAspectRatio <= 0)
+  ) {
+    throw new RangeError('cropAspectRatio must be a positive finite number')
+  }
+  if (requestedMaximumWidth !== undefined)
+    validatePositiveSafeInteger(requestedMaximumWidth, 'maximumWidth')
+  if (requestedFallbackWidth !== undefined)
+    validatePositiveSafeInteger(requestedFallbackWidth, 'fallbackWidth')
 
-  const heightLimitedWidth = Number(
-    (BigInt(smartCdnImageMaxDimension) * BigInt(width)) / BigInt(height),
-  )
+  const ratioWidth = cropAspectRatio ?? width
+  const ratioHeight = cropAspectRatio === undefined ? height : 1
+  const heightLimitedWidth =
+    cropAspectRatio === undefined
+      ? Number((BigInt(maxDimension) * BigInt(width)) / BigInt(height))
+      : Math.floor(maxDimension * cropAspectRatio)
   if (heightLimitedWidth < 1) {
     throw new RangeError('display aspect ratio cannot fit within backend dimensions')
   }
-  const maximumWidth = Math.min(width, smartCdnImageMaxDimension, heightLimitedWidth)
+  const maximumWidth = Math.min(
+    width,
+    maxDimension,
+    heightLimitedWidth,
+    cropAspectRatio === undefined ? width : Math.floor(height * cropAspectRatio),
+    requestedMaximumWidth ?? width,
+  )
+  if (maximumWidth < 1) {
+    throw new RangeError(
+      'source dimensions and cropAspectRatio must allow a crop at least one pixel wide',
+    )
+  }
   const widths = resolveSmartCdnImageWidths(
     getResponsiveImageWidths(widthsSnapshot, maximumWidth),
     maximumWidth,
   )
-  const sources = resolveSmartCdnImageFormats(formats).map(({ format, quality }) => ({
+  const sources = resolvedFormats.map(({ format, quality }) => ({
     candidates: widths.map((candidateWidth) => ({
-      url: sign({
-        expiresAt,
-        input: src,
-        template,
-        urlParams: {
-          f: format,
-          h: getStorageHeight(candidateWidth, width, height),
-          q: quality,
-          r: 'pad',
-          w: candidateWidth,
+      url: sign(
+        {
+          expiresAt,
+          input,
+          template,
+          urlParams: {
+            ...(reference === undefined ? {} : { v: reference.version_id }),
+            bg: transparentImageBackground,
+            f: format,
+            h: getStorageHeight(candidateWidth, ratioWidth, ratioHeight),
+            q: quality,
+            r: cropAspectRatio === undefined ? 'pad' : 'fillcrop',
+            w: candidateWidth,
+          },
         },
-      }),
+        source,
+      ),
       width: candidateWidth,
     })),
     format,
   }))
-  const fallbackWidth = Math.min(width, maximumWidth)
-  const fallbackUrl = sign({
-    expiresAt,
-    input: src,
-    template,
-    urlParams: {
-      f: 'jpg',
-      h: getStorageHeight(fallbackWidth, width, height),
-      q: fallbackQuality,
-      r: 'pad',
-      w: fallbackWidth,
+  const fallbackWidth = Math.min(requestedFallbackWidth ?? width, Math.max(...widths))
+  const fallbackUrl = sign(
+    {
+      expiresAt,
+      input,
+      template,
+      urlParams: {
+        ...(reference === undefined ? {} : { v: reference.version_id }),
+        bg: fallbackBackground,
+        f: 'jpg',
+        h: getStorageHeight(fallbackWidth, ratioWidth, ratioHeight),
+        q: fallbackQuality,
+        r: cropAspectRatio === undefined ? 'pad' : 'fillcrop',
+        w: fallbackWidth,
+      },
     },
-  })
+    source,
+  )
 
   return { expiresAt, fallbackUrl, sources }
 }

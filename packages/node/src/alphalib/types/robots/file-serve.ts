@@ -66,11 +66,11 @@ Also consider configuring caching headers and cache-control directives to contro
 You can leverage [signed Smart CDN URLs](/docs/api/authentication/#smart-cdn) to avoid abuse of our encoding platform. Below is a quick Node.js example using our Node SDK, but there are [examples for other languages and SDKs](/docs/api/authentication/#example-code) as well.
 
 \`\`\`javascript
-// yarn add transloadit
+// yarn add @transloadit/node
 // or
-// npm install --save transloadit
+// npm install --save @transloadit/node
 
-import { Transloadit } from 'transloadit'
+import { Transloadit } from '@transloadit/node'
 
 const transloadit = new Transloadit({
   authKey: 'YOUR_TRANSLOADIT_KEY',
@@ -108,6 +108,14 @@ An optional duration in seconds that the served file should be cached. When set,
 
 This is useful for controlling data retention in CDNs. For instance, if your temporary files are deleted after 24 hours, you can set \`cache_duration\` to \`86400\` to ensure cached copies also expire within that window.
 `),
+    download_name: z
+      .string()
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: reject header-injection control characters, not literal text.
+      .regex(/^[^/\\\u0000-\u001f\u007f-\u009f]{0,255}$/u)
+      .optional()
+      .describe(
+        'Serve as an attachment using this Unicode filename. Empty or omitted keeps inline delivery. Overrides a Content-Disposition header without changing the bytes or Range support.',
+      ),
     headers: z
       .record(z.string())
       .default({
