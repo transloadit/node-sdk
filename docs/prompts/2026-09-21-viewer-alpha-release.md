@@ -24,10 +24,11 @@ at least 4.9.0 before publishing. The old private workspace protocol must not es
 - [x] Reproduce private-package/registry-dependency metadata failure with a regression test.
 - [x] Verify package checks and the packed Next browser fixture (Chromium/WebKit, both cache modes,
   and development diagnostics). Run the versioned release dry run in PR CI.
-- [ ] Reconcile council review; open and finish the alpha preparation PR.
-- [ ] Inspect generated #502 versions, dependency floors, changelogs and exact-head CI.
-- [ ] Merge #502, watch trusted publication and verify every expected registry version.
-- [ ] Verify Viewer alpha tag and GitHub prerelease; prevent an accidental stable `latest` claim.
+- [x] Reconcile council review; open and finish the alpha preparation PR (#503).
+- [x] Inspect generated #502 versions, dependency floors, changelogs and exact-head CI.
+- [x] Merge #502, watch trusted publication and verify every expected registry version.
+- [x] Verify Viewer alpha tag and GitHub prerelease; document npm's retained `latest` tag without
+  claiming stable API support.
 - [ ] Prove a registry-installed consumer, not just a workspace-linked or vendored package.
 
 For a new npm package, trusted-publisher bootstrap may need a maintainer action. Follow the
@@ -50,6 +51,44 @@ spend limit was reached; do not count that leg as a successful independent revie
 Local `verify:full`, `check`, the 30 image fixture contract tests and the seven publisher tests pass.
 The packed fixture passed both production modes (58 browser cases each), the secretless public-only
 builds, and ten development cases. Evidence: `/tmp/viewer-alpha-20260921.gU9s3H/`.
+
+## Publication receipts and follow-up
+
+#503 merged as `78de89e`; #502 merged as `a4db0b2` with green PR and main CI. The bot's force push
+was prohibited, so #502 was regenerated with Changesets and updated through normal commits without
+weakening repository rules. Its merged tree matches the tested head `fe77d59`.
+
+Viewer 0.0.1 required a maintainer MFA bootstrap because trusted publishing could not create the
+new package. The registry accepted it at 19:34 UTC; its package index caught up around 19:39 UTC.
+Release run `35643913063`, attempt 3, published the other six packages through trusted publishing:
+Utils 4.9.0, Node and legacy CLI 4.13.0, Types and Zod 4.4.1, MCP 0.3.32. All seven versions are
+independently available from the registry; the six CI-published versions have provenance.
+Viewer's GitHub release is explicitly an alpha/prerelease. npm auto-created `latest` alongside
+`alpha`; removing that Viewer-only tag with a fresh MFA code returned HTTP 400, matching
+[npm/cli#8490](https://github.com/npm/cli/issues/8490). Do not keep requesting codes for this refusal
+or claim that `latest` was removed. Alpha stability remains explicit in the package, README and
+GitHub release. Configure its trusted publisher for future releases rather than leaving manual
+publishing as the permanent process.
+
+The packages and all seven GitHub releases were created, but the workflow then failed: both
+`changeset publish` and `changeset tag` emitted the stable package tags. With this workflow's
+GitHub-API commit mode, the action parsed both announcements and tried to create those releases
+twice. Do not delete valid releases or publish new versions to hide that failure.
+
+- [x] Reproduce the missing `--no-git-tag` guard with a failing publisher test.
+- [x] Disable publication's tag pass and retain one final tag pass, including Viewer.
+- [x] Cover failure before tagging so an incomplete publish does not announce unready versions.
+- [ ] Review and verify this narrow release-orchestration fix; land it and confirm main's release
+      workflow succeeds without republishing any existing version.
+
+The follow-up council reported no findings; its Claude leg hit the monthly spending limit again.
+The eight publisher tests and `yarn check` pass. No package version or published bytes change in
+this orchestration fix.
+
+Content PR #6047 is the registry-installed consumer and records the later backend/Console/CLI and
+Storage dogfood gates. The API2 x64 main build at `b553c67b84` is green and uploaded to R2:
+`s3://build-artifacts-transloadit/main/api2/api2-gha-ci-35641331297.tar.gz`. ARM64 is still running at
+this checkpoint. Deployment remains Kevin's responsibility.
 
 ## Before API2 is deployed
 
