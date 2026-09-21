@@ -3,14 +3,15 @@
 These are maintainer-only packing, SDK seed and devdock notes, not consumer prerequisites.
 Use the [package README](../packages/img/README.md) for the application integration.
 
-## September 17 consumer release gates
+## Consumer release gates
 
-Publish the minor Node/legacy release only after API2 #9057 and Content #5973 are deployed.
-Device login, public delivery and safe CLI-key revocation need that coordinated rollout.
+Kevin authorized the first Viewer alpha and the normal SDK release train on September 21.
+Package publication does not deploy API2 or enable Storage. Device login, public Storage delivery
+and safe CLI-key revocation still need the coordinated API2 #9057 and Console rollout.
 Apply the CLI approval-key-identity migration before deploying API2; logout now signs explicit
 `action: 'revoke_auth_key'` intent. Native move responses and `builtin/storage-serve@0.0.3` must
-be available before publishing the new consumer helpers. Viewer remains private dogfood.
-At publication, replace preview-branch documentation links with their merged main locations.
+be available before using those consumer helpers. Existing compatible HTTP/S3 image Templates
+can use Viewer without migrating to Storage. The first Viewer release is an images-only alpha.
 Production Bunny checks, independent backup/restore and app-owned access checks remain gates;
 passing the local private-media fixture is not a production deployment claim.
 
@@ -27,8 +28,8 @@ Storage uses relative catalog paths; custom HTTP/S3 Templates accept relative in
 intrinsic dimensions. Their fixed origins and import credentials belong in the Template, not JSX.
 See the package reference's custom Template recipe; the historical canaries below cover Storage.
 
-This workspace remains private at version `0.0.0` while the API and production dogfood soak. Do not
-depend on it from npm yet.
+Use the package README's `alpha` install for released consumers. The local tarball procedure below
+is for verifying unreleased changes and does not establish registry or production availability.
 
 ## Seed your first image
 
@@ -51,8 +52,7 @@ Keep the app's stock Next.js TypeScript configuration and Node/React type depend
 ### Install the local packages
 
 Use a clean checkout of [transloadit/node-sdk](https://github.com/transloadit/node-sdk), at the
-reviewed revision of [PR #500](https://github.com/transloadit/node-sdk/pull/500). For example,
-`gh pr checkout 500` selects that PR; record `git rev-parse HEAD` before packing. From that SDK
+reviewed revision being tested; record `git rev-parse HEAD` before packing. From that SDK
 checkout, install its locked dependencies and pack into your own temporary directory:
 
 ```bash
