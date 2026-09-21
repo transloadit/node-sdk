@@ -19,7 +19,9 @@ test('the release publishes Viewer to alpha and leaves stable packages to Change
   expect(run.mock.calls.map(([command, args]) => [command, args])).toEqual([
     ['npm', ['view', `${viewer.name}@${viewer.version}`, 'version', '--json']],
     ['npm', ['publish', './packages/img', '--access', 'public', '--tag', 'alpha']],
-    ['corepack', ['yarn', 'changeset', 'publish']],
+    // Only the following tag command may announce tags to changesets/action; duplicate
+    // announcements make it try to create each stable GitHub release twice.
+    ['corepack', ['yarn', 'changeset', 'publish', '--no-git-tag']],
     ['corepack', ['yarn', 'changeset', 'tag']],
   ])
 })
@@ -47,6 +49,13 @@ test('a failed Viewer publish stops before the stable release and tags', async (
   run.mockResolvedValueOnce({ exitCode: 1, stderr: 'npm error code E404' })
   run.mockRejectedValueOnce(new Error('publish refused'))
   await expect(import('./publish-release.ts')).rejects.toThrow('publish refused')
+  expect(run).toHaveBeenCalledTimes(2)
+})
+
+test('a failed stable release does not announce tags for unpublished packages', async () => {
+  run.mockResolvedValueOnce({ exitCode: 0, stdout: JSON.stringify(viewer.version) })
+  run.mockRejectedValueOnce(new Error('stable publish refused'))
+  await expect(import('./publish-release.ts')).rejects.toThrow('stable publish refused')
   expect(run).toHaveBeenCalledTimes(2)
 })
 

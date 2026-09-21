@@ -29,8 +29,9 @@ async function main(): Promise<void> {
     throw new Error('Viewer registry lookup failed; refusing to treat a network/auth error as E404')
   }
 
-  await execa('corepack', ['yarn', 'changeset', 'publish'], options)
-  // Include the alpha in Changesets' normal tag output so its action creates the release too.
+  // Emit each tag only once: changesets/action turns every announcement into a GitHub release.
+  // The separate tag pass also includes Viewer, which was already published with its alpha tag.
+  await execa('corepack', ['yarn', 'changeset', 'publish', '--no-git-tag'], options)
   await execa('corepack', ['yarn', 'changeset', 'tag'], options)
 }
 
