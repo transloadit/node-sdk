@@ -184,9 +184,6 @@ jobs:
           node-version: 24
       - run: corepack yarn install --immutable
       - run: corepack yarn test:sdk:edge
-      - name: Record Docker failure diagnostics
-        if: failure()
-        run: sudo dmesg --ctime | tail -n 80
       - uses: actions/upload-artifact@v7
         if: always()
         with:

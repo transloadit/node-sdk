@@ -71,8 +71,6 @@ async function main(): Promise<void> {
         'create',
         '--workdir',
         '/work',
-        '--env',
-        'RUST_LOG=debug',
         edgeImage,
         'bundle',
         '--entrypoint',

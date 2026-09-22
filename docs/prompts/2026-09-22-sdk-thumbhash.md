@@ -30,7 +30,7 @@ original SDK checkout. Work on `thumbhash-sdk` from main `8f7813d2`; do not modi
 - [x] Required checks, packed Next browser fixture and native-free SDK/legacy Supabase probes.
 - [x] Council review and browser-evidence review; verified findings reconciled.
 - [x] Open SDK PR #507.
-- [ ] Monitor exact-head CI to green; investigate the x64 legacy Edge bundler crash.
+- [ ] Monitor final-head CI to green after removing temporary Edge diagnostics.
 - [ ] After API2 deployment: live upload -> native metadata -> recovered catalog -> Viewer proof.
 - [ ] After approval: Changesets release, Viewer explicitly alpha; then Content pin/dogfood.
 
@@ -91,6 +91,12 @@ passed locally on ARM. Node and legacy compiled trees are byte-identical. A fres
 unchanged main `8f7813d2` also passed, so do not dismiss this as unrelated. Local x64 emulation is
 unavailable (exec-format error). Capture native crash diagnostics on CI before changing behavior;
 do not raise bundle limits or remove either package's compatibility gate.
+
+The next x64 Edge job (`106900971586`, SDK run `35773565031`) passed both packages; the local ARM
+rerun also passed. No SDK runtime fix was made for the native crash, so its root cause remains
+unconfirmed. Temporary verbose/kernel diagnostics were removed for the final rerun. The harness
+now retains normal bundler logs and container state on failure as well as success. Browser proof
+also explicitly asserts `naturalWidth === 0` before capturing the held-delivery blur.
 
 ## Deployment and release sequence
 

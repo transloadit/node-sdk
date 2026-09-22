@@ -1083,6 +1083,7 @@ test.describe('server-only blur placeholders', () => {
     try {
       await page.goto('/fixture/package-public', { waitUntil: 'domcontentloaded' })
       const image = page.getByRole('img', { name: 'Package public hero', exact: true })
+      await expect(image).toHaveJSProperty('naturalWidth', 0)
       await expect(image).toHaveCSS('background-image', /^url\("data:image\/png;base64,/)
       await expect(image).not.toHaveAttribute('onload')
       await testInfo.attach('blur-before-load', {
