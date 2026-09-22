@@ -28,8 +28,9 @@ original SDK checkout. Work on `thumbhash-sdk` from main `8f7813d2`; do not modi
 - [x] Canonical contract, SDK helpers and Viewer implementation.
 - [x] README/reference/CLI help and Changesets release notes.
 - [x] Required checks, packed Next browser fixture and native-free SDK/legacy Supabase probes.
-- [ ] Council review and reconciliation; browser evidence/review when available.
-- [ ] Open PR and monitor exact-head CI to green.
+- [x] Council review and browser-evidence review; verified findings reconciled.
+- [x] Open SDK PR #507.
+- [ ] Monitor exact-head CI to green; investigate the x64 legacy Edge bundler crash.
 - [ ] After API2 deployment: live upload -> native metadata -> recovered catalog -> Viewer proof.
 - [ ] After approval: Changesets release, Viewer explicitly alpha; then Content pin/dogfood.
 
@@ -49,9 +50,10 @@ prove the new backend is deployed. No release or production mutation is implied 
   is simulated. Its saved canonical receipts feed the public, alpha and private browser cases.
 - `yarn check` and `yarn verify:full` passed, including generated packages, legacy wrapper sync,
   Knip and Zod type tests. Existing Vitest/coverage version and lint warnings remain unchanged.
-- The packed Next fixture passed 58 Chromium/WebKit tests with Cache Components, 58 without,
-  and 10 development tests. Public blur and transparency are browser-covered; explicit private
-  blur omission is additionally asserted in `storage-factory.test.tsx`.
+- The final packed Next fixture passed 58 Chromium/WebKit tests with Cache Components, 58 without,
+  and 10 development tests. Both production modes now check explicit private blur omission in
+  initial HTML and a real RSC response, alongside the unit test. Chromium also checks actual
+  before-load blur pixels; both engines check computed style and geometry with JavaScript disabled.
 - Both packed SDK names bundled and ran in pinned Supabase Edge Runtime, with zero native files.
   The measured upload bundles were 2,454,452 bytes (Node) and 2,458,747 bytes (legacy), inside the
   5 MiB regression gate. No dependency or lockfile changes are part of this slice.
@@ -69,13 +71,40 @@ prove the new backend is deployed. No release or production mutation is implied 
   new declarations carry the catalog header and canonical alpha field. A foreign-image declaration
   still blocks the update before any write. All 148 targeted CLI tests pass. An earlier parallel
   run timed out in an existing sync case under local load; unchanged code passed serially.
-- [ ] Independent Opus browser-evidence review and final reconciliation.
+- [x] Independent Opus browser-evidence review: PASS. Its two evidence gaps were closed with a
+  red-first seed color test, pre-load Chromium pixel captures, and explicit private blur HTML/RSC
+  checks in both engines. A second independent evidence review also returned PASS. New evidence:
+  `/tmp/sdk-thumbhash-postfix-HH8Z5g/`; the full packed fixture and `yarn check` passed afterward.
+  The ambiguous status-0 HAR entry is likely a 307 recorder artifact, not proven cancellation.
+- The remaining limits are explicit: synthetic backend/CDN, a solid-color reference, mobile-sized
+  desktop viewports, and no WebKit before-load screenshot or live production deployment proof.
 - The council consolidated the review to the P2 above. Speculative malformed-server metadata and
   unpaired hash/alpha suggestions were not treated as extraction failures: the server emits a
   bounded valid pair or omits it, while response validation remains strict. Same-version legacy
   evidence remains readable; another version never inherits its placeholder.
 
+## CI follow-up
+
+At `a1eb5e2`, every SDK PR check passed except the legacy package's x64 Supabase bundler, which
+exited 135 with empty output twice. The scoped SDK passed in those runs, and both package names
+passed locally on ARM. Node and legacy compiled trees are byte-identical. A fresh Edge job on
+unchanged main `8f7813d2` also passed, so do not dismiss this as unrelated. Local x64 emulation is
+unavailable (exec-format error). Capture native crash diagnostics on CI before changing behavior;
+do not raise bundle limits or remove either package's compatibility gate.
+
 ## Deployment and release sequence
+
+### Explicit next API2 slice: tiny-source color fidelity
+
+Kevin chose to save this for the next step, not fold it into the current SDK PR. A 1×1 opaque blue
+sample `(45, 110, 160)` encoded with the current ThumbHash library decodes to a white center;
+an 8×8 sample preserves the color within quantization tolerance. API2's `_extractThumbhash()`
+currently passes tiny samples through unchanged (`withoutEnlargement: true`), so this deserves a
+separate red-first backend fix with bounded sampling and aspect/alpha tests. No backend changes
+were made for this finding. The SDK fixture now uses a representative 8×8 hash and asserts its
+decoded color; that does not claim the server edge case is fixed.
+
+### Rollout gates
 
 1. Kevin/deployer applies `migrations/2026-09-22-add-dam-version-placeholders.sql` before rolling
    out API2 #9182. It adds nullable version metadata only; there is no automatic backfill.
@@ -89,3 +118,4 @@ prove the new backend is deployed. No release or production mutation is implied 
    with its team. No Terraform or Built-in change is needed here.
 
 https://github.com/transloadit/api2/pull/9182
+https://github.com/transloadit/node-sdk/pull/507

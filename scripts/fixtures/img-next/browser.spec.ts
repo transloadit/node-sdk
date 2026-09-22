@@ -817,12 +817,27 @@ test('package imports render public and private images with the conventional coo
   page,
   context,
 }) => {
-  await page.goto('/fixture/package-images')
+  const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
+  const privateHash = catalog.images['documents/private/hero.jpg'].thumbhash
+  expect(typeof privateHash).toBe('string')
+  const response = await page.goto('/fixture/package-images')
+  assert(response)
+  const html = await response.text()
+  expect(html).not.toContain(privateHash)
+  expect(html).not.toContain('data:image/')
+  const flight = await context.request.get('/fixture/package-images', { headers: { RSC: '1' } })
+  expect(flight.ok()).toBe(true)
+  expect(flight.headers()['content-type']).toContain('text/x-component')
+  const payload = await flight.text()
+  expect(payload).toContain('Package private image')
+  expect(payload).not.toContain(privateHash)
+  expect(payload).not.toContain('data:image/')
   await expect(page.getByRole('heading', { name: 'Images from the package' })).toBeVisible()
   const hero = page.getByRole('img', { name: 'Package hero', exact: true })
   const privateImage = page.getByRole('img', { name: 'Package private image', exact: true })
   await decode(hero)
   await decode(privateImage)
+  await expect(privateImage).toHaveCSS('background-image', 'none')
   expect(await hero.getAttribute('src')).toContain(cdnOrigin)
   expect(await hero.getAttribute('src')).not.toMatch(/auth_key=|sig=|exp=/)
   const privateUrl = await privateImage.getAttribute('src')
@@ -1058,6 +1073,7 @@ test.describe('server-only blur placeholders', () => {
 
   test('the packaged public image embeds its blur before native delivery', async ({
     page,
+    browserName,
   }, testInfo) => {
     const delivery = Promise.withResolvers<void>()
     await page.route(`${cdnOrigin}/**`, async (route) => {
@@ -1080,6 +1096,32 @@ test.describe('server-only blur placeholders', () => {
         ),
         contentType: 'application/json',
       })
+      if (browserName === 'chromium') {
+        // CDP captures pixels without awaiting document.fonts.ready while delivery is held.
+        const session = await page.context().newCDPSession(page)
+        const { data } = await session.send('Page.captureScreenshot', { format: 'png' })
+        await session.detach()
+        const screenshot = Buffer.from(data, 'base64')
+        await testInfo.attach('blur-before-load-pixels', {
+          body: screenshot,
+          contentType: 'image/png',
+        })
+        const box = await image.boundingBox()
+        assert(box)
+        const pixel = await sharp(screenshot)
+          .extract({
+            left: Math.floor(box.x + box.width / 2),
+            top: Math.floor(box.y + box.height / 2),
+            width: 1,
+            height: 1,
+          })
+          .removeAlpha()
+          .raw()
+          .toBuffer()
+        expect(pixel[0]).toBeCloseTo(45, -1)
+        expect(pixel[1]).toBeCloseTo(110, -1)
+        expect(pixel[2]).toBeCloseTo(160, -1)
+      }
       delivery.resolve()
       await decode(image)
       await expect(image).toHaveCSS('background-image', /^url\("data:image\/png;base64,/)

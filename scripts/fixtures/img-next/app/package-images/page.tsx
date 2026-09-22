@@ -10,6 +10,7 @@ export default function Page() {
         src="documents/private/hero.jpg"
         alt="Package private image"
         width={96}
+        placeholder="blur"
         errorFallback={<p role="status">Sign in to see this image</p>}
       />
     </main>

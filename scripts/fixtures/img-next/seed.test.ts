@@ -12,7 +12,7 @@ import { test } from 'node:test'
 import { Transloadit } from '@transloadit/node'
 import { createTransloaditImageModel } from '@transloadit/viewer'
 import sharp from 'sharp'
-import { rgbaToThumbHash } from 'thumbhash'
+import { rgbaToThumbHash, thumbHashToRGBA } from 'thumbhash'
 
 import { seedStorageImage } from './seed.ts'
 import { fixtureStorageIdentity } from './storage-fixtures.ts'
@@ -21,6 +21,9 @@ import { fixtureStorageIdentity } from './storage-fixtures.ts'
 const bytes = await sharp({ create: { width: 1, height: 1, channels: 4, background: '#2d6ea0' } })
   .png()
   .toBuffer()
+// A one-pixel encoding is a degenerate test vector; use a representative sampling grid.
+const placeholderPixels = await sharp(bytes).resize(8, 8).ensureAlpha().raw().toBuffer()
+const thumbhash = Buffer.from(rgbaToThumbHash(8, 8, placeholderPixels)).toString('base64')
 const receipt = {
   ...fixtureStorageIdentity('website/photo.png'),
   mime: 'image/png',
@@ -94,7 +97,7 @@ test('the package-first path stores and publishes without image init and emits c
               md5hash: receipt.md5hash,
               width: path === 'website/hero.jpg' ? 2400 : path === 'website/alpha.png' ? 64 : 400,
               height: path === 'website/hero.jpg' ? 1600 : path === 'website/alpha.png' ? 64 : 300,
-              thumbhash: Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 255])).toString('base64'),
+              thumbhash,
               has_alpha: path === 'website/alpha.png',
             },
           ],
@@ -143,6 +146,15 @@ test('the package-first path stores and publishes without image init and emits c
   assert.equal(catalog.images['website/hero.jpg'].has_alpha, false)
   assert.equal(catalog.images['website/alpha.png'].has_alpha, true)
   assert.equal(typeof catalog.images['website/hero.jpg'].thumbhash, 'string')
+  const placeholder = thumbHashToRGBA(
+    Buffer.from(catalog.images['website/hero.jpg'].thumbhash, 'base64'),
+  )
+  const center = (Math.floor(placeholder.h / 2) * placeholder.w + Math.floor(placeholder.w / 2)) * 4
+  const [red, green, blue] = placeholder.rgba.subarray(center, center + 3)
+  assert(typeof red === 'number' && typeof green === 'number' && typeof blue === 'number')
+  assert(Math.abs(red - 45) <= 5, 'The placeholder must preserve the source red channel')
+  assert(Math.abs(green - 110) <= 5, 'The placeholder must preserve the source green channel')
+  assert(Math.abs(blue - 160) <= 5, 'The placeholder must preserve the source blue channel')
   assert.equal(catalog.images['website/alpha.png'].hasAlpha, undefined)
   const declarations = await readFile('transloadit-images.d.ts', 'utf8')
   assert(declarations.includes("declare module '@transloadit/viewer/next'"))
