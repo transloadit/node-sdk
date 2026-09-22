@@ -139,8 +139,10 @@ Existing code/env files are never overwritten. Missing trailing directory slashe
 Store uploads originals and appends validated receipts to `transloadit.images.json`; commit it.
 `storage store ./images/*.jpg website/` stores shell-expanded files, checkpointing each success.
 It prints `width={960}` (bounded by the original), with a filename-derived alt and a reminder.
-SDK 4.13.1 no longer decodes images locally or generates new blur hashes; existing receipt
-hashes still work with Viewer's `placeholder="blur"`. Uploads and dimensions are unaffected.
+Images are never decoded locally. Add `--placeholder blur` to request a server ThumbHash;
+omission or `--placeholder empty` performs no extraction. Successful extraction adds metadata
+usage equal to 20% of the file's bytes. Viewer's separate `placeholder="blur"` opts into rendering.
+Extraction is best-effort: a missing hash does not fail the upload or trigger another one.
 An occupied path conflicts unless `--overwrite` is explicit; prefer `--hashed` for immutable
 filenames. Matching receipts skip repeat uploads; changed bytes get a new name.
 Storage receipts pin the returned `asset_id` and `version_id`. The image URL selects that exact
@@ -1481,6 +1483,15 @@ path is refused unless you explicitly pass `overwrite: true`. This helper does n
 directory or update the CLI's catalog. Pass the saved receipt as `src` in an authorized application;
 see [user uploads, private access and trusted receipt recovery with `getStoredImageReceipt()`](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#images-uploaded-by-your-users)
 for the Uppy/notification flow and recovery without another upload.
+
+For an optional blur preview, pass `placeholder: 'blur'` to `storeImage()`. The original upload
+Step requests `output_meta: { thumbhash: true }`; the SDK does not install or run a native image
+decoder. The receipt includes `thumbhash` and `has_alpha` when extraction succeeds, and native
+get/list, Assembly recovery and batch results preserve them. Metadata usage is 20% of the file's
+bytes only when a hash is produced. Large or unsupported images can omit it without failing storage.
+Treat a hash as image data: authorize it with the original, and keep private receipts private.
+See [blur rendering and recovery](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/reference.md#responsive)
+for alpha handling and existing images without placeholders.
 
 ### Read and reuse stored assets
 

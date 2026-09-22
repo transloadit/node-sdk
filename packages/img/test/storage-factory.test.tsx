@@ -41,6 +41,17 @@ function imagesForWorkspace(workspace: string): typeof images {
 
 const thumbhash = Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 255])).toString('base64')
 
+test.each([
+  { has_alpha: true, hasAlpha: undefined, blur: false },
+  { has_alpha: true, hasAlpha: false, blur: false },
+  { has_alpha: false, hasAlpha: true, blur: true },
+])('canonical alpha takes precedence over legacy metadata: %j', ({ has_alpha, hasAlpha, blur }) => {
+  const { Image } = createImages({ images, public: ['website/'] })
+  const src = { ...images['website/hero.jpg'], thumbhash, has_alpha, hasAlpha }
+  const markup = renderToStaticMarkup(<Image src={src} alt="Server receipt" placeholder="blur" />)
+  expect(markup.includes('data:image/')).toBe(blur)
+})
+
 test('the shortest valid ThumbHash from a narrow original still renders a blur', () => {
   const pixels = new Uint8Array(100 * 4).fill(255)
   const bytes = rgbaToThumbHash(1, 100, pixels)
@@ -140,7 +151,11 @@ test('a request-authorized private image never embeds its blurred pixels before 
   const authorize = vi.fn(() => false)
   const { Image } = createImages({ images, authorize })
   const markup = renderToStaticMarkup(
-    <Image src={{ ...images['website/hero.jpg'], thumbhash }} alt="Private" placeholder="blur" />,
+    <Image
+      src={{ ...images['website/hero.jpg'], thumbhash, has_alpha: false }}
+      alt="Private"
+      placeholder="blur"
+    />,
   )
   expect(markup).not.toContain('data:image/')
   expect(markup).not.toContain(thumbhash)

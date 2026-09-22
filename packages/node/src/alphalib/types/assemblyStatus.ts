@@ -391,6 +391,8 @@ export type AssemblyStatusErrCode = z.infer<typeof assemblyStatusErrCodeSchema>
 
 const assemblyStatusMetaSchema = z
   .object({
+    thumbhash: storedAssetSchema.shape.thumbhash,
+    has_alpha: storedAssetSchema.shape.has_alpha,
     width: z.union([z.number(), z.null()]).optional(),
     height: z.union([z.number(), z.null()]).optional(),
     date_file_modified: z.string().nullable().optional(),
@@ -636,6 +638,8 @@ export const assemblyStatusUploadSchema = z
     version_id: storedAssetSchema.shape.version_id.optional(),
     workspace: storedAssetSchema.shape.workspace.optional(),
     sha256: storedAssetSchema.shape.sha256,
+    thumbhash: storedAssetSchema.shape.thumbhash,
+    has_alpha: storedAssetSchema.shape.has_alpha,
     name: z.string(),
     basename: z.string(),
     ext: z.string(),
@@ -677,6 +681,8 @@ export const assemblyStatusResultSchema = z
     version_id: storedAssetSchema.shape.version_id.optional(),
     workspace: storedAssetSchema.shape.workspace.optional(),
     sha256: storedAssetSchema.shape.sha256,
+    thumbhash: storedAssetSchema.shape.thumbhash,
+    has_alpha: storedAssetSchema.shape.has_alpha,
     basename: z.string().nullable().optional(),
     field: z.string().nullable().optional(),
     md5hash: z.string().nullable().optional(),

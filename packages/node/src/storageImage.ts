@@ -1,4 +1,5 @@
 import type { AssemblyStatus } from './alphalib/types/assemblyStatus.ts'
+import type { InterpolatableRobotUploadHandleInstructionsInput } from './alphalib/types/robots/upload-handle.ts'
 import type { StoredAsset } from './alphalib/types/storageAsset.ts'
 import type { CreateAssemblyOptions, Transloadit } from './Transloadit.ts'
 
@@ -17,14 +18,15 @@ import InconsistentResponseError from './InconsistentResponseError.ts'
  * Width and height reflect EXIF auto-orientation, matching Storage preview delivery.
  */
 export interface StoredImageReceipt extends Readonly<StoredAsset> {
-  /** Optional metadata indicating that the original has an alpha channel. */
+  /** Legacy catalog spelling; new server receipts use has_alpha. */
   readonly hasAlpha?: boolean
   readonly height: number
   readonly md5hash: string
-  /** Optional base64 ThumbHash of the original pixels, for an inline blur placeholder. */
-  readonly thumbhash?: string
   readonly width: number
 }
+
+/** Shared SDK/CLI opt-in for server extraction; rendering remains a separate choice. */
+export const storageImagePlaceholderSchema = z.enum(['blur', 'empty'])
 
 /** One explicit destination, with the existing Assembly upload and polling controls. */
 export interface StoreImageOptions
@@ -36,6 +38,8 @@ export interface StoreImageOptions
   path: string
   /** Explicit opt-in replacement of an existing path; defaults to false. */
   overwrite?: boolean
+  /** Request a server ThumbHash. Successful extraction adds metadata usage of 20% of the file bytes. */
+  placeholder?: z.infer<typeof storageImagePlaceholderSchema>
   /** Observe verified metadata. Not awaited; sync and async observer errors cannot undo a write. */
   onReceipt?: (
     receipt: StoredImageReceipt,
@@ -111,6 +115,9 @@ export async function storeImage(
     timeout,
   } = options
   validateDestination(path)
+  const placeholder = storageImagePlaceholderSchema.optional().parse(options.placeholder, {
+    path: ['placeholder'],
+  })
   if (overwrite !== undefined && typeof overwrite !== 'boolean')
     throw new TypeError('overwrite must be a boolean')
   signal?.throwIfAborted()
@@ -130,6 +137,14 @@ export async function storeImage(
     onUploadProgress,
     params: {
       steps: {
+        ...(placeholder === 'blur'
+          ? {
+              ':original': {
+                robot: '/upload/handle',
+                output_meta: { thumbhash: true },
+              } satisfies InterpolatableRobotUploadHandleInstructionsInput,
+            }
+          : {}),
         stored: {
           robot: '/transloadit/store',
           use: ':original',

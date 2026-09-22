@@ -94,6 +94,103 @@ function runStore(path = receipt.path): Promise<void> {
 }
 
 describe('storage store', () => {
+  test.each([
+    false,
+    true,
+  ])('opts into server extraction and saves canonical alpha %s', async (has_alpha) => {
+    const enriched = { ...receipt, thumbhash: 'WnU1pyAI9wiIh4hwj3CI+AiIcH/494cP', has_alpha }
+    await writeFile(
+      'images.json',
+      JSON.stringify({
+        workspace: 'my-app',
+        apiOrigin: receipt.apiOrigin,
+        public: ['website/'],
+        images: {},
+      }),
+    )
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(enriched)
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      receipt.path,
+      '--receipts',
+      'images.json',
+      '--placeholder',
+      'blur',
+    ])
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledWith(
+      './hero.jpg',
+      expect.objectContaining({ placeholder: 'blur' }),
+    )
+    expect(JSON.parse(await readFile('images.json', 'utf8')).images[receipt.path]).toEqual(enriched)
+    const types = await readFile('transloadit-images.d.ts', 'utf8')
+    expect(types).toContain('has_alpha?: boolean')
+    expect(
+      vi.mocked(OutputCtl.prototype.print).mock.calls[0]?.[0]?.includes('placeholder="blur"'),
+    ).toBe(!has_alpha)
+  })
+
+  test('a missing server hash is reported without hiding a completed store', async () => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      receipt.path,
+      '--receipts',
+      'images.json',
+      '--placeholder',
+      'blur',
+    ])
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledOnce()
+    expect(JSON.parse(await readFile('images.json', 'utf8')).images[receipt.path]).toEqual(receipt)
+    expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
+      expect.stringMatching(/placeholder.*unavailable.*stored/i),
+    )
+  })
+
+  test('requesting a missing placeholder on a hashed replay never reuploads or rewrites the catalog', async () => {
+    const bytes = Buffer.from('unchanged image')
+    const md5hash = createHash('md5').update(bytes).digest('hex')
+    const previous = {
+      ...receipt,
+      path: `website/hero.${md5hash.slice(0, 8)}.jpg`,
+      md5hash,
+      size: bytes.length,
+    }
+    await writeFile('hero.jpg', bytes)
+    const catalog = `${JSON.stringify(JSON.parse(catalogJson({ [previous.path]: previous })), null, 2)}\n`
+    await writeFile('images.json', catalog)
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    await main([
+      'storage',
+      'store',
+      './hero.jpg',
+      'website/',
+      '--receipts',
+      'images.json',
+      '--hashed',
+      '--placeholder',
+      'blur',
+    ])
+    expect(process.exitCode).toBeUndefined()
+    expect(store).not.toHaveBeenCalled()
+    expect(await readFile('images.json', 'utf8')).toBe(catalog)
+    expect(OutputCtl.prototype.notice).toHaveBeenCalledWith(
+      expect.stringMatching(/placeholder.*receipts sync.*no.*upload/i),
+    )
+  })
+
+  test('rejects an unknown placeholder before uploading', async () => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage')
+    await main(['storage', 'store', './hero.jpg', receipt.path, '--placeholder', 'surprise'])
+    expect(process.exitCode).toBe(1)
+    expect(store).not.toHaveBeenCalled()
+  })
+
   test('plain uploads record API provenance so recovery cannot mix matching Workspace slugs', async () => {
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue({
       ...storedAsset(),
@@ -654,6 +751,29 @@ describe('storage store', () => {
     expect(await readFile('transloadit-images.d.ts', 'utf8')).toBe(types)
   })
 
+  test.each([
+    '\n',
+    '\r\n',
+  ])('upgrades headerless declarations with legacy alpha fields (%j)', async (eol) => {
+    const store = vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
+    await runStore()
+    expect(process.exitCode).toBeUndefined()
+    const types = await readFile('transloadit-images.d.ts', 'utf8')
+    const legacy = types
+      .replace('// Catalog: "images.json"\n', '')
+      .replaceAll(' has_alpha?: boolean;', '')
+      .replaceAll('\n', eol)
+    expect(legacy).not.toContain('// Catalog:')
+    expect(legacy).toContain('thumbhash?: string; hasAlpha?: boolean')
+    await writeFile('transloadit-images.d.ts', legacy)
+
+    await runStore()
+
+    expect(process.exitCode).toBeUndefined()
+    expect(store).toHaveBeenCalledTimes(2)
+    expect(await readFile('transloadit-images.d.ts', 'utf8')).toBe(types)
+  })
+
   test('the first public store creates a catalog and generated types without image init', async () => {
     vi.spyOn(Transloadit.prototype, 'storeImage').mockResolvedValue(receipt)
     const publish = vi
@@ -681,7 +801,7 @@ describe('storage store', () => {
     const types = await readFile('transloadit-images.d.ts', 'utf8')
     expect(types).toContain("declare module '@transloadit/viewer/next'")
     expect(types).toContain(
-      `"website/hero.jpg": { path: "website/hero.jpg"; workspace: "my-app"; asset_id: "${receipt.asset_id}"; version_id: "${receipt.version_id}"; width: 800; height: 600; thumbhash?: string; hasAlpha?: boolean }`,
+      `"website/hero.jpg": { path: "website/hero.jpg"; workspace: "my-app"; asset_id: "${receipt.asset_id}"; version_id: "${receipt.version_id}"; width: 800; height: 600; thumbhash?: string; has_alpha?: boolean; hasAlpha?: boolean }`,
     )
     expect(types).not.toMatch(/assembly-key|assembly-secret|stored-asset|md5hash/)
     expect(types).toMatch(/\n$/)

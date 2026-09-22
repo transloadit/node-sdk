@@ -14,9 +14,11 @@ export interface TransloaditImageSource extends Partial<TransloaditStorageRefere
   readonly height: number
   /** Original-byte MD5 from a verified receipt or compatible Storage HEAD ETag. */
   readonly md5hash?: string
-  /** Optional base64 ThumbHash, generated from the original bytes by storage store. */
+  /** Optional base64 ThumbHash, extracted by the producing Step on the server. */
   readonly thumbhash?: string
-  /** An original alpha channel disables persistent blur backgrounds, without a client load handler. */
+  /** Canonical server spelling: an original alpha channel disables persistent blur backgrounds. */
+  readonly has_alpha?: boolean
+  /** Legacy catalog spelling; canonical has_alpha takes precedence when present. */
   readonly hasAlpha?: boolean
 }
 
@@ -98,7 +100,14 @@ export function snapshotImageSource(props: {
     height = src.height
     md5hash = 'md5hash' in src ? src.md5hash : undefined
     thumbhash = 'thumbhash' in src ? src.thumbhash : undefined
-    hasAlpha = 'hasAlpha' in src ? src.hasAlpha : undefined
+    // Normalize once for every renderer/model, keeping older committed catalogs readable.
+    const canonicalAlpha = 'has_alpha' in src ? src.has_alpha : undefined
+    hasAlpha =
+      typeof canonicalAlpha === 'boolean'
+        ? canonicalAlpha
+        : 'hasAlpha' in src
+          ? src.hasAlpha
+          : undefined
     if ('asset_id' in src || 'version_id' in src || 'workspace' in src) {
       const asset_id = 'asset_id' in src ? src.asset_id : undefined
       const version_id = 'version_id' in src ? src.version_id : undefined

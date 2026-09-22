@@ -12,15 +12,18 @@ import { test } from 'node:test'
 import { Transloadit } from '@transloadit/node'
 import { createTransloaditImageModel } from '@transloadit/viewer'
 import sharp from 'sharp'
-import { rgbaToThumbHash } from 'thumbhash'
+import { rgbaToThumbHash, thumbHashToRGBA } from 'thumbhash'
 
 import { seedStorageImage } from './seed.ts'
 import { fixtureStorageIdentity } from './storage-fixtures.ts'
 
-// Real local pixels keep the seed/ThumbHash recipe offline; the devdock canary uses real API2.
+// Real local pixels exercise packed upload verification; only the backend response is simulated.
 const bytes = await sharp({ create: { width: 1, height: 1, channels: 4, background: '#2d6ea0' } })
   .png()
   .toBuffer()
+// A one-pixel encoding is a degenerate test vector; use a representative sampling grid.
+const placeholderPixels = await sharp(bytes).resize(8, 8).ensureAlpha().raw().toBuffer()
+const thumbhash = Buffer.from(rgbaToThumbHash(8, 8, placeholderPixels)).toString('base64')
 const receipt = {
   ...fixtureStorageIdentity('website/photo.png'),
   mime: 'image/png',
@@ -62,41 +65,102 @@ test('the package-first path stores and publishes without image init and emits c
     created_at: '2026-09-14',
     created: false,
   }))
-  t.mock.method(
+  await writeFile('hero.jpg', bytes)
+  await writeFile('avatar.jpg', bytes)
+  const create = t.mock.method(
     Transloadit.prototype,
-    'storeImage',
-    async (_file: string, { path }: { path: string }) => ({
-      ...fixtureStorageIdentity(path),
-      mime: path.endsWith('.png') ? 'image/png' : 'image/jpeg',
-      path,
-      size: bytes.length,
-      md5hash: receipt.md5hash,
-      width: path === 'website/hero.jpg' ? 2400 : path === 'website/alpha.png' ? 64 : 400,
-      height: path === 'website/hero.jpg' ? 1600 : path === 'website/alpha.png' ? 64 : 300,
-      thumbhash: Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 255])).toString('base64'),
-      ...(path === 'website/alpha.png' ? { hasAlpha: true } : {}),
-    }),
+    'createAssembly',
+    (options: {
+      params?: {
+        steps?: {
+          ':original'?: { output_meta?: { thumbhash?: boolean } }
+          stored?: { path?: string }
+        }
+      }
+    }) => {
+      const path = options.params?.steps?.stored?.path
+      assert.equal(typeof path, 'string')
+      assert(path)
+      assert.deepEqual(options.params?.steps?.[':original'], {
+        robot: '/upload/handle',
+        output_meta: { thumbhash: true },
+      })
+      return Promise.resolve({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: {
+          ':original': [
+            {
+              ...fixtureStorageIdentity(path),
+              mime: path.endsWith('.png') ? 'image/png' : 'image/jpeg',
+              path,
+              size: bytes.length,
+              md5hash: receipt.md5hash,
+              width: path === 'website/hero.jpg' ? 2400 : path === 'website/alpha.png' ? 64 : 400,
+              height: path === 'website/hero.jpg' ? 1600 : path === 'website/alpha.png' ? 64 : 300,
+              thumbhash,
+              has_alpha: path === 'website/alpha.png',
+            },
+          ],
+        },
+      })
+    },
   )
   const cli: { main: (args: string[]) => Promise<void> } = await import(
     new URL('./cli.js', import.meta.resolve('@transloadit/node')).href
   )
-  await cli.main(['storage', 'store', './hero.jpg', 'website/hero.jpg', '--public'])
+  await cli.main([
+    'storage',
+    'store',
+    './hero.jpg',
+    'website/hero.jpg',
+    '--public',
+    '--placeholder',
+    'blur',
+  ])
   assert.equal(process.exitCode, undefined)
-  await cli.main(['storage', 'store', './avatar.jpg', 'documents/private/hero.jpg'])
+  await cli.main([
+    'storage',
+    'store',
+    './avatar.jpg',
+    'documents/private/hero.jpg',
+    '--placeholder',
+    'blur',
+  ])
   assert.equal(process.exitCode, undefined)
-  await cli.main(['storage', 'store', './avatar.jpg', 'accounts/avatar.jpg'])
+  await cli.main([
+    'storage',
+    'store',
+    './avatar.jpg',
+    'accounts/avatar.jpg',
+    '--placeholder',
+    'blur',
+  ])
   assert.equal(process.exitCode, undefined)
-  await cli.main(['storage', 'store', './hero.jpg', 'website/alpha.png'])
+  await cli.main(['storage', 'store', './hero.jpg', 'website/alpha.png', '--placeholder', 'blur'])
   assert.equal(process.exitCode, undefined)
   await cli.main(['storage', 'publish', 'documents/public/'])
   assert.equal(process.exitCode, undefined)
   const catalog = JSON.parse(await readFile('transloadit.images.json', 'utf8'))
   assert.deepEqual(catalog.public, ['website/', 'documents/public/'])
+  assert.equal(create.mock.callCount(), 4)
+  assert.equal(catalog.images['website/hero.jpg'].has_alpha, false)
+  assert.equal(catalog.images['website/alpha.png'].has_alpha, true)
+  assert.equal(typeof catalog.images['website/hero.jpg'].thumbhash, 'string')
+  const placeholder = thumbHashToRGBA(
+    Buffer.from(catalog.images['website/hero.jpg'].thumbhash, 'base64'),
+  )
+  const center = (Math.floor(placeholder.h / 2) * placeholder.w + Math.floor(placeholder.w / 2)) * 4
+  const [red, green, blue] = placeholder.rgba.subarray(center, center + 3)
+  assert(typeof red === 'number' && typeof green === 'number' && typeof blue === 'number')
+  assert(Math.abs(red - 45) <= 5, 'The placeholder must preserve the source red channel')
+  assert(Math.abs(green - 110) <= 5, 'The placeholder must preserve the source green channel')
+  assert(Math.abs(blue - 160) <= 5, 'The placeholder must preserve the source blue channel')
+  assert.equal(catalog.images['website/alpha.png'].hasAlpha, undefined)
   const declarations = await readFile('transloadit-images.d.ts', 'utf8')
   assert(declarations.includes("declare module '@transloadit/viewer/next'"))
   assert(
     declarations.includes(
-      `"website/hero.jpg": { path: "website/hero.jpg"; workspace: "fixture"; asset_id: "${fixtureStorageIdentity('website/hero.jpg').asset_id}"; version_id: "${fixtureStorageIdentity('website/hero.jpg').version_id}"; width: 2400; height: 1600; thumbhash?: string; hasAlpha?: boolean }`,
+      `"website/hero.jpg": { path: "website/hero.jpg"; workspace: "fixture"; asset_id: "${fixtureStorageIdentity('website/hero.jpg').asset_id}"; version_id: "${fixtureStorageIdentity('website/hero.jpg').version_id}"; width: 2400; height: 1600; thumbhash?: string; has_alpha?: boolean; hasAlpha?: boolean }`,
     ),
   )
   await assert.rejects(stat('lib/storageImage.ts'), { code: 'ENOENT' })

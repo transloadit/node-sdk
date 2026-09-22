@@ -670,7 +670,7 @@ function renderPicture(
           ? `[Image] ${JSON.stringify(props.source.path)} uses request-authorized private delivery; placeholder="blur" is a no-op so its pixels are not exposed before authorization.`
           : hasAlpha
             ? `[Image] ${JSON.stringify(props.source.path)}: transparent image: no blur placeholder.`
-            : `[Image] ${JSON.stringify(props.source.path)} has no usable thumbhash; placeholder="blur" is a no-op. Use storage store with the original bytes to generate it.`,
+            : `[Image] ${JSON.stringify(props.source.path)} has no usable thumbhash; placeholder="blur" is a no-op. For new uploads, request storage store --placeholder blur. Use storage receipts sync to recover metadata already on the server; sync cannot generate a missing hash.`,
       )
     }
   }

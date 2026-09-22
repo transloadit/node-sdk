@@ -83,11 +83,7 @@ async function main(): Promise<void> {
       const bundler = created.stdout.trim()
       try {
         await execa('docker', ['cp', `${consumer}/.`, `${bundler}:/work`])
-        const bundled = await execa('docker', ['start', '--attach', bundler], { timeout: 150_000 })
-        await writeFile(
-          join(output, `${label}-bundle.log`),
-          `${bundled.stdout}\n${bundled.stderr}\n`,
-        )
+        await execa('docker', ['start', '--attach', bundler], { timeout: 150_000 })
         const bundleFile = join(output, `${label}.eszip`)
         await execa('docker', ['cp', `${bundler}:/work/function.eszip`, bundleFile])
         const bundle = await readFile(bundleFile)
@@ -162,7 +158,17 @@ async function main(): Promise<void> {
           }
         }
       } finally {
-        await execa('docker', ['rm', '--force', bundler])
+        try {
+          // Keep native-runtime crash evidence even when the bundler never returns a bundle.
+          const logs = await execa('docker', ['logs', bundler], { reject: false })
+          await writeFile(join(output, `${label}-bundle.log`), `${logs.stdout}\n${logs.stderr}\n`)
+          const state = await execa('docker', ['inspect', '--format', '{{json .State}}', bundler], {
+            reject: false,
+          })
+          await writeFile(join(output, `${label}-container-state.json`), `${state.stdout}\n`)
+        } finally {
+          await execa('docker', ['rm', '--force', bundler])
+        }
       }
     }
   } finally {

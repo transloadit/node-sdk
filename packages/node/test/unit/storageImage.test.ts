@@ -54,6 +54,68 @@ afterEach(() => {
 })
 
 test.each([
+  false,
+  true,
+])('preserves server placeholders on store and recovery (alpha %s)', async (has_alpha) => {
+  const metadata = { thumbhash: 'WnU1pyAI9wiIh4hwj3CI+AiIcH/494cP', has_alpha }
+  const response = { ...completed, results: { ':original': [{ ...receipt, ...metadata }] } }
+  const { client } = fixture(response)
+  vi.spyOn(client, 'getAssembly').mockResolvedValue(response)
+  await expect(client.storeImage(filePath, { path: receipt.path })).resolves.toMatchObject(metadata)
+  await expect(
+    client.getStoredImageReceipt({
+      assemblyId: 'completed-assembly',
+      expected: { path: receipt.path, size: receipt.size, md5hash: receipt.md5hash },
+    }),
+  ).resolves.toMatchObject(metadata)
+})
+
+test('requests a blur only on the original producer and tolerates unavailable extraction', async () => {
+  const { client, create } = fixture()
+  const stored = await client.storeImage(filePath, { path: receipt.path, placeholder: 'blur' })
+  expect(create.mock.calls[0]?.[0]?.params?.steps).toEqual({
+    ':original': { robot: '/upload/handle', output_meta: { thumbhash: true } },
+    stored: {
+      robot: '/transloadit/store',
+      use: ':original',
+      path: receipt.path,
+      conflict_strategy: 'error',
+    },
+  })
+  expect(stored).toMatchObject({ path: receipt.path, width: 100, height: 100 })
+  expect(stored).not.toHaveProperty('thumbhash')
+  expect(create).toHaveBeenCalledOnce()
+})
+
+test('empty placeholder keeps the original no-extraction instructions', async () => {
+  const { client, create } = fixture()
+  await client.storeImage(filePath, { path: receipt.path, placeholder: 'empty' })
+  expect(create.mock.calls[0]?.[0]?.params?.steps).toEqual({
+    stored: {
+      robot: '/transloadit/store',
+      use: ':original',
+      path: receipt.path,
+      conflict_strategy: 'error',
+    },
+  })
+})
+
+test.each([
+  'auto',
+  '',
+  null,
+  true,
+  {},
+])('rejects placeholder %j before reading or uploading', async (placeholder) => {
+  const { client, create } = fixture()
+  // @ts-expect-error Exercise invalid options arriving from JavaScript callers.
+  await expect(
+    client.storeImage('missing.jpg', { path: receipt.path, placeholder }),
+  ).rejects.toThrow(/placeholder/)
+  expect(create).not.toHaveBeenCalled()
+})
+
+test.each([
   'TRANSLOADIT_STORE_CONFLICT',
   'TRANSLOADIT_STORE_UNAVAILABLE',
 ] as const)('preserves %s when recovering a failed Assembly status', async (error) => {

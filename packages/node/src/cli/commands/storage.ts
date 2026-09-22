@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { ApiError } from '../../ApiError.ts'
 import { storedAssetSchema } from '../../alphalib/types/storageAsset.ts'
 import InconsistentResponseError from '../../InconsistentResponseError.ts'
+import { storageImagePlaceholderSchema } from '../../storageImage.ts'
 import { normalizeStoragePublicPrefix } from '../../storagePublicPrefixes.ts'
 import { Transloadit } from '../../Transloadit.ts'
 import { noticeCliCredentialSource, quoteCliArgument, resolveCliConfig } from '../helpers.ts'
@@ -235,6 +236,8 @@ export class StorageStoreCommand extends StorageProjectCommand {
       Storage writes must be enabled. Existing Storage paths conflict unless --overwrite is explicit.
       --hashed inserts eight MD5 hex digits before the extension. Matching catalog receipts skip
       repeat uploads; changed bytes get a fresh name. --hashed cannot be combined with --overwrite.
+      --placeholder blur requests server metadata on new uploads. Successful extraction adds
+      metadata usage of 20% of the file bytes. Missing placeholders never retry a completed upload.
       The project catalog binds workspace, published prefixes and image receipts. Each successful
       upload is saved atomically before the next. Do not run two writers against the same catalog.
       The catalog defaults to transloadit.images.json; --receipts selects another file.
@@ -254,6 +257,9 @@ export class StorageStoreCommand extends StorageProjectCommand {
   overwrite = Option.Boolean('--overwrite', false, {
     description: 'Explicitly replace an existing Storage path',
   })
+  placeholder = Option.String('--placeholder', {
+    description: 'Server placeholder: blur opts into metadata extraction; empty is the default',
+  })
   publicDelivery = Option.Boolean('--public', false, {
     description:
       'Publish the destination directory recursively, including current and future objects',
@@ -267,6 +273,9 @@ export class StorageStoreCommand extends StorageProjectCommand {
     let published: string | undefined
     try {
       noticeCliCredentialSource(this.cliConfig, this.output)
+      const placeholder = storageImagePlaceholderSchema.optional().parse(this.placeholder, {
+        path: ['--placeholder'],
+      })
       if (this.hashed && this.overwrite)
         throw new Error(
           '--hashed cannot be combined with --overwrite; changed bytes get a new name',
@@ -350,6 +359,7 @@ export class StorageStoreCommand extends StorageProjectCommand {
             }
             stored.receipt ??= await this.client.storeImage(input.file, {
               path: destination,
+              ...(placeholder === undefined ? {} : { placeholder }),
               signal,
               onReceipt: (receipt, expected, assemblyId) => {
                 const sizeMatches = receipt.size === expected.size
@@ -429,9 +439,19 @@ export class StorageStoreCommand extends StorageProjectCommand {
           })
         }
         const receipt = stored.receipt
+        if (placeholder === 'blur' && receipt.thumbhash === undefined) {
+          this.output.notice(
+            unchanged
+              ? `Placeholder unavailable for ${JSON.stringify(receipt.path)}. Use storage receipts sync to recover metadata already on the server; no file was uploaded or replaced. Sync cannot generate a missing hash.`
+              : `Placeholder unavailable for ${JSON.stringify(receipt.path)}; the image was stored successfully. Extraction is best-effort; the saved receipt remains usable without blur.`,
+          )
+        }
         publicImage ||= published !== undefined && receipt.path.startsWith(published)
         const blur =
-          saved && publicImage && receipt.thumbhash !== undefined && receipt.hasAlpha !== true
+          saved &&
+          publicImage &&
+          receipt.thumbhash !== undefined &&
+          (receipt.has_alpha ?? receipt.hasAlpha) !== true
         // A foreign catalog says nothing about this destination's policy or rendering setup.
         const setupAdvice =
           !saved || setupPrinted
@@ -665,7 +685,13 @@ export class StorageReceiptsSyncCommand extends UnauthenticatedCommand {
                 evidence.data.version_id === asset.version_id
                   ? evidence.data
                   : {}
-              return [asset.path, { ...retained, ...asset, apiOrigin: endpoint }]
+              const merged: z.infer<typeof uploadEvidenceSchema> = {
+                ...retained,
+                ...asset,
+                apiOrigin: endpoint,
+              }
+              if (asset.has_alpha !== undefined) delete merged.hasAlpha
+              return [asset.path, merged]
             })
             count = entries.length
             return Object.fromEntries(entries)
