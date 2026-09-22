@@ -69,6 +69,9 @@ export function storageTypesPath(catalog: string): string {
 }
 
 function catalogTypes(catalog: StorageProjectCatalog, file?: string): string {
+  // Headerless files predate has_alpha. Ownership checks must reproduce their exact format;
+  // newly generated files always name their catalog and include the canonical field.
+  const alphaType = file === undefined ? '' : ' has_alpha?: boolean;'
   // Canonical LF keeps generated output deterministic; Git controls checkout-specific EOL conversion.
   const properties = Object.entries(catalog.images)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
@@ -78,7 +81,7 @@ function catalogTypes(catalog: StorageProjectCatalog, file?: string): string {
       if (!dimensions.success) return []
       const { width, height, asset_id, version_id, workspace } = dimensions.data
       const name = JSON.stringify(path)
-      return `    ${name}: { path: ${name}; workspace: ${JSON.stringify(workspace)}; asset_id: ${JSON.stringify(asset_id)}; version_id: ${JSON.stringify(version_id)}; width: ${width}; height: ${height}; thumbhash?: string; hasAlpha?: boolean }`
+      return `    ${name}: { path: ${name}; workspace: ${JSON.stringify(workspace)}; asset_id: ${JSON.stringify(asset_id)}; version_id: ${JSON.stringify(version_id)}; width: ${width}; height: ${height}; thumbhash?: string;${alphaType} hasAlpha?: boolean }`
     })
   return [
     typesHeader,

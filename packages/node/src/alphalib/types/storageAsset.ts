@@ -33,9 +33,17 @@ export const storedAssetSchema = z.object({
     .optional(),
   width: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
   height: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+  thumbhash: z
+    .string()
+    .regex(
+      /^(?:[A-Za-z0-9+/]{4}){1,15}(?:[A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)$/u,
+    )
+    .optional()
+    .describe('Base64-encoded ThumbHash of this version’s displayed pixels, when requested with output_meta.thumbhash on its producing Step. This is image data: apply the same access controls as the original.'),
+  has_alpha: z.boolean().optional().describe('Whether the image has an alpha channel, even if all its pixels are opaque. Present when ThumbHash extraction succeeds; absence means unknown.'),
 })
 
-/** Store, read and recovery share this shape; image clients may enrich it with placeholders. */
+/** Store, read and recovery share this version-pinned shape, including optional placeholders. */
 export type StoredAsset = z.infer<typeof storedAssetSchema>
 
 /** Bounded metadata paging; cursors are the last returned, case-sensitive asset path. */

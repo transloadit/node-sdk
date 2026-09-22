@@ -18,6 +18,34 @@ const asset = {
 
 afterEach(() => nock.cleanAll())
 
+test.each([
+  undefined,
+  { version_id: asset.version_id },
+])('retains placeholder metadata on native lookup (%j)', async (options) => {
+  const enriched = { ...asset, thumbhash: 'WnU1pyAI9wiIh4hwj3CI+AiIcH/494cP', has_alpha: false }
+  const request = nock(origin)
+    .get(`/dam/assets/${asset.asset_id}`)
+    .query(true)
+    .reply(200, { ok: 'DAM_ASSET_FOUND', message: 'Found', asset: enriched })
+  await expect(client.getStoredAsset(asset.asset_id, options)).resolves.toEqual(enriched)
+  expect(request.isDone()).toBe(true)
+})
+
+test('native pages retain placeholders without losing an explicit opaque flag', async () => {
+  const enriched = { ...asset, thumbhash: 'WnU1pyAI9wiIh4hwj3CI+AiIcH/494cP', has_alpha: false }
+  nock(origin)
+    .get('/dam/assets')
+    .query(true)
+    .reply(200, {
+      ok: 'DAM_ASSETS_LISTED',
+      message: 'Listed',
+      workspace: asset.workspace,
+      assets: [enriched],
+      next_cursor: null,
+    })
+  await expect(client.listStoredAssets()).resolves.toMatchObject({ assets: [enriched] })
+})
+
 test('reads a pinned version without treating the saved path as its identity', async () => {
   const request = nock(origin)
     .get(`/dam/assets/${asset.asset_id}`)

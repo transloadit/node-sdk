@@ -536,6 +536,8 @@ For images, you can add \`"has_transparency": true\` in this object to extract i
 
 For images, you can also add \`"blurhash": true\` to extract a [BlurHash](https://blurha.sh) string — a compact representation of a placeholder for the image, useful for showing a blurred preview while the full image loads.
 
+For images, \`"thumbhash": true\` instead extracts a base64-encoded [ThumbHash](https://evanw.github.io/thumbhash/) into \`meta.thumbhash\`, together with \`meta.has_alpha\` (whether an alpha channel exists, even when fully opaque). It describes EXIF-oriented pixels and uses the first frame of animated images. Extraction is best-effort: images above 40 megapixels, unsupported formats, or a failed/bounded decode produce no placeholder. Successful extraction adds a metadata charge equivalent to 20% of that file's bytes. No ThumbHash surcharge applies when disabled or when no hash is produced.
+
 For videos, you can add the \`"colorspace: true"\` parameter to extract the colorspace of the output video.
 
 For videos, you can also add \`"interlaced": true\` to detect whether the video is interlaced. This combines the cheap ffprobe \`field_order\` flag with a bounded \`idet\` sampling pass over the first frames of the source, exposing \`interlaced\`, \`field_order\`, and a diagnostic \`interlace_detection\` object under \`file.meta\`. This is computationally expensive and billed accordingly.

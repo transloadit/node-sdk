@@ -219,14 +219,27 @@ uses the fallback lengths without `auto`, with a development warning; bare `auto
 Other images default to native lazy loading. Props are serializable native attributes, not callbacks or refs.
 
 `placeholder="blur"` uses the receipt's optional base64 [ThumbHash](https://github.com/evanw/thumbhash).
-SDK 4.13.1 removes local image decoding: `storage store` and `client.storeImage()` no longer
-generate new hashes. Existing catalog hashes still render, and uploads and verified dimensions
-do not require a local image decoder. A receipt without a hash renders without a blur background.
+Request one when uploading:
+
+```bash
+npx transloadit storage store ./hero.jpg website/hero.jpg --hashed --placeholder blur
+```
+
+Or pass `placeholder: 'blur'` to `client.storeImage()`. This explicitly enables
+`output_meta: { thumbhash: true }` on the `/upload/handle` producer, not the `/transloadit/store`
+Step. For custom Assemblies, request it on the Step producing the pixels you retain.
+Omission or `placeholder: 'empty'` performs no extraction. Successful extraction adds metadata
+usage equal to 20% of that file's bytes, not 20% of the invoice. Disabled or unsuccessful extraction
+adds no ThumbHash surcharge. The server hashes EXIF-oriented pixels and the first animation frame.
+Images above 40 megapixels, unsupported formats or a failed bounded decode can omit the hash;
+the upload still succeeds. A receipt without a hash renders without a blur background.
+The SDK never installs or runs a native image decoder. Existing catalog hashes still work.
 The Server Component decodes the hash; the ThumbHash decoder never enters the client bundle.
-Existing receipts can also contain `hasAlpha: true` when the original has an alpha channel,
+The server returns `has_alpha: true` when the original has an alpha channel,
 even if all its pixels happen to be opaque. For those images blur is a no-op with the development-only
 note "transparent image: no blur placeholder". An alpha-encoded hash also suppresses blur when
-the receipt flag is missing. For images without alpha, the background remains in place, hidden
+the receipt flag is missing. Legacy receipts with `hasAlpha: true` remain readable; an explicit
+canonical `has_alpha` boolean takes precedence. For images without alpha, the background remains in place, hidden
 under the loaded opaque image: no client-side load handler is needed or shipped.
 Blur requires a box-filling image: the default constrained layout, or `object-fit: fill` / `cover`.
 Letterboxed `contain`, `none` and `scale-down` images omit it with a development note, since the
@@ -238,6 +251,11 @@ Without a usable hash, the prop is a no-op with a development-only note. Request
 private redirects also omit it: embedding blurred private pixels would expose them before the
 image request's authorization check. Direct delivery is only for already-authorized page data.
 Receipts sync performs no original download and cannot create a missing ThumbHash.
+It can recover a hash already present on the stored version. Existing images and uploads that did
+not request extraction are not automatically backfilled. Adding `--placeholder blur` to a matching
+`--hashed` replay preserves the object and reports missing metadata; it does not silently re-upload
+or overwrite. Sync the existing metadata if available, or explicitly upload to a new destination
+with extraction enabled when you need a placeholder for older images.
 ThumbHashes contain a recognizable preview, not just a checksum. Keep catalogs for private images
 in private source control, or remove their `thumbhash` fields before sharing the catalog publicly.
 
@@ -830,14 +848,17 @@ An empty server policy is recovered as `public: []`, not silently republished. F
 public images run `storage publish` on the intended directory; otherwise configure `authorize`
 for private delivery. The CLI and factory explain this missing delivery choice.
 The server returns the same canonical shape as storing: `workspace`, `asset_id`, `version_id`,
-final `path`, `size`, `mime`, available `md5hash`/`sha256`, and version-specific `width`/`height`.
+final `path`, `size`, `mime`, available `md5hash`/`sha256`, version-specific `width`/`height`, and
+optional server `thumbhash`/`has_alpha` metadata.
 Sync records the verified `apiOrigin` on the catalog and every recovered image and refuses to mix environments.
 Unbound legacy catalogs must be recovered into a new `--receipts` file and reviewed before replacing
 the old catalog. A custom delivery host is preserved separately, never treated as API provenance.
 Sync recovers real version identities, not a path-only approximation. Local `source`,
-`thumbhash` and `hasAlpha` survive only for the same Workspace, asset and retained version.
-A fresh sync has no original bytes and cannot reconstruct ThumbHash or alpha metadata; those
-optional fields remain absent. Changed versions drop stale local evidence even if their MD5 matches.
+`thumbhash` and legacy `hasAlpha` survive only for the same Workspace, asset and retained version.
+Server metadata takes precedence, including an explicit `has_alpha: false`; the legacy alpha
+alias is then removed. A fresh sync recovers these fields when the server version contains them,
+without downloading original bytes or generating new hashes. Otherwise they remain absent.
+Changed versions drop stale local evidence even if their MD5 matches.
 
 Sync adds or refreshes matching paths and never prunes unmatched entries. Any missing/invalid
 dimensions, failed page or incomplete listing leaves the existing file intact; a failed atomic

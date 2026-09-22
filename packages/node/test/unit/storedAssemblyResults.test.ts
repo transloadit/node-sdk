@@ -23,6 +23,29 @@ const video = {
 
 afterEach(() => vi.restoreAllMocks())
 
+test("preserves each producing result's own placeholder and alpha metadata", async () => {
+  const original = { ...image, thumbhash: 'WnU1pyAI9wiIh4hwj3CI+AiIcH/494cP', has_alpha: false }
+  const poster = {
+    ...image,
+    version_id: `${'C'.repeat(21)}A`,
+    thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI',
+    has_alpha: true,
+  }
+  vi.spyOn(client, 'getAssembly').mockResolvedValue({
+    assembly_id: 'upload-1',
+    ok: 'ASSEMBLY_COMPLETED',
+    results: {
+      ':original': [{ ...original, id: 'input-1' }],
+      poster: [{ ...poster, id: 'poster-1', original_id: 'input-1' }],
+    },
+  })
+  const results = await client.getStoredAssemblyResults({
+    assemblyId: 'upload-1',
+    workspace: 'album',
+  })
+  expect(results.map((result) => result.asset)).toEqual([original, poster])
+})
+
 test('verifies a batch with originals, video and a poster without guessing input relationships', async () => {
   const get = vi.spyOn(client, 'getAssembly').mockResolvedValue({
     assembly_id: 'upload-1',

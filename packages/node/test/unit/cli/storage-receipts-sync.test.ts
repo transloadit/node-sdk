@@ -110,6 +110,28 @@ test('an update preserves application metadata and the JSON schema link', async 
   expect(JSON.parse(await readFile('images.json', 'utf8'))).toEqual(catalog)
 })
 
+test('legacy headerless declarations must still exactly describe their catalog', async () => {
+  await updateStorageReceipts('images.json', async () => ({
+    workspace: asset.workspace,
+    public: [],
+    images: { [asset.path]: recovered },
+  }))
+  const catalog = await readFile('images.json', 'utf8')
+  const types = await readFile('transloadit-images.d.ts', 'utf8')
+  const foreign = types
+    .replace('// Catalog: "images.json"\n', '')
+    .replaceAll(' has_alpha?: boolean;', '')
+    .replaceAll(asset.path, 'website/another-image.jpg')
+  await writeFile('transloadit-images.d.ts', foreign)
+  const update = vi.fn(async () => ({ workspace: asset.workspace, public: [], images: {} }))
+
+  await expect(updateStorageReceipts('images.json', update)).rejects.toThrow('another catalog')
+
+  expect(update).not.toHaveBeenCalled()
+  expect(await readFile('images.json', 'utf8')).toBe(catalog)
+  expect(await readFile('transloadit-images.d.ts', 'utf8')).toBe(foreign)
+})
+
 function storageApi(origin = 'http://storage.invalid'): nock.Scope {
   nock(origin)
     .get('/storage/public_prefixes')
@@ -169,6 +191,45 @@ test('a fresh sync recovers pinned references and the declared delivery policy',
   const types = await readFile('transloadit-images.d.ts', 'utf8')
   expect(types).toContain(asset.asset_id)
   expect(types).toContain(asset.version_id)
+})
+
+test.each([
+  false,
+  true,
+])('a fresh sync recovers server placeholders (alpha %s) without original downloads', async (has_alpha) => {
+  const enriched = { ...asset, thumbhash: 'WnU1pyAI9wiIh4hwj3CI+AiIcH/494cP', has_alpha }
+  const api = listed([enriched])
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  expect(JSON.parse(await readFile('images.json', 'utf8')).images[asset.path]).toEqual({
+    ...enriched,
+    apiOrigin: recovered.apiOrigin,
+  })
+  expect(await readFile('transloadit-images.d.ts', 'utf8')).toContain('has_alpha?: boolean')
+  expect(api.isDone()).toBe(true)
+})
+
+test('authoritative placeholders supersede a same-version legacy pair during sync', async () => {
+  await writeFile(
+    'images.json',
+    catalogJson({
+      [asset.path]: {
+        ...asset,
+        thumbhash: '1QcSHQRnh493V4dIh4eXh1h4kJUI',
+        hasAlpha: true,
+        source: 'photo.jpg',
+      },
+    }),
+  )
+  const enriched = { ...asset, thumbhash: 'WnU1pyAI9wiIh4hwj3CI+AiIcH/494cP', has_alpha: false }
+  listed([enriched])
+  await runSync()
+  expect(process.exitCode).toBeUndefined()
+  expect(JSON.parse(await readFile('images.json', 'utf8')).images[asset.path]).toEqual({
+    ...enriched,
+    source: 'photo.jpg',
+    apiOrigin: recovered.apiOrigin,
+  })
 })
 
 test.each([
