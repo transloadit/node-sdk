@@ -89,10 +89,12 @@ describe('robot catalog helpers', () => {
     expect(help.examples?.length).toBeGreaterThan(0)
   })
 
-  it('includes gpt-image-2 in /image/generate model help text', () => {
+  it('documents the image default, precision option, and existing OpenAI model', () => {
     const help = getRobotHelp({ robotName: '/image/generate', detailLevel: 'full' })
     const modelParam = help.optionalParams.find((param) => param.name === 'model')
 
-    expect(modelParam?.description).toContain('gpt-image-2')
+    expect(modelParam?.description).toContain('Defaults to openai/gpt-image-2.5-flare.')
+    expect(modelParam?.description).toContain('openai/gpt-image-2.5-sunburst')
+    expect(modelParam?.description).toContain('openai/gpt-image-2,')
   })
 })

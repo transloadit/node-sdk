@@ -126,6 +126,29 @@ const importServeTemplate: AssemblyInstructionsInput = {
 
 export const assemblyInstructionFixtures: AssemblyInstructionFixture[] = [
   {
+    name: 'images-2-5-and-opus-5-5',
+    value: {
+      steps: {
+        flare: {
+          robot: '/image/generate',
+          model: 'openai/gpt-image-2.5-flare',
+          prompt: 'A red bicycle in a studio',
+        },
+        sunburst: {
+          robot: '/image/generate',
+          model: 'openai/gpt-image-2.5-sunburst',
+          prompt: 'A ceramic coffee mug on a white sweep',
+        },
+        chat: {
+          robot: '/ai/chat',
+          model: 'anthropic/claude-opus-5-5',
+          messages: 'Describe a bicycle.',
+        },
+      },
+    },
+    valid: true,
+  },
+  {
     name: 'ffmpeg-template',
     value: ffmpegTemplate,
     valid: true,
