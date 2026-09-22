@@ -5,7 +5,7 @@ import { basename } from 'node:path'
 
 import { parseOptionalEnumValue } from './parsing.ts'
 
-const defaultImageGenerateModel = 'google/nano-banana-2'
+const defaultImageGenerateModel = 'openai/gpt-image-2.5-flare'
 const imageGenerateFormats = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'svg'] as const
 
 const imageGenerateOptionDefinitions = [
@@ -23,7 +23,7 @@ const imageGenerateOptionDefinitions = [
     kind: 'string',
     propertyName: 'model',
     optionFlags: '--model',
-    description: `The AI model to use for image generation. Defaults to ${defaultImageGenerateModel}. Backend-supported models include openai/gpt-image-2 and Google Nano Banana variants.`,
+    description: `Defaults to ${defaultImageGenerateModel}. Choose openai/gpt-image-2.5-sunburst for precision. Explicit older models remain supported.`,
     required: false,
     exampleValue: defaultImageGenerateModel,
   },
@@ -96,8 +96,8 @@ const imageGenerateCommandPresentation = {
       'transloadit image generate --prompt "A red bicycle in a studio" --output output.png',
     ],
     [
-      'Generate with OpenAI gpt-image-2',
-      'transloadit image generate --model openai/gpt-image-2 --width 1024 --height 1024 --prompt "A ceramic coffee mug on a white sweep" --output output.png',
+      'Generate with OpenAI Images 2.5 Sunburst',
+      'transloadit image generate --model openai/gpt-image-2.5-sunburst --width 1024 --height 1024 --prompt "A ceramic coffee mug on a white sweep" --output output.png',
     ],
     [
       'Guide generation with one input image',
