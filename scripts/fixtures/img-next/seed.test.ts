@@ -359,13 +359,11 @@ test('seeds one original and returns verified metadata for rendering without ano
     version_id: receipt.version_id,
     workspace: receipt.workspace,
     mime: receipt.mime,
-    hasAlpha: true,
     height: 1,
     md5hash: receipt.md5hash,
     path: receipt.path,
     size: bytes.length,
     width: 1,
-    thumbhash: Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 255])).toString('base64'),
   })
   const model = createTransloaditImageModel(
     { src: image, expiresAt: Date.UTC(2030, 0, 1) },

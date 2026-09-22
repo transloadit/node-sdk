@@ -50,7 +50,7 @@ Public images need no app secrets. The required plugin bundles the catalog, with
 
 Catalog paths autocomplete. `width` sets a responsive maximum; `preload` makes a hero eager,
 preloads its responsive source and sets high fetch priority. Other images load lazily.
-Add `placeholder="blur"` for an inline preview from the receipt's optional `thumbhash`.
+`placeholder="blur"` renders existing receipt hashes; SDK 4.13.1 does not generate them locally.
 [Layouts, art direction and the temporary priority alias](./docs/reference.md#responsive).
 
 ## Existing HTTP or S3 assets

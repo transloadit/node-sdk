@@ -218,15 +218,13 @@ warns only in development. Do not combine either with lazy loading. Explicit eag
 uses the fallback lengths without `auto`, with a development warning; bare `auto` falls back to 100vw.
 Other images default to native lazy loading. Props are serializable native attributes, not callbacks or refs.
 
-`placeholder="blur"` uses the receipt's optional base64 `thumbhash`. `storage store` and
-`client.storeImage()` generate it from the checksum read using pinned [ThumbHash](https://github.com/evanw/thumbhash)
-and Sharp, EXIF-oriented and at most 100×100 pixels. Encoding is best-effort: originals over
-32 MiB, over 40 million pixels, unsupported formats or a two-second decoder timeout omit it.
-Origin-side byte changes also omit the hash, since the local preview would no longer match.
+`placeholder="blur"` uses the receipt's optional base64 [ThumbHash](https://github.com/evanw/thumbhash).
+SDK 4.13.1 removes local image decoding: `storage store` and `client.storeImage()` no longer
+generate new hashes. Existing catalog hashes still render, and uploads and verified dimensions
+do not require a local image decoder. A receipt without a hash renders without a blur background.
 The Server Component decodes the hash; the ThumbHash decoder never enters the client bundle.
-Sharp is an optional SDK dependency; an unavailable local decoder omits this metadata without
-blocking the Storage write. Storage writes also record `hasAlpha: true` only when the original has an alpha channel, even if
-all its pixels happen to be opaque. For those images blur is a no-op with the development-only
+Existing receipts can also contain `hasAlpha: true` when the original has an alpha channel,
+even if all its pixels happen to be opaque. For those images blur is a no-op with the development-only
 note "transparent image: no blur placeholder". An alpha-encoded hash also suppresses blur when
 the receipt flag is missing. For images without alpha, the background remains in place, hidden
 under the loaded opaque image: no client-side load handler is needed or shipped.
