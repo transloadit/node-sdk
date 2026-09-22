@@ -66,7 +66,7 @@ async function main(): Promise<void> {
       const nativeFiles = files.filter((file) =>
         /(^|[/\\])(sharp|@img)([/\\]|$)|\.node$/.test(file),
       )
-      // docker cp also works with a remote Docker daemon; bind mounts require shared host paths.
+      // Avoid requiring the temporary directory to be shared into Docker Desktop or Colima.
       const created = await execa('docker', [
         'create',
         '--workdir',
@@ -143,6 +143,7 @@ async function main(): Promise<void> {
         try {
           await execa('docker', ['cp', bundleFile, `${runtime}:/function.eszip`])
           await execa('docker', ['start', runtime])
+          // The runner needs locally reachable Docker ports, as documented in CONTRIBUTING.
           const port = await execa('docker', ['port', runtime, '9000/tcp'])
           const response = await waitForResponse(`http://${port.stdout.trim()}`)
           const signature = createHmac('sha256', 'fixture-secret')

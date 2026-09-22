@@ -17,8 +17,8 @@ Content rollback, or unrelated dependency upgrades.
 - [x] Red-first tests: ordinary receipts omit local decoding; both SDK manifests exclude Sharp.
 - [x] Remove Sharp from installation and the root SDK import graph (dev-only test fixtures remain).
 - [x] No replacement decoder API or CLI flag: keep the urgent patch small; document omitted hashes.
-- [ ] Test fresh packed installs of both SDK names without Sharp and the Supabase/Deno bundle.
-- [ ] Keep Storage receipt, orientation, alpha, and Viewer browser coverage green.
+- [x] Test fresh packed installs of both SDK names without Sharp and the Supabase/Deno bundle.
+- [x] Keep Storage receipt, orientation, alpha, and Viewer browser coverage green.
 - [x] Refresh the generated legacy package and deduplicate the lockfile.
 - [ ] Council review; resolve valid findings and run repository checks.
 - [ ] Green fix PR, squash merge, review the generated Changesets version PR, release.
@@ -28,10 +28,22 @@ Content rollback, or unrelated dependency upgrades.
 
 No open review comments at branch creation. Findings and release evidence will be recorded here.
 
+Council: Codex and its independent arbiter found one issue: the runtime probe cannot reach
+an unforwarded remote Docker host's loopback port. Corrected the documentation to require
+locally reachable Docker ports (our CI, Docker Desktop, Colima); no remote-context support
+is claimed. This is a documentation correction, not a production-runtime change. Claude's
+review was unavailable because its monthly spend limit was reached; no full multi-model
+completion is claimed. Logs: /tmp/sdk-edge-proof.Q6s4cJ/council.log.
+
 Local focused suite: 164 tests passed. `yarn check` passed. Existing Vitest/coverage peer
 version warnings and Biome informational diagnostics are unrelated to this patch.
 Published 4.13.0 reproduces the packaging failure (77 native paths; ~47.6 MB raw ESZIP).
 Published 4.12.0 passes for both names (~26.8 MB raw / ~2.24 MB uploaded).
+Final packed hotfix passes both Supabase runtime probes without native dependencies:
+Node 27,974,695 raw / 2,451,870 compressed bytes; legacy 27,974,512 / 2,457,228 bytes.
+The packed Next fixture passed 15 seed tests, 58 browser tests with cacheComponents,
+58 without, and 10 dev-mode browser tests. Existing hash, alpha, orientation and private
+delivery behavior are covered. These fixtures do not deploy the customer's application.
 
 ## Release contract
 

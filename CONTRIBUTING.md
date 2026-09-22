@@ -66,7 +66,8 @@ It rejects native image dependencies and bundles above 32 MiB raw / 5 MiB Brotli
 (including the CLI's EZBR header). The 4.12.0 baseline is about 27 MB raw / 2.3 MB compressed;
 the upload budget leaves room inside Supabase's 20 MB CLI deployment limit. Evidence is saved
 under `test-results/sdk-edge/`.
-Docker is required; remote Docker daemons work too. To compare a published version, run
+Docker with locally reachable published ports is required (for example Docker Desktop or Colima);
+an unforwarded remote Docker daemon is not supported. To compare a published version, run
 `yarn test:sdk:edge --version 4.12.0`. Version 4.13.0 should fail the regression gate.
 
 ### e2e tests
