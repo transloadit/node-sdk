@@ -17,7 +17,7 @@ import InconsistentResponseError from './InconsistentResponseError.ts'
  * Width and height reflect EXIF auto-orientation, matching Storage preview delivery.
  */
 export interface StoredImageReceipt extends Readonly<StoredAsset> {
-  /** Present as true only when the locally decoded original has an alpha channel. */
+  /** Optional metadata indicating that the original has an alpha channel. */
   readonly hasAlpha?: boolean
   readonly height: number
   readonly md5hash: string
@@ -94,35 +94,6 @@ function validateDestination(path: string): void {
   }
 }
 
-async function imagePlaceholderMetadata(
-  bytes: Buffer,
-): Promise<Pick<StoredImageReceipt, 'thumbhash' | 'hasAlpha'> | undefined> {
-  try {
-    const [{ default: sharp }, { rgbaToThumbHash }] = await Promise.all([
-      import('sharp'),
-      import('thumbhash'),
-    ])
-    const image = sharp(bytes, { limitInputPixels: 40_000_000 })
-    // Read original-channel metadata, not the alpha channel added for ThumbHash's RGBA input.
-    const { hasAlpha } = await image.metadata()
-    const { data, info } = await image
-      .autoOrient()
-      .resize(100, 100, { fit: 'inside', withoutEnlargement: true })
-      .ensureAlpha()
-      .raw()
-      .timeout({ seconds: 2 })
-      .toBuffer({ resolveWithObject: true })
-    return {
-      thumbhash: Buffer.from(rgbaToThumbHash(info.width, info.height, data)).toString('base64'),
-      ...(hasAlpha ? { hasAlpha: true } : {}),
-    }
-  } catch {
-    // A locally unsupported/oversized image can still be stored and decoded by the origin.
-    debug('transloadit:warn')('Omitted optional ThumbHash: local image decoding was unavailable')
-    return undefined
-  }
-}
-
 /** Stores one original without overwriting; receipt validation occurs after the Storage write. */
 export async function storeImage(
   client: Transloadit,
@@ -144,23 +115,13 @@ export async function storeImage(
     throw new TypeError('overwrite must be a boolean')
   signal?.throwIfAborted()
   const checksum = createHash('md5')
-  // Reuse the checksum read, bounded independently of file size; uploads still stream from disk.
-  let thumbnailChunks: Buffer[] | undefined = []
   let size = 0
   for await (const chunk of createReadStream(filePath, { signal })) {
     checksum.update(chunk)
     size += chunk.length
-    if (size > 32 * 1024 * 1024) thumbnailChunks = undefined
-    else thumbnailChunks?.push(chunk)
   }
   if (size === 0) throw new Error('Cannot store an empty image')
   const md5hash = checksum.digest('hex')
-  signal?.throwIfAborted()
-  const placeholder =
-    thumbnailChunks === undefined
-      ? undefined
-      : await imagePlaceholderMetadata(Buffer.concat(thumbnailChunks))
-  thumbnailChunks = undefined
   signal?.throwIfAborted()
   const assembly = await client.createAssembly({
     chunkSize,
@@ -184,23 +145,18 @@ export async function storeImage(
   const input = { path, size, md5hash }
   // API2 can watermark uploads before Robots run; this exact write's result describes stored bytes.
   const receipt = validateReceipt(assembly, input, true)
-  // A watermark or other origin-side rewrite makes the local pixels the wrong placeholder.
-  const withPlaceholder =
-    placeholder === undefined || receipt.md5hash !== md5hash || receipt.size !== size
-      ? receipt
-      : { ...receipt, ...placeholder }
   const observerFailed = (): void => {
     debug('transloadit:warn')('Ignored onReceipt observer failure after a completed Storage write')
   }
   try {
     // Neither a stalled observer nor its rejection may hide a successfully stored receipt.
-    void Promise.resolve(onReceipt?.({ ...withPlaceholder }, input, assembly.assembly_id)).catch(
+    void Promise.resolve(onReceipt?.({ ...receipt }, input, assembly.assembly_id)).catch(
       observerFailed,
     )
   } catch {
     observerFailed()
   }
-  return withPlaceholder
+  return receipt
 }
 
 /** Fetches authoritative Assembly status and applies the same validation as a local image store. */

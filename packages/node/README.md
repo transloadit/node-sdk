@@ -138,8 +138,9 @@ Existing code/env files are never overwritten. Missing trailing directory slashe
 
 Store uploads originals and appends validated receipts to `transloadit.images.json`; commit it.
 `storage store ./images/*.jpg website/` stores shell-expanded files, checkpointing each success.
-It prints `width={960}` (bounded by the original) and `placeholder="blur"`, with a filename-derived
-alt and a reminder. Store generates an optional base64 `thumbhash` from the original bytes.
+It prints `width={960}` (bounded by the original), with a filename-derived alt and a reminder.
+SDK 4.13.1 no longer decodes images locally or generates new blur hashes; existing receipt
+hashes still work with Viewer's `placeholder="blur"`. Uploads and dimensions are unaffected.
 An occupied path conflicts unless `--overwrite` is explicit; prefer `--hashed` for immutable
 filenames. Matching receipts skip repeat uploads; changed bytes get a new name.
 Storage receipts pin the returned `asset_id` and `version_id`. The image URL selects that exact

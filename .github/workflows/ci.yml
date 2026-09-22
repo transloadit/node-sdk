@@ -173,6 +173,24 @@ jobs:
           path: test-results/img-next
           if-no-files-found: ignore
 
+  sdk-edge:
+    name: SDK Supabase Edge fixture
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: corepack yarn install --immutable
+      - run: corepack yarn test:sdk:edge
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sdk-edge-evidence
+          path: test-results/sdk-edge
+          if-no-files-found: ignore
+
   unit:
     name: Unit tests (Node ${{ matrix.node }})
     runs-on: ubuntu-latest

@@ -58,6 +58,17 @@ yarn test:unit
 
 This will also generate a coverage report in the `coverage` directory.
 
+### SDK Edge packaging regression
+
+`yarn test:sdk:edge` packs both SDK names, installs each in a fresh consumer without omitting
+optional dependencies, and bundles/runs them with a pinned Supabase Edge Runtime Docker image.
+It rejects native image dependencies and bundles above 32 MiB raw / 5 MiB Brotli-compressed
+(including the CLI's EZBR header). The 4.12.0 baseline is about 27 MB raw / 2.3 MB compressed;
+the upload budget leaves room inside Supabase's 20 MB CLI deployment limit. Evidence is saved
+under `test-results/sdk-edge/`.
+Docker is required; remote Docker daemons work too. To compare a published version, run
+`yarn test:sdk:edge --version 4.12.0`. Version 4.13.0 should fail the regression gate.
+
 ### e2e tests
 
 e2e tests are in the [`test/e2e`](test/e2e) folder. They require some extra setup.

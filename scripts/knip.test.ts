@@ -4,9 +4,10 @@ import config from '../knip.ts'
 import nodePackage from '../packages/node/package.json' with { type: 'json' }
 import legacyPackage from '../packages/transloadit/package.json' with { type: 'json' }
 
-test('best-effort image decoding is optional for SDK installation', () => {
-  expect(nodePackage.dependencies).not.toHaveProperty('sharp')
-  expect(nodePackage).toHaveProperty('optionalDependencies.sharp', '0.35.4')
+test.each([nodePackage, legacyPackage])('$name does not install a native image decoder', (pkg) => {
+  expect(pkg.dependencies).not.toHaveProperty('sharp')
+  expect(pkg).not.toHaveProperty('optionalDependencies.sharp')
+  expect(pkg).not.toHaveProperty('peerDependencies.sharp')
 })
 
 test('accounts for generated compatibility dependencies before their sources exist', () => {

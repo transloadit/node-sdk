@@ -7,7 +7,6 @@ import { join, resolve } from 'node:path'
 
 import nock from 'nock'
 import sharp from 'sharp'
-import { rgbaToThumbHash, thumbHashToRGBA } from 'thumbhash'
 import { afterEach, expect, onTestFinished, test, vi } from 'vitest'
 
 import { ApiError, InconsistentResponseError, Transloadit } from '../../src/Transloadit.ts'
@@ -198,7 +197,6 @@ test('stores one original at the exact destination and returns only the verified
     path: receipt.path,
     size: bytes.length,
     width: 100,
-    thumbhash: expect.any(String),
   })
   expect(create).toHaveBeenCalledExactlyOnceWith({
     files: { image: filePath },
@@ -216,8 +214,8 @@ test('stores one original at the exact destination and returns only the verified
   })
 })
 
-test('encodes a small, oriented ThumbHash from the same original bytes', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'storage-thumbhash-'))
+test('uses server-oriented dimensions without decoding the original locally', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'storage-oriented-'))
   onTestFinished(() => rm(directory, { recursive: true, force: true }))
   const path = join(directory, 'oriented.jpg')
   const image = await sharp({
@@ -237,29 +235,18 @@ test('encodes a small, oriented ThumbHash from the same original bytes', async (
   }
   const { client } = fixture({ ...completed, results: { ':original': [stored] } })
   const result = await client.storeImage(path, { path: receipt.path })
-  const { data, info } = await sharp(image)
-    .autoOrient()
-    .resize(100, 100, { fit: 'inside', withoutEnlargement: true })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true })
   expect(result).toMatchObject({
     width: 80,
     height: 160,
-    thumbhash: Buffer.from(rgbaToThumbHash(info.width, info.height, data)).toString('base64'),
   })
-  const hash = result.thumbhash
-  expect(typeof hash).toBe('string')
-  if (typeof hash !== 'string') throw new Error('Missing ThumbHash')
-  const decoded = thumbHashToRGBA(Buffer.from(hash, 'base64'))
-  expect(decoded.w).toBeLessThan(decoded.h)
+  expect(result).not.toHaveProperty('thumbhash')
   expect(result).not.toHaveProperty('hasAlpha')
 })
 
 test.each([
   true,
   false,
-])('alpha metadata describes the verified stored bytes (unchanged: %s)', async (unchanged) => {
+])('transparent originals need no local placeholder metadata (unchanged: %s)', async (unchanged) => {
   const directory = await mkdtemp(join(tmpdir(), 'storage-alpha-'))
   onTestFinished(() => rm(directory, { recursive: true, force: true }))
   const path = join(directory, 'transparent.png')
@@ -284,18 +271,18 @@ test.each([
   }
   const { client } = fixture({ ...completed, results: { ':original': [stored] } })
   const onReceipt = vi.fn()
-  const result = await client.storeImage(path, { path: receipt.path, onReceipt })
-  if (unchanged) {
-    expect(result).toMatchObject({ hasAlpha: true, thumbhash: expect.any(String) })
-    expect(onReceipt).toHaveBeenCalledWith(result, expect.anything(), completed.assembly_id)
-  } else {
-    expect(result).not.toHaveProperty('hasAlpha')
-    expect(result).not.toHaveProperty('thumbhash')
-  }
+  const result = await client.storeImage(path, {
+    path: receipt.path,
+    onReceipt,
+  })
+  expect(result.md5hash).toBe(stored.md5hash)
+  expect(onReceipt).toHaveBeenCalledWith(result, expect.anything(), completed.assembly_id)
+  expect(result).not.toHaveProperty('hasAlpha')
+  expect(result).not.toHaveProperty('thumbhash')
 })
 
-test('a locally unsupported decoder does not prevent storing a verified original', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'storage-thumbhash-'))
+test('storing an image does not require local format support', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'storage-format-'))
   onTestFinished(() => rm(directory, { recursive: true, force: true }))
   const path = join(directory, 'original.raw')
   const image = Buffer.from('format only the remote image decoder understands')
@@ -306,24 +293,11 @@ test('a locally unsupported decoder does not prevent storing a verified original
     md5hash: createHash('md5').update(image).digest('hex'),
   }
   const { client } = fixture({ ...completed, results: { ':original': [stored] } })
-  const result = await client.storeImage(path, { path: receipt.path })
+  const result = await client.storeImage(path, {
+    path: receipt.path,
+  })
   expect(result.md5hash).toBe(stored.md5hash)
   expect(result).not.toHaveProperty('thumbhash')
-})
-
-test('a missing optional Sharp installation does not prevent storing an original', async () => {
-  vi.doMock('sharp', () => {
-    throw new Error('Optional decoder unavailable')
-  })
-  try {
-    const { client } = fixture()
-    const result = await client.storeImage(filePath, { path: receipt.path })
-    expect(result.md5hash).toBe(receipt.md5hash)
-    expect(result).not.toHaveProperty('thumbhash')
-    expect(result).not.toHaveProperty('hasAlpha')
-  } finally {
-    vi.doUnmock('sharp')
-  }
 })
 
 test.each([
