@@ -1,5 +1,38 @@
 # @transloadit/mcp-server
 
+## 0.3.34
+
+### Patch Changes
+
+- 10febdc: Restrict MCP file inputs to base64 and URLs, and require public HTTP(S) targets for server-side
+  downloads. Local filesystem path inputs are no longer supported in hosted or self-hosted MCP;
+  upload local files with `npx -y @transloadit/node upload` instead.
+
+  Validate Assembly references and resolve them through the configured API endpoint so MCP callers
+  cannot redirect authenticated status, wait, or resume requests to arbitrary hosts. Resume uploads
+  from public URL inputs without requiring the original Assembly Instructions.
+
+  Add the SDK's `followRedirects` option (defaulting to `true`) and disable API redirects in MCP,
+  including responses for Assemblies configured with `redirect_url`.
+
+- b1fb7d3: Default image generation to OpenAI Images 2.5 Flare and expose Images 2.5 Sunburst as an explicit precision option. Existing explicit OpenAI and Google model selections are preserved. Add Claude Opus 5.5 image/PDF capabilities to the shared Robot schemas while retaining Opus 5 and Fable 5.1.
+- be56c7f: Request server-generated image placeholders with `storeImage(..., { placeholder: 'blur' })`
+  or `storage store --placeholder blur`, without adding a native image decoder to the SDK.
+  Extraction is optional and best-effort; successful extraction adds metadata usage equal to 20%
+  of the file's bytes. Omission performs no extraction.
+
+  Preserve `thumbhash` and `has_alpha` in Storage receipts, native asset reads, Assembly recovery,
+  batch results and catalog sync. Viewer remains alpha and accepts server alpha metadata as well
+  as older `hasAlpha` catalogs. Private request-authorized delivery still omits inline preview pixels.
+  Hashed upload replays never overwrite or re-upload an image to generate missing metadata.
+
+  Release MCP alongside the SDK to keep its validated dependency versions aligned.
+
+- Updated dependencies [10febdc]
+- Updated dependencies [b1fb7d3]
+- Updated dependencies [be56c7f]
+  - @transloadit/node@4.14.0
+
 ## 0.3.33
 
 ### Patch Changes
