@@ -300,6 +300,8 @@ For URL inputs, behavior depends on the template/instructions:
 
 - MCP accepts base64 and URL inputs in both self-hosted and hosted deployments. Local filesystem
   paths are not supported as tool inputs.
+- **Migration:** clients that previously sent `kind: 'path'` must switch to base64, a public URL,
+  or a local CLI upload. This also applies to stdio and self-hosted servers.
 - Use public `url` inputs, small `base64` payloads, or upload locally with
   `npx -y @transloadit/node upload`.
 - Use `expected_uploads` to keep an Assembly open for out-of-band tus uploads.
@@ -308,7 +310,16 @@ For URL inputs, behavior depends on the template/instructions:
 
 If `assembly_url` is provided, MCP resumes uploads using Assembly status (`tus_uploads` +
 `uploads`). This requires stable field names and file metadata (`filename` + `size`).
-Resubmit the same base64 or public URL input to resume an upload.
+Resubmit the same base64 or public URL input to resume an upload. URL inputs are downloaded and
+uploaded even when the original instructions are omitted; resumption does not modify the existing
+Assembly's Steps. The file's contents, field name, and filename must remain unchanged.
+
+Assembly IDs must contain 32 hexadecimal characters. Assembly URLs must refer to a Transloadit host
+or the explicitly configured API origin, without credentials, query parameters, or fragments.
+MCP extracts the ID and resolves the Assembly through its configured API endpoint; it never fetches
+the caller-supplied Assembly URL directly. MCP does not follow API response redirects, including an
+Assembly's `redirect_url`. A custom endpoint can use a local origin for development,
+but this does not enable private-network URL file downloads.
 
 ## Metrics and server card
 

@@ -338,6 +338,7 @@ const createLiveClient = (
         authSecret: options.authSecret,
         endpoint: options.endpoint,
         clientName: getClientName(options),
+        followRedirects: false,
       }),
     }
   }
@@ -357,6 +358,7 @@ const createLiveClient = (
       authSecret: options.authSecret,
       endpoint: options.endpoint,
       clientName: getClientName(options),
+      followRedirects: false,
     }),
   }
 }
@@ -479,12 +481,61 @@ const mergeFieldValues = (
   }
 }
 
-const getAssemblyIdFromUrl = (assemblyUrl: string): string => {
-  const match = assemblyUrl.match(/\/assemblies\/([^/?#]+)/)
-  if (!match) {
-    throw new Error(`Invalid assembly URL: ${assemblyUrl}`)
+const assemblyIdSchema = z.string().regex(/^[a-f\d]{32}$/i)
+const assemblyUrlSchema = z.url()
+
+type AssemblyReference = { assemblyId: string; assemblyUrl: string }
+
+const resolveAssemblyReference = (
+  options: TransloaditMcpServerOptions,
+  args: { assembly_url?: string; assembly_id?: string },
+): AssemblyReference | { error: ReturnType<typeof buildToolError> } => {
+  if (args.assembly_url === undefined && args.assembly_id === undefined) {
+    return { error: buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.') }
   }
-  return match[1] ?? ''
+
+  const path = args.assembly_url === undefined ? 'assembly_id' : 'assembly_url'
+  const invalidReference = {
+    error: buildToolError('mcp_invalid_args', 'Provide a valid Transloadit Assembly URL or ID.', {
+      path,
+    }),
+  }
+  const endpoint = options.endpoint ?? 'https://api2.transloadit.com'
+  let assemblyId = args.assembly_id
+
+  if (args.assembly_url !== undefined) {
+    const parsed = assemblyUrlSchema.safeParse(args.assembly_url)
+    if (!parsed.success) return invalidReference
+    const url = new URL(parsed.data)
+    const apiEndpoint = new URL(endpoint)
+    const usesConfiguredOrigin = url.origin === apiEndpoint.origin
+    const usesTransloaditOrigin = url.hostname.endsWith('.transloadit.com') && url.port === ''
+    if (
+      (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      (!usesConfiguredOrigin && !usesTransloaditOrigin)
+    ) {
+      return invalidReference
+    }
+
+    const prefix = usesConfiguredOrigin ? apiEndpoint.pathname.replace(/\/$/, '') : ''
+    const assemblyPath = `${prefix}/assemblies/`
+    if (!url.pathname.startsWith(assemblyPath)) return invalidReference
+    assemblyId = url.pathname.slice(assemblyPath.length).replace(/\/$/, '')
+  }
+
+  const parsedId = assemblyIdSchema.safeParse(assemblyId)
+  if (!parsedId.success) return invalidReference
+
+  // Caller URLs only identify an Assembly. Resolve its status and upload endpoints through
+  // the configured API so caller-controlled hosts, redirects, and DNS never receive credentials.
+  return {
+    assemblyId: parsedId.data,
+    assemblyUrl: `${endpoint}/assemblies/${parsedId.data}`,
+  }
 }
 
 type AssemblyAccessResult =
@@ -503,18 +554,12 @@ const resolveAssemblyAccess = (
   const liveClient = createLiveClient(options, extra)
   if ('error' in liveClient) return liveClient
 
-  if (!args.assembly_url && !args.assembly_id) {
-    return { error: buildToolError('mcp_missing_args', 'Provide assembly_url or assembly_id.') }
-  }
-
-  const assemblyId = args.assembly_url
-    ? getAssemblyIdFromUrl(args.assembly_url)
-    : (args.assembly_id as string)
+  const reference = resolveAssemblyReference(options, args)
+  if ('error' in reference) return reference
 
   return {
     client: liveClient.client,
-    assemblyId,
-    assemblyUrl: args.assembly_url,
+    ...reference,
   }
 }
 
@@ -670,6 +715,9 @@ export const createTransloaditMcpServer = (
       const liveClient = createLiveClient(options, extra)
       if ('error' in liveClient) return liveClient.error
       const { client } = liveClient
+      const reference =
+        assembly_url === undefined ? undefined : resolveAssemblyReference(options, { assembly_url })
+      if (reference && 'error' in reference) return reference.error
       const tempCleanups: Array<() => Promise<void>> = []
       const warnings: Array<{ code: string; message: string; hint?: string; path?: string }> = []
       let templatePathHint: string | undefined
@@ -735,7 +783,7 @@ export const createTransloaditMcpServer = (
           mergedFields = isRecord(params.fields) ? (params.fields as Record<string, unknown>) : {}
         }
 
-        if (hasUrlInputs) {
+        if (hasUrlInputs && !reference) {
           if (!analysis.hasHttpImport && !analysis.requiresUpload) {
             inputFilesForPrep = fileInputs.filter((file) => file.kind !== 'url')
             warnings.push({
@@ -799,7 +847,7 @@ export const createTransloaditMcpServer = (
           params,
           fields,
           base64Strategy: 'tempfile',
-          urlStrategy: 'import-if-present',
+          urlStrategy: reference ? 'download' : 'import-if-present',
           allowPrivateUrls: false,
           maxBase64Bytes,
         }).catch((error) => {
@@ -836,9 +884,9 @@ export const createTransloaditMcpServer = (
 
         let assembly: Awaited<ReturnType<typeof client.createAssembly>>
         try {
-          assembly = assembly_url
+          assembly = reference
             ? await client.resumeAssemblyUploads({
-                assemblyUrl: assembly_url,
+                assemblyUrl: reference.assemblyUrl,
                 files: filesMap,
                 uploads: uploadsMap,
                 waitForCompletion,

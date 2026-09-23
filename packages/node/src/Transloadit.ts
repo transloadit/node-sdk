@@ -453,6 +453,8 @@ type BaseOptions = {
   maxRetries?: number
   timeout?: number
   gotRetry?: Partial<RetryOptions>
+  /** Follow API redirects. Disable when requests originate from untrusted callers. Defaults to true. */
+  followRedirects?: boolean
   validateResponses?: boolean
   clientName?: string
 }
@@ -461,6 +463,7 @@ export type Options = BaseOptions & (AuthKeySecret | AuthToken)
 
 export class Transloadit {
   #signatureAlgorithm: SignatureAlgorithm
+  #followRedirects: boolean
   private _authKey: string
 
   private _authSecret: string
@@ -504,6 +507,7 @@ export class Transloadit {
     this._authSecret = opts.authSecret ?? ''
     this.#signatureAlgorithm = opts.signatureAlgorithm ?? 'sha384'
     this._authToken = hasToken ? rawToken : null
+    this.#followRedirects = opts.followRedirects ?? true
     this._endpoint = opts.endpoint || 'https://api2.transloadit.com'
     this._maxRetries = opts.maxRetries != null ? opts.maxRetries : 5
     this._defaultTimeout = opts.timeout != null ? opts.timeout : 60000
@@ -1650,6 +1654,7 @@ export class Transloadit {
       }
 
       const requestOpts: OptionsOfJSONResponseBody = {
+        followRedirect: this.#followRedirects,
         retry: this._gotRetry,
         body: form,
         timeout,
