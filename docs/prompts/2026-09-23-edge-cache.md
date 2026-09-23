@@ -37,8 +37,14 @@ changes are needed. A package changeset is not appropriate for this fixture fix.
 - [x] Repeat full repository verification after review: `corepack yarn verify:full`
   passes, including package tests, wrapper sync, Knip and generated type checks
   (`/tmp/sdk-edge-cache-verify-full.log`).
-- [ ] Green x64 PR run with retained artifact evidence; no blind failure retries.
-- [ ] Update node-sdk#510 with the cause, upstream link and validated mitigation.
+- [x] Green x64 PR run with retained artifact evidence; no blind failure retries.
+  All checks passed on `c7ed9422e253af635a0a3631aad59eca62449ef1` in
+  https://github.com/transloadit/node-sdk/actions/runs/35828672200, including the
+  packed Next browser fixture, release dry run, all supported Node versions and
+  both real Supabase package probes. CI measured zero native files and upload
+  sizes of 2,456,058 bytes (Node) / 2,450,115 bytes (legacy). Both containers exit 0.
+- [x] Update node-sdk#510 with the cause, upstream link and validated mitigation:
+  https://github.com/transloadit/node-sdk/issues/510#issuecomment-5790411458.
 
 No review comments existed at branch creation. Review and CI outcomes will be
 recorded here. The API2 #9191 merge is a separate authorized operation; neither
