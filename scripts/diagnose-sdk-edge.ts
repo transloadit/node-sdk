@@ -10,6 +10,7 @@ const output = join(repoRoot, 'test-results/sdk-edge-diagnosis')
 const edgeImage =
   'public.ecr.aws/supabase/edge-runtime:v1.76.2@sha256:edd22bef4477b900d5c300e287ce9b18bff9b81a0291bee14ee0b7c7b71a2899'
 const containers = new Set<string>()
+const volumes = new Set<string>()
 const probes: { label: string; exitCode: number | undefined; durationMs: number }[] = []
 
 async function capture(
@@ -61,60 +62,95 @@ async function probe(
   return result.exitCode
 }
 
-async function debug(source: string, args: string[]): Promise<void> {
-  // Only this disposable container gains ptrace; no host mounts or credentials.
-  const id = await createContainer([
-    '--cap-add=SYS_PTRACE',
-    '--entrypoint',
-    '/bin/sleep',
-    '--workdir',
-    '/work',
-    edgeImage,
-    '900',
-  ])
-  await execa('docker', ['cp', `${source}/.`, `${id}:/work`])
-  await execa('docker', ['start', id])
-  await capture('debug-packages-before', 'docker', ['exec', id, 'dpkg-query', '-W'])
-  await capture('debug-apt-update', 'docker', ['exec', id, 'apt-get', 'update'])
-  const install = await capture('debug-apt-install', 'docker', [
-    'exec',
-    id,
-    'apt-get',
-    'install',
-    '-y',
-    '--no-install-recommends',
-    'gdb',
-    'strace',
-  ])
-  if (install !== 0) return
-  await capture('debug-packages-after', 'docker', ['exec', id, 'dpkg-query', '-W'])
-  await capture('debug-strace', 'docker', [
-    'exec',
-    id,
-    'strace',
-    '-f',
-    '-o',
-    '/tmp/edge.strace',
-    '/usr/local/bin/edge-runtime',
-    ...args,
-  ])
-  await execa('docker', ['cp', `${id}:/tmp/edge.strace`, join(output, 'edge.strace')])
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    await capture(`debug-gdb-${attempt}`, 'docker', [
+async function captureCrashDump(source: string, args: string[]): Promise<void> {
+  // Only run this kernel-setting experiment on a disposable hosted x64 runner.
+  if (
+    process.env.GITHUB_ACTIONS !== 'true' ||
+    process.platform !== 'linux' ||
+    process.arch !== 'x64'
+  ) {
+    throw new Error('Crash dumps require the isolated GitHub x64 diagnostic job')
+  }
+  const previous = await execa('sysctl', ['-n', 'kernel.core_pattern'])
+  await writeFile(join(output, 'core-pattern-before.log'), `${previous.stdout}\n`)
+  const volume = (
+    await execa('docker', ['volume', 'create', '--label', 'transloadit.diagnosis=510'])
+  ).stdout.trim()
+  volumes.add(volume)
+  const mount = `type=volume,source=${volume},target=/work`
+  await execa('sudo', ['-n', 'sysctl', '-w', 'kernel.core_pattern=edge.core'])
+  try {
+    let crashed = false
+    for (let attempt = 1; attempt <= 30; attempt += 1) {
+      const id = await createContainer([
+        '--ulimit',
+        'core=1073741824:1073741824',
+        '--mount',
+        mount,
+        '--workdir',
+        '/work',
+        edgeImage,
+        ...args,
+      ])
+      if (attempt === 1) await execa('docker', ['cp', `${source}/.`, `${id}:/work`])
+      const result = await execa('docker', ['start', '--attach', id], {
+        reject: false,
+        timeout: 150_000,
+      })
+      const label = `core-attempt-${attempt}`
+      probes.push({ label, exitCode: result.exitCode, durationMs: result.durationMs })
+      await writeFile(join(output, `${label}.log`), `${result.stdout}\n${result.stderr}\n`)
+      await capture(`${label}-state`, 'docker', ['inspect', '--format', '{{json .State}}', id])
+      if (result.exitCode !== 0) {
+        crashed = true
+        break
+      }
+      await execa('docker', ['rm', id])
+      containers.delete(id)
+    }
+    if (!crashed) return
+    const debuggerId = await createContainer([
+      '--entrypoint',
+      '/bin/sleep',
+      '--mount',
+      mount,
+      '--workdir',
+      '/work',
+      edgeImage,
+      '900',
+    ])
+    await execa('docker', ['start', debuggerId])
+    const core = await capture('core-file', 'docker', [
       'exec',
-      id,
+      debuggerId,
+      'stat',
+      '/work/edge.core',
+    ])
+    if (core !== 0) return
+    await capture('core-packages-before', 'docker', ['exec', debuggerId, 'dpkg-query', '-W'])
+    await capture('core-apt-update', 'docker', ['exec', debuggerId, 'apt-get', 'update'])
+    const install = await capture('core-apt-install', 'docker', [
+      'exec',
+      debuggerId,
+      'apt-get',
+      'install',
+      '-y',
+      '--no-install-recommends',
+      'gdb',
+    ])
+    if (install !== 0) return
+    await capture('core-packages-after', 'docker', ['exec', debuggerId, 'dpkg-query', '-W'])
+    await capture('core-backtrace', 'docker', [
+      'exec',
+      debuggerId,
       'gdb',
       '--batch',
       '-ex',
       'set pagination off',
       '-ex',
-      'set disable-randomization off',
+      'bt 40',
       '-ex',
-      'handle SIGBUS stop print nopass',
-      '-ex',
-      'run',
-      '-ex',
-      'bt 30',
+      'thread apply all bt 12',
       '-ex',
       'info registers',
       '-ex',
@@ -123,10 +159,12 @@ async function debug(source: string, args: string[]): Promise<void> {
       'x/12i $pc-24',
       '-ex',
       'info proc mappings',
-      '--args',
       '/usr/local/bin/edge-runtime',
-      ...args,
+      '/work/edge.core',
     ])
+    // Raw cores stay in this bounded disposable volume, not in CI artifacts.
+  } finally {
+    await execa('sudo', ['-n', 'sysctl', '-w', `kernel.core_pattern=${previous.stdout}`])
   }
 }
 
@@ -192,19 +230,8 @@ async function main(): Promise<void> {
       await probe(`sdk-${attempt}`, bundleArgs, consumer)
     }
 
-    const firstFailure = probes.find((result) => result.exitCode !== 0)
-    if (firstFailure !== undefined) {
-      const source = firstFailure.label.startsWith('sdk-') ? consumer : minimal
-      const args = firstFailure.label.startsWith('version-') ? ['--version'] : bundleArgs
-      for (let attempt = 1; attempt <= 3; attempt += 1) {
-        await probe(`without-pku-${attempt}`, args, source, [
-          '--env',
-          'V8_FLAGS=--no-memory-protection-keys',
-        ])
-        await probe(`large-shm-${attempt}`, args, source, ['--shm-size=512m'])
-        await probe(`control-after-${attempt}`, args, source)
-      }
-      await debug(source, args)
+    await captureCrashDump(consumer, bundleArgs)
+    if (probes.some((result) => result.exitCode !== 0)) {
       // Diagnostics must never hide the original failure or make the old main run green.
       process.exitCode = 1
     }
@@ -214,6 +241,9 @@ async function main(): Promise<void> {
   } finally {
     for (const id of containers) {
       await execa('docker', ['rm', '--force', id], { reject: false })
+    }
+    for (const volume of volumes) {
+      await execa('docker', ['volume', 'rm', volume], { reject: false })
     }
     await rm(temporary, { recursive: true, force: true })
   }
