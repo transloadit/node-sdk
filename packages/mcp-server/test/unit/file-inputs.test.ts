@@ -227,7 +227,10 @@ describe('MCP file inputs', () => {
   it('rejects downloads from the local network before making the request', async () => {
     const result = await client.callTool({
       name: 'transloadit_create_assembly',
-      arguments: { files: [{ kind: 'url', field: 'file', url: `${origin}/fixture` }] },
+      arguments: {
+        instructions: { steps: { ':original': { robot: '/upload/handle' } } },
+        files: [{ kind: 'url', field: 'file', url: `${origin}/fixture` }],
+      },
     })
     expect(result.structuredContent).toMatchObject({
       status: 'error',
@@ -240,7 +243,10 @@ describe('MCP file inputs', () => {
   it('rejects file URLs', async () => {
     const result = await client.callTool({
       name: 'transloadit_create_assembly',
-      arguments: { files: [{ kind: 'url', field: 'file', url: `file://${fixturePath}` }] },
+      arguments: {
+        instructions: { steps: { ':original': { robot: '/upload/handle' } } },
+        files: [{ kind: 'url', field: 'file', url: `file://${fixturePath}` }],
+      },
     })
     expect(result.structuredContent).toMatchObject({
       status: 'error',
