@@ -1670,8 +1670,19 @@ export class Transloadit {
 
       try {
         const request = got[method]<TRet>(url, requestOpts)
-        const { body } = await request
-        // console.log(body)
+        const { body, statusCode } = await request
+        // redirect_url responses can contain a valid Assembly, but an empty redirect cannot
+        // fulfill an API request. Keep its Location unfollowed without reporting empty success.
+        if (
+          !this.#followRedirects &&
+          statusCode >= 300 &&
+          statusCode < 400 &&
+          (body === null || typeof body !== 'object')
+        ) {
+          throw new InconsistentResponseError(
+            'The API returned a redirect without a JSON object while redirects are disabled.',
+          )
+        }
         return body
       } catch (err) {
         if (!(err instanceof RequestError)) throw err

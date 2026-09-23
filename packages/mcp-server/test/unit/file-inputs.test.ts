@@ -362,6 +362,26 @@ describe('MCP file inputs', () => {
     expect(privateDownloads).toBe(0)
   })
 
+  it.each(['', null])('rejects an API redirect without a JSON object: %j', async (body) => {
+    vi.mocked(Transloadit.prototype.createAssembly).mockRestore()
+    const api = nock('https://api2.transloadit.com')
+      .post(/\/assemblies\/[a-f\d]{32}$/)
+      .reply(302, body, { Location: `${origin}/fixture` })
+    const result = await client.callTool({
+      name: 'transloadit_create_assembly',
+      arguments: {},
+    })
+    expect(result.isError).toBe(true)
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'The API returned a redirect without a JSON object while redirects are disabled.',
+      },
+    ])
+    expect(api.isDone()).toBe(true)
+    expect(privateDownloads).toBe(0)
+  })
+
   it('also disables API redirects with configured key and secret credentials', async () => {
     serverOptions.authKey = 'regression-key'
     serverOptions.authSecret = 'regression-secret'

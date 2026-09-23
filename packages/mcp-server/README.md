@@ -313,6 +313,7 @@ If `assembly_url` is provided, MCP resumes uploads using Assembly status (`tus_u
 Resubmit the same base64 or public URL input to resume an upload. URL inputs are downloaded and
 uploaded even when the original instructions are omitted; resumption does not modify the existing
 Assembly's Steps. The file's contents, field name, and filename must remain unchanged.
+This resumes tus uploads; URL imports performed by `/http/import` do not need to be resubmitted.
 
 Assembly IDs must contain 32 hexadecimal characters. Assembly URLs must refer to a Transloadit host
 or the explicitly configured API origin, without credentials, query parameters, or fragments.

@@ -13,7 +13,7 @@
 - [x] Cover rejected private downloads and retained base64, URL, and custom-endpoint
   workflows with regression tests that fail before the fix.
 - [x] Update migration documentation and the MCP/SDK package changeset.
-- [ ] Run council-review and address its findings.
+- [x] Run council-review and address its findings.
 - [x] Pass `corepack yarn check` and `corepack yarn verify:full`, including generated
   legacy-wrapper synchronization, package tests, dependency checks, and type tests.
 
@@ -35,3 +35,20 @@ Red-first evidence: `/tmp/mcp-file-access-red.log` (20 new failures) and
 `/tmp/mcp-api-redirect-red.log` (4 redirect regressions). Package build and unit
 checks pass after the fixes. The earlier local DNS typing failure disappeared
 after installing the current lockfile's dependencies.
+
+## Council review
+
+The first council pass retained one P2: an empty unfollowed API redirect could
+report success without an Assembly. Two new cases fail before the fix
+(`/tmp/mcp-empty-redirect-red.log`); redirects without a JSON object now fail with
+a sanitized error. JSON Assembly responses remain supported because the API's
+`redirect_url` behavior returns an Assembly body with its Location header.
+The corrected MCP build and all 49 unit tests pass.
+
+The raw review's remaining suggestions were not retained by the arbiter: template
+validation during resumes is pre-existing; trailing-slash endpoints are already
+rejected by the SDK constructor. The security restriction intentionally retains a
+patch bump with explicit migration guidance; the pending SDK release is already
+minor. Document that `/http/import` inputs do not need tus resumption. CI passed
+all jobs on the first implementation commit:
+https://github.com/transloadit/node-sdk/actions/runs/35882240299.

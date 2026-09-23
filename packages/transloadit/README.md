@@ -1719,8 +1719,9 @@ The `options` object can contain the following keys:
 - `maxRetries` (default `5`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `gotRetry` (default `0`) - see [Rate limiting & auto retry](#rate-limiting--auto-retry)
 - `followRedirects` (default `true`) - follow HTTP redirects from API requests. Set to `false`
-  when serving untrusted callers; the original response body is returned without visiting the
-  redirect target. This option does not affect file downloads or tus uploads.
+  when serving untrusted callers; the original JSON object is returned without visiting the
+  redirect target, and redirects without a JSON object are rejected. This option does not affect
+  file downloads or tus uploads.
 - `timeout` (default `60000`: 1 minute) - the timeout (in milliseconds) for all requests (except `createAssembly`)
 - `validateResponses` (default `false`)
 
