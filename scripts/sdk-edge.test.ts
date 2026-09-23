@@ -15,7 +15,7 @@ import { expect, test } from 'vitest'
 
 test('the Edge bundler gets a bounded disposable cache without changing its command', async () => {
   const source = await readFile(new URL('./test-sdk-edge.ts', import.meta.url), 'utf8')
-  const bundles: string[][] = []
+  const bundles: (string | { expression: string })[][] = []
   function visit(node: Node): void {
     if (
       isCallExpression(node) &&
@@ -30,7 +30,9 @@ test('the Edge bundler gets a bounded disposable cache without changing its comm
         args &&
         isArrayLiteralExpression(args)
       ) {
-        const values = args.elements.filter(isStringLiteral).map((value) => value.text)
+        const values = args.elements.map((value) =>
+          isStringLiteral(value) ? value.text : { expression: value.getText() },
+        )
         if (values[0] === 'create' && values.includes('bundle')) bundles.push(values)
       }
     }
@@ -45,6 +47,7 @@ test('the Edge bundler gets a bounded disposable cache without changing its comm
     '/work',
     '--tmpfs',
     '/root/.cache/deno:size=268435456',
+    { expression: 'edgeImage' },
     'bundle',
     '--entrypoint',
     '/work/index.ts',

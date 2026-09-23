@@ -30,7 +30,13 @@ changes are needed. A package changeset is not appropriate for this fixture fix.
   budgets, actual HTTP execution and HMAC verification. Node: 28,025,947 raw /
   2,454,583 upload bytes; legacy: 28,025,764 / 2,459,280 bytes. Both have zero native
   image dependencies. Log: `/tmp/sdk-edge-cache-packed.log`.
-- [ ] Council review, reconcile findings, and run repository checks.
+- [x] Council review and reconcile findings: one P2 in the regression test,
+  reproduced with an intentionally misplaced Docker image argument. The original
+  test missed it; the corrected test fails on that mutant and passes after
+  restoring the valid invocation. No runtime change was needed after review.
+- [x] Repeat full repository verification after review: `corepack yarn verify:full`
+  passes, including package tests, wrapper sync, Knip and generated type checks
+  (`/tmp/sdk-edge-cache-verify-full.log`).
 - [ ] Green x64 PR run with retained artifact evidence; no blind failure retries.
 - [ ] Update node-sdk#510 with the cause, upstream link and validated mitigation.
 
@@ -41,6 +47,12 @@ production deployment nor npm release is authorized by this task.
 Pre-review `corepack yarn check` passes. Existing Biome informational diagnostics
 and the existing unused-variable warning are unchanged. Log:
 `/tmp/sdk-edge-cache-check.log`.
+
+The negative control `test:sdk:edge --version 4.13.0` still fails on its 77 native
+image paths with the tmpfs enabled. This confirms the original bloat gate is
+retained (`/tmp/sdk-edge-cache-bloat-control.log`). Council log:
+`/tmp/sdk-edge-cache-council.log`; mutation evidence:
+`/tmp/sdk-edge-cache-mutant-{before,red}.log`.
 
 ## Follow-up gates
 
