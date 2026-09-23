@@ -312,6 +312,32 @@ describe('MCP file inputs', () => {
     'transloadit_create_assembly',
     'transloadit_get_assembly_status',
     'transloadit_wait_for_assembly',
+  ])('uses the default API for an empty endpoint in %s', async (name) => {
+    serverOptions.endpoint = ''
+    const result = await client.callTool({
+      name,
+      arguments: { assembly_url: assemblyUrl },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+  })
+
+  it('uses the default API for ID-based waits with an empty endpoint', async () => {
+    serverOptions.endpoint = ''
+    const result = await client.callTool({
+      name: 'transloadit_wait_for_assembly',
+      arguments: { assembly_id: assemblyId },
+    })
+    expect(result.structuredContent).toMatchObject({ status: 'ok' })
+    expect(Transloadit.prototype.awaitAssemblyCompletion).toHaveBeenCalledWith(
+      assemblyId,
+      expect.objectContaining({ assemblyUrl }),
+    )
+  })
+
+  it.each([
+    'transloadit_create_assembly',
+    'transloadit_get_assembly_status',
+    'transloadit_wait_for_assembly',
   ])('does not follow API redirects when %s accesses an Assembly', async (name) => {
     vi.mocked(Transloadit.prototype.resumeAssemblyUploads).mockRestore()
     vi.mocked(Transloadit.prototype.getAssembly).mockRestore()

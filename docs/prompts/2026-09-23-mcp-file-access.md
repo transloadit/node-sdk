@@ -52,3 +52,10 @@ patch bump with explicit migration guidance; the pending SDK release is already
 minor. Document that `/http/import` inputs do not need tus resumption. CI passed
 all jobs on the first implementation commit:
 https://github.com/transloadit/node-sdk/actions/runs/35882240299.
+
+The follow-up council retained one configuration regression: an empty endpoint
+must use the SDK's default API. Four targeted tests failed before the one-line
+fallback correction (`/tmp/mcp-empty-endpoint-red.log`). Use the same `||` fallback
+as the SDK constructor. The rest of the corrected implementation passed review,
+and its complete CI run is:
+https://github.com/transloadit/node-sdk/actions/runs/35883965701.

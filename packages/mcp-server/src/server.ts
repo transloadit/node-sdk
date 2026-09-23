@@ -500,7 +500,8 @@ const resolveAssemblyReference = (
       path,
     }),
   }
-  const endpoint = options.endpoint ?? 'https://api2.transloadit.com'
+  // Match the SDK's default when an environment variable supplies an empty endpoint.
+  const endpoint = options.endpoint || 'https://api2.transloadit.com'
   let assemblyId = args.assembly_id
 
   if (args.assembly_url !== undefined) {
