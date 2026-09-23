@@ -134,11 +134,6 @@ const getRobotHelpOutputSchema = z
 
 const inputFileSchema = z.discriminatedUnion('kind', [
   z.object({
-    kind: z.literal('path'),
-    field: z.string(),
-    path: z.string(),
-  }),
-  z.object({
     kind: z.literal('base64'),
     field: z.string(),
     base64: z.string(),
@@ -805,6 +800,7 @@ export const createTransloaditMcpServer = (
           fields,
           base64Strategy: 'tempfile',
           urlStrategy: 'import-if-present',
+          allowPrivateUrls: false,
           maxBase64Bytes,
         }).catch((error) => {
           const message = error instanceof Error ? error.message : 'Invalid file input.'
@@ -813,7 +809,7 @@ export const createTransloaditMcpServer = (
           }
           if (message.startsWith('Base64 payload exceeds')) {
             return buildToolError('mcp_base64_too_large', message, {
-              hint: 'Use a URL import or path upload instead.',
+              hint: 'Use a public URL import or upload from your own machine instead.',
             })
           }
           return buildToolError('mcp_invalid_args', message)
@@ -864,9 +860,13 @@ export const createTransloaditMcpServer = (
               })
         } catch (error) {
           if (isErrnoException(error) && error.code === 'ENOENT') {
-            return buildToolError('mcp_file_not_found', error.message, {
-              hint: 'Path inputs only work when the MCP server can read local files. For hosted MCP, use url/base64 or upload via `npx -y @transloadit/node upload`.',
-            })
+            return buildToolError(
+              'mcp_file_not_found',
+              'A prepared upload is no longer available.',
+              {
+                hint: 'Retry with base64 or a public URL, or upload via `npx -y @transloadit/node upload`.',
+              },
+            )
           }
           throw error
         }
