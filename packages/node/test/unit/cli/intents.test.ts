@@ -498,7 +498,7 @@ describe('intent commands', () => {
     )
   })
 
-  it('defaults image generate to google/nano-banana-2 when no --model is provided', async () => {
+  it('defaults image generate to OpenAI Images 2.5 Flare when no --model is provided', async () => {
     const { createSpy } = await runIntentCommand([
       'image',
       'generate',
@@ -516,7 +516,7 @@ describe('intent commands', () => {
         stepsData: {
           generate: expect.objectContaining({
             robot: '/image/generate',
-            model: 'google/nano-banana-2',
+            model: 'openai/gpt-image-2.5-flare',
             prompt: 'A red bicycle in a studio',
             result: true,
           }),
@@ -525,14 +525,19 @@ describe('intent commands', () => {
     )
   })
 
-  it('passes through openai/gpt-image-2 and explicit dimensions for image generate', async () => {
+  it.each([
+    'openai/gpt-image-2.5-flare',
+    'openai/gpt-image-2.5-sunburst',
+    'openai/gpt-image-2',
+    'google/nano-banana-2',
+  ])('passes through %s and explicit dimensions for image generate', async (model) => {
     const { createSpy } = await runIntentCommand([
       'image',
       'generate',
       '--prompt',
       'A ceramic coffee mug on a white sweep',
       '--model',
-      'openai/gpt-image-2',
+      model,
       '--width',
       '1024',
       '--height',
@@ -551,7 +556,7 @@ describe('intent commands', () => {
         stepsData: {
           generate: expect.objectContaining({
             robot: '/image/generate',
-            model: 'openai/gpt-image-2',
+            model,
             prompt: 'A ceramic coffee mug on a white sweep',
             width: 1024,
             height: 1024,
@@ -591,6 +596,7 @@ describe('intent commands', () => {
           generate: expect.objectContaining({
             robot: '/image/generate',
             result: true,
+            model: 'openai/gpt-image-2.5-flare',
             prompt: 'Place person1.jpg feeding person2.jpg in front of background.jpg',
             use: {
               steps: [':original'],

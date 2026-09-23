@@ -260,7 +260,6 @@ npx -y @transloadit/mcp-server stdio
 
 ```ts
 export type InputFile =
-  | { kind: 'path'; field: string; path: string }
   | {
       kind: 'base64'
       field: string
@@ -279,7 +278,8 @@ export type InputFile =
 
 ## Limits
 
-These limits apply to inline JSON/base64 payloads. For larger files, prefer `path` or `url`.
+These limits apply to inline JSON/base64 payloads. For larger files, use a public URL or upload from
+your own machine with `npx -y @transloadit/node upload`.
 
 - Hosted default request body limit: **1 MB**
 - Hosted `maxBase64Bytes`: **512,000** decoded bytes
@@ -291,15 +291,18 @@ For URL inputs, behavior depends on the template/instructions:
 
 - If an `/http/import` Step exists, MCP sets/overrides that Step's `url`.
 - If the template expects uploads (`:original` or `/upload/handle`), MCP downloads then uploads via
-  tus.
+  tus. These downloads require public HTTP(S) URLs; private-network targets are rejected, including
+  redirects to private addresses.
 - If the template does not take input files, URL inputs are ignored and a warning is returned.
 - If `allow_steps_override=false` and only `/http/import` would work, URL inputs are rejected.
 
 ## Local vs hosted file access
 
-- `path` inputs require filesystem access from the MCP process (local/self-hosted).
-- Hosted MCP cannot read local disk.
-- For remote workflows, use `url`, small `base64`, or upload locally with
+- MCP accepts base64 and URL inputs in both self-hosted and hosted deployments. Local filesystem
+  paths are not supported as tool inputs.
+- **Migration:** clients that previously sent `kind: 'path'` must switch to base64, a public URL,
+  or a local CLI upload. This also applies to stdio and self-hosted servers.
+- Use public `url` inputs, small `base64` payloads, or upload locally with
   `npx -y @transloadit/node upload`.
 - Use `expected_uploads` to keep an Assembly open for out-of-band tus uploads.
 
@@ -307,7 +310,17 @@ For URL inputs, behavior depends on the template/instructions:
 
 If `assembly_url` is provided, MCP resumes uploads using Assembly status (`tus_uploads` +
 `uploads`). This requires stable field names and file metadata (`filename` + `size`).
-Path-based file inputs can be resumed.
+Resubmit the same base64 or public URL input to resume an upload. URL inputs are downloaded and
+uploaded even when the original instructions are omitted; resumption does not modify the existing
+Assembly's Steps. The file's contents, field name, and filename must remain unchanged.
+This resumes tus uploads; URL imports performed by `/http/import` do not need to be resubmitted.
+
+Assembly IDs must contain 32 hexadecimal characters. Assembly URLs must refer to a Transloadit host
+or the explicitly configured API origin, without credentials, query parameters, or fragments.
+MCP extracts the ID and resolves the Assembly through its configured API endpoint; it never fetches
+the caller-supplied Assembly URL directly. MCP does not follow API response redirects, including an
+Assembly's `redirect_url`. A custom endpoint can use a local origin for development,
+but this does not enable private-network URL file downloads.
 
 ## Metrics and server card
 

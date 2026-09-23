@@ -26,6 +26,23 @@ describe('Mocked API tests', () => {
     nock.abortPendingRequests() // Abort delayed requests preventing them from ruining the next test
   })
 
+  it('continues to follow API redirects by default', async () => {
+    const client = getLocalClient()
+    const initial = nock('http://localhost')
+      .get('/assemblies/123')
+      .query(true)
+      .reply(302, undefined, { Location: 'https://example.com/assemblies/123' })
+    const redirected = nock('https://example.com').get('/assemblies/123').reply(200, {
+      ok: 'ASSEMBLY_COMPLETED',
+      assembly_url: 'http://example.com/assemblies/123',
+      assembly_ssl_url: 'https://example.com/assemblies/123',
+    })
+
+    await expect(client.getAssembly('123')).resolves.toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
+    expect(initial.isDone()).toBe(true)
+    expect(redirected.isDone()).toBe(true)
+  })
+
   it('should time out createAssembly with a custom timeout', async () => {
     const client = getLocalClient()
 

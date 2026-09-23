@@ -1,6 +1,6 @@
 {
   "name": "@transloadit/viewer",
-  "version": "0.0.2",
+  "version": "0.0.1",
   "description": "Alpha: native responsive images from Transloadit Storage and Smart CDN Templates",
   "type": "module",
   "license": "MIT",

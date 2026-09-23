@@ -91,7 +91,7 @@ Best practice:
       .string()
       .optional()
       .describe(
-        'The AI model to use. Defaults to google/nano-banana. Supported models include flux-1.1-pro-ultra, flux-schnell, recraft-v3, google/nano-banana, google/nano-banana-2, google/nano-banana-pro, openai/gpt-image-2, and stability-ai/stable-diffusion-inpainting. The legacy alias gpt-image-2 is also accepted for backwards compatibility.',
+        'The AI model to use. Defaults to openai/gpt-image-2.5-flare. Supported models include flux-1.1-pro-ultra, flux-schnell, recraft-v3, google/nano-banana, google/nano-banana-2, google/nano-banana-pro, openai/gpt-image-2, openai/gpt-image-2.5-flare, openai/gpt-image-2.5-sunburst, and stability-ai/stable-diffusion-inpainting. The legacy alias gpt-image-2 is also accepted for backwards compatibility.',
       ),
     prompt: z
       .string()
@@ -102,7 +102,7 @@ Best practice:
       .enum(['jpeg', 'jpg', 'png', 'gif', 'webp', 'svg'])
       .optional()
       .describe(
-        'Output format. Defaults depend on model: png for Google models and openai/gpt-image-2, svg for recraft-v3, jpeg for others. Google models currently return PNG only.',
+        'Output format. Defaults depend on model: png for Google and OpenAI models, svg for recraft-v3, jpeg for others. Google models currently return PNG only.',
       ),
     seed: z.number().optional().describe('Seed for the random number generator.'),
     aspect_ratio: z
@@ -115,13 +115,13 @@ Best practice:
       .number()
       .optional()
       .describe(
-        'Requested output height in pixels (mainly used by Google image models and openai/gpt-image-2).',
+        'Requested output height in pixels (mainly used by Google and OpenAI image models).',
       ),
     width: z
       .number()
       .optional()
       .describe(
-        'Requested output width in pixels (mainly used by Google image models and openai/gpt-image-2).',
+        'Requested output width in pixels (mainly used by Google and OpenAI image models).',
       ),
     style: z.string().optional().describe('Style of the generated image.'),
     num_outputs: z
