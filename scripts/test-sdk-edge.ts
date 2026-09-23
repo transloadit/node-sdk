@@ -71,6 +71,10 @@ async function main(): Promise<void> {
         'create',
         '--workdir',
         '/work',
+        // A cold on-disk cache races in this pinned runtime's SQLite initialization (#510).
+        // Keep it disposable and bounded without changing the SDK graph or retrying crashes.
+        '--tmpfs',
+        '/root/.cache/deno:size=268435456',
         edgeImage,
         'bundle',
         '--entrypoint',
