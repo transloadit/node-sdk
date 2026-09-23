@@ -168,6 +168,46 @@ async function captureCrashDump(source: string, args: string[]): Promise<void> {
   }
 }
 
+async function compareCaches(source: string, minimal: string, args: string[]): Promise<void> {
+  const synthetic = join(minimal, 'synthetic')
+  await mkdir(join(synthetic, 'node_modules/control'), { recursive: true })
+  await writeFile(join(synthetic, 'package.json'), '{"private":true,"type":"module"}\n')
+  await writeFile(join(synthetic, 'deno.json'), '{"nodeModulesDir":"manual","lock":false}\n')
+  await writeFile(
+    join(synthetic, 'node_modules/control/package.json'),
+    '{"name":"control","main":"index.cjs"}\n',
+  )
+  await writeFile(join(synthetic, 'node_modules/control/index.cjs'), "exports.value = 'control'\n")
+  await writeFile(
+    join(synthetic, 'index.ts'),
+    "import { value } from './node_modules/control/index.cjs'\nDeno.serve(() => new Response(value))\n",
+  )
+  const trace = ['--env', 'RUST_LOG=deno::cache::cache_db=trace']
+  for (let attempt = 1; attempt <= 30; attempt += 1) {
+    await probe(`cjs-${attempt}`, args, synthetic, trace)
+    await probe(`sdk-trace-${attempt}`, args, source, trace)
+    await probe(`sdk-tmpfs-${attempt}`, args, source, [
+      ...trace,
+      '--tmpfs',
+      '/root/.cache/deno:size=268435456',
+    ])
+  }
+
+  // A no-dependency bundle initializes the cache before the real SDK graph.
+  // Each trial starts with a fresh volume so this is not repeated warm-cache luck.
+  for (let attempt = 1; attempt <= 30; attempt += 1) {
+    const volume = (
+      await execa('docker', ['volume', 'create', '--label', 'transloadit.diagnosis=510'])
+    ).stdout.trim()
+    volumes.add(volume)
+    const options = [...trace, '--mount', `type=volume,source=${volume},target=/root/.cache/deno`]
+    const preheat = await probe(`preheat-${attempt}`, args, minimal, options)
+    if (preheat === 0) await probe(`sdk-preheated-${attempt}`, args, source, options)
+    await execa('docker', ['volume', 'rm', volume])
+    volumes.delete(volume)
+  }
+}
+
 async function main(): Promise<void> {
   await mkdir(output, { recursive: true })
   const temporary = await mkdtemp(join(tmpdir(), 'sdk-edge-diagnose-'))
@@ -230,7 +270,11 @@ async function main(): Promise<void> {
       await probe(`sdk-${attempt}`, bundleArgs, consumer)
     }
 
-    await captureCrashDump(consumer, bundleArgs)
+    if (process.env.DIAG_CACHE === 'true') {
+      await compareCaches(consumer, minimal, bundleArgs)
+    } else {
+      await captureCrashDump(consumer, bundleArgs)
+    }
     if (probes.some((result) => result.exitCode !== 0)) {
       // Diagnostics must never hide the original failure or make the old main run green.
       process.exitCode = 1

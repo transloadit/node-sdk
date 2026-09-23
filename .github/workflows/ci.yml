@@ -28,6 +28,8 @@ jobs:
           node-version: 24
       - run: corepack yarn install --immutable
       - run: node scripts/diagnose-sdk-edge.ts
+        env:
+          DIAG_CACHE: 'true'
       - uses: actions/upload-artifact@v7
         if: always()
         with:
