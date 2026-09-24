@@ -2,8 +2,8 @@
   "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.14.0.tgz",
-    "sizeBytes": 1213981,
-    "sha256": "8edf437157b18bb29ed56e35a4de98f60cc4057796653bbe06012eeab40465c7"
+    "sizeBytes": 1214004,
+    "sha256": "50a97e55f8223fce33c7d28a48f43892c81805e3602518d185978ee1e690bc41"
   },
   "packageJson": {
     "name": "transloadit",
@@ -458,8 +458,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/image-enhance.js",
-      "sizeBytes": 5618,
-      "sha256": "9caa36457b6d854b88c3b33b1454e25fe3e29679ecab65b9fba5c2fa666347eb"
+      "sizeBytes": 5619,
+      "sha256": "27a8a3d9c89c0a3fb3e498ea0f80a2c11aa84fff7eb4b641e2c02b3ec77a7333"
     },
     {
       "path": "dist/alphalib/types/robots/image-facedetect.js",
@@ -1859,12 +1859,12 @@
     {
       "path": "dist/alphalib/types/robots/image-enhance.d.ts.map",
       "sizeBytes": 1351,
-      "sha256": "efd9e391dbb5e875617a02ac67b2295c1dad17e653b7eb42f6c335c03e739590"
+      "sha256": "1a2f97ff65c6eca36658c83c98c251f8e897f676ffcf30887e889f8f9df9a926"
     },
     {
       "path": "dist/alphalib/types/robots/image-enhance.js.map",
-      "sizeBytes": 2346,
-      "sha256": "2355b21642d9243bbd0062bf8f46976d947f4a94f8d3770ed1aac5e9bffaa7af"
+      "sizeBytes": 2377,
+      "sha256": "3c0e3d1d859dee76f99d3afe56ad703e9180eaa3ee682f1e859160d99656a039"
     },
     {
       "path": "dist/alphalib/types/robots/image-facedetect.d.ts.map",
@@ -3788,8 +3788,8 @@
     },
     {
       "path": "src/alphalib/types/robots/image-enhance.ts",
-      "sizeBytes": 6310,
-      "sha256": "716e75bdeeb6161f479006be387cf354460c9dfbae81500c78275ea25154aaca"
+      "sizeBytes": 6311,
+      "sha256": "4d98e2a72417fb31844c63b2b11f7368e1204926343c4ccbfbfd0ee58ebaf94e"
     },
     {
       "path": "dist/alphalib/types/robots/image-facedetect.d.ts",

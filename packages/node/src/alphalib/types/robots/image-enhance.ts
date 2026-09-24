@@ -81,14 +81,7 @@ With this <dfn>Robot</dfn> you can automatically enhance images with one click �
 
 It works well together with [🤖/image/resize](/docs/robots/image-resize/) — you can enhance first, then resize, or vice versa.
 
-> [!Note]
-> This <dfn>Robot</dfn> accepts all image types supported by ImageMagick and will pass through unsupported types unchanged.
-
-> [!Note]
-> \`engine: "classic"\` uses \`enhance\`, \`preset\`, \`sharpen\`, and \`denoise\`. \`engine: "ai"\` uses \`ai_preset\` and \`quality\`; classic controls are ignored in AI mode.
-
-> [!Note]
-> Output keeps the original file extension when possible. In AI mode, if the target extension is not writable by the selected \`imagemagick_stack\`, the file is passed through unchanged.
+This <dfn>Robot</dfn> accepts all image types supported by ImageMagick and passes unsupported types through unchanged. \`engine: "classic"\` uses \`enhance\`, \`preset\`, \`sharpen\`, and \`denoise\`, while \`engine: "ai"\` uses \`ai_preset\` and \`quality\`; classic controls are ignored in AI mode. Output keeps the original file extension when possible. In AI mode, if the target extension is not writable by the selected \`imagemagick_stack\`, the file is passed through unchanged.
 `),
     enhance: enhanceModeSchema.describe(`
 The auto-enhancement mode. \`"auto"\` applies balanced auto-levels, gamma correction, and subtle sharpening. \`"auto_gentle"\` is more conservative (good for already-decent photos). \`"auto_aggressive"\` applies stronger normalization and contrast. \`"none"\` skips auto-enhance (useful when only applying a preset filter).
@@ -141,7 +134,7 @@ Additional sharpening amount (\`0\` = none, \`10\` = maximum). The \`"auto"\` en
 Noise reduction strength (\`0\` = none, \`10\` = maximum). Useful for high-ISO photos.
 `),
     quality: imageQualitySchema.describe(`
-Quality of the output image. A value between \`1\` and \`100\`. Defaults to \`92\`.
+Quality of the output image. A value between \`1\` and \`100\`. Defaults to \`${imageQualitySchema.parse(undefined)}\`.
 `),
   })
   .strict()
