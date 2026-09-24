@@ -1,3 +1,4 @@
+<!-- alphalib-sync-agent-doc-sha256:6f74fe22d6ff3ea2cff0641e4c1fea5ba24f536fa44a6d603f61e27e84283218 -->
 # Transloadit Repository Guide
 ## coding style
 
@@ -86,6 +87,15 @@ General:
 - Stub or mock external/third‑party requests (Intercom, Sentry, etc.) and any auth/login endpoints to keep tests deterministic; return minimal valid JSON when the app expects data.
 - Each unexpected error should surface and fail the test.
 
+## repo
+
+For this repo:
+
+- This is an SDK monorepo, not a Next.js application. Next.js-specific guidance applies only to
+  the integration examples and fixtures in `packages/img` and `scripts/fixtures/img-next`.
+- Keep the installed Next.js agent-rules block below in this repo-owned rule source. Do not copy
+  Content's website layout, routing, translation, or styling conventions into SDK packages.
+
 ## typescript
 
 For Typescript:
@@ -160,3 +170,13 @@ For Typescript:
 - Favor defining props as an interface over inline
 - Favor explicit return types over inferring them as it makes typescript a lot faster in the editor
   on our scale
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
