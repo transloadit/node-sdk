@@ -2,8 +2,8 @@
   "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.14.0.tgz",
-    "sizeBytes": 1214004,
-    "sha256": "50a97e55f8223fce33c7d28a48f43892c81805e3602518d185978ee1e690bc41"
+    "sizeBytes": 1214050,
+    "sha256": "2992de561082e832f80cf84b0a8f7815b09c5c1b83c2452af97262b36c057c96"
   },
   "packageJson": {
     "name": "transloadit",
@@ -103,8 +103,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js",
-      "sizeBytes": 41585,
-      "sha256": "4c1c3bb2a9c8e95fef5eb0c05a67743e6ac51a6562b2cc76c888a50c7db11f24"
+      "sizeBytes": 41593,
+      "sha256": "9f3d1a700431fdad9b747a6c6ac03e564cd51400cd08216c0a5b796300d7acb1"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.js",
@@ -1153,8 +1153,8 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.js.map",
-      "sizeBytes": 39311,
-      "sha256": "606123e5cb3c4ac2d204e5cd7b1250dbbb59cdb84c81780bf06cb503254b6644"
+      "sizeBytes": 39298,
+      "sha256": "4d784b01dd38bc229e6ac90314c486941d339f4e70717d4fc5b78a4b8d41c92f"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.d.ts.map",
@@ -3073,13 +3073,13 @@
     },
     {
       "path": "dist/alphalib/types/assemblyStatus.d.ts",
-      "sizeBytes": 1700484,
-      "sha256": "540375f74880817d57558906ead1f1dfca9c8dd9ea2b7cc905b1ca2139e96419"
+      "sizeBytes": 1702995,
+      "sha256": "2e0395c7e72bb8ff3bb232871b4a0991978db76d98e4968d682585369bad7af9"
     },
     {
       "path": "src/alphalib/types/assemblyStatus.ts",
-      "sizeBytes": 43678,
-      "sha256": "2be5663e0957ddd7a25e80f379eb7dcb1db938fb72a7e4c90cce3d9452b9b97d"
+      "sizeBytes": 43686,
+      "sha256": "65039648b6d8caf7909ef3728898477be249d56ad801d509b62ba55fe59051f0"
     },
     {
       "path": "dist/alphalib/types/assemblyUrls.d.ts",

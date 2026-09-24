@@ -1,4 +1,7 @@
-import type { AssemblyStatusErrCode } from '../../src/alphalib/types/assemblyStatus.ts'
+import type {
+  AssemblyStatusErrCode,
+  AssemblyStatusMeta,
+} from '../../src/alphalib/types/assemblyStatus.ts'
 
 import nock from 'nock'
 import { afterEach, describe, expect, expectTypeOf, it } from 'vitest'
@@ -59,6 +62,7 @@ const numericMetadata = {
   date_file_created: 20260101,
   description: 42,
   device_name: 100,
+  xp_keywords: 42,
   xp_title: 200,
   creator: ['first', 'second'],
   keywords: ['first', 123, true, false],
@@ -154,6 +158,60 @@ describe('lean Assembly Status compatibility', () => {
       results: { output: [{ meta: numericMetadata }] },
     }
     expect(assemblyStatusSchema.parse(status)).toEqual(status)
+  })
+
+  it.each([
+    0,
+    42,
+    -1.5,
+    '',
+    '007',
+    null,
+    undefined,
+  ])('preserves XPKeywords %j in uploads and results', (xp_keywords) => {
+    const meta = { xp_keywords }
+    const status = {
+      ok: 'ASSEMBLY_COMPLETED',
+      uploads: [{ ...historicalUpload, meta }],
+      results: { output: [{ meta }] },
+    }
+    expect(assemblyStatusSchema.parse(status)).toStrictEqual(status)
+    expectTypeOf<AssemblyStatusMeta['xp_keywords']>().toEqualTypeOf<
+      string | number | null | undefined
+    >()
+  })
+
+  it('preserves omitted XPKeywords in uploads and results', () => {
+    const status = {
+      ok: 'ASSEMBLY_COMPLETED',
+      uploads: [historicalUpload],
+      results: { output: [{ meta: {} }] },
+    }
+    expect(assemblyStatusSchema.parse(status)).toStrictEqual(status)
+  })
+
+  it.each([
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    {},
+    [],
+    true,
+    42n,
+  ])('rejects invalid XPKeywords %s in uploads and results', (xp_keywords) => {
+    const meta = { xp_keywords }
+    expect(
+      assemblyStatusSchema.safeParse({
+        ok: 'ASSEMBLY_COMPLETED',
+        uploads: [{ ...historicalUpload, meta }],
+      }).success,
+    ).toBe(false)
+    expect(
+      assemblyStatusSchema.safeParse({
+        ok: 'ASSEMBLY_COMPLETED',
+        results: { output: [{ meta }] },
+      }).success,
+    ).toBe(false)
   })
 
   it.each([

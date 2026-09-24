@@ -468,7 +468,7 @@ const assemblyStatusMetaSchema = z
     dominant_colors: z.array(z.string()).nullable().optional(),
     xp_title: metadataTextSchema.nullable().optional(),
     xp_comment: z.string().nullable().optional(),
-    xp_keywords: z.string().nullable().optional(),
+    xp_keywords: metadataTextSchema.nullable().optional(),
     xp_subject: z.string().nullable().optional(),
     recognized_text: z
       .union([

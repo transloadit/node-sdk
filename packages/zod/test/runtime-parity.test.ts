@@ -60,6 +60,50 @@ const schemas = [
   },
 ]
 
+for (const { version, schema } of [
+  { version: 'v3', schema: v3AssemblyStatus },
+  { version: 'v4', schema: v4AssemblyStatus },
+]) {
+  test(`${version} XPKeywords preserves strings, finite numbers and absent values`, () => {
+    for (const meta of [
+      {},
+      ...[0, 42, -1.5, '', '007', null, undefined].map((xp_keywords) => ({ xp_keywords })),
+    ]) {
+      const status = {
+        ok: 'ASSEMBLY_COMPLETED',
+        uploads: [{ original_id: 'upload-1', meta }],
+        results: { output: [{ meta }] },
+      }
+      assert.deepEqual(schema.parse(status), status)
+    }
+  })
+
+  test(`${version} XPKeywords rejects nonfinite numbers and invalid value types`, () => {
+    for (const xp_keywords of [
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      {},
+      [],
+      true,
+      42n,
+    ]) {
+      const meta = { xp_keywords }
+      assert.equal(
+        schema.safeParse({
+          ok: 'ASSEMBLY_COMPLETED',
+          uploads: [{ original_id: 'upload-1', meta }],
+        }).success,
+        false,
+      )
+      assert.equal(
+        schema.safeParse({ ok: 'ASSEMBLY_COMPLETED', results: { output: [{ meta }] } }).success,
+        false,
+      )
+    }
+  })
+}
+
 for (const [name, v3, v4] of [
   ['direct', v3Upscale, v4Upscale],
   ['interpolatable', v3InterpolatableUpscale, v4InterpolatableUpscale],
