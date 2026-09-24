@@ -1,4 +1,4 @@
-<!-- alphalib-sync-agent-doc-sha256:6f74fe22d6ff3ea2cff0641e4c1fea5ba24f536fa44a6d603f61e27e84283218 -->
+<!-- alphalib-sync-agent-doc-sha256:f132a3693c393c177fb27a59f5760ea3ccff6ca1be1cdd9234c63066f28f5c19 -->
 # Transloadit Repository Guide
 ## coding style
 
@@ -104,8 +104,9 @@ For Typescript:
 - Favor `from './PosterboyCommand.ts'` over `from './PosterboyCommand'`
 - Favor `return ideas.filter(isPresent)` over `ideas.filter((idea): idea is Idea => idea !== null)`
 - Favor using `.tsx` over `.jsx` file extensions.
-- Use Node v24's native typestripping vs `tsx` or `ts-node`. These days you do not even need to pass
-  `--experimental-strip-types`, `node app.ts` will just work.
+- Use the repository's declared Node version and native TypeScript stripping instead of `tsx` or
+  `ts-node`. Tooling versions do not raise a published package's supported runtime floor; check its
+  own manifest before introducing newer platform APIs.
 - In ESM TypeScript, use `import.meta.dirname` / `import.meta.filename` or `URL` objects instead of
   rebuilding `__dirname` with `fileURLToPath(import.meta.url)` unless compatibility requires it.
 - Use `satisfies` when you need literal preservation or structural conformance while keeping the
@@ -144,8 +145,9 @@ For Typescript:
 - Do not duplicate supported values in user-facing schema descriptions when schema metadata such as
   enums or suggested values can carry that information.
 - In TypeScript files, use TypeScript syntax instead of JSDoc type annotations. In JavaScript files,
-  prefer JSDoc `@import` / `@param` forms over noisy inline `import('...')` annotations, and make
-  sure `@type` annotates the expression it is meant to type.
+  put JSDoc `@import` declarations in the top-of-file JSDoc block with the other type imports. Do
+  not use inline `import('...')` annotations in `@param`, `@returns`, or `@type`. Make sure `@type`
+  annotates the expression it is meant to type.
 - Avoid hand-written `.d.ts` files when the declaration can come from TypeScript source or
   generation. If a declaration file is unavoidable, do not rely on `skipLibCheck` to hide duplicate
   or invalid exports.

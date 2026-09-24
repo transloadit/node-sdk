@@ -93,7 +93,6 @@ const config: KnipConfig = {
         'recursive-readdir',
         'tus-js-client',
         'typanion',
-        'type-fest',
         'zod',
         '@types/debug',
         '@types/recursive-readdir',
@@ -117,10 +116,6 @@ const config: KnipConfig = {
       entry: ['src/**/*.{ts,tsx,js,jsx}', 'scripts/**/*.ts', 'test/**/*.ts'],
       project: ['{src,scripts,test}/**/*.ts'],
       ignore: ['dist/**', 'node_modules/**'],
-      ignoreDependencies: [
-        // Generated code uses this after sync, but sources don't import it directly.
-        'type-fest',
-      ],
     },
   },
 }

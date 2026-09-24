@@ -1,44 +1,32 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      rotated: {
-        robot: '/document/autorotate',
-        use: ':original',
-      },
-    },
-  },
+  ...robotDocumentProcessingMeta,
+  example_code: createProcessingExample('rotated', '/document/autorotate'),
   example_code_description:
     'Auto-rotate individual pages of a documents to the correction orientation:',
-  minimum_charge: 2097152,
-  output_factor: 1,
-  override_lvl1: 'Document Processing',
   purpose_sentence: 'corrects the orientation of documents',
   purpose_verb: 'auto-rotate',
   purpose_word: 'auto-rotate documents',
   purpose_words: 'Auto-rotate documents',
-  service_slug: 'document-processing',
-  slot_count: 10,
   title: 'Auto-rotate documents to the correct orientation',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'document',
   name: 'DocumentAutorotateRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumCharge: 2097152,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotDocumentAutorotateInstructionsSchema = robotBase
@@ -48,35 +36,25 @@ export const robotDocumentAutorotateInstructionsSchema = robotBase
   })
   .strict()
 
-export const robotDocumentAutorotateInstructionsWithHiddenFieldsSchema =
-  robotDocumentAutorotateInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotDocumentAutorotateInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<
+  typeof robotDocumentAutorotateInstructionsSchema.shape
+> = defineRobot(meta, robotDocumentAutorotateInstructionsSchema)
 
-export type RobotDocumentAutorotateInstructions = z.infer<
-  typeof robotDocumentAutorotateInstructionsSchema
->
-export type RobotDocumentAutorotateInstructionsWithHiddenFields = z.infer<
-  typeof robotDocumentAutorotateInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotDocumentAutorotateInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDocumentAutorotateInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotDocumentAutorotateInstructionsSchema = interpolateRobot(
-  robotDocumentAutorotateInstructionsSchema,
-)
-export type InterpolatableRobotDocumentAutorotateInstructions =
-  InterpolatableRobotDocumentAutorotateInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotDocumentAutorotateInstructionsInput = z.input<
-  typeof interpolatableRobotDocumentAutorotateInstructionsSchema
->
-
-export const interpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotDocumentAutorotateInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotDocumentAutorotateInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsSchema
->
+export type RobotDocumentAutorotateInstructions = Instructions['output']
+export type RobotDocumentAutorotateInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDocumentAutorotateInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentAutorotateInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentAutorotateInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDocumentAutorotateInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

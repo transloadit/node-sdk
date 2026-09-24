@@ -126,6 +126,23 @@ const importServeTemplate: AssemblyInstructionsInput = {
 
 export const assemblyInstructionFixtures: AssemblyInstructionFixture[] = [
   {
+    name: 'http-request-defaults-and-transforms',
+    value: {
+      steps: {
+        request: {
+          robot: '/http/request',
+          url: 'https://example.com/hook',
+          payload: 'metadata',
+          use: [],
+          timeout: '30',
+          result: false,
+          force_accept: 'true',
+        },
+      },
+    },
+    valid: true,
+  },
+  {
     name: 'images-2-5-and-opus-5-5',
     value: {
       steps: {

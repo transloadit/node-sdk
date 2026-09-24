@@ -27,7 +27,7 @@ const zodTypeOperators = new Set(['infer', 'input', 'output', 'TypeOf'])
 const zodPathToken = `${sep}node_modules${sep}zod${sep}`
 const libPathToken = `${sep}node_modules${sep}typescript${sep}lib${sep}`
 
-const isExported = (node: ts.Node): boolean => {
+const isExported = (node: ts.Declaration): boolean => {
   const flags = ts.getCombinedModifierFlags(node)
   return (flags & ts.ModifierFlags.Export) !== 0
 }
@@ -51,10 +51,15 @@ const ensureDir = async (dir: string) => {
   await mkdir(dir, { recursive: true })
 }
 
-const isZodTypeNode = (node: ts.TypeNode): boolean => {
+const needsTypeResolution = (node: ts.TypeNode, checker: ts.TypeChecker): boolean => {
   let found = false
   const visit = (current: ts.Node) => {
     if (found) return
+    if (ts.isTypeQueryNode(current)) {
+      // Values are not emitted into this type-only package.
+      found = true
+      return
+    }
     if (ts.isTypeReferenceNode(current)) {
       const typeName = current.typeName
       if (
@@ -63,6 +68,12 @@ const isZodTypeNode = (node: ts.TypeNode): boolean => {
         typeName.left.text === 'z' &&
         zodTypeOperators.has(typeName.right.text)
       ) {
+        found = true
+        return
+      }
+      const symbol = checker.getSymbolAtLocation(typeName)
+      // Private aliases are omitted from the public module, including Instructions['output'].
+      if (symbol && isPrivateAliasInSource(symbol, node.getSourceFile())) {
         found = true
         return
       }
@@ -123,7 +134,7 @@ const hasZodType = (type: ts.Type, checker: ts.TypeChecker, seen: Set<ts.Type>):
   }
 
   if (checker.isArrayType(type)) {
-    const elementType = checker.getElementTypeOfArrayType(type)
+    const elementType = checker.getIndexTypeOfType(type, ts.IndexKind.Number)
     return elementType ? hasZodType(elementType, checker, seen) : false
   }
 
@@ -165,10 +176,21 @@ export const escapeStringLiteral = (value: string): string =>
     .replace(/\t/g, '\\t')
 
 const formatPropertyName = (name: string): string => {
-  if (ts.isIdentifierText(name, ts.ScriptTarget.ES2022)) {
-    return name
+  if (name.length === 0) return "''"
+  let initial = true
+  for (const character of name) {
+    const codePoint = character.codePointAt(0)
+    if (
+      codePoint === undefined ||
+      !(initial
+        ? ts.isIdentifierStart(codePoint, ts.ScriptTarget.ES2022)
+        : ts.isIdentifierPart(codePoint, ts.ScriptTarget.ES2022))
+    ) {
+      return `'${escapeStringLiteral(name)}'`
+    }
+    initial = false
   }
-  return `'${escapeStringLiteral(name)}'`
+  return name
 }
 
 const compareByPropertyOrder = (a: ts.Symbol, b: ts.Symbol): number => {
@@ -253,7 +275,10 @@ const renderType = (
     }
   }
   if (type.flags & ts.TypeFlags.BooleanLiteral) {
-    return { text: type.intrinsicName, precedence: TypePrecedence.Primary }
+    return {
+      text: checker.typeToString(type, undefined, typeFormatFlags),
+      precedence: TypePrecedence.Primary,
+    }
   }
 
   if (type.flags & ts.TypeFlags.String) {
@@ -296,7 +321,7 @@ const renderType = (
   }
 
   if (checker.isArrayType(type)) {
-    const elementType = checker.getElementTypeOfArrayType(type)
+    const elementType = checker.getIndexTypeOfType(type, ts.IndexKind.Number)
     if (elementType) {
       const rendered = renderType(elementType, checker, fallbackNode, inProgress)
       return { text: `Array<${rendered.text}>`, precedence: TypePrecedence.Primary }
@@ -375,34 +400,62 @@ const renderType = (
 const generateFile = (sourceFile: ts.SourceFile, checker: ts.TypeChecker): string => {
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed })
   const lines: string[] = ['// This file is generated. Do not edit.']
+  const emitted = new Set<ts.Node>()
 
-  for (const statement of sourceFile.statements) {
-    if (!ts.isImportDeclaration(statement)) continue
-    if (!statement.importClause?.isTypeOnly) continue
+  const hasSchemaConstraint = (node: ts.Node): boolean => {
+    if (ts.isTypeReferenceNode(node) && isZodSymbol(checker.getSymbolAtLocation(node.typeName))) {
+      return true
+    }
+    return ts.forEachChild(node, hasSchemaConstraint) ?? false
+  }
+
+  const emitDeclaration = (statement: ts.TypeAliasDeclaration | ts.InterfaceDeclaration): void => {
+    if (emitted.has(statement)) return
+    emitted.add(statement)
+    // Generic schema-building contracts belong to @transloadit/zod. Concrete Robot data
+    // aliases are resolved below, without adding a Zod dependency to @transloadit/types.
+    if (statement.typeParameters?.some(hasSchemaConstraint)) return
+
+    if (
+      ts.isTypeAliasDeclaration(statement) &&
+      !statement.typeParameters?.length &&
+      needsTypeResolution(statement.type, checker)
+    ) {
+      const type = checker.getTypeFromTypeNode(statement.type)
+      const rendered = renderType(type, checker, sourceFile, new Set())
+      lines.push(
+        `${isExported(statement) ? 'export ' : ''}type ${statement.name.text} = ${rendered.text}`,
+      )
+      return
+    }
+
+    const includePrivateDependencies = (node: ts.Node): void => {
+      if (ts.isTypeReferenceNode(node)) {
+        const symbol = checker.getSymbolAtLocation(node.typeName)
+        for (const declaration of symbol?.declarations ?? []) {
+          if (
+            declaration.getSourceFile() === sourceFile &&
+            !isExported(declaration) &&
+            (ts.isTypeAliasDeclaration(declaration) || ts.isInterfaceDeclaration(declaration))
+          ) {
+            emitDeclaration(declaration)
+          }
+        }
+      }
+      node.forEachChild(includePrivateDependencies)
+    }
+    includePrivateDependencies(statement)
     lines.push(printer.printNode(ts.EmitHint.Unspecified, statement, sourceFile))
   }
 
-  if (lines.length > 1) {
-    lines.push('')
-  }
-
   for (const statement of sourceFile.statements) {
-    if (ts.isTypeAliasDeclaration(statement) && isExported(statement)) {
-      if (isZodTypeNode(statement.type)) {
-        const type = checker.getTypeFromTypeNode(statement.type)
-        const rendered = renderType(type, checker, sourceFile, new Set())
-        lines.push(`export type ${statement.name.text} = ${rendered.text}`)
-      } else {
-        lines.push(printer.printNode(ts.EmitHint.Unspecified, statement, sourceFile))
-      }
+    if (
+      (ts.isTypeAliasDeclaration(statement) || ts.isInterfaceDeclaration(statement)) &&
+      isExported(statement)
+    ) {
+      emitDeclaration(statement)
       continue
     }
-
-    if (ts.isInterfaceDeclaration(statement) && isExported(statement)) {
-      lines.push(printer.printNode(ts.EmitHint.Unspecified, statement, sourceFile))
-      continue
-    }
-
     if (ts.isEnumDeclaration(statement) && isExported(statement)) {
       lines.push(printer.printNode(ts.EmitHint.Unspecified, statement, sourceFile))
       continue
@@ -413,7 +466,36 @@ const generateFile = (sourceFile: ts.SourceFile, checker: ts.TypeChecker): strin
     }
   }
 
-  return `${lines.join('\n')}\n`
+  const identifiers = new Set<string>()
+  const collectIdentifiers = (node: ts.Node): void => {
+    if (ts.isIdentifier(node)) identifiers.add(node.text)
+    node.forEachChild(collectIdentifiers)
+  }
+  collectIdentifiers(ts.createSourceFile('generated.ts', lines.join('\n'), ts.ScriptTarget.Latest))
+  const imports: string[] = []
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement) || !statement.importClause?.isTypeOnly) continue
+    const clause = statement.importClause
+    const name = clause.name && identifiers.has(clause.name.text) ? clause.name : undefined
+    let bindings = clause.namedBindings
+    if (bindings && ts.isNamedImports(bindings)) {
+      const elements = bindings.elements.filter((element) => identifiers.has(element.name.text))
+      bindings = elements.length ? ts.factory.updateNamedImports(bindings, elements) : undefined
+    } else if (bindings && !identifiers.has(bindings.name.text)) {
+      bindings = undefined
+    }
+    if (!name && !bindings) continue
+    const declaration = ts.factory.updateImportDeclaration(
+      statement,
+      statement.modifiers,
+      ts.factory.updateImportClause(clause, true, name, bindings),
+      statement.moduleSpecifier,
+      statement.attributes,
+    )
+    imports.push(printer.printNode(ts.EmitHint.Unspecified, declaration, sourceFile))
+  }
+
+  return `${[lines[0], ...imports, ...lines.slice(1)].join('\n')}\n`
 }
 
 export const normalizeExportPath = (relPath: string): string => {

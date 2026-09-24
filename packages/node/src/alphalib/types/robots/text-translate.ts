@@ -1,29 +1,27 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
-  autoProviderDescription,
   awsGcpAiProviderSchema,
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
+  robotArtificialIntelligenceMeta,
   robotBase,
+  robotParameterDocs,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      translated: {
-        robot: '/text/translate',
-        use: ':original',
-        target_language: 'de',
-        provider: 'aws',
-      },
-    },
-  },
+  ...robotArtificialIntelligenceMeta,
+  example_code: createProcessingExample('translated', '/text/translate', {
+    target_language: 'de',
+    provider: 'aws',
+  }),
   example_code_description: 'Translate uploaded text file contents to German:',
   extended_description: `
 > [!Warning]
@@ -42,26 +40,16 @@ export const meta: RobotMetaInput = {
 
 {%- endfor %}
 `,
-  minimum_charge: 1048576,
-  output_factor: 1,
   override_lvl1: 'Artificial Intelligence',
   purpose_sentence: 'translates text in documents',
   purpose_verb: 'translate',
   purpose_word: 'text',
   purpose_words: 'Translate text in documents',
-  service_slug: 'artificial-intelligence',
-  slot_count: 10,
   title: 'Translate text',
   typical_file_size_mb: 1,
   typical_file_type: 'document',
   name: 'TextTranslateRobot',
   priceFactor: 0.00008,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 const translatableLanguages = z
@@ -193,11 +181,7 @@ You can use the text that we return in your application, or you can pass the tex
 > [!Note]
 > **This <dfn>Robot</dfn> accepts only files with a \`text/*\` MIME-type,** including plain text and Markdown. For documents in other formats, use [🤖/document/convert](/docs/robots/document-convert/) to first convert them into a compatible text format before proceeding.
 `),
-    provider: awsGcpAiProviderSchema.describe(`
-${autoProviderDescription}
-
-Set this to \`"aws"\` or \`"gcp"\` to force a specific provider.
-`),
+    provider: awsGcpAiProviderSchema.describe(robotParameterDocs.ai_provider.description),
     target_language: translatableLanguages.describe(`
 The desired language to translate to.
 
@@ -213,34 +197,23 @@ If the exact language can't be found, a generic variant can be fallen back to. F
   })
   .strict()
 
-export const robotTextTranslateInstructionsWithHiddenFieldsSchema =
-  robotTextTranslateInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotTextTranslateInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotTextTranslateInstructionsSchema.shape> =
+  defineRobot(meta, robotTextTranslateInstructionsSchema)
 
-export type RobotTextTranslateInstructions = z.infer<typeof robotTextTranslateInstructionsSchema>
-export type RobotTextTranslateInstructionsWithHiddenFields = z.infer<
-  typeof robotTextTranslateInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotTextTranslateInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotTextTranslateInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotTextTranslateInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotTextTranslateInstructionsSchema = interpolateRobot(
-  robotTextTranslateInstructionsSchema,
-)
-export type InterpolatableRobotTextTranslateInstructions =
-  InterpolatableRobotTextTranslateInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotTextTranslateInstructionsInput = z.input<
-  typeof interpolatableRobotTextTranslateInstructionsSchema
->
-
-export const interpolatableRobotTextTranslateInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotTextTranslateInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotTextTranslateInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotTextTranslateInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotTextTranslateInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotTextTranslateInstructionsWithHiddenFieldsSchema
->
+export type RobotTextTranslateInstructions = Instructions['output']
+export type RobotTextTranslateInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotTextTranslateInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotTextTranslateInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotTextTranslateInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotTextTranslateInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

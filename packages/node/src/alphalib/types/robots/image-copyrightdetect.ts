@@ -1,24 +1,26 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  robotArtificialIntelligenceMeta,
+  robotBase,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      copyright_checked: {
-        robot: '/image/copyrightdetect',
-        use: ':original',
-        confidence_threshold: 80,
-        error_on_decline: true,
-        error_msg: 'This image appears to be a known stock photo. Please upload original content.',
-      },
-    },
-  },
+  ...robotArtificialIntelligenceMeta,
+  example_code: createProcessingExample('copyright_checked', '/image/copyrightdetect', {
+    confidence_threshold: 80,
+    error_on_decline: true,
+    error_msg: 'This image appears to be a known stock photo. Please upload original content.',
+  }),
   example_code_description:
     'Detect known stock photos and copyrighted works in uploaded images and reject flagged files:',
   extended_description: `
@@ -55,27 +57,16 @@ export const meta: RobotMetaInput = {
 >
 > In this setup, files with at least one match at or above your threshold are declined, and only the remaining files continue to later Steps.
 `,
-  minimum_charge: 1572864,
-  output_factor: 0.05,
   override_lvl1: 'Artificial Intelligence',
   purpose_sentence:
     'detects known stock photos, brand logos, and watermarked images in uploaded files using reverse image search',
   purpose_verb: 'detect',
   purpose_word: 'detect stock photos and copyrighted works',
   purpose_words: 'Detect known stock photos and copyrighted works in images',
-  service_slug: 'artificial-intelligence',
-  slot_count: 10,
   title: 'Detect known stock photos and copyrighted works in images',
   typical_file_size_mb: 0.8,
-  typical_file_type: 'image',
   name: 'ImageCopyrightdetectRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumChargeUsd: 0.0013,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'alpha',
 }
 
@@ -134,35 +125,26 @@ In what format to return the detection results.
   })
   .strict()
 
-export const robotImageCopyrightdetectInstructionsWithHiddenFieldsSchema =
-  robotImageCopyrightdetectInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotImageCopyrightdetectInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<
+  typeof robotImageCopyrightdetectInstructionsSchema.shape
+> = defineRobot(meta, robotImageCopyrightdetectInstructionsSchema)
 
-export type RobotImageCopyrightdetectInstructions = z.infer<
-  typeof robotImageCopyrightdetectInstructionsSchema
->
-export type RobotImageCopyrightdetectInstructionsWithHiddenFields = z.infer<
-  typeof robotImageCopyrightdetectInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotImageCopyrightdetectInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageCopyrightdetectInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotImageCopyrightdetectInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotImageCopyrightdetectInstructionsSchema = interpolateRobot(
-  robotImageCopyrightdetectInstructionsSchema,
-)
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
+
+export type RobotImageCopyrightdetectInstructions = Instructions['output']
+export type RobotImageCopyrightdetectInstructionsWithHiddenFields = Instructions['hiddenOutput']
 export type InterpolatableRobotImageCopyrightdetectInstructions =
-  InterpolatableRobotImageCopyrightdetectInstructionsInput
-
-export type InterpolatableRobotImageCopyrightdetectInstructionsInput = z.input<
-  typeof interpolatableRobotImageCopyrightdetectInstructionsSchema
->
-
-export const interpolatableRobotImageCopyrightdetectInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotImageCopyrightdetectInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotImageCopyrightdetectInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotImageCopyrightdetectInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotImageCopyrightdetectInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotImageCopyrightdetectInstructionsWithHiddenFieldsSchema
->
+  Instructions['interpolatableInput']
+export type InterpolatableRobotImageCopyrightdetectInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotImageCopyrightdetectInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageCopyrightdetectInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

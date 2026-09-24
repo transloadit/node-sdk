@@ -1,43 +1,32 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaVariantTypes } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createProcessingExample,
+  createRobotSchemaVariants,
+  robotBase,
+  robotImageProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 4,
-  discount_factor: 0.25,
-  discount_pct: 75,
-  example_code: {
-    steps: {
-      watermarked: {
-        robot: '/file/watermark',
-        use: ':original',
-        randomize: true,
-      },
-    },
-  },
+  ...robotImageProcessingMeta,
+  example_code: createProcessingExample('watermarked', '/file/watermark', {
+    randomize: true,
+  }),
   example_code_description: 'Apply randomized watermarking to uploaded files:',
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'Image Manipulation',
   purpose_sentence: 'applies randomized watermarks to uploaded media',
   purpose_verb: 'write',
   purpose_word: 'watermark files',
   purpose_words: 'Watermark files',
-  service_slug: 'image-manipulation',
-  slot_count: 20,
   title: 'Apply watermarks to files',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
   name: 'FileWatermarkRobot',
   priceFactor: 4,
   queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotFileWatermarkInstructionsSchema = robotBase
@@ -48,34 +37,23 @@ export const robotFileWatermarkInstructionsSchema = robotBase
   })
   .strict()
 
-export const robotFileWatermarkInstructionsWithHiddenFieldsSchema =
-  robotFileWatermarkInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotFileWatermarkInstructionsSchema.shape.result])
-      .optional(),
-  })
+const schemaVariants: ReturnType<
+  typeof createRobotSchemaVariants<typeof robotFileWatermarkInstructionsSchema.shape>
+> = createRobotSchemaVariants(robotFileWatermarkInstructionsSchema)
+export const {
+  withHiddenFields: robotFileWatermarkInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotFileWatermarkInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotFileWatermarkInstructionsWithHiddenFieldsSchema,
+} = schemaVariants
 
-export type RobotFileWatermarkInstructions = z.infer<typeof robotFileWatermarkInstructionsSchema>
-export type RobotFileWatermarkInstructionsWithHiddenFields = z.infer<
-  typeof robotFileWatermarkInstructionsWithHiddenFieldsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof schemaVariants>
 
-export const interpolatableRobotFileWatermarkInstructionsSchema = interpolateRobot(
-  robotFileWatermarkInstructionsSchema,
-)
-export type InterpolatableRobotFileWatermarkInstructions =
-  InterpolatableRobotFileWatermarkInstructionsInput
-
-export type InterpolatableRobotFileWatermarkInstructionsInput = z.input<
-  typeof interpolatableRobotFileWatermarkInstructionsSchema
->
-
-export const interpolatableRobotFileWatermarkInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotFileWatermarkInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotFileWatermarkInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotFileWatermarkInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotFileWatermarkInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotFileWatermarkInstructionsWithHiddenFieldsSchema
->
+export type RobotFileWatermarkInstructions = Instructions['output']
+export type RobotFileWatermarkInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotFileWatermarkInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotFileWatermarkInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotFileWatermarkInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotFileWatermarkInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

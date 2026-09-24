@@ -1,47 +1,35 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse, vimeoBase } from './_instructions-primitives.ts'
+import {
+  createProcessingExample,
+  defineRobotWithHiddenFields,
+  robotBase,
+  robotStoreMeta,
+  robotUse,
+  vimeoBase,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 6,
-  discount_factor: 0.15000150001500018,
-  discount_pct: 84.99984999849998,
+  ...robotStoreMeta,
   hideCredentialsWarning: true,
-  example_code: {
-    steps: {
-      exported: {
-        robot: '/vimeo/store',
-        use: ':original',
-        credentials: 'YOUR_VIMEO_CREDENTIALS',
-        title: 'Transloadit: Video Example',
-        description: 'Some nice description',
-      },
-    },
-  },
+  example_code: createProcessingExample('exported', '/vimeo/store', {
+    credentials: 'YOUR_VIMEO_CREDENTIALS',
+    title: 'Transloadit: Video Example',
+    description: 'Some nice description',
+  }),
   example_code_description: 'Export an uploaded video to Vimeo and set its title and description:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Exporting',
   purpose_sentence: 'exports encoding results to Vimeo',
-  purpose_verb: 'export',
   purpose_word: 'Vimeo',
   purpose_words: 'Export files to Vimeo',
-  service_slug: 'file-exporting',
-  slot_count: 10,
   title: 'Export files to Vimeo',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'VimeoStoreRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotVimeoStoreInstructionsSchema = robotBase
@@ -118,38 +106,31 @@ Deprecated. Please use \`folder_id\` instead. The URI of the folder to which the
   })
   .strict()
 
-export const robotVimeoStoreInstructionsWithHiddenFieldsSchema =
-  robotVimeoStoreInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotVimeoStoreInstructionsSchema.shape.result])
-      .optional(),
-    access_token: z
-      .string()
-      .optional()
-      .describe('Legacy authentication field. Use credentials instead.'),
-  })
+const hiddenFields = {
+  access_token: z
+    .string()
+    .optional()
+    .describe('Legacy authentication field. Use credentials instead.'),
+}
 
-export type RobotVimeoStoreInstructions = z.infer<typeof robotVimeoStoreInstructionsSchema>
-export type RobotVimeoStoreInstructionsWithHiddenFields = z.infer<
-  typeof robotVimeoStoreInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotVimeoStoreInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotVimeoStoreInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotVimeoStoreInstructionsSchema = interpolateRobot(
-  robotVimeoStoreInstructionsSchema,
-)
-export type InterpolatableRobotVimeoStoreInstructions =
-  InterpolatableRobotVimeoStoreInstructionsInput
+export const {
+  withHiddenFields: robotVimeoStoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVimeoStoreInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotVimeoStoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotVimeoStoreInstructionsInput = z.input<
-  typeof interpolatableRobotVimeoStoreInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotVimeoStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotVimeoStoreInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotVimeoStoreInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotVimeoStoreInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotVimeoStoreInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotVimeoStoreInstructionsWithHiddenFieldsSchema
->
+export type RobotVimeoStoreInstructions = Instructions['output']
+export type RobotVimeoStoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVimeoStoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVimeoStoreInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVimeoStoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVimeoStoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

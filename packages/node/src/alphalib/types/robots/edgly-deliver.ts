@@ -1,13 +1,15 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase } from './_instructions-primitives.ts'
+import { defineRobot, robotBase, robotContentDeliveryMeta } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 20,
-  discount_factor: 0.05,
-  discount_pct: 95,
+  ...robotContentDeliveryMeta,
   example_code: {
     steps: {
       deliver: {
@@ -16,29 +18,16 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Cache and deliver files over Smart CDN using the edgly.net domain:',
-  minimum_charge: 102400,
-  output_factor: 1,
   override_lvl1: 'Content Delivery',
   purpose_sentence: 'caches and delivers files globally',
   purpose_verb: 'cache & deliver',
   purpose_word: 'Cache and deliver files',
   purpose_words: 'Cache and deliver files globally',
-  service_slug: 'content-delivery',
-  slot_count: 0,
   title: 'Cache and deliver files globally',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'EdglyDeliverRobot',
   priceFactor: 20,
-  queueSlotCount: 0,
   minimumCharge: 102400,
-  downloadInputFiles: false,
-  preserveInputFileUrls: true,
-  isAllowedForUrlTransform: false,
-  trackOutputFileSize: false,
-  isInternal: true,
   stage: 'removed',
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotEdglyDeliverInstructionsSchema = robotBase
@@ -49,34 +38,22 @@ When you want Transloadit to tranform files on the fly, this <dfn>Robot</dfn> ca
   })
   .strict()
 
-export const robotEdglyDeliverInstructionsWithHiddenFieldsSchema =
-  robotEdglyDeliverInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotEdglyDeliverInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotEdglyDeliverInstructionsSchema.shape> =
+  defineRobot(meta, robotEdglyDeliverInstructionsSchema)
 
-export type RobotEdglyDeliverInstructions = z.infer<typeof robotEdglyDeliverInstructionsSchema>
-export type RobotEdglyDeliverInstructionsWithHiddenFields = z.infer<
-  typeof robotEdglyDeliverInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotEdglyDeliverInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotEdglyDeliverInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotEdglyDeliverInstructionsSchema = interpolateRobot(
-  robotEdglyDeliverInstructionsSchema,
-)
-export type InterpolatableRobotEdglyDeliverInstructions =
-  InterpolatableRobotEdglyDeliverInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotEdglyDeliverInstructionsInput = z.input<
-  typeof interpolatableRobotEdglyDeliverInstructionsSchema
->
-
-export const interpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotEdglyDeliverInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotEdglyDeliverInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsSchema
->
+export type RobotEdglyDeliverInstructions = Instructions['output']
+export type RobotEdglyDeliverInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotEdglyDeliverInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotEdglyDeliverInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotEdglyDeliverInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotEdglyDeliverInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

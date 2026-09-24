@@ -1447,6 +1447,42 @@ npx transloadit assemblies list -l 7
 
 ## SDK Usage
 
+### Migrating Assembly and Robot schema consumers
+
+The updated Assembly schemas accept historical responses with null URLs and identity fields,
+reserved uploads, and numeric metadata. These are breaking TypeScript changes for consumers of
+`@transloadit/node`, `transloadit`, `@transloadit/types`, and `@transloadit/zod` (both Zod versions).
+
+- Check Assembly URLs, account/instance identifiers, and `bytes_usage` for null or undefined before
+  using them. Some upload names can also be null, and historical upload fields can be absent.
+- Distinguish reserved uploads with `upload.id !== undefined` before treating an entry as a
+  completed upload. A reservation can contain only `original_id`.
+- Narrow metadata before string operations: fields such as `album`, `artist`, and `create_date`
+  can be numbers; `creator` can also contain string arrays, and `keywords` can contain booleans
+  in arrays. Validate individual `user_meta` values before accessing their properties.
+- Check `typeof assembly.reason === 'string'` before string operations on Assembly errors.
+  Stored reasons can also be null, numbers, booleans, arrays, or objects. Ignored errors can omit
+  `phase`, `message`, and `error`, and their `step` can be null.
+
+`ApiError.reason` remains `string | undefined`; existing string consumers need no migration.
+Use the additive `ApiError.rawReason` property when you need the original structured diagnostic.
+
+Robot metadata no longer exposes `bytescount`, `discount_factor`, `discount_pct`, `minimum_charge`,
+`minimum_charge_usd`, `minimum_charge_usd_note`, `output_factor`, or `slot_count`. Remove code that
+depends on these billing estimates. Existing camelCase metadata fields, where present, are not
+equivalent replacements for the removed pricing values. Validate `example_code` before accessing
+its properties because its type is now `unknown`.
+
+Update Robot category filters from `image-manipulation` to `image-processing`, including calls to
+`listRobots()` and the MCP `transloadit_list_robots` tool.
+
+For `/ai/chat`, use whole-value model interpolation such as `${fields.model}`, with the variable
+containing the complete provider/model value. Partial expressions such as `openai/${fields.model}`
+are now rejected, matching the API. `vendorModelSchema` is a finite enum rather than a refined
+string, so consumers inspecting Zod schema classes or validation issues must handle native enum
+validation. The exported `MODEL_CAPABILITIES` registry is read-only and frozen at the top level;
+do not mutate its entries.
+
 ### Store an image
 
 `storeImage()` uploads one local image and returns a verified receipt ready for `Image`.
@@ -2084,7 +2120,8 @@ Any errors originating from Node.js will be passed on and we use [GOT](https://g
 
 - `code` (`string`) - [The Transloadit API error code](https://transloadit.com/docs/api/response-codes/#error-codes).
 - `rawMessage` (`string`) - A textual representation of the Transloadit API error.
-- `reason` (`string`) - Additional information about the Transloadit API error.
+- `reason` (`string | undefined`) - Additional information when the API supplies a string reason.
+- `rawReason` - The original API reason, including structured diagnostics, without coercion.
 - `assemblyId`: (`string`) - If the request is related to an assembly, this will be the ID of the assembly.
 - `assemblySslUrl` (`string`) - If the request is related to an assembly, this will be the SSL URL to the assembly .
 

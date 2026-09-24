@@ -1,54 +1,34 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
   cloudfilesBase,
-  files_per_page,
-  interpolateRobot,
-  page_number,
+  createStorageImportExample,
+  defineRobot,
   path,
+  recursiveImportPageNumber,
+  recursiveImportPageSize,
   robotBase,
   robotImport,
+  robotImportMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      imported: {
-        robot: '/cloudfiles/import',
-        credentials: 'YOUR_CLOUDFILES_CREDENTIALS',
-        path: 'path/to/files/',
-        recursive: true,
-      },
-    },
-  },
+  ...robotImportMeta,
+  example_code: createStorageImportExample('/cloudfiles/import', 'YOUR_CLOUDFILES_CREDENTIALS'),
   example_code_description:
     'Import files from the `path/to/files` directory and its subdirectories:',
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Importing',
   purpose_sentence: 'imports whole directories of files from your Rackspace Cloud Files container',
-  purpose_verb: 'import',
   purpose_word: 'Rackspace Cloud Files',
   purpose_words: 'Import files from Rackspace Cloud Files',
   requires_credentials: true,
-  service_slug: 'file-importing',
-  slot_count: 20,
   title: 'Import files from Rackspace Cloud Files',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'CloudfilesImportRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
-  stage: 'ga',
 }
 
 export const robotCloudfilesImportInstructionsSchema = robotBase
@@ -57,7 +37,7 @@ export const robotCloudfilesImportInstructionsSchema = robotBase
   .extend({
     robot: z.literal('/cloudfiles/import'),
     path: path.describe(`
-The path in your bucket to the specific file or directory. If the path points to a file, only this file will be imported. For example: \`images/avatar.jpg\`.
+The path in your container to the specific file or directory. If the path points to a file, only this file will be imported. For example: \`images/avatar.jpg\`.
 
 If it points to a directory, indicated by a trailing slash (\`/\`), then all files that are direct descendants of this directory will be imported. For example: \`images/\`.
 
@@ -73,46 +53,30 @@ Setting this to \`true\` will enable importing files from subdirectories and sub
 
 Please use the pagination parameters \`page_number\` and \`files_per_page\`wisely here.
 `),
-    page_number: page_number.describe(`
-The pagination page number. For now, in order to not break backwards compatibility in non-recursive imports, this only works when recursive is set to \`true\`.
-
-When doing big imports, make sure no files are added or removed from other scripts within your path, otherwise you might get weird results with the pagination.
-`),
-    files_per_page: files_per_page.describe(`
-The pagination page size. This only works when recursive is \`true\` for now, in order to not break backwards compatibility in non-recursive imports.
-`),
+    page_number: recursiveImportPageNumber,
+    files_per_page: recursiveImportPageSize,
   })
   .strict()
 
-export const robotCloudfilesImportInstructionsWithHiddenFieldsSchema =
-  robotCloudfilesImportInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotCloudfilesImportInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<
+  typeof robotCloudfilesImportInstructionsSchema.shape
+> = defineRobot(meta, robotCloudfilesImportInstructionsSchema)
 
-export type RobotCloudfilesImportInstructions = z.infer<
-  typeof robotCloudfilesImportInstructionsSchema
->
-export type RobotCloudfilesImportInstructionsWithHiddenFields = z.infer<
-  typeof robotCloudfilesImportInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotCloudfilesImportInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotCloudfilesImportInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotCloudfilesImportInstructionsSchema = interpolateRobot(
-  robotCloudfilesImportInstructionsSchema,
-)
-export type InterpolatableRobotCloudfilesImportInstructions =
-  InterpolatableRobotCloudfilesImportInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotCloudfilesImportInstructionsInput = z.input<
-  typeof interpolatableRobotCloudfilesImportInstructionsSchema
->
-
-export const interpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotCloudfilesImportInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotCloudfilesImportInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsSchema
->
+export type RobotCloudfilesImportInstructions = Instructions['output']
+export type RobotCloudfilesImportInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotCloudfilesImportInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotCloudfilesImportInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotCloudfilesImportInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotCloudfilesImportInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

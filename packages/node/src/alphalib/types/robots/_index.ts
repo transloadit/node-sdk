@@ -232,6 +232,11 @@ import {
   interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema,
 } from './http-import.ts'
 import {
+  meta as httpRequestMeta,
+  interpolatableRobotHttpRequestInstructionsSchema,
+  interpolatableRobotHttpRequestInstructionsWithHiddenFieldsSchema,
+} from './http-request.ts'
+import {
   meta as imageBgremoveMeta,
   interpolatableRobotImageBgremoveInstructionsSchema,
   interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema,
@@ -534,6 +539,7 @@ const robotStepsInstructions: RobotSchemaOptions = [
   interpolatableRobotGoogleStoreInstructionsSchema,
   interpolatableRobotHtmlConvertInstructionsSchema,
   interpolatableRobotHttpImportInstructionsSchema,
+  interpolatableRobotHttpRequestInstructionsSchema,
   interpolatableRobotImageBgremoveInstructionsSchema,
   interpolatableRobotImageCopyrightdetectInstructionsSchema,
   interpolatableRobotImageDescribeInstructionsSchema,
@@ -633,6 +639,7 @@ const robotStepsInstructionsWithHiddenFields: RobotSchemaOptions = [
   interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema,
   interpolatableRobotHtmlConvertInstructionsWithHiddenFieldsSchema,
   interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema,
+  interpolatableRobotHttpRequestInstructionsWithHiddenFieldsSchema,
   interpolatableRobotImageBgremoveInstructionsWithHiddenFieldsSchema,
   interpolatableRobotImageCopyrightdetectInstructionsWithHiddenFieldsSchema,
   interpolatableRobotImageDescribeInstructionsWithHiddenFieldsSchema,
@@ -793,6 +800,7 @@ export const robotsMeta = {
   googleStoreMeta,
   htmlConvertMeta,
   httpImportMeta,
+  httpRequestMeta,
   imageCopyrightdetectMeta,
   imageDescribeMeta,
   imageEnhanceMeta,
@@ -1123,6 +1131,12 @@ export type {
   InterpolatableRobotHttpImportInstructionsWithHiddenFields,
   InterpolatableRobotHttpImportInstructionsWithHiddenFieldsInput,
 } from './http-import.ts'
+export type {
+  InterpolatableRobotHttpRequestInstructions,
+  InterpolatableRobotHttpRequestInstructionsInput,
+  InterpolatableRobotHttpRequestInstructionsWithHiddenFields,
+  InterpolatableRobotHttpRequestInstructionsWithHiddenFieldsInput,
+} from './http-request.ts'
 export type {
   InterpolatableRobotImageBgremoveInstructions,
   InterpolatableRobotImageBgremoveInstructionsInput,

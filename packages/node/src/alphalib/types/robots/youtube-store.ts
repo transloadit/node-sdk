@@ -1,49 +1,74 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import { zodCodePointLength, zodWithJsonInputSchema } from '../../lib/zodInputSemantics.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  robotBase,
+  robotStoreMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
+
+const youtubeCategories = [
+  'autos & vehicles',
+  'comedy',
+  'education',
+  'entertainment',
+  'film & animation',
+  'gaming',
+  'howto & style',
+  'music',
+  'news & politics',
+  'people & blogs',
+  'pets & animals',
+  'science & technology',
+  'sports',
+  'travel & events',
+] as const
+
+function asciiCaseInsensitiveLiteral(value: string): string {
+  return [...value]
+    .map((character) =>
+      character >= 'a' && character <= 'z' ? `[${character}${character.toUpperCase()}]` : character,
+    )
+    .join('')
+}
+
+const youtubeCategoryValueSchema = z.enum(youtubeCategories)
+const youtubeCategoryInputSchema = z
+  .string()
+  .regex(new RegExp(`^(?:${youtubeCategories.map(asciiCaseInsensitiveLiteral).join('|')})$`, 'u'))
+const youtubeCategorySchema = zodWithJsonInputSchema(
+  z.preprocess(
+    (value) => (typeof value === 'string' ? value.toLowerCase() : value),
+    youtubeCategoryValueSchema,
+  ),
+  youtubeCategoryInputSchema,
+)
 
 export const meta: RobotMetaInput = {
-  bytescount: 6,
-  discount_factor: 0.15000150001500018,
-  discount_pct: 84.99984999849998,
+  ...robotStoreMeta,
   hideCredentialsWarning: true,
-  example_code: {
-    steps: {
-      exported: {
-        robot: '/youtube/store',
-        use: ':original',
-        credentials: 'YOUR_YOUTUBE_CREDENTIALS',
-        title: 'Transloadit: Video Example',
-        description: 'Some nice description',
-        category: 'science & technology',
-        keywords: 'transloadit, robots, botty',
-        visibility: 'private',
-      },
-    },
-  },
+  example_code: createProcessingExample('exported', '/youtube/store', {
+    credentials: 'YOUR_YOUTUBE_CREDENTIALS',
+    title: 'Transloadit: Video Example',
+    description: 'Some nice description',
+    category: 'science & technology',
+    keywords: 'transloadit, robots, botty',
+    visibility: 'private',
+  }),
   example_code_description: 'Export an uploaded video to YouTube and set some basic parameters:',
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Exporting',
   purpose_sentence: 'exports encoding results to YouTube',
-  purpose_verb: 'export',
   purpose_word: 'YouTube',
   purpose_words: 'Export files to YouTube',
-  service_slug: 'file-exporting',
-  slot_count: 10,
   title: 'Export files to YouTube',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'YoutubeStoreRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotYoutubeStoreInstructionsSchema = robotBase
@@ -72,15 +97,12 @@ You can add a custom thumbnail to your video on YouTube by using our \`"as"\` sy
 },
 \`\`\`
 
-If you encounter an error such as "The authenticated user doesnʼt have permissions to upload and set custom video thumbnails", you should go to your YouTube account and try adding a custom thumbnail to one of your existing videos. Youʼll be prompted to add your phone number. Once youʼve added it, the error should go away.
+If you encounter an error such as "The authenticated user doesn’t have permissions to upload and set custom video thumbnails", you should go to your YouTube account and try adding a custom thumbnail to one of your existing videos. You’ll be prompted to add your phone number. Once you’ve added it, the error should go away.
 `),
     credentials: z.string().describe(`
 The authentication Template credentials used for your YouTube account. You can generate them on the [Template Credentials page](/c/template-credentials/). Simply add the name of your YouTube channel, and you will be redirected to a Google verification page. Accept the presented permissions and you will be good to go.
 `),
-    title: z
-      .string()
-      .max(80)
-      .describe(`
+    title: zodCodePointLength(z.string(), { max: 80 }).describe(`
 The title of the video to be displayed on YouTube.
 
 Note that since the YouTube API requires titles to be within 80 characters, longer titles may be truncated.
@@ -88,27 +110,7 @@ Note that since the YouTube API requires titles to be within 80 characters, long
     description: z.string().describe(`
 The description of the video to be displayed on YouTube. This can be up to 5000 characters, including \`\\n\` for new-lines.
 `),
-    category: z
-      .preprocess(
-        (val) => (typeof val === 'string' ? val.toLowerCase() : val),
-        z.enum([
-          'autos & vehicles',
-          'comedy',
-          'education',
-          'entertainment',
-          'film & animation',
-          'gaming',
-          'howto & style',
-          'music',
-          'news & politics',
-          'people & blogs',
-          'pets & animals',
-          'science & technology',
-          'sports',
-          'travel & events',
-        ]),
-      )
-      .describe(`
+    category: youtubeCategorySchema.describe(`
 The category to which this video will be assigned.
 `),
     keywords: z.string().describe(`
@@ -120,34 +122,22 @@ Defines the visibility of the uploaded video.
   })
   .strict()
 
-export const robotYoutubeStoreInstructionsWithHiddenFieldsSchema =
-  robotYoutubeStoreInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotYoutubeStoreInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotYoutubeStoreInstructionsSchema.shape> =
+  defineRobot(meta, robotYoutubeStoreInstructionsSchema)
 
-export type RobotYoutubeStoreInstructions = z.infer<typeof robotYoutubeStoreInstructionsSchema>
-export type RobotYoutubeStoreInstructionsWithHiddenFields = z.infer<
-  typeof robotYoutubeStoreInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotYoutubeStoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotYoutubeStoreInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotYoutubeStoreInstructionsSchema = interpolateRobot(
-  robotYoutubeStoreInstructionsSchema,
-)
-export type InterpolatableRobotYoutubeStoreInstructions =
-  InterpolatableRobotYoutubeStoreInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotYoutubeStoreInstructionsInput = z.input<
-  typeof interpolatableRobotYoutubeStoreInstructionsSchema
->
-
-export const interpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotYoutubeStoreInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotYoutubeStoreInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsSchema
->
+export type RobotYoutubeStoreInstructions = Instructions['output']
+export type RobotYoutubeStoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotYoutubeStoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotYoutubeStoreInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotYoutubeStoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotYoutubeStoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

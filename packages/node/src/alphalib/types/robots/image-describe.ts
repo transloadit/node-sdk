@@ -1,56 +1,42 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
-  autoProviderDescription,
   awsGcpAiProviderSchema,
+  createProcessingExample,
+  defineRobot,
   granularitySchema,
-  interpolateRobot,
+  robotArtificialIntelligenceMeta,
   robotBase,
+  robotParameterDocs,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      described: {
-        robot: '/image/describe',
-        use: ':original',
-        provider: 'aws',
-      },
-    },
-  },
+  ...robotArtificialIntelligenceMeta,
+  example_code: createProcessingExample('described', '/image/describe', {
+    provider: 'aws',
+  }),
   example_code_description:
     'Recognize objects in an uploaded image and store the labels in a JSON file:',
   extended_description: `
 > [!Warning]
 > Transloadit aims to be deterministic, but this <dfn>Robot</dfn> uses third-party AI services. The providers (AWS, GCP) will evolve their models over time, giving different responses for the same input images. Avoid relying on exact responses in your tests and application.
 `,
-  minimum_charge: 1572864,
-  output_factor: 0.05,
   override_lvl1: 'Artificial Intelligence',
   purpose_sentence: 'recognizes objects in images and returns them as English words',
   purpose_verb: 'recognize',
   purpose_word: 'recognize objects',
   purpose_words: 'Recognize objects in images',
-  service_slug: 'artificial-intelligence',
-  slot_count: 10,
   title: 'Recognize objects in images',
   typical_file_size_mb: 0.8,
-  typical_file_type: 'image',
   name: 'ImageDescribeRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumChargeUsd: 0.0013,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotImageDescribeInstructionsSchema = robotBase
@@ -59,11 +45,7 @@ export const robotImageDescribeInstructionsSchema = robotBase
     robot: z.literal('/image/describe').describe(`
 You can use the labels that we return in your application to automatically classify images. You can also pass the labels down to other <dfn>Robots</dfn> to filter images that contain (or do not contain) certain content.
 `),
-    provider: awsGcpAiProviderSchema.describe(`
-${autoProviderDescription}
-
-Set this to \`"aws"\` or \`"gcp"\` to force a specific provider.
-`),
+    provider: awsGcpAiProviderSchema.describe(robotParameterDocs.ai_provider.description),
     granularity: granularitySchema.describe(`
 Whether to return a full response (\`"full"\`) including confidence percentages for each found label, or just a flat list of labels (\`"list"\`).
 `),
@@ -89,34 +71,23 @@ For an example of how to automatically reject NSFW content and malware, please c
   })
   .strict()
 
-export const robotImageDescribeInstructionsWithHiddenFieldsSchema =
-  robotImageDescribeInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotImageDescribeInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotImageDescribeInstructionsSchema.shape> =
+  defineRobot(meta, robotImageDescribeInstructionsSchema)
 
-export type RobotImageDescribeInstructions = z.infer<typeof robotImageDescribeInstructionsSchema>
-export type RobotImageDescribeInstructionsWithHiddenFields = z.infer<
-  typeof robotImageDescribeInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotImageDescribeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageDescribeInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotImageDescribeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotImageDescribeInstructionsSchema = interpolateRobot(
-  robotImageDescribeInstructionsSchema,
-)
-export type InterpolatableRobotImageDescribeInstructions =
-  InterpolatableRobotImageDescribeInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotImageDescribeInstructionsInput = z.input<
-  typeof interpolatableRobotImageDescribeInstructionsSchema
->
-
-export const interpolatableRobotImageDescribeInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotImageDescribeInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotImageDescribeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotImageDescribeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotImageDescribeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotImageDescribeInstructionsWithHiddenFieldsSchema
->
+export type RobotImageDescribeInstructions = Instructions['output']
+export type RobotImageDescribeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageDescribeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageDescribeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotImageDescribeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageDescribeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

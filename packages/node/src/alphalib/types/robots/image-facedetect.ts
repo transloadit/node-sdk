@@ -1,12 +1,18 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
-  autoProviderDescription,
   awsGcpAiProviderSchema,
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
+  robotArtificialIntelligenceMeta,
   robotBase,
+  robotParameterDocs,
   robotUse,
 } from './_instructions-primitives.ts'
 
@@ -34,44 +40,25 @@ export const imageFacedetectFaceCoordinatesSchema = z
 export type ImageFacedetectFaceCoordinates = z.infer<typeof imageFacedetectFaceCoordinatesSchema>
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      faces_detected: {
-        robot: '/image/facedetect',
-        use: ':original',
-        crop: true,
-        faces: 'each',
-        crop_padding: '10px',
-      },
-    },
-  },
+  ...robotArtificialIntelligenceMeta,
+  example_code: createProcessingExample('faces_detected', '/image/facedetect', {
+    crop: true,
+    faces: 'each',
+    crop_padding: '10px',
+  }),
   example_code_description:
     'Detect all faces in uploaded images, crop them, and save as separate images:',
-  minimum_charge: 5242880,
-  output_factor: 0.2,
   override_lvl1: 'Artificial Intelligence',
   purpose_sentence:
     'detects faces in images and can return either their coordinates or the faces themselves as new images',
   purpose_verb: 'detect',
   purpose_word: 'detect faces',
   purpose_words: 'Detect faces in images',
-  service_slug: 'artificial-intelligence',
-  slot_count: 20,
   title: 'Detect faces in images',
   typical_file_size_mb: 0.8,
-  typical_file_type: 'image',
   name: 'ImageFacedetectRobot',
-  priceFactor: 1,
   queueSlotCount: 20,
   minimumChargeUsd: 0.0013,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotImageFacedetectInstructionsSchema = robotBase
@@ -92,11 +79,7 @@ This <dfn>Robot</dfn> works well together with [🤖/image/resize](/docs/robots/
 
 </div>
 `),
-    provider: awsGcpAiProviderSchema.describe(`
-${autoProviderDescription}
-
-Set this to \`"aws"\` or \`"gcp"\` to force a specific provider.
-`),
+    provider: awsGcpAiProviderSchema.describe(robotParameterDocs.ai_provider.description),
     crop: z
       .boolean()
       .default(false)
@@ -105,7 +88,7 @@ Determine if the detected faces should be extracted. If this option is set to \`
 `),
     crop_padding: z
       .string()
-      .regex(/^\d+(px|%)$/)
+      .regex(/^[0-9]+(px|%)$/u)
       .default('5px')
       .describe(`
 Specifies how much padding is added to the extracted face images if \`crop\` is set to \`true\`. Values can be in \`px\` (pixels) or \`%\` (percentage of the width and height of the particular face image).
@@ -143,32 +126,32 @@ For the following examples, the input image is:
 
 ![](/assets/images/abbas-malek-hosseini-22NnY93qaOk-unsplash.jpg)
 
-<br>
+<br />
 
 \`faces: "each"\` applied:
 
 ![](/assets/images/abbas-malek-hosseini-22NnY93qaOk-face-0.jpg)
 ![](/assets/images/abbas-malek-hosseini-22NnY93qaOk-face-1.jpg)
 
-<br>
+<br />
 
 \`faces: "max-confidence"\` applied:
 
 ![](/assets/images/abbas-malek-hosseini-22NnY93qaOk-face-1.jpg)
 
-<br>
+<br />
 
 \`faces: "max-size"\` applied:
 
 ![](/assets/images/abbas-malek-hosseini-22NnY93qaOk-face-1.jpg)
 
-<br>
+<br />
 
 \`faces: "group"\` applied:
 
 ![](/assets/images/abbas-malek-hosseini-22NnY93qaOk-face-group.jpg)
 
-<br>
+<br />
 
 \`faces: 0\` applied:
 
@@ -177,35 +160,24 @@ For the following examples, the input image is:
   })
   .strict()
 
-export const robotImageFacedetectInstructionsWithHiddenFieldsSchema =
-  robotImageFacedetectInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotImageFacedetectInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotImageFacedetectInstructionsSchema.shape> =
+  defineRobot(meta, robotImageFacedetectInstructionsSchema)
 
-export type RobotImageFacedetectInstructions = z.infer<
-  typeof robotImageFacedetectInstructionsSchema
->
-export type RobotImageFacedetectInstructionsWithHiddenFields = z.infer<
-  typeof robotImageFacedetectInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotImageFacedetectInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageFacedetectInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotImageFacedetectInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotImageFacedetectInstructionsSchema = interpolateRobot(
-  robotImageFacedetectInstructionsSchema,
-)
-export type InterpolatableRobotImageFacedetectInstructions =
-  InterpolatableRobotImageFacedetectInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotImageFacedetectInstructionsInput = z.input<
-  typeof interpolatableRobotImageFacedetectInstructionsSchema
->
-
-export const interpolatableRobotImageFacedetectInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotImageFacedetectInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotImageFacedetectInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotImageFacedetectInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotImageFacedetectInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotImageFacedetectInstructionsWithHiddenFieldsSchema
->
+export type RobotImageFacedetectInstructions = Instructions['output']
+export type RobotImageFacedetectInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageFacedetectInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageFacedetectInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotImageFacedetectInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageFacedetectInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

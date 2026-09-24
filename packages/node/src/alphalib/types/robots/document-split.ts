@@ -1,44 +1,32 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      extracted_pages: {
-        robot: '/document/split',
-        use: ':original',
-        pages: ['1', '3-5'],
-      },
-    },
-  },
+  ...robotDocumentProcessingMeta,
+  example_code: createProcessingExample('extracted_pages', '/document/split', {
+    pages: ['1', '3-5'],
+  }),
   example_code_description: 'Extract single or multiple pages from a PDF document:',
-  minimum_charge: 2097152,
-  output_factor: 1,
-  override_lvl1: 'Document Processing',
   purpose_sentence: 'extracts pages from documents',
   purpose_verb: 'extract',
   purpose_word: 'extracts pages',
   purpose_words: 'Extracts pages',
-  service_slug: 'document-processing',
-  slot_count: 10,
   title: 'Extract pages from a document',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'document',
   name: 'DocumentSplitRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
-  minimumCharge: 1048576,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotDocumentSplitInstructionsSchema = robotBase
@@ -54,34 +42,23 @@ export const robotDocumentSplitInstructionsSchema = robotBase
   })
   .strict()
 
-export const robotDocumentSplitInstructionsWithHiddenFieldsSchema =
-  robotDocumentSplitInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotDocumentSplitInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotDocumentSplitInstructionsSchema.shape> =
+  defineRobot(meta, robotDocumentSplitInstructionsSchema)
 
-export type RobotDocumentSplitInstructions = z.infer<typeof robotDocumentSplitInstructionsSchema>
-export type RobotDocumentSplitInstructionsWithHiddenFields = z.infer<
-  typeof robotDocumentSplitInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotDocumentSplitInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDocumentSplitInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotDocumentSplitInstructionsSchema = interpolateRobot(
-  robotDocumentSplitInstructionsSchema,
-)
-export type InterpolatableRobotDocumentSplitInstructions =
-  InterpolatableRobotDocumentSplitInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotDocumentSplitInstructionsInput = z.input<
-  typeof interpolatableRobotDocumentSplitInstructionsSchema
->
-
-export const interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotDocumentSplitInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotDocumentSplitInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotDocumentSplitInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotDocumentSplitInstructionsWithHiddenFieldsSchema
->
+export type RobotDocumentSplitInstructions = Instructions['output']
+export type RobotDocumentSplitInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDocumentSplitInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentSplitInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentSplitInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDocumentSplitInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

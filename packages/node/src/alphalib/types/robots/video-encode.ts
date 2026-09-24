@@ -1,51 +1,35 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { stackVersions } from '../stackVersions.ts'
 import {
-  interpolateRobot,
+  createProcessingExample,
+  defineRobotWithHiddenFields,
   robotBase,
   robotUse,
+  robotVideoEncodingMeta,
   videoEncodeSpecificInstructionsSchema,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      hevc_encoded: {
-        robot: '/video/encode',
-        use: ':original',
-        preset: 'hevc',
-      },
-    },
-  },
+  ...robotVideoEncodingMeta,
+  example_code: createProcessingExample('hevc_encoded', '/video/encode', {
+    preset: 'hevc',
+  }),
   example_code_description:
     'Transcode uploaded video to [HEVC](https://en.wikipedia.org/wiki/High_Efficiency_Video_Coding) (H.265):',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Video Encoding',
   purpose_sentence: 'encodes, resizes, applies watermarks to videos and animated GIFs',
   purpose_verb: 'transcode',
   purpose_word: 'transcode/resize/watermark',
   purpose_words: 'Transcode, resize, or watermark videos',
-  service_slug: 'video-encoding',
-  slot_count: 60,
   title: 'Transcode, resize, or watermark videos',
-  typical_file_size_mb: 80,
-  typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
   name: 'VideoEncodeRobot',
-  priceFactor: 1,
-  queueSlotCount: 60,
-  isAllowedForUrlTransform: false,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  stage: 'ga',
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotVideoEncodeInstructionsSchema = robotBase
@@ -69,7 +53,7 @@ You can add text overlays to videos using FFmpeg's \`drawtext\` filter through t
       "use": ":original",
       "robot": "/video/encode",
       "preset": "empty",
-      "ffmpeg_stack": "{{stacks.ffmpeg.recommended_version}}",
+      "ffmpeg_stack": "${stackVersions.ffmpeg.recommendedVersion}",
       "ffmpeg": {
         "codec:a": "copy",
         "vf": "drawtext=text='My text overlay':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2"
@@ -80,7 +64,7 @@ You can add text overlays to videos using FFmpeg's \`drawtext\` filter through t
       "use": ":original",
       "robot": "/video/encode",
       "preset": "empty",
-      "ffmpeg_stack": "{{stacks.ffmpeg.recommended_version}}",
+      "ffmpeg_stack": "${stackVersions.ffmpeg.recommendedVersion}",
       "ffmpeg": {
         "codec:a": "copy",
         "vf": "drawtext=font='Times New Roman':text='My text overlay':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2"
@@ -101,7 +85,7 @@ You can add text overlays to videos using FFmpeg's \`drawtext\` filter through t
 - Preserve the source audio by setting \`"codec:a": "copy"\`.
 - Position text with the \`x\` and \`y\` expressions. The example above centers the text.
 
-See the live demo [here](/demos/video-encoding/add-text-overlay/).
+See the [live text overlay demo](/demos/video-encoding/add-text-overlay/).
 `),
     font_size: z.number().optional(),
     font_color: z.string().optional(),
@@ -109,37 +93,30 @@ See the live demo [here](/demos/video-encoding/add-text-overlay/).
   })
   .strict()
 
-export const robotVideoEncodeInstructionsWithHiddenFieldsSchema =
-  robotVideoEncodeInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotVideoEncodeInstructionsSchema.shape.result])
-      .optional(),
-    chunked_transcoding: z.boolean().optional(),
-    freeze_detect: z.boolean().optional(),
-    realtime: z.boolean().optional(),
-  })
+const hiddenFields = {
+  chunked_transcoding: z.boolean().optional(),
+  freeze_detect: z.boolean().optional(),
+  realtime: z.boolean().optional(),
+}
 
-export type RobotVideoEncodeInstructions = z.infer<typeof robotVideoEncodeInstructionsSchema>
-export type RobotVideoEncodeInstructionsWithHiddenFields = z.infer<
-  typeof robotVideoEncodeInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotVideoEncodeInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotVideoEncodeInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotVideoEncodeInstructionsSchema = interpolateRobot(
-  robotVideoEncodeInstructionsSchema,
-)
-export type InterpolatableRobotVideoEncodeInstructions =
-  InterpolatableRobotVideoEncodeInstructionsInput
+export const {
+  withHiddenFields: robotVideoEncodeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoEncodeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotVideoEncodeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotVideoEncodeInstructionsInput = z.input<
-  typeof interpolatableRobotVideoEncodeInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotVideoEncodeInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotVideoEncodeInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotVideoEncodeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotVideoEncodeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotVideoEncodeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotVideoEncodeInstructionsWithHiddenFieldsSchema
->
+export type RobotVideoEncodeInstructions = Instructions['output']
+export type RobotVideoEncodeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoEncodeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoEncodeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoEncodeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoEncodeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

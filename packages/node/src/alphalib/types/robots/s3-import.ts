@@ -1,57 +1,39 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
+  createStorageImportExample,
+  defineRobot,
   files_per_page,
-  interpolateRobot,
   page_number,
   path,
-  recursive,
+  recursiveImport,
   return_file_stubs,
   robotBase,
   robotImport,
+  robotImportMeta,
   s3Base,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      imported: {
-        robot: '/s3/import',
-        credentials: 'YOUR_AWS_CREDENTIALS',
-        path: 'path/to/files/',
-        recursive: true,
-      },
-    },
-  },
+  ...robotImportMeta,
+  example_code: createStorageImportExample('/s3/import', 'YOUR_AWS_CREDENTIALS'),
   example_code_description:
     'Import files from the `path/to/files` directory and its subdirectories:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Importing',
   purpose_sentence: 'imports whole directories of files from your S3 bucket',
-  purpose_verb: 'import',
   purpose_word: 'Amazon S3',
   purpose_words: 'Import files from Amazon S3',
   requires_credentials: true,
-  service_slug: 'file-importing',
-  slot_count: 10,
   title: 'Import files from Amazon S3',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'S3ImportRobot',
   priceFactor: 10,
   queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
-  stage: 'ga',
 }
 
 export const robotS3ImportInstructionsSchema = robotBase
@@ -70,7 +52,7 @@ The URL to the result file in your S3 bucket will be returned in the <dfn>Assemb
 
 ## Limit access
 
-You will also need to add permissions to your bucket so that Transloadit can access it properly. Here is an example IAM policy that you can use. Following the [principle of least privilege](https://en.wikipedia.org/wiki/Principle_of_least_privilege), it contains the **minimum required permissions** to export a file to your S3 bucket using Transloadit. You may require more permissions (especially viewing permissions) depending on your application.
+You will also need to add permissions to your bucket so that Transloadit can access it properly. Here is an example IAM policy that you can use. Following the [principle of least privilege](https://en.wikipedia.org/wiki/Principle_of_least_privilege), it contains the **minimum required permissions** to import a file from your S3 bucket using Transloadit. You may require more permissions (especially viewing permissions) depending on your application.
 
 Please change \`{BUCKET_NAME}\` in the values for \`Sid\` and \`Resource\` accordingly. Also, this policy will grant the minimum required permissions to all your users. We advise you to create a separate Amazon IAM user, and use its User ARN (can be found in the "Summary" tab of a user [here](https://console.aws.amazon.com/iam/home#users)) for the \`Principal\` value. More information about this can be found [here](https://docs.aws.amazon.com/AmazonS3/latest/dev/AccessPolicyLanguage_UseCases_s3_a.html).
 
@@ -107,11 +89,7 @@ If you want to import all files from the root directory, please use \`/\` as the
 
 You can also use an array of path strings here to import multiple paths in the same <dfn>Robot</dfn>'s <dfn>Step</dfn>.
 `),
-    recursive: recursive.describe(`
-Setting this to \`true\` will enable importing files from subdirectories and sub-subdirectories (etc.) of the given path.
-
-Please use the pagination parameters \`page_number\` and \`files_per_page\` wisely here.
-`),
+    recursive: recursiveImport,
     page_number: page_number.optional().describe(`
 The pagination page number. For now, in order to not break backwards compatibility in non-recursive imports, this only works when recursive is set to \`true\`.
 
@@ -145,31 +123,22 @@ Allows you to specify one or more byte ranges to import from the file. S3 must s
   })
   .strict()
 
-export const robotS3ImportInstructionsWithHiddenFieldsSchema =
-  robotS3ImportInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotS3ImportInstructionsSchema.shape.result]).optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotS3ImportInstructionsSchema.shape> =
+  defineRobot(meta, robotS3ImportInstructionsSchema)
 
-export type RobotS3ImportInstructions = z.infer<typeof robotS3ImportInstructionsSchema>
-export type RobotS3ImportInstructionsWithHiddenFields = z.infer<
-  typeof robotS3ImportInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotS3ImportInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotS3ImportInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotS3ImportInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotS3ImportInstructionsSchema = interpolateRobot(
-  robotS3ImportInstructionsSchema,
-)
-export type InterpolatableRobotS3ImportInstructions = InterpolatableRobotS3ImportInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotS3ImportInstructionsInput = z.input<
-  typeof interpolatableRobotS3ImportInstructionsSchema
->
-
-export const interpolatableRobotS3ImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotS3ImportInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotS3ImportInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotS3ImportInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotS3ImportInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotS3ImportInstructionsWithHiddenFieldsSchema
->
+export type RobotS3ImportInstructions = Instructions['output']
+export type RobotS3ImportInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotS3ImportInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotS3ImportInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotS3ImportInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotS3ImportInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

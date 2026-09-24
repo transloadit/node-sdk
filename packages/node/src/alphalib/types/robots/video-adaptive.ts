@@ -1,19 +1,22 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
 import {
-  interpolateRobot,
+  defineRobot,
   robotBase,
   robotFFmpegVideo,
   robotUse,
+  robotVideoEncodingMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: Number.POSITIVE_INFINITY,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotVideoEncodingMeta,
   example_code: {
     steps: {
       ':original': {
@@ -50,28 +53,13 @@ export const meta: RobotMetaInput = {
   },
   example_code_description:
     'Implementing HTTP Live Streaming: encode the uploaded video into three versions, then cut them into several segments and generate playlist files containing all the segments:',
-  minimum_charge: 0,
-  output_factor: 1.2,
-  override_lvl1: 'Video Encoding',
   purpose_sentence:
     'encodes videos into HTTP Live Streaming (HLS), MPEG-Dash and CMAF supported formats and generates the necessary manifest and playlist files',
   purpose_verb: 'convert',
   purpose_word: 'make adaptive',
   purpose_words: 'Convert videos to HLS, MPEG-Dash and CMAF',
-  service_slug: 'video-encoding',
-  slot_count: 60,
   title: 'Convert videos to HLS, MPEG-Dash and CMAF',
-  typical_file_size_mb: 80,
-  typical_file_type: 'video',
   name: 'VideoAdaptiveRobot',
-  priceFactor: 1,
-  queueSlotCount: 60,
-  isAllowedForUrlTransform: false,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotVideoAdaptiveInstructionsSchema = robotBase
@@ -164,34 +152,23 @@ This option is only supported for the \`"hls"\` technique and has no effect when
   })
   .strict()
 
-export const robotVideoAdaptiveInstructionsWithHiddenFieldsSchema =
-  robotVideoAdaptiveInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotVideoAdaptiveInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotVideoAdaptiveInstructionsSchema.shape> =
+  defineRobot(meta, robotVideoAdaptiveInstructionsSchema)
 
-export type RobotVideoAdaptiveInstructions = z.infer<typeof robotVideoAdaptiveInstructionsSchema>
-export type RobotVideoAdaptiveInstructionsWithHiddenFields = z.infer<
-  typeof robotVideoAdaptiveInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotVideoAdaptiveInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoAdaptiveInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotVideoAdaptiveInstructionsSchema = interpolateRobot(
-  robotVideoAdaptiveInstructionsSchema,
-)
-export type InterpolatableRobotVideoAdaptiveInstructions =
-  InterpolatableRobotVideoAdaptiveInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotVideoAdaptiveInstructionsInput = z.input<
-  typeof interpolatableRobotVideoAdaptiveInstructionsSchema
->
-
-export const interpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotVideoAdaptiveInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotVideoAdaptiveInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsSchema
->
+export type RobotVideoAdaptiveInstructions = Instructions['output']
+export type RobotVideoAdaptiveInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoAdaptiveInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoAdaptiveInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoAdaptiveInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoAdaptiveInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

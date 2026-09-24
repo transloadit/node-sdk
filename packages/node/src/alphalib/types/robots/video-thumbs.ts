@@ -1,55 +1,56 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
 import {
   color_with_alpha,
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
   percentageSchema,
   resize_strategy,
   robotBase,
   robotFFmpeg,
   robotUse,
+  robotVideoEncodingMeta,
 } from './_instructions-primitives.ts'
 
+/** Markup over the AI provider cost for smart thumbnail selection. */
+export const smartThumbnailMarkupPercent = 50
+
+const thumbnailCountSchema = z.number().int().min(1).max(999).default(8)
+const smartMaximumCandidatesSchema = z.number().int().min(2).max(100).default(20)
+const defaultThumbnailCount = thumbnailCountSchema.parse(undefined)
+const defaultSmartMaximumCandidates = smartMaximumCandidatesSchema.parse(undefined)
+
+/** Candidate-pool size shared by smart thumbnail execution and its documented default example. */
+export function getSmartThumbnailCandidateCount(count: number, maximumCandidates: number): number {
+  return Math.max(count, Math.min(maximumCandidates, count * 3))
+}
+
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      thumbnailed: {
-        robot: '/video/thumbs',
-        use: ':original',
-        count: 10,
-        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
-      },
-    },
-  },
-  example_code_description: 'Extract 10 thumbnails from each uploaded video:',
-  minimum_charge: 0,
-  output_factor: 0.05,
-  override_lvl1: 'Video Encoding',
+  ...robotVideoEncodingMeta,
+  example_code: createProcessingExample('thumbnailed', '/video/thumbs', {
+    count: 3,
+    ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
+    smart: true,
+    smart_max_candidates: 12,
+  }),
+  example_code_description:
+    'Select three visually appealing thumbnails from each uploaded video with AI:',
   purpose_sentence: 'extracts any number of images from videos for use as previews',
   purpose_verb: 'extract',
   purpose_word: 'thumbnail',
   purpose_words: 'Extract thumbnails from videos',
-  service_slug: 'video-encoding',
-  slot_count: 15,
   title: 'Extract thumbnails from videos',
-  typical_file_size_mb: 80,
-  typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
   name: 'VideoThumbsRobot',
   priceFactor: 10,
   queueSlotCount: 15,
-  isAllowedForUrlTransform: false,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotVideoThumbsInstructionsSchema = robotBase
@@ -57,16 +58,23 @@ export const robotVideoThumbsInstructionsSchema = robotBase
   .merge(robotFFmpeg)
   .extend({
     robot: z.literal('/video/thumbs').describe(`
+Set \`smart: true\` to select strong preview images with AI instead of taking frames only at regular intervals. The Robot scores candidate frames for clarity, brightness, composition, faces, expressions, action, and visual interest, then returns the best \`count\` frames in chronological order. Smart results include \`file.meta.smart_score\` and \`file.meta.smart_reasons\`. If AI scoring is unavailable, the Assembly continues with the candidate frames in fallback order. No AI credentials are required.
+
+## AI pricing
+
+Regular \`/video/thumbs\` processing charges still apply. AI frame analysis is billed separately at the underlying provider cost plus a ${smartThumbnailMarkupPercent}% Transloadit markup. The exact AI charge varies with the number of candidate frames, the internally selected model and provider pricing, and the image payload size.
+
+\`smart_max_candidates\` is the main cost and latency control. The Robot analyzes up to three candidates per requested thumbnail, capped by \`smart_max_candidates\`, but never fewer than \`count\`. With the defaults of \`count: ${defaultThumbnailCount}\` and \`smart_max_candidates: ${defaultSmartMaximumCandidates}\`, it analyzes ${getSmartThumbnailCandidateCount(defaultThumbnailCount, defaultSmartMaximumCandidates)} frames and returns the best ${defaultThumbnailCount}. Lower the candidate limit to reduce AI cost and latency; raise it to give the AI more frames to choose from.
+
 > [!Note]
-> Even though thumbnails are extracted from videos in parallel, we sort the thumbnails before adding them to the Assembly results. So the order in which they appear there reflects the order in which they appear in the video. You can also make sure by checking the <code>thumb_index</code> meta key.
+> Use \`count\` with smart selection. To consistently extract exact timestamps with \`offsets\`, set \`smart: false\`.
+
+> [!Note]
+> Even though thumbnails are extracted from videos in parallel, we sort the thumbnails before adding them to the Assembly results. So the order in which they appear there reflects the order in which they appear in the video. You can also make sure by checking the \`thumb_index\` meta key.
+
+For an upload-to-poster Template, SDK usage, and publication checks, see the [HTML video workflow guide](/guides/html-video-production-checklist/#html-video-production-checklist-section-6). The [video and S3 demo](/demos/file-exporting/store-encoding-and-thumbnails-on-s3/) includes a recorded input and extracted frames.
 `),
-    count: z
-      .number()
-      .int()
-      .min(1)
-      .max(999)
-      .default(8)
-      .describe(`
+    count: thumbnailCountSchema.describe(`
 The number of thumbnails to be extracted. As some videos have incorrect durations, the actual number of thumbnails generated may be less in rare cases. The maximum number of thumbnails we currently allow is 999.
 
 The thumbnails are taken at regular intervals, determined by dividing the video duration by the count. For example, a count of 3 will produce thumbnails at 25%, 50% and 75% through the video.
@@ -80,6 +88,8 @@ To extract thumbnails for specific timestamps, use the \`offsets\` parameter.
 An array of offsets representing seconds of the file duration, such as \`[ 2, 45, 120 ]\`. Millisecond durations of a file can also be used by using decimal place values. For example, an offset from 1250 milliseconds would be represented with \`1.25\`. Offsets can also be percentage values such as \`[ "2%", "50%", "75%" ]\`.
 
 This option cannot be used with the \`count\` parameter, and takes precedence if both are specified. Out-of-range offsets are silently ignored.
+
+When \`smart\` is \`true\`, smart selection ignores \`offsets\` and uses \`count\` to select from its own candidate timestamps. If no smart candidates can be extracted, the Robot falls back to standard extraction, where \`offsets\` takes precedence. Use \`smart: false\` to consistently extract the specified timestamps.
 `),
     format: z
       .enum(['jpeg', 'jpg', 'png'])
@@ -136,52 +146,38 @@ The AI evaluates frames based on:
 - Action and motion (avoiding transition frames)
 - Overall visual interest
 
-Smart thumbnail analysis is billed with a 50% margin over the underlying AI provider cost.
-`),
-    smart_max_candidates: z
-      .number()
-      .int()
-      .min(2)
-      .max(100)
-      .default(20)
-      .describe(`
-The maximum number of candidate frames to extract and analyze when \`smart\` is \`true\`.
+Regular \`/video/thumbs\` processing charges still apply. AI frame analysis is billed separately at the underlying provider cost plus a ${smartThumbnailMarkupPercent}% Transloadit markup. You do not need to provide AI credentials.
 
-A higher number may yield better results but increases processing time and cost. The Robot will extract this many frames evenly distributed across the video, analyze them with AI, and return only the top \`count\` results.
+Smart mode generates its own regularly spaced candidate timestamps; use \`smart: false\` with \`offsets\` when you need specified timestamps. Selected smart thumbnails are returned in chronological order, not score order. Inspect \`meta.thumb_offset\`, \`meta.smart_score\`, and \`meta.smart_reasons\` when evaluating the selection.
+
+If AI scoring fails, the Robot selects from the extracted candidates in chronological order and records a fallback reason. If no candidates can be extracted, it attempts standard thumbnail extraction. A completed Assembly does not guarantee a representative or publication-safe poster; check that outputs exist and apply your application’s review policy.
+`),
+    smart_max_candidates: smartMaximumCandidatesSchema.describe(`
+The maximum size of the candidate pool when \`smart\` is \`true\`. The Robot analyzes up to three candidates per requested thumbnail, capped by this value, but it will never analyze fewer candidates than the requested \`count\`.
+
+A higher number may yield better results but increases processing time and AI cost. With the defaults of \`count: ${defaultThumbnailCount}\` and \`smart_max_candidates: ${defaultSmartMaximumCandidates}\`, the Robot analyzes ${getSmartThumbnailCandidateCount(defaultThumbnailCount, defaultSmartMaximumCandidates)} frames and returns the best ${defaultThumbnailCount} in chronological order.
 
 This parameter is only used when \`smart\` is \`true\`.
 `),
   })
   .strict()
 
-export const robotVideoThumbsInstructionsWithHiddenFieldsSchema =
-  robotVideoThumbsInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotVideoThumbsInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotVideoThumbsInstructionsSchema.shape> =
+  defineRobot(meta, robotVideoThumbsInstructionsSchema)
 
-export type RobotVideoThumbsInstructions = z.infer<typeof robotVideoThumbsInstructionsSchema>
-export type RobotVideoThumbsInstructionsWithHiddenFields = z.infer<
-  typeof robotVideoThumbsInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotVideoThumbsInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoThumbsInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotVideoThumbsInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotVideoThumbsInstructionsSchema = interpolateRobot(
-  robotVideoThumbsInstructionsSchema,
-)
-export type InterpolatableRobotVideoThumbsInstructions =
-  InterpolatableRobotVideoThumbsInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotVideoThumbsInstructionsInput = z.input<
-  typeof interpolatableRobotVideoThumbsInstructionsSchema
->
-
-export const interpolatableRobotVideoThumbsInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotVideoThumbsInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotVideoThumbsInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotVideoThumbsInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotVideoThumbsInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotVideoThumbsInstructionsWithHiddenFieldsSchema
->
+export type RobotVideoThumbsInstructions = Instructions['output']
+export type RobotVideoThumbsInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoThumbsInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoThumbsInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoThumbsInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoThumbsInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -1,22 +1,25 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
-  color_with_alpha,
+  defineRobotWithHiddenFields,
   httpUrlSchema,
   inputSortBySchema,
-  interpolateRobot,
   resize_strategy,
   robotBase,
   robotFFmpegVideo,
   robotUse,
+  robotVideoEncodingMeta,
+  videoBackgroundSchema,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotVideoEncodingMeta,
   example_code: {
     steps: {
       merged: {
@@ -34,29 +37,14 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Merge uploaded image and audio inputs into one video:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Video Encoding',
   purpose_sentence:
     'composes a new video by adding an audio track to existing still image(s) or video',
   purpose_verb: 'merge',
   purpose_word: 'merge',
   purpose_words: 'Merge video, audio, images into one video',
-  service_slug: 'video-encoding',
-  slot_count: 60,
   title: 'Merge video, audio, images into one video',
-  typical_file_size_mb: 80,
-  typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
   name: 'VideoMergeRobot',
-  priceFactor: 1,
-  queueSlotCount: 60,
-  isAllowedForUrlTransform: false,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotVideoMergeInstructionsSchema = robotBase
@@ -67,11 +55,9 @@ export const robotVideoMergeInstructionsSchema = robotBase
     resize_strategy: resize_strategy.describe(`
 If the given width/height parameters are bigger than the input image's dimensions, then the \`resize_strategy\` determines how the image will be resized to match the provided width/height. See the [available resize strategies](/docs/topics/resize-strategies/).
 `),
-    background: color_with_alpha.default('#00000000').describe(`
-The background color of the resulting video the \`"rrggbbaa"\` format (red, green, blue, alpha) when used with the \`"pad"\` resize strategy. The default color is black.
-`),
+    background: videoBackgroundSchema,
     framerate: z
-      .union([z.number().int().min(1), z.string().regex(/^\d+(?:\/\d+)?$/)])
+      .union([z.number().int().min(1), z.string().regex(/^[0-9]+(?:\/[0-9]+)?$/u)])
       .default('1/5')
       .describe(`
 When merging images to generate a video this is the input framerate. A value of "1/5" means each image is given 5 seconds before the next frame appears (the inverse of a framerate of "5"). Likewise for "1/10", "1/20", etc. A value of "5" means there are 5 frames per second.
@@ -84,7 +70,8 @@ When merging images to generate a video this allows you to define how long (in s
 `),
     duration: z
       .number()
-      .default(5)
+      .nullable()
+      .default(null)
       .describe(`
 When merging images to generate a video or when merging audio and video this is the desired target duration in seconds. The float value can take one decimal digit. If you want all images to be displayed exactly once, then you can set the duration according to this formula: \`duration = numberOfImages / framerate\`. This also works for the inverse framerate values like \`1/5\`.
 
@@ -102,7 +89,8 @@ When merging a video and an audio file, and when merging images and an audio fil
       .boolean()
       .default(false)
       .describe(`
-  Determines whether the shorter media file should be looped to match the duration of the longer one. For example, if you merge a 1-minute video with a 3-minute audio file and enable this option, the video will play three times in a row to match the audio length.`),
+Determines whether the shorter media file should be looped to match the duration of the longer one. For example, if you merge a 1-minute video with a 3-minute audio file and enable this option, the video will play three times in a row to match the audio length.
+`),
     replace_audio: z
       .boolean()
       .default(false)
@@ -138,35 +126,28 @@ The duration of the transition effect in seconds. Only applies when \`transition
   })
   .strict()
 
-export const robotVideoMergeInstructionsWithHiddenFieldsSchema =
-  robotVideoMergeInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotVideoMergeInstructionsSchema.shape.result])
-      .optional(),
-    turbo: z.boolean().optional(),
-  })
+const hiddenFields = {
+  turbo: z.boolean().optional(),
+}
 
-export type RobotVideoMergeInstructions = z.infer<typeof robotVideoMergeInstructionsSchema>
-export type RobotVideoMergeInstructionsWithHiddenFields = z.infer<
-  typeof robotVideoMergeInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotVideoMergeInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotVideoMergeInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotVideoMergeInstructionsSchema = interpolateRobot(
-  robotVideoMergeInstructionsSchema,
-)
-export type InterpolatableRobotVideoMergeInstructions =
-  InterpolatableRobotVideoMergeInstructionsInput
+export const {
+  withHiddenFields: robotVideoMergeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoMergeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotVideoMergeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotVideoMergeInstructionsInput = z.input<
-  typeof interpolatableRobotVideoMergeInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotVideoMergeInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotVideoMergeInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotVideoMergeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotVideoMergeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotVideoMergeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotVideoMergeInstructionsWithHiddenFieldsSchema
->
+export type RobotVideoMergeInstructions = Instructions['output']
+export type RobotVideoMergeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoMergeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoMergeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoMergeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoMergeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -529,12 +529,18 @@ export const parseSafeTemplate = (
   return [null, safe, indent]
 }
 
-export function botNeedsInput(robotName: string, stepName?: string, step?: StepInput) {
+/** Whether the Robot requires input, independent of any declared Step dependencies. */
+export function botNeedsInput(robotName: string, stepName?: string, step?: StepInput): boolean {
   if (robotName.endsWith('/import')) {
     return false
   }
   if (robotName === '/upload/handle') {
     return false
+  }
+  if (robotName === '/http/request') {
+    // Match HttpRequestRobot's no-input mode; interpolated payloads remain conservative.
+    const payload = step && 'payload' in step ? step.payload : undefined
+    return !(payload == null || payload === 'none' || payload === 'metadata')
   }
   if (robotName === '/html/convert') {
     if (step && 'url' in step && typeof step.url === 'string' && step.url) {
@@ -596,6 +602,8 @@ const getFirstStepNameThatDoesNotNeedInputFromSteps = (
         step !== null &&
         typeof step.robot === 'string' &&
         !botNeedsInput(step.robot, stepName, step) &&
+        // Reuse the SDK's use parser: optional input does not make a dependent Step a root.
+        getLastUsedStepName(step) === undefined &&
         !excludeBots.includes(step.robot)
       )
     }) ?? ''
@@ -821,7 +829,7 @@ export function addFilePreviewRobot(templateContent: string): string {
 
   // Identify steps and extract width
   for (const [stepName, step] of entries(steps)) {
-    if (!botNeedsInput(step.robot)) {
+    if (!botNeedsInput(step.robot, stepName, step)) {
       importStepName = stepName
     } else if (['/image/resize', '/video/thumb'].includes(step.robot)) {
       if ('width' in step && (typeof step.width === 'number' || typeof step.width === 'string')) {

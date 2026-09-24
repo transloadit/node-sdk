@@ -1,59 +1,43 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
 import {
   bitrateSchema,
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
+  robotAudioEncodingMeta,
   robotBase,
   robotFFmpegAudio,
+  robotParameterDocs,
   robotUse,
   sampleRateSchema,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 4,
-  discount_factor: 0.25,
-  discount_pct: 75,
-  example_code: {
-    steps: {
-      split: {
-        robot: '/audio/split',
-        use: ':original',
-        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
-        segments: [
-          { from: 0, to: 30 },
-          { from: 60, to: 90 },
-        ],
-      },
-    },
-  },
+  ...robotAudioEncodingMeta,
+  example_code: createProcessingExample('split', '/audio/split', {
+    ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
+    segments: [
+      { from: 0, to: 30 },
+      { from: 60, to: 90 },
+    ],
+  }),
   example_code_description:
     'Split an audio file into two segments, extracting the first 30 seconds and a segment from 1:00 to 1:30:',
-  minimum_charge: 0,
-  output_factor: 0.8,
-  override_lvl1: 'Audio Encoding',
   purpose_sentence:
     'splits an audio file into multiple segments based on an array of from/to durations',
   purpose_verb: 'split',
   purpose_word: 'split',
   purpose_words: 'Split audio',
-  service_slug: 'audio-encoding',
-  slot_count: 20,
   title: 'Split audio',
-  typical_file_size_mb: 3.8,
-  typical_file_type: 'audio file',
   uses_tools: ['ffmpeg'],
   name: 'AudioSplitRobot',
-  priceFactor: 4,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 const segmentSchema = z
@@ -90,43 +74,29 @@ An array of objects, each specifying a segment to extract from the input audio. 
 
 Times can be specified as numbers (seconds) or as timecode strings (e.g. \`"00:01:30.000"\`).
 `),
-    bitrate: bitrateSchema.optional().describe(`
-Bit rate of the resulting audio file, in bits per second. If not specified will default to the bit rate of the input audio file.
-`),
-    sample_rate: sampleRateSchema.optional().describe(`
-Sample rate of the resulting audio file, in Hertz. If not specified will default to the sample rate of the input audio file.
-`),
+    bitrate: bitrateSchema.optional().describe(robotParameterDocs.audio_bitrate.description),
+    sample_rate: sampleRateSchema
+      .optional()
+      .describe(robotParameterDocs.audio_sample_rate.description),
   })
   .strict()
 
-export const robotAudioSplitInstructionsWithHiddenFieldsSchema =
-  robotAudioSplitInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotAudioSplitInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotAudioSplitInstructionsSchema.shape> =
+  defineRobot(meta, robotAudioSplitInstructionsSchema)
 
-export type RobotAudioSplitInstructions = z.infer<typeof robotAudioSplitInstructionsSchema>
-export type RobotAudioSplitInstructionsWithHiddenFields = z.infer<
-  typeof robotAudioSplitInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotAudioSplitInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotAudioSplitInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotAudioSplitInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotAudioSplitInstructionsSchema = interpolateRobot(
-  robotAudioSplitInstructionsSchema,
-)
-export type InterpolatableRobotAudioSplitInstructions =
-  InterpolatableRobotAudioSplitInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotAudioSplitInstructionsInput = z.input<
-  typeof interpolatableRobotAudioSplitInstructionsSchema
->
-
-export const interpolatableRobotAudioSplitInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotAudioSplitInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotAudioSplitInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotAudioSplitInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotAudioSplitInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotAudioSplitInstructionsWithHiddenFieldsSchema
->
+export type RobotAudioSplitInstructions = Instructions['output']
+export type RobotAudioSplitInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotAudioSplitInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotAudioSplitInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotAudioSplitInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotAudioSplitInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

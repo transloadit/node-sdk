@@ -3,6 +3,104 @@ import { describe, expect, it } from 'vitest'
 import { lintAssemblyInstructions } from '../../src/lintAssemblyInstructions.ts'
 
 describe('lintAssemblyInstructions', () => {
+  it.each([
+    'resize',
+    ['resize'],
+    [{ name: 'resize' }],
+    { steps: 'resize' },
+    { steps: ['resize'] },
+    { steps: [{ name: 'resize' }] },
+  ])('does not create a cycle when fixing input before a dependent metadata request %j', async (use) => {
+    const result = await lintAssemblyInstructions({
+      assemblyInstructions: JSON.stringify({
+        steps: {
+          resize: { robot: '/image/resize' },
+          request: {
+            robot: '/http/request',
+            url: 'https://example.com/hook',
+            payload: 'metadata',
+            use,
+          },
+          imported: { robot: '/http/import', url: 'https://example.com/image.png' },
+          stored: { robot: '/transloadit/store', use: 'request' },
+        },
+      }),
+      fix: true,
+    })
+    expect(result.fixedInstructions).toBeDefined()
+    expect(JSON.parse(result.fixedInstructions ?? '{}')).toMatchObject({
+      steps: { resize: { use: 'imported' }, request: { use } },
+    })
+    expect(result.issues.filter((issue) => issue.type === 'error')).toEqual([])
+  })
+
+  describe.each([undefined, 'none', 'metadata'])('/http/request payload %s', (payload) => {
+    it.each([undefined, [], { steps: [] }])('accepts an empty input %j', async (use) => {
+      const result = await lintAssemblyInstructions({
+        assemblyInstructions: {
+          steps: {
+            request: {
+              robot: '/http/request',
+              url: 'https://example.com/hook',
+              ...(payload === undefined ? {} : { payload }),
+              ...(use === undefined ? {} : { use }),
+            },
+            stored: { robot: '/transloadit/store', use: 'request' },
+          },
+        },
+        fatal: 'warning',
+      })
+      expect(result.issues).toEqual([])
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe.each(['file', 'files', '${fields.payload}'])('/http/request payload %s', (payload) => {
+    it.each([
+      { use: undefined, code: 'missing-use' },
+      { use: [], code: 'empty-use-array' },
+      { use: { steps: [] }, code: 'empty-use-array' },
+    ])('requires input for $code', async ({ use, code }) => {
+      const result = await lintAssemblyInstructions({
+        assemblyInstructions: {
+          steps: {
+            request: {
+              robot: '/http/request',
+              url: 'https://example.com/hook',
+              payload,
+              ...(use === undefined ? {} : { use }),
+            },
+            stored: { robot: '/transloadit/store', use: 'request' },
+          },
+        },
+      })
+      expect(result.success).toBe(false)
+      expect(result.issues.map((issue) => issue.code).sort()).toEqual(
+        [code, 'missing-input'].sort(),
+      )
+    })
+
+    it('accepts referenced files', async () => {
+      const result = await lintAssemblyInstructions({
+        assemblyInstructions: {
+          steps: {
+            imported: { robot: '/http/import', url: 'https://example.com/input.jpg' },
+            request: {
+              robot: '/http/request',
+              url: 'https://example.com/hook',
+              payload,
+              use: 'imported',
+            },
+            stored: { robot: '/transloadit/store', use: 'request' },
+          },
+        },
+        fatal: 'warning',
+      })
+      expect(result.issues).toEqual([])
+      expect(result.success).toBe(true)
+    })
+  })
+
   it('accepts recursive Storage folder imports from the canonical Robot schema', async () => {
     const result = await lintAssemblyInstructions({
       assemblyInstructions: {

@@ -1,22 +1,26 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { zodInputPreservingTransform } from '../../lib/zodInputSemantics.ts'
 import { stackVersions } from '../stackVersions.ts'
 import {
   color_with_alpha,
   color_without_alpha,
-  interpolateRobot,
+  defineRobot,
   positionSchema,
   robotBase,
   robotFFmpegVideo,
   robotUse,
+  robotVideoEncodingMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotVideoEncodingMeta,
   example_code: {
     steps: {
       add_english_subtitles: {
@@ -62,29 +66,14 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description:
-    'If you have file input fields in a form — one for a video and one for each subtitle language (named `input_video`, `input_srt_en`, and `input_srt_de` via the HTML `name` attribute) — hereʼs how to add multiple subtitle streams with language tags to the video. Chain multiple `/video/subtitle` Steps with `keep_subtitles` set to `true` so each new stream is added alongside existing ones:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Video Encoding',
+    'If you have file input fields in a form — one for a video and one for each subtitle language (named `input_video`, `input_srt_en`, and `input_srt_de` via the HTML `name` attribute) — here’s how to add multiple subtitle streams with language tags to the video. Chain multiple `/video/subtitle` Steps with `keep_subtitles` set to `true` so each new stream is added alongside existing ones:',
   purpose_sentence: 'adds subtitles and closed captions to videos',
   purpose_verb: 'subtitle',
   purpose_word: 'subtitle',
   purpose_words: 'Add subtitles to videos',
-  service_slug: 'video-encoding',
-  slot_count: 60,
   title: 'Add subtitles to videos',
-  typical_file_size_mb: 80,
-  typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
   name: 'VideoSubtitleRobot',
-  priceFactor: 1,
-  queueSlotCount: 60,
-  isAllowedForUrlTransform: false,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotVideoSubtitleInstructionsSchema = robotBase
@@ -94,9 +83,9 @@ export const robotVideoSubtitleInstructionsSchema = robotBase
     robot: z.literal('/video/subtitle').describe(`
 This <dfn>Robot</dfn> supports both SRT and VTT subtitle files.
 `),
-    subtitles_type: z
-      .enum(['burned', 'external', 'burn'])
-      .transform((val) => (val === 'burn' ? 'burned' : val))
+    subtitles_type: zodInputPreservingTransform(z.enum(['burned', 'external', 'burn']), (val) =>
+      val === 'burn' ? 'burned' : val,
+    )
       .default('external')
       .describe(`
 Determines if subtitles are added as a separate stream to the video (value \`"external"\`) that then can be switched on and off in your video player, or if they should be burned directly into the video (value \`"burned"\` or \`"burn"\`) so that they become part of the video stream.
@@ -181,34 +170,23 @@ Specifies if existing subtitles in the input file should be kept or be replaced 
   })
   .strict()
 
-export const robotVideoSubtitleInstructionsWithHiddenFieldsSchema =
-  robotVideoSubtitleInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotVideoSubtitleInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotVideoSubtitleInstructionsSchema.shape> =
+  defineRobot(meta, robotVideoSubtitleInstructionsSchema)
 
-export type RobotVideoSubtitleInstructions = z.infer<typeof robotVideoSubtitleInstructionsSchema>
-export type RobotVideoSubtitleInstructionsWithHiddenFields = z.infer<
-  typeof robotVideoSubtitleInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotVideoSubtitleInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoSubtitleInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotVideoSubtitleInstructionsSchema = interpolateRobot(
-  robotVideoSubtitleInstructionsSchema,
-)
-export type InterpolatableRobotVideoSubtitleInstructions =
-  InterpolatableRobotVideoSubtitleInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotVideoSubtitleInstructionsInput = z.input<
-  typeof interpolatableRobotVideoSubtitleInstructionsSchema
->
-
-export const interpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotVideoSubtitleInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotVideoSubtitleInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsSchema
->
+export type RobotVideoSubtitleInstructions = Instructions['output']
+export type RobotVideoSubtitleInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoSubtitleInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoSubtitleInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoSubtitleInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoSubtitleInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

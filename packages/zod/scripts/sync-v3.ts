@@ -95,12 +95,13 @@ const rewriteSharedDependencyImports = async (dependencies: string[]): Promise<v
       relativeImportPattern,
       (statement: string, specifier: string): string => {
         const dependency = resolve(dirname(sourceFile), specifier)
-        if (isPathInside(sourceRoot, dependency)) return statement
         if (!isPathInside(alphalibRoot, dependency)) {
           throw new Error(`Schema dependency escapes alphalib: ${specifier} from ${sourceFile}`)
         }
 
-        const dependencyDestination = resolve(destRoot, relative(alphalibRoot, dependency))
+        // Shared helpers can import types, whose directory is flattened in the generated package.
+        const dependencyBase = isPathInside(sourceRoot, dependency) ? sourceRoot : alphalibRoot
+        const dependencyDestination = resolve(destRoot, relative(dependencyBase, dependency))
         const relativeSpecifier = relative(dirname(destination), dependencyDestination).replaceAll(
           sep,
           '/',

@@ -1,45 +1,32 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse, tigrisBase } from './_instructions-primitives.ts'
+import {
+  createStorageStoreExample,
+  defineRobot,
+  robotBase,
+  robotStoreMeta,
+  robotUse,
+  storageAcl,
+  storeFilePath,
+  tigrisBase,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 6,
-  discount_factor: 0.15000150001500018,
-  discount_pct: 84.99984999849998,
-  example_code: {
-    steps: {
-      exported: {
-        robot: '/tigris/store',
-        use: ':original',
-        credentials: 'YOUR_TIGRIS_CREDENTIALS',
-        path: 'my_target_folder/${unique_prefix}/${file.url_name}',
-      },
-    },
-  },
+  ...robotStoreMeta,
+  example_code: createStorageStoreExample('/tigris/store', 'YOUR_TIGRIS_CREDENTIALS'),
   example_code_description: 'Export uploaded files to `my_target_folder` on Tigris:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Exporting',
   purpose_sentence: 'exports encoding results to Tigris buckets',
-  purpose_verb: 'export',
   purpose_word: 'Tigris',
   purpose_words: 'Export files to Tigris',
-  service_slug: 'file-exporting',
-  slot_count: 10,
   title: 'Export files to Tigris',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'TigrisStoreRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotTigrisStoreInstructionsSchema = robotBase
@@ -49,18 +36,8 @@ export const robotTigrisStoreInstructionsSchema = robotBase
     robot: z.literal('/tigris/store').describe(`
 The URL to the result file will be returned in the <dfn>Assembly Status JSON</dfn>.
 `),
-    path: z
-      .string()
-      .default('${unique_prefix}/${file.url_name}')
-      .describe(`
-The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables). The path must not be a directory.
-`),
-    acl: z
-      .enum(['private', 'public-read'])
-      .default('public-read')
-      .describe(`
-The permissions used for this file.
-`),
+    path: storeFilePath,
+    acl: storageAcl,
     headers: z
       .record(z.string())
       .default({ 'Content-Type': '${file.mime}' })
@@ -86,34 +63,22 @@ If this parameter is not used, no URL signing is done.
   })
   .strict()
 
-export const robotTigrisStoreInstructionsWithHiddenFieldsSchema =
-  robotTigrisStoreInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotTigrisStoreInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotTigrisStoreInstructionsSchema.shape> =
+  defineRobot(meta, robotTigrisStoreInstructionsSchema)
 
-export type RobotTigrisStoreInstructions = z.infer<typeof robotTigrisStoreInstructionsSchema>
-export type RobotTigrisStoreInstructionsWithHiddenFields = z.infer<
-  typeof robotTigrisStoreInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotTigrisStoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotTigrisStoreInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotTigrisStoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotTigrisStoreInstructionsSchema = interpolateRobot(
-  robotTigrisStoreInstructionsSchema,
-)
-export type InterpolatableRobotTigrisStoreInstructions =
-  InterpolatableRobotTigrisStoreInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotTigrisStoreInstructionsInput = z.input<
-  typeof interpolatableRobotTigrisStoreInstructionsSchema
->
-
-export const interpolatableRobotTigrisStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotTigrisStoreInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotTigrisStoreInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotTigrisStoreInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotTigrisStoreInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotTigrisStoreInstructionsWithHiddenFieldsSchema
->
+export type RobotTigrisStoreInstructions = Instructions['output']
+export type RobotTigrisStoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotTigrisStoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotTigrisStoreInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotTigrisStoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotTigrisStoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

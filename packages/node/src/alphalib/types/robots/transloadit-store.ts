@@ -1,13 +1,10 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
   example_code: {
     steps: {
       stored: {
@@ -20,9 +17,7 @@ export const meta: RobotMetaInput = {
   has_small_icon: true,
   isAllowedForUrlTransform: false,
   isInternal: false,
-  minimum_charge: 0,
   name: 'TransloaditStoreRobot',
-  output_factor: 1,
   override_lvl1: 'File Exporting',
   priceFactor: 10,
   purpose_sentence: 'stores files privately in Transloadit Storage',
@@ -32,7 +27,6 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 2,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   service_slug: 'file-exporting',
-  slot_count: 2,
   stage: 'beta',
   title: 'Store files in Transloadit Storage',
   trackOutputFileSize: true,
@@ -45,6 +39,15 @@ export const robotTransloaditStoreInstructionsSchema = robotBase
   .extend({
     robot: z.literal('/transloadit/store').describe(`
 Stores each input privately in Transloadit Storage.
+
+After \`ASSEMBLY_COMPLETED\`, save the stored result from \`results[producingStep][i]\` with
+your application's owner or project record. Keep its \`workspace\`, \`asset_id\`, \`version_id\` and returned \`path\`.
+A Step storing \`:original\` reports in \`results[':original']\`.
+
+Collisions fail by default; explicit renaming can change the final path. Use the asset and version
+IDs with 🤖/transloadit/import to reuse exact retained bytes after a native catalog rename or overwrite.
+A path selects the current location; an asset ID without a version selects its current bytes.
+Deleting an asset or removing a retained version makes that reference unavailable.
 `),
     conflict_strategy: z
       .enum(['error', 'overwrite', 'rename'])
@@ -96,3 +99,13 @@ export type InterpolatableRobotTransloaditStoreInstructionsWithHiddenFields =
 export type InterpolatableRobotTransloaditStoreInstructionsWithHiddenFieldsInput = z.input<
   typeof interpolatableRobotTransloaditStoreInstructionsWithHiddenFieldsSchema
 >
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotTransloaditStoreInstructionsSchema,
+  typeof interpolatableRobotTransloaditStoreInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotTransloaditStoreInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotTransloaditStoreInstructionsWithHiddenFieldsSchema,
+}
