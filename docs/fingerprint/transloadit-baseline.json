@@ -2,8 +2,8 @@
   "packageDir": "packages/transloadit",
   "tarball": {
     "filename": "transloadit-4.14.0.tgz",
-    "sizeBytes": 1214050,
-    "sha256": "2992de561082e832f80cf84b0a8f7815b09c5c1b83c2452af97262b36c057c96"
+    "sizeBytes": 1214205,
+    "sha256": "54380c1aa75842c0e43ed0bd53e55a9065dd570edadb40045c606f7e3bcc0cdf"
   },
   "packageJson": {
     "name": "transloadit",
@@ -373,8 +373,8 @@
     },
     {
       "path": "dist/alphalib/types/robots/file-watermark.js",
-      "sizeBytes": 1409,
-      "sha256": "bc75a3665ca3c4dd8776cdc37653d5763e67c945f95c24d328f3b0fa0867ac45"
+      "sizeBytes": 1625,
+      "sha256": "2ce19482c95667bbac850f30b54db8e062586c82f6654316ca25c6a6e65f7f57"
     },
     {
       "path": "dist/alphalib/types/file.js",
@@ -1689,12 +1689,12 @@
     {
       "path": "dist/alphalib/types/robots/file-watermark.d.ts.map",
       "sizeBytes": 1324,
-      "sha256": "c0df9ec0458bb6f469d9f13f1c6fdc47407e93f46430416426d4080f373a0335"
+      "sha256": "67d0ffea54cc22b20b5023f10138c078496ed4266183477e4b32bb7f17c7b42f"
     },
     {
       "path": "dist/alphalib/types/robots/file-watermark.js.map",
-      "sizeBytes": 1069,
-      "sha256": "0bfb255a8775210404de2c9359aa1bc973834fcf2b2384d936b7c38ab36237c0"
+      "sizeBytes": 1093,
+      "sha256": "20228be9e2b86db03033e7f0b24fce0c2bd9955794e7d56ab52883d7d24d61de"
     },
     {
       "path": "dist/alphalib/types/file.d.ts.map",
@@ -3618,8 +3618,8 @@
     },
     {
       "path": "src/alphalib/types/robots/file-watermark.ts",
-      "sizeBytes": 2224,
-      "sha256": "3528a7de8903d2067274755a1b375b8b64254904371bfcd48115f8c9fe3fea77"
+      "sizeBytes": 2438,
+      "sha256": "deb6b9a0f12f266cf13bde43706cc29148a4edf9404198c85c7d382a4d06a648"
     },
     {
       "path": "dist/alphalib/types/file.d.ts",

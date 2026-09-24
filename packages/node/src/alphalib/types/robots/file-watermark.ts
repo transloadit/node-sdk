@@ -16,6 +16,9 @@ export const meta: RobotMetaInput = {
     randomize: true,
   }),
   example_code_description: 'Apply randomized watermarking to uploaded files:',
+  extended_description: `
+Watermarking is best effort. Unsupported file types, or files that cannot be processed, are returned unchanged. An Assembly can complete successfully without a watermark being applied.
+`,
   purpose_sentence: 'applies randomized watermarks to uploaded media',
   purpose_verb: 'write',
   purpose_word: 'watermark files',
