@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { pathToFileURL } from 'node:url'
@@ -182,15 +183,37 @@ test('emits composed Robot types with an isolated generator command', async () =
 })
 
 test('generated types preserve recursive JSON schemas', async () => {
-  const aiChatTypes = await readFile(
-    join(import.meta.dirname, '..', 'src', 'generated', 'robots', 'ai-chat.ts'),
-    'utf8',
-  )
-  assert.match(aiChatTypes, /export type RobotAiChatInstructions/)
-  assert.match(aiChatTypes, /export type CoreMessageInput/)
-  assert.match(aiChatTypes, /experimental_providerMetadata\?:/)
-  assert.match(aiChatTypes, /args: unknown/)
-  assert.match(aiChatTypes, /kind: `\$\{string\}\.\$\{string\}`/)
-  assert.doesNotMatch(aiChatTypes, /kind: \{ \[key: number\]: string/)
-  assert.doesNotMatch(aiChatTypes, /messages: string \| Array<unknown>/)
+  const temporaryRoot = await mkdtemp(join(import.meta.dirname, '.emit-types-'))
+  const packageRoot = join(temporaryRoot, 'packages/types')
+  const generatorPath = join(packageRoot, 'scripts/emit-types.ts')
+  const sdkRoot = join(import.meta.dirname, '../../node')
+  const fixtureSdkRoot = join(temporaryRoot, 'packages/node')
+
+  try {
+    await mkdir(dirname(generatorPath), { recursive: true })
+    await copyFile(join(import.meta.dirname, 'emit-types.ts'), generatorPath)
+    // Include source dependencies without relying on ignored output from a previous build.
+    await cp(join(sdkRoot, 'src/alphalib'), join(fixtureSdkRoot, 'src/alphalib'), {
+      recursive: true,
+    })
+    // The SDK’s local Zod must take precedence over the workspace’s different hoisted version.
+    await symlink(join(sdkRoot, 'node_modules'), join(fixtureSdkRoot, 'node_modules'), 'junction')
+    assert.equal(
+      createRequire(join(fixtureSdkRoot, 'package.json')).resolve('zod'),
+      createRequire(join(sdkRoot, 'package.json')).resolve('zod'),
+      'Isolated sources must resolve the SDK’s Zod dependency',
+    )
+    await execFileAsync(process.execPath, [generatorPath], { cwd: temporaryRoot })
+
+    const aiChatTypes = await readFile(join(packageRoot, 'src/generated/robots/ai-chat.ts'), 'utf8')
+    assert.match(aiChatTypes, /export type RobotAiChatInstructions/)
+    assert.match(aiChatTypes, /export type CoreMessageInput/)
+    assert.match(aiChatTypes, /experimental_providerMetadata\?:/)
+    assert.match(aiChatTypes, /args: unknown/)
+    assert.match(aiChatTypes, /kind: `\$\{string\}\.\$\{string\}`/)
+    assert.doesNotMatch(aiChatTypes, /kind: \{ \[key: number\]: string/)
+    assert.doesNotMatch(aiChatTypes, /messages: string \| Array<unknown>/)
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true })
+  }
 })
