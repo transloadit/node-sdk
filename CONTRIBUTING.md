@@ -123,6 +123,19 @@ Release flow:
 4. Review and merge the version PR. CI publishes automatically via npm trusted publishing (OIDC).
 5. Add [release notes](https://github.com/transloadit/node-sdk/releases) once the publish succeeds.
 
+The version PR updater restores old generated files to their merge base, merges `main` into
+`changeset-release/main`, then appends freshly generated versions. These are GitHub-signed commits,
+not force pushes or branch recreation: the organization requires verified commits and blocks
+non-fast-forward updates. Restoring only generated files prevents conflicts with new dependencies,
+lockfile entries or changeset edits. Changesets still owns version calculation, changelogs and
+publication. Unexpected source edits or concurrent branch changes stop the update; inspect them and
+rerun the latest main release job. Do not merge an incomplete update. Approve any CI runs awaiting
+approval on the bot-created PR before merging it. Do not bypass the required checks or branch rules.
+Release runs use GitHub's `queue: max` so newer pushes do not replace a pending publication run.
+The queue supports up to 100 pending runs; monitor a larger backlog rather than assuming unlimited
+retention. A superseded run with changesets skips versioning; a version-PR merge with no pending
+changesets still goes through the existing publisher, even if main has advanced.
+
 Changelog guidance:
 
 - Treat changesets as the changelog source. Write them as release notes (short, user-facing, and accurate).
