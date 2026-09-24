@@ -244,6 +244,8 @@ npx -y @transloadit/mcp-server stdio
 ## Tool surface
 
 - `transloadit_lint_assembly_instructions`
+- `transloadit_search_docs` (read-only; no account credentials required)
+- `transloadit_get_doc` (read-only; no account credentials required)
 - `transloadit_create_assembly`
 - `transloadit_get_assembly_status`
 - `transloadit_wait_for_assembly`
@@ -255,6 +257,10 @@ npx -y @transloadit/mcp-server stdio
 
 - `include_builtin`: `all`, `latest`, `exclusively-all`, `exclusively-latest`
 - `include_content`: include parsed `steps` in each template item
+
+Use `transloadit_search_docs` to discover a small set of relevant pages, then
+`transloadit_get_doc` to retrieve one page as bounded Markdown. Documentation tools only fetch
+public paths on `transloadit.com`; they never use or return Transloadit account credentials.
 
 ## Input files
 
