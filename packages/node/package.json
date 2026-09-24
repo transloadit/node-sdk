@@ -60,7 +60,7 @@
     "@types/node": "^25.8.0",
     "@types/recursive-readdir": "^2.2.4",
     "badge-maker": "^5.0.2",
-    "image-size": "^2.0.2",
+    "image-size": "^2.0.3",
     "nock": "^14.0.15",
     "p-retry": "^8.0.0",
     "rimraf": "^6.1.3",
