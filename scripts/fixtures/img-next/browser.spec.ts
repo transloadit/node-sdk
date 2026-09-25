@@ -28,6 +28,7 @@ interface ImageEvidence {
 }
 
 interface BrowserAudit {
+  deliveredAttachments: Set<string>
   committedRefreshes: Set<Request>
   expectedFailures: Map<string, number>
   images: ImageEvidence[]
@@ -47,6 +48,7 @@ const test = base.extend<{ audit: BrowserAudit }>({
   audit: [
     async ({ page, context, browserName, javaScriptEnabled }, use, info) => {
       const expectedFailures = new Map<string, number>()
+      const deliveredAttachments = new Set<string>()
       const images: ImageEvidence[] = []
       const errors: string[] = []
       const failedRequests: Request[] = []
@@ -132,6 +134,7 @@ const test = base.extend<{ audit: BrowserAudit }>({
       }
       await observe(page)
       await use({
+        deliveredAttachments,
         committedRefreshes,
         expectedFailures,
         images,
@@ -195,6 +198,8 @@ const test = base.extend<{ audit: BrowserAudit }>({
       // Stop accepting reads before draining: Promise.all on a growing array misses late responses.
       await page.removeAllListeners('response', { behavior: 'wait' })
       for (const request of failedRequests) {
+        // Attachment delivery can cancel the preceding document navigation in both engines.
+        if (deliveredAttachments.has(request.url())) continue
         if (expectedFailures.has(request.url())) continue
         const url = new URL(request.url())
         // Chromium reports disabled script preloads as CSP failures. Only the deliberate
@@ -1323,4 +1328,197 @@ test('native requests cannot use altered capabilities or CDN signatures', async 
   await context.clearCookies()
   audit.expectedFailures.set(issued.url(), 404)
   expect((await audit.loadNativeImage(issued.url())).loaded).toBe(false)
+})
+
+test('dynamic React blur shows before delivery and stays safe for alpha, letterboxing and crops', async ({
+  page,
+  browserName,
+}, info) => {
+  // Hold the app redirect, not a signed target with the fixture's intentionally short expiry.
+  const delivery = Promise.withResolvers<void>()
+  await page.route('**/api/transloadit/media?**', async (route) => {
+    await delivery.promise
+    await route.continue()
+  })
+  try {
+    await page.goto('/fixture/dynamic-storage', { waitUntil: 'domcontentloaded' })
+    const avatar = page.getByRole('img', { name: 'Dynamic avatar', exact: true })
+    await expect(avatar).toHaveJSProperty('naturalWidth', 0)
+    await expect(avatar).toHaveCSS('background-image', /^url\("data:image\/png;base64,/)
+    await expect(avatar).not.toHaveAttribute('onload')
+    if (browserName === 'chromium') {
+      const session = await page.context().newCDPSession(page)
+      const { data } = await session.send('Page.captureScreenshot', { format: 'png' })
+      await session.detach()
+      await info.attach('react-blur-before-load', {
+        body: Buffer.from(data, 'base64'),
+        contentType: 'image/png',
+      })
+    }
+    delivery.resolve()
+    await decode(avatar)
+    await page.getByRole('button', { name: 'Show placeholder variants' }).click()
+    const alpha = page.getByRole('img', { name: 'Transparent receipt', exact: true })
+    await decode(alpha)
+    await expect(alpha).toHaveCSS('background-image', 'none')
+    const letterbox = page.getByRole('img', { name: 'Letterboxed receipt', exact: true })
+    await decode(letterbox)
+    await expect(letterbox).toHaveCSS('background-image', 'none')
+    const crop = page.getByRole('img', { name: 'Cropped receipt', exact: true })
+    await decode(crop)
+    await expect(crop).toHaveJSProperty('naturalWidth', 320)
+    await expect(crop).toHaveJSProperty('naturalHeight', 320)
+    await expect(crop).toHaveCSS('background-size', 'cover')
+    const letterboxPixels = await sharp(await letterbox.screenshot())
+      .extract({ left: 160, top: 10, width: 1, height: 1 })
+      .removeAlpha()
+      .raw()
+      .toBuffer()
+    expect([...letterboxPixels]).toEqual([255, 255, 255])
+    await info.attach('react-blur-loaded', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  } finally {
+    delivery.resolve()
+  }
+})
+
+test('the dynamic app does not return private hashes before query authorization', async ({
+  page,
+  context,
+}) => {
+  await context.clearCookies()
+  const response = await page.goto('/fixture/dynamic-storage')
+  assert(response)
+  await expect(page.getByText('Sign in to view this album', { exact: true })).toBeVisible()
+  await expect(page.getByRole('img')).toHaveCount(0)
+  expect(await response.text()).not.toContain('WnUBBYAIa7uGh4eIiGeIiIeAeH+X')
+})
+
+test('dynamic React receipts decode and refresh after the signed CDN URL expires', async ({
+  page,
+  audit,
+  context,
+}, info) => {
+  const redirected = page
+    .waitForResponse(
+      (response) => response.status() === 307 && response.url().includes('/api/transloadit/media'),
+    )
+    .then((response) => ({ response, receivedAt: Date.now() }))
+  await page.goto('/fixture/dynamic-storage')
+  const avatar = page.getByRole('img', { name: 'Dynamic avatar', exact: true })
+  await decode(avatar)
+  await expect(avatar).toHaveAttribute('width', '400')
+  await expect(avatar).toHaveAttribute('height', '300')
+  const { response: issued, receivedAt } = await redirected
+  expect(issued.headers()['cache-control']).toBe('private, no-store')
+  expect(issued.headers().vary?.split(/,\s*/)).toEqual(
+    expect.arrayContaining(['Cookie', 'Authorization']),
+  )
+  const location = issued.headers().location
+  assert(location)
+  const target = new URL(location)
+  expect(target.origin).toBe(cdnOrigin)
+  expect(target.pathname.split('/').map(decodeURIComponent)).toContain(
+    'builtin/storage-preview@0.0.3',
+  )
+  expect(target.pathname.split('/').at(-1)).toBe(
+    fixtureStorageIdentity('documents/avatar.jpg').asset_id,
+  )
+  const remainingMs = Number(target.searchParams.get('exp')) - receivedAt
+  expect(remainingMs).toBeGreaterThan(0)
+  expect(remainingMs).toBeLessThanOrEqual(1000)
+  await expect
+    .poll(async () => (await context.request.get(location, { maxRedirects: 0 })).status(), {
+      timeout: 5000,
+    })
+    .toBe(403)
+  await page.getByRole('button', { name: 'Refresh receipt: 0' }).click()
+  await expect(page.getByRole('button', { name: 'Refresh receipt: 1' })).toBeVisible()
+  expect((await audit.loadNativeImage(issued.url())).loaded).toBe(true)
+  const refreshed = await context.request.head(issued.url(), { maxRedirects: 0 })
+  expect(refreshed.status()).toBe(307)
+  expect(refreshed.headers().location).not.toBe(location)
+  expect((await refreshed.body()).length).toBe(0)
+  await info.attach('dynamic-receipt-image', {
+    body: await page.screenshot(),
+    contentType: 'image/png',
+  })
+})
+
+test('dynamic route rejects unauthorized variants and live permission loss', async ({
+  page,
+  audit,
+  context,
+}) => {
+  const redirected = page.waitForResponse(
+    (response) => response.status() === 307 && response.url().includes('/api/transloadit/media'),
+  )
+  await page.goto('/fixture/dynamic-storage')
+  await decode(page.getByRole('img', { name: 'Dynamic avatar', exact: true }))
+  const issued = await redirected
+  const variant = new URL(issued.url())
+  variant.searchParams.set('w', '8000')
+  audit.expectedFailures.set(variant.href, 404)
+  expect((await audit.loadNativeImage(variant.href)).loaded).toBe(false)
+  const duplicate = `${issued.url()}&w=320`
+  expect((await context.request.head(duplicate, { maxRedirects: 0 })).status()).toBe(404)
+  await writeFile(revokedAccessFile, 'revoked\n')
+  const denied = await context.request.head(issued.url(), { maxRedirects: 0 })
+  expect(denied.status()).toBe(404)
+  expect(denied.headers()['cache-control']).toBe('private, no-store')
+  audit.expectedFailures.set(issued.url(), 404)
+  expect((await audit.loadNativeImage(issued.url())).loaded).toBe(false)
+  await context.clearCookies()
+  expect((await context.request.get(issued.url(), { maxRedirects: 0 })).status()).toBe(404)
+})
+
+test('dynamic download preserves exact-version bytes and the trusted receipt filename', async ({
+  page,
+  context,
+  audit,
+  browserName,
+}) => {
+  await page.goto('/fixture/dynamic-storage')
+  await decode(page.getByRole('img', { name: 'Dynamic avatar', exact: true }))
+  const link = page.getByRole('link', { name: 'Download avatar' })
+  const href = await link.getAttribute('href')
+  assert(href)
+  const before = await context.request.head(href, { maxRedirects: 0 })
+  expect(before.status()).toBe(307)
+  expect(before.headers()['cache-control']).toBe('private, no-store')
+  const delivered = await context.request.get(href)
+  expect(delivered.status()).toBe(200)
+  expect(delivered.headers()['content-disposition']).toBe('attachment; filename="avatar.jpg"')
+  const original = new URL(href, page.url())
+  const expectedBytes = await delivered.body()
+  expect((await sharp(expectedBytes).metadata()).width).toBe(400)
+  if (browserName === 'webkit' && process.platform === 'linux') {
+    // Playwright's Linux WebKit embeds supported attachments instead of emitting downloads:
+    // https://github.com/microsoft/playwright/issues/34076. Keep the real JPEG response and
+    // verify its browser-delivered header, bytes, and decode; Chromium/macOS also save it below.
+    const attachmentEvent = page.waitForResponse(
+      (response) => new URL(response.url()).origin === cdnOrigin && response.status() === 200,
+    )
+    await link.click()
+    const attachment = await attachmentEvent
+    expect(attachment.headers()['content-disposition']).toBe('attachment; filename="avatar.jpg"')
+    expect(await attachment.body()).toEqual(expectedBytes)
+    await decode(page.getByRole('img'))
+    audit.deliveredAttachments.add(attachment.url())
+  } else {
+    const downloadEvent = page.waitForEvent('download')
+    await link.click()
+    const download = await downloadEvent
+    expect(download.suggestedFilename()).toBe('avatar.jpg')
+    expect(await download.failure()).toBeNull()
+    const path = await download.path()
+    assert(path)
+    expect(await readFile(path)).toEqual(expectedBytes)
+    audit.deliveredAttachments.add(download.url())
+  }
+  audit.deliveredAttachments.add(original.href)
+  original.searchParams.set('action', 'original')
+  expect((await context.request.get(original.href, { maxRedirects: 0 })).status()).toBe(404)
 })

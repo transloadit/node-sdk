@@ -54,6 +54,17 @@
       "types": "./dist/next/server.d.ts",
       "default": "./dist/next/server.js"
     },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "workerd": "./dist/server.js",
+      "edge-light": "./dist/server.js",
+      "browser": "./dist/server.browser.js",
+      "default": "./dist/server.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -88,6 +99,7 @@
   "devDependencies": {
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.28.2",
     "happy-dom": "^20.9.0",
     "next": "16.3.4",
     "react": "^19.2.6",

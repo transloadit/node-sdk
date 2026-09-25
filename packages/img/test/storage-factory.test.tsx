@@ -80,7 +80,7 @@ test('public blur decodes the receipt on the server without changing image URLs 
   const doc = new DOMParser().parseFromString(markup, 'text/html')
   const img = doc.querySelector('img')
   expect(img?.style.backgroundImage).toContain(thumbHashToDataURL(Buffer.from(thumbhash, 'base64')))
-  expect(img?.style.backgroundSize).toBe('100% 100%')
+  expect(img?.style.backgroundSize).toBe('cover')
   expect(img?.getAttribute('placeholder')).toBeNull()
   expect(firstUrl(markup)).toEqual(firstUrl(renderToStaticMarkup(<Image src={src} alt="Hero" />)))
 })
