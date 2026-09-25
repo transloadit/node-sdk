@@ -39,6 +39,7 @@ import {
   transloaditPublicStoragePreviewTemplate,
   transloaditStoragePreviewTemplate,
 } from '../index.ts'
+import { previewUrlParams } from '../previewUrlParams.ts'
 import { createImageDiagnostics } from './diagnostics.ts'
 import { ImageSizeDiagnostics } from './ImageSizeDiagnostics.tsx'
 import { snapshotImageAttributes, snapshotImageLoading } from './imageAttributes.ts'
@@ -566,29 +567,6 @@ function snapshotUrlParams(
     snapshot[key] = Array.isArray(value) ? [...value] : value
   }
   return snapshot
-}
-
-function previewUrlParams(template: string, parameters: SmartCdnUrlParams): SmartCdnUrlParams {
-  // These exact versions share API2's defaults. Customer templates (and future Built-ins) may not.
-  if (!isVersionedStorageTemplate(template)) return parameters
-  const allowed = new Set(['bg', 'f', 'q', 'r', 'w', 'h', 'v', 'cdn'])
-  for (const name of Object.keys(parameters)) {
-    if (!allowed.has(name))
-      throw new TypeError(
-        `urlParams parameter ${name} is not supported by the selected Storage Built-in`,
-      )
-  }
-  const defaults: Readonly<Record<string, string | number>> = {
-    bg: '#ffffff',
-    f: 'jpg',
-    q: 75,
-    r: 'pad',
-  }
-  return Object.fromEntries(
-    Object.entries(parameters).filter(
-      ([name, value]) => !Object.hasOwn(defaults, name) || defaults[name] !== value,
-    ),
-  )
 }
 
 function snapshotStorageImageProps(

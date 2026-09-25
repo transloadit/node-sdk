@@ -72,6 +72,8 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
     const path = decodeURIComponent(url.pathname)
     const publicTemplate = '/file/fixture/builtin/public-preview@0.0.2/'
     const privateTemplate = '/file/fixture/builtin/storage-preview@0.0.3/'
+    const originalTemplate = '/file/fixture/builtin/storage-serve@0.0.3/'
+    const isOriginal = path.startsWith(originalTemplate)
     // Only these configured source adapters participate in the experiment. This is a delivery
     // protocol fake with real image bytes, not evidence of HTTP or S3 import execution by API2.
     const configuredSource =
@@ -79,7 +81,10 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
       path.startsWith('/file/fixture/fixture-s3/products/')
     const isPublicTemplate = path.startsWith(publicTemplate)
     const asset = assets.get(
-      path.slice((isPublicTemplate ? publicTemplate : privateTemplate).length),
+      path.slice(
+        (isPublicTemplate ? publicTemplate : isOriginal ? originalTemplate : privateTemplate)
+          .length,
+      ),
     )
     const published =
       isPublicTemplate &&
@@ -91,6 +96,31 @@ export async function startFixtureCdn(origin: string): Promise<FixtureCdn> {
     // A supplied bad signature must never fall through to anonymous public delivery.
     const authorized = signature !== null ? validSignature : published
     const version = url.searchParams.get('v')
+    if (isOriginal && validSignature && asset !== undefined && version === asset.version_id) {
+      const body = await sharp({
+        create: { width: 400, height: 300, channels: 3, background: '#2d6ea0' },
+      })
+        .jpeg()
+        .toBuffer()
+      const download = url.searchParams.get('download')
+      assert(download === null || download === 'avatar.jpg')
+      requests.push({
+        url: new URL(request.url ?? '/', origin).href,
+        status: 200,
+        cookie: request.headers.cookie,
+      })
+      response
+        .writeHead(200, {
+          'Cache-Control': 'no-store',
+          'Content-Type': 'image/jpeg',
+          'Content-Length': body.length,
+          ...(download === null
+            ? {}
+            : { 'Content-Disposition': 'attachment; filename="avatar.jpg"' }),
+        })
+        .end(request.method === 'HEAD' ? undefined : body)
+      return
+    }
     const accepted =
       (isPublicTemplate || path.startsWith(privateTemplate) || configuredSource) &&
       authorized &&

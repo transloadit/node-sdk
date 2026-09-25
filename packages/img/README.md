@@ -2,7 +2,7 @@
 
 **Alpha — API may change between releases. Pin the exact version in production. Images only for now.**
 
-Responsive images from Storage or existing HTTP/S3 assets, for Next.js. Native `picture/srcset`;
+Responsive images for Next.js and [dynamic React receipts](docs/react-storage.md). Native `picture/srcset`;
 bytes go straight from Smart CDN (`<workspace>.tlcdn.com`) to the browser, never through Next's optimizer.
 
 ## Quickstart
