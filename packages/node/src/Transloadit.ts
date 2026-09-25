@@ -372,7 +372,9 @@ interface CreateAssemblyPromise extends Promise<AssemblyStatusWithUploadUrls> {
 }
 
 // Not sure if this is still a problem with the API, but throw a special error type so the user can retry if needed
-function checkAssemblyUrls(result: AssemblyStatus) {
+function checkAssemblyUrls(
+  result: AssemblyStatus,
+): asserts result is AssemblyStatus & { assembly_url: string; assembly_ssl_url: string } {
   if (result.assembly_url == null || result.assembly_ssl_url == null) {
     throw new InconsistentResponseError('Server returned an incomplete assembly response (no URL)')
   }
@@ -1120,9 +1122,10 @@ export class Transloadit {
    * @returns after the assembly is deleted
    */
   async cancelAssembly(assemblyId: string): Promise<AssemblyStatus> {
-    const { assembly_ssl_url: url } = await this.getAssembly(assemblyId)
+    const assembly = await this.getAssembly(assemblyId)
+    checkAssemblyUrls(assembly)
     const rawResult = await this._remoteJson<Record<string, unknown>, OptionalAuthParams>({
-      url,
+      url: assembly.assembly_ssl_url,
       isTrustedUrl: true,
       method: 'delete',
     })

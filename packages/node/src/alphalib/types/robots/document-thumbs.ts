@@ -1,19 +1,26 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { imagemagickDensityPattern } from '../../imagemagickDensity.ts'
+import { zodWithConservativeJsonInputSchema } from '../../lib/zodInputSemantics.ts'
 import {
   colorspaceSchema,
-  interpolateRobot,
+  defineRobotWithHiddenFields,
   robotBase,
+  robotDocumentProcessingMeta,
   robotImagemagick,
   robotUse,
 } from './_instructions-primitives.ts'
 
+const documentThumbsPageRangeWireSchema = z.string().regex(/^[0-9]+-[0-9]+$/u)
+
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotDocumentProcessingMeta,
   example_code: {
     steps: {
       thumbnailed: {
@@ -26,29 +33,17 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Convert all pages of a PDF document into separate 200px-wide images:',
-  minimum_charge: 524288,
-  output_factor: 1,
-  override_lvl1: 'Document Processing',
   purpose_sentence:
     'generates an image for each page in a PDF file or an animated GIF file that loops through all pages',
   purpose_verb: 'extract',
   purpose_word: 'thumbnail',
   purpose_words: 'Extract thumbnail images from documents',
-  service_slug: 'document-processing',
-  slot_count: 10,
   title: 'Extract thumbnail images from documents',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'document',
   uses_tools: ['imagemagick'],
   name: 'DocumentThumbsRobot',
-  priceFactor: 1,
   queueSlotCount: 60,
   minimumCharge: 524288,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotDocumentThumbsInstructionsSchema = robotBase
@@ -69,20 +64,25 @@ export const robotDocumentThumbsInstructionsSchema = robotBase
       .describe(`
 The PDF page that you want to convert to an image. By default the value is \`null\` which means that all pages will be converted into images.
 `),
-    page_range: z
-      .string()
-      .regex(/^\d+-\d+$/)
-      .refine(
+    page_range: zodWithConservativeJsonInputSchema(
+      documentThumbsPageRangeWireSchema.refine(
         (val) => {
           const [start, end] = val.split('-').map(Number)
           return start >= 1 && end >= start
         },
-        { message: 'Start must be ≥ 1 and end must be ≥ start (e.g. "1-20")' },
-      )
+        {
+          message: 'Start must be ≥ 1 and end must be ≥ start (e.g. "1-20")',
+          params: { schemaRule: 'page-range-order' },
+        },
+      ),
+      documentThumbsPageRangeWireSchema,
+    )
       .nullable()
       .default(null)
       .describe(`
 A page range to extract, in the format \`"start-end"\` (e.g., \`"1-20"\`). Extraction starts from the first page in the range and proceeds sequentially, stopping gracefully when a page does not exist. This is useful for PDFs where the total page count cannot be determined.
+
+The start must be at least \`1\`, and the end must be greater than or equal to the start.
 
 This parameter cannot be used together with \`page\`, and is not supported with GIF format. When \`page_range\` is set, the robot does not need to know the total page count upfront, making it robust for PDFs that fail page count detection.
 `),
@@ -149,7 +149,7 @@ One of the [available resize strategies](/docs/topics/resize-strategies/).
       .describe(`
 Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (only used for the pad resize strategy).
 
-By default, the background of transparent images is changed to white. For details about how to preserve transparency across all image types, see [this demo](/demos/image-manipulation/properly-preserve-transparency-across-all-image-types/).
+By default, the background of transparent images is changed to white. For details about how to preserve transparency across all image types, see [this demo](/demos/image-processing/properly-preserve-transparency-across-all-image-types/).
 `),
     // TODO: Update options list. Why are they capitalized? They are lowercase in th ImageMagick docs.
     alpha: z
@@ -162,7 +162,7 @@ For a list of all valid values please check the ImageMagick documentation [here]
 `),
     density: z
       .string()
-      .regex(/\d+(x\d+)?/)
+      .regex(imagemagickDensityPattern)
       .optional()
       .describe(`
 While in-memory quality and file format depth specifies the color resolution, the density of an image is the spatial (space) resolution of the image. That is the density (in pixels per inch) of an image and defines how far apart (or how big) the individual pixels are. It defines the size of the image in real world terms when displayed on devices or printed.
@@ -215,54 +215,53 @@ Turbo Mode increases pricing in that the input document's file size is added for
   })
   .strict()
 
-export const robotDocumentThumbsInstructionsWithHiddenFieldsSchema =
-  robotDocumentThumbsInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotDocumentThumbsInstructionsSchema.shape.result])
-      .optional(),
-    stack: z
-      .enum(['ghostscript', 'vips', 'pdfium', 'imagemagick'])
-      .optional()
-      .describe(`
+const hiddenFields = {
+  stack: z
+    .enum(['ghostscript', 'vips', 'pdfium', 'imagemagick'])
+    .optional()
+    .describe(`
 Selects the PDF rendering stack. Use \`"ghostscript"\` for the default renderer, \`"pdfium"\` for high-end CAD, blueprint, floorplan, or other complex high-DPI PDFs where Ghostscript is too slow or exhausts scratch space, and \`"vips"\` only when libvips PDF loading is explicitly needed. The \`"imagemagick"\` value is kept for internal/backwards-compatible use and should not be used in new public templates.
 `),
-    // Override to support lowercase for BC:
-    alpha: z
-      .enum(['Remove', 'Set', 'remove', 'set'])
-      .optional()
-      .describe(`
+  // Override to support lowercase for BC:
+  alpha: z
+    .enum(['Remove', 'Set', 'remove', 'set'])
+    .optional()
+    .describe(`
 Change how the alpha channel of the resulting image should work. Valid values are \`"Set"\` to enable transparency and \`"Remove"\` to remove transparency. Lowercase values are also accepted for backwards compatibility.
 `),
-    // Override to support 'none' for BC
-    resize_strategy: z
-      .enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch', 'none'])
-      .optional()
-      .describe(`
-One of the [available resize strategies](/docs/transcoding/image-manipulation/image-resize/#resize-strategies). The 'none' value is supported for backwards compatibility.
+  // Override to support 'none' for BC
+  resize_strategy: z
+    .enum(['crop', 'fillcrop', 'fit', 'min_fit', 'pad', 'stretch', 'none'])
+    .optional()
+    .describe(`
+One of the [available resize strategies](/docs/robots/image-resize/#resize-strategies). The 'none' value is supported for backwards compatibility.
 `),
-  })
+  // Match API2's compatibility boundary for persisted Templates without widening public input.
+  density: z
+    .string()
+    .regex(/[0-9]+(?:x[0-9]+)?/u)
+    .optional(),
+}
 
-export type RobotDocumentThumbsInstructions = z.infer<typeof robotDocumentThumbsInstructionsSchema>
-export type RobotDocumentThumbsInstructionsWithHiddenFields = z.infer<
-  typeof robotDocumentThumbsInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotDocumentThumbsInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotDocumentThumbsInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotDocumentThumbsInstructionsSchema = interpolateRobot(
-  robotDocumentThumbsInstructionsSchema,
-)
-export type InterpolatableRobotDocumentThumbsInstructions =
-  InterpolatableRobotDocumentThumbsInstructionsInput
+export const {
+  withHiddenFields: robotDocumentThumbsInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDocumentThumbsInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotDocumentThumbsInstructionsInput = z.input<
-  typeof interpolatableRobotDocumentThumbsInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotDocumentThumbsInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotDocumentThumbsInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsSchema
->
+export type RobotDocumentThumbsInstructions = Instructions['output']
+export type RobotDocumentThumbsInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDocumentThumbsInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentThumbsInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentThumbsInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDocumentThumbsInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

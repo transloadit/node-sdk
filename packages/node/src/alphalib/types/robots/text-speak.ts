@@ -1,30 +1,28 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
-  autoProviderDescription,
   awsGcpAiProviderSchema,
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
+  robotArtificialIntelligenceMeta,
   robotBase,
+  robotParameterDocs,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      synthesized: {
-        robot: '/text/speak',
-        use: ':original',
-        provider: 'aws',
-        voice: 'female-1',
-        target_language: 'en-US',
-      },
-    },
-  },
+  ...robotArtificialIntelligenceMeta,
+  example_code: createProcessingExample('synthesized', '/text/speak', {
+    provider: 'aws',
+    voice: 'female-1',
+    target_language: 'en-US',
+  }),
   example_code_description:
     'Synthesize speech from uploaded text documents, using a female voice in American English:',
   extended_description: `
@@ -55,27 +53,16 @@ export const meta: RobotMetaInput = {
 </table>
 {% endfor %}
 `,
-  minimum_charge: 1048576,
-  output_factor: 1,
   override_lvl1: 'Artificial Intelligence',
   purpose_sentence: 'synthesizes speech in documents',
   purpose_verb: 'speak',
   purpose_word: 'synthesize speech',
   purpose_words: 'Synthesize speech in documents',
-  service_slug: 'artificial-intelligence',
-  slot_count: 10,
   title: 'Speak text',
   typical_file_size_mb: 1,
   typical_file_type: 'document',
   name: 'TextSpeakRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumChargeUsd: 0.05,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotTextSpeakInstructionsSchema = robotBase
@@ -92,11 +79,7 @@ Another common use case is making your product accessible to people with a readi
       .describe(`
 Which text to speak. You can also set this to \`null\` and supply an input text file.
 `),
-    provider: awsGcpAiProviderSchema.describe(`
-${autoProviderDescription}
-
-Set this to \`"aws"\` or \`"gcp"\` to force a specific provider.
-`),
+    provider: awsGcpAiProviderSchema.describe(robotParameterDocs.ai_provider.description),
     // TODO determine the list of languages
     target_language: z
       .string()
@@ -111,7 +94,7 @@ The language should be specified in the [BCP-47](https://www.rfc-editor.org/rfc/
       .default('female-1')
       .describe(`
 The gender to be used for voice synthesis. Please consult the list of supported languages and voices.
-      `),
+`),
     ssml: z
       .boolean()
       .default(false)
@@ -123,31 +106,22 @@ Please see the supported syntaxes for [AWS](https://docs.aws.amazon.com/polly/la
   })
   .strict()
 
-export const robotTextSpeakInstructionsWithHiddenFieldsSchema =
-  robotTextSpeakInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotTextSpeakInstructionsSchema.shape.result]).optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotTextSpeakInstructionsSchema.shape> =
+  defineRobot(meta, robotTextSpeakInstructionsSchema)
 
-export type RobotTextSpeakInstructions = z.infer<typeof robotTextSpeakInstructionsSchema>
-export type RobotTextSpeakInstructionsWithHiddenFields = z.infer<
-  typeof robotTextSpeakInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotTextSpeakInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotTextSpeakInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotTextSpeakInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotTextSpeakInstructionsSchema = interpolateRobot(
-  robotTextSpeakInstructionsSchema,
-)
-export type InterpolatableRobotTextSpeakInstructions = InterpolatableRobotTextSpeakInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotTextSpeakInstructionsInput = z.input<
-  typeof interpolatableRobotTextSpeakInstructionsSchema
->
-
-export const interpolatableRobotTextSpeakInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotTextSpeakInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotTextSpeakInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotTextSpeakInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotTextSpeakInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotTextSpeakInstructionsWithHiddenFieldsSchema
->
+export type RobotTextSpeakInstructions = Instructions['output']
+export type RobotTextSpeakInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotTextSpeakInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotTextSpeakInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotTextSpeakInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotTextSpeakInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

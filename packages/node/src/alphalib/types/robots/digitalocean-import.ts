@@ -1,56 +1,36 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
+  createStorageImportExample,
+  defineRobot,
   digitalOceanBase,
-  files_per_page,
-  interpolateRobot,
-  page_number,
   path,
-  recursive,
+  recursiveImport,
+  recursiveImportPageNumber,
+  recursiveImportPageSize,
   return_file_stubs,
   robotBase,
   robotImport,
+  robotImportMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      imported: {
-        robot: '/digitalocean/import',
-        credentials: 'YOUR_DIGITALOCEAN_CREDENTIALS',
-        path: 'path/to/files/',
-        recursive: true,
-      },
-    },
-  },
+  ...robotImportMeta,
+  example_code: createStorageImportExample('/digitalocean/import', 'YOUR_DIGITALOCEAN_CREDENTIALS'),
   example_code_description:
     'Import files from the `path/to/files` directory and its subdirectories:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Importing',
   purpose_sentence: 'imports whole directories of files from DigitalOcean Spaces',
-  purpose_verb: 'import',
   purpose_word: 'DigitalOcean Spaces',
   purpose_words: 'Import files from DigitalOcean Spaces',
-  service_slug: 'file-importing',
-  slot_count: 20,
   title: 'Import files from DigitalOcean Spaces',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'DigitalOceanImportRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
-  stage: 'ga',
 }
 
 export const robotDigitaloceanImportInstructionsSchema = robotBase
@@ -67,52 +47,32 @@ Directories are **not** imported recursively. If you want to import files from s
 
 You can also use an array of path strings here to import multiple paths in the same <dfn>Robot</dfn>'s <dfn>Step</dfn>.
 `),
-    recursive: recursive.describe(`
-Setting this to \`true\` will enable importing files from subdirectories and sub-subdirectories (etc.) of the given path.
-
-Please use the pagination parameters \`page_number\` and \`files_per_page\` wisely here.
-`),
-    page_number: page_number.describe(`
-The pagination page number. For now, in order to not break backwards compatibility in non-recursive imports, this only works when recursive is set to \`true\`.
-
-When doing big imports, make sure no files are added or removed from other scripts within your path, otherwise you might get weird results with the pagination.
-`),
-    files_per_page: files_per_page.describe(`
-The pagination page size. This only works when recursive is \`true\` for now, in order to not break backwards compatibility in non-recursive imports.
-`),
+    recursive: recursiveImport,
+    page_number: recursiveImportPageNumber,
+    files_per_page: recursiveImportPageSize,
     return_file_stubs,
   })
   .strict()
 
-export const robotDigitaloceanImportInstructionsWithHiddenFieldsSchema =
-  robotDigitaloceanImportInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotDigitaloceanImportInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<
+  typeof robotDigitaloceanImportInstructionsSchema.shape
+> = defineRobot(meta, robotDigitaloceanImportInstructionsSchema)
 
-export type RobotDigitaloceanImportInstructions = z.infer<
-  typeof robotDigitaloceanImportInstructionsSchema
->
-export type RobotDigitaloceanImportInstructionsWithHiddenFields = z.infer<
-  typeof robotDigitaloceanImportInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotDigitaloceanImportInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDigitaloceanImportInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDigitaloceanImportInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotDigitaloceanImportInstructionsSchema = interpolateRobot(
-  robotDigitaloceanImportInstructionsSchema,
-)
-export type InterpolatableRobotDigitaloceanImportInstructions =
-  InterpolatableRobotDigitaloceanImportInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotDigitaloceanImportInstructionsInput = z.input<
-  typeof interpolatableRobotDigitaloceanImportInstructionsSchema
->
-
-export const interpolatableRobotDigitaloceanImportInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotDigitaloceanImportInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotDigitaloceanImportInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotDigitaloceanImportInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotDigitaloceanImportInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotDigitaloceanImportInstructionsWithHiddenFieldsSchema
->
+export type RobotDigitaloceanImportInstructions = Instructions['output']
+export type RobotDigitaloceanImportInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDigitaloceanImportInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDigitaloceanImportInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotDigitaloceanImportInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDigitaloceanImportInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

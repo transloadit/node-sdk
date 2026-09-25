@@ -1,47 +1,32 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
   optimize_priority,
   robotBase,
+  robotImageProcessingMeta,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      optimized: {
-        robot: '/image/optimize',
-        use: ':original',
-      },
-    },
-  },
+  ...robotImageProcessingMeta,
+  example_code: createProcessingExample('optimized', '/image/optimize'),
   example_code_description: 'Optimize uploaded images:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Image Manipulation',
   purpose_sentence: 'reduces the size of images while maintaining the same visual quality',
   purpose_verb: 'optimize',
   purpose_word: 'optimize',
   purpose_words: 'Optimize images without quality loss',
-  service_slug: 'image-manipulation',
-  slot_count: 5,
   title: 'Optimize images without quality loss',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'image',
   name: 'ImageOptimizeRobot',
-  priceFactor: 1,
   queueSlotCount: 5,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotImageOptimizeInstructionsSchema = robotBase
@@ -60,7 +45,7 @@ It works well together with [🤖/image/resize](/docs/robots/image-resize/) to b
 > [!Note]
 > PNG optimization uses only lossless (optipng) compressors by default. To also enable lossy compression (pngquant), set \`lossy: true\`. When enabled, both lossy and lossless compressors compete and the smallest result wins, which may cause color shifts in some images.
 `),
-    priority: optimize_priority.describe(`
+    priority: optimize_priority.default('compression-ratio').describe(`
 Provides different algorithms for better or worse compression for your images, but that run slower or faster. The value \`"conversion-speed"\` will result in an average compression ratio of 18%. \`"compression-ratio"\` will result in an average compression ratio of 31%.
 `),
     progressive: z
@@ -95,34 +80,23 @@ When set to \`true\`, both lossy and lossless PNG optimizers compete and the sma
   })
   .strict()
 
-export const robotImageOptimizeInstructionsWithHiddenFieldsSchema =
-  robotImageOptimizeInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotImageOptimizeInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotImageOptimizeInstructionsSchema.shape> =
+  defineRobot(meta, robotImageOptimizeInstructionsSchema)
 
-export type RobotImageOptimizeInstructions = z.infer<typeof robotImageOptimizeInstructionsSchema>
-export type RobotImageOptimizeInstructionsWithHiddenFields = z.infer<
-  typeof robotImageOptimizeInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotImageOptimizeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageOptimizeInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotImageOptimizeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotImageOptimizeInstructionsSchema = interpolateRobot(
-  robotImageOptimizeInstructionsSchema,
-)
-export type InterpolatableRobotImageOptimizeInstructions =
-  InterpolatableRobotImageOptimizeInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotImageOptimizeInstructionsInput = z.input<
-  typeof interpolatableRobotImageOptimizeInstructionsSchema
->
-
-export const interpolatableRobotImageOptimizeInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotImageOptimizeInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotImageOptimizeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotImageOptimizeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotImageOptimizeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotImageOptimizeInstructionsWithHiddenFieldsSchema
->
+export type RobotImageOptimizeInstructions = Instructions['output']
+export type RobotImageOptimizeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageOptimizeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageOptimizeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotImageOptimizeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageOptimizeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -1,45 +1,31 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { googleBase, interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createStorageStoreExample,
+  defineRobot,
+  googleBase,
+  robotBase,
+  robotStoreMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 6,
-  discount_factor: 0.15000150001500018,
-  discount_pct: 84.99984999849998,
-  example_code: {
-    steps: {
-      exported: {
-        robot: '/google/store',
-        use: ':original',
-        credentials: 'YOUR_GOOGLE_CREDENTIALS',
-        path: 'my_target_folder/${unique_prefix}/${file.url_name}',
-      },
-    },
-  },
-  example_code_description: 'Export uploaded files to `my_target_folder` on Google Storage:',
+  ...robotStoreMeta,
+  example_code: createStorageStoreExample('/google/store', 'YOUR_GOOGLE_CREDENTIALS'),
+  example_code_description:
+    'Export uploaded files to `my_target_folder` in a Google Cloud Storage bucket:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Exporting',
-  purpose_sentence: 'exports encoding results to Google Storage',
-  purpose_verb: 'export',
-  purpose_word: 'Google Storage',
-  purpose_words: 'Export files to Google Storage',
-  service_slug: 'file-exporting',
-  slot_count: 10,
-  title: 'Export files to Google Storage',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
+  purpose_sentence: 'exports encoding results to Google Cloud Storage',
+  purpose_word: 'Google Cloud Storage',
+  purpose_words: 'Export files to Google Cloud Storage',
+  title: 'Export files to Google Cloud Storage',
   name: 'GoogleStoreRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotGoogleStoreInstructionsSchema = robotBase
@@ -106,34 +92,22 @@ The SSL URL of the file in the result JSON. The following [Assembly variables](/
   })
   .strict()
 
-export const robotGoogleStoreInstructionsWithHiddenFieldsSchema =
-  robotGoogleStoreInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotGoogleStoreInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotGoogleStoreInstructionsSchema.shape> =
+  defineRobot(meta, robotGoogleStoreInstructionsSchema)
 
-export type RobotGoogleStoreInstructions = z.infer<typeof robotGoogleStoreInstructionsSchema>
-export type RobotGoogleStoreInstructionsWithHiddenFields = z.infer<
-  typeof robotGoogleStoreInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotGoogleStoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotGoogleStoreInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotGoogleStoreInstructionsSchema = interpolateRobot(
-  robotGoogleStoreInstructionsSchema,
-)
-export type InterpolatableRobotGoogleStoreInstructions =
-  InterpolatableRobotGoogleStoreInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotGoogleStoreInstructionsInput = z.input<
-  typeof interpolatableRobotGoogleStoreInstructionsSchema
->
-
-export const interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotGoogleStoreInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotGoogleStoreInstructionsWithHiddenFieldsSchema
->
+export type RobotGoogleStoreInstructions = Instructions['output']
+export type RobotGoogleStoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotGoogleStoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotGoogleStoreInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotGoogleStoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -1,19 +1,21 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { httpImportRobotErrors } from '../responseErrors/HttpImportRobot.ts'
 import {
+  httpHeaderSafetyDescription,
+  httpUrlSchema,
   interpolateRobot,
   return_file_stubs,
   robotBase,
   robotImport,
+  robotImportMeta,
   robotUseWithHiddenFields,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
+  ...robotImportMeta,
   example_code: {
     steps: {
       imported: {
@@ -23,33 +25,20 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Import an image from a specific URL:',
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Importing',
   purpose_sentence: 'imports any file that is publicly available via a web URL into Transloadit',
-  purpose_verb: 'import',
   purpose_word: 'Webservers',
   purpose_words: 'Import files from web servers',
-  service_slug: 'file-importing',
-  slot_count: 10,
   title: 'Import files from web servers',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'HttpImportRobot',
   priceFactor: 10,
   queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
-  stage: 'ga',
 }
 
 export const robotHttpImportInstructionsSchema = robotBase
   .merge(robotImport)
   .extend({
     robot: z.literal('/http/import').describe(`
-The result of this <dfn>Robot</dfn> will carry a field \`import_url\` in their metadata, which references the URL from which they were imported. Further conversion results that use this file will also carry this \`import_url\` field. This allows you to to match conversion results with the original import URL that you used.
+The result of this <dfn>Robot</dfn> will carry a field \`import_url\` in its metadata, which references the URL from which it was imported. Further conversion results that use this file will also carry this \`import_url\` field. This allows you to match conversion results with the original import URL that you used.
 
 This <dfn>Robot</dfn> knows to interpret links to files on these services:
 
@@ -60,8 +49,10 @@ This <dfn>Robot</dfn> knows to interpret links to files on these services:
 
 Instead of downloading the HTML page previewing the file, the actual file itself will be imported.
 `),
-    url: z.union([z.string().url(), z.array(z.string().url())]).describe(`
+    url: z.union([httpUrlSchema, z.array(httpUrlSchema)]).describe(`
 The URL from which the file to be imported can be retrieved.
+
+HTTPS URLs must present a valid certificate trusted by Transloadit and matching the requested hostname. Self-signed, expired, or hostname-mismatched certificates cause \`${httpImportRobotErrors.HTTP_IMPORT_FAILURE.error}\`.
 
 You can also specify an array of URLs or a string of \`|\` delimited URLs to import several files at once. Please also check the \`url_delimiter\` parameter for that.
 `),
@@ -87,6 +78,8 @@ Headers can be specified as:
 - An array of strings in the format "Header-Name: value"
 - An array of objects with header names as keys and values as values
 - A JSON string that will be parsed into an object
+
+${httpHeaderSafetyDescription}
 
 The same \`headers\` value is sent with every URL in this \`/http/import\` Step. If \`url\` is an
 array, \`headers\` is not matched to the URLs by array index. Use separate \`/http/import\` Steps
@@ -174,3 +167,12 @@ export type InterpolatableRobotHttpImportInstructionsWithHiddenFields = z.infer<
 export type InterpolatableRobotHttpImportInstructionsWithHiddenFieldsInput = z.input<
   typeof interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema
 >
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotHttpImportInstructionsSchema,
+  typeof interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotHttpImportInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotHttpImportInstructionsWithHiddenFieldsSchema,
+}

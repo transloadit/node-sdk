@@ -1,12 +1,15 @@
 import { realpathSync } from 'node:fs'
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { dirname, resolve, sep } from 'node:path'
+import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import ts from 'typescript'
 
 const filePath = fileURLToPath(import.meta.url)
 const zodRoot = resolve(dirname(filePath), '..')
 const sourceRoot = resolve(zodRoot, 'src/v3')
 const destRoot = resolve(zodRoot, 'src/v4')
+const optionalAdapterPath = resolve(destRoot, 'lib/sdkZodOptional.ts')
 
 const collectFiles = async (dir: string, acc: string[] = []): Promise<string[]> => {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -28,6 +31,38 @@ const rewriteZodImports = (contents: string): string =>
 
 const rewritePassthroughCalls = (contents: string): string =>
   contents.replace(/\.passthrough\(\)/g, '.catchall(z.unknown())')
+
+const rewriteOptionalCalls = (filePath: string, contents: string): string => {
+  const source = ts.createSourceFile('schema.ts', contents, ts.ScriptTarget.Latest, true)
+  const edits: { start: number; end: number; text: string }[] = []
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === 'optional' &&
+      node.arguments.length === 0
+    ) {
+      const inner = node.expression.expression
+      // Zod 4 evaluates defaults inside an outer optional; preserve the source's Zod 3 contract.
+      edits.push({
+        start: inner.getStart(source),
+        end: inner.getStart(source),
+        text: 'optionalWithV3Semantics(',
+      })
+      edits.push({ start: inner.end, end: node.end, text: ')' })
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  if (edits.length === 0) return contents
+  let next = contents
+  for (const edit of edits.sort((a, b) => b.start - a.start)) {
+    next = next.slice(0, edit.start) + edit.text + next.slice(edit.end)
+  }
+  const relativePath = relative(dirname(filePath), optionalAdapterPath).split(sep).join('/')
+  const specifier = relativePath.startsWith('.') ? relativePath : `./${relativePath}`
+  return `import { optionalWithV3Semantics } from '${specifier}'\n\n${next}`
+}
 
 const rewriteRecordCalls = (contents: string): string => {
   const marker = 'z.record('
@@ -138,8 +173,8 @@ const patchInterpolatableHelpers = (contents: string): string => {
     '    ? z.ZodUnion<[z.ZodString, Schema]>\n' +
     '    : Schema extends z.ZodArray<infer T>\n' +
     '      ? z.ZodUnion<[z.ZodString, z.ZodArray<InterpolatableSchema<T>>]>\n' +
-    '      : Schema extends z.ZodDefault<infer T>\n' +
-    '        ? z.ZodDefault<InterpolatableSchema<T>>\n' +
+    '      : Schema extends z.ZodDefault<infer T> | z.ZodPrefault<infer T>\n' +
+    '        ? z.ZodPrefault<InterpolatableSchema<T>>\n' +
     '        : Schema extends z.ZodNullable<infer T>\n' +
     '          ? z.ZodNullable<InterpolatableSchema<T>>\n' +
     '          : Schema extends z.ZodOptional<infer T>\n' +
@@ -182,7 +217,7 @@ const patchInterpolatableHelpers = (contents: string): string => {
     '  }\n' +
     '  return next\n' +
     '}\n\n' +
-    'export function interpolateRecursive<Schema extends z.core.SomeType>(\n' +
+    'function interpolateRecursiveWithoutDescriptionRegistration<Schema extends z.ZodTypeAny>(\n' +
     '  schema: Schema,\n' +
     '): InterpolatableSchema<Schema> {\n' +
     '  const def = (schema as z.core.SomeType)._zod.def as unknown\n\n' +
@@ -192,7 +227,7 @@ const patchInterpolatableHelpers = (contents: string): string => {
     '        interpolationSchemaFull,\n' +
     '        z\n' +
     '          .union([schema, booleanStringSchema])\n' +
-    '          .transform((value) => value === true || value === false),\n' +
+    "          .transform((value) => value === true || value === 'true'),\n" +
     '      ]) as unknown as InterpolatableSchema<Schema>\n' +
     `    case 'array': {\n` +
     '      const arrayDef = def as { element: z.ZodTypeAny; checks?: unknown }\n' +
@@ -200,11 +235,13 @@ const patchInterpolatableHelpers = (contents: string): string => {
     '      replacement = applyArrayChecks(replacement, arrayDef.checks)\n' +
     '      return z.union([interpolationSchemaFull, replacement]) as unknown as InterpolatableSchema<Schema>\n' +
     '    }\n' +
-    `    case 'default': {\n` +
+    `    case 'default':\n` +
+    // Both forms must parse their fresh default through the interpolated inner schema.
+    // Zod 4 exposes factory defaults through a getter; keep reading it for each parse.
+    // Prefaults describe input defaults; JSON Schema authoring consumers must use io: 'input'.
+    `    case 'prefault': {\n` +
     '      const defaultDef = def as { innerType: z.ZodTypeAny; defaultValue: unknown }\n' +
-    '      const replacement = interpolateRecursive(defaultDef.innerType).default(defaultDef.defaultValue as never)\n' +
-    '      const description = (schema as { description?: string }).description\n' +
-    '      return (description ? replacement.describe(description) : replacement) as unknown as InterpolatableSchema<Schema>\n' +
+    '      return interpolateRecursive(defaultDef.innerType).prefault(() => defaultDef.defaultValue as never) as unknown as InterpolatableSchema<Schema>\n' +
     '    }\n' +
     `    case 'enum':\n` +
     `    case 'literal':\n` +
@@ -272,11 +309,22 @@ const patchInterpolatableHelpers = (contents: string): string => {
     '      }\n' +
     '      return z.union([interpolationSchemaFull, ...unionDef.options.map(interpolateRecursive)]) as unknown as InterpolatableSchema<Schema>\n' +
     '    }\n' +
-    `    case 'pipe':\n` +
-    '      return z.union([interpolationSchemaFull, schema]) as unknown as InterpolatableSchema<Schema>\n' +
+    `    case 'pipe': {\n` +
+    '      const pipeDef = def as { in: z.ZodTypeAny }\n' +
+    '      return z.union([pipeDef.in instanceof z.ZodString ? interpolationSchemaPartial : interpolationSchemaFull, schema]) as unknown as InterpolatableSchema<Schema>\n' +
+    '    }\n' +
     '    default:\n' +
     '      return schema as unknown as InterpolatableSchema<Schema>\n' +
     '  }\n' +
+    '}\n\n' +
+    '/** Keep parameter help on rebuilt interpolation schemas. */\n' +
+    'export function interpolateRecursive<Schema extends z.ZodTypeAny>(\n' +
+    '  schema: Schema,\n' +
+    '): InterpolatableSchema<Schema> {\n' +
+    '  // Conditional core types lose the classic Zod methods in generic constraints; every\n' +
+    '  // runtime branch above constructs a classic schema and describe preserves its type.\n' +
+    '  const interpolated = interpolateRecursiveWithoutDescriptionRegistration(schema) as z.ZodTypeAny\n' +
+    '  return inheritApiParameterDescription(schema, interpolated) as InterpolatableSchema<Schema>\n' +
     '}\n\n'
 
   return `${contents.slice(0, start)}${replacement}${contents.slice(end)}`
@@ -284,7 +332,8 @@ const patchInterpolatableHelpers = (contents: string): string => {
 
 const patchInterpolatableRobot = (contents: string): string => {
   const start = contents.indexOf('type InterpolatableRobot')
-  const marker = '/**\n * Fields that are shared by all Transloadit robots.'
+  // The following schemas are compatible after the generic rewrites; preserve their shared docs.
+  const marker = 'const robotInterpolateBooleanSchema'
   const end = contents.indexOf(marker)
   if (start === -1 || end === -1) {
     return contents
@@ -321,17 +370,7 @@ const patchInterpolatableRobot = (contents: string): string => {
     '      ),\n' +
     '    )\n' +
     '    .strict() as InterpolatableRobot<Schema>\n' +
-    '}\n\n' +
-    'const robotInterpolateBooleanSchema = z\n' +
-    '  .union([z.boolean(), booleanStringSchema])\n' +
-    "  .transform((value) => value === true || value === 'true')\n\n" +
-    'export const robotInterpolateSchema = z\n' +
-    '  .union([robotInterpolateBooleanSchema, z.record(z.string(), robotInterpolateBooleanSchema)])\n' +
-    '  .describe(`\n' +
-    'Controls whether Assembly Variables are interpolated for individual instruction fields.\n\n' +
-    'By default, most Robot instruction fields interpolate Assembly Variables. Set this to \\`false\\` to treat every instruction field as literal text, or set an individual field path to \\`false\\` to treat only that field as literal text. For Robot-specific fields that are literal by default, set this to \\`true\\` or set that field path to \\`true\\` to opt back into interpolation.\n\n' +
-    'Use field names such as \\`path\\`, or dotted paths such as \\`ffmpeg.vf\\` for nested objects.\n' +
-    '`)\n\n'
+    '}\n\n'
 
   return `${contents.slice(0, start)}${replacement}${contents.slice(end)}`
 }
@@ -341,7 +380,13 @@ export const patchAiChatSchema = (contents: string): string => {
     throw new Error('ai-chat schema patch failed (jsonValueSchema)')
   }
 
-  return contents
+  return contents.replaceAll('z.AnyZodObject', 'z.ZodObject').replace(
+    /\.refine\(\s*\(value\) => Object\.hasOwn\(MODEL_CAPABILITIES, value\),\s*\(value\) => \(\{([\s\S]*?)\}\),\s*\)/,
+    `.superRefine((value, context) => {
+      if (Object.hasOwn(MODEL_CAPABILITIES, value)) return
+      context.addIssue({ code: 'custom', $1 })
+    })`,
+  )
 }
 
 const patchFile = (filePath: string, contents: string): string => {
@@ -352,6 +397,21 @@ const patchFile = (filePath: string, contents: string): string => {
   }
   if (filePath.endsWith(`${sep}robots${sep}ai-chat.ts`)) {
     next = patchAiChatSchema(next)
+  }
+  if (filePath.endsWith(`${sep}aiMessages.ts`)) {
+    // Zod 3 treats File as an object; keep that legacy snapshot behavior in Zod 4.
+    next = next.replaceAll(
+      "z.getParsedType(value) === 'object'",
+      "['object', 'file'].includes(z.core.util.getParsedType(value))",
+    )
+  }
+  if (filePath.endsWith(`${sep}lib${sep}zodInputSemantics.ts`)) {
+    const original = 'return schema.default(() => structuredClone(snapshot))'
+    if (!next.includes(original)) {
+      throw new Error('Stable JSON default patch failed')
+    }
+    // Zod 4 defaults bypass parsing; prefault preserves Zod 3 validation and output transforms.
+    next = next.replace(original, 'return schema.prefault(() => structuredClone(snapshot))')
   }
   return next
 }
@@ -364,14 +424,16 @@ const main = async () => {
   const files = await collectFiles(destRoot)
   for (const file of files) {
     const contents = await readFile(file, 'utf8')
-    const patched = patchFile(
+    const patched = rewriteOptionalCalls(
       file,
-      rewritePassthroughCalls(rewriteRecordCalls(rewriteZodImports(contents))),
+      patchFile(file, rewritePassthroughCalls(rewriteRecordCalls(rewriteZodImports(contents)))),
     )
     if (patched !== contents) {
       await writeFile(file, patched, 'utf8')
     }
   }
+  await mkdir(dirname(optionalAdapterPath), { recursive: true })
+  await cp(resolve(zodRoot, 'scripts/adapters/zodOptional.ts'), optionalAdapterPath)
 }
 
 const shouldRun = (): boolean => {

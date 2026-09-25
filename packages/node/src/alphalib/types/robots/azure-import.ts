@@ -1,55 +1,36 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
   azureBase,
+  createStorageImportExample,
+  defineRobot,
   files_per_page,
-  interpolateRobot,
   next_page_token,
   path,
   recursive,
   robotBase,
   robotImport,
+  robotImportMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      imported: {
-        robot: '/azure/import',
-        credentials: 'YOUR_AZURE_CREDENTIALS',
-        path: 'path/to/files/',
-      },
-    },
-  },
+  ...robotImportMeta,
+  example_code: createStorageImportExample('/azure/import', 'YOUR_AZURE_CREDENTIALS', false),
   example_code_description:
     'Import files from the `path/to/files` directory and its subdirectories:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Importing',
   purpose_sentence: 'imports whole directories of files from your Azure container',
-  purpose_verb: 'import',
   purpose_word: 'Azure',
   purpose_words: 'Import files from Azure',
-  service_slug: 'file-importing',
   requires_credentials: true,
-  slot_count: 20,
   title: 'Import files from Azure',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'AzureImportRobot',
-  priceFactor: 6.6666,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
-  stage: 'ga',
 }
 
 export const robotAzureImportInstructionsSchema = robotBase
@@ -78,34 +59,22 @@ The pagination page size.
   })
   .strict()
 
-export const robotAzureImportInstructionsWithHiddenFieldsSchema =
-  robotAzureImportInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotAzureImportInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotAzureImportInstructionsSchema.shape> =
+  defineRobot(meta, robotAzureImportInstructionsSchema)
 
-export type RobotAzureImportInstructions = z.infer<typeof robotAzureImportInstructionsSchema>
-export type RobotAzureImportInstructionsWithHiddenFields = z.infer<
-  typeof robotAzureImportInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotAzureImportInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotAzureImportInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotAzureImportInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotAzureImportInstructionsSchema = interpolateRobot(
-  robotAzureImportInstructionsSchema,
-)
-export type InterpolatableRobotAzureImportInstructions =
-  InterpolatableRobotAzureImportInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotAzureImportInstructionsInput = z.input<
-  typeof interpolatableRobotAzureImportInstructionsSchema
->
-
-export const interpolatableRobotAzureImportInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotAzureImportInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotAzureImportInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotAzureImportInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotAzureImportInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotAzureImportInstructionsWithHiddenFieldsSchema
->
+export type RobotAzureImportInstructions = Instructions['output']
+export type RobotAzureImportInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotAzureImportInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotAzureImportInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotAzureImportInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotAzureImportInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

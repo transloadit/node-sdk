@@ -344,9 +344,11 @@ function lintUseArray(
   result: AssemblyLinterResult[],
   row: number | undefined,
   column: number | undefined,
+  allowEmpty: boolean,
 ) {
   if (!Array.isArray(use)) return
   if (use.length === 0) {
+    if (allowEmpty) return
     result.push({
       code: 'empty-use-array',
       stepName,
@@ -612,6 +614,7 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
       lintHttpImportUrl(typedStep, stepName, result)
     }
 
+    const needsInput = botNeedsInput(typedStep.robot, stepName, typedStep)
     if (!has(typedStep, 'use')) {
       if (typedStep.robot === '/html/convert') {
         // The /html/convert robot can either act as a import robot when
@@ -632,7 +635,7 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
       } else if (
         // Check if this robot doesn't need input (like import robots, /upload/handle,
         // file-generating robots like /image/generate, /text/speak with prompt, etc.)
-        !botNeedsInput(typedStep.robot, stepName, typedStep)
+        !needsInput
       ) {
         hasInputStep = true
       } else {
@@ -658,7 +661,7 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
             typeof item === 'object' && item !== null && 'name' in item && item.name === ':original'
           )
         })
-        if (referencesOriginal) {
+        if (referencesOriginal || (!needsInput && typedStep.use.length === 0)) {
           hasInputStep = true
         }
 
@@ -671,6 +674,7 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
           result,
           typedStep.__line.use,
           typedStep.__column.use,
+          !needsInput,
         )
       } else if (typeof typedStep.use === 'object' && typedStep.use !== null) {
         // Situation 2: use parameter is an object, for example
@@ -690,6 +694,7 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
             // We still need to ensure elements match StepUseArrayItemSchema if processing them.
             // The existing lintUseArray function takes 'unknown[]' for its first arg's 'steps' property if it's an object, so this is compatible.
             if (
+              (!needsInput && useObject.steps.length === 0) ||
               useObject.steps.some((step) => {
                 if (typeof step === 'string') {
                   return step === ':original'
@@ -712,6 +717,7 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
               result,
               useStepsLine ?? typedStep.__line.use, // Fallback to the line of the 'use' key itself
               useStepsColumn ?? typedStep.__column.use, // Fallback to the column of the 'use' key itself
+              !needsInput,
             )
           } else if (typeof useObject.steps === 'string') {
             if (useObject.steps === ':original') {
@@ -725,6 +731,7 @@ export function lint(assembly: TemplateWithMetadata): AssemblyLinterResult[] {
               result,
               useStepsLine ?? typedStep.__line.use,
               useStepsColumn ?? typedStep.__column.use,
+              !needsInput,
             )
           } else if (typeof useObject.steps !== 'string') {
             // If 'steps' is not an array or not present, it's an invalid use object structure.

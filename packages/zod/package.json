@@ -47,7 +47,6 @@
     "check": "yarn sync && ../../node_modules/.bin/tsc --build tsconfig.build.json && ../../node_modules/.bin/tsc --noEmit --project tsconfig.test.json && yarn test:unit"
   },
   "dependencies": {
-    "type-fest": "^5.6.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

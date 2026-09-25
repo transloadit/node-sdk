@@ -1,19 +1,22 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
+  defineRobot,
   inputSortBySchema,
-  interpolateRobot,
   robotBase,
   robotFFmpegVideo,
   robotUse,
+  robotVideoEncodingMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 4,
-  discount_factor: 0.25,
-  discount_pct: 75,
+  ...robotVideoEncodingMeta,
   example_code: {
     steps: {
       concatenated: {
@@ -42,28 +45,14 @@ export const meta: RobotMetaInput = {
   },
   example_code_description:
     'If you have a form with 3 file input fields and want to concatenate the uploaded videos in a specific order, instruct Transloadit using the `name` attribute of each input field. Use this attribute as the value for the `fields` key in the JSON, and set `as` to `video_[[index]]`. Transloadit will concatenate the files based on the ascending index order:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Video Encoding',
   purpose_sentence: 'concatenates several videos together',
   purpose_verb: 'concatenate',
   purpose_word: 'concatenate',
   purpose_words: 'Concatenate videos',
-  service_slug: 'video-encoding',
-  slot_count: 60,
   title: 'Concatenate videos',
-  typical_file_size_mb: 80,
-  typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
   name: 'VideoConcatRobot',
   priceFactor: 4,
-  queueSlotCount: 60,
-  isAllowedForUrlTransform: false,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotVideoConcatInstructionsSchema = robotBase
@@ -74,7 +63,7 @@ export const robotVideoConcatInstructionsSchema = robotBase
 > [!Note]
 > Input videos may have differing dimensions and streams - the Robot can handle this fine. It will pre-transcode the input videos if necessary before concatenation at no additional cost.
 
-Itʼs possible to concatenate a virtually infinite number of video files using [🤖/video/concat](/docs/robots/video-concat/).
+It’s possible to concatenate a virtually infinite number of video files using [🤖/video/concat](/docs/robots/video-concat/).
 `),
     video_fade_seconds: z
       .number()
@@ -92,7 +81,7 @@ Please note this parameter is independent of adding audio fades between sections
       .describe(`
 When used this adds an audio fade in and out effect between each section of your concatenated video. The float value is used so if you want an audio delay effect of 500 milliseconds between each video section you would select \`0.5\`, however, integer values can also be represented.
 
-This parameter does not add an audio fade effect at the beginning or end of your video. If you want to do so, create an additional [🤖/video/encode](/docs/robots/video-encode/] Step and use our \`ffmpeg\` parameter as shown in this [demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
+This parameter does not add an audio fade effect at the beginning or end of your video. If you want to do so, create an additional [🤖/video/encode](/docs/robots/video-encode/) Step and use our \`ffmpeg\` parameter as shown in this [demo](/demos/audio-encoding/ffmpeg-fade-in-and-out/).
 
 Please note this parameter is independent of adding video fades between sections.
 `),
@@ -130,34 +119,22 @@ For crossfade transitions, this is the overlap duration where both clips are vis
   })
   .strict()
 
-export const robotVideoConcatInstructionsWithHiddenFieldsSchema =
-  robotVideoConcatInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotVideoConcatInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotVideoConcatInstructionsSchema.shape> =
+  defineRobot(meta, robotVideoConcatInstructionsSchema)
 
-export type RobotVideoConcatInstructions = z.infer<typeof robotVideoConcatInstructionsSchema>
-export type RobotVideoConcatInstructionsWithHiddenFields = z.infer<
-  typeof robotVideoConcatInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotVideoConcatInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoConcatInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotVideoConcatInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotVideoConcatInstructionsSchema = interpolateRobot(
-  robotVideoConcatInstructionsSchema,
-)
-export type InterpolatableRobotVideoConcatInstructions =
-  InterpolatableRobotVideoConcatInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotVideoConcatInstructionsInput = z.input<
-  typeof interpolatableRobotVideoConcatInstructionsSchema
->
-
-export const interpolatableRobotVideoConcatInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotVideoConcatInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotVideoConcatInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotVideoConcatInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotVideoConcatInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotVideoConcatInstructionsWithHiddenFieldsSchema
->
+export type RobotVideoConcatInstructions = Instructions['output']
+export type RobotVideoConcatInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoConcatInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoConcatInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoConcatInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoConcatInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -1,22 +1,24 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      optimized: {
-        robot: '/document/optimize',
-        use: ':original',
-        preset: 'ebook',
-      },
-    },
-  },
+  ...robotDocumentProcessingMeta,
+  example_code: createProcessingExample('optimized', '/document/optimize', {
+    preset: 'ebook',
+  }),
   example_code_description: 'Optimize PDF file size using the ebook preset:',
   extended_description: `
 This <dfn>Robot</dfn> reduces PDF file sizes. It recompresses images, subsets fonts, and applies various optimizations to reduce file size while maintaining acceptable quality.
@@ -39,26 +41,15 @@ The Robot supports four quality presets that control the trade-off between file 
 - Meeting email attachment size limits
 - Mobile-optimized document viewing
 `,
-  minimum_charge: 2097152,
-  output_factor: 0.5,
-  override_lvl1: 'Document Processing',
   purpose_sentence: 'reduces the file size of PDF documents',
   purpose_verb: 'optimize',
   purpose_word: 'optimize PDF',
   purpose_words: 'Optimize PDF file size',
-  service_slug: 'document-processing',
-  slot_count: 10,
   title: 'Reduce PDF file size',
   typical_file_size_mb: 2.0,
-  typical_file_type: 'document',
   name: 'DocumentOptimizeRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumCharge: 2097152,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'beta',
 }
 
@@ -146,35 +137,25 @@ The PDF version compatibility level. Lower versions have broader compatibility b
   })
   .strict()
 
-export const robotDocumentOptimizeInstructionsWithHiddenFieldsSchema =
-  robotDocumentOptimizeInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotDocumentOptimizeInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<
+  typeof robotDocumentOptimizeInstructionsSchema.shape
+> = defineRobot(meta, robotDocumentOptimizeInstructionsSchema)
 
-export type RobotDocumentOptimizeInstructions = z.infer<
-  typeof robotDocumentOptimizeInstructionsSchema
->
-export type RobotDocumentOptimizeInstructionsWithHiddenFields = z.infer<
-  typeof robotDocumentOptimizeInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotDocumentOptimizeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDocumentOptimizeInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDocumentOptimizeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotDocumentOptimizeInstructionsSchema = interpolateRobot(
-  robotDocumentOptimizeInstructionsSchema,
-)
-export type InterpolatableRobotDocumentOptimizeInstructions =
-  InterpolatableRobotDocumentOptimizeInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotDocumentOptimizeInstructionsInput = z.input<
-  typeof interpolatableRobotDocumentOptimizeInstructionsSchema
->
-
-export const interpolatableRobotDocumentOptimizeInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotDocumentOptimizeInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotDocumentOptimizeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotDocumentOptimizeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotDocumentOptimizeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotDocumentOptimizeInstructionsWithHiddenFieldsSchema
->
+export type RobotDocumentOptimizeInstructions = Instructions['output']
+export type RobotDocumentOptimizeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDocumentOptimizeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentOptimizeInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentOptimizeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDocumentOptimizeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

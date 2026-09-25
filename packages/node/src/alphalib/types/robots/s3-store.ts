@@ -1,45 +1,37 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse, s3Base } from './_instructions-primitives.ts'
+import {
+  createStorageStoreExample,
+  defineRobotWithHiddenFields,
+  robotBase,
+  robotStoreMeta,
+  robotUse,
+  s3Base,
+  storeFilePath,
+} from './_instructions-primitives.ts'
+
+const s3StoreAclSchema = z
+  .enum(['bucket-default', 'private', 'public', 'public-read'])
+  .default('public-read')
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      exported: {
-        robot: '/s3/store',
-        use: ':original',
-        credentials: 'YOUR_AWS_CREDENTIALS',
-        path: 'my_target_folder/${unique_prefix}/${file.url_name}',
-      },
-    },
-  },
+  ...robotStoreMeta,
+  example_code: createStorageStoreExample('/s3/store', 'YOUR_AWS_CREDENTIALS'),
   example_code_description: 'Export uploaded files to `my_target_folder` in an S3 bucket:',
   has_small_icon: true,
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Exporting',
   purpose_sentence: 'exports encoding results to Amazon S3',
-  purpose_verb: 'export',
   purpose_word: 'Amazon S3',
   purpose_words: 'Export files to Amazon S3',
-  service_slug: 'file-exporting',
-  slot_count: 2,
   title: 'Export files to Amazon S3',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'S3StoreRobot',
   priceFactor: 10,
   queueSlotCount: 2,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  stage: 'ga',
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotS3StoreInstructionsSchema = robotBase
@@ -52,7 +44,7 @@ If you are new to Amazon S3, see our tutorial on [using your own S3 bucket](/doc
 The URL to the result file in your S3 bucket will be returned in the <dfn>Assembly Status JSON</dfn>. If your S3 bucket has versioning enabled, the version ID of the file will be returned within \`meta.version_id\`
 
 > [!Warning]
-> **Avoid permission errors.** By default, \`acl\` is set to \`"public"\`. AWS S3 has a bucket setting called "Block new public ACLs and uploading public objects". Set this to <strong>False</strong> in your bucket if you intend to leave \`acl\` as \`"public"\`. Otherwise, you’ll receive permission errors in your Assemblies despite your S3 credentials being configured correctly.
+> **Avoid permission errors.** By default, \`acl\` is set to \`"${s3StoreAclSchema.parse(undefined)}"\`. AWS S3 has a bucket setting called \`Block new public ACLs and uploading public objects\`. Set this to <strong>False</strong> in your bucket if you intend to leave \`acl\` as \`"${s3StoreAclSchema.parse(undefined)}"\`. Otherwise, you’ll receive permission errors in your Assemblies despite your S3 credentials being configured correctly.
 
 > [!Warning]
 > **Use DNS-compliant bucket names.** Your bucket name [must be DNS-compliant](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) and must not contain uppercase letters. Any non-alphanumeric characters in the file names will be replaced with an underscore, and spaces will be replaced with dashes. If your existing S3 bucket contains uppercase letters or is otherwise not DNS-compliant, rewrite the result URLs using the <dfn>Robot</dfn>’s \`url_prefix\` parameter.
@@ -89,25 +81,17 @@ In order to build proper result URLs we need to know the region in which your S3
 
 Please keep in mind that if you use bucket encryption you may also need to add \`"sts:*"\` and \`"kms:*"\` to the bucket policy. Please read [here](https://docs.aws.amazon.com/kms/latest/developerguide/kms-api-permissions-reference.html) and [here](https://aws.amazon.com/blogs/security/how-to-restrict-amazon-s3-bucket-access-to-a-specific-iam-role/) in case you run into trouble with our example bucket policy.
 `),
-    path: z
-      .string()
-      .default('${unique_prefix}/${file.url_name}')
-      .describe(`
-The path at which the file is to be stored. This may include any available [Assembly variables](/docs/topics/assembly-instructions/#assembly-variables). The path must not be a directory.
-`),
+    path: storeFilePath,
     url_prefix: z
       .string()
       .default('http://{bucket}.s3.amazonaws.com/')
       .describe(`
 The URL prefix used for the returned URL, such as \`"http://my.cdn.com/some/path/"\`.
 `),
-    acl: z
-      .enum(['bucket-default', 'private', 'public', 'public-read'])
-      .default('public-read')
-      .describe(`
+    acl: s3StoreAclSchema.describe(`
 The permissions used for this file.
 
-Please keep in mind that the default value \`"public-read"\` can lead to permission errors due to the \`"Block all public access"\` checkbox that is checked by default when creating a new Amazon S3 Bucket in the AWS console.
+Please keep in mind that the default value \`"${s3StoreAclSchema.parse(undefined)}"\` can lead to permission errors due to the \`"Block all public access"\` checkbox that is checked by default when creating a new Amazon S3 Bucket in the AWS console.
 `),
     check_integrity: z
       .boolean()
@@ -160,39 +144,34 @@ The session token to use for the S3 store. This is only used if the credentials 
   })
   .strict()
 
-export const robotS3StoreInstructionsWithHiddenFieldsSchema = robotS3StoreInstructionsSchema.extend(
-  {
-    result: z.union([z.literal('debug'), robotS3StoreInstructionsSchema.shape.result]).optional(),
-    skip_region_lookup: z
-      .boolean()
-      .optional()
-      .describe(`
+const hiddenFields = {
+  skip_region_lookup: z
+    .boolean()
+    .optional()
+    .describe(`
 Internal parameter to skip region lookup for testing purposes.
 `),
-  },
-)
+}
 
-export type RobotS3StoreInstructions = z.infer<typeof robotS3StoreInstructionsSchema>
-export type RobotS3StoreInstructionsInput = z.input<typeof robotS3StoreInstructionsSchema>
-export type RobotS3StoreInstructionsWithHiddenFields = z.infer<
-  typeof robotS3StoreInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotS3StoreInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotS3StoreInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotS3StoreInstructionsSchema = interpolateRobot(
-  robotS3StoreInstructionsSchema,
-)
-export type InterpolatableRobotS3StoreInstructions = InterpolatableRobotS3StoreInstructionsInput
+export const {
+  withHiddenFields: robotS3StoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotS3StoreInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotS3StoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotS3StoreInstructionsInput = z.input<
-  typeof interpolatableRobotS3StoreInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotS3StoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotS3StoreInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotS3StoreInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotS3StoreInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotS3StoreInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotS3StoreInstructionsWithHiddenFieldsSchema
->
+export type RobotS3StoreInstructions = Instructions['output']
+export type RobotS3StoreInstructionsInput = Instructions['input']
+export type RobotS3StoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotS3StoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotS3StoreInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotS3StoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotS3StoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

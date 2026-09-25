@@ -1,9 +1,63 @@
 import { describe, expect, it } from 'vitest'
 
+import {
+  robotsSchema,
+  robotsWithHiddenBotsAndFieldsSchema,
+  robotsWithHiddenBotsSchema,
+  robotsWithHiddenFieldsSchema,
+} from '../../src/alphalib/types/robots/_index.ts'
 import { stepSchema, stepSchemaWithHiddenFields } from '../../src/alphalib/types/template.ts'
 import { getRobotHelp, listRobots } from '../../src/Transloadit.ts'
 
 describe('robot catalog helpers', () => {
+  it('exposes HTTP requests through the public catalog and offline help', () => {
+    expect(listRobots({ search: '/http/request' }).robots).toEqual([
+      expect.objectContaining({ name: '/http/request', category: 'code-evaluation' }),
+    ])
+    const help = getRobotHelp({ robotName: 'HttpRequestRobot', detailLevel: 'full' })
+    expect(help.name).toBe('/http/request')
+    expect(help.requiredParams.map((parameter) => parameter.name)).toEqual(['url'])
+    expect(
+      help.optionalParams.find((parameter) => parameter.name === 'payload')?.description,
+    ).toContain('metadata')
+    expect(help.examples).toEqual([expect.objectContaining({ snippet: expect.any(Object) })])
+  })
+
+  it.each([
+    robotsSchema,
+    robotsWithHiddenFieldsSchema,
+    robotsWithHiddenBotsSchema,
+    robotsWithHiddenBotsAndFieldsSchema,
+    stepSchema,
+    stepSchemaWithHiddenFields,
+  ])('parses HTTP request defaults through every SDK registry', (schema) => {
+    expect(schema.parse({ robot: '/http/request', url: 'https://example.com/hook' })).toMatchObject(
+      {
+        robot: '/http/request',
+        method: 'POST',
+        payload: 'none',
+        headers: [],
+        timeout: 60,
+        max_response_size: 1024 * 1024,
+        max_result_files: 10,
+        max_result_file_size: 100 * 1024 * 1024,
+        result_download_timeout: 120,
+      },
+    )
+  })
+
+  it.each([
+    { url: 'ftp://example.com/hook' },
+    { method: 'post' },
+    { payload: 'invalid' },
+    { timeout: 0 },
+    { max_result_files: 101 },
+  ])('rejects invalid HTTP request parameters %j', (parameters) => {
+    const step = { robot: '/http/request', url: 'https://example.com/hook', ...parameters }
+    expect(stepSchema.safeParse(step).success).toBe(false)
+    expect(stepSchemaWithHiddenFields.safeParse(step).success).toBe(false)
+  })
+
   it('keeps folder recursion documented in Storage import help', () => {
     const help = getRobotHelp({ robotName: '/transloadit/import', detailLevel: 'full' })
     expect(help.optionalParams.find((param) => param.name === 'recursive')?.description).toContain(
@@ -93,8 +147,8 @@ describe('robot catalog helpers', () => {
     const help = getRobotHelp({ robotName: '/image/generate', detailLevel: 'full' })
     const modelParam = help.optionalParams.find((param) => param.name === 'model')
 
-    expect(modelParam?.description).toContain('Defaults to openai/gpt-image-2.5-flare.')
+    expect(modelParam?.description).toContain('Defaults to `openai/gpt-image-2.5-flare`.')
     expect(modelParam?.description).toContain('openai/gpt-image-2.5-sunburst')
-    expect(modelParam?.description).toContain('openai/gpt-image-2,')
+    expect(modelParam?.description).toContain('`openai/gpt-image-2`,')
   })
 })

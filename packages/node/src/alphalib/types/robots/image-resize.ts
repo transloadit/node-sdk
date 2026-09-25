@@ -1,20 +1,28 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import { imagemagickDensityPattern } from '../../imagemagickDensity.ts'
+import { zodInputPreservingTransform } from '../../lib/zodInputSemantics.ts'
 import {
   color_without_alpha_with_named,
   colorspaceSchema,
   complexHeightSchema,
   complexWidthSchema,
+  createProcessingExample,
+  defineRobotWithHiddenFields,
   httpUrlSchema,
+  imageAdaptiveFilteringSchema,
   imageQualitySchema,
-  interpolateRobot,
   percentageSchema,
   positionSchema,
   robotBase,
   robotImagemagick,
+  robotImageProcessingMeta,
   robotUse,
   unsafeCoordinatesSchema,
 } from './_instructions-primitives.ts'
@@ -22,42 +30,22 @@ import {
 const imageResizeGravitySchema = z.union([positionSchema, z.enum(['attention', 'entropy'])])
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      resized: {
-        robot: '/image/resize',
-        use: ':original',
-        width: 200,
-      },
-    },
-  },
+  ...robotImageProcessingMeta,
+  example_code: createProcessingExample('resized', '/image/resize', {
+    width: 200,
+  }),
   example_code_description:
     'Resize uploaded images to a width of 200px while keeping their original aspect ratio:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Image Manipulation',
   purpose_sentence:
     'resizes, crops, changes colorization, rotation, and applies text and watermarks to images',
   purpose_verb: 'convert',
   purpose_word: 'convert/resize/watermark',
   purpose_words: 'Convert, resize, or watermark images',
-  service_slug: 'image-manipulation',
-  slot_count: 5,
   title: 'Convert, resize, or watermark images',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'image',
   uses_tools: ['imagemagick'],
   name: 'ImageResizeRobot',
-  priceFactor: 1,
   queueSlotCount: 5,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const oneTextSchema = z.object({
@@ -310,12 +298,7 @@ To preserve animations, GIF files are not flattened when this is set to \`true\`
 Prevents gamma errors [common in many image scaling algorithms](https://www.4p8.com/eric.brasseur/gamma.html).
 `),
     quality: imageQualitySchema,
-    adaptive_filtering: z
-      .boolean()
-      .default(false)
-      .describe(`
-Controls the image compression for PNG images. Setting to \`true\` results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled.
-`),
+    adaptive_filtering: imageAdaptiveFilteringSchema,
     background: color_without_alpha_with_named.default('#FFFFFF').describe(`
 Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (used for the \`pad\` resize strategy).
 
@@ -380,7 +363,7 @@ Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).
 `),
     blur: z
       .string()
-      .regex(/^\d+(\.\d+)?x\d+(\.\d+)?$/)
+      .regex(/^[0-9]+(\.[0-9]+)?x[0-9]+(\.[0-9]+)?$/u)
       .nullable()
       .default(null)
       .describe(`
@@ -526,7 +509,7 @@ This is useful for creating tiled watermark patterns that cover the full image. 
 Interlaces the image if set to \`true\`, which makes the image load progressively in browsers. Instead of rendering the image from top to bottom, the browser will first show a low-res blurry version of the images which is then quickly replaced with the actual image as the data arrives. This greatly increases the user experience, but comes at a cost of a file size increase by around 10%.
 `),
     transparent: z
-      .union([color_without_alpha_with_named, z.string().regex(/^\d+,\d+,\d+$/)])
+      .union([color_without_alpha_with_named, z.string().regex(/^[0-9]+,[0-9]+,[0-9]+$/u)])
       .optional()
       .describe(`
 Make this color transparent within the image. Example: \`"255,255,255"\`.
@@ -606,8 +589,8 @@ Transform the image to black and white. This is a shortcut for setting the color
 `),
     shave: z
       .union([
-        z.string().regex(/^\d+(x\d+)?$/),
-        z.number().int().min(0).transform(String), // Accept numbers and convert to string
+        z.string().regex(/^[0-9]+(x[0-9]+)?$/u),
+        zodInputPreservingTransform(z.number().int().min(0), String),
       ])
       .optional()
       .describe(`
@@ -616,75 +599,68 @@ Shave pixels from the image edges. The value should be in the format \`width\` o
   })
   .strict()
 
-export const robotImageResizeInstructionsWithHiddenFieldsSchema =
-  robotImageResizeInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotImageResizeInstructionsSchema.shape.result])
-      .optional(),
-    stack: z.string().optional().describe('Legacy parameter, use imagemagick_stack instead'),
-    text: z
-      .union([
-        // Support single text object (backward compatibility)
+const hiddenFields = {
+  stack: z.string().optional().describe('Legacy parameter, use imagemagick_stack instead'),
+  text: z
+    .union([
+      // Support single text object (backward compatibility)
+      oneTextSchema.extend({
+        gravity: positionSchema
+          .default('top-left')
+          .optional()
+          .describe(`
+            Legacy. The direction from which to start the offsets.
+            `),
+      }),
+      // Support array of text objects (current schema)
+      z.array(
         oneTextSchema.extend({
           gravity: positionSchema
             .default('top-left')
             .optional()
             .describe(`
-            Legacy. The direction from which to start the offsets.
-            `),
-        }),
-        // Support array of text objects (current schema)
-        z.array(
-          oneTextSchema.extend({
-            gravity: positionSchema
-              .default('top-left')
-              .optional()
-              .describe(`
               Legacy. The direction from which to start the offsets.
               `),
-          }),
-        ),
-      ])
-      .optional()
-      .describe(TEXT_DESCRIPTION),
-    watermark_position_x: z
-      .number()
-      .int()
-      .optional()
-      .describe(`
+        }),
+      ),
+    ])
+    .optional()
+    .describe(TEXT_DESCRIPTION),
+  watermark_position_x: z
+    .number()
+    .int()
+    .optional()
+    .describe(`
       Legacy alias for \`watermark_x_offset\`. The x-offset in number of pixels at which the watermark will be placed.
       `),
-    watermark_position_y: z
-      .number()
-      .int()
-      .optional()
-      .describe(`
+  watermark_position_y: z
+    .number()
+    .int()
+    .optional()
+    .describe(`
       Legacy alias for \`watermark_y_offset\`. The y-offset in number of pixels at which the watermark will be placed.
       `),
-  })
+}
 
-export type RobotImageResizeInstructions = z.infer<typeof robotImageResizeInstructionsSchema>
-export type RobotImageResizeInstructionsInput = z.input<typeof robotImageResizeInstructionsSchema>
-export type RobotImageResizeInstructionsWithHiddenFields = z.infer<
-  typeof robotImageResizeInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotImageResizeInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotImageResizeInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotImageResizeInstructionsSchema = interpolateRobot(
-  robotImageResizeInstructionsSchema,
-)
-export type InterpolatableRobotImageResizeInstructions =
-  InterpolatableRobotImageResizeInstructionsInput
+export const {
+  withHiddenFields: robotImageResizeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageResizeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotImageResizeInstructionsInput = z.input<
-  typeof interpolatableRobotImageResizeInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotImageResizeInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotImageResizeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotImageResizeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotImageResizeInstructionsWithHiddenFieldsSchema
->
+export type RobotImageResizeInstructions = Instructions['output']
+export type RobotImageResizeInstructionsInput = Instructions['input']
+export type RobotImageResizeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageResizeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageResizeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotImageResizeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageResizeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

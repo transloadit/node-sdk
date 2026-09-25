@@ -1,19 +1,22 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
+  defineRobot,
   imageQualitySchema,
-  interpolateRobot,
   robotBase,
   robotImagemagick,
+  robotImageProcessingMeta,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotImageProcessingMeta,
   example_code: {
     steps: {
       enhanced_classic: {
@@ -31,27 +34,17 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Enhance uploaded images with classic auto mode or AI restoration:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Image Manipulation',
   purpose_sentence:
     'automatically enhances images by adjusting levels, contrast, and sharpness, and optionally applies photo filter presets',
   purpose_verb: 'enhance',
   purpose_word: 'enhance',
   purpose_words: 'Enhance images',
-  service_slug: 'image-manipulation',
-  slot_count: 15,
   title: 'Enhance images',
   typical_file_size_mb: 1.2,
-  typical_file_type: 'image',
   name: 'ImageEnhanceRobot',
-  priceFactor: 1,
   queueSlotCount: 15,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'beta',
+  stage: 'ga',
 }
 
 const enhanceModeSchema = z.enum(['auto', 'auto_gentle', 'auto_aggressive', 'none']).default('auto')
@@ -88,14 +81,7 @@ With this <dfn>Robot</dfn> you can automatically enhance images with one click �
 
 It works well together with [🤖/image/resize](/docs/robots/image-resize/) — you can enhance first, then resize, or vice versa.
 
-> [!Note]
-> This <dfn>Robot</dfn> accepts all image types supported by ImageMagick and will pass through unsupported types unchanged.
-
-> [!Note]
-> \`engine: "classic"\` uses \`enhance\`, \`preset\`, \`sharpen\`, and \`denoise\`. \`engine: "ai"\` uses \`ai_preset\` and \`quality\`; classic controls are ignored in AI mode.
-
-> [!Note]
-> Output keeps the original file extension when possible. In AI mode, if the target extension is not writable by the selected \`imagemagick_stack\`, the file is passed through unchanged.
+This <dfn>Robot</dfn> accepts all image types supported by ImageMagick and passes unsupported types through unchanged. \`engine: "classic"\` uses \`enhance\`, \`preset\`, \`sharpen\`, and \`denoise\`, while \`engine: "ai"\` uses \`ai_preset\` and \`quality\`; classic controls are ignored in AI mode. Output keeps the original file extension when possible. In AI mode, if the target extension is not writable by the selected \`imagemagick_stack\`, the file is passed through unchanged.
 `),
     enhance: enhanceModeSchema.describe(`
 The auto-enhancement mode. \`"auto"\` applies balanced auto-levels, gamma correction, and subtle sharpening. \`"auto_gentle"\` is more conservative (good for already-decent photos). \`"auto_aggressive"\` applies stronger normalization and contrast. \`"none"\` skips auto-enhance (useful when only applying a preset filter).
@@ -148,39 +134,27 @@ Additional sharpening amount (\`0\` = none, \`10\` = maximum). The \`"auto"\` en
 Noise reduction strength (\`0\` = none, \`10\` = maximum). Useful for high-ISO photos.
 `),
     quality: imageQualitySchema.describe(`
-Quality of the output image. A value between \`1\` and \`100\`. Defaults to \`92\`.
+Quality of the output image. A value between \`1\` and \`100\`. Defaults to \`${imageQualitySchema.parse(undefined)}\`.
 `),
   })
   .strict()
 
-export const robotImageEnhanceInstructionsWithHiddenFieldsSchema =
-  robotImageEnhanceInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotImageEnhanceInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotImageEnhanceInstructionsSchema.shape> =
+  defineRobot(meta, robotImageEnhanceInstructionsSchema)
 
-export type RobotImageEnhanceInstructions = z.infer<typeof robotImageEnhanceInstructionsSchema>
-export type RobotImageEnhanceInstructionsWithHiddenFields = z.infer<
-  typeof robotImageEnhanceInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotImageEnhanceInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageEnhanceInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotImageEnhanceInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotImageEnhanceInstructionsSchema = interpolateRobot(
-  robotImageEnhanceInstructionsSchema,
-)
-export type InterpolatableRobotImageEnhanceInstructions =
-  InterpolatableRobotImageEnhanceInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotImageEnhanceInstructionsInput = z.input<
-  typeof interpolatableRobotImageEnhanceInstructionsSchema
->
-
-export const interpolatableRobotImageEnhanceInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotImageEnhanceInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotImageEnhanceInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotImageEnhanceInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotImageEnhanceInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotImageEnhanceInstructionsWithHiddenFieldsSchema
->
+export type RobotImageEnhanceInstructions = Instructions['output']
+export type RobotImageEnhanceInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageEnhanceInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageEnhanceInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotImageEnhanceInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageEnhanceInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

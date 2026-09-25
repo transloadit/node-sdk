@@ -1471,7 +1471,6 @@ __metadata:
     sharp: "npm:0.35.4"
     tus-js-client: "npm:^4.3.1"
     typanion: "npm:^3.14.0"
-    type-fest: "npm:^5.6.0"
     zod: "npm:3.25.76"
   bin:
     transloadit: ./dist/cli.js
@@ -1551,7 +1550,6 @@ __metadata:
   dependencies:
     "@transloadit/types": "npm:^4.5.0"
     "@types/node": "npm:^25.8.0"
-    type-fest: "npm:^5.6.0"
     zod: "npm:^4.4.3"
   languageName: unknown
   linkType: soft
@@ -6120,13 +6118,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tagged-tag@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "tagged-tag@npm:1.0.0"
-  checksum: 10c0/91d25c9ffb86a91f20522cefb2cbec9b64caa1febe27ad0df52f08993ff60888022d771e868e6416cf2e72dab68449d2139e8709ba009b74c6c7ecd4000048d1
-  languageName: node
-  linkType: hard
-
 "tar@npm:^7.5.4":
   version: 7.5.15
   resolution: "tar@npm:7.5.15"
@@ -6253,7 +6244,6 @@ __metadata:
     recursive-readdir: "npm:^2.2.3"
     tus-js-client: "npm:^4.3.1"
     typanion: "npm:^3.14.0"
-    type-fest: "npm:^5.6.0"
     zod: "npm:3.25.76"
   bin:
     transloadit: ./dist/cli.js
@@ -6293,15 +6283,6 @@ __metadata:
   version: 4.41.0
   resolution: "type-fest@npm:4.41.0"
   checksum: 10c0/f5ca697797ed5e88d33ac8f1fec21921839871f808dc59345c9cf67345bfb958ce41bd821165dbf3ae591cedec2bf6fe8882098dfdd8dc54320b859711a2c1e4
-  languageName: node
-  linkType: hard
-
-"type-fest@npm:^5.6.0":
-  version: 5.6.0
-  resolution: "type-fest@npm:5.6.0"
-  dependencies:
-    tagged-tag: "npm:^1.0.0"
-  checksum: 10c0/5468a8ffda7f3904e6f7bbd8069eb8b6dd4bd9156e206df7a01d09a73e28cd1afedf74ead9d0fc12841c8c90074194859feca240511c50800962fde1bd9ddcbc
   languageName: node
   linkType: hard
 

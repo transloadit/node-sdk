@@ -1,22 +1,24 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      converted: {
-        robot: '/document/convert',
-        use: ':original',
-        format: 'pdf',
-      },
-    },
-  },
+  ...robotDocumentProcessingMeta,
+  example_code: createProcessingExample('converted', '/document/convert', {
+    format: 'pdf',
+  }),
   example_code_description: 'Convert uploaded files to PDF documents:',
   extended_description: `
 > [!Note]
@@ -65,38 +67,25 @@ The following file formats can be converted from:
 - \`xlsx\`
 - \`xml\`
 `,
-  minimum_charge: 1048576,
-  output_factor: 1,
-  override_lvl1: 'Document Processing',
   purpose_sentence: 'converts documents into different formats',
   purpose_verb: 'convert',
   purpose_word: 'convert',
   purpose_words: 'Convert documents into different formats',
-  service_slug: 'document-processing',
-  slot_count: 12,
   title: 'Convert documents into different formats',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'document',
   name: 'DocumentConvertRobot',
-  priceFactor: 1,
   // This slot count needs to be unique, because unoconv can only process one document at a time,
   // and is also only included in WorkerSlotCalculator::slotsThatFit() when
   // we have enough idle unoconv daemons.
   // We do not want a queue of this Robot to block any other Robot's jobs.
   queueSlotCount: 32,
-  minimumCharge: 1048576,
   lazyLoad: true,
   installVersionFile:
     typeof process !== 'undefined' && process.env.API2_UNOCONV_INSTALL_VERSION_FILE
       ? process.env.API2_UNOCONV_INSTALL_VERSION_FILE
       : '',
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
   // we cannot use coreConfig.numUnoconvDaemons, because it does not live in alphalib
   numDaemons: 8,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotDocumentConvertInstructionsSchema = robotBase
@@ -276,35 +265,24 @@ To change the formatting of the HTML element, the \`font-size\` must be specifie
   })
   .strict()
 
-export const robotDocumentConvertInstructionsWithHiddenFieldsSchema =
-  robotDocumentConvertInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotDocumentConvertInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotDocumentConvertInstructionsSchema.shape> =
+  defineRobot(meta, robotDocumentConvertInstructionsSchema)
 
-export type RobotDocumentConvertInstructions = z.infer<
-  typeof robotDocumentConvertInstructionsSchema
->
-export type RobotDocumentConvertInstructionsWithHiddenFields = z.infer<
-  typeof robotDocumentConvertInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotDocumentConvertInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDocumentConvertInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotDocumentConvertInstructionsSchema = interpolateRobot(
-  robotDocumentConvertInstructionsSchema,
-)
-export type InterpolatableRobotDocumentConvertInstructions =
-  InterpolatableRobotDocumentConvertInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotDocumentConvertInstructionsInput = z.input<
-  typeof interpolatableRobotDocumentConvertInstructionsSchema
->
-
-export const interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotDocumentConvertInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotDocumentConvertInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotDocumentConvertInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotDocumentConvertInstructionsWithHiddenFieldsSchema
->
+export type RobotDocumentConvertInstructions = Instructions['output']
+export type RobotDocumentConvertInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDocumentConvertInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentConvertInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentConvertInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDocumentConvertInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -1,8 +1,19 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import { ecmaWhitespaceCharacterClass } from '../../lib/zodInputSemantics.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 const extractTargets = z.enum(['text', 'images'])
 const imageFormats = z.enum(['auto', 'original', 'png', 'jpg'])
@@ -12,41 +23,19 @@ const textGranularities = z.enum(['document', 'page'])
 const textMethods = z.enum(['native', 'ocr', 'auto'])
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      extracted: {
-        robot: '/document/extract',
-        use: ':original',
-        extract: ['text', 'images'],
-        text_method: 'native',
-      },
-    },
-  },
+  ...robotDocumentProcessingMeta,
+  example_code: createProcessingExample('extracted', '/document/extract', {
+    extract: ['text', 'images'],
+    text_method: 'native',
+  }),
   example_code_description: 'Extract native text and embedded raster images from a PDF document:',
-  minimum_charge: 1048576,
-  output_factor: 1,
-  override_lvl1: 'Document Processing',
   purpose_sentence: 'extracts text and embedded images from PDF documents',
   purpose_verb: 'extract',
   purpose_word: 'extracts text and images',
   purpose_words: 'Extracts text and embedded images',
-  service_slug: 'document-processing',
-  slot_count: 10,
   title: 'Extract text and images from documents',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'document',
   name: 'DocumentExtractRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
-  minimumCharge: 1048576,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'beta',
 }
 
 export const robotDocumentExtractInstructionsSchema = robotBase
@@ -65,7 +54,12 @@ Selects which assets to extract. Use \`["text"]\`, \`["images"]\`, or \`["text",
 `),
     page_range: z
       .string()
-      .regex(/^\s*\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\s*$/)
+      .regex(
+        new RegExp(
+          `^${ecmaWhitespaceCharacterClass}*[0-9]+(?:${ecmaWhitespaceCharacterClass}*-${ecmaWhitespaceCharacterClass}*[0-9]+)?(?:${ecmaWhitespaceCharacterClass}*,${ecmaWhitespaceCharacterClass}*[0-9]+(?:${ecmaWhitespaceCharacterClass}*-${ecmaWhitespaceCharacterClass}*[0-9]+)?)*${ecmaWhitespaceCharacterClass}*$`,
+          'u',
+        ),
+      )
       .optional()
       .describe(`
 Optional comma-separated page selection, such as \`"1"\`, \`"1-3"\`, or \`"1,3-5"\`. Page numbers start at 1. Ranges are clamped to the detected page count.
@@ -149,35 +143,24 @@ When enabled, the robot also keeps image mask files when Poppler exposes them as
   })
   .strict()
 
-export const robotDocumentExtractInstructionsWithHiddenFieldsSchema =
-  robotDocumentExtractInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotDocumentExtractInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotDocumentExtractInstructionsSchema.shape> =
+  defineRobot(meta, robotDocumentExtractInstructionsSchema)
 
-export type RobotDocumentExtractInstructions = z.infer<
-  typeof robotDocumentExtractInstructionsSchema
->
-export type RobotDocumentExtractInstructionsWithHiddenFields = z.infer<
-  typeof robotDocumentExtractInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotDocumentExtractInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotDocumentExtractInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotDocumentExtractInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotDocumentExtractInstructionsSchema = interpolateRobot(
-  robotDocumentExtractInstructionsSchema,
-)
-export type InterpolatableRobotDocumentExtractInstructions =
-  InterpolatableRobotDocumentExtractInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotDocumentExtractInstructionsInput = z.input<
-  typeof interpolatableRobotDocumentExtractInstructionsSchema
->
-
-export const interpolatableRobotDocumentExtractInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotDocumentExtractInstructionsWithHiddenFieldsSchema)
-export type InterpolatableRobotDocumentExtractInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotDocumentExtractInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotDocumentExtractInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotDocumentExtractInstructionsWithHiddenFieldsSchema
->
+export type RobotDocumentExtractInstructions = Instructions['output']
+export type RobotDocumentExtractInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotDocumentExtractInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentExtractInstructionsInput =
+  Instructions['interpolatableInput']
+export type InterpolatableRobotDocumentExtractInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotDocumentExtractInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

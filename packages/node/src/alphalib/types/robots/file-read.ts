@@ -1,31 +1,27 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  robotBase,
+  robotDocumentProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 5,
-  discount_factor: 0.2,
-  discount_pct: 80,
-  example_code: {
-    steps: {
-      read: {
-        robot: '/file/read',
-        use: ':original',
-      },
-    },
-  },
+  ...robotDocumentProcessingMeta,
+  example_code: createProcessingExample('read', '/file/read'),
   example_code_description: 'Read UTF-8 text content from an uploaded file:',
-  minimum_charge: 512000,
-  output_factor: 1,
-  override_lvl1: 'Document Processing',
   purpose_sentence: 'reads file contents from supported file-types',
   purpose_verb: 'read',
   purpose_word: 'read files',
   purpose_words: 'Read file contents',
-  service_slug: 'document-processing',
-  slot_count: 5,
   title: 'Read file contents',
   typical_file_size_mb: 1.2,
   typical_file_type: 'file',
@@ -33,10 +29,6 @@ export const meta: RobotMetaInput = {
   priceFactor: 5,
   queueSlotCount: 5,
   minimumCharge: 512000,
-  isAllowedForUrlTransform: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotFileReadInstructionsSchema = robotBase
@@ -50,31 +42,22 @@ The <dfn>Robot</dfn> currently only accepts files under 500KB.
   })
   .strict()
 
-export const robotFileReadInstructionsWithHiddenFieldsSchema =
-  robotFileReadInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotFileReadInstructionsSchema.shape.result]).optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotFileReadInstructionsSchema.shape> =
+  defineRobot(meta, robotFileReadInstructionsSchema)
 
-export type RobotFileReadInstructions = z.infer<typeof robotFileReadInstructionsSchema>
-export type RobotFileReadInstructionsWithHiddenFields = z.infer<
-  typeof robotFileReadInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotFileReadInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotFileReadInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotFileReadInstructionsSchema = interpolateRobot(
-  robotFileReadInstructionsSchema,
-)
-export type InterpolatableRobotFileReadInstructions = InterpolatableRobotFileReadInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotFileReadInstructionsInput = z.input<
-  typeof interpolatableRobotFileReadInstructionsSchema
->
-
-export const interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotFileReadInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotFileReadInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotFileReadInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotFileReadInstructionsWithHiddenFieldsSchema
->
+export type RobotFileReadInstructions = Instructions['output']
+export type RobotFileReadInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotFileReadInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotFileReadInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotFileReadInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotFileReadInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

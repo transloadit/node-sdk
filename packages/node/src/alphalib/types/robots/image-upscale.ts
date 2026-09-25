@@ -1,99 +1,87 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinitionWithHiddenFields,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { imageUpscaleDefaultModelIdentifier, imageUpscaleModelIdentifiers } from './_ai-models.ts'
 import {
   autoProviderDescription,
-  interpolateRobot,
+  createProcessingExample,
+  defineRobotWithHiddenFields,
+  robotArtificialIntelligenceMeta,
   robotBase,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      upscaled: {
-        robot: '/image/upscale',
-        use: ':original',
-        scale: 2,
-        face_enhance: true,
-      },
-    },
-  },
+  ...robotArtificialIntelligenceMeta,
+  example_code: createProcessingExample('upscaled', '/image/upscale', {
+    scale: 2,
+    face_enhance: true,
+  }),
   example_code_description: 'Upscale uploaded images and enhance faces:',
-  minimum_charge: 0,
-  output_factor: 0.6,
   purpose_sentence: 'upscales images using AI',
   purpose_verb: 'generate',
   purpose_word: 'upscale',
   purpose_words: 'Upscale images',
-  service_slug: 'artificial-intelligence',
-  slot_count: 10,
   title: 'Upscale images',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'image',
   name: 'ImageUpscaleRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumChargeUsd: 0.06,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'beta',
 }
+
+const upscaleModelSchema = z
+  .enum(imageUpscaleModelIdentifiers)
+  .default(imageUpscaleDefaultModelIdentifier)
+const upscaleScaleSchema = z.union([z.literal(2), z.literal(4)]).default(2)
+const upscaleFaceEnhanceSchema = z.boolean().default(false)
 
 export const robotImageUpscaleInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/image/upscale'),
-    model: z
-      .enum(['nightmareai/real-esrgan', 'tencentarc/gfpgan', 'sczhou/codeformer'])
+    // Outer optional preserves parsed input; normalization applies the published inner defaults.
+    model: upscaleModelSchema
       .optional()
-      .describe('The AI model to use for image upscaling. Defaults to nightmareai/real-esrgan.'),
-    scale: z
-      .union([z.literal(2), z.literal(4)])
+      .describe(
+        `The AI model to use for image upscaling. Defaults to ${upscaleModelSchema.parse(undefined)}.`,
+      ),
+    scale: upscaleScaleSchema
       .optional()
-      .describe('Upscale factor. Defaults to 2.'),
-    face_enhance: z
-      .boolean()
+      .describe(`Upscale factor. Defaults to ${upscaleScaleSchema.parse(undefined)}.`),
+    face_enhance: upscaleFaceEnhanceSchema
       .optional()
-      .describe('Enable face enhancement for better face restoration. Defaults to false.'),
+      .describe(
+        `Enable face enhancement for better face restoration. Defaults to ${upscaleFaceEnhanceSchema.parse(undefined)}.`,
+      ),
   })
   .strict()
 
-export const robotImageUpscaleInstructionsWithHiddenFieldsSchema =
-  robotImageUpscaleInstructionsSchema.extend({
-    provider: z.string().default('auto').describe(autoProviderDescription),
-    result: z
-      .union([z.literal('debug'), robotImageUpscaleInstructionsSchema.shape.result])
-      .optional(),
-  })
+const hiddenFields = {
+  provider: z.string().default('auto').describe(autoProviderDescription),
+}
 
-export type RobotImageUpscaleInstructions = z.infer<typeof robotImageUpscaleInstructionsSchema>
-export type RobotImageUpscaleInstructionsWithHiddenFields = z.infer<
-  typeof robotImageUpscaleInstructionsWithHiddenFieldsSchema
->
+export const robotDefinition: RobotDefinitionWithHiddenFields<
+  typeof robotImageUpscaleInstructionsSchema.shape,
+  typeof hiddenFields
+> = defineRobotWithHiddenFields(meta, robotImageUpscaleInstructionsSchema, hiddenFields)
 
-export const interpolatableRobotImageUpscaleInstructionsSchema = interpolateRobot(
-  robotImageUpscaleInstructionsSchema,
-)
-export type InterpolatableRobotImageUpscaleInstructions =
-  InterpolatableRobotImageUpscaleInstructionsInput
+export const {
+  withHiddenFields: robotImageUpscaleInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageUpscaleInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotImageUpscaleInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export type InterpolatableRobotImageUpscaleInstructionsInput = z.input<
-  typeof interpolatableRobotImageUpscaleInstructionsSchema
->
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export const interpolatableRobotImageUpscaleInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotImageUpscaleInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotImageUpscaleInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotImageUpscaleInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotImageUpscaleInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotImageUpscaleInstructionsWithHiddenFieldsSchema
->
+export type RobotImageUpscaleInstructions = Instructions['output']
+export type RobotImageUpscaleInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageUpscaleInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageUpscaleInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotImageUpscaleInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageUpscaleInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

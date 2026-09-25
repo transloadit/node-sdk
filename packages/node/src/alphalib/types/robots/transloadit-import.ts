@@ -1,16 +1,9 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import { damIdSchema } from '../storageAsset.ts'
-import {
-  booleanStringSchema,
-  interpolateRobot,
-  interpolationSchemaFull,
-  recursive,
-  robotBase,
-  robotImport,
-} from './_instructions-primitives.ts'
+import { interpolateRobot, recursive, robotBase, robotImport } from './_instructions-primitives.ts'
 
 /** Cross-field validation runs after interpolation-aware parsing at the Assembly Step boundary. */
 export function refineTransloaditImportSelector(
@@ -47,10 +40,15 @@ Whether to import files from subfolders and sub-subfolders when \`path\` is a fo
 only the folder's own files are imported.
 `
 
+/** Storage imports require proof of possession independently of Workspace signature settings. */
+export const transloaditImportAuthenticationGuidanceLines = [
+  'Assemblies that use `/transloadit/import`, directly or through a Template, require',
+  'either a bearer token or signed `params` with a future `params.auth.expires` timestamp.',
+  'This applies even when Workspace Signature Authentication is disabled. An Auth Key alone',
+  'is not sufficient; bearer-authenticated requests do not need a separate signature or expiry.',
+] as const
+
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
   example_code: {
     steps: {
       imported: {
@@ -63,9 +61,7 @@ export const meta: RobotMetaInput = {
   has_small_icon: true,
   isAllowedForUrlTransform: true,
   isInternal: false,
-  minimum_charge: 0,
   name: 'TransloaditImportRobot',
-  output_factor: 1,
   override_lvl1: 'File Importing',
   priceFactor: 10,
   purpose_sentence: 'imports files from Transloadit Storage',
@@ -75,7 +71,6 @@ export const meta: RobotMetaInput = {
   queueSlotCount: 10,
   removeJobResultFilesFromDiskRightAfterStoringOnS3: true,
   service_slug: 'file-importing',
-  slot_count: 10,
   stage: 'beta',
   title: 'Import files from Transloadit Storage',
   typical_file_size_mb: 1.2,
@@ -89,6 +84,8 @@ export const robotTransloaditImportInstructionsSchema = robotBase
 Imports files from your Workspace's Transloadit Storage. Select a mutable location with
 \`path\`, or a logical asset with \`asset_id\`. Add \`version_id\` to pin the exact stored bytes.
 IDs remain subject to Workspace access and version retention.
+
+${transloaditImportAuthenticationGuidanceLines.join('\n')}
 `),
     path: z
       .string()
@@ -125,17 +122,7 @@ export type RobotTransloaditImportInstructionsWithHiddenFields = z.infer<
 
 export const interpolatableRobotTransloaditImportInstructionsSchema = interpolateRobot(
   robotTransloaditImportInstructionsSchema,
-).extend({
-  // The generic boolean interpolator changes literal false to true. Keep Storage's documented
-  // false default intact; unresolved variables are validated after uploader interpolation.
-  recursive: z
-    .union([
-      recursive,
-      booleanStringSchema.transform((value) => value === 'true'),
-      interpolationSchemaFull,
-    ])
-    .describe(recursiveDescription),
-})
+)
 export type InterpolatableRobotTransloaditImportInstructions =
   InterpolatableRobotTransloaditImportInstructionsInput
 
@@ -144,11 +131,19 @@ export type InterpolatableRobotTransloaditImportInstructionsInput = z.input<
 >
 
 export const interpolatableRobotTransloaditImportInstructionsWithHiddenFieldsSchema =
-  interpolateRobot(robotTransloaditImportInstructionsWithHiddenFieldsSchema).extend({
-    recursive: interpolatableRobotTransloaditImportInstructionsSchema.shape.recursive,
-  })
+  interpolateRobot(robotTransloaditImportInstructionsWithHiddenFieldsSchema)
 export type InterpolatableRobotTransloaditImportInstructionsWithHiddenFields =
   InterpolatableRobotTransloaditImportInstructionsWithHiddenFieldsInput
 export type InterpolatableRobotTransloaditImportInstructionsWithHiddenFieldsInput = z.input<
   typeof interpolatableRobotTransloaditImportInstructionsWithHiddenFieldsSchema
 >
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotTransloaditImportInstructionsSchema,
+  typeof interpolatableRobotTransloaditImportInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotTransloaditImportInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotTransloaditImportInstructionsWithHiddenFieldsSchema,
+}

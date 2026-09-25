@@ -1,3 +1,4 @@
+<!-- alphalib-sync-agent-doc-sha256:f132a3693c393c177fb27a59f5760ea3ccff6ca1be1cdd9234c63066f28f5c19 -->
 # Transloadit Repository Guide
 ## coding style
 
@@ -86,6 +87,15 @@ General:
 - Stub or mock external/third‑party requests (Intercom, Sentry, etc.) and any auth/login endpoints to keep tests deterministic; return minimal valid JSON when the app expects data.
 - Each unexpected error should surface and fail the test.
 
+## repo
+
+For this repo:
+
+- This is an SDK monorepo, not a Next.js application. Next.js-specific guidance applies only to
+  the integration examples and fixtures in `packages/img` and `scripts/fixtures/img-next`.
+- Keep the installed Next.js agent-rules block below in this repo-owned rule source. Do not copy
+  Content's website layout, routing, translation, or styling conventions into SDK packages.
+
 ## typescript
 
 For Typescript:
@@ -94,8 +104,9 @@ For Typescript:
 - Favor `from './PosterboyCommand.ts'` over `from './PosterboyCommand'`
 - Favor `return ideas.filter(isPresent)` over `ideas.filter((idea): idea is Idea => idea !== null)`
 - Favor using `.tsx` over `.jsx` file extensions.
-- Use Node v24's native typestripping vs `tsx` or `ts-node`. These days you do not even need to pass
-  `--experimental-strip-types`, `node app.ts` will just work.
+- Use the repository's declared Node version and native TypeScript stripping instead of `tsx` or
+  `ts-node`. Tooling versions do not raise a published package's supported runtime floor; check its
+  own manifest before introducing newer platform APIs.
 - In ESM TypeScript, use `import.meta.dirname` / `import.meta.filename` or `URL` objects instead of
   rebuilding `__dirname` with `fileURLToPath(import.meta.url)` unless compatibility requires it.
 - Use `satisfies` when you need literal preservation or structural conformance while keeping the
@@ -134,8 +145,9 @@ For Typescript:
 - Do not duplicate supported values in user-facing schema descriptions when schema metadata such as
   enums or suggested values can carry that information.
 - In TypeScript files, use TypeScript syntax instead of JSDoc type annotations. In JavaScript files,
-  prefer JSDoc `@import` / `@param` forms over noisy inline `import('...')` annotations, and make
-  sure `@type` annotates the expression it is meant to type.
+  put JSDoc `@import` declarations in the top-of-file JSDoc block with the other type imports. Do
+  not use inline `import('...')` annotations in `@param`, `@returns`, or `@type`. Make sure `@type`
+  annotates the expression it is meant to type.
 - Avoid hand-written `.d.ts` files when the declaration can come from TypeScript source or
   generation. If a declaration file is unavoidable, do not rely on `skipLibCheck` to hide duplicate
   or invalid exports.
@@ -160,3 +172,13 @@ For Typescript:
 - Favor defining props as an interface over inline
 - Favor explicit return types over inferring them as it makes typescript a lot faster in the editor
   on our scale
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

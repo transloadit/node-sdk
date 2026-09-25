@@ -151,7 +151,9 @@
       "includes": ["scripts/fixtures/img-next/app/**"],
       "linter": {
         "rules": {
-          "correctness": { "useImportExtensions": "off" }
+          "correctness": {
+            "useImportExtensions": "off"
+          }
         }
       }
     },

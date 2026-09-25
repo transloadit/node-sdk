@@ -1,54 +1,39 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  createProcessingExample,
+  defineRobot,
+  httpUrlSchema,
+  robotBase,
+  robotStoreMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 10,
-  discount_factor: 0.1,
-  discount_pct: 90,
-  example_code: {
-    steps: {
-      exported: {
-        robot: '/tus/store',
-        use: ':original',
-        endpoint: 'https://tusd.tusdemo.net/files/',
-      },
-    },
-  },
+  ...robotStoreMeta,
+  example_code: createProcessingExample('exported', '/tus/store', {
+    endpoint: 'https://tusd.tusdemo.net/files/',
+  }),
   example_code_description: 'Export uploaded files to the Tus live demo server:',
-  minimum_charge: 0,
-  output_factor: 1,
-  override_lvl1: 'File Exporting',
   purpose_sentence: 'exports encoding results to any Tus-compatible server',
-  purpose_verb: 'export',
   purpose_word: 'Tus servers',
   purpose_words: 'Export files to Tus-compatible servers',
-  service_slug: 'file-exporting',
-  slot_count: 10,
   title: 'Export files to Tus-compatible servers',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'TusStoreRobot',
   priceFactor: 10,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotTusStoreInstructionsSchema = robotBase
   .merge(robotUse)
   .extend({
     robot: z.literal('/tus/store'),
-    endpoint: z
-      .string()
-      .url()
-      .describe('The URL of the destination Tus server')
-      .describe(`
+    endpoint: httpUrlSchema.describe('The URL of the destination Tus server').describe(`
 The URL of the Tus-compatible server, which you're uploading files to.
 `),
     credentials: z
@@ -87,31 +72,22 @@ The SSL URL of the file in the <dfn>Assembly Status JSON</dfn>. The following [A
   })
   .strict()
 
-export const robotTusStoreInstructionsWithHiddenFieldsSchema =
-  robotTusStoreInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotTusStoreInstructionsSchema.shape.result]).optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotTusStoreInstructionsSchema.shape> =
+  defineRobot(meta, robotTusStoreInstructionsSchema)
 
-export type RobotTusStoreInstructions = z.infer<typeof robotTusStoreInstructionsSchema>
-export type RobotTusStoreInstructionsWithHiddenFields = z.infer<
-  typeof robotTusStoreInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotTusStoreInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotTusStoreInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotTusStoreInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotTusStoreInstructionsSchema = interpolateRobot(
-  robotTusStoreInstructionsSchema,
-)
-export type InterpolatableRobotTusStoreInstructions = InterpolatableRobotTusStoreInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotTusStoreInstructionsInput = z.input<
-  typeof interpolatableRobotTusStoreInstructionsSchema
->
-
-export const interpolatableRobotTusStoreInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotTusStoreInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotTusStoreInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotTusStoreInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotTusStoreInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotTusStoreInstructionsWithHiddenFieldsSchema
->
+export type RobotTusStoreInstructions = Instructions['output']
+export type RobotTusStoreInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotTusStoreInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotTusStoreInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotTusStoreInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotTusStoreInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

@@ -51,7 +51,6 @@
     "recursive-readdir": "^2.2.3",
     "tus-js-client": "^4.3.1",
     "typanion": "^3.14.0",
-    "type-fest": "^5.6.0",
     "zod": "3.25.76"
   },
   "devDependencies": {

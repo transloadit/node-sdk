@@ -1,13 +1,20 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  defineRobot,
+  robotBase,
+  robotProcessingMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotProcessingMeta,
   example_code: {
     steps: {
       compressed: {
@@ -57,26 +64,17 @@ Here is an example:
   - ff_jk_thumb.jpg   # is a child of b.mov, as it starts with "ff"
 \`\`\`
 `,
-  minimum_charge: 0,
-  output_factor: 1,
   override_lvl1: 'File Compressing',
   purpose_sentence: 'creates archives of files or file conversion results',
   purpose_verb: 'compress',
   purpose_word: 'compress',
   purpose_words: 'Compress files',
   service_slug: 'file-compressing',
-  slot_count: 15,
   title: 'Compress files',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'FileCompressRobot',
-  priceFactor: 1,
   queueSlotCount: 15,
   isAllowedForUrlTransform: false,
   trackOutputFileSize: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotFileCompressInstructionsSchema = robotBase
@@ -142,34 +140,22 @@ When this parameter is set, the \`file_layout\` parameter is ignored.
   })
   .strict()
 
-export const robotFileCompressInstructionsWithHiddenFieldsSchema =
-  robotFileCompressInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotFileCompressInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotFileCompressInstructionsSchema.shape> =
+  defineRobot(meta, robotFileCompressInstructionsSchema)
 
-export type RobotFileCompressInstructions = z.infer<typeof robotFileCompressInstructionsSchema>
-export type RobotFileCompressInstructionsWithHiddenFields = z.infer<
-  typeof robotFileCompressInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotFileCompressInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotFileCompressInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotFileCompressInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotFileCompressInstructionsSchema = interpolateRobot(
-  robotFileCompressInstructionsSchema,
-)
-export type InterpolatableRobotFileCompressInstructions =
-  InterpolatableRobotFileCompressInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotFileCompressInstructionsInput = z.input<
-  typeof interpolatableRobotFileCompressInstructionsSchema
->
-
-export const interpolatableRobotFileCompressInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotFileCompressInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotFileCompressInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotFileCompressInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotFileCompressInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotFileCompressInstructionsWithHiddenFieldsSchema
->
+export type RobotFileCompressInstructions = Instructions['output']
+export type RobotFileCompressInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotFileCompressInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotFileCompressInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotFileCompressInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotFileCompressInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

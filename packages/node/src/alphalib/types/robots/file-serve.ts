@@ -1,13 +1,20 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
-import { interpolateRobot, robotBase, robotUse } from './_instructions-primitives.ts'
+import {
+  defineRobot,
+  robotBase,
+  robotContentDeliveryMeta,
+  robotUse,
+} from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 4,
-  discount_factor: 0.25,
-  discount_pct: 75,
+  ...robotContentDeliveryMeta,
   example_code: {
     steps: {
       resized: {
@@ -25,28 +32,16 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Serve transformed files with explicit browser and CDN cache duration:',
-  minimum_charge: 0,
-  output_factor: 1,
   purpose_sentence: 'serves files to web browsers',
   purpose_verb: 'serve',
   purpose_word: 'Serve files',
   purpose_words: 'Serve files to web browsers',
-  service_slug: 'content-delivery',
-  slot_count: 0,
   title: 'Serve files to web browsers',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'FileServeRobot',
   priceFactor: 4,
   minimumChargeUsd: 0.0000152587890625,
-  queueSlotCount: 0,
-  downloadInputFiles: false,
-  preserveInputFileUrls: true,
   isAllowedForUrlTransform: true,
-  trackOutputFileSize: false,
   isInternal: false,
-  stage: 'ga',
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
 }
 
 export const robotFileServeInstructionsSchema = robotBase
@@ -139,32 +134,23 @@ The \`Accept-Ranges: bytes\` header advertises that HTTP range requests are supp
   })
   .strict()
 
-export const robotFileServeInstructionsWithHiddenFieldsSchema =
-  robotFileServeInstructionsSchema.extend({
-    result: z.union([z.literal('debug'), robotFileServeInstructionsSchema.shape.result]).optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotFileServeInstructionsSchema.shape> =
+  defineRobot(meta, robotFileServeInstructionsSchema)
 
-export type RobotFileServeInstructions = z.infer<typeof robotFileServeInstructionsSchema>
-export type RobotFileServeInstructionsInput = z.input<typeof robotFileServeInstructionsSchema>
-export type RobotFileServeInstructionsWithHiddenFields = z.infer<
-  typeof robotFileServeInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotFileServeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotFileServeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotFileServeInstructionsSchema = interpolateRobot(
-  robotFileServeInstructionsSchema,
-)
-export type InterpolatableRobotFileServeInstructions = InterpolatableRobotFileServeInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotFileServeInstructionsInput = z.input<
-  typeof interpolatableRobotFileServeInstructionsSchema
->
-
-export const interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotFileServeInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotFileServeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotFileServeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotFileServeInstructionsWithHiddenFieldsSchema
->
+export type RobotFileServeInstructions = Instructions['output']
+export type RobotFileServeInstructionsInput = Instructions['input']
+export type RobotFileServeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotFileServeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotFileServeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotFileServeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotFileServeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

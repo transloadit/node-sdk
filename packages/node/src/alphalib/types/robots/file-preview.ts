@@ -1,4 +1,8 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
@@ -6,51 +10,33 @@ import {
   color_with_alpha,
   complexHeightSchema,
   complexWidthSchema,
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
   optimize_priority,
   resize_strategy,
   robotBase,
+  robotMediaCatalogingMeta,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      previewed: {
-        robot: '/file/preview',
-        use: ':original',
-        height: 400,
-        width: 300,
-        format: 'png',
-      },
-    },
-  },
+  ...robotMediaCatalogingMeta,
+  example_code: createProcessingExample('previewed', '/file/preview', {
+    height: 400,
+    width: 300,
+    format: 'png',
+  }),
   example_code_description: 'Generate a preview thumbnail for any uploaded file:',
-  minimum_charge: 1048576,
-  output_factor: 1,
-  override_lvl1: 'Media Cataloging',
   purpose_sentence:
     'generates a thumbnail for any uploaded file to preview its content, similar to the thumbnails in desktop file managers',
   purpose_verb: 'generate',
   purpose_word: 'generate',
   purpose_words: 'Generate a preview thumbnail',
-  service_slug: 'media-cataloging',
-  slot_count: 15,
   title: 'Generate a preview thumbnail',
-  typical_file_size_mb: 1.2,
-  typical_file_type: 'file',
   name: 'FilePreviewRobot',
-  priceFactor: 1,
-  queueSlotCount: 15,
   minimumCharge: 1048576,
-  isAllowedForUrlTransform: true,
   trackOutputFileSize: true,
   importRanges: ['0-19999999', '-1000000'],
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
   stage: 'beta',
 }
 
@@ -158,9 +144,9 @@ Width of the waveform, in pixels. Only used if the \`waveform\` strategy for aud
       .describe(`
 The style of the icon generated if the \`icon\` strategy is applied. The default style, \`with-text\`, includes an icon showing the file type and a text box below it, whose content can be controlled by the \`icon_text_content\` parameter and defaults to the file extension (e.g. MP4, JPEG). The \`square\` style only includes a square variant of the icon showing the file type. Below are exemplary previews generated for a text file utilizing the different styles:
 
-<br><br> <strong>\`with-text\` style:</strong> <br>
+<br /><br /> <strong>\`with-text\` style:</strong> <br />
 ![Image with text style]({{site.asset_cdn}}/assets/images/file-preview/icon-with-text.png)
-<br><br> <strong>\`square\` style:</strong> <br>
+<br /><br /> <strong>\`square\` style:</strong> <br />
 ![Image with square style]({{site.asset_cdn}}/assets/images/file-preview/icon-square.png)
 `),
     icon_text_color: color_with_alpha.default('#a2a2a2').describe(`
@@ -185,14 +171,14 @@ The content of the text box in generated icons. Only used if the \`icon_style\` 
       .describe(`
 Specifies whether the generated preview image should be optimized to reduce the image's file size while keeping their quaility. If enabled, the images will be optimized using [🤖/image/optimize](/docs/robots/image-optimize/).
 `),
-    optimize_priority: optimize_priority.describe(`
-Specifies whether conversion speed or compression ratio is prioritized when optimizing images. Only used if \`optimize\` is enabled. Please see the [🤖/image/optimize documentation](/docs/robots/image-optimize/#param-priority) for more details.
+    optimize_priority: optimize_priority.default('conversion-speed').describe(`
+Specifies whether conversion speed or compression ratio is prioritized when optimizing images. Only used if \`optimize\` is enabled. Please see the [🤖/image/optimize documentation](/docs/robots/image-optimize/#priority) for more details.
 `),
     optimize_progressive: z
       .boolean()
       .default(false)
       .describe(`
-Specifies whether images should be interlaced, which makes the result image load progressively in browsers. Only used if \`optimize\` is enabled. Please see the [🤖/image/optimize documentation](/docs/robots/image-optimize/#param-progressive) for more details.
+Specifies whether images should be interlaced, which makes the result image load progressively in browsers. Only used if \`optimize\` is enabled. Please see the [🤖/image/optimize documentation](/docs/robots/image-optimize/#progressive) for more details.
 `),
     clip_format: z
       .enum(['apng', 'avif', 'gif', 'webp'])
@@ -234,35 +220,23 @@ Specifies whether the generated animated image should loop forever (\`true\`) or
   })
   .strict()
 
-export const robotFilePreviewInstructionsWithHiddenFieldsSchema =
-  robotFilePreviewInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotFilePreviewInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotFilePreviewInstructionsSchema.shape> =
+  defineRobot(meta, robotFilePreviewInstructionsSchema)
 
-export type RobotFilePreviewInstructions = z.infer<typeof robotFilePreviewInstructionsSchema>
-export type RobotFilePreviewInstructionsInput = z.input<typeof robotFilePreviewInstructionsSchema>
-export type RobotFilePreviewInstructionsWithHiddenFields = z.infer<
-  typeof robotFilePreviewInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotFilePreviewInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotFilePreviewInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotFilePreviewInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotFilePreviewInstructionsSchema = interpolateRobot(
-  robotFilePreviewInstructionsSchema,
-)
-export type InterpolatableRobotFilePreviewInstructions =
-  InterpolatableRobotFilePreviewInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotFilePreviewInstructionsInput = z.input<
-  typeof interpolatableRobotFilePreviewInstructionsSchema
->
-
-export const interpolatableRobotFilePreviewInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotFilePreviewInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotFilePreviewInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotFilePreviewInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotFilePreviewInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotFilePreviewInstructionsWithHiddenFieldsSchema
->
+export type RobotFilePreviewInstructions = Instructions['output']
+export type RobotFilePreviewInstructionsInput = Instructions['input']
+export type RobotFilePreviewInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotFilePreviewInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotFilePreviewInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotFilePreviewInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotFilePreviewInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

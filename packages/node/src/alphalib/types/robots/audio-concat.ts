@@ -1,4 +1,4 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
@@ -7,17 +7,17 @@ import {
   bitrateSchema,
   inputSortBySchema,
   interpolateRobot,
+  robotAudioEncodingMeta,
   robotBase,
   robotFFmpegAudio,
+  robotParameterDocs,
   robotUse,
   robotUseWithHiddenFields,
   sampleRateSchema,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 4,
-  discount_factor: 0.25,
-  discount_pct: 75,
+  ...robotAudioEncodingMeta,
   example_code: {
     steps: {
       concatenated: {
@@ -47,28 +47,13 @@ export const meta: RobotMetaInput = {
   },
   example_code_description:
     'If you have a form with 3 file input fields and want to concatenate the uploaded audios in a specific order, instruct Transloadit using the `name` attribute of each input field. Use this attribute as the value for the `fields` key in the JSON, and set `as` to `audio_[[index]]`. Transloadit will concatenate the files based on the ascending index order:',
-  minimum_charge: 0,
-  output_factor: 0.8,
-  override_lvl1: 'Audio Encoding',
   purpose_sentence: 'concatenates several audio files together',
   purpose_verb: 'concatenate',
   purpose_word: 'concatenate',
   purpose_words: 'Concatenate audio',
-  service_slug: 'audio-encoding',
-  slot_count: 20,
   title: 'Concatenate audio',
-  typical_file_size_mb: 3.8,
-  typical_file_type: 'audio file',
   uses_tools: ['ffmpeg'],
   name: 'AudioConcatRobot',
-  priceFactor: 4,
-  queueSlotCount: 20,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotAudioConcatInstructionsSchema = robotBase
@@ -82,12 +67,10 @@ export const robotAudioConcatInstructionsSchema = robotBase
     robot: z.literal('/audio/concat').describe(`
 This Robot can concatenate an almost infinite number of audio files.
 `),
-    bitrate: bitrateSchema.optional().describe(`
-Bit rate of the resulting audio file, in bits per second. If not specified will default to the bit rate of the input audio file.
-`),
-    sample_rate: sampleRateSchema.optional().describe(`
-Sample rate of the resulting audio file, in Hertz. If not specified will default to the sample rate of the input audio file.
-`),
+    bitrate: bitrateSchema.optional().describe(robotParameterDocs.audio_bitrate.description),
+    sample_rate: sampleRateSchema
+      .optional()
+      .describe(robotParameterDocs.audio_sample_rate.description),
     audio_fade_seconds: z
       .number()
       .default(1)
@@ -143,3 +126,12 @@ export type InterpolatableRobotAudioConcatInstructionsWithHiddenFields = z.infer
 export type InterpolatableRobotAudioConcatInstructionsWithHiddenFieldsInput = z.input<
   typeof interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema
 >
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotAudioConcatInstructionsSchema,
+  typeof interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotAudioConcatInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotAudioConcatInstructionsWithHiddenFieldsSchema,
+}

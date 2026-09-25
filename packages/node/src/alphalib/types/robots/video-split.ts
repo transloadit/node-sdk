@@ -1,56 +1,39 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import { stackVersions } from '../stackVersions.ts'
 import {
-  interpolateRobot,
+  createProcessingExample,
+  defineRobot,
   robotBase,
   robotFFmpegVideo,
   robotUse,
+  robotVideoEncodingMeta,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
-  example_code: {
-    steps: {
-      split: {
-        robot: '/video/split',
-        use: ':original',
-        ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
-        segments: [
-          { from: 0, to: 30 },
-          { from: 60, to: 90 },
-        ],
-      },
-    },
-  },
+  ...robotVideoEncodingMeta,
+  example_code: createProcessingExample('split', '/video/split', {
+    ffmpeg_stack: stackVersions.ffmpeg.recommendedVersion,
+    segments: [
+      { from: 0, to: 30 },
+      { from: 60, to: 90 },
+    ],
+  }),
   example_code_description:
     'Split a video into two segments, extracting the first 30 seconds and a segment from 1:00 to 1:30:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Video Encoding',
   purpose_sentence: 'splits a video into multiple segments based on an array of from/to durations',
   purpose_verb: 'split',
   purpose_word: 'split',
   purpose_words: 'Split video',
-  service_slug: 'video-encoding',
-  slot_count: 60,
   title: 'Split video',
-  typical_file_size_mb: 80,
-  typical_file_type: 'video',
   uses_tools: ['ffmpeg'],
   name: 'VideoSplitRobot',
-  priceFactor: 1,
-  queueSlotCount: 60,
-  isAllowedForUrlTransform: false,
-  trackOutputFileSize: true,
-  applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 const segmentSchema = z
@@ -86,34 +69,22 @@ Times can be specified as numbers (seconds) or as timecode strings (e.g. \`"00:0
   })
   .strict()
 
-export const robotVideoSplitInstructionsWithHiddenFieldsSchema =
-  robotVideoSplitInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotVideoSplitInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotVideoSplitInstructionsSchema.shape> =
+  defineRobot(meta, robotVideoSplitInstructionsSchema)
 
-export type RobotVideoSplitInstructions = z.infer<typeof robotVideoSplitInstructionsSchema>
-export type RobotVideoSplitInstructionsWithHiddenFields = z.infer<
-  typeof robotVideoSplitInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotVideoSplitInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotVideoSplitInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotVideoSplitInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotVideoSplitInstructionsSchema = interpolateRobot(
-  robotVideoSplitInstructionsSchema,
-)
-export type InterpolatableRobotVideoSplitInstructions =
-  InterpolatableRobotVideoSplitInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotVideoSplitInstructionsInput = z.input<
-  typeof interpolatableRobotVideoSplitInstructionsSchema
->
-
-export const interpolatableRobotVideoSplitInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotVideoSplitInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotVideoSplitInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotVideoSplitInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotVideoSplitInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotVideoSplitInstructionsWithHiddenFieldsSchema
->
+export type RobotVideoSplitInstructions = Instructions['output']
+export type RobotVideoSplitInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotVideoSplitInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoSplitInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotVideoSplitInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotVideoSplitInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

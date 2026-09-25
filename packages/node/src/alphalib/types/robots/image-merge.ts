@@ -1,19 +1,24 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type {
+  RobotDefinition,
+  RobotMetaInput,
+  RobotSchemaVariantTypes,
+} from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
 import {
   color_without_alpha_with_named,
+  defineRobot,
+  imageAdaptiveFilteringSchema,
+  imageQualityValueSchema,
   inputSortBySchema,
-  interpolateRobot,
   robotBase,
+  robotImageProcessingMeta,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotImageProcessingMeta,
   example_code: {
     steps: {
       merged: {
@@ -28,25 +33,12 @@ export const meta: RobotMetaInput = {
   },
   example_code_description:
     'Merge uploaded images into one, with a 5px gap between them on the spritesheet:',
-  minimum_charge: 0,
-  output_factor: 0.6,
-  override_lvl1: 'Image Manipulation',
   purpose_sentence: 'merges several images into a single spritesheet',
   purpose_verb: 'merge',
   purpose_word: 'merge',
   purpose_words: 'Merge several images into one image',
-  service_slug: 'image-manipulation',
-  slot_count: 10,
   title: 'Merge several images into a single image',
-  typical_file_size_mb: 0.8,
-  typical_file_type: 'image',
   name: 'ImageMergeRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
-  isAllowedForUrlTransform: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotImageMergeInstructionsSchema = robotBase
@@ -133,14 +125,14 @@ A value of \`10\` would cause the images to have the largest gap between them, w
 
 When \`effect\` is \`polaroid-stack\`, this value is instead used as canvas padding so the outermost photos keep that many pixels of distance from the edge.
 
-When \`effect\` is \`mosaic\`, this value is used both as the outer canvas padding and as the gutter width between neighbouring tiles.
+When \`effect\` is \`mosaic\`, this value is used both as the outer canvas padding and as the gutter width between neighboring tiles.
 `),
     background: color_without_alpha_with_named.default('#fff').describe(`
 Either the hexadecimal code or [name](https://www.imagemagick.org/script/color.php#color_names) of the color used to fill the background (only shown with a border > 1).
 
-By default, the background of transparent images is changed to white. Set to \`none\` or \`transparent\` for a transparent canvas — requires \`format\` \`png\` or \`webp\` to preserve alpha.
+By default, the background of transparent images is changed to white. Set to \`none\` or \`transparent\` for a transparent canvas — set \`format\` to \`png\` or \`webp\` to preserve alpha.
 
-For details about how to preserve transparency across all image types, see [this demo](/demos/image-manipulation/properly-preserve-transparency-across-all-image-types/).
+For details about how to preserve transparency across all image types, see [this demo](/demos/image-processing/properly-preserve-transparency-across-all-image-types/).
 `),
     width: z
       .number()
@@ -188,52 +180,29 @@ The default of \`1.5\` leaves a subtle beige border along some edges. Use \`2.0\
 
 Has no effect on the \`mosaic\` style or on plain spritesheets.
 `),
-    adaptive_filtering: z
-      .boolean()
-      .default(false)
-      .describe(`
-Controls the image compression for PNG images. Setting to \`true\` results in smaller file size, while increasing processing time. It is encouraged to keep this option disabled.
-`),
-    quality: z
-      .number()
-      .int()
-      .min(1)
-      .max(100)
-      .default(100)
-      .describe(`
+    adaptive_filtering: imageAdaptiveFilteringSchema,
+    quality: imageQualityValueSchema.default(100).describe(`
 Controls the image compression for JPG, PNG, and WebP images. Please also take a look at [🤖/image/optimize](/docs/robots/image-optimize/).
 `),
   })
   .strict()
 
-export const robotImageMergeInstructionsWithHiddenFieldsSchema =
-  robotImageMergeInstructionsSchema.extend({
-    result: z
-      .union([z.literal('debug'), robotImageMergeInstructionsSchema.shape.result])
-      .optional(),
-  })
+export const robotDefinition: RobotDefinition<typeof robotImageMergeInstructionsSchema.shape> =
+  defineRobot(meta, robotImageMergeInstructionsSchema)
 
-export type RobotImageMergeInstructions = z.infer<typeof robotImageMergeInstructionsSchema>
-export type RobotImageMergeInstructionsWithHiddenFields = z.infer<
-  typeof robotImageMergeInstructionsWithHiddenFieldsSchema
->
+export const {
+  withHiddenFields: robotImageMergeInstructionsWithHiddenFieldsSchema,
+  interpolatable: interpolatableRobotImageMergeInstructionsSchema,
+  interpolatableWithHiddenFields: interpolatableRobotImageMergeInstructionsWithHiddenFieldsSchema,
+} = robotDefinition
 
-export const interpolatableRobotImageMergeInstructionsSchema = interpolateRobot(
-  robotImageMergeInstructionsSchema,
-)
-export type InterpolatableRobotImageMergeInstructions =
-  InterpolatableRobotImageMergeInstructionsInput
+type Instructions = RobotSchemaVariantTypes<typeof robotDefinition>
 
-export type InterpolatableRobotImageMergeInstructionsInput = z.input<
-  typeof interpolatableRobotImageMergeInstructionsSchema
->
-
-export const interpolatableRobotImageMergeInstructionsWithHiddenFieldsSchema = interpolateRobot(
-  robotImageMergeInstructionsWithHiddenFieldsSchema,
-)
-export type InterpolatableRobotImageMergeInstructionsWithHiddenFields = z.infer<
-  typeof interpolatableRobotImageMergeInstructionsWithHiddenFieldsSchema
->
-export type InterpolatableRobotImageMergeInstructionsWithHiddenFieldsInput = z.input<
-  typeof interpolatableRobotImageMergeInstructionsWithHiddenFieldsSchema
->
+export type RobotImageMergeInstructions = Instructions['output']
+export type RobotImageMergeInstructionsWithHiddenFields = Instructions['hiddenOutput']
+export type InterpolatableRobotImageMergeInstructions = Instructions['interpolatableInput']
+export type InterpolatableRobotImageMergeInstructionsInput = Instructions['interpolatableInput']
+export type InterpolatableRobotImageMergeInstructionsWithHiddenFields =
+  Instructions['interpolatableHiddenOutput']
+export type InterpolatableRobotImageMergeInstructionsWithHiddenFieldsInput =
+  Instructions['interpolatableHiddenInput']

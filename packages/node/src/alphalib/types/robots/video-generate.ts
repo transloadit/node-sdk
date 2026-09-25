@@ -1,18 +1,19 @@
-import type { RobotMetaInput } from './_instructions-primitives.ts'
+import type { RobotMetaInput, RobotSchemaPair } from './_instructions-primitives.ts'
 
 import { z } from 'zod'
 
+import { videoGenerateDefaultModelIdentifier } from './_ai-models.ts'
 import {
   autoProviderDescription,
   interpolateRobot,
+  robotArtificialIntelligenceMeta,
   robotBase,
+  robotParameterDocs,
   robotUse,
 } from './_instructions-primitives.ts'
 
 export const meta: RobotMetaInput = {
-  bytescount: 1,
-  discount_factor: 1,
-  discount_pct: 0,
+  ...robotArtificialIntelligenceMeta,
   example_code: {
     steps: {
       generated_video: {
@@ -25,27 +26,16 @@ export const meta: RobotMetaInput = {
     },
   },
   example_code_description: 'Generate a short video from a text prompt:',
-  minimum_charge: 0,
-  output_factor: 0.6,
   purpose_sentence: 'generates videos from text prompts using AI',
   purpose_verb: 'generate',
   purpose_word: 'generate',
   purpose_words: 'Generate videos from text prompts',
-  service_slug: 'artificial-intelligence',
-  slot_count: 10,
   title: 'Generate videos from text prompts',
   typical_file_size_mb: 50,
   typical_file_type: 'video',
   name: 'VideoGenerateRobot',
-  priceFactor: 1,
-  queueSlotCount: 10,
   minimumChargeUsd: 0.06,
-  isAllowedForUrlTransform: true,
-  trackOutputFileSize: true,
   applyCommunityPlanMediaTrim: true,
-  isInternal: false,
-  removeJobResultFilesFromDiskRightAfterStoringOnS3: false,
-  stage: 'ga',
 }
 
 export const robotVideoGenerateInstructionsSchema = robotBase
@@ -55,10 +45,12 @@ export const robotVideoGenerateInstructionsSchema = robotBase
     model: z
       .string()
       .optional()
-      .describe('The AI model to use for video generation. Defaults to minimax/video-01.'),
+      .describe(
+        `The AI model to use for video generation. Defaults to ${videoGenerateDefaultModelIdentifier}.`,
+      ),
     prompt: z.string().describe('The prompt describing the desired video content.'),
     format: z.enum(['mp4', 'gif']).optional().describe('Format of the generated video.'),
-    seed: z.number().optional().describe('Seed for the random number generator.'),
+    seed: z.number().optional().describe(robotParameterDocs.seed.description),
     aspect_ratio: z.string().optional().describe('Aspect ratio of the generated video.'),
     height: z.number().optional().describe('Height of the generated video.'),
     width: z.number().optional().describe('Width of the generated video.'),
@@ -107,7 +99,7 @@ export type RobotVideoGenerateInstructionsWithHiddenFields = z.infer<
 >
 
 export const interpolatableRobotVideoGenerateInstructionsSchema = interpolateRobot(
-  robotVideoGenerateInstructionsWithHiddenFieldsSchema,
+  robotVideoGenerateInstructionsSchema,
 )
 export type InterpolatableRobotVideoGenerateInstructions =
   InterpolatableRobotVideoGenerateInstructionsInput
@@ -125,3 +117,13 @@ export type InterpolatableRobotVideoGenerateInstructionsWithHiddenFields = z.inf
 export type InterpolatableRobotVideoGenerateInstructionsWithHiddenFieldsInput = z.input<
   typeof interpolatableRobotVideoGenerateInstructionsWithHiddenFieldsSchema
 >
+
+export const robotDefinition: RobotSchemaPair<
+  typeof interpolatableRobotVideoGenerateInstructionsSchema,
+  typeof interpolatableRobotVideoGenerateInstructionsWithHiddenFieldsSchema
+> = {
+  meta,
+  interpolatable: interpolatableRobotVideoGenerateInstructionsSchema,
+  interpolatableWithHiddenFields:
+    interpolatableRobotVideoGenerateInstructionsWithHiddenFieldsSchema,
+}
