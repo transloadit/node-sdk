@@ -142,6 +142,7 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
       !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(props.blurDataURL)
     )
       throw new TypeError('blurDataURL must be a bounded base64 PNG data URL')
+    // Server rendering cannot inspect stylesheets: callers mirror class-based fit in objectFit.
     const fit = objectFit ?? attributes.style?.objectFit ?? 'fill'
     // ThumbHash only approximates the source ratio. A retained background must never extend
     // into letterboxing beside loaded pixels; box-filling images cover it without client JS.
@@ -150,7 +151,8 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
         backgroundImage: `url("${props.blurDataURL}")`,
         backgroundPosition: attributes.style?.objectPosition ?? 'center',
         backgroundRepeat: 'no-repeat',
-        backgroundSize: '100% 100%',
+        // Cover also matches named fillcrops without stretching the full-source hash.
+        backgroundSize: 'cover',
       }
     } else if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
       console.warn(

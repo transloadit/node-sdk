@@ -18,6 +18,10 @@ export const { GET, HEAD } = createStorageRoute({
       .map((path) => fixtureImages[path])
       .find((image) => image?.asset_id === asset_id && image.version_id === version_id)
     if (!receipt) return null
-    return { ...receipt, size: 1000, mime: 'image/jpeg' }
+    return {
+      ...receipt,
+      size: 1000,
+      mime: receipt.path.endsWith('.png') ? 'image/png' : 'image/jpeg',
+    }
   },
 })

@@ -30,7 +30,7 @@ const resultSchema = storedAssetSchema.extend({
 })
 const assemblySchema = z.object({
   assembly_id: z.string(),
-  ok: z.string().optional(),
+  ok: z.string().nullable().optional(),
   error: z.string().optional(),
   results: z.record(z.array(z.record(z.unknown()))).optional(),
 })

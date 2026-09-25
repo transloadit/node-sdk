@@ -28,6 +28,13 @@ const assembly = {
 }
 
 for (const [version, extract] of Object.entries({ v3: extractV3, v4: extractV4 })) {
+  test(`${version}: failed Assemblies with nullable ok retain their failure code`, () => {
+    assert.throws(
+      () => extract({ assembly_id: 'upload-1', ok: null, error: 'STORE_CONFLICT' }, options),
+      /The Storage Assembly is not complete \(STORE_CONFLICT\)/,
+    )
+  })
+
   test(`${version}: extracts retained receipts and provenance, preserving canonical validation`, () => {
     assert.deepEqual(extract(assembly, options), [
       {

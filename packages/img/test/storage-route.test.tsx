@@ -309,6 +309,20 @@ test('named crops preserve their display aspect ratio', () => {
   expect(markup).toContain('height="773"')
 })
 
+test('a cropped React placeholder covers the output box without stretching the source hash', () => {
+  const markup = renderToStaticMarkup(
+    <Image
+      src={{ ...receipt, thumbhash }}
+      alt="Square preview"
+      placeholder="blur"
+      policy={{ crops: { square: { aspectRatio: 1 } } }}
+      crop="square"
+    />,
+  )
+  expect(markup).toContain('background-size:cover')
+  expect(markup).toContain('background-position:center')
+})
+
 test('default preview parameters keep the existing Built-in CDN cache key grammar', async () => {
   const response = await route().GET(request())
   const url = new URL(response.headers.get('location') ?? '')

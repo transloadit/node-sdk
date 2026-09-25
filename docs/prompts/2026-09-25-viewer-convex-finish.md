@@ -52,3 +52,23 @@ Logs: `/tmp/viewer-finish-fixture-20260925.log`; JSON/screenshots in `test-resul
 Measured complete React entry: 17,880 bytes minified / 6,443 Brotli excluding React, up from
 15,302 / 5,182 (delta 2,578 / 1,261). Web handler remains 14,495 / 4,833, with no decoder in its
 graph. No dependency added. Browser checks remain bounded by the existing packaging budgets.
+
+`yarn check`, `verify:full`, and every runnable GitHub check passed for `3631c94`
+([run 36155140388](https://github.com/transloadit/node-sdk/actions/runs/36155140388)).
+The council then found two issues: stretched crop placeholders and failed Assemblies with
+`ok: null` losing their failure code in the pure extractor. Both were reproduced red-first;
+cover background sizing and nullable status parsing fix them. Focused tests now pass (456 Viewer
+tests and both Zod versions). The packed fixture is rerunning after these narrow fixes.
+
+Claude's evidence-bound UX/security review found no authorization regression. Its CSS-class fit
+concern is the documented SSR limitation: mirror a stylesheet's `object-fit` in `objectFit`.
+The real consumer does so, and the renderer now comments this contract. The client-decoder doc
+concern was stale preview-pack wording, already corrected on `3631c94`. Native broken-image UI
+can retain the blur without `errorFallback`; the React guide now states that tradeoff explicitly.
+The fixture's alpha receipt MIME was also corrected. No new load handler is warranted.
+
+Lead desktop/mobile deterministic and exploratory evidence is in
+`/tmp/viewer-finish-browser.RqA8N5/evidence/` (three checks, zero console errors or failed requests).
+The reviewer inspected the installed preview pack because its read sandbox excluded the SDK
+checkout; the lead owns the packed Chromium/WebKit result verification. The named browser and
+owned servers were stopped. These remain local synthetic proofs, not a fresh production canary.

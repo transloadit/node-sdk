@@ -1368,6 +1368,7 @@ test('dynamic React blur shows before delivery and stays safe for alpha, letterb
     await decode(crop)
     await expect(crop).toHaveJSProperty('naturalWidth', 320)
     await expect(crop).toHaveJSProperty('naturalHeight', 320)
+    await expect(crop).toHaveCSS('background-size', 'cover')
     const letterboxPixels = await sharp(await letterbox.screenshot())
       .extract({ left: 160, top: 10, width: 1, height: 1 })
       .removeAlpha()

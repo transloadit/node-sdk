@@ -180,7 +180,10 @@ precedence over legacy `hasAlpha`.
 Use the intrinsic aspect ratio or `objectFit="cover"`. `contain`, `none`, and `scale-down`
 disable blur so it cannot remain visible in letterboxing. If a stylesheet sets `object-fit`,
 also pass `objectFit` explicitly: React cannot inspect stylesheet rules during server rendering.
-The placeholder approximates the original, not a separately encoded rendition of each crop.
+The placeholder uses cover sizing without stretching the source hash; it approximates the
+original, not a separately encoded rendition of each crop. Use `errorFallback` to replace both
+the image and its blur on delivery failure; without it, the native broken-image UI can retain
+the background.
 
 ## Policy, caching, and limits
 
