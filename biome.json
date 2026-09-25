@@ -19,7 +19,8 @@
       "!.vscode",
       "!packages/**/dist",
       "!packages/**/node_modules",
-      "!packages/node/src/alphalib"
+      "!packages/node/src/alphalib",
+      "!packages/node/src/generated-contract"
     ]
   },
   "formatter": {

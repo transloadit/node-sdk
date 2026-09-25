@@ -86,6 +86,7 @@
   "main": "./dist/Transloadit.js",
   "exports": {
     ".": "./dist/Transloadit.js",
+    "./contract": "./dist/generated-contract/client.js",
     "./package.json": "./package.json"
   },
   "files": [
