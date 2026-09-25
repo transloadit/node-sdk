@@ -491,6 +491,8 @@ export class Transloadit {
   contract(): ContractClient {
     return new ContractClient({
       origin: this._endpoint,
+      timeout: this._defaultTimeout,
+      clientName: this._clientName,
       authentication:
         this._authToken === null
           ? {

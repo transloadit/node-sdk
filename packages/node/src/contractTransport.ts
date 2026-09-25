@@ -17,6 +17,8 @@ export interface ContractClientOptions {
     | { readonly kind: 'bearer'; readonly token: string }
   /** Trusted transport injection, for tests or application-owned connection configuration. */
   readonly fetch?: typeof fetch
+  readonly timeout?: number
+  readonly clientName?: string
 }
 
 interface SigningProfile {
@@ -33,6 +35,7 @@ interface Operation {
   readonly id: string
   readonly method: string
   readonly path: string
+  readonly rawPathPatterns: Readonly<Record<string, string>>
   readonly pathParameters: readonly { readonly name: string; readonly percentDecode: boolean }[]
   readonly auth:
     | { readonly kind: 'none' | 'basic' }
@@ -82,6 +85,9 @@ export class ContractResponseError extends Error {
 /** Native transport for generated ordinary HTTP methods, not arbitrary URLs or capability calls. */
 export class ContractTransport {
   #origin: string
+  #basePath: string
+  #timeout: number
+  #clientName: string | undefined
   #authentication: ContractClientOptions['authentication']
   #fetch: typeof fetch
   #signing: SigningProfile
@@ -92,15 +98,24 @@ export class ContractTransport {
       !['https:', 'http:'].includes(origin.protocol) ||
       origin.username ||
       origin.password ||
-      origin.pathname !== '/' ||
       origin.search ||
       origin.hash
     ) {
       throw new Error(
-        'Contract client requires an HTTP(S) origin without credentials, path or query',
+        'Contract client requires an HTTP(S) endpoint without credentials, query or fragment',
       )
     }
+    if (
+      origin.protocol === 'http:' &&
+      !['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname)
+    )
+      throw new Error('HTTPS is required except for loopback development endpoints')
     this.#origin = origin.origin
+    this.#basePath = origin.pathname.replace(/\/$/, '')
+    this.#timeout = options.timeout ?? 60_000
+    if (!Number.isSafeInteger(this.#timeout) || this.#timeout < 0)
+      throw new Error('Request timeout must be a nonnegative integer')
+    this.#clientName = options.clientName
     this.#authentication = { ...options.authentication }
     this.#fetch = options.fetch ?? globalThis.fetch
     this.#signing = { ...signing, algorithms: [...signing.algorithms] }
@@ -119,6 +134,18 @@ export class ContractTransport {
   protected async request<Result>(operation: Operation, input: Input): Promise<Result> {
     const target = operation.path.replaceAll(/\{([^}]+)\}/g, (_match: string, name: string) => {
       const value = input.path?.[name]
+      // Only producer-owned, runtime-derived ASCII grammars can opt into a slash-bearing value.
+      // There is no endpoint-name or built-in Template inventory in this native transport.
+      const rawPattern = operation.rawPathPatterns[name]
+      if (
+        typeof value === 'string' &&
+        rawPattern !== undefined &&
+        ![...value].some(
+          (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+        ) &&
+        new RegExp(rawPattern).test(value)
+      )
+        return value
       if (
         typeof value !== 'string' ||
         value.length === 0 ||
@@ -136,9 +163,10 @@ export class ContractTransport {
       }
       return encodeURIComponent(value)
     })
-    const url = new URL(target, this.#origin)
+    const url = new URL(`${this.#basePath}${target}`, this.#origin)
     if (url.origin !== this.#origin) throw new Error('Invalid generated request destination')
     const headers = new Headers({ Accept: 'application/json' })
+    if (this.#clientName !== undefined) headers.set('Transloadit-Client', this.#clientName)
     const fields = new URLSearchParams()
     const authentication = this.#authentication
     if (operation.auth.kind === 'basic') {
@@ -156,10 +184,17 @@ export class ContractTransport {
     const request = operation.request
     if (request.kind === 'normalized-params') {
       const params: Record<string, unknown> = { ...input.params }
-      if (Object.hasOwn(params, 'auth'))
-        throw new Error('The SDK owns params.auth; configure authentication on the client')
+      let auth: Record<string, unknown> = {}
+      if (Object.hasOwn(params, 'auth')) {
+        if (typeof params.auth !== 'object' || params.auth === null || Array.isArray(params.auth))
+          throw new Error('Expected auth metadata object')
+        auth = { ...params.auth }
+        if (Object.hasOwn(auth, 'key') || Object.hasOwn(auth, 'expires'))
+          throw new Error('The SDK owns auth credentials; configure authentication on the client')
+      }
       if (operation.auth.kind === 'api-key' && authentication.kind === 'signed') {
         params.auth = {
+          ...auth,
           key: authentication.key,
           expires: new Date(Date.now() + 300_000).toISOString(),
         }
@@ -209,13 +244,22 @@ export class ContractTransport {
     } else if (request.kind !== 'dispatch-only') {
       body = fields
     }
+    const deadline = this.#timeout === 0 ? undefined : AbortSignal.timeout(this.#timeout)
+    const signal =
+      input.signal === undefined
+        ? deadline
+        : deadline === undefined
+          ? input.signal
+          : AbortSignal.any([input.signal, deadline])
+    // This low-level namespace performs one HTTP attempt. Legacy gotRetry/maxRetries policies
+    // are not copied across: replay safety for signed writes belongs to a higher-level workflow.
     const response = await this.#fetch(url, {
       method: operation.method,
       headers,
       ...(body === undefined ? {} : { body }),
       redirect: 'error',
       credentials: 'omit',
-      ...(input.signal === undefined ? {} : { signal: input.signal }),
+      ...(signal === undefined ? {} : { signal }),
     })
     // Bound decoded bytes even when Content-Length is absent or compressed on the wire.
     const reader = response.body?.getReader()

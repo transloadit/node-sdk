@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import { ContractClient, ContractResponseError } from '../../src/generated-contract/client.ts'
@@ -11,6 +11,69 @@ const key = 'synthetic-contract-key'
 const secret = 'synthetic-contract-secret'
 
 describe('contract-generated methods', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('rejects non-loopback HTTP before any credential-bearing request', () => {
+    expect(
+      () =>
+        new ContractClient({
+          origin: 'http://proxy.example.com',
+          authentication: { kind: 'signed', key, secret },
+        }),
+    ).toThrow('HTTPS')
+  })
+
+  it('preserves the configured proxy path prefix', async () => {
+    const client = new ContractClient({
+      origin: 'https://proxy.example.com/transloadit',
+      authentication: { kind: 'signed', key, secret },
+      fetch: (url) => {
+        expect(new URL(String(url)).pathname).toBe('/transloadit/templates')
+        return Promise.resolve(new Response('{"count":0,"items":[]}'))
+      },
+    })
+    expect(await client.listTemplates({ params: {} })).toMatchObject({ count: 0 })
+  })
+
+  it('preserves the SDK client identification and configured request deadline', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, options) => {
+      expect(new Headers(options?.headers).get('Transloadit-Client')).toBe('contract-test')
+      const signal = options?.signal
+      if (!(signal instanceof AbortSignal)) throw new Error('Configured timeout was lost')
+      return new Promise((_resolve, reject) => {
+        if (signal.aborted) reject(signal.reason)
+        else signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      })
+    })
+    const client = new Transloadit({
+      authKey: key,
+      authSecret: secret,
+      timeout: 5,
+      clientName: 'contract-test',
+    }).contract()
+    await expect(client.listTemplates({ params: {} })).rejects.toMatchObject({
+      name: 'TimeoutError',
+    })
+  })
+
+  it('accepts builtin IDs returned by listTemplates without permitting arbitrary path tails', async () => {
+    const client = new ContractClient({
+      authentication: { kind: 'signed', key, secret },
+      fetch: (url) => {
+        expect(new URL(String(url)).pathname).toBe('/templates/builtin/encode-hls-video@0.0.1')
+        return Promise.resolve(new Response('{"error":"TEST_ERROR"}', { status: 400 }))
+      },
+    })
+    await expect(
+      client.getTemplate({
+        path: { templateIdOrName: 'builtin/encode-hls-video@0.0.1' },
+        params: {},
+      }),
+    ).rejects.toBeInstanceOf(ContractResponseError)
+    await expect(
+      client.getTemplate({ path: { templateIdOrName: 'builtin/../auth_keys' }, params: {} }),
+    ).rejects.toThrow('Invalid path')
+  })
   it('preserves the producer-owned cross-language presence vectors', async () => {
     const vectors = z
       .object({
@@ -43,6 +106,34 @@ describe('contract-generated methods', () => {
         client.updateAuthKey({ path: { authKeyId: 'synthetic-id' }, params }),
       ).rejects.toBeInstanceOf(ContractResponseError)
     }
+  })
+
+  it('merges caller-owned upload constraints with managed credentials before signing', async () => {
+    const client = new ContractClient({
+      authentication: { kind: 'signed', key, secret },
+      fetch: (_url, options) => {
+        if (!(options?.body instanceof FormData)) throw new Error('Expected multipart request')
+        const source = options.body.get('params')
+        if (typeof source !== 'string') throw new Error('Expected serialized params')
+        expect(JSON.parse(source).auth).toMatchObject({
+          key,
+          max_size: 7,
+          max_number_of_files: 1,
+          referer: 'example.invalid',
+        })
+        expect(options.body.get('signature')).toBe(
+          `sha384:${createHmac('sha384', secret).update(source).digest('hex')}`,
+        )
+        return Promise.resolve(new Response('{"error":"TEST_ERROR"}', { status: 400 }))
+      },
+    })
+    const params = {
+      template_id: 'synthetic',
+      auth: { max_size: 7, max_number_of_files: 1, referer: 'example.invalid' },
+    }
+    await expect(client.createAssembly({ params })).rejects.toBeInstanceOf(ContractResponseError)
+    const forbidden = { template_id: 'synthetic', auth: { key: 'override', max_size: 7 } }
+    await expect(client.createAssembly({ params: forbidden })).rejects.toThrow('credentials')
   })
   it('uses existing SDK credentials without changing existing entrypoints', () => {
     const sdk = new Transloadit({ authKey: key, authSecret: secret })

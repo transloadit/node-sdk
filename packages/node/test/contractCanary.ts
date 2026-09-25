@@ -49,6 +49,21 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
       options.verify('api2.list-templates', listed)
       assert.equal(listed.count, 1)
       assert.equal(listed.items[0]?.id, created.id)
+      const builtins = await client.listTemplates({
+        params: { include_builtin: 'exclusively-latest' },
+        signal,
+      })
+      options.verify('api2.list-templates', builtins)
+      const builtinId = builtins.items[0]?.id
+      assert.equal(typeof builtinId, 'string')
+      if (typeof builtinId !== 'string') throw new Error('Missing built-in Template')
+      const builtin = await client.getTemplate({
+        path: { templateIdOrName: builtinId },
+        params: {},
+        signal,
+      })
+      options.verify('api2.get-template', builtin)
+      assert.equal(builtin.id, builtinId)
       const token = await client.issueBearerToken({
         body: { grant_type: 'client_credentials', aud: 'api2', scope: 'templates:read' },
         signal,
@@ -80,7 +95,10 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
         (error: unknown) => error instanceof ContractResponseError && error.status === 400,
       )
       const uploaded = await client.createAssembly({
-        params: { template_id: created.id },
+        params: {
+          template_id: created.id,
+          auth: { max_size: 10_000_000, max_number_of_files: 1 },
+        },
         files: {
           file: {
             data: new Blob([new Uint8Array(options.file)], { type: 'image/gif' }),

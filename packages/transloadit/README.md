@@ -44,6 +44,11 @@ upload orchestration, tus, resumability and polling. SSE, capability URLs and We
 are not part of this namespace. The types describe wire shapes, not a full JSON Schema validator.
 `ContractResponseError` exposes `status` and decoded `data`; its message omits response content.
 Redirects are rejected and JSON responses are limited to 128 MiB.
+The adapter preserves the endpoint's base path, request timeout and client identification.
+Non-loopback endpoints require HTTPS. Each call makes one HTTP attempt: `maxRetries` and `gotRetry`
+apply only to existing SDK methods, not this low-level namespace. Decide whether a write is safe to
+retry in the owning workflow. Standalone clients default to a 60-second timeout (`timeout: 0`
+disables it); an explicit request signal may impose an earlier deadline.
 
 Maintainers: never edit `src/generated-contract/`. Its manifest records the exact API2 contract
 digest. In the matching API2 checkout, run `./bin/cli.ts contracts sdks --target typescript
