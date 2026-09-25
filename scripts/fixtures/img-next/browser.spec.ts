@@ -1354,8 +1354,12 @@ test('dynamic React receipts decode and refresh after the signed CDN URL expires
   assert(location)
   const target = new URL(location)
   expect(target.origin).toBe(cdnOrigin)
-  expect(target.pathname).toContain('/builtin/storage-preview@0.0.3/')
-  expect(target.pathname).toContain(fixtureStorageIdentity('documents/avatar.jpg').asset_id)
+  expect(target.pathname.split('/').map(decodeURIComponent)).toContain(
+    'builtin/storage-preview@0.0.3',
+  )
+  expect(target.pathname.split('/').at(-1)).toBe(
+    fixtureStorageIdentity('documents/avatar.jpg').asset_id,
+  )
   const remainingMs = Number(target.searchParams.get('exp')) - receivedAt
   expect(remainingMs).toBeGreaterThan(0)
   expect(remainingMs).toBeLessThanOrEqual(1000)

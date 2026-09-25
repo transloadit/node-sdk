@@ -74,3 +74,27 @@ the canonical schemas at ingestion. Use only a fetched/verified Assembly
 bound to an authorized upload. Preserve `assembly_id`, `step`, `result_id`, and `original_id` for
 idempotent registration. Node's existing `getStoredAssemblyResults` reuses extraction while
 preserving its failed-Assembly `ApiError`. Convex can use extraction without the Node SDK.
+
+## Verification and release gates (2026-09-25)
+
+Cross-repo integration proof used implementation commit
+`4b904e5df15c2cccc2e73b85c4b916f8df8d1e41` and packed Viewer SHA-256
+`1c3ca2c7668a178a982011f8f6b4bfc73ec8e41065707ecedddbc6802697133b`.
+The lead verified 50 Content tests with no Content source/dependency edits, eight identical
+old/new models, and 24 byte-identical lazy/eager/preload renderings against published Viewer
+0.0.2. The final-pack local security matrix passed 32 HTTP cases, including a two-second maximum
+expiry bound, plus Chromium/WebKit checks. A second independent Opus read-only review found no
+P0–P2 issues and traced the corrected expiry assignment. Separate production signing/expiry
+canaries passed; they do not replace the package or application integration checks.
+
+SDK `yarn check` and `verify:full` passed. The follow-up council found no issues. Package tests
+cover maximum lifetime and stable/rotated GET/HEAD grants for plain/cropped previews and
+originals/downloads. The packed browser fixture also verifies the actual mock CDN origin,
+pinned template, exact asset, and expiry before checking long-open refresh behavior.
+
+Release requires real Convex ingestion/session/membership/action/browser proof in
+[Convex PR #33](https://github.com/transloadit/convex/pull/33), green SDK CI and maintainer review
+of [SDK PR #518](https://github.com/transloadit/node-sdk/pull/518), then the normal Version
+Packages and alpha publication workflow. The completed Content/local security proof is distinct
+from those application and release gates. No production deployment or publication is authorized
+by this implementation task.

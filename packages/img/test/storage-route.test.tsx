@@ -269,24 +269,34 @@ test('route URLs survive long-open pages and rotate CDN expiry without near-expi
 
 test.each([
   'preview',
+  'crop',
   'original',
   'download',
 ] as const)('%s grants honor their maximum lifetime and reuse the current rotation', async (action) => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2030-01-01T00:00:00Z'))
+  const policy = { crops: { square: { aspectRatio: 1 } } }
   const handler = createStorageRoute({
     ...credentials,
     lifetimeMs: 1000,
+    policy,
     authorizeAsset: () => receipt,
   })
-  const url = action === 'preview' ? preview() : getStorageAssetHref(receipt, { action })
+  const url =
+    action === 'preview' || action === 'crop'
+      ? preview(receipt, { policy, crop: action === 'crop' ? 'square' : undefined })
+      : getStorageAssetHref(receipt, { action })
   const before = await handler.GET(request(url))
   const target = before.headers.get('location') ?? ''
   expect(parseSmartCdnUrl(target).auth?.expiresAt).toBe(Date.now() + 1000)
   vi.advanceTimersByTime(499)
+  expect((await handler.GET(request(url))).headers.get('location')).toBe(target)
   expect((await handler.HEAD(request(url, 'HEAD'))).headers.get('location')).toBe(target)
   vi.advanceTimersByTime(1)
-  expect((await handler.GET(request(url))).headers.get('location')).not.toBe(target)
+  const rotated = (await handler.GET(request(url))).headers.get('location') ?? ''
+  expect(rotated).not.toBe(target)
+  expect(parseSmartCdnUrl(rotated).auth?.expiresAt).toBe(Date.now() + 1000)
+  expect((await handler.HEAD(request(url, 'HEAD'))).headers.get('location')).toBe(rotated)
 })
 
 test.each([
