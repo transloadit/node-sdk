@@ -1,5 +1,22 @@
 # @transloadit/zod
 
+## 5.0.1
+
+### Patch Changes
+
+- dc7d42d: Add alpha React receipt images and a Web-standard Storage authorization route. Each preview,
+  original, and download request checks live application access before redirecting to an exact
+  retained version, with a finite rendition policy and private no-store responses.
+
+  React receipt images support opt-in ThumbHash blur placeholders with the same bounded decoder
+  as Next, without native dependencies or load handlers. Preview metadata must be authorized before
+  returning it to the browser; alpha and letterboxed images stay empty, and request-authorized
+  Next images continue to omit inline preview pixels.
+
+  Expose strict, pure retained Assembly result extraction through narrow Zod v3/v4 entries and
+  reuse it in the Node SDK, preserving receipt provenance and failed-Assembly errors. Utils and
+  Viewer gain no runtime dependencies.
+
 ## 5.0.0
 
 ### Major Changes

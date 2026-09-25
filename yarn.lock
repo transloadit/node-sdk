@@ -1607,7 +1607,7 @@ __metadata:
   resolution: "@transloadit/mcp-server@workspace:packages/mcp-server"
   dependencies:
     "@modelcontextprotocol/sdk": "npm:^1.29.0"
-    "@transloadit/node": "npm:^5.0.0"
+    "@transloadit/node": "npm:^5.0.1"
     "@transloadit/sev-logger": "npm:^0.1.9"
     "@types/express": "npm:^5.0.6"
     "@types/node": "npm:^25.8.0"
@@ -1620,7 +1620,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@transloadit/node@npm:^5.0.0, @transloadit/node@workspace:packages/node":
+"@transloadit/node@npm:^5.0.1, @transloadit/node@workspace:packages/node":
   version: 0.0.0-use.local
   resolution: "@transloadit/node@workspace:packages/node"
   dependencies:
@@ -1684,7 +1684,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@transloadit/types@npm:^5.0.0, @transloadit/types@workspace:packages/types":
+"@transloadit/types@npm:^5.0.1, @transloadit/types@workspace:packages/types":
   version: 0.0.0-use.local
   resolution: "@transloadit/types@workspace:packages/types"
   languageName: unknown
@@ -1731,7 +1731,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@transloadit/zod@workspace:packages/zod"
   dependencies:
-    "@transloadit/types": "npm:^5.0.0"
+    "@transloadit/types": "npm:^5.0.1"
     "@types/node": "npm:^25.8.0"
     zod: "npm:^4.4.3"
   languageName: unknown
