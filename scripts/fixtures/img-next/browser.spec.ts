@@ -28,7 +28,7 @@ interface ImageEvidence {
 }
 
 interface BrowserAudit {
-  completedDownloads: Set<string>
+  deliveredAttachments: Set<string>
   committedRefreshes: Set<Request>
   expectedFailures: Map<string, number>
   images: ImageEvidence[]
@@ -48,7 +48,7 @@ const test = base.extend<{ audit: BrowserAudit }>({
   audit: [
     async ({ page, context, browserName, javaScriptEnabled }, use, info) => {
       const expectedFailures = new Map<string, number>()
-      const completedDownloads = new Set<string>()
+      const deliveredAttachments = new Set<string>()
       const images: ImageEvidence[] = []
       const errors: string[] = []
       const failedRequests: Request[] = []
@@ -134,7 +134,7 @@ const test = base.extend<{ audit: BrowserAudit }>({
       }
       await observe(page)
       await use({
-        completedDownloads,
+        deliveredAttachments,
         committedRefreshes,
         expectedFailures,
         images,
@@ -198,8 +198,8 @@ const test = base.extend<{ audit: BrowserAudit }>({
       // Stop accepting reads before draining: Promise.all on a growing array misses late responses.
       await page.removeAllListeners('response', { behavior: 'wait' })
       for (const request of failedRequests) {
-        // Successful native downloads cancel document navigation in Chromium and WebKit.
-        if (completedDownloads.has(request.url())) continue
+        // Attachment delivery can cancel the preceding document navigation in both engines.
+        if (deliveredAttachments.has(request.url())) continue
         if (expectedFailures.has(request.url())) continue
         const url = new URL(request.url())
         // Chromium reports disabled script preloads as CSP failures. Only the deliberate
@@ -1412,6 +1412,7 @@ test('dynamic download preserves exact-version bytes and the trusted receipt fil
   page,
   context,
   audit,
+  browserName,
 }) => {
   await page.goto('/fixture/dynamic-storage')
   await decode(page.getByRole('img', { name: 'Dynamic avatar', exact: true }))
@@ -1424,15 +1425,34 @@ test('dynamic download preserves exact-version bytes and the trusted receipt fil
   const delivered = await context.request.get(href)
   expect(delivered.status()).toBe(200)
   expect(delivered.headers()['content-disposition']).toBe('attachment; filename="avatar.jpg"')
-  expect((await sharp(await delivered.body()).metadata()).width).toBe(400)
-  const downloadEvent = page.waitForEvent('download')
-  await link.click()
-  const download = await downloadEvent
-  expect(download.suggestedFilename()).toBe('avatar.jpg')
-  expect(await download.failure()).toBeNull()
-  audit.completedDownloads.add(new URL(href, page.url()).href)
-  audit.completedDownloads.add(download.url())
   const original = new URL(href, page.url())
+  const expectedBytes = await delivered.body()
+  expect((await sharp(expectedBytes).metadata()).width).toBe(400)
+  if (browserName === 'webkit' && process.platform === 'linux') {
+    // Playwright's Linux WebKit embeds supported attachments instead of emitting downloads:
+    // https://github.com/microsoft/playwright/issues/34076. Keep the real JPEG response and
+    // verify its browser-delivered header, bytes, and decode; Chromium/macOS also save it below.
+    const attachmentEvent = page.waitForResponse(
+      (response) => new URL(response.url()).origin === cdnOrigin && response.status() === 200,
+    )
+    await link.click()
+    const attachment = await attachmentEvent
+    expect(attachment.headers()['content-disposition']).toBe('attachment; filename="avatar.jpg"')
+    expect(await attachment.body()).toEqual(expectedBytes)
+    await decode(page.getByRole('img'))
+    audit.deliveredAttachments.add(attachment.url())
+  } else {
+    const downloadEvent = page.waitForEvent('download')
+    await link.click()
+    const download = await downloadEvent
+    expect(download.suggestedFilename()).toBe('avatar.jpg')
+    expect(await download.failure()).toBeNull()
+    const path = await download.path()
+    assert(path)
+    expect(await readFile(path)).toEqual(expectedBytes)
+    audit.deliveredAttachments.add(download.url())
+  }
+  audit.deliveredAttachments.add(original.href)
   original.searchParams.set('action', 'original')
   expect((await context.request.get(original.href, { maxRedirects: 0 })).status()).toBe(404)
 })

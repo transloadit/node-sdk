@@ -91,6 +91,10 @@ SDK `yarn check` and `verify:full` passed. The follow-up council found no issues
 cover maximum lifetime and stable/rotated GET/HEAD grants for plain/cropped previews and
 originals/downloads. The packed browser fixture also verifies the actual mock CDN origin,
 pinned template, exact asset, and expiry before checking long-open refresh behavior.
+Downloads retain the real JPEG attachment response: Chromium and macOS WebKit save and compare
+the bytes and filename. Linux Playwright WebKit embeds supported attachments instead of emitting
+a download event ([upstream #34076](https://github.com/microsoft/playwright/issues/34076)); that
+engine checks the browser-delivered attachment header, exact bytes, and decoded image.
 
 Release requires real Convex ingestion/session/membership/action/browser proof in
 [Convex PR #33](https://github.com/transloadit/convex/pull/33), green SDK CI and maintainer review
@@ -98,3 +102,7 @@ of [SDK PR #518](https://github.com/transloadit/node-sdk/pull/518), then the nor
 Packages and alpha publication workflow. The completed Content/local security proof is distinct
 from those application and release gates. No production deployment or publication is authorized
 by this implementation task.
+
+The deferred API2 watermark follow-up is tracked separately in
+[API2 issue #9253](https://github.com/transloadit/api2/issues/9253); it requires no backend work
+in this SDK change.
