@@ -123,14 +123,14 @@ Release flow:
 4. Review and merge the version PR. CI publishes automatically via npm trusted publishing (OIDC).
 5. Add [release notes](https://github.com/transloadit/node-sdk/releases) once the publish succeeds.
 
-The version PR updater restores old generated files to their merge base, merges `main` into
-`changeset-release/main`, then appends freshly generated versions. These are GitHub-signed commits,
-not force pushes or branch recreation: the organization requires verified commits and blocks
-non-fast-forward updates. Restoring only generated files prevents conflicts with new dependencies,
-lockfile entries or changeset edits. Changesets still owns version calculation, changelogs and
-publication. Unexpected source edits or concurrent branch changes stop the update; inspect them and
-rerun the latest main release job. Do not merge an incomplete update. Approve any CI runs awaiting
-approval on the bot-created PR before merging it. Do not bypass the required checks or branch rules.
+The standard Changesets action maintains `changeset-release/main`, using GitHub API commits
+to preserve verified signatures. The generated release branch permits force updates; `main`
+and ordinary feature branches still forbid them. Do not edit the generated branch by hand.
+
+Changesets owns version calculation, changelogs and publication. If a version update fails, inspect
+the error and rerun the latest main release job. Do not merge an incomplete update. Approve any CI
+runs awaiting approval on the bot-created PR before merging it. Do not bypass the required checks
+or branch rules.
 Release runs use GitHub's `queue: max` so newer pushes do not replace a pending publication run.
 The queue supports up to 100 pending runs; monitor a larger backlog rather than assuming unlimited
 retention. A superseded run with changesets skips versioning; a version-PR merge with no pending
@@ -146,9 +146,12 @@ Manual fallback (maintainers only):
 
 - On the generated version PR's merged commit: `corepack yarn release:publish`.
 - This publishes Viewer with its explicit `alpha` tag, then uses `changeset publish --no-git-tag`
-  for the remaining packages and one `changeset tag` pass for release discovery. Duplicate tag
-  announcements make the release action try to create the same GitHub release twice. A failed registry lookup stops the
-  release; retries do not republish an existing version.
+  for the remaining packages and one `changeset tag` pass for release discovery. After npm accepts
+  Viewer, the script waits up to ten minutes for registry visibility before handing off to
+  Changesets. Lookup failures stop the release; a timeout does not trigger another publication.
+  Check registry visibility before retrying the workflow on the same commit. Duplicate tag
+  announcements make the release action try to create the same GitHub release twice. Retries do not
+  republish an existing version.
 
 Notes:
 
