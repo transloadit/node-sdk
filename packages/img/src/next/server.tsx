@@ -25,7 +25,6 @@ import {
 import { getSignedSmartCdnUrl, getSmartCdnUrl } from '@transloadit/utils/node'
 import { connection } from 'next/server.js'
 import { Suspense, use } from 'react'
-import { thumbHashToDataURL } from 'thumbhash'
 
 import { isOpaqueImageBackground, transparentImageBackground } from '../imageBackground.ts'
 import {
@@ -39,6 +38,7 @@ import {
   transloaditPublicStoragePreviewTemplate,
   transloaditStoragePreviewTemplate,
 } from '../index.ts'
+import { createBlurDataURL } from '../placeholder.ts'
 import { previewUrlParams } from '../previewUrlParams.ts'
 import { createImageDiagnostics } from './diagnostics.ts'
 import { ImageSizeDiagnostics } from './ImageSizeDiagnostics.tsx'
@@ -622,36 +622,8 @@ function renderPicture(
   diagnostic?: Promise<string>,
   inlinePixels = false,
 ): ReactNode {
-  let blurDataURL: string | undefined
-  if (props.placeholder === 'blur') {
-    const hash = props.source.thumbhash
-    // Receipt metadata can be hand-edited. Bound decoding and reject malformed base64/geometry.
-    const bytes =
-      typeof hash === 'string' && hash.length <= 48 && /^[A-Za-z0-9+/]+={0,2}$/.test(hash)
-        ? Buffer.from(hash, 'base64')
-        : undefined
-    // Preserve transparency even if a hand-edited receipt lost its original alpha metadata.
-    const hasAlpha = props.source.hasAlpha === true || ((bytes?.[2] ?? 0) & 0x80) !== 0
-    if (
-      inlinePixels &&
-      !hasAlpha &&
-      bytes !== undefined &&
-      bytes.length >= 17 &&
-      bytes.length <= 25 &&
-      bytes.toString('base64') === hash &&
-      ((bytes[3] ?? 0) & 7) > 0
-    ) {
-      blurDataURL = thumbHashToDataURL(bytes)
-    } else if (process.env.NODE_ENV === 'development') {
-      console.warn(
-        !inlinePixels
-          ? `[Image] ${JSON.stringify(props.source.path)} uses request-authorized private delivery; placeholder="blur" is a no-op so its pixels are not exposed before authorization.`
-          : hasAlpha
-            ? `[Image] ${JSON.stringify(props.source.path)}: transparent image: no blur placeholder.`
-            : `[Image] ${JSON.stringify(props.source.path)} has no usable thumbhash; placeholder="blur" is a no-op. For new uploads, request storage store --placeholder blur. Use storage receipts sync to recover metadata already on the server; sync cannot generate a missing hash.`,
-      )
-    }
-  }
+  const blurDataURL =
+    props.placeholder === 'blur' ? createBlurDataURL(props.source, inlinePixels) : undefined
   const errorFallback =
     props.errorFallback === undefined || process.env.NODE_ENV !== 'development' ? (
       props.errorFallback

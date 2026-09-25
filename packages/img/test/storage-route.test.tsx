@@ -1,9 +1,10 @@
-import type { StorageAssetReceipt } from '@transloadit/viewer/react'
+import type { StorageAssetReceipt, StorageImageReceipt } from '@transloadit/viewer/react'
 
 import { parseSmartCdnUrl } from '@transloadit/utils'
 import { getStorageAssetHref, Image } from '@transloadit/viewer/react'
 import { createStorageRoute } from '@transloadit/viewer/server'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { rgbaToThumbHash, thumbHashToDataURL } from 'thumbhash'
 import { afterEach, expect, test, vi } from 'vitest'
 
 const receipt = {
@@ -18,8 +19,9 @@ const receipt = {
 }
 const credentials = { workspace: 'album', authKey: 'test-key', authSecret: 'test-secret' }
 const origin = 'https://app.example'
+const thumbhash = Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 255])).toString('base64')
 
-function preview(src = receipt, props = {}): string {
+function preview(src: StorageImageReceipt = receipt, props = {}): string {
   const html = renderToStaticMarkup(<Image src={src} alt="Canal house" {...props} />)
   const url = /<img[^>]* src="([^"]+)"/.exec(html)?.[1]
   if (url === undefined) throw new Error('Image did not render a fallback')
@@ -47,8 +49,85 @@ function route(asset: StorageAssetReceipt | null = receipt) {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
   vi.unstubAllGlobals()
   vi.useRealTimers()
+})
+
+test('React opts into receipt blur without changing URLs, markup semantics or loading behavior', () => {
+  const src: StorageImageReceipt = { ...receipt, thumbhash, has_alpha: false }
+  const markup = renderToStaticMarkup(<Image src={src} alt="Canal house" placeholder="blur" />)
+  expect(markup).toContain(thumbHashToDataURL(Buffer.from(thumbhash, 'base64')))
+  expect(markup).toContain('loading="lazy"')
+  expect(markup).not.toMatch(/placeholder=|onload=/i)
+  expect(preview(src, { placeholder: 'blur' })).toBe(preview(src))
+  expect(renderToStaticMarkup(<Image src={src} alt="Canal house" />)).not.toContain('data:image/')
+  expect(
+    renderToStaticMarkup(<Image src={src} alt="Canal house" placeholder="empty" />),
+  ).not.toContain('data:image/')
+})
+
+test.each([
+  { has_alpha: true, hasAlpha: undefined, blur: false },
+  { has_alpha: true, hasAlpha: false, blur: false },
+  { has_alpha: false, hasAlpha: true, blur: true },
+])('React respects canonical alpha metadata: %j', ({ has_alpha, hasAlpha, blur }) => {
+  const src: StorageImageReceipt = { ...receipt, thumbhash, has_alpha, hasAlpha }
+  const markup = renderToStaticMarkup(<Image src={src} alt="Receipt" placeholder="blur" />)
+  expect(markup.includes('data:image/')).toBe(blur)
+})
+
+test('React preserves alpha even without receipt alpha metadata', () => {
+  const src = {
+    ...receipt,
+    thumbhash: Buffer.from(rgbaToThumbHash(1, 1, [45, 110, 160, 128])).toString('base64'),
+  }
+  expect(
+    renderToStaticMarkup(<Image src={src} alt="Transparent" placeholder="blur" />),
+  ).not.toContain('data:image/')
+})
+
+test.each([
+  'contain',
+  'none',
+  'scale-down',
+] as const)('React does not leave a placeholder visible beside a loaded %s image', (objectFit) => {
+  const src = { ...receipt, thumbhash }
+  const markup = renderToStaticMarkup(
+    <Image src={src} alt="Letterboxed" placeholder="blur" objectFit={objectFit} />,
+  )
+  expect(markup).not.toContain('data:image/')
+})
+
+test.each([
+  undefined,
+  '',
+  'not base64',
+  'A'.repeat(28),
+  'A'.repeat(48),
+  `${thumbhash}====`,
+])('React ignores absent or malformed ThumbHash %j with only a development note', (hash) => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  vi.stubEnv('NODE_ENV', 'development')
+  const src = { ...receipt, thumbhash: hash }
+  expect(
+    renderToStaticMarkup(<Image src={src} alt="Missing blur" placeholder="blur" />),
+  ).not.toContain('data:image/')
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('no usable thumbhash'))
+  warn.mockClear()
+  vi.stubEnv('NODE_ENV', 'production')
+  renderToStaticMarkup(<Image src={src} alt="Missing blur" placeholder="blur" />)
+  expect(warn).not.toHaveBeenCalled()
+})
+
+test('receipt blur decodes without Node Buffer or process in the browser', () => {
+  const expected = thumbHashToDataURL(Buffer.from(thumbhash, 'base64'))
+  vi.stubGlobal('Buffer', undefined)
+  vi.stubGlobal('process', undefined)
+  const src = { ...receipt, thumbhash }
+  expect(renderToStaticMarkup(<Image src={src} alt="Browser" placeholder="blur" />)).toContain(
+    expected,
+  )
 })
 
 test.each([

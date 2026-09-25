@@ -14,8 +14,10 @@ export const { GET, HEAD } = createStorageRoute({
   policy: dynamicPolicy,
   authorizeAsset({ request, asset_id, version_id, action }) {
     if (!authorizeFixtureImage({ request }) || action === 'original') return null
-    const receipt = fixtureImages['documents/avatar.jpg']
-    if (!receipt || receipt.asset_id !== asset_id || receipt.version_id !== version_id) return null
+    const receipt = ['documents/avatar.jpg', 'documents/alpha.png']
+      .map((path) => fixtureImages[path])
+      .find((image) => image?.asset_id === asset_id && image.version_id === version_id)
+    if (!receipt) return null
     return { ...receipt, size: 1000, mime: 'image/jpeg' }
   },
 })

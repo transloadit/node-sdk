@@ -2,8 +2,11 @@
 
 **Alpha — API may change between releases. Pin the exact version in production. Images only for now.**
 
-Responsive images for Next.js and [dynamic React receipts](docs/react-storage.md). Native `picture/srcset`;
-bytes go straight from Smart CDN (`<workspace>.tlcdn.com`) to the browser, never through Next's optimizer.
+Native responsive images from Smart CDN (`<workspace>.tlcdn.com`); bytes bypass Next's optimizer.
+
+- **Build-time Next images:** use the catalog Quickstart below.
+- **Live user uploads:** use [React receipts](docs/react-storage.md) with app authorization (Viewer 0.0.3+).
+- **HTTP/S3 assets:** use a [restricted Template](#existing-http-or-s3-assets).
 
 ## Quickstart
 
@@ -16,8 +19,7 @@ Storage needs a matching API2 deployment; [existing HTTP/S3 assets](#existing-ht
 Run beside `package.json`. Start with `auth login` even without an account: choose Sign up in the
 browser it opens, create a free workspace, and approve the CLI. For `./hero.jpg`, use any JPEG you have.
 
-Prefer `--hashed` for images you will replace: it generates an immutable filename such as
-`website/hero.fce9d56a.jpg`. The command below includes it; use the printed JSX path, with no `--overwrite`.
+Prefer `--hashed` for images you will replace; use the printed JSX path with its immutable filename.
 
 ```bash
 npx transloadit auth login
@@ -48,8 +50,7 @@ Public images need no app secrets. The required plugin bundles the catalog, with
 
 ## Responsive
 
-Catalog paths autocomplete. `width` sets a responsive maximum; `preload` makes a hero eager,
-preloads its responsive source and sets high fetch priority. Other images load lazily.
+Catalog paths autocomplete. `width` caps responsive size; `preload` is eager with preload/high priority.
 `storage store --placeholder blur` requests a server ThumbHash; `placeholder="blur"` renders it.
 [Placeholders, extraction cost, layouts and art direction](./docs/reference.md#responsive).
 
@@ -98,8 +99,7 @@ Restart `next dev` after adding the authorizer. [Private setup and authorization
 
 ## When it breaks
 
-Opt into `errorFallback` to show a delivery failure instead of a broken image. Development adds
-the HEAD result; see the terminal. Non-production login endpoints carry into the catalog.
+Use `errorFallback` for failed delivery; development adds the HEAD result. See the terminal.
 [`baseUrl` and `urlParams`, diagnostics and recovery](./docs/reference.md#when-it-breaks).
 Lost metadata? Restore the committed catalog or [recover it from Storage](./docs/reference.md#recovery).
 

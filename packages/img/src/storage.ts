@@ -1,6 +1,6 @@
 import type { SmartCdnImageSignRequest } from '@transloadit/utils'
 
-import type { TransloaditStorageReference } from './imageSource.ts'
+import type { TransloaditImageSource, TransloaditStorageReference } from './imageSource.ts'
 import type { StoragePreviewFormats, TransloaditImageModel } from './index.ts'
 
 import { getStorageImageReference, snapshotImageSource } from './imageSource.ts'
@@ -17,7 +17,9 @@ export interface StorageAssetReceipt extends TransloaditStorageReference {
 }
 
 /** The image subset of a canonical receipt, with authoritative display geometry. */
-export interface StorageImageReceipt extends StorageAssetReceipt {
+export interface StorageImageReceipt
+  extends StorageAssetReceipt,
+    Pick<TransloaditImageSource, 'thumbhash' | 'has_alpha' | 'hasAlpha'> {
   readonly width: number
   readonly height: number
 }

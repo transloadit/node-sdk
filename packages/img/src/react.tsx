@@ -4,6 +4,7 @@ import type { TransloaditImageLayoutProps } from './picture.tsx'
 import type { StorageImageReceipt, StorageRenditionPolicy } from './storage.ts'
 
 import { TransloaditPicture } from './picture.tsx'
+import { createBlurDataURL } from './placeholder.ts'
 import {
   createStorageModel,
   snapshotStorageImage,
@@ -28,6 +29,8 @@ export type ImageProps = TransloaditImageLayoutProps & {
   route?: string
   policy?: StorageRenditionPolicy
   crop?: string
+  /** Inline already-authorized preview pixels from receipt metadata. Empty by default. */
+  placeholder?: 'empty' | 'blur'
   width?: never
   height?: never
 }
@@ -47,5 +50,12 @@ export function Image(props: ImageProps): ReactNode {
       crop: props.crop,
     })
   })
-  return <TransloaditPicture {...props} {...geometry} model={model} />
+  return (
+    <TransloaditPicture
+      {...props}
+      {...geometry}
+      model={model}
+      blurDataURL={props.placeholder === 'blur' ? createBlurDataURL(src) : undefined}
+    />
+  )
 }

@@ -43,7 +43,7 @@ export type TransloaditImagePresentationProps = TransloaditImageLayoutProps & {
 /** Props for rendering an already-signed framework-neutral image model. */
 export type TransloaditPictureProps = TransloaditImagePresentationProps & {
   model: TransloaditImageModel
-  /** Already decoded on the server; no ThumbHash decoder enters the client graph. */
+  /** A pre-decoded placeholder; this low-level renderer does not import a ThumbHash decoder. */
   blurDataURL?: string
 }
 
@@ -154,7 +154,7 @@ export function TransloaditPicture(props: TransloaditPictureProps): ReactNode {
       }
     } else if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
       console.warn(
-        '[Image] letterboxed image: no blur placeholder. Use the default constrained layout or fit="cover" for a box-filling image.',
+        '[Image] letterboxed image: no blur placeholder. Use the intrinsic aspect ratio or objectFit="cover" for a box-filling image.',
       )
     }
   }

@@ -1330,6 +1330,71 @@ test('native requests cannot use altered capabilities or CDN signatures', async 
   expect((await audit.loadNativeImage(issued.url())).loaded).toBe(false)
 })
 
+test('dynamic React blur shows before delivery and stays safe for alpha, letterboxing and crops', async ({
+  page,
+  browserName,
+}, info) => {
+  // Hold the app redirect, not a signed target with the fixture's intentionally short expiry.
+  const delivery = Promise.withResolvers<void>()
+  await page.route('**/api/transloadit/media?**', async (route) => {
+    await delivery.promise
+    await route.continue()
+  })
+  try {
+    await page.goto('/fixture/dynamic-storage', { waitUntil: 'domcontentloaded' })
+    const avatar = page.getByRole('img', { name: 'Dynamic avatar', exact: true })
+    await expect(avatar).toHaveJSProperty('naturalWidth', 0)
+    await expect(avatar).toHaveCSS('background-image', /^url\("data:image\/png;base64,/)
+    await expect(avatar).not.toHaveAttribute('onload')
+    if (browserName === 'chromium') {
+      const session = await page.context().newCDPSession(page)
+      const { data } = await session.send('Page.captureScreenshot', { format: 'png' })
+      await session.detach()
+      await info.attach('react-blur-before-load', {
+        body: Buffer.from(data, 'base64'),
+        contentType: 'image/png',
+      })
+    }
+    delivery.resolve()
+    await decode(avatar)
+    await page.getByRole('button', { name: 'Show placeholder variants' }).click()
+    const alpha = page.getByRole('img', { name: 'Transparent receipt', exact: true })
+    await decode(alpha)
+    await expect(alpha).toHaveCSS('background-image', 'none')
+    const letterbox = page.getByRole('img', { name: 'Letterboxed receipt', exact: true })
+    await decode(letterbox)
+    await expect(letterbox).toHaveCSS('background-image', 'none')
+    const crop = page.getByRole('img', { name: 'Cropped receipt', exact: true })
+    await decode(crop)
+    await expect(crop).toHaveJSProperty('naturalWidth', 320)
+    await expect(crop).toHaveJSProperty('naturalHeight', 320)
+    const letterboxPixels = await sharp(await letterbox.screenshot())
+      .extract({ left: 160, top: 10, width: 1, height: 1 })
+      .removeAlpha()
+      .raw()
+      .toBuffer()
+    expect([...letterboxPixels]).toEqual([255, 255, 255])
+    await info.attach('react-blur-loaded', {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    })
+  } finally {
+    delivery.resolve()
+  }
+})
+
+test('the dynamic app does not return private hashes before query authorization', async ({
+  page,
+  context,
+}) => {
+  await context.clearCookies()
+  const response = await page.goto('/fixture/dynamic-storage')
+  assert(response)
+  await expect(page.getByText('Sign in to view this album', { exact: true })).toBeVisible()
+  await expect(page.getByRole('img')).toHaveCount(0)
+  expect(await response.text()).not.toContain('WnUBBYAIa7uGh4eIiGeIiIeAeH+X')
+})
+
 test('dynamic React receipts decode and refresh after the signed CDN URL expires', async ({
   page,
   audit,

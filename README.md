@@ -17,8 +17,8 @@ Monorepo for Transloadit SDKs, shared packages, and the MCP server.
 
 ## Packages
 
-- `@transloadit/viewer` — Private image-only candidate for Storage and Smart CDN Templates. See
-  `packages/img/README.md`.
+- `@transloadit/viewer` — Published alpha for responsive images from Storage and Smart CDN
+  Templates. See [the Viewer guide](packages/img/README.md).
 - `@transloadit/node` — Node.js SDK + CLI. See `packages/node/README.md`.
 - `transloadit` — Stable unscoped package (built from `@transloadit/node`).
 - `@transloadit/mcp-server` — MCP server (Streamable HTTP + stdio). See `packages/mcp-server/README.md`.

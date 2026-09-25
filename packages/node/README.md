@@ -108,9 +108,9 @@ Most commands can authenticate with either `TRANSLOADIT_AUTH_TOKEN` or `TRANSLOA
 
 ### Storage images for Next.js
 
-`@transloadit/viewer` is currently an unpublished, private preview. Follow the
-[local package instructions](https://github.com/transloadit/node-sdk/blob/img-onboard/docs/img-dogfood.md)
-until release. In a Next.js 16.3.3+ App Router project with Storage enabled, run:
+`@transloadit/viewer` is a published alpha. Follow the
+[Viewer Quickstart](https://github.com/transloadit/node-sdk/blob/main/packages/img/README.md)
+to install it. In a Next.js 16.3.3+ App Router project with Storage enabled, run:
 
 ```bash
 yarn transloadit auth login
@@ -143,6 +143,9 @@ Images are never decoded locally. Add `--placeholder blur` to request a server T
 omission or `--placeholder empty` performs no extraction. Successful extraction adds metadata
 usage equal to 20% of the file's bytes. Viewer's separate `placeholder="blur"` opts into rendering.
 Extraction is best-effort: a missing hash does not fail the upload or trigger another one.
+For live user-upload galleries, use [dynamic React receipts](https://github.com/transloadit/node-sdk/blob/main/packages/img/docs/react-storage.md)
+instead of a committed catalog. Authorize preview access before returning a receipt's ThumbHash;
+the hash contains recognizable image data.
 An occupied path conflicts unless `--overwrite` is explicit; prefer `--hashed` for immutable
 filenames. Matching receipts skip repeat uploads; changed bytes get a new name.
 Storage receipts pin the returned `asset_id` and `version_id`. The image URL selects that exact

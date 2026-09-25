@@ -1,6 +1,7 @@
 # Dynamic receipts in React
 
-**Alpha — API may change.** Requires a matching API2 deployment with the pinned Storage
+**Alpha — API may change.** These entries require Viewer 0.0.3 or newer (0.0.2 includes only
+the Next.js adapter). Requires a matching API2 deployment with the pinned Storage
 Built-ins. Install `@transloadit/viewer@alpha` alongside React 19. Receipts come from your
 authenticated data layer; credentials stay in your server route.
 
@@ -14,7 +15,7 @@ import { Image, getStorageAssetHref } from '@transloadit/viewer/react'
 
 `Image` derives dimensions from the canonical receipt and reuses `TransloaditPicture`. It accepts
 the existing presentation props: `sizes`, `style`, `className`, `loading`, `preload`, `objectFit`,
-`errorFallback`, `retryKey`, and native serializable attributes. It accepts neither separate
+`errorFallback`, `retryKey`, `placeholder`, and native serializable attributes. It accepts neither separate
 dimensions nor arbitrary transforms. `TransloaditPicture` remains exported from `/react` and
 `/next` for precomputed models. Change `retryKey` after sign-in to retry a failed image.
 
@@ -149,6 +150,37 @@ const results = extractStoredAssemblyResults(verifiedAssembly, {
 Assemblies throw; partial receipts never silently disappear. Node's `getStoredAssemblyResults`
 reuses this source and retains failed-Assembly `ApiError`. The parser belongs to the existing Zod
 package: Utils stays dependency-free, and Viewer installs/imports no generated schemas or SDK.
+
+## Optional blur placeholders
+
+```tsx
+<Image src={receipt} alt="Canal house" placeholder="blur" />
+```
+
+The producing Step must request `output_meta: { thumbhash: true }` during upload, or use CLI
+`storage store --placeholder blur`. API2 extracts and stores the optional `thumbhash` and
+`has_alpha` metadata; Viewer does not decode your original or install a native image library.
+Successful extraction adds metadata usage equal to 20% of the file's bytes. Extraction is
+best-effort; missing or malformed metadata falls back to the normal empty placeholder with a
+development-only note. No extraction is requested by default.
+
+**A ThumbHash is recognizable image content.** Your authenticated data query must authorize
+`preview` access before returning it, independently of the route's later access check. Do not
+send hashes to a browser that may only download originals or is not allowed to see previews.
+Already disclosed hashes, like downloaded images, cannot be revoked. Next's request-authorized
+catalog renderer keeps blur disabled because authorization has not run at render time.
+
+The small pure-JavaScript decoder runs wherever React renders (including the browser for a
+live gallery). Next's catalog adapter decodes only on the server. The default is `"empty"`;
+opting into `"blur"` adds a CSS background, no load handler or new image-loading state machine.
+The final opaque image covers that background. Transparent images are a no-op, including when
+the hash itself carries alpha but the receipt flag is missing. Canonical `has_alpha` takes
+precedence over legacy `hasAlpha`.
+
+Use the intrinsic aspect ratio or `objectFit="cover"`. `contain`, `none`, and `scale-down`
+disable blur so it cannot remain visible in letterboxing. If a stylesheet sets `object-fit`,
+also pass `objectFit` explicitly: React cannot inspect stylesheet rules during server rendering.
+The placeholder approximates the original, not a separately encoded rendition of each crop.
 
 ## Policy, caching, and limits
 

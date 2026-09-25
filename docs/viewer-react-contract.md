@@ -13,6 +13,11 @@ import { Image, getStorageAssetHref } from '@transloadit/viewer/react'
 
 `Image` derives geometry from the receipt and reuses `createTransloaditImageModel` and
 `TransloaditPicture`. Existing presentation/loading/error fallback props remain available.
+`placeholder="blur"` optionally decodes the receipt's server-extracted ThumbHash with the same
+bounded pure decoder as Next. The data query must authorize preview pixels before exposing the
+hash; the later route check cannot undo that disclosure. Alpha and letterboxed images omit it.
+No load handler or native dependency is added. React includes the small decoder in its client
+graph; the Next server adapter retains its no-inline-pixels guard for request-authorized images.
 `TransloaditPicture` remains a public low-level renderer. `route` defaults to
 `/api/transloadit/media`; it can be overridden with a same-origin absolute path on both the
 component and href helper. `getStorageAssetHref` requires action `original` or `download`.
@@ -100,8 +105,9 @@ Release requires real Convex ingestion/session/membership/action/browser proof i
 [Convex PR #33](https://github.com/transloadit/convex/pull/33), green SDK CI and maintainer review
 of [SDK PR #518](https://github.com/transloadit/node-sdk/pull/518), then the normal Version
 Packages and alpha publication workflow. The completed Content/local security proof is distinct
-from those application and release gates. No production deployment or publication is authorized
-by this implementation task.
+from those application and release gates. Kevin subsequently approved the coordinated release
+and bounded cleanup; see [the follow-up checklist](./prompts/2026-09-25-viewer-convex-finish.md).
+That approval does not include a production application deployment or another Storage canary.
 
 The deferred API2 watermark follow-up is tracked separately in
 [API2 issue #9253](https://github.com/transloadit/api2/issues/9253); it requires no backend work
