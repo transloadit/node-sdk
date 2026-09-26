@@ -22,6 +22,42 @@ files.
 This is a **Node.js** SDK to make it easy to talk to the
 [Transloadit](https://transloadit.com) REST API.
 
+## Contract-generated API methods (experimental)
+
+`client.contract()` adds typed, low-level methods for the ordinary HTTP API, using the same
+credentials and endpoint as the existing client. Existing methods keep their behavior.
+
+```ts
+const api = client.contract()
+const templates = await api.listTemplates({ params: { include_builtin: 'none' } })
+const template = await api.getTemplate({ path: { templateIdOrName: 'my-template' }, params: {} })
+```
+
+For standalone use, import `ContractClient` from `@transloadit/node/contract`. Configure either
+`authentication: { kind: 'signed', key, secret }` or `{ kind: 'bearer', token }`. Signed requests
+are the default through `client.contract()`; no token is minted implicitly. Pass raw, unencoded
+path values. The client signs exactly the serialized `params` it sends. Multipart inputs use
+`files: { file: { data: blob, filename: 'example.jpg' } }`. Requests accept an `AbortSignal`.
+
+These methods return the HTTP response, not a completed Assembly. Keep using the existing SDK for
+upload orchestration, tus, resumability and polling. SSE, capability URLs and Webhook receivers
+are not part of this namespace. The types describe wire shapes, not a full JSON Schema validator.
+`ContractResponseError` exposes `status` and decoded `data`; its message omits response content.
+Redirects are rejected and JSON responses are limited to 128 MiB.
+The adapter preserves the endpoint's base path, request timeout and client identification.
+Non-loopback endpoints require HTTPS. Each call makes one HTTP attempt: `maxRetries` and `gotRetry`
+apply only to existing SDK methods, not this low-level namespace. Decide whether a write is safe to
+retry in the owning workflow. Standalone clients default to a 60-second timeout (`timeout: 0`
+disables it); an explicit request signal may impose an earlier deadline.
+
+Maintainers: never edit `src/generated-contract/`. Its manifest records the exact API2 contract
+digest. In the matching API2 checkout, run `./bin/cli.ts contracts sdks --target typescript
+--output <node-sdk>/packages/node/src/generated-contract` from `api2/`, then repeat with `--check`.
+API2 owns schemas and generation; this repository owns `src/contractTransport.ts` and its native
+tests. API2 also pins those sources for strict compilation and local-server acceptance. Update
+that pin after changing the transport or `test/contractCanary.ts`. `coverage.json` deliberately
+distinguishes generated membership from unproven cross-language and protocol coverage.
+
 ## Requirements
 
 - [Node.js](https://nodejs.org/en/) version 20.10.0 or newer

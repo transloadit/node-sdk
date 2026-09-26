@@ -95,6 +95,7 @@ import {
 } from './alphalib/types/storageAsset.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import { mintBearerTokenWithCredentials } from './bearerToken.ts'
+import { ContractClient } from './generated-contract/client.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
@@ -182,7 +183,7 @@ export { mergeTemplateContent } from './alphalib/templateMerge.ts'
 export * from './apiTypes.ts'
 export { prepareInputFiles } from './inputFiles.ts'
 export { getRobotHelp, isKnownRobot, listRobots } from './robots.ts'
-export { ApiError, InconsistentResponseError }
+export { ApiError, ContractClient, InconsistentResponseError }
 
 const log = debug('transloadit')
 const logWarn = debug('transloadit:warn')
@@ -485,6 +486,24 @@ export class Transloadit {
   private _lastUsedAssemblyUrl = ''
 
   private _validateResponses = false
+
+  /** Access generated ordinary API methods without changing existing SDK method behavior. */
+  contract(): ContractClient {
+    return new ContractClient({
+      origin: this._endpoint,
+      timeout: this._defaultTimeout,
+      clientName: this._clientName,
+      authentication:
+        this._authToken === null
+          ? {
+              kind: 'signed',
+              key: this._authKey,
+              secret: this._authSecret,
+              algorithm: this.#signatureAlgorithm,
+            }
+          : { kind: 'bearer', token: this._authToken },
+    })
+  }
 
   /** Create a client; new combined keys require signatureAlgorithm: 'sha256' explicitly. */
   constructor(opts: Options) {
