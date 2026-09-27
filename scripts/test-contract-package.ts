@@ -47,6 +47,24 @@ async function testPackage(packageName: string): Promise<void> {
     )
     if (generatedFiles.includes('coverage.json'))
       throw new Error('Maintainer-only SDK coverage must not ship in the package')
+    if (generatedFiles.includes('client.ts'))
+      throw new Error('Generated TypeScript must not duplicate the published declarations')
+    const generatedDist = join(directory, 'node_modules', packageName, 'dist/generated-contract')
+    const distributionFiles = await readdir(generatedDist)
+    if (distributionFiles.some((name) => name.endsWith('.map')))
+      throw new Error('Generated source maps must not reference unpublished sources')
+    for (const name of ['client.js', 'client.d.ts']) {
+      const source = await readFile(join(generatedDist, name), 'utf8')
+      if (source.includes('//# sourceMappingURL='))
+        throw new Error(`Generated ${name} references an unpublished source map`)
+    }
+    const existingDist = join(directory, 'node_modules', packageName, 'dist')
+    for (const name of ['Transloadit.js', 'Transloadit.d.ts']) {
+      const source = await readFile(join(existingDist, name), 'utf8')
+      if (!source.includes(`//# sourceMappingURL=${name}.map`))
+        throw new Error(`Existing ${name} lost its debug map`)
+      await readFile(join(existingDist, `${name}.map`), 'utf8')
+    }
     const probe = await readFile(join(repoRoot, 'scripts/fixtures/contract-package.ts'), 'utf8')
     await writeFile(join(directory, 'probe.ts'), probe.replaceAll('@transloadit/node', packageName))
     await cp(
