@@ -21,7 +21,15 @@ const config: KnipConfig = {
   },
   workspaces: {
     'packages/img': {
-      entry: ['src/index.ts', 'src/next/index.tsx', 'src/next/server.tsx', 'test/**/*.{ts,tsx}'],
+      entry: [
+        'src/index.ts',
+        'src/react.tsx',
+        'src/server.ts',
+        'src/server.browser.ts',
+        'src/next/index.tsx',
+        'src/next/server.tsx',
+        'test/**/*.{ts,tsx}',
+      ],
       project: ['{src,test}/**/*.{ts,tsx}'],
       ignore: [...sharedIgnore],
       ignoreDependencies: [

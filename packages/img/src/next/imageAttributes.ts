@@ -128,7 +128,11 @@ export function snapshotImageLoading({
   priority?: boolean
   preload?: boolean
 }): ImageLoadingProps {
-  if (priority !== undefined && process.env.NODE_ENV === 'development')
+  if (
+    priority !== undefined &&
+    typeof process !== 'undefined' &&
+    process.env.NODE_ENV === 'development'
+  )
     console.warn(
       '[Image] priority is deprecated; use preload. The alias will be removed after one release.',
     )

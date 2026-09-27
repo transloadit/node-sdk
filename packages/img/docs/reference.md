@@ -234,7 +234,10 @@ adds no ThumbHash surcharge. The server hashes EXIF-oriented pixels and the firs
 Images above 40 megapixels, unsupported formats or a failed bounded decode can omit the hash;
 the upload still succeeds. A receipt without a hash renders without a blur background.
 The SDK never installs or runs a native image decoder. Existing catalog hashes still work.
-The Server Component decodes the hash; the ThumbHash decoder never enters the client bundle.
+The Next Server Component decodes the hash without adding that decoder to the client bundle.
+The optional [React receipt adapter](./react-storage.md#optional-blur-placeholders) instead decodes
+where React renders, including the browser for a live gallery. Its data query must authorize
+preview access before returning hashes.
 The server returns `has_alpha: true` when the original has an alpha channel,
 even if all its pixels happen to be opaque. For those images blur is a no-op with the development-only
 note "transparent image: no blur placeholder". An alpha-encoded hash also suppresses blur when
