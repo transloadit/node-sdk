@@ -114,8 +114,14 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
       options.verify('api2.create-assembly', uploaded)
       let completed = uploaded
       while (completed.ok !== 'ASSEMBLY_COMPLETED') {
-        assert(!('error' in completed), 'Assembly processing failed')
-        assert.notEqual(completed.ok, 'ASSEMBLY_CANCELED')
+        if (
+          'error' in completed ||
+          completed.ok === 'ASSEMBLY_CANCELED' ||
+          completed.ok === 'REQUEST_ABORTED'
+        ) {
+          assemblies.delete(uploaded.assembly_id)
+          throw new Error('Assembly processing failed')
+        }
         await delay(250, undefined, { signal })
         completed = await client.getAssembly({ path: { assemblyId: uploaded.assembly_id }, signal })
         options.verify('api2.get-assembly', completed)

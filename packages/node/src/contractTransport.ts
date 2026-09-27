@@ -205,7 +205,7 @@ export class ContractTransport {
     if (request.kind === 'normalized-params') {
       const params: Record<string, unknown> = { ...input.params }
       let auth: Record<string, unknown> = {}
-      if (Object.hasOwn(params, 'auth')) {
+      if (Object.hasOwn(params, 'auth') && params.auth !== undefined) {
         if (typeof params.auth !== 'object' || params.auth === null || Array.isArray(params.auth))
           throw new Error('Expected auth metadata object')
         auth = { ...params.auth }

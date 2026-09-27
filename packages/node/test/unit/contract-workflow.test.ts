@@ -1,0 +1,67 @@
+import { afterEach, expect, it, vi } from 'vitest'
+
+const workflow = vi.hoisted(() => ({
+  createTemplate: vi.fn(),
+  getTemplate: vi.fn(),
+  createAssembly: vi.fn(),
+  getAssembly: vi.fn(),
+  deleteTemplate: vi.fn(),
+  cancelAssembly: vi.fn(),
+}))
+
+vi.mock('@transloadit/node/contract', () => ({
+  ContractClient: class {
+    createTemplate = workflow.createTemplate
+    getTemplate = workflow.getTemplate
+    createAssembly = workflow.createAssembly
+    getAssembly = workflow.getAssembly
+    deleteTemplate = workflow.deleteTemplate
+    cancelAssembly = workflow.cancelAssembly
+  },
+  ContractResponseError: class extends Error {},
+}))
+vi.mock('node:fs/promises', () => ({ readFile: () => Promise.resolve(new Uint8Array([1])) }))
+vi.mock('node:timers/promises', () => ({ setTimeout: () => Promise.resolve() }))
+
+const originalArgs = process.argv
+const originalExitCode = process.exitCode
+afterEach(() => {
+  process.argv = originalArgs
+  process.exitCode = originalExitCode
+  vi.unstubAllEnvs()
+  vi.restoreAllMocks()
+})
+
+it.each([
+  'ASSEMBLY_CANCELED',
+  'REQUEST_ABORTED',
+  'ASSEMBLY_REPLAYING',
+])('handles %s in the executable workflow', async (ok) => {
+  vi.resetModules()
+  vi.clearAllMocks()
+  vi.stubEnv('TRANSLOADIT_KEY', 'synthetic-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'synthetic-secret')
+  process.argv = ['node', 'contract-workflow.ts', 'example.jpg']
+  const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  vi.spyOn(console, 'log').mockImplementation(() => undefined)
+  workflow.createTemplate.mockResolvedValue({ id: 'template' })
+  workflow.getTemplate.mockResolvedValue({ id: 'template' })
+  workflow.createAssembly.mockResolvedValue({ assembly_id: 'assembly', ok })
+  workflow.getAssembly.mockResolvedValue({
+    assembly_id: 'assembly',
+    ok: 'ASSEMBLY_COMPLETED',
+    results: { resize: [{ ssl_url: 'https://example.invalid/result.jpg' }] },
+  })
+  workflow.deleteTemplate.mockResolvedValue({ ok: 'TEMPLATE_DELETED' })
+  workflow.cancelAssembly.mockResolvedValue({ ok: 'ASSEMBLY_CANCELED' })
+  await import('../../examples/contract-workflow.ts')
+  await vi.waitFor(() => expect(workflow.deleteTemplate).toHaveBeenCalledOnce())
+  expect(workflow.cancelAssembly).not.toHaveBeenCalled()
+  if (ok === 'ASSEMBLY_REPLAYING') {
+    expect(workflow.getAssembly).toHaveBeenCalledOnce()
+    expect(error).not.toHaveBeenCalled()
+  } else {
+    expect(workflow.getAssembly).not.toHaveBeenCalled()
+    expect(error).toHaveBeenCalledWith('Assembly processing did not complete successfully')
+  }
+})

@@ -40,7 +40,11 @@ async function main(): Promise<void> {
     if (!assemblyId) throw new Error('The API did not return an Assembly ID')
     // Polling belongs to this example, not the low-level client's one-attempt HTTP methods.
     while (status.ok !== 'ASSEMBLY_COMPLETED') {
-      if ('error' in status || status.ok === 'ASSEMBLY_CANCELED') {
+      if (
+        'error' in status ||
+        status.ok === 'ASSEMBLY_CANCELED' ||
+        status.ok === 'REQUEST_ABORTED'
+      ) {
         finished = true
         throw new Error('Assembly processing did not complete successfully')
       }

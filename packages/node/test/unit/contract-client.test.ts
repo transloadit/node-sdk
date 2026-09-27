@@ -187,6 +187,33 @@ describe('contract-generated methods', () => {
     const forbidden = { template_id: 'synthetic', auth: { key: 'override', max_size: 7 } }
     await expect(client.createAssembly({ params: forbidden })).rejects.toThrow('credentials')
   })
+
+  it.each([
+    'signed',
+    'bearer',
+  ] as const)('treats undefined auth as omitted with %s credentials', async (kind) => {
+    const request = vi.fn<typeof fetch>((_url, options) => {
+      if (!(options?.body instanceof FormData)) throw new Error('Expected multipart request')
+      const source = options.body.get('params')
+      if (typeof source !== 'string') throw new Error('Expected serialized params')
+      expect(JSON.parse(source)).toMatchObject(
+        kind === 'signed'
+          ? { template_id: 'synthetic', auth: { key } }
+          : { template_id: 'synthetic' },
+      )
+      if (kind === 'bearer') expect(JSON.parse(source)).not.toHaveProperty('auth')
+      return Promise.resolve(new Response('{"error":"TEST_ERROR"}', { status: 400 }))
+    })
+    const client = new ContractClient({
+      authentication:
+        kind === 'signed' ? { kind, key, secret } : { kind, token: 'synthetic-token' },
+      fetch: request,
+    })
+    await expect(
+      client.createAssembly({ params: { template_id: 'synthetic', auth: undefined } }),
+    ).rejects.toBeInstanceOf(ContractResponseError)
+    expect(request).toHaveBeenCalledOnce()
+  })
   it('uses existing SDK credentials without changing existing entrypoints', () => {
     const sdk = new Transloadit({ authKey: key, authSecret: secret })
     expect(sdk.contract()).toBeInstanceOf(ContractClient)
