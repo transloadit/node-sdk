@@ -6,6 +6,12 @@ import {
 } from '../contractTransport.ts'
 export { ContractResponseError } from '../contractTransport.ts'
 export type { ContractClientOptions, UploadFile } from '../contractTransport.ts'
+export const contractSignatureAlgorithms = ['sha384', 'sha256', 'sha1'] as const
+export type ContractSignatureAlgorithm = (typeof contractSignatureAlgorithms)[number]
+/** Narrow a configured algorithm against the public request-signing profile. */
+export function isContractSignatureAlgorithm(value: string): value is ContractSignatureAlgorithm {
+  return contractSignatureAlgorithms.some((algorithm) => algorithm === value)
+}
 export type JsonValue =
   null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue | undefined }
 export type AssemblyStatsParams = {

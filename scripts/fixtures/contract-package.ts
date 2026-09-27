@@ -9,6 +9,32 @@ export async function probe(): Promise<JsonValue> {
   const standalone = new ContractClient({
     authentication: { kind: 'bearer', token: 'not-a-token' },
   })
+  new ContractClient({
+    authentication: {
+      kind: 'signed',
+      key: 'not-a-key',
+      secret: 'not-a-secret',
+      // @ts-expect-error The generated profile does not support arbitrary algorithm names.
+      algorithm: 'md5',
+    },
+  })
+  new ContractClient({
+    authentication: {
+      kind: 'signed',
+      key: 'not-a-key',
+      secret: 'not-a-secret',
+      // @ts-expect-error Legacy SDK support does not imply support in the generated profile.
+      algorithm: 'sha512',
+    },
+  })
+  new ContractClient({
+    authentication: {
+      kind: 'signed',
+      key: 'not-a-key',
+      secret: 'not-a-secret',
+      algorithm: 'sha256',
+    },
+  })
   await standalone.listTemplates()
   // @ts-expect-error Creating a Template still requires its request parameters.
   await client.createTemplate()

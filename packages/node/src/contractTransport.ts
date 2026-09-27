@@ -1,3 +1,5 @@
+import type { ContractSignatureAlgorithm } from './generated-contract/client.ts'
+
 import { createHmac, randomUUID } from 'node:crypto'
 
 export interface UploadFile {
@@ -12,7 +14,7 @@ export interface ContractClientOptions {
         readonly kind: 'signed'
         readonly key: string
         readonly secret: string
-        readonly algorithm?: string
+        readonly algorithm?: ContractSignatureAlgorithm
       }
     | { readonly kind: 'bearer'; readonly token: string }
   /** Trusted transport injection, for tests or application-owned connection configuration. */

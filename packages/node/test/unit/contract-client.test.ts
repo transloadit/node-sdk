@@ -13,6 +13,20 @@ const secret = 'synthetic-contract-secret'
 describe('contract-generated methods', () => {
   afterEach(() => vi.restoreAllMocks())
 
+  it('rejects legacy-only signature algorithms before adapting the client', () => {
+    const client = new Transloadit({
+      authKey: key,
+      authSecret: secret,
+      signatureAlgorithm: 'sha512',
+    })
+    expect(() => client.contract()).toThrow('Signature algorithm is not supported')
+  })
+
+  it('does not apply a signature algorithm restriction to bearer-only clients', () => {
+    const client = new Transloadit({ authToken: 'synthetic-token', signatureAlgorithm: 'sha512' })
+    expect(() => client.contract()).not.toThrow()
+  })
+
   it('exposes recognized error codes without copying response content into messages', async () => {
     const client = new ContractClient({
       authentication: { kind: 'signed', key, secret },

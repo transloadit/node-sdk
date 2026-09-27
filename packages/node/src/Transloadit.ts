@@ -43,6 +43,7 @@ import type {
   TemplateResponse,
 } from './apiTypes.ts'
 import type { BearerTokenResponse, MintBearerTokenOptions } from './bearerToken.ts'
+import type { ContractClientOptions } from './generated-contract/client.ts'
 import type {
   LintAssemblyInstructionsInput,
   LintAssemblyInstructionsResult,
@@ -95,7 +96,7 @@ import {
 } from './alphalib/types/storageAsset.ts'
 import { zodParseWithContext } from './alphalib/zodParseWithContext.ts'
 import { mintBearerTokenWithCredentials } from './bearerToken.ts'
-import { ContractClient } from './generated-contract/client.ts'
+import { ContractClient, isContractSignatureAlgorithm } from './generated-contract/client.ts'
 import InconsistentResponseError from './InconsistentResponseError.ts'
 import { lintAssemblyInstructions as lintAssemblyInstructionsInternal } from './lintAssemblyInstructions.ts'
 import PaginationStream from './PaginationStream.ts'
@@ -489,19 +490,21 @@ export class Transloadit {
 
   /** Access generated ordinary API methods without changing existing SDK method behavior. */
   contract(): ContractClient {
+    let authentication: ContractClientOptions['authentication']
+    if (this._authToken === null) {
+      const algorithm = this.#signatureAlgorithm
+      if (!isContractSignatureAlgorithm(algorithm)) {
+        throw new Error('Signature algorithm is not supported by the generated contract client')
+      }
+      authentication = { kind: 'signed', key: this._authKey, secret: this._authSecret, algorithm }
+    } else {
+      authentication = { kind: 'bearer', token: this._authToken }
+    }
     return new ContractClient({
       origin: this._endpoint,
       timeout: this._defaultTimeout,
       clientName: this._clientName,
-      authentication:
-        this._authToken === null
-          ? {
-              kind: 'signed',
-              key: this._authKey,
-              secret: this._authSecret,
-              algorithm: this.#signatureAlgorithm,
-            }
-          : { kind: 'bearer', token: this._authToken },
+      authentication,
     })
   }
 
