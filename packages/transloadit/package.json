@@ -92,7 +92,8 @@
   "files": [
     "dist",
     "examples/contract-workflow.ts",
-    "src"
+    "src",
+    "!src/generated-contract/coverage.json"
   ],
   "bin": "./dist/cli.js"
 }

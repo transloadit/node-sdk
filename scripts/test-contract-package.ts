@@ -1,4 +1,4 @@
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -42,6 +42,11 @@ async function testPackage(packageName: string): Promise<void> {
       stdio: 'inherit',
       env: { YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' },
     })
+    const generatedFiles = await readdir(
+      join(directory, 'node_modules', packageName, 'src/generated-contract'),
+    )
+    if (generatedFiles.includes('coverage.json'))
+      throw new Error('Maintainer-only SDK coverage must not ship in the package')
     const probe = await readFile(join(repoRoot, 'scripts/fixtures/contract-package.ts'), 'utf8')
     await writeFile(join(directory, 'probe.ts'), probe.replaceAll('@transloadit/node', packageName))
     await cp(

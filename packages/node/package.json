@@ -99,7 +99,8 @@
   "files": [
     "dist",
     "examples/contract-workflow.ts",
-    "src"
+    "src",
+    "!src/generated-contract/coverage.json"
   ],
   "bin": {
     "transloadit": "./dist/cli.js"
