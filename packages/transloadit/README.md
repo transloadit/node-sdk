@@ -54,11 +54,13 @@ apply only to existing SDK methods, not this low-level namespace. Decide whether
 retry in the owning workflow. Standalone clients default to a 60-second timeout (`timeout: 0`
 disables it); an explicit request signal may impose an earlier deadline.
 
-The [complete generated-client example](https://github.com/transloadit/node-sdk/blob/main/packages/node/examples/contract-workflow.ts)
+The [complete generated-client example](examples/contract-workflow.ts)
 creates a typed Template, uploads an image, polls to completion, reads the result and removes its
-temporary Template. With Node 26 and server-side `TRANSLOADIT_KEY` / `TRANSLOADIT_SECRET` set, run
-`node packages/node/examples/contract-workflow.ts ./image.jpg` from a built SDK checkout, or copy the
-example into a project with this package installed. It creates one billable Assembly; completed
+temporary Template. Copy `node_modules/@transloadit/node/examples/contract-workflow.ts` into your
+project (use `node_modules/transloadit/` for the legacy package name). With Node 26 and server-side
+`TRANSLOADIT_KEY` / `TRANSLOADIT_SECRET` set, run `node contract-workflow.ts ./image.jpg`.
+The example ships with the package so its types match your installed version.
+It creates one billable Assembly; completed
 results expire normally. The example's polling and cleanup are application logic, not automatic SDK
 retries or a replacement for the existing high-level client.
 

@@ -6,11 +6,11 @@ import { execa } from 'execa'
 
 const repoRoot = resolve(import.meta.dirname, '..')
 
-async function main(): Promise<void> {
+async function testPackage(packageName: string): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), 'transloadit-contract-package-'))
   try {
     const archive = join(directory, 'node.tgz')
-    await execa('corepack', ['yarn', 'workspace', '@transloadit/node', 'pack', '--out', archive], {
+    await execa('corepack', ['yarn', 'workspace', packageName, 'pack', '--out', archive], {
       cwd: repoRoot,
       stdio: 'inherit',
     })
@@ -24,7 +24,7 @@ async function main(): Promise<void> {
           type: 'module',
           packageManager: manifest.packageManager,
           dependencies: {
-            '@transloadit/node': `file:${archive}`,
+            [packageName]: `file:${archive}`,
             '@types/node': manifest.devDependencies['@types/node'],
             typescript: manifest.devDependencies.typescript,
           },
@@ -42,9 +42,10 @@ async function main(): Promise<void> {
       stdio: 'inherit',
       env: { YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' },
     })
-    await cp(join(repoRoot, 'scripts/fixtures/contract-package.ts'), join(directory, 'probe.ts'))
+    const probe = await readFile(join(repoRoot, 'scripts/fixtures/contract-package.ts'), 'utf8')
+    await writeFile(join(directory, 'probe.ts'), probe.replaceAll('@transloadit/node', packageName))
     await cp(
-      join(repoRoot, 'packages/node/examples/contract-workflow.ts'),
+      join(directory, 'node_modules', packageName, 'examples/contract-workflow.ts'),
       join(directory, 'example.ts'),
     )
     await execa(
@@ -72,10 +73,17 @@ async function main(): Promise<void> {
         stdio: 'inherit',
       },
     )
-    console.log('Packed root, contract entry point and workflow example pass strict compilation.')
+    console.log(
+      `${packageName}: packed root, contract entry point and example pass strict compilation.`,
+    )
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
+}
+
+async function main(): Promise<void> {
+  await testPackage('@transloadit/node')
+  await testPackage('transloadit')
 }
 
 main().catch((error: unknown) => {
