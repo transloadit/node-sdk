@@ -1,3 +1,5 @@
+import type { CreateTemplateParams, JsonValue } from '../src/generated-contract/client.ts'
+
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -22,8 +24,8 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
   })
   const signal = AbortSignal.timeout(90_000)
   const template = {
-    steps: { passed: { robot: '/file/filter' as const, use: ':original', result: true } },
-  }
+    steps: { passed: { robot: '/file/filter', use: ':original', result: true } },
+  } satisfies CreateTemplateParams['template']
   const created = await client.createTemplate({
     params: { name: `contract-${randomUUID()}`, template },
     signal,
@@ -37,10 +39,11 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
       assert.deepEqual(created.content, template)
       const retrieved = await client.getTemplate({
         path: { templateIdOrName: created.id },
-        params: {},
         signal,
       })
       options.verify('api2.get-template', retrieved)
+      const content: JsonValue = retrieved.content
+      assert.deepEqual(content, template)
       assert.equal(retrieved.id, created.id)
       const listed = await client.listTemplates({
         params: { keywords: [created.name], include_builtin: 'none' },
@@ -59,7 +62,6 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
       if (typeof builtinId !== 'string') throw new Error('Missing built-in Template')
       const builtin = await client.getTemplate({
         path: { templateIdOrName: builtinId },
-        params: {},
         signal,
       })
       options.verify('api2.get-template', builtin)
@@ -74,12 +76,11 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
         authentication: { kind: 'bearer', token: token.access_token },
       })
       assert.equal(
-        (await bearer.getTemplate({ path: { templateIdOrName: created.id }, params: {}, signal }))
-          .id,
+        (await bearer.getTemplate({ path: { templateIdOrName: created.id }, signal })).id,
         created.id,
       )
       await assert.rejects(
-        bearer.deleteTemplate({ path: { templateIdOrName: created.id }, params: {}, signal }),
+        bearer.deleteTemplate({ path: { templateIdOrName: created.id }, signal }),
         (error: unknown) => error instanceof ContractResponseError && error.status === 403,
       )
       const bad = new ContractClient({
@@ -91,7 +92,7 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
         },
       })
       await assert.rejects(
-        bad.listTemplates({ params: {}, signal }),
+        bad.listTemplates({ signal }),
         (error: unknown) => error instanceof ContractResponseError && error.status === 400,
       )
       const uploaded = await client.createAssembly({
@@ -125,12 +126,18 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
       assert.equal(completed.results?.passed?.[0]?.md5hash, digest)
       const removed = await client.deleteTemplate({
         path: { templateIdOrName: created.id },
-        params: {},
         signal,
       })
       options.verify('api2.delete-template', removed)
       assert.equal(removed.ok, 'TEMPLATE_DELETED')
       deleted = true
+      await assert.rejects(
+        client.getTemplate({ path: { templateIdOrName: created.id }, signal }),
+        (error: unknown) =>
+          error instanceof ContractResponseError &&
+          error.status === 400 &&
+          error.code === 'TEMPLATE_NOT_FOUND',
+      )
       assert.equal(
         (await client.listTemplates({ params: { include_builtin: 'none' }, signal })).count,
         0,
@@ -146,7 +153,6 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
           : [
               client.deleteTemplate({
                 path: { templateIdOrName: created.id },
-                params: {},
                 signal: AbortSignal.timeout(15_000),
               }),
             ]),

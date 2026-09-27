@@ -13,6 +13,44 @@ const secret = 'synthetic-contract-secret'
 describe('contract-generated methods', () => {
   afterEach(() => vi.restoreAllMocks())
 
+  it('exposes recognized error codes without copying response content into messages', async () => {
+    const client = new ContractClient({
+      authentication: { kind: 'signed', key, secret },
+      fetch: () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: 'TEMPLATE_NOT_FOUND',
+              message: secret,
+            }),
+            { status: 400 },
+          ),
+        ),
+    })
+    await expect(
+      client.getTemplate({ path: { templateIdOrName: 'missing' }, params: {} }),
+    ).rejects.toMatchObject({
+      code: 'TEMPLATE_NOT_FOUND',
+      message: 'API request failed with HTTP 400',
+    })
+  })
+
+  it.each([
+    { error: secret },
+    { error: ['TEMPLATE_NOT_FOUND'] },
+    { message: secret },
+    null,
+  ])('does not promote unexpected response data to a diagnostic code: %j', async (data) => {
+    const client = new ContractClient({
+      authentication: { kind: 'signed', key, secret },
+      fetch: () => Promise.resolve(new Response(JSON.stringify(data), { status: 400 })),
+    })
+    await expect(client.listTemplates({ params: {} })).rejects.toMatchObject({
+      code: undefined,
+      message: 'API request failed with HTTP 400',
+    })
+  })
+
   it('rejects non-loopback HTTP before any credential-bearing request', () => {
     expect(
       () =>

@@ -73,12 +73,23 @@ interface Input {
 export class ContractResponseError extends Error {
   readonly status: number
   readonly data: unknown
+  /** A recognized public contract code, never arbitrary response text. */
+  readonly code: string | undefined
 
-  constructor(status: number, data: unknown) {
+  constructor(status: number, data: unknown, knownCodes: ReadonlySet<string> = new Set()) {
     super(`API request failed with HTTP ${status}`)
     this.name = 'ContractResponseError'
     this.status = status
     this.data = data
+    this.code =
+      typeof data === 'object' &&
+      data !== null &&
+      !Array.isArray(data) &&
+      'error' in data &&
+      typeof data.error === 'string' &&
+      knownCodes.has(data.error)
+        ? data.error
+        : undefined
   }
 }
 
@@ -91,8 +102,15 @@ export class ContractTransport {
   #authentication: ContractClientOptions['authentication']
   #fetch: typeof fetch
   #signing: SigningProfile
+  #errorCodes: ReadonlySet<string>
 
-  constructor(options: ContractClientOptions, signing: SigningProfile, defaultOrigin: string) {
+  constructor(
+    options: ContractClientOptions,
+    signing: SigningProfile,
+    defaultOrigin: string,
+    errorCodes: readonly string[] = [],
+  ) {
+    this.#errorCodes = new Set(errorCodes)
     const origin = new URL(options.origin ?? defaultOrigin)
     if (
       !['https:', 'http:'].includes(origin.protocol) ||
@@ -289,7 +307,7 @@ export class ContractTransport {
       if (!response.ok) throw new ContractResponseError(response.status, undefined)
       throw new Error('API returned an invalid JSON response', { cause: error })
     }
-    if (!response.ok) throw new ContractResponseError(response.status, data)
+    if (!response.ok) throw new ContractResponseError(response.status, data, this.#errorCodes)
     // Result is supplied only by generator-owned methods derived from the response contract.
     // Static wire types do not claim client-side validation of every JSON Schema constraint.
     return data as Result

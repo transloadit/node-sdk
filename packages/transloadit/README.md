@@ -30,7 +30,7 @@ credentials and endpoint as the existing client. Existing methods keep their beh
 ```ts
 const api = client.contract()
 const templates = await api.listTemplates({ params: { include_builtin: 'none' } })
-const template = await api.getTemplate({ path: { templateIdOrName: 'my-template' }, params: {} })
+const template = await api.getTemplate({ path: { templateIdOrName: 'my-template' } })
 ```
 
 For standalone use, import `ContractClient` from `@transloadit/node/contract`. Configure either
@@ -42,13 +42,25 @@ path values. The client signs exactly the serialized `params` it sends. Multipar
 These methods return the HTTP response, not a completed Assembly. Keep using the existing SDK for
 upload orchestration, tus, resumability and polling. SSE, capability URLs and Webhook receivers
 are not part of this namespace. The types describe wire shapes, not a full JSON Schema validator.
-`ContractResponseError` exposes `status` and decoded `data`; its message omits response content.
+`ContractResponseError` exposes `status`, decoded `data` and an optional recognized `code`; its message
+omits response content. For example, check `error.code === 'TEMPLATE_NOT_FOUND'` after narrowing with
+`instanceof ContractResponseError`. This existing API error uses HTTP 400, not 404. An unknown or
+malformed body's code is `undefined`; inspect `data` explicitly if needed, without logging secrets.
+Optional-only params can be omitted. Public models and their comments are generated from the contract.
 Redirects are rejected and JSON responses are limited to 128 MiB.
 The adapter preserves the endpoint's base path, request timeout and client identification.
 Non-loopback endpoints require HTTPS. Each call makes one HTTP attempt: `maxRetries` and `gotRetry`
 apply only to existing SDK methods, not this low-level namespace. Decide whether a write is safe to
 retry in the owning workflow. Standalone clients default to a 60-second timeout (`timeout: 0`
 disables it); an explicit request signal may impose an earlier deadline.
+
+The [complete generated-client example](https://github.com/transloadit/node-sdk/blob/main/packages/node/examples/contract-workflow.ts)
+creates a typed Template, uploads an image, polls to completion, reads the result and removes its
+temporary Template. With Node 26 and server-side `TRANSLOADIT_KEY` / `TRANSLOADIT_SECRET` set, run
+`node packages/node/examples/contract-workflow.ts ./image.jpg` from a built SDK checkout, or copy the
+example into a project with this package installed. It creates one billable Assembly; completed
+results expire normally. The example's polling and cleanup are application logic, not automatic SDK
+retries or a replacement for the existing high-level client.
 
 Maintainers: never edit `src/generated-contract/`. Its manifest records the exact API2 contract
 digest. In the matching API2 checkout, run `./bin/cli.ts contracts sdks --target typescript
