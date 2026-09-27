@@ -131,7 +131,8 @@ export class ContractTransport {
     )
       throw new Error('HTTPS is required except for loopback development endpoints')
     this.#origin = origin.origin
-    this.#basePath = origin.pathname.replace(/\/$/, '')
+    // Normalize only the join boundary; internal proxy path segments remain significant.
+    this.#basePath = origin.pathname.replace(/\/+$/, '')
     this.#timeout = options.timeout ?? 60_000
     if (!Number.isSafeInteger(this.#timeout) || this.#timeout < 0)
       throw new Error('Request timeout must be a nonnegative integer')

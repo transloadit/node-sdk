@@ -75,12 +75,23 @@ describe('contract-generated methods', () => {
     ).toThrow('HTTPS')
   })
 
-  it('preserves the configured proxy path prefix', async () => {
+  it.each([
+    { suffix: '/', pathname: '/templates' },
+    { suffix: '//', pathname: '/templates' },
+    { suffix: '/transloadit', pathname: '/transloadit/templates' },
+    { suffix: '/transloadit/', pathname: '/transloadit/templates' },
+    { suffix: '/transloadit//', pathname: '/transloadit/templates' },
+    { suffix: '/a//b///', pathname: '/a//b/templates' },
+  ])('preserves the proxy prefix with trailing separators: $suffix', async ({
+    suffix,
+    pathname,
+  }) => {
     const client = new ContractClient({
-      origin: 'https://proxy.example.com/transloadit',
+      origin: `https://proxy.example.com${suffix}`,
       authentication: { kind: 'signed', key, secret },
       fetch: (url) => {
-        expect(new URL(String(url)).pathname).toBe('/transloadit/templates')
+        expect(new URL(String(url)).origin).toBe('https://proxy.example.com')
+        expect(new URL(String(url)).pathname).toBe(pathname)
         return Promise.resolve(new Response('{"count":0,"items":[]}'))
       },
     })
