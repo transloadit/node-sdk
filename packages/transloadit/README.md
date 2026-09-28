@@ -72,6 +72,11 @@ tests. API2 also pins those sources for strict compilation and local-server acce
 that pin after changing the transport or `test/contractCanary.ts`. `coverage.json` deliberately
 distinguishes generated membership from unproven cross-language and protocol coverage.
 
+The experimental types use API2-owned domains such as `AssemblySteps`, `ApiError` and
+`JsonDocument`. Their names do not depend on which endpoint happens to be generated first. This
+unreleased draft intentionally replaces earlier operation-prefixed type names; existing SDK APIs
+are unchanged. Model naming belongs in API2's `api2/lib/contract/schemaModels.ts`, not local aliases.
+
 The API2-owned `workflow-vectors.json` is a test fixture, not a second API schema. Run
 `yarn exec vitest run --config packages/node/vitest.config.ts packages/node/test/unit/workflow-conformance.test.ts`
 from this repository's root to exercise the existing public upload, fresh-client resume, wait,

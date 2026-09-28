@@ -1,4 +1,4 @@
-import type { JsonValue } from '@transloadit/node/contract'
+import type { ApiError, AssemblySteps, JsonDocument, JsonValue } from '@transloadit/node/contract'
 
 import { Transloadit } from '@transloadit/node'
 import { ContractClient, ContractResponseError } from '@transloadit/node/contract'
@@ -36,6 +36,17 @@ export async function probe(): Promise<JsonValue> {
     },
   })
   await standalone.listTemplates()
+  const steps: AssemblySteps = {
+    resize: { robot: '/image/resize', use: ':original', width: 120 },
+  }
+  const metadata: JsonDocument = { nested: [true, 42, null] }
+  const apiError: ApiError = { error: 'TEMPLATE_NOT_FOUND' }
+  await client.createTemplate({
+    params: {
+      name: 'compile-only',
+      template: { steps, fields: { metadata, apiError } },
+    },
+  })
   // @ts-expect-error Creating a Template still requires its request parameters.
   await client.createTemplate()
   // @ts-expect-error Path parameters must not become optional with an empty params object.
