@@ -2,6 +2,7 @@ import type { AssemblyStatus, Options } from '../../src/Transloadit.ts'
 
 import { inspect } from 'node:util'
 
+import { AbortError } from 'got'
 import nock from 'nock'
 
 import {
@@ -90,6 +91,30 @@ describe('Mocked API tests', () => {
     // Generous scheduling headroom, but still below even the minimum server-requested backoff.
     expect(performance.now() - started).toBeLessThan(1500)
     scope.done()
+  })
+
+  it.each([
+    { name: 'abort', errorName: 'AbortError', errorType: AbortError },
+    { name: 'timeout', errorName: 'TimeoutError', errorType: TimeoutError },
+  ])('preserves got $name classification when a non-polling call aborts during retry backoff', async ({
+    errorName,
+    errorType,
+  }) => {
+    const client = getLocalClient()
+    const controller = new AbortController()
+    const scope = nock('http://localhost')
+      .get('/assemblies/retry')
+      .query(true)
+      .reply(429, { error: 'RATE_LIMIT_REACHED' }, { 'Retry-After': '2' })
+    const timer = setTimeout(() => controller.abort(new DOMException('Stopped', errorName)), 500)
+    try {
+      await expect(
+        client.getAssembly('retry', { signal: controller.signal }),
+      ).rejects.toBeInstanceOf(errorType)
+      scope.done()
+    } finally {
+      clearTimeout(timer)
+    }
   })
 
   it('should honor abort signal during awaitAssemblyCompletion polling', async () => {

@@ -1790,7 +1790,11 @@ export class Transloadit {
               `Rate limit reached, retrying request in approximately ${retryDelaySec} seconds.`,
             )
             const retryInMs = 1000 * (retryDelaySec * (1 + 0.1 * Math.random()))
-            await delay(retryInMs, undefined, { signal })
+            await delay(retryInMs, undefined, { signal }).catch((error: unknown) => {
+              if (!signal?.aborted) throw error
+              // Let got classify the already-aborted signal on the next iteration without
+              // sending HTTP. This preserves its public AbortError/TimeoutError semantics.
+            })
             // Retry
           } else {
             throw new ApiError({
