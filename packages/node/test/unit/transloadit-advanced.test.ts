@@ -147,6 +147,7 @@ describe('Transloadit advanced behaviors', () => {
     })
 
     await expect(promise).rejects.toBeInstanceOf(PollingTimeoutError)
+    expect(client.getAssembly).not.toHaveBeenCalled()
   })
 
   it('streams assemblies page by page until all items are read', async () => {

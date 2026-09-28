@@ -306,6 +306,7 @@ export interface ResumeAssemblyUploadsOptions extends AssemblyUploadOptions {
 
 export interface AwaitAssemblyCompletionOptions {
   onAssemblyProgress?: AssemblyProgress
+  /** Total polling deadline in milliseconds, including in-flight status requests. */
   timeout?: number
   interval?: number
   startTimeMs?: number
@@ -1058,10 +1059,36 @@ export class Transloadit {
 
     let lastResult: AssemblyStatus | undefined
 
-    const fetchAssemblyStatus = (): Promise<AssemblyStatus> => {
-      return assemblyUrl
-        ? this._fetchAssemblyStatus({ url: assemblyUrl, signal })
-        : this.getAssembly(assemblyId, { signal })
+    const fetchAssemblyStatus = async (): Promise<AssemblyStatus> => {
+      const remaining =
+        timeout == null ? Number.POSITIVE_INFINITY : timeout - (getHrTimeMs() - startTimeMs)
+      if (remaining <= 0) throw new PollingTimeoutError('Polling timed out')
+
+      const deadline = new AbortController()
+      // Larger delays overflow Node's timer range. The next poll recomputes the remaining budget.
+      const timer =
+        remaining <= 2_147_483_647
+          ? setTimeout(
+              () => deadline.abort(new PollingTimeoutError('Polling timed out')),
+              remaining,
+            )
+          : undefined
+      const requestSignal = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal
+      try {
+        const result = await (assemblyUrl
+          ? this._fetchAssemblyStatus({ url: assemblyUrl, signal: requestSignal })
+          : this.getAssembly(assemblyId, { signal: requestSignal }))
+        // A late completed response must not turn an expired wait into success.
+        if (timeout != null && getHrTimeMs() - startTimeMs >= timeout) {
+          throw new PollingTimeoutError('Polling timed out')
+        }
+        return result
+      } catch (error) {
+        if (requestSignal.aborted) throw requestSignal.reason
+        throw error
+      } finally {
+        clearTimeout(timer)
+      }
     }
 
     while (true) {
@@ -1084,12 +1111,7 @@ export class Transloadit {
         !('ok' in result) ||
         (result.ok !== 'ASSEMBLY_UPLOADING' &&
           result.ok !== 'ASSEMBLY_EXECUTING' &&
-          // ASSEMBLY_REPLAYING is not a valid 'ok' status for polling, it means it's done replaying.
-          // The API does not seem to have an ASSEMBLY_REPLAYING status in the typical polling loop.
-          // It's usually a final status from the replay endpoint.
-          // For polling, we only care about UPLOADING and EXECUTING.
-          // If a replay operation puts it into a pollable state, that state would be EXECUTING.
-          result.ok !== 'ASSEMBLY_REPLAYING') // This line might need review based on actual API behavior for replayed assembly polling
+          result.ok !== 'ASSEMBLY_REPLAYING')
       ) {
         return result // Done!
       }
@@ -1107,10 +1129,13 @@ export class Transloadit {
 
       // Make the sleep abortable, ensuring listener cleanup to prevent memory leaks
       await new Promise<void>((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          signal?.removeEventListener('abort', onAbort)
-          resolve()
-        }, interval)
+        const timeoutId = setTimeout(
+          () => {
+            signal?.removeEventListener('abort', onAbort)
+            resolve()
+          },
+          timeout == null ? interval : Math.min(interval, timeout - (nowMs - startTimeMs)),
+        )
 
         function onAbort() {
           clearTimeout(timeoutId)
@@ -1118,6 +1143,10 @@ export class Transloadit {
         }
 
         signal?.addEventListener('abort', onAbort, { once: true })
+        if (signal?.aborted) {
+          signal.removeEventListener('abort', onAbort)
+          onAbort()
+        }
       })
     }
   }

@@ -65,10 +65,13 @@ describe('Mocked API tests', () => {
     const scope = nock('http://localhost')
       .get('/assemblies/1')
       .query(() => true)
-      .delay(100)
+      .delay(2000)
       .reply(200, { ok: 'ASSEMBLY_EXECUTING', assembly_url: '', assembly_ssl_url: '' })
 
-    await expect(client.awaitAssemblyCompletion('1', { timeout: 1, interval: 1 })).rejects.toThrow(
+    // Leave time to open the request under full-suite load; the deadline must interrupt its body.
+    await expect(
+      client.awaitAssemblyCompletion('1', { timeout: 500, interval: 1 }),
+    ).rejects.toThrow(
       expect.objectContaining({ code: 'POLLING_TIMED_OUT', message: 'Polling timed out' }),
     )
     scope.done()

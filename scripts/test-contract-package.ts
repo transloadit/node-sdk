@@ -45,8 +45,13 @@ async function testPackage(packageName: string): Promise<void> {
     const generatedFiles = await readdir(
       join(directory, 'node_modules', packageName, 'src/generated-contract'),
     )
-    if (generatedFiles.includes('coverage.json'))
-      throw new Error('Maintainer-only SDK coverage must not ship in the package')
+    if (
+      generatedFiles.includes('coverage.json') ||
+      generatedFiles.includes('workflow-vectors.json')
+    )
+      throw new Error(
+        'Maintainer-only SDK coverage and workflow fixtures must not ship in the package',
+      )
     if (generatedFiles.includes('client.ts'))
       throw new Error('Generated TypeScript must not duplicate the published declarations')
     const generatedDist = join(directory, 'node_modules', packageName, 'dist/generated-contract')
