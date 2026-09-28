@@ -14,5 +14,8 @@ public error codes without leaking response content into messages. Add a typed e
 and strict packed-package compilation, including the root entry point's Robot declarations.
 
 Add shared executable workflow fixtures for the existing public SDK. Fix its polling deadline to
-abort in-flight status requests and reject late success responses as `POLLING_TIMED_OUT`, instead of
-waiting past the caller's budget. The generated low-level client does not implement these workflows.
+abort in-flight status requests and rate-limit retry waits, and reject late success responses as
+`POLLING_TIMED_OUT`, instead of waiting past the caller's budget. This also applies when
+`createAssembly` or `resumeAssemblyUploads` shares its remaining timeout with completion polling.
+The generated low-level client does not implement these workflows. The `contract()` adapter rounds
+positive fractional millisecond timeouts up to the next integer rather than rejecting them.

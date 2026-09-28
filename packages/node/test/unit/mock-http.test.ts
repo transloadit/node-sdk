@@ -77,6 +77,21 @@ describe('Mocked API tests', () => {
     scope.done()
   })
 
+  it('interrupts Retry-After backoff at the polling deadline', async () => {
+    const client = getLocalClient()
+    const scope = nock('http://localhost')
+      .get('/assemblies/1')
+      .query(true)
+      .reply(429, { error: 'RATE_LIMIT_REACHED' }, { 'Retry-After': '2' })
+    const started = performance.now()
+    await expect(
+      client.awaitAssemblyCompletion('1', { timeout: 500, interval: 1 }),
+    ).rejects.toMatchObject({ code: 'POLLING_TIMED_OUT' })
+    // Generous scheduling headroom, but still below even the minimum server-requested backoff.
+    expect(performance.now() - started).toBeLessThan(1500)
+    scope.done()
+  })
+
   it('should honor abort signal during awaitAssemblyCompletion polling', async () => {
     const client = getLocalClient()
 

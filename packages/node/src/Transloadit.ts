@@ -503,7 +503,8 @@ export class Transloadit {
     }
     return new ContractClient({
       origin: this._endpoint,
-      timeout: this._defaultTimeout,
+      // AbortSignal.timeout needs integer milliseconds; do not round a positive budget down to zero.
+      timeout: this._defaultTimeout >= 0 ? Math.ceil(this._defaultTimeout) : this._defaultTimeout,
       clientName: this._clientName,
       authentication,
     })
@@ -1781,7 +1782,7 @@ export class Transloadit {
               `Rate limit reached, retrying request in approximately ${retryDelaySec} seconds.`,
             )
             const retryInMs = 1000 * (retryDelaySec * (1 + 0.1 * Math.random()))
-            await delay(retryInMs)
+            await delay(retryInMs, undefined, { signal })
             // Retry
           } else {
             throw new ApiError({

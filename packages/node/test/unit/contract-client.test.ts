@@ -27,6 +27,21 @@ describe('contract-generated methods', () => {
     expect(() => client.contract()).not.toThrow()
   })
 
+  it.each([1500.5, 0.5])('adapts a legacy fractional timeout of %s ms', (timeout) => {
+    const client = new Transloadit({ authKey: key, authSecret: secret, timeout })
+    expect(() => client.contract()).not.toThrow()
+  })
+
+  it.each([
+    -0.5,
+    -1,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])('rejects invalid inherited timeout %s', (timeout) => {
+    const client = new Transloadit({ authKey: key, authSecret: secret, timeout })
+    expect(() => client.contract()).toThrow('Request timeout must be a nonnegative integer')
+  })
+
   it('exposes recognized error codes without copying response content into messages', async () => {
     const client = new ContractClient({
       authentication: { kind: 'signed', key, secret },
