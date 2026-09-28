@@ -491,6 +491,8 @@ export class Transloadit {
 
   /** Access generated ordinary API methods without changing existing SDK method behavior. */
   contract(): ContractClient {
+    // This synchronous factory intentionally exposes the full generated declaration graph to
+    // root imports too. API2 checks its size; lazy runtime imports would not reduce that type cost.
     let authentication: ContractClientOptions['authentication']
     if (this._authToken === null) {
       const algorithm = this.#signatureAlgorithm
@@ -1074,7 +1076,12 @@ export class Transloadit {
               remaining,
             )
           : undefined
-      const requestSignal = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal
+      // Older supported Node versions retain weak dependencies for each AbortSignal.any() call.
+      // A removable listener keeps a long-lived caller signal independent of the number of polls.
+      const onAbort = (): void => deadline.abort(signal?.reason)
+      signal?.addEventListener('abort', onAbort, { once: true })
+      if (signal?.aborted) onAbort()
+      const requestSignal = deadline.signal
       try {
         const result = await (assemblyUrl
           ? this._fetchAssemblyStatus({ url: assemblyUrl, signal: requestSignal })
@@ -1089,6 +1096,7 @@ export class Transloadit {
         throw error
       } finally {
         clearTimeout(timer)
+        signal?.removeEventListener('abort', onAbort)
       }
     }
 

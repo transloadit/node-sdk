@@ -5,10 +5,15 @@ import { readFile } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
-import { ContractClient, ContractResponseError } from '@transloadit/node/contract'
+import {
+  ContractClient,
+  ContractResponseError,
+  isContractSignatureAlgorithm,
+} from '@transloadit/node/contract'
 
 // Run with Node 26, TRANSLOADIT_KEY and TRANSLOADIT_SECRET set in a trusted server-side shell:
 // node packages/node/examples/contract-workflow.ts ./image.jpg
+// Set TRANSLOADIT_SIGNATURE_ALGORITHM=sha256 for a combined Smart CDN/Assembly key.
 async function main(): Promise<void> {
   const key = process.env.TRANSLOADIT_KEY
   const secret = process.env.TRANSLOADIT_SECRET
@@ -16,8 +21,14 @@ async function main(): Promise<void> {
   if (!key || !secret || !filename) {
     throw new Error('Set TRANSLOADIT_KEY and TRANSLOADIT_SECRET and pass an image path')
   }
+  const algorithm = process.env.TRANSLOADIT_SIGNATURE_ALGORITHM
+  if (algorithm !== undefined && !isContractSignatureAlgorithm(algorithm)) {
+    throw new Error('Unsupported TRANSLOADIT_SIGNATURE_ALGORITHM')
+  }
   const data = await readFile(filename)
-  const client = new ContractClient({ authentication: { kind: 'signed', key, secret } })
+  const client = new ContractClient({
+    authentication: { kind: 'signed', key, secret, ...(algorithm ? { algorithm } : {}) },
+  })
   const signal = AbortSignal.timeout(120_000)
   const template = {
     steps: { resize: { robot: '/image/resize', use: ':original', width: 120, result: true } },

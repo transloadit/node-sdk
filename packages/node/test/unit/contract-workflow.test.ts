@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 
 const workflow = vi.hoisted(() => ({
+  construct: vi.fn(),
   createTemplate: vi.fn(),
   getTemplate: vi.fn(),
   createAssembly: vi.fn(),
@@ -10,7 +11,12 @@ const workflow = vi.hoisted(() => ({
 }))
 
 vi.mock('@transloadit/node/contract', () => ({
+  isContractSignatureAlgorithm: (value: string) => ['sha384', 'sha256', 'sha1'].includes(value),
   ContractClient: class {
+    constructor(options: unknown) {
+      workflow.construct(options)
+    }
+
     createTemplate = workflow.createTemplate
     getTemplate = workflow.getTemplate
     createAssembly = workflow.createAssembly
@@ -41,6 +47,7 @@ it.each([
   vi.clearAllMocks()
   vi.stubEnv('TRANSLOADIT_KEY', 'synthetic-key')
   vi.stubEnv('TRANSLOADIT_SECRET', 'synthetic-secret')
+  vi.stubEnv('TRANSLOADIT_SIGNATURE_ALGORITHM', 'sha256')
   process.argv = ['node', 'contract-workflow.ts', 'example.jpg']
   const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
   vi.spyOn(console, 'log').mockImplementation(() => undefined)
@@ -56,6 +63,14 @@ it.each([
   workflow.cancelAssembly.mockResolvedValue({ ok: 'ASSEMBLY_CANCELED' })
   await import('../../examples/contract-workflow.ts')
   await vi.waitFor(() => expect(workflow.deleteTemplate).toHaveBeenCalledOnce())
+  expect(workflow.construct).toHaveBeenCalledWith({
+    authentication: {
+      kind: 'signed',
+      key: 'synthetic-key',
+      secret: 'synthetic-secret',
+      algorithm: 'sha256',
+    },
+  })
   expect(workflow.cancelAssembly).not.toHaveBeenCalled()
   if (ok === 'ASSEMBLY_REPLAYING') {
     expect(workflow.getAssembly).toHaveBeenCalledOnce()
@@ -64,4 +79,19 @@ it.each([
     expect(workflow.getAssembly).not.toHaveBeenCalled()
     expect(error).toHaveBeenCalledWith('Assembly processing did not complete successfully')
   }
+})
+
+it('rejects an unsupported key algorithm before creating any resources', async () => {
+  vi.resetModules()
+  vi.clearAllMocks()
+  vi.stubEnv('TRANSLOADIT_KEY', 'synthetic-key')
+  vi.stubEnv('TRANSLOADIT_SECRET', 'synthetic-secret')
+  vi.stubEnv('TRANSLOADIT_SIGNATURE_ALGORITHM', 'unsupported-private-value')
+  process.argv = ['node', 'contract-workflow.ts', 'example.jpg']
+  const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  await import('../../examples/contract-workflow.ts')
+  await vi.waitFor(() => expect(error).toHaveBeenCalled())
+  expect(error).toHaveBeenCalledWith('Unsupported TRANSLOADIT_SIGNATURE_ALGORITHM')
+  expect(workflow.construct).not.toHaveBeenCalled()
+  expect(workflow.createTemplate).not.toHaveBeenCalled()
 })

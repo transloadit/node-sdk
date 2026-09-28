@@ -35,7 +35,9 @@ const template = await api.getTemplate({ path: { templateIdOrName: 'my-template'
 
 For standalone use, import `ContractClient` from `@transloadit/node/contract`. Configure either
 `authentication: { kind: 'signed', key, secret }` or `{ kind: 'bearer', token }`. Signed requests
-are the default through `client.contract()`; no token is minted implicitly. Pass raw, unencoded
+default to SHA-384. Set `algorithm: 'sha256'` for a combined Smart CDN/Assembly key, matching its
+Console configuration. Through `client.contract()`, the existing client's `signatureAlgorithm`
+is preserved; no token is minted implicitly. Pass raw, unencoded
 path values. The client signs exactly the serialized `params` it sends. Multipart inputs use
 `files: { file: { data: blob, filename: 'example.jpg' } }`. Requests accept an `AbortSignal`.
 
@@ -59,6 +61,9 @@ creates a typed Template, uploads an image, polls to completion, reads the resul
 temporary Template. Copy `node_modules/@transloadit/node/examples/contract-workflow.ts` into your
 project (use `node_modules/transloadit/` for the legacy package name). With Node 26 and server-side
 `TRANSLOADIT_KEY` / `TRANSLOADIT_SECRET` set, run `node contract-workflow.ts ./image.jpg`.
+For a combined Smart CDN/Assembly key, also set `TRANSLOADIT_SIGNATURE_ALGORITHM=sha256`.
+For a legacy Assembly key, omit this setting to keep the SHA-384 default, or select the algorithm
+configured for that key.
 The example ships with the package so its types match your installed version.
 It creates one billable Assembly; completed
 results expire normally. The example's polling and cleanup are application logic, not automatic SDK

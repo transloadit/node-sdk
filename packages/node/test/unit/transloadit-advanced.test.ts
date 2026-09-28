@@ -1,3 +1,5 @@
+import { getEventListeners } from 'node:events'
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { postMock, getMock, putMock, deleteMock, streamMock, MockRequestError, MockHTTPError } =
@@ -148,6 +150,24 @@ describe('Transloadit advanced behaviors', () => {
 
     await expect(promise).rejects.toBeInstanceOf(PollingTimeoutError)
     expect(client.getAssembly).not.toHaveBeenCalled()
+  })
+
+  it('does not accumulate composite abort signals on a long-lived caller while polling', async () => {
+    const caller = new AbortController()
+    const composite = vi.spyOn(AbortSignal, 'any')
+    const getAssembly = vi
+      .spyOn(client, 'getAssembly')
+      .mockResolvedValueOnce({ ok: 'ASSEMBLY_UPLOADING' })
+      .mockResolvedValueOnce({ ok: 'ASSEMBLY_EXECUTING' })
+      .mockResolvedValueOnce({ ok: 'ASSEMBLY_COMPLETED' })
+
+    await expect(
+      client.awaitAssemblyCompletion('assembly-id', { signal: caller.signal, interval: 1 }),
+    ).resolves.toEqual({ ok: 'ASSEMBLY_COMPLETED' })
+    expect(getAssembly).toHaveBeenCalledTimes(3)
+    // Older supported Node versions retain a weak dependency per AbortSignal.any() call.
+    expect(composite).not.toHaveBeenCalled()
+    expect(getEventListeners(caller.signal, 'abort')).toHaveLength(0)
   })
 
   it('streams assemblies page by page until all items are read', async () => {
