@@ -1,4 +1,4 @@
-<!-- alphalib-sync-agent-doc-sha256:f132a3693c393c177fb27a59f5760ea3ccff6ca1be1cdd9234c63066f28f5c19 -->
+<!-- alphalib-sync-agent-doc-sha256:53e4ec0d0a49c01fb8232ce2387c6a1704c4e1d98409905d0c89ea84cf77b4c5 -->
 # Transloadit Repository Guide
 ## coding style
 
@@ -70,7 +70,13 @@ General:
 - Use the `gh` tool to interact with GitHub (search/view an Issue, create a PR).
 - When using `fetch()` directly, check `response.ok` before parsing the body, and surface non-2xx
   responses as errors with enough context for debugging.
-- Treat `AGENTS.md` and `CLAUDE.md` as generated artifacts (single source of truth is `.ai/rules/`), managed by `~/code/content/_scripts/alphalib-sync.ts`; never edit those files directly. If you'd like to make a modification, do it here in `.ai/rules/` and the script will ensure proper preservation and syncing. If you need a rule specific to this repo, add it to `.ai/rules/repo.mdc`.
+- Treat `AGENTS.md` as a generated artifact (single source of truth is `.ai/rules/`), managed by
+  `~/code/content/_scripts/alphalib-sync.ts`; never edit it directly. Change `.ai/rules/` instead;
+  repo-specific rules belong in `.ai/rules/repo.mdc`. Regenerate with
+  `node ~/code/content/_scripts/alphalib-sync.ts generate-agent-docs --dir .`.
+- Do not recreate a duplicate `CLAUDE.md`. Claude Code v2.1.281+ reads `AGENTS.md` directly with its
+  built-in `agents-md` plugin enabled. Local or ancestor Claude instruction files can shadow it under
+  the default settings; preserve their instructions and resolve that explicitly before migrating.
 - All new files are to be in TypeScript. Even if someone suggests: make this new foo3 feature, model it after `foo1.js`, create: `foo3.ts`. Chances are, a `foo2.ts` already exist that you can take a look at also for inspiration.
 
 ## playwright

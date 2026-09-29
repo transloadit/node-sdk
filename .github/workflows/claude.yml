@@ -81,5 +81,8 @@ jobs:
         uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The pinned CLI predates native AGENTS.md loading. Remove the explicit file argument
+          # when upgrading to a CLI with native loading, so instructions are not included twice.
           claude_args: |
             --model claude-opus-5
+            --append-system-prompt-file "${{ github.workspace }}/AGENTS.md"
