@@ -54,7 +54,7 @@ export interface ResumeAssemblyUploadOptions extends AssemblyUploadOptions {
 /** A failed transfer may still have received bytes. The session permits explicit later recovery. */
 export class AssemblyUploadError extends Error {
   readonly session: AssemblyUploadSession | undefined
-  /** Known terminal or unconfirmed Assembly code, when status stopped further upload writes. */
+  /** Known terminal Assembly code, when status stopped further upload writes. */
   readonly assemblyCode: string | undefined
 
   constructor(session: AssemblyUploadSession | undefined, cause: unknown, assemblyCode?: string) {
@@ -361,11 +361,7 @@ export async function runTusUpload(
       } else {
         if (typeof status.ok !== 'string' || status.error !== undefined) invalid()
         if (policy.assembly.busyCodes.includes(status.ok)) return { status, canWrite: true }
-        if (
-          !policy.assembly.terminalOkCodes.includes(status.ok) &&
-          !policy.assembly.unconfirmedOkCodes.includes(status.ok)
-        )
-          invalid()
+        if (!policy.assembly.terminalOkCodes.includes(status.ok)) invalid()
         assemblyCode = status.ok
       }
       // Receipt proves file transfer, not processing success. Saved sessions can confirm finished

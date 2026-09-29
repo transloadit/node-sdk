@@ -18,7 +18,7 @@ export interface AssemblyWorkflowOptions {
 export interface AssemblyWorkflowPolicy {
   readonly busyCodes: readonly string[]
   readonly terminalOkCodes: readonly string[]
-  readonly unconfirmedOkCodes: readonly string[]
+  readonly cancelableTerminalOkCodes: readonly string[]
   readonly errorCodes: readonly string[]
   readonly publicHostPattern: string
   readonly rejectedHostPrefixes: readonly string[]
@@ -39,12 +39,12 @@ export class AssemblyWorkflowTimeoutError extends Error {
   }
 }
 
-/** The connection outcome does not establish whether remote processing or cleanup finished. */
+/** Explicit cancellation could not discover an owner for a potentially still-running Assembly. */
 export class AssemblyWorkflowUnconfirmedError extends Error {
   readonly code = 'ASSEMBLY_WORKFLOW_UNCONFIRMED'
 
   constructor() {
-    super('Assembly connection ended; remote completion or cleanup is not confirmed')
+    super('Assembly cancellation could not be confirmed; no uploader destination is available')
     this.name = 'AssemblyWorkflowUnconfirmedError'
   }
 }
@@ -198,7 +198,7 @@ export async function runAssemblyWorkflow<Result>(
     }
     const inspect = (
       value: Result,
-      allowUnconfirmed = false,
+      requireCancellation = false,
     ): { terminal: boolean; fields: Record<string, unknown> } => {
       checkDeadline()
       if (!isWorkflowResponse(value) || value[policy.identityField] !== input.assemblyId) invalid()
@@ -210,15 +210,8 @@ export async function runAssemblyWorkflow<Result>(
         return { terminal: true, fields }
       }
       if (typeof fields.ok !== 'string' || fields.error !== undefined) invalid()
-      if (policy.unconfirmedOkCodes.includes(fields.ok)) {
-        // Only initial cancellation discovery may continue: send the one owner-routed DELETE,
-        // but a repeated connection outcome still cannot establish that cleanup succeeded.
-        if (
-          !allowUnconfirmed ||
-          typeof fields[policy.assemblyField] !== 'string' ||
-          fields[policy.assemblyField] === ''
-        )
-          throw new AssemblyWorkflowUnconfirmedError()
+      if (requireCancellation && policy.cancelableTerminalOkCodes.includes(fields.ok)) {
+        // A failed request is finite for waiters, but an explicit cancel must still reach its owner.
         return { terminal: false, fields }
       }
       if (policy.terminalOkCodes.includes(fields.ok)) return { terminal: true, fields }
@@ -228,6 +221,14 @@ export async function runAssemblyWorkflow<Result>(
     let result = await read(discover)
     let state = inspect(result, cancel)
     if (state.terminal) return result
+    if (
+      cancel &&
+      typeof state.fields.ok === 'string' &&
+      policy.cancelableTerminalOkCodes.includes(state.fields.ok) &&
+      (typeof state.fields[policy.assemblyField] !== 'string' ||
+        state.fields[policy.assemblyField] === '')
+    )
+      throw new AssemblyWorkflowUnconfirmedError()
     const origin = admittedOwner(
       state.fields[policy.assemblyField],
       input.assemblyId,
@@ -235,7 +236,7 @@ export async function runAssemblyWorkflow<Result>(
       options,
     )
     const owner = bind({ ...options, origin })
-    // Cancellation is one attempt, never a retried write. An active reply is not cleanup proof.
+    // Cancellation is one attempt, never a retried write. Client finality is not worker quiescence.
     if (cancel) {
       try {
         result = await owner.cancel(signal)
@@ -244,7 +245,7 @@ export async function runAssemblyWorkflow<Result>(
         // An Assembly can fail/expire between discovery and DELETE. Confirm through the generated
         // GET instead of casting arbitrary HTTP-error data to a result or retrying the write.
         const confirmed = await read(owner.read)
-        if (!inspect(confirmed).terminal) throw error
+        if (!inspect(confirmed, true).terminal) throw error
         return confirmed
       }
       state = inspect(result)

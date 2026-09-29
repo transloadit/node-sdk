@@ -47,10 +47,14 @@ discover and safely follow the owning uploader. They return any terminal status,
 and cancellation: check `status.ok === 'ASSEMBLY_COMPLETED'` before treating processing as successful.
 They default to a five-minute overall `timeout` and a one-second polling `interval`, both in
 milliseconds. Aborting or timing out stops waiting, not the remote Assembly. Cancel-and-wait sends
-one cancellation attempt, then confirms terminal status; a timeout does not prove cleanup.
-`REQUEST_ABORTED` describes the connection, not confirmed completion. Waiting rejects it with
-`AssemblyWorkflowUnconfirmedError` (`code: 'ASSEMBLY_WORKFLOW_UNCONFIRMED'`). Cancel-and-wait still
-attempts the owner-routed cancellation once, but raises that error if cleanup remains unconfirmed.
+one cancellation attempt, then confirms its outcome; a timeout does not prove cancellation.
+`REQUEST_ABORTED` is a finite, unsuccessful outcome: waiting returns that typed status without
+throwing or polling indefinitely. It does not mean processing succeeded or all background work
+has stopped. An explicit cancel still contacts the owning uploader once, preserving a completed
+or failed outcome if work already ended. If that owner cannot be discovered after `REQUEST_ABORTED`,
+cancel-and-wait throws `AssemblyWorkflowUnconfirmedError` (`code: 'ASSEMBLY_WORKFLOW_UNCONFIRMED'`).
+A later GET with `REQUEST_ABORTED` does not hide a failed cancellation request. No terminal response
+promises that worker cleanup or billing has already stopped.
 Private deployments may configure `assemblyOrigins` with trusted origins known before the request.
 Never populate that list from response data. Redirects, changed owners and untrusted destinations
 are rejected, and uploader requests carry no authentication credentials.
@@ -92,7 +96,7 @@ use `waitForAssembly` and inspect its terminal status to establish processing su
 If HEAD returns 404 after temporary upload cleanup, the workflow refreshes Assembly status and
 requires one finished `tus_uploads` receipt matching the saved URL, filename, fieldname, size and
 completed offset. Missing or mismatched receipts remain errors; no replacement upload is created.
-Stopped or unconfirmed Assemblies receive no new upload writes. When known, `AssemblyUploadError.assemblyCode`
+Stopped Assemblies receive no new upload writes. When known, `AssemblyUploadError.assemblyCode`
 identifies that status; an already complete transfer can still be confirmed without writing,
 even if later Assembly processing failed. Use `waitForAssembly` to check processing separately.
 

@@ -88,7 +88,7 @@ it.each([
 it.each([
   'waitForAssembly',
   'cancelAndWaitForAssembly',
-] as const)('%s does not mistake an aborted connection for confirmed cleanup', async (method) => {
+] as const)('%s returns REQUEST_ABORTED without treating it as processing success', async (method) => {
   const requests: string[] = []
   const client = new ContractClient({
     authentication,
@@ -97,10 +97,64 @@ it.each([
       return Promise.resolve(Response.json({ ...body, ok: 'REQUEST_ABORTED' }))
     },
   })
-  await expect(client[method]({ assemblyId, interval: 1 })).rejects.toMatchObject({
-    code: 'ASSEMBLY_WORKFLOW_UNCONFIRMED',
+  await expect(client[method]({ assemblyId, interval: 1 })).resolves.toMatchObject({
+    assembly_id: assemblyId,
+    ok: 'REQUEST_ABORTED',
   })
   expect(requests).toEqual(method === 'waitForAssembly' ? ['GET'] : ['GET', 'DELETE'])
+})
+
+it('ordinary waiting returns REQUEST_ABORTED even without an owner URL', async () => {
+  let requests = 0
+  const result = { assembly_id: assemblyId, ok: 'REQUEST_ABORTED' }
+  const client = new ContractClient({
+    authentication,
+    fetch: () => {
+      requests++
+      return Promise.resolve(Response.json(result))
+    },
+  })
+  await expect(client.waitForAssembly({ assemblyId })).resolves.toEqual(result)
+  expect(requests).toBe(1)
+})
+
+it('explicitly cancels after REQUEST_ABORTED and returns the owner outcome', async () => {
+  const requests: string[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: (_url, init) => {
+      requests.push(init?.method ?? 'GET')
+      return Promise.resolve(
+        Response.json({
+          ...body,
+          ok: init?.method === 'DELETE' ? 'ASSEMBLY_CANCELED' : 'REQUEST_ABORTED',
+        }),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId })).resolves.toMatchObject({
+    ok: 'ASSEMBLY_CANCELED',
+  })
+  expect(requests).toEqual(['GET', 'DELETE'])
+})
+
+it('does not swallow a failed cancellation when a later GET still reports REQUEST_ABORTED', async () => {
+  const requests: string[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: (_url, init) => {
+      requests.push(init?.method ?? 'GET')
+      return Promise.resolve(
+        init?.method === 'DELETE'
+          ? Response.json({ error: 'ASSEMBLY_CANCEL_UNAVAILABLE' }, { status: 503 })
+          : Response.json({ ...body, ok: 'REQUEST_ABORTED' }),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId })).rejects.toMatchObject({
+    status: 503,
+  })
+  expect(requests).toEqual(['GET', 'DELETE', 'GET'])
 })
 
 it.each([
