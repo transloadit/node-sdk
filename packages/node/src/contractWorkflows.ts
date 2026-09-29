@@ -79,14 +79,14 @@ function admittedOwner(
   // The transport validated this caller-owned endpoint. Only an exact match may reuse its proxy
   // prefix/encoding or loopback spelling; response data cannot introduce another prefix.
   if (value === `${options.origin}${expectedPath}`) return options.origin
+  // Additional deployment-owned origins received the same transport validation. In particular,
+  // exact IPv6 matches are safe here without admitting IPv6 supplied only by an API response.
+  for (const origin of options.assemblyOrigins ?? []) {
+    if (value === `${origin}${expectedPath}`) return origin
+  }
   const url = parseDestination(value)
   if (url.pathname !== expectedPath) invalid()
-  const origins = [new URL(options.origin).origin]
-  for (const origin of options.assemblyOrigins ?? []) {
-    const parsed = parseDestination(origin)
-    if (parsed.pathname !== '/') invalid()
-    origins.push(parsed.origin)
-  }
+  const origins = [new URL(options.origin).origin, ...(options.assemblyOrigins ?? [])]
   if (
     !origins.includes(url.origin) &&
     !(
@@ -165,7 +165,7 @@ export async function runAssemblyWorkflow<Result>(
       checkDeadline()
       if (!isResponse(value) || value[policy.identityField] !== input.assemblyId) invalid()
       const fields = value
-      if (typeof fields.error === 'string' && fields.ok === undefined) {
+      if (typeof fields.error === 'string' && (fields.ok === undefined || fields.ok === null)) {
         if (!policy.errorCodes.includes(fields.error)) invalid()
         return { terminal: true, fields }
       }

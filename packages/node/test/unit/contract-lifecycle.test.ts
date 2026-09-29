@@ -18,6 +18,80 @@ const body = {
 const authentication = { kind: 'bearer', token: 'synthetic-never-forward' } as const
 
 it.each([
+  'https://user:secret@[::1]',
+  'https://[::1]?query=1',
+  'https://[::1]#fragment',
+  'https://[::1]/proxy',
+  'http://[2001:db8::1]',
+])('rejects invalid configured uploader origins before making requests: %s', (origin) => {
+  expect(() => new ContractClient({ authentication, assemblyOrigins: [origin] })).toThrow()
+})
+
+it.each([
+  'waitForAssembly',
+  'cancelAndWaitForAssembly',
+] as const)('%s returns a terminal processing error with nullable ok', async (method) => {
+  const terminal = { assembly_id: assemblyId, error: 'FILE_FILTER_DECLINED_FILE', ok: null }
+  const client = new ContractClient({
+    authentication,
+    fetch: () => Promise.resolve(Response.json(terminal)),
+  })
+  await expect(client[method]({ assemblyId })).resolves.toEqual(terminal)
+})
+
+it.each([
+  'http://[::1]:8081',
+  'https://[2001:db8::1]',
+])('follows an explicitly configured IPv6 uploader without credentials: %s', async (origin) => {
+  const requests: string[] = []
+  const ownerUrl = `${origin}/assemblies/${assemblyId}`
+  const client = new ContractClient({
+    origin: 'https://entry.example.com',
+    assemblyOrigins: [origin],
+    authentication,
+    fetch: (url, init) => {
+      requests.push(`${init?.method} ${url}`)
+      expect(new Headers(init?.headers).has('authorization')).toBe(false)
+      return Promise.resolve(
+        Response.json({
+          ...body,
+          assembly_ssl_url: ownerUrl,
+          ok: requests.length === 3 ? 'ASSEMBLY_CANCELED' : 'ASSEMBLY_EXECUTING',
+        }),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId, interval: 1 })).resolves.toMatchObject(
+    { ok: 'ASSEMBLY_CANCELED' },
+  )
+  expect(requests).toEqual([
+    `GET https://entry.example.com/assemblies/${assemblyId}`,
+    `DELETE ${ownerUrl}`,
+    `GET ${ownerUrl}`,
+  ])
+})
+
+it.each([
+  'http://[::1]:8081',
+  'https://[2001:db8::1]',
+])('does not trust an unconfigured IPv6 uploader: %s', async (origin) => {
+  let requests = 0
+  const client = new ContractClient({
+    authentication,
+    fetch: () => {
+      requests++
+      return Promise.resolve(
+        Response.json({ ...body, assembly_ssl_url: `${origin}/assemblies/${assemblyId}` }),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId })).rejects.toThrow(
+    'Invalid Assembly workflow',
+  )
+  expect(requests).toBe(1)
+})
+
+it.each([
   'https://example.com/proxy',
   'https://example.com/a%20b',
   'http://[::1]:8080',

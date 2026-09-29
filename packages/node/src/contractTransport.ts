@@ -114,6 +114,24 @@ function retryAfterMilliseconds(header: string | null): number | undefined {
   return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined
 }
 
+function parseConfiguredEndpoint(value: string): URL {
+  const origin = new URL(value)
+  if (
+    !['https:', 'http:'].includes(origin.protocol) ||
+    origin.username ||
+    origin.password ||
+    origin.search ||
+    origin.hash
+  ) {
+    throw new Error(
+      'Contract client requires an HTTP(S) endpoint without credentials, query or fragment',
+    )
+  }
+  if (origin.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname))
+    throw new Error('HTTPS is required except for loopback development endpoints')
+  return origin
+}
+
 /** Native transport for generated ordinary HTTP methods, not arbitrary URLs or capability calls. */
 export class ContractTransport {
   #origin: string
@@ -133,24 +151,13 @@ export class ContractTransport {
     errorCodes: readonly string[] = [],
   ) {
     this.#errorCodes = new Set(errorCodes)
-    this.#assemblyOrigins = [...(options.assemblyOrigins ?? [])]
-    const origin = new URL(options.origin ?? defaultOrigin)
-    if (
-      !['https:', 'http:'].includes(origin.protocol) ||
-      origin.username ||
-      origin.password ||
-      origin.search ||
-      origin.hash
-    ) {
-      throw new Error(
-        'Contract client requires an HTTP(S) endpoint without credentials, query or fragment',
-      )
-    }
-    if (
-      origin.protocol === 'http:' &&
-      !['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname)
-    )
-      throw new Error('HTTPS is required except for loopback development endpoints')
+    this.#assemblyOrigins = (options.assemblyOrigins ?? []).map((value) => {
+      const origin = parseConfiguredEndpoint(value)
+      if (origin.pathname !== '/')
+        throw new Error('Assembly uploader origins cannot include a path')
+      return origin.origin
+    })
+    const origin = parseConfiguredEndpoint(options.origin ?? defaultOrigin)
     this.#origin = origin.origin
     // Normalize only the join boundary; internal proxy path segments remain significant.
     this.#basePath = origin.pathname.replace(/\/+$/, '')
