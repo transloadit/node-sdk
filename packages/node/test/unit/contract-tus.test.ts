@@ -158,6 +158,51 @@ it('never retries uncertain creation, even when a recovery budget exists', async
   expect(transport).toHaveBeenCalledTimes(2)
 })
 
+it('continues from a partial PATCH acknowledgement without losing bytes', async () => {
+  const { transport } = fixture()
+  let stored = ''
+  let patches = 0
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    fetch: async (input, init) => {
+      const request = new Request(input, init)
+      if (request.method !== 'PATCH') return transport(input, init)
+      expect(request.headers.get('upload-offset')).toBe(String(stored.length))
+      const chunk = await request.text()
+      stored += ++patches === 1 ? chunk.slice(0, 1) : chunk
+      return new Response(null, {
+        status: 204,
+        headers: { 'tus-resumable': '1.0.0', 'upload-offset': String(stored.length) },
+      })
+    },
+  })
+  await client.uploadAssemblyFile({ assemblyId, file })
+  expect(stored).toBe('test')
+  expect(patches).toBe(2)
+})
+
+it.each(['0', '-1', '3', '5', '1.5'])('rejects an invalid PATCH offset %s', async (offset) => {
+  const { transport } = fixture()
+  let patches = 0
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    fetch: async (input, init) => {
+      const response = await transport(input, init)
+      if (init?.method === 'PATCH') {
+        patches++
+        response.headers.set('upload-offset', offset)
+      }
+      return response
+    },
+  })
+  await expect(
+    client.uploadAssemblyFile({ assemblyId, file, chunkSize: 2 }),
+  ).rejects.toBeInstanceOf(AssemblyUploadError)
+  expect(patches).toBe(1)
+})
+
 it('bounds PATCH recovery and reads the offset before sending any more bytes', async () => {
   const { client, transport } = fixture({ patchStatus: 503 })
   // The server received all bytes before its error. HEAD confirms completion; no replay is needed.

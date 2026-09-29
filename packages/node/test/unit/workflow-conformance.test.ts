@@ -32,12 +32,16 @@ it.each(workflowVectors.cases)('shared public SDK workflow: $id', async (scenari
   try {
     switch (scenario.kind) {
       case 'wait': {
-        const result = await contract.waitForAssembly({
+        const waiting = contract.waitForAssembly({
           assemblyId: workflowVectors.assemblyId,
           interval: 1,
           timeout: 5000,
         })
-        expect(result).toMatchObject(scenario.expected)
+        if (scenario.workflowError === undefined) {
+          expect(await waiting).toMatchObject(scenario.expected)
+        } else {
+          await expect(waiting).rejects.toMatchObject({ code: scenario.workflowError })
+        }
         expect(server.requests).toHaveLength(scenario.responses.length)
         break
       }

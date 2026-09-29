@@ -1,16 +1,20 @@
-// Generated from API2 contract 6f7e2cf8eaee8573536bac7794e398096fc4ee5c1e2379157a5ae7cd0f46a241. Do not edit.
+// Generated from API2 contract 3115da489f3d07bac67c8d0af85e6f9db3dc0216ee8555629ef05dfb717d9282. Do not edit.
 import {
   ContractTransport,
   type ContractClientOptions,
   type UploadFile,
 } from '../contractTransport.ts'
 import { runAssemblyWorkflow, type AssemblyWorkflowOptions } from '../contractWorkflows.ts'
-export { AssemblyWorkflowTimeoutError } from '../contractWorkflows.ts'
+export {
+  AssemblyWorkflowTimeoutError,
+  AssemblyWorkflowUnconfirmedError,
+} from '../contractWorkflows.ts'
 export type { AssemblyWorkflowOptions } from '../contractWorkflows.ts'
 export type AssemblyWorkflowResult = GetAssemblyResult
 const assemblyWorkflowPolicy = {
   busyCodes: ['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'],
-  terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED', 'REQUEST_ABORTED'],
+  terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED'],
+  unconfirmedOkCodes: ['REQUEST_ABORTED'],
   errorCodes: [
     'ADMIN_PERMISSIONS_REQUIRED',
     'AI_CHAT_VALIDATION',
@@ -398,7 +402,8 @@ export type {
 const tusWorkflowPolicy = {
   assembly: {
     busyCodes: ['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'],
-    terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED', 'REQUEST_ABORTED'],
+    terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED'],
+    unconfirmedOkCodes: ['REQUEST_ABORTED'],
     errorCodes: [
       'ADMIN_PERMISSIONS_REQUIRED',
       'AI_CHAT_VALIDATION',

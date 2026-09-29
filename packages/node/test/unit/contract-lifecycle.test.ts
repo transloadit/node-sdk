@@ -18,6 +18,50 @@ const body = {
 const authentication = { kind: 'bearer', token: 'synthetic-never-forward' } as const
 
 it.each([
+  'waitForAssembly',
+  'cancelAndWaitForAssembly',
+] as const)('%s does not mistake an aborted connection for confirmed cleanup', async (method) => {
+  const requests: string[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: (_url, init) => {
+      requests.push(init?.method ?? 'GET')
+      return Promise.resolve(Response.json({ ...body, ok: 'REQUEST_ABORTED' }))
+    },
+  })
+  await expect(client[method]({ assemblyId, interval: 1 })).rejects.toMatchObject({
+    code: 'ASSEMBLY_WORKFLOW_UNCONFIRMED',
+  })
+  expect(requests).toEqual(method === 'waitForAssembly' ? ['GET'] : ['GET', 'DELETE'])
+})
+
+it.each([
+  'waitForAssembly',
+  'cancelAndWaitForAssembly',
+] as const)('%s retries temporary read failures without retrying cancellation', async (method) => {
+  let reads = 0
+  let deletes = 0
+  const client = new ContractClient({
+    authentication,
+    fetch: (_url, init) => {
+      if (init?.method === 'DELETE') deletes++
+      else if (++reads === 1 || reads === 3) return Promise.reject(new TypeError('fetch failed'))
+      return Promise.resolve(
+        Response.json({
+          ...body,
+          ok: reads === 4 ? 'ASSEMBLY_COMPLETED' : 'ASSEMBLY_EXECUTING',
+        }),
+      )
+    },
+  })
+  await expect(client[method]({ assemblyId, interval: 1 })).resolves.toMatchObject({
+    ok: 'ASSEMBLY_COMPLETED',
+  })
+  expect(reads).toBe(4)
+  expect(deletes).toBe(method === 'waitForAssembly' ? 0 : 1)
+})
+
+it.each([
   'https://user:secret@[::1]',
   'https://[::1]?query=1',
   'https://[::1]#fragment',

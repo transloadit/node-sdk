@@ -48,11 +48,14 @@ and cancellation: check `status.ok === 'ASSEMBLY_COMPLETED'` before treating pro
 They default to a five-minute overall `timeout` and a one-second polling `interval`, both in
 milliseconds. Aborting or timing out stops waiting, not the remote Assembly. Cancel-and-wait sends
 one cancellation attempt, then confirms terminal status; a timeout does not prove cleanup.
+`REQUEST_ABORTED` describes the connection, not confirmed completion. Waiting rejects it with
+`AssemblyWorkflowUnconfirmedError` (`code: 'ASSEMBLY_WORKFLOW_UNCONFIRMED'`). Cancel-and-wait still
+attempts the owner-routed cancellation once, but raises that error if cleanup remains unconfirmed.
 Private deployments may configure `assemblyOrigins` with trusted origins known before the request.
 Never populate that list from response data. Redirects, changed owners and untrusted destinations
 are rejected, and uploader requests carry no authentication credentials.
 An exact match to the configured endpoint retains its proxy prefix; prefixes are never inferred
-from response data. Status GETs retry HTTP 429 and 5xx within the overall deadline, honoring
+from response data. Status GETs retry transient network failures and HTTP 429/5xx within the overall deadline, honoring
 `Retry-After`. A failed DELETE is never retried; an HTTP error can be followed by a GET to confirm
 whether the Assembly became terminal in the meantime.
 

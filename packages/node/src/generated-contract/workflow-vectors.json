@@ -151,7 +151,8 @@
       ],
       "expected": {
         "ok": "REQUEST_ABORTED"
-      }
+      },
+      "workflowError": "ASSEMBLY_WORKFLOW_UNCONFIRMED"
     },
     {
       "id": "wait-processing-error-is-not-success",

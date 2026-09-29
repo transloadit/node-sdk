@@ -187,8 +187,8 @@ export class ContractTransport {
     // Normalize only the join boundary; internal proxy path segments remain significant.
     this.#basePath = origin.pathname.replace(/\/+$/, '')
     this.#timeout = options.timeout ?? 60_000
-    if (!Number.isSafeInteger(this.#timeout) || this.#timeout < 0)
-      throw new Error('Request timeout must be a nonnegative integer')
+    if (!Number.isSafeInteger(this.#timeout) || this.#timeout < 0 || this.#timeout > 2_147_483_647)
+      throw new Error('Request timeout must be a nonnegative integer no greater than 2147483647')
     this.#clientName = options.clientName
     this.#authentication = { ...options.authentication }
     this.#fetch = options.fetch ?? globalThis.fetch

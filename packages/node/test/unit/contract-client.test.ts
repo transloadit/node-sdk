@@ -69,6 +69,12 @@ describe('contract-generated methods', () => {
     })
   })
 
+  it.each([2_147_483_648, 3_000_000_000])('rejects overflowing request timeout %s', (timeout) => {
+    expect(
+      () => new ContractClient({ authentication: { kind: 'signed', key, secret }, timeout }),
+    ).toThrow('Request timeout')
+  })
+
   it.each([
     { header: '2', expected: 2_000 },
     { header: 'Thu, 01 Jan 1970 00:00:02 GMT', expected: 2_000 },

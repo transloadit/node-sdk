@@ -18,6 +18,7 @@ export interface AssemblyWorkflowOptions {
 export interface AssemblyWorkflowPolicy {
   readonly busyCodes: readonly string[]
   readonly terminalOkCodes: readonly string[]
+  readonly unconfirmedOkCodes: readonly string[]
   readonly errorCodes: readonly string[]
   readonly publicHostPattern: string
   readonly rejectedHostPrefixes: readonly string[]
@@ -35,6 +36,16 @@ export class AssemblyWorkflowTimeoutError extends Error {
   constructor() {
     super('Assembly workflow deadline exceeded; remote completion is not confirmed')
     this.name = 'AssemblyWorkflowTimeoutError'
+  }
+}
+
+/** The connection outcome does not establish whether remote processing or cleanup finished. */
+export class AssemblyWorkflowUnconfirmedError extends Error {
+  readonly code = 'ASSEMBLY_WORKFLOW_UNCONFIRMED'
+
+  constructor() {
+    super('Assembly connection ended; remote completion or cleanup is not confirmed')
+    this.name = 'AssemblyWorkflowUnconfirmedError'
   }
 }
 
@@ -161,18 +172,26 @@ export async function runAssemblyWorkflow<Result>(
           return await request(signal)
         } catch (error) {
           if (
-            !(error instanceof ContractResponseError) ||
-            !(error.status === 429 || (error.status >= 500 && error.status <= 599))
+            !(error instanceof TypeError) &&
+            !(error instanceof DOMException && error.name === 'TimeoutError') &&
+            !(
+              error instanceof ContractResponseError &&
+              (error.status === 429 || (error.status >= 500 && error.status <= 599))
+            )
           )
             throw error
           // Retry only safe status reads. The overall signal bounds even a very long server hint.
-          await delay(Math.min(timeout, Math.max(interval, error.retryAfter ?? 0)), undefined, {
+          const serverDelay = error instanceof ContractResponseError ? (error.retryAfter ?? 0) : 0
+          await delay(Math.min(timeout, Math.max(interval, serverDelay)), undefined, {
             signal,
           })
         }
       }
     }
-    const inspect = (value: Result): { terminal: boolean; fields: Record<string, unknown> } => {
+    const inspect = (
+      value: Result,
+      allowUnconfirmed = false,
+    ): { terminal: boolean; fields: Record<string, unknown> } => {
       checkDeadline()
       if (!isWorkflowResponse(value) || value[policy.identityField] !== input.assemblyId) invalid()
       const fields = value
@@ -183,12 +202,18 @@ export async function runAssemblyWorkflow<Result>(
         return { terminal: true, fields }
       }
       if (typeof fields.ok !== 'string' || fields.error !== undefined) invalid()
+      if (policy.unconfirmedOkCodes.includes(fields.ok)) {
+        // Only initial cancellation discovery may continue: send the one owner-routed DELETE,
+        // but a repeated connection outcome still cannot establish that cleanup succeeded.
+        if (!allowUnconfirmed) throw new AssemblyWorkflowUnconfirmedError()
+        return { terminal: false, fields }
+      }
       if (policy.terminalOkCodes.includes(fields.ok)) return { terminal: true, fields }
       if (!policy.busyCodes.includes(fields.ok)) invalid()
       return { terminal: false, fields }
     }
     let result = await read(discover)
-    let state = inspect(result)
+    let state = inspect(result, cancel)
     if (state.terminal) return result
     const origin = admittedOwner(
       state.fields[policy.assemblyField],

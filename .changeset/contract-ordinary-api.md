@@ -14,7 +14,9 @@ bindings. Persist a private upload session before bytes are sent; a fresh client
 digest and server offset before resuming. Recover ambiguous PATCH responses without duplicating
 accepted bytes. Creation never retries. Deferred lengths and concatenation remain outside this
 experimental namespace.
-Workflow status reads retry HTTP 429 and 5xx within the overall deadline, honoring `Retry-After`.
+Workflow status reads retry transient network failures and HTTP 429/5xx within the overall deadline,
+honoring `Retry-After`. An aborted connection is not proof of completion: waiting raises
+`AssemblyWorkflowUnconfirmedError`; cancellation is still attempted once before reporting unconfirmed cleanup.
 An HTTP error from cancellation is confirmed with a status GET before claiming terminal cleanup.
 Explicitly configured proxy prefixes and loopback endpoints remain supported.
 

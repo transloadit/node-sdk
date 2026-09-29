@@ -451,12 +451,11 @@ export async function runTusUpload(
         continue
       }
       check()
-      if (
-        headers.get(wire.headers.resumable) !== wire.version ||
-        offset(headers, wire.headers.offset, size) !== end
-      )
+      const next = offset(headers, wire.headers.offset, size)
+      // tus acknowledges bytes actually stored, which may be fewer than this request offered.
+      if (headers.get(wire.headers.resumable) !== wire.version || next <= position || next > end)
         invalid()
-      position = end
+      position = next
     }
     check()
     return session

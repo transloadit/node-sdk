@@ -30,6 +30,7 @@ const workflowCaseSchema = z.discriminatedUnion('kind', [
       kind: z.literal('wait'),
       responses: z.array(status).nonempty(),
       expected: status,
+      workflowError: z.literal('ASSEMBLY_WORKFLOW_UNCONFIRMED').optional(),
     })
     .strict(),
   z.object({ id: z.string(), kind: z.literal('abort') }).strict(),
