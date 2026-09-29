@@ -19,8 +19,15 @@ first cold transform. The runtime-neutral route is the only changed delivery API
 - [x] Document the remaining-validity tradeoff; add a Viewer-only alpha patch changeset.
 - [x] Council review: no remaining issues; retain the unchanged Node/Next defaults deliberately.
 - [x] Full repository `yarn verify:full` passes (existing lint warnings remain).
-- [ ] Local defensive security review and packed browser fixture.
-- [ ] Exact-head CI.
+- [x] Local defensive Opus security review: PASS, no supported P0–P3 findings. This is an
+  in-memory API review, not a live CDN security claim. Rebuilt/reran all 468 Viewer tests on
+  commit `3d3192e`; retained its SHA and source/build checksums with the machine-readable result.
+- [x] Reconcile the local packed-fixture attempt: stale npm metadata was fixed with an isolated
+  fresh cache; install, seed and consumer type checks passed. Firefox extraction then stalled
+  for ten minutes. Stopped only the owned installer processes; no browser PASS is claimed.
+
+Merge/release gate: the unchanged packed browser fixture and all other checks must pass on the
+exact PR head: <https://github.com/transloadit/node-sdk/pull/527>. No tests or gates are disabled.
 
 ## Consumer follow-up
 
