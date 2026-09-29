@@ -1,5 +1,11 @@
 # @transloadit/viewer
 
+## 0.0.4
+
+### Patch Changes
+
+- 215c286: Clarify native automatic image sizing in Safari 27 and preserve guidance for older-browser fallbacks and eager heroes. Rendering behavior is unchanged.
+
 ## 0.0.3
 
 ### Patch Changes
