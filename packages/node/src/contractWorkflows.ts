@@ -177,6 +177,8 @@ export async function runAssemblyWorkflow<Result>(
       if (!isWorkflowResponse(value) || value[policy.identityField] !== input.assemblyId) invalid()
       const fields = value
       if (typeof fields.error === 'string' && (fields.ok === undefined || fields.ok === null)) {
+        // The producer and generated Result currently define a closed error enum. Returning an
+        // unknown code as Result would lie about that type; open-enum evolution belongs upstream.
         if (!policy.errorCodes.includes(fields.error)) invalid()
         return { terminal: true, fields }
       }

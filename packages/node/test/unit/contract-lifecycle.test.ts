@@ -324,6 +324,7 @@ it.each([
   { assembly_ssl_url: null },
   { assembly_ssl_url: undefined },
   { ok: 'UNKNOWN_FUTURE_STATE' },
+  { ok: null, error: 'UNKNOWN_FUTURE_ERROR' },
   { error: 'FILE_FILTER_DECLINED_FILE' },
 ])('does not claim cleanup from incomplete or contradictory responses: %j', async (change) => {
   const client = new ContractClient({

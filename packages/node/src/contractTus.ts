@@ -4,7 +4,11 @@ import type { AssemblyWorkflowPolicy } from './contractWorkflows.ts'
 import { createHash } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 
-import { ContractResponseError } from './contractTransport.ts'
+import {
+  ContractResponseError,
+  requestDeadline,
+  retryAfterMilliseconds,
+} from './contractTransport.ts'
 import {
   AssemblyWorkflowTimeoutError,
   admittedWorkflowDestination,
@@ -32,8 +36,8 @@ export interface AssemblyUploadOptions {
   /** Overall deadline in milliseconds, including hashing and discovery. Default: 300000. */
   readonly timeout?: number
   readonly signal?: AbortSignal
-  /** Persist this checkpoint before the first PATCH; an exception stops the upload. */
-  readonly onSession?: (session: AssemblyUploadSession) => void | Promise<void>
+  /** Persist before the first PATCH; an exception stops upload. Use the signal to stop your I/O. */
+  readonly onSession?: (session: AssemblyUploadSession, signal: AbortSignal) => void | Promise<void>
   /** Maximum recovery attempts across the whole transfer. Default: 5. Creation never retries. */
   readonly maxRetries?: number
   /** Delay between recovery attempts in milliseconds. Default: 1000. */
@@ -128,21 +132,33 @@ export async function requestTus(
     )
   )
     invalid()
-  const response = await (options.fetch ?? globalThis.fetch)(url, {
-    method: operation.method,
-    headers,
-    ...(body === undefined ? {} : { body }),
-    signal,
-    credentials: 'omit',
-    redirect: 'error',
-  })
-  // No protocol response body is needed. Cancel it even for hostile/unbounded error responses.
-  await response.body?.cancel()
-  if (response.redirected || (response.url !== '' && response.url !== url)) invalid()
-  if (!response.ok) throw new ContractResponseError(response.status, undefined)
-  if (response.status !== operation.success) invalid()
-  signal.throwIfAborted()
-  return response.headers
+  const deadline = requestDeadline(signal, options.timeout ?? 60_000)
+  const requestSignal = deadline.signal ?? signal
+  try {
+    const response = await (options.fetch ?? globalThis.fetch)(url, {
+      method: operation.method,
+      headers,
+      ...(body === undefined ? {} : { body }),
+      signal: requestSignal,
+      credentials: 'omit',
+      redirect: 'error',
+    })
+    // No protocol response body is needed. Cancel it even for hostile/unbounded error responses.
+    await response.body?.cancel()
+    requestSignal.throwIfAborted()
+    if (response.redirected || (response.url !== '' && response.url !== url)) invalid()
+    if (!response.ok)
+      throw new ContractResponseError(
+        response.status,
+        undefined,
+        undefined,
+        retryAfterMilliseconds(response.headers.get('retry-after')),
+      )
+    if (response.status !== operation.success) invalid()
+    return response.headers
+  } finally {
+    deadline.dispose()
+  }
 }
 
 function admitUrl(
@@ -151,7 +167,7 @@ function admitUrl(
   policy: TusWorkflowPolicy,
   options: ContractClientOptions,
 ): string {
-  if (typeof raw !== 'string' || !URL.canParse(raw) || /[\s\\%?#]/u.test(raw)) invalid()
+  if (typeof raw !== 'string' || !URL.canParse(raw) || /[\s\\?#]/u.test(raw)) invalid()
   if (raw.split('/').some((part) => part === '.' || part === '..')) invalid()
   const parsed = new URL(raw)
   const candidate = operation.parameters.length === 0 && raw.endsWith('/') ? raw.slice(0, -1) : raw
@@ -161,7 +177,14 @@ function admitUrl(
     if (parameter === undefined) invalid()
     const prefix = path.split(`{${parameter.name}}`)[0]
     const id = parsed.pathname.slice(parsed.pathname.lastIndexOf('/') + 1)
-    if (!id || id === '.' || id === '..' || !parsed.pathname.endsWith(`${prefix}${id}`)) invalid()
+    if (
+      !id ||
+      id.includes('%') ||
+      id === '.' ||
+      id === '..' ||
+      !parsed.pathname.endsWith(`${prefix}${id}`)
+    )
+      invalid()
     path = path.replace(`{${parameter.name}}`, id)
   }
   const origin = admittedWorkflowDestination(candidate, path, policy.assembly, options)
@@ -179,6 +202,33 @@ function offset(headers: Headers, name: string, size: number): number {
 function record(value: unknown): Record<string, unknown> {
   if (!isWorkflowResponse(value)) invalid()
   return value
+}
+
+async function persistSession(
+  session: AssemblyUploadSession,
+  signal: AbortSignal,
+  callback: AssemblyUploadOptions['onSession'],
+): Promise<void> {
+  if (callback === undefined) return
+  await new Promise<void>((resolve, reject) => {
+    const abort = (): void => reject(signal.reason)
+    signal.addEventListener('abort', abort, { once: true })
+    Promise.resolve()
+      .then(() => {
+        signal.throwIfAborted()
+        return callback(session, signal)
+      })
+      .then(
+        () => {
+          signal.removeEventListener('abort', abort)
+          resolve()
+        },
+        (error: unknown) => {
+          signal.removeEventListener('abort', abort)
+          reject(error)
+        },
+      )
+  })
 }
 
 /** Native orchestration over generated discovery and protocol bindings, with no legacy fallback. */
@@ -256,7 +306,35 @@ export async function runTusUpload(
     )
       invalid()
     if (session !== undefined) admitUrl(session.uploadUrl, policy.head, policy, options)
-    const status = record(await discover(input.assemblyId, signal))
+    let retries = 0
+    const recover = async (error: unknown): Promise<void> => {
+      check()
+      if (
+        !(error instanceof TypeError) &&
+        !(
+          error instanceof ContractResponseError &&
+          (error.status === 409 ||
+            error.status === 429 ||
+            (error.status >= 500 && error.status <= 599))
+        )
+      )
+        throw error
+      if (retries++ >= maxRetries) throw error
+      const serverDelay = error instanceof ContractResponseError ? (error.retryAfter ?? 0) : 0
+      await delay(Math.min(timeout, Math.max(retryDelay, serverDelay)), undefined, { signal })
+      check()
+    }
+    const discoverStatus = async (): Promise<unknown> => {
+      for (;;) {
+        check()
+        try {
+          return await discover(input.assemblyId, signal)
+        } catch (error) {
+          await recover(error)
+        }
+      }
+    }
+    const status = record(await discoverStatus())
     check()
     if (status[policy.assembly.identityField] !== input.assemblyId) invalid()
     const ownerPath = policy.assembly.path.replace(
@@ -293,11 +371,13 @@ export async function runTusUpload(
         signal,
       )
       check()
+      if (headers.get(wire.headers.resumable) !== wire.version) invalid()
       const location = headers.get(wire.headers.location)
       if (
         !location ||
-        /[\s\\%?#]/u.test(location) ||
-        location.split('/').some((part) => part === '.' || part === '..')
+        /[\s\\?#]/u.test(location) ||
+        /^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/]*%/iu.test(location) ||
+        location.split('/').some((part) => /^(?:\.|%2e){1,2}$/iu.test(part))
       )
         invalid()
       const uploadUrl = admitUrl(new URL(location, collection).href, policy.head, policy, options)
@@ -310,27 +390,10 @@ export async function runTusUpload(
         fieldname,
         sha256,
       })
-      await input.onSession?.(session)
+      await persistSession(session, signal, input.onSession)
       check()
     }
     const uploadUrl = admitUrl(session.uploadUrl, policy.head, policy, options)
-    let retries = 0
-    const recover = async (error: unknown): Promise<void> => {
-      check()
-      if (
-        !(error instanceof TypeError) &&
-        !(
-          error instanceof ContractResponseError &&
-          (error.status === 409 ||
-            error.status === 429 ||
-            (error.status >= 500 && error.status <= 599))
-        )
-      )
-        throw error
-      if (retries++ >= maxRetries) throw error
-      await delay(retryDelay, undefined, { signal })
-      check()
-    }
     const head = async (): Promise<number> => {
       for (;;) {
         let headers: Headers

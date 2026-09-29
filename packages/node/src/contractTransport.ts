@@ -105,13 +105,38 @@ export class ContractResponseError extends Error {
   }
 }
 
-function retryAfterMilliseconds(header: string | null): number | undefined {
+/** Decode server backoff once for ordinary requests and credential-free tus recovery. */
+export function retryAfterMilliseconds(header: string | null): number | undefined {
   if (header === null) return
   const value = header.trim()
   if (/^[0-9]+$/u.test(value)) return Math.min(Number.MAX_SAFE_INTEGER, Number(value) * 1_000)
   if (!/[a-z]/iu.test(value)) return
   const date = Date.parse(value)
   return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined
+}
+
+/** Combine caller cancellation and one request deadline without retaining caller listeners. */
+export function requestDeadline(
+  caller: AbortSignal | undefined,
+  timeout: number,
+): { signal: AbortSignal | undefined; dispose(): void } {
+  const deadline = timeout === 0 ? undefined : AbortSignal.timeout(timeout)
+  const controller =
+    caller !== undefined && deadline !== undefined ? new AbortController() : undefined
+  const abortCaller = (): void => controller?.abort(caller?.reason)
+  const abortDeadline = (): void => controller?.abort(deadline?.reason)
+  if (controller !== undefined) {
+    if (caller?.aborted) abortCaller()
+    else caller?.addEventListener('abort', abortCaller, { once: true })
+    deadline?.addEventListener('abort', abortDeadline, { once: true })
+  }
+  return {
+    signal: caller === undefined ? deadline : deadline === undefined ? caller : controller?.signal,
+    dispose() {
+      caller?.removeEventListener('abort', abortCaller)
+      deadline?.removeEventListener('abort', abortDeadline)
+    },
+  }
 }
 
 function parseConfiguredEndpoint(value: string): URL {
@@ -305,22 +330,8 @@ export class ContractTransport {
     } else if (request.kind !== 'dispatch-only') {
       body = fields
     }
-    const deadline = this.#timeout === 0 ? undefined : AbortSignal.timeout(this.#timeout)
-    const controller =
-      input.signal !== undefined && deadline !== undefined ? new AbortController() : undefined
-    const abortCaller = (): void => controller?.abort(input.signal?.reason)
-    const abortDeadline = (): void => controller?.abort(deadline?.reason)
-    if (controller !== undefined) {
-      if (input.signal?.aborted) abortCaller()
-      else input.signal?.addEventListener('abort', abortCaller, { once: true })
-      deadline?.addEventListener('abort', abortDeadline, { once: true })
-    }
-    const signal =
-      input.signal === undefined
-        ? deadline
-        : deadline === undefined
-          ? input.signal
-          : controller?.signal
+    const deadline = requestDeadline(input.signal, this.#timeout)
+    const { signal } = deadline
     // This low-level namespace performs one HTTP attempt. Legacy gotRetry/maxRetries policies
     // are not copied across: replay safety for signed writes belongs to a higher-level workflow.
     try {
@@ -374,8 +385,7 @@ export class ContractTransport {
     } finally {
       // A workflow can issue many requests with one signal. Older supported Node versions retain
       // composite-signal dependencies; detach our forwarding listeners after every response/error.
-      input.signal?.removeEventListener('abort', abortCaller)
-      deadline?.removeEventListener('abort', abortDeadline)
+      deadline.dispose()
     }
   }
 }

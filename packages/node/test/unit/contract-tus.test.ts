@@ -14,12 +14,15 @@ const file = { data: new Blob(['test']), filename: 'input.txt' }
 
 function fixture(
   options: {
+    origin?: string
     location?: string
     head?: Record<string, string>
     creationStatus?: number
+    creationVersion?: string
     patchStatus?: number
   } = {},
 ) {
+  const endpoint = options.origin ?? origin
   let metadata = ''
   let position = 0
   const transport = vi.fn<typeof fetch>(async (input, init) => {
@@ -34,14 +37,18 @@ function fixture(
         return Response.json({
           assembly_id: assemblyId,
           ok: 'ASSEMBLY_UPLOADING',
-          assembly_ssl_url: `${origin}/assemblies/${assemblyId}`,
-          tus_url: `${origin}/resumable/files/`,
+          assembly_ssl_url: `${endpoint}/assemblies/${assemblyId}`,
+          tus_url: `${endpoint}/resumable/files/`,
         })
       case 'POST':
         metadata = request.headers.get('upload-metadata') ?? ''
         return new Response(null, {
           status: options.creationStatus ?? 201,
-          headers: { ...base, location: options.location ?? '/resumable/files/one' },
+          headers: {
+            ...base,
+            'tus-resumable': options.creationVersion ?? '1.0.0',
+            location: options.location ?? '/resumable/files/one',
+          },
         })
       case 'HEAD':
         return new Response(null, {
@@ -67,7 +74,7 @@ function fixture(
   return {
     transport,
     client: new ContractClient({
-      origin,
+      origin: endpoint,
       authentication: { kind: 'bearer', token: 'never-forward' },
       fetch: transport,
     }),
@@ -79,6 +86,8 @@ it.each([
   '//evil.example/resumable/files/one',
   `${origin}/resumable/files/../one`,
   `${origin}/resumable/files/%2e%2e`,
+  `${origin}/resumable/files/%2e%2e/files/one`,
+  'https://%61pi2-uploader.transloadit.com/resumable/files/one',
   `${origin}/resumable/files/one?override=DELETE`,
   `${origin}/resumable/files/one#fragment`,
   `${origin}/resumable/files/one/two`,
@@ -191,4 +200,142 @@ it('aborts an in-flight request at the overall deadline', async () => {
     { cause: { code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' } },
   )
   expect(transport).toHaveBeenCalledTimes(1)
+})
+
+it.each(['POST', 'HEAD', 'PATCH'])('applies the client request deadline to %s', async (method) => {
+  const { transport } = fixture()
+  const fetcher = vi.fn<typeof fetch>((input, init) => {
+    if (init?.method !== method) return transport(input, init)
+    return new Promise((_resolve, reject) => {
+      const signal = init?.signal
+      if (signal?.aborted) reject(signal.reason)
+      signal?.addEventListener('abort', () => reject(signal.reason), { once: true })
+    })
+  })
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'signed', key: 'unused', secret: 'unused' },
+    fetch: fetcher,
+    timeout: 20,
+  })
+  await expect(client.uploadAssemblyFile({ assemblyId, file, timeout: 100 })).rejects.toMatchObject(
+    { cause: { name: 'TimeoutError' } },
+  )
+  expect(fetcher.mock.calls.filter(([, init]) => init?.method === method)).toHaveLength(1)
+})
+
+it.each([
+  'GET',
+  'HEAD',
+  'PATCH',
+])('honors Retry-After on %s within the overall deadline', async (method) => {
+  const { transport } = fixture()
+  const fetcher = vi.fn<typeof fetch>((input, init) =>
+    init?.method === method
+      ? Promise.resolve(new Response(null, { status: 429, headers: { 'retry-after': '30' } }))
+      : transport(input, init),
+  )
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'signed', key: 'unused', secret: 'unused' },
+    fetch: fetcher,
+  })
+  await expect(
+    client.uploadAssemblyFile({ assemblyId, file, timeout: 100, retryDelay: 1 }),
+  ).rejects.toMatchObject({ cause: { code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' } })
+  expect(fetcher.mock.calls.filter(([, init]) => init?.method === method)).toHaveLength(1)
+})
+
+it.each([false, true])('bounds and retries discovery for resume=%s', async (resume) => {
+  const { client, transport } = fixture()
+  const session = resume ? await client.uploadAssemblyFile({ assemblyId, file }) : undefined
+  let reads = 0
+  const fetcher = vi.fn<typeof fetch>((input, init) => {
+    if (init?.method === 'GET' && ++reads === 1)
+      return Promise.resolve(new Response('null', { status: 503 }))
+    return transport(input, init)
+  })
+  const fresh = new ContractClient({
+    origin,
+    authentication: { kind: 'signed', key: 'unused', secret: 'unused' },
+    fetch: fetcher,
+  })
+  const result =
+    session === undefined
+      ? await fresh.uploadAssemblyFile({ assemblyId, file, retryDelay: 1 })
+      : await fresh.resumeAssemblyFile({ assemblyId, file, session, retryDelay: 1 })
+  expect(result.size).toBe(4)
+  expect(reads).toBe(2)
+})
+
+it.each([0, 1])('honors a shared discovery retry budget of %s', async (maxRetries) => {
+  const transport = vi.fn<typeof fetch>(() =>
+    Promise.resolve(new Response('null', { status: 503 })),
+  )
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'signed', key: 'unused', secret: 'unused' },
+    fetch: transport,
+  })
+  await expect(
+    client.uploadAssemblyFile({ assemblyId, file, maxRetries, retryDelay: 1 }),
+  ).rejects.toMatchObject({ session: undefined, cause: { status: 503 } })
+  expect(transport).toHaveBeenCalledTimes(maxRetries + 1)
+  expect(transport.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true)
+})
+
+it('retains an explicitly configured encoded proxy prefix for upload and fresh-client resume', async () => {
+  const endpoint = 'https://example.com/a%20b'
+  const { client, transport } = fixture({
+    origin: endpoint,
+    location: `${endpoint}/resumable/files/one`,
+  })
+  const session = await client.uploadAssemblyFile({ assemblyId, file })
+  const fresh = new ContractClient({
+    origin: endpoint,
+    authentication: { kind: 'signed', key: 'unused', secret: 'unused' },
+    fetch: transport,
+  })
+  await expect(fresh.resumeAssemblyFile({ assemblyId, file, session })).resolves.toEqual(session)
+  expect(transport.mock.calls.map(([, init]) => init?.method)).toEqual([
+    'GET',
+    'POST',
+    'HEAD',
+    'PATCH',
+    'GET',
+    'HEAD',
+  ])
+})
+
+it('rejects an incompatible creation response before persisting or following its Location', async () => {
+  const { client, transport } = fixture({ creationVersion: '2.0.0' })
+  const persist = vi.fn()
+  await expect(
+    client.uploadAssemblyFile({ assemblyId, file, onSession: persist }),
+  ).rejects.toBeInstanceOf(AssemblyUploadError)
+  expect(persist).not.toHaveBeenCalled()
+  expect(transport).toHaveBeenCalledTimes(2)
+})
+
+it('returns on caller abort even if checkpoint persistence never settles', async () => {
+  const { client, transport } = fixture()
+  const controller = new AbortController()
+  const reason = new Error('caller canceled persistence')
+  const pending = client
+    .uploadAssemblyFile({
+      assemblyId,
+      file,
+      signal: controller.signal,
+      onSession: async () => {
+        controller.abort(reason)
+        await new Promise<void>(() => {})
+      },
+    })
+    .catch((error: unknown) => error)
+  const result = await Promise.race([
+    pending,
+    new Promise((resolve) => setTimeout(() => resolve('still blocked'), 100)),
+  ])
+  expect(result).toMatchObject({ cause: reason, session: { size: 4 } })
+  expect(transport).toHaveBeenCalledTimes(2)
 })

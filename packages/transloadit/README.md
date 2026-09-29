@@ -70,7 +70,9 @@ const status = await api.waitForAssembly({ assemblyId, signal })
 ```
 
 `persistSession` is your callback for saving the serializable `AssemblyUploadSession` securely.
-It runs before any file bytes are sent; throw to stop if persistence fails. The session contains
+It runs before any file bytes are sent; throw to stop if persistence fails. Its second argument is
+the workflow's `AbortSignal`; use it to stop your persistence I/O when canceled. The SDK stops
+waiting on cancellation, but cannot undo side effects in your callback. The session contains
 a secret upload URL: do not log it or expose it to other users. After interruption, a new client
 can call `resumeAssemblyFile({ assemblyId, file, session, signal })` with that saved session and
 the original file. The SDK hashes the Blob in bounded chunks, rejects a changed file, validates
@@ -80,7 +82,8 @@ use `waitForAssembly` and inspect its terminal status to establish processing su
 
 Uploads default to 5 MiB chunks, a five-minute overall timeout and five recovery attempts.
 Configure `chunkSize`, `timeout`, `maxRetries` and `retryDelay` on the workflow. After an ambiguous
-PATCH failure, recovery reads the offset before sending more bytes. Creation is never retried:
+PATCH failure, recovery reads the offset before sending more bytes and honors `Retry-After`.
+The client's per-request timeout also applies to each tus request. Creation is never retried:
 if its response is lost before a session is saved, inspect the Assembly before starting another
 upload. `AssemblyUploadError` preserves `cause` and, when available, `session`; abort/timeout
 does not delete uploaded bytes or cancel the Assembly. Use `cancelAndWaitForAssembly` explicitly
