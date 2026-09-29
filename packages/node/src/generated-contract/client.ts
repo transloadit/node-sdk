@@ -1,9 +1,388 @@
-// Generated from API2 contract 06b059425307a10d1a068ab3800c74dfce6f5acd9c91cd773ccf23a20485752d. Do not edit.
+// Generated from API2 contract fa17ee496bcdfefd387310a12a3e57d5dc448a0fe4a323c0736740c167e0031b. Do not edit.
 import {
   ContractTransport,
   type ContractClientOptions,
   type UploadFile,
 } from '../contractTransport.ts'
+import { runAssemblyWorkflow, type AssemblyWorkflowOptions } from '../contractWorkflows.ts'
+export { AssemblyWorkflowTimeoutError } from '../contractWorkflows.ts'
+export type { AssemblyWorkflowOptions } from '../contractWorkflows.ts'
+export type AssemblyWorkflowResult = GetAssemblyResult
+const assemblyWorkflowPolicy = {
+  busyCodes: ['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'],
+  terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED', 'REQUEST_ABORTED'],
+  errorCodes: [
+    'ADMIN_PERMISSIONS_REQUIRED',
+    'AI_CHAT_VALIDATION',
+    'ASSEMBLY_ACCOUNT_MISMATCH',
+    'ASSEMBLY_CANNOT_BE_REPLAYED',
+    'ASSEMBLY_COULD_NOT_BE_CREATED',
+    'ASSEMBLY_CRASHED',
+    'ASSEMBLY_DISALLOWED_ROBOTS_USED',
+    'ASSEMBLY_EMPTY_STEPS',
+    'ASSEMBLY_EXECUTION_PROGRESS_NOT_ENABLED',
+    'ASSEMBLY_EXPIRED',
+    'ASSEMBLY_FILE_NOT_RESERVED',
+    'ASSEMBLY_INFINITE',
+    'ASSEMBLY_INVALID_NOTIFY_URL',
+    'ASSEMBLY_INVALID_NUM_EXPECTED_UPLOAD_FILES_PARAM',
+    'ASSEMBLY_INVALID_STEPS',
+    'ASSEMBLY_JOB_ENQUEUE_ERROR',
+    'ASSEMBLY_LIST_ERROR',
+    'ASSEMBLY_MEMORY_LIMIT_EXCEEDED',
+    'ASSEMBLY_NOTIFICATIONS_LIST_ERROR',
+    'ASSEMBLY_NOTIFICATION_LIST_ERROR',
+    'ASSEMBLY_NOTIFICATION_NOT_PERSISTED',
+    'ASSEMBLY_NOTIFICATION_NOT_REPLAYED',
+    'ASSEMBLY_NOT_CAPABLE',
+    'ASSEMBLY_NOT_FINISHED',
+    'ASSEMBLY_NOT_FOUND',
+    'ASSEMBLY_NOT_REPLAYED',
+    'ASSEMBLY_NO_CHARGEABLE_STEP',
+    'ASSEMBLY_NO_NOTIFY_URL',
+    'ASSEMBLY_NO_STEPS',
+    'ASSEMBLY_PLAN_FILE_SIZE_LIMIT_EXCEEDED',
+    'ASSEMBLY_ROBOT_MISSING',
+    'ASSEMBLY_SATURATED',
+    'ASSEMBLY_STATS_ERROR',
+    'ASSEMBLY_STATS_INVALID_TIME',
+    'ASSEMBLY_STATS_MISSING_REGION',
+    'ASSEMBLY_STATUS_FETCHING_RATE_LIMIT_REACHED',
+    'ASSEMBLY_STATUS_NOT_FOUND',
+    'ASSEMBLY_STATUS_PARSE_ERROR',
+    'ASSEMBLY_STEP_INVALID',
+    'ASSEMBLY_STEP_INVALID_ROBOT',
+    'ASSEMBLY_STEP_INVALID_USE',
+    'ASSEMBLY_STEP_NO_ROBOT',
+    'ASSEMBLY_STEP_UNKNOWN_ROBOT',
+    'ASSEMBLY_STEP_UNKNOWN_USE',
+    'ASSEMBLY_URL_TRANSFORM_MISSING',
+    'AUDIO_ARTWORK_VALIDATION',
+    'AUDIO_CONCAT_INVALID_INPUT',
+    'AUDIO_CONCAT_VALIDATION',
+    'AUDIO_ENCODE_VALIDATION',
+    'AUDIO_LOOP_VALIDATION',
+    'AUDIO_MERGE_VALIDATION',
+    'AUDIO_SPLIT_NO_OUTPUT',
+    'AUDIO_SPLIT_VALIDATION',
+    'AUDIO_WAVEFORM_VALIDATION',
+    'AUTH_EXPIRED',
+    'AUTH_KEYS_NOT_FOUND',
+    'AUTH_KEY_SCOPES_NOT_FOUND',
+    'AUTH_SECRET_NOT_RETRIEVED',
+    'AZURE_IMPORT_ACCESS_DENIED',
+    'AZURE_IMPORT_FAILURE',
+    'AZURE_IMPORT_NOT_FOUND',
+    'AZURE_IMPORT_VALIDATION',
+    'AZURE_STORE_ACCESS_DENIED',
+    'AZURE_STORE_NOT_FOUND',
+    'AZURE_STORE_VALIDATION',
+    'BACKBLAZE_IMPORT_ACCESS_DENIED',
+    'BACKBLAZE_IMPORT_FAILURE',
+    'BACKBLAZE_IMPORT_NOT_FOUND',
+    'BACKBLAZE_IMPORT_VALIDATION',
+    'BACKBLAZE_STORE_ACCESS_DENIED',
+    'BACKBLAZE_STORE_FAILURE',
+    'BACKBLAZE_STORE_VALIDATION',
+    'BAD_PRICING',
+    'BEARER_TOKEN_AUTH_KEY_MISMATCH',
+    'BEARER_TOKEN_EXPIRED',
+    'BEARER_TOKEN_INVALID',
+    'BILL_LIMIT_EXCEEDED',
+    'BOX_IMPORT_ACCESS_DENIED',
+    'BOX_IMPORT_FAILURE',
+    'BOX_IMPORT_NOT_FOUND',
+    'BOX_IMPORT_VALIDATION',
+    'BOX_STORE_COULD_NOT_PARSE_URL',
+    'BOX_STORE_VALIDATION',
+    'CANNOT_ACCEPT_NEW_ASSEMBLIES',
+    'CDN_REQUIRED',
+    'CLOUDFILES_IMPORT_ACCESS_DENIED',
+    'CLOUDFILES_IMPORT_FAILURE',
+    'CLOUDFILES_IMPORT_NOT_FOUND',
+    'CLOUDFILES_IMPORT_VALIDATION',
+    'CLOUDFILES_STORE_ACCESS_DENIED',
+    'CLOUDFILES_STORE_ERROR',
+    'CLOUDFILES_STORE_VALIDATION',
+    'CLOUDFLARE_IMPORT_ACCESS_DENIED',
+    'CLOUDFLARE_IMPORT_FAILURE',
+    'CLOUDFLARE_IMPORT_NOT_FOUND',
+    'CLOUDFLARE_IMPORT_VALIDATION',
+    'CLOUDFLARE_STORE_ACCESS_DENIED',
+    'CLOUDFLARE_STORE_NOT_FOUND',
+    'CLOUDFLARE_STORE_URL_VERIFICATION_FAILURE',
+    'CLOUDFLARE_STORE_VALIDATION',
+    'CLOUDFLARE_STORE_WRONG_REGION',
+    'CLOUD_AI_IMAGE_VALIDATION',
+    'DIGITALOCEAN_IMPORT_ACCESS_DENIED',
+    'DIGITALOCEAN_IMPORT_FAILURE',
+    'DIGITALOCEAN_IMPORT_NOT_FOUND',
+    'DIGITALOCEAN_IMPORT_VALIDATION',
+    'DIGITALOCEAN_STORE_ACCESS_DENIED',
+    'DIGITALOCEAN_STORE_NOT_FOUND',
+    'DIGITALOCEAN_STORE_VALIDATION',
+    'DIGITALOCEAN_STORE_WRONG_REGION',
+    'DOCUMENT_AUTOROTATE_VALIDATION',
+    'DOCUMENT_CONVERT_UNSUPPORTED_CONVERSION',
+    'DOCUMENT_CONVERT_VALIDATION',
+    'DOCUMENT_EXTRACT_VALIDATION',
+    'DOCUMENT_MERGE_UNSUPPORTED_CONVERSION',
+    'DOCUMENT_MERGE_VALIDATION',
+    'DOCUMENT_OCR_VALIDATION',
+    'DOCUMENT_OPTIMIZE_UNSUPPORTED_INPUT',
+    'DOCUMENT_OPTIMIZE_VALIDATION',
+    'DOCUMENT_SPLIT_VALIDATION',
+    'DOCUMENT_THUMBS_INVALID_INPUT',
+    'DOCUMENT_THUMBS_VALIDATION',
+    'DO_NOT_REUSE_ASSEMBLY_IDS',
+    'DROPBOX_IMPORT_ACCESS_DENIED',
+    'DROPBOX_IMPORT_FAILURE',
+    'DROPBOX_IMPORT_NOT_FOUND',
+    'DROPBOX_IMPORT_VALIDATION',
+    'DROPBOX_STORE_COULD_NOT_PARSE_URL',
+    'DROPBOX_STORE_VALIDATION',
+    'FILE_COMPRESS_INVALID_INPUT',
+    'FILE_COMPRESS_VALIDATION',
+    'FILE_DECOMPRESS_INVALID_INPUT',
+    'FILE_DECOMPRESS_PASSWORD_INCORRECT',
+    'FILE_DECOMPRESS_PASSWORD_REQUIRED',
+    'FILE_DECOMPRESS_VALIDATION',
+    'FILE_DOWNLOAD_ERROR',
+    'FILE_FILTER_DECLINED_FILE',
+    'FILE_FILTER_INVALID_OPERATOR',
+    'FILE_FILTER_VALIDATION',
+    'FILE_HASH_VALIDATION',
+    'FILE_META_DATA_ERROR',
+    'FILE_PREVIEW_VALIDATION',
+    'FILE_READ_VALIDATION_ERROR',
+    'FILE_SERVE_NO_RESULT',
+    'FILE_SERVE_VALIDATION',
+    'FILE_VERIFY_INVALID_FILE',
+    'FILE_VERIFY_VALIDATION',
+    'FILE_VIRUSSCAN_DECLINED_FILE',
+    'FILE_VIRUSSCAN_INVALID_INPUT',
+    'FILE_VIRUSSCAN_VALIDATION',
+    'FTP_IMPORT_ACCESS_DENIED',
+    'FTP_IMPORT_FAILURE',
+    'FTP_IMPORT_NOT_FOUND',
+    'FTP_IMPORT_VALIDATION',
+    'FTP_STORE_VALIDATION',
+    'GET_ACCOUNT_DB_ERROR',
+    'GET_ACCOUNT_UNKNOWN_AUTH_KEY',
+    'GOOGLE_IMPORT_ACCESS_DENIED',
+    'GOOGLE_IMPORT_FAILURE',
+    'GOOGLE_IMPORT_NOT_FOUND',
+    'GOOGLE_IMPORT_VALIDATION',
+    'GOOGLE_STORE_INVALID_INPUT',
+    'GOOGLE_STORE_VALIDATION',
+    'HTML_CONVERT_VALIDATION',
+    'HTTP_IMPORT_ACCESS_DENIED',
+    'HTTP_IMPORT_FAILURE',
+    'HTTP_IMPORT_NOT_FOUND',
+    'HTTP_IMPORT_VALIDATION',
+    'HTTP_REQUEST_FAILURE',
+    'HTTP_REQUEST_VALIDATION',
+    'IMAGE_BGREMOVE_VALIDATION',
+    'IMAGE_COPYRIGHT_DETECT_DECLINED_FILE',
+    'IMAGE_COPYRIGHT_DETECT_VALIDATION',
+    'IMAGE_DESCRIBE_VALIDATION',
+    'IMAGE_ENHANCE_NO_INPUT_FILE',
+    'IMAGE_ENHANCE_VALIDATION',
+    'IMAGE_FACEDETECT_VALIDATION',
+    'IMAGE_GENERATE_VALIDATION',
+    'IMAGE_MERGE_FAILURE',
+    'IMAGE_MERGE_VALIDATION',
+    'IMAGE_OCR_VALIDATION',
+    'IMAGE_OPTIMIZE_VALIDATION',
+    'IMAGE_RESIZE_ERROR',
+    'IMAGE_RESIZE_INVALID_BLUR_REGION',
+    'IMAGE_RESIZE_INVALID_TEXT_OBJECT_VALUE',
+    'IMAGE_RESIZE_INVALID_TEXT_VALUE',
+    'IMAGE_RESIZE_INVALID_WATERMARK_OFFSET',
+    'IMAGE_RESIZE_INVALID_WATERMARK_POSITION',
+    'IMAGE_RESIZE_NO_CLUT_FILE',
+    'IMAGE_RESIZE_NO_INPUT_FILE',
+    'IMAGE_RESIZE_VALIDATION',
+    'IMAGE_UPSCALE_VALIDATION',
+    'IMPORT_FILE_ERROR',
+    'INCOMPLETE_PRICING',
+    'INSUFFICIENT_AUTH_SCOPE',
+    'INTERNAL_COMMAND_ERROR',
+    'INTERNAL_COMMAND_TIMEOUT',
+    'INVALID_ASSEMBLY_STATUS',
+    'INVALID_AUTH_EXPIRES_PARAMETER',
+    'INVALID_AUTH_KEY_PARAMETER',
+    'INVALID_AUTH_MAX_NUMBER_OF_FILES_PARAMETER',
+    'INVALID_AUTH_MAX_SIZE_PARAMETER',
+    'INVALID_AUTH_REFERER_PARAMETER',
+    'INVALID_FILE_META_DATA',
+    'INVALID_FORM_DATA',
+    'INVALID_INPUT_ERROR',
+    'INVALID_PARAMS_FIELD',
+    'INVALID_SIGNATURE',
+    'INVALID_STEP_NAME',
+    'INVALID_TEMPLATE_FIELD',
+    'INVALID_UPLOAD_HANDLE_STEP_NAME',
+    'INVALID_URL_ENCODING',
+    'MAX_NUMBER_OF_FILES_EXCEEDED',
+    'MAX_SIZE_EXCEEDED',
+    'MEGA_IMPORT_ACCESS_DENIED',
+    'MEGA_IMPORT_FAILURE',
+    'MEGA_IMPORT_NOT_FOUND',
+    'MEGA_IMPORT_VALIDATION',
+    'MEGA_STORE_ACCESS_DENIED',
+    'MEGA_STORE_NOT_FOUND',
+    'MEGA_STORE_VALIDATION',
+    'MEGA_STORE_WRONG_REGION',
+    'META_WRITE_VALIDATION',
+    'MINIO_IMPORT_ACCESS_DENIED',
+    'MINIO_IMPORT_FAILURE',
+    'MINIO_IMPORT_NOT_FOUND',
+    'MINIO_IMPORT_VALIDATION',
+    'MINIO_STORE_ACCESS_DENIED',
+    'MINIO_STORE_NOT_FOUND',
+    'MINIO_STORE_VALIDATION',
+    'MINIO_STORE_WRONG_REGION',
+    'NO_AUTH_EXPIRES_PARAMETER',
+    'NO_AUTH_KEY_PARAMETER',
+    'NO_AUTH_PARAMETER',
+    'NO_COUNTRY',
+    'NO_OBJECT_AUTH_PARAMETER',
+    'NO_OBJECT_PARAMS_FIELD',
+    'NO_PARAMS_FIELD',
+    'NO_PRICING',
+    'NO_RESULT_STEP_FOUND',
+    'NO_RPC_RESULT_FROM_IMAGE_RESIZER',
+    'NO_SIGNATURE_FIELD',
+    'NO_TEMPLATE_ID',
+    'PLAN_LIMIT_EXCEEDED',
+    'POSSIBLY_MALICIOUS_FILE_FOUND',
+    'PRIORITY_JOB_SLOTS_NOT_FOUND',
+    'PRIORITY_JOB_SLOT_STATS_ERROR',
+    'PRIORITY_JOB_SLOT_STATS_INVALID_AGGREGATION',
+    'PRIORITY_JOB_SLOT_STATS_INVALID_TIME',
+    'PRIORITY_JOB_SLOT_STATS_MISSING_REGION',
+    'RATE_LIMIT_REACHED',
+    'REFERER_MISMATCH',
+    'REQUEST_PREMATURE_CLOSED',
+    'ROBOT_VALIDATION_BASE_ERROR',
+    'S3_ACCESS_DENIED',
+    'S3_IMPORT_ACCESS_DENIED',
+    'S3_IMPORT_FAILURE',
+    'S3_IMPORT_NOT_FOUND',
+    'S3_IMPORT_VALIDATION',
+    'S3_NOT_FOUND',
+    'S3_STORE_ACCESS_DENIED',
+    'S3_STORE_FAILURE',
+    'S3_STORE_NOT_FOUND',
+    'S3_STORE_URL_VERIFICATION_FAILURE',
+    'S3_STORE_VALIDATION',
+    'S3_STORE_WRONG_REGION',
+    'S3_WRONG_REGION',
+    'SCRIPT_RUN_VALIDATION',
+    'SERVER_403',
+    'SERVER_404',
+    'SERVER_500',
+    'SFTP_IMPORT_ACCESS_DENIED',
+    'SFTP_IMPORT_FAILURE',
+    'SFTP_IMPORT_NOT_FOUND',
+    'SFTP_IMPORT_VALIDATION',
+    'SFTP_STORE_VALIDATION',
+    'SIGNATURE_REUSE_DETECTED',
+    'SPEECH_TRANSCRIBE_VALIDATION',
+    'STORAGE_GRANT_NOT_CREATED',
+    'SUPABASE_IMPORT_ACCESS_DENIED',
+    'SUPABASE_IMPORT_FAILURE',
+    'SUPABASE_IMPORT_NOT_FOUND',
+    'SUPABASE_IMPORT_VALIDATION',
+    'SUPABASE_STORE_ACCESS_DENIED',
+    'SUPABASE_STORE_NOT_FOUND',
+    'SUPABASE_STORE_VALIDATION',
+    'SUPABASE_STORE_WRONG_REGION',
+    'SWIFT_IMPORT_ACCESS_DENIED',
+    'SWIFT_IMPORT_FAILURE',
+    'SWIFT_IMPORT_NOT_FOUND',
+    'SWIFT_IMPORT_VALIDATION',
+    'SWIFT_STORE_ACCESS_DENIED',
+    'SWIFT_STORE_NOT_FOUND',
+    'SWIFT_STORE_VALIDATION',
+    'SWIFT_STORE_WRONG_REGION',
+    'TEMPLATE_CREDENTIALS_INJECTION_ERROR',
+    'TEMPLATE_DB_ERROR',
+    'TEMPLATE_DENIES_STEPS_OVERRIDE',
+    'TEMPLATE_INVALID_JSON',
+    'TEMPLATE_NOT_FOUND',
+    'TEXT_SPEAK_VALIDATION',
+    'TEXT_TRANSLATE_VALIDATION',
+    'TIGRIS_IMPORT_ACCESS_DENIED',
+    'TIGRIS_IMPORT_FAILURE',
+    'TIGRIS_IMPORT_NOT_FOUND',
+    'TIGRIS_IMPORT_VALIDATION',
+    'TIGRIS_STORE_ACCESS_DENIED',
+    'TIGRIS_STORE_NOT_FOUND',
+    'TIGRIS_STORE_VALIDATION',
+    'TIGRIS_STORE_WRONG_REGION',
+    'TMP_FILE_DOWNLOAD_ERROR',
+    'TOKEN_INVALID_CREDENTIALS',
+    'TRANSIENT_STORAGE_SERVICE_ERROR',
+    'TRANSLOADIT_IMPORT_ACCESS_DENIED',
+    'TRANSLOADIT_IMPORT_FAILURE',
+    'TRANSLOADIT_IMPORT_NOT_FOUND',
+    'TRANSLOADIT_IMPORT_VALIDATION',
+    'TRANSLOADIT_STORE_CONFLICT',
+    'TRANSLOADIT_STORE_FAILURE',
+    'TRANSLOADIT_STORE_UNAVAILABLE',
+    'TRANSLOADIT_STORE_VALIDATION',
+    'TUS_STORE_VALIDATION',
+    'USER_COMMAND_ERROR',
+    'VERIFIED_EMAIL_REQUIRED',
+    'VIDEO_ADAPTIVE_VALIDATION',
+    'VIDEO_ARTWORK_VALIDATION',
+    'VIDEO_CONCAT_INVALID_INPUT',
+    'VIDEO_CONCAT_NO_OUTPUT',
+    'VIDEO_CONCAT_VALIDATION',
+    'VIDEO_ENCODE_INVALID_VIDEO_CODEC',
+    'VIDEO_ENCODE_INVALID_WATERMARK_POSITION',
+    'VIDEO_ENCODE_VALIDATION',
+    'VIDEO_GENERATE_VALIDATION',
+    'VIDEO_MERGE_NO_IMAGE_FOUND',
+    'VIDEO_MERGE_VALIDATION',
+    'VIDEO_ONDEMAND_NOT_FOUND',
+    'VIDEO_ONDEMAND_VALIDATION',
+    'VIDEO_SPLIT_NO_OUTPUT',
+    'VIDEO_SPLIT_VALIDATION',
+    'VIDEO_SUBTITLE_VALIDATION',
+    'VIDEO_THUMBS_INVALID_COUNT_VALUE',
+    'VIDEO_THUMBS_INVALID_FORMAT',
+    'VIDEO_THUMBS_INVALID_INPUT',
+    'VIDEO_THUMBS_VALIDATION',
+    'VIMEO_IMPORT_ACCESS_DENIED',
+    'VIMEO_IMPORT_FAILURE',
+    'VIMEO_IMPORT_NOT_FOUND',
+    'VIMEO_IMPORT_VALIDATION',
+    'VIMEO_STORE_ACCESS_DENIED',
+    'VIMEO_STORE_PROBLEM_SENDING_FILE',
+    'VIMEO_STORE_VALIDATION',
+    'WASABI_IMPORT_ACCESS_DENIED',
+    'WASABI_IMPORT_FAILURE',
+    'WASABI_IMPORT_NOT_FOUND',
+    'WASABI_IMPORT_VALIDATION',
+    'WASABI_STORE_ACCESS_DENIED',
+    'WASABI_STORE_NOT_FOUND',
+    'WASABI_STORE_VALIDATION',
+    'WASABI_STORE_WRONG_REGION',
+    'WORKER_JOB_ERROR',
+    'YOUTUBE_STORE_PROBLEM_SENDING_FILE',
+    'YOUTUBE_STORE_VALIDATION',
+  ],
+  publicHostPattern: '^api2-[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?\\.transloadit\\.com$',
+  rejectedHostPrefixes: ['api2-xn--'],
+  identityField: 'assembly_id',
+  assemblyField: 'assembly_ssl_url',
+  path: '/assemblies/{assemblyId}',
+  parameter: 'assemblyId',
+  pattern: '^[a-z0-9]{32}$',
+}
 export { ContractResponseError } from '../contractTransport.ts'
 export type { ContractClientOptions, UploadFile } from '../contractTransport.ts'
 export const contractSignatureAlgorithms = ['sha384', 'sha256', 'sha1'] as const
@@ -27182,7 +27561,9 @@ export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
  * The state in which this image was taken, such as `"Berlin"`.
  */
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State =
-  null | string
+  ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_State_Variant | null
+export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  string | number
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams =
   ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Streams_Object | null
 export type CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -28340,7 +28721,9 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt = nul
 /**
  * The state in which this image was taken, such as `"Berlin"`.
  */
-export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State = null | string
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State =
+  ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_State_Variant | null
+export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant = string | number
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams =
   ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Streams_Object | null
 export type CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams_Object = {
@@ -50970,6 +51353,8 @@ export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Starts
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CancelAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -51375,6 +51760,8 @@ export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type CancelAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -51810,6 +52197,8 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CancelAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Streams_Object =
@@ -52208,6 +52597,8 @@ export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Starts
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CancelAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -52636,6 +53027,8 @@ export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type CancelAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -53071,6 +53464,8 @@ export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CancelAssemblyResult_WithError_Uploads_Item_Object_Meta_Streams_Object =
@@ -53469,6 +53864,8 @@ export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Star
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CancelAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -53948,6 +54345,8 @@ export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type CreateAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -54390,6 +54789,8 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CreateAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams_Object =
@@ -54788,6 +55189,8 @@ export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Starts
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CreateAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -55259,6 +55662,8 @@ export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Ob
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type CreateAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -55701,6 +56106,8 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CreateAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Streams_Object =
@@ -56099,6 +56506,8 @@ export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Starts
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CreateAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -56596,6 +57005,8 @@ export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type CreateAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -57039,6 +57450,8 @@ export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CreateAssemblyResult_WithError_Uploads_Item_Object_Meta_Streams_Object =
@@ -57437,6 +57850,8 @@ export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Star
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type CreateAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -57933,6 +58348,8 @@ export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Objec
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type GetAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -58373,6 +58790,8 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type GetAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams_Object =
@@ -58771,6 +59190,8 @@ export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_StartsAt 
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type GetAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -59239,6 +59660,8 @@ export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Objec
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type GetAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -59679,6 +60102,8 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type GetAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Streams_Object =
@@ -60077,6 +60502,8 @@ export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_StartsAt 
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type GetAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -60562,6 +60989,8 @@ export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Obj
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type GetAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -61004,6 +61433,8 @@ export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type GetAssemblyResult_WithError_Uploads_Item_Object_Meta_Streams_Object =
@@ -61402,6 +61833,8 @@ export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_StartsA
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type GetAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -61949,6 +62382,8 @@ export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_O
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type ReplaceAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -62391,6 +62826,8 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams_Object =
@@ -62789,6 +63226,8 @@ export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Start
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type ReplaceAssemblyResult_WithOk1_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -63260,6 +63699,8 @@ export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_O
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type ReplaceAssemblyResult_WithOk2_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -63702,6 +64143,8 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_Object_Meta_Streams_Object =
@@ -64100,6 +64543,8 @@ export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Start
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type ReplaceAssemblyResult_WithOk2_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -64597,6 +65042,8 @@ export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_StartsAt
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_State =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State
+export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_State_Variant =
+  CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_State_Variant
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Streams =
   CancelAssemblyResult_WithOk1_Results_AdditionalProperty_Item_Meta_Object_Streams
 export type ReplaceAssemblyResult_WithError_Results_AdditionalProperty_Item_Meta_Object_Streams_Object =
@@ -65040,6 +65487,8 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_StartsAt =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type ReplaceAssemblyResult_WithError_Uploads_Item_Object_Meta_Streams_Object =
@@ -65438,6 +65887,8 @@ export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Sta
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_StartsAt
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_State =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State
+export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_State_Variant =
+  CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_State_Variant
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Streams =
   CancelAssemblyResult_WithOk1_Uploads_Item_Object_Meta_Streams
 export type ReplaceAssemblyResult_WithError_Uploads_Item_WithOriginalId_Meta_Streams_Object =
@@ -67044,6 +67495,42 @@ export class ContractClient extends ContractTransport {
         },
       },
       input,
+    )
+  }
+  /** Wait for a terminal status on the owning uploader. A terminal error or cancellation is returned, not treated as successful processing. */
+  waitForAssembly(input: AssemblyWorkflowOptions): Promise<AssemblyWorkflowResult> {
+    return runAssemblyWorkflow(
+      input,
+      false,
+      assemblyWorkflowPolicy,
+      this.workflowOptions(),
+      (signal) => this.getAssembly({ path: { assemblyId: input.assemblyId }, signal }),
+      (options) => {
+        const owner = new ContractClient(options)
+        return {
+          read: (signal) => owner.getAssembly({ path: { assemblyId: input.assemblyId }, signal }),
+          cancel: (signal) =>
+            owner.cancelAssembly({ path: { assemblyId: input.assemblyId }, signal }),
+        }
+      },
+    )
+  }
+  /** Cancel once on the owning uploader, then wait for a terminal status. A terminal error or cancellation is returned, not treated as successful processing. */
+  cancelAndWaitForAssembly(input: AssemblyWorkflowOptions): Promise<AssemblyWorkflowResult> {
+    return runAssemblyWorkflow(
+      input,
+      true,
+      assemblyWorkflowPolicy,
+      this.workflowOptions(),
+      (signal) => this.getAssembly({ path: { assemblyId: input.assemblyId }, signal }),
+      (options) => {
+        const owner = new ContractClient(options)
+        return {
+          read: (signal) => owner.getAssembly({ path: { assemblyId: input.assemblyId }, signal }),
+          cancel: (signal) =>
+            owner.cancelAssembly({ path: { assemblyId: input.assemblyId }, signal }),
+        }
+      },
     )
   }
 }

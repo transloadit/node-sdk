@@ -6,7 +6,10 @@
 
 Add contract-generated ordinary HTTP methods through `client.contract()` and the `/contract`
 entrypoint. The new methods support signed requests or explicit
-bearer authentication; they do not implement native TUS or Assembly lifecycle orchestration.
+bearer authentication. Add explicit `waitForAssembly` and `cancelAndWaitForAssembly` workflows over
+these methods, with source-owned uploader admission, overall deadlines and terminal-status checks.
+Cancellation is one attempt on the owning uploader, never an automatically retried write. Native
+TUS, upload orchestration and resumability remain outside this experimental namespace.
 
 Generated public types retain source documentation. Optional-only params can be omitted, JSON
 response objects fit the exported `JsonValue`, and `ContractResponseError.code` exposes recognized
@@ -17,5 +20,5 @@ Add shared executable workflow fixtures for the existing public SDK. Fix its pol
 abort in-flight status requests and rate-limit retry waits, and reject late success responses as
 `POLLING_TIMED_OUT`, instead of waiting past the caller's budget. This also applies when
 `createAssembly` or `resumeAssemblyUploads` shares its remaining timeout with completion polling.
-The generated low-level client does not implement these workflows. The `contract()` adapter rounds
+The `contract()` adapter rounds
 positive fractional millisecond timeouts up to the next integer rather than rejecting them.

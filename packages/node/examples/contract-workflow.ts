@@ -3,7 +3,6 @@ import type { CreateTemplateParams } from '@transloadit/node/contract'
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { basename } from 'node:path'
-import { setTimeout as delay } from 'node:timers/promises'
 
 import {
   ContractClient,
@@ -42,27 +41,17 @@ async function main(): Promise<void> {
   const failures: unknown[] = []
   try {
     await client.getTemplate({ path: { templateIdOrName: created.id }, signal })
-    let status = await client.createAssembly({
+    const uploaded = await client.createAssembly({
       params: { template_id: created.id },
       files: { file: { data: new Blob([data]), filename: basename(filename) } },
       signal,
     })
-    assemblyId = status.assembly_id
+    assemblyId = uploaded.assembly_id
     if (!assemblyId) throw new Error('The API did not return an Assembly ID')
-    // Polling belongs to this example, not the low-level client's one-attempt HTTP methods.
-    while (status.ok !== 'ASSEMBLY_COMPLETED') {
-      if (
-        'error' in status ||
-        status.ok === 'ASSEMBLY_CANCELED' ||
-        status.ok === 'REQUEST_ABORTED'
-      ) {
-        finished = true
-        throw new Error('Assembly processing did not complete successfully')
-      }
-      await delay(1_000, undefined, { signal })
-      status = await client.getAssembly({ path: { assemblyId }, signal })
-    }
+    const status = await client.waitForAssembly({ assemblyId, signal })
     finished = true
+    if (status.ok !== 'ASSEMBLY_COMPLETED')
+      throw new Error('Assembly processing did not complete successfully')
     const result = status.results?.resize?.[0]
     if (!result?.ssl_url) throw new Error('The completed Assembly has no resized image URL')
     console.log('Resized image:', result.ssl_url)
@@ -76,7 +65,7 @@ async function main(): Promise<void> {
       signal: AbortSignal.timeout(15_000),
     }),
     ...(!finished && assemblyId
-      ? [client.cancelAssembly({ path: { assemblyId }, signal: AbortSignal.timeout(15_000) })]
+      ? [client.cancelAndWaitForAssembly({ assemblyId, signal: AbortSignal.timeout(15_000) })]
       : []),
   ])
   for (const result of cleanup) {

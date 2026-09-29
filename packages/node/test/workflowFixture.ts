@@ -49,6 +49,12 @@ export const workflowVectors = z
     version: z.literal(1),
     credentials: z.object({ key: z.string(), secret: z.string() }),
     assemblyId: z.string(),
+    admission: z.object({
+      assemblyId: z.string(),
+      acceptedOrigins: z.array(z.string()),
+      rejectedOrigins: z.array(z.string()),
+      rejectedAssemblyPaths: z.array(z.string()),
+    }),
     cases: z.array(workflowCaseSchema).nonempty(),
     smartCdn: z
       .array(

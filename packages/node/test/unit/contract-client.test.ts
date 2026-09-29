@@ -374,3 +374,36 @@ describe('contract-generated methods', () => {
     expect(calls).toBe(0)
   })
 })
+it('cancels on the returned uploader and waits when DELETE still reports an active Assembly', async () => {
+  const assemblyId = '11111111111111111111111111111111'
+  const owner = 'https://api2-owner.transloadit.com'
+  const requests: string[] = []
+  const client = new ContractClient({
+    origin: 'https://api.example.invalid',
+    authentication: { kind: 'bearer', token: 'must-not-be-forwarded' },
+    fetch: (input, init) => {
+      const url = String(input)
+      requests.push(`${init?.method} ${url}`)
+      expect(new Headers(init?.headers).has('authorization')).toBe(false)
+      expect(init?.redirect).toBe('error')
+      expect(init?.credentials).toBe('omit')
+      return Promise.resolve(
+        Response.json({
+          assembly_id: assemblyId,
+          assembly_ssl_url: `${owner}/assemblies/${assemblyId}`,
+          ok: requests.length < 3 ? 'ASSEMBLY_EXECUTING' : 'ASSEMBLY_CANCELED',
+        }),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId, interval: 1 })).resolves.toMatchObject(
+    {
+      ok: 'ASSEMBLY_CANCELED',
+    },
+  )
+  expect(requests).toEqual([
+    `GET https://api.example.invalid/assemblies/${assemblyId}`,
+    `DELETE ${owner}/assemblies/${assemblyId}`,
+    `GET ${owner}/assemblies/${assemblyId}`,
+  ])
+})

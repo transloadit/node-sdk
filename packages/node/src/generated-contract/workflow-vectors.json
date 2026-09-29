@@ -6,6 +6,69 @@
     "secret": "workflow-test-secret"
   },
   "assemblyId": "11111111111111111111111111111111",
+  "admission": {
+    "assemblyId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "acceptedOrigins": [
+      "https://api2-cell.transloadit.com",
+      "https://API2-CELL.TRANSLOADIT.COM:443",
+      "https://api2-a.transloadit.com",
+      "https://api2-a-b.transloadit.com"
+    ],
+    "rejectedOrigins": [
+      "https://outside.invalid",
+      "http://api2-cell.transloadit.com",
+      "https://api2-cell.transloadit.com:444",
+      "https://api2-cell.transloadit.com.evil.invalid",
+      "https://api2-cell.transloadit.com.",
+      "https://api2-cell.extra.transloadit.com",
+      "https://api2-.transloadit.com",
+      "https://api2--a.transloadit.com",
+      "https://api2-a-.transloadit.com",
+      "https://api2-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.transloadit.com",
+      "https://api2-xn--a.transloadit.com",
+      "https://api2-céll.transloadit.com",
+      "https://%61pi2-cell.transloadit.com",
+      "https://api2-cell.transloadit.com@outside.invalid",
+      "https://user@api2-cell.transloadit.com",
+      "https://api2-\ncell.transloadit.com",
+      " https://api2-cell.transloadit.com",
+      "https:\\api2-cell.transloadit.com"
+    ],
+    "rejectedAssemblyPaths": [
+      "/assemblies/%61aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "/assemblies/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "/assemblies/../assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "/assemblies/%2e%2e/assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "/assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?method=delete",
+      "/assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa?",
+      "/assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#",
+      "/assemblies/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/",
+      "/assemblies/%252e%252e",
+      "/assemblies/%2f",
+      "/assemblies/%zz",
+      "/assemblies/a\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "rejectedLocations": [
+      "",
+      "//outside.invalid/resumable/files/upload",
+      "https://outside.invalid/resumable/files/upload",
+      "https://%61pi2-cell.transloadit.com/resumable/files/upload",
+      "/resumable/files/../files/upload",
+      "/resumable/files/%2e%2e",
+      "/resumable/files/%252e%252e",
+      "/resumable/files/%2f",
+      "/resumable/files/up%20load",
+      "/resumable/files/upload?method=delete",
+      "/resumable/files/upload#",
+      "/resumable/files/upload?",
+      "/resumable/files/upload/other",
+      "upload"
+    ],
+    "rebalancedLocations": [
+      "https://api2-rebalanced.transloadit.com/resumable/files/upload",
+      "//api2-rebalanced.transloadit.com/resumable/files/upload"
+    ]
+  },
   "cases": [
     {
       "id": "upload-bytes",

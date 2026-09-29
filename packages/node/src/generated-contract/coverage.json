@@ -1,7 +1,7 @@
 {
   "format": "transloadit-sdk-coverage",
   "version": 1,
-  "contractSha256": "06b059425307a10d1a068ab3800c74dfce6f5acd9c91cd773ccf23a20485752d",
+  "contractSha256": "fa17ee496bcdfefd387310a12a3e57d5dc448a0fe4a323c0736740c167e0031b",
   "inventory": [
     {
       "id": "sha256:d2436a8775b998d953f51b7b041e01e98294ed7e732ee7f78dff0af779c28634",

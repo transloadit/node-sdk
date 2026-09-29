@@ -5,6 +5,7 @@ import path from 'node:path'
 
 import { expect, it } from 'vitest'
 
+import { ContractClient } from '../../src/generated-contract/client.ts'
 import { Transloadit } from '../../src/Transloadit.ts'
 import { workflowServer, workflowVectors } from '../workflowFixture.ts'
 
@@ -31,10 +32,15 @@ it.each(workflowVectors.cases)('shared public SDK workflow: $id', async (scenari
     authSecret: workflowVectors.credentials.secret,
     endpoint: server.origin,
   })
+  const contract = new ContractClient({
+    origin: server.origin,
+    authentication: { kind: 'signed', ...workflowVectors.credentials },
+  })
   try {
     switch (scenario.kind) {
       case 'wait': {
-        const result = await client.awaitAssemblyCompletion(workflowVectors.assemblyId, {
+        const result = await contract.waitForAssembly({
+          assemblyId: workflowVectors.assemblyId,
           interval: 1,
           timeout: 5000,
         })
@@ -47,24 +53,31 @@ it.each(workflowVectors.cases)('shared public SDK workflow: $id', async (scenari
         const reason = new Error('owned workflow interruption')
         controller.abort(reason)
         await expect(
-          client.awaitAssemblyCompletion(workflowVectors.assemblyId, { signal: controller.signal }),
+          contract.waitForAssembly({
+            assemblyId: workflowVectors.assemblyId,
+            signal: controller.signal,
+          }),
         ).rejects.toBe(reason)
         expect(server.requests).toEqual([])
         break
       }
       case 'deadline':
         await expect(
-          client.awaitAssemblyCompletion(workflowVectors.assemblyId, { timeout: 500, interval: 1 }),
-        ).rejects.toMatchObject({ code: 'POLLING_TIMED_OUT' })
+          contract.waitForAssembly({
+            assemblyId: workflowVectors.assemblyId,
+            timeout: 500,
+            interval: 1,
+          }),
+        ).rejects.toMatchObject({ code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' })
         expect(server.requests.length).toBeGreaterThan(0)
         break
       case 'cancel': {
-        expect(await client.cancelAssembly(workflowVectors.assemblyId)).toMatchObject(
-          scenario.expected,
-        )
-        expect(await client.awaitAssemblyCompletion(workflowVectors.assemblyId)).toMatchObject(
-          scenario.expected,
-        )
+        expect(
+          await contract.cancelAndWaitForAssembly({
+            assemblyId: workflowVectors.assemblyId,
+            interval: 1,
+          }),
+        ).toMatchObject(scenario.expected)
         expect(server.requests.filter((request) => request.startsWith('DELETE '))).toHaveLength(1)
         break
       }

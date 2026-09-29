@@ -9,6 +9,8 @@ export interface UploadFile {
 
 export interface ContractClientOptions {
   readonly origin?: string
+  /** Deployment-owned uploader origins. Never populate this list from an API response. */
+  readonly assemblyOrigins?: readonly string[]
   readonly authentication:
     | {
         readonly kind: 'signed'
@@ -105,6 +107,7 @@ export class ContractTransport {
   #fetch: typeof fetch
   #signing: SigningProfile
   #errorCodes: ReadonlySet<string>
+  #assemblyOrigins: readonly string[]
 
   constructor(
     options: ContractClientOptions,
@@ -113,6 +116,7 @@ export class ContractTransport {
     errorCodes: readonly string[] = [],
   ) {
     this.#errorCodes = new Set(errorCodes)
+    this.#assemblyOrigins = [...(options.assemblyOrigins ?? [])]
     const origin = new URL(options.origin ?? defaultOrigin)
     if (
       !['https:', 'http:'].includes(origin.protocol) ||
@@ -150,6 +154,18 @@ export class ContractTransport {
       )
         throw new Error('Unsupported request signature algorithm')
     } else if (!this.#authentication.token) throw new Error('Bearer token is required')
+  }
+
+  /** Snapshot native connection settings for the generated workflow adapter's private owner client. */
+  protected workflowOptions(): ContractClientOptions {
+    return {
+      origin: `${this.#origin}${this.#basePath}`,
+      authentication: { ...this.#authentication },
+      assemblyOrigins: [...this.#assemblyOrigins],
+      fetch: this.#fetch,
+      timeout: this.#timeout,
+      ...(this.#clientName === undefined ? {} : { clientName: this.#clientName }),
+    }
   }
 
   protected async request<Result>(operation: Operation, input: Input): Promise<Result> {
@@ -282,6 +298,10 @@ export class ContractTransport {
       credentials: 'omit',
       ...(signal === undefined ? {} : { signal }),
     })
+    if (response.redirected || (response.url !== '' && response.url !== url.href)) {
+      await response.body?.cancel()
+      throw new Error('API redirects are not followed')
+    }
     // Bound decoded bytes even when Content-Length is absent or compressed on the wire.
     const reader = response.body?.getReader()
     const chunks: Uint8Array[] = []

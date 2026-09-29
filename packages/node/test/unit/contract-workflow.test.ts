@@ -8,6 +8,8 @@ const workflow = vi.hoisted(() => ({
   getAssembly: vi.fn(),
   deleteTemplate: vi.fn(),
   cancelAssembly: vi.fn(),
+  waitForAssembly: vi.fn(),
+  cancelAndWaitForAssembly: vi.fn(),
 }))
 
 vi.mock('@transloadit/node/contract', () => ({
@@ -23,11 +25,12 @@ vi.mock('@transloadit/node/contract', () => ({
     getAssembly = workflow.getAssembly
     deleteTemplate = workflow.deleteTemplate
     cancelAssembly = workflow.cancelAssembly
+    waitForAssembly = workflow.waitForAssembly
+    cancelAndWaitForAssembly = workflow.cancelAndWaitForAssembly
   },
   ContractResponseError: class extends Error {},
 }))
 vi.mock('node:fs/promises', () => ({ readFile: () => Promise.resolve(new Uint8Array([1])) }))
-vi.mock('node:timers/promises', () => ({ setTimeout: () => Promise.resolve() }))
 
 const originalArgs = process.argv
 const originalExitCode = process.exitCode
@@ -54,9 +57,9 @@ it.each([
   workflow.createTemplate.mockResolvedValue({ id: 'template' })
   workflow.getTemplate.mockResolvedValue({ id: 'template' })
   workflow.createAssembly.mockResolvedValue({ assembly_id: 'assembly', ok })
-  workflow.getAssembly.mockResolvedValue({
+  workflow.waitForAssembly.mockResolvedValue({
     assembly_id: 'assembly',
-    ok: 'ASSEMBLY_COMPLETED',
+    ok: ok === 'ASSEMBLY_REPLAYING' ? 'ASSEMBLY_COMPLETED' : ok,
     results: { resize: [{ ssl_url: 'https://example.invalid/result.jpg' }] },
   })
   workflow.deleteTemplate.mockResolvedValue({ ok: 'TEMPLATE_DELETED' })
@@ -72,11 +75,12 @@ it.each([
     },
   })
   expect(workflow.cancelAssembly).not.toHaveBeenCalled()
+  expect(workflow.cancelAndWaitForAssembly).not.toHaveBeenCalled()
+  expect(workflow.getAssembly).not.toHaveBeenCalled()
+  expect(workflow.waitForAssembly).toHaveBeenCalledOnce()
   if (ok === 'ASSEMBLY_REPLAYING') {
-    expect(workflow.getAssembly).toHaveBeenCalledOnce()
     expect(error).not.toHaveBeenCalled()
   } else {
-    expect(workflow.getAssembly).not.toHaveBeenCalled()
     expect(error).toHaveBeenCalledWith('Assembly processing did not complete successfully')
   }
 })

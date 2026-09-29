@@ -2,12 +2,12 @@ import type { CreateTemplateParams, JsonValue } from '../src/generated-contract/
 
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
-import { setTimeout as delay } from 'node:timers/promises'
 
 import { ContractClient, ContractResponseError } from '../src/generated-contract/client.ts'
 
 interface CanaryOptions {
   origin: string
+  capabilityOrigin: string
   key: string
   secret: string
   file: number[]
@@ -20,7 +20,18 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
   assert.equal(new URL(options.origin).hostname, 'localhost')
   const client = new ContractClient({
     origin: options.origin,
+    assemblyOrigins: [options.capabilityOrigin],
     authentication: { kind: 'signed', key: options.key, secret: options.secret },
+    fetch: (input, init) => {
+      const request = new Request(input, init)
+      assert(
+        [new URL(options.origin).origin, options.capabilityOrigin].includes(
+          new URL(request.url).origin,
+        ),
+        'Never contact a non-local canary destination',
+      )
+      return fetch(request)
+    },
   })
   const signal = AbortSignal.timeout(90_000)
   const template = {
@@ -112,24 +123,34 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
       if (typeof uploaded.assembly_id !== 'string') throw new Error('Missing Assembly ID')
       assemblies.add(uploaded.assembly_id)
       options.verify('api2.create-assembly', uploaded)
-      let completed = uploaded
-      while (completed.ok !== 'ASSEMBLY_COMPLETED') {
-        if (
-          'error' in completed ||
-          completed.ok === 'ASSEMBLY_CANCELED' ||
-          completed.ok === 'REQUEST_ABORTED'
-        ) {
-          assemblies.delete(uploaded.assembly_id)
-          throw new Error('Assembly processing failed')
-        }
-        await delay(250, undefined, { signal })
-        completed = await client.getAssembly({ path: { assemblyId: uploaded.assembly_id }, signal })
-        options.verify('api2.get-assembly', completed)
-      }
+      const completed = await client.waitForAssembly({
+        assemblyId: uploaded.assembly_id,
+        interval: 250,
+        signal,
+      })
       assemblies.delete(uploaded.assembly_id)
+      options.verify('api2.get-assembly', completed)
+      assert.equal(completed.ok, 'ASSEMBLY_COMPLETED')
       const digest = createHash('md5').update(new Uint8Array(options.file)).digest('hex')
       assert.equal(completed.uploads?.[0]?.md5hash, digest)
       assert.equal(completed.results?.passed?.[0]?.md5hash, digest)
+      const pending = await client.createAssembly({
+        params: { template_id: created.id },
+        fields: { num_expected_upload_files: '1' },
+        signal,
+      })
+      assert.equal(typeof pending.assembly_id, 'string')
+      if (typeof pending.assembly_id !== 'string') throw new Error('Missing pending Assembly ID')
+      assemblies.add(pending.assembly_id)
+      assert.equal(pending.ok, 'ASSEMBLY_UPLOADING')
+      const canceled = await client.cancelAndWaitForAssembly({
+        assemblyId: pending.assembly_id,
+        interval: 250,
+        signal,
+      })
+      options.verify('api2.cancel-assembly', canceled)
+      assert.equal(canceled.ok, 'ASSEMBLY_CANCELED')
+      assemblies.delete(pending.assembly_id)
       const removed = await client.deleteTemplate({
         path: { templateIdOrName: created.id },
         signal,
@@ -152,7 +173,7 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
     async () => {
       const cleanup = await Promise.allSettled([
         ...[...assemblies].map((assemblyId) =>
-          client.cancelAssembly({ path: { assemblyId }, signal: AbortSignal.timeout(15_000) }),
+          client.cancelAndWaitForAssembly({ assemblyId, signal: AbortSignal.timeout(15_000) }),
         ),
         ...(deleted
           ? []
