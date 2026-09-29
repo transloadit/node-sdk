@@ -51,6 +51,10 @@ one cancellation attempt, then confirms terminal status; a timeout does not prov
 Private deployments may configure `assemblyOrigins` with trusted origins known before the request.
 Never populate that list from response data. Redirects, changed owners and untrusted destinations
 are rejected, and uploader requests carry no authentication credentials.
+An exact match to the configured endpoint retains its proxy prefix; prefixes are never inferred
+from response data. Status GETs retry HTTP 429 and 5xx within the overall deadline, honoring
+`Retry-After`. A failed DELETE is never retried; an HTTP error can be followed by a GET to confirm
+whether the Assembly became terminal in the meantime.
 
 Keep using the existing SDK for upload orchestration, tus and resumability. SSE and Webhook
 receivers are not part of this namespace. The types describe wire shapes, not a full JSON Schema validator.
@@ -61,6 +65,8 @@ malformed body's code is `undefined`; inspect `data` explicitly if needed, witho
 Optional-only params can be omitted. Public models and their comments are generated from the contract.
 Redirects are rejected and JSON responses are limited to 128 MiB.
 The adapter preserves the endpoint's base path, request timeout and client identification.
+An inherited zero timeout is rejected because the existing client treats it as an immediate
+request deadline, while standalone `ContractClient` uses zero to disable its request timer.
 Non-loopback endpoints require HTTPS. Each call makes one HTTP attempt: `maxRetries` and `gotRetry`
 apply only to existing SDK methods, not this low-level namespace. Decide whether a write is safe to
 retry in the owning workflow. Standalone clients default to a 60-second timeout (`timeout: 0`

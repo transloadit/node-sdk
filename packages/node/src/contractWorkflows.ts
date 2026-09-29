@@ -2,6 +2,8 @@ import type { ContractClientOptions } from './contractTransport.ts'
 
 import { setTimeout as delay } from 'node:timers/promises'
 
+import { ContractResponseError } from './contractTransport.ts'
+
 /** A bounded wait for any terminal Assembly status, not just successful processing. */
 export interface AssemblyWorkflowOptions {
   readonly assemblyId: string
@@ -73,8 +75,11 @@ function admittedOwner(
   options: ContractClientOptions,
 ): string {
   if (typeof value !== 'string' || options.origin === undefined) invalid()
-  const url = parseDestination(value)
   const expectedPath = policy.path.replace(`{${policy.parameter}}`, assemblyId)
+  // The transport validated this caller-owned endpoint. Only an exact match may reuse its proxy
+  // prefix/encoding or loopback spelling; response data cannot introduce another prefix.
+  if (value === `${options.origin}${expectedPath}`) return options.origin
+  const url = parseDestination(value)
   if (url.pathname !== expectedPath) invalid()
   const origins = [new URL(options.origin).origin]
   for (const origin of options.assemblyOrigins ?? []) {
@@ -138,6 +143,24 @@ export async function runAssemblyWorkflow<Result>(
         controller.abort(new AssemblyWorkflowTimeoutError())
       signal.throwIfAborted()
     }
+    const read = async (request: (signal: AbortSignal) => Promise<Result>): Promise<Result> => {
+      for (;;) {
+        checkDeadline()
+        try {
+          return await request(signal)
+        } catch (error) {
+          if (
+            !(error instanceof ContractResponseError) ||
+            !(error.status === 429 || (error.status >= 500 && error.status <= 599))
+          )
+            throw error
+          // Retry only safe status reads. The overall signal bounds even a very long server hint.
+          await delay(Math.min(timeout, Math.max(interval, error.retryAfter ?? 0)), undefined, {
+            signal,
+          })
+        }
+      }
+    }
     const inspect = (value: Result): { terminal: boolean; fields: Record<string, unknown> } => {
       checkDeadline()
       if (!isResponse(value) || value[policy.identityField] !== input.assemblyId) invalid()
@@ -151,7 +174,7 @@ export async function runAssemblyWorkflow<Result>(
       if (!policy.busyCodes.includes(fields.ok)) invalid()
       return { terminal: false, fields }
     }
-    let result = await discover(signal)
+    let result = await read(discover)
     let state = inspect(result)
     if (state.terminal) return result
     const origin = admittedOwner(
@@ -163,7 +186,16 @@ export async function runAssemblyWorkflow<Result>(
     const owner = bind({ ...options, origin })
     // Cancellation is one attempt, never a retried write. An active reply is not cleanup proof.
     if (cancel) {
-      result = await owner.cancel(signal)
+      try {
+        result = await owner.cancel(signal)
+      } catch (error) {
+        if (!(error instanceof ContractResponseError)) throw error
+        // An Assembly can fail/expire between discovery and DELETE. Confirm through the generated
+        // GET instead of casting arbitrary HTTP-error data to a result or retrying the write.
+        const confirmed = await read(owner.read)
+        if (!inspect(confirmed).terminal) throw error
+        return confirmed
+      }
       state = inspect(result)
     }
     for (;;) {
@@ -176,7 +208,7 @@ export async function runAssemblyWorkflow<Result>(
         invalid()
       await delay(interval, undefined, { signal })
       checkDeadline()
-      result = await owner.read(signal)
+      result = await read(owner.read)
       state = inspect(result)
     }
   } catch (error) {

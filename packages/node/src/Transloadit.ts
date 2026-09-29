@@ -493,6 +493,11 @@ export class Transloadit {
   contract(): ContractClient {
     // This synchronous factory intentionally exposes the full generated declaration graph to
     // root imports too. API2 checks its size; lazy runtime imports would not reduce that type cost.
+    if (this._defaultTimeout === 0) {
+      throw new Error(
+        'Cannot inherit a zero request timeout: use a positive timeout for contract()',
+      )
+    }
     let authentication: ContractClientOptions['authentication']
     if (this._authToken === null) {
       const algorithm = this.#signatureAlgorithm
@@ -1092,7 +1097,7 @@ export class Transloadit {
         }
         return result
       } catch (error) {
-        if (requestSignal.aborted) throw requestSignal.reason
+        if (requestSignal.reason instanceof PollingTimeoutError) throw requestSignal.reason
         throw error
       } finally {
         clearTimeout(timer)

@@ -139,6 +139,24 @@ describe('Mocked API tests', () => {
     scope.persist(false)
   })
 
+  it.each([
+    undefined,
+    'stop',
+    new Error('caller stopped'),
+  ])('preserves got AbortError when an in-flight polling request is aborted with %s', async (reason) => {
+    const client = getLocalClient()
+    const controller = new AbortController()
+    const scope = nock('http://localhost')
+      .get('/assemblies/in-flight')
+      .query(true)
+      .delay(1000)
+      .reply(200, { ok: 'ASSEMBLY_COMPLETED' })
+    scope.on('request', () => controller.abort(reason))
+    await expect(
+      client.awaitAssemblyCompletion('in-flight', { signal: controller.signal }),
+    ).rejects.toBeInstanceOf(AbortError)
+  })
+
   it('should stop polling early when onPoll returns false', async () => {
     const client = getLocalClient()
 

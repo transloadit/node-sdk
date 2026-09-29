@@ -79,12 +79,20 @@ export class ContractResponseError extends Error {
   readonly data: unknown
   /** A recognized public contract code, never arbitrary response text. */
   readonly code: string | undefined
+  /** Server-requested delay in milliseconds, when a valid Retry-After header was supplied. */
+  readonly retryAfter: number | undefined
 
-  constructor(status: number, data: unknown, knownCodes: ReadonlySet<string> = new Set()) {
+  constructor(
+    status: number,
+    data: unknown,
+    knownCodes: ReadonlySet<string> = new Set(),
+    retryAfter?: number,
+  ) {
     super(`API request failed with HTTP ${status}`)
     this.name = 'ContractResponseError'
     this.status = status
     this.data = data
+    this.retryAfter = retryAfter
     this.code =
       typeof data === 'object' &&
       data !== null &&
@@ -95,6 +103,15 @@ export class ContractResponseError extends Error {
         ? data.error
         : undefined
   }
+}
+
+function retryAfterMilliseconds(header: string | null): number | undefined {
+  if (header === null) return
+  const value = header.trim()
+  if (/^[0-9]+$/u.test(value)) return Math.min(Number.MAX_SAFE_INTEGER, Number(value) * 1_000)
+  if (!/[a-z]/iu.test(value)) return
+  const date = Date.parse(value)
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined
 }
 
 /** Native transport for generated ordinary HTTP methods, not arbitrary URLs or capability calls. */
@@ -333,14 +350,17 @@ export class ContractTransport {
         }
       }
       const source = Buffer.concat(chunks, length).toString('utf8')
+      const retryAfter = retryAfterMilliseconds(response.headers.get('retry-after'))
       let data: unknown
       try {
         data = JSON.parse(source)
       } catch (error) {
-        if (!response.ok) throw new ContractResponseError(response.status, undefined)
+        if (!response.ok)
+          throw new ContractResponseError(response.status, undefined, this.#errorCodes, retryAfter)
         throw new Error('API returned an invalid JSON response', { cause: error })
       }
-      if (!response.ok) throw new ContractResponseError(response.status, data, this.#errorCodes)
+      if (!response.ok)
+        throw new ContractResponseError(response.status, data, this.#errorCodes, retryAfter)
       // Result is supplied only by generator-owned methods derived from the response contract.
       // Static wire types do not claim client-side validation of every JSON Schema constraint.
       return data as Result

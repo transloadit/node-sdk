@@ -10,6 +10,9 @@ bearer authentication. Add explicit `waitForAssembly` and `cancelAndWaitForAssem
 these methods, with source-owned uploader admission, overall deadlines and terminal-status checks.
 Cancellation is one attempt on the owning uploader, never an automatically retried write. Native
 TUS, upload orchestration and resumability remain outside this experimental namespace.
+Workflow status reads retry HTTP 429 and 5xx within the overall deadline, honoring `Retry-After`.
+An HTTP error from cancellation is confirmed with a status GET before claiming terminal cleanup.
+Explicitly configured proxy prefixes and loopback endpoints remain supported.
 
 Generated public types retain source documentation. Optional-only params can be omitted, JSON
 response objects fit the exported `JsonValue`, and `ContractResponseError.code` exposes recognized
@@ -22,3 +25,6 @@ abort in-flight status requests and rate-limit retry waits, and reject late succ
 `createAssembly` or `resumeAssemblyUploads` shares its remaining timeout with completion polling.
 The `contract()` adapter rounds
 positive fractional millisecond timeouts up to the next integer rather than rejecting them.
+It rejects an inherited zero request timeout rather than silently changing it to an unbounded
+request. In-flight legacy polling aborts retain got's `AbortError` classification; the polling
+deadline still uses `PollingTimeoutError`.

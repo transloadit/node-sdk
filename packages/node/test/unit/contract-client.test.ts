@@ -32,6 +32,11 @@ describe('contract-generated methods', () => {
     expect(() => client.contract()).not.toThrow()
   })
 
+  it('does not turn an inherited immediate timeout into an unbounded contract request', () => {
+    const client = new Transloadit({ authKey: key, authSecret: secret, timeout: 0 })
+    expect(() => client.contract()).toThrow('Cannot inherit a zero request timeout')
+  })
+
   it.each([
     -0.5,
     -1,
@@ -62,6 +67,28 @@ describe('contract-generated methods', () => {
       code: 'TEMPLATE_NOT_FOUND',
       message: 'API request failed with HTTP 400',
     })
+  })
+
+  it.each([
+    { header: '2', expected: 2_000 },
+    { header: 'Thu, 01 Jan 1970 00:00:02 GMT', expected: 2_000 },
+    { header: 'Wed, 31 Dec 1969 23:59:59 GMT', expected: 0 },
+    { header: '999999999999999999999', expected: Number.MAX_SAFE_INTEGER },
+    { header: '0.5', expected: undefined },
+    { header: '-1', expected: undefined },
+    { header: 'invalid', expected: undefined },
+  ])('exposes safe Retry-After metadata for $header', async ({ header, expected }) => {
+    vi.spyOn(Date, 'now').mockReturnValue(0)
+    const client = new ContractClient({
+      authentication: { kind: 'bearer', token: 'synthetic' },
+      fetch: () =>
+        Promise.resolve(
+          new Response('not JSON', { status: 429, headers: { 'Retry-After': header } }),
+        ),
+    })
+    await expect(
+      client.getAssembly({ path: { assemblyId: 'a'.repeat(32) } }),
+    ).rejects.toMatchObject({ status: 429, retryAfter: expected })
   })
 
   it.each([

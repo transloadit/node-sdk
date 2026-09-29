@@ -18,6 +18,194 @@ const body = {
 const authentication = { kind: 'bearer', token: 'synthetic-never-forward' } as const
 
 it.each([
+  'https://example.com/proxy',
+  'https://example.com/a%20b',
+  'http://[::1]:8080',
+])('retains an exactly configured proxy or loopback endpoint: %s', async (origin) => {
+  const requests: string[] = []
+  const ownerUrl = `${origin}/assemblies/${assemblyId}`
+  const client = new ContractClient({
+    origin,
+    authentication,
+    fetch: (url, init) => {
+      requests.push(`${init?.method} ${url}`)
+      return Promise.resolve(
+        Response.json({
+          ...body,
+          assembly_ssl_url: ownerUrl,
+          ok: requests.length === 3 ? 'ASSEMBLY_CANCELED' : 'ASSEMBLY_EXECUTING',
+        }),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId, interval: 1 })).resolves.toMatchObject(
+    { ok: 'ASSEMBLY_CANCELED' },
+  )
+  expect(requests).toEqual([`GET ${ownerUrl}`, `DELETE ${ownerUrl}`, `GET ${ownerUrl}`])
+})
+
+it.each([
+  'https://example.com/other',
+  'https://api2-owner.transloadit.com/proxy',
+  'https://example.com/proxy/../proxy',
+  'https://example.com/%70roxy',
+])('does not infer a proxy prefix from an untrusted response: %s', async (prefix) => {
+  let requests = 0
+  const client = new ContractClient({
+    origin: 'https://example.com/proxy',
+    authentication,
+    fetch: () => {
+      requests++
+      return Promise.resolve(
+        Response.json({ ...body, assembly_ssl_url: `${prefix}/assemblies/${assemblyId}` }),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId })).rejects.toThrow(
+    'Invalid Assembly workflow',
+  )
+  expect(requests).toBe(1)
+})
+
+it('confirms a terminal cancellation race with GET without repeating DELETE', async () => {
+  const requests: string[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: (_url, init) => {
+      requests.push(init?.method ?? '')
+      if (init?.method === 'DELETE')
+        return Promise.resolve(
+          Response.json({ assembly_id: assemblyId, error: 'ASSEMBLY_EXPIRED' }, { status: 410 }),
+        )
+      return Promise.resolve(
+        Response.json(
+          requests.length === 1 ? body : { assembly_id: assemblyId, error: 'ASSEMBLY_EXPIRED' },
+        ),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId })).resolves.toMatchObject({
+    error: 'ASSEMBLY_EXPIRED',
+  })
+  expect(requests).toEqual(['GET', 'DELETE', 'GET'])
+})
+
+it.each([
+  'discovery',
+  'poll',
+] as const)('respects Retry-After on %s reads within the workflow deadline', async (phase) => {
+  const requests: number[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: () => {
+      requests.push(performance.now())
+      const rateLimited = requests.length === (phase === 'discovery' ? 1 : 2)
+      return Promise.resolve(
+        rateLimited
+          ? Response.json(
+              { error: 'ASSEMBLY_STATUS_FETCHING_RATE_LIMIT_REACHED' },
+              { status: 429, headers: { 'Retry-After': '1' } },
+            )
+          : Response.json({
+              ...body,
+              ok:
+                phase === 'poll' && requests.length === 1
+                  ? 'ASSEMBLY_EXECUTING'
+                  : 'ASSEMBLY_COMPLETED',
+            }),
+      )
+    },
+  })
+  await expect(
+    client.waitForAssembly({ assemblyId, interval: 10, timeout: 5_000 }),
+  ).resolves.toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
+  expect(requests).toHaveLength(phase === 'discovery' ? 2 : 3)
+  const last = requests.at(-1)
+  const limited = requests.at(-2)
+  if (last === undefined || limited === undefined) throw new Error('Missing retry observations')
+  expect(last - limited).toBeGreaterThanOrEqual(990)
+})
+
+it('retries a transient server read but not a non-retriable request failure', async () => {
+  let calls = 0
+  const client = new ContractClient({
+    authentication,
+    fetch: () => {
+      calls++
+      return Promise.resolve(
+        Response.json({ error: 'SERVER_ERROR' }, { status: calls === 1 ? 503 : 403 }),
+      )
+    },
+  })
+  await expect(client.waitForAssembly({ assemblyId, interval: 1 })).rejects.toMatchObject({
+    status: 403,
+  })
+  expect(calls).toBe(2)
+})
+
+it('bounds Retry-After by the workflow deadline without sending another request', async () => {
+  let calls = 0
+  const client = new ContractClient({
+    authentication,
+    fetch: () => {
+      calls++
+      return Promise.resolve(
+        Response.json(
+          { error: 'RATE_LIMIT_REACHED' },
+          { status: 429, headers: { 'Retry-After': '999999999999999999999' } },
+        ),
+      )
+    },
+  })
+  await expect(
+    client.waitForAssembly({ assemblyId, interval: 1, timeout: 200 }),
+  ).rejects.toMatchObject({ code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' })
+  expect(calls).toBe(1)
+})
+
+it('preserves caller cancellation during Retry-After', async () => {
+  const controller = new AbortController()
+  const reason = new Error('caller stopped')
+  let calls = 0
+  const client = new ContractClient({
+    authentication,
+    fetch: () => {
+      calls++
+      setTimeout(() => controller.abort(reason), 10)
+      return Promise.resolve(
+        Response.json(
+          { error: 'RATE_LIMIT_REACHED' },
+          { status: 429, headers: { 'Retry-After': '30' } },
+        ),
+      )
+    },
+  })
+  await expect(client.waitForAssembly({ assemblyId, signal: controller.signal })).rejects.toBe(
+    reason,
+  )
+  expect(calls).toBe(1)
+})
+
+it('does not disguise a failed cancellation as cleanup when confirmation is still active', async () => {
+  const requests: string[] = []
+  const client = new ContractClient({
+    authentication,
+    fetch: (_url, init) => {
+      requests.push(init?.method ?? '')
+      return Promise.resolve(
+        init?.method === 'DELETE'
+          ? Response.json({ error: 'SERVER_ERROR' }, { status: 503 })
+          : Response.json(body),
+      )
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId })).rejects.toMatchObject({
+    status: 503,
+  })
+  expect(requests).toEqual(['GET', 'DELETE', 'GET'])
+})
+
+it.each([
   ...admission.rejectedOrigins.map((origin) => `${origin}/assemblies/${assemblyId}`),
   ...admission.rejectedAssemblyPaths.map((path) => `${owner}${path}`),
 ])('rejects the shared inadmissible destination before following it: %s', async (url) => {
