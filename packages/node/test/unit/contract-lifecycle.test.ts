@@ -17,6 +17,55 @@ const body = {
 }
 const authentication = { kind: 'bearer', token: 'synthetic-never-forward' } as const
 
+it('retains an unconfirmed cancellation outcome when no owner URL is available', async () => {
+  let requests = 0
+  const client = new ContractClient({
+    authentication,
+    fetch: () => {
+      requests++
+      return Promise.resolve(Response.json({ assembly_id: assemblyId, ok: 'REQUEST_ABORTED' }))
+    },
+  })
+  await expect(client.cancelAndWaitForAssembly({ assemblyId })).rejects.toMatchObject({
+    code: 'ASSEMBLY_WORKFLOW_UNCONFIRMED',
+  })
+  expect(requests).toBe(1)
+})
+
+it.each(
+  ['https://proxy.example.com', 'https://api2-owner.transloadit.com'].flatMap((endpoint) =>
+    [false, true].map((explicit) => ({ endpoint, explicit })),
+  ),
+)('requires explicit admission to drop the configured proxy prefix: $endpoint, $explicit', async ({
+  endpoint,
+  explicit,
+}) => {
+  const urls: string[] = []
+  const client = new ContractClient({
+    origin: `${endpoint}/prefix`,
+    authentication,
+    assemblyOrigins: explicit ? [endpoint] : [],
+    fetch: (url) => {
+      urls.push(String(url))
+      return Promise.resolve(
+        Response.json({
+          ...body,
+          assembly_ssl_url: `${endpoint}/assemblies/${assemblyId}`,
+          ok: urls.length === 1 ? 'ASSEMBLY_EXECUTING' : 'ASSEMBLY_COMPLETED',
+        }),
+      )
+    },
+  })
+  const pending = client.cancelAndWaitForAssembly({ assemblyId, interval: 1 })
+  if (explicit) await expect(pending).resolves.toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
+  else await expect(pending).rejects.toThrow('Invalid Assembly workflow response')
+  expect(urls).toEqual(
+    explicit
+      ? [`${endpoint}/prefix/assemblies/${assemblyId}`, `${endpoint}/assemblies/${assemblyId}`]
+      : [`${endpoint}/prefix/assemblies/${assemblyId}`],
+  )
+})
+
 it.each([
   'waitForAssembly',
   'cancelAndWaitForAssembly',

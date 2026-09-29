@@ -207,7 +207,11 @@ it.each(
   expect(transport.mock.calls.map(([, init]) => init?.method)).not.toContain('PATCH')
 })
 
-it('confirms a completed transfer after Assembly completion without writing again', async () => {
+it.each([
+  'ASSEMBLY_COMPLETED',
+  'FILE_FILTER_DECLINED_FILE',
+  'REQUEST_ABORTED',
+])('confirms a completed transfer after %s without writing again', async (code) => {
   const { client, transport } = fixture()
   const session = await client.uploadAssemblyFile({ assemblyId, file })
   transport.mockClear()
@@ -215,7 +219,7 @@ it('confirms a completed transfer after Assembly completion without writing agai
     Promise.resolve(
       Response.json({
         assembly_id: assemblyId,
-        ok: 'ASSEMBLY_COMPLETED',
+        ...(code === 'FILE_FILTER_DECLINED_FILE' ? { error: code } : { ok: code }),
         assembly_ssl_url: `${origin}/assemblies/${assemblyId}`,
         tus_url: `${origin}/resumable/files/`,
       }),
@@ -303,6 +307,84 @@ it('recovers a committed PATCH whose response exceeds the per-request deadline',
     'PATCH',
     'HEAD',
   ])
+})
+
+it.each([
+  0, 30,
+])('retains PATCH recovery and Retry-After=%s when body cleanup fails', async (retryAfter) => {
+  const { transport } = fixture()
+  const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+    const response = await transport(input, init)
+    if (init?.method !== 'PATCH') return response
+    return new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.error(new TypeError('response body connection lost'))
+        },
+      }),
+      {
+        status: 503,
+        headers: { 'retry-after': String(retryAfter) },
+      },
+    )
+  })
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'unused' },
+    fetch: fetcher,
+  })
+  const pending = client.uploadAssemblyFile({
+    assemblyId,
+    file,
+    timeout: 100,
+    maxRetries: 1,
+    retryDelay: 1,
+  })
+  if (retryAfter === 0) await expect(pending).resolves.toMatchObject({ size: 4 })
+  else
+    await expect(pending).rejects.toMatchObject({ cause: { code: 'ASSEMBLY_WORKFLOW_TIMED_OUT' } })
+  expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(
+    retryAfter === 0 ? ['GET', 'POST', 'HEAD', 'PATCH', 'HEAD'] : ['GET', 'POST', 'HEAD', 'PATCH'],
+  )
+})
+
+it('normalizes an admitted finished receipt URL before comparing the saved session', async () => {
+  const endpoint = 'https://api2-owner.transloadit.com'
+  const { client } = fixture({ origin: endpoint, location: `${endpoint}/resumable/files/one` })
+  const session = await client.uploadAssemblyFile({ assemblyId, file })
+  const methods: string[] = []
+  const fresh = new ContractClient({
+    origin: endpoint,
+    authentication: { kind: 'bearer', token: 'unused' },
+    fetch: (_input, init) => {
+      methods.push(init?.method ?? '')
+      if (init?.method === 'HEAD') return Promise.resolve(new Response(null, { status: 404 }))
+      if (init?.method !== 'GET') throw new Error('Unexpected write')
+      return Promise.resolve(
+        Response.json({
+          assembly_id: assemblyId,
+          ok: 'ASSEMBLY_COMPLETED',
+          assembly_ssl_url: `${endpoint}/assemblies/${assemblyId}`,
+          tus_url: `${endpoint}/resumable/files/`,
+          tus_uploads: [
+            {
+              finished: true,
+              upload_url: session.uploadUrl.replace(
+                endpoint,
+                'https://API2-OWNER.transloadit.com:443',
+              ),
+              size: 4,
+              offset: 4,
+              filename: file.filename,
+              fieldname: 'file',
+            },
+          ],
+        }),
+      )
+    },
+  })
+  await expect(fresh.resumeAssemblyFile({ assemblyId, file, session })).resolves.toEqual(session)
+  expect(methods).toEqual(['GET', 'HEAD', 'GET'])
 })
 
 it('does not retry a local request-construction error during upload discovery', async () => {

@@ -108,7 +108,15 @@ export function admittedWorkflowDestination(
   }
   const url = parseWorkflowDestination(value)
   if (url.pathname !== expectedPath) invalid()
-  const origins = [new URL(options.origin).origin, ...(options.assemblyOrigins ?? [])]
+  const entry = new URL(options.origin)
+  // A configured proxy path is part of the trusted endpoint, not permission for its bare origin.
+  if (
+    url.origin === entry.origin &&
+    entry.pathname !== '/' &&
+    !(options.assemblyOrigins ?? []).includes(url.origin)
+  )
+    invalid()
+  const origins = [entry.origin, ...(options.assemblyOrigins ?? [])]
   if (
     !origins.includes(url.origin) &&
     !(
@@ -205,7 +213,12 @@ export async function runAssemblyWorkflow<Result>(
       if (policy.unconfirmedOkCodes.includes(fields.ok)) {
         // Only initial cancellation discovery may continue: send the one owner-routed DELETE,
         // but a repeated connection outcome still cannot establish that cleanup succeeded.
-        if (!allowUnconfirmed) throw new AssemblyWorkflowUnconfirmedError()
+        if (
+          !allowUnconfirmed ||
+          typeof fields[policy.assemblyField] !== 'string' ||
+          fields[policy.assemblyField] === ''
+        )
+          throw new AssemblyWorkflowUnconfirmedError()
         return { terminal: false, fields }
       }
       if (policy.terminalOkCodes.includes(fields.ok)) return { terminal: true, fields }

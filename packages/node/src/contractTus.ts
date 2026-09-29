@@ -151,7 +151,15 @@ export async function requestTus(
       }),
     )
     // No protocol response body is needed. Cancel it even for hostile/unbounded error responses.
-    await response.body?.cancel()
+    const responseBody = response.body
+    if (responseBody !== null) {
+      try {
+        await contractIo(() => responseBody.cancel())
+      } catch (error) {
+        // Received HTTP failure headers still govern recovery and Retry-After when cleanup fails.
+        if (response.ok) throw error
+      }
+    }
     requestSignal.throwIfAborted()
     if (response.redirected || (response.url !== '' && response.url !== url)) invalid()
     if (!response.ok)
@@ -359,10 +367,17 @@ export async function runTusUpload(
         )
           invalid()
         assemblyCode = status.ok
-        // A completed transfer may still be confirmed without writing after Assembly completion.
-        if (session !== undefined && policy.assembly.terminalOkCodes.includes(status.ok))
-          return { status, canWrite: false }
       }
+      // Receipt proves file transfer, not processing success. Saved sessions can confirm finished
+      // bytes after any known stopped state, but that state never authorizes another upload write.
+      if (
+        session !== undefined &&
+        typeof status[policy.assembly.assemblyField] === 'string' &&
+        status[policy.assembly.assemblyField] !== '' &&
+        typeof status[policy.collectionField] === 'string' &&
+        status[policy.collectionField] !== ''
+      )
+        return { status, canWrite: false }
       throw new Error(`Assembly is not accepting upload writes (${assemblyCode})`)
     }
     const { status, canWrite } = inspect(await discoverStatus())
@@ -436,13 +451,17 @@ export async function runTusUpload(
             const receipts = Array.isArray(refreshed.tus_uploads)
               ? refreshed.tus_uploads.filter(
                   (upload: unknown) =>
-                    isWorkflowResponse(upload) && upload.upload_url === uploadUrl,
+                    isWorkflowResponse(upload) &&
+                    typeof upload.upload_url === 'string' &&
+                    URL.canParse(upload.upload_url) &&
+                    new URL(upload.upload_url).href === uploadUrl,
                 )
               : []
             const receipt: unknown = receipts[0]
             if (
               receipts.length === 1 &&
               isWorkflowResponse(receipt) &&
+              admitUrl(receipt.upload_url, policy.head, policy, options) === uploadUrl &&
               receipt.finished === true &&
               receipt.size === size &&
               receipt.offset === size &&

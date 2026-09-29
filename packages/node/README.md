@@ -93,7 +93,8 @@ If HEAD returns 404 after temporary upload cleanup, the workflow refreshes Assem
 requires one finished `tus_uploads` receipt matching the saved URL, filename, fieldname, size and
 completed offset. Missing or mismatched receipts remain errors; no replacement upload is created.
 Stopped or unconfirmed Assemblies receive no new upload writes. When known, `AssemblyUploadError.assemblyCode`
-identifies that status; an already complete transfer can still be confirmed without writing.
+identifies that status; an already complete transfer can still be confirmed without writing,
+even if later Assembly processing failed. Use `waitForAssembly` to check processing separately.
 
 Uploads default to 5 MiB chunks, a five-minute overall timeout and five recovery attempts.
 Configure `chunkSize`, `timeout`, `maxRetries` and `retryDelay` on the workflow. After an ambiguous
