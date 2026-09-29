@@ -1,4 +1,4 @@
-// Generated from API2 contract 3115da489f3d07bac67c8d0af85e6f9db3dc0216ee8555629ef05dfb717d9282. Do not edit.
+// Generated from API2 contract a72c65901795052a96036a2fa6beed7ac1885299fb3d6dfec8a011e2efc6f819. Do not edit.
 import {
   ContractTransport,
   type ContractClientOptions,
@@ -13,8 +13,8 @@ export type { AssemblyWorkflowOptions } from '../contractWorkflows.ts'
 export type AssemblyWorkflowResult = GetAssemblyResult
 const assemblyWorkflowPolicy = {
   busyCodes: ['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'],
-  terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED'],
-  unconfirmedOkCodes: ['REQUEST_ABORTED'],
+  terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED', 'REQUEST_ABORTED'],
+  cancelableTerminalOkCodes: ['REQUEST_ABORTED'],
   errorCodes: [
     'ADMIN_PERMISSIONS_REQUIRED',
     'AI_CHAT_VALIDATION',
@@ -402,8 +402,8 @@ export type {
 const tusWorkflowPolicy = {
   assembly: {
     busyCodes: ['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'],
-    terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED'],
-    unconfirmedOkCodes: ['REQUEST_ABORTED'],
+    terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED', 'REQUEST_ABORTED'],
+    cancelableTerminalOkCodes: ['REQUEST_ABORTED'],
     errorCodes: [
       'ADMIN_PERMISSIONS_REQUIRED',
       'AI_CHAT_VALIDATION',
@@ -30942,6 +30942,21 @@ export type CancelAssemblyResult_WithError_TemplateName = null | string
 export type CancelAssemblyResult_WithError_TransloaditClient = null | string
 export type CancelAssemblyResult_WithError_UppyserverUrl = null | string
 export type CancelAssemblyResult_WithError_UrlHost = null | string
+export type CancelAssemblyError = ApiError | CancelAssemblyError_Variant2
+export type CancelAssemblyError_Variant2 =
+  CancelAssemblyError_Variant2_AssemblyCancelUnavailable | ApiError
+/**
+ * The Assembly cancellation outcome could not be confirmed. Check its status before deciding whether to try again.
+ */
+export type CancelAssemblyError_Variant2_AssemblyCancelUnavailable = {
+  error: 'ASSEMBLY_CANCEL_UNAVAILABLE'
+  http_code?: 503
+  /**
+   * Human-readable explanation of the error. Its wording can vary; use the `error` code when handling a specific failure.
+   */
+  message?: string
+  [key: string]: JsonValue | 'ASSEMBLY_CANCEL_UNAVAILABLE' | 503 | string | undefined
+}
 /**
  * Parameters used to create an Assembly from direct Steps or a Template.
  */
@@ -66555,8 +66570,6 @@ export interface CancelAssemblyInput {
   signal?: AbortSignal
 }
 
-export type CancelAssemblyError = ApiError
-
 export interface CreateAssemblyInput {
   params?: CreateAssemblyParams
   files?: Readonly<Record<string, UploadFile>>
@@ -66782,6 +66795,7 @@ export class ContractClient extends ContractTransport {
         'ADMIN_PERMISSIONS_REQUIRED',
         'AI_CHAT_VALIDATION',
         'ASSEMBLY_ACCOUNT_MISMATCH',
+        'ASSEMBLY_CANCEL_UNAVAILABLE',
         'ASSEMBLY_CANNOT_BE_REPLAYED',
         'ASSEMBLY_COULD_NOT_BE_CREATED',
         'ASSEMBLY_CRASHED',
@@ -68001,7 +68015,7 @@ export class ContractClient extends ContractTransport {
       input,
     )
   }
-  /** Wait for a terminal status on the owning uploader. A terminal error or cancellation is returned, not treated as successful processing. */
+  /** Wait for a terminal status on the owning uploader. Terminal errors, cancellation and an aborted request are returned without implying successful processing or stopped backend work. */
   waitForAssembly(input: AssemblyWorkflowOptions): Promise<AssemblyWorkflowResult> {
     return runAssemblyWorkflow(
       input,
@@ -68019,7 +68033,7 @@ export class ContractClient extends ContractTransport {
       },
     )
   }
-  /** Cancel once on the owning uploader, then wait for a terminal status. A terminal error or cancellation is returned, not treated as successful processing. */
+  /** Cancel once on the owning uploader, then wait for a terminal status. Terminal errors, cancellation and an aborted request are returned without implying successful processing or stopped backend work. */
   cancelAndWaitForAssembly(input: AssemblyWorkflowOptions): Promise<AssemblyWorkflowResult> {
     return runAssemblyWorkflow(
       input,

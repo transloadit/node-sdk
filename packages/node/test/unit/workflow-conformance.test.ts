@@ -37,11 +37,7 @@ it.each(workflowVectors.cases)('shared public SDK workflow: $id', async (scenari
           interval: 1,
           timeout: 5000,
         })
-        if (scenario.workflowError === undefined) {
-          expect(await waiting).toMatchObject(scenario.expected)
-        } else {
-          await expect(waiting).rejects.toMatchObject({ code: scenario.workflowError })
-        }
+        expect(await waiting).toMatchObject(scenario.expected)
         expect(server.requests).toHaveLength(scenario.responses.length)
         break
       }

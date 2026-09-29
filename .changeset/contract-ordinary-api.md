@@ -15,9 +15,10 @@ digest and server offset before resuming. Recover ambiguous PATCH responses with
 accepted bytes. Creation never retries. Deferred lengths and concatenation remain outside this
 experimental namespace.
 Workflow status reads retry transient network failures and HTTP 429/5xx within the overall deadline,
-honoring `Retry-After`. An aborted connection is not proof of completion: waiting raises
-`AssemblyWorkflowUnconfirmedError`; cancellation is still attempted once before reporting unconfirmed cleanup.
-An HTTP error from cancellation is confirmed with a status GET before claiming terminal cleanup.
+honoring `Retry-After`. Waiting returns `REQUEST_ABORTED` as a finite, unsuccessful typed outcome,
+not an exception or proof that background work stopped. Explicit cancellation still reaches the
+owner once. A later status GET can confirm completion after a failed cancellation, but a repeated
+`REQUEST_ABORTED` does not hide that failure. No terminal response promises worker or billing cleanup.
 Explicitly configured proxy prefixes and loopback endpoints remain supported.
 
 Generated public types retain source documentation. Optional-only params can be omitted, JSON
