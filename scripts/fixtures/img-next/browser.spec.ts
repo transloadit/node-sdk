@@ -32,6 +32,7 @@ interface BrowserAudit {
   committedRefreshes: Set<Request>
   expectedFailures: Map<string, number>
   images: ImageEvidence[]
+  observe(page: Page): Promise<void>
   loadNativeImage(url: string): Promise<{
     loaded: boolean
     status: number
@@ -138,6 +139,7 @@ const test = base.extend<{ audit: BrowserAudit }>({
         committedRefreshes,
         expectedFailures,
         images,
+        observe,
         async loadNativeImage(url) {
           const browser = context.browser()
           assert(browser)
@@ -352,6 +354,7 @@ for (const deviceScaleFactor of [1, 2]) {
       page,
       audit,
       browser,
+      browserName,
     }, info) => {
       await page.goto('/fixture/auto-sizing')
       const automatic = page.getByRole('img', { name: 'Automatic lazy sizing', exact: true })
@@ -378,6 +381,7 @@ for (const deviceScaleFactor of [1, 2]) {
       })
       try {
         const referencePage = await referenceContext.newPage()
+        await audit.observe(referencePage)
         await referencePage.goto('/fixture/cli-empty/app/storage-image-example')
         await referencePage.evaluate(
           ({ sourceSet, original }) => {
@@ -402,7 +406,13 @@ for (const deviceScaleFactor of [1, 2]) {
         await decode(reference)
         await expect(reference).toHaveJSProperty('currentSrc', automaticSrc)
       } finally {
-        await referenceContext.close()
+        try {
+          for (const referencePage of referenceContext.pages()) {
+            await referencePage.removeAllListeners('response', { behavior: 'wait' })
+          }
+        } finally {
+          await referenceContext.close()
+        }
       }
       const fallbackSrc = await fallback.evaluate((element) => {
         if (!(element instanceof HTMLImageElement)) throw new Error('Expected image')
@@ -414,6 +424,12 @@ for (const deviceScaleFactor of [1, 2]) {
       const fallbackBytes = audit.images.find((image) => image.url === fallbackSrc)
       assert(automaticBytes && fallbackBytes)
       expect(automaticBytes.bytes).toBeLessThanOrEqual(fallbackBytes.bytes)
+      if (browserName === 'chromium') {
+        expect(Number(new URL(automaticSrc).searchParams.get('w'))).toBeLessThan(
+          960 * deviceScaleFactor,
+        )
+        expect(automaticBytes.bytes).toBeLessThan(fallbackBytes.bytes)
+      }
       expect(Number(new URL(fallbackSrc).searchParams.get('w'))).toBe(960 * deviceScaleFactor)
       await info.attach('native-sizing', {
         body: JSON.stringify({

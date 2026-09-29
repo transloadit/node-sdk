@@ -31,7 +31,14 @@ denial/revocation and developer-diagnostic cases remain green.
 Reports are reproducible with `yarn test:img:fixture`; its `native-sizing` attachments record
 selected URLs, response bytes and dimensions in `test-results/img-next/{enabled,omitted}`.
 Local verification used Node 24.21.0. Node 26.8.2 stalled while extracting the Firefox download;
-that failed attempt was not counted as browser proof. Full `yarn check` passed before final review.
+that failed attempt was not counted as browser proof. Full `yarn check` passed after review using
+Node 24.21.0. Two earlier Node 26 runs had unrelated relay socket/timing failures; the relay sources
+are unchanged, and all 22 relay tests pass in the final run.
+
+Council's two test-quality findings were fixed: Chromium must save bytes strictly, and the cold
+reference page now uses the same error/request audit. A temporary 960px-box mutation failed the
+new width assertion (960 is not below 960), while an injected reference-page console error failed
+the audit. Both mutations were removed; all 158 browser cases passed again.
 
 ## Consumer audit
 
