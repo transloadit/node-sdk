@@ -208,10 +208,31 @@ allow 31 entries; at most eight crop profiles may use ratios from 1/8 through 8.
 never exceed 8000. Unknown/duplicate parameters and unlisted candidates are denied. Templates,
 origin, quality, background, dimensions, and crop ratios never come from request data.
 
-`lifetimeMs` defaults to five minutes (1000 through 172800000). CDN signatures rotate at most once
-a minute, bounded by half the lifetime, preserving at least half a lifetime on new URLs. Bunny
-still keys on the full query; default Built-in parameters retain the existing canonical spelling.
-Route URLs never expire and can request fresh authorization from long-open pages.
+`lifetimeMs` is the maximum CDN grant lifetime in milliseconds, defaulting to five minutes
+(1000 through 172800000). By default, signatures rotate every minute, or every half-lifetime
+when that is shorter, rounded down to whole milliseconds. Route URLs never expire and can
+request fresh authorization from long-open pages.
+
+To reuse CDN entries longer without extending the maximum lifetime, set `rotationIntervalMs`:
+
+```ts
+const { GET, HEAD } = createStorageRoute({
+  workspace, authKey, authSecret, authorizeAsset,
+  lifetimeMs: 5 * 60_000,
+  rotationIntervalMs: 150_000,
+})
+```
+
+The interval must be a positive integer no greater than half of `lifetimeMs`. Signing windows
+align to the clock, not a visitor's session. A newly issued URL has more than
+`lifetimeMs - rotationIntervalMs` and at most `lifetimeMs` remaining: the example gives
+150–300 seconds, compared with 240–300 seconds at the default interval. There are 24 signing
+windows per hour instead of 60; identical renditions reuse a URL within each window when
+credentials and metadata stay unchanged. This can improve repeat-view cache reuse, not the first
+cold transform. Every request still runs `authorizeAsset`; authorization results and redirects
+are never cached by the route.
+Bunny still keys on the full query, including authentication and expiry. Default Built-in
+parameters retain the existing canonical spelling.
 
 Every response is `private, no-store`. Redirects are 307 with an empty body; denied/malformed
 requests share a safe 404, unsupported methods get 405, and internal failures get a sanitized 500.
