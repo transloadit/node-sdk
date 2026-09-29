@@ -25,7 +25,7 @@ This is a **Node.js** SDK to make it easy to talk to the
 ## Contract-generated API methods (experimental)
 
 `client.contract()` adds typed, low-level methods for the ordinary HTTP API, using the same
-credentials and endpoint as the existing client. Existing methods keep their behavior.
+credentials and endpoint as the existing client. Existing methods remain available separately.
 
 ```ts
 const api = client.contract()
@@ -56,6 +56,9 @@ cancel-and-wait throws `AssemblyWorkflowUnconfirmedError` (`code: 'ASSEMBLY_WORK
 A later GET with `REQUEST_ABORTED` does not hide a failed cancellation request. No terminal response
 promises that worker cleanup or billing has already stopped.
 Private deployments may configure `assemblyOrigins` with trusted origins known before the request.
+These origins are additional to the public Transloadit uploader hosts admitted by the contract.
+A custom API endpoint is not an exclusive egress policy: returned public uploaders can still receive
+workflow requests directly. Enforce mandatory proxy routing in your network or custom transport.
 Never populate that list from response data. Redirects, changed owners and untrusted destinations
 are rejected, and uploader requests carry no authentication credentials.
 An exact match to the configured endpoint retains its proxy prefix; prefixes are never inferred
@@ -101,6 +104,8 @@ identifies that status; an already complete transfer can still be confirmed with
 even if later Assembly processing failed. Use `waitForAssembly` to check processing separately.
 
 Uploads default to 5 MiB chunks, a five-minute overall timeout and five recovery attempts.
+The timeout includes hashing the complete file, discovery, session persistence, transfer and backoff.
+Choose a larger `timeout` for files or connections that cannot finish that work within five minutes.
 Configure `chunkSize`, `timeout`, `maxRetries` and `retryDelay` on the workflow. After an ambiguous
 PATCH failure, recovery reads the offset before sending more bytes and honors `Retry-After`.
 The client's per-request timeout also applies to each tus request; a timed-out PATCH can recover
