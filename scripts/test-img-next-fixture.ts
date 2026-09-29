@@ -348,6 +348,7 @@ async function main(): Promise<void> {
         'install',
         ...(process.env.CI && process.platform === 'linux' ? ['--with-deps'] : []),
         'chromium',
+        'firefox',
         'webkit',
       ],
       { cwd: fixtureDir, stdio: 'inherit' },

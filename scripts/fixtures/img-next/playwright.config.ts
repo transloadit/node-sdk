@@ -10,6 +10,8 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' } },
     { name: 'webkit', use: { browserName: 'webkit' } },
+    // Keep the extra engine scoped to the responsive-selection contract.
+    { name: 'firefox-sizing', use: { browserName: 'firefox' }, grep: /native automatic sizing/ },
   ],
   reporter: [['list'], ['json', { outputFile: resolve(outputDir, 'results.json') }]],
   retries: 0,
