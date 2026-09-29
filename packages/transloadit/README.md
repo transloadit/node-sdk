@@ -56,8 +56,37 @@ from response data. Status GETs retry HTTP 429 and 5xx within the overall deadli
 `Retry-After`. A failed DELETE is never retried; an HTTP error can be followed by a GET to confirm
 whether the Assembly became terminal in the meantime.
 
-Keep using the existing SDK for upload orchestration, tus and resumability. SSE and Webhook
-receivers are not part of this namespace. The types describe wire shapes, not a full JSON Schema validator.
+For resumable uploads, create an Assembly with `fields: { num_expected_upload_files: '1' }`,
+then call the new fixed-size workflow with its ID:
+
+```ts
+await api.uploadAssemblyFile({
+  assemblyId,
+  file: { data: blob, filename: 'example.jpg' },
+  onSession: persistSession,
+  signal,
+})
+const status = await api.waitForAssembly({ assemblyId, signal })
+```
+
+`persistSession` is your callback for saving the serializable `AssemblyUploadSession` securely.
+It runs before any file bytes are sent; throw to stop if persistence fails. The session contains
+a secret upload URL: do not log it or expose it to other users. After interruption, a new client
+can call `resumeAssemblyFile({ assemblyId, file, session, signal })` with that saved session and
+the original file. The SDK hashes the Blob in bounded chunks, rejects a changed file, validates
+the destination and metadata, and reads the server's offset instead of trusting a cached offset.
+Already completed transfers send no more bytes. Completion means the file was transferred;
+use `waitForAssembly` and inspect its terminal status to establish processing success.
+
+Uploads default to 5 MiB chunks, a five-minute overall timeout and five recovery attempts.
+Configure `chunkSize`, `timeout`, `maxRetries` and `retryDelay` on the workflow. After an ambiguous
+PATCH failure, recovery reads the offset before sending more bytes. Creation is never retried:
+if its response is lost before a session is saved, inspect the Assembly before starting another
+upload. `AssemblyUploadError` preserves `cause` and, when available, `session`; abort/timeout
+does not delete uploaded bytes or cancel the Assembly. Use `cancelAndWaitForAssembly` explicitly
+when abandoning the job. The existing SDK remains available for deferred lengths, parallel tus
+concatenation and stream inputs. SSE and Webhook receivers are not part of this namespace.
+The types describe wire shapes, not a full JSON Schema validator.
 `ContractResponseError` exposes `status`, decoded `data` and an optional recognized `code`; its message
 omits response content. For example, check `error.code === 'TEMPLATE_NOT_FOUND'` after narrowing with
 `instanceof ContractResponseError`. This existing API error uses HTTP 400, not 404. An unknown or
@@ -67,7 +96,7 @@ Redirects are rejected and JSON responses are limited to 128 MiB.
 The adapter preserves the endpoint's base path, request timeout and client identification.
 An inherited zero timeout is rejected because the existing client treats it as an immediate
 request deadline, while standalone `ContractClient` uses zero to disable its request timer.
-Non-loopback endpoints require HTTPS. Each call makes one HTTP attempt: `maxRetries` and `gotRetry`
+Non-loopback endpoints require HTTPS. Each ordinary call makes one HTTP attempt: `maxRetries` and `gotRetry`
 apply only to existing SDK methods, not this low-level namespace. Decide whether a write is safe to
 retry in the owning workflow. Standalone clients default to a 60-second timeout (`timeout: 0`
 disables it); an explicit request signal may impose an earlier deadline.
@@ -88,7 +117,7 @@ cleanup failures. It does not automatically retry writes or replace the existing
 Maintainers: never edit `src/generated-contract/`. Its manifest records the exact API2 contract
 digest. In the matching API2 checkout, run `./bin/cli.ts contracts sdks --target typescript
 --output <node-sdk>/packages/node/src/generated-contract` from `api2/`, then repeat with `--check`.
-API2 owns schemas and generation; this repository owns `src/contractTransport.ts`, `src/contractWorkflows.ts` and their native
+API2 owns schemas and generation; this repository owns `src/contractTransport.ts`, `src/contractWorkflows.ts`, `src/contractTus.ts` and their native
 tests. API2 also pins those sources for strict compilation and local-server acceptance. Update
 that pin after changing the transport, workflows or `test/contractCanary.ts`. `coverage.json` deliberately
 distinguishes generated membership from unproven cross-language and protocol coverage.
@@ -100,11 +129,11 @@ are unchanged. Model naming belongs in API2's `api2/lib/contract/schemaModels.ts
 
 The API2-owned `workflow-vectors.json` is a test fixture, not a second API schema. Run
 `yarn exec vitest run --config packages/node/vitest.config.ts packages/node/test/unit/workflow-conformance.test.ts`
-from this repository's root to exercise contract-client wait/cancel and the existing upload,
-fresh-client resume and Smart CDN APIs against deterministic loopback HTTP fixtures. CI runs these
+from this repository's root to exercise contract-client wait/cancel/upload and fresh-client resume,
+plus local Smart CDN signing against shared vectors and deterministic HTTP fixtures. CI runs these
 with the unit tests. The fixture adapter does not implement SDK retries or polling. These results
-do not claim complete generated-client upload/resume parity or that every scenario was tested
-against a live API2 server. Both runtime acceptance and generated byte checks remain
+do not claim that every protocol feature or every scenario was tested against a live API2 server.
+Both runtime acceptance and generated byte checks remain
 separate gates. Change scenarios in API2's `api2/lib/contract/sdk/workflowVectors.ts` and regenerate,
 never edit the copied JSON here.
 
