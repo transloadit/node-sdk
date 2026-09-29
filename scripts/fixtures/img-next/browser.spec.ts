@@ -344,6 +344,90 @@ async function decode(image: Locator): Promise<void> {
   })
 }
 
+for (const deviceScaleFactor of [1, 2]) {
+  test.describe(`native automatic sizing at ${deviceScaleFactor}x`, () => {
+    test.use({ deviceScaleFactor, viewport: { width: 1200, height: 900 } })
+
+    test('matches the native lazy reference and records delivered bytes', async ({
+      page,
+      audit,
+      browser,
+    }, info) => {
+      await page.goto('/fixture/auto-sizing')
+      const automatic = page.getByRole('img', { name: 'Automatic lazy sizing', exact: true })
+      const fallback = page.getByRole('img', { name: 'Viewport fallback sizing', exact: true })
+      await automatic.scrollIntoViewIfNeeded()
+      await decode(automatic)
+      await decode(fallback)
+      await expect(automatic).toHaveAttribute('loading', 'lazy')
+      await expect(automatic).toHaveAttribute('sizes', 'auto')
+      expect((await automatic.boundingBox())?.width).toBe(240)
+
+      const { automaticSrc, sourceSet, original } = await automatic.evaluate((element) => {
+        if (!(element instanceof HTMLImageElement)) throw new Error('Expected image')
+        const source = element.closest('picture')?.querySelector('source[type="image/webp"]')
+        if (!(source instanceof HTMLSourceElement)) throw new Error('Expected WebP candidates')
+        return { automaticSrc: element.currentSrc, sourceSet: source.srcset, original: element.src }
+      })
+      // Compare cold native selection: a warm browser may legitimately reuse the larger fallback
+      // that the other image just downloaded. Older engines must keep their native fallback.
+      const referenceContext = await browser.newContext({
+        baseURL: info.project.use.baseURL,
+        deviceScaleFactor,
+        viewport: { width: 1200, height: 900 },
+      })
+      try {
+        const referencePage = await referenceContext.newPage()
+        await referencePage.goto('/fixture/cli-empty/app/storage-image-example')
+        await referencePage.evaluate(
+          ({ sourceSet, original }) => {
+            const reference = document.createElement('img')
+            reference.alt = 'Native sizing reference'
+            reference.width = 240
+            reference.height = 160
+            reference.style.width = '240px'
+            reference.loading = 'lazy'
+            reference.sizes = 'auto, 960px'
+            reference.srcset = sourceSet
+            reference.src = original
+            document.body.append(reference)
+          },
+          { sourceSet, original },
+        )
+        const reference = referencePage.getByRole('img', {
+          name: 'Native sizing reference',
+          exact: true,
+        })
+        await reference.scrollIntoViewIfNeeded()
+        await decode(reference)
+        await expect(reference).toHaveJSProperty('currentSrc', automaticSrc)
+      } finally {
+        await referenceContext.close()
+      }
+      const fallbackSrc = await fallback.evaluate((element) => {
+        if (!(element instanceof HTMLImageElement)) throw new Error('Expected image')
+        return element.currentSrc
+      })
+      await expect.poll(() => audit.images.some((image) => image.url === automaticSrc)).toBe(true)
+      await expect.poll(() => audit.images.some((image) => image.url === fallbackSrc)).toBe(true)
+      const automaticBytes = audit.images.find((image) => image.url === automaticSrc)
+      const fallbackBytes = audit.images.find((image) => image.url === fallbackSrc)
+      assert(automaticBytes && fallbackBytes)
+      expect(automaticBytes.bytes).toBeLessThanOrEqual(fallbackBytes.bytes)
+      expect(Number(new URL(fallbackSrc).searchParams.get('w'))).toBe(960 * deviceScaleFactor)
+      await info.attach('native-sizing', {
+        body: JSON.stringify({
+          deviceScaleFactor,
+          renderedWidth: 240,
+          automatic: automaticBytes,
+          fallback: fallbackBytes,
+        }),
+        contentType: 'application/json',
+      })
+    })
+  })
+}
+
 async function captureBeforeJavaScript(page: Page): Promise<Buffer> {
   // Deliberately held scripts keep document.fonts.ready pending even with system fonts. Capture
   // Chromium's compositor directly without releasing those scripts just to take a screenshot.

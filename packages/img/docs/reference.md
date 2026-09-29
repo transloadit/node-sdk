@@ -741,8 +741,11 @@ its largest candidate. For a 48px avatar, `widths={[48, 96]}` also caps JPEG at 
 Explicit `sizes` describes CSS layout; it does not set that layout. Without a derived or explicit
 size, lazy images default to `sizes="auto, 100vw"` (automatic CSS-box sizing where supported,
 viewport fallback otherwise); eager/preloaded images retain `100vw`. Auto sizing is lazy-only:
-Chrome 126+ and [Firefox 150+](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Releases/150)
-support it; Safari does not yet. Browsers without support use the listed fallback. Keep explicit fallback lengths.
+Chrome 126+, [Firefox 150+](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Releases/150)
+and [Safari 27+](https://webkit.org/blog/18325/webkit-features-for-safari-27-0/#responsive-images)
+support it. Older browsers use the listed fallback lengths, so keep those fallbacks even when
+automatic sizing matches your layout. No client-side resize observer is needed. Keep explicit
+`sizes` for known fixed slots and eager/preloaded heroes; never make a hero lazy just to use `auto`.
 `objectFit` controls CSS, while the default `r: 'pad'` preserves source
 proportions in encoded candidates. AVIF/WebP/PNG candidates use `bg: '#00000000'` to preserve
 transparency through both preview and encoding; JPEG uses an opaque background, white by default.
