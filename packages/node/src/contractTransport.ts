@@ -282,57 +282,73 @@ export class ContractTransport {
       body = fields
     }
     const deadline = this.#timeout === 0 ? undefined : AbortSignal.timeout(this.#timeout)
+    const controller =
+      input.signal !== undefined && deadline !== undefined ? new AbortController() : undefined
+    const abortCaller = (): void => controller?.abort(input.signal?.reason)
+    const abortDeadline = (): void => controller?.abort(deadline?.reason)
+    if (controller !== undefined) {
+      if (input.signal?.aborted) abortCaller()
+      else input.signal?.addEventListener('abort', abortCaller, { once: true })
+      deadline?.addEventListener('abort', abortDeadline, { once: true })
+    }
     const signal =
       input.signal === undefined
         ? deadline
         : deadline === undefined
           ? input.signal
-          : AbortSignal.any([input.signal, deadline])
+          : controller?.signal
     // This low-level namespace performs one HTTP attempt. Legacy gotRetry/maxRetries policies
     // are not copied across: replay safety for signed writes belongs to a higher-level workflow.
-    const response = await this.#fetch(url, {
-      method: operation.method,
-      headers,
-      ...(body === undefined ? {} : { body }),
-      redirect: 'error',
-      credentials: 'omit',
-      ...(signal === undefined ? {} : { signal }),
-    })
-    if (response.redirected || (response.url !== '' && response.url !== url.href)) {
-      await response.body?.cancel()
-      throw new Error('API redirects are not followed')
-    }
-    // Bound decoded bytes even when Content-Length is absent or compressed on the wire.
-    const reader = response.body?.getReader()
-    const chunks: Uint8Array[] = []
-    let length = 0
-    if (reader !== undefined) {
-      try {
-        for (;;) {
-          const chunk = await reader.read()
-          if (chunk.done) break
-          length += chunk.value.byteLength
-          if (length > 128 * 1024 * 1024) {
-            await reader.cancel()
-            throw new Error('API response exceeds size limit')
-          }
-          chunks.push(chunk.value)
-        }
-      } finally {
-        reader.releaseLock()
-      }
-    }
-    const source = Buffer.concat(chunks, length).toString('utf8')
-    let data: unknown
     try {
-      data = JSON.parse(source)
-    } catch (error) {
-      if (!response.ok) throw new ContractResponseError(response.status, undefined)
-      throw new Error('API returned an invalid JSON response', { cause: error })
+      const response = await this.#fetch(url, {
+        method: operation.method,
+        headers,
+        ...(body === undefined ? {} : { body }),
+        redirect: 'error',
+        credentials: 'omit',
+        ...(signal === undefined ? {} : { signal }),
+      })
+      if (response.redirected || (response.url !== '' && response.url !== url.href)) {
+        await response.body?.cancel()
+        throw new Error('API redirects are not followed')
+      }
+      // Bound decoded bytes even when Content-Length is absent or compressed on the wire.
+      const reader = response.body?.getReader()
+      const chunks: Uint8Array[] = []
+      let length = 0
+      if (reader !== undefined) {
+        try {
+          for (;;) {
+            const chunk = await reader.read()
+            if (chunk.done) break
+            length += chunk.value.byteLength
+            if (length > 128 * 1024 * 1024) {
+              await reader.cancel()
+              throw new Error('API response exceeds size limit')
+            }
+            chunks.push(chunk.value)
+          }
+        } finally {
+          reader.releaseLock()
+        }
+      }
+      const source = Buffer.concat(chunks, length).toString('utf8')
+      let data: unknown
+      try {
+        data = JSON.parse(source)
+      } catch (error) {
+        if (!response.ok) throw new ContractResponseError(response.status, undefined)
+        throw new Error('API returned an invalid JSON response', { cause: error })
+      }
+      if (!response.ok) throw new ContractResponseError(response.status, data, this.#errorCodes)
+      // Result is supplied only by generator-owned methods derived from the response contract.
+      // Static wire types do not claim client-side validation of every JSON Schema constraint.
+      return data as Result
+    } finally {
+      // A workflow can issue many requests with one signal. Older supported Node versions retain
+      // composite-signal dependencies; detach our forwarding listeners after every response/error.
+      input.signal?.removeEventListener('abort', abortCaller)
+      deadline?.removeEventListener('abort', abortDeadline)
     }
-    if (!response.ok) throw new ContractResponseError(response.status, data, this.#errorCodes)
-    // Result is supplied only by generator-owned methods derived from the response contract.
-    // Static wire types do not claim client-side validation of every JSON Schema constraint.
-    return data as Result
   }
 }

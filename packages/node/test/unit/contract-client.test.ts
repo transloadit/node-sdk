@@ -407,3 +407,15 @@ it('cancels on the returned uploader and waits when DELETE still reports an acti
     `GET ${owner}/assemblies/${assemblyId}`,
   ])
 })
+it('releases the caller abort listener after each generated HTTP request', async () => {
+  const controller = new AbortController()
+  const add = vi.spyOn(controller.signal, 'addEventListener')
+  const remove = vi.spyOn(controller.signal, 'removeEventListener')
+  const client = new ContractClient({
+    authentication: { kind: 'bearer', token: 'synthetic' },
+    fetch: () => Promise.resolve(Response.json({ ok: 'ASSEMBLY_COMPLETED' })),
+  })
+  await client.getAssembly({ path: { assemblyId: 'a'.repeat(32) }, signal: controller.signal })
+  expect(add).toHaveBeenCalledOnce()
+  expect(remove).toHaveBeenCalledWith('abort', add.mock.calls[0]?.[1])
+})
