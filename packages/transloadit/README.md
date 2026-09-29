@@ -59,10 +59,17 @@ from response data. Status GETs retry transient network failures and HTTP 429/5x
 `Retry-After`. A failed DELETE is never retried; an HTTP error can be followed by a GET to confirm
 whether the Assembly became terminal in the meantime.
 
-For resumable uploads, create an Assembly with `fields: { num_expected_upload_files: '1' }`,
-then call the new fixed-size workflow with its ID:
+For resumable uploads, create an Assembly with the upload count in top-level `fields`, alongside
+`params` (not inside `params.fields`), then call the fixed-size workflow with its ID:
 
 ```ts
+const created = await api.createAssembly({
+  params: { template_id: templateId },
+  fields: { num_expected_upload_files: '1' },
+  signal,
+})
+const assemblyId = created.assembly_id
+if (!assemblyId) throw new Error('Missing Assembly ID')
 await api.uploadAssemblyFile({
   assemblyId,
   file: { data: blob, filename: 'example.jpg' },
@@ -82,17 +89,26 @@ the original file. The SDK hashes the Blob in bounded chunks, rejects a changed 
 the destination and metadata, and reads the server's offset instead of trusting a cached offset.
 Already completed transfers send no more bytes. Completion means the file was transferred;
 use `waitForAssembly` and inspect its terminal status to establish processing success.
+If HEAD returns 404 after temporary upload cleanup, the workflow refreshes Assembly status and
+requires one finished `tus_uploads` receipt matching the saved URL, filename, fieldname, size and
+completed offset. Missing or mismatched receipts remain errors; no replacement upload is created.
+Stopped or unconfirmed Assemblies receive no new upload writes. When known, `AssemblyUploadError.assemblyCode`
+identifies that status; an already complete transfer can still be confirmed without writing.
 
 Uploads default to 5 MiB chunks, a five-minute overall timeout and five recovery attempts.
 Configure `chunkSize`, `timeout`, `maxRetries` and `retryDelay` on the workflow. After an ambiguous
 PATCH failure, recovery reads the offset before sending more bytes and honors `Retry-After`.
-The client's per-request timeout also applies to each tus request. Creation is never retried:
+The client's per-request timeout also applies to each tus request; a timed-out PATCH can recover
+within the remaining workflow deadline and retry budget. Creation is never retried:
 if its response is lost before a session is saved, inspect the Assembly before starting another
 upload. `AssemblyUploadError` preserves `cause` and, when available, `session`; abort/timeout
 does not delete uploaded bytes or cancel the Assembly. Use `cancelAndWaitForAssembly` explicitly
 when abandoning the job. The existing SDK remains available for deferred lengths, parallel tus
 concatenation and stream inputs. SSE and Webhook receivers are not part of this namespace.
 The types describe wire shapes, not a full JSON Schema validator.
+The configured `fetch` handles both ordinary API and tus requests, so connection configuration,
+tracing and fault injection work across the workflow. The SDK omits account credentials and cookies
+on tus calls; your trusted custom `fetch` must preserve that separation.
 `ContractResponseError` exposes `status`, decoded `data` and an optional recognized `code`; its message
 omits response content. For example, check `error.code === 'TEMPLATE_NOT_FOUND'` after narrowing with
 `instanceof ContractResponseError`. This existing API error uses HTTP 400, not 404. An unknown or

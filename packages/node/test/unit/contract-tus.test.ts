@@ -158,6 +158,167 @@ it('never retries uncertain creation, even when a recovery budget exists', async
   expect(transport).toHaveBeenCalledTimes(2)
 })
 
+it.each(
+  [
+    'ASSEMBLY_COMPLETED',
+    'ASSEMBLY_CANCELED',
+    'REQUEST_ABORTED',
+    'FILE_FILTER_DECLINED_FILE',
+  ].flatMap((code) => [false, true].map((resume) => ({ code, resume }))),
+)('rejects writes to $code, resume=$resume, retaining the Assembly code', async ({
+  code,
+  resume,
+}) => {
+  const { client, transport } = fixture()
+  let session: AssemblyUploadSession | undefined
+  if (resume) {
+    await expect(
+      client.uploadAssemblyFile({
+        assemblyId,
+        file,
+        onSession: (saved) => {
+          session = saved
+          throw new Error('checkpoint only')
+        },
+      }),
+    ).rejects.toBeInstanceOf(AssemblyUploadError)
+  }
+  transport.mockClear()
+  transport.mockImplementationOnce(() =>
+    Promise.resolve(
+      Response.json(
+        code === 'FILE_FILTER_DECLINED_FILE'
+          ? { assembly_id: assemblyId, error: code }
+          : {
+              assembly_id: assemblyId,
+              ok: code,
+              assembly_ssl_url: `${origin}/assemblies/${assemblyId}`,
+              tus_url: `${origin}/resumable/files/`,
+            },
+      ),
+    ),
+  )
+  const pending =
+    session === undefined
+      ? client.uploadAssemblyFile({ assemblyId, file })
+      : client.resumeAssemblyFile({ assemblyId, file, session })
+  await expect(pending).rejects.toMatchObject({ assemblyCode: code })
+  expect(transport.mock.calls.map(([, init]) => init?.method)).not.toContain('POST')
+  expect(transport.mock.calls.map(([, init]) => init?.method)).not.toContain('PATCH')
+})
+
+it('confirms a completed transfer after Assembly completion without writing again', async () => {
+  const { client, transport } = fixture()
+  const session = await client.uploadAssemblyFile({ assemblyId, file })
+  transport.mockClear()
+  transport.mockImplementationOnce(() =>
+    Promise.resolve(
+      Response.json({
+        assembly_id: assemblyId,
+        ok: 'ASSEMBLY_COMPLETED',
+        assembly_ssl_url: `${origin}/assemblies/${assemblyId}`,
+        tus_url: `${origin}/resumable/files/`,
+      }),
+    ),
+  )
+  await expect(client.resumeAssemblyFile({ assemblyId, file, session })).resolves.toEqual(session)
+  expect(transport.mock.calls.map(([, init]) => init?.method)).toEqual(['GET', 'HEAD'])
+})
+
+it.each([
+  {},
+  { finished: false },
+  { offset: 3 },
+  { size: 3 },
+  { filename: 'other.txt' },
+  { fieldname: 'other' },
+  { upload_url: `${origin}/resumable/files/other` },
+])('reconciles a missing tus resource only against an exact finished receipt: %j', async (change) => {
+  const { client, transport } = fixture()
+  const session = await client.uploadAssemblyFile({ assemblyId, file })
+  let reads = 0
+  const fetcher = vi.fn<typeof fetch>((_input, init) => {
+    if (init?.method === 'HEAD') return Promise.resolve(new Response(null, { status: 404 }))
+    if (init?.method !== 'GET') throw new Error('Unexpected write')
+    reads++
+    return Promise.resolve(
+      Response.json({
+        assembly_id: assemblyId,
+        ok: 'ASSEMBLY_COMPLETED',
+        assembly_ssl_url: `${origin}/assemblies/${assemblyId}`,
+        tus_url: `${origin}/resumable/files/`,
+        tus_uploads:
+          reads === 1
+            ? []
+            : [
+                {
+                  finished: true,
+                  upload_url: session.uploadUrl,
+                  size: 4,
+                  offset: 4,
+                  filename: file.filename,
+                  fieldname: 'file',
+                  ...change,
+                },
+              ],
+      }),
+    )
+  })
+  const fresh = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'unused' },
+    fetch: fetcher,
+  })
+  const pending = fresh.resumeAssemblyFile({ assemblyId, file, session })
+  if (Object.keys(change).length === 0) await expect(pending).resolves.toEqual(session)
+  else await expect(pending).rejects.toMatchObject({ cause: { status: 404 } })
+  expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(['GET', 'HEAD', 'GET'])
+  expect(transport).toHaveBeenCalledTimes(4)
+})
+
+it('recovers a committed PATCH whose response exceeds the per-request deadline', async () => {
+  const { transport } = fixture()
+  const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+    const response = await transport(input, init)
+    if (init?.method !== 'PATCH') return response
+    return new Promise((_resolve, reject) => {
+      const signal = init.signal
+      if (signal?.aborted) reject(signal.reason)
+      signal?.addEventListener('abort', () => reject(signal.reason), { once: true })
+    })
+  })
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'unused' },
+    fetch: fetcher,
+    timeout: 20,
+  })
+  await expect(
+    client.uploadAssemblyFile({ assemblyId, file, timeout: 1000, maxRetries: 1, retryDelay: 1 }),
+  ).resolves.toMatchObject({ size: 4 })
+  expect(fetcher.mock.calls.map(([, init]) => init?.method)).toEqual([
+    'GET',
+    'POST',
+    'HEAD',
+    'PATCH',
+    'HEAD',
+  ])
+})
+
+it('does not retry a local request-construction error during upload discovery', async () => {
+  const fetcher = vi.fn<typeof fetch>()
+  const client = new ContractClient({
+    origin,
+    authentication: { kind: 'bearer', token: 'unused' },
+    fetch: fetcher,
+    clientName: 'bad\nname',
+  })
+  await expect(
+    client.uploadAssemblyFile({ assemblyId, file, timeout: 100, retryDelay: 1 }),
+  ).rejects.toMatchObject({ cause: { name: 'TypeError' } })
+  expect(fetcher).not.toHaveBeenCalled()
+})
+
 it('continues from a partial PATCH acknowledgement without losing bytes', async () => {
   const { transport } = fixture()
   let stored = ''
@@ -263,9 +424,11 @@ it.each(['POST', 'HEAD', 'PATCH'])('applies the client request deadline to %s', 
     fetch: fetcher,
     timeout: 20,
   })
-  await expect(client.uploadAssemblyFile({ assemblyId, file, timeout: 100 })).rejects.toMatchObject(
-    { cause: { name: 'TimeoutError' } },
-  )
+  await expect(
+    client.uploadAssemblyFile({ assemblyId, file, timeout: 100, maxRetries: 0 }),
+  ).rejects.toMatchObject({
+    cause: { name: 'TimeoutError' },
+  })
   expect(fetcher.mock.calls.filter(([, init]) => init?.method === method)).toHaveLength(1)
 })
 

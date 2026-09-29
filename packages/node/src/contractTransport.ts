@@ -19,7 +19,7 @@ export interface ContractClientOptions {
         readonly algorithm?: ContractSignatureAlgorithm
       }
     | { readonly kind: 'bearer'; readonly token: string }
-  /** Trusted transport injection, for tests or application-owned connection configuration. */
+  /** Trusted fetch implementation for ordinary and tus requests. SDK credentials are not sent to tus. */
   readonly fetch?: typeof fetch
   readonly timeout?: number
   readonly clientName?: string
@@ -102,6 +102,24 @@ export class ContractResponseError extends Error {
       knownCodes.has(data.error)
         ? data.error
         : undefined
+  }
+}
+
+/** A fetch/stream failure, distinct from a local request-construction or decoding error. */
+export class ContractTransportError extends Error {
+  constructor(cause: unknown) {
+    super('API transport failed', { cause })
+    this.name = 'ContractTransportError'
+  }
+}
+
+/** Mark only I/O failures as recoverable; callers keep validation outside this boundary. */
+export async function contractIo<Result>(request: () => Promise<Result>): Promise<Result> {
+  try {
+    return await request()
+  } catch (error) {
+    if (error instanceof TypeError) throw new ContractTransportError(error)
+    throw error
   }
 }
 
@@ -335,14 +353,16 @@ export class ContractTransport {
     // This low-level namespace performs one HTTP attempt. Legacy gotRetry/maxRetries policies
     // are not copied across: replay safety for signed writes belongs to a higher-level workflow.
     try {
-      const response = await this.#fetch(url, {
-        method: operation.method,
-        headers,
-        ...(body === undefined ? {} : { body }),
-        redirect: 'error',
-        credentials: 'omit',
-        ...(signal === undefined ? {} : { signal }),
-      })
+      const response = await contractIo(() =>
+        this.#fetch(url, {
+          method: operation.method,
+          headers,
+          ...(body === undefined ? {} : { body }),
+          redirect: 'error',
+          credentials: 'omit',
+          ...(signal === undefined ? {} : { signal }),
+        }),
+      )
       if (response.redirected || (response.url !== '' && response.url !== url.href)) {
         await response.body?.cancel()
         throw new Error('API redirects are not followed')
@@ -354,7 +374,7 @@ export class ContractTransport {
       if (reader !== undefined) {
         try {
           for (;;) {
-            const chunk = await reader.read()
+            const chunk = await contractIo(() => reader.read())
             if (chunk.done) break
             length += chunk.value.byteLength
             if (length > 128 * 1024 * 1024) {

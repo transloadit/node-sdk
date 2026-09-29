@@ -6,6 +6,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 import {
   ContractResponseError,
+  ContractTransportError,
+  contractIo,
   requestDeadline,
   retryAfterMilliseconds,
 } from './contractTransport.ts'
@@ -52,11 +54,14 @@ export interface ResumeAssemblyUploadOptions extends AssemblyUploadOptions {
 /** A failed transfer may still have received bytes. The session permits explicit later recovery. */
 export class AssemblyUploadError extends Error {
   readonly session: AssemblyUploadSession | undefined
+  /** Known terminal or unconfirmed Assembly code, when status stopped further upload writes. */
+  readonly assemblyCode: string | undefined
 
-  constructor(session: AssemblyUploadSession | undefined, cause: unknown) {
+  constructor(session: AssemblyUploadSession | undefined, cause: unknown, assemblyCode?: string) {
     super('Assembly upload stopped; remote cleanup is not confirmed', { cause })
     this.name = 'AssemblyUploadError'
     this.session = session
+    this.assemblyCode = assemblyCode
   }
 }
 
@@ -135,14 +140,16 @@ export async function requestTus(
   const deadline = requestDeadline(signal, options.timeout ?? 60_000)
   const requestSignal = deadline.signal ?? signal
   try {
-    const response = await (options.fetch ?? globalThis.fetch)(url, {
-      method: operation.method,
-      headers,
-      ...(body === undefined ? {} : { body }),
-      signal: requestSignal,
-      credentials: 'omit',
-      redirect: 'error',
-    })
+    const response = await contractIo(() =>
+      (options.fetch ?? globalThis.fetch)(url, {
+        method: operation.method,
+        headers,
+        ...(body === undefined ? {} : { body }),
+        signal: requestSignal,
+        credentials: 'omit',
+        redirect: 'error',
+      }),
+    )
     // No protocol response body is needed. Cancel it even for hostile/unbounded error responses.
     await response.body?.cancel()
     requestSignal.throwIfAborted()
@@ -274,6 +281,7 @@ export async function runTusUpload(
   const fieldname = input.fieldname ?? 'file'
   if (!filename || !fieldname || /[\r\n\0]/u.test(filename + fieldname)) invalid()
   let session = resume === undefined ? undefined : Object.freeze({ ...resume })
+  let assemblyCode: string | undefined
   const controller = new AbortController()
   const abort = (): void => controller.abort(input.signal?.reason)
   input.signal?.addEventListener('abort', abort, { once: true })
@@ -310,7 +318,8 @@ export async function runTusUpload(
     const recover = async (error: unknown): Promise<void> => {
       check()
       if (
-        !(error instanceof TypeError) &&
+        !(error instanceof ContractTransportError) &&
+        !(error instanceof DOMException && error.name === 'TimeoutError') &&
         !(
           error instanceof ContractResponseError &&
           (error.status === 409 ||
@@ -334,9 +343,29 @@ export async function runTusUpload(
         }
       }
     }
-    const status = record(await discoverStatus())
-    check()
-    if (status[policy.assembly.identityField] !== input.assemblyId) invalid()
+    const inspect = (value: unknown): { status: Record<string, unknown>; canWrite: boolean } => {
+      const status = record(value)
+      check()
+      if (status[policy.assembly.identityField] !== input.assemblyId) invalid()
+      if (typeof status.error === 'string' && (status.ok === undefined || status.ok === null)) {
+        if (!policy.assembly.errorCodes.includes(status.error)) invalid()
+        assemblyCode = status.error
+      } else {
+        if (typeof status.ok !== 'string' || status.error !== undefined) invalid()
+        if (policy.assembly.busyCodes.includes(status.ok)) return { status, canWrite: true }
+        if (
+          !policy.assembly.terminalOkCodes.includes(status.ok) &&
+          !policy.assembly.unconfirmedOkCodes.includes(status.ok)
+        )
+          invalid()
+        assemblyCode = status.ok
+        // A completed transfer may still be confirmed without writing after Assembly completion.
+        if (session !== undefined && policy.assembly.terminalOkCodes.includes(status.ok))
+          return { status, canWrite: false }
+      }
+      throw new Error(`Assembly is not accepting upload writes (${assemblyCode})`)
+    }
+    const { status, canWrite } = inspect(await discoverStatus())
     const ownerPath = policy.assembly.path.replace(
       `{${policy.assembly.parameter}}`,
       input.assemblyId,
@@ -400,6 +429,29 @@ export async function runTusUpload(
         try {
           headers = await send('head', uploadUrl, baseHeaders, undefined, signal)
         } catch (error) {
+          if (error instanceof ContractResponseError && error.status === 404) {
+            // API2 retains finished tus receipts after temporary files disappear. Never infer
+            // receipt from Assembly completion or absence alone, and never recreate the upload.
+            const refreshed = inspect(await discoverStatus()).status
+            const receipts = Array.isArray(refreshed.tus_uploads)
+              ? refreshed.tus_uploads.filter(
+                  (upload: unknown) =>
+                    isWorkflowResponse(upload) && upload.upload_url === uploadUrl,
+                )
+              : []
+            const receipt: unknown = receipts[0]
+            if (
+              receipts.length === 1 &&
+              isWorkflowResponse(receipt) &&
+              receipt.finished === true &&
+              receipt.size === size &&
+              receipt.offset === size &&
+              receipt.filename === filename &&
+              receipt.fieldname === fieldname
+            )
+              return size
+            throw error
+          }
           await recover(error)
           continue
         }
@@ -427,6 +479,9 @@ export async function runTusUpload(
       }
     }
     let position = await head()
+    // This is the observed state; API2 remains responsible for races after status discovery.
+    if (position < size && !canWrite)
+      throw new Error(`Assembly is not accepting upload writes (${assemblyCode})`)
     while (position < size) {
       check()
       const end = Math.min(size, position + chunkSize)
@@ -460,7 +515,7 @@ export async function runTusUpload(
     check()
     return session
   } catch (error) {
-    throw new AssemblyUploadError(session, signal.aborted ? signal.reason : error)
+    throw new AssemblyUploadError(session, signal.aborted ? signal.reason : error, assemblyCode)
   } finally {
     clearTimeout(timer)
     input.signal?.removeEventListener('abort', abort)

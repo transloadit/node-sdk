@@ -2,7 +2,7 @@ import type { ContractClientOptions } from './contractTransport.ts'
 
 import { setTimeout as delay } from 'node:timers/promises'
 
-import { ContractResponseError } from './contractTransport.ts'
+import { ContractResponseError, ContractTransportError } from './contractTransport.ts'
 
 /** A bounded wait for any terminal Assembly status, not just successful processing. */
 export interface AssemblyWorkflowOptions {
@@ -172,7 +172,7 @@ export async function runAssemblyWorkflow<Result>(
           return await request(signal)
         } catch (error) {
           if (
-            !(error instanceof TypeError) &&
+            !(error instanceof ContractTransportError) &&
             !(error instanceof DOMException && error.name === 'TimeoutError') &&
             !(
               error instanceof ContractResponseError &&

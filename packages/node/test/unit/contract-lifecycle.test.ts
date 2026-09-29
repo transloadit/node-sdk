@@ -20,6 +20,25 @@ const authentication = { kind: 'bearer', token: 'synthetic-never-forward' } as c
 it.each([
   'waitForAssembly',
   'cancelAndWaitForAssembly',
+] as const)('%s does not hide a local request-construction error behind workflow timeout', async (method) => {
+  let requests = 0
+  const client = new ContractClient({
+    authentication,
+    clientName: 'bad\nname',
+    fetch: () => {
+      requests++
+      return Promise.resolve(Response.json(body))
+    },
+  })
+  await expect(client[method]({ assemblyId, interval: 1, timeout: 100 })).rejects.toBeInstanceOf(
+    TypeError,
+  )
+  expect(requests).toBe(0)
+})
+
+it.each([
+  'waitForAssembly',
+  'cancelAndWaitForAssembly',
 ] as const)('%s does not mistake an aborted connection for confirmed cleanup', async (method) => {
   const requests: string[] = []
   const client = new ContractClient({

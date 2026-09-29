@@ -169,6 +169,30 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
       const digest = createHash('md5').update(new Uint8Array(options.file)).digest('hex')
       assert.equal(completed.uploads?.[0]?.md5hash, digest)
       assert.equal(completed.results?.passed?.[0]?.md5hash, digest)
+      const reconciliation: string[] = []
+      const afterCleanup = new ContractClient({
+        ...clientOptions,
+        fetch: (input, init) => {
+          const request = new Request(input, init)
+          reconciliation.push(request.method)
+          assert(['GET', 'HEAD'].includes(request.method), 'Reconciliation must never write')
+          if (request.method === 'HEAD') {
+            assert(checkpoint)
+            assert.equal(request.url, checkpoint.uploadUrl)
+            // Simulate only the missing temporary resource; the receipt comes from real API2.
+            return Promise.resolve(new Response(null, { status: 404 }))
+          }
+          assert(clientOptions.fetch)
+          return clientOptions.fetch(input, init)
+        },
+      })
+      await afterCleanup.resumeAssemblyFile({
+        assemblyId: uploaded.assembly_id,
+        file,
+        session: checkpoint,
+        signal,
+      })
+      assert.deepEqual(reconciliation, ['GET', 'HEAD', 'GET'])
       const pending = await client.createAssembly({
         params: { template_id: created.id },
         fields: { num_expected_upload_files: '1' },
