@@ -43,7 +43,7 @@ function invalid(): never {
   throw new Error('Invalid Assembly workflow response or uploader destination')
 }
 
-function parseDestination(value: string): URL {
+export function parseWorkflowDestination(value: string): URL {
   // Reject ambiguous spellings before URL parsing can normalize them. Assembly routes use raw,
   // portable IDs, so encoded path/host bytes are unnecessary here and deliberately inadmissible.
   const authority = /^https?:\/\/([a-z0-9.-]+(?::[0-9]+)?)(?:\/[^?#]*)?$/iu.exec(value)?.[1]
@@ -76,6 +76,17 @@ function admittedOwner(
 ): string {
   if (typeof value !== 'string' || options.origin === undefined) invalid()
   const expectedPath = policy.path.replace(`{${policy.parameter}}`, assemblyId)
+  return admittedWorkflowDestination(value, expectedPath, policy, options)
+}
+
+/** Admit an exact producer-owned path without allowing response data to widen trusted origins. */
+export function admittedWorkflowDestination(
+  value: unknown,
+  expectedPath: string,
+  policy: AssemblyWorkflowPolicy,
+  options: ContractClientOptions,
+): string {
+  if (typeof value !== 'string' || options.origin === undefined) invalid()
   // The transport validated this caller-owned endpoint. Only an exact match may reuse its proxy
   // prefix/encoding or loopback spelling; response data cannot introduce another prefix.
   if (value === `${options.origin}${expectedPath}`) return options.origin
@@ -84,7 +95,7 @@ function admittedOwner(
   for (const origin of options.assemblyOrigins ?? []) {
     if (value === `${origin}${expectedPath}`) return origin
   }
-  const url = parseDestination(value)
+  const url = parseWorkflowDestination(value)
   if (url.pathname !== expectedPath) invalid()
   const origins = [new URL(options.origin).origin, ...(options.assemblyOrigins ?? [])]
   if (
@@ -100,7 +111,7 @@ function admittedOwner(
   return url.origin
 }
 
-function isResponse(value: unknown): value is Record<string, unknown> {
+export function isWorkflowResponse(value: unknown): value is Record<string, unknown> {
   // Keep the native canary standalone; this only narrows the few fields needed for lifecycle safety,
   // not a claim to validate the generated response's complete JSON Schema.
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -163,7 +174,7 @@ export async function runAssemblyWorkflow<Result>(
     }
     const inspect = (value: Result): { terminal: boolean; fields: Record<string, unknown> } => {
       checkDeadline()
-      if (!isResponse(value) || value[policy.identityField] !== input.assemblyId) invalid()
+      if (!isWorkflowResponse(value) || value[policy.identityField] !== input.assemblyId) invalid()
       const fields = value
       if (typeof fields.error === 'string' && (fields.ok === undefined || fields.ok === null)) {
         if (!policy.errorCodes.includes(fields.error)) invalid()

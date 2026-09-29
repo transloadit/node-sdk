@@ -78,6 +78,14 @@
       "chunkSize": 4
     },
     {
+      "id": "upload-recovers-lost-response",
+      "kind": "upload",
+      "filename": "workflow.bin",
+      "hex": "00017f80ff0d0a4142434445464748494a4b4c4d4e4f",
+      "chunkSize": 4,
+      "loseResponseAfterBytes": 4
+    },
+    {
       "id": "resume-interrupted-upload",
       "kind": "resume",
       "filename": "workflow.bin",

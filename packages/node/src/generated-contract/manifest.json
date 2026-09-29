@@ -2,7 +2,7 @@
   "format": "transloadit-sdk",
   "version": 1,
   "target": "typescript",
-  "contractSha256": "fa17ee496bcdfefd387310a12a3e57d5dc448a0fe4a323c0736740c167e0031b",
+  "contractSha256": "6f7e2cf8eaee8573536bac7794e398096fc4ee5c1e2379157a5ae7cd0f46a241",
   "operationIds": [
     "api2.assembly-stats",
     "api2.bulk-delete-dam-assets",
@@ -40,6 +40,9 @@
     "api2.show-auth-key-secret",
     "api2.update-auth-key",
     "api2.update-template",
-    "api2.update-template-credential"
+    "api2.update-template-credential",
+    "tusd.create-upload",
+    "tusd.get-upload-offset",
+    "tusd.patch-upload"
   ]
 }

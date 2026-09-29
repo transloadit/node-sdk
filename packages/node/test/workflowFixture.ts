@@ -18,6 +18,7 @@ const upload = z
     filename: z.string(),
     hex: z.string(),
     chunkSize: z.number().int().positive(),
+    loseResponseAfterBytes: z.number().int().positive().optional(),
   })
   .strict()
 const workflowCaseSchema = z.discriminatedUnion('kind', [
@@ -106,15 +107,17 @@ export async function workflowServer(scenario: WorkflowCase): Promise<WorkflowSe
   const patchOffsets: number[] = []
   const pending = new Set<Promise<void>>()
   let onChunk: (() => void) | undefined
+  let metadata = ''
+  let responseLost = false
   const bytes = 'hex' in scenario ? Buffer.from(scenario.hex, 'hex') : Buffer.alloc(0)
   const assemblyPath = `/assemblies/${workflowVectors.assemblyId}`
   const statusBody = (state: Record<string, unknown>): Record<string, unknown> => ({
     assembly_id: workflowVectors.assemblyId,
     assembly_url: `${origin}${assemblyPath}`,
     assembly_ssl_url: `${origin}${assemblyPath}`,
-    tus_url: `${origin}/uploads/`,
+    tus_url: `${origin}/resumable/files/`,
     tus_uploads:
-      offset || requests.includes('POST /uploads/')
+      offset || requests.includes('POST /resumable/files')
         ? [
             {
               filename: 'filename' in scenario ? scenario.filename : '',
@@ -123,7 +126,7 @@ export async function workflowServer(scenario: WorkflowCase): Promise<WorkflowSe
               size: bytes.length,
               offset,
               finished: offset === bytes.length,
-              upload_url: `${origin}/uploads/one`,
+              upload_url: `${origin}/resumable/files/one`,
             },
           ]
         : [],
@@ -169,14 +172,17 @@ export async function workflowServer(scenario: WorkflowCase): Promise<WorkflowSe
     }
     assert(scenario.kind === 'upload' || scenario.kind === 'resume', 'Unexpected upload request')
     response.setHeader('Tus-Resumable', '1.0.0')
-    if (key === 'POST /uploads/') {
+    assert.equal(request.headers.authorization, undefined)
+    assert.equal(request.headers.cookie, undefined)
+    if (key === 'POST /resumable/files') {
       assert.equal(
         requests.filter((entry) => entry === key).length,
         1,
         'Resume must not create a second upload',
       )
       assert.equal(request.headers['upload-length'], String(bytes.length))
-      const metadata = new Map(
+      metadata = String(request.headers['upload-metadata'])
+      const values = new Map(
         String(request.headers['upload-metadata'])
           .split(',')
           .map((entry) => {
@@ -184,16 +190,20 @@ export async function workflowServer(scenario: WorkflowCase): Promise<WorkflowSe
             return [name, Buffer.from(value ?? '', 'base64').toString()]
           }),
       )
-      assert.equal(metadata.get('assembly_url'), `${origin}${assemblyPath}`)
-      assert.equal(metadata.get('filename'), scenario.filename)
-      assert.equal(metadata.get('fieldname'), 'file')
-      response.writeHead(201, { Location: `${origin}/uploads/one` }).end()
+      assert.equal(values.get('assembly_url'), `${origin}${assemblyPath}`)
+      assert.equal(values.get('filename'), scenario.filename)
+      assert.equal(values.get('fieldname'), 'file')
+      response.writeHead(201, { Location: `${origin}/resumable/files/one` }).end()
       return
     }
-    assert.equal(route, '/uploads/one')
+    assert.equal(route, '/resumable/files/one')
     if (request.method === 'HEAD') {
       response
-        .writeHead(200, { 'Upload-Offset': String(offset), 'Upload-Length': String(bytes.length) })
+        .writeHead(200, {
+          'Upload-Offset': String(offset),
+          'Upload-Length': String(bytes.length),
+          'Upload-Metadata': metadata,
+        })
         .end()
       return
     }
@@ -205,6 +215,11 @@ export async function workflowServer(scenario: WorkflowCase): Promise<WorkflowSe
     assert.deepEqual(body, bytes.subarray(offset, offset + body.length))
     received.push(body)
     offset += body.length
+    if (!responseLost && scenario.loseResponseAfterBytes === offset) {
+      responseLost = true
+      response.destroy()
+      return
+    }
     if (onChunk) {
       const interrupt = onChunk
       onChunk = undefined

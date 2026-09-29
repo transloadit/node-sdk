@@ -1,4 +1,9 @@
-import type { CreateTemplateParams, JsonValue } from '../src/generated-contract/client.ts'
+import type {
+  AssemblyUploadSession,
+  ContractClientOptions,
+  CreateTemplateParams,
+  JsonValue,
+} from '../src/generated-contract/client.ts'
 
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
@@ -18,11 +23,12 @@ interface CanaryOptions {
 /** Local-only acceptance invoked by API2 with an owned, disposable auth fixture. */
 export async function runContractCanary(options: CanaryOptions): Promise<void> {
   assert.equal(new URL(options.origin).hostname, 'localhost')
-  const client = new ContractClient({
+  let interruptUpload: (() => void) | undefined
+  const clientOptions: ContractClientOptions = {
     origin: options.origin,
     assemblyOrigins: [options.capabilityOrigin],
     authentication: { kind: 'signed', key: options.key, secret: options.secret },
-    fetch: (input, init) => {
+    fetch: async (input, init) => {
       const request = new Request(input, init)
       assert(
         [new URL(options.origin).origin, options.capabilityOrigin].includes(
@@ -30,9 +36,16 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
         ),
         'Never contact a non-local canary destination',
       )
-      return fetch(request)
+      const response = await fetch(request)
+      if (request.method === 'PATCH' && response.ok && interruptUpload !== undefined) {
+        const interrupt = interruptUpload
+        interruptUpload = undefined
+        interrupt()
+      }
+      return response
     },
-  })
+  }
+  const client = new ContractClient(clientOptions)
   const signal = AbortSignal.timeout(90_000)
   const template = {
     steps: { passed: { robot: '/file/filter', use: ':original', result: true } },
@@ -111,18 +124,40 @@ export async function runContractCanary(options: CanaryOptions): Promise<void> {
           template_id: created.id,
           auth: { max_size: 10_000_000, max_number_of_files: 1 },
         },
-        files: {
-          file: {
-            data: new Blob([new Uint8Array(options.file)], { type: 'image/gif' }),
-            filename: 'smilie.gif',
-          },
-        },
+        fields: { num_expected_upload_files: '1' },
         signal,
       })
       assert.equal(typeof uploaded.assembly_id, 'string')
       if (typeof uploaded.assembly_id !== 'string') throw new Error('Missing Assembly ID')
       assemblies.add(uploaded.assembly_id)
       options.verify('api2.create-assembly', uploaded)
+      const interrupted = new AbortController()
+      interruptUpload = () => interrupted.abort(new Error('Owned interrupted upload'))
+      let checkpoint: AssemblyUploadSession | undefined
+      const file = {
+        data: new Blob([new Uint8Array(options.file)], { type: 'image/gif' }),
+        filename: 'smilie.gif',
+      }
+      await assert.rejects(
+        client.uploadAssemblyFile({
+          assemblyId: uploaded.assembly_id,
+          file,
+          chunkSize: 64,
+          signal: interrupted.signal,
+          onSession: (session) => {
+            checkpoint = session
+          },
+        }),
+      )
+      assert(checkpoint, 'Upload checkpoint must be available before interruption')
+      const fresh = new ContractClient(clientOptions)
+      await fresh.resumeAssemblyFile({
+        assemblyId: uploaded.assembly_id,
+        file,
+        session: checkpoint,
+        chunkSize: 64,
+        signal,
+      })
       const completed = await client.waitForAssembly({
         assemblyId: uploaded.assembly_id,
         interval: 250,

@@ -1,4 +1,4 @@
-// Generated from API2 contract fa17ee496bcdfefd387310a12a3e57d5dc448a0fe4a323c0736740c167e0031b. Do not edit.
+// Generated from API2 contract 6f7e2cf8eaee8573536bac7794e398096fc4ee5c1e2379157a5ae7cd0f46a241. Do not edit.
 import {
   ContractTransport,
   type ContractClientOptions,
@@ -382,6 +382,505 @@ const assemblyWorkflowPolicy = {
   path: '/assemblies/{assemblyId}',
   parameter: 'assemblyId',
   pattern: '^[a-z0-9]{32}$',
+}
+import {
+  runTusUpload,
+  requestTus,
+  type AssemblyUploadOptions,
+  type ResumeAssemblyUploadOptions,
+} from '../contractTus.ts'
+export { AssemblyUploadError } from '../contractTus.ts'
+export type {
+  AssemblyUploadOptions,
+  ResumeAssemblyUploadOptions,
+  AssemblyUploadSession,
+} from '../contractTus.ts'
+const tusWorkflowPolicy = {
+  assembly: {
+    busyCodes: ['ASSEMBLY_UPLOADING', 'ASSEMBLY_EXECUTING', 'ASSEMBLY_REPLAYING'],
+    terminalOkCodes: ['ASSEMBLY_CANCELED', 'ASSEMBLY_COMPLETED', 'REQUEST_ABORTED'],
+    errorCodes: [
+      'ADMIN_PERMISSIONS_REQUIRED',
+      'AI_CHAT_VALIDATION',
+      'ASSEMBLY_ACCOUNT_MISMATCH',
+      'ASSEMBLY_CANNOT_BE_REPLAYED',
+      'ASSEMBLY_COULD_NOT_BE_CREATED',
+      'ASSEMBLY_CRASHED',
+      'ASSEMBLY_DISALLOWED_ROBOTS_USED',
+      'ASSEMBLY_EMPTY_STEPS',
+      'ASSEMBLY_EXECUTION_PROGRESS_NOT_ENABLED',
+      'ASSEMBLY_EXPIRED',
+      'ASSEMBLY_FILE_NOT_RESERVED',
+      'ASSEMBLY_INFINITE',
+      'ASSEMBLY_INVALID_NOTIFY_URL',
+      'ASSEMBLY_INVALID_NUM_EXPECTED_UPLOAD_FILES_PARAM',
+      'ASSEMBLY_INVALID_STEPS',
+      'ASSEMBLY_JOB_ENQUEUE_ERROR',
+      'ASSEMBLY_LIST_ERROR',
+      'ASSEMBLY_MEMORY_LIMIT_EXCEEDED',
+      'ASSEMBLY_NOTIFICATIONS_LIST_ERROR',
+      'ASSEMBLY_NOTIFICATION_LIST_ERROR',
+      'ASSEMBLY_NOTIFICATION_NOT_PERSISTED',
+      'ASSEMBLY_NOTIFICATION_NOT_REPLAYED',
+      'ASSEMBLY_NOT_CAPABLE',
+      'ASSEMBLY_NOT_FINISHED',
+      'ASSEMBLY_NOT_FOUND',
+      'ASSEMBLY_NOT_REPLAYED',
+      'ASSEMBLY_NO_CHARGEABLE_STEP',
+      'ASSEMBLY_NO_NOTIFY_URL',
+      'ASSEMBLY_NO_STEPS',
+      'ASSEMBLY_PLAN_FILE_SIZE_LIMIT_EXCEEDED',
+      'ASSEMBLY_ROBOT_MISSING',
+      'ASSEMBLY_SATURATED',
+      'ASSEMBLY_STATS_ERROR',
+      'ASSEMBLY_STATS_INVALID_TIME',
+      'ASSEMBLY_STATS_MISSING_REGION',
+      'ASSEMBLY_STATUS_FETCHING_RATE_LIMIT_REACHED',
+      'ASSEMBLY_STATUS_NOT_FOUND',
+      'ASSEMBLY_STATUS_PARSE_ERROR',
+      'ASSEMBLY_STEP_INVALID',
+      'ASSEMBLY_STEP_INVALID_ROBOT',
+      'ASSEMBLY_STEP_INVALID_USE',
+      'ASSEMBLY_STEP_NO_ROBOT',
+      'ASSEMBLY_STEP_UNKNOWN_ROBOT',
+      'ASSEMBLY_STEP_UNKNOWN_USE',
+      'ASSEMBLY_URL_TRANSFORM_MISSING',
+      'AUDIO_ARTWORK_VALIDATION',
+      'AUDIO_CONCAT_INVALID_INPUT',
+      'AUDIO_CONCAT_VALIDATION',
+      'AUDIO_ENCODE_VALIDATION',
+      'AUDIO_LOOP_VALIDATION',
+      'AUDIO_MERGE_VALIDATION',
+      'AUDIO_SPLIT_NO_OUTPUT',
+      'AUDIO_SPLIT_VALIDATION',
+      'AUDIO_WAVEFORM_VALIDATION',
+      'AUTH_EXPIRED',
+      'AUTH_KEYS_NOT_FOUND',
+      'AUTH_KEY_SCOPES_NOT_FOUND',
+      'AUTH_SECRET_NOT_RETRIEVED',
+      'AZURE_IMPORT_ACCESS_DENIED',
+      'AZURE_IMPORT_FAILURE',
+      'AZURE_IMPORT_NOT_FOUND',
+      'AZURE_IMPORT_VALIDATION',
+      'AZURE_STORE_ACCESS_DENIED',
+      'AZURE_STORE_NOT_FOUND',
+      'AZURE_STORE_VALIDATION',
+      'BACKBLAZE_IMPORT_ACCESS_DENIED',
+      'BACKBLAZE_IMPORT_FAILURE',
+      'BACKBLAZE_IMPORT_NOT_FOUND',
+      'BACKBLAZE_IMPORT_VALIDATION',
+      'BACKBLAZE_STORE_ACCESS_DENIED',
+      'BACKBLAZE_STORE_FAILURE',
+      'BACKBLAZE_STORE_VALIDATION',
+      'BAD_PRICING',
+      'BEARER_TOKEN_AUTH_KEY_MISMATCH',
+      'BEARER_TOKEN_EXPIRED',
+      'BEARER_TOKEN_INVALID',
+      'BILL_LIMIT_EXCEEDED',
+      'BOX_IMPORT_ACCESS_DENIED',
+      'BOX_IMPORT_FAILURE',
+      'BOX_IMPORT_NOT_FOUND',
+      'BOX_IMPORT_VALIDATION',
+      'BOX_STORE_COULD_NOT_PARSE_URL',
+      'BOX_STORE_VALIDATION',
+      'CANNOT_ACCEPT_NEW_ASSEMBLIES',
+      'CDN_REQUIRED',
+      'CLOUDFILES_IMPORT_ACCESS_DENIED',
+      'CLOUDFILES_IMPORT_FAILURE',
+      'CLOUDFILES_IMPORT_NOT_FOUND',
+      'CLOUDFILES_IMPORT_VALIDATION',
+      'CLOUDFILES_STORE_ACCESS_DENIED',
+      'CLOUDFILES_STORE_ERROR',
+      'CLOUDFILES_STORE_VALIDATION',
+      'CLOUDFLARE_IMPORT_ACCESS_DENIED',
+      'CLOUDFLARE_IMPORT_FAILURE',
+      'CLOUDFLARE_IMPORT_NOT_FOUND',
+      'CLOUDFLARE_IMPORT_VALIDATION',
+      'CLOUDFLARE_STORE_ACCESS_DENIED',
+      'CLOUDFLARE_STORE_NOT_FOUND',
+      'CLOUDFLARE_STORE_URL_VERIFICATION_FAILURE',
+      'CLOUDFLARE_STORE_VALIDATION',
+      'CLOUDFLARE_STORE_WRONG_REGION',
+      'CLOUD_AI_IMAGE_VALIDATION',
+      'DIGITALOCEAN_IMPORT_ACCESS_DENIED',
+      'DIGITALOCEAN_IMPORT_FAILURE',
+      'DIGITALOCEAN_IMPORT_NOT_FOUND',
+      'DIGITALOCEAN_IMPORT_VALIDATION',
+      'DIGITALOCEAN_STORE_ACCESS_DENIED',
+      'DIGITALOCEAN_STORE_NOT_FOUND',
+      'DIGITALOCEAN_STORE_VALIDATION',
+      'DIGITALOCEAN_STORE_WRONG_REGION',
+      'DOCUMENT_AUTOROTATE_VALIDATION',
+      'DOCUMENT_CONVERT_UNSUPPORTED_CONVERSION',
+      'DOCUMENT_CONVERT_VALIDATION',
+      'DOCUMENT_EXTRACT_VALIDATION',
+      'DOCUMENT_MERGE_UNSUPPORTED_CONVERSION',
+      'DOCUMENT_MERGE_VALIDATION',
+      'DOCUMENT_OCR_VALIDATION',
+      'DOCUMENT_OPTIMIZE_UNSUPPORTED_INPUT',
+      'DOCUMENT_OPTIMIZE_VALIDATION',
+      'DOCUMENT_SPLIT_VALIDATION',
+      'DOCUMENT_THUMBS_INVALID_INPUT',
+      'DOCUMENT_THUMBS_VALIDATION',
+      'DO_NOT_REUSE_ASSEMBLY_IDS',
+      'DROPBOX_IMPORT_ACCESS_DENIED',
+      'DROPBOX_IMPORT_FAILURE',
+      'DROPBOX_IMPORT_NOT_FOUND',
+      'DROPBOX_IMPORT_VALIDATION',
+      'DROPBOX_STORE_COULD_NOT_PARSE_URL',
+      'DROPBOX_STORE_VALIDATION',
+      'FILE_COMPRESS_INVALID_INPUT',
+      'FILE_COMPRESS_VALIDATION',
+      'FILE_DECOMPRESS_INVALID_INPUT',
+      'FILE_DECOMPRESS_PASSWORD_INCORRECT',
+      'FILE_DECOMPRESS_PASSWORD_REQUIRED',
+      'FILE_DECOMPRESS_VALIDATION',
+      'FILE_DOWNLOAD_ERROR',
+      'FILE_FILTER_DECLINED_FILE',
+      'FILE_FILTER_INVALID_OPERATOR',
+      'FILE_FILTER_VALIDATION',
+      'FILE_HASH_VALIDATION',
+      'FILE_META_DATA_ERROR',
+      'FILE_PREVIEW_VALIDATION',
+      'FILE_READ_VALIDATION_ERROR',
+      'FILE_SERVE_NO_RESULT',
+      'FILE_SERVE_VALIDATION',
+      'FILE_VERIFY_INVALID_FILE',
+      'FILE_VERIFY_VALIDATION',
+      'FILE_VIRUSSCAN_DECLINED_FILE',
+      'FILE_VIRUSSCAN_INVALID_INPUT',
+      'FILE_VIRUSSCAN_VALIDATION',
+      'FTP_IMPORT_ACCESS_DENIED',
+      'FTP_IMPORT_FAILURE',
+      'FTP_IMPORT_NOT_FOUND',
+      'FTP_IMPORT_VALIDATION',
+      'FTP_STORE_VALIDATION',
+      'GET_ACCOUNT_DB_ERROR',
+      'GET_ACCOUNT_UNKNOWN_AUTH_KEY',
+      'GOOGLE_IMPORT_ACCESS_DENIED',
+      'GOOGLE_IMPORT_FAILURE',
+      'GOOGLE_IMPORT_NOT_FOUND',
+      'GOOGLE_IMPORT_VALIDATION',
+      'GOOGLE_STORE_INVALID_INPUT',
+      'GOOGLE_STORE_VALIDATION',
+      'HTML_CONVERT_VALIDATION',
+      'HTTP_IMPORT_ACCESS_DENIED',
+      'HTTP_IMPORT_FAILURE',
+      'HTTP_IMPORT_NOT_FOUND',
+      'HTTP_IMPORT_VALIDATION',
+      'HTTP_REQUEST_FAILURE',
+      'HTTP_REQUEST_VALIDATION',
+      'IMAGE_BGREMOVE_VALIDATION',
+      'IMAGE_COPYRIGHT_DETECT_DECLINED_FILE',
+      'IMAGE_COPYRIGHT_DETECT_VALIDATION',
+      'IMAGE_DESCRIBE_VALIDATION',
+      'IMAGE_ENHANCE_NO_INPUT_FILE',
+      'IMAGE_ENHANCE_VALIDATION',
+      'IMAGE_FACEDETECT_VALIDATION',
+      'IMAGE_GENERATE_VALIDATION',
+      'IMAGE_MERGE_FAILURE',
+      'IMAGE_MERGE_VALIDATION',
+      'IMAGE_OCR_VALIDATION',
+      'IMAGE_OPTIMIZE_VALIDATION',
+      'IMAGE_RESIZE_ERROR',
+      'IMAGE_RESIZE_INVALID_BLUR_REGION',
+      'IMAGE_RESIZE_INVALID_TEXT_OBJECT_VALUE',
+      'IMAGE_RESIZE_INVALID_TEXT_VALUE',
+      'IMAGE_RESIZE_INVALID_WATERMARK_OFFSET',
+      'IMAGE_RESIZE_INVALID_WATERMARK_POSITION',
+      'IMAGE_RESIZE_NO_CLUT_FILE',
+      'IMAGE_RESIZE_NO_INPUT_FILE',
+      'IMAGE_RESIZE_VALIDATION',
+      'IMAGE_UPSCALE_VALIDATION',
+      'IMPORT_FILE_ERROR',
+      'INCOMPLETE_PRICING',
+      'INSUFFICIENT_AUTH_SCOPE',
+      'INTERNAL_COMMAND_ERROR',
+      'INTERNAL_COMMAND_TIMEOUT',
+      'INVALID_ASSEMBLY_STATUS',
+      'INVALID_AUTH_EXPIRES_PARAMETER',
+      'INVALID_AUTH_KEY_PARAMETER',
+      'INVALID_AUTH_MAX_NUMBER_OF_FILES_PARAMETER',
+      'INVALID_AUTH_MAX_SIZE_PARAMETER',
+      'INVALID_AUTH_REFERER_PARAMETER',
+      'INVALID_FILE_META_DATA',
+      'INVALID_FORM_DATA',
+      'INVALID_INPUT_ERROR',
+      'INVALID_PARAMS_FIELD',
+      'INVALID_SIGNATURE',
+      'INVALID_STEP_NAME',
+      'INVALID_TEMPLATE_FIELD',
+      'INVALID_UPLOAD_HANDLE_STEP_NAME',
+      'INVALID_URL_ENCODING',
+      'MAX_NUMBER_OF_FILES_EXCEEDED',
+      'MAX_SIZE_EXCEEDED',
+      'MEGA_IMPORT_ACCESS_DENIED',
+      'MEGA_IMPORT_FAILURE',
+      'MEGA_IMPORT_NOT_FOUND',
+      'MEGA_IMPORT_VALIDATION',
+      'MEGA_STORE_ACCESS_DENIED',
+      'MEGA_STORE_NOT_FOUND',
+      'MEGA_STORE_VALIDATION',
+      'MEGA_STORE_WRONG_REGION',
+      'META_WRITE_VALIDATION',
+      'MINIO_IMPORT_ACCESS_DENIED',
+      'MINIO_IMPORT_FAILURE',
+      'MINIO_IMPORT_NOT_FOUND',
+      'MINIO_IMPORT_VALIDATION',
+      'MINIO_STORE_ACCESS_DENIED',
+      'MINIO_STORE_NOT_FOUND',
+      'MINIO_STORE_VALIDATION',
+      'MINIO_STORE_WRONG_REGION',
+      'NO_AUTH_EXPIRES_PARAMETER',
+      'NO_AUTH_KEY_PARAMETER',
+      'NO_AUTH_PARAMETER',
+      'NO_COUNTRY',
+      'NO_OBJECT_AUTH_PARAMETER',
+      'NO_OBJECT_PARAMS_FIELD',
+      'NO_PARAMS_FIELD',
+      'NO_PRICING',
+      'NO_RESULT_STEP_FOUND',
+      'NO_RPC_RESULT_FROM_IMAGE_RESIZER',
+      'NO_SIGNATURE_FIELD',
+      'NO_TEMPLATE_ID',
+      'PLAN_LIMIT_EXCEEDED',
+      'POSSIBLY_MALICIOUS_FILE_FOUND',
+      'PRIORITY_JOB_SLOTS_NOT_FOUND',
+      'PRIORITY_JOB_SLOT_STATS_ERROR',
+      'PRIORITY_JOB_SLOT_STATS_INVALID_AGGREGATION',
+      'PRIORITY_JOB_SLOT_STATS_INVALID_TIME',
+      'PRIORITY_JOB_SLOT_STATS_MISSING_REGION',
+      'RATE_LIMIT_REACHED',
+      'REFERER_MISMATCH',
+      'REQUEST_PREMATURE_CLOSED',
+      'ROBOT_VALIDATION_BASE_ERROR',
+      'S3_ACCESS_DENIED',
+      'S3_IMPORT_ACCESS_DENIED',
+      'S3_IMPORT_FAILURE',
+      'S3_IMPORT_NOT_FOUND',
+      'S3_IMPORT_VALIDATION',
+      'S3_NOT_FOUND',
+      'S3_STORE_ACCESS_DENIED',
+      'S3_STORE_FAILURE',
+      'S3_STORE_NOT_FOUND',
+      'S3_STORE_URL_VERIFICATION_FAILURE',
+      'S3_STORE_VALIDATION',
+      'S3_STORE_WRONG_REGION',
+      'S3_WRONG_REGION',
+      'SCRIPT_RUN_VALIDATION',
+      'SERVER_403',
+      'SERVER_404',
+      'SERVER_500',
+      'SFTP_IMPORT_ACCESS_DENIED',
+      'SFTP_IMPORT_FAILURE',
+      'SFTP_IMPORT_NOT_FOUND',
+      'SFTP_IMPORT_VALIDATION',
+      'SFTP_STORE_VALIDATION',
+      'SIGNATURE_REUSE_DETECTED',
+      'SPEECH_TRANSCRIBE_VALIDATION',
+      'STORAGE_GRANT_NOT_CREATED',
+      'SUPABASE_IMPORT_ACCESS_DENIED',
+      'SUPABASE_IMPORT_FAILURE',
+      'SUPABASE_IMPORT_NOT_FOUND',
+      'SUPABASE_IMPORT_VALIDATION',
+      'SUPABASE_STORE_ACCESS_DENIED',
+      'SUPABASE_STORE_NOT_FOUND',
+      'SUPABASE_STORE_VALIDATION',
+      'SUPABASE_STORE_WRONG_REGION',
+      'SWIFT_IMPORT_ACCESS_DENIED',
+      'SWIFT_IMPORT_FAILURE',
+      'SWIFT_IMPORT_NOT_FOUND',
+      'SWIFT_IMPORT_VALIDATION',
+      'SWIFT_STORE_ACCESS_DENIED',
+      'SWIFT_STORE_NOT_FOUND',
+      'SWIFT_STORE_VALIDATION',
+      'SWIFT_STORE_WRONG_REGION',
+      'TEMPLATE_CREDENTIALS_INJECTION_ERROR',
+      'TEMPLATE_DB_ERROR',
+      'TEMPLATE_DENIES_STEPS_OVERRIDE',
+      'TEMPLATE_INVALID_JSON',
+      'TEMPLATE_NOT_FOUND',
+      'TEXT_SPEAK_VALIDATION',
+      'TEXT_TRANSLATE_VALIDATION',
+      'TIGRIS_IMPORT_ACCESS_DENIED',
+      'TIGRIS_IMPORT_FAILURE',
+      'TIGRIS_IMPORT_NOT_FOUND',
+      'TIGRIS_IMPORT_VALIDATION',
+      'TIGRIS_STORE_ACCESS_DENIED',
+      'TIGRIS_STORE_NOT_FOUND',
+      'TIGRIS_STORE_VALIDATION',
+      'TIGRIS_STORE_WRONG_REGION',
+      'TMP_FILE_DOWNLOAD_ERROR',
+      'TOKEN_INVALID_CREDENTIALS',
+      'TRANSIENT_STORAGE_SERVICE_ERROR',
+      'TRANSLOADIT_IMPORT_ACCESS_DENIED',
+      'TRANSLOADIT_IMPORT_FAILURE',
+      'TRANSLOADIT_IMPORT_NOT_FOUND',
+      'TRANSLOADIT_IMPORT_VALIDATION',
+      'TRANSLOADIT_STORE_CONFLICT',
+      'TRANSLOADIT_STORE_FAILURE',
+      'TRANSLOADIT_STORE_UNAVAILABLE',
+      'TRANSLOADIT_STORE_VALIDATION',
+      'TUS_STORE_VALIDATION',
+      'USER_COMMAND_ERROR',
+      'VERIFIED_EMAIL_REQUIRED',
+      'VIDEO_ADAPTIVE_VALIDATION',
+      'VIDEO_ARTWORK_VALIDATION',
+      'VIDEO_CONCAT_INVALID_INPUT',
+      'VIDEO_CONCAT_NO_OUTPUT',
+      'VIDEO_CONCAT_VALIDATION',
+      'VIDEO_ENCODE_INVALID_VIDEO_CODEC',
+      'VIDEO_ENCODE_INVALID_WATERMARK_POSITION',
+      'VIDEO_ENCODE_VALIDATION',
+      'VIDEO_GENERATE_VALIDATION',
+      'VIDEO_MERGE_NO_IMAGE_FOUND',
+      'VIDEO_MERGE_VALIDATION',
+      'VIDEO_ONDEMAND_NOT_FOUND',
+      'VIDEO_ONDEMAND_VALIDATION',
+      'VIDEO_SPLIT_NO_OUTPUT',
+      'VIDEO_SPLIT_VALIDATION',
+      'VIDEO_SUBTITLE_VALIDATION',
+      'VIDEO_THUMBS_INVALID_COUNT_VALUE',
+      'VIDEO_THUMBS_INVALID_FORMAT',
+      'VIDEO_THUMBS_INVALID_INPUT',
+      'VIDEO_THUMBS_VALIDATION',
+      'VIMEO_IMPORT_ACCESS_DENIED',
+      'VIMEO_IMPORT_FAILURE',
+      'VIMEO_IMPORT_NOT_FOUND',
+      'VIMEO_IMPORT_VALIDATION',
+      'VIMEO_STORE_ACCESS_DENIED',
+      'VIMEO_STORE_PROBLEM_SENDING_FILE',
+      'VIMEO_STORE_VALIDATION',
+      'WASABI_IMPORT_ACCESS_DENIED',
+      'WASABI_IMPORT_FAILURE',
+      'WASABI_IMPORT_NOT_FOUND',
+      'WASABI_IMPORT_VALIDATION',
+      'WASABI_STORE_ACCESS_DENIED',
+      'WASABI_STORE_NOT_FOUND',
+      'WASABI_STORE_VALIDATION',
+      'WASABI_STORE_WRONG_REGION',
+      'WORKER_JOB_ERROR',
+      'YOUTUBE_STORE_PROBLEM_SENDING_FILE',
+      'YOUTUBE_STORE_VALIDATION',
+    ],
+    publicHostPattern: '^api2-[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?\\.transloadit\\.com$',
+    rejectedHostPrefixes: ['api2-xn--'],
+    identityField: 'assembly_id',
+    assemblyField: 'assembly_ssl_url',
+    path: '/assemblies/{assemblyId}',
+    parameter: 'assemblyId',
+    pattern: '^[a-z0-9]{32}$',
+  },
+  wire: {
+    version: '1.0.0',
+    headers: {
+      resumable: 'tus-resumable',
+      length: 'upload-length',
+      offset: 'upload-offset',
+      contentType: 'content-type',
+      metadata: 'upload-metadata',
+      location: 'location',
+    },
+    mediaType: 'application/offset+octet-stream',
+    filename: 'filename',
+    fieldname: 'fieldname',
+  },
+  collectionField: 'tus_url',
+  metadataName: 'assembly_url',
+  create: {
+    headers: {
+      alternatives: [
+        [
+          { name: 'content-type', required: false, values: ['application/offset+octet-stream'] },
+          { name: 'tus-resumable', required: true, values: ['1.0.0'] },
+          { name: 'upload-concat', required: false, values: ['partial'] },
+          {
+            name: 'upload-length',
+            pattern:
+              '^(?:0|[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$',
+            required: true,
+          },
+          {
+            name: 'upload-metadata',
+            pattern:
+              '^[\\x21-\\x2b\\x2d-\\x7e]+(?: (?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?)?(?:,[\\x21-\\x2b\\x2d-\\x7e]+(?: (?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?)?)*$',
+            required: true,
+          },
+        ],
+        [
+          { name: 'content-type', required: false, values: ['application/offset+octet-stream'] },
+          { name: 'tus-resumable', required: true, values: ['1.0.0'] },
+          { name: 'upload-concat', required: false, values: ['partial'] },
+          { name: 'upload-defer-length', required: true, values: ['1'] },
+          {
+            name: 'upload-metadata',
+            pattern:
+              '^[\\x21-\\x2b\\x2d-\\x7e]+(?: (?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?)?(?:,[\\x21-\\x2b\\x2d-\\x7e]+(?: (?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?)?)*$',
+            required: true,
+          },
+        ],
+        [
+          { name: 'tus-resumable', required: true, values: ['1.0.0'] },
+          {
+            maxLength: 8192,
+            name: 'upload-concat',
+            pattern:
+              '^final;(?:https?:\\/\\/[^/\\x09-\\x0D\\x20\\xA0                　﻿]+)?\\/resumable\\/files\\/[^/\\x09-\\x0D\\x20\\xA0                　﻿]+(?:\\/[^/\\x09-\\x0D\\x20\\xA0                　﻿]+)*(?: (?:https?:\\/\\/[^/\\x09-\\x0D\\x20\\xA0                　﻿]+)?\\/resumable\\/files\\/[^/\\x09-\\x0D\\x20\\xA0                　﻿]+(?:\\/[^/\\x09-\\x0D\\x20\\xA0                　﻿]+)*)*$',
+            required: true,
+          },
+          {
+            name: 'upload-metadata',
+            pattern:
+              '^[\\x21-\\x2b\\x2d-\\x7e]+(?: (?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?)?(?:,[\\x21-\\x2b\\x2d-\\x7e]+(?: (?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?)?)*$',
+            required: true,
+          },
+        ],
+      ],
+    },
+    kind: 'tus-collection',
+    method: 'POST',
+    operationId: 'tusd.create-upload',
+    parameters: [],
+    path: '/resumable/files',
+    success: 201,
+  },
+  head: {
+    headers: { alternatives: [[{ name: 'tus-resumable', required: true, values: ['1.0.0'] }]] },
+    kind: 'tus-upload-resource',
+    method: 'HEAD',
+    operationId: 'tusd.get-upload-offset',
+    parameters: [{ minLength: 1, name: 'uploadId', percentDecode: true }],
+    path: '/resumable/files/{uploadId}',
+    success: 200,
+  },
+  patch: {
+    headers: {
+      alternatives: [
+        [
+          { name: 'content-type', required: true, values: ['application/offset+octet-stream'] },
+          { name: 'tus-resumable', required: true, values: ['1.0.0'] },
+          {
+            name: 'upload-length',
+            pattern:
+              '^(?:0|[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$',
+            required: false,
+          },
+          {
+            name: 'upload-offset',
+            pattern:
+              '^(?:0|[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$',
+            required: true,
+          },
+        ],
+      ],
+    },
+    kind: 'tus-upload-resource',
+    method: 'PATCH',
+    operationId: 'tusd.patch-upload',
+    parameters: [{ minLength: 1, name: 'uploadId', percentDecode: true }],
+    path: '/resumable/files/{uploadId}',
+    success: 204,
+  },
 }
 export { ContractResponseError } from '../contractTransport.ts'
 export type { ContractClientOptions, UploadFile } from '../contractTransport.ts'
@@ -16245,9 +16744,7 @@ export type AssemblySteps_AdditionalProperty_S3Import_Secret = string | string
 export type AssemblySteps_AdditionalProperty_S3Store = {
   /**
    *
-   * The permissions used for this file.
-   *
-   * Please keep in mind that the default value `"public-read"` can lead to permission errors due to the `"Block all public access"` checkbox that is checked by default when creating a new Amazon S3 Bucket in the AWS console.
+   * The ACL used for this file. The default remains `"public-read"`, which can conflict with S3 Block Public Access and disabled ACLs. For modern private buckets, explicitly set `"bucket-default"` to omit the generated ACL header, and do not supply ACL/grant headers in `headers`. `"private"` still sends an ACL.
    *
    */
   acl?: AssemblySteps_AdditionalProperty_S3Store_Acl
@@ -16364,52 +16861,56 @@ export type AssemblySteps_AdditionalProperty_S3Store = {
    *
    * If you are new to Amazon S3, see our tutorial on [using your own S3 bucket](/docs/faq/how-to-set-up-an-amazon-s3-bucket/).
    *
-   * The URL to the result file in your S3 bucket will be returned in the <dfn>Assembly Status JSON</dfn>. If your S3 bucket has versioning enabled, the version ID of the file will be returned within `meta.version_id`
+   * The URL to the result file in your S3 bucket will be returned in the <dfn>Assembly Status JSON</dfn>. A returned URL does not make a private object public or grant read access. If your S3 bucket has versioning enabled, the version ID of the file will be returned within `meta.version_id`.
    *
    * > [!Warning]
-   * > **Avoid permission errors.** By default, `acl` is set to `"public-read"`. AWS S3 has a bucket setting called `Block new public ACLs and uploading public objects`. Set this to <strong>False</strong> in your bucket if you intend to leave `acl` as `"public-read"`. Otherwise, you’ll receive permission errors in your Assemblies despite your S3 credentials being configured correctly.
+   * > **Configure private buckets explicitly.** The Robot’s default `acl` is still `"public-read"`. For a private bucket, set `acl: "bucket-default"` and do not supply ACL or grant headers. This omits the generated ACL header and works with [Bucket owner enforced Object Ownership](https://docs.aws.amazon.com/AmazonS3/latest/userguide/about-object-ownership.html), where ACLs are disabled. Keep S3 Block Public Access enabled. Setting `acl: "private"` still sends an ACL and is not equivalent to omitting it.
    *
    * > [!Warning]
-   * > **Use DNS-compliant bucket names.** Your bucket name [must be DNS-compliant](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) and must not contain uppercase letters. Any non-alphanumeric characters in the file names will be replaced with an underscore, and spaces will be replaced with dashes. If your existing S3 bucket contains uppercase letters or is otherwise not DNS-compliant, rewrite the result URLs using the <dfn>Robot</dfn>’s `url_prefix` parameter.
+   * > **Use DNS-compliant bucket names.** Follow AWS’s [bucket naming rules](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html). The `url_prefix` parameter changes returned URLs; it does not change the bucket or its access permissions.
    *
    * <span id="minimum-s3-iam-permissions" aria-hidden="true"></span>
    *
    * ## Limit access
    *
-   * You will also need to add permissions to your bucket so that Transloadit can access it properly. Here is an example IAM policy that you can use. Following the [principle of least privilege](https://en.wikipedia.org/wiki/Principle_of_least_privilege), it contains the **minimum required permissions** to export a file to your S3 bucket using Transloadit. You may require more permissions (especially viewing permissions) depending on your application.
+   * Use a dedicated AWS identity with access limited to the destination bucket and object prefix. Do not use [AWS root access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/root-user-best-practices.html). Store its access key ID, secret access key, bucket name and region as `key`, `secret`, `bucket` and `bucket_region` in <dfn>Template Credentials</dfn>, then reference their name with `credentials`. Trusted backend integrations can instead supply those parameters directly; do not expose AWS secrets in browser instructions.
    *
-   * Please change `{BUCKET_NAME}` in the values for `Sid` and `Resource` accordingly. Also, this policy will grant the minimum required permissions to all your users. We advise you to create a separate Amazon IAM user, and use its User ARN (can be found in the "Summary" tab of a user [here](https://console.aws.amazon.com/iam/home#users)) for the `Principal` value. More information about this can be found [here](https://docs.aws.amazon.com/AmazonS3/latest/dev/AccessPolicyLanguage_UseCases_s3_a.html).
+   * The following is an [identity-based IAM policy](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html), attached to that dedicated identity, not a bucket policy. It intentionally has no `Principal`. Replace `{BUCKET_NAME}` and use a Robot `path` beginning with `uploads/`, or adapt both the policy prefix and the path together.
+   *
+   * This example covers uploads and failed multipart-upload cleanup with an explicit `bucket_region`, `acl: "bucket-default"`, no ACL/grant headers, no tags and S3-managed encryption (SSE-S3). Existing bucket policies, organization controls or endpoint policies can still deny access.
    *
    * ```json
    * {
    *   "Version": "2012-10-17",
    *   "Statement": [
    *     {
-   *       "Sid": "AllowTransloaditToStoreFilesIn{BUCKET_NAME}Bucket",
+   *       "Sid": "UploadAndAbortWithinPrefix",
    *       "Effect": "Allow",
-   *       "Action": ["s3:GetBucketLocation", "s3:ListBucket", "s3:PutObject", "s3:PutObjectAcl"],
-   *       "Resource": ["arn:aws:s3:::{BUCKET_NAME}", "arn:aws:s3:::{BUCKET_NAME}/*"]
+   *       "Action": ["s3:PutObject", "s3:AbortMultipartUpload"],
+   *       "Resource": "arn:aws:s3:::{BUCKET_NAME}/uploads/*"
    *     }
    *   ]
    * }
    * ```
    *
-   * The `Sid` value is just an identifier for you to recognize the rule later. You can name it anything you like.
+   * The uploader uses either `PutObject` or `CreateMultipartUpload`, `UploadPart` and `CompleteMultipartUpload`; failed multipart uploads can trigger `AbortMultipartUpload`. AWS maps the successful upload operations to `s3:PutObject`. Write access can **overwrite an existing object key**; it is not add-only. Choose unique object paths and consider versioning for recovery.
    *
-   * The policy needs to be separated into two parts, because the `ListBucket` action requires permissions on the bucket while the other actions require permissions on the objects in the bucket. When targeting the objects there's a trailing slash and an asterisk in the `Resource` parameter, whereas when the policy targets the bucket, the slash and the asterisk are omitted.
+   * Add permissions only for features you use, following AWS’s [operation permission reference](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-policy-actions.html):
    *
-   * Please note that if you give the <dfn>Robot</dfn>'s `acl` parameter a value of `"bucket-default"`, then you do not need the `"s3:PutObjectAcl"` permission in your bucket policy.
+   * - Without an explicit `bucket_region`, region discovery can require `s3:GetBucketLocation` and fallback `s3:ListBucket` on the bucket ARN, `arn:aws:s3:::{BUCKET_NAME}`, without an object suffix. Supplying the correct region avoids these discovery requests.
+   * - ACL or grant headers require `s3:PutObjectAcl`; tags require `s3:PutObjectTagging` on the allowed object prefix. `bucket-default` does not remove ACL/grant headers you supply in `headers`.
+   * - Downloading private results requires separate read authorization. Even a URL generated with `sign_urls_for` needs the signing identity to have the appropriate read permissions.
    *
-   * In order to build proper result URLs we need to know the region in which your S3 bucket resides. For this we require the `GetBucketLocation` permission. Figuring out your bucket's region this way will also slow down your Assemblies. To make this much faster and to also not require the `GetBucketLocation` permission, we have added the `bucket_region` parameter to the /s3/store and /s3/import Robots. We recommend using them at all times.
+   * S3 applies its [bucket encryption configuration](https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html) when no encryption override is sent. You can request SSE-KMS through `headers`, using `x-amz-server-side-encryption: aws:kms` and `x-amz-server-side-encryption-aws-kms-key-id`. When either bucket default encryption or request headers select [SSE-KMS](https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingKMSEncryption.html), the uploading identity needs `kms:GenerateDataKey` on the relevant key, plus `kms:Decrypt` for multipart uploads. For a customer-managed key, grant these permissions with a compatible KMS key policy; the base S3 policy above does not include them. Do not add blanket `kms:*` or `sts:*` grants.
    *
-   * Please keep in mind that if you use bucket encryption you may also need to add `"sts:*"` and `"kms:*"` to the bucket policy. Please read [here](https://docs.aws.amazon.com/kms/latest/developerguide/kms-api-permissions-reference.html) and [here](https://aws.amazon.com/blogs/security/how-to-restrict-amazon-s3-bucket-access-to-a-specific-iam-role/) in case you run into trouble with our example bucket policy.
+   * Short-lived AWS credentials are a matching set of `key`, `secret` and `session_token`. Have a trusted backend obtain and refresh all three, then supply them together when it creates the Assembly. It can pass them directly in Robot instructions or save and update them together through the [Template Credentials API](/docs/api/template-credentials-post/). Keep all three out of browser instructions; replacing only the session token does not refresh expired access keys. This Robot passes the supplied credentials to S3; it does not assume a role or refresh expired credentials. Keep temporary credentials valid for the upload.
    *
    */
   robot: '/s3/store'
   secret?: AssemblySteps_AdditionalProperty_S3Store_Secret
   /**
    *
-   * The session token to use for the S3 store. This is only used if the credentials are from an IAM user with the `sts:AssumeRole` permission.
+   * The session token belonging to the temporary AWS access key ID and secret access key supplied for this upload. The Robot does not assume a role or refresh these credentials; they must remain valid for the upload.
    *
    */
   session_token?: AssemblySteps_AdditionalProperty_S3Store_SessionToken
@@ -16482,9 +16983,7 @@ export type AssemblySteps_AdditionalProperty_S3Store = {
 }
 /**
  *
- * The permissions used for this file.
- *
- * Please keep in mind that the default value `"public-read"` can lead to permission errors due to the `"Block all public access"` checkbox that is checked by default when creating a new Amazon S3 Bucket in the AWS console.
+ * The ACL used for this file. The default remains `"public-read"`, which can conflict with S3 Block Public Access and disabled ACLs. For modern private buckets, explicitly set `"bucket-default"` to omit the generated ACL header, and do not supply ACL/grant headers in `headers`. `"private"` still sends an ACL.
  *
  */
 export type AssemblySteps_AdditionalProperty_S3Store_Acl =
@@ -16531,7 +17030,7 @@ export type AssemblySteps_AdditionalProperty_S3Store_NoVhost_Variant = boolean |
 export type AssemblySteps_AdditionalProperty_S3Store_Secret = string | string
 /**
  *
- * The session token to use for the S3 store. This is only used if the credentials are from an IAM user with the `sts:AssumeRole` permission.
+ * The session token belonging to the temporary AWS access key ID and secret access key supplied for this upload. The Robot does not assume a role or refresh these credentials; they must remain valid for the upload.
  *
  */
 export type AssemblySteps_AdditionalProperty_S3Store_SessionToken = string | string
@@ -67531,6 +68030,30 @@ export class ContractClient extends ContractTransport {
             owner.cancelAssembly({ path: { assemblyId: input.assemblyId }, signal }),
         }
       },
+    )
+  }
+  /** Upload one fixed-size file to an existing Assembly; persist its session before bytes are sent. Completion here means transferred bytes, not successful Assembly processing. */
+  uploadAssemblyFile(input: AssemblyUploadOptions) {
+    return runTusUpload(
+      input,
+      undefined,
+      tusWorkflowPolicy,
+      this.workflowOptions(),
+      (assemblyId, signal) => this.getAssembly({ path: { assemblyId: assemblyId }, signal }),
+      (kind, url, headers, body, signal) =>
+        requestTus(this.workflowOptions(), tusWorkflowPolicy[kind], url, headers, body, signal),
+    )
+  }
+  /** Resume the same file using a saved upload session and the server offset. Completion here means transferred bytes, not successful Assembly processing. */
+  resumeAssemblyFile(input: ResumeAssemblyUploadOptions) {
+    return runTusUpload(
+      input,
+      input.session,
+      tusWorkflowPolicy,
+      this.workflowOptions(),
+      (assemblyId, signal) => this.getAssembly({ path: { assemblyId: assemblyId }, signal }),
+      (kind, url, headers, body, signal) =>
+        requestTus(this.workflowOptions(), tusWorkflowPolicy[kind], url, headers, body, signal),
     )
   }
 }

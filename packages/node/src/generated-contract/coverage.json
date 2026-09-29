@@ -1,7 +1,7 @@
 {
   "format": "transloadit-sdk-coverage",
   "version": 1,
-  "contractSha256": "fa17ee496bcdfefd387310a12a3e57d5dc448a0fe4a323c0736740c167e0031b",
+  "contractSha256": "6f7e2cf8eaee8573536bac7794e398096fc4ee5c1e2379157a5ae7cd0f46a241",
   "inventory": [
     {
       "id": "sha256:d2436a8775b998d953f51b7b041e01e98294ed7e732ee7f78dff0af779c28634",
@@ -1475,8 +1475,7 @@
       "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
       "operationId": "tusd.create-upload",
       "category": "tus",
-      "kind": "gap",
-      "reason": "native-feature-not-implemented"
+      "kind": "generate"
     },
     {
       "id": "sha256:f5bd45755935878d6012e58f9bf6f2db34f764ae634addcb3c642bf92646a1b4",
@@ -1503,8 +1502,7 @@
       "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
       "operationId": "tusd.get-upload-offset",
       "category": "tus",
-      "kind": "gap",
-      "reason": "native-feature-not-implemented"
+      "kind": "generate"
     },
     {
       "id": "sha256:3454b5247ffbe496402f25907a67f6ab3e11a08e6d92426f89211a209d0005e9",
@@ -1517,8 +1515,7 @@
       "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
       "operationId": "tusd.patch-upload",
       "category": "tus",
-      "kind": "gap",
-      "reason": "native-feature-not-implemented"
+      "kind": "generate"
     },
     {
       "id": "sha256:84331b5f43e062c5fc1b6d1d0fde0783a961e4c0637688ea0d24fc97969646f7",
@@ -1602,6 +1599,12 @@
           "liveRuntime": "not-proven"
         },
         {
+          "id": "upload-recovers-lost-response",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-proven"
+        },
+        {
           "id": "resume-interrupted-upload",
           "nativePublicApi": "not-proven",
           "generatedClient": "not-proven",
@@ -3019,8 +3022,8 @@
             {
               "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
               "operationId": "tusd.create-upload",
-              "applicability": "gap",
-              "generated": false
+              "applicability": "generate",
+              "generated": true
             },
             {
               "id": "sha256:f5bd45755935878d6012e58f9bf6f2db34f764ae634addcb3c642bf92646a1b4",
@@ -3043,8 +3046,8 @@
             {
               "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
               "operationId": "tusd.get-upload-offset",
-              "applicability": "gap",
-              "generated": false
+              "applicability": "generate",
+              "generated": true
             },
             {
               "id": "sha256:3454b5247ffbe496402f25907a67f6ab3e11a08e6d92426f89211a209d0005e9",
@@ -3055,8 +3058,8 @@
             {
               "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
               "operationId": "tusd.patch-upload",
-              "applicability": "gap",
-              "generated": false
+              "applicability": "generate",
+              "generated": true
             },
             {
               "id": "sha256:84331b5f43e062c5fc1b6d1d0fde0783a961e4c0637688ea0d24fc97969646f7",
@@ -3112,6 +3115,12 @@
           "liveRuntime": "not-proven"
         },
         {
+          "id": "upload-recovers-lost-response",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-proven"
+        },
+        {
           "id": "resume-interrupted-upload",
           "nativePublicApi": "not-proven",
           "generatedClient": "not-proven",
@@ -4529,7 +4538,7 @@
             {
               "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
               "operationId": "tusd.create-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -4553,7 +4562,7 @@
             {
               "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
               "operationId": "tusd.get-upload-offset",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -4565,7 +4574,7 @@
             {
               "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
               "operationId": "tusd.patch-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -4622,6 +4631,12 @@
           "liveRuntime": "not-proven"
         },
         {
+          "id": "upload-recovers-lost-response",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-proven"
+        },
+        {
           "id": "resume-interrupted-upload",
           "nativePublicApi": "not-proven",
           "generatedClient": "not-proven",
@@ -6039,7 +6054,7 @@
             {
               "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
               "operationId": "tusd.create-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -6063,7 +6078,7 @@
             {
               "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
               "operationId": "tusd.get-upload-offset",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -6075,7 +6090,7 @@
             {
               "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
               "operationId": "tusd.patch-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -6132,6 +6147,12 @@
           "liveRuntime": "not-proven"
         },
         {
+          "id": "upload-recovers-lost-response",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-proven"
+        },
+        {
           "id": "resume-interrupted-upload",
           "nativePublicApi": "not-proven",
           "generatedClient": "not-proven",
@@ -7549,7 +7570,7 @@
             {
               "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
               "operationId": "tusd.create-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -7573,7 +7594,7 @@
             {
               "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
               "operationId": "tusd.get-upload-offset",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -7585,7 +7606,7 @@
             {
               "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
               "operationId": "tusd.patch-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -7642,6 +7663,12 @@
           "liveRuntime": "not-proven"
         },
         {
+          "id": "upload-recovers-lost-response",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-proven"
+        },
+        {
           "id": "resume-interrupted-upload",
           "nativePublicApi": "not-proven",
           "generatedClient": "not-proven",
@@ -9059,7 +9086,7 @@
             {
               "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
               "operationId": "tusd.create-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -9083,7 +9110,7 @@
             {
               "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
               "operationId": "tusd.get-upload-offset",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -9095,7 +9122,7 @@
             {
               "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
               "operationId": "tusd.patch-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -9152,6 +9179,12 @@
           "liveRuntime": "not-proven"
         },
         {
+          "id": "upload-recovers-lost-response",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-proven"
+        },
+        {
           "id": "resume-interrupted-upload",
           "nativePublicApi": "not-proven",
           "generatedClient": "not-proven",
@@ -10569,7 +10602,7 @@
             {
               "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
               "operationId": "tusd.create-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -10593,7 +10626,7 @@
             {
               "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
               "operationId": "tusd.get-upload-offset",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -10605,7 +10638,7 @@
             {
               "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
               "operationId": "tusd.patch-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -10662,6 +10695,12 @@
           "liveRuntime": "not-proven"
         },
         {
+          "id": "upload-recovers-lost-response",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-proven"
+        },
+        {
           "id": "resume-interrupted-upload",
           "nativePublicApi": "not-proven",
           "generatedClient": "not-proven",
@@ -12079,7 +12118,7 @@
             {
               "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
               "operationId": "tusd.create-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -12103,7 +12142,7 @@
             {
               "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
               "operationId": "tusd.get-upload-offset",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -12115,7 +12154,7 @@
             {
               "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
               "operationId": "tusd.patch-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -12172,6 +12211,12 @@
           "liveRuntime": "not-proven"
         },
         {
+          "id": "upload-recovers-lost-response",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-proven"
+        },
+        {
           "id": "resume-interrupted-upload",
           "nativePublicApi": "not-proven",
           "generatedClient": "not-proven",
@@ -13589,7 +13634,7 @@
             {
               "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
               "operationId": "tusd.create-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -13613,7 +13658,7 @@
             {
               "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
               "operationId": "tusd.get-upload-offset",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -13625,7 +13670,7 @@
             {
               "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
               "operationId": "tusd.patch-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -13682,6 +13727,12 @@
           "liveRuntime": "not-proven"
         },
         {
+          "id": "upload-recovers-lost-response",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-proven"
+        },
+        {
           "id": "resume-interrupted-upload",
           "nativePublicApi": "not-proven",
           "generatedClient": "not-proven",
@@ -15099,7 +15150,7 @@
             {
               "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
               "operationId": "tusd.create-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -15123,7 +15174,7 @@
             {
               "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
               "operationId": "tusd.get-upload-offset",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -15135,7 +15186,7 @@
             {
               "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
               "operationId": "tusd.patch-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -15192,6 +15243,12 @@
           "liveRuntime": "not-proven"
         },
         {
+          "id": "upload-recovers-lost-response",
+          "nativePublicApi": "not-proven",
+          "generatedClient": "not-proven",
+          "liveRuntime": "not-proven"
+        },
+        {
           "id": "resume-interrupted-upload",
           "nativePublicApi": "not-proven",
           "generatedClient": "not-proven",
@@ -16609,7 +16666,7 @@
             {
               "id": "sha256:b1201395265b841f1b366c856fc51c51b952630c3af40ee9787cd541ab0459ea",
               "operationId": "tusd.create-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -16633,7 +16690,7 @@
             {
               "id": "sha256:d9ec1e82b2a1f31ccd69d70a0fd6b9ffccbae8c47132c074a0e1715f00f740d0",
               "operationId": "tusd.get-upload-offset",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {
@@ -16645,7 +16702,7 @@
             {
               "id": "sha256:a32e9ad26612143cfa3d6019812fb5ec6c4c93d45365bb1f84fa34a6ff08d2d0",
               "operationId": "tusd.patch-upload",
-              "applicability": "gap",
+              "applicability": "generate",
               "generated": false
             },
             {

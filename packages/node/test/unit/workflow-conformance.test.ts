@@ -1,7 +1,6 @@
+import type { AssemblyUploadSession } from '../../src/contractTus.ts'
+
 import assert from 'node:assert/strict'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
 
 import { expect, it } from 'vitest'
 
@@ -26,12 +25,6 @@ it.each(workflowVectors.smartCdn)('shared Smart CDN vector: $id', (scenario) => 
 
 it.each(workflowVectors.cases)('shared public SDK workflow: $id', async (scenario) => {
   const server = await workflowServer(scenario)
-  const directory = await mkdtemp(path.join(tmpdir(), 'node-sdk-workflow-'))
-  const client = new Transloadit({
-    authKey: workflowVectors.credentials.key,
-    authSecret: workflowVectors.credentials.secret,
-    endpoint: server.origin,
-  })
   const contract = new ContractClient({
     origin: server.origin,
     authentication: { kind: 'signed', ...workflowVectors.credentials },
@@ -83,48 +76,60 @@ it.each(workflowVectors.cases)('shared public SDK workflow: $id', async (scenari
       }
       case 'upload':
       case 'resume': {
-        const file = path.join(directory, scenario.filename)
         const bytes = Buffer.from(scenario.hex, 'hex')
-        await writeFile(file, bytes)
+        const file = { data: new Blob([bytes]), filename: scenario.filename }
+        let session: AssemblyUploadSession | undefined
         const controller = new AbortController()
         if (scenario.kind === 'resume') server.interruptNextChunk(() => controller.abort())
-        const upload = client.createAssembly({
+        const upload = contract.uploadAssemblyFile({
           assemblyId: workflowVectors.assemblyId,
-          files: { file },
+          file,
           chunkSize: scenario.chunkSize,
           signal: controller.signal,
-          waitForCompletion: true,
+          retryDelay: 1,
+          onSession: (created) => {
+            session = created
+          },
         })
         if (scenario.kind === 'resume') {
           await expect(upload).rejects.toThrow()
           assert.equal(server.received().length, scenario.interruptAfterBytes)
           // A fresh public client receives only the Assembly URL and local file, not a cached offset.
-          const resumed = new Transloadit({
-            authKey: workflowVectors.credentials.key,
-            authSecret: workflowVectors.credentials.secret,
-            endpoint: server.origin,
+          assert(session)
+          const persisted: AssemblyUploadSession = JSON.parse(JSON.stringify(session))
+          const resumed = new ContractClient({
+            origin: server.origin,
+            authentication: { kind: 'signed', ...workflowVectors.credentials },
           })
           expect(
-            await resumed.resumeAssemblyUploads({
-              assemblyUrl: `${server.origin}/assemblies/${workflowVectors.assemblyId}`,
-              files: { file },
+            await resumed.resumeAssemblyFile({
+              assemblyId: workflowVectors.assemblyId,
+              session: persisted,
+              file,
               chunkSize: scenario.chunkSize,
-              waitForCompletion: true,
             }),
-          ).toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
-          expect(server.requests).toContain('HEAD /uploads/one')
+          ).toMatchObject({ size: bytes.length })
+          expect(server.requests).toContain('HEAD /resumable/files/one')
           expect(server.patchOffsets[1]).toBe(scenario.interruptAfterBytes)
           const patchCount = server.patchOffsets.length
-          await resumed.resumeAssemblyUploads({
-            assemblyUrl: `${server.origin}/assemblies/${workflowVectors.assemblyId}`,
-            files: { file },
+          await resumed.resumeAssemblyFile({
+            assemblyId: workflowVectors.assemblyId,
+            session: persisted,
+            file,
           })
           expect(server.patchOffsets).toHaveLength(patchCount)
         } else {
-          expect(await upload).toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
+          expect(await upload).toMatchObject({ size: bytes.length })
         }
+        expect(
+          await contract.waitForAssembly({ assemblyId: workflowVectors.assemblyId, interval: 1 }),
+        ).toMatchObject({ ok: 'ASSEMBLY_COMPLETED' })
         expect(server.received()).toEqual(bytes)
-        expect(server.requests.filter((request) => request === 'POST /uploads/')).toHaveLength(1)
+        expect(
+          server.requests.filter((request) => request === 'POST /resumable/files'),
+        ).toHaveLength(1)
+        if (scenario.loseResponseAfterBytes !== undefined)
+          expect(server.patchOffsets[1]).toBe(scenario.loseResponseAfterBytes)
         break
       }
       default: {
@@ -134,10 +139,6 @@ it.each(workflowVectors.cases)('shared public SDK workflow: $id', async (scenari
     }
     server.verify()
   } finally {
-    try {
-      await server.close()
-    } finally {
-      await rm(directory, { recursive: true, force: true })
-    }
+    await server.close()
   }
 })
