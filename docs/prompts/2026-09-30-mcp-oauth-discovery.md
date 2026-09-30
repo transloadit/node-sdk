@@ -3,9 +3,11 @@
 Part of the ChatGPT plugin plan in Content: `repodocs/prompts/2026-09-30-chatgpt-plugin-plan.md`
 (branch `chatgpt-plugin-plan`). This note is the node-sdk half. Sibling branches: api2
 `agent/mcp-oauth-authcode` (authorization-code grant, DCR, CIMD, protected-resource metadata) and
-Content `mcp-oauth-consent` (consent page at `/c/oauth/authorize`, QA scenario).
+Content `chatgpt-plugin-plan` (consent page at `/c/oauth/authorize`, QA scenario).
 
-## Objective
+Pull requests: api2 [#9320](https://github.com/transloadit/api2/pull/9320), Content
+[#6207](https://github.com/transloadit/content/pull/6207), node-sdk
+[#529](https://github.com/transloadit/node-sdk/pull/529).
 
 The hosted `https://api2.transloadit.com/mcp` endpoint must let MCP clients discover API2 as its
 authorization server and must satisfy the ChatGPT plugin and Anthropic connector directory review
