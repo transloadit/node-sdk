@@ -80,4 +80,13 @@ cp -r packages/mcp-server/dist ~/code/api2-clone-1/api2/node_modules/@transloadi
 cd ~/code/api2-clone-1 && core/bin/devdock.ts --app api2 restart -s mcp-server
 ```
 
+Verified on devdock (2026-09-30) with this branch's `dist` and the api2 branch's service environment:
+`POST /mcp` without a token returns `401` with
+`WWW-Authenticate: Bearer resource_metadata="https://api2-devdock.transloadit.dev/.well-known/oauth-protected-resource/mcp"`,
+the bare `GET` health probe stays `200`, `tools/list` shows `securitySchemes`, `openai/fileParams`
+and the widget link, and `resources/read` serves `ui://transloadit/assembly-result`. The server card
+at `/.well-known/mcp/server-card.json` is rendered by the API2 process from its own import of the
+package, so it only picks up the new tools and OAuth schemes after API2 restarts with the bumped
+dependency and passes `resourceMetadataUrl` to `buildServerCard()`.
+
 Bump the dependency in API2 once the package is published from this branch.
